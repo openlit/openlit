@@ -155,6 +155,48 @@ export function deleteWidget(id: string) {
 	return dataCollector({ query }, "exec");
 }
 
+/**
+ * Validates a query to block dangerous ClickHouse functions and non-SELECT statements.
+ */
+function validateQuery(query: string): { valid: boolean; error?: string } {
+	const trimmed = query.trim();
+
+	// Only allow SELECT statements
+	if (!/^SELECT\b/i.test(trimmed)) {
+		return { valid: false, error: "Only SELECT queries are allowed" };
+	}
+
+	// Block dangerous ClickHouse functions that enable SSRF, file read, or remote access
+	const dangerousFunctions =
+		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
+	if (dangerousFunctions.test(trimmed)) {
+		return {
+			valid: false,
+			error: "Query contains disallowed functions",
+		};
+	}
+
+	// Block DDL/DML keywords
+	const dangerousKeywords =
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
+	if (dangerousKeywords.test(trimmed)) {
+		return {
+			valid: false,
+			error: "Query contains disallowed operations",
+		};
+	}
+
+	// Block access to system tables
+	if (/\bsystem\.\b/i.test(trimmed)) {
+		return {
+			valid: false,
+			error: "Access to system tables is not allowed",
+		};
+	}
+
+	return { valid: true };
+}
+
 export async function runWidgetQuery(
 	widgetId: string,
 	{
@@ -175,12 +217,20 @@ export async function runWidgetQuery(
 		? userQuery
 		: widget.config?.query || "";
 
+	// Validate user-provided queries to prevent SQL injection and SSRF
+	if (userQuery) {
+		const validation = validateQuery(userQuery);
+		if (!validation.valid) {
+			return { err: validation.error || "Invalid query" };
+		}
+	}
+
 	const exactQuery = mustache.render(query, { filter });
 
 	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
 
 	if (err) {
-		return { err: err || getMessage().WIDGET_RUN_FAILED };
+		return { err: "Query execution failed" };
 	}
 
 	return { data };

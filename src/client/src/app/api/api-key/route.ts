@@ -1,5 +1,6 @@
 import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/api-keys";
 import asaw from "@/utils/asaw";
+import { sanitizeErrorMessage } from "@/utils/validation";
 
 export async function GET() {
 	const res: any = await getAllAPIKeys();
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
 	const [err, res]: any = await asaw(generateAPIKey(name));
 
 	if (err) {
-		return Response.json(err, {
+		return Response.json(sanitizeErrorMessage(err, "Failed to create API key"), {
 			status: 400,
 		});
 	}

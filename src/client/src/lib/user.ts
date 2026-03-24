@@ -6,6 +6,10 @@ import { User } from "@prisma/client";
 import { moveSharedDBConfigToDBUser } from "./db-config";
 import { moveInvitationsToMembership } from "./organisation";
 import getMessage from "@/constants/messages";
+import {
+	validateEmail,
+	validatePasswordComplexity,
+} from "@/utils/validation";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
 	user: User,
@@ -36,7 +40,7 @@ export const getUserByEmail = async ({
 		},
 	});
 
-	if (!user) throw new Error("No user with this email exists");
+	if (!user) throw new Error("Invalid email or password");
 
 	return exclude(user, selectPassword ? [] : undefined);
 };
@@ -70,9 +74,19 @@ export const createNewUser = async (
 	},
 	options?: { selectPassword?: boolean }
 ) => {
+	// Validate email format
+	const emailValidation = validateEmail(email);
+	if (!emailValidation.valid)
+		throw new Error(emailValidation.error || "Invalid email");
+
+	// Validate password complexity
+	const passwordValidation = validatePasswordComplexity(password);
+	if (!passwordValidation.valid)
+		throw new Error(passwordValidation.error || "Password too weak");
+
 	// Normalize email to lowercase for case-insensitive comparison
 	const normalizedEmail = email.toLowerCase().trim();
-	
+
 	const [, existingUser] = await asaw(getUserByEmail({ email: normalizedEmail }));
 	if (existingUser) throw new Error("User already exists! Please signin!");
 
@@ -128,6 +142,12 @@ export const updateUserProfile = async ({
 	if (newPassword) {
 		if (!currentPassword)
 			throw new Error("Provide current password to update it to new one!");
+
+		// Validate new password complexity
+		const passwordValidation = validatePasswordComplexity(newPassword);
+		if (!passwordValidation.valid)
+			throw new Error(passwordValidation.error || "Password too weak");
+
 		const passwordsMatch = await doesPasswordMatches(
 			currentPassword,
 			user.password || ""

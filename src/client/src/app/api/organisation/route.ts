@@ -3,11 +3,12 @@ import {
 	getOrganisationsByUser,
 } from "@/lib/organisation";
 import asaw from "@/utils/asaw";
+import { sanitizeErrorMessage } from "@/utils/validation";
 
 export async function GET() {
 	const [err, res] = await asaw(getOrganisationsByUser());
 	if (err)
-		return Response.json(err, {
+		return Response.json(sanitizeErrorMessage(err, "Failed to fetch organisations"), {
 			status: 400,
 		});
 
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 	const [err, res] = await asaw(createOrganisation(name));
 
 	if (err)
-		return Response.json(err, {
+		return Response.json(sanitizeErrorMessage(err, "Failed to create organisation"), {
 			status: 400,
 		});
 
