@@ -233,6 +233,14 @@ export const getFilterWhereCondition = (
 				);
 			}
 
+			if (filter.selectedConfig.spanNames?.length) {
+				whereArray.push(
+					`SpanName IN (${filter.selectedConfig.spanNames
+						.map((spanName) => `'${spanName}'`)
+						.join(", ")})`
+				);
+			}
+
 			if (filter.selectedConfig.environments?.length) {
 				whereArray.push(
 					`ResourceAttributes['${getTraceMappingKeyFullPath(
