@@ -1,12 +1,17 @@
 import { NextFetchEvent, NextMiddleware, NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
+	CRON_JOB_ROUTES,
+} from "@/constants/route";
 
 const STATE_CHANGING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
 /**
  * CSRF protection middleware.
  * Validates Origin header on state-changing requests to API routes.
- * This is a defense-in-depth measure alongside SameSite cookies.
+ * Skips routes that use API key / Bearer token auth instead of session cookies,
+ * mirroring the same allowlists used by check-auth.
  */
 export default function checkCsrf(next: NextMiddleware) {
 	return async (request: NextRequest, _next: NextFetchEvent) => {
@@ -22,8 +27,14 @@ export default function checkCsrf(next: NextMiddleware) {
 				return next(request, _next);
 			}
 
-			// Skip CSRF check for OTLP/telemetry ingestion endpoints that use API key auth
-			if (pathname.startsWith("/api/otel/") || pathname.startsWith("/api/telemetry/")) {
+			// Skip CSRF check for routes that use API key / Bearer token auth (not cookies).
+			// These are the same routes allowed without a session token in check-auth.
+			if (ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname)) {
+				return next(request, _next);
+			}
+
+			// Skip CSRF check for cron job routes (authenticated via X-CRON-JOB header)
+			if (CRON_JOB_ROUTES.includes(pathname)) {
 				return next(request, _next);
 			}
 

@@ -7,9 +7,11 @@ import CreateCustomDashboardsMigration from "./create-custom-dashboards-migratio
 import CreateOpengroundMigration from "./create-openground-migration";
 import CreateOpengroundCustomModelsMigration from "./create-openground-custom-models-migration";
 import CreateRuleEngineMigration from "./create-rule-engine-migration";
+import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 
 export default async function migrations(databaseConfigId?: string) {
-	return Promise.all([
+	// Run table creation migrations first
+	await Promise.all([
 		CreatePromptMigration(databaseConfigId),
 		CreateVaultMigration(databaseConfigId),
 		CreateEvaluationMigration(databaseConfigId),
@@ -19,5 +21,10 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateOpengroundMigration(databaseConfigId),
 		CreateOpengroundCustomModelsMigration(databaseConfigId),
 		CreateRuleEngineMigration(databaseConfigId),
+	]);
+
+	// Run data migrations after table creation
+	await Promise.all([
+		EncryptVaultValuesMigration(databaseConfigId),
 	]);
 }

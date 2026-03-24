@@ -12,6 +12,23 @@ import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo } from "../api-keys";
+import { encryptValue, decryptValue } from "@/utils/crypto";
+
+/**
+ * Decrypts the `value` field on a single secret object (if present).
+ */
+function decryptSecretValue<T extends Record<string, any>>(secret: T): T {
+	if (!secret || !secret.value) return secret;
+	return { ...secret, value: decryptValue(secret.value) };
+}
+
+/**
+ * Decrypts the `value` field on an array of secret objects.
+ */
+function decryptSecretValues<T extends Record<string, any>>(secrets: T[]): T[] {
+	if (!Array.isArray(secrets)) return secrets;
+	return secrets.map(decryptSecretValue);
+}
 
 export async function getSecretByName({ key }: { key: string }) {
 	const query = `
@@ -21,7 +38,7 @@ export async function getSecretByName({ key }: { key: string }) {
   `;
 
 	const { data }: { data?: any } = await dataCollector({ query });
-	return data?.[0];
+	return data?.[0] ? decryptSecretValue(data[0]) : data?.[0];
 }
 
 export async function checkNameValidity({ key }: { key: string }) {
@@ -45,10 +62,14 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 	}
 
 	if (secretInputParams.id) {
+		// Encrypt the value before storing
+		const encryptedValue = secretInput.value
+			? encryptValue(secretInput.value)
+			: undefined;
 		const updateValues = [
 			`updated_by = '${user!.email}'`,
 			secretInput.key && "key = '" + secretInput.key + "'",
-			secretInput.value && "value = '" + secretInput.value + "'",
+			encryptedValue && "value = '" + encryptedValue + "'",
 			secretInput.tags && "tags = '" + jsonStringify(secretInput.tags) + "'",
 		];
 		const updateQuery = `
@@ -71,13 +92,17 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 
 		return getMessage().SECRET_SAVED;
 	} else {
+		// Encrypt the value before storing
+		const encryptedInsertValue = secretInput.value
+			? encryptValue(secretInput.value)
+			: "";
 		const { err } = await dataCollector(
 			{
 				table: OPENLIT_VAULT_TABLE_NAME,
 				values: [
 					{
 						key: secretInput.key,
-						value: secretInput.value,
+						value: encryptedInsertValue,
 						tags: secretInput.tags,
 						created_by: user!.email,
 					},
@@ -143,12 +168,19 @@ export async function getSecrets(
 			filteredConditions.length > 0
 				? `WHERE ${filteredConditions.join(" AND ")}`
 				: ""
-		} 
+		}
 		ORDER BY
 			v.created_at DESC;
 	`;
 
-	return await dataCollector({ query }, "query", filters.databaseConfigId);
+	const result = await dataCollector({ query }, "query", filters.databaseConfigId);
+
+	// Decrypt values if they were selected
+	if (selectValue && result.data && Array.isArray(result.data)) {
+		result.data = decryptSecretValues(result.data as any[]);
+	}
+
+	return result;
 }
 
 export async function getSecretsFromDatabaseId(
@@ -188,5 +220,12 @@ export async function getSecretById(
 		!!excludeVaultValue ? "EXCEPT value" : ""
 	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${id}';`;
 
-	return await dataCollector({ query }, "query", databaseConfigId);
+	const result = await dataCollector({ query }, "query", databaseConfigId);
+
+	// Decrypt values if they were included
+	if (!excludeVaultValue && result.data && Array.isArray(result.data)) {
+		result.data = decryptSecretValues(result.data as any[]);
+	}
+
+	return result;
 }
