@@ -136,7 +136,7 @@ def acompletion(
                 except Exception as e:
                     handle_exception(self._span, e)
                     self._span.end()
-                
+
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):

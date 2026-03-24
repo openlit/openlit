@@ -10,7 +10,9 @@ from wrapt import FunctionWrapper
 import pytest
 
 import openlit
-from openlit.instrumentation.litellm.async_litellm import acompletion as openlit_acompletion
+from openlit.instrumentation.litellm.async_litellm import (
+    acompletion as openlit_acompletion,
+)
 
 
 @pytest.mark.asyncio
@@ -34,7 +36,7 @@ async def test_litellm_async_stream_premature_close_reproduction():
         pricing_info={},
         capture_message_content=True,
         metrics=None,
-        disable_metrics=True
+        disable_metrics=True,
     )
 
     # Original function returns an async generator that raises CancelledError
@@ -47,10 +49,7 @@ async def test_litellm_async_stream_premature_close_reproduction():
 
     # Apply the wrapper
     wrapped_stream = await wrapper_factory(
-        mock_original_acompletion,
-        None,
-        [],
-        {"model": "gpt-4", "stream": True}
+        mock_original_acompletion, None, [], {"model": "gpt-4", "stream": True}
     )
 
     # Consume the first chunk
@@ -65,7 +64,9 @@ async def test_litellm_async_stream_premature_close_reproduction():
 
     # This should fail currently because spans will be 0 due to the bug
     # The span should have been closed even on cancellation/error
-    assert len(spans) == 1, f"Reproduction successful: Expected 1 finished span, but got {len(spans)}"
+    assert len(spans) == 1, (
+        f"Reproduction successful: Expected 1 finished span, but got {len(spans)}"
+    )
 
 
 @pytest.mark.asyncio
@@ -82,4 +83,6 @@ async def test_litellm_main_patch_missing_reproduction():
     is_instrumented = isinstance(litellm.main.acompletion, FunctionWrapper)
 
     # This should fail currently because it's not instrumented due to the bug
-    assert is_instrumented, "Reproduction successful: litellm.main.acompletion is NOT instrumented by OpenLIT!"
+    assert is_instrumented, (
+        "Reproduction successful: litellm.main.acompletion is NOT instrumented by OpenLIT!"
+    )
