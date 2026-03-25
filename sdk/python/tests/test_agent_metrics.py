@@ -41,6 +41,7 @@ openlit.init(
 # 1. ContextVar propagation
 # ---------------------------------------------------------------------------
 
+
 class TestAgentContext:
     """Tests for agent_context() and the underlying ContextVar."""
 
@@ -90,6 +91,7 @@ class TestAgentContext:
 # 2. create_metrics_attributes — include_agent_name gating
 # ---------------------------------------------------------------------------
 
+
 class TestCreateMetricsAttributes:
     """Tests for agent name inclusion/exclusion on metric attributes."""
 
@@ -108,7 +110,8 @@ class TestCreateMetricsAttributes:
         """When include_agent_name=True and agent is set, attribute is present."""
         with openlit.agent_context("my_agent"):
             attrs = create_metrics_attributes(
-                **self.BASE_KWARGS, include_agent_name=True,
+                **self.BASE_KWARGS,
+                include_agent_name=True,
             )
 
         assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "my_agent"
@@ -124,7 +127,8 @@ class TestCreateMetricsAttributes:
         """When include_agent_name=False, attribute is absent even with context."""
         with openlit.agent_context("my_agent"):
             attrs = create_metrics_attributes(
-                **self.BASE_KWARGS, include_agent_name=False,
+                **self.BASE_KWARGS,
+                include_agent_name=False,
             )
 
         assert SemanticConvention.GEN_AI_AGENT_NAME not in attrs
@@ -133,7 +137,8 @@ class TestCreateMetricsAttributes:
         """When include_agent_name=True but no context set, attribute is absent."""
         assert get_agent_name() is None
         attrs = create_metrics_attributes(
-            **self.BASE_KWARGS, include_agent_name=True,
+            **self.BASE_KWARGS,
+            include_agent_name=True,
         )
 
         assert SemanticConvention.GEN_AI_AGENT_NAME not in attrs
@@ -224,6 +229,7 @@ class TestCreateMetricsAttributes:
 # 3. record_agent_duration
 # ---------------------------------------------------------------------------
 
+
 class TestRecordAgentDuration:
     """Tests for record_agent_duration helper."""
 
@@ -245,8 +251,11 @@ class TestRecordAgentDuration:
         fake_histogram = MagicMock()
         metrics = {"genai_agent_operation_duration": fake_histogram}
         record_agent_duration(
-            metrics, "test_agent", 2.0,
-            operation="invoke_agent", system="anthropic",
+            metrics,
+            "test_agent",
+            2.0,
+            operation="invoke_agent",
+            system="anthropic",
         )
 
         _, attrs = fake_histogram.record.call_args[0]
@@ -257,7 +266,10 @@ class TestRecordAgentDuration:
         fake_histogram = MagicMock()
         metrics = {"genai_agent_operation_duration": fake_histogram}
         record_agent_duration(
-            metrics, "test_agent", 0.5, error_type="ValueError",
+            metrics,
+            "test_agent",
+            0.5,
+            error_type="ValueError",
         )
 
         _, attrs = fake_histogram.record.call_args[0]
@@ -275,6 +287,7 @@ class TestRecordAgentDuration:
 # ---------------------------------------------------------------------------
 # 4. record_agent_invocation
 # ---------------------------------------------------------------------------
+
 
 class TestRecordAgentInvocation:
     """Tests for record_agent_invocation helper."""
@@ -297,7 +310,10 @@ class TestRecordAgentInvocation:
         fake_counter = MagicMock()
         metrics = {"genai_agent_invocations": fake_counter}
         record_agent_invocation(
-            metrics, "dispatcher", "another_agent", system="anthropic",
+            metrics,
+            "dispatcher",
+            "another_agent",
+            system="anthropic",
         )
 
         _, attrs = fake_counter.add.call_args[0]
@@ -315,6 +331,7 @@ class TestRecordAgentInvocation:
 # ---------------------------------------------------------------------------
 # 5. log_agent_invocation public API
 # ---------------------------------------------------------------------------
+
 
 class TestLogAgentInvocation:
     """Tests for the public openlit.log_agent_invocation() wrapper."""
@@ -361,6 +378,7 @@ class TestLogAgentInvocation:
 # ---------------------------------------------------------------------------
 # 6. Automatic agent-to-agent invocation detection
 # ---------------------------------------------------------------------------
+
 
 class TestNestedAgentDetection:
     """Tests that verify automatic invocation detection when agents nest."""
@@ -491,12 +509,15 @@ class TestNestedAgentDetection:
 
         asyncio.run(run_test())
 
-        assert not interference_detected, "Concurrent agents interfered with each other's context"
+        assert not interference_detected, (
+            "Concurrent agents interfered with each other's context"
+        )
 
 
 # ---------------------------------------------------------------------------
 # 7. record_agent_tool_error
 # ---------------------------------------------------------------------------
+
 
 class TestRecordAgentToolError:
     """Tests for record_agent_tool_error helper."""
@@ -520,8 +541,11 @@ class TestRecordAgentToolError:
         fake_counter = MagicMock()
         metrics = {"genai_agent_tool_errors": fake_counter}
         record_agent_tool_error(
-            metrics, "cart_agent", "add_to_cart",
-            system="anthropic", model="claude-haiku-4-5",
+            metrics,
+            "cart_agent",
+            "add_to_cart",
+            system="anthropic",
+            model="claude-haiku-4-5",
         )
 
         _, attrs = fake_counter.add.call_args[0]
@@ -533,7 +557,10 @@ class TestRecordAgentToolError:
         fake_counter = MagicMock()
         metrics = {"genai_agent_tool_errors": fake_counter}
         record_agent_tool_error(
-            metrics, "product_agent", "search_products", system="openai",
+            metrics,
+            "product_agent",
+            "search_products",
+            system="openai",
         )
 
         _, attrs = fake_counter.add.call_args[0]
@@ -552,6 +579,7 @@ class TestRecordAgentToolError:
 # ---------------------------------------------------------------------------
 # 8. log_agent_tool_error public API
 # ---------------------------------------------------------------------------
+
 
 class TestLogAgentToolError:
     """Tests for the public openlit.log_agent_tool_error() wrapper."""
@@ -579,8 +607,10 @@ class TestLogAgentToolError:
         openlit.OpenlitConfig.metrics_dict = {"genai_agent_tool_errors": fake_counter}
         try:
             openlit.log_agent_tool_error(
-                "cart_agent", "get_cart",
-                system="anthropic", model="claude-haiku-4-5",
+                "cart_agent",
+                "get_cart",
+                system="anthropic",
+                model="claude-haiku-4-5",
             )
 
             _, attrs = fake_counter.add.call_args[0]
@@ -603,6 +633,7 @@ class TestLogAgentToolError:
 # 7. Agent error tracking on duration metric
 # ---------------------------------------------------------------------------
 
+
 class TestAgentErrorTracking:
     """Tests that agent errors are recorded on the duration histogram via error_type."""
 
@@ -611,8 +642,11 @@ class TestAgentErrorTracking:
         fake_histogram = MagicMock()
         metrics = {"genai_agent_operation_duration": fake_histogram}
         record_agent_duration(
-            metrics, "failing_agent", 0.8,
-            operation="chat", error_type="ValueError",
+            metrics,
+            "failing_agent",
+            0.8,
+            operation="chat",
+            error_type="ValueError",
         )
 
         fake_histogram.record.assert_called_once()
@@ -635,7 +669,10 @@ class TestAgentErrorTracking:
         fake_histogram = MagicMock()
         metrics = {"genai_agent_operation_duration": fake_histogram}
         record_agent_duration(
-            metrics, "agent", 1.0, error_type=None,
+            metrics,
+            "agent",
+            1.0,
+            error_type=None,
         )
 
         _, attrs = fake_histogram.record.call_args[0]

@@ -3,6 +3,7 @@ Module for monitoring LiteLLM API calls (async version).
 """
 
 import time
+import asyncio
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
@@ -94,6 +95,28 @@ def acompletion(
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
+                try:
+                    # Use the existing span that was started when the stream began
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+                    # End the span after processing
+                    self._span.end()
+
+                except Exception as e:
+                    handle_exception(self._span, e)
+                    self._span.end()
+
+                raise
+            except (GeneratorExit, asyncio.CancelledError):
                 try:
                     # Use the existing span that was started when the stream began
                     process_streaming_chat_response(
