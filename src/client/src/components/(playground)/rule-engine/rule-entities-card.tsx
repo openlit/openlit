@@ -123,10 +123,27 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 		}
 		setIsFetchingOptions(true);
 		if (type === "evaluation") {
-			setEntityOptions(
-				EVALUATION_TYPES.map((e) => ({ id: e.id, name: e.label }))
-			);
-			setIsFetchingOptions(false);
+			// Built-in types from constants
+			const builtInOptions = EVALUATION_TYPES.map((e) => ({ id: e.id, name: e.label }));
+			// Also fetch custom types from API
+			fireEntityOptions({
+				requestType: "GET",
+				url: "/api/evaluation/types",
+				responseDataKey: "data",
+				successCb: (data: any) => {
+					const apiTypes = Array.isArray(data) ? data : [];
+					const builtInIds = new Set(EVALUATION_TYPES.map((e) => e.id));
+					const customOptions = apiTypes
+						.filter((t: any) => t.isCustom && !builtInIds.has(t.id))
+						.map((t: any) => ({ id: t.id, name: t.label || t.id }));
+					setEntityOptions([...builtInOptions, ...customOptions]);
+					setIsFetchingOptions(false);
+				},
+				failureCb: () => {
+					setEntityOptions(builtInOptions);
+					setIsFetchingOptions(false);
+				},
+			});
 		} else if (type === "context") {
 			fireEntityOptions({
 				requestType: "GET",

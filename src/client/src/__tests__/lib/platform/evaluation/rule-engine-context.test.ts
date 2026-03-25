@@ -229,4 +229,5 @@ describe('getContextFromRulesWithPriority', () => {
     const result = await getContextFromRulesWithPriority(emptyTrace as any, [{ ruleId: 'r1', priority: 5 }]);
     expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
   });
+
 });

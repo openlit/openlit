@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { EVALUATION_TYPES } from "@/constants/evaluation-types";
 import { Rule } from "@/types/rule-engine";
 import { toast } from "sonner";
-import { Link2, Plus, Trash2, ExternalLink, ArrowLeft } from "lucide-react";
+import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -28,6 +28,9 @@ interface RuleWithPriority {
 interface EvaluationTypeConfig {
 	id: string;
 	enabled: boolean;
+	isCustom?: boolean;
+	label?: string;
+	description?: string;
 	rules: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
@@ -35,6 +38,7 @@ interface EvaluationTypeConfig {
 
 export default function EvaluationTypeDetailPage() {
 	const params = useParams();
+	const router = useRouter();
 	const typeId = params.id as string;
 	const et = EVALUATION_TYPES.find((e) => e.id === typeId);
 
@@ -47,6 +51,7 @@ export default function EvaluationTypeDetailPage() {
 		Array<{ rule_id: string; entity_id: string }>
 	>();
 	const { fireRequest: saveType, isLoading: isSaving } = useFetchWrapper();
+	const { fireRequest: deleteType, isLoading: isDeleting } = useFetchWrapper();
 
 	const rulesLinkedFromRulePage = (evalEntities || [])
 		.filter((e) => e.entity_id === typeId)
@@ -72,6 +77,9 @@ export default function EvaluationTypeDetailPage() {
 			setConfig({
 				id: data.id,
 				enabled: data.enabled ?? false,
+				isCustom: data.isCustom,
+				label: data.label,
+				description: data.description,
 				rules: data.rules || [],
 				prompt: data.prompt,
 				defaultPrompt: data.defaultPrompt,
@@ -131,11 +139,16 @@ export default function EvaluationTypeDetailPage() {
 
 	const handleSave = () => {
 		if (!config) return;
-		const payload = {
+		const payload: Record<string, any> = {
 			enabled: config.enabled,
 			rules: config.rules.filter((r) => r.ruleId),
 			prompt: config.prompt?.trim() || undefined,
 		};
+		if (config.isCustom) {
+			payload.isCustom = true;
+			payload.label = config.label;
+			payload.description = config.description;
+		}
 		saveType({
 			requestType: "PATCH",
 			url: `/api/evaluation/types/${typeId}`,
@@ -157,15 +170,29 @@ export default function EvaluationTypeDetailPage() {
 		});
 	};
 
-	if (!et) {
+	const handleDelete = () => {
+		if (!confirm(`Delete custom evaluation type "${displayLabel}"? This cannot be undone.`)) return;
+		deleteType({
+			requestType: "DELETE",
+			url: `/api/evaluation/types/${typeId}`,
+			responseDataKey: "data",
+			successCb: () => {
+				toast.success("Custom evaluation type deleted");
+				router.push("/evaluations/types");
+			},
+			failureCb: (err?: string) => toast.error(err || "Failed to delete"),
+		});
+	};
+
+	// Derive display label/description from built-in constant or custom type from API
+	const isCustom = !et && config?.isCustom;
+	const displayLabel = et?.label || config?.label || typeId;
+	const displayDescription = et?.description || config?.description || "";
+
+	if (!et && !config) {
 		return (
 			<div className="flex flex-1 h-full w-full p-6 items-center justify-center">
-				<p className="text-stone-500">Evaluation type not found</p>
-				<Link href="/evaluations/types">
-					<Button variant="outline" className="ml-4">
-						Back to types
-					</Button>
-				</Link>
+				<p className="text-stone-500">Loading...</p>
 			</div>
 		);
 	}
@@ -184,11 +211,17 @@ export default function EvaluationTypeDetailPage() {
 					</Button>
 				</Link>
 				<div>
-					<h2 className="text-lg font-semibold text-stone-800 dark:text-stone-200">
-						{et.label}
+					<h2 className="text-lg font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-2">
+						{displayLabel}
+						{isCustom && (
+							<Badge variant="outline" className="text-xs font-normal gap-1 border-primary/30 text-primary">
+								<Sparkles className="size-3" />
+								Custom
+							</Badge>
+						)}
 					</h2>
 					<p className="text-sm text-stone-500 dark:text-stone-400">
-						{et.description}
+						{displayDescription}
 					</p>
 				</div>
 			</div>
@@ -199,7 +232,7 @@ export default function EvaluationTypeDetailPage() {
 						<CardHeader className="pb-4">
 							<CardTitle className="text-base">Purpose</CardTitle>
 							<p className="text-sm text-stone-500 dark:text-stone-400 font-normal">
-								{et.description}
+								{displayDescription}
 							</p>
 						</CardHeader>
 					</Card>
@@ -214,7 +247,7 @@ export default function EvaluationTypeDetailPage() {
 							</CardHeader>
 							<CardContent>
 								<textarea
-									className="w-full min-h-[120px] text-xs bg-stone-50 dark:bg-stone-900/50 p-3 rounded-lg border border-stone-200 dark:border-stone-700 font-mono resize-y"
+									className="w-full min-h-[120px] text-xs bg-stone-50 dark:bg-stone-900/50 text-stone-900 dark:text-stone-100 p-3 rounded-lg border border-stone-200 dark:border-stone-700 font-mono resize-y placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
 									value={
 										config?.prompt ?? config?.defaultPrompt ?? ""
 									}
@@ -338,6 +371,17 @@ export default function EvaluationTypeDetailPage() {
 					<Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90">
 					{isSaving ? "Saving..." : "Save Changes"}
 					</Button>
+					{isCustom && (
+						<Button
+							variant="outline"
+							onClick={handleDelete}
+							disabled={isDeleting}
+							className="w-full sm:w-auto text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-700 dark:hover:text-red-300"
+						>
+							<Trash2 className="size-4 mr-1.5" />
+							{isDeleting ? "Deleting..." : "Delete Custom Type"}
+						</Button>
+					)}
 					{rulesLinkedFromRulePage.length > 0 && (
 						<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 							<CardHeader className="pb-2">

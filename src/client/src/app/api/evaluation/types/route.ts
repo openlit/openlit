@@ -12,11 +12,12 @@ export interface RuleWithPriority {
 export interface EvaluationTypeConfig {
 	id: string;
 	enabled: boolean;
+	isCustom?: boolean;
+	label?: string;
+	description?: string;
 	rules?: RuleWithPriority[];
 	ruleId?: string;
 	priority?: number;
-	label?: string;
-	description?: string;
 	defaultPrompt?: string;
 	prompt?: string;
 }
@@ -30,11 +31,21 @@ function normalizeTypeConfig(t: any): EvaluationTypeConfig {
 		: t.ruleId
 		? [{ ruleId: t.ruleId, priority: Number(t.priority) || 0 }]
 		: [];
-	return {
+	const config: EvaluationTypeConfig = {
 		id: t.id,
 		enabled: !!t.enabled,
 		rules,
 	};
+	// Preserve custom type metadata
+	if (t.isCustom) {
+		config.isCustom = true;
+		if (t.label) config.label = String(t.label).trim();
+		if (t.description) config.description = String(t.description).trim();
+		if (t.prompt) config.prompt = String(t.prompt).trim();
+	} else if (t.prompt) {
+		config.prompt = String(t.prompt).trim();
+	}
+	return config;
 }
 
 export async function GET(_: NextRequest) {

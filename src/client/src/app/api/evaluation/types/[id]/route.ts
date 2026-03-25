@@ -12,11 +12,12 @@ export interface RuleWithPriority {
 export interface EvaluationTypeConfig {
 	id: string;
 	enabled: boolean;
+	isCustom?: boolean;
+	label?: string;
+	description?: string;
 	rules?: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
-	label?: string;
-	description?: string;
 }
 
 function normalizeRules(rules: any[]): RuleWithPriority[] {
@@ -77,6 +78,12 @@ export async function PATCH(
 		rules: body.rules !== undefined ? normalizeRules(body.rules) : existing.rules || [],
 		prompt: body.prompt !== undefined ? body.prompt : existing.prompt,
 	};
+	// Preserve or update custom type metadata
+	if (body.isCustom || (existing as any).isCustom) {
+		updated.isCustom = true;
+		updated.label = body.label ?? (existing as any).label ?? typeId;
+		updated.description = body.description ?? (existing as any).description ?? "";
+	}
 	if (idx >= 0) {
 		types[idx] = updated;
 	} else {
@@ -89,4 +96,38 @@ export async function PATCH(
 	});
 	await syncRuleEntitiesFromConfig();
 	return Response.json({ data: updated });
+}
+
+export async function DELETE(
+	_: NextRequest,
+	{ params }: { params: { id: string } }
+) {
+	const typeId = params.id;
+	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
+	if (err || !config?.id) {
+		return Response.json(
+			{ err: "Evaluation config not found" },
+			{ status: 400 }
+		);
+	}
+	const prisma = (await import("@/lib/prisma")).default;
+	const meta = jsonParse((config as any).meta || "{}") as Record<string, any>;
+	const types: EvaluationTypeConfig[] =
+		(meta.evaluationTypes as EvaluationTypeConfig[]) || [];
+
+	const typeToDelete = types.find((t) => t.id === typeId);
+	if (!typeToDelete?.isCustom) {
+		return Response.json(
+			{ err: "Only custom evaluation types can be deleted" },
+			{ status: 400 }
+		);
+	}
+
+	meta.evaluationTypes = types.filter((t) => t.id !== typeId);
+	await prisma.evaluationConfigs.update({
+		where: { id: config.id },
+		data: { meta: jsonStringify(meta) },
+	});
+	await syncRuleEntitiesFromConfig();
+	return Response.json({ data: { deleted: typeId } });
 }
