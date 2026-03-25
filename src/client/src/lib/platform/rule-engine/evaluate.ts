@@ -122,7 +122,7 @@ ORDER BY rm.rule_id, re.entity_type;
 	}
 
 	// Fetch full entity data for each unique entity
-	const entity_data: Record<string, any> = {};
+	const entityDataMap = new Map<string, any>();
 	const seen = new Set<string>();
 
 	// Cast to typed prompt inputs when entity_type is "prompt"
@@ -148,21 +148,22 @@ ORDER BY rm.rule_id, re.entity_type;
 						"query",
 						databaseConfigId
 					);
-					entity_data[key] = (ctxData as any[])?.[0] || null;
+					entityDataMap.set(key, (ctxData as any[])?.[0] || null);
 				} else if (entity.entity_type === "prompt") {
-					entity_data[key] = await getCompiledPromptByDbConfig({
+					entityDataMap.set(key, await getCompiledPromptByDbConfig({
 						id: entity.entity_id,
 						version: promptInputs.version,
 						variables: promptInputs.variables,
 						shouldCompile: promptInputs.shouldCompile,
 						databaseConfigId,
-					});
+					}));
 				}
 			} catch {
-				entity_data[key] = null;
+				entityDataMap.set(key, null);
 			}
 		})
 	);
 
+	const entity_data = Object.fromEntries(entityDataMap);
 	return { matchingRuleIds, entities, entity_data };
 }

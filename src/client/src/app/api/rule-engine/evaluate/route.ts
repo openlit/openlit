@@ -67,31 +67,31 @@ export async function POST(request: Request) {
 	const MAX_KEY_LENGTH = 100;
 	const MAX_VALUE_LENGTH = 1000;
 
-	const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype", "toString", "valueOf", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString"]);
-	const sanitizedFields: Record<string, string | number | boolean> = Object.create(null);
+	const fieldsMap = new Map<string, string | number | boolean>();
 	for (const [key, value] of Object.entries(rawFields)) {
 		if (typeof key !== "string") continue;
 		const trimmedKey = key.trim();
 		if (trimmedKey.length === 0 || trimmedKey.length > MAX_KEY_LENGTH) continue;
-		if (BLOCKED_KEYS.has(trimmedKey)) continue;
 		if (
 			typeof value === "string" &&
 			value.length <= MAX_VALUE_LENGTH
 		) {
-			sanitizedFields[trimmedKey] = value;
+			fieldsMap.set(trimmedKey, value);
 		} else if (typeof value === "number" || typeof value === "boolean") {
-			sanitizedFields[trimmedKey] = value;
+			fieldsMap.set(trimmedKey, value);
 		}
 	}
 
-	if (Object.keys(sanitizedFields).length === 0) {
+	const sanitizedFields: Record<string, string | number | boolean> = Object.fromEntries(fieldsMap);
+
+	if (fieldsMap.size === 0) {
 		return Response.json(
 			{ err: "fields must contain at least one valid key-value pair" },
 			{ status: 400 }
 		);
 	}
 
-	if (Object.keys(sanitizedFields).length > MAX_FIELDS) {
+	if (fieldsMap.size > MAX_FIELDS) {
 		return Response.json(
 			{ err: `fields must not exceed ${MAX_FIELDS} entries` },
 			{ status: 400 }
