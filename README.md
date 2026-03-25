@@ -1,11 +1,11 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Evaluations, Guardrails, Prompts, Vault, Playground, FleetHub
+#### Observability, Evaluations, Rule Engine, Guardrails, Prompts, Vault, Playground, FleetHub
 
 # Open Source Platform for AI Engineering
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |**
+**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Go SDK](https://github.com/openlit/openlit/tree/main/sdk/go) |**
 
 **❤️ [Sponsor this project](https://opencollective.com/openlit) ❤️** 
 
@@ -33,7 +33,11 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
-- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools.
+- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs (Python, TypeScript, Go) to send traces and metrics to your existing observability tools.
+
+- 🛡️ **11 Built-in Evaluation Types**: Automated LLM-as-a-Judge evaluation with hallucination, bias, toxicity, safety, instruction following, completeness, conciseness, sensitivity, relevance, coherence, and faithfulness detection. Context-aware evaluation that treats provided context as the source of truth.
+
+- ⚙️ **Rule Engine**: Define conditional rules with AND/OR logic to match runtime trace attributes and dynamically retrieve contexts, prompts, and evaluation configs. SDK support across Python, TypeScript, and Go.
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
