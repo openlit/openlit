@@ -1,8 +1,6 @@
 """Tests for openlit.evaluate_rule() function."""
 
-import json
 from unittest.mock import patch, MagicMock
-import pytest
 
 
 def test_evaluate_rule_exists():
