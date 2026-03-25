@@ -96,6 +96,17 @@ Click on any evaluation type to configure its custom prompt and linked rules:
   <img src="/images/evaluation-types-settings-detail.png" />
 </Frame>
 
+### Custom evaluation types
+
+In addition to the 11 built-in types, you can create your own evaluation types tailored to your use case. From the **Evaluation Types** tab, click **Create Custom Type** and provide:
+
+- **ID**: A unique identifier in `lowercase_underscore` format (e.g., `domain_accuracy`)
+- **Label**: A human-readable name displayed in the UI
+- **Description**: A brief explanation of what this evaluation checks
+- **Evaluation Prompt**: The prompt used by the LLM judge. It should start with a `[Label evaluation context]` header describing the evaluation criteria
+
+Custom types work exactly like built-in types — they can be enabled or disabled, linked to Rule Engine rules, and run in both auto and manual evaluations. The only difference is that custom types can be deleted when they are no longer needed, while built-in types cannot.
+
 ### Run from a trace
 
 <Frame>

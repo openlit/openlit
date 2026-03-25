@@ -47,6 +47,10 @@ OpenLIT includes 11 evaluation types out of the box. Each can be independently e
 **Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context — not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
 </Info>
 
+### Custom evaluation types
+
+Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
+
 ## AI evaluation methods
 
 OpenLIT provides automated LLM evaluation and testing capabilities for production AI applications:

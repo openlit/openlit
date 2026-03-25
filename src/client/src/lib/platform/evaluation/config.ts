@@ -25,6 +25,7 @@ export interface EvaluationTypeWithPrompt {
 	description: string;
 	enabledByDefault: boolean;
 	enabled: boolean;
+	isCustom?: boolean;
 	rules?: Array<{ ruleId: string; priority: number }>;
 	prompt?: string;
 	defaultPrompt: string;
@@ -37,6 +38,9 @@ async function buildEvaluationTypesWithPrompts(
 	const userOverrides = (meta.evaluationTypes as Array<{
 		id: string;
 		enabled?: boolean;
+		label?: string;
+		description?: string;
+		isCustom?: boolean;
 		rules?: Array<{ ruleId: string; priority: number }>;
 		prompt?: string;
 	}>) || [];
@@ -45,7 +49,10 @@ async function buildEvaluationTypesWithPrompts(
 		userOverrides.filter((t) => t?.id).map((t) => [t.id, t])
 	);
 
-	return EVALUATION_TYPES.map((et) => {
+	const builtInIds = new Set(EVALUATION_TYPES.map((et) => et.id));
+
+	// Built-in types merged with overrides
+	const builtInTypes: EvaluationTypeWithPrompt[] = EVALUATION_TYPES.map((et) => {
 		const override = overrideMap.get(et.id);
 		return {
 			id: et.id,
@@ -53,11 +60,29 @@ async function buildEvaluationTypesWithPrompts(
 			description: et.description,
 			enabledByDefault: et.enabledByDefault,
 			enabled: override?.enabled ?? et.enabledByDefault,
+			isCustom: false,
 			rules: override?.rules?.filter((r) => r?.ruleId) ?? [],
 			prompt: override?.prompt,
 			defaultPrompt: defaultPrompts[et.id] ?? "",
 		};
 	});
+
+	// Custom types from user meta (not in EVALUATION_TYPES constant)
+	const customTypes: EvaluationTypeWithPrompt[] = userOverrides
+		.filter((t) => t?.id && !builtInIds.has(t.id as any))
+		.map((t) => ({
+			id: t.id,
+			label: t.label || t.id,
+			description: t.description || "Custom evaluation type",
+			enabledByDefault: false,
+			enabled: t.enabled ?? false,
+			isCustom: true,
+			rules: t.rules?.filter((r) => r?.ruleId) ?? [],
+			prompt: t.prompt,
+			defaultPrompt: "",
+		}));
+
+	return [...builtInTypes, ...customTypes];
 }
 
 export async function getEvaluationConfig(

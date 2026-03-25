@@ -223,4 +223,29 @@ describe('runEvaluation — generateText and response parsing', () => {
     const [callArgs] = (generateText as jest.Mock).mock.calls[0];
     expect(callArgs.temperature).toBe(0);
   });
+
+  it('system prompt uses generic TypeA/TypeB examples, not hardcoded eval type names', async () => {
+    await runEvaluation(BASE_PARAMS);
+    const [{ prompt }] = (generateText as jest.Mock).mock.calls[0];
+
+    // The JSON example in the prompt should use generic placeholders
+    expect(prompt).toContain('TypeA');
+    expect(prompt).toContain('TypeB');
+
+    // The prompt template itself should NOT hardcode specific evaluation type names
+    // (the actual type names come from contexts, not from the template)
+    const templateWithoutContexts = prompt.split('Contexts:')[0];
+    expect(templateWithoutContexts).not.toContain('"Hallucination"');
+    expect(templateWithoutContexts).not.toContain('"Bias"');
+    expect(templateWithoutContexts).not.toContain('"Toxicity"');
+  });
+
+  it('system prompt instructs to scan for [X evaluation context] blocks dynamically', async () => {
+    await runEvaluation(BASE_PARAMS);
+    const [{ prompt }] = (generateText as jest.Mock).mock.calls[0];
+
+    // The prompt should instruct the model to scan for evaluation type blocks dynamically
+    expect(prompt).toContain('[X evaluation context]');
+    expect(prompt).toContain('EVERY evaluation type present');
+  });
 });
