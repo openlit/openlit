@@ -1,5 +1,7 @@
-jest.mock('child_process', () => ({
-  spawn: jest.fn(),
+// run-evaluation.ts now uses the Vercel AI SDK (imports eventsource-parser which needs
+// TransformStream). Mock the whole module so the AI SDK is never loaded in jsdom.
+jest.mock('@/lib/platform/evaluation/run-evaluation', () => ({
+  runEvaluation: jest.fn(),
 }));
 jest.mock('@/lib/platform/common', () => ({
   dataCollector: jest.fn(),
@@ -55,6 +57,10 @@ jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/helpers/server/trace', () => ({
   getTraceMappingKeyFullPath: jest.fn((key: string, _full?: boolean) => `SpanAttributes.${key}`),
 }));
+jest.mock('@/lib/platform/evaluation/rule-engine-context', () => ({
+  getContextFromRuleEngineForTrace: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+  getContextFromRulesWithPriority: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+}));
 jest.mock('@/constants/traces', () => ({
   SUPPORTED_EVALUATION_OPERATIONS: ['llm', 'chat'],
 }));
@@ -64,55 +70,35 @@ jest.mock('@/utils/log', () => ({
 jest.mock('date-fns', () => ({
   differenceInSeconds: jest.fn(() => 5),
 }));
+jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
+  getEvaluationTypeDefaultPrompts: jest.fn().mockResolvedValue({}),
+  getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
+}));
 
-import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId } from '@/lib/platform/evaluation/index';
+import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback } from '@/lib/platform/evaluation/index';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
 import { getLastRunCronLogByCronId, getLastFailureCronLogBySpanId, insertCronLog } from '@/lib/platform/cron-log';
 import { getDBConfigById } from '@/lib/db-config';
+import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
-import { spawn } from 'child_process';
-
-// Helper to create a mock spawn process that calls callbacks synchronously
-// (synchronous calls are required for V8 coverage to capture the production callback bodies)
-function makeMockSpawnProcess(exitCode: number, stdout: string, stderr: string = '') {
-  let stdoutDataCb: Function | null = null;
-  let stderrDataCb: Function | null = null;
-
-  const mockProcess = {
-    stdout: {
-      on: jest.fn((event: string, cb: Function) => {
-        if (event === 'data') stdoutDataCb = cb;
-      }),
-    },
-    stderr: {
-      on: jest.fn((event: string, cb: Function) => {
-        if (event === 'data') stderrDataCb = cb;
-      }),
-    },
-    on: jest.fn((event: string, cb: Function) => {
-      if (event === 'close') {
-        // Send data synchronously before calling close — stdout.on('data') is registered first
-        if (stdout && stdoutDataCb) stdoutDataCb(Buffer.from(stdout));
-        if (stderr && stderrDataCb) stderrDataCb(Buffer.from(stderr));
-        cb(exitCode);
-      }
-    }),
-  };
-  return mockProcess;
-}
+import { runEvaluation } from '@/lib/platform/evaluation/run-evaluation';
 
 beforeEach(() => {
   jest.clearAllMocks();
   // Reset mocks that may have unconsumed mockResolvedValueOnce queues from previous tests
   (dataCollector as jest.Mock).mockReset();
   (asaw as jest.Mock).mockReset();
+  (runEvaluation as jest.Mock).mockReset();
   (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1', email: 'user@example.com' });
   (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
   (getLastFailureCronLogBySpanId as jest.Mock).mockResolvedValue({ data: [] });
   (insertCronLog as jest.Mock).mockResolvedValue({ err: null });
   (getLastRunCronLogByCronId as jest.Mock).mockResolvedValue(null);
+  (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
+  // Default runEvaluation success
+  (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
 });
 
 describe('getEvaluationsForSpanId', () => {
@@ -128,8 +114,9 @@ describe('getEvaluationsForSpanId', () => {
   });
 
   it('returns first evaluation record when data found', async () => {
-    const evalRecord = { spanId: 'span-1', evaluations: [], id: 'eval-1', createdAt: new Date() };
+    const evalRecord = { spanId: 'span-1', evaluations: [], id: 'eval-1', createdAt: new Date(), meta: {} };
     (dataCollector as jest.Mock).mockResolvedValue({ data: [evalRecord], err: null });
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1', databaseConfigId: 'db-1' }]);
 
     const result = await getEvaluationsForSpanId('span-1');
     expect(result.data).toEqual(evalRecord);
@@ -137,10 +124,11 @@ describe('getEvaluationsForSpanId', () => {
 
   it('returns config id when no evaluation data and config exists', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
-    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1' }]);
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1', databaseConfigId: 'db-1' }]);
 
     const result = await getEvaluationsForSpanId('span-1');
     expect(result.config).toBe('cfg-1');
+    expect(result.ruleContext).toBeDefined();
   });
 
   it('returns configErr when evaluation config not found', async () => {
@@ -257,7 +245,7 @@ describe('autoEvaluate', () => {
     expect(query).toContain('parseDateTimeBestEffort');
   });
 
-  it('processes traces via Python spawn and handles success', async () => {
+  it('processes traces via runEvaluation and handles success', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-1', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -267,17 +255,20 @@ describe('autoEvaluate', () => {
 
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [trace], err: null })  // fetch traces
-      .mockResolvedValueOnce({ data: true, err: null });     // storeEvaluation
+      .mockResolvedValue({ data: true, err: null });         // storeEvaluation
 
-    const mockProcess = makeMockSpawnProcess(0, '{"success":true,"result":[{"evaluation":"toxicity","score":0.1,"classification":"low","explanation":"ok","verdict":"no"}]}');
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'toxicity', score: 0.1, classification: 'low', explanation: 'ok', verdict: 'no' }],
+      usage: { promptTokens: 10, completionTokens: 5 },
+    });
 
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result.success).toBe(true);
-    expect(spawn).toHaveBeenCalled();
+    expect(runEvaluation).toHaveBeenCalled();
   });
 
-  it('handles spawn process error event (covers error callback body)', async () => {
+  it('handles runEvaluation throwing an error', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-2', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -286,24 +277,15 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
     (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [trace], err: null });
-
-    // Synchronous error callback so V8 coverage captures lines 175-179
-    const mockProcess = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn((event: string, cb: Function) => {
-        if (event === 'error') {
-          cb(new Error('Python not found'));
-        }
-      }),
-    };
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockRejectedValue(new Error('AI call failed'));
 
     const result = await autoEvaluate(autoEvalConfig as any);
+    // autoEvaluate returns success=true even when individual trace evals fail (logs error)
     expect(result).toBeDefined();
+    expect(result.success).toBe(true);
   });
 
-  it('handles spawn non-zero exit code (covers else branch lines 206-212)', async () => {
+  it('handles runEvaluation returning failure', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-3', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -312,31 +294,16 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
     (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [trace], err: null });
-
-    const mockProcess = makeMockSpawnProcess(1, '', 'Python script error');
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: false, error: 'Model error' });
 
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result).toBeDefined();
+    // Single trace failed — still SUCCESS (all failed = FAILURE, partial = PARTIAL_SUCCESS, none failed = SUCCESS)
+    expect(result.success).toBe(true);
+    expect(insertCronLog).toHaveBeenCalled();
   });
 
-  it('handles spawn throwing (covers catch block lines 219-220)', async () => {
-    const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
-    const trace = { SpanId: 'span-4', Timestamp: '2024-01-01', SpanAttributes: {} };
-
-    (asaw as jest.Mock)
-      .mockResolvedValueOnce([null, evalConfig])
-      .mockResolvedValueOnce([null, { id: 'db-1' }]);
-
-    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [trace], err: null });
-
-    (spawn as jest.Mock).mockImplementation(() => { throw new Error('spawn not available'); });
-
-    const result = await autoEvaluate(autoEvalConfig as any);
-    expect(result).toBeDefined();
-  });
-
-  it('records SUCCESS status when all traces evaluate successfully (covers line 337)', async () => {
+  it('records SUCCESS status when all traces evaluate successfully', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-ok', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -345,19 +312,20 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [trace], err: null })   // fetch traces
-      .mockResolvedValue({ data: true, err: null });          // storeEvaluation
+      .mockResolvedValueOnce({ data: [trace], err: null })
+      .mockResolvedValue({ data: true, err: null });
 
-    const successOutput = '{"success":true,"result":[{"evaluation":"toxicity","score":0.1,"classification":"low","explanation":"ok","verdict":"no"}]}';
-    const mockProcess = makeMockSpawnProcess(0, successOutput);
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'toxicity', score: 0.1, classification: 'low', explanation: 'ok', verdict: 'no' }],
+    });
 
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result.success).toBe(true);
     expect(insertCronLog).toHaveBeenCalled();
   });
 
-  it('records PARTIAL_SUCCESS status when some traces fail (covers line 336)', async () => {
+  it('records PARTIAL_SUCCESS status when some traces fail', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace1 = { SpanId: 'span-ok2', Timestamp: '2024-01-01', SpanAttributes: {} };
     const trace2 = { SpanId: 'span-fail', Timestamp: '2024-01-02', SpanAttributes: {} };
@@ -367,24 +335,23 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [trace1, trace2], err: null })  // fetch traces
-      .mockResolvedValue({ data: true, err: null });                   // storeEvaluation
+      .mockResolvedValueOnce({ data: [trace1, trace2], err: null })
+      .mockResolvedValue({ data: true, err: null });
 
-    const successOutput = '{"success":true,"result":[{"evaluation":"toxicity","score":0.1,"classification":"low","explanation":"ok","verdict":"no"}]}';
     let callCount = 0;
-    (spawn as jest.Mock).mockImplementation(() => {
+    (runEvaluation as jest.Mock).mockImplementation(() => {
       callCount++;
-      if (callCount === 1) {
-        return makeMockSpawnProcess(0, successOutput); // first trace succeeds
-      }
-      return makeMockSpawnProcess(1, '', 'error');      // second trace fails
+      return callCount === 1
+        ? Promise.resolve({ success: true, result: [] })
+        : Promise.resolve({ success: false, error: 'error' });
     });
 
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result.success).toBe(true);
+    expect(insertCronLog).toHaveBeenCalled();
   });
 
-  it('handles storeEvaluation error (covers lines 123-125)', async () => {
+  it('handles storeEvaluation error gracefully', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-store-err', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -392,19 +359,21 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, evalConfig])
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
-    const successOutput = '{"success":true,"result":[{"evaluation":"toxicity","score":0.1,"classification":"low","explanation":"ok","verdict":"no"}]}';
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [trace], err: null })            // fetch traces
-      .mockResolvedValue({ data: null, err: 'Insert failed' });       // storeEvaluation fails
+      .mockResolvedValueOnce({ data: [trace], err: null })         // fetch traces
+      .mockResolvedValue({ data: null, err: 'Insert failed' });    // storeEvaluation fails
 
-    const mockProcess = makeMockSpawnProcess(0, successOutput);
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'toxicity', score: 0.1, classification: 'low', explanation: 'ok', verdict: 'no' }],
+    });
 
     const result = await autoEvaluate(autoEvalConfig as any);
-    expect(result.success).toBe(true); // autoEvaluate still succeeds even if storeEvaluation logs error
+    // autoEvaluate still completes even if individual storeEvaluation fails
+    expect(result.success).toBe(true);
   });
 
-  it('handles spawn close with no JSON match (covers lines 199-200)', async () => {
+  it('handles runEvaluation returning empty result', async () => {
     const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
     const trace = { SpanId: 'span-no-json', Timestamp: '2024-01-01', SpanAttributes: {} };
 
@@ -413,13 +382,33 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
     (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [trace], err: null });
-
-    // Spawn exits with code 0 but output has no JSON object
-    const mockProcess = makeMockSpawnProcess(0, 'no valid json here');
-    (spawn as jest.Mock).mockReturnValue(mockProcess);
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: false, result: [], error: 'Invalid format' });
 
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result).toBeDefined();
+  });
+
+  it('processes multiple traces concurrently', async () => {
+    const evalConfig = { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } };
+    const traces = [
+      { SpanId: 'span-a', Timestamp: '2024-01-01', SpanAttributes: {} },
+      { SpanId: 'span-b', Timestamp: '2024-01-02', SpanAttributes: {} },
+      { SpanId: 'span-c', Timestamp: '2024-01-03', SpanAttributes: {} },
+    ];
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, evalConfig])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: traces, err: null })
+      .mockResolvedValue({ data: true, err: null });
+
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    const result = await autoEvaluate(autoEvalConfig as any);
+    expect(result.success).toBe(true);
+    expect(runEvaluation).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -430,21 +419,275 @@ describe('setEvaluationsForSpanId', () => {
   });
 
   it('throws when span not found', async () => {
-    const { getRequestViaSpanId } = require('@/lib/platform/request');
     (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: {} });
-    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1' }]);
     await expect(setEvaluationsForSpanId('missing-span')).rejects.toThrow('Trace not found');
   });
 
-  it('calls getEvaluationConfig and getEvaluationConfigForTrace when span is found (covers lines 142-143)', async () => {
-    const { getRequestViaSpanId } = require('@/lib/platform/request');
-    const { getEvaluationConfig } = require('@/lib/platform/evaluation/config');
+  it('calls getEvaluationConfig and runEvaluation when span is found', async () => {
     (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
-    (getEvaluationConfig as jest.Mock).mockResolvedValue({ id: 'cfg-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' } });
-    // Spawn fails immediately so the function can complete
-    (spawn as jest.Mock).mockImplementation(() => { throw new Error('no python'); });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [],
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
 
     const result = await setEvaluationsForSpanId('span-1');
     expect(result).toBeDefined();
+    expect(runEvaluation).toHaveBeenCalled();
+    expect(getEvaluationConfig).toHaveBeenCalled();
+  });
+
+  it('returns failure when runEvaluation returns failure', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+    });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: false, error: 'Provider error' });
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toMatchObject({ success: false });
+  });
+
+  it('returns failure when runEvaluation throws', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+    });
+    (runEvaluation as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toMatchObject({ success: false });
+  });
+});
+
+describe('getEvaluationSummaryForSpanId', () => {
+  it('returns null when user is not authenticated', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    const result = await getEvaluationSummaryForSpanId('span-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when dataCollector returns error', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: null, err: 'DB error' });
+    const result = await getEvaluationSummaryForSpanId('span-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when dataCollector returns empty data', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    const result = await getEvaluationSummaryForSpanId('span-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns summary when data is present', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ runCount: '5', totalCost: '0.012', latestModel: 'gpt-4o' }],
+      err: null,
+    });
+    const result = await getEvaluationSummaryForSpanId('span-1');
+    expect(result).toEqual({ runCount: 5, totalCost: 0.012, latestModel: 'gpt-4o' });
+  });
+
+  it('defaults runCount and totalCost to 0 when row values are falsy', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ runCount: null, totalCost: null, latestModel: '' }],
+      err: null,
+    });
+    const result = await getEvaluationSummaryForSpanId('span-1');
+    expect(result!.runCount).toBe(0);
+    expect(result!.totalCost).toBe(0);
+    expect(result!.latestModel).toBeUndefined();
+  });
+
+  it('queries the evaluation table for the span id', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ runCount: 1, totalCost: 0, latestModel: null }], err: null });
+    await getEvaluationSummaryForSpanId('span-abc');
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain('span-abc');
+    expect(query).toContain('openlit_evaluation');
+  });
+});
+
+describe('storeManualFeedback', () => {
+  it('throws when user is not authenticated', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    await expect(storeManualFeedback('span-1', 'positive')).rejects.toThrow('Unauthorized');
+  });
+
+  it('throws when span is not found', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: {} });
+    await expect(storeManualFeedback('missing-span', 'positive')).rejects.toThrow('Trace not found');
+  });
+
+  it('inserts positive feedback with score 0', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+    const result = await storeManualFeedback('span-1', 'positive');
+    expect(result).toEqual({ data: true });
+    const [callArg] = (dataCollector as jest.Mock).mock.calls[0];
+    const row = callArg.values[0];
+    expect(row.scores).toEqual({ manual_feedback: 0 });
+    expect(row.meta).toMatchObject({ source: 'manual_feedback', feedback_rating: 'positive' });
+  });
+
+  it('inserts negative feedback with score 1', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+    await storeManualFeedback('span-1', 'negative');
+    const [callArg] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(callArg.values[0].scores).toEqual({ manual_feedback: 1 });
+  });
+
+  it('inserts neutral feedback with score 0.5', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+    await storeManualFeedback('span-1', 'neutral');
+    const [callArg] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(callArg.values[0].scores).toEqual({ manual_feedback: 0.5 });
+  });
+
+  it('includes comment in meta when provided', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+    await storeManualFeedback('span-1', 'positive', 'Great response!');
+    const [callArg] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(callArg.values[0].meta).toMatchObject({ feedback_comment: 'Great response!' });
+  });
+
+  it('returns error when dataCollector insert fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'Insert failed', data: null });
+    const result = await storeManualFeedback('span-1', 'positive');
+    expect(result).toMatchObject({ err: 'Insert failed' });
+  });
+});
+
+describe('getEvaluationsForSpanId — feedback rows', () => {
+  it('returns feedbacks array when rows have manual_feedback source', async () => {
+    const feedbackRow = {
+      spanId: 'span-1', id: 'fb-1', createdAt: new Date('2024-01-01'),
+      meta: { source: 'manual_feedback', feedback_rating: 'positive', feedback_comment: 'Good' },
+      evaluations: [],
+    };
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [feedbackRow], err: null });
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1' }]);
+
+    const result = await getEvaluationsForSpanId('span-1');
+    expect(result.feedbacks).toBeDefined();
+    expect(result.feedbacks!.length).toBe(1);
+    expect(result.feedbacks![0].rating).toBe('positive');
+    expect(result.feedbacks![0].comment).toBe('Good');
+  });
+
+  it('defaults feedback rating to neutral when not set', async () => {
+    const feedbackRow = {
+      spanId: 'span-1', id: 'fb-2', createdAt: new Date(),
+      meta: { source: 'manual_feedback' },
+      evaluations: [],
+    };
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [feedbackRow], err: null });
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1' }]);
+
+    const result = await getEvaluationsForSpanId('span-1');
+    expect(result.feedbacks![0].rating).toBe('neutral');
+    expect(result.feedbacks![0].comment).toBeUndefined();
+  });
+});
+
+describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
+  it('uses default types (hallucination/bias/toxicity) when no evaluationTypes with enabled=true', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1', SpanAttributes: {} } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [
+        { id: 'hallucination', enabled: false },
+        { id: 'bias', enabled: false },
+        { id: 'toxicity', enabled: false },
+        { id: 'relevance', enabled: false },
+      ],
+    });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toBeDefined();
+    expect(runEvaluation).toHaveBeenCalled();
+  });
+
+  it('uses enabled types when some are explicitly enabled', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1', SpanAttributes: {} } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [
+        { id: 'hallucination', enabled: true, prompt: 'custom prompt' },
+        { id: 'bias', enabled: false },
+      ],
+    });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toBeDefined();
+    expect(runEvaluation).toHaveBeenCalledWith(
+      expect.objectContaining({ contexts: expect.stringContaining('custom prompt') })
+    );
+  });
+
+  it('collects rules from t.rules array and calls getContextFromRulesWithPriority', async () => {
+    const { getContextFromRulesWithPriority } = require('@/lib/platform/evaluation/rule-engine-context');
+    (getContextFromRulesWithPriority as jest.Mock).mockResolvedValue({ contextContents: ['ctx'], matchingRuleIds: ['r1'], contextEntityIds: ['e1'] });
+
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1', SpanAttributes: {} } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [
+        { id: 'hallucination', enabled: true, rules: [{ ruleId: 'r1', priority: 5 }] },
+      ],
+    });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    await setEvaluationsForSpanId('span-1');
+    expect(getContextFromRulesWithPriority).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([{ ruleId: 'r1', priority: 5 }]),
+      'db-1'
+    );
+  });
+
+  it('collects legacy t.ruleId field into rulesWithPriority', async () => {
+    const { getContextFromRulesWithPriority } = require('@/lib/platform/evaluation/rule-engine-context');
+    (getContextFromRulesWithPriority as jest.Mock).mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1', SpanAttributes: {} } });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1', provider: 'openai', model: 'gpt-4', secret: { value: 'sk-1' }, databaseConfigId: 'db-1',
+      evaluationTypes: [{ id: 'hallucination', enabled: true, ruleId: 'r-legacy', priority: 2 }],
+    });
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    await setEvaluationsForSpanId('span-1');
+    expect(getContextFromRulesWithPriority).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([{ ruleId: 'r-legacy', priority: 2 }]),
+      'db-1'
+    );
   });
 });

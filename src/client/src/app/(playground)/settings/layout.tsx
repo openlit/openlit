@@ -19,11 +19,6 @@ export default function SettingsLayout({
 			label: "Organisation",
 			path: "/settings/organisation",
 		},
-		{
-			value: "evaluation",
-			label: "Evaluation Settings",
-			path: "/settings/evaluation",
-		},
 		{ value: "profile", label: "User Profile", path: "/settings/profile" },
 		{
 			value: "database",
@@ -31,6 +26,7 @@ export default function SettingsLayout({
 			path: "/settings/database-config",
 		},
 		{ value: "api-keys", label: "API Keys", path: "/settings/api-keys" },
+		{ value: "manage-models", label: "Manage Models", path: "/settings/manage-models" },
 	];
 
 	const currentTab =

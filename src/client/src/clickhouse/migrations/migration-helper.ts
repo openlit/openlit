@@ -5,13 +5,17 @@ import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
 import { consoleLog } from "@/utils/log";
 
+type MigrationQuery =
+	| string
+	| { type: "insert"; table: string; values: Record<string, unknown>[] };
+
 export default async function migrationHelper({
 	clickhouseMigrationId,
 	queries,
 	databaseConfigId,
 }: {
 	clickhouseMigrationId: string;
-	queries: string[];
+	queries: MigrationQuery[];
 	databaseConfigId?: string;
 }) {
 	let err, dbConfig;
@@ -40,18 +44,41 @@ export default async function migrationHelper({
 
 	const queriesRun = await Promise.all(
 		queries.map(async (query) => {
-			const { err } = await dataCollector({ query });
-			if (err) {
-				console.log(
-					`********* Migration Error : ${clickhouseMigrationId} *********`
+			if (typeof query === "string") {
+				const { err } = await dataCollector(
+					{ query },
+					"exec",
+					dbConfig.id
 				);
-				consoleLog(err);
-				console.log(
-					`********* Migration Error : ${clickhouseMigrationId} *********`
-				);
+				if (err) {
+					console.log(
+						`********* Migration Error : ${clickhouseMigrationId} *********`
+					);
+					consoleLog(err);
+					console.log(
+						`********* Migration Error : ${clickhouseMigrationId} *********`
+					);
+				}
+				return { err };
 			}
-
-			return { err };
+			if (query.type === "insert") {
+				const { err } = await dataCollector(
+					{
+						table: query.table,
+						values: query.values,
+					},
+					"insert",
+					dbConfig.id
+				);
+				if (err) {
+					console.log(
+						`********* Migration Error : ${clickhouseMigrationId} (insert) *********`
+					);
+					consoleLog(err);
+				}
+				return { err };
+			}
+			return { err: new Error("Unknown query type") };
 		})
 	);
 

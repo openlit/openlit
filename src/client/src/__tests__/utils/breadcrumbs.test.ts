@@ -175,10 +175,11 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates breadcrumbs for /settings/evaluation', () => {
-    const header = generatePageHeader('/settings/evaluation');
+  it('generates breadcrumbs for /evaluations/settings', () => {
+    const header = generatePageHeader('/evaluations/settings');
     expect(header.title).toBe('Evaluation Settings');
-    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/evaluations/settings' });
   });
 
   it('generates breadcrumbs for /settings/database-config', () => {

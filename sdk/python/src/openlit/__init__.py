@@ -471,6 +471,78 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
         return None
 
 
+def evaluate_rule(
+    url=None,
+    api_key=None,
+    entity_type=None,
+    fields=None,
+    include_entity_data=False,
+    entity_inputs=None,
+):
+    """
+    Evaluate rules against the OpenLIT Rule Engine and retrieve matching
+    rules, entities, and optionally entity data (contexts, prompts, etc.).
+
+    Args:
+        url (str): OpenLIT dashboard URL. Falls back to OPENLIT_URL env var.
+        api_key (str): API key for authentication. Falls back to OPENLIT_API_KEY env var.
+        entity_type (str): Type of entity to match — "context", "prompt", or "evaluation".
+        fields (dict): Trace attributes to evaluate against rules.
+            e.g. {"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4"}
+        include_entity_data (bool): If True, include full entity data in response.
+        entity_inputs (dict): Optional inputs for entity resolution (e.g. prompt variables).
+
+    Returns:
+        dict: Server response with matchingRuleIds, entities, and optionally entity_data.
+        None: If the request fails.
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        "OPENLIT_URL",
+        url,
+        "Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.",
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        "OPENLIT_API_KEY",
+        api_key,
+        "Missing API key: Provide as arg or set OPENLIT_API_KEY env var.",
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/rule-engine/evaluate"
+
+    # Prepare the payload
+    payload = {
+        "entity_type": entity_type,
+        "fields": fields,
+        "include_entity_data": include_entity_data,
+        "entity_inputs": entity_inputs,
+        "source": "python-sdk",
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        return response.json()
+    except requests.RequestException as error:
+        logger.error("Error evaluating rule: '%s'", error)
+        return None
+
+
 def log_agent_invocation(source, target, system=None):
     """
     Record that one agent invoked another.

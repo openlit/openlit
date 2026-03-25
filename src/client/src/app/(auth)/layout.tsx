@@ -8,7 +8,7 @@ export default function AuthLayout({
 	children: JSX.Element;
 }) {
 	return (
-		<div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-white">
+		<div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-stone-950">
 			<AuthDetailsCarousel />
 			<AuthFormContainer>
 				<AutoSignInDemoInstance demoCreds={{ email: process.env.DEMO_ACCOUNT_EMAIL, password: process.env.DEMO_ACCOUNT_PASSWORD }}>

@@ -53,6 +53,7 @@ export async function dataCollector(
 		table,
 		values,
 		enable_readonly = false,
+		clickhouse_settings,
 	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams & { enable_readonly?: boolean }>,
 	clientQueryType: "query" | "command" | "insert" | "exec" | "ping" = "query",
 	dbConfigId?: string
@@ -103,12 +104,16 @@ export async function dataCollector(
 			}
 		} else if (clientQueryType === "insert") {
 			if (!table || !values) return { err: "No table specified!" };
+			const insertParams: Record<string, unknown> = {
+				table,
+				values,
+				format,
+			};
+			if (clickhouse_settings) {
+				insertParams.clickhouse_settings = clickhouse_settings;
+			}
 			[respErr, result] = await asaw(
-				client.insert({
-					table,
-					values,
-					format,
-				})
+				client.insert(insertParams as any)
 			);
 
 			if (!respErr) {

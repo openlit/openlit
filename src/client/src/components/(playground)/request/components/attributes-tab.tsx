@@ -87,9 +87,9 @@ export function GroupHeader({ label }: { label: string }) {
 	);
 }
 
-export function AttrRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+export function AttrRow({ label, value, mono = false, className = "" }: { label: string; value: string; mono?: boolean; className?: string }) {
 	return (
-		<div className="flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors">
+		<div className={`flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors ${className}`}>
 			<span className="w-44 shrink-0 text-xs text-stone-500 dark:text-stone-400 pt-px leading-relaxed">
 				{label}
 			</span>

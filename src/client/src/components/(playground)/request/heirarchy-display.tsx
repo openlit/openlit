@@ -45,7 +45,6 @@ export default function HeirarchyDisplay() {
 
 	useEffect(() => {
 		if (
-			!error &&
 			!findSpanInHierarchyLodash(typedData.record || {}, request?.spanId) &&
 			request?.spanId &&
 			!isLoading
@@ -60,7 +59,7 @@ export default function HeirarchyDisplay() {
 				},
 			});
 		}
-	}, [request, typedData, isLoading, error]);
+	}, [request, typedData, isLoading]);
 
 	const { record } = typedData;
 	const aggregateCost = useMemo(() => (record ? sumCostRecursive(record) : 0), [record]);
