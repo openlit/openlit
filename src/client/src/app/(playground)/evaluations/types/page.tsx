@@ -62,7 +62,7 @@ export default function EvaluationTypesPage() {
 		}
 	}, [typesResponse]);
 
-	const builtInIds = new Set(EVALUATION_TYPES.map((et) => et.id));
+	const builtInIds = new Set<string>(EVALUATION_TYPES.map((et) => et.id));
 	const builtInTypes = allTypes.filter((t) => builtInIds.has(t.id));
 	const customTypes = allTypes.filter((t) => !builtInIds.has(t.id));
 
