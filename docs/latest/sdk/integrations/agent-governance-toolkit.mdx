@@ -97,7 +97,9 @@ If you use Prometheus + Grafana instead of (or alongside) OpenLIT, the toolkit a
 ```python
 from agent_os.telemetry import GovernanceMetrics
 
-metrics = GovernanceMetrics(port=9090)
+# Bind to localhost to avoid unintended network exposure.
+# Adjust host/port as needed for your deployment.
+metrics = GovernanceMetrics(host="127.0.0.1", port=9090)
 metrics.start()
 
 # Metrics auto-update as governance decisions flow
@@ -115,12 +117,119 @@ A pre-built **Governance Health** dashboard is available for import into OpenLIT
 - **Violations by Agent** — which agents trigger the most violations
 - **Recent Violations** — audit table with agent, tool, policy, verdict
 
-Import the dashboard from:
-```
-src/client/src/clickhouse/seed-data/openlit-dashboard-Governance-Health-layout.json
-```
+Import via **OpenLIT → Dashboards → Import** using the JSON below:
 
-Or create it manually via **OpenLIT → Dashboards → Import**.
+<Accordion title="Governance Health Dashboard JSON">
+```json
+{
+  "id": "a1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
+  "title": "Governance Health",
+  "description": "Monitor AI agent governance — policy evaluations, violations, trust scores, and enforcement latency across your agent fleet.",
+  "parentId": null,
+  "isMainDashboard": false,
+  "isPinned": false,
+  "widgets": {
+    "b2d4f6a8-1c3e-4a5b-8d7f-9e0a1b2c3d4e": {
+      "id": "b2d4f6a8-1c3e-4a5b-8d7f-9e0a1b2c3d4e",
+      "title": "Total Policy Evaluations",
+      "description": "Total number of governance policy evaluations in the selected time period with trend comparison",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.total_evaluations",
+        "color": "#4CAF50",
+        "trend": "0.rate",
+        "trendSuffix": "%"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    CAST(countIf(\n        Timestamp >= start_time AND Timestamp <= end_time\n    ) AS INTEGER) AS total_evaluations,\n    CAST(countIf(\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n    ) AS INTEGER) AS previous_total_evaluations,\n    round(\n        if(\n            countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time) = 0,\n            countIf(Timestamp >= start_time AND Timestamp <= end_time) * 100.0,\n            (countIf(Timestamp >= start_time AND Timestamp <= end_time) - countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time)) /\n            countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time) * 100.0\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE SpanName = 'governance.policy.evaluation'\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      }
+    },
+    "c3e5a7b9-2d4f-4c6a-9e8b-0f1a2b3c4d5f": {
+      "id": "c3e5a7b9-2d4f-4c6a-9e8b-0f1a2b3c4d5f",
+      "title": "Total Violations",
+      "description": "Total number of governance violations detected in the selected time period with trend comparison",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.total_violations",
+        "color": "#F44336",
+        "trend": "0.rate",
+        "trendSuffix": "%"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    CAST(countIf(\n        Timestamp >= start_time AND Timestamp <= end_time\n    ) AS INTEGER) AS total_violations,\n    CAST(countIf(\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n    ) AS INTEGER) AS previous_total_violations,\n    round(\n        if(\n            countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time) = 0,\n            countIf(Timestamp >= start_time AND Timestamp <= end_time) * 100.0,\n            (countIf(Timestamp >= start_time AND Timestamp <= end_time) - countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time)) /\n            countIf(Timestamp >= prev_start_time AND Timestamp <= prev_end_time) * 100.0\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE SpanName = 'governance.violation'\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      }
+    },
+    "d4f6b8ca-3e5a-4d7b-ae9c-1f2a3b4c5d6e": {
+      "id": "d4f6b8ca-3e5a-4d7b-ae9c-1f2a3b4c5d6e",
+      "title": "Violations Over Time",
+      "description": "Time-series chart showing governance violations grouped by time bucket",
+      "type": "LINE_CHART",
+      "properties": {
+        "xAxis": "request_time",
+        "yAxis": "violation_count",
+        "color": "#F44336"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(years_diff >= 1, 'month', days_diff <= 1, 'hour', 'day') AS date_granularity\n\nSELECT\n    CAST(COUNT(*) AS INTEGER) AS violation_count,\n    formatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\nFROM otel_traces\nWHERE SpanName = 'governance.violation'\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY request_time\nORDER BY request_time"
+      }
+    },
+    "e5a7c9db-4f6b-4e8c-bf0d-2a3b4c5d6e7f": {
+      "id": "e5a7c9db-4f6b-4e8c-bf0d-2a3b4c5d6e7f",
+      "title": "Avg Policy Eval Latency",
+      "description": "Average duration of governance policy evaluation spans in milliseconds with trend comparison",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.avg_latency_ms",
+        "suffix": " ms",
+        "color": "#2196F3",
+        "trend": "0.rate",
+        "trendSuffix": "%"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    round(avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])), 2) AS avg_latency_ms,\n    round(avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])), 2) AS previous_avg_latency_ms,\n    round(if(\n        avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n            Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n            AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])) = 0,\n        avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n            Timestamp >= start_time AND Timestamp <= end_time\n            AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])) * 100.0,\n        (avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n            Timestamp >= start_time AND Timestamp <= end_time\n            AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])) -\n         avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n            Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n            AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms']))) /\n        avgIf(toFloat64OrZero(SpanAttributes['governance.policy.eval_latency_ms']),\n            Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n            AND notEmpty(SpanAttributes['governance.policy.eval_latency_ms'])) * 100.0\n    ), 4) AS rate\nFROM otel_traces\nWHERE SpanName = 'governance.policy.evaluation'\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      }
+    },
+    "f6b8daec-5a7c-4f9d-c01e-3b4c5d6e7f8a": {
+      "id": "f6b8daec-5a7c-4f9d-c01e-3b4c5d6e7f8a",
+      "title": "Violations by Agent",
+      "description": "Violations grouped by agent name to identify which agents trigger the most governance violations",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "agent_name",
+        "yAxis": "violation_count",
+        "color": "#FF9800"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    if(notEmpty(SpanAttributes['gen_ai.agent.name']), SpanAttributes['gen_ai.agent.name'], 'unknown') AS agent_name,\n    CAST(COUNT(*) AS INTEGER) AS violation_count\nFROM otel_traces\nWHERE SpanName = 'governance.violation'\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY agent_name\nORDER BY violation_count DESC\nLIMIT 10"
+      }
+    },
+    "a7c9ebfd-6b8d-4a0e-d12f-4c5d6e7f8a9b": {
+      "id": "a7c9ebfd-6b8d-4a0e-d12f-4c5d6e7f8a9b",
+      "title": "Recent Violations",
+      "description": "Audit table showing recent governance violations with agent, tool, policy, and verdict details",
+      "type": "TABLE",
+      "properties": {
+        "color": "#F44336"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    formatDateTime(Timestamp, '%Y/%m/%d %R') AS time,\n    if(notEmpty(SpanAttributes['gen_ai.agent.name']), SpanAttributes['gen_ai.agent.name'], 'unknown') AS agent,\n    if(notEmpty(SpanAttributes['governance.tool']), SpanAttributes['governance.tool'], 'N/A') AS tool,\n    if(notEmpty(SpanAttributes['governance.policy']), SpanAttributes['governance.policy'], 'N/A') AS policy,\n    if(notEmpty(SpanAttributes['governance.verdict']), SpanAttributes['governance.verdict'], 'N/A') AS verdict\nFROM otel_traces\nWHERE SpanName = 'governance.violation'\n    AND Timestamp >= start_time AND Timestamp <= end_time\nORDER BY Timestamp DESC\nLIMIT 50"
+      }
+    }
+  },
+  "tags": "[\"governance\", \"security\"]",
+  "layouts": {
+    "lg": [
+      { "i": "b2d4f6a8-1c3e-4a5b-8d7f-9e0a1b2c3d4e", "x": 0, "y": 0, "w": 1, "h": 1 },
+      { "i": "c3e5a7b9-2d4f-4c6a-9e8b-0f1a2b3c4d5f", "x": 1, "y": 0, "w": 1, "h": 1 },
+      { "i": "e5a7c9db-4f6b-4e8c-bf0d-2a3b4c5d6e7f", "x": 2, "y": 0, "w": 1, "h": 1 },
+      { "i": "d4f6b8ca-3e5a-4d7b-ae9c-1f2a3b4c5d6e", "x": 0, "y": 1, "w": 4, "h": 2 },
+      { "i": "f6b8daec-5a7c-4f9d-c01e-3b4c5d6e7f8a", "x": 0, "y": 3, "w": 2, "h": 2 },
+      { "i": "a7c9ebfd-6b8d-4a0e-d12f-4c5d6e7f8a9b", "x": 2, "y": 3, "w": 2, "h": 2 }
+    ]
+  }
+}
+```
+</Accordion>
 
 ## Resources
 
