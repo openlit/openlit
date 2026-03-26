@@ -131,6 +131,42 @@ class SemanticConvention:
     GEN_AI_SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
     GEN_AI_TOOL_DEFINITIONS = "gen_ai.tool.definitions"
 
+    # GenAI Tool Attributes (OTel Semconv)
+    GEN_AI_TOOL_NAME = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_NAME", "gen_ai.tool.name"
+    )
+    GEN_AI_TOOL_TYPE = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_TYPE", "gen_ai.tool.type"
+    )
+    GEN_AI_TOOL_DESCRIPTION = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_DESCRIPTION", "gen_ai.tool.description"
+    )
+    GEN_AI_TOOL_CALL_ID = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_CALL_ID", "gen_ai.tool.call.id"
+    )
+    GEN_AI_TOOL_CALL_ARGUMENTS = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_CALL_ARGUMENTS", "gen_ai.tool.call.arguments"
+    )
+    GEN_AI_TOOL_CALL_RESULT = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_TOOL_CALL_RESULT", "gen_ai.tool.call.result"
+    )
+
+    # GenAI Retrieval Attributes (OTel Semconv)
+    GEN_AI_DATA_SOURCE_ID = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_DATA_SOURCE_ID", "gen_ai.data_source.id"
+    )
+    GEN_AI_RETRIEVAL_QUERY_TEXT = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_RETRIEVAL_QUERY_TEXT",
+        "gen_ai.retrieval.query.text",
+    )
+    GEN_AI_RETRIEVAL_DOCUMENTS = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_RETRIEVAL_DOCUMENTS", "gen_ai.retrieval.documents"
+    )
+
+    # GenAI Workflow Attributes (OTel Semconv - not yet in Python library, but in spec)
+    GEN_AI_WORKFLOW_NAME = "gen_ai.workflow.name"
+
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = _get_otel_attr(
         OTelGenAIAttributes, "GEN_AI_OPERATION_NAME", "gen_ai.operation.name"
@@ -226,12 +262,12 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_LANGUAGE_IDENTIFICATION = "language_identification"
     GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT_TRANSLATE = "speech_to_text_translate"
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
-    GEN_AI_OPERATION_TYPE_FRAMEWORK = "workflow"
+    GEN_AI_OPERATION_TYPE_FRAMEWORK = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
     GEN_AI_OPERATION_TYPE_TEAM = "team"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
-    GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "graph_execution"
+    GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_USER_PROMPT_PROCESSING = "user_prompt_processing"
     GEN_AI_OPERATION_TYPE_MODEL_REQUEST = "model_request"
     GEN_AI_OPERATION_TYPE_TOOL_COORDINATION = "tool_coordination"
@@ -249,7 +285,7 @@ class SemanticConvention:
     # Tool Processing Types
     GEN_AI_TOOL_PROCESSING_TYPE_EXECUTION = "execution"
     GEN_AI_TOOL_PROCESSING_TYPE_COORDINATION = "coordination"
-    GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"
+    GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieval"
 
     # GenAI Output Types (OTel Semconv)
     GEN_AI_OUTPUT_TYPE_IMAGE = "image"
@@ -322,22 +358,19 @@ class SemanticConvention:
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
     GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
 
-    # LangGraph-specific Attributes
-    LANGGRAPH_GRAPH_NODES = "langgraph.graph.nodes"
-    LANGGRAPH_GRAPH_NODE_COUNT = "langgraph.graph.node_count"
-    LANGGRAPH_GRAPH_EDGES = "langgraph.graph.edges"
-    LANGGRAPH_GRAPH_EDGE_COUNT = "langgraph.graph.edge_count"
-    LANGGRAPH_EXECUTION_MODE = "langgraph.execution.mode"
-    LANGGRAPH_EXECUTED_NODES = "langgraph.graph.executed_nodes"
-    LANGGRAPH_NODE_EXECUTION_COUNT = "langgraph.graph.node_execution_count"
-    LANGGRAPH_MESSAGE_COUNT = "langgraph.graph.message_count"
-    LANGGRAPH_CHUNK_COUNT = "langgraph.graph.total_chunks"
-    LANGGRAPH_FINAL_RESPONSE = "langgraph.graph.final_response"
-    LANGGRAPH_NODE_NAME = "langgraph.node.name"
-    LANGGRAPH_GRAPH_STATUS = "langgraph.graph.status"
-    LANGGRAPH_THREAD_ID = "langgraph.thread.id"
-    LANGGRAPH_CHECKPOINT_ID = "langgraph.checkpoint.id"
-    LANGGRAPH_STREAM_MODE = "langgraph.stream.mode"
+    # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
+    GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"
+    GEN_AI_GRAPH_NODE_COUNT = "gen_ai.graph.node_count"
+    GEN_AI_GRAPH_EDGES = "gen_ai.graph.edges"
+    GEN_AI_GRAPH_EDGE_COUNT = "gen_ai.graph.edge_count"
+    GEN_AI_EXECUTION_MODE = "gen_ai.execution.mode"
+    GEN_AI_GRAPH_EXECUTED_NODES = "gen_ai.graph.executed_nodes"
+    GEN_AI_GRAPH_NODE_EXECUTION_COUNT = "gen_ai.graph.node_execution_count"
+    GEN_AI_GRAPH_MESSAGE_COUNT = "gen_ai.graph.message_count"
+    GEN_AI_GRAPH_TOTAL_CHUNKS = "gen_ai.graph.total_chunks"
+    GEN_AI_GRAPH_STATUS = "gen_ai.graph.status"
+    GEN_AI_CHECKPOINT_ID = "gen_ai.checkpoint.id"
+    GEN_AI_STREAM_MODE = "gen_ai.stream.mode"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
@@ -488,22 +521,19 @@ class SemanticConvention:
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
-    # Tool Attributes (LangChain/Framework Support)
+    # Tool Attributes (Legacy aliases - use GEN_AI_TOOL_CALL_ARGUMENTS/RESULT from Tier 1 instead)
     GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
     GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
-    GEN_AI_TOOL_NAME = "gen_ai.tool.name"
-    GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
     GEN_AI_TOOL_ARGS = "gen_ai.tool.args"
 
-    # Retrieval Attributes (LangChain Retriever Support)
+    # Retrieval Attributes (Legacy aliases - use GEN_AI_RETRIEVAL_QUERY_TEXT/GEN_AI_RETRIEVAL_DOCUMENTS from Tier 1)
     GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
-    GEN_AI_RETRIEVAL_DOCUMENTS = "gen_ai.retrieval.documents"
     GEN_AI_RETRIEVAL_DOCUMENT_COUNT = "gen_ai.retrieval.document_count"
 
-    # Workflow Attributes (LangChain Chain Support)
+    # Workflow Attributes (LangChain Chain Support - legacy; use GEN_AI_WORKFLOW_NAME from Tier 1)
     GEN_AI_WORKFLOW_INPUT = "gen_ai.workflow.input"
     GEN_AI_WORKFLOW_OUTPUT = "gen_ai.workflow.output"
-    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"  # Legacy: use GEN_AI_WORKFLOW_NAME
 
     # Framework Attributes (Enhanced Observability)
     GEN_AI_FRAMEWORK_TAGS = "gen_ai.framework.tags"
@@ -644,10 +674,19 @@ class SemanticConvention:
     DB_POSTGRESQL_ROWS_AFFECTED = "db.postgresql.rows_affected"
     DB_POSTGRESQL_PLAN = "db.postgresql.plan"
 
-    # GenAI Request Attributes (OTel Semconv)
-    GEN_AI_AGENT_ID = "gen_ai.agent.id"
-    GEN_AI_AGENT_NAME = "gen_ai.agent.name"
-    GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
+    # GenAI Agent Attributes (OTel Semconv)
+    GEN_AI_AGENT_ID = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_AGENT_ID", "gen_ai.agent.id"
+    )
+    GEN_AI_AGENT_NAME = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_AGENT_NAME", "gen_ai.agent.name"
+    )
+    GEN_AI_AGENT_DESCRIPTION = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_AGENT_DESCRIPTION", "gen_ai.agent.description"
+    )
+    GEN_AI_AGENT_VERSION = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_AGENT_VERSION", "gen_ai.agent.version"
+    )
 
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
@@ -845,7 +884,6 @@ class SemanticConvention:
 
     # Browser-Use Agent Specific Attributes
     GEN_AI_AGENT_MAX_STEPS = "gen_ai.agent.max_steps"
-    GEN_AI_AGENT_ID = "gen_ai.agent.id"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task_id"
     GEN_AI_AGENT_SESSION_ID = "gen_ai.agent.session_id"
     GEN_AI_AGENT_USE_VISION = "gen_ai.agent.use_vision"
@@ -1012,25 +1050,11 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
     GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
 
-    # Workflow attributes (general, reusable)
-    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
-    GEN_AI_WORKFLOW_INPUT = "gen_ai.workflow.input"
-    GEN_AI_WORKFLOW_OUTPUT = "gen_ai.workflow.output"
-
     # Serialized function information (general, reusable)
     GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
     GEN_AI_SERIALIZED_SIGNATURE = "gen_ai.serialized.signature"
     GEN_AI_SERIALIZED_DOC = "gen_ai.serialized.doc"
     GEN_AI_SERIALIZED_MODULE = "gen_ai.serialized.module"
-
-    # Tool operation attributes (general, reusable)
-    GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
-    GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
-
-    # Retrieval operation attributes (general, reusable)
-    GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
-    GEN_AI_RETRIEVAL_DOCUMENT_COUNT = "gen_ai.retrieval.document_count"
-    GEN_AI_RETRIEVAL_DOCUMENTS = "gen_ai.retrieval.documents"
 
     # Provider information (general, reusable)
     GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
@@ -1053,7 +1077,6 @@ class SemanticConvention:
     # These are framework-agnostic and reusable across all agent frameworks
 
     # OpenAI Agent-specific Attributes (for any framework using OpenAI models)
-    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
     GEN_AI_OPENAI_ASSISTANT_ID = "gen_ai.openai.assistant.id"
     GEN_AI_OPENAI_THREAD_ID = "gen_ai.openai.thread.id"
     GEN_AI_OPENAI_RUN_ID = "gen_ai.openai.run.id"
@@ -1064,11 +1087,7 @@ class SemanticConvention:
     )
 
     # Data Source Attributes (for RAG and knowledge retrieval)
-    GEN_AI_DATA_SOURCE_ID = "gen_ai.data_source.id"
     GEN_AI_DATA_SOURCE_TYPE = "gen_ai.data_source.type"
-
-    # Standard Tool Attributes (framework-agnostic)
-    GEN_AI_TOOL_TYPE = "gen_ai.tool.type"
 
     # Standard Workflow Attributes (framework-agnostic)
     GEN_AI_WORKFLOW_AGENT_COUNT = "gen_ai.workflow.agent_count"
@@ -1185,7 +1204,6 @@ class SemanticConvention:
     # Reuse existing: GEN_AI_REQUEST_USER, GEN_AI_SESSION_ID, GEN_AI_REQUEST_IS_STREAM
 
     # Tool execution attributes (only truly new ones)
-    GEN_AI_TOOL_DESCRIPTION = "gen_ai.tool.description"
     GEN_AI_TOOL_PARAMETERS = "gen_ai.tool.parameters"
     GEN_AI_TOOL_INPUT_KWARGS = "gen_ai.tool.input_kwargs"
     GEN_AI_TOOL_OUTPUT_TYPE = "gen_ai.tool.output_type"
@@ -1235,7 +1253,6 @@ class SemanticConvention:
     GEN_AI_KNOWLEDGE_OPERATION_SUCCESS = "gen_ai.knowledge.operation.success"
 
     # Workflow operation attributes (additional ones not already covered above)
-    GEN_AI_WORKFLOW_NAME = "gen_ai.workflow.name"
     GEN_AI_WORKFLOW_DESCRIPTION = "gen_ai.workflow.description"
     GEN_AI_WORKFLOW_EXECUTION_DURATION = "gen_ai.workflow.execution.duration"
     GEN_AI_WORKFLOW_OPERATION_SUCCESS = "gen_ai.workflow.operation.success"

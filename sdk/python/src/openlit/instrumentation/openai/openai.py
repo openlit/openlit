@@ -9,6 +9,7 @@ from openlit.__helpers import (
     set_server_address_and_port,
     record_completion_metrics,
     record_embedding_metrics,
+    is_framework_llm_active,
 )
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
@@ -115,6 +116,9 @@ def chat_completions(
         """
         Wraps the OpenAI chat completions call.
         """
+
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
 
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
