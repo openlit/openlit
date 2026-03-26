@@ -1,24 +1,3 @@
-# Python builder using Debian for fast pre-compiled wheels
-FROM python:3.11-slim-bullseye AS python-builder
-
-# Install minimal dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create a virtual environment
-RUN python3 -m venv /app/client/venv
-
-# Install litellm (gets pre-compiled grpcio wheels - installs in ~30 seconds)
-RUN /app/client/venv/bin/pip install --no-cache-dir litellm
-
-# Clean up unnecessary files
-RUN find /app/client/venv -name '*.pyc' -delete && \
-    find /app/client/venv -name '__pycache__' -type d -exec rm -r {} + && \
-    find /app/client/venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/client/venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
-
-
 # Node.js builder
 FROM alpine AS builder
 
@@ -80,7 +59,7 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
 
 
 # Final runtime image - Use slim-bullseye (Debian) for compatibility
-FROM python:3.11-slim-bullseye
+FROM debian:bullseye-slim
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform
@@ -111,9 +90,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app/client
 
 # Copy only necessary files from the builder stages
-
-# Copying python virtual environment from Debian builder (compatible!)
-COPY --from=python-builder /app/client/venv ./venv
 
 # Copying the standalone next.js build
 COPY --from=builder /app/client/.next/standalone ./
