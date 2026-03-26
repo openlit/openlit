@@ -2,7 +2,7 @@
 FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS builder
 
 # Installing node and npm
-RUN apk add --update nodejs npm
+RUN apk add --no-cache nodejs npm
 
 # Installing extra packages
 RUN apk add --no-cache rust cargo build-base
