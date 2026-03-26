@@ -3,9 +3,17 @@ LangGraph sync wrapper for instrumentation
 """
 
 import time
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Link
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    handle_exception,
+    truncate_content,
+    set_langgraph_wrapper_active,
+    reset_langgraph_wrapper_active,
+    set_langgraph_conversation_id,
+    reset_langgraph_conversation_id,
+    get_langgraph_conversation_id,
+)
 from openlit.instrumentation.langgraph.utils import (
     process_langgraph_response,
     OPERATION_MAP,
@@ -15,8 +23,35 @@ from openlit.instrumentation.langgraph.utils import (
     extract_messages_from_input,
     get_message_content,
     get_message_role,
+    _get_graph_name,
     SemanticConvention,
 )
+
+_LANGGRAPH_SUPPRESS_KEY = context_api.create_key("openlit-langgraph-suppress")
+
+
+def _is_tool_node(node_name, action):
+    """Return True if this node is a tool-dispatching node that should NOT
+    be wrapped as invoke_agent. Tool execution is already captured by the
+    LangChain callback handler's execute_tool spans."""
+    if "ToolNode" in type(action).__name__:
+        return True
+    if (
+        hasattr(action, "func")
+        and "ToolNode" in type(getattr(action, "func", None)).__name__
+    ):
+        return True
+    name_lower = node_name.lower()
+    if "tool" in name_lower and "agent" not in name_lower:
+        return True
+    return False
+
+
+def _set_node_conv_id(span):
+    """Set gen_ai.conversation.id from the ContextVar propagated by invoke_workflow."""
+    conv_id = get_langgraph_conversation_id()
+    if conv_id:
+        span.set_attribute(SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id)
 
 
 def general_wrap(
@@ -52,8 +87,10 @@ def general_wrap(
         """
         Wraps the LangGraph operation with telemetry.
         """
-        # Check for suppression
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+        # Check for OTel-level or LangGraph-level suppression
+        if context_api.get_value(
+            context_api._SUPPRESS_INSTRUMENTATION_KEY
+        ) or context_api.get_value(_LANGGRAPH_SUPPRESS_KEY):
             return wrapped(*args, **kwargs)
 
         # Get server address and port
@@ -90,12 +127,51 @@ def general_wrap(
                 gen_ai_endpoint,
             )
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        links = []
+        creation_ctx = getattr(instance, "_openlit_creation_context", None)
+        if creation_ctx:
+            links.append(Link(creation_ctx))
+
+        _WORKFLOW_ENDPOINTS = {
+            "graph_invoke",
+            "graph_ainvoke",
+            "graph_stream",
+            "graph_astream",
+        }
+        span_kind = (
+            SpanKind.INTERNAL
+            if gen_ai_endpoint in _WORKFLOW_ENDPOINTS
+            else SpanKind.CLIENT
+        )
+
+        with tracer.start_as_current_span(
+            span_name, kind=span_kind, links=links
+        ) as span:
+            if gen_ai_endpoint in _WORKFLOW_ENDPOINTS:
+                graph_name = _get_graph_name(instance)
+                span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
+
             start_time = time.time()
 
+            conv_id_token = None
+            config = kwargs.get("config") or (args[1] if len(args) > 1 else None)
+            if isinstance(config, dict):
+                thread_id = config.get("configurable", {}).get("thread_id")
+                if thread_id:
+                    conv_id_token = set_langgraph_conversation_id(str(thread_id))
+
             try:
-                # Execute the wrapped function
-                response = wrapped(*args, **kwargs)
+                suppress_token = context_api.attach(
+                    context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
+                )
+                lg_token = set_langgraph_wrapper_active()
+                try:
+                    response = wrapped(*args, **kwargs)
+                finally:
+                    reset_langgraph_wrapper_active(lg_token)
+                    context_api.detach(suppress_token)
+                    if conv_id_token is not None:
+                        reset_langgraph_conversation_id(conv_id_token)
 
                 # Process response
                 response = process_langgraph_response(
@@ -152,7 +228,17 @@ def _handle_stream(
     """
 
     def stream_wrapper():
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        links = []
+        creation_ctx = getattr(instance, "_openlit_creation_context", None)
+        if creation_ctx:
+            links.append(Link(creation_ctx))
+
+        with tracer.start_as_current_span(
+            span_name, kind=SpanKind.INTERNAL, links=links
+        ) as span:
+            graph_name = _get_graph_name(instance)
+            span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
+
             start_time = time.time()
 
             span.set_attribute("telemetry.sdk.name", "openlit")
@@ -169,7 +255,7 @@ def _handle_stream(
                 SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
             )
             span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
-            span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
+            span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "stream")
             span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
 
             # Track execution state
@@ -293,23 +379,23 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
 
     # Set execution attributes
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_EXECUTED_NODES,
+        SemanticConvention.GEN_AI_GRAPH_EXECUTED_NODES,
         json.dumps(execution_state["executed_nodes"]),
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_NODE_EXECUTION_COUNT,
+        SemanticConvention.GEN_AI_GRAPH_NODE_EXECUTION_COUNT,
         len(execution_state["executed_nodes"]),
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_MESSAGE_COUNT, execution_state["message_count"]
+        SemanticConvention.GEN_AI_GRAPH_MESSAGE_COUNT, execution_state["message_count"]
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_CHUNK_COUNT, execution_state["chunk_count"]
+        SemanticConvention.GEN_AI_GRAPH_TOTAL_CHUNKS, execution_state["chunk_count"]
     )
 
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             truncate_content(execution_state["final_response"]),
         )
         span.set_attribute(
@@ -317,7 +403,7 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
             truncate_content(execution_state["final_response"]),
         )
 
-    span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
+    span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")
     span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, end_time - start_time
     )
@@ -336,29 +422,35 @@ def wrap_compile(
     disable_metrics,
 ):
     """
-    Special wrapper for StateGraph.compile that captures graph structure.
+    Special wrapper for StateGraph.compile that emits a create_agent span.
+
+    If a create_agent span is already active (e.g. from _wrap_create_agent in
+    the LangChain instrumentor), compile is passed through without a span to
+    avoid duplication.
     """
+    import json
+    from openlit.__helpers import is_create_agent_active
 
     def wrapper(wrapped, instance, args, kwargs):
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        server_address, server_port = set_server_address_and_port(instance)
-        operation_type = OPERATION_MAP.get(
-            gen_ai_endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
-        )
-        span_name = generate_span_name(
-            operation_type, gen_ai_endpoint, instance, args, kwargs
-        )
+        if is_create_agent_active():
+            return wrapped(*args, **kwargs)
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
+        # Derive agent name from the graph instance
+        graph_name = _get_graph_name(instance)
+        agent_name = "default" if graph_name in ("graph", "LangGraph") else graph_name
+
+        span_name = f"create_agent {agent_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
 
             try:
-                # Execute compile
                 result = wrapped(*args, **kwargs)
 
-                # Extract graph structure from instance (StateGraph)
+                # Extract graph structure for agent attributes
                 nodes = []
                 edges = []
 
@@ -376,35 +468,42 @@ def wrap_compile(
                             if isinstance(edge, tuple) and len(edge) >= 2:
                                 edges.append(f"{edge[0]}->{edge[1]}")
 
-                # Set graph attributes
                 set_graph_attributes(span, nodes, edges)
 
-                # Set common attributes
-                from openlit.__helpers import common_framework_span_attributes
-
-                scope = type("GenericScope", (), {})()
-                scope._span = span
-                scope._start_time = start_time
-                scope._end_time = time.time()
-
-                common_framework_span_attributes(
-                    scope,
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OPERATION,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
-                    server_address,
-                    server_port,
-                    environment,
-                    application_name,
-                    version,
-                    gen_ai_endpoint,
-                    instance,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, agent_name)
+                span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+                if nodes:
+                    span.set_attribute("gen_ai.agent.tools", json.dumps(nodes))
+                    description = f"Agent with nodes: {', '.join(nodes)}"
+                else:
+                    description = "LangGraph agent"
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
-                span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+                    time.time() - start_time,
+                )
 
                 from opentelemetry.trace import Status, StatusCode
 
                 span.set_status(Status(StatusCode.OK))
+
+                result._openlit_creation_context = span.get_span_context()
 
                 return result
 
@@ -470,13 +569,20 @@ def wrap_add_node(
                             SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
                         )
                         span.set_attribute(
-                            SemanticConvention.LANGGRAPH_NODE_NAME, node_name
+                            SemanticConvention.GEN_AI_AGENT_NAME, node_name
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_ENVIRONMENT, environment
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+                        )
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_SDK_VERSION, version
+                        )
+                        _set_node_conv_id(span)
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_OUTPUT_TYPE, "text"
                         )
 
                         try:
@@ -526,13 +632,20 @@ def wrap_add_node(
                             SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
                         )
                         span.set_attribute(
-                            SemanticConvention.LANGGRAPH_NODE_NAME, node_name
+                            SemanticConvention.GEN_AI_AGENT_NAME, node_name
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_ENVIRONMENT, environment
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+                        )
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_SDK_VERSION, version
+                        )
+                        _set_node_conv_id(span)
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_OUTPUT_TYPE, "text"
                         )
 
                         try:
@@ -563,10 +676,19 @@ def wrap_add_node(
         # Wrap the action function
         node_name = str(node_key) if not isinstance(node_key, str) else node_key
 
-        # FIX: Check if action is a function/routine.
-        # If it is a class instance (like ToolNode), do NOT wrap it.
-        if inspect.isroutine(action):
+        if _is_tool_node(node_name, action):
+            wrapped_action = action
+        elif inspect.isroutine(action):
             wrapped_action = create_wrapped_node(action, node_name)
+        elif hasattr(action, "func") and inspect.isroutine(
+            getattr(action, "func", None)
+        ):
+            action.func = create_wrapped_node(action.func, node_name)
+            if hasattr(action, "afunc") and inspect.isroutine(
+                getattr(action, "afunc", None)
+            ):
+                action.afunc = create_wrapped_node(action.afunc, node_name)
+            wrapped_action = action
         else:
             wrapped_action = action
 

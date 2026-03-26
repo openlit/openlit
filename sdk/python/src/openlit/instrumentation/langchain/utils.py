@@ -340,11 +340,15 @@ def common_chat_logic(
 
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
 
+    provider = (
+        getattr(scope, "_provider", None) or SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
+    )
+
     # Common Span Attributes
     common_span_attributes(
         scope,
         SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-        SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+        provider,
         scope._server_address,
         scope._server_port,
         request_model,
@@ -433,7 +437,7 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
+            SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, ", ".join(filter(None, args))
         )
 
     # Span Attributes for Cost and Tokens
@@ -521,6 +525,7 @@ def common_chat_logic(
                     and scope._system_instructions
                 ):
                     extra["system_instructions"] = scope._system_instructions
+                tool_defs = getattr(scope, "_tool_definitions", None)
                 emit_inference_event(
                     event_provider=event_provider,
                     operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -528,7 +533,7 @@ def common_chat_logic(
                     response_model=scope._response_model,
                     input_messages=input_msgs,
                     output_messages=output_msgs,
-                    tool_definitions=None,
+                    tool_definitions=tool_defs,
                     server_address=scope._server_address,
                     server_port=scope._server_port,
                     **extra,
@@ -544,7 +549,7 @@ def common_chat_logic(
             record_completion_metrics(
                 metrics,
                 SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                provider,
                 scope._server_address,
                 scope._server_port,
                 request_model,

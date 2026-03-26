@@ -6,7 +6,14 @@ import time
 import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    handle_exception,
+    truncate_content,
+    set_langgraph_wrapper_active,
+    reset_langgraph_wrapper_active,
+    set_langgraph_conversation_id,
+    reset_langgraph_conversation_id,
+)
 from openlit.instrumentation.langgraph.utils import (
     process_langgraph_response,
     OPERATION_MAP,
@@ -16,8 +23,10 @@ from openlit.instrumentation.langgraph.utils import (
     get_message_content,
     get_message_role,
     extract_config_info,
+    _get_graph_name,
     SemanticConvention,
 )
+from openlit.instrumentation.langgraph.langgraph import _LANGGRAPH_SUPPRESS_KEY
 
 
 def async_general_wrap(
@@ -56,8 +65,9 @@ def async_general_wrap(
             """
             Wraps the astream method - returns an async generator wrapper.
             """
-            # Check for suppression
-            if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            if context_api.get_value(
+                context_api._SUPPRESS_INSTRUMENTATION_KEY
+            ) or context_api.get_value(_LANGGRAPH_SUPPRESS_KEY):
                 return wrapped(*args, **kwargs)
 
             # Get server address and port
@@ -100,8 +110,10 @@ def async_general_wrap(
         """
         Wraps the async LangGraph operation with telemetry.
         """
-        # Check for suppression
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+        # Check for OTel-level or LangGraph-level suppression
+        if context_api.get_value(
+            context_api._SUPPRESS_INSTRUMENTATION_KEY
+        ) or context_api.get_value(_LANGGRAPH_SUPPRESS_KEY):
             return await wrapped(*args, **kwargs)
 
         # Get server address and port
@@ -117,12 +129,45 @@ def async_general_wrap(
             operation_type, gen_ai_endpoint, instance, args, kwargs
         )
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        _WORKFLOW_ENDPOINTS = {
+            "graph_invoke",
+            "graph_ainvoke",
+            "graph_stream",
+            "graph_astream",
+        }
+        span_kind = (
+            SpanKind.INTERNAL
+            if gen_ai_endpoint in _WORKFLOW_ENDPOINTS
+            else SpanKind.CLIENT
+        )
+
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            if gen_ai_endpoint in _WORKFLOW_ENDPOINTS:
+                graph_name = _get_graph_name(instance)
+                span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
+
             start_time = time.time()
 
+            conv_id_token = None
+            config = kwargs.get("config") or (args[1] if len(args) > 1 else None)
+            if isinstance(config, dict):
+                thread_id = config.get("configurable", {}).get("thread_id")
+                if thread_id:
+                    conv_id_token = set_langgraph_conversation_id(str(thread_id))
+
             try:
-                # Execute the wrapped async function
-                response = await wrapped(*args, **kwargs)
+                # Suppress child LangGraph Pregel wrappers to avoid duplicates
+                suppress_token = context_api.attach(
+                    context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
+                )
+                lg_token = set_langgraph_wrapper_active()
+                try:
+                    response = await wrapped(*args, **kwargs)
+                finally:
+                    reset_langgraph_wrapper_active(lg_token)
+                    context_api.detach(suppress_token)
+                    if conv_id_token is not None:
+                        reset_langgraph_conversation_id(conv_id_token)
 
                 # Process response
                 response = process_langgraph_response(
@@ -174,7 +219,10 @@ async def _create_async_stream_wrapper(
     """
     Creates an async generator wrapper for astream.
     """
-    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+    with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
+        graph_name = _get_graph_name(instance)
+        span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
+
         start_time = time.time()
 
         # Set basic attributes
@@ -190,12 +238,12 @@ async def _create_async_stream_wrapper(
         span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
         span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
         span.set_attribute(SemanticConvention.GEN_AI_APPLICATION_NAME, application_name)
-        span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
+        span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "stream")
         span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
 
         # Extract stream mode from kwargs
         stream_mode = kwargs.get("stream_mode", "values")
-        span.set_attribute(SemanticConvention.LANGGRAPH_STREAM_MODE, str(stream_mode))
+        span.set_attribute(SemanticConvention.GEN_AI_STREAM_MODE, str(stream_mode))
 
         # Track execution state
         execution_state = {
@@ -227,11 +275,11 @@ async def _create_async_stream_wrapper(
             config_info = extract_config_info(config)
             if config_info.get("thread_id"):
                 span.set_attribute(
-                    SemanticConvention.LANGGRAPH_THREAD_ID, config_info["thread_id"]
+                    SemanticConvention.GEN_AI_CONVERSATION_ID, config_info["thread_id"]
                 )
             if config_info.get("checkpoint_id"):
                 span.set_attribute(
-                    SemanticConvention.LANGGRAPH_CHECKPOINT_ID,
+                    SemanticConvention.GEN_AI_CHECKPOINT_ID,
                     config_info["checkpoint_id"],
                 )
 
@@ -349,23 +397,23 @@ def _finalize_async_stream_span(
 
     # Set execution attributes
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_EXECUTED_NODES,
+        SemanticConvention.GEN_AI_GRAPH_EXECUTED_NODES,
         json.dumps(execution_state["executed_nodes"]),
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_NODE_EXECUTION_COUNT,
+        SemanticConvention.GEN_AI_GRAPH_NODE_EXECUTION_COUNT,
         len(execution_state["executed_nodes"]),
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_MESSAGE_COUNT, execution_state["message_count"]
+        SemanticConvention.GEN_AI_GRAPH_MESSAGE_COUNT, execution_state["message_count"]
     )
     span.set_attribute(
-        SemanticConvention.LANGGRAPH_CHUNK_COUNT, execution_state["chunk_count"]
+        SemanticConvention.GEN_AI_GRAPH_TOTAL_CHUNKS, execution_state["chunk_count"]
     )
 
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             truncate_content(execution_state["final_response"]),
         )
         span.set_attribute(
@@ -373,7 +421,7 @@ def _finalize_async_stream_span(
             truncate_content(execution_state["final_response"]),
         )
 
-    span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
+    span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")
     span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, end_time - start_time
     )
@@ -456,7 +504,7 @@ def async_checkpoint_wrap(
                         config_info = extract_config_info(config)
                         if config_info.get("thread_id"):
                             span.set_attribute(
-                                SemanticConvention.LANGGRAPH_THREAD_ID,
+                                SemanticConvention.GEN_AI_CONVERSATION_ID,
                                 config_info["thread_id"],
                             )
 
@@ -466,7 +514,7 @@ def async_checkpoint_wrap(
                         config_info = extract_config_info(config)
                         if config_info.get("thread_id"):
                             span.set_attribute(
-                                SemanticConvention.LANGGRAPH_THREAD_ID,
+                                SemanticConvention.GEN_AI_CONVERSATION_ID,
                                 config_info["thread_id"],
                             )
 
@@ -475,11 +523,11 @@ def async_checkpoint_wrap(
                         checkpoint = result.checkpoint
                         if checkpoint and hasattr(checkpoint, "id"):
                             span.set_attribute(
-                                SemanticConvention.LANGGRAPH_CHECKPOINT_ID,
+                                SemanticConvention.GEN_AI_CHECKPOINT_ID,
                                 str(checkpoint.id),
                             )
 
-                span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
+                span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")
                 span.set_status(Status(StatusCode.OK))
 
                 # Record metrics
