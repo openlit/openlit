@@ -282,6 +282,13 @@
                 ]
               },
               {
+                "group": "Security Tools",
+                "icon": "shield-halved",
+                "pages": [
+                  "latest/sdk/integrations/agent-governance-toolkit"
+                ]
+              },
+              {
                 "group": "GPUs",
                 "icon": "server",
                 "pages": [

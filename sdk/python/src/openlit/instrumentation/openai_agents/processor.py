@@ -198,8 +198,8 @@ class OpenLITTracingProcessor(TracingProcessor):
             return f"invoke_agent {target_agent}"
         if "workflow" in operation_name.lower():
             if workflow_name:
-                return f"workflow {workflow_name}"
-            return "workflow"
+                return f"invoke_workflow {workflow_name}"
+            return "invoke_workflow"
 
         # Default case
         return operation_name

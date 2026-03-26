@@ -149,13 +149,22 @@ export default class SemanticConvention {
 
   // Retrieval (framework / RAG)
   static GEN_AI_RETRIEVAL_QUERY = 'gen_ai.retrieval.query';
+  static GEN_AI_RETRIEVAL_QUERY_TEXT = 'gen_ai.retrieval.query.text';
   static GEN_AI_RETRIEVAL_DOCUMENTS = 'gen_ai.retrieval.documents';
   static GEN_AI_RETRIEVAL_DOCUMENT_COUNT = 'gen_ai.retrieval.document_count';
+  static GEN_AI_DATA_SOURCE_ID = 'gen_ai.data_source.id';
+
+  // Agent (OTel Semconv)
+  static GEN_AI_AGENT_NAME = 'gen_ai.agent.name';
+  static GEN_AI_AGENT_ID = 'gen_ai.agent.id';
+  static GEN_AI_AGENT_DESCRIPTION = 'gen_ai.agent.description';
+  static GEN_AI_AGENT_VERSION = 'gen_ai.agent.version';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
   static GEN_AI_WORKFLOW_OUTPUT = 'gen_ai.workflow.output';
   static GEN_AI_WORKFLOW_TYPE = 'gen_ai.workflow.type';
+  static GEN_AI_WORKFLOW_NAME = 'gen_ai.workflow.name';
   static GEN_AI_FRAMEWORK_ERROR_CLASS = 'gen_ai.framework.error.class';
   static GEN_AI_FRAMEWORK_ERROR_TYPE = 'gen_ai.framework.error.type';
   static GEN_AI_FRAMEWORK_ERROR_MESSAGE = 'gen_ai.framework.error.message';
@@ -173,7 +182,10 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_AUDIO = 'audio';
   static GEN_AI_OPERATION_TYPE_FINETUNING = 'fine_tuning';
   static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
-  static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'workflow';
+  static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow';
+  static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
+  static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
+  static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';

@@ -50,10 +50,10 @@ EXECUTION_OPERATIONS_ALT = [
 ]
 
 # === GRAPH CONSTRUCTION OPERATIONS (Detailed tracing only) ===
+# graph_init and graph_add_edge are excluded: they produce orphaned spans
+# during graph building that add no monitoring value.
 CONSTRUCTION_OPERATIONS = [
-    ("langgraph.graph.state", "StateGraph.__init__", "graph_init", "sync"),
     ("langgraph.graph.state", "StateGraph.add_node", "graph_add_node", "special"),
-    ("langgraph.graph.state", "StateGraph.add_edge", "graph_add_edge", "sync"),
     ("langgraph.graph.state", "StateGraph.compile", "graph_compile", "special"),
 ]
 
