@@ -8,6 +8,8 @@ if [ -f "$NEXTAUTH_SECRET_FILE" ]; then
     # Load existing secret from persistent volume
     export NEXTAUTH_SECRET=$(cat "$NEXTAUTH_SECRET_FILE")
     echo "✅ Loaded existing NextAuth secret from persistent storage"
+else if [ -n "$NEXTAUTH_SECRET" ]; then
+    echo "Using provided NEXTAUTH_SECRET environment variable"
 else
     # Generate new secret and save it to persistent volume
     export NEXTAUTH_SECRET=$(openssl rand -base64 32)
@@ -25,7 +27,19 @@ else
     echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET will not be persisted there." >&2
 fi
 
-echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
+if [ -n "$NEXTAUTH_URL" ]; then
+  echo "Using provided NEXTAUTH_URL=$NEXTAUTH_URL"
+else
+  echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
+fi
+
+if [ -w /etc/environment ]; then
+    sed -i '/^NEXTAUTH_URL=/d' /etc/environment
+    echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> /etc/environment
+else
+    echo "WARNING: /etc/environment is not writable; NEXTAUTH_URL will not be persisted there." >&2
+fi
+
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 echo "PATH=./node_modules/.bin:$PATH" >> /etc/environment
 
