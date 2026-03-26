@@ -29,13 +29,9 @@ fi
 
 if [ -n "$NEXTAUTH_URL" ]; then
   echo "Using provided NEXTAUTH_URL=$NEXTAUTH_URL"
-else
-  echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
-fi
-
-if [ -w /etc/environment ]; then
+elif [ -w /etc/environment ]; then
     sed -i '/^NEXTAUTH_URL=/d' /etc/environment
-    echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> /etc/environment
+    echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
 else
     echo "WARNING: /etc/environment is not writable; NEXTAUTH_URL will not be persisted there." >&2
 fi
