@@ -47,6 +47,16 @@ OpenLIT includes 11 evaluation types out of the box. Each can be independently e
 **Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context — not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
 </Info>
 
+## RAG failure taxonomies
+
+For RAG systems, many failures come from the pipeline rather than from the model alone. Ingestion and chunking issues, embedding or vector store mismatches, retrieval and ranking failures, orchestration gaps, and evaluation blind spots can all surface as low-quality answers.
+
+If your team wants a shared vocabulary for these incidents, the open-source [WFGY Problem Map](https://github.com/onestardao/WFGY/blob/main/ProblemMap/README.md) provides a 16-problem taxonomy for LLM and RAG systems. It can help with:
+
+- tagging traces and incidents with stable failure categories
+- defining Rule Engine contexts and custom evaluations around concrete failure modes
+- making dashboards, alerts, and regression reviews easier to compare across teams
+
 ### Custom evaluation types
 
 Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
