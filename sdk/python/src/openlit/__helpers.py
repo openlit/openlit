@@ -481,6 +481,41 @@ def set_server_address_and_port(
     return server_address, server_port
 
 
+PROVIDER_DEFAULT_ENDPOINTS = {
+    "openai": ("api.openai.com", 443),
+    "anthropic": ("api.anthropic.com", 443),
+    "google": ("generativelanguage.googleapis.com", 443),
+    "gcp.gemini": ("generativelanguage.googleapis.com", 443),
+    "gcp.vertex_ai": ("aiplatform.googleapis.com", 443),
+    "gcp.gen_ai": ("generativelanguage.googleapis.com", 443),
+    "mistral_ai": ("api.mistral.ai", 443),
+    "groq": ("api.groq.com", 443),
+    "together": ("api.together.xyz", 443),
+    "fireworks": ("api.fireworks.ai", 443),
+    "perplexity": ("api.perplexity.ai", 443),
+    "deepinfra": ("api.deepinfra.com", 443),
+    "aws.bedrock": ("bedrock-runtime.amazonaws.com", 443),
+    "azure": ("openai.azure.com", 443),
+    "azure.ai.openai": ("openai.azure.com", 443),
+    "azure.ai.inference": ("inference.ai.azure.com", 443),
+    "cohere": ("api.cohere.ai", 443),
+    "ollama": ("localhost", 11434),
+    "deepseek": ("api.deepseek.com", 443),
+    "x_ai": ("api.x.ai", 443),
+    "huggingface": ("api-inference.huggingface.co", 443),
+    "ibm.watsonx.ai": ("us-south.ml.cloud.ibm.com", 443),
+}
+
+
+def get_server_address_for_provider(provider_name: str) -> Tuple[str, int]:
+    """Return (server_address, server_port) for a provider name.
+
+    Universal helper usable by any framework instrumentor (LangChain,
+    LangGraph, CrewAI, etc.).  Returns ("", 0) for unknown providers.
+    """
+    return PROVIDER_DEFAULT_ENDPOINTS.get(provider_name, ("", 0))
+
+
 def otel_event(name, attributes, body):
     """
     Returns an OpenTelemetry LogRecord representing an event.

@@ -47,28 +47,62 @@ def format_content(messages_or_prompts: Any) -> str:
     return "\n".join(parts) if parts else ""
 
 
+def _build_parts(content) -> list:
+    """Build OTel message parts from LangChain message content.
+
+    Handles plain strings, multimodal list-of-dicts (text, image_url, etc.),
+    and falls back gracefully.
+    """
+    if isinstance(content, str):
+        return [{"type": "text", "content": content}]
+
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                ptype = part.get("type", "text")
+                if ptype == "text":
+                    parts.append({"type": "text", "content": part.get("text", "")})
+                elif ptype == "image_url":
+                    url = part.get("image_url", {})
+                    if isinstance(url, str):
+                        parts.append({"type": "image", "url": url})
+                    elif isinstance(url, dict):
+                        parts.append({"type": "image", "url": url.get("url", "")})
+                else:
+                    parts.append({"type": ptype, "content": str(part)})
+            elif isinstance(part, str):
+                parts.append({"type": "text", "content": part})
+            else:
+                parts.append({"type": "text", "content": str(part)})
+        return parts if parts else [{"type": "text", "content": ""}]
+
+    return [{"type": "text", "content": str(content)}]
+
+
 def build_input_messages_from_langchain(messages: List) -> List[dict]:
     """
     Convert LangChain messages (list-of-lists of BaseMessage) to OTel input message structure.
+    Supports multimodal content (text, image_url, etc.).
     """
     try:
         structured = []
+        role_mapping = {
+            "system": "system",
+            "human": "user",
+            "ai": "assistant",
+            "tool": "tool",
+            "function": "tool",
+        }
         for msg_list in messages:
             for msg in msg_list:
                 role = getattr(msg, "type", "user")
                 content = getattr(msg, "content", str(msg))
-                role_mapping = {
-                    "system": "system",
-                    "human": "user",
-                    "ai": "assistant",
-                    "tool": "tool",
-                    "function": "tool",
-                }
                 otel_role = role_mapping.get(role, "user")
                 structured.append(
                     {
                         "role": otel_role,
-                        "parts": [{"type": "text", "content": str(content)}],
+                        "parts": _build_parts(content),
                     }
                 )
         return structured
@@ -361,38 +395,36 @@ def common_chat_logic(
         version,
     )
 
-    # Span Attributes for Request parameters
+    # Span Attributes for Request parameters (only set when actually present)
     params = _get_scope_params(scope)
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-        params.get("temperature", 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-        params.get("max_tokens", params.get("max_completion_tokens", -1)),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_P,
-        params.get("top_p", 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-        params.get("frequency_penalty", 0.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
-        params.get("presence_penalty", 0.0),
-    )
-    stop = params.get("stop", params.get("stop_sequences", []))
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-        stop if isinstance(stop, list) else [stop] if stop else [],
-    )
-    seed_val = params.get("seed")
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_SEED,
-        int(seed_val) if seed_val is not None else 0,
-    )
+    for _param_key, _param_attr in [
+        ("temperature", SemanticConvention.GEN_AI_REQUEST_TEMPERATURE),
+        ("top_p", SemanticConvention.GEN_AI_REQUEST_TOP_P),
+        ("frequency_penalty", SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY),
+        ("presence_penalty", SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY),
+    ]:
+        _val = params.get(_param_key)
+        if _val is not None:
+            scope._span.set_attribute(_param_attr, _val)
+
+    _max_tokens = params.get("max_tokens") or params.get("max_completion_tokens")
+    if _max_tokens is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, _max_tokens
+        )
+
+    _seed_val = params.get("seed")
+    if _seed_val is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_SEED, int(_seed_val)
+        )
+
+    _stop = params.get("stop") or params.get("stop_sequences")
+    if _stop:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+            _stop if isinstance(_stop, list) else [_stop],
+        )
 
     # Span Attributes for Response parameters
     if getattr(scope, "_response_id", None):

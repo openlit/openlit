@@ -5,7 +5,11 @@ LangGraph utilities for comprehensive telemetry processing and business intellig
 import time
 import json
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import common_framework_span_attributes, truncate_content
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    truncate_content,
+    get_server_address_for_provider,
+)
 from openlit.semcov import SemanticConvention
 
 
@@ -33,21 +37,23 @@ OPERATION_MAP = {
 }
 
 
-def set_server_address_and_port(instance):
+def set_server_address_and_port(instance, provider_name=None):
     """
     Extract server information from LangGraph instance.
 
+    Falls back to the universal provider-to-endpoint map when no instance-
+    level URL is found.
+
     Args:
         instance: LangGraph instance (StateGraph, CompiledGraph, etc.)
+        provider_name: Optional provider string for universal lookup
 
     Returns:
         tuple: (server_address, server_port)
     """
-    server_address = "localhost"
-    server_port = 8080
+    server_address = ""
+    server_port = 0
 
-    # LangGraph doesn't have a direct server, but we can try to
-    # extract checkpointer connection info if available
     try:
         if hasattr(instance, "checkpointer"):
             checkpointer = instance.checkpointer
@@ -55,10 +61,13 @@ def set_server_address_and_port(instance):
                 conn = checkpointer.conn
                 if hasattr(conn, "info"):
                     info = conn.info
-                    server_address = info.host or "localhost"
+                    server_address = info.host or ""
                     server_port = info.port or 5432
     except Exception:
         pass
+
+    if not server_address and provider_name:
+        server_address, server_port = get_server_address_for_provider(provider_name)
 
     return server_address, server_port
 
