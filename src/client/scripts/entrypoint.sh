@@ -8,7 +8,7 @@ if [ -f "$NEXTAUTH_SECRET_FILE" ]; then
     # Load existing secret from persistent volume
     export NEXTAUTH_SECRET=$(cat "$NEXTAUTH_SECRET_FILE")
     echo "✅ Loaded existing NextAuth secret from persistent storage"
-else if [ -n "$NEXTAUTH_SECRET" ]; then
+elif [ -n "$NEXTAUTH_SECRET" ]; then
     echo "Using provided NEXTAUTH_SECRET environment variable"
 else
     # Generate new secret and save it to persistent volume
