@@ -548,6 +548,9 @@ def wrap_add_node(
 
         # Create wrapped node function for instrumentation
         def create_wrapped_node(original_func, node_name):
+            if getattr(original_func, "_openlit_wrapped", False):
+                return original_func
+
             if inspect.iscoroutinefunction(original_func):
 
                 @wraps(original_func)
@@ -610,6 +613,7 @@ def wrap_add_node(
                             handle_exception(span, e)
                             raise
 
+                wrapped_node_async._openlit_wrapped = True
                 return wrapped_node_async
             else:
 
@@ -671,6 +675,7 @@ def wrap_add_node(
                             handle_exception(span, e)
                             raise
 
+                wrapped_node_sync._openlit_wrapped = True
                 return wrapped_node_sync
 
         # Wrap the action function

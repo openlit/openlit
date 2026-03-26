@@ -1566,8 +1566,6 @@ def _create_callback_handler_class(
                 if hasattr(output, "tool_call_id"):
                     tool_call_id = output.tool_call_id
                 elif isinstance(output, str) and "tool_call_id" in output:
-                    import re
-
                     match = re.search(r"tool_call_id=['\"]([^'\"]+)['\"]", output)
                     if match:
                         tool_call_id = match.group(1)
@@ -1843,10 +1841,32 @@ def _create_callback_handler_class(
                     holder = self.spans.get(run_id)
                 if holder is not None:
                     attempt = getattr(retry_state, "attempt_number", 0)
-                    holder.span.add_event(
-                        "retry",
-                        attributes={"retry.attempt": attempt},
+                    attributes: Dict[str, Any] = {"retry.attempt": attempt}
+
+                    next_action = getattr(retry_state, "next_action", None)
+                    sleep = getattr(next_action, "sleep", None) if next_action else None
+                    if isinstance(sleep, (int, float)):
+                        attributes["retry.delay_ms"] = int(sleep * 1000)
+
+                    outcome = getattr(retry_state, "outcome", None)
+                    if outcome is not None:
+                        try:
+                            exc = outcome.exception()
+                        except Exception:
+                            exc = None
+                        if exc is not None:
+                            attributes["retry.error.type"] = type(exc).__name__
+                            attributes["retry.error.message"] = str(exc)[:256]
+
+                    retry_object = getattr(retry_state, "retry_object", None)
+                    stop_policy = (
+                        getattr(retry_object, "stop", None) if retry_object else None
                     )
+                    max_attempts = getattr(stop_policy, "max_attempt_number", None)
+                    if isinstance(max_attempts, int):
+                        attributes["retry.max_attempts"] = max_attempts
+
+                    holder.span.add_event("retry", attributes=attributes)
             except Exception as e:
                 logger.debug("Error in on_retry: %s", e)
 
@@ -1904,7 +1924,6 @@ def _wrap_create_agent(tracer, version, environment, application_name):
     )
 
     def wrapper(wrapped, instance, args, kwargs):
-        import json
         from urllib.parse import urlparse
 
         llm = args[0] if args else kwargs.get("model")
@@ -1994,6 +2013,161 @@ def _wrap_create_agent(tracer, version, environment, application_name):
     return wrapper
 
 
+def _embed_common(
+    span,
+    instance,
+    args,
+    kwargs,
+    result,
+    start_time,
+    end_time,
+    model_name,
+    provider,
+    server_address,
+    server_port,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    environment,
+    application_name,
+    version,
+):
+    """Shared post-call attribute/metric logic for sync and async embed wrappers."""
+    from openlit.semcov import SemanticConvention
+    from openlit.__helpers import (
+        general_tokens,
+        get_embed_model_cost,
+        record_embedding_metrics,
+    )
+
+    span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, end_time - start_time
+    )
+    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
+
+    encoding_format = getattr(instance, "encoding_format", None)
+    if encoding_format:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]
+        )
+
+    req_dimensions = getattr(instance, "dimensions", None)
+    if req_dimensions is not None:
+        try:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
+                int(req_dimensions),
+            )
+        except (TypeError, ValueError):
+            pass
+
+    input_tokens = 0
+    input_data = args[0] if args else None
+    if input_data is not None:
+        if isinstance(input_data, list):
+            input_tokens = sum(general_tokens(t) for t in input_data)
+        elif isinstance(input_data, str):
+            input_tokens = general_tokens(input_data)
+    if input_tokens > 0:
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
+
+    dimension_count = None
+    if result is not None and isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, list) and first:
+            dimension_count = len(first)
+        elif isinstance(first, (int, float)):
+            dimension_count = len(result)
+    if req_dimensions is None and dimension_count is not None:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT, dimension_count
+        )
+
+    cost = get_embed_model_cost(model_name, pricing_info, input_tokens)
+    if cost > 0:
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    if capture_message_content and input_data is not None:
+        if isinstance(input_data, list):
+            input_msgs = [
+                {"role": "user", "parts": [{"type": "text", "content": str(item)}]}
+                for item in input_data
+            ]
+        else:
+            input_msgs = [
+                {
+                    "role": "user",
+                    "parts": [{"type": "text", "content": str(input_data)}],
+                }
+            ]
+        span.set_attribute(
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(input_msgs)
+        )
+
+    span.set_status(Status(StatusCode.OK))
+
+    if not disable_metrics and metrics:
+        record_embedding_metrics(
+            metrics=metrics,
+            gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            GEN_AI_PROVIDER_NAME=provider,
+            server_address=server_address,
+            server_port=server_port,
+            request_model=model_name,
+            response_model=model_name,
+            environment=environment,
+            application_name=application_name,
+            start_time=start_time,
+            end_time=end_time,
+            input_tokens=input_tokens,
+            cost=cost,
+        )
+
+
+def _resolve_embed_provider_and_server(instance):
+    """Resolve provider name and server address/port from an Embeddings instance."""
+    from openlit.__helpers import get_server_address_for_provider
+
+    model_name = (
+        getattr(instance, "model", None)
+        or getattr(instance, "model_name", None)
+        or getattr(instance, "model_id", None)
+        or "unknown"
+    )
+
+    provider = "langchain"
+    class_name = instance.__class__.__name__.lower()
+    class_module = (
+        instance.__class__.__module__.lower()
+        if hasattr(instance.__class__, "__module__")
+        else ""
+    )
+    class_path = f"{class_module}.{class_name}"
+    for prov_key, prov_val in PROVIDER_MAP.items():
+        if prov_key in class_path:
+            provider = prov_val
+            break
+
+    server_address, server_port = "", 0
+    try:
+        from urllib.parse import urlparse
+
+        base_url = getattr(instance, "base_url", None) or getattr(
+            getattr(instance, "client", None), "base_url", None
+        )
+        if base_url:
+            parsed = urlparse(str(base_url))
+            server_address = parsed.hostname or ""
+            server_port = parsed.port or 443
+    except Exception:
+        pass
+    if not server_address:
+        server_address, server_port = get_server_address_for_provider(provider)
+
+    return model_name, provider, server_address, server_port
+
+
 def _wrap_embed(
     tracer,
     version,
@@ -2006,11 +2180,7 @@ def _wrap_embed(
 ):
     """Wraps langchain_core.embeddings.Embeddings methods to produce embeddings spans."""
     from openlit.semcov import SemanticConvention
-    from openlit.__helpers import (
-        handle_exception,
-        general_tokens,
-        get_server_address_for_provider,
-    )
+    from openlit.__helpers import handle_exception
 
     def wrapper(wrapped, instance, args, kwargs):
         from opentelemetry import context as context_api
@@ -2018,48 +2188,13 @@ def _wrap_embed(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        model_name = (
-            getattr(instance, "model", None)
-            or getattr(instance, "model_name", None)
-            or getattr(instance, "model_id", None)
-            or "unknown"
+        model_name, provider, server_address, server_port = (
+            _resolve_embed_provider_and_server(instance)
         )
-
-        provider = "langchain"
-        class_name = instance.__class__.__name__.lower()
-        class_module = (
-            instance.__class__.__module__.lower()
-            if hasattr(instance.__class__, "__module__")
-            else ""
-        )
-        class_path = f"{class_module}.{class_name}"
-        for prov_key, prov_val in PROVIDER_MAP.items():
-            if prov_key in class_path:
-                provider = prov_val
-                break
-
         span_name = f"embeddings {model_name}"
 
-        server_address, server_port = "", 0
-        try:
-            from urllib.parse import urlparse
-
-            base_url = getattr(instance, "base_url", None) or getattr(
-                getattr(instance, "client", None), "base_url", None
-            )
-            if base_url:
-                parsed = urlparse(str(base_url))
-                server_address = parsed.hostname or ""
-                server_port = parsed.port or 443
-        except Exception:
-            pass
-        if not server_address:
-            server_address, server_port = get_server_address_for_provider(provider)
-
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-            import time as _time
-
-            start_time = _time.time()
+            start_time = time.time()
 
             span.set_attribute(
                 SemanticConvention.GEN_AI_OPERATION,
@@ -2078,46 +2213,51 @@ def _wrap_embed(
 
             try:
                 result = wrapped(*args, **kwargs)
+                end_time = time.time()
 
-                end_time = _time.time()
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
-                    end_time - start_time,
+                _embed_common(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    result,
+                    start_time,
+                    end_time,
+                    model_name,
+                    provider,
+                    server_address,
+                    server_port,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    environment,
+                    application_name,
+                    version,
                 )
-                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
-
-                if args:
-                    input_data = args[0]
-                    if isinstance(input_data, list):
-                        input_tokens = sum(general_tokens(t) for t in input_data)
-                    elif isinstance(input_data, str):
-                        input_tokens = general_tokens(input_data)
-                    else:
-                        input_tokens = 0
-                    if input_tokens > 0:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
-                        )
-
-                if result is not None:
-                    if isinstance(result, list) and result:
-                        first = result[0]
-                        if isinstance(first, list) and first:
-                            span.set_attribute(
-                                SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT,
-                                len(first),
-                            )
-                        elif isinstance(first, (int, float)):
-                            span.set_attribute(
-                                SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT,
-                                len(result),
-                            )
-
-                span.set_status(Status(StatusCode.OK))
                 return result
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    from openlit.__helpers import record_embedding_metrics
+
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        provider,
+                        server_address,
+                        server_port,
+                        model_name,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
                 raise
 
     return wrapper
@@ -2135,11 +2275,7 @@ def _wrap_embed_async(
 ):
     """Wraps async langchain_core.embeddings.Embeddings methods."""
     from openlit.semcov import SemanticConvention
-    from openlit.__helpers import (
-        handle_exception,
-        general_tokens,
-        get_server_address_for_provider,
-    )
+    from openlit.__helpers import handle_exception
 
     async def wrapper(wrapped, instance, args, kwargs):
         from opentelemetry import context as context_api
@@ -2147,48 +2283,13 @@ def _wrap_embed_async(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return await wrapped(*args, **kwargs)
 
-        model_name = (
-            getattr(instance, "model", None)
-            or getattr(instance, "model_name", None)
-            or getattr(instance, "model_id", None)
-            or "unknown"
+        model_name, provider, server_address, server_port = (
+            _resolve_embed_provider_and_server(instance)
         )
-
-        provider = "langchain"
-        class_name = instance.__class__.__name__.lower()
-        class_module = (
-            instance.__class__.__module__.lower()
-            if hasattr(instance.__class__, "__module__")
-            else ""
-        )
-        class_path = f"{class_module}.{class_name}"
-        for prov_key, prov_val in PROVIDER_MAP.items():
-            if prov_key in class_path:
-                provider = prov_val
-                break
-
         span_name = f"embeddings {model_name}"
 
-        server_address, server_port = "", 0
-        try:
-            from urllib.parse import urlparse
-
-            base_url = getattr(instance, "base_url", None) or getattr(
-                getattr(instance, "client", None), "base_url", None
-            )
-            if base_url:
-                parsed = urlparse(str(base_url))
-                server_address = parsed.hostname or ""
-                server_port = parsed.port or 443
-        except Exception:
-            pass
-        if not server_address:
-            server_address, server_port = get_server_address_for_provider(provider)
-
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-            import time as _time
-
-            start_time = _time.time()
+            start_time = time.time()
 
             span.set_attribute(
                 SemanticConvention.GEN_AI_OPERATION,
@@ -2207,46 +2308,51 @@ def _wrap_embed_async(
 
             try:
                 result = await wrapped(*args, **kwargs)
+                end_time = time.time()
 
-                end_time = _time.time()
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
-                    end_time - start_time,
+                _embed_common(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    result,
+                    start_time,
+                    end_time,
+                    model_name,
+                    provider,
+                    server_address,
+                    server_port,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    environment,
+                    application_name,
+                    version,
                 )
-                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
-
-                if args:
-                    input_data = args[0]
-                    if isinstance(input_data, list):
-                        input_tokens = sum(general_tokens(t) for t in input_data)
-                    elif isinstance(input_data, str):
-                        input_tokens = general_tokens(input_data)
-                    else:
-                        input_tokens = 0
-                    if input_tokens > 0:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
-                        )
-
-                if result is not None:
-                    if isinstance(result, list) and result:
-                        first = result[0]
-                        if isinstance(first, list) and first:
-                            span.set_attribute(
-                                SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT,
-                                len(first),
-                            )
-                        elif isinstance(first, (int, float)):
-                            span.set_attribute(
-                                SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT,
-                                len(result),
-                            )
-
-                span.set_status(Status(StatusCode.OK))
                 return result
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    from openlit.__helpers import record_embedding_metrics
+
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        provider,
+                        server_address,
+                        server_port,
+                        model_name,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
                 raise
 
     return wrapper
@@ -2321,16 +2427,16 @@ class LangChainInstrumentor(BaseInstrumentor):
         except Exception:
             logger.debug("langchain.agents.create_agent not available, skipping")
 
-        embed_kwargs = dict(
-            tracer=tracer,
-            version=version,
-            environment=environment,
-            application_name=application_name,
-            pricing_info=pricing_info,
-            capture_message_content=capture_message_content,
-            metrics=metrics,
-            disable_metrics=disable_metrics,
-        )
+        embed_kwargs = {
+            "tracer": tracer,
+            "version": version,
+            "environment": environment,
+            "application_name": application_name,
+            "pricing_info": pricing_info,
+            "capture_message_content": capture_message_content,
+            "metrics": metrics,
+            "disable_metrics": disable_metrics,
+        }
         for method_name in ("embed_documents", "embed_query"):
             try:
                 wrap_function_wrapper(
@@ -2359,6 +2465,10 @@ class LangChainInstrumentor(BaseInstrumentor):
             from opentelemetry.instrumentation.utils import unwrap
 
             unwrap("langchain_core.callbacks.manager", "BaseCallbackManager.__init__")
+            try:
+                unwrap("langchain.agents", "create_agent")
+            except Exception:
+                pass
             for method_name in (
                 "embed_documents",
                 "embed_query",
