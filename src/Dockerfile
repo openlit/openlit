@@ -1,29 +1,8 @@
-# Python builder using Debian for fast pre-compiled wheels
-FROM python:3.11-slim-bullseye AS python-builder
-
-# Install minimal dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create a virtual environment
-RUN python3 -m venv /app/client/venv
-
-# Install litellm (gets pre-compiled grpcio wheels - installs in ~30 seconds)
-RUN /app/client/venv/bin/pip install --no-cache-dir litellm
-
-# Clean up unnecessary files
-RUN find /app/client/venv -name '*.pyc' -delete && \
-    find /app/client/venv -name '__pycache__' -type d -exec rm -r {} + && \
-    find /app/client/venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/client/venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
-
-
-# Node.js builder
-FROM alpine AS builder
+# Node.js builder - pinned to alpine 3.21 with digest
+FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS builder
 
 # Installing node and npm
-RUN apk add --update nodejs npm
+RUN apk add --no-cache nodejs npm
 
 # Installing extra packages
 RUN apk add --no-cache rust cargo build-base
@@ -38,8 +17,8 @@ COPY ./client/ .
 RUN npm install && npx prisma generate && npm run build
 
 
-# Opamp server build from source
-FROM golang:1.25-alpine AS go-builder
+# Opamp server build from source - pinned with digest
+FROM golang:1.25-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa AS go-builder
 
 # Set working directory for opamp-server
 WORKDIR /app/opamp-server
@@ -51,8 +30,8 @@ COPY ./opamp-server/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o opamp-server .
 
 
-# OpenTelemetry Collector Contrib download
-FROM alpine AS otel-downloader
+# OpenTelemetry Collector Contrib download - pinned with digest
+FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS otel-downloader
 
 # Accept build arguments (TARGETARCH is automatically provided by Docker buildx)
 # Default to amd64 if not specified (most common architecture)
@@ -79,8 +58,9 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Use slim-bullseye (Debian) for compatibility
-FROM python:3.11-slim-bullseye
+# Final runtime image - Use node:18-bullseye-slim pinned with digest
+# This replaces the unsafe `curl | bash` NodeSource install pattern
+FROM node:18-bullseye-slim@sha256:d69fb189fa7765636655db043a6a9e6be5ddf94bd1a8dc33fd0bcf4664606a9e
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform
@@ -94,13 +74,8 @@ ARG TARGETPLATFORM
 ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
 ENV TARGETARCH=${TARGETARCH}
 
-# Install Node.js from NodeSource repository
+# Install only the additional runtime dependencies needed
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y --no-install-recommends \
-    nodejs \
     bash \
     openssl \
     ca-certificates \
@@ -111,9 +86,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app/client
 
 # Copy only necessary files from the builder stages
-
-# Copying python virtual environment from Debian builder (compatible!)
-COPY --from=python-builder /app/client/venv ./venv
 
 # Copying the standalone next.js build
 COPY --from=builder /app/client/.next/standalone ./
