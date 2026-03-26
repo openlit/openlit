@@ -5,6 +5,7 @@ import { OpengroundStore } from "@/types/store/openground";
 import { PageStore } from "@/types/store/page";
 import { DashboardStore } from "./dashboards";
 import { OrganisationStore } from "./organisation";
+import { RuleEngineStore } from "./rule-engine";
 
 export type RootStore = {
 	user: UserStore;
@@ -14,4 +15,5 @@ export type RootStore = {
 	page: PageStore;
 	dashboards: DashboardStore;
 	organisation: OrganisationStore;
+	ruleEngine: RuleEngineStore;
 };

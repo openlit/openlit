@@ -308,7 +308,7 @@ def process_tool_request(
         if capture_message_content:
             if hasattr(response, "result") and response.result:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_TOOL_OUTPUT,
+                    SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
                     truncate_content(response.result),
                 )
         if hasattr(response, "error") and response.error:

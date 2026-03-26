@@ -241,10 +241,14 @@ export async function getOpengroundEvaluations(
 		return { err: getMessage().OPENGROUND_FETCH_FAILED };
 	}
 
-	// Parse JSON fields
+	// Parse JSON fields and ensure numeric types
 	const records = (data as any[])?.map((record) => ({
 		...record,
 		promptVariables: JSON.parse(record.promptVariables || "{}"),
+		totalProviders: Number(record.totalProviders) || 0,
+		minCost: Number(record.minCost) || 0,
+		minResponseTime: Number(record.minResponseTime) || 0,
+		minCompletionTokens: Number(record.minCompletionTokens) || 0,
 	}));
 
 	return { data: records };
@@ -328,11 +332,16 @@ export async function getOpengroundEvaluationById(
 		return { err: getMessage().OPENGROUND_FETCH_FAILED };
 	}
 
-	// Parse JSON fields
+	// Parse JSON fields and ensure numeric types
 	const providers = (providerData as any[])?.map((p) => ({
 		...p,
 		config: JSON.parse(p.config || "{}"),
 		providerResponse: JSON.parse(p.providerResponse || "{}"),
+		cost: Number(p.cost) || 0,
+		promptTokens: Number(p.promptTokens) || 0,
+		completionTokens: Number(p.completionTokens) || 0,
+		totalTokens: Number(p.totalTokens) || 0,
+		responseTime: Number(p.responseTime) || 0,
 	}));
 
 	return {

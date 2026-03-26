@@ -6,10 +6,11 @@ type GET_DATA = {
 };
 
 export async function getData({ body, method = "POST", url, data }: GET_DATA) {
+	const hasBody = !!(body || data);
 	const res = await fetch(url, {
 		body: body || (data ? JSON.stringify(data) : undefined),
 		method,
-		headers: data ? { "Content-Type": "application/json" } : undefined,
+		headers: hasBody ? { "Content-Type": "application/json" } : undefined,
 	});
 	if (!res.ok) {
 		// This will activate the closest `error.js` Error Boundary

@@ -35,12 +35,14 @@ export default function ConfirmationModal(props: ConfirmationModalProps) {
 						</Button>
 					</DialogClose>
 
-					<Button
-						variant="default"
-						onClick={() => props.handleYes(props.params)}
-					>
-						Yes, I&apos;m sure
-					</Button>
+					<DialogClose asChild>
+						<Button
+							variant="default"
+							onClick={() => props.handleYes(props.params)}
+						>
+							Yes, I&apos;m sure
+						</Button>
+					</DialogClose>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

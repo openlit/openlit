@@ -9,39 +9,105 @@ LLM-as-a-Judge is a technique to evaluate the quality of LLM applications by usi
 
 ## Built-in evaluators
 
-OpenLIT provides a set of built-in evaluation metrics that can be used to evaluate the output of your LLM calls.
+OpenLIT provides **11 evaluation types** that can be used to evaluate the output of your LLM calls. Each type can be independently enabled, customized with custom prompts, and linked to Rule Engine rules for conditional evaluation.
 
+### Core evaluators (enabled by default)
 
 <CardGroup cols={2}>
-  <Card title="Hallucination detection" icon="circle-exclamation">
-    Identifies factual inaccuracies, contradictions, and fabricated information in AI responses
+  <Card title="Hallucination" icon="circle-exclamation">
+    Identifies factual inaccuracies, contradictions, and fabricated information. Evaluates responses against the provided context as the source of truth.
   </Card>
-  <Card title="Bias detection" icon="people-arrows">
-    Monitors for discriminatory patterns across protected attributes and ensures fair outputs
+  <Card title="Bias" icon="people-arrows">
+    Monitors for discriminatory patterns across protected attributes including gender, ethnicity, age, religion, and nationality.
   </Card>
-  <Card title="Toxicity detection" icon="shield-virus">
-    Screens for harmful, offensive, or inappropriate content in AI-generated text
-  </Card>
-  <Card title="Combined analysis" icon="border-all">
-    All-in-one evaluator combining hallucination, bias, and toxicity detection
+  <Card title="Toxicity" icon="shield-virus">
+    Screens for harmful, offensive, threatening, or hateful language including profanity, insults, and harassment.
   </Card>
 </CardGroup>
 
+### Extended evaluators (opt-in)
+
+<CardGroup cols={2}>
+  <Card title="Relevance" icon="bullseye">
+    Evaluates how directly and completely the response addresses the user's prompt.
+  </Card>
+  <Card title="Coherence" icon="link">
+    Assesses logical flow, clarity, and internal consistency of the response.
+  </Card>
+  <Card title="Faithfulness" icon="book-open">
+    Measures strict alignment with the provided context or source material.
+  </Card>
+  <Card title="Safety" icon="shield-halved">
+    Detects jailbreak attempts, prompt injection, and generation of harmful instructions.
+  </Card>
+  <Card title="Instruction Following" icon="list-check">
+    Evaluates whether the response follows instructions, constraints, and formatting requirements precisely.
+  </Card>
+  <Card title="Completeness" icon="circle-check">
+    Assesses whether the response fully addresses all parts and sub-questions of the query.
+  </Card>
+  <Card title="Conciseness" icon="compress">
+    Evaluates whether the response is appropriately concise without unnecessary filler or repetition.
+  </Card>
+  <Card title="Sensitivity" icon="lock">
+    Detects PII leakage, credential exposure, confidential data, and privacy-related concerns.
+  </Card>
+</CardGroup>
+
+<Info>
+**Context is the source of truth**: When context is provided, evaluations judge the LLM response against the provided context — not against real-world knowledge. If the context says "2+2=5" and the LLM says "2+2=4", the evaluation flags it as a factual inaccuracy because it contradicts the provided context.
+</Info>
+
 ## Running evaluations
 
-OpenLIT provides two convenient ways to configure evaluation settings:
+OpenLIT provides two ways to configure evaluation settings — from the Settings page or directly from a trace.
+
+### Configure from Settings
 
 <Frame>
   <img src="/images/setup-auto-evals-from-settings.png" />
 </Frame>
 
-1. Navigate to **Settings** → **Evaluation Settings**
-2. Configure your model provider and the LLM to use as a judge (OpenAI GPT-4, Anthropic Claude, etc.)
-3. Add your LLM Provider API key in Vault or select one from previously created secrets in Vault
-4. Set evaluation recurring time in cron schedule format
-5. Enable auto evaluation for continuous monitoring
+1. Navigate to **Evaluations** in the sidebar, then click **Settings**
+2. Select your **Provider** (OpenAI, Anthropic, Google, Mistral, etc.) and **Model** to use as a judge
+3. Add your LLM provider API key from Vault or create a new one
+4. Optionally enable **Auto Evaluation** with a cron schedule for continuous monitoring
+5. Click **Save Changes**
 
-**Alternatively, you can also directly enable evaluations from Traces:**  
+<Tip>
+Evaluations are powered by the **Vercel AI SDK** and support 11+ providers including OpenAI, Anthropic, Google, Mistral, Cohere, Groq, Perplexity, DeepSeek, xAI, Together, and Fireworks.
+</Tip>
+
+### Configure evaluation types
+
+After saving the base configuration, go to the **Evaluation Types** tab to manage all 11 evaluation types:
+
+<Frame>
+  <img src="/images/evaluation-types-settings-list.png" />
+</Frame>
+
+- **Enable/disable** individual evaluation types (hallucination, bias, toxicity, safety, etc.)
+- **Customize prompts** for each evaluation type to fit your specific use case
+- **Link Rule Engine rules** to evaluation types for conditional evaluation based on trace attributes
+
+Click on any evaluation type to configure its custom prompt and linked rules:
+
+<Frame>
+  <img src="/images/evaluation-types-settings-detail.png" />
+</Frame>
+
+### Custom evaluation types
+
+In addition to the 11 built-in types, you can create your own evaluation types tailored to your use case. From the **Evaluation Types** tab, click **Create Custom Type** and provide:
+
+- **ID**: A unique identifier in `lowercase_underscore` format (e.g., `domain_accuracy`)
+- **Label**: A human-readable name displayed in the UI
+- **Description**: A brief explanation of what this evaluation checks
+- **Evaluation Prompt**: The prompt used by the LLM judge. It should start with a `[Label evaluation context]` header describing the evaluation criteria
+
+Custom types work exactly like built-in types — they can be enabled or disabled, linked to Rule Engine rules, and run in both auto and manual evaluations. The only difference is that custom types can be deleted when they are no longer needed, while built-in types cannot.
+
+### Run from a trace
 
 <Frame>
   <img src="/images/setup-auto-evals-from-trace.png" />
@@ -49,8 +115,16 @@ OpenLIT provides two convenient ways to configure evaluation settings:
 
 1. Open any LLM trace in the **Requests** page
 2. Click the **Evaluation** tab in the trace details
-3. Click **Setup Evaluation!** to configure settings
-4. Your evaluation configuration will apply to future traces
+3. Click **Run Evaluation** to evaluate that specific trace
+4. Your evaluation configuration applies to the selected trace
+
+## Context and Rule Engine integration
+
+Evaluations integrate with the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) and [Context](/latest/openlit/prompts-experiments/context) system:
+
+- **Rule-based context**: Link rules to evaluation types. When a trace matches rule conditions, the associated context is included in the evaluation prompt.
+- **Context as ground truth**: The provided context is always treated as the source of truth. The LLM judge evaluates responses strictly against the context, not against its own knowledge.
+- **Dynamic evaluation**: Different models, services, or environments can have different evaluation rules and contexts.
 
 ## Monitor & Iterate
 
@@ -67,11 +141,15 @@ Once evaluations are running, OpenLIT continuously analyzes your LLM responses a
 </Frame>
 
 1. Go to the Requests page to see all your LLM traces
-2. Click on any LLM trace to view details
+2. Click on any LLM trace to view details — the trace ID and span ID are reflected in the URL for easy sharing
+
+<Frame caption="Trace and span IDs in URL for shareable links">
+  <img src="/images/trace-url-params.png" />
+</Frame>
 3. Click the **Evaluation** tab to see evaluation results for that specific trace
 4. **Detailed Metrics**: Each evaluation shows:
    - **Score**: Numerical score (0-1) indicating the severity or likelihood of the issue
-   - **Classification**: Category classification (e.g., "factual_inaccuracy")
+   - **Classification**: Category classification (e.g., "factual_inaccuracy", "off_topic", "jailbreak")
    - **Explanation**: Detailed reasoning from the LLM judge about why this score was given
    - **Verdict**: Simple yes/no determination based on your threshold settings
 
@@ -82,6 +160,6 @@ Once evaluations are running, OpenLIT continuously analyzes your LLM responses a
 </Frame>
 
 - **Total Hallucination Detected**: Count of traces flagged for hallucination issues
-- **Total Bias Detected**: Number of traces identified with bias concerns  
+- **Total Bias Detected**: Number of traces identified with bias concerns
 - **Total Toxicity Detected**: Count of traces containing toxic or harmful content
 - **Detection Rate Trends**: Percentage changes and trends over time periods

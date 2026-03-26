@@ -1,0 +1,400 @@
+---
+title: 'Rule Engine'
+description: 'Evaluate rules and retrieve matching contexts, prompts, and evaluation configs from the OpenLIT Rule Engine'
+---
+
+## Overview
+
+The OpenLIT SDKs provide a function to evaluate rules against the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) from your application code. At runtime, send trace attributes (model, provider, service name, etc.) and get back matching rules and their linked entities — contexts, prompts, or evaluation configurations.
+
+This enables dynamic, condition-driven retrieval of AI resources without hardcoding logic in your application.
+
+<CardGroup cols={3}>
+  <Card title="Contexts" icon="file-lines">
+    Retrieve system prompts and knowledge based on model, user tier, or any attribute
+  </Card>
+  <Card title="Prompts" icon="message">
+    Fetch compiled prompts with variable substitution from the Prompt Hub
+  </Card>
+  <Card title="Evaluation Configs" icon="check-double">
+    Determine which evaluation types apply to a given trace
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+<Steps>
+  <Step title="Set up OpenLIT">
+    Ensure you have an OpenLIT instance running. See [Quick Start](/latest/openlit/quickstart) for setup instructions.
+  </Step>
+  <Step title="Create an API Key">
+    Navigate to **Settings > API Keys** in OpenLIT. Click **Create API Key** and save the key securely.
+  </Step>
+  <Step title="Create Rules">
+    Set up rules with conditions and linked entities in the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) UI.
+  </Step>
+</Steps>
+
+## Configuration
+
+All SDKs resolve the OpenLIT URL and API key in the same order:
+
+| Parameter | Environment Variable | Description | Default |
+|-----------|---------------------|-------------|---------|
+| `url` / `URL` | `OPENLIT_URL` | Base URL of your OpenLIT dashboard | `http://127.0.0.1:3000` |
+| `api_key` / `apiKey` / `APIKey` | `OPENLIT_API_KEY` | API key for Bearer token authentication | *required* |
+
+<Tip>Set environment variables to avoid passing credentials in every call:</Tip>
+
+```bash
+export OPENLIT_URL="https://your-openlit-instance.com"
+export OPENLIT_API_KEY="your-api-key"
+```
+
+## Usage
+
+### Retrieve Contexts
+
+Fetch context entities (system prompts, knowledge) that match the given trace attributes.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    result = openlit.evaluate_rule(
+        entity_type="context",
+        fields={
+            "gen_ai.system": "openai",
+            "gen_ai.request.model": "gpt-4",
+            "service.name": "my-app",
+        },
+        include_entity_data=True,
+    )
+
+    if result:
+        print("Matching rules:", result["matchingRuleIds"])
+        for entity in result.get("entities", []):
+            entity_key = f"{entity['entity_type']}:{entity['entity_id']}"
+            data = result.get("entity_data", {}).get(entity_key, {})
+            print(f"Context: {data.get('name')} - {data.get('content')}")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Openlit from 'openlit';
+
+    const result = await Openlit.evaluateRule({
+      entityType: 'context',
+      fields: {
+        'gen_ai.system': 'openai',
+        'gen_ai.request.model': 'gpt-4',
+        'service.name': 'my-app',
+      },
+      includeEntityData: true,
+    });
+
+    if (!('err' in result)) {
+      console.log('Matching rules:', result.matchingRuleIds);
+      for (const entity of result.entities) {
+        const key = `${entity.entity_type}:${entity.entity_id}`;
+        const data = result.entity_data?.[key];
+        console.log(`Context: ${data?.name} - ${data?.content}`);
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    import (
+        "context"
+        "fmt"
+        openlit "github.com/openlit/openlit/sdk/go"
+    )
+
+    result, err := openlit.EvaluateRule(context.Background(), openlit.EvaluateRuleOptions{
+        EntityType: openlit.RuleEntityContext,
+        Fields: map[string]interface{}{
+            "gen_ai.system":        "openai",
+            "gen_ai.request.model": "gpt-4",
+            "service.name":         "my-app",
+        },
+        IncludeEntityData: true,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println("Matching rules:", result.MatchingRuleIDs)
+    for _, entity := range result.Entities {
+        key := fmt.Sprintf("%s:%s", entity.EntityType, entity.EntityID)
+        if data, ok := result.EntityData[key]; ok {
+            fmt.Printf("Context: %v\n", data)
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Retrieve Prompts
+
+Fetch compiled prompts from the Prompt Hub with variable substitution.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    result = openlit.evaluate_rule(
+        entity_type="prompt",
+        fields={
+            "gen_ai.system": "openai",
+            "gen_ai.request.model": "gpt-4",
+        },
+        include_entity_data=True,
+        entity_inputs={
+            "variables": {"user_name": "Alice", "product": "OpenLIT"},
+            "shouldCompile": True,
+        },
+    )
+
+    if result:
+        for entity in result.get("entities", []):
+            key = f"prompt:{entity['entity_id']}"
+            prompt_data = result.get("entity_data", {}).get(key, {})
+            print("Compiled prompt:", prompt_data.get("compiledPrompt"))
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Openlit from 'openlit';
+
+    const result = await Openlit.evaluateRule({
+      entityType: 'prompt',
+      fields: {
+        'gen_ai.system': 'openai',
+        'gen_ai.request.model': 'gpt-4',
+      },
+      includeEntityData: true,
+      entityInputs: {
+        variables: { user_name: 'Alice', product: 'OpenLIT' },
+        shouldCompile: true,
+      },
+    });
+
+    if (!('err' in result)) {
+      for (const entity of result.entities) {
+        const key = `prompt:${entity.entity_id}`;
+        const promptData = result.entity_data?.[key];
+        console.log('Compiled prompt:', promptData?.compiledPrompt);
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    result, err := openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+        EntityType: openlit.RuleEntityPrompt,
+        Fields: map[string]interface{}{
+            "gen_ai.system":        "openai",
+            "gen_ai.request.model": "gpt-4",
+        },
+        IncludeEntityData: true,
+        EntityInputs: map[string]interface{}{
+            "variables":     map[string]string{"user_name": "Alice", "product": "OpenLIT"},
+            "shouldCompile": true,
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    for _, entity := range result.Entities {
+        key := fmt.Sprintf("prompt:%s", entity.EntityID)
+        if data, ok := result.EntityData[key]; ok {
+            fmt.Printf("Prompt data: %v\n", data)
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Check Evaluation Rules
+
+Determine which evaluation types (hallucination, bias, etc.) are linked to rules matching the current trace. This works with both the 11 built-in evaluation types and any custom evaluation types you have created.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    result = openlit.evaluate_rule(
+        entity_type="evaluation",
+        fields={
+            "gen_ai.system": "openai",
+            "gen_ai.request.model": "gpt-4",
+            "service.name": "production-api",
+        },
+    )
+
+    if result and result["matchingRuleIds"]:
+        print("Evaluation rules matched:", result["matchingRuleIds"])
+        for entity in result.get("entities", []):
+            print(f"  Evaluation type: {entity['entity_id']}")
+    else:
+        print("No evaluation rules matched")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Openlit from 'openlit';
+
+    const result = await Openlit.evaluateRule({
+      entityType: 'evaluation',
+      fields: {
+        'gen_ai.system': 'openai',
+        'gen_ai.request.model': 'gpt-4',
+        'service.name': 'production-api',
+      },
+    });
+
+    if (!('err' in result) && result.matchingRuleIds.length > 0) {
+      console.log('Evaluation rules matched:', result.matchingRuleIds);
+      result.entities.forEach(e => console.log('  Evaluation type:', e.entity_id));
+    }
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    result, err := openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+        EntityType: openlit.RuleEntityEvaluation,
+        Fields: map[string]interface{}{
+            "gen_ai.system":        "openai",
+            "gen_ai.request.model": "gpt-4",
+            "service.name":         "production-api",
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if len(result.MatchingRuleIDs) > 0 {
+        fmt.Println("Evaluation rules matched:", result.MatchingRuleIDs)
+        for _, entity := range result.Entities {
+            fmt.Printf("  Evaluation type: %s\n", entity.EntityID)
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Parameters
+
+### Python — `openlit.evaluate_rule()`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | `str` | No | OpenLIT dashboard URL |
+| `api_key` | `str` | No | API key for authentication |
+| `entity_type` | `str` | Yes | `"context"`, `"prompt"`, or `"evaluation"` |
+| `fields` | `dict` | Yes | Trace attributes to match against rules |
+| `include_entity_data` | `bool` | No | Include full entity data in response. Default: `False` |
+| `entity_inputs` | `dict` | No | Inputs for entity resolution (e.g. prompt variables) |
+
+### TypeScript — `Openlit.evaluateRule()`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | `string` | No | OpenLIT dashboard URL |
+| `apiKey` | `string` | No | API key for authentication |
+| `entityType` | `'context'`, `'prompt'`, or `'evaluation'` | Yes | Entity type to match |
+| `fields` | Object of string/number/boolean values | Yes | Trace attributes to match |
+| `includeEntityData` | `boolean` | No | Include full entity data. Default: `false` |
+| `entityInputs` | Object | No | Inputs for entity resolution |
+
+### Go — `openlit.EvaluateRule()`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `URL` | `string` | No | OpenLIT dashboard URL |
+| `APIKey` | `string` | No | API key for authentication |
+| `EntityType` | `RuleEntityType` | Yes | `RuleEntityContext`, `RuleEntityPrompt`, or `RuleEntityEvaluation` |
+| `Fields` | `map[string]interface` | Yes | Trace attributes to match |
+| `IncludeEntityData` | `bool` | No | Include full entity data. Default: `false` |
+| `EntityInputs` | `map[string]interface` | No | Inputs for entity resolution |
+| `Timeout` | `time.Duration` | No | HTTP timeout. Default: `30s` |
+
+## Response Format
+
+All SDKs return the same response structure:
+
+```json
+{
+  "matchingRuleIds": ["rule-uuid-1", "rule-uuid-2"],
+  "entities": [
+    {
+      "rule_id": "rule-uuid-1",
+      "entity_type": "context",
+      "entity_id": "ctx-uuid-1"
+    }
+  ],
+  "entity_data": {
+    "context:ctx-uuid-1": {
+      "id": "ctx-uuid-1",
+      "name": "Premium System Prompt",
+      "content": "You are a helpful AI assistant..."
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `matchingRuleIds` | Array of rule IDs whose conditions matched the input fields |
+| `entities` | Array of linked entities from matching rules, filtered by `entity_type` |
+| `entity_data` | Full entity records, keyed as `type:id`. Only present when `include_entity_data` is `true` |
+
+## Error Handling
+
+<Tabs>
+  <Tab title="Python">
+    Returns `None` on any error (network, auth, server). Check for `None` before using the result.
+
+    ```python
+    result = openlit.evaluate_rule(entity_type="context", fields={"key": "val"})
+    if result is None:
+        print("Rule evaluation failed — check logs for details")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    Returns `{ err: string }` on error. Use a type guard to check.
+
+    ```typescript
+    const result = await Openlit.evaluateRule({ entityType: 'context', fields: {} });
+    if ('err' in result) {
+      console.error('Rule evaluation failed:', result.err);
+    }
+    ```
+  </Tab>
+  <Tab title="Go">
+    Returns `error` as the second value (idiomatic Go).
+
+    ```go
+    result, err := openlit.EvaluateRule(ctx, opts)
+    if err != nil {
+        log.Printf("Rule evaluation failed: %v", err)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Rule Engine Guide" href="/latest/openlit/prompts-experiments/rule-engine" icon="gears">
+    Learn how to create rules, add conditions, and link entities in the OpenLIT UI
+  </Card>
+  <Card title="API Reference" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon="code">
+    Full OpenAPI reference for the evaluate endpoint
+  </Card>
+</CardGroup>

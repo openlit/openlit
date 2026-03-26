@@ -11,7 +11,14 @@ interface CostBreakdownProps {
 }
 
 export default function CostBreakdown({ data }: CostBreakdownProps) {
-	const successfulData = data.filter((p) => !p.error);
+	const successfulData = data.filter((p) => !p.error).map((p) => ({
+		...p,
+		cost: Number(p.cost) || 0,
+		promptTokens: Number(p.promptTokens) || 0,
+		completionTokens: Number(p.completionTokens) || 0,
+		totalTokens: Number(p.totalTokens) || 0,
+		responseTime: Number(p.responseTime) || 0,
+	}));
 	const totalCost = successfulData.reduce((sum, p) => sum + p.cost, 0);
 	const cheapest = successfulData.reduce((min, p) =>
 		p.cost < min.cost ? p : min

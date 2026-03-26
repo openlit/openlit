@@ -136,7 +136,7 @@ export default function ModelListSidebar({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="h-6 w-6 p-0"
+											className="h-6 w-6 p-0 text-stone-500"
 											onClick={(e) => {
 												e.stopPropagation();
 												onAddNew(provider.providerId);

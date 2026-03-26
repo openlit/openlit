@@ -75,3 +75,18 @@ export interface VaultOptions extends BaseOpenlitOptions {
   tags?: string[];
   shouldSetEnv?: boolean;
 }
+
+export type RuleEntityType = 'context' | 'prompt' | 'evaluation';
+
+export interface RuleEngineOptions extends BaseOpenlitOptions {
+  entityType: RuleEntityType;
+  fields: Record<string, string | number | boolean>;
+  includeEntityData?: boolean;
+  entityInputs?: Record<string, any>;
+}
+
+export interface RuleEngineResult {
+  matchingRuleIds: string[];
+  entities: Array<{ rule_id: string; entity_type: string; entity_id: string }>;
+  entity_data?: Record<string, any>;
+}

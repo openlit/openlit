@@ -30,6 +30,95 @@ _current_agent_name: ContextVar[Optional[str]] = ContextVar(
     "openlit_agent_name", default=None
 )
 
+# When True, a framework instrumentor (LangChain, LiteLLM, etc.) owns the LLM
+# chat span.  Provider-level instrumentors (OpenAI, Anthropic, ...) should skip
+# creating their own span and instead let the framework span be the single
+# source of truth.
+_framework_llm_span_active: ContextVar[bool] = ContextVar(
+    "openlit_framework_llm_span_active", default=False
+)
+
+# Set by the LangGraph wrapper before calling wrapped() so the LangChain
+# callback handler knows to skip its own top-level graph invocation span
+# (which would duplicate the LangGraph wrapper span).
+_langgraph_wrapper_active: ContextVar[bool] = ContextVar(
+    "openlit_langgraph_wrapper_active", default=False
+)
+
+
+def set_framework_llm_active():
+    """Set by framework LLM callbacks; returns a token to reset later."""
+    return _framework_llm_span_active.set(True)
+
+
+def reset_framework_llm_active(token):
+    """Reset the framework LLM flag using the token from set_framework_llm_active."""
+    _framework_llm_span_active.reset(token)
+
+
+def is_framework_llm_active() -> bool:
+    """Check if a framework instrumentor is currently handling the LLM span."""
+    return _framework_llm_span_active.get()
+
+
+def set_langgraph_wrapper_active():
+    """Set by LangGraph wrapper; returns a token to reset later."""
+    return _langgraph_wrapper_active.set(True)
+
+
+def reset_langgraph_wrapper_active(token):
+    """Reset the LangGraph wrapper flag."""
+    _langgraph_wrapper_active.reset(token)
+
+
+def is_langgraph_wrapper_active() -> bool:
+    """Check if a LangGraph wrapper span is active (to suppress duplicate callback span)."""
+    return _langgraph_wrapper_active.get()
+
+
+_langgraph_conversation_id: ContextVar[str] = ContextVar(
+    "openlit_langgraph_conversation_id", default=""
+)
+
+
+def set_langgraph_conversation_id(conv_id):
+    """Propagate the conversation ID from invoke_workflow to child node spans."""
+    return _langgraph_conversation_id.set(conv_id)
+
+
+def reset_langgraph_conversation_id(token):
+    """Reset the conversation ID."""
+    _langgraph_conversation_id.reset(token)
+
+
+def get_langgraph_conversation_id() -> str:
+    """Get the current conversation ID set by the workflow span."""
+    return _langgraph_conversation_id.get()
+
+
+# Set by _wrap_create_agent (LangChain instrumentor) so that
+# wrap_compile (LangGraph instrumentor) does not emit a duplicate
+# create_agent span when compile() is called internally.
+_create_agent_active: ContextVar[bool] = ContextVar(
+    "openlit_create_agent_active", default=False
+)
+
+
+def set_create_agent_active():
+    """Set by create_agent wrapper; returns a token to reset later."""
+    return _create_agent_active.set(True)
+
+
+def reset_create_agent_active(token):
+    """Reset the create_agent flag."""
+    _create_agent_active.reset(token)
+
+
+def is_create_agent_active() -> bool:
+    """Check if a create_agent span is already being handled."""
+    return _create_agent_active.get()
+
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -390,6 +479,41 @@ def set_server_address_and_port(
         server_port = default_server_port
 
     return server_address, server_port
+
+
+PROVIDER_DEFAULT_ENDPOINTS = {
+    "openai": ("api.openai.com", 443),
+    "anthropic": ("api.anthropic.com", 443),
+    "google": ("generativelanguage.googleapis.com", 443),
+    "gcp.gemini": ("generativelanguage.googleapis.com", 443),
+    "gcp.vertex_ai": ("aiplatform.googleapis.com", 443),
+    "gcp.gen_ai": ("generativelanguage.googleapis.com", 443),
+    "mistral_ai": ("api.mistral.ai", 443),
+    "groq": ("api.groq.com", 443),
+    "together": ("api.together.xyz", 443),
+    "fireworks": ("api.fireworks.ai", 443),
+    "perplexity": ("api.perplexity.ai", 443),
+    "deepinfra": ("api.deepinfra.com", 443),
+    "aws.bedrock": ("bedrock-runtime.amazonaws.com", 443),
+    "azure": ("openai.azure.com", 443),
+    "azure.ai.openai": ("openai.azure.com", 443),
+    "azure.ai.inference": ("inference.ai.azure.com", 443),
+    "cohere": ("api.cohere.ai", 443),
+    "ollama": ("localhost", 11434),
+    "deepseek": ("api.deepseek.com", 443),
+    "x_ai": ("api.x.ai", 443),
+    "huggingface": ("api-inference.huggingface.co", 443),
+    "ibm.watsonx.ai": ("us-south.ml.cloud.ibm.com", 443),
+}
+
+
+def get_server_address_for_provider(provider_name: str) -> Tuple[str, int]:
+    """Return (server_address, server_port) for a provider name.
+
+    Universal helper usable by any framework instrumentor (LangChain,
+    LangGraph, CrewAI, etc.).  Returns ("", 0) for unknown providers.
+    """
+    return PROVIDER_DEFAULT_ENDPOINTS.get(provider_name, ("", 0))
 
 
 def otel_event(name, attributes, body):
