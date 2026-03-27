@@ -25,7 +25,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from openlit.__helpers import (
     common_framework_span_attributes,
-    handle_exception,
     truncate_content,
     truncate_message_content,
 )
@@ -99,7 +98,7 @@ def generate_span_name(endpoint, instance, args=None, kwargs=None):
 # ---------------------------------------------------------------------------
 # _PassthroughTracer
 # ---------------------------------------------------------------------------
-class _PassthroughTracer(wrapt.ObjectProxy):
+class _PassthroughTracer(wrapt.ObjectProxy):  # pylint: disable=too-few-public-methods
     """Drop-in replacement for ADK's ``tracer`` objects.
 
     Overrides ``start_as_current_span`` to yield the **current** span
@@ -110,6 +109,7 @@ class _PassthroughTracer(wrapt.ObjectProxy):
 
     @contextmanager
     def start_as_current_span(self, *args, **kwargs):
+        """Yield the current span instead of starting a new one."""
         yield trace.get_current_span()
 
 

@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-member, too-few-public-methods, missing-class-docstring
+# pylint: disable=duplicate-code, no-member, too-few-public-methods, missing-class-docstring, missing-function-docstring
 """
 Tests for Google ADK instrumentation using the google-adk Python library.
 
@@ -16,7 +16,6 @@ all ADK internals so the test suite can run in any environment.
 """
 
 import json
-from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +28,6 @@ from openlit.instrumentation.google_adk.utils import (
     _determine_output_type,
     generate_span_name,
     get_operation_type,
-    get_span_kind,
     resolve_server_info,
     extract_model_name,
     extract_token_usage,
@@ -40,7 +38,6 @@ from openlit.instrumentation.google_adk.utils import (
     _resolve_model_string,
     _extract_from_event,
     _is_adk_event,
-    process_google_adk_response,
     record_google_adk_metrics,
 )
 
@@ -274,7 +271,7 @@ class TestTokenExtraction:
         response.usage_metadata.cached_content_token_count = None
         response.usage_metadata.total_token_count = 175
 
-        inp, out, reasoning, cached, total = extract_token_usage(response)
+        _, out, reasoning, _, _ = extract_token_usage(response)
         assert out == 50
         assert reasoning == 25
 
@@ -597,8 +594,10 @@ class TestToolNameExtraction:
         assert t_name == "get_weather"
 
     def test_lambda_falls_back_to_lambda(self):
-        fn = lambda x: x  # noqa: E731
-        t_name = getattr(fn, "name", None) or getattr(fn, "__name__", None) or type(fn).__name__
+        def _anon(x):
+            return x
+        _anon.__name__ = "<lambda>"
+        t_name = getattr(_anon, "name", None) or getattr(_anon, "__name__", None) or type(_anon).__name__
         assert t_name == "<lambda>"
 
     def test_basetool_style_name(self):
@@ -649,7 +648,7 @@ class TestServerInfoNonGoogle:
     """Tests for resolve_server_info with non-Google backends."""
 
     def test_anthropic_model_detection(self):
-        addr, port, provider = resolve_server_info(model_name="anthropic/claude-sonnet-4-20250514")
+        addr, _, provider = resolve_server_info(model_name="anthropic/claude-sonnet-4-20250514")
         assert addr == "api.anthropic.com"
         assert provider == "anthropic"
 
@@ -678,7 +677,7 @@ class TestServerInfoNonGoogle:
         model_obj.model = "anthropic/claude-sonnet-4-20250514"
         instance.model = model_obj
         with patch.dict("os.environ", {}, clear=True):
-            addr, _, provider = resolve_server_info(instance=instance)
+            _, _, provider = resolve_server_info(instance=instance)
             assert provider == "anthropic"
 
     def test_detect_provider_from_model_str(self):

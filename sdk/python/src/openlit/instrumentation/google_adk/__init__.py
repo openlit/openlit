@@ -64,14 +64,17 @@ class _AgentCreationRegistry:
         self._contexts: dict = {}
 
     def register(self, agent_name, span_context):
+        """Store the span context for a given agent name."""
         with self._lock:
             self._contexts[agent_name] = span_context
 
     def get(self, agent_name):
+        """Retrieve the span context for a given agent name, or ``None``."""
         with self._lock:
             return self._contexts.get(agent_name)
 
     def get_all(self):
+        """Return all registered span contexts."""
         with self._lock:
             return list(self._contexts.values())
 
@@ -341,6 +344,13 @@ def _wrap_trace_merged_tool_calls(capture_message_content):
 class GoogleADKInstrumentor(BaseInstrumentor):
     """OTel GenAI semantic convention compliant instrumentor for Google ADK."""
 
+    def __init__(self):
+        super().__init__()
+        self._original_tracers: dict = {}
+        self._original_trace_call_llm = None
+        self._original_trace_tool_call = None
+        self._original_trace_merged = None
+
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
@@ -371,7 +381,7 @@ class GoogleADKInstrumentor(BaseInstrumentor):
         )
         from openlit.instrumentation.google_adk.google_adk import sync_runner_wrap
 
-        for module, method, op_key, sync_type in WORKFLOW_OPERATIONS:
+        for module, method, op_key, _ in WORKFLOW_OPERATIONS:
             try:
                 if op_key == "agent_init":
                     wrapper = _wrap_agent_init(
@@ -428,7 +438,7 @@ class GoogleADKInstrumentor(BaseInstrumentor):
                 pass
 
         if detailed_tracing:
-            for module, method, op_key, sync_type in DETAILED_OPERATIONS:
+            for module, method, op_key, _ in DETAILED_OPERATIONS:
                 try:
                     wrapper = async_runner_wrap(
                         op_key,
