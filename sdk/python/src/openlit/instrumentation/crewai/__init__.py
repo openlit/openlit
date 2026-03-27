@@ -48,7 +48,7 @@ DETAILED_OPERATIONS = [
 ]
 
 
-class _ContextPropagatingDescriptor:
+class _ContextPropagatingDescriptor:  # pylint: disable=too-few-public-methods
     """Propagate OTel context from the calling thread into CrewAI's
     ThreadPoolExecutor so that child spans (tool, task) are properly
     parented under the agent / workflow span.
@@ -61,6 +61,7 @@ class _ContextPropagatingDescriptor:
 
     def __init__(self, original):
         self._original = original
+        self._name = None
 
     def __set_name__(self, owner, name):
         self._name = name
@@ -85,6 +86,10 @@ class _ContextPropagatingDescriptor:
 
 class CrewAIInstrumentor(BaseInstrumentor):
     """OTel GenAI semantic convention compliant instrumentor for CrewAI."""
+
+    def __init__(self):
+        super().__init__()
+        self._original_execute_without_timeout = None
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments

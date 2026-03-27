@@ -14,7 +14,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
     get_server_address_for_provider,
-    handle_exception,
     truncate_content,
 )
 from openlit.semcov import SemanticConvention
@@ -218,7 +217,7 @@ def process_crewai_response(
 
     request_model = _extract_model_name(instance)
 
-    class _ModelProxy:
+    class _ModelProxy:  # pylint: disable=too-few-public-methods
         def __init__(self, orig, model):
             self._original = orig
             self.model_name = model

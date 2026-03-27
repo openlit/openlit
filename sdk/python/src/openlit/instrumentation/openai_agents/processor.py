@@ -40,9 +40,11 @@ except ImportError:
         """Dummy TracingProcessor for when agents is not available."""
 
         def force_flush(self):
+            """No-op flush for the dummy processor."""
             return None
 
         def shutdown(self):
+            """No-op shutdown for the dummy processor."""
             return None
 
     if TYPE_CHECKING:
@@ -102,7 +104,7 @@ class OpenLITTracingProcessor(TracingProcessor):
     # ------------------------------------------------------------------
     # Trace lifecycle
     # ------------------------------------------------------------------
-    def on_trace_start(self, trace):
+    def on_trace_start(self, trace):  # pylint: disable=missing-function-docstring
         try:
             trace_id = getattr(trace, "trace_id", "unknown")
             trace_name = getattr(trace, "name", "workflow")
@@ -132,7 +134,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         except Exception as e:
             handle_exception(None, e)
 
-    def on_trace_end(self, trace):
+    def on_trace_end(self, trace):  # pylint: disable=missing-function-docstring
         try:
             trace_id = getattr(trace, "trace_id", "unknown")
             trace_name = getattr(trace, "name", "workflow")
@@ -218,7 +220,7 @@ class OpenLITTracingProcessor(TracingProcessor):
     # produces richer telemetry (events, cost, TTFT, streaming flags, etc.).
     _LLM_SPAN_TYPES = frozenset(("response", "generation"))
 
-    def on_span_start(self, span):
+    def on_span_start(self, span):  # pylint: disable=missing-function-docstring
         try:
             sdk_span = span
             span_data = sdk_span.span_data
@@ -278,7 +280,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         except Exception as e:
             handle_exception(None, e)
 
-    def on_span_end(self, span):
+    def on_span_end(self, span):  # pylint: disable=missing-function-docstring
         try:
             sdk_span = span
             span_data = sdk_span.span_data

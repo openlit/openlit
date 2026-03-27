@@ -30,10 +30,12 @@ class _AgentCreationRegistry:
         self._contexts: dict = {}
 
     def register(self, agent_name, span_context):
+        """Store the span context for a given agent name."""
         with self._lock:
             self._contexts[agent_name] = span_context
 
     def get(self, agent_name):
+        """Retrieve the span context for a given agent name, or ``None``."""
         with self._lock:
             return self._contexts.get(agent_name)
 

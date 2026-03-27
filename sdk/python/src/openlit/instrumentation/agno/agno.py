@@ -15,7 +15,6 @@ from openlit.instrumentation.agno.utils import (
     OPERATION_MAP,
     get_span_kind,
     generate_span_name,
-    set_server_address_and_port,
     _agno_team_active,
     _agno_workflow_active,
     _current_agent_model_info,
