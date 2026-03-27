@@ -2,13 +2,91 @@
 OpenLIT OpenAI Agents Instrumentation
 """
 
+import json
 from typing import Collection
 import importlib.metadata
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.trace import SpanKind
+from wrapt import wrap_function_wrapper
+
+from openlit.__helpers import handle_exception
+from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
 _instruments = ("openai-agents >= 0.0.3",)
+
+
+def _wrap_agent_init(tracer, environment, application_name, capture_message_content):
+    """Return a wrapt wrapper for ``Agent.__init__`` that emits a
+    ``create_agent`` span per agent construction."""
+
+    def wrapper(wrapped, instance, args, kwargs):
+        result = wrapped(*args, **kwargs)
+
+        try:
+            name = getattr(instance, "name", None) or "agent"
+            span_name = f"create_agent {name}"
+
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OPERATION,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
+                    SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
+
+                model = getattr(instance, "model", None)
+                if model:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_REQUEST_MODEL, str(model)
+                    )
+
+                instructions = getattr(instance, "instructions", None)
+                if instructions and capture_message_content:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        str(instructions)[:4096],
+                    )
+
+                tools = getattr(instance, "tools", None)
+                if tools:
+                    tool_defs = []
+                    for t in tools[:20]:
+                        t_name = getattr(t, "name", None) or getattr(
+                            t, "__name__", str(t)
+                        )
+                        tool_defs.append({"type": "function", "name": str(t_name)})
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_DEFINITIONS,
+                        json.dumps(tool_defs),
+                    )
+
+                handoffs = getattr(instance, "handoffs", None)
+                if handoffs:
+                    handoff_names = []
+                    for h in handoffs[:20]:
+                        h_name = getattr(h, "name", None) or str(h)
+                        handoff_names.append(str(h_name))
+                    span.set_attribute(
+                        "gen_ai.agent.handoffs", json.dumps(handoff_names)
+                    )
+
+                span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+                )
+
+                instance._openlit_creation_context = span.get_span_context()
+        except Exception as e:
+            handle_exception(None, e)
+
+        return result
+
+    return wrapper
 
 
 class OpenAIAgentsInstrumentor(BaseInstrumentor):
@@ -28,6 +106,18 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         detailed_tracing = kwargs.get("detailed_tracing", False)
 
+        # Wrap Agent.__init__ to emit create_agent spans
+        try:
+            wrap_function_wrapper(
+                "agents",
+                "Agent.__init__",
+                _wrap_agent_init(
+                    tracer, environment, application_name, capture_message_content
+                ),
+            )
+        except Exception:
+            pass
+
         # Create our processor with OpenLIT enhancements
         processor = OpenLITTracingProcessor(
             tracer=tracer,
@@ -45,19 +135,16 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         try:
             from agents import set_trace_processors
 
-            # Replace existing processors with our enhanced processor
             set_trace_processors([processor])
         except ImportError:
-            # Fallback: Add our processor to existing ones
             try:
                 from agents import add_trace_processor
 
                 add_trace_processor(processor)
             except ImportError:
-                pass  # Agents package may not have tracing
+                pass
 
     def _uninstrument(self, **kwargs):
-        # Clear our processors
         try:
             from agents import set_trace_processors
 

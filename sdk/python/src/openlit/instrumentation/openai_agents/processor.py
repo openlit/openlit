@@ -1,21 +1,33 @@
 """
 OpenLIT OpenAI Agents Instrumentation - Native TracingProcessor Implementation
+
+Integrates with the OpenAI Agents SDK ``TracingProcessor`` interface.
+All span data fields are read at ``on_span_end`` (when fully populated).
+Compliant with OTel GenAI semantic conventions (gen-ai-spans.md,
+gen-ai-agent-spans.md).
 """
 
 import time
-from typing import Any, Dict, TYPE_CHECKING
+import threading
+from collections import OrderedDict
+from typing import Any, TYPE_CHECKING
 
+from opentelemetry import context as context_api
 from opentelemetry.trace import SpanKind, Status, StatusCode, set_span_in_context
 
 from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
-    get_chat_model_cost,
-    truncate_content,
 )
 from openlit.semcov import SemanticConvention
+from openlit.instrumentation.openai_agents.utils import (
+    get_operation_type,
+    get_span_kind,
+    generate_span_name,
+    is_detailed_only,
+    process_span_end,
+)
 
-# Try to import agents framework components with fallback
 try:
     from agents import TracingProcessor
 
@@ -23,33 +35,31 @@ try:
         from agents import Trace, Span
     TRACING_AVAILABLE = True
 except ImportError:
-    # Create dummy class for when agents is not available
+
     class TracingProcessor:
-        """Dummy TracingProcessor class for when agents is not available"""
+        """Dummy TracingProcessor for when agents is not available."""
 
         def force_flush(self):
-            """Dummy force_flush method"""
             return None
 
         def shutdown(self):
-            """Dummy shutdown method"""
             return None
 
     if TYPE_CHECKING:
-        # Type hints only - these don't exist at runtime when agents unavailable
         Trace = Any
         Span = Any
 
     TRACING_AVAILABLE = False
 
+_MAX_HANDOFFS = 1000
+
 
 class OpenLITTracingProcessor(TracingProcessor):
     """
-    OpenAI Agents tracing processor that integrates with OpenLIT observability.
+    OpenAI Agents tracing processor that emits OTel GenAI-compliant spans.
 
-    This processor enhances OpenAI Agents' native tracing system with OpenLIT's
-    comprehensive observability features including business intelligence,
-    cost tracking, and performance metrics.
+    Thread-safety: internal dicts are protected by a lock; no shared list
+    (``span_stack``) is used.
     """
 
     def __init__(
@@ -65,10 +75,8 @@ class OpenLITTracingProcessor(TracingProcessor):
         detailed_tracing,
         **kwargs,
     ):
-        """Initialize the OpenLIT tracing processor."""
         super().__init__()
 
-        # Core configuration
         self.tracer = tracer
         self.version = version
         self.environment = environment
@@ -79,400 +87,258 @@ class OpenLITTracingProcessor(TracingProcessor):
         self.disable_metrics = disable_metrics
         self.detailed_tracing = detailed_tracing
 
-        # Internal tracking
-        self.active_spans = {}
-        self.span_stack = []
+        self._lock = threading.Lock()
+        # SDK span_id -> (otel_span, start_time, ctx, context_token)
+        self._otel_spans: dict = {}
+        # SDK trace_id -> (otel_span, start_time, ctx, context_token)
+        self._root_spans: dict = {}
+        # trace_id -> group_id (conversation id)
+        self._trace_group_ids: dict = {}
+        # Agent handoff tracker (bounded OrderedDict)
+        self._handoff_tracker: OrderedDict = OrderedDict()
 
-    def start_trace(self, trace_id: str, name: str, **kwargs):
-        """
-        Start a new trace with OpenLIT enhancements.
-
-        Args:
-            trace_id: Unique trace identifier
-            name: Trace name
-            **kwargs: Additional trace metadata
-        """
+    # ------------------------------------------------------------------
+    # Trace lifecycle
+    # ------------------------------------------------------------------
+    def on_trace_start(self, trace):
         try:
-            # Generate span name using OpenTelemetry conventions
-            span_name = self._get_span_name(name, **kwargs)
+            trace_id = getattr(trace, "trace_id", "unknown")
+            trace_name = getattr(trace, "name", "workflow")
+            group_id = getattr(trace, "group_id", None)
 
-            # Start root span with OpenLIT context
-            span = self.tracer.start_as_current_span(
+            operation = SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
+            span_name = f"{operation} {trace_name}"
+
+            span = self.tracer.start_span(
                 span_name,
-                kind=SpanKind.CLIENT,
+                kind=SpanKind.INTERNAL,
                 attributes={
-                    SemanticConvention.GEN_AI_PROVIDER_NAME: "openai_agents",
-                    SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-                    "trace.id": trace_id,
-                    "trace.name": name,
+                    SemanticConvention.GEN_AI_OPERATION: operation,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_OPENAI,
                 },
             )
 
-            # Create scope for common attributes
-            scope = type("GenericScope", (), {})()
-            scope._span = span  # pylint: disable=protected-access
-            scope._start_time = time.time()  # pylint: disable=protected-access
-            scope._end_time = None  # pylint: disable=protected-access
+            start_time = time.time()
+            ctx = set_span_in_context(span)
+            token = context_api.attach(ctx)
 
-            # Apply common framework attributes
+            with self._lock:
+                self._root_spans[trace_id] = (span, start_time, ctx, token)
+                if group_id:
+                    self._trace_group_ids[trace_id] = str(group_id)
+
+        except Exception as e:
+            handle_exception(None, e)
+
+    def on_trace_end(self, trace):
+        try:
+            trace_id = getattr(trace, "trace_id", "unknown")
+            trace_name = getattr(trace, "name", "workflow")
+            group_id = None
+
+            with self._lock:
+                entry = self._root_spans.pop(trace_id, None)
+                group_id = self._trace_group_ids.pop(trace_id, None)
+
+            if entry is None:
+                return
+
+            span, start_time, _ctx, token = entry
+            end_time = time.time()
+
+            scope = type("Scope", (), {})()
+            scope._span = span
+            scope._start_time = start_time
+            scope._end_time = end_time
+
             common_framework_span_attributes(
                 scope,
-                "openai_agents",
+                SemanticConvention.GEN_AI_SYSTEM_OPENAI,
                 "api.openai.com",
                 443,
                 self.environment,
                 self.application_name,
                 self.version,
-                name,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
             )
 
-            # Track active span
-            self.active_spans[trace_id] = span
-            self.span_stack.append(span)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, trace_name)
 
-            return span
+            if group_id:
+                span.set_attribute(SemanticConvention.GEN_AI_CONVERSATION_ID, group_id)
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            # Graceful degradation
-            handle_exception(None, e)
-            return None
-
-    def end_trace(self, trace_id: str, **kwargs):
-        """
-        End an active trace.
-
-        Args:
-            trace_id: Trace identifier to end
-            **kwargs: Additional metadata
-        """
-        try:
-            span = self.active_spans.get(trace_id)
-            if span:
-                # Set final attributes and status
+            error = getattr(trace, "error", None)
+            if error:
+                error_msg = (
+                    error.get("message", "unknown")
+                    if isinstance(error, dict)
+                    else str(error)
+                )
+                span.set_attribute(SemanticConvention.ERROR_TYPE, error_msg)
+                span.set_status(Status(StatusCode.ERROR, error_msg))
+            else:
                 span.set_status(Status(StatusCode.OK))
 
-                # End span
-                span.end()
+            if not self.disable_metrics and self.metrics:
+                from openlit.instrumentation.openai_agents.utils import _record_metrics
 
-                # Cleanup tracking
-                if trace_id in self.active_spans:
-                    del self.active_spans[trace_id]
-                if span in self.span_stack:
-                    self.span_stack.remove(span)
+                _record_metrics(
+                    self.metrics,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+                    end_time - start_time,
+                    self.environment,
+                    self.application_name,
+                    None,
+                    "api.openai.com",
+                    443,
+                )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            handle_exception(span if span else None, e)
+            if token is not None:
+                context_api.detach(token)
 
-    def _get_span_name(self, operation_name: str, **metadata) -> str:
-        """
-        Generate OpenTelemetry-compliant span names.
+            span.end()
 
-        Args:
-            operation_name: Base operation name
-            **metadata: Additional context for naming
+        except Exception as e:
+            handle_exception(None, e)
 
-        Returns:
-            Formatted span name following semantic conventions
-        """
-        # Extract context for naming
-        agent_name = metadata.get("agent_name", "")
-        model_name = metadata.get("model_name", "")
-        tool_name = metadata.get("tool_name", "")
-        workflow_name = metadata.get("workflow_name", "")
+    # ------------------------------------------------------------------
+    # Span lifecycle
+    # ------------------------------------------------------------------
+    # LLM span types handled by the OpenAI SDK instrumentation, which
+    # produces richer telemetry (events, cost, TTFT, streaming flags, etc.).
+    _LLM_SPAN_TYPES = frozenset(("response", "generation"))
 
-        # Apply OpenTelemetry semantic conventions for GenAI agents
-        if "agent" in operation_name.lower():
-            if agent_name:
-                return f"invoke_agent {agent_name}"
-            return "invoke_agent"
-        if "chat" in operation_name.lower():
-            if model_name:
-                return f"chat {model_name}"
-            return "chat response"
-        if "tool" in operation_name.lower():
-            if tool_name:
-                return f"execute_tool {tool_name}"
-            return "execute_tool"
-        if "handoff" in operation_name.lower():
-            target_agent = metadata.get("target_agent", "unknown")
-            return f"invoke_agent {target_agent}"
-        if "workflow" in operation_name.lower():
-            if workflow_name:
-                return f"invoke_workflow {workflow_name}"
-            return "invoke_workflow"
-
-        # Default case
-        return operation_name
-
-    def span_start(self, span_data, trace_id: str):
-        """
-        Handle span start events from OpenAI Agents.
-
-        Args:
-            span_data: Span data from agents framework
-            trace_id: Associated trace identifier
-        """
+    def on_span_start(self, span):
         try:
-            # Extract span information
-            span_name = getattr(span_data, "name", "unknown_operation")
+            sdk_span = span
+            span_data = sdk_span.span_data
             span_type = getattr(span_data, "type", "unknown")
 
-            # Generate enhanced span name
-            enhanced_name = self._get_span_name(
+            if span_type in self._LLM_SPAN_TYPES:
+                return
+
+            if is_detailed_only(span_type) and not self.detailed_tracing:
+                return
+
+            trace_id = getattr(sdk_span, "trace_id", "unknown")
+            sdk_span_id = getattr(sdk_span, "span_id", None)
+            parent_sdk_id = getattr(sdk_span, "parent_id", None)
+
+            operation = get_operation_type(span_type)
+            kind = get_span_kind(operation)
+            span_name = generate_span_name(span_data)
+
+            # Find parent OTel span context
+            parent_ctx = None
+            with self._lock:
+                if parent_sdk_id and parent_sdk_id in self._otel_spans:
+                    parent_otel, _, _, _ = self._otel_spans[parent_sdk_id]
+                    parent_ctx = set_span_in_context(parent_otel)
+                elif trace_id in self._root_spans:
+                    _, _, parent_ctx, _ = self._root_spans[trace_id]
+
+            otel_span = self.tracer.start_span(
                 span_name,
-                agent_name=getattr(span_data, "agent_name", None),
-                model_name=getattr(span_data, "model_name", None),
-                tool_name=getattr(span_data, "tool_name", None),
-            )
-
-            # Determine span operation type
-            operation_type = self._get_operation_type(span_type, span_name)
-
-            # Start span with proper context
-            parent_span = self.span_stack[-1] if self.span_stack else None
-            context = set_span_in_context(parent_span) if parent_span else None
-
-            span = self.tracer.start_as_current_span(
-                enhanced_name,
-                kind=SpanKind.CLIENT,
-                context=context,
+                kind=kind,
+                context=parent_ctx,
                 attributes={
-                    SemanticConvention.GEN_AI_PROVIDER_NAME: "openai_agents",
-                    SemanticConvention.GEN_AI_OPERATION: operation_type,
-                    "span.type": span_type,
-                    "span.id": getattr(span_data, "span_id", ""),
+                    SemanticConvention.GEN_AI_OPERATION: operation,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_OPENAI,
                 },
             )
 
-            # Process specific span types
-            self._process_span_attributes(span, span_data, span_type)
+            start_time = time.time()
+            ctx = set_span_in_context(otel_span)
+            token = context_api.attach(ctx)
 
-            # Track span
-            span_id = getattr(span_data, "span_id", len(self.span_stack))
-            self.active_spans[f"{trace_id}:{span_id}"] = span
-            self.span_stack.append(span)
+            if sdk_span_id:
+                with self._lock:
+                    self._otel_spans[sdk_span_id] = (otel_span, start_time, ctx, token)
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:
             handle_exception(None, e)
 
-    def _get_operation_type(self, span_type: str, span_name: str) -> str:
-        """Get operation type based on span characteristics."""
-        type_mapping = {
-            "agent": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
-            "generation": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            "function": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            "tool": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            "handoff": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-        }
-
-        # Check span type first
-        for key, operation in type_mapping.items():
-            if key in span_type.lower():
-                return operation
-
-        # Check span name
-        for key, operation in type_mapping.items():
-            if key in span_name.lower():
-                return operation
-
-        return SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-
-    def _process_span_attributes(self, span, span_data, span_type: str):
-        """Process and set span attributes based on span type."""
+    def on_span_end(self, span):
         try:
-            # Common attributes
-            if hasattr(span_data, "agent_name"):
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_AGENT_NAME, span_data.agent_name
-                )
+            sdk_span = span
+            span_data = sdk_span.span_data
+            span_type = getattr(span_data, "type", "unknown")
 
-            if hasattr(span_data, "model_name"):
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_REQUEST_MODEL, span_data.model_name
-                )
+            if span_type in self._LLM_SPAN_TYPES:
+                return
 
-            # Agent-specific attributes
-            if span_type == "agent":
-                self._process_agent_span(span, span_data)
+            if is_detailed_only(span_type) and not self.detailed_tracing:
+                return
 
-            # Generation-specific attributes
-            elif span_type == "generation":
-                self._process_generation_span(span, span_data)
+            sdk_span_id = getattr(sdk_span, "span_id", None)
+            trace_id = getattr(sdk_span, "trace_id", "unknown")
 
-            # Function/Tool-specific attributes
-            elif span_type in ["function", "tool"]:
-                self._process_function_span(span, span_data)
+            entry = None
+            with self._lock:
+                entry = self._otel_spans.pop(sdk_span_id, None) if sdk_span_id else None
+                conversation_id = self._trace_group_ids.get(trace_id)
 
-            # Handoff-specific attributes
-            elif span_type == "handoff":
-                self._process_handoff_span(span, span_data)
+            if entry is None:
+                return
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            handle_exception(span, e)
+            otel_span, start_time, _ctx, token = entry
 
-    def _process_agent_span(self, span, agent_span):
-        """Process agent span data (unused parameter)."""
-        # Agent-specific processing
-        if hasattr(agent_span, "instructions"):
-            span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
-                truncate_content(agent_span.instructions),
+            process_span_end(
+                otel_span=otel_span,
+                sdk_span=sdk_span,
+                start_time=start_time,
+                version=self.version,
+                environment=self.environment,
+                application_name=self.application_name,
+                capture_message_content=self.capture_message_content,
+                metrics=self.metrics,
+                disable_metrics=self.disable_metrics,
+                conversation_id=conversation_id,
+                handoff_tracker=self._handoff_tracker,
             )
 
-        if hasattr(agent_span, "model"):
-            span.set_attribute(
-                SemanticConvention.GEN_AI_REQUEST_MODEL, agent_span.model
-            )
+            if token is not None:
+                context_api.detach(token)
 
-    def _process_generation_span(self, span, generation_span):
-        """Process generation span data."""
-        # Set generation-specific attributes
-        if hasattr(generation_span, "prompt"):
-            span.set_attribute(
-                SemanticConvention.GEN_AI_PROMPT,
-                truncate_content(generation_span.prompt),
-            )
+            otel_span.end()
 
-        if hasattr(generation_span, "completion"):
-            span.set_attribute(
-                SemanticConvention.GEN_AI_COMPLETION,
-                truncate_content(generation_span.completion),
-            )
+        except Exception as e:
+            handle_exception(None, e)
 
-        if hasattr(generation_span, "usage"):
-            usage = generation_span.usage
-            if hasattr(usage, "prompt_tokens"):
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, usage.prompt_tokens
-                )
-            if hasattr(usage, "completion_tokens"):
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
-                    usage.completion_tokens,
-                )
-
-    def _process_function_span(self, span, function_span):
-        """Process function/tool span data."""
-        if hasattr(function_span, "function_name"):
-            span.set_attribute(
-                SemanticConvention.GEN_AI_TOOL_NAME, function_span.function_name
-            )
-
-        if hasattr(function_span, "arguments"):
-            span.set_attribute(
-                "gen_ai.tool.arguments", truncate_content(function_span.arguments)
-            )
-
-        if hasattr(function_span, "result"):
-            span.set_attribute(
-                "gen_ai.tool.result", truncate_content(function_span.result)
-            )
-
-    def _process_handoff_span(self, span, handoff_span):
-        """Process handoff span data."""
-        if hasattr(handoff_span, "target_agent"):
-            span.set_attribute("gen_ai.handoff.target_agent", handoff_span.target_agent)
-
-        if hasattr(handoff_span, "reason"):
-            span.set_attribute(
-                "gen_ai.handoff.reason", truncate_content(handoff_span.reason)
-            )
-
-    def span_end(self, span_data, trace_id: str):
-        """Handle span end events."""
-        try:
-            span_id = getattr(span_data, "span_id", "")
-            span_key = f"{trace_id}:{span_id}"
-
-            span = self.active_spans.get(span_key)
-            if span:
-                # Set final status
-                if hasattr(span_data, "error") and span_data.error:
-                    span.set_status(Status(StatusCode.ERROR, str(span_data.error)))
-                else:
-                    span.set_status(Status(StatusCode.OK))
-
-                # End span
-                span.end()
-
-                # Cleanup
-                if span_key in self.active_spans:
-                    del self.active_spans[span_key]
-                if span in self.span_stack:
-                    self.span_stack.remove(span)
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            handle_exception(span if "span" in locals() else None, e)
-
+    # ------------------------------------------------------------------
+    # Lifecycle management
+    # ------------------------------------------------------------------
     def force_flush(self):
-        """Force flush all pending spans."""
         try:
-            # End any remaining spans
-            for span in list(self.active_spans.values()):
-                span.end()
+            with self._lock:
+                for otel_span, _, _, token in self._otel_spans.values():
+                    try:
+                        if token is not None:
+                            context_api.detach(token)
+                        otel_span.end()
+                    except Exception:
+                        pass
+                self._otel_spans.clear()
 
-            self.active_spans.clear()
-            self.span_stack.clear()
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
+                for otel_span, _, _, token in self._root_spans.values():
+                    try:
+                        if token is not None:
+                            context_api.detach(token)
+                        otel_span.end()
+                    except Exception:
+                        pass
+                self._root_spans.clear()
+                self._trace_group_ids.clear()
+        except Exception as e:
             handle_exception(None, e)
 
     def shutdown(self):
-        """Shutdown the processor."""
         self.force_flush()
-
-    def _extract_model_info(self, span_data) -> Dict[str, Any]:
-        """Extract model information from span data."""
-        model_info = {}
-
-        if hasattr(span_data, "model"):
-            model_info["model"] = span_data.model
-        if hasattr(span_data, "model_name"):
-            model_info["model"] = span_data.model_name
-
-        return model_info
-
-    def _calculate_cost(
-        self, model: str, prompt_tokens: int, completion_tokens: int
-    ) -> float:
-        """Calculate cost based on token usage."""
-        try:
-            return get_chat_model_cost(
-                model, self.pricing_info, prompt_tokens, completion_tokens
-            )
-        except Exception:  # pylint: disable=broad-exception-caught
-            return 0.0
-
-    # Abstract method implementations required by OpenAI Agents framework
-    def on_trace_start(self, trace):
-        """Called when a trace starts - required by OpenAI Agents framework"""
-        try:
-            self.start_trace(
-                getattr(trace, "trace_id", "unknown"),
-                getattr(trace, "name", "workflow"),
-            )
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
-
-    def on_trace_end(self, trace):
-        """Called when a trace ends - required by OpenAI Agents framework"""
-        try:
-            self.end_trace(getattr(trace, "trace_id", "unknown"))
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
-
-    def on_span_start(self, span):
-        """Called when a span starts - required by OpenAI Agents framework"""
-        try:
-            trace_id = getattr(span, "trace_id", "unknown")
-            self.span_start(span, trace_id)
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
-
-    def on_span_end(self, span):
-        """Called when a span ends - required by OpenAI Agents framework"""
-        try:
-            trace_id = getattr(span, "trace_id", "unknown")
-            self.span_end(span, trace_id)
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
