@@ -264,7 +264,7 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
     GEN_AI_OPERATION_TYPE_FRAMEWORK = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
-    GEN_AI_OPERATION_TYPE_TEAM = "team"
+    GEN_AI_OPERATION_TYPE_TEAM = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
     GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "invoke_workflow"
@@ -357,6 +357,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_SARVAM = "sarvam"
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
     GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
+    GEN_AI_SYSTEM_GOOGLE_ADK = "google_adk"
 
     # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
     GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"

@@ -4,6 +4,7 @@ This module has functions to calculate model costs based on tokens and to fetch 
 """
 
 import asyncio
+import inspect
 import os
 import json
 import logging
@@ -38,6 +39,12 @@ _framework_llm_span_active: ContextVar[bool] = ContextVar(
     "openlit_framework_llm_span_active", default=False
 )
 
+# Prevents duplicate spans when both `litellm` and `litellm.main` are
+# wrapped.  The outer wrapper sets this; the inner one checks and skips.
+_litellm_span_active: ContextVar[bool] = ContextVar(
+    "openlit_litellm_span_active", default=False
+)
+
 # Set by the LangGraph wrapper before calling wrapped() so the LangChain
 # callback handler knows to skip its own top-level graph invocation span
 # (which would duplicate the LangGraph wrapper span).
@@ -59,6 +66,21 @@ def reset_framework_llm_active(token):
 def is_framework_llm_active() -> bool:
     """Check if a framework instrumentor is currently handling the LLM span."""
     return _framework_llm_span_active.get()
+
+
+def set_litellm_span_active():
+    """Set by LiteLLM wrapper; returns a token to reset later."""
+    return _litellm_span_active.set(True)
+
+
+def reset_litellm_span_active(token):
+    """Reset the LiteLLM span flag using the token from set_litellm_span_active."""
+    _litellm_span_active.reset(token)
+
+
+def is_litellm_span_active() -> bool:
+    """Check if a LiteLLM instrumentor is already handling this call."""
+    return _litellm_span_active.get()
 
 
 def set_langgraph_wrapper_active():
@@ -201,7 +223,16 @@ def response_as_dict(response):
     if hasattr(response, "model_dump"):
         return response.model_dump()
     elif hasattr(response, "parse"):
-        return response_as_dict(response.parse())
+        if inspect.iscoroutinefunction(response.parse):
+            logger.warning("response.parse() is a coroutine function; skipping")
+            return {}
+        parsed = response.parse()
+        if asyncio.iscoroutine(parsed):
+            logger.warning(
+                "response.parse() returned a coroutine; cannot await in sync context"
+            )
+            return {}
+        return response_as_dict(parsed)
     else:
         return response
 
@@ -389,7 +420,7 @@ def create_metrics_attributes(
         SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
-        SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model,
+        SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model or "",
     }
 
     # Propagate agent name from context if an agent framework set it.
