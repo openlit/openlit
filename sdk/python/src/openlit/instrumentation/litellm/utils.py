@@ -504,9 +504,11 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id or ""
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason or ""]
-    )
+    if scope._finish_reason:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+            [scope._finish_reason.lower()],
+        )
     if is_openai_compatible:
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
@@ -590,7 +592,9 @@ def common_chat_logic(
                 tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
                 extra = {
                     "response_id": scope._response_id,
-                    "finish_reasons": [scope._finish_reason],
+                    "finish_reasons": [scope._finish_reason.lower()]
+                    if scope._finish_reason
+                    else None,
                     "output_type": "text"
                     if isinstance(scope._llmresponse, str)
                     else "json",
@@ -733,7 +737,8 @@ def process_chat_response(
     scope._response_model = response_dict.get("model") or ""
     choices = response_dict.get("choices", [])
     first_choice = choices[0] if choices else {}
-    scope._finish_reason = str(first_choice.get("finish_reason", ""))
+    raw_fr = first_choice.get("finish_reason")
+    scope._finish_reason = str(raw_fr).lower() if raw_fr else ""
     scope._response_service_tier = str(response_dict.get("service_tier") or "")
     scope._response_system_fingerprint = str(
         response_dict.get("system_fingerprint") or ""

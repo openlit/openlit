@@ -76,6 +76,10 @@ class TestOperationMap:
         assert get_operation_type("agent_init") == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
         assert get_operation_type("unknown_key") == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
 
+    def test_runner_endpoints_map_to_invoke_agent(self):
+        for key in ("runner_run_async", "runner_run", "runner_run_live"):
+            assert OPERATION_MAP[key] == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+
 
 class TestSpanNameGeneration:
     """Tests for generate_span_name."""
@@ -88,12 +92,12 @@ class TestSpanNameGeneration:
     def test_runner_run_async_span_name(self):
         instance = MagicMock()
         instance.app_name = "my_app"
-        assert generate_span_name("runner_run_async", instance) == "invoke_workflow my_app"
+        assert generate_span_name("runner_run_async", instance) == "invoke_agent my_app"
 
     def test_runner_run_span_name(self):
         instance = MagicMock()
         instance.app_name = "sync_app"
-        assert generate_span_name("runner_run", instance) == "invoke_workflow sync_app"
+        assert generate_span_name("runner_run", instance) == "invoke_agent sync_app"
 
     def test_agent_run_async_span_name(self):
         instance = MagicMock()
@@ -103,7 +107,7 @@ class TestSpanNameGeneration:
     def test_fallback_app_name(self):
         instance = MagicMock(spec=[])
         name = generate_span_name("runner_run_async", instance)
-        assert "invoke_workflow" in name
+        assert "invoke_agent" in name
 
     def test_fallback_agent_name(self):
         instance = MagicMock(spec=[])
@@ -726,6 +730,248 @@ class TestSemconvConstant:
     def test_google_adk_system_constant(self):
         assert hasattr(SemanticConvention, "GEN_AI_SYSTEM_GOOGLE_ADK")
         assert SemanticConvention.GEN_AI_SYSTEM_GOOGLE_ADK == "google_adk"
+
+
+class TestInputMessageSchema:
+    """Tests that capture_input_messages produces the OTel parts-based schema."""
+
+    def test_text_message(self):
+        from openlit.instrumentation.google_adk.utils import capture_input_messages
+
+        span = MagicMock()
+        llm_request = MagicMock()
+        content = MagicMock()
+        content.role = "user"
+        text_part = MagicMock()
+        text_part.text = "Hello world"
+        text_part.function_call = None
+        text_part.function_response = None
+        content.parts = [text_part]
+        llm_request.contents = [content]
+
+        capture_input_messages(span, llm_request, capture_message_content=True)
+
+        call_args = span.set_attribute.call_args_list
+        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        assert len(msg_call) == 1
+        messages = json.loads(msg_call[0][0][1])
+        assert messages[0]["role"] == "user"
+        assert "parts" in messages[0]
+        assert messages[0]["parts"][0]["type"] == "text"
+        assert messages[0]["parts"][0]["content"] == "Hello world"
+        assert "content" not in messages[0]
+
+    def test_tool_call_message(self):
+        from openlit.instrumentation.google_adk.utils import capture_input_messages
+
+        span = MagicMock()
+        llm_request = MagicMock()
+        content = MagicMock()
+        content.role = "assistant"
+        fc = MagicMock()
+        fc.name = "get_weather"
+        fc.id = "call_1"
+        fc.args = {"city": "NYC"}
+        part = MagicMock()
+        part.text = None
+        part.function_call = fc
+        part.function_response = None
+        content.parts = [part]
+        llm_request.contents = [content]
+
+        capture_input_messages(span, llm_request, capture_message_content=True)
+
+        call_args = span.set_attribute.call_args_list
+        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        messages = json.loads(msg_call[0][0][1])
+        tool_part = messages[0]["parts"][0]
+        assert tool_part["type"] == "tool_call"
+        assert tool_part["name"] == "get_weather"
+        assert tool_part["id"] == "call_1"
+
+    def test_tool_response_message(self):
+        from openlit.instrumentation.google_adk.utils import capture_input_messages
+
+        span = MagicMock()
+        llm_request = MagicMock()
+        content = MagicMock()
+        content.role = "tool"
+        fr = MagicMock()
+        fr.name = "get_weather"
+        fr.id = "call_1"
+        fr.response = {"temp": 72}
+        part = MagicMock()
+        part.text = None
+        part.function_call = None
+        part.function_response = fr
+        content.parts = [part]
+        llm_request.contents = [content]
+
+        capture_input_messages(span, llm_request, capture_message_content=True)
+
+        call_args = span.set_attribute.call_args_list
+        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        messages = json.loads(msg_call[0][0][1])
+        resp_part = messages[0]["parts"][0]
+        assert resp_part["type"] == "tool_call_response"
+        assert resp_part["id"] == "call_1"
+
+
+class TestOutputMessageSchema:
+    """Tests that capture_output_messages produces the OTel parts-based schema."""
+
+    def test_text_output_with_finish_reason(self):
+        from openlit.instrumentation.google_adk.utils import capture_output_messages
+
+        span = MagicMock()
+        llm_response = MagicMock()
+        text_part = MagicMock()
+        text_part.text = "The weather is sunny."
+        text_part.function_call = None
+        text_part.function_response = None
+        llm_response.content.parts = [text_part]
+
+        capture_output_messages(span, llm_response, True, "stop")
+
+        call_args = span.set_attribute.call_args_list
+        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+        assert len(msg_call) == 1
+        messages = json.loads(msg_call[0][0][1])
+        assert messages[0]["role"] == "assistant"
+        assert messages[0]["finish_reason"] == "stop"
+        assert "parts" in messages[0]
+        assert messages[0]["parts"][0]["type"] == "text"
+        assert "content" not in messages[0]
+
+    def test_tool_call_output(self):
+        from openlit.instrumentation.google_adk.utils import capture_output_messages
+
+        span = MagicMock()
+        llm_response = MagicMock()
+        fc = MagicMock()
+        fc.name = "calculate"
+        fc.id = "call_2"
+        fc.args = {"expr": "1+1"}
+        part = MagicMock()
+        part.text = None
+        part.function_call = fc
+        part.function_response = None
+        llm_response.content.parts = [part]
+
+        capture_output_messages(span, llm_response, True, "tool_calls")
+
+        call_args = span.set_attribute.call_args_list
+        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+        messages = json.loads(msg_call[0][0][1])
+        assert messages[0]["finish_reason"] == "tool_calls"
+        assert messages[0]["parts"][0]["type"] == "tool_call"
+
+
+class TestSystemInstructionsFormat:
+    """Tests that gen_ai.system_instructions uses the JSON schema format."""
+
+    def test_llm_span_system_instructions_format(self):
+        span = MagicMock()
+        llm_request = MagicMock()
+        llm_request.model = "gemini-2.0-flash"
+        llm_request.config = MagicMock()
+        llm_request.config.temperature = None
+        llm_request.config.top_p = None
+        llm_request.config.max_output_tokens = None
+        llm_request.config.system_instruction = "You are a helpful assistant."
+        llm_request.contents = []
+
+        llm_response = MagicMock()
+        llm_response.usage_metadata = None
+        llm_response.finish_reason = None
+        llm_response.error_code = None
+        llm_response.content = MagicMock()
+        llm_response.content.parts = []
+        llm_response.model_version = None
+        llm_response.response_id = None
+        llm_response.id = None
+
+        enrich_llm_span(span, llm_request, llm_response, capture_message_content=True)
+
+        calls = {c[0][0]: c[0][1] for c in span.set_attribute.call_args_list}
+        sys_instr = calls.get(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS)
+        assert sys_instr is not None
+        parsed = json.loads(sys_instr)
+        assert isinstance(parsed, list)
+        assert parsed[0]["type"] == "text"
+        assert parsed[0]["content"] == "You are a helpful assistant."
+
+
+class TestToolSpanErrorHandling:
+    """Tests that enrich_tool_span sets error.type when error is provided."""
+
+    def test_error_sets_error_type_and_status(self):
+        span = MagicMock()
+        tool = MagicMock()
+        tool.name = "failing_tool"
+        tool.description = None
+
+        error = ValueError("bad input")
+        enrich_tool_span(
+            span,
+            tool,
+            function_args={"x": 1},
+            function_response_event=None,
+            capture_message_content=False,
+            error=error,
+        )
+
+        calls = {c[0][0]: c[0][1] for c in span.set_attribute.call_args_list}
+        assert calls.get(SemanticConvention.ERROR_TYPE) == "ValueError"
+        span.set_status.assert_called_once()
+
+    def test_no_error_does_not_set_error_type(self):
+        span = MagicMock()
+        tool = MagicMock()
+        tool.name = "ok_tool"
+        tool.description = None
+
+        enrich_tool_span(
+            span,
+            tool,
+            function_args={},
+            function_response_event=None,
+            capture_message_content=False,
+            error=None,
+        )
+
+        calls = {c[0][0]: c[0][1] for c in span.set_attribute.call_args_list}
+        assert SemanticConvention.ERROR_TYPE not in calls
+        span.set_status.assert_not_called()
+
+
+class TestLLMSpanResponseId:
+    """Tests that enrich_llm_span extracts gen_ai.response.id when available."""
+
+    def test_response_id_extracted(self):
+        span = MagicMock()
+        llm_request = MagicMock()
+        llm_request.model = "gemini-2.0-flash"
+        llm_request.config = MagicMock()
+        llm_request.config.temperature = None
+        llm_request.config.top_p = None
+        llm_request.config.max_output_tokens = None
+        llm_request.config.system_instruction = None
+        llm_request.contents = []
+
+        llm_response = MagicMock()
+        llm_response.usage_metadata = None
+        llm_response.model_version = None
+        llm_response.finish_reason = None
+        llm_response.error_code = None
+        llm_response.content = MagicMock()
+        llm_response.content.parts = []
+        llm_response.response_id = "resp_abc123"
+
+        enrich_llm_span(span, llm_request, llm_response, capture_message_content=False)
+
+        calls = {c[0][0]: c[0][1] for c in span.set_attribute.call_args_list}
+        assert calls.get(SemanticConvention.GEN_AI_RESPONSE_ID) == "resp_abc123"
 
 
 if __name__ == "__main__":

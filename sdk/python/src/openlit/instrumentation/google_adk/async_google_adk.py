@@ -43,7 +43,7 @@ def async_runner_wrap(
             return wrapped(*args, **kwargs)
 
         operation_type = OPERATION_MAP.get(
-            gen_ai_endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
+            gen_ai_endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
         )
         span_kind = get_span_kind(operation_type)
         span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)

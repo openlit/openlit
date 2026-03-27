@@ -3,14 +3,14 @@ OpenLIT Google ADK Instrumentation — OTel GenAI semantic convention compliant.
 
 Provides auto-instrumentation for Google ADK (Agent Development Kit) including:
 - Agent construction (LlmAgent.__init__  -> create_agent spans)
-- Runner execution  (Runner.run_async, Runner.run  -> invoke_workflow spans)
+- Runner execution  (Runner.run_async, Runner.run  -> invoke_agent spans)
 - Agent execution   (BaseAgent.run_async  -> invoke_agent spans)
 - LLM call enrichment  (trace_call_llm  -> OTel semconv attributes on ADK spans)
 - Tool call enrichment (trace_tool_call  -> OTel semconv attributes on ADK spans)
 
 Uses a selective _PassthroughTracer strategy:
 - Replaces ADK's runners.tracer and base_agent.tracer to suppress their spans
-  (OpenLIT creates invoke_workflow / invoke_agent instead).
+  (OpenLIT creates invoke_agent spans instead).
 - Leaves ADK's telemetry.tracing.tracer intact so call_llm, generate_content,
   and execute_tool spans remain as children, enriched with OTel attributes via
   decorator-style wrappers on ADK's trace_call_llm / trace_tool_call functions.
@@ -119,7 +119,14 @@ def _wrap_agent_init(
                     instr_str = str(instruction)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                        truncate_content(instr_str),
+                        json.dumps(
+                            [
+                                {
+                                    "type": "text",
+                                    "content": truncate_content(instr_str),
+                                }
+                            ]
+                        ),
                     )
 
                 tools = getattr(instance, "tools", None)
@@ -161,8 +168,8 @@ def _wrap_agent_init(
                 creation_ctx = span.get_span_context()
                 instance._openlit_creation_context = creation_ctx
                 registry.register(str(name), creation_ctx)
-        except Exception:
-            pass
+        except Exception as e:
+            handle_exception(span, e)
 
         return result
 
@@ -265,12 +272,14 @@ def _wrap_trace_tool_call(capture_message_content):
                 function_response_event = (
                     args[2] if len(args) > 2 else kwargs.get("function_response_event")
                 )
+                tool_error = args[3] if len(args) > 3 else kwargs.get("error")
                 enrich_tool_span(
                     span,
                     tool,
                     function_args,
                     function_response_event,
                     capture_message_content,
+                    error=tool_error,
                 )
             except Exception:
                 pass

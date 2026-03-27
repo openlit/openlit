@@ -8,7 +8,7 @@ gen-ai-agent-spans.md).
 
 Key technique: ``_PassthroughTracer`` (adopted from OpenInference) replaces
 ADK's internal tracers so that OpenLIT controls span creation for
-``invoke_workflow`` and ``invoke_agent``, while ADK's ``call_llm``,
+``invoke_agent`` (both Runner and BaseAgent), while ADK's ``call_llm``,
 ``generate_content``, and ``execute_tool`` spans remain as children enriched
 via decorator-style wrappers on ADK's tracing functions.
 """
@@ -27,6 +27,7 @@ from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
     truncate_content,
+    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -41,9 +42,9 @@ _ADK_WORKFLOW_ACTIVE: ContextVar[bool] = ContextVar(
 # ---------------------------------------------------------------------------
 OPERATION_MAP = {
     "agent_init": SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
-    "runner_run_async": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-    "runner_run": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-    "runner_run_live": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+    "runner_run_async": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+    "runner_run": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+    "runner_run_live": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
     "agent_run_async": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
 }
 
@@ -86,7 +87,7 @@ def generate_span_name(endpoint, instance, args=None, kwargs=None):
             or getattr(instance, "_app_name", None)
             or "google_adk"
         )
-        return f"invoke_workflow {app_name}"
+        return f"invoke_agent {app_name}"
 
     if endpoint == "agent_run_async":
         name = getattr(instance, "name", None) or "agent"
@@ -252,7 +253,11 @@ def _extract_parts(parts):
 
 
 def capture_input_messages(span, llm_request, capture_message_content):
-    """Set ``gen_ai.input.messages`` from an ADK ``LlmRequest``."""
+    """Set ``gen_ai.input.messages`` from an ADK ``LlmRequest``.
+
+    Produces the OTel parts-based schema:
+    ``[{"role": ..., "parts": [{"type": "text", "content": ...}, ...]}]``
+    """
     if not capture_message_content:
         return
     try:
@@ -262,19 +267,33 @@ def capture_input_messages(span, llm_request, capture_message_content):
         messages = []
         for content in contents[:20]:
             role = getattr(content, "role", "user")
-            parts = getattr(content, "parts", [])
-            text_parts, tool_calls, tool_responses = _extract_parts(parts)
+            raw_parts = getattr(content, "parts", [])
+            text_parts, tool_calls, tool_responses = _extract_parts(raw_parts)
 
-            msg = {"role": str(role)}
-            if text_parts:
-                msg["content"] = " ".join(text_parts)
-            if tool_calls:
-                msg["tool_calls"] = tool_calls
-            if tool_responses:
-                msg["tool_responses"] = tool_responses
-            if len(msg) > 1:
-                messages.append(msg)
+            parts = []
+            for text in text_parts:
+                parts.append({"type": "text", "content": text})
+            for tc in tool_calls:
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": tc.get("id", ""),
+                        "name": tc.get("name", ""),
+                        "arguments": tc.get("arguments", ""),
+                    }
+                )
+            for tr in tool_responses:
+                parts.append(
+                    {
+                        "type": "tool_call_response",
+                        "id": tr.get("id", ""),
+                        "response": tr.get("content", ""),
+                    }
+                )
+            if parts:
+                messages.append({"role": str(role), "parts": parts})
         if messages:
+            truncate_message_content(messages)
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(messages)
             )
@@ -282,51 +301,81 @@ def capture_input_messages(span, llm_request, capture_message_content):
         pass
 
 
-def capture_output_messages(span, llm_response, capture_message_content):
-    """Set ``gen_ai.output.messages`` from an ADK ``LlmResponse``."""
+def capture_output_messages(
+    span, llm_response, capture_message_content, finish_reason="stop"
+):
+    """Set ``gen_ai.output.messages`` from an ADK ``LlmResponse``.
+
+    Produces the OTel parts-based schema with ``finish_reason``:
+    ``[{"role": "assistant", "parts": [...], "finish_reason": "stop"}]``
+    """
     if not capture_message_content:
         return
     try:
         content = getattr(llm_response, "content", None)
         if not content:
             return
-        parts = getattr(content, "parts", [])
-        text_parts, tool_calls, _ = _extract_parts(parts)
+        raw_parts = getattr(content, "parts", [])
+        text_parts, tool_calls, _ = _extract_parts(raw_parts)
 
-        msg = {"role": "assistant"}
-        if text_parts:
-            msg["content"] = " ".join(text_parts)
-        if tool_calls:
-            msg["tool_calls"] = tool_calls
-        if len(msg) > 1:
+        parts = []
+        for text in text_parts:
+            parts.append({"type": "text", "content": text})
+        for tc in tool_calls:
+            parts.append(
+                {
+                    "type": "tool_call",
+                    "id": tc.get("id", ""),
+                    "name": tc.get("name", ""),
+                    "arguments": tc.get("arguments", ""),
+                }
+            )
+        if parts:
+            messages = [
+                {"role": "assistant", "parts": parts, "finish_reason": finish_reason}
+            ]
+            truncate_message_content(messages)
             span.set_attribute(
                 SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                json.dumps([msg]),
+                json.dumps(messages),
             )
     except Exception:
         pass
 
 
 def capture_event_output(span, event, capture_message_content):
-    """Capture final response output from an ADK ``Event``."""
+    """Capture final response output from an ADK ``Event``.
+
+    Produces the OTel parts-based schema with ``finish_reason``:
+    ``[{"role": "assistant", "parts": [...], "finish_reason": "stop"}]``
+    """
     if not capture_message_content:
         return
     try:
         content = getattr(event, "content", None)
         if not content:
             return
-        parts = getattr(content, "parts", [])
-        text_parts, tool_calls, _ = _extract_parts(parts)
+        raw_parts = getattr(content, "parts", [])
+        text_parts, tool_calls, _ = _extract_parts(raw_parts)
 
-        msg = {"role": "assistant"}
-        if text_parts:
-            msg["content"] = " ".join(text_parts)
-        if tool_calls:
-            msg["tool_calls"] = tool_calls
-        if len(msg) > 1:
+        parts = []
+        for text in text_parts:
+            parts.append({"type": "text", "content": text})
+        for tc in tool_calls:
+            parts.append(
+                {
+                    "type": "tool_call",
+                    "id": tc.get("id", ""),
+                    "name": tc.get("name", ""),
+                    "arguments": tc.get("arguments", ""),
+                }
+            )
+        if parts:
+            messages = [{"role": "assistant", "parts": parts, "finish_reason": "stop"}]
+            truncate_message_content(messages)
             span.set_attribute(
                 SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                json.dumps([msg]),
+                json.dumps(messages),
             )
     except Exception:
         pass
@@ -413,7 +462,14 @@ def enrich_llm_span(span, llm_request, llm_response, capture_message_content):
                     )
                     span.set_attribute(
                         SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                        truncate_content(instr_text),
+                        json.dumps(
+                            [
+                                {
+                                    "type": "text",
+                                    "content": truncate_content(instr_text),
+                                }
+                            ]
+                        ),
                     )
             capture_input_messages(span, llm_request, capture_message_content)
 
@@ -454,6 +510,7 @@ def enrich_llm_span(span, llm_request, llm_response, capture_message_content):
                     SemanticConvention.GEN_AI_RESPONSE_MODEL, str(response_model)
                 )
 
+            fr_str = "stop"
             finish_reason = getattr(llm_response, "finish_reason", None)
             if finish_reason:
                 try:
@@ -465,6 +522,14 @@ def enrich_llm_span(span, llm_request, llm_response, capture_message_content):
                     [fr_str],
                 )
 
+            response_id = getattr(llm_response, "response_id", None) or getattr(
+                llm_response, "id", None
+            )
+            if response_id:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_RESPONSE_ID, str(response_id)
+                )
+
             error_code = getattr(llm_response, "error_code", None)
             if error_code:
                 span.set_attribute(SemanticConvention.ERROR_TYPE, str(error_code))
@@ -472,7 +537,7 @@ def enrich_llm_span(span, llm_request, llm_response, capture_message_content):
                 if error_message:
                     span.set_status(Status(StatusCode.ERROR, str(error_message)))
 
-            capture_output_messages(span, llm_response, capture_message_content)
+            capture_output_messages(span, llm_response, capture_message_content, fr_str)
 
             span.set_attribute(
                 SemanticConvention.GEN_AI_OUTPUT_TYPE,
@@ -534,7 +599,12 @@ def _is_adk_event(obj):
 # Tool span enrichment (called from trace_tool_call wrapper)
 # ---------------------------------------------------------------------------
 def enrich_tool_span(
-    span, tool, function_args, function_response_event, capture_message_content
+    span,
+    tool,
+    function_args,
+    function_response_event,
+    capture_message_content,
+    error=None,
 ):
     """Add OTel GenAI semantic convention attributes to an ADK ``execute_tool`` span.
 
@@ -609,6 +679,11 @@ def enrich_tool_span(
             span.set_attribute(
                 SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tool_call_id)
             )
+
+        if error is not None:
+            error_type = type(error).__name__ if type(error).__name__ else "_OTHER"
+            span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
+            span.set_status(Status(StatusCode.ERROR, str(error)))
 
     except Exception:
         pass
@@ -711,7 +786,7 @@ def process_google_adk_response(
     )
 
     if endpoint in ("runner_run_async", "runner_run", "runner_run_live"):
-        _set_workflow_attributes(span, instance, endpoint)
+        _set_runner_agent_attributes(span, instance, endpoint)
     elif endpoint == "agent_run_async":
         _set_agent_attributes(span, instance)
 
@@ -738,15 +813,15 @@ def process_google_adk_response(
 # ---------------------------------------------------------------------------
 # Attribute setters
 # ---------------------------------------------------------------------------
-def _set_workflow_attributes(span, instance, endpoint):
-    """Set attributes for ``invoke_workflow`` (Runner) spans."""
+def _set_runner_agent_attributes(span, instance, endpoint):
+    """Set attributes for Runner ``invoke_agent`` spans."""
     try:
         app_name = (
             getattr(instance, "app_name", None)
             or getattr(instance, "_app_name", None)
             or "google_adk"
         )
-        span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, str(app_name))
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(app_name))
 
         if endpoint == "runner_run_live":
             span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "live")
