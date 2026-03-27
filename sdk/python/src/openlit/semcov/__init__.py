@@ -264,7 +264,7 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
     GEN_AI_OPERATION_TYPE_FRAMEWORK = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
-    GEN_AI_OPERATION_TYPE_TEAM = "team"
+    GEN_AI_OPERATION_TYPE_TEAM = "invoke_workflow"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
     GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "invoke_workflow"
