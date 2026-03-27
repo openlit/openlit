@@ -13,7 +13,7 @@ from collections import OrderedDict
 from typing import Any, TYPE_CHECKING
 
 from opentelemetry import context as context_api
-from opentelemetry.trace import SpanKind, Status, StatusCode, set_span_in_context
+from opentelemetry.trace import SpanKind, Status, StatusCode, Link, set_span_in_context
 
 from openlit.__helpers import (
     common_framework_span_attributes,
@@ -73,6 +73,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         metrics,
         disable_metrics,
         detailed_tracing,
+        agent_creation_registry=None,
         **kwargs,
     ):
         super().__init__()
@@ -86,6 +87,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         self.metrics = metrics
         self.disable_metrics = disable_metrics
         self.detailed_tracing = detailed_tracing
+        self._agent_creation_registry = agent_creation_registry
 
         self._lock = threading.Lock()
         # SDK span_id -> (otel_span, start_time, ctx, context_token)
@@ -245,10 +247,20 @@ class OpenLITTracingProcessor(TracingProcessor):
                 elif trace_id in self._root_spans:
                     _, _, parent_ctx, _ = self._root_spans[trace_id]
 
+            # Span links: connect invoke_agent back to create_agent
+            links = []
+            if span_type == "agent" and self._agent_creation_registry:
+                agent_name = getattr(span_data, "name", None)
+                if agent_name:
+                    creation_ctx = self._agent_creation_registry.get(str(agent_name))
+                    if creation_ctx:
+                        links.append(Link(creation_ctx))
+
             otel_span = self.tracer.start_span(
                 span_name,
                 kind=kind,
                 context=parent_ctx,
+                links=links,
                 attributes={
                     SemanticConvention.GEN_AI_OPERATION: operation,
                     SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_OPENAI,

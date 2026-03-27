@@ -3,6 +3,7 @@ OpenLIT OpenAI Agents Instrumentation
 """
 
 import json
+import threading
 from typing import Collection
 import importlib.metadata
 
@@ -17,7 +18,29 @@ from openlit.instrumentation.openai_agents.processor import OpenLITTracingProces
 _instruments = ("openai-agents >= 0.0.3",)
 
 
-def _wrap_agent_init(tracer, environment, application_name, capture_message_content):
+class _AgentCreationRegistry:
+    """Thread-safe registry mapping agent name -> SpanContext from create_agent spans.
+
+    Used to provide span links from invoke_agent back to create_agent,
+    matching the pattern used in CrewAI and LangGraph instrumentations.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._contexts: dict = {}
+
+    def register(self, agent_name, span_context):
+        with self._lock:
+            self._contexts[agent_name] = span_context
+
+    def get(self, agent_name):
+        with self._lock:
+            return self._contexts.get(agent_name)
+
+
+def _wrap_agent_init(
+    tracer, environment, application_name, capture_message_content, registry
+):
     """Return a wrapt wrapper for ``Agent.__init__`` that emits a
     ``create_agent`` span per agent construction."""
 
@@ -80,7 +103,9 @@ def _wrap_agent_init(tracer, environment, application_name, capture_message_cont
                     SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
                 )
 
-                instance._openlit_creation_context = span.get_span_context()
+                creation_ctx = span.get_span_context()
+                instance._openlit_creation_context = creation_ctx
+                registry.register(str(name), creation_ctx)
         except Exception as e:
             handle_exception(None, e)
 
@@ -106,13 +131,20 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         detailed_tracing = kwargs.get("detailed_tracing", False)
 
+        # Shared registry: create_agent span contexts keyed by agent name
+        agent_registry = _AgentCreationRegistry()
+
         # Wrap Agent.__init__ to emit create_agent spans
         try:
             wrap_function_wrapper(
                 "agents",
                 "Agent.__init__",
                 _wrap_agent_init(
-                    tracer, environment, application_name, capture_message_content
+                    tracer,
+                    environment,
+                    application_name,
+                    capture_message_content,
+                    agent_registry,
                 ),
             )
         except Exception:
@@ -129,6 +161,7 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
             metrics=metrics,
             disable_metrics=disable_metrics,
             detailed_tracing=detailed_tracing,
+            agent_creation_registry=agent_registry,
         )
 
         # Integrate with OpenAI Agents' native tracing system
