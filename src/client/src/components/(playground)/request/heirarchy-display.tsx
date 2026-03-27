@@ -144,7 +144,7 @@ export default function HeirarchyDisplay() {
 										Total cost:
 									</span>
 									<span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-										${aggregateCost.toFixed(6)}
+										${aggregateCost.toFixed(10)}
 									</span>
 								</div>
 							)}

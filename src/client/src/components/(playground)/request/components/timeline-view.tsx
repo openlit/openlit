@@ -102,7 +102,7 @@ export default function TimelineView({
 					className="shrink-0 text-right pr-1 text-stone-500 dark:text-stone-400 font-medium"
 					style={{ width: `${DURATION_COL_PCT}%` }}
 				>
-					s / $
+					Duration
 				</div>
 			</div>
 
@@ -114,7 +114,7 @@ export default function TimelineView({
 					const spanDurationMs = span.Duration / 1e6;
 
 					const durationDisplay = getSpanDurationDisplay(span);
-					const costDisplay = getSpanCostFormatted(span, 4);
+					const costDisplay = getSpanCostFormatted(span, 10);
 					const tooltipText = getSpanTooltipText(span);
 
 					let leftPct = 0;
@@ -139,7 +139,7 @@ export default function TimelineView({
 					return (
 						<div
 							key={span.SpanId}
-							className={`flex items-center h-6 rounded cursor-pointer transition-colors ${
+							className={`flex flex-col rounded cursor-pointer transition-colors ${
 								isSelected
 									? "bg-primary/10 dark:bg-primary/10"
 									: "hover:bg-stone-200/60 dark:hover:bg-stone-800/60"
@@ -147,61 +147,87 @@ export default function TimelineView({
 							onClick={() => updateRequest({ spanId: span.SpanId })}
 							title={tooltipText}
 						>
-							{/* ── Name column ── */}
-							<div
-								className="shrink-0 h-full flex items-center overflow-hidden pr-2"
-								style={{
-									width: `${NAME_COL_PCT}%`,
-									paddingLeft: `${level * 10 + 4}px`,
-								}}
-							>
-								<span
-									className={`truncate text-[11px] leading-none ${
+							{/* Main row: name + bar + duration */}
+							<div className="flex items-center h-6">
+								{/* ── Name column ── */}
+								<div
+									className="shrink-0 h-full flex items-center overflow-hidden pr-2"
+									style={{
+										width: `${NAME_COL_PCT}%`,
+										paddingLeft: `${level * 10 + 4}px`,
+									}}
+								>
+									<span
+										className={`truncate text-[11px] leading-none ${
+											isSelected
+												? "text-primary font-medium"
+												: "text-stone-700 dark:text-stone-300"
+										}`}
+									>
+										{span.SpanName}
+									</span>
+								</div>
+
+								{/* ── Bar column ── */}
+								<div
+									className="relative h-full flex items-center"
+									style={{
+										width: `${100 - NAME_COL_PCT - DURATION_COL_PCT}%`,
+									}}
+								>
+									{/* Background track */}
+									<div className="absolute inset-x-0 h-px bg-stone-200 dark:bg-stone-700 top-1/2 -translate-y-1/2" />
+									{/* Span bar */}
+									<div
+										className={`absolute h-[10px] rounded-sm ${getBarColor(span.Duration)} ${
+											isSelected
+												? "ring-1 ring-primary ring-offset-0"
+												: "opacity-80"
+										}`}
+										style={{
+											left: `${leftPct}%`,
+											width: `${widthPct}%`,
+										}}
+									/>
+								</div>
+
+								{/* ── Duration column ── */}
+								<div
+									className={`shrink-0 text-right pr-1 text-[10px] tabular-nums ${
 										isSelected
 											? "text-primary font-medium"
-											: "text-stone-700 dark:text-stone-300"
+											: "text-stone-500 dark:text-stone-400"
 									}`}
+									style={{ width: `${DURATION_COL_PCT}%` }}
 								>
-									{span.SpanName}
-								</span>
+									{durationDisplay}
+								</div>
 							</div>
 
-							{/* ── Bar column ── */}
-							<div
-								className="relative h-full flex items-center"
-								style={{
-									width: `${100 - NAME_COL_PCT - DURATION_COL_PCT}%`,
-								}}
-							>
-								{/* Background track */}
-								<div className="absolute inset-x-0 h-px bg-stone-200 dark:bg-stone-700 top-1/2 -translate-y-1/2" />
-								{/* Span bar */}
-								<div
-									className={`absolute h-[10px] rounded-sm ${getBarColor(span.Duration)} ${
-										isSelected
-											? "ring-1 ring-primary ring-offset-0"
-											: "opacity-80"
-									}`}
-									style={{
-										left: `${leftPct}%`,
-										width: `${widthPct}%`,
-									}}
-								/>
-							</div>
-
-							{/* ── Duration column ── */}
-							<div
-								className={`shrink-0 text-right pr-1 text-[10px] tabular-nums ${
-									isSelected
-										? "text-primary font-medium"
-										: "text-stone-500 dark:text-stone-400"
-								}`}
-								style={{ width: `${DURATION_COL_PCT}%` }}
-							>
-								{costDisplay
-									? `${durationDisplay} / ${costDisplay}`
-									: durationDisplay}
-							</div>
+							{/* Cost row below the bar */}
+							{costDisplay && (
+								<div className="flex items-center h-4">
+									{/* Empty name column spacer */}
+									<div className="shrink-0" style={{ width: `${NAME_COL_PCT}%` }} />
+									{/* Cost aligned under the bar */}
+									<div
+										className="relative"
+										style={{
+											width: `${100 - NAME_COL_PCT - DURATION_COL_PCT}%`,
+											paddingLeft: `${leftPct}%`,
+										}}
+									>
+										<span className={`text-[9px] tabular-nums ${
+											isSelected
+												? "text-primary/80"
+												: "text-stone-400 dark:text-stone-500"
+										}`}>
+											{costDisplay}
+										</span>
+									</div>
+									<div className="shrink-0" style={{ width: `${DURATION_COL_PCT}%` }} />
+								</div>
+							)}
 						</div>
 					);
 				})}
