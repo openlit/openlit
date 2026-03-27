@@ -8,6 +8,7 @@ from openlit.__helpers import (
     handle_exception,
     set_server_address_and_port,
     record_completion_metrics,
+    is_framework_llm_active,
 )
 from openlit.instrumentation.anthropic.utils import (
     process_chunk,
@@ -114,6 +115,9 @@ def async_messages(
         """
         Wraps the Anthropic AsyncMessages.create call.
         """
+
+        if is_framework_llm_active():
+            return await wrapped(*args, **kwargs)
 
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
