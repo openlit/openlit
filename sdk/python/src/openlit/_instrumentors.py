@@ -54,6 +54,7 @@ MODULE_NAME_MAP = {
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
     "mcp": "mcp",
+    "google-adk": "google.adk",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -124,6 +125,7 @@ INSTRUMENTOR_MAP = {
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
+    "google-adk": "openlit.instrumentation.google_adk.GoogleADKInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
