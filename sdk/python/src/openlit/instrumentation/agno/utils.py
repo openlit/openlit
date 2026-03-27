@@ -28,9 +28,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Contextvars for span deduplication
 # ---------------------------------------------------------------------------
-_agno_team_active = contextvars.ContextVar(
-    "openlit_agno_team_active", default=False
-)
+_agno_team_active = contextvars.ContextVar("openlit_agno_team_active", default=False)
 _agno_workflow_active = contextvars.ContextVar(
     "openlit_agno_workflow_active", default=False
 )
@@ -42,9 +40,7 @@ _current_agent_model_info = contextvars.ContextVar(
 
 # Stores the parent agent instance so child tool spans can lazily
 # read session_id (set by Agno mid-run, not available before wrapped())
-_agno_parent_agent = contextvars.ContextVar(
-    "openlit_agno_parent_agent", default=None
-)
+_agno_parent_agent = contextvars.ContextVar("openlit_agno_parent_agent", default=None)
 
 # ---------------------------------------------------------------------------
 # OTel GenAI Operation Mapping
@@ -191,9 +187,7 @@ def set_server_address_and_port(instance):
             model_name = _extract_model_name(instance)
             provider = _infer_provider_from_model(model_name)
             if provider:
-                server_address, server_port = get_server_address_for_provider(
-                    provider
-                )
+                server_address, server_port = get_server_address_for_provider(provider)
 
         # Tool instances: inherit from parent agent via contextvar
         if not server_address:
@@ -218,7 +212,9 @@ def _compute_agent_model_info(instance):
 # ---------------------------------------------------------------------------
 def generate_span_name(endpoint, instance, args=None, kwargs=None):
     """Return an OTel-compliant span name: ``{operation} {entity_name}``."""
-    operation = OPERATION_MAP.get(endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+    operation = OPERATION_MAP.get(
+        endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+    )
 
     if endpoint == "agent_init":
         name = getattr(instance, "name", None) or "agent"
@@ -294,9 +290,7 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
         )
         span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
 
-        agent_id = getattr(instance, "agent_id", None) or getattr(
-            instance, "id", None
-        )
+        agent_id = getattr(instance, "agent_id", None) or getattr(instance, "id", None)
         if agent_id:
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(agent_id))
 
@@ -353,9 +347,7 @@ def _set_team_attributes(span, instance, endpoint):
                 name = getattr(m, "name", None) or "unknown"
                 agent_names.append(str(name))
             if agent_names:
-                span.set_attribute(
-                    "gen_ai.agno.team.agents", json.dumps(agent_names)
-                )
+                span.set_attribute("gen_ai.agno.team.agents", json.dumps(agent_names))
     except Exception:
         pass
 
@@ -384,8 +376,9 @@ def _set_workflow_attributes(span, instance, endpoint):
         pass
 
 
-def _set_tool_attributes(span, instance, endpoint, capture_message_content,
-                         args, kwargs, response):
+def _set_tool_attributes(
+    span, instance, endpoint, capture_message_content, args, kwargs, response
+):
     """Set tool attributes per OTel GenAI semantic conventions.
 
     Returns True if the tool execution had an error, False otherwise.
@@ -416,9 +409,11 @@ def _set_tool_attributes(span, instance, endpoint, capture_message_content,
             arguments = getattr(instance, "arguments", None)
             if arguments:
                 try:
-                    arg_str = json.dumps(arguments) if not isinstance(
-                        arguments, str
-                    ) else arguments
+                    arg_str = (
+                        json.dumps(arguments)
+                        if not isinstance(arguments, str)
+                        else arguments
+                    )
                 except (TypeError, ValueError):
                     arg_str = str(arguments)
                 span.set_attribute(
@@ -428,13 +423,21 @@ def _set_tool_attributes(span, instance, endpoint, capture_message_content,
 
         if response is not None:
             if hasattr(response, "status"):
-                if response.status != "success" and hasattr(response, "error") and response.error:
+                if (
+                    response.status != "success"
+                    and hasattr(response, "error")
+                    and response.error
+                ):
                     span.set_attribute(
                         SemanticConvention.ERROR_TYPE,
                         truncate_content(str(response.error)),
                     )
                     tool_errored = True
-            if capture_message_content and hasattr(response, "result") and response.result:
+            if (
+                capture_message_content
+                and hasattr(response, "result")
+                and response.result
+            ):
                 span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
                     truncate_content(str(response.result)),
@@ -455,8 +458,9 @@ def _set_retrieval_attributes(span, instance, endpoint, args, kwargs):
         pass
 
 
-def _set_memory_attributes(span, instance, endpoint, args, kwargs,
-                           capture_message_content):
+def _set_memory_attributes(
+    span, instance, endpoint, args, kwargs, capture_message_content
+):
     """Set attributes for memory operation spans."""
     if not endpoint.startswith("memory_"):
         return
@@ -465,9 +469,7 @@ def _set_memory_attributes(span, instance, endpoint, args, kwargs,
         span.set_attribute("gen_ai.agno.memory.operation", op_type)
 
         if hasattr(instance, "db") and instance.db:
-            span.set_attribute(
-                "gen_ai.agno.memory.db_type", type(instance.db).__name__
-            )
+            span.set_attribute("gen_ai.agno.memory.db_type", type(instance.db).__name__)
 
         if args and capture_message_content:
             span.set_attribute(
@@ -476,7 +478,9 @@ def _set_memory_attributes(span, instance, endpoint, args, kwargs,
             )
 
         if "user_id" in kwargs:
-            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, str(kwargs["user_id"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_REQUEST_USER, str(kwargs["user_id"])
+            )
     except Exception:
         pass
 
@@ -540,8 +544,7 @@ def _set_tool_definitions(span, tools):
 # ---------------------------------------------------------------------------
 # Content capture (structured JSON format)
 # ---------------------------------------------------------------------------
-def _capture_content_as_attributes(span, instance, response, endpoint,
-                                   args, kwargs):
+def _capture_content_as_attributes(span, instance, response, endpoint, args, kwargs):
     """Record input/output as span attributes in structured JSON format."""
     try:
         # Input messages
@@ -580,7 +583,12 @@ def _capture_content_as_attributes(span, instance, response, endpoint,
                 span.set_attribute(
                     SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                     json.dumps(
-                        [{"role": "assistant", "content": truncate_content(output_content)}]
+                        [
+                            {
+                                "role": "assistant",
+                                "content": truncate_content(output_content),
+                            }
+                        ]
                     ),
                 )
     except Exception:
@@ -590,9 +598,16 @@ def _capture_content_as_attributes(span, instance, response, endpoint,
 # ---------------------------------------------------------------------------
 # Metrics recording
 # ---------------------------------------------------------------------------
-def _record_agno_metrics(metrics, operation_type, duration, environment,
-                         application_name, request_model, server_address,
-                         server_port):
+def _record_agno_metrics(
+    metrics,
+    operation_type,
+    duration,
+    environment,
+    application_name,
+    request_model,
+    server_address,
+    server_port,
+):
     """Record OTel-compliant metrics with correct attribute keys."""
     try:
         attributes = {
@@ -617,8 +632,9 @@ def _record_agno_metrics(metrics, operation_type, duration, environment,
 # ---------------------------------------------------------------------------
 # create_agent span emitter
 # ---------------------------------------------------------------------------
-def emit_create_agent_spans(tracer, instance, version, environment,
-                            application_name, capture_message_content):
+def emit_create_agent_spans(
+    tracer, instance, version, environment, application_name, capture_message_content
+):
     """Emit a ``create_agent`` span for an Agent.__init__ call.
 
     Returns the SpanContext so the caller can store it on
@@ -627,9 +643,9 @@ def emit_create_agent_spans(tracer, instance, version, environment,
     try:
         from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME, SERVICE_NAME
         from opentelemetry.semconv.resource import ResourceAttributes
+
         DEPLOYMENT_ENVIRONMENT = getattr(
-            ResourceAttributes, "DEPLOYMENT_ENVIRONMENT",
-            "deployment.environment"
+            ResourceAttributes, "DEPLOYMENT_ENVIRONMENT", "deployment.environment"
         )
     except ImportError:
         TELEMETRY_SDK_NAME = "telemetry.sdk.name"
@@ -655,9 +671,7 @@ def emit_create_agent_spans(tracer, instance, version, environment,
 
             model_name = _extract_model_name(instance)
             if model_name and model_name != "unknown":
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_REQUEST_MODEL, model_name
-                )
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
 
             agent_id = getattr(instance, "agent_id", None) or getattr(
                 instance, "id", None
@@ -681,9 +695,7 @@ def emit_create_agent_spans(tracer, instance, version, environment,
                     truncate_content(str(instructions)),
                 )
 
-            _set_tool_definitions(
-                span, getattr(instance, "tools", None) or []
-            )
+            _set_tool_definitions(span, getattr(instance, "tools", None) or [])
 
             server_address, server_port = set_server_address_and_port(instance)
             if server_address:
@@ -726,7 +738,9 @@ def process_agno_response(
     """Set OTel-compliant span attributes, capture content, and record metrics."""
     end_time = time.time()
     duration = end_time - start_time
-    operation_type = OPERATION_MAP.get(endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+    operation_type = OPERATION_MAP.get(
+        endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+    )
 
     # -- common framework attributes --
     scope = type("Scope", (), {})()
@@ -776,9 +790,7 @@ def process_agno_response(
 
     # -- content capture as structured JSON --
     if capture_message_content:
-        _capture_content_as_attributes(
-            span, instance, response, endpoint, args, kwargs
-        )
+        _capture_content_as_attributes(span, instance, response, endpoint, args, kwargs)
 
     # -- output type (not applicable for tool spans) --
     if operation_type != SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS:
@@ -819,9 +831,7 @@ def process_agno_response(
 
         user_id = kwargs.get("user_id")
         if user_id:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_REQUEST_USER, str(user_id)
-            )
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, str(user_id))
 
     if endpoint.startswith("tool_"):
         parent_agent = _agno_parent_agent.get()
@@ -888,8 +898,6 @@ def resolve_target(target_name, candidates):
         except ModuleNotFoundError:
             continue
         except Exception as e:
-            logger.info(
-                "Skip %s candidate %s due to: %s", target_name, module_name, e
-            )
+            logger.info("Skip %s candidate %s due to: %s", target_name, module_name, e)
             continue
     return None, None

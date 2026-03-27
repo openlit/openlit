@@ -102,12 +102,18 @@ class AgnoInstrumentor(BaseInstrumentor):
         arun_method = "_arun" if _has_private_run else "arun"
         ops.append(("agno.agent.agent", f"Agent.{run_method}", "agent_run", "sync"))
         ops.append(("agno.agent.agent", f"Agent.{arun_method}", "agent_arun", "async"))
-        ops.append(("agno.agent.agent", "Agent.continue_run", "agent_continue_run", "sync"))
-        ops.append(("agno.agent.agent", "Agent.acontinue_run", "agent_acontinue_run", "async"))
+        ops.append(
+            ("agno.agent.agent", "Agent.continue_run", "agent_continue_run", "sync")
+        )
+        ops.append(
+            ("agno.agent.agent", "Agent.acontinue_run", "agent_acontinue_run", "async")
+        )
 
         # Wrap Agent._arun_stream if it exists (agno < 2.5.3)
         if _AgnoAgent is not None and hasattr(_AgnoAgent, "_arun_stream"):
-            ops.append(("agno.agent.agent", "Agent._arun_stream", "agent_arun", "async"))
+            ops.append(
+                ("agno.agent.agent", "Agent._arun_stream", "agent_arun", "async")
+            )
 
         # -- always-on operations --
         for module, method, op_key, sync_type in ops:
@@ -125,7 +131,12 @@ class AgnoInstrumentor(BaseInstrumentor):
             # Tool execution via FunctionCall
             for module, method, op_key, sync_type in [
                 ("agno.tools.function", "FunctionCall.execute", "tool_execute", "sync"),
-                ("agno.tools.function", "FunctionCall.aexecute", "tool_aexecute", "async"),
+                (
+                    "agno.tools.function",
+                    "FunctionCall.aexecute",
+                    "tool_aexecute",
+                    "async",
+                ),
             ]:
                 try:
                     if sync_type == "async":
@@ -147,11 +158,13 @@ class AgnoInstrumentor(BaseInstrumentor):
                 if hasattr(Team, "_arun_stream"):
                     try:
                         wrap_function_wrapper(
-                            "agno.team.team", "Team._arun_stream",
+                            "agno.team.team",
+                            "Team._arun_stream",
                             async_general_wrap("team_arun", *wrap_args),
                         )
                         wrap_function_wrapper(
-                            "agno.team.team", "Team._arun",
+                            "agno.team.team",
+                            "Team._arun",
                             async_general_wrap("team_arun", *wrap_args),
                         )
                     except Exception:
@@ -159,7 +172,8 @@ class AgnoInstrumentor(BaseInstrumentor):
                 else:
                     try:
                         wrap_function_wrapper(
-                            "agno.team.team", "Team.arun",
+                            "agno.team.team",
+                            "Team.arun",
                             async_general_wrap("team_arun", *wrap_args),
                         )
                     except Exception:
@@ -167,7 +181,8 @@ class AgnoInstrumentor(BaseInstrumentor):
 
                 try:
                     wrap_function_wrapper(
-                        "agno.team.team", "Team.run",
+                        "agno.team.team",
+                        "Team.run",
                         general_wrap("team_run", *wrap_args),
                     )
                 except Exception:
@@ -183,7 +198,8 @@ class AgnoInstrumentor(BaseInstrumentor):
                 if hasattr(Workflow, "run_workflow"):
                     try:
                         wrap_function_wrapper(
-                            "agno.workflow.workflow", "Workflow.run_workflow",
+                            "agno.workflow.workflow",
+                            "Workflow.run_workflow",
                             general_wrap("workflow_run", *wrap_args),
                         )
                     except Exception:
@@ -191,7 +207,8 @@ class AgnoInstrumentor(BaseInstrumentor):
                     if hasattr(Workflow, "arun_workflow"):
                         try:
                             wrap_function_wrapper(
-                                "agno.workflow.workflow", "Workflow.arun_workflow",
+                                "agno.workflow.workflow",
+                                "Workflow.arun_workflow",
                                 async_workflow_wrap("workflow_arun", *wrap_args),
                             )
                         except Exception:
@@ -199,7 +216,8 @@ class AgnoInstrumentor(BaseInstrumentor):
 
                 try:
                     wrap_function_wrapper(
-                        "agno.workflow.workflow", "Workflow.arun",
+                        "agno.workflow.workflow",
+                        "Workflow.arun",
                         async_workflow_wrap("workflow_arun", *wrap_args),
                     )
                 except Exception:
@@ -208,11 +226,13 @@ class AgnoInstrumentor(BaseInstrumentor):
             # VectorDB operations
             try:
                 wrap_function_wrapper(
-                    "agno.vectordb.base", "VectorDb.search",
+                    "agno.vectordb.base",
+                    "VectorDb.search",
                     general_wrap("vectordb_search", *wrap_args),
                 )
                 wrap_function_wrapper(
-                    "agno.vectordb.base", "VectorDb.upsert",
+                    "agno.vectordb.base",
+                    "VectorDb.upsert",
                     general_wrap("vectordb_upsert", *wrap_args),
                 )
             except Exception:
@@ -223,11 +243,13 @@ class AgnoInstrumentor(BaseInstrumentor):
             if memory_module is not None:
                 try:
                     wrap_function_wrapper(
-                        memory_module, f"{memory_class}.add_user_memory",
+                        memory_module,
+                        f"{memory_class}.add_user_memory",
                         general_wrap("memory_add", *wrap_args),
                     )
                     wrap_function_wrapper(
-                        memory_module, f"{memory_class}.search_user_memories",
+                        memory_module,
+                        f"{memory_class}.search_user_memories",
                         general_wrap("memory_search", *wrap_args),
                     )
                 except Exception:
@@ -238,7 +260,8 @@ class AgnoInstrumentor(BaseInstrumentor):
             if knowledge_module is not None:
                 try:
                     wrap_function_wrapper(
-                        knowledge_module, f"{knowledge_class}.search",
+                        knowledge_module,
+                        f"{knowledge_class}.search",
                         general_wrap("knowledge_search", *wrap_args),
                     )
                 except Exception:

@@ -50,27 +50,56 @@ def async_general_wrap(
             return wrapped(*args, **kwargs)
 
         # Streaming agent/team runs: return async generator wrapper
-        if gen_ai_endpoint in ("agent_arun", "agent_acontinue_run") and kwargs.get("stream", False):
+        if gen_ai_endpoint in ("agent_arun", "agent_acontinue_run") and kwargs.get(
+            "stream", False
+        ):
             return _arun_stream_wrapper(
-                wrapped, instance, args, kwargs, gen_ai_endpoint,
-                tracer, version, environment, application_name,
-                pricing_info, capture_message_content, metrics,
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                tracer,
+                version,
+                environment,
+                application_name,
+                pricing_info,
+                capture_message_content,
+                metrics,
                 disable_metrics,
             )
 
         if gen_ai_endpoint == "team_arun" and kwargs.get("stream", False):
             return _team_arun_stream_wrapper(
-                wrapped, instance, args, kwargs, gen_ai_endpoint,
-                tracer, version, environment, application_name,
-                pricing_info, capture_message_content, metrics,
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                tracer,
+                version,
+                environment,
+                application_name,
+                pricing_info,
+                capture_message_content,
+                metrics,
                 disable_metrics,
             )
 
         # Non-streaming: return coroutine
         return _async_invoke(
-            wrapped, instance, args, kwargs, gen_ai_endpoint,
-            tracer, version, environment, application_name,
-            pricing_info, capture_message_content, metrics,
+            wrapped,
+            instance,
+            args,
+            kwargs,
+            gen_ai_endpoint,
+            tracer,
+            version,
+            environment,
+            application_name,
+            pricing_info,
+            capture_message_content,
+            metrics,
             disable_metrics,
         )
 
@@ -78,9 +107,18 @@ def async_general_wrap(
 
 
 async def _async_invoke(
-    wrapped, instance, args, kwargs, gen_ai_endpoint,
-    tracer, version, environment, application_name,
-    pricing_info, capture_message_content, metrics,
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    tracer,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
     disable_metrics,
 ):
     """Coroutine helper for non-streaming async operations."""
@@ -107,9 +145,11 @@ async def _async_invoke(
     # Span links: connect back to create_agent spans
     links = []
     if gen_ai_endpoint == "team_arun":
-        members = getattr(instance, "members", None) or getattr(
-            instance, "agents", None
-        ) or []
+        members = (
+            getattr(instance, "members", None)
+            or getattr(instance, "agents", None)
+            or []
+        )
         for member in members:
             creation_ctx = getattr(member, "_openlit_creation_context", None)
             if creation_ctx:
@@ -160,9 +200,18 @@ async def _async_invoke(
 
 
 async def _arun_stream_wrapper(
-    wrapped, instance, args, kwargs, gen_ai_endpoint,
-    tracer, version, environment, application_name,
-    pricing_info, capture_message_content, metrics,
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    tracer,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
     disable_metrics,
 ):
     """Async generator wrapper for Agent.arun(stream=True).
@@ -246,9 +295,18 @@ async def _arun_stream_wrapper(
 
 
 async def _team_arun_stream_wrapper(
-    wrapped, instance, args, kwargs, gen_ai_endpoint,
-    tracer, version, environment, application_name,
-    pricing_info, capture_message_content, metrics,
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    tracer,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
     disable_metrics,
 ):
     """Async generator wrapper for Team._arun_stream / Team.arun(stream=True)."""
@@ -258,17 +316,15 @@ async def _team_arun_stream_wrapper(
 
     # Span links
     links = []
-    members = getattr(instance, "members", None) or getattr(
-        instance, "agents", None
-    ) or []
+    members = (
+        getattr(instance, "members", None) or getattr(instance, "agents", None) or []
+    )
     for member in members:
         creation_ctx = getattr(member, "_openlit_creation_context", None)
         if creation_ctx:
             links.append(Link(creation_ctx))
 
-    with tracer.start_as_current_span(
-        span_name, kind=span_kind, links=links
-    ) as span:
+    with tracer.start_as_current_span(span_name, kind=span_kind, links=links) as span:
         start_time = time.time()
         final_response = None
         try:

@@ -82,9 +82,11 @@ def general_wrap(
         # Span links: connect back to create_agent spans
         links = []
         if gen_ai_endpoint == "team_run":
-            members = getattr(instance, "members", None) or getattr(
-                instance, "agents", None
-            ) or []
+            members = (
+                getattr(instance, "members", None)
+                or getattr(instance, "agents", None)
+                or []
+            )
             for member in members:
                 creation_ctx = getattr(member, "_openlit_creation_context", None)
                 if creation_ctx:
