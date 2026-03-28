@@ -55,6 +55,8 @@ MODULE_NAME_MAP = {
     "browser-use": "browser_use",
     "mcp": "mcp",
     "google-adk": "google.adk",
+    "claude-agent-sdk": "claude_agent_sdk",
+    "agent-framework": "agent_framework",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -126,6 +128,8 @@ INSTRUMENTOR_MAP = {
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
     "google-adk": "openlit.instrumentation.google_adk.GoogleADKInstrumentor",
+    "claude-agent-sdk": "openlit.instrumentation.claude_agent_sdk.ClaudeAgentSDKInstrumentor",
+    "agent-framework": "openlit.instrumentation.agent_framework.AgentFrameworkInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
