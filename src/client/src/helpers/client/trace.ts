@@ -287,7 +287,7 @@ export function getSpanCostFormatted(
  */
 export function getSpanTooltipText(span: TraceHeirarchySpan): string {
 	const durationDisplay = getSpanDurationDisplay(span);
-	const costStr = getSpanCostFormatted(span, 10);
+	const costStr = getSpanCostFormatted(span, 6);
 	return costStr
 		? `${span.SpanName}\nDuration: ${durationDisplay}\nCost: ${costStr}`
 		: `${span.SpanName}\nDuration: ${durationDisplay}`;

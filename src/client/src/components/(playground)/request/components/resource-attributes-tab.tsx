@@ -23,7 +23,7 @@ export default function ResourceAttributesTab({
 	return (
 		<div className="flex flex-col">
 			{entries.map(([key, value]) => (
-				<AttrRow key={key} label={key} value={value} />
+				<AttrRow key={key} label={key} value={String(value)} />
 			))}
 		</div>
 	);

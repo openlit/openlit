@@ -118,7 +118,7 @@ function LoadingSkeleton() {
 export default function RequestDetails() {
 	const [isOpen, setIsOpen] = useState(false);
 	const [request, updateRequest] = useRequest();
-	const { currentIndex, items, total, offset, navigatePrev, navigateNext } = useRequestNavigation();
+	const { currentIndex, items, navigatePrev, navigateNext } = useRequestNavigation();
 	const { data, fireRequest, isLoading } = useFetchWrapper();
 
 	// Cache the last successfully loaded record so navigation never flickers to a skeleton.
@@ -229,7 +229,7 @@ export default function RequestDetails() {
 	const parsedCost = parseFloat(normalizedItem?.cost as string);
 	const costValue =
 		isFinite(parsedCost) && parsedCost > 0
-			? `$${parsedCost.toFixed(10)}`
+			? `$${parsedCost.toFixed(6)}`
 			: undefined;
 	const parsedTokens = Number(normalizedItem?.totalTokens);
 	const tokensValue =
@@ -276,18 +276,18 @@ export default function RequestDetails() {
 						<div className="flex items-center gap-0.5 shrink-0">
 							<button
 								onClick={navigatePrev}
-								disabled={currentIndex <= 0 && offset <= 0}
+								disabled={currentIndex <= 0}
 								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Previous item"
 							>
 								<ChevronLeft className="h-4 w-4" />
 							</button>
 							<span className="text-xs text-stone-600 dark:text-stone-500 tabular-nums min-w-[3rem] text-center">
-								{offset + currentIndex + 1} / {total || items.length}
+								{currentIndex + 1} / {items.length}
 							</span>
 							<button
 								onClick={navigateNext}
-								disabled={currentIndex >= items.length - 1 && offset + items.length >= total}
+								disabled={currentIndex >= items.length - 1}
 								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Next item"
 							>
@@ -343,7 +343,7 @@ export default function RequestDetails() {
 										label="Eval Cost"
 										value={
 											evaluationSummary.totalCost > 0
-												? `$${evaluationSummary.totalCost.toFixed(10)}`
+												? `$${evaluationSummary.totalCost.toFixed(6)}`
 												: undefined
 										}
 									/>
@@ -371,7 +371,7 @@ export default function RequestDetails() {
 										value.toString().length > 0 && (
 											<InfoPill
 												key={key}
-												title={key}
+												title={reverseKey ? TraceMapping[reverseKey].label : key}
 												value={normalizedValue}
 											/>
 										)
