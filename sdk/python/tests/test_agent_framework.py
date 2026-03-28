@@ -23,6 +23,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from opentelemetry.trace import SpanKind
+
 from openlit.instrumentation.agent_framework.utils import (
     OPERATION_MAP,
     SPAN_KIND_MAP,
@@ -42,7 +44,6 @@ from openlit.instrumentation.agent_framework.utils import (
     _record_metrics,
     process_agent_framework_response,
 )
-
 from openlit.instrumentation.agent_framework import (
     _AgentCreationRegistry,
     _wrap_agent_init,
@@ -54,8 +55,6 @@ from openlit.instrumentation.agent_framework.async_agent_framework import (
     tool_execute_wrap,
     _serialize_content_list,
 )
-
-from opentelemetry.trace import SpanKind
 from openlit.semcov import SemanticConvention
 
 

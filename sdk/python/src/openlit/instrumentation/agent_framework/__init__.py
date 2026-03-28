@@ -270,7 +270,7 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
                 pass
 
         if detailed_tracing:
-            for module, method, op_key, sync_type in DETAILED_OPERATIONS:
+            for module, method, op_key, _sync_type in DETAILED_OPERATIONS:
                 try:
                     if op_key == "agent_init":
                         wrapper = _wrap_agent_init(
