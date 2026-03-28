@@ -7,10 +7,9 @@ CrewAI, LangGraph, and OpenAI Agents instrumentations.
 """
 
 import importlib
+import importlib.metadata
 import sys
 from typing import Collection
-
-import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 

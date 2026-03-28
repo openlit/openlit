@@ -234,7 +234,7 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
             workflow_run_wrap,
         )
 
-        for module, method, op_key, sync_type in WORKFLOW_OPERATIONS:
+        for module, method, op_key, _sync_type in WORKFLOW_OPERATIONS:
             try:
                 if op_key == "agent_run":
                     wrapper = agent_run_wrap(

@@ -19,7 +19,7 @@ all AF internals so the test suite can run in any environment.
 """
 
 import json
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -55,8 +55,8 @@ from openlit.instrumentation.agent_framework.async_agent_framework import (
     _serialize_content_list,
 )
 
-from openlit.semcov import SemanticConvention
 from opentelemetry.trace import SpanKind
+from openlit.semcov import SemanticConvention
 
 
 # ===================================================================
@@ -885,7 +885,7 @@ class TestToolExecuteWrap:
 
     @pytest.mark.asyncio
     async def test_emits_execute_tool_span(self):
-        wrapper_fn, tracer, mock_span = self._make_wrapper()
+        wrapper_fn, tracer, _mock_span = self._make_wrapper()
 
         async def fake_invoke(*args, **kwargs):
             return "tool result"
@@ -908,7 +908,7 @@ class TestToolExecuteWrap:
 
     @pytest.mark.asyncio
     async def test_sets_tool_attributes(self):
-        wrapper_fn, tracer, mock_span = self._make_wrapper()
+        wrapper_fn, _tracer, mock_span = self._make_wrapper()
 
         async def fake_invoke(*args, **kwargs):
             return '{"temp": 72}'
@@ -997,7 +997,7 @@ class TestToolExecuteWrap:
 
     @pytest.mark.asyncio
     async def test_handles_exception(self):
-        wrapper_fn, _, mock_span = self._make_wrapper()
+        wrapper_fn, _, _mock_span = self._make_wrapper()
 
         async def failing_invoke(*args, **kwargs):
             raise ValueError("tool error")

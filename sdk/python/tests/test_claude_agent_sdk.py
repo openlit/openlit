@@ -30,7 +30,7 @@ all SDK internals so the test suite can run in any environment.
 """
 
 import json
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 import pytest
 from opentelemetry.trace import SpanKind, StatusCode
@@ -302,7 +302,7 @@ class TestExtractUsage:
         assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 100
 
     def test_none_usage_returns_empty(self):
-        assert extract_usage(None) == {}
+        assert not extract_usage(None)
 
     def test_dict_usage(self):
         usage = {

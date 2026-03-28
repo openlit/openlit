@@ -29,8 +29,6 @@ from openlit.instrumentation.claude_agent_sdk.utils import (
     finalize_span,
     set_tool_span_attributes,
     finalize_tool_span,
-    SERVER_ADDRESS,
-    SERVER_PORT,
     GEN_AI_SYSTEM_ATTR,
     GEN_AI_SYSTEM_VALUE,
 )
@@ -439,18 +437,18 @@ def _process_message(
     the message is a ``ResultMessage``; ``None`` otherwise.
     """
 
-    flush_kw = dict(
-        tracer=tracer,
-        parent_span=span,
-        chat_state=chat_state,
-        capture_message_content=capture_message_content,
-        version=version,
-        environment=environment,
-        application_name=application_name,
-        pricing_info=pricing_info,
-        event_provider=event_provider,
-        subagent_tracker=subagent_tracker,
-    )
+    flush_kw = {
+        "tracer": tracer,
+        "parent_span": span,
+        "chat_state": chat_state,
+        "capture_message_content": capture_message_content,
+        "version": version,
+        "environment": environment,
+        "application_name": application_name,
+        "pricing_info": pricing_info,
+        "event_provider": event_provider,
+        "subagent_tracker": subagent_tracker,
+    }
 
     msg_type = type(message).__name__
     result_usage = None
