@@ -358,6 +358,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
     GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
     GEN_AI_SYSTEM_GOOGLE_ADK = "google_adk"
+    GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = "claude_agent_sdk"
 
     # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
     GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"
