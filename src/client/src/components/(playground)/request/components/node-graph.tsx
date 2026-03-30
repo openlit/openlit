@@ -22,12 +22,12 @@ interface NodeLayout {
 }
 
 function getNodeStroke(durationNs: number, isSelected: boolean): string {
-	if (isSelected) return "#6366f1"; // primary
+	if (isSelected) return "#6366f1";
 	const seconds = durationNs * 1e-9;
-	if (seconds > 10) return "#ef4444"; // red
-	if (seconds > 5) return "#eab308"; // yellow
-	if (seconds > 1) return "#3b82f6"; // blue
-	return "#22c55e"; // green
+	if (seconds > 10) return "#ef4444";
+	if (seconds > 5) return "#eab308";
+	if (seconds > 1) return "#3b82f6";
+	return "#22c55e";
 }
 
 function getNodeFill(durationNs: number, isSelected: boolean): string {
@@ -46,7 +46,6 @@ function parseTimestampMs(ts?: string): number | null {
 	return isNaN(ms) ? null : ms;
 }
 
-/** Detect whether sibling spans are parallel (overlapping in time) or sequential */
 function classifySiblingRelationship(
 	a: TraceHeirarchySpan,
 	b: TraceHeirarchySpan
@@ -58,15 +57,11 @@ function classifySiblingRelationship(
 	const bDurMs = b.Duration / 1e6;
 	const aEnd = aStart + aDurMs;
 	const bEnd = bStart + bDurMs;
-	// Overlapping if one starts before the other ends
-	const overlap = aStart < bEnd && bStart < aEnd;
-	return overlap ? "parallel" : "sequential";
+	return aStart < bEnd && bStart < aEnd ? "parallel" : "sequential";
 }
 
-/** Build a set of SpanId pairs that are parallel siblings */
 function detectParallelPairs(root: TraceHeirarchySpan): Set<string> {
 	const parallelPairs = new Set<string>();
-
 	function walk(span: TraceHeirarchySpan) {
 		if (span.children && span.children.length > 1) {
 			for (let i = 0; i < span.children.length; i++) {
@@ -92,7 +87,6 @@ function detectParallelPairs(root: TraceHeirarchySpan): Set<string> {
 	return parallelPairs;
 }
 
-/** Check if a span has any parallel sibling */
 function isParallelSpan(
 	span: TraceHeirarchySpan,
 	siblings: TraceHeirarchySpan[],
@@ -115,26 +109,21 @@ function layoutTree(root: TraceHeirarchySpan): NodeLayout[] {
 		level: number
 	): { centerX: number } {
 		const y = level * (NODE_HEIGHT + V_GAP);
-
 		if (!span.children || span.children.length === 0) {
 			const x = leafCounter * (NODE_WIDTH + H_GAP);
 			leafCounter++;
 			nodes.push({ span, x, y });
 			return { centerX: x + NODE_WIDTH / 2 };
 		}
-
 		const childCenters: number[] = [];
 		for (const child of span.children) {
 			const { centerX } = assignPositions(child, level + 1);
 			childCenters.push(centerX);
 		}
-
 		const leftmost = childCenters[0];
 		const rightmost = childCenters[childCenters.length - 1];
 		const center = (leftmost + rightmost) / 2;
-		const x = center - NODE_WIDTH / 2;
-
-		nodes.push({ span, x, y });
+		nodes.push({ span, x: center - NODE_WIDTH / 2, y });
 		return { centerX: center };
 	}
 
@@ -157,31 +146,15 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	const [pan, setPan] = useState({ x: 0, y: 0 });
 	const [isPanning, setIsPanning] = useState(false);
 	const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-	const [hasFitted, setHasFitted] = useState(false);
 
 	const nodes = layoutTree(record);
 	const parallelPairs = detectParallelPairs(record);
 
-	// Build parent->children map for sibling lookups
-	const childrenMap = new Map<string, TraceHeirarchySpan[]>();
-	function buildChildrenMap(span: TraceHeirarchySpan) {
-		if (span.children && span.children.length > 0) {
-			childrenMap.set(
-				span.SpanId,
-				span.children
-			);
-			span.children.forEach(buildChildrenMap);
-		}
-	}
-	buildChildrenMap(record);
-
-	// Build a map for edge drawing
 	const nodeMap = new Map<string, NodeLayout>();
 	for (const n of nodes) {
 		nodeMap.set(n.span.SpanId, n);
 	}
 
-	// Compute canvas dimensions
 	const minX = Math.min(...nodes.map((n) => n.x));
 	const maxX = Math.max(...nodes.map((n) => n.x + NODE_WIDTH));
 	const maxY = Math.max(...nodes.map((n) => n.y + NODE_HEIGHT));
@@ -191,7 +164,6 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	const offsetX = -minX + PADDING;
 	const offsetY = PADDING;
 
-	// Build edges with parallel/sequential classification
 	const edges: {
 		from: NodeLayout;
 		to: NodeLayout;
@@ -205,15 +177,12 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 			for (const child of span.children) {
 				const toLayout = nodeMap.get(child.SpanId);
 				if (toLayout) {
-					const isParallel = isParallelSpan(
-						child,
-						siblings,
-						parallelPairs
-					);
 					edges.push({
 						from: fromLayout,
 						to: toLayout,
-						type: isParallel ? "parallel" : "sequential",
+						type: isParallelSpan(child, siblings, parallelPairs)
+							? "parallel"
+							: "sequential",
 					});
 				}
 				collectEdges(child);
@@ -222,44 +191,59 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	}
 	collectEdges(record);
 
-	// Fit to window on first render
-	const fitToWindow = useCallback(() => {
+	const fitToView = useCallback(() => {
 		if (!containerRef.current) return;
-		const container = containerRef.current;
-		const cw = container.clientWidth;
-		const ch = container.clientHeight;
+		const cw = containerRef.current.clientWidth;
+		const ch = containerRef.current.clientHeight;
 		if (cw === 0 || ch === 0) return;
 		const scaleX = cw / svgWidth;
 		const scaleY = ch / svgHeight;
-		const newZoom = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to add some margin
-		const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
-		const scaledW = svgWidth * clampedZoom;
-		const scaledH = svgHeight * clampedZoom;
+		const newZoom = Math.max(
+			MIN_ZOOM,
+			Math.min(MAX_ZOOM, Math.min(scaleX, scaleY, 1) * 0.85)
+		);
+		const scaledW = svgWidth * newZoom;
+		const scaledH = svgHeight * newZoom;
 		setPan({
 			x: (cw - scaledW) / 2,
 			y: (ch - scaledH) / 2,
 		});
-		setZoom(clampedZoom);
+		setZoom(newZoom);
 	}, [svgWidth, svgHeight]);
 
+	// Auto-fit on mount (key={record.SpanId} in parent ensures fresh mount)
 	useEffect(() => {
-		if (!hasFitted && containerRef.current) {
-			fitToWindow();
-			setHasFitted(true);
-		}
-	}, [hasFitted, fitToWindow]);
+		const timer = setTimeout(fitToView, 60);
+		return () => clearTimeout(timer);
+	}, [fitToView]);
 
-	// Mouse wheel zoom
+	// Also re-fit when the container resizes (e.g. panel drag)
+	useEffect(() => {
+		if (!containerRef.current) return;
+		const ro = new ResizeObserver(() => fitToView());
+		ro.observe(containerRef.current);
+		return () => ro.disconnect();
+	}, [fitToView]);
+
 	const handleWheel = useCallback(
 		(e: React.WheelEvent) => {
 			e.preventDefault();
+			if (!containerRef.current) return;
+			const rect = containerRef.current.getBoundingClientRect();
+			const mouseX = e.clientX - rect.left;
+			const mouseY = e.clientY - rect.top;
 			const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-			setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
+			const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
+			const scale = newZoom / zoom;
+			setPan((p) => ({
+				x: mouseX - scale * (mouseX - p.x),
+				y: mouseY - scale * (mouseY - p.y),
+			}));
+			setZoom(newZoom);
 		},
-		[]
+		[zoom]
 	);
 
-	// Pan handlers
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			if (e.button !== 0) return;
@@ -277,69 +261,82 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	const handleMouseMove = useCallback(
 		(e: React.MouseEvent) => {
 			if (!isPanning) return;
-			const dx = e.clientX - panStart.current.x;
-			const dy = e.clientY - panStart.current.y;
 			setPan({
-				x: panStart.current.panX + dx,
-				y: panStart.current.panY + dy,
+				x: panStart.current.panX + (e.clientX - panStart.current.x),
+				y: panStart.current.panY + (e.clientY - panStart.current.y),
 			});
 		},
 		[isPanning]
 	);
 
-	const handleMouseUp = useCallback(() => {
-		setIsPanning(false);
-	}, []);
-
-	const zoomIn = () =>
-		setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP));
-	const zoomOut = () =>
-		setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP));
+	const handleMouseUp = useCallback(() => setIsPanning(false), []);
 
 	return (
-		<div className="relative w-full h-full min-h-[300px]">
-			{/* Zoom controls */}
-			<div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+		<div className="relative flex-1 w-full min-h-0 h-full">
+			{/* Controls — top-right */}
+			<div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white/90 dark:bg-stone-900/90 rounded-md border border-stone-200 dark:border-stone-700 p-0.5 shadow-sm">
 				<button
-					onClick={zoomIn}
-					className="p-1 rounded bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+					onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+					className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
 					title="Zoom in"
 				>
 					<Plus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
 				</button>
+				<span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400 min-w-[32px] text-center select-none">
+					{Math.round(zoom * 100)}%
+				</span>
 				<button
-					onClick={zoomOut}
-					className="p-1 rounded bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+					onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
+					className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
 					title="Zoom out"
 				>
 					<Minus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
 				</button>
+				<div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
 				<button
-					onClick={fitToWindow}
-					className="p-1 rounded bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-					title="Fit to window"
+					onClick={fitToView}
+					className="p-1 rounded hover:bg-primary/10 transition-colors"
+					title="Fit to view"
 				>
-					<Maximize className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
+					<Maximize className="h-3.5 w-3.5 text-primary" />
 				</button>
 			</div>
 
-			{/* Legend */}
-			<div className="absolute bottom-2 left-2 z-10 flex items-center gap-3 text-[10px] text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-900/80 rounded px-2 py-1 border border-stone-200 dark:border-stone-700">
+			{/* Legend — bottom-left, above the canvas */}
+			<div className="absolute bottom-2 left-2 z-20 flex items-center gap-3 text-[10px] text-stone-500 dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 rounded px-2 py-1 border border-stone-200 dark:border-stone-700 shadow-sm">
 				<span className="flex items-center gap-1">
-					<svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="4 2" /></svg>
+					<svg width="16" height="6">
+						<line
+							x1="0"
+							y1="3"
+							x2="16"
+							y2="3"
+							stroke="#6366f1"
+							strokeWidth="1.5"
+							strokeDasharray="4 2"
+						/>
+					</svg>
 					Parallel
 				</span>
 				<span className="flex items-center gap-1">
-					<svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="rgba(120,113,108,0.5)" strokeWidth="1.5" /></svg>
+					<svg width="16" height="6">
+						<line
+							x1="0"
+							y1="3"
+							x2="16"
+							y2="3"
+							stroke="rgba(120,113,108,0.5)"
+							strokeWidth="1.5"
+						/>
+					</svg>
 					Sequential
 				</span>
-				<span className="tabular-nums">{Math.round(zoom * 100)}%</span>
 			</div>
 
-			{/* Pan/zoom canvas */}
+			{/* Pan/zoom canvas — fills all available space */}
 			<div
 				ref={containerRef}
-				className="w-full h-full overflow-hidden"
+				className="absolute inset-0"
 				style={{ cursor: isPanning ? "grabbing" : "grab" }}
 				onWheel={handleWheel}
 				onMouseDown={handleMouseDown}
@@ -364,12 +361,11 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 						const x2 = to.x + offsetX + NODE_WIDTH / 2;
 						const y2 = to.y + offsetY;
 						const midY = (y1 + y2) / 2;
-						const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 						const isParallel = type === "parallel";
 						return (
 							<path
 								key={i}
-								d={d}
+								d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
 								fill="none"
 								stroke={
 									isParallel
@@ -382,22 +378,24 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 						);
 					})}
 
-					{/* Parallel/sequential group labels on edges */}
+					{/* Edge labels */}
 					{edges.map(({ from, to, type }, i) => {
 						const x1 = from.x + offsetX + NODE_WIDTH / 2;
 						const y1 = from.y + offsetY + NODE_HEIGHT;
 						const x2 = to.x + offsetX + NODE_WIDTH / 2;
 						const y2 = to.y + offsetY;
-						const midX = (x1 + x2) / 2;
-						const midY = (y1 + y2) / 2;
 						const isParallel = type === "parallel";
 						return (
 							<text
 								key={`label-${i}`}
-								x={midX + 8}
-								y={midY}
+								x={(x1 + x2) / 2 + 8}
+								y={(y1 + y2) / 2}
 								fontSize={8}
-								fill={isParallel ? "#6366f1" : "rgba(120,113,108,0.6)"}
+								fill={
+									isParallel
+										? "#6366f1"
+										: "rgba(120,113,108,0.6)"
+								}
 								textAnchor="start"
 								dominantBaseline="middle"
 							>
@@ -408,13 +406,24 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 
 					{/* Nodes */}
 					{nodes.map(({ span, x, y }) => {
-						const isSelected = request?.spanId === span.SpanId;
+						const isSelected =
+							request?.spanId === span.SpanId;
 						const nx = x + offsetX;
 						const ny = y + offsetY;
-						const stroke = getNodeStroke(span.Duration, isSelected);
-						const fill = getNodeFill(span.Duration, isSelected);
-						const durationDisplay = getSpanDurationDisplay(span);
-						const costDisplay = getSpanCostFormatted(span, 10);
+						const stroke = getNodeStroke(
+							span.Duration,
+							isSelected
+						);
+						const fill = getNodeFill(
+							span.Duration,
+							isSelected
+						);
+						const durationDisplay =
+							getSpanDurationDisplay(span);
+						const costDisplay = getSpanCostFormatted(
+							span,
+							10
+						);
 						const tooltipText = getSpanTooltipText(span);
 
 						return (
@@ -422,7 +431,9 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 								key={span.SpanId}
 								onClick={(e) => {
 									e.stopPropagation();
-									updateRequest({ spanId: span.SpanId });
+									updateRequest({
+										spanId: span.SpanId,
+									});
 								}}
 								style={{ cursor: "pointer" }}
 							>
@@ -435,15 +446,23 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 									rx={6}
 									fill={fill}
 									stroke={stroke}
-									strokeWidth={isSelected ? 2 : 1.5}
+									strokeWidth={
+										isSelected ? 2 : 1.5
+									}
 								/>
 								<text
 									x={nx + NODE_WIDTH / 2}
 									y={ny + 18}
 									textAnchor="middle"
 									fontSize={10}
-									fontWeight={isSelected ? 600 : 400}
-									fill={isSelected ? "#6366f1" : "currentColor"}
+									fontWeight={
+										isSelected ? 600 : 400
+									}
+									fill={
+										isSelected
+											? "#6366f1"
+											: "currentColor"
+									}
 									className="fill-stone-700 dark:fill-stone-300"
 								>
 									{truncate(span.SpanName, 20)}
