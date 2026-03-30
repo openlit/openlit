@@ -1,5 +1,24 @@
 "use client";
 
+/**
+ * Graph View — DAG (Directed Acyclic Graph) visualization of span hierarchy.
+ *
+ * ## Sequencing logic
+ *
+ * Layout uses a bottom-up tree placement algorithm:
+ * 1. Walk the hierarchy tree recursively; leaf spans are placed left-to-right
+ *    in the order they appear (siblings are pre-sorted by Timestamp in
+ *    buildHierarchy on the server).
+ * 2. Each parent node is centered above its children.
+ * 3. Y-axis represents tree depth (parent→child), X-axis spreads siblings.
+ *
+ * Edges between parent and child are classified as "parallel" or "sequential"
+ * by checking whether sibling spans have overlapping time windows:
+ *   - parallel: spanA.start < spanB.end AND spanB.start < spanA.end
+ *   - sequential: no time overlap
+ * Parallel edges are drawn as dashed indigo lines; sequential as solid gray.
+ */
+
 import { TraceHeirarchySpan } from "@/types/trace";
 import { useRequest } from "../request-context";
 import {

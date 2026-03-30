@@ -257,7 +257,8 @@ export default function RequestDetails() {
 				displayClose={false}
 			>
 				<SheetHeader className="flex-row bg-stone-100 dark:bg-stone-900 px-3 py-1.5 items-center space-y-0 gap-2">
-					<SheetTitle className="text-stone-900 dark:text-stone-200 text-md font-bold leading-7 capitalize grow pr-1 truncate">
+					{/* capitalize : classname is removed because it was rendering the name incorrectly */}
+					<SheetTitle className="text-stone-900 dark:text-stone-200 text-md font-bold leading-7 grow pr-1 truncate">
 						{!normalizedItem
 							? "Loading…"
 							: normalizedItem.spanName}

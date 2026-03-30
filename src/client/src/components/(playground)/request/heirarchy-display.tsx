@@ -1,7 +1,7 @@
 import { useRequest } from "./request-context";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FolderTree, DollarSign, ListTree, GanttChart, Network } from "lucide-react";
+import { FolderTree, DollarSign, ListTree, GanttChart, Network, MessageSquare } from "lucide-react";
 import { findSpanInHierarchyLodash } from "@/helpers/client/trace";
 import { TraceHeirarchySpan } from "@/types/trace";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -16,8 +16,9 @@ import {
 import TimelineView from "./components/timeline-view";
 import NodeGraph from "./components/node-graph";
 import TreeNode from "./components/tree-node";
+import ChatView from "./components/chat-view";
 
-type ViewMode = "tree" | "timeline" | "graph";
+type ViewMode = "tree" | "timeline" | "graph" | "chat";
 
 function sumCostRecursive(span: TraceHeirarchySpan): number {
 	const cost = span.Cost != null && span.Cost > 0 ? span.Cost : 0;
@@ -31,6 +32,7 @@ const VIEW_TABS: { mode: ViewMode; icon: React.ReactNode; label: string }[] = [
 	{ mode: "tree", icon: <ListTree className="h-4 w-4" />, label: "Tree" },
 	{ mode: "timeline", icon: <GanttChart className="h-4 w-4" />, label: "Timeline" },
 	{ mode: "graph", icon: <Network className="h-4 w-4" />, label: "Graph" },
+	{ mode: "chat", icon: <MessageSquare className="h-4 w-4" />, label: "Chat" },
 ];
 
 export default function HeirarchyDisplay() {
@@ -161,6 +163,11 @@ export default function HeirarchyDisplay() {
 								)}
 								{viewMode === "graph" && (
 									<NodeGraph key={record.SpanId} record={record} />
+								)}
+								{viewMode === "chat" && (
+									<div className="overflow-auto h-full">
+										<ChatView record={record} />
+									</div>
 								)}
 							</div>
 

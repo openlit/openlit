@@ -229,7 +229,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		return { err: "TraceId not found for span", record: {} };
 	}
 
-	// Step 2: Fetch ALL spans belonging to this trace
+	// Step 2: Fetch ALL spans belonging to this trace (include SpanAttributes for chat view)
 	const allSpansQuery = `
 		SELECT
 			${getTraceMappingKeyFullPath("id")},
@@ -239,7 +239,8 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			${getTraceMappingKeyFullPath("requestDuration")},
 			toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
 			Timestamp,
-			StatusCode
+			StatusCode,
+			SpanAttributes
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
 		ORDER BY Timestamp ASC`;
