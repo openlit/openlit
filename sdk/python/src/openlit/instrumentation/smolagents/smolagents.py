@@ -1,0 +1,869 @@
+"""
+Smolagents sync wrappers — OTel GenAI semantic convention compliant.
+
+Handles agent runs (including streaming generators), LLM model calls,
+tool execution, and per-step tracing.
+"""
+
+import time
+import json
+from opentelemetry import context as context_api
+from opentelemetry.trace import Status, StatusCode
+from openlit.__helpers import handle_exception, truncate_content
+from openlit.instrumentation.smolagents.utils import (
+    process_smolagents_response,
+    OPERATION_MAP,
+    get_span_kind,
+    generate_span_name,
+    set_server_address_and_port,
+    compute_model_info,
+    _smolagents_agent_active,
+    _smolagents_tool_call_active,
+    _current_model_info,
+    _extract_model_name,
+    _infer_provider_from_instance,
+    _record_smolagents_metrics,
+    SemanticConvention,
+)
+
+
+def general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Create a sync wrapper for a smolagents operation."""
+
+    def wrapper(wrapped, instance, args, kwargs):
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        # --- agent_run: root agent invocation ---
+        if gen_ai_endpoint == "agent_run":
+            return _handle_agent_run(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # --- execute_tool_call: ToolCallingAgent dispatching a tool ---
+        if gen_ai_endpoint == "execute_tool_call":
+            return _handle_tool_call(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # --- tool_call: Tool.__call__ low-level ---
+        if gen_ai_endpoint == "tool_call":
+            if _smolagents_tool_call_active.get():
+                return wrapped(*args, **kwargs)
+            return _handle_tool_call(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # --- step-level spans (detailed_tracing) ---
+        if gen_ai_endpoint in ("code_step", "tool_calling_step"):
+            return _handle_step(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # --- planning step ---
+        if gen_ai_endpoint == "planning_step":
+            return _handle_planning_step(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # --- managed_agent_call: __call__ on managed sub-agent ---
+        if gen_ai_endpoint == "managed_agent_call":
+            if _smolagents_agent_active.get():
+                return wrapped(*args, **kwargs)
+            return _handle_agent_run(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                gen_ai_endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            )
+
+        # Fallback: pass through
+        return wrapped(*args, **kwargs)
+
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Agent run handler (supports streaming generators)
+# ---------------------------------------------------------------------------
+
+
+def _handle_agent_run(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Handle MultiStepAgent.run() with streaming and non-streaming paths."""
+    server_address, server_port = set_server_address_and_port(instance)
+    operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_agent")
+    span_kind = get_span_kind(operation_type)
+    span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
+
+    # Propagate model info to child tool spans
+    model_info_token = _current_model_info.set(compute_model_info(instance))
+    agent_active_token = _smolagents_agent_active.set(True)
+
+    # Detect if stream=True from kwargs (or second positional arg)
+    is_stream = kwargs.get("stream", False)
+    if not is_stream and len(args) > 1:
+        is_stream = args[1] if isinstance(args[1], bool) else False
+
+    if is_stream:
+        return _handle_agent_stream(
+            wrapped,
+            instance,
+            args,
+            kwargs,
+            span_name,
+            span_kind,
+            tracer,
+            operation_type,
+            server_address,
+            server_port,
+            environment,
+            application_name,
+            metrics,
+            capture_message_content,
+            disable_metrics,
+            version,
+            gen_ai_endpoint,
+            model_info_token,
+            agent_active_token,
+        )
+
+    try:
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            try:
+                response = wrapped(*args, **kwargs)
+
+                # Aggregate token usage from agent monitor
+                _set_agent_token_usage(span, instance)
+
+                process_smolagents_response(
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=gen_ai_endpoint,
+                    **kwargs,
+                )
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+    finally:
+        _current_model_info.reset(model_info_token)
+        _smolagents_agent_active.reset(agent_active_token)
+
+
+def _handle_agent_stream(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    span_name,
+    span_kind,
+    tracer,
+    operation_type,
+    server_address,
+    server_port,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    gen_ai_endpoint,
+    model_info_token,
+    agent_active_token,
+):
+    """Wrap agent.run(stream=True) — hold span open across generator iteration."""
+
+    def stream_wrapper():
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                operation_type,
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
+            )
+
+            model_name = _extract_model_name(instance)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+
+            agent_name = getattr(instance, "name", None) or type(instance).__name__
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+
+            if args:
+                task = args[0]
+                if task and capture_message_content:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                        json.dumps(
+                            [{"role": "user", "content": truncate_content(str(task))}]
+                        ),
+                    )
+
+            span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+            span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME,
+                application_name,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+            step_count = 0
+            last_output = None
+
+            try:
+                stream_gen = wrapped(*args, **kwargs)
+                for event in stream_gen:
+                    step_count += 1
+                    # Track the last meaningful output
+                    if hasattr(event, "action_output"):
+                        last_output = getattr(event, "action_output", None)
+                    elif hasattr(event, "is_final_answer") and getattr(
+                        event, "is_final_answer", False
+                    ):
+                        last_output = event
+                    yield event
+
+                # Finalize span after generator exhausted
+                _set_agent_token_usage(span, instance)
+                span.set_attribute("gen_ai.smolagents.step_count", step_count)
+
+                if last_output is not None and capture_message_content:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                        json.dumps(
+                            [
+                                {
+                                    "role": "assistant",
+                                    "content": truncate_content(str(last_output)),
+                                }
+                            ]
+                        ),
+                    )
+
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+                    time.time() - start_time,
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OUTPUT_TYPE,
+                    SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+                )
+                span.set_status(Status(StatusCode.OK))
+
+                if not disable_metrics and metrics:
+                    _record_smolagents_metrics(
+                        metrics,
+                        operation_type,
+                        time.time() - start_time,
+                        environment,
+                        application_name,
+                        model_name,
+                        server_address,
+                        server_port,
+                    )
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+            finally:
+                _current_model_info.reset(model_info_token)
+                _smolagents_agent_active.reset(agent_active_token)
+
+    return stream_wrapper()
+
+
+# ---------------------------------------------------------------------------
+# Tool call handler
+# ---------------------------------------------------------------------------
+
+
+def _handle_tool_call(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Handle tool execution spans."""
+    server_address, server_port = set_server_address_and_port(instance)
+    operation_type = OPERATION_MAP.get(gen_ai_endpoint, "execute_tool")
+    span_kind = get_span_kind(operation_type)
+    span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
+
+    # Set dedup flag so Tool.__call__ doesn't create a second span
+    tool_active_token = None
+    if gen_ai_endpoint == "execute_tool_call":
+        tool_active_token = _smolagents_tool_call_active.set(True)
+
+    try:
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            try:
+                response = wrapped(*args, **kwargs)
+
+                process_smolagents_response(
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=gen_ai_endpoint,
+                    **kwargs,
+                )
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+    finally:
+        if tool_active_token is not None:
+            _smolagents_tool_call_active.reset(tool_active_token)
+
+
+# ---------------------------------------------------------------------------
+# Per-step handler (detailed_tracing)
+# ---------------------------------------------------------------------------
+
+
+def _handle_step(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Handle per-step spans for CodeAgent._step_stream / ToolCallingAgent._step_stream.
+
+    _step_stream is a generator; we wrap it to hold the span open.
+    """
+    server_address, server_port = set_server_address_and_port(instance)
+    operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_agent")
+    span_kind = get_span_kind(operation_type)
+    span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
+
+    def step_generator():
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
+            )
+            agent_name = getattr(instance, "name", None) or type(instance).__name__
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+
+            model_name = _extract_model_name(instance)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+
+            # Step number from ActionStep arg
+            if args:
+                step = args[0]
+                step_number = getattr(step, "step_number", None)
+                if step_number is not None:
+                    span.set_attribute(
+                        "gen_ai.smolagents.step_number",
+                        step_number,
+                    )
+
+            try:
+                gen = wrapped(*args, **kwargs)
+                for event in gen:
+                    yield event
+
+                # After generator completes, capture step results
+                if args:
+                    step = args[0]
+                    token_usage = getattr(step, "token_usage", None)
+                    if token_usage:
+                        input_tokens = getattr(token_usage, "input_tokens", None)
+                        output_tokens = getattr(token_usage, "output_tokens", None)
+                        if input_tokens is not None:
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                                input_tokens,
+                            )
+                        if output_tokens is not None:
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                                output_tokens,
+                            )
+
+                    error = getattr(step, "error", None)
+                    if error:
+                        span.set_attribute(
+                            SemanticConvention.ERROR_TYPE,
+                            type(error).__name__,
+                        )
+
+                    observations = getattr(step, "observations", None)
+                    if observations and capture_message_content:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                            json.dumps(
+                                [
+                                    {
+                                        "role": "assistant",
+                                        "content": truncate_content(str(observations)),
+                                    }
+                                ]
+                            ),
+                        )
+
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+                    time.time() - start_time,
+                )
+                span.set_status(Status(StatusCode.OK))
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+
+    return step_generator()
+
+
+# ---------------------------------------------------------------------------
+# Planning step handler (detailed_tracing)
+# ---------------------------------------------------------------------------
+
+
+def _handle_planning_step(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Handle planning step spans."""
+    server_address, server_port = set_server_address_and_port(instance)
+    operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_agent")
+    span_kind = get_span_kind(operation_type)
+    span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
+
+    # _generate_planning_step is also a generator
+    def planning_generator():
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
+            )
+            agent_name = getattr(instance, "name", None) or type(instance).__name__
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+            span.set_attribute("gen_ai.smolagents.planning", True)
+
+            try:
+                gen = wrapped(*args, **kwargs)
+                for event in gen:
+                    yield event
+
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+                    time.time() - start_time,
+                )
+                span.set_status(Status(StatusCode.OK))
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+
+    return planning_generator()
+
+
+# ---------------------------------------------------------------------------
+# Model.generate() wrapper
+# ---------------------------------------------------------------------------
+
+
+def model_generate_wrap(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Create wrapper for Model.generate() — synchronous LLM call."""
+
+    def wrapper(wrapped, instance, args, kwargs):
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        endpoint = "model_generate"
+        server_address, server_port = set_server_address_and_port(instance)
+        operation_type = "chat"
+        span_kind = get_span_kind(operation_type)
+        span_name = generate_span_name(endpoint, instance, args, kwargs)
+
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            try:
+                response = wrapped(*args, **kwargs)
+
+                process_smolagents_response(
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=endpoint,
+                    **kwargs,
+                )
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Model.generate_stream() wrapper
+# ---------------------------------------------------------------------------
+
+
+def model_generate_stream_wrap(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Create wrapper for Model.generate_stream() — streaming LLM call."""
+
+    def wrapper(wrapped, instance, args, kwargs):
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        endpoint = "model_generate_stream"
+        server_address, server_port = set_server_address_and_port(instance)
+        operation_type = "chat"
+        span_kind = get_span_kind(operation_type)
+        span_name = generate_span_name(endpoint, instance, args, kwargs)
+
+        def stream_gen_wrapper():
+            with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+                start_time = time.time()
+                first_token_time = None
+
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
+
+                model_id = getattr(instance, "model_id", None) or "unknown"
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_REQUEST_MODEL,
+                    str(model_id),
+                )
+
+                provider = _infer_provider_from_instance(instance)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+                span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_APPLICATION_NAME,
+                    application_name,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+                if capture_message_content and args:
+                    messages = args[0] if args else None
+                    if messages:
+                        from openlit.instrumentation.smolagents.utils import (
+                            _format_input_messages,
+                        )
+
+                        input_msgs = _format_input_messages(messages)
+                        if input_msgs:
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                                json.dumps(input_msgs),
+                            )
+
+                total_content = ""
+                total_input_tokens = 0
+                total_output_tokens = 0
+
+                try:
+                    gen = wrapped(*args, **kwargs)
+                    for delta in gen:
+                        if first_token_time is None:
+                            first_token_time = time.time()
+
+                        content = getattr(delta, "content", None)
+                        if content:
+                            total_content += str(content)
+
+                        token_usage = getattr(delta, "token_usage", None)
+                        if token_usage:
+                            inp = getattr(token_usage, "input_tokens", 0)
+                            out = getattr(token_usage, "output_tokens", 0)
+                            if inp:
+                                total_input_tokens += inp
+                            if out:
+                                total_output_tokens += out
+
+                        yield delta
+
+                    # Finalize
+                    if total_input_tokens:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                            total_input_tokens,
+                        )
+                    if total_output_tokens:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                            total_output_tokens,
+                        )
+
+                    if first_token_time is not None:
+                        ttft = first_token_time - start_time
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_SERVER_TTFT,
+                            ttft,
+                        )
+
+                    if capture_message_content and total_content:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                            json.dumps(
+                                [
+                                    {
+                                        "role": "assistant",
+                                        "parts": [
+                                            {
+                                                "type": "text",
+                                                "content": truncate_content(
+                                                    total_content
+                                                ),
+                                            }
+                                        ],
+                                    }
+                                ]
+                            ),
+                        )
+
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+                        time.time() - start_time,
+                    )
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+                        SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+                    )
+                    span.set_status(Status(StatusCode.OK))
+
+                    if not disable_metrics and metrics:
+                        _record_smolagents_metrics(
+                            metrics,
+                            operation_type,
+                            time.time() - start_time,
+                            environment,
+                            application_name,
+                            str(model_id),
+                            server_address,
+                            server_port,
+                        )
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    raise
+
+        return stream_gen_wrapper()
+
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _set_agent_token_usage(span, instance):
+    """Aggregate token usage from agent monitor and set on span."""
+    try:
+        monitor = getattr(instance, "monitor", None)
+        if monitor:
+            total_usage = getattr(monitor, "get_total_token_counts", None)
+            if total_usage:
+                usage = total_usage()
+                input_tokens = getattr(usage, "input_tokens", None)
+                output_tokens = getattr(usage, "output_tokens", None)
+                if input_tokens:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                        input_tokens,
+                    )
+                if output_tokens:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                        output_tokens,
+                    )
+            else:
+                input_count = getattr(monitor, "total_input_token_count", None)
+                output_count = getattr(monitor, "total_output_token_count", None)
+                if input_count:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                        input_count,
+                    )
+                if output_count:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                        output_count,
+                    )
+    except Exception:
+        pass

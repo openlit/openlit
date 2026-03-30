@@ -361,6 +361,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = "claude_agent_sdk"
     GEN_AI_SYSTEM_AGENT_FRAMEWORK = "agent_framework"
     GEN_AI_SYSTEM_STRANDS = "strands_agents"
+    GEN_AI_SYSTEM_SMOLAGENTS = "smolagents"
 
     # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
     GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"

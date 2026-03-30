@@ -58,6 +58,7 @@ MODULE_NAME_MAP = {
     "claude-agent-sdk": "claude_agent_sdk",
     "agent-framework": "agent_framework",
     "strands": "strands",
+    "smolagents": "smolagents",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -132,6 +133,7 @@ INSTRUMENTOR_MAP = {
     "claude-agent-sdk": "openlit.instrumentation.claude_agent_sdk.ClaudeAgentSDKInstrumentor",
     "agent-framework": "openlit.instrumentation.agent_framework.AgentFrameworkInstrumentor",
     "strands": "openlit.instrumentation.strands.StrandsInstrumentor",
+    "smolagents": "openlit.instrumentation.smolagents.SmolAgentsInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",

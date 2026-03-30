@@ -1,0 +1,743 @@
+"""
+Smolagents utilities for OTel GenAI semantic convention compliant telemetry.
+
+Follows the same patterns as the CrewAI instrumentation.
+All operation names, span kinds, and attributes comply with the OTel GenAI
+semantic conventions (gen-ai-agent-spans).
+"""
+
+import time
+import json
+import contextvars
+from opentelemetry.trace import SpanKind, Status, StatusCode
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    get_server_address_for_provider,
+    truncate_content,
+)
+from openlit.semcov import SemanticConvention
+
+# ---------------------------------------------------------------------------
+# Contextvars for span deduplication and model info propagation
+# ---------------------------------------------------------------------------
+
+# Prevents double-spanning when managed agent __call__ triggers run() internally
+_smolagents_agent_active = contextvars.ContextVar(
+    "openlit_smolagents_agent_active", default=False
+)
+
+# Prevents double tool spans: execute_tool_call wraps Tool.__call__ internally
+_smolagents_tool_call_active = contextvars.ContextVar(
+    "openlit_smolagents_tool_call_active", default=False
+)
+
+# Propagates the current agent's model info to child execute_tool spans
+_current_model_info = contextvars.ContextVar(
+    "openlit_smolagents_model_info", default=None
+)
+
+# ---------------------------------------------------------------------------
+# OTel GenAI Operation Mapping
+# ---------------------------------------------------------------------------
+OPERATION_MAP = {
+    "agent_run": "invoke_agent",
+    "managed_agent_call": "invoke_agent",
+    "code_step": "invoke_agent",
+    "tool_calling_step": "invoke_agent",
+    "planning_step": "invoke_agent",
+    "execute_tool_call": "execute_tool",
+    "tool_call": "execute_tool",
+    "model_generate": "chat",
+    "model_generate_stream": "chat",
+}
+
+# ---------------------------------------------------------------------------
+# SpanKind per operation type (OTel GenAI spec)
+# ---------------------------------------------------------------------------
+SPAN_KIND_MAP = {
+    "invoke_agent": SpanKind.INTERNAL,
+    "execute_tool": SpanKind.INTERNAL,
+    "chat": SpanKind.CLIENT,
+    "create_agent": SpanKind.CLIENT,
+}
+
+_MODEL_PREFIX_TO_PROVIDER = {
+    "gpt-": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "o4": "openai",
+    "davinci": "openai",
+    "claude": "anthropic",
+    "gemini": "google",
+    "mistral": "mistral_ai",
+    "command": "cohere",
+    "deepseek": "deepseek",
+    "llama": "groq",
+    "mixtral": "groq",
+    "qwen": "huggingface",
+}
+
+
+def get_span_kind(operation_type):
+    """Return the correct SpanKind for *operation_type* per OTel GenAI spec."""
+    return SPAN_KIND_MAP.get(operation_type, SpanKind.INTERNAL)
+
+
+def _infer_provider_from_model(model_name):
+    """Map a model name string to a provider key."""
+    if not model_name:
+        return None
+    lower = model_name.lower()
+    for prefix, provider in _MODEL_PREFIX_TO_PROVIDER.items():
+        if lower.startswith(prefix):
+            return provider
+    return None
+
+
+def _extract_model_name(instance):
+    """Walk the instance hierarchy to find the LLM model name."""
+    if not instance:
+        return "unknown"
+
+    # Direct model instance (Model.generate wrapping)
+    model_id = getattr(instance, "model_id", None)
+    if model_id:
+        return str(model_id)
+
+    # Agent instance: agent.model.model_id
+    model = getattr(instance, "model", None)
+    if model:
+        model_id = getattr(model, "model_id", None)
+        if model_id:
+            return str(model_id)
+
+    # Tool instance: inherit from parent agent via contextvar
+    model_info = _current_model_info.get()
+    if model_info:
+        return model_info[0]
+
+    return "unknown"
+
+
+def _infer_provider_from_instance(instance):
+    """Infer LLM provider from the model class name or model_id."""
+    try:
+        model = getattr(instance, "model", None) or instance
+        cls_name = type(model).__name__.lower()
+        if "openai" in cls_name:
+            return "openai"
+        if "anthropic" in cls_name:
+            return "anthropic"
+        if "litellm" in cls_name:
+            return "litellm"
+        if "inference" in cls_name:
+            return "huggingface"
+        if "bedrock" in cls_name:
+            return "aws.bedrock"
+        if "azure" in cls_name:
+            return "azure.ai.openai"
+        if "transformers" in cls_name:
+            return "huggingface"
+        if "vllm" in cls_name:
+            return "vllm"
+        if "mlx" in cls_name:
+            return "mlx"
+    except Exception:
+        pass
+
+    model_name = _extract_model_name(instance)
+    provider = _infer_provider_from_model(model_name)
+    if provider:
+        return provider
+
+    return "smolagents"
+
+
+def set_server_address_and_port(instance):
+    """Extract server address / port from a smolagents instance's model config."""
+    server_address = ""
+    server_port = 0
+    try:
+        model = getattr(instance, "model", None) or instance
+
+        # Try to get base_url / api_base from client
+        client = getattr(model, "client", None)
+        if client:
+            base_url = getattr(client, "base_url", None)
+            if base_url:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(str(base_url))
+                server_address = parsed.hostname or ""
+                server_port = parsed.port or 443
+
+        if not server_address:
+            api_base = getattr(model, "api_base", None) or getattr(
+                model, "base_url", None
+            )
+            if api_base:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(str(api_base))
+                server_address = parsed.hostname or ""
+                server_port = parsed.port or 443
+
+        if not server_address:
+            model_name = _extract_model_name(instance)
+            provider = _infer_provider_from_model(model_name)
+            if provider:
+                server_address, server_port = get_server_address_for_provider(provider)
+
+        # Tool instances: inherit from parent agent via contextvar
+        if not server_address:
+            model_info = _current_model_info.get()
+            if model_info and len(model_info) >= 3:
+                server_address = model_info[1]
+                server_port = model_info[2]
+    except Exception:
+        pass
+    return server_address, server_port
+
+
+def compute_model_info(instance):
+    """Return (model_name, server_address, server_port) for propagation."""
+    model_name = _extract_model_name(instance)
+    server_address, server_port = set_server_address_and_port(instance)
+    return (model_name, server_address, server_port)
+
+
+def generate_span_name(endpoint, instance, args=None, kwargs=None):
+    """Return an OTel-compliant span name: ``{operation} {entity_name}``."""
+    operation = OPERATION_MAP.get(endpoint, "invoke_agent")
+
+    if endpoint == "agent_run" or endpoint == "managed_agent_call":
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name}"
+
+    if endpoint in ("code_step", "tool_calling_step"):
+        name = getattr(instance, "name", None) or type(instance).__name__
+        step_num = ""
+        if args:
+            step = args[0] if args else None
+            step_number = getattr(step, "step_number", None)
+            if step_number is not None:
+                step_num = f" step_{step_number}"
+        return f"{operation} {name}{step_num}"
+
+    if endpoint == "planning_step":
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name} planning"
+
+    if endpoint == "execute_tool_call":
+        tool_name = args[0] if args else "unknown"
+        return f"{operation} {tool_name}"
+
+    if endpoint == "tool_call":
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name}"
+
+    if endpoint in ("model_generate", "model_generate_stream"):
+        model_id = getattr(instance, "model_id", None) or "unknown"
+        return f"{operation} {model_id}"
+
+    return f"{operation} {endpoint}"
+
+
+# ---------------------------------------------------------------------------
+# Main response processor
+# ---------------------------------------------------------------------------
+def process_smolagents_response(
+    response,
+    operation_type,
+    server_address,
+    server_port,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content,
+    disable_metrics,
+    version,
+    instance,
+    args,
+    endpoint=None,
+    **kwargs,
+):
+    """Set OTel-compliant span attributes, capture content, and record metrics."""
+    end_time = time.time()
+
+    scope = type("Scope", (), {})()
+    scope._span = span
+    scope._start_time = start_time
+    scope._end_time = end_time
+
+    request_model = _extract_model_name(instance)
+
+    class _ModelProxy:
+        def __init__(self, orig, model):
+            self._original = orig
+            self.model_name = model
+
+        def __getattr__(self, name):
+            return getattr(self._original, name)
+
+    proxy = _ModelProxy(instance, request_model) if instance else None
+
+    common_framework_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
+        server_address,
+        server_port,
+        environment,
+        application_name,
+        version,
+        endpoint,
+        proxy,
+    )
+
+    standard_operation = OPERATION_MAP.get(endpoint, "invoke_agent")
+    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, standard_operation)
+
+    _set_agent_attributes(span, instance, endpoint, capture_message_content)
+    _set_tool_attributes(
+        span, instance, endpoint, capture_message_content, args, kwargs, response
+    )
+    _set_model_attributes(span, instance, endpoint, response)
+
+    if capture_message_content:
+        _capture_content_as_attributes(span, instance, response, endpoint, args)
+
+    span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+    )
+
+    if not disable_metrics and metrics:
+        _record_smolagents_metrics(
+            metrics,
+            standard_operation,
+            end_time - start_time,
+            environment,
+            application_name,
+            request_model,
+            server_address,
+            server_port,
+        )
+
+    span.set_status(Status(StatusCode.OK))
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers for setting attributes
+# ---------------------------------------------------------------------------
+
+
+def _set_agent_attributes(span, instance, endpoint, capture_message_content):
+    """Agent attributes per OTel GenAI semantic conventions."""
+    if endpoint not in (
+        "agent_run",
+        "managed_agent_call",
+        "code_step",
+        "tool_calling_step",
+        "planning_step",
+    ):
+        return
+    try:
+        agent_name = getattr(instance, "name", None) or type(instance).__name__
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+
+        description = getattr(instance, "description", None)
+        if description:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(description)
+            )
+
+        model = getattr(instance, "model", None)
+        if model:
+            model_id = getattr(model, "model_id", None)
+            if model_id:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_REQUEST_MODEL, str(model_id)
+                )
+
+        instructions = getattr(instance, "instructions", None)
+        if instructions and capture_message_content:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                truncate_content(str(instructions)),
+            )
+
+        # Tool definitions
+        tools = getattr(instance, "tools", None)
+        if tools:
+            _set_tool_definitions(span, tools)
+
+        # Max steps
+        max_steps = getattr(instance, "max_steps", None)
+        if max_steps is not None:
+            span.set_attribute("gen_ai.smolagents.max_steps", max_steps)
+
+        # Step number for step-level spans
+        if endpoint in ("code_step", "tool_calling_step") and args:
+            step = args[0] if args else None
+            step_number = getattr(step, "step_number", None)
+            if step_number is not None:
+                span.set_attribute("gen_ai.smolagents.step_number", step_number)
+    except Exception:
+        pass
+
+
+def _set_tool_attributes(
+    span, instance, endpoint, capture_message_content, args, kwargs, response
+):
+    """Tool attributes per OTel GenAI semantic conventions."""
+    if endpoint not in ("tool_call", "execute_tool_call"):
+        return
+    try:
+        if endpoint == "execute_tool_call":
+            tool_name = args[0] if args else "unknown"
+            span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(tool_name))
+            span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+
+            # Try to get tool description from agent's tools dict
+            tools = getattr(instance, "tools", None) or {}
+            managed = getattr(instance, "managed_agents", None) or {}
+            all_tools = {**tools, **managed}
+            tool = all_tools.get(tool_name)
+            if tool:
+                desc = getattr(tool, "description", None)
+                if desc:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_DESCRIPTION,
+                        truncate_content(str(desc)),
+                    )
+
+            if capture_message_content:
+                tool_args = args[1] if len(args) > 1 else None
+                if tool_args:
+                    try:
+                        arg_str = (
+                            json.dumps(tool_args)
+                            if isinstance(tool_args, (dict, list))
+                            else str(tool_args)
+                        )
+                    except (TypeError, ValueError):
+                        arg_str = str(tool_args)
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                        truncate_content(arg_str),
+                    )
+                if response is not None:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
+                        truncate_content(str(response)),
+                    )
+
+        elif endpoint == "tool_call":
+            name = getattr(instance, "name", None) or type(instance).__name__
+            span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(name))
+            span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+
+            desc = getattr(instance, "description", None)
+            if desc:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_DESCRIPTION,
+                    truncate_content(str(desc)),
+                )
+
+            if capture_message_content:
+                if args or kwargs:
+                    try:
+                        call_args = (
+                            kwargs
+                            if kwargs
+                            else (args[0] if len(args) == 1 else list(args))
+                        )
+                        arg_str = json.dumps(call_args)
+                    except (TypeError, ValueError):
+                        arg_str = str(args) if args else str(kwargs)
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                        truncate_content(arg_str),
+                    )
+                if response is not None:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
+                        truncate_content(str(response)),
+                    )
+    except Exception:
+        pass
+
+
+def _set_model_attributes(span, instance, endpoint, response):
+    """Set model-specific attributes for LLM call spans."""
+    if endpoint not in ("model_generate", "model_generate_stream"):
+        return
+    try:
+        model_id = getattr(instance, "model_id", None)
+        if model_id:
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, str(model_id))
+
+        provider = _infer_provider_from_instance(instance)
+        if provider:
+            span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
+
+        # Token usage from ChatMessage response
+        if response is not None:
+            token_usage = getattr(response, "token_usage", None)
+            if token_usage:
+                input_tokens = getattr(token_usage, "input_tokens", None)
+                output_tokens = getattr(token_usage, "output_tokens", None)
+                if input_tokens is not None:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
+                    )
+                if output_tokens is not None:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
+                    )
+
+            # Finish reason from raw response
+            raw = getattr(response, "raw", None)
+            if raw:
+                choices = getattr(raw, "choices", None)
+                if choices:
+                    reasons = []
+                    for choice in choices:
+                        reason = getattr(choice, "finish_reason", None)
+                        if reason:
+                            reasons.append(str(reason))
+                    if reasons:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+                            reasons,
+                        )
+
+            # Response model from raw response
+            resp_model = None
+            if raw:
+                resp_model = getattr(raw, "model", None)
+            if resp_model:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_RESPONSE_MODEL, str(resp_model)
+                )
+    except Exception:
+        pass
+
+
+def _set_tool_definitions(span, tools):
+    """Set gen_ai.tool.definitions from agent's tools dict."""
+    if not tools:
+        return
+    try:
+        tool_list = tools.values() if isinstance(tools, dict) else tools
+        tool_defs = []
+        for tool in list(tool_list)[:10]:
+            entry = {"type": "function"}
+            name = getattr(tool, "name", None)
+            if name:
+                entry["name"] = str(name)
+            desc = getattr(tool, "description", None)
+            if desc:
+                entry["description"] = truncate_content(str(desc))
+            inputs = getattr(tool, "inputs", None)
+            if inputs:
+                entry["parameters"] = inputs
+            if len(entry) > 1:
+                tool_defs.append(entry)
+        if tool_defs:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_DEFINITIONS, json.dumps(tool_defs)
+            )
+    except Exception:
+        pass
+
+
+def _capture_content_as_attributes(span, instance, response, endpoint, args=None):
+    """Record input/output as span attributes (JSON)."""
+    try:
+        # Input messages
+        if endpoint == "agent_run":
+            task = None
+            if args:
+                task = args[0] if args else None
+            if not task:
+                task = getattr(instance, "task", None)
+            if task:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                    json.dumps(
+                        [{"role": "user", "content": truncate_content(str(task))}]
+                    ),
+                )
+
+        if endpoint in ("model_generate", "model_generate_stream"):
+            messages = None
+            if args:
+                messages = args[0] if args else None
+            if messages:
+                input_msgs = _format_input_messages(messages)
+                if input_msgs:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                        json.dumps(input_msgs),
+                    )
+
+        # Output messages
+        if response is not None:
+            if endpoint in ("model_generate", "model_generate_stream"):
+                output_msgs = _format_output_message(response)
+                if output_msgs:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                        json.dumps(output_msgs),
+                    )
+            elif endpoint == "agent_run":
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                    json.dumps(
+                        [
+                            {
+                                "role": "assistant",
+                                "content": truncate_content(str(response)),
+                            }
+                        ]
+                    ),
+                )
+    except Exception:
+        pass
+
+
+def _format_input_messages(messages):
+    """Format smolagents message list into OTel-compliant input messages."""
+    if not messages:
+        return None
+    try:
+        formatted = []
+        for msg in messages[:20]:
+            if isinstance(msg, dict):
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    parts = []
+                    for part in content:
+                        if isinstance(part, dict):
+                            if part.get("type") == "text":
+                                parts.append(
+                                    {
+                                        "type": "text",
+                                        "content": truncate_content(
+                                            str(part.get("text", ""))
+                                        ),
+                                    }
+                                )
+                            elif part.get("type") == "tool_call":
+                                parts.append(part)
+                            else:
+                                parts.append(
+                                    {
+                                        "type": "text",
+                                        "content": truncate_content(str(part)),
+                                    }
+                                )
+                        else:
+                            parts.append(
+                                {"type": "text", "content": truncate_content(str(part))}
+                            )
+                    formatted.append({"role": str(role), "parts": parts})
+                else:
+                    formatted.append(
+                        {
+                            "role": str(role),
+                            "parts": [
+                                {
+                                    "type": "text",
+                                    "content": truncate_content(str(content)),
+                                }
+                            ],
+                        }
+                    )
+            else:
+                role = getattr(msg, "role", "user")
+                content = getattr(msg, "content", "")
+                formatted.append(
+                    {
+                        "role": str(role) if hasattr(role, "value") else str(role),
+                        "parts": [
+                            {"type": "text", "content": truncate_content(str(content))}
+                        ],
+                    }
+                )
+        return formatted if formatted else None
+    except Exception:
+        return None
+
+
+def _format_output_message(response):
+    """Format a ChatMessage response into OTel-compliant output message."""
+    try:
+        content = getattr(response, "content", None)
+        role = getattr(response, "role", "assistant")
+        role_str = str(role.value) if hasattr(role, "value") else str(role)
+
+        parts = []
+        if content:
+            parts.append({"type": "text", "content": truncate_content(str(content))})
+
+        tool_calls = getattr(response, "tool_calls", None)
+        if tool_calls:
+            for tc in tool_calls:
+                tc_entry = {"type": "tool_call"}
+                tc_id = getattr(tc, "id", None)
+                if tc_id:
+                    tc_entry["id"] = str(tc_id)
+                tc_name = getattr(tc, "name", None)
+                if tc_name:
+                    tc_entry["name"] = str(tc_name)
+                tc_args = getattr(tc, "arguments", None)
+                if tc_args:
+                    tc_entry["arguments"] = (
+                        tc_args if isinstance(tc_args, dict) else str(tc_args)
+                    )
+                parts.append(tc_entry)
+
+        if parts:
+            return [{"role": role_str, "parts": parts}]
+        return None
+    except Exception:
+        return None
+
+
+def _record_smolagents_metrics(
+    metrics,
+    operation_type,
+    duration,
+    environment,
+    application_name,
+    request_model,
+    server_address,
+    server_port,
+):
+    """Record OTel-compliant metrics with correct attribute keys."""
+    try:
+        attributes = {
+            SemanticConvention.GEN_AI_OPERATION: operation_type,
+            SemanticConvention.GEN_AI_PROVIDER_NAME: (
+                SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS
+            ),
+            "service.name": application_name,
+            "deployment.environment": environment,
+        }
+        if request_model and request_model != "unknown":
+            attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+        if server_address:
+            attributes[SemanticConvention.SERVER_ADDRESS] = server_address
+        if server_port:
+            attributes[SemanticConvention.SERVER_PORT] = server_port
+
+        if "genai_client_operation_duration" in metrics:
+            metrics["genai_client_operation_duration"].record(duration, attributes)
+    except Exception:
+        pass
