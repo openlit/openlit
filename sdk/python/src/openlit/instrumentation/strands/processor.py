@@ -22,6 +22,7 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.trace import SpanKind
 
 from openlit.__helpers import (
     get_chat_model_cost,
@@ -144,6 +145,10 @@ class StrandsSpanProcessor(SpanProcessor):
 
         if getattr(span, "name", "") == "chat":
             try:
+                span._kind = SpanKind.CLIENT
+            except Exception:
+                pass
+            try:
                 token = set_framework_llm_active()
                 span_id = span.get_span_context().span_id
                 with self._fw_tokens_lock:
@@ -193,7 +198,9 @@ class StrandsSpanProcessor(SpanProcessor):
         # Remap Strands-native system_prompt → gen_ai.system_instructions
         if operation == "invoke_agent":
             system_prompt = attrs.get("system_prompt")
-            if system_prompt and not attrs.get(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS):
+            if system_prompt and not attrs.get(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS
+            ):
                 self._set_attr(
                     span, SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, system_prompt
                 )
@@ -213,18 +220,24 @@ class StrandsSpanProcessor(SpanProcessor):
         if not server_address and model_name:
             server_address, server_port = infer_server_address(model_name)
             if server_address:
-                self._set_attrs(span, {
-                    SemanticConvention.SERVER_ADDRESS: server_address,
-                    SemanticConvention.SERVER_PORT: server_port,
-                })
+                self._set_attrs(
+                    span,
+                    {
+                        SemanticConvention.SERVER_ADDRESS: server_address,
+                        SemanticConvention.SERVER_PORT: server_port,
+                    },
+                )
 
         # Normalize multi-agent operation names to invoke_workflow
         if operation in ("invoke_swarm", "invoke_graph"):
             workflow_name = attrs.get("gen_ai.agent.name", "")
-            self._set_attrs(span, {
-                SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-                SemanticConvention.GEN_AI_WORKFLOW_NAME: workflow_name,
-            })
+            self._set_attrs(
+                span,
+                {
+                    SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+                    SemanticConvention.GEN_AI_WORKFLOW_NAME: workflow_name,
+                },
+            )
             operation = "invoke_workflow"
 
         # Output type for agent / workflow spans
@@ -285,6 +298,16 @@ class StrandsSpanProcessor(SpanProcessor):
         if provider:
             enrichments[SemanticConvention.GEN_AI_PROVIDER_NAME] = provider
 
+        # response.model: use existing attr or fall back to request model
+        if not attrs.get(SemanticConvention.GEN_AI_RESPONSE_MODEL) and model_name:
+            enrichments[SemanticConvention.GEN_AI_RESPONSE_MODEL] = model_name
+
+        # response.id: propagate from existing attrs or extract from events
+        if not attrs.get(SemanticConvention.GEN_AI_RESPONSE_ID):
+            response_id = self._extract_response_id(span)
+            if response_id:
+                enrichments[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
+
         # Finish reasons from output events
         _, output_msgs, _ = extract_content_from_events(span, "chat")
         if output_msgs:
@@ -294,20 +317,21 @@ class StrandsSpanProcessor(SpanProcessor):
                 if isinstance(m, dict) and m.get("finish_reason")
             ]
             if finish_reasons:
-                enrichments[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON] = finish_reasons
+                enrichments[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON] = (
+                    finish_reasons
+                )
 
         enrichments[SemanticConvention.GEN_AI_OUTPUT_TYPE] = (
             SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
         )
-        enrichments[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] = True
 
         # Token totals and cost
         input_tokens = attrs.get("gen_ai.usage.input_tokens", 0)
         output_tokens = attrs.get("gen_ai.usage.output_tokens", 0)
         if input_tokens or output_tokens:
-            enrichments[SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE] = (
-                int(input_tokens) + int(output_tokens)
-            )
+            enrichments[SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE] = int(
+                input_tokens
+            ) + int(output_tokens)
         if self._pricing_info and model_name:
             cost = get_chat_model_cost(
                 model_name, self._pricing_info, input_tokens, output_tokens
@@ -316,6 +340,16 @@ class StrandsSpanProcessor(SpanProcessor):
 
         if enrichments:
             self._set_attrs(span, enrichments)
+
+    @staticmethod
+    def _extract_response_id(span):
+        """Try to extract a response ID from span events."""
+        for event in span.events or []:
+            ea = event.attributes or {}
+            rid = ea.get("gen_ai.response.id") or ea.get("response_id")
+            if rid:
+                return str(rid)
+        return ""
 
     # -----------------------------------------------------------------
     # Content extraction → span attributes
@@ -333,13 +367,19 @@ class StrandsSpanProcessor(SpanProcessor):
             if operation == "execute_tool":
                 # For tool spans: map to tool-specific attributes
                 if input_msgs:
-                    first = input_msgs[0] if isinstance(input_msgs, list) else input_msgs
+                    first = (
+                        input_msgs[0] if isinstance(input_msgs, list) else input_msgs
+                    )
                     parts = first.get("parts", []) if isinstance(first, dict) else []
                     if parts:
-                        arguments = parts[0].get("arguments", parts[0].get("response", ""))
+                        arguments = parts[0].get(
+                            "arguments", parts[0].get("response", "")
+                        )
                         additions[SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS] = (
                             truncate_content(
-                                json.dumps(arguments) if not isinstance(arguments, str) else arguments
+                                json.dumps(arguments)
+                                if not isinstance(arguments, str)
+                                else arguments
                             )
                         )
                 if output_msgs:
@@ -387,12 +427,22 @@ class StrandsSpanProcessor(SpanProcessor):
             if output_tokens is not None:
                 extra["output_tokens"] = output_tokens
 
-            cache_read = attrs.get("gen_ai.usage.cache_read_input_tokens")
-            cache_write = attrs.get("gen_ai.usage.cache_write_input_tokens")
+            cache_read = attrs.get(
+                SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
+            )
+            cache_write = attrs.get(
+                SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+            )
             if cache_read is not None:
                 extra["cache_read_input_tokens"] = cache_read
             if cache_write is not None:
                 extra["cache_creation_input_tokens"] = cache_write
+
+            response_id = attrs.get(
+                SemanticConvention.GEN_AI_RESPONSE_ID
+            ) or self._extract_response_id(span)
+            if response_id:
+                extra["response_id"] = response_id
 
             if system_instr:
                 extra["system_instructions"] = system_instr

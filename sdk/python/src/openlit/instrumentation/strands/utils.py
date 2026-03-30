@@ -68,6 +68,7 @@ def infer_provider_name(model_name):
 # Content extraction from Strands span events
 # -------------------------------------------------------------------------
 
+
 def _safe_json_loads(value):
     """Parse *value* as JSON if it is a string, otherwise return as-is."""
     if isinstance(value, str):
@@ -91,19 +92,23 @@ def _convert_strands_content_to_parts(content):
                 parts.append({"type": "text", "content": block["text"]})
             elif "toolUse" in block:
                 tu = block["toolUse"]
-                parts.append({
-                    "type": "tool_call",
-                    "id": tu.get("toolUseId", ""),
-                    "name": tu.get("name", ""),
-                    "arguments": tu.get("input", {}),
-                })
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": tu.get("toolUseId", ""),
+                        "name": tu.get("name", ""),
+                        "arguments": tu.get("input", {}),
+                    }
+                )
             elif "toolResult" in block:
                 tr = block["toolResult"]
-                parts.append({
-                    "type": "tool_call_response",
-                    "id": tr.get("toolUseId", ""),
-                    "response": tr.get("content", ""),
-                })
+                parts.append(
+                    {
+                        "type": "tool_call_response",
+                        "id": tr.get("toolUseId", ""),
+                        "response": tr.get("content", ""),
+                    }
+                )
             else:
                 for key, value in block.items():
                     parts.append({"type": key, "content": value})
@@ -129,7 +134,7 @@ def extract_content_from_events(span, operation):
     output_msgs = []
     system_instructions = None
 
-    for event in (span.events or []):
+    for event in span.events or []:
         event_attrs = event.attributes or {}
 
         if event.name == "gen_ai.client.inference.operation.details":
@@ -164,32 +169,42 @@ def extract_content_from_events(span, operation):
             content = event_attrs.get("content", "")
             tool_id = event_attrs.get("id", "")
             if operation == "execute_tool":
-                input_msgs.append({
-                    "role": "tool",
-                    "parts": [{
-                        "type": "tool_call",
-                        "id": tool_id,
-                        "name": "",
-                        "arguments": _safe_json_loads(content),
-                    }],
-                })
+                input_msgs.append(
+                    {
+                        "role": "tool",
+                        "parts": [
+                            {
+                                "type": "tool_call",
+                                "id": tool_id,
+                                "name": "",
+                                "arguments": _safe_json_loads(content),
+                            }
+                        ],
+                    }
+                )
             else:
-                input_msgs.append({
-                    "role": "tool",
-                    "parts": [{
-                        "type": "tool_call_response",
-                        "id": tool_id,
-                        "response": _safe_json_loads(content),
-                    }],
-                })
+                input_msgs.append(
+                    {
+                        "role": "tool",
+                        "parts": [
+                            {
+                                "type": "tool_call_response",
+                                "id": tool_id,
+                                "response": _safe_json_loads(content),
+                            }
+                        ],
+                    }
+                )
         elif event.name == "gen_ai.choice":
             message = event_attrs.get("message", "")
             finish_reason = event_attrs.get("finish_reason", "")
             if operation == "execute_tool":
-                output_msgs.append({
-                    "role": "tool",
-                    "parts": _convert_strands_content_to_parts(message),
-                })
+                output_msgs.append(
+                    {
+                        "role": "tool",
+                        "parts": _convert_strands_content_to_parts(message),
+                    }
+                )
             else:
                 parts = _convert_strands_content_to_parts(message)
                 entry = {"role": "assistant", "parts": parts}
@@ -203,6 +218,7 @@ def extract_content_from_events(span, operation):
 # -------------------------------------------------------------------------
 # Inference log event emission (matching OpenAI pattern)
 # -------------------------------------------------------------------------
+
 
 def emit_strands_inference_event(
     event_provider,
@@ -253,9 +269,13 @@ def emit_strands_inference_event(
             elif key == "output_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
             elif key == "cache_creation_input_tokens":
-                attributes[SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] = value
+                attributes[
+                    SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+                ] = value
             elif key == "cache_read_input_tokens":
-                attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] = value
+                attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] = (
+                    value
+                )
             elif key == "system_instructions":
                 attributes[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = value
             elif key == "tool_definitions":
@@ -277,6 +297,7 @@ def emit_strands_inference_event(
 # -------------------------------------------------------------------------
 # Metrics recording
 # -------------------------------------------------------------------------
+
 
 def record_strands_metrics(
     metrics,
