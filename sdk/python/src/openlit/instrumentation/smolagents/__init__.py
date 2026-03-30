@@ -2,8 +2,8 @@
 OpenLIT Smolagents Instrumentation — OTel GenAI semantic convention compliant.
 
 Targets smolagents (HuggingFace's lightweight agent framework).
-Uses wrapt monkey-patching for agent runs, tool calls, and model invocations.
-Dynamically discovers Model subclasses to wrap generate/generate_stream.
+Uses wrapt monkey-patching for agent runs and tool calls.
+LLM call spans are delegated to the underlying SDK instrumentors (OpenAI, etc.).
 Patches ThreadPoolExecutor for correct context propagation in CodeAgent.
 """
 
@@ -12,11 +12,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.smolagents.smolagents import (
-    general_wrap,
-    model_generate_wrap,
-    model_generate_stream_wrap,
-)
+from openlit.instrumentation.smolagents.smolagents import general_wrap
 
 _instruments = ("smolagents >= 1.0.0",)
 
@@ -43,7 +39,6 @@ class SmolAgentsInstrumentor(BaseInstrumentor):
     def __init__(self):
         super().__init__()
         self._original_executor_class = None
-        self._wrapped_model_methods = []
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
@@ -91,111 +86,8 @@ class SmolAgentsInstrumentor(BaseInstrumentor):
                 except Exception:
                     pass
 
-        # -- Dynamic model wrapping --
-        self._wrap_model_classes(*wrap_args)
-
         # -- ThreadPoolExecutor context propagation --
         self._install_context_propagation()
-
-    def _wrap_model_classes(
-        self,
-        version,
-        environment,
-        application_name,
-        tracer,
-        pricing_info,
-        capture_message_content,
-        metrics,
-        disable_metrics,
-    ):
-        """Dynamically discover all Model subclasses and wrap generate/generate_stream."""
-        try:
-            import smolagents
-        except ImportError:
-            return
-
-        wrap_args = (
-            version,
-            environment,
-            application_name,
-            tracer,
-            pricing_info,
-            capture_message_content,
-            metrics,
-            disable_metrics,
-        )
-
-        # Wrap generate() on the base Model class — all subclasses inherit
-        try:
-            wrap_function_wrapper(
-                "smolagents.models",
-                "Model.generate",
-                model_generate_wrap(*wrap_args),
-            )
-            self._wrapped_model_methods.append(("smolagents.models", "Model.generate"))
-        except Exception:
-            pass
-
-        # Wrap generate_stream() on the base Model class
-        try:
-            wrap_function_wrapper(
-                "smolagents.models",
-                "Model.generate_stream",
-                model_generate_stream_wrap(*wrap_args),
-            )
-            self._wrapped_model_methods.append(
-                ("smolagents.models", "Model.generate_stream")
-            )
-        except Exception:
-            pass
-
-        # Also wrap any subclass that overrides generate/generate_stream directly
-        # to ensure interception even if the subclass doesn't call super()
-        model_base = getattr(smolagents, "Model", None)
-        if model_base is None:
-            return
-
-        seen = set()
-        for attr_name in dir(smolagents):
-            try:
-                attr = getattr(smolagents, attr_name)
-                if (
-                    isinstance(attr, type)
-                    and issubclass(attr, model_base)
-                    and attr is not model_base
-                    and attr.__name__ not in seen
-                ):
-                    seen.add(attr.__name__)
-                    module = attr.__module__
-
-                    # Only wrap if the subclass actually overrides the method
-                    if "generate" in attr.__dict__:
-                        try:
-                            wrap_function_wrapper(
-                                module,
-                                f"{attr.__name__}.generate",
-                                model_generate_wrap(*wrap_args),
-                            )
-                            self._wrapped_model_methods.append(
-                                (module, f"{attr.__name__}.generate")
-                            )
-                        except Exception:
-                            pass
-
-                    if "generate_stream" in attr.__dict__:
-                        try:
-                            wrap_function_wrapper(
-                                module,
-                                f"{attr.__name__}.generate_stream",
-                                model_generate_stream_wrap(*wrap_args),
-                            )
-                            self._wrapped_model_methods.append(
-                                (module, f"{attr.__name__}.generate_stream")
-                            )
-                        except Exception:
-                            pass
-            except Exception:
-                pass
 
     def _install_context_propagation(self):
         """Patch ThreadPoolExecutor in smolagents to propagate contextvars.
@@ -252,4 +144,3 @@ class SmolAgentsInstrumentor(BaseInstrumentor):
             except Exception:
                 pass
             self._original_executor_class = None
-        self._wrapped_model_methods.clear()

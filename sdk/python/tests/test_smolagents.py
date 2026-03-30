@@ -5,8 +5,7 @@ Tests for smolagents instrumentation using the smolagents Python library.
 Tests cover:
 - Agent construction and run (ToolCallingAgent, CodeAgent)
 - Tool execution
-- Model.generate wrapping
-- Streaming agent runs
+- Model generate/stream (LLM spans delegated to base SDK instrumentors)
 
 These tests validate integration with OpenLIT.
 
@@ -95,7 +94,7 @@ class TestSmolAgentsInstrumentation:
         assert "Processed" in str(result)
 
     def test_model_generate_instrumentation(self):
-        """Tests that Model.generate() is instrumented."""
+        """Tests that Model.generate() works (LLM span from base SDK instrumentor)."""
         model = DummyModel()
         messages = [{"role": "user", "content": "Hello"}]
         response = model.generate(messages)
@@ -104,7 +103,7 @@ class TestSmolAgentsInstrumentation:
         assert response.token_usage.output_tokens == 5
 
     def test_model_generate_stream_instrumentation(self):
-        """Tests that Model.generate_stream() is instrumented."""
+        """Tests that Model.generate_stream() works (LLM span from base SDK instrumentor)."""
         model = DummyModel()
         messages = [{"role": "user", "content": "Hello streaming"}]
         chunks = list(model.generate_stream(messages))

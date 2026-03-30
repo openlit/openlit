@@ -47,8 +47,6 @@ OPERATION_MAP = {
     "planning_step": "invoke_agent",
     "execute_tool_call": "execute_tool",
     "tool_call": "execute_tool",
-    "model_generate": "chat",
-    "model_generate_stream": "chat",
 }
 
 # ---------------------------------------------------------------------------
@@ -57,7 +55,6 @@ OPERATION_MAP = {
 SPAN_KIND_MAP = {
     "invoke_agent": SpanKind.INTERNAL,
     "execute_tool": SpanKind.INTERNAL,
-    "chat": SpanKind.CLIENT,
     "create_agent": SpanKind.CLIENT,
 }
 
@@ -117,40 +114,6 @@ def _extract_model_name(instance):
         return model_info[0]
 
     return "unknown"
-
-
-def _infer_provider_from_instance(instance):
-    """Infer LLM provider from the model class name or model_id."""
-    try:
-        model = getattr(instance, "model", None) or instance
-        cls_name = type(model).__name__.lower()
-        if "openai" in cls_name:
-            return "openai"
-        if "anthropic" in cls_name:
-            return "anthropic"
-        if "litellm" in cls_name:
-            return "litellm"
-        if "inference" in cls_name:
-            return "huggingface"
-        if "bedrock" in cls_name:
-            return "aws.bedrock"
-        if "azure" in cls_name:
-            return "azure.ai.openai"
-        if "transformers" in cls_name:
-            return "huggingface"
-        if "vllm" in cls_name:
-            return "vllm"
-        if "mlx" in cls_name:
-            return "mlx"
-    except Exception:
-        pass
-
-    model_name = _extract_model_name(instance)
-    provider = _infer_provider_from_model(model_name)
-    if provider:
-        return provider
-
-    return "smolagents"
 
 
 def set_server_address_and_port(instance):
@@ -236,10 +199,6 @@ def generate_span_name(endpoint, instance, args=None, kwargs=None):
         name = getattr(instance, "name", None) or type(instance).__name__
         return f"{operation} {name}"
 
-    if endpoint in ("model_generate", "model_generate_stream"):
-        model_id = getattr(instance, "model_id", None) or "unknown"
-        return f"{operation} {model_id}"
-
     return f"{operation} {endpoint}"
 
 
@@ -303,7 +262,6 @@ def process_smolagents_response(
     _set_tool_attributes(
         span, instance, endpoint, capture_message_content, args, kwargs, response
     )
-    _set_model_attributes(span, instance, endpoint, response)
 
     if capture_message_content:
         _capture_content_as_attributes(span, instance, response, endpoint, args)
@@ -471,62 +429,6 @@ def _set_tool_attributes(
         pass
 
 
-def _set_model_attributes(span, instance, endpoint, response):
-    """Set model-specific attributes for LLM call spans."""
-    if endpoint not in ("model_generate", "model_generate_stream"):
-        return
-    try:
-        model_id = getattr(instance, "model_id", None)
-        if model_id:
-            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, str(model_id))
-
-        provider = _infer_provider_from_instance(instance)
-        if provider:
-            span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
-
-        # Token usage from ChatMessage response
-        if response is not None:
-            token_usage = getattr(response, "token_usage", None)
-            if token_usage:
-                input_tokens = getattr(token_usage, "input_tokens", None)
-                output_tokens = getattr(token_usage, "output_tokens", None)
-                if input_tokens is not None:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
-                    )
-                if output_tokens is not None:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
-                    )
-
-            # Finish reason from raw response
-            raw = getattr(response, "raw", None)
-            if raw:
-                choices = getattr(raw, "choices", None)
-                if choices:
-                    reasons = []
-                    for choice in choices:
-                        reason = getattr(choice, "finish_reason", None)
-                        if reason:
-                            reasons.append(str(reason))
-                    if reasons:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                            reasons,
-                        )
-
-            # Response model from raw response
-            resp_model = None
-            if raw:
-                resp_model = getattr(raw, "model", None)
-            if resp_model:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_RESPONSE_MODEL, str(resp_model)
-                )
-    except Exception:
-        pass
-
-
 def _set_tool_definitions(span, tools):
     """Set gen_ai.tool.definitions from agent's tools dict."""
     if not tools:
@@ -558,7 +460,6 @@ def _set_tool_definitions(span, tools):
 def _capture_content_as_attributes(span, instance, response, endpoint, args=None):
     """Record input/output as span attributes (JSON)."""
     try:
-        # Input messages
         if endpoint == "agent_run":
             task = None
             if args:
@@ -573,141 +474,20 @@ def _capture_content_as_attributes(span, instance, response, endpoint, args=None
                     ),
                 )
 
-        if endpoint in ("model_generate", "model_generate_stream"):
-            messages = None
-            if args:
-                messages = args[0] if args else None
-            if messages:
-                input_msgs = _format_input_messages(messages)
-                if input_msgs:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                        json.dumps(input_msgs),
-                    )
-
-        # Output messages
-        if response is not None:
-            if endpoint in ("model_generate", "model_generate_stream"):
-                output_msgs = _format_output_message(response)
-                if output_msgs:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        json.dumps(output_msgs),
-                    )
-            elif endpoint == "agent_run":
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                    json.dumps(
-                        [
-                            {
-                                "role": "assistant",
-                                "content": truncate_content(str(response)),
-                            }
-                        ]
-                    ),
-                )
+        if response is not None and endpoint == "agent_run":
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                json.dumps(
+                    [
+                        {
+                            "role": "assistant",
+                            "content": truncate_content(str(response)),
+                        }
+                    ]
+                ),
+            )
     except Exception:
         pass
-
-
-def _format_input_messages(messages):
-    """Format smolagents message list into OTel-compliant input messages."""
-    if not messages:
-        return None
-    try:
-        formatted = []
-        for msg in messages[:20]:
-            if isinstance(msg, dict):
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                if isinstance(content, list):
-                    parts = []
-                    for part in content:
-                        if isinstance(part, dict):
-                            if part.get("type") == "text":
-                                parts.append(
-                                    {
-                                        "type": "text",
-                                        "content": truncate_content(
-                                            str(part.get("text", ""))
-                                        ),
-                                    }
-                                )
-                            elif part.get("type") == "tool_call":
-                                parts.append(part)
-                            else:
-                                parts.append(
-                                    {
-                                        "type": "text",
-                                        "content": truncate_content(str(part)),
-                                    }
-                                )
-                        else:
-                            parts.append(
-                                {"type": "text", "content": truncate_content(str(part))}
-                            )
-                    formatted.append({"role": str(role), "parts": parts})
-                else:
-                    formatted.append(
-                        {
-                            "role": str(role),
-                            "parts": [
-                                {
-                                    "type": "text",
-                                    "content": truncate_content(str(content)),
-                                }
-                            ],
-                        }
-                    )
-            else:
-                role = getattr(msg, "role", "user")
-                content = getattr(msg, "content", "")
-                formatted.append(
-                    {
-                        "role": str(role) if hasattr(role, "value") else str(role),
-                        "parts": [
-                            {"type": "text", "content": truncate_content(str(content))}
-                        ],
-                    }
-                )
-        return formatted if formatted else None
-    except Exception:
-        return None
-
-
-def _format_output_message(response):
-    """Format a ChatMessage response into OTel-compliant output message."""
-    try:
-        content = getattr(response, "content", None)
-        role = getattr(response, "role", "assistant")
-        role_str = str(role.value) if hasattr(role, "value") else str(role)
-
-        parts = []
-        if content:
-            parts.append({"type": "text", "content": truncate_content(str(content))})
-
-        tool_calls = getattr(response, "tool_calls", None)
-        if tool_calls:
-            for tc in tool_calls:
-                tc_entry = {"type": "tool_call"}
-                tc_id = getattr(tc, "id", None)
-                if tc_id:
-                    tc_entry["id"] = str(tc_id)
-                tc_name = getattr(tc, "name", None)
-                if tc_name:
-                    tc_entry["name"] = str(tc_name)
-                tc_args = getattr(tc, "arguments", None)
-                if tc_args:
-                    tc_entry["arguments"] = (
-                        tc_args if isinstance(tc_args, dict) else str(tc_args)
-                    )
-                parts.append(tc_entry)
-
-        if parts:
-            return [{"role": role_str, "parts": parts}]
-        return None
-    except Exception:
-        return None
 
 
 def _record_smolagents_metrics(

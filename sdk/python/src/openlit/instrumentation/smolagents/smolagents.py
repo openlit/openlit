@@ -21,7 +21,6 @@ from openlit.instrumentation.smolagents.utils import (
     _smolagents_tool_call_active,
     _current_model_info,
     _extract_model_name,
-    _infer_provider_from_instance,
     _record_smolagents_metrics,
     SemanticConvention,
 )
@@ -295,6 +294,24 @@ def _handle_agent_stream(
             agent_name = getattr(instance, "name", None) or type(instance).__name__
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
 
+            description = getattr(instance, "description", None)
+            if description:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(description)
+                )
+
+            max_steps = getattr(instance, "max_steps", None)
+            if max_steps is not None:
+                span.set_attribute("gen_ai.smolagents.max_steps", max_steps)
+
+            tools = getattr(instance, "tools", None)
+            if tools:
+                from openlit.instrumentation.smolagents.utils import (
+                    _set_tool_definitions,
+                )
+
+                _set_tool_definitions(span, tools)
+
             if args:
                 task = args[0]
                 if task and capture_message_content:
@@ -321,9 +338,10 @@ def _handle_agent_stream(
                 stream_gen = wrapped(*args, **kwargs)
                 for event in stream_gen:
                     step_count += 1
-                    # Track the last meaningful output
                     if hasattr(event, "action_output"):
-                        last_output = getattr(event, "action_output", None)
+                        output = getattr(event, "action_output", None)
+                        if output is not None:
+                            last_output = output
                     elif hasattr(event, "is_final_answer") and getattr(
                         event, "is_final_answer", False
                     ):
@@ -334,18 +352,24 @@ def _handle_agent_stream(
                 _set_agent_token_usage(span, instance)
                 span.set_attribute("gen_ai.smolagents.step_count", step_count)
 
-                if last_output is not None and capture_message_content:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        json.dumps(
-                            [
-                                {
-                                    "role": "assistant",
-                                    "content": truncate_content(str(last_output)),
-                                }
-                            ]
-                        ),
-                    )
+                if capture_message_content:
+                    output_text = None
+                    if last_output is not None:
+                        output_text = str(last_output)
+                    elif hasattr(instance, "output") and instance.output is not None:
+                        output_text = str(instance.output)
+                    if output_text:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                            json.dumps(
+                                [
+                                    {
+                                        "role": "assistant",
+                                        "content": truncate_content(output_text),
+                                    }
+                                ]
+                            ),
+                        )
 
                 span.set_attribute(
                     SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
@@ -606,225 +630,6 @@ def _handle_planning_step(
                 raise
 
     return planning_generator()
-
-
-# ---------------------------------------------------------------------------
-# Model.generate() wrapper
-# ---------------------------------------------------------------------------
-
-
-def model_generate_wrap(
-    version,
-    environment,
-    application_name,
-    tracer,
-    pricing_info,
-    capture_message_content,
-    metrics,
-    disable_metrics,
-):
-    """Create wrapper for Model.generate() — synchronous LLM call."""
-
-    def wrapper(wrapped, instance, args, kwargs):
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        endpoint = "model_generate"
-        server_address, server_port = set_server_address_and_port(instance)
-        operation_type = "chat"
-        span_kind = get_span_kind(operation_type)
-        span_name = generate_span_name(endpoint, instance, args, kwargs)
-
-        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
-            start_time = time.time()
-            try:
-                response = wrapped(*args, **kwargs)
-
-                process_smolagents_response(
-                    response,
-                    operation_type,
-                    server_address,
-                    server_port,
-                    environment,
-                    application_name,
-                    metrics,
-                    start_time,
-                    span,
-                    capture_message_content,
-                    disable_metrics,
-                    version,
-                    instance,
-                    args,
-                    endpoint=endpoint,
-                    **kwargs,
-                )
-                return response
-
-            except Exception as e:
-                handle_exception(span, e)
-                raise
-
-    return wrapper
-
-
-# ---------------------------------------------------------------------------
-# Model.generate_stream() wrapper
-# ---------------------------------------------------------------------------
-
-
-def model_generate_stream_wrap(
-    version,
-    environment,
-    application_name,
-    tracer,
-    pricing_info,
-    capture_message_content,
-    metrics,
-    disable_metrics,
-):
-    """Create wrapper for Model.generate_stream() — streaming LLM call."""
-
-    def wrapper(wrapped, instance, args, kwargs):
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        endpoint = "model_generate_stream"
-        server_address, server_port = set_server_address_and_port(instance)
-        operation_type = "chat"
-        span_kind = get_span_kind(operation_type)
-        span_name = generate_span_name(endpoint, instance, args, kwargs)
-
-        def stream_gen_wrapper():
-            with tracer.start_as_current_span(span_name, kind=span_kind) as span:
-                start_time = time.time()
-                first_token_time = None
-
-                span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
-
-                model_id = getattr(instance, "model_id", None) or "unknown"
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_REQUEST_MODEL,
-                    str(model_id),
-                )
-
-                provider = _infer_provider_from_instance(instance)
-                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
-                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
-                span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_APPLICATION_NAME,
-                    application_name,
-                )
-                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
-
-                if capture_message_content and args:
-                    messages = args[0] if args else None
-                    if messages:
-                        from openlit.instrumentation.smolagents.utils import (
-                            _format_input_messages,
-                        )
-
-                        input_msgs = _format_input_messages(messages)
-                        if input_msgs:
-                            span.set_attribute(
-                                SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                                json.dumps(input_msgs),
-                            )
-
-                total_content = ""
-                total_input_tokens = 0
-                total_output_tokens = 0
-
-                try:
-                    gen = wrapped(*args, **kwargs)
-                    for delta in gen:
-                        if first_token_time is None:
-                            first_token_time = time.time()
-
-                        content = getattr(delta, "content", None)
-                        if content:
-                            total_content += str(content)
-
-                        token_usage = getattr(delta, "token_usage", None)
-                        if token_usage:
-                            inp = getattr(token_usage, "input_tokens", 0)
-                            out = getattr(token_usage, "output_tokens", 0)
-                            if inp:
-                                total_input_tokens += inp
-                            if out:
-                                total_output_tokens += out
-
-                        yield delta
-
-                    # Finalize
-                    if total_input_tokens:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-                            total_input_tokens,
-                        )
-                    if total_output_tokens:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-                            total_output_tokens,
-                        )
-
-                    if first_token_time is not None:
-                        ttft = first_token_time - start_time
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_SERVER_TTFT,
-                            ttft,
-                        )
-
-                    if capture_message_content and total_content:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            json.dumps(
-                                [
-                                    {
-                                        "role": "assistant",
-                                        "parts": [
-                                            {
-                                                "type": "text",
-                                                "content": truncate_content(
-                                                    total_content
-                                                ),
-                                            }
-                                        ],
-                                    }
-                                ]
-                            ),
-                        )
-
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
-                        time.time() - start_time,
-                    )
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_OUTPUT_TYPE,
-                        SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
-                    )
-                    span.set_status(Status(StatusCode.OK))
-
-                    if not disable_metrics and metrics:
-                        _record_smolagents_metrics(
-                            metrics,
-                            operation_type,
-                            time.time() - start_time,
-                            environment,
-                            application_name,
-                            str(model_id),
-                            server_address,
-                            server_port,
-                        )
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise
-
-        return stream_gen_wrapper()
-
-    return wrapper
 
 
 # ---------------------------------------------------------------------------
