@@ -57,6 +57,7 @@ MODULE_NAME_MAP = {
     "google-adk": "google.adk",
     "claude-agent-sdk": "claude_agent_sdk",
     "agent-framework": "agent_framework",
+    "strands": "strands",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -130,6 +131,7 @@ INSTRUMENTOR_MAP = {
     "google-adk": "openlit.instrumentation.google_adk.GoogleADKInstrumentor",
     "claude-agent-sdk": "openlit.instrumentation.claude_agent_sdk.ClaudeAgentSDKInstrumentor",
     "agent-framework": "openlit.instrumentation.agent_framework.AgentFrameworkInstrumentor",
+    "strands": "openlit.instrumentation.strands.StrandsInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",

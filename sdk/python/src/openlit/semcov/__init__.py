@@ -360,6 +360,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_GOOGLE_ADK = "google_adk"
     GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = "claude_agent_sdk"
     GEN_AI_SYSTEM_AGENT_FRAMEWORK = "agent_framework"
+    GEN_AI_SYSTEM_STRANDS = "strands_agents"
 
     # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
     GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"
