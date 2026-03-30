@@ -195,6 +195,16 @@ class StrandsSpanProcessor(SpanProcessor):
         if gen_ai_system and not attrs.get(SemanticConvention.GEN_AI_PROVIDER_NAME):
             self._set_attr(span, SemanticConvention.GEN_AI_PROVIDER_NAME, gen_ai_system)
 
+        # Normalize Strands-native cache token keys → OTel standard keys
+        _CACHE_KEY_MAP = {
+            "gen_ai.usage.cache_read_input_tokens": SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+            "gen_ai.usage.cache_write_input_tokens": SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        }
+        for strands_key, otel_key in _CACHE_KEY_MAP.items():
+            val = attrs.get(strands_key)
+            if val is not None and not attrs.get(otel_key):
+                self._set_attr(span, otel_key, val)
+
         # Remap Strands-native system_prompt → gen_ai.system_instructions
         if operation == "invoke_agent":
             system_prompt = attrs.get("system_prompt")
@@ -429,10 +439,10 @@ class StrandsSpanProcessor(SpanProcessor):
 
             cache_read = attrs.get(
                 SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
-            )
+            ) or attrs.get("gen_ai.usage.cache_read_input_tokens")
             cache_write = attrs.get(
                 SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
-            )
+            ) or attrs.get("gen_ai.usage.cache_write_input_tokens")
             if cache_read is not None:
                 extra["cache_read_input_tokens"] = cache_read
             if cache_write is not None:
