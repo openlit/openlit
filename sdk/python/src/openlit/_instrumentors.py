@@ -173,7 +173,7 @@ def get_instrumentor_class(name):
     try:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
-    except (ImportError, AttributeError):
+    except Exception:
         return None
 
 
