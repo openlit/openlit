@@ -19,6 +19,7 @@ _instruments = ("smolagents >= 1.0.0",)
 # === ALWAYS-ON OPERATIONS ===
 # Each tuple: (module, method, operation_key)
 WORKFLOW_OPERATIONS = [
+    ("smolagents.agents", "MultiStepAgent.__init__", "agent_init"),
     ("smolagents.agents", "MultiStepAgent.run", "agent_run"),
     ("smolagents.agents", "ToolCallingAgent.execute_tool_call", "execute_tool_call"),
     ("smolagents.tools", "Tool.__call__", "tool_call"),

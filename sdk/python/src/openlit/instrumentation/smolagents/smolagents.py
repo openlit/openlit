@@ -8,10 +8,11 @@ tool execution, and per-step tracing.
 import time
 import json
 from opentelemetry import context as context_api
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import Link, Status, StatusCode
 from openlit.__helpers import handle_exception, truncate_content
 from openlit.instrumentation.smolagents.utils import (
     process_smolagents_response,
+    emit_create_agent_span,
     OPERATION_MAP,
     get_span_kind,
     generate_span_name,
@@ -42,6 +43,24 @@ def general_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
+
+        # --- agent_init: agent construction → create_agent span ---
+        if gen_ai_endpoint == "agent_init":
+            result = wrapped(*args, **kwargs)
+            try:
+                ctx = emit_create_agent_span(
+                    tracer,
+                    instance,
+                    version,
+                    environment,
+                    application_name,
+                    capture_message_content,
+                )
+                if ctx is not None:
+                    instance._openlit_creation_context = ctx
+            except Exception:
+                pass
+            return result
 
         # --- agent_run: root agent invocation ---
         if gen_ai_endpoint == "agent_run":
@@ -187,6 +206,12 @@ def _handle_agent_run(
     model_info_token = _current_model_info.set(compute_model_info(instance))
     agent_active_token = _smolagents_agent_active.set(True)
 
+    # Span links: connect invoke_agent back to create_agent
+    links = []
+    creation_ctx = getattr(instance, "_openlit_creation_context", None)
+    if creation_ctx:
+        links = [Link(creation_ctx)]
+
     # Detect if stream=True from kwargs (or second positional arg)
     is_stream = kwargs.get("stream", False)
     if not is_stream and len(args) > 1:
@@ -213,10 +238,13 @@ def _handle_agent_run(
             gen_ai_endpoint,
             model_info_token,
             agent_active_token,
+            links,
         )
 
     try:
-        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+        with tracer.start_as_current_span(
+            span_name, kind=span_kind, links=links
+        ) as span:
             start_time = time.time()
             try:
                 response = wrapped(*args, **kwargs)
@@ -272,11 +300,14 @@ def _handle_agent_stream(
     gen_ai_endpoint,
     model_info_token,
     agent_active_token,
+    links=None,
 ):
     """Wrap agent.run(stream=True) — hold span open across generator iteration."""
 
     def stream_wrapper():
-        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+        with tracer.start_as_current_span(
+            span_name, kind=span_kind, links=links or []
+        ) as span:
             start_time = time.time()
 
             span.set_attribute(
@@ -345,7 +376,7 @@ def _handle_agent_stream(
                     elif hasattr(event, "is_final_answer") and getattr(
                         event, "is_final_answer", False
                     ):
-                        last_output = event
+                        last_output = getattr(event, "output", event)
                     yield event
 
                 # Finalize span after generator exhausted
@@ -355,7 +386,7 @@ def _handle_agent_stream(
                 if capture_message_content:
                     output_text = None
                     if last_output is not None:
-                        output_text = str(last_output)
+                        output_text = str(getattr(last_output, "output", last_output))
                     elif hasattr(instance, "output") and instance.output is not None:
                         output_text = str(instance.output)
                     if output_text:

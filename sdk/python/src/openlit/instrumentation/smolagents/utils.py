@@ -40,6 +40,7 @@ _current_model_info = contextvars.ContextVar(
 # OTel GenAI Operation Mapping
 # ---------------------------------------------------------------------------
 OPERATION_MAP = {
+    "agent_init": "create_agent",
     "agent_run": "invoke_agent",
     "managed_agent_call": "invoke_agent",
     "code_step": "invoke_agent",
@@ -172,6 +173,10 @@ def compute_model_info(instance):
 def generate_span_name(endpoint, instance, args=None, kwargs=None):
     """Return an OTel-compliant span name: ``{operation} {entity_name}``."""
     operation = OPERATION_MAP.get(endpoint, "invoke_agent")
+
+    if endpoint == "agent_init":
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name}"
 
     if endpoint == "agent_run" or endpoint == "managed_agent_call":
         name = getattr(instance, "name", None) or type(instance).__name__
@@ -488,6 +493,81 @@ def _capture_content_as_attributes(span, instance, response, endpoint, args=None
             )
     except Exception:
         pass
+
+
+def emit_create_agent_span(
+    tracer,
+    instance,
+    version,
+    environment,
+    application_name,
+    capture_message_content,
+):
+    """Emit a ``create_agent`` span for a smolagents agent instance.
+
+    Returns the SpanContext so the caller can store it on
+    ``instance._openlit_creation_context`` for linking from
+    ``invoke_agent`` spans.
+    """
+    try:
+        agent_name = getattr(instance, "name", None) or type(instance).__name__
+        span_name = f"create_agent {agent_name}"
+
+        server_address, server_port = set_server_address_and_port(instance)
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+
+            description = getattr(instance, "description", None)
+            if description:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
+                    str(description),
+                )
+
+            model = getattr(instance, "model", None)
+            if model:
+                model_id = getattr(model, "model_id", None)
+                if model_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_REQUEST_MODEL,
+                        str(model_id),
+                    )
+
+            instructions = getattr(instance, "instructions", None)
+            if instructions and capture_message_content:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    truncate_content(str(instructions)),
+                )
+
+            tools = getattr(instance, "tools", None)
+            if tools:
+                _set_tool_definitions(span, tools)
+
+            if server_address:
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+            if server_port:
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+            span.set_status(Status(StatusCode.OK))
+
+            return span.get_span_context()
+    except Exception:
+        return None
 
 
 def _record_smolagents_metrics(

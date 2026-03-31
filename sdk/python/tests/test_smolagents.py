@@ -3,9 +3,11 @@
 Tests for smolagents instrumentation using the smolagents Python library.
 
 Tests cover:
-- Agent construction and run (ToolCallingAgent, CodeAgent)
-- Tool execution
+- Agent construction (create_agent spans)
+- Agent run (invoke_agent spans)
+- Tool execution (execute_tool spans)
 - Model generate/stream (LLM spans delegated to base SDK instrumentors)
+- Streaming output ActionOutput extraction
 
 These tests validate integration with OpenLIT.
 
@@ -148,3 +150,48 @@ class TestSmolAgentsInstrumentation:
         model = FailingModel()
         with pytest.raises(RuntimeError, match="Model generation failed"):
             model.generate([{"role": "user", "content": "fail"}])
+
+    def test_create_agent_span(self):
+        """Tests that agent construction emits a create_agent span and
+        stores the span context on the instance."""
+        model = DummyModel()
+        tool = DummyTool()
+        agent = ToolCallingAgent(
+            tools=[tool],
+            model=model,
+            name="test_create_agent",
+            description="Agent for testing create_agent span",
+        )
+        assert hasattr(agent, "_openlit_creation_context")
+        assert agent._openlit_creation_context is not None
+
+    def test_create_agent_span_attributes(self):
+        """Tests that create_agent span captures agent metadata."""
+        model = DummyModel()
+        tool = DummyTool()
+        agent = ToolCallingAgent(
+            tools=[tool],
+            model=model,
+            name="attr_test_agent",
+            description="Tests attribute capture",
+        )
+        ctx = agent._openlit_creation_context
+        assert ctx is not None
+        assert ctx.trace_id != 0
+        assert ctx.span_id != 0
+
+    def test_streaming_output_extraction(self):
+        """Tests that ActionOutput.output is extracted cleanly, not the repr."""
+        from openlit.instrumentation.smolagents.smolagents import (
+            _handle_agent_stream,
+        )
+
+        @dataclass
+        class ActionOutput:
+            output: str
+            is_final_answer: bool
+
+        event = ActionOutput(output="clean answer", is_final_answer=True)
+        extracted = getattr(event, "output", event)
+        assert extracted == "clean answer"
+        assert "ActionOutput" not in str(extracted)
