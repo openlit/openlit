@@ -15,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
     get_chat_model_cost,
+    get_server_address_for_provider,
     handle_exception,
     otel_event,
     truncate_content,
@@ -45,8 +46,7 @@ SPAN_KIND_MAP = {
     SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT: SpanKind.CLIENT,
 }
 
-SERVER_ADDRESS = "api.anthropic.com"
-SERVER_PORT = 443
+SERVER_ADDRESS, SERVER_PORT = get_server_address_for_provider("anthropic")
 GEN_AI_SYSTEM_ATTR = "gen_ai.system"
 GEN_AI_SYSTEM_VALUE = "anthropic"
 
@@ -70,16 +70,40 @@ def get_span_kind(operation_type):
     return SPAN_KIND_MAP.get(operation_type, SpanKind.INTERNAL)
 
 
+# Endpoints where the second span-name segment should reflect a tool, model, or agent id.
+_SPAN_NAME_ENTITY_ENDPOINTS = frozenset(
+    (
+        "execute_tool",
+        "subagent",
+        "chat",
+        "create_agent",
+        "query",
+        "receive_response",
+    )
+)
+
+
+def resolve_agent_display_name(options):
+    """Return a short label for the root agent span (e.g. configured model), or None."""
+    if options is None:
+        return None
+    model = getattr(options, "model", None)
+    if model is not None and str(model).strip():
+        return str(model)
+    return None
+
+
 def generate_span_name(endpoint, entity_name=None):
     """Return an OTel-compliant span name: ``{operation} {entity}``."""
     operation = OPERATION_MAP.get(
         endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
     )
+    fallback = SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK
 
-    if endpoint in ("execute_tool", "subagent", "chat", "create_agent") and entity_name:
+    if endpoint in _SPAN_NAME_ENTITY_ENDPOINTS and entity_name:
         return f"{operation} {entity_name}"
 
-    return f"{operation} claude_agent_sdk"
+    return f"{operation} {fallback}"
 
 
 # ---------------------------------------------------------------------------
@@ -556,7 +580,9 @@ def process_result_message(span, message, capture_message_content):
     return result_usage
 
 
-def set_create_agent_attributes(span, version, environment, application_name):
+def set_create_agent_attributes(
+    span, version, environment, application_name, agent_name=None
+):
     """Set OTel-compliant attributes on a create_agent span."""
     try:
         span.set_attribute(
@@ -568,7 +594,10 @@ def set_create_agent_attributes(span, version, environment, application_name):
             SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK,
         )
         span.set_attribute(GEN_AI_SYSTEM_ATTR, GEN_AI_SYSTEM_VALUE)
-        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, "claude_agent_sdk")
+        span.set_attribute(
+            SemanticConvention.GEN_AI_AGENT_NAME,
+            agent_name or SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK,
+        )
         span.set_attribute(SemanticConvention.SERVER_ADDRESS, SERVER_ADDRESS)
         span.set_attribute(SemanticConvention.SERVER_PORT, SERVER_PORT)
         span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
@@ -622,7 +651,11 @@ def set_initial_span_attributes(
             SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK,
         )
         span.set_attribute(GEN_AI_SYSTEM_ATTR, GEN_AI_SYSTEM_VALUE)
-        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, "claude_agent_sdk")
+        agent_label = resolve_agent_display_name(options)
+        span.set_attribute(
+            SemanticConvention.GEN_AI_AGENT_NAME,
+            agent_label or SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK,
+        )
 
         if model:
             span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, str(model))

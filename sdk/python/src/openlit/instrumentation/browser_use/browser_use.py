@@ -228,7 +228,7 @@ def _add_browser_use_attributes(
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(instance.id))
         if hasattr(instance, "task_id"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_TASK_ID, str(instance.task_id)
+                SemanticConvention.GEN_AI_BROWSER_AGENT_TASK_ID, str(instance.task_id)
             )
         if hasattr(instance, "session_id"):
             span.set_attribute(

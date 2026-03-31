@@ -102,6 +102,9 @@ def _wrap_agent_init(
                     SemanticConvention.GEN_AI_SYSTEM_GOOGLE_ADK,
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ID, str(id(instance))
+                )
 
                 description = getattr(instance, "description", None)
                 if description:

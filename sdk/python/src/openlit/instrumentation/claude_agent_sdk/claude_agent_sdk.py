@@ -19,6 +19,7 @@ from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.claude_agent_sdk.utils import (
     generate_span_name,
+    resolve_agent_display_name,
     set_initial_span_attributes,
     update_root_from_assistant,
     has_llm_call_data,
@@ -609,7 +610,9 @@ def wrap_query(
                 yield msg
             return
 
-        span_name = generate_span_name("query")
+        options, kwargs = _get_or_create_options(kwargs)
+        agent_entity = resolve_agent_display_name(options)
+        span_name = generate_span_name("query", agent_entity)
         span = tracer.start_span(span_name, kind=SpanKind.INTERNAL)
         ctx = trace_api.set_span_in_context(span)
         token = context_api.attach(ctx)
@@ -634,7 +637,6 @@ def wrap_query(
         aggregate_usage = {"input_tokens": 0, "output_tokens": 0}
 
         try:
-            options, kwargs = _get_or_create_options(kwargs)
             prompt = kwargs.get("prompt")
 
             if prompt and capture_message_content:
@@ -747,13 +749,17 @@ def wrap_connect(
         except Exception:
             pass
 
-        span_name = generate_span_name("create_agent", "claude_agent_sdk")
+        options = kwargs.get("options")
+        agent_entity = resolve_agent_display_name(options)
+        span_entity = agent_entity or SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK
+        span_name = generate_span_name("create_agent", span_entity)
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             set_create_agent_attributes(
                 span,
                 version,
                 environment,
                 application_name,
+                agent_name=span_entity,
             )
             try:
                 result = await wrapped(*args, **kwargs)
@@ -816,7 +822,9 @@ def wrap_receive_response(
                 yield msg
             return
 
-        span_name = generate_span_name("receive_response")
+        options = getattr(instance, "_options", None)
+        agent_entity = resolve_agent_display_name(options)
+        span_name = generate_span_name("receive_response", agent_entity)
         span = tracer.start_span(span_name, kind=SpanKind.INTERNAL)
         ctx = trace_api.set_span_in_context(span)
         token = context_api.attach(ctx)
@@ -842,7 +850,6 @@ def wrap_receive_response(
 
         try:
             prompt = getattr(instance, _PROMPT_ATTR, None)
-            options = getattr(instance, "_options", None)
 
             if prompt and capture_message_content:
                 chat_state["pending_input"] = [

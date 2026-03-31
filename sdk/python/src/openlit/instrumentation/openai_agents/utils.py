@@ -17,10 +17,15 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    format_input_message,
+    format_output_message,
+    get_server_address_for_provider,
     handle_exception,
     truncate_content,
 )
 from openlit.semcov import SemanticConvention
+
+_OPENAI_SERVER_ADDRESS, _OPENAI_SERVER_PORT = get_server_address_for_provider("openai")
 
 # ---------------------------------------------------------------------------
 # OTel GenAI operation mapping   (SDK span_data.type  ->  gen_ai.operation.name)
@@ -153,8 +158,8 @@ def process_span_end(
         scope._start_time = start_time
         scope._end_time = end_time
 
-        server_address = "api.openai.com"
-        server_port = 443
+        server_address = _OPENAI_SERVER_ADDRESS
+        server_port = _OPENAI_SERVER_PORT
 
         model_proxy = (
             type("P", (), {"model_name": model_name})() if model_name else None
@@ -240,6 +245,29 @@ def process_span_end(
         handle_exception(otel_span, e)
 
 
+_OUTPUT_TYPE_MAP = {
+    str: SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+    "str": SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+    dict: SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON,
+    "dict": SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON,
+}
+
+
+def _map_output_type(output_type):
+    """Map a Python type or string to an OTel standard gen_ai.output.type value."""
+    if output_type is None:
+        return SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
+    mapped = _OUTPUT_TYPE_MAP.get(output_type)
+    if mapped:
+        return mapped
+    type_str = str(output_type).lower()
+    if "str" in type_str or "text" in type_str:
+        return SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
+    if "dict" in type_str or "json" in type_str:
+        return SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON
+    return SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
+
+
 # ---------------------------------------------------------------------------
 # Agent  (invoke_agent)
 # ---------------------------------------------------------------------------
@@ -249,13 +277,15 @@ def _set_agent_attributes(span, span_data, capture_message_content):
         if name:
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
 
-        output_type = getattr(span_data, "output_type", None)
-        span.set_attribute(
-            SemanticConvention.GEN_AI_OUTPUT_TYPE,
-            str(output_type)
-            if output_type
-            else SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+        agent_obj = getattr(span_data, "agent", None)
+        agent_id = getattr(span_data, "agent_id", None) or (
+            str(id(agent_obj)) if agent_obj is not None else str(id(span_data))
         )
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, agent_id)
+
+        output_type = getattr(span_data, "output_type", None)
+        mapped_type = _map_output_type(output_type)
+        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, mapped_type)
 
         if capture_message_content:
             tools = getattr(span_data, "tools", None)
@@ -324,8 +354,8 @@ def _set_response_attributes(span, span_data, capture_message_content):
             SemanticConvention.GEN_AI_OUTPUT_TYPE,
             SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
         )
-        span.set_attribute(SemanticConvention.SERVER_ADDRESS, "api.openai.com")
-        span.set_attribute(SemanticConvention.SERVER_PORT, 443)
+        span.set_attribute(SemanticConvention.SERVER_ADDRESS, _OPENAI_SERVER_ADDRESS)
+        span.set_attribute(SemanticConvention.SERVER_PORT, _OPENAI_SERVER_PORT)
 
         if capture_message_content:
             _capture_response_messages(span, span_data, response)
@@ -340,25 +370,18 @@ def _capture_response_messages(span, span_data, response):
         raw_input = getattr(span_data, "input", None)
         if raw_input:
             if isinstance(raw_input, str):
-                messages = [{"role": "user", "content": truncate_content(raw_input)}]
+                messages = [format_input_message("user", raw_input)]
             elif isinstance(raw_input, (list, tuple)):
                 messages = []
                 for item in raw_input[:20]:
                     if isinstance(item, dict):
                         messages.append(item)
                     else:
-                        role = getattr(item, "role", "user")
+                        role = str(getattr(item, "role", "user"))
                         content = getattr(item, "content", str(item))
-                        messages.append(
-                            {
-                                "role": str(role),
-                                "content": truncate_content(str(content)),
-                            }
-                        )
+                        messages.append(format_input_message(role, content))
             else:
-                messages = [
-                    {"role": "user", "content": truncate_content(str(raw_input))}
-                ]
+                messages = [format_input_message("user", raw_input)]
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(messages)
             )
@@ -376,21 +399,20 @@ def _capture_response_messages(span, span_data, response):
                         if text:
                             text_parts.append(truncate_content(str(text)))
                     if text_parts:
-                        out_messages.append(
-                            {
-                                "role": "assistant",
-                                "content": " ".join(text_parts),
-                            }
-                        )
+                        out_messages.append(format_output_message(" ".join(text_parts)))
                 elif item_type == "function_call":
                     fname = getattr(item, "name", "unknown")
                     fargs = getattr(item, "arguments", "")
                     out_messages.append(
                         {
                             "role": "assistant",
-                            "content": json.dumps(
-                                {"tool_call": fname, "arguments": fargs}
-                            ),
+                            "parts": [
+                                {
+                                    "type": "tool_call",
+                                    "name": fname,
+                                    "arguments": fargs,
+                                }
+                            ],
                         }
                     )
             if out_messages:
@@ -428,8 +450,8 @@ def _set_generation_attributes(span, span_data, capture_message_content):
             SemanticConvention.GEN_AI_OUTPUT_TYPE,
             SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
         )
-        span.set_attribute(SemanticConvention.SERVER_ADDRESS, "api.openai.com")
-        span.set_attribute(SemanticConvention.SERVER_PORT, 443)
+        span.set_attribute(SemanticConvention.SERVER_ADDRESS, _OPENAI_SERVER_ADDRESS)
+        span.set_attribute(SemanticConvention.SERVER_PORT, _OPENAI_SERVER_PORT)
 
         if capture_message_content:
             raw_input = getattr(span_data, "input", None)
@@ -440,23 +462,14 @@ def _set_generation_attributes(span, span_data, capture_message_content):
                         if isinstance(msg, dict):
                             messages.append(msg)
                         else:
-                            messages.append(
-                                {"role": "user", "content": truncate_content(str(msg))}
-                            )
+                            messages.append(format_input_message("user", msg))
                     span.set_attribute(
                         SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(messages)
                     )
                 else:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                        json.dumps(
-                            [
-                                {
-                                    "role": "user",
-                                    "content": truncate_content(str(raw_input)),
-                                }
-                            ]
-                        ),
+                        json.dumps([format_input_message("user", raw_input)]),
                     )
 
             raw_output = getattr(span_data, "output", None)
@@ -467,26 +480,14 @@ def _set_generation_attributes(span, span_data, capture_message_content):
                         if isinstance(msg, dict):
                             messages.append(msg)
                         else:
-                            messages.append(
-                                {
-                                    "role": "assistant",
-                                    "content": truncate_content(str(msg)),
-                                }
-                            )
+                            messages.append(format_output_message(msg))
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES, json.dumps(messages)
                     )
                 else:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        json.dumps(
-                            [
-                                {
-                                    "role": "assistant",
-                                    "content": truncate_content(str(raw_output)),
-                                }
-                            ]
-                        ),
+                        json.dumps([format_output_message(raw_output)]),
                     )
     except Exception:
         pass
@@ -574,22 +575,15 @@ def _set_transcription_attributes(span, span_data, capture_message_content):
             SemanticConvention.GEN_AI_OUTPUT_TYPE,
             SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
         )
-        span.set_attribute(SemanticConvention.SERVER_ADDRESS, "api.openai.com")
-        span.set_attribute(SemanticConvention.SERVER_PORT, 443)
+        span.set_attribute(SemanticConvention.SERVER_ADDRESS, _OPENAI_SERVER_ADDRESS)
+        span.set_attribute(SemanticConvention.SERVER_PORT, _OPENAI_SERVER_PORT)
 
         if capture_message_content:
             output = getattr(span_data, "output", None)
             if output:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                    json.dumps(
-                        [
-                            {
-                                "role": "assistant",
-                                "content": truncate_content(str(output)),
-                            }
-                        ]
-                    ),
+                    json.dumps([format_output_message(output)]),
                 )
     except Exception:
         pass
@@ -606,17 +600,15 @@ def _set_speech_attributes(span, span_data, capture_message_content):
             span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, str(model))
 
         span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "speech")
-        span.set_attribute(SemanticConvention.SERVER_ADDRESS, "api.openai.com")
-        span.set_attribute(SemanticConvention.SERVER_PORT, 443)
+        span.set_attribute(SemanticConvention.SERVER_ADDRESS, _OPENAI_SERVER_ADDRESS)
+        span.set_attribute(SemanticConvention.SERVER_PORT, _OPENAI_SERVER_PORT)
 
         if capture_message_content:
             text_input = getattr(span_data, "input", None)
             if text_input:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                    json.dumps(
-                        [{"role": "user", "content": truncate_content(str(text_input))}]
-                    ),
+                    json.dumps([format_input_message("user", text_input)]),
                 )
     except Exception:
         pass
