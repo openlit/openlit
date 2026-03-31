@@ -15,7 +15,13 @@
 #   docker build -t openlit-operator:latest .
 #   docker run openlit-operator:latest
 #
-FROM golang:1.24-alpine AS builder
+# Multi-arch build (amd64 + arm64):
+#   docker buildx build --platform linux/amd64,linux/arm64 -t openlit-operator:latest .
+#
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+
+ARG TARGETOS=linux
+ARG TARGETARCH
 
 # Install git for go mod download
 RUN apk add --no-cache git
@@ -31,8 +37,8 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Build the webhook operator  
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o operator ./cmd/operator
+# Build the operator for the target platform (cross-compiled from build platform)
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o operator ./cmd/operator
 
 # Final stage
 FROM alpine:latest
