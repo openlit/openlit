@@ -33,9 +33,10 @@ logger = logging.getLogger(__name__)
 
 def handle_not_given(value, default=None):
     """
-    Handle OpenAI's NotGiven values and None values by converting them to appropriate defaults.
+    Handle OpenAI's NotGiven/Omit sentinel values and None by converting them to defaults.
+    The Responses API uses 'Omit' while the Chat Completions API uses 'NotGiven'.
     """
-    if hasattr(value, "__class__") and value.__class__.__name__ == "NotGiven":
+    if hasattr(value, "__class__") and value.__class__.__name__ in ("NotGiven", "Omit"):
         return default
     if value is None:
         return default

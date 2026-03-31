@@ -36,7 +36,7 @@ try:
     if TYPE_CHECKING:
         from agents import Trace, Span
     TRACING_AVAILABLE = True
-except ImportError:
+except Exception:
 
     class TracingProcessor:
         """Dummy TracingProcessor for when agents is not available."""
