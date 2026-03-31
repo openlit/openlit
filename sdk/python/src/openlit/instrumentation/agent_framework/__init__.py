@@ -5,8 +5,8 @@ convention compliant.
 Provides auto-instrumentation for Microsoft Agent Framework including:
 - Agent execution   (Agent.run            -> invoke_agent spans)
 - Tool execution    (FunctionTool.invoke  -> execute_tool spans)
-- Agent construction (Agent.__init__      -> create_agent spans, detailed_tracing only)
-- Workflow execution (Workflow.run        -> invoke_workflow spans, detailed_tracing only)
+- Agent construction (Agent.__init__      -> create_agent spans)
+- Workflow execution (Workflow.run        -> invoke_workflow spans)
 
 Disables AF's built-in telemetry (AgentTelemetryLayer / ChatTelemetryLayer)
 via the global OBSERVABILITY_SETTINGS singleton to avoid duplicate spans, then
@@ -18,11 +18,17 @@ import threading
 from typing import Collection
 import importlib.metadata
 
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, truncate_content, _apply_custom_span_attributes
+from openlit.__helpers import (
+    handle_exception,
+    truncate_content,
+    _apply_custom_span_attributes,
+)
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 _instruments = ("agent-framework >= 1.0.0rc1",)
@@ -219,13 +225,11 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("agent-framework")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         agent_registry = _AgentCreationRegistry()
 
         self._previous_af_telemetry = _disable_af_telemetry()
@@ -271,36 +275,35 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
             except Exception:
                 pass
 
-        if detailed_tracing:
-            for module, method, op_key, _sync_type in DETAILED_OPERATIONS:
-                try:
-                    if op_key == "agent_init":
-                        wrapper = _wrap_agent_init(
-                            tracer,
-                            environment,
-                            application_name,
-                            capture_message_content,
-                            agent_registry,
-                        )
-                    elif op_key == "workflow_run":
-                        wrapper = workflow_run_wrap(
-                            op_key,
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                            agent_registry,
-                        )
-                    else:
-                        continue
+        for module, method, op_key, _sync_type in DETAILED_OPERATIONS:
+            try:
+                if op_key == "agent_init":
+                    wrapper = _wrap_agent_init(
+                        tracer,
+                        environment,
+                        application_name,
+                        capture_message_content,
+                        agent_registry,
+                    )
+                elif op_key == "workflow_run":
+                    wrapper = workflow_run_wrap(
+                        op_key,
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                        agent_registry,
+                    )
+                else:
+                    continue
 
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         """Restore AF's built-in telemetry."""

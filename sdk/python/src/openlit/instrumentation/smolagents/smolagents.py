@@ -120,7 +120,7 @@ def general_wrap(
                 disable_metrics,
             )
 
-        # --- step-level spans (detailed_tracing) ---
+        # --- step-level spans ---
         if gen_ai_endpoint in ("code_step", "tool_calling_step"):
             return _handle_step(
                 wrapped,
@@ -495,7 +495,7 @@ def _handle_tool_call(
 
 
 # ---------------------------------------------------------------------------
-# Per-step handler (detailed_tracing)
+# Per-step handler
 # ---------------------------------------------------------------------------
 
 
@@ -596,7 +596,7 @@ def _handle_step(
 
 
 # ---------------------------------------------------------------------------
-# Planning step handler (detailed_tracing)
+# Planning step handler
 # ---------------------------------------------------------------------------
 
 

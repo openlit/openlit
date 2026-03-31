@@ -4,9 +4,11 @@ OpenLIT Qdrant Instrumentation
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.qdrant.qdrant import general_wrap
 from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 
@@ -56,10 +58,10 @@ class QdrantInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("qdrant-client")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
 
         # Import QdrantClient to check method availability

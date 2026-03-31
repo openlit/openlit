@@ -54,10 +54,6 @@ SPAN_KIND_MAP = {
     SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT: SpanKind.CLIENT,
 }
 
-_DETAILED_SPAN_TYPES = frozenset(
-    {"custom", "transcription", "speech", "speech_group", "mcp_tools"}
-)
-
 _MAX_HANDOFFS = 1000
 
 
@@ -116,11 +112,6 @@ def generate_span_name(span_data):
         return f"{operation} {name}"
 
     return operation
-
-
-def is_detailed_only(span_type):
-    """Return True if *span_type* should only be traced under detailed_tracing."""
-    return span_type in _DETAILED_SPAN_TYPES
 
 
 # ---------------------------------------------------------------------------

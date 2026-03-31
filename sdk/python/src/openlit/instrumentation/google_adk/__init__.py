@@ -21,11 +21,17 @@ import threading
 from typing import Collection
 import importlib.metadata
 
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, truncate_content, _apply_custom_span_attributes
+from openlit.__helpers import (
+    handle_exception,
+    truncate_content,
+    _apply_custom_span_attributes,
+)
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.google_adk.utils import (
     _PassthroughTracer,
@@ -363,13 +369,11 @@ class GoogleADKInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("google-adk")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         agent_registry = _AgentCreationRegistry()
 
         self._original_tracers = _disable_existing_tracers()
@@ -442,24 +446,23 @@ class GoogleADKInstrumentor(BaseInstrumentor):
             except Exception:
                 pass
 
-        if detailed_tracing:
-            for module, method, op_key, _ in DETAILED_OPERATIONS:
-                try:
-                    wrapper = async_runner_wrap(
-                        op_key,
-                        version,
-                        environment,
-                        application_name,
-                        tracer,
-                        pricing_info,
-                        capture_message_content,
-                        metrics,
-                        disable_metrics,
-                        agent_registry,
-                    )
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
+        for module, method, op_key, _ in DETAILED_OPERATIONS:
+            try:
+                wrapper = async_runner_wrap(
+                    op_key,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    agent_registry,
+                )
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         """Restore original ADK tracers and tracing functions."""

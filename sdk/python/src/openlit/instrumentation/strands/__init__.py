@@ -10,9 +10,10 @@ import importlib.metadata
 import logging
 from typing import Collection
 
-from opentelemetry import trace
+from opentelemetry import _logs, trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.strands.processor import StrandsSpanProcessor
 
 logger = logging.getLogger(__name__)
@@ -39,9 +40,9 @@ class StrandsInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
         pricing_info = kwargs.get("pricing_info")
 
         self._processor = StrandsSpanProcessor(

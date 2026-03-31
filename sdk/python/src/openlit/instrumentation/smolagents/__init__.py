@@ -9,9 +9,11 @@ Patches ThreadPoolExecutor for correct context propagation in CodeAgent.
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.smolagents.smolagents import general_wrap
 
 _instruments = ("smolagents >= 1.0.0",)
@@ -52,13 +54,11 @@ class SmolAgentsInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         wrap_args = (
             version,
             environment,
@@ -79,13 +79,12 @@ class SmolAgentsInstrumentor(BaseInstrumentor):
                 pass
 
         # -- Detailed-tracing operations --
-        if detailed_tracing:
-            for module, method, op_key in DETAILED_OPERATIONS:
-                try:
-                    wrapper = general_wrap(op_key, *wrap_args)
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
+        for module, method, op_key in DETAILED_OPERATIONS:
+            try:
+                wrapper = general_wrap(op_key, *wrap_args)
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
         # -- ThreadPoolExecutor context propagation --
         self._install_context_propagation()
