@@ -1,18 +1,13 @@
 import { useRequest } from "./request-context";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FolderTree, DollarSign, ListTree, GanttChart, Network, MessageSquare } from "lucide-react";
+import { FolderTree, DollarSign } from "lucide-react";
 import { findSpanInHierarchyLodash } from "@/helpers/client/trace";
 import { TraceHeirarchySpan } from "@/types/trace";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import TimelineView from "./components/timeline-view";
 import NodeGraph from "./components/node-graph";
 import TreeNode from "./components/tree-node";
@@ -28,11 +23,11 @@ function sumCostRecursive(span: TraceHeirarchySpan): number {
 
 const DEFAULT_WIDTH = 46;
 
-const VIEW_TABS: { mode: ViewMode; icon: React.ReactNode; label: string }[] = [
-	{ mode: "tree", icon: <ListTree className="h-4 w-4" />, label: "Tree" },
-	{ mode: "timeline", icon: <GanttChart className="h-4 w-4" />, label: "Timeline" },
-	{ mode: "graph", icon: <Network className="h-4 w-4" />, label: "Graph" },
-	{ mode: "chat", icon: <MessageSquare className="h-4 w-4" />, label: "Chat" },
+const VIEW_TABS: { mode: ViewMode; label: string }[] = [
+	{ mode: "tree", label: "Tree" },
+	{ mode: "chat", label: "Chat" },
+	{ mode: "timeline", label: "Timeline" },
+	{ mode: "graph", label: "Graph" },
 ];
 
 export default function HeirarchyDisplay() {
@@ -94,59 +89,40 @@ export default function HeirarchyDisplay() {
 		>
 			<Accordion type="single" collapsible className="flex flex-1 h-full" value={accordionValue}>
 				<AccordionItem value="debug" className="border-0 flex flex-1 w-full">
-					{/* ── Left rail: toggle + view mode icons ── */}
-					<div className="flex flex-col items-center border-r border-stone-200 dark:border-stone-800 shrink-0">
-						{/* Accordion toggle area */}
-						<AccordionTrigger
-							className="flex flex-col items-center gap-3 px-3 py-4 hover:no-underline hover:bg-stone-100 dark:hover:bg-stone-900 [&[data-state=open]]:bg-stone-100 dark:[&[data-state=open]]:bg-stone-900/50 [&[data-state=open]>svg]:rotate-90 [&[data-state=closed]>svg]:rotate-[-90deg] transition-colors"
-							onClick={() => setAccordionValue(accordionValue === "debug" ? "" : "debug")}
-						>
-							<div className="flex flex-col items-center gap-2">
-								<FolderTree className="h-4.5 w-4.5 text-stone-600 dark:text-stone-400" />
-								<span className="text-xs font-semibold [writing-mode:vertical-lr] rotate-180 transform text-stone-700 dark:text-stone-300">
-									Span Hierarchy
-								</span>
-								{isLoading && (
-									<div className="w-5 h-5 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
-								)}
-							</div>
-						</AccordionTrigger>
-
-						{/* View mode switcher — bottom of rail */}
-						<div className="flex flex-col items-center gap-1 mt-auto px-1.5 py-3 border-t border-stone-200 dark:border-stone-800">
-							{VIEW_TABS.map(({ mode, icon, label }) => (
-								<Tooltip key={mode} delayDuration={0}>
-									<TooltipTrigger asChild>
-										<button
-											onClick={() => setViewMode(mode)}
-											className={`p-1.5 rounded transition-colors ${
-												viewMode === mode
-													? "bg-primary/15 text-primary"
-													: "text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800"
-											}`}
-										>
-											{icon}
-										</button>
-									</TooltipTrigger>
-									<TooltipContent side="right" sideOffset={4}>
-										{label}
-									</TooltipContent>
-								</Tooltip>
-							))}
+					{/* ── Left rail: accordion toggle only ── */}
+					<AccordionTrigger
+						className="flex flex-col items-center gap-3 px-3 py-4 hover:no-underline hover:bg-stone-100 dark:hover:bg-stone-900 [&[data-state=open]]:bg-stone-100 dark:[&[data-state=open]]:bg-stone-900/50 [&[data-state=open]>svg]:rotate-90 [&[data-state=closed]>svg]:rotate-[-90deg] border-r border-stone-200 dark:border-stone-800 transition-colors shrink-0"
+						onClick={() => setAccordionValue(accordionValue === "debug" ? "" : "debug")}
+					>
+						<div className="flex flex-col items-center gap-2">
+							<FolderTree className="h-4.5 w-4.5 text-stone-600 dark:text-stone-400" />
+							<span className="text-xs font-semibold [writing-mode:vertical-lr] rotate-180 transform text-stone-700 dark:text-stone-300">
+								Span Hierarchy
+							</span>
+							{isLoading && (
+								<div className="w-5 h-5 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
+							)}
 						</div>
-					</div>
+					</AccordionTrigger>
 
 					{/* ── Main content area ── */}
 					<AccordionContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down transition-all h-full pb-0" parentClassName="h-full w-full">
 						<div className="flex flex-col h-full">
-							{/* Header */}
-							<div className="px-3 pt-2 pb-1.5 shrink-0 border-b border-stone-200 dark:border-stone-800">
-								<h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-									Trace Execution Flow
-								</h3>
-								<p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-									Click spans to view details
-								</p>
+							{/* View mode tabs — horizontal at the top */}
+							<div className="flex items-center gap-1 px-3 py-1.5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 shrink-0">
+								{VIEW_TABS.map(({ mode, label }) => (
+									<button
+										key={mode}
+										onClick={() => setViewMode(mode)}
+										className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+											viewMode === mode
+												? "bg-primary/10 text-primary"
+												: "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800"
+										}`}
+									>
+										{label}
+									</button>
+								))}
 							</div>
 
 							{/* Content */}
@@ -156,6 +132,11 @@ export default function HeirarchyDisplay() {
 										<TreeNode span={record} level={0} />
 									</div>
 								)}
+								{viewMode === "chat" && (
+									<div className="overflow-auto h-full">
+										<ChatView record={record} />
+									</div>
+								)}
 								{viewMode === "timeline" && (
 									<div className="p-3 min-w-fit overflow-auto h-full">
 										<TimelineView record={record} />
@@ -163,11 +144,6 @@ export default function HeirarchyDisplay() {
 								)}
 								{viewMode === "graph" && (
 									<NodeGraph key={record.SpanId} record={record} />
-								)}
-								{viewMode === "chat" && (
-									<div className="overflow-auto h-full">
-										<ChatView record={record} />
-									</div>
 								)}
 							</div>
 

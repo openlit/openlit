@@ -154,8 +154,8 @@ function truncate(text: string, maxLen: number): string {
 	return text.length > maxLen ? text.slice(0, maxLen - 1) + "\u2026" : text;
 }
 
-const ZOOM_STEP = 0.15;
-const MIN_ZOOM = 0.1;
+const ZOOM_STEP = 0.05;
+const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 3;
 
 export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {

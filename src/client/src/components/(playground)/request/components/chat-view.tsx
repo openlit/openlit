@@ -431,8 +431,22 @@ export default function ChatView({
 	}
 	allItems.sort((a, b) => a.timestampMs - b.timestampMs);
 
-	// 5. Empty state
-	if (allItems.length === 0) {
+	// 5. Deduplicate messages with identical role + content.
+	//    In multi-step agent traces, each LLM call span carries the full
+	//    conversation history in gen_ai.input.messages — so the same user
+	//    prompt appears in every step. We keep only the first occurrence.
+	//    Tool indicators and span indicators are never deduped (they're unique actions).
+	const seenMessages = new Set<string>();
+	const dedupedItems = allItems.filter((item) => {
+		if (item.type !== "message") return true; // keep all non-message items
+		const key = `${item.role}::${item.content}`;
+		if (seenMessages.has(key)) return false;
+		seenMessages.add(key);
+		return true;
+	});
+
+	// 6. Empty state
+	if (dedupedItems.length === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-stone-400 dark:text-stone-500 gap-2 py-12">
 				<MessageSquare className="h-8 w-8" />
@@ -446,7 +460,7 @@ export default function ChatView({
 
 	return (
 		<div className="flex flex-col gap-2.5 py-3">
-			{allItems.map((item, i) => {
+			{dedupedItems.map((item, i) => {
 				const isSelected = request?.spanId === item.span.SpanId;
 
 				// ── Tool call indicator ──
