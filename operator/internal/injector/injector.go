@@ -319,9 +319,10 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 	}
 
 	// k8s.pod.name and k8s.node.name use downward API env var interpolation
-	// because they are not available at admission webhook time
-	operatorAttrs["k8s.pod.name"] = "$(K8S_POD_NAME)"
-	operatorAttrs["k8s.node.name"] = "$(K8S_NODE_NAME)"
+	// because they are not available at admission webhook time.
+	// Prefixed with OPENLIT_ to avoid colliding with user-defined env vars.
+	operatorAttrs["k8s.pod.name"] = "$(OPENLIT_K8S_POD_NAME)"
+	operatorAttrs["k8s.node.name"] = "$(OPENLIT_K8S_NODE_NAME)"
 
 	// Parse user's existing OTEL_RESOURCE_ATTRIBUTES and overlay on top (user wins on conflict)
 	for _, env := range container.Env {
@@ -360,9 +361,10 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 
 	envVars := []corev1.EnvVar{
 		// Downward API env vars for k8s attributes (must come before OTEL_RESOURCE_ATTRIBUTES
-		// so that $(K8S_POD_NAME) and $(K8S_NODE_NAME) interpolation works)
+		// so that $(OPENLIT_K8S_POD_NAME) and $(OPENLIT_K8S_NODE_NAME) interpolation works).
+		// Namespaced with OPENLIT_ prefix to avoid colliding with user-defined env vars.
 		{
-			Name: "K8S_POD_NAME",
+			Name: "OPENLIT_K8S_POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
@@ -370,7 +372,7 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 			},
 		},
 		{
-			Name: "K8S_NODE_NAME",
+			Name: "OPENLIT_K8S_NODE_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "spec.nodeName",
