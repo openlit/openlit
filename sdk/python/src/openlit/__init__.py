@@ -5,12 +5,12 @@ This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
 
-from typing import Dict
+from typing import Any, Dict
 import logging
 import os
 from importlib.util import find_spec
 from functools import wraps
-from contextlib import contextmanager
+from contextlib import ContextDecorator, contextmanager
 import requests
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -26,6 +26,8 @@ from openlit.__helpers import (
     get_env_variable,
     set_agent_name,
     reset_agent_name,
+    set_custom_attributes,
+    reset_custom_attributes,
     record_agent_invocation,
     record_agent_tool_error,
 )
@@ -137,6 +139,7 @@ def init(
     enable_sqlcommenter=False,
     evals_logs_export=True,
     max_content_length=None,
+    custom_span_attributes=None,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -163,6 +166,9 @@ def init(
         max_content_length (int): Maximum character length for captured content attributes (prompts,
                                  completions, tool output, etc.). None (default) means no truncation.
                                  Set to a positive integer to truncate content to that length.
+        custom_span_attributes (dict): Custom key-value attributes applied to every auto-instrumented
+                                       span. Values must be valid OTel attribute types (str, int,
+                                       float, bool, or sequences thereof). Optional.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     logger.info("Starting openLIT initialization...")
@@ -309,6 +315,7 @@ def init(
             enable_sqlcommenter,
             evals_logs_export,
             max_content_length,
+            custom_span_attributes,
         )
 
         # Create instrumentor instances dynamically
@@ -594,6 +601,55 @@ def agent_context(name):
         yield
     finally:
         reset_agent_name(token)
+
+
+class using_attributes(ContextDecorator):
+    """
+    Context manager and decorator to add custom attributes to all
+    auto-instrumented spans created within its scope.
+
+    Attributes are only applied to spans created while the context is active.
+    Values must be valid OTel attribute types (str, int, float, bool, or
+    sequences thereof).
+
+    As context manager:
+        with openlit.using_attributes({"user.id": "u1", "team": "ml"}):
+            client.chat.completions.create(...)
+
+    As decorator:
+        @openlit.using_attributes({"user.id": "u1"})
+        def my_func():
+            client.chat.completions.create(...)
+    """
+
+    def __init__(self, attributes: Dict[str, Any]):
+        self._attributes = attributes
+
+    def __enter__(self):
+        self._token = set_custom_attributes(self._attributes)
+        return self
+
+    def __exit__(self, *exc):
+        reset_custom_attributes(self._token)
+        return False
+
+
+def inject_additional_attributes(fn, attributes: Dict[str, Any]):
+    """
+    Execute *fn()* with custom span attributes attached to all
+    auto-instrumented spans created during its execution.
+
+    Usage:
+        response = openlit.inject_additional_attributes(
+            lambda: client.chat.completions.create(...),
+            {"user.id": "u123", "experiment": "v2"},
+        )
+    """
+    token = set_custom_attributes(attributes)
+    try:
+        return fn()
+    finally:
+        reset_custom_attributes(token)
 
 
 def trace(wrapped):

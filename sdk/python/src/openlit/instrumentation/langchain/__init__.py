@@ -1985,6 +1985,7 @@ def _wrap_create_agent(tracer, version, environment, application_name):
         set_create_agent_active,
         reset_create_agent_active,
         get_server_address_for_provider,
+        _apply_custom_span_attributes,
     )
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -2061,6 +2062,8 @@ def _wrap_create_agent(tracer, version, environment, application_name):
             else:
                 description = "LangChain agent"
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description)
+
+            _apply_custom_span_attributes(span)
 
             ca_token = set_create_agent_active()
             try:

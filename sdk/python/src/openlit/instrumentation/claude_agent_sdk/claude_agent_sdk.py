@@ -15,7 +15,7 @@ from opentelemetry import context as context_api
 from opentelemetry import trace as trace_api
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, _apply_custom_span_attributes
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.claude_agent_sdk.utils import (
     generate_span_name,
@@ -761,6 +761,7 @@ def wrap_connect(
                 application_name,
                 agent_name=span_entity,
             )
+            _apply_custom_span_attributes(span)
             try:
                 result = await wrapped(*args, **kwargs)
                 span.set_status(Status(StatusCode.OK))

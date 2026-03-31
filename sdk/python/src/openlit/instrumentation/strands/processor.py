@@ -26,6 +26,7 @@ from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     get_chat_model_cost,
     set_framework_llm_active,
     reset_framework_llm_active,
@@ -144,6 +145,7 @@ class StrandsSpanProcessor(SpanProcessor):
             span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, self._version)
             span.set_attribute(DEPLOYMENT_ENVIRONMENT, self._environment)
             span.set_attribute(SERVICE_NAME, self._application_name)
+            _apply_custom_span_attributes(span)
         except Exception:
             pass
 

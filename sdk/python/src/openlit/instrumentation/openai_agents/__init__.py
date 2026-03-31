@@ -11,7 +11,7 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, format_system_instructions
+from openlit.__helpers import handle_exception, format_system_instructions, _apply_custom_span_attributes
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
@@ -109,6 +109,8 @@ def _wrap_agent_init(
                 span.set_attribute(
                     SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
                 )
+
+                _apply_custom_span_attributes(span)
 
                 creation_ctx = span.get_span_context()
                 instance._openlit_creation_context = creation_ctx

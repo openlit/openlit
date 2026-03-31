@@ -22,7 +22,7 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import handle_exception, truncate_content, _apply_custom_span_attributes
 from openlit.semcov import SemanticConvention
 
 _instruments = ("agent-framework >= 1.0.0rc1",)
@@ -158,6 +158,8 @@ def _wrap_agent_init(
                     SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
                 )
                 span.set_status(Status(StatusCode.OK))
+
+                _apply_custom_span_attributes(span)
 
                 creation_ctx = span.get_span_context()
                 instance._openlit_creation_context = creation_ctx
