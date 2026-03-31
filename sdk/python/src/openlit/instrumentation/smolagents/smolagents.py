@@ -9,7 +9,11 @@ import time
 import json
 from opentelemetry import context as context_api
 from opentelemetry.trace import Link, Status, StatusCode
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    format_input_message,
+    format_output_message,
+    handle_exception,
+)
 from openlit.instrumentation.smolagents.utils import (
     process_smolagents_response,
     emit_create_agent_span,
@@ -320,7 +324,8 @@ def _handle_agent_stream(
             )
 
             model_name = _extract_model_name(instance)
-            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+            if model_name:
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
 
             agent_name = getattr(instance, "name", None) or type(instance).__name__
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
@@ -348,9 +353,7 @@ def _handle_agent_stream(
                 if task and capture_message_content:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                        json.dumps(
-                            [{"role": "user", "content": truncate_content(str(task))}]
-                        ),
+                        json.dumps([format_input_message("user", task)]),
                     )
 
             span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
@@ -392,14 +395,7 @@ def _handle_agent_stream(
                     if output_text:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            json.dumps(
-                                [
-                                    {
-                                        "role": "assistant",
-                                        "content": truncate_content(output_text),
-                                    }
-                                ]
-                            ),
+                            json.dumps([format_output_message(output_text)]),
                         )
 
                 span.set_attribute(
@@ -538,7 +534,8 @@ def _handle_step(
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
 
             model_name = _extract_model_name(instance)
-            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+            if model_name:
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
 
             # Step number from ActionStep arg
             if args:
@@ -584,14 +581,7 @@ def _handle_step(
                     if observations and capture_message_content:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            json.dumps(
-                                [
-                                    {
-                                        "role": "assistant",
-                                        "content": truncate_content(str(observations)),
-                                    }
-                                ]
-                            ),
+                            json.dumps([format_output_message(observations)]),
                         )
 
                 span.set_attribute(

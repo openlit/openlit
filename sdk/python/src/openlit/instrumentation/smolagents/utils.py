@@ -8,10 +8,14 @@ semantic conventions (gen-ai-agent-spans).
 
 import time
 import json
+import uuid
 import contextvars
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
+    format_input_message,
+    format_output_message,
+    format_system_instructions,
     get_server_address_for_provider,
     truncate_content,
 )
@@ -95,7 +99,7 @@ def _infer_provider_from_model(model_name):
 def _extract_model_name(instance):
     """Walk the instance hierarchy to find the LLM model name."""
     if not instance:
-        return "unknown"
+        return None
 
     # Direct model instance (Model.generate wrapping)
     model_id = getattr(instance, "model_id", None)
@@ -114,7 +118,7 @@ def _extract_model_name(instance):
     if model_info:
         return model_info[0]
 
-    return "unknown"
+    return None
 
 
 def set_server_address_and_port(instance):
@@ -263,7 +267,7 @@ def process_smolagents_response(
     standard_operation = OPERATION_MAP.get(endpoint, "invoke_agent")
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, standard_operation)
 
-    _set_agent_attributes(span, instance, endpoint, capture_message_content)
+    _set_agent_attributes(span, instance, endpoint, capture_message_content, args=args)
     _set_tool_attributes(
         span, instance, endpoint, capture_message_content, args, kwargs, response
     )
@@ -297,7 +301,7 @@ def process_smolagents_response(
 # ---------------------------------------------------------------------------
 
 
-def _set_agent_attributes(span, instance, endpoint, capture_message_content):
+def _set_agent_attributes(span, instance, endpoint, capture_message_content, args=None):
     """Agent attributes per OTel GenAI semantic conventions."""
     if endpoint not in (
         "agent_run",
@@ -310,6 +314,8 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
     try:
         agent_name = getattr(instance, "name", None) or type(instance).__name__
         span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+        agent_id = getattr(instance, "agent_id", None) or str(id(instance))
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, agent_id)
 
         description = getattr(instance, "description", None)
         if description:
@@ -321,16 +327,18 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
         if model:
             model_id = getattr(model, "model_id", None)
             if model_id:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_REQUEST_MODEL, str(model_id)
-                )
+                mid = str(model_id)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, mid)
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, mid)
 
         instructions = getattr(instance, "instructions", None)
         if instructions and capture_message_content:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                truncate_content(str(instructions)),
-            )
+            formatted = format_system_instructions(instructions)
+            if formatted:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    formatted,
+                )
 
         # Tool definitions
         tools = getattr(instance, "tools", None)
@@ -352,6 +360,23 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
         pass
 
 
+def _resolve_tool_call_id(args, kwargs):
+    """Best-effort tool call id from invocation; UUID if none found."""
+    if kwargs:
+        for key in ("tool_call_id", "id", "call_id", "tool_use_id"):
+            val = kwargs.get(key)
+            if val is not None and str(val).strip():
+                return str(val)
+    if args and len(args) > 1:
+        tool_args = args[1]
+        if isinstance(tool_args, dict):
+            for key in ("tool_call_id", "id", "call_id", "tool_use_id"):
+                val = tool_args.get(key)
+                if val is not None and str(val).strip():
+                    return str(val)
+    return str(uuid.uuid4())
+
+
 def _set_tool_attributes(
     span, instance, endpoint, capture_message_content, args, kwargs, response
 ):
@@ -363,6 +388,10 @@ def _set_tool_attributes(
             tool_name = args[0] if args else "unknown"
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(tool_name))
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+            span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ID,
+                _resolve_tool_call_id(args, kwargs or {}),
+            )
 
             # Try to get tool description from agent's tools dict
             tools = getattr(instance, "tools", None) or {}
@@ -402,6 +431,10 @@ def _set_tool_attributes(
             name = getattr(instance, "name", None) or type(instance).__name__
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(name))
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+            span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ID,
+                _resolve_tool_call_id(args, kwargs or {}),
+            )
 
             desc = getattr(instance, "description", None)
             if desc:
@@ -465,31 +498,24 @@ def _set_tool_definitions(span, tools):
 def _capture_content_as_attributes(span, instance, response, endpoint, args=None):
     """Record input/output as span attributes (JSON)."""
     try:
-        if endpoint == "agent_run":
+        if endpoint in ("agent_run", "managed_agent_call"):
             task = None
             if args:
                 task = args[0] if args else None
+                if task and hasattr(task, "task"):
+                    task = task.task
             if not task:
                 task = getattr(instance, "task", None)
             if task:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                    json.dumps(
-                        [{"role": "user", "content": truncate_content(str(task))}]
-                    ),
+                    json.dumps([format_input_message("user", task)]),
                 )
 
-        if response is not None and endpoint == "agent_run":
+        if response is not None and endpoint in ("agent_run", "managed_agent_call"):
             span.set_attribute(
                 SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                json.dumps(
-                    [
-                        {
-                            "role": "assistant",
-                            "content": truncate_content(str(response)),
-                        }
-                    ]
-                ),
+                json.dumps([format_output_message(response)]),
             )
     except Exception:
         pass
@@ -525,6 +551,7 @@ def emit_create_agent_span(
                 SemanticConvention.GEN_AI_SYSTEM_SMOLAGENTS,
             )
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(id(instance)))
 
             description = getattr(instance, "description", None)
             if description:
@@ -537,17 +564,18 @@ def emit_create_agent_span(
             if model:
                 model_id = getattr(model, "model_id", None)
                 if model_id:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_REQUEST_MODEL,
-                        str(model_id),
-                    )
+                    mid = str(model_id)
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, mid)
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, mid)
 
             instructions = getattr(instance, "instructions", None)
             if instructions and capture_message_content:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                    truncate_content(str(instructions)),
-                )
+                formatted = format_system_instructions(instructions)
+                if formatted:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
+                    )
 
             tools = getattr(instance, "tools", None)
             if tools:
@@ -590,7 +618,7 @@ def _record_smolagents_metrics(
             "service.name": application_name,
             "deployment.environment": environment,
         }
-        if request_model and request_model != "unknown":
+        if request_model:
             attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
         if server_address:
             attributes[SemanticConvention.SERVER_ADDRESS] = server_address

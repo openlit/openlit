@@ -11,7 +11,7 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, format_system_instructions
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
@@ -63,6 +63,9 @@ def _wrap_agent_init(
                     SemanticConvention.GEN_AI_SYSTEM_OPENAI,
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ID, str(id(instance))
+                )
 
                 model = getattr(instance, "model", None)
                 if model:
@@ -72,10 +75,12 @@ def _wrap_agent_init(
 
                 instructions = getattr(instance, "instructions", None)
                 if instructions and capture_message_content:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                        str(instructions)[:4096],
-                    )
+                    formatted = format_system_instructions(instructions)
+                    if formatted:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                            formatted,
+                        )
 
                 tools = getattr(instance, "tools", None)
                 if tools:

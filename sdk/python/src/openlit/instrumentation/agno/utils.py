@@ -17,6 +17,9 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    format_input_message,
+    format_output_message,
+    format_system_instructions,
     get_server_address_for_provider,
     truncate_content,
 )
@@ -117,7 +120,7 @@ def _infer_provider_from_model(model_name):
 def _extract_model_name(instance):
     """Walk the instance hierarchy to find the LLM model name."""
     if not instance:
-        return "unknown"
+        return None
 
     model = getattr(instance, "model", None)
     if model:
@@ -146,7 +149,7 @@ def _extract_model_name(instance):
     if model_info:
         return model_info[0]
 
-    return "unknown"
+    return None
 
 
 def set_server_address_and_port(instance):
@@ -302,10 +305,12 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
 
         instructions = getattr(instance, "instructions", None)
         if instructions and capture_message_content:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                truncate_content(str(instructions)),
-            )
+            formatted = format_system_instructions(instructions)
+            if formatted:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    formatted,
+                )
 
         _set_tool_definitions(span, getattr(instance, "tools", None) or [])
 
@@ -561,9 +566,7 @@ def _capture_content_as_attributes(span, instance, response, endpoint, args, kwa
         if input_content:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                json.dumps(
-                    [{"role": "user", "content": truncate_content(input_content)}]
-                ),
+                json.dumps([format_input_message("user", input_content)]),
             )
 
         # Output messages
@@ -581,14 +584,7 @@ def _capture_content_as_attributes(span, instance, response, endpoint, args, kwa
             if output_content:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                    json.dumps(
-                        [
-                            {
-                                "role": "assistant",
-                                "content": truncate_content(output_content),
-                            }
-                        ]
-                    ),
+                    json.dumps([format_output_message(output_content)]),
                 )
     except Exception:
         pass
@@ -615,7 +611,7 @@ def _record_agno_metrics(
             "service.name": application_name,
             "deployment.environment": environment,
         }
-        if request_model and request_model != "unknown":
+        if request_model:
             attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
         if server_address:
             attributes[SemanticConvention.SERVER_ADDRESS] = server_address
@@ -669,8 +665,9 @@ def emit_create_agent_spans(
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
 
             model_name = _extract_model_name(instance)
-            if model_name and model_name != "unknown":
+            if model_name:
                 span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
 
             agent_id = getattr(instance, "agent_id", None) or getattr(
                 instance, "id", None
@@ -689,10 +686,12 @@ def emit_create_agent_spans(
 
             instructions = getattr(instance, "instructions", None)
             if instructions and capture_message_content:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                    truncate_content(str(instructions)),
-                )
+                formatted = format_system_instructions(instructions)
+                if formatted:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
+                    )
 
             _set_tool_definitions(span, getattr(instance, "tools", None) or [])
 
@@ -771,6 +770,9 @@ def process_agno_response(
         endpoint,
         proxy,
     )
+
+    if request_model:
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
 
     # Override raw endpoint with standard OTel operation name
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)

@@ -35,7 +35,7 @@ _MODEL_PREFIX_TO_PROVIDER = {
     "o3": "openai",
     "o4": "openai",
     "claude": "anthropic",
-    "gemini": "gemini",
+    "gemini": "google",
     "mistral": "mistral_ai",
     "command": "cohere",
     "deepseek": "deepseek",

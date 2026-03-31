@@ -58,6 +58,7 @@ class SpanHolder:
         "server_port",
         "tool_calls",
         "finish_reason",
+        "is_agent_chain",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -86,6 +87,7 @@ class SpanHolder:
         self.server_port: int = 0
         self.tool_calls: Optional[List[Dict[str, Any]]] = None
         self.finish_reason: str = "stop"
+        self.is_agent_chain: bool = False
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -252,6 +254,32 @@ def extract_model_name(
 
     # 4. Return class name or unknown
     return class_name or "unknown"
+
+
+def _extract_response_model_from_chain_outputs(
+    outputs: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    """Return an LLM model identifier from chain outputs when present."""
+    if not outputs or not isinstance(outputs, dict):
+        return None
+    for key in ("model", "model_name"):
+        val = outputs.get(key)
+        if isinstance(val, str) and val.strip() and val != "unknown":
+            return val
+    llm_out = outputs.get("llm_output")
+    if isinstance(llm_out, dict):
+        val = llm_out.get("model_name") or llm_out.get("model")
+        if val:
+            return str(val)
+    messages = outputs.get("messages")
+    if isinstance(messages, list) and messages:
+        last = messages[-1]
+        rm = getattr(last, "response_metadata", None)
+        if isinstance(rm, dict):
+            val = rm.get("model_name") or rm.get("model")
+            if val:
+                return str(val)
+    return None
 
 
 def extract_model_parameters(kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -842,6 +870,9 @@ def _create_callback_handler_class(
 
                 span = self._create_span(run_id, parent_run_id, span_name)
 
+                if obs_type == "agent" and run_id in self.spans:
+                    self.spans[run_id].is_agent_chain = True
+
                 span.set_attribute(
                     SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
@@ -850,6 +881,7 @@ def _create_callback_handler_class(
 
                 if obs_type == "agent":
                     span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, name)
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(run_id))
                 else:
                     span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, name)
 
@@ -903,6 +935,13 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, output_str
                     )
 
+                if holder.is_agent_chain and outputs:
+                    resp_model = _extract_response_model_from_chain_outputs(outputs)
+                    if resp_model:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_RESPONSE_MODEL, resp_model
+                        )
+
                 # Record metrics
                 if not self._disable_metrics and self._metrics:
                     try:
@@ -943,6 +982,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_chain_error: %s", e)
@@ -1479,6 +1524,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    holder.span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                     if holder.token and isinstance(holder.token, tuple):
                         fw_token, ctx_token = holder.token
                         try:
@@ -1519,6 +1570,7 @@ def _create_callback_handler_class(
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, name)
                 span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(run_id))
 
                 description = (serialized or {}).get("description")
                 if description:
@@ -1619,6 +1671,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_tool_error: %s", e)
@@ -1750,6 +1808,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_retriever_error: %s", e)

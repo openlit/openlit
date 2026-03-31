@@ -17,9 +17,12 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Link, set_span_in_
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    get_server_address_for_provider,
     handle_exception,
 )
 from openlit.semcov import SemanticConvention
+
+_OPENAI_SERVER_ADDRESS, _OPENAI_SERVER_PORT = get_server_address_for_provider("openai")
 from openlit.instrumentation.openai_agents.utils import (
     get_operation_type,
     get_span_kind,
@@ -158,8 +161,8 @@ class OpenLITTracingProcessor(TracingProcessor):
             common_framework_span_attributes(
                 scope,
                 SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-                "api.openai.com",
-                443,
+                _OPENAI_SERVER_ADDRESS,
+                _OPENAI_SERVER_PORT,
                 self.environment,
                 self.application_name,
                 self.version,
@@ -201,8 +204,8 @@ class OpenLITTracingProcessor(TracingProcessor):
                     self.environment,
                     self.application_name,
                     None,
-                    "api.openai.com",
-                    443,
+                    _OPENAI_SERVER_ADDRESS,
+                    _OPENAI_SERVER_PORT,
                 )
 
             if token is not None:

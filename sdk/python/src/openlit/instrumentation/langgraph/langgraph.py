@@ -247,9 +247,10 @@ def _handle_stream(
                 SemanticConvention.GEN_AI_PROVIDER_NAME,
                 SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
             )
-            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")
-            span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-            span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+            if server_address:
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                if server_port:
+                    span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
             span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
             span.set_attribute(
                 SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
@@ -394,13 +395,20 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
     )
 
     if execution_state["final_response"] and capture_message_content:
+        output_msgs = [
+            {
+                "role": "assistant",
+                "parts": [
+                    {
+                        "type": "text",
+                        "content": truncate_content(execution_state["final_response"]),
+                    }
+                ],
+            }
+        ]
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"]),
-        )
-        span.set_attribute(
-            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"]),
+            json.dumps(output_msgs),
         )
 
     span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")
@@ -560,7 +568,7 @@ def wrap_add_node(
 
                     span_name = f"invoke_agent {node_name}"
                     with tracer.start_as_current_span(
-                        span_name, kind=SpanKind.CLIENT
+                        span_name, kind=SpanKind.INTERNAL
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
@@ -573,6 +581,9 @@ def wrap_add_node(
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_AGENT_NAME, node_name
+                        )
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_AGENT_ID, str(node_name)
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_ENVIRONMENT, environment
@@ -624,7 +635,7 @@ def wrap_add_node(
 
                     span_name = f"invoke_agent {node_name}"
                     with tracer.start_as_current_span(
-                        span_name, kind=SpanKind.CLIENT
+                        span_name, kind=SpanKind.INTERNAL
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
@@ -637,6 +648,9 @@ def wrap_add_node(
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_AGENT_NAME, node_name
+                        )
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_AGENT_ID, str(node_name)
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_ENVIRONMENT, environment

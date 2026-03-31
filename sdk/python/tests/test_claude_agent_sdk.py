@@ -44,6 +44,7 @@ from openlit.instrumentation.claude_agent_sdk.utils import (
     GEN_AI_SYSTEM_ATTR,
     GEN_AI_SYSTEM_VALUE,
     generate_span_name,
+    resolve_agent_display_name,
     get_span_kind,
     extract_usage,
     update_root_from_assistant,
@@ -247,6 +248,16 @@ class TestSpanNameGeneration:
     def test_receive_response_span_name(self):
         assert generate_span_name("receive_response") == "invoke_agent claude_agent_sdk"
 
+    def test_query_span_name_with_model_entity(self):
+        assert generate_span_name("query", "claude-opus-4-20250514") == (
+            "invoke_agent claude-opus-4-20250514"
+        )
+
+    def test_receive_response_span_name_with_model_entity(self):
+        assert generate_span_name("receive_response", "claude-sonnet-4") == (
+            "invoke_agent claude-sonnet-4"
+        )
+
     def test_chat_span_name_with_model(self):
         assert generate_span_name("chat", "claude-sonnet-4-20250514") == "chat claude-sonnet-4-20250514"
 
@@ -262,6 +273,16 @@ class TestSpanNameGeneration:
     def test_unknown_operation_falls_back(self):
         name = generate_span_name("unknown_op")
         assert "invoke_agent" in name
+
+    def test_resolve_agent_display_name(self):
+        assert resolve_agent_display_name(None) is None
+        o = MagicMock()
+        o.model = None
+        assert resolve_agent_display_name(o) is None
+        o.model = "  "
+        assert resolve_agent_display_name(o) is None
+        o.model = "claude-3-haiku"
+        assert resolve_agent_display_name(o) == "claude-3-haiku"
 
 
 class TestGetSpanKind:
@@ -712,6 +733,14 @@ class TestSetCreateAgentAttributes:
         assert attrs[SemanticConvention.SERVER_ADDRESS] == "api.anthropic.com"
         assert attrs[SemanticConvention.SERVER_PORT] == 443
 
+    def test_custom_agent_name(self):
+        span = MagicMock()
+        set_create_agent_attributes(
+            span, "0.1.0", "test", "test_app", agent_name="claude-sonnet-4-20250514"
+        )
+        attrs = _get_span_attrs(span)
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "claude-sonnet-4-20250514"
+
 
 # ===========================================================================
 # Root Span (invoke_agent) Attributes
@@ -742,9 +771,22 @@ class TestSetInitialSpanAttributes:
         _, attrs = self._call()
         assert attrs[GEN_AI_SYSTEM_ATTR] == "anthropic"
 
-    def test_agent_name(self):
+    def test_agent_name_matches_configured_model(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "claude_agent_sdk"
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "claude-sonnet-4-20250514"
+
+    def test_agent_name_falls_back_without_model(self):
+        span = MagicMock()
+        options = MagicMock()
+        options.model = None
+        set_initial_span_attributes(
+            span, 1000.0, "0.1.0", "test", "test_app",
+            options=options, prompt="Hi", capture_message_content=False,
+        )
+        attrs = _get_span_attrs(span)
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == (
+            SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK
+        )
 
     def test_request_model(self):
         _, attrs = self._call(model="claude-sonnet-4-20250514")
