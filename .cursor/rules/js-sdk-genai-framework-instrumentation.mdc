@@ -1,0 +1,466 @@
+---
+description: Guide for implementing JS SDK GenAI AI agent framework instrumentations (LangChain, LangGraph, OpenAI Agents, Mastra, Claude Agents SDK, Google ADK, Strands Agents, LlamaIndex). Use when creating or modifying framework instrumentations in sdk/typescript/src/instrumentation/.
+globs: sdk/typescript/src/instrumentation/**/*.ts
+alwaysApply: false
+---
+
+# JS SDK GenAI Framework Instrumentation Guide
+
+This guide defines how every AI agent **framework** instrumentation in the JS SDK must be implemented. This is a companion to the **provider** instrumentation guide (`js-sdk-genai-instrumentation.mdc`). The Python SDK (`sdk/python/`) is the reference. Both SDKs must emit identical telemetry.
+
+## CRITICAL: No Backwards Compatibility
+
+The JS SDK has **zero backwards compatibility constraints**. You MUST:
+- Rewrite existing instrumentations (LangChain, LlamaIndex) from scratch if needed
+- Freely change APIs, span names, attribute keys, file structure, or behavior
+- Remove old code entirely and replace with new implementations
+- The **only alignment targets** are: (1) Python SDK behavior, (2) OTel GenAI semantic conventions
+- Do NOT preserve any legacy JS SDK patterns or behavior
+
+## OTel Spec References
+
+- Agent Spans: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-agent-spans.md
+- GenAI Spans: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-spans.md
+- GenAI Events: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-events.md
+- GenAI Metrics: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-metrics.md
+
+---
+
+## 1. Agent Span Types (OTel Semantic Conventions)
+
+Framework instrumentations emit these span types per the OTel agent semantic conventions:
+
+### 1a. `create_agent` Span
+- **When**: Agent is constructed/registered (e.g., `new Agent()`, `LlmAgent.__init__`, `Crew.__init__`)
+- **Span name**: `create_agent {gen_ai.agent.name}`
+- **SpanKind**: `CLIENT`
+- **Operation**: `SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT` (`"create_agent"`)
+- **Key attributes**: `gen_ai.agent.name`, `gen_ai.agent.id`, `gen_ai.agent.description`, `gen_ai.request.model`, `gen_ai.tool.definitions`, `gen_ai.system_instructions`
+- **Store span context**: Save `span.spanContext()` in a registry keyed by agent name, for later Links from `invoke_agent` spans
+
+### 1b. `invoke_agent` Span
+- **When**: Agent is invoked/executed (e.g., `Runner.run()`, node execution, agent callback)
+- **Span name**: `invoke_agent {gen_ai.agent.name}`
+- **SpanKind**: `CLIENT` (remote agents) or `INTERNAL` (in-process agents like LangChain, LangGraph nodes)
+- **Operation**: `SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT` (`"invoke_agent"`)
+- **Key attributes**: `gen_ai.agent.name`, `gen_ai.agent.id`, `gen_ai.conversation.id`, `gen_ai.request.model`
+- **Links**: Link back to `create_agent` span context from registry when available
+
+### 1c. `invoke_workflow` Span
+- **When**: Coordinated multi-agent or multi-step workflow (e.g., graph invoke, crew kickoff, trace root)
+- **Span name**: `invoke_workflow {gen_ai.workflow.name}`
+- **SpanKind**: `INTERNAL`
+- **Operation**: `SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK` (`"invoke_workflow"`)
+- **Key attributes**: `gen_ai.workflow.name`, `gen_ai.workflow.type`, `gen_ai.execution.mode`
+
+### 1d. `execute_tool` Span
+- **When**: Tool/function is executed (e.g., LangChain tool run, MCP tool call)
+- **Span name**: `execute_tool {gen_ai.tool.name}`
+- **SpanKind**: `INTERNAL`
+- **Operation**: `SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS` (`"execute_tool"`)
+- **Key attributes**: `gen_ai.tool.name`, `gen_ai.tool.type`, `gen_ai.tool.description`, `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result`
+
+### 1e. `chat` Span (LLM calls within frameworks)
+- **When**: Framework intercepts an LLM call (e.g., LangChain `handleChatModelStart`)
+- **Span name**: `chat {gen_ai.request.model}`
+- **SpanKind**: `CLIENT`
+- **Operation**: `SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT` (`"chat"`)
+- Follows all provider span rules from `js-sdk-genai-instrumentation.mdc`
+- MUST set `frameworkLlmActive` flag to suppress duplicate provider spans
+
+---
+
+## 2. Span Creation Attributes
+
+For agent/workflow spans, these attributes MUST be set at `tracer.startSpan()` time:
+
+```typescript
+{
+  [SemanticConvention.GEN_AI_OPERATION]: operationName,        // "invoke_agent", "create_agent", etc.
+  [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: aiSystem,    // framework system name
+}
+```
+
+For `create_agent` and `invoke_agent` that have a model, also include:
+```typescript
+{
+  [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,     // if known
+  [SemanticConvention.SERVER_ADDRESS]: serverAddress,           // if known
+  [SemanticConvention.SERVER_PORT]: serverPort,                 // if known
+}
+```
+
+---
+
+## 3. Framework LLM Span Suppression (CRITICAL)
+
+When a framework (e.g., LangChain) calls an underlying provider SDK (e.g., OpenAI), both the framework and provider instrumentations would create duplicate LLM spans. This MUST be prevented.
+
+### Python SDK Pattern (reference)
+```python
+# In __helpers.py
+_framework_llm_span_active: ContextVar[bool] = ContextVar("openlit_framework_llm_span_active", default=False)
+
+def set_framework_llm_active():
+    return _framework_llm_span_active.set(True)
+
+def is_framework_llm_active() -> bool:
+    return _framework_llm_span_active.get()
+
+# In LangChain callback (handleChatModelStart):
+token = set_framework_llm_active()  # suppress provider spans
+
+# In LangChain callback (handleLLMEnd/handleLLMError):
+reset_framework_llm_active(token)   # re-enable provider spans
+
+# In OpenAI wrapper:
+if is_framework_llm_active():
+    return wrapped(*args, **kwargs)  # skip instrumentation
+```
+
+### JS SDK Implementation
+
+In `sdk/typescript/src/helpers.ts`, add:
+```typescript
+const _frameworkLlmActive = new AsyncLocalStorage<boolean>();
+
+export function isFrameworkLlmActive(): boolean {
+  return _frameworkLlmActive.getStore() === true;
+}
+
+export function runWithFrameworkLlm<T>(fn: () => T | Promise<T>): T | Promise<T> {
+  return _frameworkLlmActive.run(true, fn);
+}
+```
+
+### Provider Wrappers MUST Check
+
+Every provider wrapper (OpenAI, Anthropic, Cohere, Groq, Mistral, Google AI, Together, Ollama, Bedrock, Azure AI Inference) MUST add at the top of each patched method:
+```typescript
+if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+```
+
+### When Frameworks Set the Flag
+
+- **LangChain**: Around LLM calls in callback handler (`handleChatModelStart` through `handleLLMEnd`)
+- **Strands**: On `chat` spans in SpanProcessor `on_start` / `on_end`
+- **Any framework creating its own `chat` spans**: MUST set this flag while calling the underlying LLM SDK
+
+---
+
+## 4. Additional Suppression Flags
+
+### LangGraph Wrapper Active
+Prevents LangChain callback from creating duplicate `invoke_workflow` spans when LangGraph is controlling the execution.
+
+```typescript
+const _langGraphActive = new AsyncLocalStorage<boolean>();
+
+export function isLangGraphActive(): boolean {
+  return _langGraphActive.getStore() === true;
+}
+
+export function runWithLangGraph<T>(fn: () => T | Promise<T>): T | Promise<T> {
+  return _langGraphActive.run(true, fn);
+}
+```
+
+LangChain's callback handler checks `isLangGraphActive()` and skips its `invoke_workflow` span if true.
+
+### Create Agent Active
+Prevents duplicate `create_agent` spans when LangGraph `compile()` and LangChain `create_agent()` both fire.
+
+```typescript
+const _createAgentActive = new AsyncLocalStorage<boolean>();
+
+export function isCreateAgentActive(): boolean {
+  return _createAgentActive.getStore() === true;
+}
+```
+
+---
+
+## 5. Framework System Identifiers
+
+Each framework has a system identifier used as `gen_ai.provider.name` on framework-level spans:
+
+| Framework | `gen_ai.provider.name` | Constant Name | npm Package |
+|-----------|----------------------|---------------|-------------|
+| LangChain | `langchain` | `GEN_AI_SYSTEM_LANGCHAIN` | `@langchain/core` |
+| LangGraph | `langgraph` | `GEN_AI_SYSTEM_LANGGRAPH` | `@langchain/langgraph` |
+| OpenAI Agents | `openai` | `GEN_AI_SYSTEM_OPENAI` | `@openai/agents` |
+| Mastra | `mastra` | `GEN_AI_SYSTEM_MASTRA` | `@mastra/core` |
+| Claude Agents SDK | `claude_agent_sdk` | `GEN_AI_SYSTEM_CLAUDE_AGENT_SDK` | `@anthropic-ai/claude-agent-sdk` |
+| Google ADK | `google_adk` | `GEN_AI_SYSTEM_GOOGLE_ADK` | `@google/adk` |
+| Strands Agents | `strands_agents` | `GEN_AI_SYSTEM_STRANDS` | `@strands-agents/sdk` |
+| LlamaIndex | `llama_index` | `GEN_AI_SYSTEM_LLAMAINDEX` | `llamaindex` |
+
+**IMPORTANT**: OpenAI Agents uses `openai` (not `openai_agents`) as `gen_ai.provider.name` on processor spans, matching Python. The `openai_agents` value is used for the framework system identifier in constants but the processor spans use `openai` since it's the underlying provider.
+
+---
+
+## 6. Instrumentation Mechanisms
+
+Frameworks are instrumented using one of three patterns, depending on what the framework exposes:
+
+### 6a. Callback/Handler Injection (LangChain)
+- Inject an OpenLIT callback handler into the framework's callback system
+- Handler receives lifecycle events (chain start/end, LLM start/end, tool start/end)
+- Create OTel spans in response to these events
+- **Python reference**: `sdk/python/src/openlit/instrumentation/langchain/__init__.py` uses `_BaseCallbackManagerInitWrapper`
+
+### 6b. Monkey-Patching (LangGraph, Claude Agents SDK, Google ADK, LlamaIndex)
+- Wrap framework methods using `require-in-the-middle` or `InstrumentationNodeModuleDefinition`
+- Create spans around method calls
+- **Python reference**: Uses `wrapt.wrap_function_wrapper`
+
+### 6c. SpanProcessor / TracingProcessor (Strands, OpenAI Agents, Mastra)
+- For frameworks with built-in OTel or custom tracing, add a processor that enriches/normalizes spans
+- **SpanProcessor** (OTel SDK): Added to TracerProvider for frameworks with native OTel (Strands, Mastra)
+- **TracingProcessor** (Framework-specific): Registered with framework's tracing API (OpenAI Agents)
+- **Python references**:
+  - Strands: `sdk/python/src/openlit/instrumentation/strands/processor.py` -- `StrandsSpanProcessor(SpanProcessor)` added via `provider.add_span_processor()`
+  - OpenAI Agents: `sdk/python/src/openlit/instrumentation/openai_agents/processor.py` -- `OpenLITTracingProcessor(TracingProcessor)` registered via `set_trace_processors()`
+
+### PassthroughTracer Pattern (Google ADK)
+When a framework has its own OTel tracer that creates duplicate top-level spans:
+```typescript
+class PassthroughTracer {
+  startAsCurrentSpan(name, fn) {
+    // Instead of creating a new span, yield the current active span
+    return fn(trace.getActiveSpan());
+  }
+}
+// Replace framework's tracer module attribute
+adkModule.tracer = new PassthroughTracer(adkModule.tracer);
+```
+**Python reference**: `sdk/python/src/openlit/instrumentation/google_adk/utils.py` -- `_PassthroughTracer(wrapt.ObjectProxy)`
+
+---
+
+## 7. Common Framework Span Attributes
+
+All framework spans (agent, workflow, tool) MUST set these attributes:
+
+```typescript
+span.setAttribute('telemetry.sdk.name', 'openlit');
+span.setAttribute('deployment.environment', OpenlitConfig.environment);
+span.setAttribute('service.name', OpenlitConfig.applicationName);
+span.setAttribute('gen_ai.sdk.version', SDK_VERSION);
+span.setAttribute('gen_ai.operation.name', operationName);
+span.setAttribute('gen_ai.provider.name', frameworkSystem);
+```
+
+Plus `applyCustomSpanAttributes(span)` MUST be called on EVERY framework span (not just LLM spans).
+
+---
+
+## 8. Agent Creation Registry
+
+Used to provide span Links from `invoke_agent` back to `create_agent`:
+
+```typescript
+class AgentCreationRegistry {
+  private contexts = new Map<string, SpanContext>();
+
+  register(agentName: string, spanContext: SpanContext): void {
+    this.contexts.set(agentName, spanContext);
+  }
+
+  get(agentName: string): SpanContext | undefined {
+    return this.contexts.get(agentName);
+  }
+}
+```
+
+Python reference: `_AgentCreationRegistry` in `sdk/python/src/openlit/instrumentation/openai_agents/__init__.py`
+
+---
+
+## 9. Events in Framework Instrumentations
+
+### LLM Chat Events
+When a framework handles LLM chat calls (e.g., LangChain `handleLLMEnd`), emit inference events the same way provider instrumentations do:
+
+```typescript
+OpenLitHelper.emitInferenceEvent(span, {
+  [SemanticConvention.GEN_AI_OPERATION]: 'chat',
+  [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+  [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+  // ... all standard inference event attributes
+});
+```
+
+### Non-LLM Spans
+Framework spans (`invoke_agent`, `invoke_workflow`, `execute_tool`) typically do NOT emit inference events (matching Python behavior). Only `chat`-type spans within the framework emit events.
+
+---
+
+## 10. Metrics in Framework Instrumentations
+
+### LLM Chat Metrics
+When a framework handles LLM chat calls, record metrics via `BaseWrapper.recordMetrics()` the same way provider instrumentations do. This includes token usage, duration, cost, TTFT/TBT for streaming.
+
+### Framework Operation Metrics
+For non-LLM framework spans (workflow, agent, tool), record operation duration via the same metrics pattern but with framework-appropriate attributes.
+
+---
+
+## 11. Custom Attributes in Framework Instrumentations
+
+Custom attributes MUST be applied to ALL framework spans (not just LLM spans), matching Python SDK behavior:
+
+- `applyCustomSpanAttributes(span)` MUST be called on every `create_agent`, `invoke_agent`, `invoke_workflow`, `execute_tool`, and `chat` span
+- Events emitted from framework instrumentations MUST include merged custom attributes via `getMergedCustomAttributes()`
+- Metrics are NOT tagged with custom attributes (same as provider instrumentations)
+
+---
+
+## 12. Framework-Specific Handling When Framework Has Native Telemetry
+
+When a framework already has OTel (Strands, Mastra) or custom tracing (OpenAI Agents):
+
+### Skip LLM Span Types (OpenAI Agents)
+The processor MUST skip SDK span types that correspond to LLM calls (e.g., `response`, `generation`), letting the provider instrumentation (OpenAI) handle those:
+```typescript
+const LLM_SPAN_TYPES = new Set(['response', 'generation']);
+if (LLM_SPAN_TYPES.has(spanType)) return; // skip, let provider handle
+```
+
+### Enrich Existing Spans (Strands, Mastra)
+The SpanProcessor enriches framework-created spans with OpenLIT attributes:
+- `on_start`: Set OpenLIT metadata (sdk.name, environment, service.name), apply custom attributes
+- `on_end`: Normalize attributes, extract content from span events, emit inference events, record metrics
+
+### Detect Framework Spans
+For SpanProcessor-based instrumentations, detect relevant spans by:
+- Instrumentation scope name (e.g., `strands.telemetry.tracer`)
+- `gen_ai.system` or `gen_ai.provider.name` attribute value
+- Span name patterns (e.g., starts with `agent.`)
+
+---
+
+## 13. File Structure
+
+Each framework instrumentation follows this structure:
+
+```
+sdk/typescript/src/instrumentation/{framework-name}/
+  index.ts      # InstrumentationNodeModuleDefinition, patch/unpatch
+  wrapper.ts    # Span creation, attribute setting, event/metric emission
+```
+
+For SpanProcessor-based instrumentations:
+```
+sdk/typescript/src/instrumentation/{framework-name}/
+  index.ts      # Registers processor with TracerProvider
+  processor.ts  # SpanProcessor or TracingProcessor implementation
+  utils.ts      # Span name generation, attribute helpers
+```
+
+---
+
+## 14. Registration
+
+Each new framework instrumentation MUST be registered in:
+
+1. **`sdk/typescript/src/types.ts`**: Add to `InstrumentationType` union
+2. **`sdk/typescript/src/instrumentation/index.ts`**: Import and add to `availableInstrumentations`
+3. **`sdk/typescript/src/semantic-convention.ts`**: Add system constants and any new attribute constants
+
+---
+
+## 15. Semantic Convention Constants to Add
+
+These constants MUST exist in `sdk/typescript/src/semantic-convention.ts` (matching Python `semcov/__init__.py`):
+
+```typescript
+// System identifiers
+static GEN_AI_SYSTEM_LANGGRAPH = 'langgraph';
+static GEN_AI_SYSTEM_OPENAI_AGENTS = 'openai_agents';
+static GEN_AI_SYSTEM_MASTRA = 'mastra';
+static GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = 'claude_agent_sdk';
+static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
+static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
+
+// Operation types
+static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
+// GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent'         -- already exists
+// GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow'   -- already exists
+// GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool'          -- already exists
+
+// Agent attributes (OTel spec)
+// GEN_AI_AGENT_NAME = 'gen_ai.agent.name'               -- already exists
+// GEN_AI_AGENT_ID = 'gen_ai.agent.id'                   -- already exists
+// GEN_AI_AGENT_DESCRIPTION = 'gen_ai.agent.description' -- already exists
+// GEN_AI_AGENT_VERSION = 'gen_ai.agent.version'         -- already exists
+
+// Workflow attributes
+// GEN_AI_WORKFLOW_NAME = 'gen_ai.workflow.name'          -- already exists
+
+// Graph attributes
+static GEN_AI_GRAPH_NODES = 'gen_ai.graph.nodes';
+static GEN_AI_GRAPH_NODE_COUNT = 'gen_ai.graph.node_count';
+static GEN_AI_GRAPH_EDGES = 'gen_ai.graph.edges';
+static GEN_AI_GRAPH_EDGE_COUNT = 'gen_ai.graph.edge_count';
+static GEN_AI_GRAPH_EXECUTED_NODES = 'gen_ai.graph.executed_nodes';
+static GEN_AI_GRAPH_STATUS = 'gen_ai.graph.status';
+static GEN_AI_GRAPH_MESSAGE_COUNT = 'gen_ai.graph.message_count';
+static GEN_AI_GRAPH_TOTAL_CHUNKS = 'gen_ai.graph.total_chunks';
+
+// Execution attributes
+static GEN_AI_EXECUTION_MODE = 'gen_ai.execution.mode';
+static GEN_AI_CHECKPOINT_ID = 'gen_ai.checkpoint.id';
+static GEN_AI_CONVERSATION_ID = 'gen_ai.conversation.id';
+```
+
+---
+
+## 16. Frameworks Reference Table
+
+| Framework | JS Package | Python Reference | Mechanism | Built-in Telemetry | Key Pattern |
+|-----------|-----------|-----------------|-----------|-------------------|-------------|
+| LangChain | `@langchain/core` | `sdk/python/src/openlit/instrumentation/langchain/` | Callback injection | LangSmith (not OTel) | Inject handler via `_configureSync` |
+| LangGraph | `@langchain/langgraph` | `sdk/python/src/openlit/instrumentation/langgraph/` | Monkey-patch | LangSmith (not OTel) | Wrap `Pregel.invoke/stream`, `StateGraph.compile/add_node` |
+| OpenAI Agents | `@openai/agents` | `sdk/python/src/openlit/instrumentation/openai_agents/` | TracingProcessor | Custom (not OTel) | Register via `addTraceProcessor()`, skip `response`/`generation` |
+| Mastra | `@mastra/core` | N/A (JS only) | SpanProcessor | Yes (native OTel) | Enrich/normalize Mastra spans |
+| Claude Agents SDK | `@anthropic-ai/claude-agent-sdk` | `sdk/python/src/openlit/instrumentation/claude_agent_sdk/` | Monkey-patch + hooks | No | Wrap `query()`, client methods |
+| Google ADK | `@google/adk` | `sdk/python/src/openlit/instrumentation/google_adk/` | Monkey-patch + PassthroughTracer | Cloud Trace (OTel) | Replace ADK tracers, enrich LLM/tool spans |
+| Strands Agents | `@strands-agents/sdk` | `sdk/python/src/openlit/instrumentation/strands/` | SpanProcessor | Yes (native OTel) | Detect by scope `strands.telemetry.tracer` |
+| LlamaIndex | `llamaindex` | `sdk/python/src/openlit/instrumentation/llamaindex/` | Monkey-patch | Yes (workflow-otel) | Wrap engines, LLM, agent classes |
+
+---
+
+## 17. Implementation Steps for Each Framework
+
+When implementing a framework instrumentation, follow these steps IN ORDER:
+
+1. **Study the framework's JS SDK**: Understand the API surface, how it makes LLM calls, whether it has built-in telemetry
+2. **Study the Python instrumentation**: Read every file in `sdk/python/src/openlit/instrumentation/{framework}/` to understand what spans, attributes, events, and metrics Python emits
+3. **Study how Python handles duplicate spans**: Understand what suppression flags, active checks, or span type skipping is used
+4. **Choose the mechanism**: Callback, monkey-patch, SpanProcessor, or TracingProcessor based on what the framework provides
+5. **Implement**: Create `index.ts`, `wrapper.ts` (or `processor.ts` + `utils.ts`)
+6. **Register**: Add to `types.ts`, `instrumentation/index.ts`, `semantic-convention.ts`
+7. **Verify**: Ensure telemetry matches Python SDK output exactly
+
+---
+
+## 18. Checklist for Framework Instrumentation Alignment
+
+- [ ] `create_agent` spans emitted on agent construction with correct attributes
+- [ ] `invoke_agent` spans emitted on agent invocation with Links to `create_agent`
+- [ ] `invoke_workflow` spans emitted on workflow/graph execution
+- [ ] `execute_tool` spans emitted on tool execution
+- [ ] `chat` spans (if framework handles LLM) follow full provider span rules
+- [ ] Framework LLM suppression: `isFrameworkLlmActive()` set during framework LLM calls
+- [ ] LangGraph suppression: LangChain skips workflow spans when `isLangGraphActive()`
+- [ ] Custom attributes applied on ALL span types via `applyCustomSpanAttributes(span)`
+- [ ] Events emitted on LLM chat paths via `emitInferenceEvent()`
+- [ ] Events include merged custom attributes
+- [ ] Metrics recorded on LLM chat paths via `BaseWrapper.recordMetrics()`
+- [ ] No duplicate spans between framework and provider instrumentations
+- [ ] Span names match Python SDK exactly
+- [ ] Attribute values match Python SDK exactly
+- [ ] System identifier matches Python SDK
+- [ ] Registered in `types.ts`, `index.ts`, `semantic-convention.ts`
+- [ ] No backwards compatibility concerns -- freely rewrite as needed

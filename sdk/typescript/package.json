@@ -58,18 +58,60 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.25.0",
+    "@azure-rest/ai-inference": "^1.0.0-beta.6",
+    "@azure/core-auth": "^1.10.1",
+    "@azure/core-sse": "^2.3.0",
+    "@google/generative-ai": "^0.24.1",
+    "@mistralai/mistralai": "^2.1.2",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.62.0",
-    "@opentelemetry/exporter-jaeger": "^2.0.1",
+    "@opentelemetry/api-logs": "^0.214.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.214.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
     "@opentelemetry/instrumentation": "^0.203.0",
     "@opentelemetry/resources": "^2.0.1",
-    "@opentelemetry/sdk-trace-base": "^2.0.1",
+    "@opentelemetry/sdk-logs": "^0.214.0",
+    "@opentelemetry/sdk-metrics": "^2.6.1",
+    "@opentelemetry/sdk-trace-base": "^2.6.1",
     "@opentelemetry/sdk-trace-node": "^2.0.1",
     "@opentelemetry/semantic-conventions": "^1.36.0",
     "cohere-ai": "^7.13.0",
+    "groq-sdk": "^1.1.2",
     "js-tiktoken": "^1.0.12",
     "openai": "^4.47.1",
-    "tiktoken": "^1.0.15"
+    "tiktoken": "^1.0.15",
+    "together-ai": "^0.38.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/instrumentation-express": ">=0.40.0",
+    "@opentelemetry/instrumentation-fastify": ">=0.38.0",
+    "@opentelemetry/instrumentation-hapi": ">=0.40.0",
+    "@opentelemetry/instrumentation-http": ">=0.50.0",
+    "@opentelemetry/instrumentation-koa": ">=0.42.0",
+    "@opentelemetry/instrumentation-nestjs-core": ">=0.39.0",
+    "@opentelemetry/instrumentation-undici": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/instrumentation-http": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-undici": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-express": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-fastify": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-koa": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-hapi": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-nestjs-core": {
+      "optional": true
+    }
   }
 }

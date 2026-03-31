@@ -52,7 +52,7 @@ class LlamaIndexWrapper extends BaseWrapper {
             const totalTokens = rawUsage.total_tokens || promptTokens + completionTokens;
             const finishReason = response?.raw?.choices?.[0]?.finish_reason || 'stop';
 
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost = OpenLitHelper.getChatModelCost(modelId, pricingInfo, promptTokens, completionTokens);
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(this);
@@ -71,7 +71,7 @@ class LlamaIndexWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.SERVER_ADDRESS, address);
             span.setAttribute(SemanticConvention.SERVER_PORT, port);
 
-            if (OpenlitConfig.traceContent) {
+            if (OpenlitConfig.captureMessageContent) {
               const formattedMessages = messages.map((m: any) => ({
                 role: m.role || 'user',
                 content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
@@ -121,7 +121,7 @@ class LlamaIndexWrapper extends BaseWrapper {
             const totalTokens = rawUsage.total_tokens || promptTokens + completionTokens;
             const finishReason = response?.raw?.choices?.[0]?.finish_reason || 'stop';
 
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost = OpenLitHelper.getChatModelCost(modelId, pricingInfo, promptTokens, completionTokens);
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(this);
@@ -140,7 +140,7 @@ class LlamaIndexWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.SERVER_ADDRESS, address);
             span.setAttribute(SemanticConvention.SERVER_PORT, port);
 
-            if (OpenlitConfig.traceContent) {
+            if (OpenlitConfig.captureMessageContent) {
               span.setAttribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
                 OpenLitHelper.buildInputMessages([{ role: 'user', content: prompt }])
@@ -207,7 +207,7 @@ class LlamaIndexWrapper extends BaseWrapper {
               ));
             }
 
-            if (OpenlitConfig.traceContent) {
+            if (OpenlitConfig.captureMessageContent) {
               span.setAttribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
                 OpenLitHelper.buildInputMessages([{ role: 'user', content: queryStr }])
@@ -268,7 +268,7 @@ class LlamaIndexWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.SERVER_ADDRESS, address);
             span.setAttribute(SemanticConvention.SERVER_PORT, port);
 
-            if (OpenlitConfig.traceContent) {
+            if (OpenlitConfig.captureMessageContent) {
               span.setAttribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
                 OpenLitHelper.buildInputMessages([{ role: 'user', content: message }])

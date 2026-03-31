@@ -1,39 +1,66 @@
-import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+
+function spanCreationAttrs(
+  operationName: string,
+  requestModel: string
+): Attributes {
+  return {
+    [SemanticConvention.GEN_AI_OPERATION]: operationName,
+    [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: GoogleAIWrapper.aiSystem,
+    [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+    [SemanticConvention.SERVER_ADDRESS]: GoogleAIWrapper.serverAddress,
+    [SemanticConvention.SERVER_PORT]: GoogleAIWrapper.serverPort,
+  };
+}
 
 class GoogleAIWrapper extends BaseWrapper {
-  static aiSystem = 'google_ai_studio';
+  static aiSystem = SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO;
   static serverAddress = 'generativelanguage.googleapis.com';
   static serverPort = 443;
-  
+
   static _patchGenerateContent(tracer: Tracer): any {
     const genAIEndpoint = 'google.generativeai.models.generate_content';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        const rawModel = this?.model || 'gemini-2.0-flash';
+        const requestModel = rawModel.replace(/^models\//, '');
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+        });
         return context
           .with(trace.setSpan(context.active(), span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
-            // generateContentStream returns { stream, response } — stream is on .stream
             if (response && response.stream && typeof response.stream[Symbol.asyncIterator] === 'function') {
               const wrappedStream = GoogleAIWrapper._generateContentStreamGenerator({
                 args,
                 genAIEndpoint,
                 response: response.stream,
                 span,
+                requestModel,
               });
               return { ...response, stream: wrappedStream };
             }
 
-            return GoogleAIWrapper._generateContent({ args, genAIEndpoint, response, span });
+            return GoogleAIWrapper._generateContent({ args, genAIEndpoint, response, span, requestModel });
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: GoogleAIWrapper.aiSystem,
+              serverAddress: GoogleAIWrapper.serverAddress,
+              serverPort: GoogleAIWrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
             span.end();
             throw e;
           });
@@ -46,11 +73,13 @@ class GoogleAIWrapper extends BaseWrapper {
     genAIEndpoint,
     response,
     span,
+    requestModel,
   }: {
     args: any[];
     genAIEndpoint: string;
     response: any;
     span: Span;
+    requestModel: string;
   }): Promise<any> {
     let metricParams;
     try {
@@ -59,6 +88,7 @@ class GoogleAIWrapper extends BaseWrapper {
         genAIEndpoint,
         result: response,
         span,
+        requestModel,
       });
       return response;
     } catch (e: any) {
@@ -77,35 +107,43 @@ class GoogleAIWrapper extends BaseWrapper {
     genAIEndpoint,
     response,
     span,
+    requestModel,
   }: {
     args: any[];
     genAIEndpoint: string;
     response: any;
     span: Span;
+    requestModel: string;
   }): AsyncGenerator<unknown, any, unknown> {
     let metricParams;
     const timestamps: number[] = [];
     const startTime = Date.now();
-    
+
     try {
       const result = {
         model: '',
         text: '',
+        responseId: '',
         candidates: [] as any[],
         usageMetadata: {
           promptTokenCount: 0,
           candidatesTokenCount: 0,
           totalTokenCount: 0,
         },
+        functionCall: null as any,
       };
-      
+
       for await (const chunk of response) {
         timestamps.push(Date.now());
-        
+
         if (chunk.modelVersion || chunk.model) {
           result.model = chunk.modelVersion || chunk.model;
         }
-        
+
+        if (chunk.responseId) {
+          result.responseId = chunk.responseId;
+        }
+
         const chunkText = typeof chunk.text === 'function' ? chunk.text() : chunk.text;
         if (chunkText) {
           result.text += chunkText;
@@ -119,12 +157,15 @@ class GoogleAIWrapper extends BaseWrapper {
               safetyRatings: c.safetyRatings || [],
             }));
           }
-          
+
           chunk.candidates.forEach((c: any, idx: number) => {
             if (c.content?.parts) {
               c.content.parts.forEach((part: any) => {
                 if (part.text) {
                   result.candidates[idx].content.parts[0].text += part.text;
+                }
+                if (part.functionCall) {
+                  result.functionCall = part.functionCall;
                 }
               });
             }
@@ -145,7 +186,6 @@ class GoogleAIWrapper extends BaseWrapper {
         yield chunk;
       }
 
-      // Calculate TTFT and TBT
       const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
       let tbt = 0;
       if (timestamps.length > 1) {
@@ -158,6 +198,7 @@ class GoogleAIWrapper extends BaseWrapper {
         genAIEndpoint,
         result,
         span,
+        requestModel,
         ttft,
         tbt,
         isStream: true,
@@ -180,6 +221,7 @@ class GoogleAIWrapper extends BaseWrapper {
     genAIEndpoint,
     result,
     span,
+    requestModel,
     ttft = 0,
     tbt = 0,
     isStream = false,
@@ -188,13 +230,14 @@ class GoogleAIWrapper extends BaseWrapper {
     genAIEndpoint: string;
     result: any;
     span: Span;
+    requestModel: string;
     ttft?: number;
     tbt?: number;
     isStream?: boolean;
   }) {
-    const traceContent = OpenlitConfig.traceContent;
-    // Non-streaming: result is GenerateContentResult = { response: GenerateContentResponse }
-    // Streaming: result is our custom accumulated plain object
+    const captureContent = OpenlitConfig.captureMessageContent;
+    // Non-streaming: result = { response: GenerateContentResponse }
+    // Streaming: result = our accumulated plain object
     const responseData = result.response || result;
     const config = args[0]?.config || args[1] || {};
     const {
@@ -203,67 +246,52 @@ class GoogleAIWrapper extends BaseWrapper {
       topP,
       topK,
       stopSequences,
+      frequencyPenalty,
+      presencePenalty,
     } = config;
 
-    // Request Params attributes
-    if (temperature !== undefined) {
+    // Request param attributes — only set when explicitly provided (matches Python)
+    if (temperature != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
     }
-    if (maxOutputTokens !== undefined) {
+    if (maxOutputTokens != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, maxOutputTokens);
     }
-    if (topP !== undefined) {
+    if (topP != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, topP);
     }
-    if (topK !== undefined) {
+    if (topK != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, topK);
     }
     if (stopSequences) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, stopSequences);
     }
+    if (frequencyPenalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequencyPenalty);
+    }
+    if (presencePenalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presencePenalty);
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, isStream);
 
-    if (traceContent) {
-      const contents = args[0]?.contents || args[0];
-      let messages: any[] = [];
-      if (typeof contents === 'string') {
-        messages = [{ role: 'user', content: contents }];
-      } else if (Array.isArray(contents)) {
-        messages = contents.map((item: any) => ({
-          role: item.role || 'user',
-          content: Array.isArray(item.parts)
-            ? item.parts.map((p: any) => p.text || '').join(' ')
-            : (item.parts || ''),
-        }));
-      }
-      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages));
-    }
+    const responseModel = responseData.modelVersion || responseData.model || requestModel;
 
-    span.setAttribute(
-      SemanticConvention.GEN_AI_OPERATION,
-      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-    );
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
 
-    const model = responseData.modelVersion || responseData.model || args[0]?.model || 'gemini-pro';
-    const responseModel = model;
-
-    const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-    // Calculate cost of the operation
     const usageMetadata = responseData.usageMetadata;
-    const promptTokens = usageMetadata?.promptTokenCount || 0;
-    const completionTokens = usageMetadata?.candidatesTokenCount || 0;
+    const inputTokens = usageMetadata?.promptTokenCount || 0;
+    const outputTokens = usageMetadata?.candidatesTokenCount || 0;
 
     const cost = OpenLitHelper.getChatModelCost(
-      model,
+      requestModel,
       pricingInfo,
-      promptTokens,
-      completionTokens
+      inputTokens,
+      outputTokens
     );
 
     GoogleAIWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user: undefined,
       cost,
       aiSystem: GoogleAIWrapper.aiSystem,
@@ -271,16 +299,11 @@ class GoogleAIWrapper extends BaseWrapper {
       serverPort: GoogleAIWrapper.serverPort,
     });
 
-    // Response model
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
 
-    // Token usage
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, promptTokens);
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, completionTokens);
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, usageMetadata?.totalTokenCount || 0);
-    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, usageMetadata?.totalTokenCount || 0);
-    
-    // TTFT and TBT metrics
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     }
@@ -288,31 +311,118 @@ class GoogleAIWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
+    // Response ID
+    const responseId = responseData.responseId || '';
+    if (responseId) {
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, responseId);
+    }
+
     // Finish reason
-    if (responseData.candidates && responseData.candidates[0]?.finishReason) {
-      span.setAttribute(
-        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-        [responseData.candidates[0].finishReason]
-      );
+    const finishReason = responseData.candidates?.[0]?.finishReason || '';
+    if (finishReason) {
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [finishReason]);
     }
 
     // Output type
-    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT);
+    const completionText = isStream
+      ? responseData.text
+      : (typeof responseData.text === 'function' ? responseData.text() : responseData.text);
+    const outputType = typeof completionText === 'string'
+      ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
+      : SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON;
+    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputType);
 
-    // Content
-    if (traceContent) {
-      const completionContent = (typeof responseData.text === 'function' ? responseData.text() : responseData.text) ||
-        (responseData.candidates?.[0]?.content?.parts?.[0]?.text) || '';
-      const finishReason = responseData.candidates?.[0]?.finishReason || 'stop';
-      span.setAttribute(
-        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-        OpenLitHelper.buildOutputMessages(completionContent, finishReason)
+    // Function calls / tool calls (matches Python: tool name, call id, args)
+    const functionCall = isStream
+      ? responseData.functionCall
+      : responseData.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
+    if (functionCall) {
+      if (functionCall.name) {
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, functionCall.name);
+      }
+      if (functionCall.args) {
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_ARGS, JSON.stringify(functionCall.args));
+      }
+    }
+
+    // Reasoning tokens (Google: thoughts_token_count)
+    const reasoningTokens = usageMetadata?.thoughtsTokenCount || 0;
+    if (reasoningTokens > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, reasoningTokens);
+    }
+
+    // Cache tokens (matches Python: cached_content_token_count, cache_creation_input_tokens)
+    const cacheReadTokens = usageMetadata?.cachedContentTokenCount || 0;
+    if (cacheReadTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
+    }
+    const cacheCreationTokens = usageMetadata?.cacheCreationInputTokens || 0;
+    if (cacheCreationTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, cacheCreationTokens);
+    }
+
+    // Content attributes (gated by captureMessageContent)
+    let inputMessagesJson: string | undefined;
+    let outputMessagesJson: string | undefined;
+    if (captureContent) {
+      const contents = args[0]?.contents || args[0];
+      let messages: any[] = [];
+      if (typeof contents === 'string') {
+        messages = [{ role: 'user', content: contents }];
+      } else if (Array.isArray(contents)) {
+        messages = contents.map((item: any) => ({
+          role: item.role === 'model' ? 'assistant' : (item.role || 'user'),
+          content: Array.isArray(item.parts)
+            ? item.parts.map((p: any) => p.text || '').join(' ')
+            : (item.parts || ''),
+        }));
+      }
+      inputMessagesJson = OpenLitHelper.buildInputMessages(messages);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, inputMessagesJson);
+
+      const outputContent = completionText
+        || (responseData.candidates?.[0]?.content?.parts?.[0]?.text)
+        || '';
+      const toolCallsForOutput = functionCall ? [{
+        name: functionCall.name || '',
+        arguments: functionCall.args || {},
+      }] : undefined;
+      outputMessagesJson = OpenLitHelper.buildOutputMessages(
+        outputContent,
+        finishReason || 'stop',
+        toolCallsForOutput
       );
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+    }
+
+    // Emit inference event (independent of captureMessageContent, per rule)
+    if (!OpenlitConfig.disableEvents) {
+      const eventAttrs: Attributes = {
+        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+        [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+        [SemanticConvention.SERVER_ADDRESS]: GoogleAIWrapper.serverAddress,
+        [SemanticConvention.SERVER_PORT]: GoogleAIWrapper.serverPort,
+        [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
+        [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+        [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      };
+      if (responseId) {
+        eventAttrs[SemanticConvention.GEN_AI_RESPONSE_ID] = responseId;
+      }
+      if (finishReason) {
+        eventAttrs[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON] = [finishReason];
+      }
+      if (captureContent) {
+        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      }
+      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
     return {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user: undefined,
       cost,
       aiSystem: GoogleAIWrapper.aiSystem,

@@ -117,7 +117,7 @@ class OpenLITCallbackHandler {
       if (ip.max_tokens != null) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, ip.max_tokens);
       if (ip.top_p != null) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, ip.top_p);
 
-      if (OpenlitConfig.traceContent && messages?.length > 0) {
+      if (OpenlitConfig.captureMessageContent && messages?.length > 0) {
         const flatMessages = messages.flat().map((m: any) => ({
           role: m._getType?.() || m.type || m.role || 'user',
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
@@ -216,8 +216,8 @@ class OpenLITCallbackHandler {
       const totalTokens = promptTokens + completionTokens;
       const duration = (endTime - startTime) / 1000;
 
-      const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-      const cost = OpenLitHelper.getChatModelCost(responseModel, pricingInfo, promptTokens, completionTokens);
+      const pricingInfo = OpenlitConfig.pricingInfo || {};
+      const cost = OpenLitHelper.getChatModelCost(modelName, pricingInfo, promptTokens, completionTokens);
 
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, promptTokens);
@@ -239,7 +239,7 @@ class OpenLITCallbackHandler {
         }
       }
 
-      if (OpenlitConfig.traceContent && completionContent) {
+      if (OpenlitConfig.captureMessageContent && completionContent) {
         span.setAttribute(
           SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
           OpenLitHelper.buildOutputMessages(completionContent, finishReason)
@@ -304,7 +304,7 @@ class OpenLITCallbackHandler {
         span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, name);
       }
 
-      if (OpenlitConfig.traceContent && inputs) {
+      if (OpenlitConfig.captureMessageContent && inputs) {
         span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_INPUT, JSON.stringify(inputs).slice(0, 2000));
       }
 
@@ -327,7 +327,7 @@ class OpenLITCallbackHandler {
       if (!holder) return;
       const duration = (Date.now() - holder.startTime) / 1000;
       holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
-      if (OpenlitConfig.traceContent && outputs) {
+      if (OpenlitConfig.captureMessageContent && outputs) {
         holder.span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, JSON.stringify(outputs).slice(0, 2000));
       }
       holder.span.setStatus({ code: 1 });
@@ -373,7 +373,7 @@ class OpenLITCallbackHandler {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_DESCRIPTION, String(description));
       }
 
-      if (OpenlitConfig.traceContent && input) {
+      if (OpenlitConfig.captureMessageContent && input) {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, String(input).slice(0, 2000));
       }
 
@@ -396,7 +396,7 @@ class OpenLITCallbackHandler {
       if (!holder) return;
       const duration = (Date.now() - holder.startTime) / 1000;
       holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
-      if (OpenlitConfig.traceContent && output) {
+      if (OpenlitConfig.captureMessageContent && output) {
         holder.span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_RESULT, String(output).slice(0, 2000));
       }
       holder.span.setStatus({ code: 1 });
@@ -436,7 +436,7 @@ class OpenLITCallbackHandler {
       span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
       span.setAttribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, name);
 
-      if (OpenlitConfig.traceContent && query) {
+      if (OpenlitConfig.captureMessageContent && query) {
         span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT, String(query).slice(0, 2000));
       }
 
@@ -461,7 +461,7 @@ class OpenLITCallbackHandler {
       holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
       holder.span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENT_COUNT, documents?.length || 0);
 
-      if (OpenlitConfig.traceContent && documents?.length > 0) {
+      if (OpenlitConfig.captureMessageContent && documents?.length > 0) {
         const structured = documents.slice(0, 3).map((doc: any) => {
           const content = doc?.pageContent || doc?.page_content || String(doc);
           const entry: Record<string, string> = { content: content.slice(0, 2000) };

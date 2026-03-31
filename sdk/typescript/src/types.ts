@@ -1,23 +1,15 @@
-// import { Instrumentation } from '@opentelemetry/instrumentation';
 import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { metrics } from '@opentelemetry/api';
 
-export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'together' | 'ollama' | 'vercel-ai' | 'langchain' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus';
+export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'together' | 'ollama' | 'vercel-ai' | 'langchain' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus' | 'azure-ai-inference';
 
 export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 
 export type PricingObject = Record<string, Record<string, unknown>>;
 
 /**
- *     environment (string): Deployment environment of the application.
- *     applicationName (string): Name of the application using openLIT.
- *     pricingInfo (Object): Pricing information.
- *     tracer (any): Tracer instance for OpenTelemetry.
- *     otlpEndpoint (string): Endpoint for OTLP.
- *     otlpHeaders (Object): Headers for OTLP.
- *     disableBatch (boolean): Flag to disable batch span processing in tracing.
- *     traceContent (boolean): Flag to enable or disable tracing of content.
+ * Internal config interface used by OpenlitConfig.
  */
 export interface OpenlitConfigInterface {
   environment?: string;
@@ -27,24 +19,69 @@ export interface OpenlitConfigInterface {
   otlpEndpoint?: string;
   otlpHeaders?: Record<string, unknown>;
   disableBatch?: boolean;
-  traceContent?: boolean;
-  pricing_json?: string | PricingObject;
+  captureMessageContent?: boolean;
+  pricingJson?: string | PricingObject;
+  disableMetrics?: boolean;
+  disableEvents?: boolean;
+  maxContentLength?: number | null;
+  customSpanAttributes?: Record<string, string> | null;
 }
 
+/**
+ * Public init() options.
+ *
+ * Names match the Python SDK's init() parameters in camelCase form:
+ *   Python: application_name     → JS: applicationName
+ *   Python: otlp_endpoint        → JS: otlpEndpoint
+ *   Python: otlp_headers         → JS: otlpHeaders
+ *   Python: disable_batch        → JS: disableBatch
+ *   Python: capture_message_content → JS: captureMessageContent
+ *   Python: disabled_instrumentors  → JS: disabledInstrumentors
+ *   Python: disable_metrics      → JS: disableMetrics
+ *   Python: disable_events       → JS: disableEvents
+ *   Python: pricing_json         → JS: pricingJson
+ *   Python: max_content_length   → JS: maxContentLength
+ *   Python: custom_span_attributes → JS: customSpanAttributes
+ */
 export type OpenlitOptions = {
-  environment?: OpenlitConfigInterface['environment'];
-  applicationName?: OpenlitConfigInterface['applicationName'];
-  tracer?: OpenlitConfigInterface['tracer'];
-  otlpEndpoint?: OpenlitConfigInterface['otlpEndpoint'];
-  otlpHeaders?: OpenlitConfigInterface['otlpHeaders'];
-  disableBatch?: OpenlitConfigInterface['disableBatch'];
-  traceContent?: OpenlitConfigInterface['traceContent'];
-  disabledInstrumentations?: string[];
+  environment?: string;
+  applicationName?: string;
+  tracer?: NodeTracerProvider;
+  otlpEndpoint?: string;
+  otlpHeaders?: Record<string, unknown>;
+  disableBatch?: boolean;
+  captureMessageContent?: boolean;
+  disabledInstrumentors?: string[];
   instrumentations?: OpenlitInstrumentations;
-  pricing_json?: OpenlitConfigInterface['pricing_json'];
+  disableMetrics?: boolean;
+  disableEvents?: boolean;
+  pricingJson?: string | PricingObject;
+  maxContentLength?: number | null;
+  customSpanAttributes?: Record<string, string> | null;
+
 };
 
-export type SetupTracerOptions = OpenlitOptions & {
+/**
+ * Resolved options used internally after merging args, env vars, and defaults.
+ */
+export interface ResolvedOptions {
+  environment: string;
+  applicationName: string;
+  tracer?: NodeTracerProvider;
+  otlpEndpoint?: string;
+  otlpHeaders?: Record<string, unknown>;
+  disableBatch: boolean;
+  captureMessageContent: boolean;
+  disabledInstrumentors?: string[];
+  instrumentations?: OpenlitInstrumentations;
+  disableMetrics: boolean;
+  disableEvents: boolean;
+  pricingJson?: string | PricingObject;
+  maxContentLength?: number | null;
+  customSpanAttributes?: Record<string, string> | null;
+}
+
+export type SetupTracerOptions = ResolvedOptions & {
   resource: Resource;
 };
 
@@ -53,8 +90,9 @@ export type MeterType = ReturnType<typeof metrics.getMeter>;
 export type SetupMetricsOptions = SetupTracerOptions & {
   meter?: MeterType;
   exportIntervalMillis?: number;
-  allowConsoleExporterFallback?: boolean;
 };
+
+export type SetupEventsOptions = SetupTracerOptions;
 
 export interface BaseOpenlitOptions {
   url?: string;

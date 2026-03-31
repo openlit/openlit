@@ -31,10 +31,7 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_MODEL = 'gen_ai.response.model';
   static GEN_AI_INPUT_MESSAGES = 'gen_ai.input.messages';
   static GEN_AI_OUTPUT_MESSAGES = 'gen_ai.output.messages';
-  /** Legacy */
-  static GEN_AI_SYSTEM_INSTRUCTIONS = 'gen_ai.system.instructions';
-  /** OTel standard */
-  static GEN_AI_SYSTEM_INSTRUCTIONS_OTEL = 'gen_ai.system_instructions';
+  static GEN_AI_SYSTEM_INSTRUCTIONS = 'gen_ai.system_instructions';
   static GEN_AI_TOOL_DEFINITIONS = 'gen_ai.tool.definitions';
   static GEN_AI_EMBEDDINGS_DIMENSION_COUNT = 'gen_ai.embeddings.dimension.count';
   static GEN_AI_TOKEN_TYPE = 'gen_ai.token.type';
@@ -66,6 +63,7 @@ export default class SemanticConvention {
   static GEN_AI_ASSISTANT_MESSAGE = 'gen_ai.assistant.message';
   static GEN_AI_TOOL_MESSAGE = 'gen_ai.tools.message';
   static GEN_AI_CHOICE = 'gen_ai.choice';
+  static GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS = 'gen_ai.client.inference.operation.details';
 
   // ----- GenAI General (OpenLIT + OTel) -----
   static GEN_AI_ENDPOINT = 'gen_ai.endpoint';
@@ -123,8 +121,14 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_IMAGE_SIZE = 'gen_ai.request.image_size';
   static GEN_AI_RESPONSE_IMAGE_QUALITY = 'gen_ai.request.image_quality';
   static GEN_AI_RESPONSE_IMAGE_STYLE = 'gen_ai.request.image_style';
-  static GEN_AI_REQUEST_SERVICE_TIER = 'gen_ai.request.service_tier';
-  static GEN_AI_RESPONSE_SERVICE_TIER = 'gen_ai.response.service_tier';
+
+  // OpenAI-specific attributes (openai.* namespace per OTel semconv)
+  static OPENAI_REQUEST_SERVICE_TIER = 'openai.request.service_tier';
+  static OPENAI_RESPONSE_SERVICE_TIER = 'openai.response.service_tier';
+  static OPENAI_RESPONSE_SYSTEM_FINGERPRINT = 'openai.response.system_fingerprint';
+  static OPENAI_API_TYPE = 'openai.api.type';
+
+  /** @deprecated Use OPENAI_RESPONSE_SYSTEM_FINGERPRINT for OpenAI */
   static GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = 'gen_ai.response.system_fingerprint';
 
   // GenAI Content
@@ -196,7 +200,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_HUGGING_FACE = 'huggingface';
   static GEN_AI_SYSTEM_REPLICATE = 'replicate';
   static GEN_AI_SYSTEM_OPENAI = 'openai';
-  static GEN_AI_SYSTEM_AZURE_OPENAI = 'az.ai.openai';
+  static GEN_AI_SYSTEM_AZURE_OPENAI = 'azure.ai.openai';
   static GEN_AI_SYSTEM_ANTHROPIC = 'anthropic';
   static GEN_AI_SYSTEM_COHERE = 'cohere';
   static GEN_AI_SYSTEM_MISTRAL = 'mistral_ai';
@@ -204,7 +208,12 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_VERTEXAI = 'vertex_ai';
   static GEN_AI_SYSTEM_LANGCHAIN = 'langchain';
   static GEN_AI_SYSTEM_VERCEL_AI = 'vercel_ai';
+  static GEN_AI_SYSTEM_OLLAMA = 'ollama';
+  static GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = 'gcp.gemini';
+  static GEN_AI_SYSTEM_GROQ = 'groq';
+  static GEN_AI_SYSTEM_AZURE_AI_INFERENCE = 'azure.ai.inference';
   static GEN_AI_SYSTEM_LLAMAINDEX = 'llamaindex';
+  static GEN_AI_SYSTEM_TOGETHER = 'together';
 
   // Vector DB
   static DB_REQUESTS = 'db.total.requests';

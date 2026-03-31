@@ -1,5 +1,78 @@
 import { encodingForModel, TiktokenModel } from 'js-tiktoken';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { Attributes, Span, SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
+import { SeverityNumber } from '@opentelemetry/api-logs';
+import { AsyncLocalStorage } from 'async_hooks';
+import SemanticConvention from './semantic-convention';
+import Events from './otel/events';
+import OpenlitConfig from './config';
+
+/**
+ * AsyncLocalStorage for context-scoped custom span attributes.
+ * Mirrors Python's ContextVar _custom_span_attributes, used by
+ * usingAttributes() and injectAdditionalAttributes().
+ */
+const _customSpanAttributes = new AsyncLocalStorage<Record<string, any>>();
+
+/**
+ * Apply global (from init) and context-scoped (from usingAttributes /
+ * injectAdditionalAttributes) custom attributes to a span.
+ * Global attributes are applied first; context attributes override on conflict.
+ * Matches Python's _apply_custom_span_attributes().
+ */
+export function applyCustomSpanAttributes(span: Span): void {
+  const globalAttrs = OpenlitConfig.customSpanAttributes;
+  if (globalAttrs) {
+    for (const [key, value] of Object.entries(globalAttrs)) {
+      span.setAttribute(key, value);
+    }
+  }
+  const contextAttrs = _customSpanAttributes.getStore();
+  if (contextAttrs) {
+    for (const [key, value] of Object.entries(contextAttrs)) {
+      span.setAttribute(key, value);
+    }
+  }
+}
+
+/**
+ * Get merged custom attributes (global + context) for use in events.
+ * Returns a flat object; context attributes override global on conflict.
+ */
+export function getMergedCustomAttributes(): Record<string, any> {
+  const merged: Record<string, any> = {};
+  const globalAttrs = OpenlitConfig.customSpanAttributes;
+  if (globalAttrs) {
+    Object.assign(merged, globalAttrs);
+  }
+  const contextAttrs = _customSpanAttributes.getStore();
+  if (contextAttrs) {
+    Object.assign(merged, contextAttrs);
+  }
+  return merged;
+}
+
+/**
+ * Run a function with custom span attributes attached to all
+ * auto-instrumented spans created during its execution.
+ * Matches Python's openlit.inject_additional_attributes().
+ */
+export function injectAdditionalAttributes<T>(fn: () => T, attributes: Record<string, any>): T {
+  return _customSpanAttributes.run(attributes, fn);
+}
+
+/**
+ * Context wrapper that adds custom attributes to all auto-instrumented
+ * spans created within its callback scope.
+ * Matches Python's openlit.using_attributes() context manager.
+ *
+ * Usage:
+ *   await usingAttributes({"user.id": "u1", "team": "ml"}, async () => {
+ *     await client.chat.completions.create(...);
+ *   });
+ */
+export function usingAttributes<T>(attributes: Record<string, any>, fn: () => T): T {
+  return _customSpanAttributes.run(attributes, fn);
+}
 
 export default class OpenLitHelper {
   static readonly PROMPT_TOKEN_FACTOR = 1000;
@@ -25,24 +98,34 @@ export default class OpenLitHelper {
     completionTokens: number
   ): number {
     try {
-      const cost = (
-        (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.chat[model].promptPrice +
-        (completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
-          pricingInfo.chat[model].completionPrice
-      );
+      const chatPricing = pricingInfo?.chat;
+      if (!chatPricing) return 0;
+      let modelPricing = chatPricing[model];
+      if (modelPricing == null && model.includes('/')) {
+        modelPricing = chatPricing[model.split('/', 2)[1]];
+      }
+      if (modelPricing == null) return 0;
+      const cost =
+        (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.promptPrice +
+        (completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.completionPrice;
       return isNaN(cost) ? 0 : cost;
-    } catch (error) {
-      console.error(`Error in getChatModelCost: ${error}`);
+    } catch {
       return 0;
     }
   }
 
   static getEmbedModelCost(model: string, pricingInfo: any, promptTokens: number): number {
     try {
-      const cost = (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.embeddings[model];
+      const embedPricing = pricingInfo?.embeddings;
+      if (!embedPricing) return 0;
+      let unitCost = embedPricing[model];
+      if (unitCost == null && model.includes('/')) {
+        unitCost = embedPricing[model.split('/', 2)[1]];
+      }
+      if (unitCost == null) return 0;
+      const cost = (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * unitCost;
       return isNaN(cost) ? 0 : cost;
-    } catch (error) {
-      console.error(`Error in getEmbedModelCost: ${error}`);
+    } catch {
       return 0;
     }
   }
@@ -205,9 +288,51 @@ export default class OpenLitHelper {
     }
   }
 
+  /**
+   * Emit an inference event via the LoggerProvider, matching Python SDK's
+   * gen_ai.client.inference.operation.details event.
+   * Falls back to span.addEvent if LoggerProvider is not available.
+   */
+  static emitInferenceEvent(
+    span: Span,
+    attrs: Attributes
+  ): void {
+    const eventAttributes: Attributes = {};
+
+    const customAttrs = getMergedCustomAttributes();
+    for (const [key, value] of Object.entries(customAttrs)) {
+      if (value !== undefined && value !== null) {
+        eventAttributes[key] = value;
+      }
+    }
+
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value !== undefined && value !== null) {
+        eventAttributes[key] = value;
+      }
+    }
+
+    if (Events.logger) {
+      Events.logger.emit({
+        context: trace.setSpan(otelContext.active(), span),
+        severityNumber: SeverityNumber.INFO,
+        severityText: 'INFO',
+        body: SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+        attributes: {
+          ...eventAttributes,
+          'event.name': SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+        },
+      });
+    } else {
+      span.addEvent(SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS, eventAttributes);
+    }
+  }
+
   static handleException(span: Span, error: Error): void {
     span.recordException(error);
     span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    const errorType = error.constructor?.name || '_OTHER';
+    span.setAttribute(SemanticConvention.ERROR_TYPE, errorType);
   }
 
   static async createStreamProxy (stream: any, generatorFuncResponse: any): Promise<any> {
