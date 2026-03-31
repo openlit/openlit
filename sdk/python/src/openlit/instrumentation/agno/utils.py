@@ -22,6 +22,7 @@ from openlit.__helpers import (
     format_system_instructions,
     get_server_address_for_provider,
     truncate_content,
+    _apply_custom_span_attributes,
 )
 from openlit.semcov import SemanticConvention
 
@@ -709,6 +710,8 @@ def emit_create_agent_spans(
                 time.time() - start_time,
             )
             span.set_status(Status(StatusCode.OK))
+
+            _apply_custom_span_attributes(span)
 
             return span.get_span_context()
     except Exception:

@@ -26,6 +26,7 @@ from openlit.__helpers import (
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
+from openlit._config import OpenlitConfig
 
 logger = logging.getLogger(__name__)
 
@@ -595,7 +596,8 @@ def emit_inference_event(
             body="",  # Per spec, all data in attributes
         )
 
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
 
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)

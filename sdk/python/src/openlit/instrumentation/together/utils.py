@@ -12,6 +12,7 @@ from opentelemetry.sdk.resources import (
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -112,6 +113,7 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_common_metrics(

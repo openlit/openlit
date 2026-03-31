@@ -7,6 +7,7 @@ extraction from Strands native span events, and metrics recording.
 import json
 import logging
 
+from openlit._config import OpenlitConfig
 from openlit.__helpers import (
     get_server_address_for_provider,
     otel_event,
@@ -286,7 +287,8 @@ def emit_strands_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
 
     except Exception as e:
         logger.warning("Failed to emit Strands inference event: %s", e, exc_info=True)

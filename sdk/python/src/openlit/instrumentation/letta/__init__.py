@@ -6,9 +6,11 @@ Following OpenTelemetry patterns and comprehensive API coverage
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.letta.letta import (
     create_agent,
     send_message,
@@ -112,7 +114,7 @@ LETTA_OPERATIONS = {
     ): memory_operation,
 }
 
-# Extended operations for detailed_tracing=True
+# Extended operations
 EXTENDED_OPERATIONS = {
     # Tool Operations
     ("letta_client.agents.tools.client", "ToolsClient.list", "tool"): tool_operation,
@@ -207,7 +209,7 @@ EXTENDED_OPERATIONS = {
     ): create_agent,
 }
 
-# Async operations for detailed_tracing=True
+# Async operations
 ASYNC_OPERATIONS = {
     # Async Agent Operations
     (
@@ -267,8 +269,8 @@ class LettaInstrumentor(BaseInstrumentor):
         # Extract configuration
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
@@ -304,58 +306,55 @@ class LettaInstrumentor(BaseInstrumentor):
                 # Continue if specific operation fails to instrument
                 pass
 
-        # Instrument extended operations (detailed_tracing=True only)
-        if kwargs.get("detailed_tracing", False):
-            for (
-                module_name,
-                method_name,
-                _operation_type,
-            ), wrapper_func in EXTENDED_OPERATIONS.items():
-                try:
-                    wrap_function_wrapper(
-                        module_name,
-                        method_name,
-                        wrapper_func(
-                            f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                        ),
-                    )
-                except Exception:
-                    # Continue if specific operation fails to instrument
-                    pass
+        # Instrument extended operations
+        for (
+            module_name,
+            method_name,
+            _operation_type,
+        ), wrapper_func in EXTENDED_OPERATIONS.items():
+            try:
+                wrap_function_wrapper(
+                    module_name,
+                    method_name,
+                    wrapper_func(
+                        f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+            except Exception:
+                pass
 
-            # Instrument async operations
-            for (
-                module_name,
-                method_name,
-                _operation_type,
-            ), wrapper_func in ASYNC_OPERATIONS.items():
-                try:
-                    wrap_function_wrapper(
-                        module_name,
-                        method_name,
-                        wrapper_func(
-                            f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                        ),
-                    )
-                except Exception:
-                    # Continue if specific operation fails to instrument
-                    pass
+        # Instrument async operations
+        for (
+            module_name,
+            method_name,
+            _operation_type,
+        ), wrapper_func in ASYNC_OPERATIONS.items():
+            try:
+                wrap_function_wrapper(
+                    module_name,
+                    method_name,
+                    wrapper_func(
+                        f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         """Uninstrumentation would restore original functions."""

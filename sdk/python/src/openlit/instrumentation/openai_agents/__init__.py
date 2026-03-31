@@ -7,11 +7,17 @@ import threading
 from typing import Collection
 import importlib.metadata
 
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, format_system_instructions
+from openlit.__helpers import (
+    handle_exception,
+    format_system_instructions,
+    _apply_custom_span_attributes,
+)
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
@@ -110,6 +116,8 @@ def _wrap_agent_init(
                     SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
                 )
 
+                _apply_custom_span_attributes(span)
+
                 creation_ctx = span.get_span_context()
                 instance._openlit_creation_context = creation_ctx
                 registry.register(str(name), creation_ctx)
@@ -131,12 +139,11 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("openai-agents")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
 
         # Shared registry: create_agent span contexts keyed by agent name
         agent_registry = _AgentCreationRegistry()
@@ -167,7 +174,6 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
             capture_message_content=capture_message_content,
             metrics=metrics,
             disable_metrics=disable_metrics,
-            detailed_tracing=detailed_tracing,
             agent_creation_registry=agent_registry,
         )
 

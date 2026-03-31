@@ -52,6 +52,12 @@ _langgraph_wrapper_active: ContextVar[bool] = ContextVar(
     "openlit_langgraph_wrapper_active", default=False
 )
 
+# User-supplied custom span attributes propagated via context managers,
+# decorators, or the inject_additional_attributes() helper.
+_custom_span_attributes: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
+    "openlit_custom_span_attributes", default=None
+)
+
 
 def set_framework_llm_active():
     """Set by framework LLM callbacks; returns a token to reset later."""
@@ -564,7 +570,14 @@ def otel_event(name, attributes, body):
     Returns an OpenTelemetry LogRecord representing an event.
     """
 
-    base_attrs = attributes or {}
+    base_attrs = dict(attributes) if attributes else {}
+    global_attrs = OpenlitConfig.custom_span_attributes
+    if global_attrs:
+        for key, value in global_attrs.items():
+            base_attrs.setdefault(key, value)
+    context_attrs = _custom_span_attributes.get()
+    if context_attrs:
+        base_attrs.update(context_attrs)
     return LogRecord(
         attributes=base_attrs,
         body=body,
@@ -722,6 +735,7 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_completion_metrics(
@@ -852,6 +866,38 @@ def reset_agent_name(token):
 def get_agent_name() -> Optional[str]:
     """Get the current agent name from context, or None."""
     return _current_agent_name.get()
+
+
+def set_custom_attributes(attrs: Dict[str, Any]):
+    """Set custom span attributes in context. Returns a token for reset."""
+    return _custom_span_attributes.set(attrs)
+
+
+def reset_custom_attributes(token):
+    """Reset custom span attributes context to its previous value."""
+    _custom_span_attributes.reset(token)
+
+
+def get_custom_attributes() -> Optional[Dict[str, Any]]:
+    """Get custom span attributes from context, or None."""
+    return _custom_span_attributes.get()
+
+
+def _apply_custom_span_attributes(span):
+    """
+    Apply global and context-scoped custom attributes to a span.
+    Global attributes (from init) are applied first; context attributes
+    (from using_attributes / inject_additional_attributes) override on conflict.
+    """
+    global_attrs = OpenlitConfig.custom_span_attributes
+    if global_attrs:
+        for key, value in global_attrs.items():
+            span.set_attribute(key, value)
+
+    context_attrs = _custom_span_attributes.get()
+    if context_attrs:
+        for key, value in context_attrs.items():
+            span.set_attribute(key, value)
 
 
 def record_agent_duration(
@@ -1055,6 +1101,7 @@ def common_db_span_attributes(
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.DB_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
 
 
 def format_system_instructions(text):
@@ -1121,6 +1168,7 @@ def common_framework_span_attributes(
         SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
         scope._end_time - scope._start_time,
     )
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_mcp_metrics(

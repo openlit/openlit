@@ -25,7 +25,6 @@ from openlit.instrumentation.openai_agents.utils import (
     get_operation_type,
     get_span_kind,
     generate_span_name,
-    is_detailed_only,
     process_span_end,
 )
 
@@ -77,7 +76,6 @@ class OpenLITTracingProcessor(TracingProcessor):
         capture_message_content,
         metrics,
         disable_metrics,
-        detailed_tracing,
         agent_creation_registry=None,
         **kwargs,
     ):
@@ -91,7 +89,6 @@ class OpenLITTracingProcessor(TracingProcessor):
         self.capture_message_content = capture_message_content
         self.metrics = metrics
         self.disable_metrics = disable_metrics
-        self.detailed_tracing = detailed_tracing
         self._agent_creation_registry = agent_creation_registry
 
         self._lock = threading.Lock()
@@ -232,9 +229,6 @@ class OpenLITTracingProcessor(TracingProcessor):
             if span_type in self._LLM_SPAN_TYPES:
                 return
 
-            if is_detailed_only(span_type) and not self.detailed_tracing:
-                return
-
             trace_id = getattr(sdk_span, "trace_id", "unknown")
             sdk_span_id = getattr(sdk_span, "span_id", None)
             parent_sdk_id = getattr(sdk_span, "parent_id", None)
@@ -290,9 +284,6 @@ class OpenLITTracingProcessor(TracingProcessor):
             span_type = getattr(span_data, "type", "unknown")
 
             if span_type in self._LLM_SPAN_TYPES:
-                return
-
-            if is_detailed_only(span_type) and not self.detailed_tracing:
                 return
 
             sdk_span_id = getattr(sdk_span, "span_id", None)

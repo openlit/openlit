@@ -11,6 +11,7 @@ from typing import Any, Collection, Dict, List, Optional, Literal, cast
 from uuid import UUID
 import importlib.metadata
 
+from opentelemetry import _logs, trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
@@ -18,6 +19,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.langchain.utils import (
     build_input_messages,
     common_chat_logic,
@@ -1985,6 +1987,7 @@ def _wrap_create_agent(tracer, version, environment, application_name):
         set_create_agent_active,
         reset_create_agent_active,
         get_server_address_for_provider,
+        _apply_custom_span_attributes,
     )
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -2061,6 +2064,8 @@ def _wrap_create_agent(tracer, version, environment, application_name):
             else:
                 description = "LangChain agent"
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description)
+
+            _apply_custom_span_attributes(span)
 
             ca_token = set_create_agent_active()
             try:
@@ -2444,12 +2449,12 @@ class LangChainInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics", False)
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
 
         handler_class = _create_callback_handler_class(
             tracer,

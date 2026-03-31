@@ -5,9 +5,11 @@ Optimized Auto Instrumentation of MCP (Model Context Protocol) Functions followi
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.mcp.mcp import mcp_wrap
 from openlit.instrumentation.mcp.async_mcp import async_mcp_wrap
 from openlit.instrumentation.mcp.utils import (
@@ -507,17 +509,15 @@ class MCPInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        """Optimized instrumentation with performance considerations and detailed tracing support."""
+        """Optimized instrumentation with performance considerations."""
         # Extract configuration
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info")
         capture_message_content = kwargs.get("capture_message_content")
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", True)
-
         # Cache version lookup
         try:
             version = importlib.metadata.version("mcp")
@@ -590,17 +590,15 @@ class MCPInstrumentor(BaseInstrumentor):
         self._wrap_methods(high_priority_methods, mcp_wrap, wrapper_args)
         self._wrap_methods(async_high_priority_methods, async_mcp_wrap, wrapper_args)
 
-        # Only instrument component operations if detailed_tracing is enabled
-        if detailed_tracing:
-            component_methods = [
-                m for m in SYNC_METHODS if m["priority"] in ["medium", "low"]
-            ]
-            async_component_methods = [
-                m for m in ASYNC_METHODS if m["priority"] in ["medium", "low"]
-            ]
+        component_methods = [
+            m for m in SYNC_METHODS if m["priority"] in ["medium", "low"]
+        ]
+        async_component_methods = [
+            m for m in ASYNC_METHODS if m["priority"] in ["medium", "low"]
+        ]
 
-            self._wrap_methods(component_methods, mcp_wrap, wrapper_args)
-            self._wrap_methods(async_component_methods, async_mcp_wrap, wrapper_args)
+        self._wrap_methods(component_methods, mcp_wrap, wrapper_args)
+        self._wrap_methods(async_component_methods, async_mcp_wrap, wrapper_args)
 
     def _wrap_methods(self, methods, wrapper_func, wrapper_args):
         """Efficiently wrap methods with error handling following OpenLIT patterns."""

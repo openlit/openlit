@@ -13,6 +13,7 @@ from openlit.__helpers import (
     set_langgraph_conversation_id,
     reset_langgraph_conversation_id,
     get_langgraph_conversation_id,
+    _apply_custom_span_attributes,
 )
 from openlit.instrumentation.langgraph.utils import (
     process_langgraph_response,
@@ -511,6 +512,8 @@ def wrap_compile(
 
                 span.set_status(Status(StatusCode.OK))
 
+                _apply_custom_span_attributes(span)
+
                 result._openlit_creation_context = span.get_span_context()
 
                 return result
@@ -598,6 +601,7 @@ def wrap_add_node(
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_TYPE, "text"
                         )
+                        _apply_custom_span_attributes(span)
 
                         try:
                             result = await original_func(
@@ -665,6 +669,7 @@ def wrap_add_node(
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_TYPE, "text"
                         )
+                        _apply_custom_span_attributes(span)
 
                         try:
                             result = original_func(state, *node_args, **node_kwargs)
