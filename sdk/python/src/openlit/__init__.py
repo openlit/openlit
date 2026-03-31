@@ -613,6 +613,7 @@ class using_attributes(ContextDecorator):
 
     def __init__(self, attributes: Dict[str, Any]):
         self._attributes = attributes
+        self._token = None
 
     def __enter__(self):
         self._token = set_custom_attributes(self._attributes)

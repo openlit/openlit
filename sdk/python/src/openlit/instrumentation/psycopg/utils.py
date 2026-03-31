@@ -4,7 +4,7 @@ Utilities for Psycopg (PostgreSQL) instrumentation.
 
 import re
 import time
-from typing import Tuple, Any, Optional
+from typing import Tuple, Any
 from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     common_db_span_attributes,

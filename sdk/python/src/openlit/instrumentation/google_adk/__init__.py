@@ -239,9 +239,7 @@ def _wrap_trace_call_llm(capture_message_content):
             # ADK signature: trace_call_llm(invocation_context, event_id, llm_request, llm_response, span=None)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 llm_request = args[2] if len(args) > 2 else kwargs.get("llm_request")
                 llm_response = args[3] if len(args) > 3 else kwargs.get("llm_response")
                 enrich_llm_span(
@@ -278,9 +276,7 @@ def _wrap_trace_tool_call(capture_message_content):
             # ADK signature: trace_tool_call(tool, args, function_response_event, error=None)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 tool = args[0] if len(args) > 0 else kwargs.get("tool")
                 function_args = args[1] if len(args) > 1 else kwargs.get("args")
                 function_response_event = (
@@ -326,9 +322,7 @@ def _wrap_trace_merged_tool_calls(capture_message_content):
             # ADK signature: trace_merged_tool_calls(response_event_id, function_response_event)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 response_event_id = (
                     args[0] if len(args) > 0 else kwargs.get("response_event_id")
                 )
