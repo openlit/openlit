@@ -517,7 +517,7 @@ def _handle_step(
 
     _step_stream is a generator; we wrap it to hold the span open.
     """
-    server_address, server_port = set_server_address_and_port(instance)
+    _server_address, _server_port = set_server_address_and_port(instance)
     operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_agent")
     span_kind = get_span_kind(operation_type)
     span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
@@ -548,9 +548,7 @@ def _handle_step(
                     )
 
             try:
-                gen = wrapped(*args, **kwargs)
-                for event in gen:
-                    yield event
+                yield from wrapped(*args, **kwargs)
 
                 # After generator completes, capture step results
                 if args:
@@ -617,7 +615,7 @@ def _handle_planning_step(
     disable_metrics,
 ):
     """Handle planning step spans."""
-    server_address, server_port = set_server_address_and_port(instance)
+    _server_address, _server_port = set_server_address_and_port(instance)
     operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_agent")
     span_kind = get_span_kind(operation_type)
     span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
@@ -636,9 +634,7 @@ def _handle_planning_step(
             span.set_attribute("gen_ai.smolagents.planning", True)
 
             try:
-                gen = wrapped(*args, **kwargs)
-                for event in gen:
-                    yield event
+                yield from wrapped(*args, **kwargs)
 
                 span.set_attribute(
                     SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 _instruments = ("langchain-core >= 0.1.20",)
 
 
-class SpanHolder:
+class SpanHolder:  # pylint: disable=too-many-instance-attributes
     """Container for span and related metadata with performance optimization via __slots__."""
 
     __slots__ = (

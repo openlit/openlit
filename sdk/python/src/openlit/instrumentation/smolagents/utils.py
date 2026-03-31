@@ -182,7 +182,7 @@ def generate_span_name(endpoint, instance, args=None, kwargs=None):
         name = getattr(instance, "name", None) or type(instance).__name__
         return f"{operation} {name}"
 
-    if endpoint == "agent_run" or endpoint == "managed_agent_call":
+    if endpoint in ("agent_run", "managed_agent_call"):
         name = getattr(instance, "name", None) or type(instance).__name__
         return f"{operation} {name}"
 
@@ -242,7 +242,7 @@ def process_smolagents_response(
 
     request_model = _extract_model_name(instance)
 
-    class _ModelProxy:
+    class _ModelProxy:  # pylint: disable=too-few-public-methods
         def __init__(self, orig, model):
             self._original = orig
             self.model_name = model

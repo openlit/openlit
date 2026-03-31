@@ -21,8 +21,6 @@ from openlit.__helpers import (
     handle_exception,
 )
 from openlit.semcov import SemanticConvention
-
-_OPENAI_SERVER_ADDRESS, _OPENAI_SERVER_PORT = get_server_address_for_provider("openai")
 from openlit.instrumentation.openai_agents.utils import (
     get_operation_type,
     get_span_kind,
@@ -30,6 +28,8 @@ from openlit.instrumentation.openai_agents.utils import (
     is_detailed_only,
     process_span_end,
 )
+
+_OPENAI_SERVER_ADDRESS, _OPENAI_SERVER_PORT = get_server_address_for_provider("openai")
 
 try:
     from agents import TracingProcessor

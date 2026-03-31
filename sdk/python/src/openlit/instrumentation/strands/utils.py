@@ -10,8 +10,6 @@ import logging
 from openlit.__helpers import (
     get_server_address_for_provider,
     otel_event,
-    truncate_content,
-    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 

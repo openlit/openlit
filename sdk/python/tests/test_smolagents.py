@@ -14,21 +14,16 @@ These tests validate integration with OpenLIT.
 Note: These tests require smolagents to be installed.
 """
 
-import json
-from unittest.mock import MagicMock, patch
 from dataclasses import dataclass
 
 import pytest
 
 try:
-    import smolagents
     from smolagents import (
         Tool,
         ToolCallingAgent,
-        CodeAgent,
     )
     from smolagents.models import Model
-    from smolagents.memory import ActionStep, ToolCall
     from smolagents.monitoring import TokenUsage
 
     SMOLAGENTS_AVAILABLE = True
@@ -65,9 +60,11 @@ class DummyModel(Model):
         super().__init__(model_id="test-model-001")
 
     def generate(self, messages, **kwargs):
+        """Return a canned chat response."""
         return MockChatMessage(content="Test model response")
 
     def generate_stream(self, messages, **kwargs):
+        """Yield two canned streaming chunks."""
         yield MockChatMessage(content="chunk1")
         yield MockChatMessage(content="chunk2")
 
@@ -83,6 +80,7 @@ class DummyTool(Tool):
     output_type = "string"
 
     def forward(self, query: str) -> str:
+        """Process the query and return a result string."""
         return f"Processed: {query}"
 
 
@@ -131,6 +129,7 @@ class TestSmolAgentsInstrumentation:
             output_type = "string"
 
             def forward(self, x: str) -> str:
+                """Always raises ValueError for testing."""
                 raise ValueError("Tool execution failed")
 
         tool = FailingTool()
@@ -145,6 +144,7 @@ class TestSmolAgentsInstrumentation:
                 super().__init__(model_id="fail-model")
 
             def generate(self, messages, **kwargs):
+                """Always raises RuntimeError for testing."""
                 raise RuntimeError("Model generation failed")
 
         model = FailingModel()
