@@ -288,23 +288,58 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 		deploymentEnvironment = "kubernetes" // Simple fallback
 	}
 
-	// Build comprehensive OTEL_RESOURCE_ATTRIBUTES following OpenTelemetry semantic conventions
-	resourceAttrs := []string{
-		fmt.Sprintf("service.name=%s", serviceName),
-		fmt.Sprintf("service.namespace=%s", serviceNamespace),
-		fmt.Sprintf("deployment.environment=%s", deploymentEnvironment),
+	// Build operator-generated resource attributes as a map (user can override any key)
+	operatorAttrs := map[string]string{
+		"service.name":            serviceName,
+		"service.namespace":       serviceNamespace,
+		"deployment.environment":  deploymentEnvironment,
 	}
 
-	// Add service.version only if available
 	if serviceVersion != "" {
-		resourceAttrs = append(resourceAttrs, fmt.Sprintf("service.version=%s", serviceVersion))
+		operatorAttrs["service.version"] = serviceVersion
 	}
 
-	// Only add service.instance.id if we have the actual pod name (not during admission webhook)
 	var serviceInstanceId string
 	if pod.Name != "" {
 		serviceInstanceId = i.generateServiceInstanceId(container, pod)
-		resourceAttrs = append(resourceAttrs, fmt.Sprintf("service.instance.id=%s", serviceInstanceId))
+		operatorAttrs["service.instance.id"] = serviceInstanceId
+	}
+
+	// Add k8s.* resource attributes
+	if pod.Namespace != "" {
+		operatorAttrs["k8s.namespace.name"] = pod.Namespace
+	}
+
+	deploymentName, replicaSetName := i.extractK8sResourceNames(pod)
+	if deploymentName != "" {
+		operatorAttrs["k8s.deployment.name"] = deploymentName
+	}
+	if replicaSetName != "" {
+		operatorAttrs["k8s.replicaset.name"] = replicaSetName
+	}
+
+	// k8s.pod.name and k8s.node.name use downward API env var interpolation
+	// because they are not available at admission webhook time
+	operatorAttrs["k8s.pod.name"] = "$(K8S_POD_NAME)"
+	operatorAttrs["k8s.node.name"] = "$(K8S_NODE_NAME)"
+
+	// Parse user's existing OTEL_RESOURCE_ATTRIBUTES and overlay on top (user wins on conflict)
+	for _, env := range container.Env {
+		if env.Name == "OTEL_RESOURCE_ATTRIBUTES" && env.Value != "" {
+			for _, pair := range strings.Split(env.Value, ",") {
+				parts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
+				if len(parts) == 2 {
+					operatorAttrs[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+				}
+			}
+			break
+		}
+	}
+
+	// Serialize merged attributes
+	resourceAttrParts := make([]string, 0, len(operatorAttrs))
+	for k, v := range operatorAttrs {
+		resourceAttrParts = append(resourceAttrParts, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	// Check if PYTHONPATH already exists in the container
@@ -324,6 +359,24 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 	}
 
 	envVars := []corev1.EnvVar{
+		// Downward API env vars for k8s attributes (must come before OTEL_RESOURCE_ATTRIBUTES
+		// so that $(K8S_POD_NAME) and $(K8S_NODE_NAME) interpolation works)
+		{
+			Name: "K8S_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name: "K8S_NODE_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.nodeName",
+				},
+			},
+		},
 		{
 			Name:  "PYTHONPATH",
 			Value: pythonPathValue,
@@ -351,7 +404,7 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 		},
 		{
 			Name:  "OTEL_RESOURCE_ATTRIBUTES",
-			Value: strings.Join(resourceAttrs, ","),
+			Value: strings.Join(resourceAttrParts, ","),
 		},
 		// Optional service version
 		{
@@ -373,16 +426,6 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 		})
 	}
 
-	// Add optional OpenLIT-specific environment variables (removed advanced options for now)
-
-	if i.config.DetailedTracing {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "OPENLIT_DETAILED_TRACING",
-			Value: "true",
-		})
-	}
-
-	// Phoenix-specific variables removed - using pure OpenTelemetry approach for OpenInference
 	// Add custom instrumentation environment variables
 	if i.config.CustomPackages != "" {
 		envVars = append(envVars, corev1.EnvVar{
@@ -391,18 +434,49 @@ func (i *OpenLitInjector) buildEnvironmentVariables(container *corev1.Container,
 		})
 	}
 
-	log.Info("🌍 OpenTelemetry resource attributes configured",
+	log.Info("OpenTelemetry resource attributes configured",
 		"component", "injector",
 		"service.name", serviceName,
 		"service.namespace", serviceNamespace,
 		"service.instance.id", serviceInstanceId,
 		"service.version", serviceVersion,
 		"deployment.environment", deploymentEnvironment,
+		"k8s.namespace.name", pod.Namespace,
+		"k8s.deployment.name", deploymentName,
+		"k8s.replicaset.name", replicaSetName,
 		"otel.exporter.otlp.endpoint", i.config.OTLPEndpoint,
 		"instrumentation.provider", i.config.Provider,
 		"instrumentation.custom_packages", i.config.CustomPackages)
 
 	return envVars
+}
+
+// extractK8sResourceNames returns (deploymentName, replicaSetName) from pod owner references.
+func (i *OpenLitInjector) extractK8sResourceNames(pod *corev1.Pod) (string, string) {
+	if len(pod.OwnerReferences) == 0 {
+		return "", ""
+	}
+
+	var deploymentName, replicaSetName string
+
+	for _, owner := range pod.OwnerReferences {
+		switch owner.Kind {
+		case "ReplicaSet":
+			replicaSetName = owner.Name
+			// Deployment name = ReplicaSet name minus the trailing hash suffix
+			if lastDash := strings.LastIndex(owner.Name, "-"); lastDash > 0 && lastDash < len(owner.Name)-5 {
+				deploymentName = owner.Name[:lastDash]
+			}
+		case "Deployment":
+			deploymentName = owner.Name
+		case "StatefulSet", "DaemonSet", "Job", "CronJob":
+			if deploymentName == "" {
+				deploymentName = owner.Name
+			}
+		}
+	}
+
+	return deploymentName, replicaSetName
 }
 
 // generateServiceName calculates service.name following OpenTelemetry K8s conventions
@@ -1003,8 +1077,17 @@ func (i *OpenLitInjector) validateSecurityContext(pod *corev1.Pod) error {
 
 // shouldInstrumentContainer determines if a specific container should be instrumented
 func (i *OpenLitInjector) shouldInstrumentContainer(container *corev1.Container, pod *corev1.Pod) bool {
-	// Check for explicit container exclusion annotation
 	if pod.Annotations != nil {
+		// Force-inject annotation bypasses ALL heuristic checks:
+		// openlit.io/inject-python: "true"
+		if val, exists := pod.Annotations["openlit.io/inject-python"]; exists && strings.ToLower(val) == "true" {
+			log.Info("Force-injecting Python instrumentation via openlit.io/inject-python annotation",
+				"component", "injector",
+				"k8s.container.name", container.Name,
+				"k8s.pod.name", pod.Name)
+			return true
+		}
+
 		// Check for container-specific exclusion: openlit.io/exclude-containers: "container1,container2"
 		if excludeList, exists := pod.Annotations["openlit.io/exclude-containers"]; exists {
 			excludedContainers := strings.Split(excludeList, ",")
@@ -1055,8 +1138,17 @@ func (i *OpenLitInjector) shouldInstrumentContainer(container *corev1.Container,
 				}
 			}
 
-			// If this container is mapped to a different language than we support, skip it
-			if containerLanguage != "" && containerLanguage != "python" {
+			if containerLanguage == "python" {
+				// Explicitly marked as Python -- bypass all heuristic checks
+				log.Info("Container confirmed as Python via openlit.io/container-languages annotation",
+					"component", "injector",
+					"k8s.container.name", container.Name,
+					"k8s.pod.name", pod.Name)
+				return true
+			}
+
+			if containerLanguage != "" {
+				// Mapped to a non-Python language, skip it
 				log.Info("Container uses unsupported language - skipping instrumentation",
 					"component", "injector",
 					"k8s.container.name", container.Name,
@@ -1162,6 +1254,17 @@ func (i *OpenLitInjector) isPythonContainer(container *corev1.Container) bool {
 		"jupyter",
 		"anaconda",
 		"miniconda",
+		"litellm",
+		"streamlit",
+		"gradio",
+		"langserve",
+		"chainlit",
+		"prefect",
+		"airflow",
+		"dbt",
+		"mlflow",
+		"bentoml",
+		"ray",
 	}
 
 	for _, pattern := range pythonImagePatterns {
@@ -1200,7 +1303,13 @@ func (i *OpenLitInjector) isPythonContainer(container *corev1.Container) bool {
 			strings.Contains(argLower, "django") ||
 			strings.Contains(argLower, "flask") ||
 			strings.Contains(argLower, "gunicorn") ||
-			strings.Contains(argLower, "uvicorn") {
+			strings.Contains(argLower, "uvicorn") ||
+			strings.Contains(argLower, "litellm") ||
+			strings.Contains(argLower, "streamlit") ||
+			strings.Contains(argLower, "celery") ||
+			strings.Contains(argLower, "airflow") ||
+			strings.Contains(argLower, "prefect") ||
+			strings.Contains(argLower, "mlflow") {
 			return true
 		}
 	}
@@ -1497,11 +1606,16 @@ func (i *OpenLitInjector) modifyContainerWithRecovery(container *corev1.Containe
 
 	container.Env = append(container.Env, envVars...)
 
+	// Apply CR-defined environment variables (spec.python.instrumentation.env)
+	if len(i.config.EnvVars) > 0 {
+		container.Env = append(container.Env, i.config.EnvVars...)
+	}
+
 	log.Info("Container modification completed",
 		"component", "injector",
 		"k8s.container.name", container.Name,
 		"instrumentation.provider", i.config.Provider,
-		"env_vars.added", len(envVars),
+		"env_vars.added", len(envVars)+len(i.config.EnvVars),
 		"volume_mounts.added", 1)
 
 	return nil

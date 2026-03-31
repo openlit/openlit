@@ -434,7 +434,6 @@ func (h *Handler) createInjectorConfig(instrConfig *v1alpha1.AutoInstrumentation
 
 		// Instrumentation settings (set defaults)
 		CaptureMessageContent: true,
-		DetailedTracing:       true,
 
 		// Volume configuration (using configurable names instead of hardcoded)
 		SharedVolumeName: "instrumentation-packages",
