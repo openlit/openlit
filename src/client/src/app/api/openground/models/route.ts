@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { SERVER_EVENTS } from "@/constants/events";
 import { authOptions } from "@/app/auth";
 import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
+import PostHogServer from "@/lib/posthog";
 import Sanitizer from "@/utils/sanitizer";
 import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
 import asaw from "@/utils/asaw";
@@ -20,6 +22,7 @@ interface SessionWithId {
 
 // GET: List all custom models for a provider (or all providers if no provider specified)
 export async function GET(request: NextRequest) {
+	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -65,6 +68,10 @@ export async function GET(request: NextRequest) {
 		);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json(
 				{ error: getMessage().OPERATION_FAILED },
 				{ status: 500 }
@@ -98,6 +105,10 @@ export async function GET(request: NextRequest) {
 
 		console.log("GET /api/openground/models - Returning grouped models:", JSON.stringify(grouped, null, 2));
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json(grouped);
 	}
 
@@ -126,6 +137,10 @@ export async function GET(request: NextRequest) {
 	);
 
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_FAILURE,
+			startTimestamp,
+		});
 		return NextResponse.json(
 			{ error: getMessage().OPERATION_FAILED },
 			{ status: 500 }
@@ -142,11 +157,16 @@ export async function GET(request: NextRequest) {
 		return isValid;
 	});
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_SUCCESS,
+		startTimestamp,
+	});
 	return NextResponse.json(validModels);
 }
 
 // POST: Create or update a custom model
 export async function POST(request: NextRequest) {
+	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -218,6 +238,10 @@ export async function POST(request: NextRequest) {
 		);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
+				startTimestamp,
+			});
 			console.error("Error updating model:", err);
 			return NextResponse.json(
 				{ error: err || getMessage().OPERATION_FAILED },
@@ -225,6 +249,10 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json({ success: true, updated: true });
 	}
 
@@ -251,6 +279,10 @@ export async function POST(request: NextRequest) {
 	);
 
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
+			startTimestamp,
+		});
 		console.error("Error inserting custom model:", err);
 		return NextResponse.json(
 			{ error: err || getMessage().OPERATION_FAILED },
@@ -286,6 +318,10 @@ export async function POST(request: NextRequest) {
 
 	console.log("Newly created model:", JSON.stringify(newModel, null, 2));
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_SUCCESS,
+		startTimestamp,
+	});
 	return NextResponse.json({
 		success: true,
 		created: true,
@@ -295,6 +331,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Remove a custom model
 export async function DELETE(request: NextRequest) {
+	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -350,6 +387,10 @@ export async function DELETE(request: NextRequest) {
 	);
 
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_DELETE_FAILURE,
+			startTimestamp,
+		});
 		console.error("Delete error:", err);
 		return NextResponse.json(
 			{ error: err || getMessage().OPERATION_FAILED },
@@ -357,5 +398,9 @@ export async function DELETE(request: NextRequest) {
 		);
 	}
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.OPENGROUND_MODELS_DELETE_SUCCESS,
+		startTimestamp,
+	});
 	return NextResponse.json({ success: true, deleted: true });
 }

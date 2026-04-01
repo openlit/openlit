@@ -1,5 +1,7 @@
 "use client";
 
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -79,6 +81,7 @@ const columns: Columns<string, PromptList> = {
 };
 
 export default function PromptHub() {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<PromptList[]>();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
 		useFetchWrapper();
@@ -117,6 +120,10 @@ export default function PromptHub() {
 		},
 		[fetchData]
 	);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus !== "pending") {

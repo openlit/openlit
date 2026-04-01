@@ -1,6 +1,8 @@
 "use client";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useRootStore } from "@/store";
@@ -86,6 +88,7 @@ const columns: Columns<string, Rule> = {
 };
 
 export default function RuleEnginePage() {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } =
 		useFetchWrapper<Rule[]>();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
@@ -123,6 +126,10 @@ export default function RuleEnginePage() {
 		},
 		[fetchData]
 	);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.RULE_ENGINE_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus !== "pending") {

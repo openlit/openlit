@@ -17,6 +17,8 @@ import { normalizeTrace } from "@/helpers/client/trace";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import TracingGettingStarted from "@/components/(playground)/getting-started/tracing";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 function RequestPage() {
 	const [, updateRequest] = useRequest();
@@ -103,6 +105,12 @@ function RequestPage() {
 }
 
 export default function Page() {
+	const posthog = usePostHog();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.REQUESTS_PAGE_VISITED);
+	}, []);
+
 	return (
 		<RequestProvider>
 			<RequestPage />
