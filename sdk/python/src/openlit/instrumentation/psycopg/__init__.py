@@ -5,9 +5,11 @@ OpenLIT Psycopg (PostgreSQL) Instrumentation
 from typing import Collection, Any, Optional
 import importlib.metadata
 import functools
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.psycopg.psycopg import (
     execute_wrap,
     executemany_wrap,
@@ -95,14 +97,9 @@ class PsycopgInstrumentor(BaseInstrumentor):
     - ConnectionPool operations (optional, from psycopg_pool)
 
     Configuration Options:
-    - capture_parameters: If True, captures query parameters in spans.
+    - capture_db_parameters: If True, captures query parameters in spans.
       WARNING: This may expose sensitive data like passwords, PII, tokens.
       Only enable in development or when you're certain parameters are safe.
-      Default: False
-
-    - enable_sqlcommenter: If True, injects OpenTelemetry trace context as SQL
-      comments (SQLCommenter format). This enables correlation between
-      application traces and database logs (pg_stat_statements, auto_explain).
       Default: False
     """
 
@@ -118,15 +115,13 @@ class PsycopgInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
 
-        # New configuration options
-        capture_parameters = kwargs.get("capture_parameters", False)
-        enable_sqlcommenter = kwargs.get("enable_sqlcommenter", False)
+        capture_db_parameters = kwargs.get("capture_db_parameters", False)
 
         # Wrap sync cursor operations
         for cursor_class in SYNC_CURSOR_CLASSES:
@@ -147,8 +142,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                                 capture_message_content,
                                 metrics,
                                 disable_metrics,
-                                capture_parameters,
-                                enable_sqlcommenter,
+                                capture_db_parameters,
                             ),
                         )
                     except Exception:
@@ -174,8 +168,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                                 capture_message_content,
                                 metrics,
                                 disable_metrics,
-                                capture_parameters,
-                                enable_sqlcommenter,
+                                capture_db_parameters,
                             ),
                         )
                     except Exception:
@@ -200,8 +193,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                             capture_message_content,
                             metrics,
                             disable_metrics,
-                            capture_parameters,
-                            enable_sqlcommenter,
+                            capture_db_parameters,
                         ),
                     )
                 except Exception:
@@ -225,8 +217,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                             capture_message_content,
                             metrics,
                             disable_metrics,
-                            capture_parameters,
-                            enable_sqlcommenter,
+                            capture_db_parameters,
                         ),
                     )
                 except Exception:
@@ -242,8 +233,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
-            capture_parameters,
-            enable_sqlcommenter,
+            capture_db_parameters,
         )
 
     def _instrument_pool(
@@ -256,8 +246,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
         capture_message_content,
         metrics,
         disable_metrics,
-        capture_parameters=False,
-        enable_sqlcommenter=False,
+        capture_db_parameters=False,
     ):
         """
         Instrument psycopg_pool connection pool operations.
@@ -284,8 +273,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
-                    capture_parameters,
-                    enable_sqlcommenter,
+                    capture_db_parameters,
                 ),
             )
         except Exception:
@@ -306,8 +294,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
-                    capture_parameters,
-                    enable_sqlcommenter,
+                    capture_db_parameters,
                 ),
             )
         except Exception:
@@ -320,8 +307,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
         tracer: Optional[Any] = None,
         environment: str = "default",
         application_name: str = "default",
-        capture_parameters: bool = False,
-        enable_sqlcommenter: bool = False,
+        capture_db_parameters: bool = False,
         capture_message_content: bool = True,
         **kwargs,
     ) -> Any:
@@ -340,8 +326,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
             tracer: Optional OpenTelemetry tracer instance
             environment: Deployment environment name
             application_name: Application name for tracing
-            capture_parameters: Capture query parameters in spans (security risk!)
-            enable_sqlcommenter: Inject trace context as SQL comments
+            capture_db_parameters: Capture query parameters in spans (security risk!)
             capture_message_content: Capture SQL query text
 
         Returns:
@@ -355,8 +340,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
             conn = psycopg.connect("postgresql://...")
             PsycopgInstrumentor.instrument_connection(
                 conn,
-                capture_parameters=True,  # Enable for this connection only
-                enable_sqlcommenter=True,
+                capture_db_parameters=True,  # Enable for this connection only
             )
             ```
         """
@@ -367,7 +351,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
             version = "unknown"
 
         pricing_info = kwargs.get("pricing_info", {})
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics", False)
 
         # Determine if this is an async connection
@@ -397,8 +381,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
-                    capture_parameters,
-                    enable_sqlcommenter,
+                    capture_db_parameters,
                 )
 
                 # Create a bound wrapper for this instance
@@ -446,8 +429,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                         capture_message_content,
                         metrics,
                         disable_metrics,
-                        capture_parameters,
-                        enable_sqlcommenter,
+                        capture_db_parameters,
                         is_async=True,
                     )
                     return cursor
@@ -467,8 +449,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                         capture_message_content,
                         metrics,
                         disable_metrics,
-                        capture_parameters,
-                        enable_sqlcommenter,
+                        capture_db_parameters,
                         is_async=False,
                     )
                     return cursor
@@ -495,8 +476,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
         capture_message_content: bool,
         metrics: Optional[Any],
         disable_metrics: bool,
-        capture_parameters: bool,
-        enable_sqlcommenter: bool,
+        capture_db_parameters: bool,
         is_async: bool,
     ):
         """Instrument a cursor instance's methods."""
@@ -515,8 +495,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
-                    capture_parameters,
-                    enable_sqlcommenter,
+                    capture_db_parameters,
                 )
 
                 # Create a bound wrapper for this cursor instance

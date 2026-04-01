@@ -8,6 +8,7 @@ import time
 
 from opentelemetry.trace import Status, StatusCode
 
+from openlit._config import OpenlitConfig
 from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,
@@ -196,7 +197,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 

@@ -11,6 +11,7 @@ from typing import Any, Collection, Dict, List, Optional, Literal, cast
 from uuid import UUID
 import importlib.metadata
 
+from opentelemetry import _logs, trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
@@ -18,6 +19,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.langchain.utils import (
     build_input_messages,
     common_chat_logic,
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
 _instruments = ("langchain-core >= 0.1.20",)
 
 
-class SpanHolder:
+class SpanHolder:  # pylint: disable=too-many-instance-attributes
     """Container for span and related metadata with performance optimization via __slots__."""
 
     __slots__ = (
@@ -58,6 +60,7 @@ class SpanHolder:
         "server_port",
         "tool_calls",
         "finish_reason",
+        "is_agent_chain",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -86,6 +89,7 @@ class SpanHolder:
         self.server_port: int = 0
         self.tool_calls: Optional[List[Dict[str, Any]]] = None
         self.finish_reason: str = "stop"
+        self.is_agent_chain: bool = False
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -252,6 +256,32 @@ def extract_model_name(
 
     # 4. Return class name or unknown
     return class_name or "unknown"
+
+
+def _extract_response_model_from_chain_outputs(
+    outputs: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    """Return an LLM model identifier from chain outputs when present."""
+    if not outputs or not isinstance(outputs, dict):
+        return None
+    for key in ("model", "model_name"):
+        val = outputs.get(key)
+        if isinstance(val, str) and val.strip() and val != "unknown":
+            return val
+    llm_out = outputs.get("llm_output")
+    if isinstance(llm_out, dict):
+        val = llm_out.get("model_name") or llm_out.get("model")
+        if val:
+            return str(val)
+    messages = outputs.get("messages")
+    if isinstance(messages, list) and messages:
+        last = messages[-1]
+        rm = getattr(last, "response_metadata", None)
+        if isinstance(rm, dict):
+            val = rm.get("model_name") or rm.get("model")
+            if val:
+                return str(val)
+    return None
 
 
 def extract_model_parameters(kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -842,6 +872,9 @@ def _create_callback_handler_class(
 
                 span = self._create_span(run_id, parent_run_id, span_name)
 
+                if obs_type == "agent" and run_id in self.spans:
+                    self.spans[run_id].is_agent_chain = True
+
                 span.set_attribute(
                     SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
@@ -850,6 +883,7 @@ def _create_callback_handler_class(
 
                 if obs_type == "agent":
                     span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, name)
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(run_id))
                 else:
                     span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, name)
 
@@ -903,6 +937,13 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, output_str
                     )
 
+                if holder.is_agent_chain and outputs:
+                    resp_model = _extract_response_model_from_chain_outputs(outputs)
+                    if resp_model:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_RESPONSE_MODEL, resp_model
+                        )
+
                 # Record metrics
                 if not self._disable_metrics and self._metrics:
                     try:
@@ -943,6 +984,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_chain_error: %s", e)
@@ -1479,6 +1526,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    holder.span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                     if holder.token and isinstance(holder.token, tuple):
                         fw_token, ctx_token = holder.token
                         try:
@@ -1519,6 +1572,7 @@ def _create_callback_handler_class(
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, name)
                 span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(run_id))
 
                 description = (serialized or {}).get("description")
                 if description:
@@ -1619,6 +1673,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_tool_error: %s", e)
@@ -1750,6 +1810,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_retriever_error: %s", e)
@@ -1921,6 +1987,7 @@ def _wrap_create_agent(tracer, version, environment, application_name):
         set_create_agent_active,
         reset_create_agent_active,
         get_server_address_for_provider,
+        _apply_custom_span_attributes,
     )
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -1997,6 +2064,8 @@ def _wrap_create_agent(tracer, version, environment, application_name):
             else:
                 description = "LangChain agent"
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description)
+
+            _apply_custom_span_attributes(span)
 
             ca_token = set_create_agent_active()
             try:
@@ -2380,12 +2449,12 @@ class LangChainInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics", False)
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
 
         handler_class = _create_callback_handler_class(
             tracer,

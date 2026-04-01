@@ -51,47 +51,21 @@ OpenLIT provides additional configuration options for database instrumentation:
 
 | Parameter | Environment Variable | Description | Default |
 |-----------|---------------------|-------------|---------|
-| `capture_parameters` | `OPENLIT_CAPTURE_PARAMETERS` | Capture query parameters in spans | `False` |
-| `enable_sqlcommenter` | `OPENLIT_ENABLE_SQLCOMMENTER` | Inject trace context as SQL comments | `False` |
+| `capture_db_parameters` | `OPENLIT_CAPTURE_DB_PARAMETERS` | Capture query parameters in OTel per-key format (`db.query.parameter.<key>`) | `False` |
 
-### capture_parameters
+### capture_db_parameters
 
-When enabled, query parameters are recorded in span attributes for debugging purposes.
+When enabled, query parameters are recorded as per-key span attributes following the OTel semantic convention `db.query.parameter.<key>`.
 
 ```python
 import openlit
 
-openlit.init(capture_parameters=True)
+openlit.init(capture_db_parameters=True)
 ```
 
 <Warning>
-**Security Risk**: Enabling `capture_parameters` may expose sensitive data like passwords, tokens, or PII in your traces. Only enable in development environments or when you're certain parameters don't contain sensitive information.
+**Security Risk**: Enabling `capture_db_parameters` may expose sensitive data like passwords, tokens, or PII in your traces. Only enable in development environments or when you're certain parameters don't contain sensitive information.
 </Warning>
-
-### enable_sqlcommenter (SQLCommenter)
-
-When enabled, OpenLIT injects OpenTelemetry trace context into SQL queries as comments. This enables correlation between application traces and database logs.
-
-```python
-import openlit
-
-openlit.init(enable_sqlcommenter=True)
-```
-
-**Example query transformation:**
-
-```sql
--- Original query
-SELECT * FROM users WHERE id = $1;
-
--- With SQLCommenter enabled
-SELECT * FROM users WHERE id = $1 /*traceparent='00-abc123def456-789xyz-01',application='my_app'*/;
-```
-
-**Benefits:**
-- Correlate slow queries in `pg_stat_statements` with application traces
-- Link `EXPLAIN ANALYZE` output to specific requests
-- Debug performance issues across application and database layers
 
 ---
 

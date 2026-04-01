@@ -13,8 +13,12 @@ import contextvars
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
+    format_input_message,
+    format_output_message,
+    format_system_instructions,
     get_server_address_for_provider,
     truncate_content,
+    _apply_custom_span_attributes,
 )
 from openlit.semcov import SemanticConvention
 
@@ -90,6 +94,14 @@ def _infer_provider_from_model(model_name):
     if not model_name:
         return None
     lower = model_name.lower()
+
+    # Handle LiteLLM-style "provider/model" prefixes (e.g. "openai/gpt-4.1-nano")
+    if "/" in lower:
+        provider_prefix = lower.split("/", 1)[0]
+        if provider_prefix in _MODEL_PREFIX_TO_PROVIDER.values():
+            return provider_prefix
+        lower = lower.split("/", 1)[1]
+
     for prefix, provider in _MODEL_PREFIX_TO_PROVIDER.items():
         if lower.startswith(prefix):
             return provider
@@ -262,6 +274,11 @@ def process_crewai_response(
         SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
     )
 
+    # -- recommended response attributes --
+    if request_model:
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
+    _set_response_usage(span, response)
+
     # -- metrics --
     if not disable_metrics and metrics:
         _record_crewai_metrics(
@@ -282,10 +299,40 @@ def process_crewai_response(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _set_response_usage(span, response):
+    """Extract token usage from CrewAI TaskOutput / CrewOutput and set OTel attrs."""
+    try:
+        token_usage = getattr(response, "token_usage", None)
+        if not token_usage:
+            return
+        prompt_tokens = getattr(token_usage, "prompt_tokens", None) or getattr(
+            token_usage, "total_prompt_tokens", None
+        )
+        completion_tokens = getattr(token_usage, "completion_tokens", None) or getattr(
+            token_usage, "total_completion_tokens", None
+        )
+        if prompt_tokens is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, int(prompt_tokens)
+            )
+        if completion_tokens is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, int(completion_tokens)
+            )
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ["stop"])
+    except Exception:
+        pass
+
+
 def _extract_model_name(instance):
-    """Walk the instance hierarchy to find the LLM model name."""
+    """Walk the instance hierarchy to find the LLM model name.
+
+    Returns the model name string or *None* when it cannot be determined.
+    """
     if not instance:
-        return "unknown"
+        return None
 
     llm = getattr(instance, "llm", None)
     if not llm:
@@ -316,7 +363,7 @@ def _extract_model_name(instance):
         )
         if name:
             return str(name)
-    return "unknown"
+    return None
 
 
 def _set_crew_attributes(span, instance, endpoint):
@@ -386,10 +433,12 @@ def _set_agent_attributes(span, instance, endpoint, capture_message_content):
 
         backstory = getattr(instance, "backstory", None)
         if backstory and capture_message_content:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                truncate_content(str(backstory)),
-            )
+            formatted = format_system_instructions(backstory)
+            if formatted:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    formatted,
+                )
 
         _set_tool_definitions(span, getattr(instance, "tools", None) or [])
     except Exception:
@@ -426,10 +475,12 @@ def _set_task_attributes(span, instance, endpoint, capture_message_content):
 
             backstory = getattr(agent, "backstory", None)
             if backstory and capture_message_content:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                    truncate_content(str(backstory)),
-                )
+                formatted = format_system_instructions(backstory)
+                if formatted:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
+                    )
 
             _set_tool_definitions(span, getattr(agent, "tools", None) or [])
     except Exception:
@@ -527,9 +578,7 @@ def _capture_content_as_attributes(span, instance, response, endpoint):
             if desc:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_INPUT_MESSAGES,
-                    json.dumps(
-                        [{"role": "user", "content": truncate_content(str(desc))}]
-                    ),
+                    json.dumps([format_input_message("user", desc)]),
                 )
 
         if response is not None:
@@ -537,7 +586,7 @@ def _capture_content_as_attributes(span, instance, response, endpoint):
             if output:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                    json.dumps([{"role": "assistant", "content": output}]),
+                    json.dumps([format_output_message(output)]),
                 )
     except Exception:
         pass
@@ -593,10 +642,12 @@ def emit_create_agent_spans(
 
             backstory = getattr(agent, "backstory", None)
             if backstory and capture_message_content:
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                    truncate_content(str(backstory)),
-                )
+                formatted = format_system_instructions(backstory)
+                if formatted:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
+                    )
 
             _set_tool_definitions(span, getattr(agent, "tools", None) or [])
 
@@ -606,6 +657,8 @@ def emit_create_agent_spans(
             )
             span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
             span.set_status(Status(StatusCode.OK))
+
+            _apply_custom_span_attributes(span)
 
             creation_contexts.append(span.get_span_context())
 

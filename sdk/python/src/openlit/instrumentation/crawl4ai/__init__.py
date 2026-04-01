@@ -6,9 +6,11 @@ Supports Crawl4AI 0.7.x with comprehensive operation coverage.
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.crawl4ai.crawl4ai import general_wrap
 from openlit.instrumentation.crawl4ai.async_crawl4ai import async_general_wrap
 
@@ -28,8 +30,8 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")

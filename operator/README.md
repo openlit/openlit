@@ -120,7 +120,6 @@ data:
   OPENLIT_OTLP_ENDPOINT: "http://your-backend:4318"
   OPENLIT_DEFAULT_ENVIRONMENT: "production"
   OPENLIT_CAPTURE_MESSAGE_CONTENT: "true"
-  OPENLIT_DETAILED_TRACING: "false"
 ```
 
 ## 📋 **Examples**

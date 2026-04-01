@@ -21,11 +21,17 @@ import threading
 from typing import Collection
 import importlib.metadata
 
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from wrapt import wrap_function_wrapper
 
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    handle_exception,
+    truncate_content,
+    _apply_custom_span_attributes,
+)
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.google_adk.utils import (
     _PassthroughTracer,
@@ -102,6 +108,9 @@ def _wrap_agent_init(
                     SemanticConvention.GEN_AI_SYSTEM_GOOGLE_ADK,
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ID, str(id(instance))
+                )
 
                 description = getattr(instance, "description", None)
                 if description:
@@ -168,6 +177,8 @@ def _wrap_agent_init(
                 )
                 span.set_status(Status(StatusCode.OK))
 
+                _apply_custom_span_attributes(span)
+
                 creation_ctx = span.get_span_context()
                 instance._openlit_creation_context = creation_ctx
                 registry.register(str(name), creation_ctx)
@@ -228,9 +239,7 @@ def _wrap_trace_call_llm(capture_message_content):
             # ADK signature: trace_call_llm(invocation_context, event_id, llm_request, llm_response, span=None)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 llm_request = args[2] if len(args) > 2 else kwargs.get("llm_request")
                 llm_response = args[3] if len(args) > 3 else kwargs.get("llm_response")
                 enrich_llm_span(
@@ -267,9 +276,7 @@ def _wrap_trace_tool_call(capture_message_content):
             # ADK signature: trace_tool_call(tool, args, function_response_event, error=None)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 tool = args[0] if len(args) > 0 else kwargs.get("tool")
                 function_args = args[1] if len(args) > 1 else kwargs.get("args")
                 function_response_event = (
@@ -315,9 +322,7 @@ def _wrap_trace_merged_tool_calls(capture_message_content):
             # ADK signature: trace_merged_tool_calls(response_event_id, function_response_event)
             result = original_fn(*args, **kwargs)
             try:
-                from opentelemetry import trace as trace_api
-
-                span = trace_api.get_current_span()
+                span = trace.get_current_span()
                 response_event_id = (
                     args[0] if len(args) > 0 else kwargs.get("response_event_id")
                 )
@@ -358,13 +363,11 @@ class GoogleADKInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("google-adk")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         agent_registry = _AgentCreationRegistry()
 
         self._original_tracers = _disable_existing_tracers()
@@ -437,24 +440,23 @@ class GoogleADKInstrumentor(BaseInstrumentor):
             except Exception:
                 pass
 
-        if detailed_tracing:
-            for module, method, op_key, _ in DETAILED_OPERATIONS:
-                try:
-                    wrapper = async_runner_wrap(
-                        op_key,
-                        version,
-                        environment,
-                        application_name,
-                        tracer,
-                        pricing_info,
-                        capture_message_content,
-                        metrics,
-                        disable_metrics,
-                        agent_registry,
-                    )
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
+        for module, method, op_key, _ in DETAILED_OPERATIONS:
+            try:
+                wrapper = async_runner_wrap(
+                    op_key,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    agent_registry,
+                )
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         """Restore original ADK tracers and tracing functions."""

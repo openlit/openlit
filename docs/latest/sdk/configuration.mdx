@@ -45,11 +45,8 @@ Customize OpenLIT SDK behavior for your specific instrumentation needs:
 | `disable_metrics` | `--disable_metrics` | `OPENLIT_DISABLE_METRICS` | Disable cost tracking and performance metrics collection | `False` | No |
 | `max_content_length` | `--max_content_length` | `OPENLIT_MAX_CONTENT_LENGTH` | Maximum character length for captured prompt/completion content. `None` (default) means no truncation. Set to a positive integer to truncate content exceeding that length. `0` or `-1` also disable truncation. | `None` | No |
 | `pricing_json` | `--pricing_json` | `OPENLIT_PRICING_JSON` | Custom pricing configuration for accurate LLM cost tracking | `None` | No |
-| `detailed_tracing` | `--detailed_tracing` | `OPENLIT_DETAILED_TRACING` | Enable detailed AI framework and component-level tracing | `True` | No |
+| `disable_events` | `--disable_events` | `OPENLIT_DISABLE_EVENTS` | Disable OTel Logger event emission | `False` | No |
 | `collect_system_metrics` | `--collect_system_metrics` | `OPENLIT_COLLECT_SYSTEM_METRICS` | Comprehensive system monitoring (CPU, memory, disk, network, GPU) for AI workloads | `False` | No |
-| `tracer` | N/A | N/A | An instance of OpenTelemetry Tracer for tracing operations | `None` | No |
-| `event_logger` | N/A | N/A | EventLoggerProvider instance | `None` | No |
-| `meter` | N/A | N/A | OpenTelemetry Metrics instance | `None` | No |
 
 ### Database instrumentation options
 
@@ -57,8 +54,7 @@ These options apply to database instrumentations like PostgreSQL (psycopg3):
 
 | Parameter | CLI Argument | Environment Variable | Description | Default | Required |
 |-----------|--------------|---------------------|-------------|---------|----------|
-| `capture_parameters` | `--capture_parameters` | `OPENLIT_CAPTURE_PARAMETERS` | Capture database query parameters in spans (security risk - may expose sensitive data) | `False` | No |
-| `enable_sqlcommenter` | `--enable_sqlcommenter` | `OPENLIT_ENABLE_SQLCOMMENTER` | Inject OpenTelemetry trace context as SQL comments for database log correlation | `False` | No |
+| `capture_db_parameters` | `--capture_db_parameters` | `OPENLIT_CAPTURE_DB_PARAMETERS` | Capture database query parameters in OTel per-key format (`db.query.parameter.<key>`) | `False` | No |
 
 ### Evaluation export options
 
@@ -69,22 +65,8 @@ Configure how evaluation results are exported:
 | `evals_logs_export` | `--evals_logs_export` | `OPENLIT_EVALS_LOGS_EXPORT` | Emit evaluation results as OTel Log Records instead of OTel Events. Useful for backends like Grafana Loki that handle logs better than events. | `True` | No |
 
 <Warning>
-**Security Notice**: Enabling `capture_parameters` records query parameters (the values passed to `$1`, `$2`, etc.) in your traces. This may expose sensitive data like passwords, API keys, or personal information. Only enable in development environments or when you're certain parameters don't contain sensitive data.
+**Security Notice**: Enabling `capture_db_parameters` records query parameters (the values passed to `$1`, `$2`, etc.) in your traces using the OTel per-key format (`db.query.parameter.<key>`). This may expose sensitive data like passwords, API keys, or personal information. Only enable in development environments or when you're certain parameters don't contain sensitive data.
 </Warning>
-
-**SQLCommenter Example:**
-
-When `enable_sqlcommenter` is enabled, queries are automatically modified to include trace context:
-
-```sql
--- Original
-SELECT * FROM users WHERE id = $1;
-
--- With SQLCommenter
-SELECT * FROM users WHERE id = $1 /*traceparent='00-abc123def456-789xyz-01',application='my_app'*/;
-```
-
-This enables correlation between application traces and database logs (e.g., `pg_stat_statements`, `auto_explain`).
 
 ### Deprecated parameters
 

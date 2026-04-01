@@ -4,6 +4,7 @@ Module for monitoring LiteLLM API calls (async version).
 
 import time
 import asyncio
+from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
@@ -163,12 +164,20 @@ def acompletion(
             )
 
             if streaming:
+                span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+                ctx = trace_api.set_span_in_context(span)
+                otel_token = context_api.attach(ctx)
                 fw_token = set_framework_llm_active()
                 try:
                     awaited_wrapped = await wrapped(*args, **kwargs)
+                except Exception as e:
+                    handle_exception(span, e)
+                    context_api.detach(otel_token)
+                    span.end()
+                    raise
                 finally:
                     reset_framework_llm_active(fw_token)
-                span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+                context_api.detach(otel_token)
                 return TracedAsyncStream(
                     awaited_wrapped,
                     span,

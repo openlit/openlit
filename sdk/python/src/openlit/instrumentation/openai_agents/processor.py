@@ -17,6 +17,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Link, set_span_in_
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    get_server_address_for_provider,
     handle_exception,
 )
 from openlit.semcov import SemanticConvention
@@ -24,9 +25,10 @@ from openlit.instrumentation.openai_agents.utils import (
     get_operation_type,
     get_span_kind,
     generate_span_name,
-    is_detailed_only,
     process_span_end,
 )
+
+_OPENAI_SERVER_ADDRESS, _OPENAI_SERVER_PORT = get_server_address_for_provider("openai")
 
 try:
     from agents import TracingProcessor
@@ -34,7 +36,7 @@ try:
     if TYPE_CHECKING:
         from agents import Trace, Span
     TRACING_AVAILABLE = True
-except ImportError:
+except Exception:
 
     class TracingProcessor:
         """Dummy TracingProcessor for when agents is not available."""
@@ -74,7 +76,6 @@ class OpenLITTracingProcessor(TracingProcessor):
         capture_message_content,
         metrics,
         disable_metrics,
-        detailed_tracing,
         agent_creation_registry=None,
         **kwargs,
     ):
@@ -88,7 +89,6 @@ class OpenLITTracingProcessor(TracingProcessor):
         self.capture_message_content = capture_message_content
         self.metrics = metrics
         self.disable_metrics = disable_metrics
-        self.detailed_tracing = detailed_tracing
         self._agent_creation_registry = agent_creation_registry
 
         self._lock = threading.Lock()
@@ -158,8 +158,8 @@ class OpenLITTracingProcessor(TracingProcessor):
             common_framework_span_attributes(
                 scope,
                 SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-                "api.openai.com",
-                443,
+                _OPENAI_SERVER_ADDRESS,
+                _OPENAI_SERVER_PORT,
                 self.environment,
                 self.application_name,
                 self.version,
@@ -201,8 +201,8 @@ class OpenLITTracingProcessor(TracingProcessor):
                     self.environment,
                     self.application_name,
                     None,
-                    "api.openai.com",
-                    443,
+                    _OPENAI_SERVER_ADDRESS,
+                    _OPENAI_SERVER_PORT,
                 )
 
             if token is not None:
@@ -227,9 +227,6 @@ class OpenLITTracingProcessor(TracingProcessor):
             span_type = getattr(span_data, "type", "unknown")
 
             if span_type in self._LLM_SPAN_TYPES:
-                return
-
-            if is_detailed_only(span_type) and not self.detailed_tracing:
                 return
 
             trace_id = getattr(sdk_span, "trace_id", "unknown")
@@ -287,9 +284,6 @@ class OpenLITTracingProcessor(TracingProcessor):
             span_type = getattr(span_data, "type", "unknown")
 
             if span_type in self._LLM_SPAN_TYPES:
-                return
-
-            if is_detailed_only(span_type) and not self.detailed_tracing:
                 return
 
             sdk_span_id = getattr(sdk_span, "span_id", None)

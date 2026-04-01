@@ -159,73 +159,75 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
     try:
         if meter is None and not METER_SET:
-            # Create a resource with the service name attribute.
-            resource = Resource.create(
-                attributes={
-                    SERVICE_NAME: application_name,
-                    DEPLOYMENT_ENVIRONMENT: environment,
-                    TELEMETRY_SDK_NAME: "openlit",
-                }
-            )
+            existing_provider = metrics.get_meter_provider()
 
-            # Only set environment variables if you have a non-None value.
-            if otlp_endpoint is not None:
-                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint
-
-            if otlp_headers is not None:
-                if isinstance(otlp_headers, dict):
-                    headers_str = ",".join(
-                        f"{key}={value}" for key, value in otlp_headers.items()
-                    )
-                else:
-                    headers_str = otlp_headers
-                # Now, we have either converted the dict to a string or used the provided string.
-                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
-
-            # Check for OTEL_METRICS_EXPORTER env var for multiple exporters support
-            exporters_config = parse_exporters("OTEL_METRICS_EXPORTER")
-            metric_readers = []
-
-            if exporters_config is not None:
-                # New behavior: use specified exporters from OTEL_METRICS_EXPORTER
-                for exporter_name in exporters_config:
-                    if exporter_name == "otlp":
-                        metric_exporter = OTLPMetricExporter()
-                        metric_readers.append(
-                            PeriodicExportingMetricReader(metric_exporter)
-                        )
-                    elif exporter_name == "console":
-                        metric_exporter = ConsoleMetricExporter()
-                        metric_readers.append(
-                            PeriodicExportingMetricReader(metric_exporter)
-                        )
-                    elif exporter_name == "none":
-                        # "none" means no exporter, skip
-                        continue
-                    else:
-                        logger.warning("Unknown metric exporter: %s", exporter_name)
-
-                # Warn if no valid exporters were configured
-                if not metric_readers:
-                    logger.warning(
-                        "OTEL_METRICS_EXPORTER is set but no valid exporters configured. "
-                        "Metric export is disabled. Valid exporters: otlp, console"
-                    )
+            if isinstance(existing_provider, MeterProvider):
+                logger.info("Detected existing MeterProvider, reusing it")
+                meter = metrics.get_meter(__name__, version="0.1.0")
             else:
-                # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
-                if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                    metric_exporter = OTLPMetricExporter()
+                # No SDK provider configured yet -- create one.
+                resource = Resource.create(
+                    attributes={
+                        SERVICE_NAME: application_name,
+                        DEPLOYMENT_ENVIRONMENT: environment,
+                        TELEMETRY_SDK_NAME: "openlit",
+                    }
+                )
+
+                if otlp_endpoint is not None:
+                    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint
+
+                if otlp_headers is not None:
+                    if isinstance(otlp_headers, dict):
+                        headers_str = ",".join(
+                            f"{key}={value}" for key, value in otlp_headers.items()
+                        )
+                    else:
+                        headers_str = otlp_headers
+                    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
+
+                exporters_config = parse_exporters("OTEL_METRICS_EXPORTER")
+                metric_readers = []
+
+                if exporters_config is not None:
+                    for exporter_name in exporters_config:
+                        if exporter_name == "otlp":
+                            metric_exporter = OTLPMetricExporter()
+                            metric_readers.append(
+                                PeriodicExportingMetricReader(metric_exporter)
+                            )
+                        elif exporter_name == "console":
+                            metric_exporter = ConsoleMetricExporter()
+                            metric_readers.append(
+                                PeriodicExportingMetricReader(metric_exporter)
+                            )
+                        elif exporter_name == "none":
+                            continue
+                        else:
+                            logger.warning("Unknown metric exporter: %s", exporter_name)
+
+                    if not metric_readers:
+                        logger.warning(
+                            "OTEL_METRICS_EXPORTER is set but no valid exporters "
+                            "configured. Metric export is disabled. "
+                            "Valid exporters: otlp, console"
+                        )
                 else:
-                    metric_exporter = ConsoleMetricExporter()
-                metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
+                    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                        metric_exporter = OTLPMetricExporter()
+                    else:
+                        metric_exporter = ConsoleMetricExporter()
+                    metric_readers.append(
+                        PeriodicExportingMetricReader(metric_exporter)
+                    )
 
-            meter_provider = MeterProvider(
-                resource=resource, metric_readers=metric_readers
-            )
+                meter_provider = MeterProvider(
+                    resource=resource, metric_readers=metric_readers
+                )
 
-            metrics.set_meter_provider(meter_provider)
+                metrics.set_meter_provider(meter_provider)
 
-            meter = metrics.get_meter(__name__, version="0.1.0")
+                meter = metrics.get_meter(__name__, version="0.1.0")
 
             METER_SET = True
 

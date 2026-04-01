@@ -214,7 +214,12 @@ def extract_llm_info_from_result(span, state, result):
                     input_msgs.append(
                         {
                             "role": role,
-                            "content": truncate_content(content),
+                            "parts": [
+                                {
+                                    "type": "text",
+                                    "content": truncate_content(content),
+                                }
+                            ],
                         }
                     )
             if input_msgs:
@@ -271,7 +276,7 @@ def extract_llm_info_from_result(span, state, result):
                         if "finish_reason" in metadata:
                             span.set_attribute(
                                 SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                                metadata["finish_reason"],
+                                [metadata["finish_reason"]],
                             )
 
                         # Response ID

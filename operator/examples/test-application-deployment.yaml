@@ -51,6 +51,58 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         
+        # ──────────────────────────────────────────────────────────────
+        # Resource Attributes — all supported ways to pass them
+        # ──────────────────────────────────────────────────────────────
+        #
+        # 1. OTEL_RESOURCE_ATTRIBUTES env var (comma-separated key=value pairs)
+        #    The operator auto-adds k8s.pod.name, k8s.node.name, k8s.namespace.name,
+        #    k8s.deployment.name, k8s.replicaset.name, service.name, service.namespace,
+        #    and deployment.environment. Any attributes you define here are merged in,
+        #    and YOUR values win on conflict.
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "team=ai-platform,cost.center=ml-infra"
+        #
+        # 2. OTEL_SERVICE_NAME — sets service.name (operator auto-detects from
+        #    labels/owner refs, but you can override it here)
+        # - name: OTEL_SERVICE_NAME
+        #   value: "my-custom-service-name"
+        #
+        # 3. OTEL_SERVICE_VERSION — sets service.version
+        # - name: OTEL_SERVICE_VERSION
+        #   value: "v2.1.0"
+        #
+        # 4. OTEL_DEPLOYMENT_ENVIRONMENT — sets deployment.environment
+        # - name: OTEL_DEPLOYMENT_ENVIRONMENT
+        #   value: "production"
+        #
+        # 5. Via the AutoInstrumentation CR (spec.resource section):
+        #    spec:
+        #      resource:
+        #        environment: "production"       → deployment.environment
+        #        serviceName: "my-service"       → service.name
+        #        serviceNamespace: "my-ns"       → service.namespace
+        #        serviceVersion: "v1.0.0"        → service.version
+        #
+        # 6. Via the AutoInstrumentation CR (spec.python.instrumentation.env):
+        #    spec:
+        #      python:
+        #        instrumentation:
+        #          env:
+        #          - name: OTEL_RESOURCE_ATTRIBUTES
+        #            value: "extra.attr=from-cr"
+        #          - name: MY_CUSTOM_ENV
+        #            valueFrom:
+        #              fieldRef:
+        #                fieldPath: metadata.uid
+        #
+        # 7. Via pod annotations (override service identity):
+        #    resource.opentelemetry.io/service.name: "override-name"
+        #    resource.opentelemetry.io/service.namespace: "override-ns"
+        #    resource.opentelemetry.io/service.version: "v3.0.0"
+        #    resource.opentelemetry.io/service.instance.id: "custom-id"
+        # ──────────────────────────────────────────────────────────────
+        
         # OpenAI API key from secret
         - name: OPENAI_API_KEY
           valueFrom:
