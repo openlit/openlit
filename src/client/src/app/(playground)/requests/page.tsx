@@ -8,7 +8,7 @@ import {
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "@/components/(playground)/request/request-details";
 import { toast } from "sonner";
-import { getFilterDetails } from "@/selectors/filter";
+import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import DataTable from "@/components/data-table/table";
@@ -22,13 +22,14 @@ import { CLIENT_EVENTS } from "@/constants/events";
 
 function RequestPage() {
 	const [, updateRequest] = useRequest();
-	const { setItems } = useRequestNavigation();
+	const { setItems, setTotal, setOffset, setOnPageChange } = useRequestNavigation();
 
 	const onClick = (item: any) => {
 		!isLoading && updateRequest(item);
 	};
 
 	const filter = useRootStore(getFilterDetails);
+	const updateFilter = useRootStore(getUpdateFilter);
 	const visibilityColumns = useRootStore((state) =>
 		getVisibilityColumnsOfPage(state, "request")
 	);
@@ -70,9 +71,28 @@ function RequestPage() {
 		[data]
 	);
 
+	const totalItems = (data as any)?.total || 0;
+
 	useEffect(() => {
 		setItems(normalizedData);
 	}, [normalizedData, setItems]);
+
+	useEffect(() => {
+		setTotal(totalItems);
+	}, [totalItems, setTotal]);
+
+	useEffect(() => {
+		setOffset(filter.offset);
+	}, [filter.offset, setOffset]);
+
+	// Register page change callback for detail-panel boundary navigation
+	useEffect(() => {
+		setOnPageChange((dir: -1 | 1) => {
+			updateFilter("offset", filter.offset + dir * filter.limit);
+		});
+		return () => setOnPageChange(null);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.offset, filter.limit, updateFilter, setOnPageChange]);
 
 	// Show getting started when there's no trace data AND initial fetch is complete
 	if (existData === false && !isLoadingExist && isFetchedExist) {

@@ -22,5 +22,18 @@ export const buildHierarchy = (data: any[]) => {
 		}
 	});
 
+	// Sort children at every level by Timestamp (chronological order)
+	function sortChildren(node: any) {
+		if (node?.children?.length) {
+			node.children.sort((a: any, b: any) => {
+				const tsA = a.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+				const tsB = b.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+				return tsA - tsB;
+			});
+			node.children.forEach(sortChildren);
+		}
+	}
+	sortChildren(root);
+
 	return root; // Returns the hierarchical tree
 };
