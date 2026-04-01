@@ -12,6 +12,7 @@ import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
 import VercelAIInstrumentation from './vercel-ai';
 import LangChainInstrumentation from './langchain';
+import LangGraphInstrumentation from './langgraph';
 import PineconeInstrumentation from './pinecone';
 import BedrockInstrumentation from './bedrock';
 import LlamaIndexInstrumentation from './llamaindex';
@@ -21,6 +22,11 @@ import ChromaInstrumentation from './chroma';
 import QdrantInstrumentation from './qdrant';
 import MilvusInstrumentation from './milvus';
 import AzureAIInferenceInstrumentation from './azure-ai-inference';
+import OpenAIAgentsInstrumentation from './openai-agents';
+import MastraInstrumentation from './mastra';
+import StrandsInstrumentation from './strands';
+import GoogleADKInstrumentation from './google-adk';
+import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -75,6 +81,7 @@ export default class Instrumentations {
     ollama: new OllamaInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),
     langchain: new LangChainInstrumentation(),
+    langgraph: new LangGraphInstrumentation(),
     pinecone: new PineconeInstrumentation(),
     bedrock: new BedrockInstrumentation(),
     llamaindex: new LlamaIndexInstrumentation(),
@@ -84,6 +91,11 @@ export default class Instrumentations {
     qdrant: new QdrantInstrumentation(),
     milvus: new MilvusInstrumentation(),
     'azure-ai-inference': new AzureAIInferenceInstrumentation(),
+    'openai-agents': new OpenAIAgentsInstrumentation(),
+    mastra: new MastraInstrumentation(),
+    strands: new StrandsInstrumentation(),
+    'google-adk': new GoogleADKInstrumentation(),
+    'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
   };
 
   static setup(

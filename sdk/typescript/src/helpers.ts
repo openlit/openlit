@@ -1,5 +1,5 @@
 import { encodingForModel, TiktokenModel } from 'js-tiktoken';
-import { Attributes, Span, SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
+import { Attributes, Context, Span, SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
 import { SeverityNumber } from '@opentelemetry/api-logs';
 import { AsyncLocalStorage } from 'async_hooks';
 import SemanticConvention from './semantic-convention';
@@ -12,6 +12,150 @@ import OpenlitConfig from './config';
  * usingAttributes() and injectAdditionalAttributes().
  */
 const _customSpanAttributes = new AsyncLocalStorage<Record<string, any>>();
+
+// ---------------------------------------------------------------------------
+// Framework LLM span suppression flags (mirrors Python SDK ContextVars)
+// ---------------------------------------------------------------------------
+
+const _frameworkLlmActive = new AsyncLocalStorage<boolean>();
+
+/**
+ * Returns true when a framework instrumentor (LangChain, LiteLLM, etc.)
+ * owns the current LLM span. Provider-level wrappers (OpenAI, Anthropic, …)
+ * must skip their own span creation when this returns true.
+ */
+export function isFrameworkLlmActive(): boolean {
+  return _frameworkLlmActive.getStore() === true;
+}
+
+/**
+ * Run `fn` with the framework-LLM-active flag set. All provider wrappers
+ * invoked inside `fn` will see `isFrameworkLlmActive() === true`.
+ */
+export function runWithFrameworkLlm<T>(fn: () => T): T {
+  return _frameworkLlmActive.run(true, fn);
+}
+
+/**
+ * Set framework-LLM-active flag in the current execution context.
+ * Used by SpanProcessor-based instrumentations (Mastra, Strands) where
+ * the processor observes spans rather than controlling execution.
+ * Mirrors Python's ContextVar.set(True) in Strands processor.
+ */
+export function setFrameworkLlmActive(): void {
+  _frameworkLlmActive.enterWith(true);
+}
+
+/**
+ * Reset framework-LLM-active flag in the current execution context.
+ * Mirrors Python's ContextVar.reset(token) in Strands processor.
+ */
+export function resetFrameworkLlmActive(): void {
+  _frameworkLlmActive.enterWith(false);
+}
+
+const _langGraphActive = new AsyncLocalStorage<boolean>();
+
+/**
+ * Returns true when a LangGraph wrapper is controlling execution.
+ * LangChain's callback handler skips its own invoke_workflow span when true.
+ */
+export function isLangGraphActive(): boolean {
+  return _langGraphActive.getStore() === true;
+}
+
+export function runWithLangGraph<T>(fn: () => T): T {
+  return _langGraphActive.run(true, fn);
+}
+
+const _createAgentActive = new AsyncLocalStorage<boolean>();
+
+/**
+ * Returns true when a create_agent span is already being handled
+ * (prevents duplicate spans between LangChain and LangGraph).
+ */
+export function isCreateAgentActive(): boolean {
+  return _createAgentActive.getStore() === true;
+}
+
+export function runWithCreateAgent<T>(fn: () => T): T {
+  return _createAgentActive.run(true, fn);
+}
+
+const _langGraphConversationId = new AsyncLocalStorage<string>();
+
+/**
+ * Propagate conversation ID from invoke_workflow to child node spans.
+ * Mirrors Python's set_langgraph_conversation_id / get_langgraph_conversation_id.
+ */
+export function getLangGraphConversationId(): string | undefined {
+  return _langGraphConversationId.getStore();
+}
+
+export function runWithLangGraphConversationId<T>(conversationId: string, fn: () => T): T {
+  return _langGraphConversationId.run(conversationId, fn);
+}
+
+// ---------------------------------------------------------------------------
+// Framework parent context propagation (mirrors Python context_api.attach)
+// ---------------------------------------------------------------------------
+
+const _frameworkParentContext = new AsyncLocalStorage<Context>();
+
+/**
+ * Returns the OTel context set by a framework processor (OpenAI Agents, etc.)
+ * so that provider wrappers can create spans as children of framework spans.
+ * Mirrors Python's context_api.attach(set_span_in_context(span)).
+ */
+export function getFrameworkParentContext(): Context | undefined {
+  return _frameworkParentContext.getStore() || undefined;
+}
+
+/**
+ * Set the OTel parent context for provider span creation.
+ * Called by processor-based frameworks that cannot use context.with().
+ */
+export function setFrameworkParentContext(ctx: Context): void {
+  _frameworkParentContext.enterWith(ctx);
+}
+
+/**
+ * Clear the framework parent context.
+ */
+export function clearFrameworkParentContext(): void {
+  _frameworkParentContext.enterWith(undefined as any);
+}
+
+// ---------------------------------------------------------------------------
+// Provider default endpoints (mirrors Python PROVIDER_DEFAULT_ENDPOINTS)
+// ---------------------------------------------------------------------------
+
+const PROVIDER_DEFAULT_ENDPOINTS: Record<string, [string, number]> = {
+  openai: ['api.openai.com', 443],
+  anthropic: ['api.anthropic.com', 443],
+  google: ['generativelanguage.googleapis.com', 443],
+  'gcp.gemini': ['generativelanguage.googleapis.com', 443],
+  'gcp.vertex_ai': ['aiplatform.googleapis.com', 443],
+  mistral_ai: ['api.mistral.ai', 443],
+  groq: ['api.groq.com', 443],
+  together: ['api.together.xyz', 443],
+  fireworks: ['api.fireworks.ai', 443],
+  perplexity: ['api.perplexity.ai', 443],
+  deepinfra: ['api.deepinfra.com', 443],
+  'aws.bedrock': ['bedrock-runtime.amazonaws.com', 443],
+  azure: ['openai.azure.com', 443],
+  'azure.ai.openai': ['openai.azure.com', 443],
+  'azure.ai.inference': ['inference.ai.azure.com', 443],
+  cohere: ['api.cohere.ai', 443],
+  ollama: ['localhost', 11434],
+  deepseek: ['api.deepseek.com', 443],
+  x_ai: ['api.x.ai', 443],
+  huggingface: ['api-inference.huggingface.co', 443],
+};
+
+export function getServerAddressForProvider(provider: string): [string, number] {
+  return PROVIDER_DEFAULT_ENDPOINTS[provider] || ['', 0];
+}
 
 /**
  * Apply global (from init) and context-scoped (from usingAttributes /
@@ -314,6 +458,7 @@ export default class OpenLitHelper {
 
     if (Events.logger) {
       Events.logger.emit({
+        eventName: SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
         context: trace.setSpan(otelContext.active(), span),
         severityNumber: SeverityNumber.INFO,
         severityText: 'INFO',

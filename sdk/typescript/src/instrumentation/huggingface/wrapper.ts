@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -26,14 +26,16 @@ class HuggingFaceWrapper extends BaseWrapper {
     const genAIEndpoint = 'huggingface.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'mistralai/Mistral-7B-Instruct-v0.1';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -387,14 +389,16 @@ class HuggingFaceWrapper extends BaseWrapper {
     const genAIEndpoint = 'huggingface.text.generation';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt2';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) =>

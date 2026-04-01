@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -48,11 +48,13 @@ class AzureAIInferenceWrapper extends BaseWrapper {
     const genAIEndpoint = 'az.ai.inference.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const body = args[0]?.body || {};
         const requestModel = body.model || 'gpt-4o';
         const isStream = body.stream === true;
 
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(
@@ -61,14 +63,14 @@ class AzureAIInferenceWrapper extends BaseWrapper {
             serverAddress,
             serverPort
           ),
-        });
+        }, effectiveCtx);
 
         if (isStream) {
           if (args[0]?.body) {
             args[0].body.stream_options = { include_usage: true };
           }
           const pipelineRequest = context.with(
-            trace.setSpan(context.active(), span),
+            trace.setSpan(effectiveCtx, span),
             () => originalMethod.apply(this, args)
           );
           const origAsNodeStream = pipelineRequest.asNodeStream?.bind(pipelineRequest);
@@ -109,7 +111,7 @@ class AzureAIInferenceWrapper extends BaseWrapper {
         }
 
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((httpResponse: any) => {
@@ -528,9 +530,11 @@ class AzureAIInferenceWrapper extends BaseWrapper {
     const genAIEndpoint = 'az.ai.inference.embeddings';
     return (originalMethod: (...args: any[]) => any) => {
       return function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const body = args[0]?.body || {};
         const requestModel = body.model || 'text-embedding-3-small';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(
@@ -539,9 +543,9 @@ class AzureAIInferenceWrapper extends BaseWrapper {
             serverAddress,
             serverPort
           ),
-        });
+        }, effectiveCtx);
 
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams: BaseSpanAttributes | undefined;
           try {

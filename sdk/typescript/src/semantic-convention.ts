@@ -163,6 +163,12 @@ export default class SemanticConvention {
   static GEN_AI_AGENT_ID = 'gen_ai.agent.id';
   static GEN_AI_AGENT_DESCRIPTION = 'gen_ai.agent.description';
   static GEN_AI_AGENT_VERSION = 'gen_ai.agent.version';
+  static GEN_AI_AGENT_SOURCE = 'gen_ai.agent.source';
+  static GEN_AI_AGENT_ACTION_TOOL = 'gen_ai.agent.action.tool';
+  static GEN_AI_AGENT_ACTION_TOOL_INPUT = 'gen_ai.agent.action.tool_input';
+  static GEN_AI_AGENT_ACTION_LOG = 'gen_ai.agent.action.log';
+  static GEN_AI_AGENT_FINISH_OUTPUT = 'gen_ai.agent.finish.output';
+  static GEN_AI_AGENT_FINISH_LOG = 'gen_ai.agent.finish.log';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
@@ -214,6 +220,28 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_AZURE_AI_INFERENCE = 'azure.ai.inference';
   static GEN_AI_SYSTEM_LLAMAINDEX = 'llamaindex';
   static GEN_AI_SYSTEM_TOGETHER = 'together';
+  static GEN_AI_SYSTEM_LANGGRAPH = 'langgraph';
+  static GEN_AI_SYSTEM_OPENAI_AGENTS = 'openai_agents';
+  static GEN_AI_SYSTEM_MASTRA = 'mastra';
+  static GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = 'claude_agent_sdk';
+  static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
+  static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
+
+  static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
+
+  // Graph attributes (LangGraph)
+  static GEN_AI_GRAPH_NODES = 'gen_ai.graph.nodes';
+  static GEN_AI_GRAPH_NODE_COUNT = 'gen_ai.graph.node_count';
+  static GEN_AI_GRAPH_EDGES = 'gen_ai.graph.edges';
+  static GEN_AI_GRAPH_EDGE_COUNT = 'gen_ai.graph.edge_count';
+  static GEN_AI_GRAPH_EXECUTED_NODES = 'gen_ai.graph.executed_nodes';
+  static GEN_AI_GRAPH_STATUS = 'gen_ai.graph.status';
+  static GEN_AI_GRAPH_MESSAGE_COUNT = 'gen_ai.graph.message_count';
+  static GEN_AI_GRAPH_TOTAL_CHUNKS = 'gen_ai.graph.total_chunks';
+
+  // Execution attributes (LangGraph)
+  static GEN_AI_EXECUTION_MODE = 'gen_ai.execution.mode';
+  static GEN_AI_CHECKPOINT_ID = 'gen_ai.checkpoint.id';
 
   // Vector DB
   static DB_REQUESTS = 'db.total.requests';

@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -26,14 +26,16 @@ class MistralWrapper extends BaseWrapper {
     const genAIEndpoint = 'mistral.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'mistral-small-latest';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -422,13 +424,15 @@ class MistralWrapper extends BaseWrapper {
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'mistral-embed';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams: BaseSpanAttributes | undefined;
           try {
@@ -457,6 +461,11 @@ class MistralWrapper extends BaseWrapper {
             if (captureContent && embeddingInput) {
               const formattedInput = typeof embeddingInput === 'string' ? embeddingInput : JSON.stringify(embeddingInput);
               span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, formattedInput);
+            }
+
+            const embData = response?.data;
+            if (Array.isArray(embData) && embData.length > 0 && Array.isArray(embData[0].embedding)) {
+              span.setAttribute(SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT, embData[0].embedding.length);
             }
 
             span.setAttribute(

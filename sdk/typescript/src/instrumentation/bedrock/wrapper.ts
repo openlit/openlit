@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -74,6 +74,7 @@ class BedrockWrapper extends BaseWrapper {
   static _patchSend(tracer: Tracer): any {
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const command = args[0];
         if (!command) return originalMethod.apply(this, args);
 
@@ -103,13 +104,14 @@ class BedrockWrapper extends BaseWrapper {
     const genAIEndpoint = 'bedrock.converse';
 
     const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${modelId}`;
+    const effectiveCtx = getFrameworkParentContext() ?? context.active();
     const span = tracer.startSpan(spanName, {
       kind: SpanKind.CLIENT,
       attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, modelId),
-    });
+    }, effectiveCtx);
 
     return context
-      .with(trace.setSpan(context.active(), span), async () => {
+      .with(trace.setSpan(effectiveCtx, span), async () => {
         return originalMethod.apply(instance, args);
       })
       .then((response: any) => {
@@ -178,14 +180,15 @@ class BedrockWrapper extends BaseWrapper {
     const startTime = Date.now();
 
     const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${modelId}`;
+    const effectiveCtx = getFrameworkParentContext() ?? context.active();
     const span = tracer.startSpan(spanName, {
       kind: SpanKind.CLIENT,
       attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, modelId),
-    });
+    }, effectiveCtx);
 
     let response: any;
     try {
-      response = await context.with(trace.setSpan(context.active(), span), () =>
+      response = await context.with(trace.setSpan(effectiveCtx, span), () =>
         originalMethod.apply(instance, args)
       );
     } catch (e: any) {

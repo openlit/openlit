@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -27,13 +27,15 @@ export default class CohereWrapper extends BaseWrapper {
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'embed-english-v2.0';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams: BaseSpanAttributes | undefined;
           try {
@@ -98,14 +100,16 @@ export default class CohereWrapper extends BaseWrapper {
     const genAIEndpoint = 'cohere.chat';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'command-r-plus-08-2024';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -132,14 +136,16 @@ export default class CohereWrapper extends BaseWrapper {
     const genAIEndpoint = 'cohere.chat';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'command-r-plus-08-2024';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {

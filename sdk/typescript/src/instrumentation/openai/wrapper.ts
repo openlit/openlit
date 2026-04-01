@@ -1,6 +1,6 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -25,14 +25,16 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt-4o';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -459,13 +461,15 @@ class OpenAIWrapper extends BaseWrapper {
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'text-embedding-ada-002';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams: BaseSpanAttributes | undefined;
           try {
@@ -533,13 +537,15 @@ class OpenAIWrapper extends BaseWrapper {
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt-3.5-turbo';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
@@ -610,13 +616,15 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.images';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'dall-e-2';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
@@ -695,13 +703,15 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.images';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'dall-e-2';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
@@ -782,13 +792,15 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.audio.speech';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'tts-1';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, requestModel),
-        });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
@@ -849,14 +861,16 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.responses';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt-4o';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
-        });
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
