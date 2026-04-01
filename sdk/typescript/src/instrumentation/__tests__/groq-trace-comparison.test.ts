@@ -17,7 +17,7 @@ jest.mock('../base-wrapper');
 
 describe('Groq Cross-Language Trace Comparison', () => {
   let mockSpan: any;
-  let mockTracer: any;
+  let _mockTracer: any;
 
   beforeEach(() => {
     mockSpan = {
@@ -27,7 +27,7 @@ describe('Groq Cross-Language Trace Comparison', () => {
       setStatus: jest.fn(),
     };
 
-    mockTracer = {
+    _mockTracer = {
       startSpan: jest.fn().mockReturnValue(mockSpan),
     };
 
@@ -40,7 +40,7 @@ describe('Groq Cross-Language Trace Comparison', () => {
     (OpenLitHelper as any).getChatModelCost = jest.fn().mockReturnValue(0.001);
     (OpenLitHelper as any).openaiTokens = jest.fn().mockReturnValue(5);
     (OpenLitHelper as any).handleException = jest.fn();
-    (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, generator) => stream);
+    (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, _generator) => stream);
     (OpenLitHelper as any).buildInputMessages = jest.fn().mockReturnValue('[{"role":"user","parts":[{"type":"text","content":"Test"}]}]');
     (OpenLitHelper as any).buildOutputMessages = jest.fn().mockReturnValue('[{"role":"assistant","parts":[{"type":"text","content":"Response"}],"finish_reason":"stop"}]');
     (OpenLitHelper as any).emitInferenceEvent = jest.fn();

@@ -33,7 +33,7 @@ describe('Google AI Studio Cross-Language Trace Comparison', () => {
 
     (OpenLitHelper as any).getChatModelCost = jest.fn().mockReturnValue(0.001);
     (OpenLitHelper as any).handleException = jest.fn();
-    (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, generator) => stream);
+    (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, _generator) => stream);
     (OpenLitHelper as any).buildInputMessages = jest.fn().mockReturnValue('[{"role":"user","parts":[{"type":"text","content":"What is Gemini?"}]}]');
     (OpenLitHelper as any).buildOutputMessages = jest.fn().mockReturnValue('[{"role":"assistant","parts":[{"type":"text","content":"Gemini is Google\'s AI model"}],"finish_reason":"STOP"}]');
     (OpenLitHelper as any).emitInferenceEvent = jest.fn();

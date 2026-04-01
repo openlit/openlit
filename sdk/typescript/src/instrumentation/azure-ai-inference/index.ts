@@ -48,7 +48,7 @@ export default class OpenlitAzureAIInferenceInstrumentation extends Instrumentat
 
       const tracer = this.tracer;
 
-      this._wrap(moduleExports, 'default', (original: Function) => {
+      this._wrap(moduleExports, 'default', (original: (...args: any[]) => any) => {
         return function (this: any, ...args: any[]) {
           const client = original.apply(this, args);
 

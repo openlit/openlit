@@ -41,7 +41,7 @@ export default class CohereWrapper extends BaseWrapper {
           try {
             const response = await originalMethod.apply(this, args);
 
-            const responseModel = response.model || requestModel;
+            const _responseModel = response.model || requestModel;
             const pricingInfo = OpenlitConfig.pricingInfo || {};
             const inputTokens = response.meta?.billedUnits?.inputTokens || 0;
             const cost = OpenLitHelper.getEmbedModelCost(
@@ -302,7 +302,7 @@ export default class CohereWrapper extends BaseWrapper {
       p: topP,
       k: topK,
       user,
-      tools,
+      tools: _tools,
     } = args[0];
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, topP ?? 1);

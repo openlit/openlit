@@ -355,7 +355,7 @@ export default class LangGraphWrapper {
     return (originalMethod: (...args: any[]) => any) => {
       return function (this: any, ...args: any[]) {
         const nodeKey = args[0];
-        let action = args[1];
+        const action = args[1];
 
         if (!action || typeof action !== 'function') {
           return originalMethod.apply(this, args);

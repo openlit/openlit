@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc --build",
+    "lint": "eslint src/",
     "test": "jest"
   },
   "files": [

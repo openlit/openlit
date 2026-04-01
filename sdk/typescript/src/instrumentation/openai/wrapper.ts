@@ -149,7 +149,7 @@ class OpenAIWrapper extends BaseWrapper {
         },
       };
       
-      let toolCalls: any[] = [];
+      const toolCalls: any[] = [];
       
       for await (const chunk of response) {
         timestamps.push(Date.now());
@@ -294,7 +294,7 @@ class OpenAIWrapper extends BaseWrapper {
       top_p,
       user,
       stream = false,
-      tools,
+      tools: _tools,
       service_tier,
     } = args[0];
 
@@ -475,7 +475,7 @@ class OpenAIWrapper extends BaseWrapper {
           try {
             const response = await originalMethod.apply(this, args);
 
-            const responseModel = response.model || requestModel;
+            const _responseModel = response.model || requestModel;
             const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost = OpenLitHelper.getEmbedModelCost(
               requestModel,
@@ -970,7 +970,7 @@ class OpenAIWrapper extends BaseWrapper {
       };
       
       let llmResponse = '';
-      let responseTools: any[] = [];
+      const responseTools: any[] = [];
       
       for await (const chunk of response) {
         timestamps.push(Date.now());

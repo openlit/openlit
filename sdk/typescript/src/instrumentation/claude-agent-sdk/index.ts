@@ -32,15 +32,14 @@ export default class ClaudeAgentSDKInstrumentation extends InstrumentationBase {
   }
 
   protected init(): InstrumentationModuleDefinition | InstrumentationModuleDefinition[] | void {
-    const self = this;
     const module = new InstrumentationNodeModuleDefinition(
       '@anthropic-ai/claude-agent-sdk',
       SUPPORTED_VERSIONS,
       (moduleExports: any) => {
-        return self._patch(moduleExports);
+        return this._patch(moduleExports);
       },
       (moduleExports: any) => {
-        self._unpatch(moduleExports);
+        this._unpatch(moduleExports);
         return moduleExports;
       },
     );

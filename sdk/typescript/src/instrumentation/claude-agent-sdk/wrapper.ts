@@ -177,7 +177,7 @@ class ToolSpanTracker {
   }
 
   endAll(): void {
-    for (const [toolUseId, span] of this._inFlight) {
+    for (const [_toolUseId, span] of this._inFlight) {
       finalizeToolSpan(span, null, this._captureContent, true, 'abandoned');
       span.end();
     }
@@ -388,7 +388,7 @@ function injectHooks(
     return {};
   };
 
-  const hookPairs: [string, Function][] = [
+  const hookPairs: [string, (...args: any[]) => any][] = [
     ['PreToolUse', preToolUse],
     ['PostToolUse', postToolUse],
     ['PostToolUseFailure', postToolUseFailure],

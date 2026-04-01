@@ -319,7 +319,7 @@ export class MastraSpanProcessor implements SpanProcessor {
 
   private _processAgentSpan(
     span: ReadableSpan,
-    attrs: Record<string, any>
+    _attrs: Record<string, any>
   ): void {
     this._setAttr(
       span,
@@ -385,8 +385,8 @@ export class MastraSpanProcessor implements SpanProcessor {
     span: ReadableSpan,
     attrs: Record<string, any>,
     modelName: string,
-    serverAddress: string,
-    serverPort: number
+    _serverAddress: string,
+    _serverPort: number
   ): void {
     const enrichments: Record<string, any> = {};
 

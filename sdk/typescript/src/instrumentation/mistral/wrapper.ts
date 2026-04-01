@@ -139,7 +139,7 @@ class MistralWrapper extends BaseWrapper {
         },
       };
 
-      let toolCalls: any[] = [];
+      const toolCalls: any[] = [];
 
       for await (const chunk of response) {
         timestamps.push(Date.now());
@@ -438,7 +438,7 @@ class MistralWrapper extends BaseWrapper {
           try {
             const response = await originalMethod.apply(this, args);
 
-            const responseModel = response.model || requestModel;
+            const _responseModel = response.model || requestModel;
             const pricingInfo = OpenlitConfig.pricingInfo || {};
             const promptTokens = response.usage?.promptTokens ?? response.usage?.prompt_tokens ?? 0;
             const cost = OpenLitHelper.getEmbedModelCost(requestModel, pricingInfo, promptTokens);

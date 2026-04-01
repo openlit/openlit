@@ -25,9 +25,6 @@ import {
   resolveModelString,
   processGoogleAdkResponse,
   captureEventOutput,
-  recordGoogleAdkMetrics,
-  extractModelName,
-  resolveServerInfo,
 } from './utils';
 
 // ---------------------------------------------------------------------------
@@ -249,6 +246,7 @@ export function wrapRunnerRunAsync(
         },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-this-alias -- preserve `this` for originalMethod.apply
       const self = this;
       const captureContent = OpenlitConfig.captureMessageContent ?? true;
       const startTime = Date.now();
@@ -381,6 +379,7 @@ export function wrapAgentRunAsync(
         },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-this-alias -- preserve `this` for originalMethod.apply
       const self = this;
       const captureContent = OpenlitConfig.captureMessageContent ?? true;
       const startTime = Date.now();

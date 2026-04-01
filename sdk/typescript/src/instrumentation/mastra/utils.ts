@@ -180,7 +180,7 @@ function safeJsonParse(value: any): any {
  */
 export function extractContentFromAttributes(
   attrs: Record<string, any>,
-  spanName: string
+  _spanName: string
 ): [any[] | null, any[] | null, string | null] {
   let inputMessages: any[] | null = null;
   let outputMessages: any[] | null = null;
@@ -238,7 +238,7 @@ export function extractContentFromAttributes(
  */
 export function extractContentFromEvents(
   span: any,
-  operation: string
+  _operation: string
 ): [any[], any[], string | null] {
   const inputMsgs: any[] = [];
   const outputMsgs: any[] = [];

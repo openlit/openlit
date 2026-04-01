@@ -2,7 +2,7 @@ import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemet
 import OpenlitConfig from '../../config';
 import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+import BaseWrapper from '../base-wrapper';
 
 function spanCreationAttrs(
   operationName: string,
@@ -141,7 +141,7 @@ class GroqWrapper extends BaseWrapper {
         },
       };
 
-      let toolCalls: any[] = [];
+      const toolCalls: any[] = [];
 
       for await (const chunk of response) {
         timestamps.push(Date.now());
@@ -290,7 +290,7 @@ class GroqWrapper extends BaseWrapper {
       top_p,
       user,
       stream = false,
-      tools,
+      tools: _tools,
     } = args[0];
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);

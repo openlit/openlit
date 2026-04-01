@@ -3,7 +3,6 @@ import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/seman
 import OpenlitConfig from '../../config';
 import OpenLitHelper, {
   applyCustomSpanAttributes,
-  isFrameworkLlmActive,
   isLangGraphActive,
   runWithFrameworkLlm,
   setFrameworkLlmActive,
@@ -351,25 +350,6 @@ function buildOutputMessages(text: string, finishReason: string, toolCalls?: any
     if (parts.length === 0) return [];
     return [{ role: 'assistant', parts, finish_reason: finishReason }];
   } catch { return []; }
-}
-
-function formatContent(messagesOrPrompts: any): string {
-  if (!messagesOrPrompts) return '';
-  if (typeof messagesOrPrompts === 'string') return messagesOrPrompts;
-  const parts: string[] = [];
-  for (const item of messagesOrPrompts) {
-    if (typeof item === 'string') { parts.push(item); continue; }
-    if (Array.isArray(item)) {
-      for (const msg of item) {
-        const role = msg._getType?.() || msg.type || msg.role || 'user';
-        const content = msg.content ?? String(msg);
-        parts.push(`${role}: ${content}`);
-      }
-    } else {
-      parts.push(String(item));
-    }
-  }
-  return parts.join('\n');
 }
 
 // ---------------------------------------------------------------------------

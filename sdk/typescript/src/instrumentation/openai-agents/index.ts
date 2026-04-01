@@ -11,10 +11,9 @@ import {
   InstrumentationBase,
   InstrumentationModuleDefinition,
   InstrumentationNodeModuleDefinition,
-  isWrapped,
 } from '@opentelemetry/instrumentation';
 import type { InstrumentationConfig } from '@opentelemetry/instrumentation';
-import { SpanContext, SpanKind, trace, context as otelContext } from '@opentelemetry/api';
+import { SpanContext, SpanKind, trace } from '@opentelemetry/api';
 
 import { INSTRUMENTATION_PREFIX } from '../../constant';
 import SemanticConvention from '../../semantic-convention';

@@ -248,8 +248,8 @@ class AzureAIInferenceWrapper extends BaseWrapper {
     let pending = '';
 
     const readable = body;
-    const originalPipe = readable.pipe?.bind(readable);
-    const originalOn = readable.on?.bind(readable);
+    const _originalPipe = readable.pipe?.bind(readable);
+    const _originalOn = readable.on?.bind(readable);
 
     const self = AzureAIInferenceWrapper;
     let finalized = false;
@@ -553,7 +553,7 @@ class AzureAIInferenceWrapper extends BaseWrapper {
             const responseBody = httpResponse?.body ?? httpResponse;
 
             if (responseBody && typeof responseBody === 'object') {
-              const responseModel = responseBody.model || requestModel;
+              const _responseModel = responseBody.model || requestModel;
               const pricingInfo = OpenlitConfig.pricingInfo || {};
               const inputTokens = responseBody.usage?.prompt_tokens || 0;
               const cost = OpenLitHelper.getEmbedModelCost(requestModel, pricingInfo, inputTokens);

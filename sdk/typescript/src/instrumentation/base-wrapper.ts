@@ -20,7 +20,7 @@ export type BaseSpanAttributes = {
 export default class BaseWrapper {
   static setBaseSpanAttributes(
     span: Span,
-    { genAIEndpoint, model, user, cost, aiSystem, serverAddress, serverPort }: BaseSpanAttributes
+    { genAIEndpoint: _genAIEndpoint, model, user, cost, aiSystem, serverAddress, serverPort }: BaseSpanAttributes
   ) {
     const applicationName = OpenlitConfig.applicationName;
     const environment = OpenlitConfig.environment;

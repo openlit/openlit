@@ -2,7 +2,7 @@ import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemet
 import OpenlitConfig from '../../config';
 import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+import BaseWrapper from '../base-wrapper';
 
 const FINISH_REASON_MAP: Record<string, string> = {
   end_turn: 'stop',

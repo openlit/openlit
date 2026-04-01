@@ -632,7 +632,7 @@ export function processGoogleAdkResponse(
   endpoint: string,
   instance: any,
   startTime: number,
-  captureMessageContent: boolean,
+  _captureMessageContent: boolean,
 ): void {
   const endTime = Date.now();
   const operationType = getOperationType(endpoint);
