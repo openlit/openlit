@@ -93,6 +93,19 @@
     "together-ai": "^0.38.0",
     "zod": "^4.3.6"
   },
+  "overrides": {
+    "@google/adk": {
+      "@opentelemetry/api-logs": "$@opentelemetry/api-logs",
+      "@opentelemetry/exporter-logs-otlp-http": "$@opentelemetry/exporter-logs-otlp-http",
+      "@opentelemetry/exporter-metrics-otlp-http": "$@opentelemetry/exporter-metrics-otlp-http",
+      "@opentelemetry/exporter-trace-otlp-http": "$@opentelemetry/exporter-trace-otlp-http",
+      "@opentelemetry/resources": "$@opentelemetry/resources",
+      "@opentelemetry/sdk-logs": "$@opentelemetry/sdk-logs",
+      "@opentelemetry/sdk-metrics": "$@opentelemetry/sdk-metrics",
+      "@opentelemetry/sdk-trace-base": "$@opentelemetry/sdk-trace-base",
+      "@opentelemetry/sdk-trace-node": "$@opentelemetry/sdk-trace-node"
+    }
+  },
   "peerDependencies": {
     "@opentelemetry/instrumentation-express": ">=0.40.0",
     "@opentelemetry/instrumentation-fastify": ">=0.38.0",
