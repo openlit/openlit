@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
@@ -79,6 +81,7 @@ const columns: Columns<string, Context> = {
 };
 
 export default function ContextPage() {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } =
 		useFetchWrapper<Context[]>();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
@@ -116,6 +119,10 @@ export default function ContextPage() {
 		},
 		[fetchData]
 	);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.CONTEXT_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus !== "pending") {

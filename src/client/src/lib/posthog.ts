@@ -31,7 +31,7 @@ export default class PostHogServer {
 						body: jsonStringify({
 							api_key: POSTHOG_API_KEY,
 							...options,
-							distinctId: this.distinctId,
+							distinct_id: this.distinctId,
 							properties: {
 								...(options.properties || {}),
 								isServer: true,

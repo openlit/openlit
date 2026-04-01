@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -54,6 +56,7 @@ function parseMeta(raw: any): Record<string, string> {
 }
 
 export default function ContextDetailPage() {
+	const posthog = usePostHog();
 	const params = useParams();
 	const contextId = params.id as string;
 	const { setHeader } = usePageHeader();
@@ -129,6 +132,10 @@ export default function ContextDetailPage() {
 			failureCb: () => {},
 		});
 	}, [contextId]);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.CONTEXT_DETAIL_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		fetchContext();

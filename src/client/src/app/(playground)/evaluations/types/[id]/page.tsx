@@ -14,6 +14,8 @@ import {
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useEffect, useState } from "react";
 import { EVALUATION_TYPES } from "@/constants/evaluation-types";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Rule } from "@/types/rule-engine";
 import { toast } from "sonner";
 import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles } from "lucide-react";
@@ -37,6 +39,7 @@ interface EvaluationTypeConfig {
 }
 
 export default function EvaluationTypeDetailPage() {
+	const posthog = usePostHog();
 	const params = useParams();
 	const router = useRouter();
 	const typeId = params.id as string;
@@ -58,6 +61,7 @@ export default function EvaluationTypeDetailPage() {
 		.map((e) => e.rule_id);
 
 	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPE_EDIT_PAGE_VISITED);
 		getType({
 			requestType: "GET",
 			url: `/api/evaluation/types/${typeId}`,

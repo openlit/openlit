@@ -1,5 +1,7 @@
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
+import { SERVER_EVENTS } from "@/constants/events";
+import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 import { jsonParse, jsonStringify } from "@/utils/json";
@@ -34,9 +36,14 @@ export async function GET(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
+	const startTimestamp = Date.now();
 	const typeId = params.id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(
 			{ err: "Evaluation config not found" },
 			{ status: 404 }
@@ -45,11 +52,19 @@ export async function GET(
 	const types = (config as any).evaluationTypes ?? [];
 	const typeConfig = types.find((t: any) => t.id === typeId);
 	if (!typeConfig) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(
 			{ err: "Evaluation type not found" },
 			{ status: 404 }
 		);
 	}
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.EVALUATION_TYPE_GET_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json({ data: typeConfig });
 }
 
@@ -57,10 +72,15 @@ export async function PATCH(
 	request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
+	const startTimestamp = Date.now();
 	const typeId = params.id;
 	const body = await request.json();
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_UPDATE_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(
 			{ err: "Evaluation config not found" },
 			{ status: 400 }
@@ -95,6 +115,10 @@ export async function PATCH(
 		data: { meta: jsonStringify(meta) },
 	});
 	await syncRuleEntitiesFromConfig();
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.EVALUATION_TYPE_UPDATE_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json({ data: updated });
 }
 
@@ -102,9 +126,14 @@ export async function DELETE(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
+	const startTimestamp = Date.now();
 	const typeId = params.id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_DELETE_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(
 			{ err: "Evaluation config not found" },
 			{ status: 400 }
@@ -117,6 +146,10 @@ export async function DELETE(
 
 	const typeToDelete = types.find((t) => t.id === typeId);
 	if (!typeToDelete?.isCustom) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_DELETE_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(
 			{ err: "Only custom evaluation types can be deleted" },
 			{ status: 400 }
@@ -129,5 +162,9 @@ export async function DELETE(
 		data: { meta: jsonStringify(meta) },
 	});
 	await syncRuleEntitiesFromConfig();
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.EVALUATION_TYPE_DELETE_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json({ data: { deleted: typeId } });
 }

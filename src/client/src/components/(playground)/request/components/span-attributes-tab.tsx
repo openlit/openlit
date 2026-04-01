@@ -4,6 +4,7 @@ import { TraceMapping } from "@/constants/traces";
 import {
 	CODE_ITEM_DISPLAY_KEYS,
 	KNOWN_SPAN_ATTR_KEYS,
+	getTraceMappingKeyFullPath,
 } from "@/helpers/client/trace";
 import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { isNil } from "lodash";
@@ -101,7 +102,7 @@ export default function SpanAttributesTab({
 				const suffix = mapping?.valueSuffix ?? "";
 				return {
 					key,
-					label: mapping?.label ?? key,
+					label: mapping?.isRoot ? key : (() => { const fp = getTraceMappingKeyFullPath(key); return Array.isArray(fp) ? fp.join(".") : (fp as string); })(),
 					value: `${prefix}${normalizedItem[key]}${suffix}`,
 				};
 			}),
@@ -130,7 +131,7 @@ export default function SpanAttributesTab({
 				<div key={group.label}>
 					<GroupHeader label={group.label} />
 					{group.entries.map(({ key, label, value }) => (
-						<AttrRow key={key} label={label} value={String(value)} />
+						<AttrRow key={key} label={label} value={value} />
 					))}
 				</div>
 			))}
@@ -138,7 +139,7 @@ export default function SpanAttributesTab({
 				<div>
 					<GroupHeader label="Custom" />
 					{customEntries.map(([key, value]) => (
-						<AttrRow key={key} label={key} value={String(value)} mono />
+						<AttrRow key={key} label={key} value={value} mono />
 					))}
 				</div>
 			)}

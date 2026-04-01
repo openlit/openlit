@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +26,7 @@ import { toast } from "sonner";
 import getMessage from "@/constants/messages";
 
 export default function NewContextPage() {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const { setHeader } = usePageHeader();
 	const { fireRequest, isLoading } = useFetchWrapper();
@@ -38,6 +41,7 @@ export default function NewContextPage() {
 	const [metaProps, setMetaProps] = useState<{ key: string; value: string }[]>([]);
 
 	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.CONTEXT_NEW_PAGE_VISITED);
 		setHeader({
 			title: m.CONTEXT_CREATE,
 			breadcrumbs: [{ title: m.CONTEXT_TITLE, href: "/context" }],

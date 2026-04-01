@@ -1,12 +1,15 @@
+import { SERVER_EVENTS } from "@/constants/events";
 import { RuleEntityInput } from "@/types/rule-engine";
 import { getRuleEntities, addRuleEntity, deleteRuleEntity } from "@/lib/platform/rule-engine";
 import {
 	addRuleToEvaluationType,
 	removeRuleFromEvaluationType,
 } from "@/lib/platform/evaluation/sync-rule-entities";
+import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 export async function GET(request: Request) {
+	const startTimestamp = Date.now();
 	const { searchParams } = new URL(request.url);
 	const filters = {
 		rule_id: searchParams.get("rule_id") || undefined,
@@ -16,13 +19,22 @@ export async function GET(request: Request) {
 
 	const { err, data }: any = await getRuleEntities(filters);
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_ENTITIES_LIST_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(err, { status: 400 });
 	}
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.RULE_ENTITIES_LIST_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json(data);
 }
 
 export async function POST(request: Request) {
+	const startTimestamp = Date.now();
 	const formData = await request.json();
 
 	const entityInput: Partial<RuleEntityInput> = {
@@ -33,6 +45,10 @@ export async function POST(request: Request) {
 
 	const [err, res]: any = await asaw(addRuleEntity(entityInput));
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_ENTITIES_CREATE_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(err, { status: 400 });
 	}
 	if (
@@ -46,10 +62,15 @@ export async function POST(request: Request) {
 			0
 		);
 	}
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.RULE_ENTITIES_CREATE_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json(res);
 }
 
 export async function DELETE(request: Request) {
+	const startTimestamp = Date.now();
 	const { searchParams } = new URL(request.url);
 	let id = searchParams.get("id");
 	if (!id) {
@@ -67,6 +88,10 @@ export async function DELETE(request: Request) {
 
 	const [err, res] = await deleteRuleEntity(id);
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_ENTITIES_DELETE_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(err, { status: 400 });
 	}
 	if (
@@ -77,5 +102,9 @@ export async function DELETE(request: Request) {
 	) {
 		await removeRuleFromEvaluationType(entity.rule_id, entity.entity_id);
 	}
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.RULE_ENTITIES_DELETE_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json(res);
 }

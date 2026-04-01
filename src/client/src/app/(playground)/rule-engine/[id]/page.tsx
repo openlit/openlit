@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { CheckIcon } from "lucide-react";
@@ -33,6 +35,7 @@ const DEFAULT_CONDITION_GROUP: ConditionGroupState = {
 };
 
 export default function RuleDetailPage() {
+	const posthog = usePostHog();
 	const params = useParams();
 	const ruleId = params.id as string;
 	const { setHeader } = usePageHeader();
@@ -92,6 +95,10 @@ export default function RuleDetailPage() {
 			},
 		});
 	}, [ruleId]);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.RULE_ENGINE_DETAIL_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		fetchRule();
