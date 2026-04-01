@@ -9,7 +9,8 @@ export async function llmResponseAnthropic({
 }): Promise<string> {
   let Anthropic: any;
   try {
-    Anthropic = (await import('@anthropic-ai/sdk')).default;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    Anthropic = require('@anthropic-ai/sdk').default;
   } catch {
     throw new Error(
       "openlit guard/eval features require the '@anthropic-ai/sdk' package. Install it with: npm install @anthropic-ai/sdk"

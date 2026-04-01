@@ -11,7 +11,8 @@ export async function llmResponseOpenAI({
 }): Promise<string> {
   let OpenAI: any;
   try {
-    OpenAI = (await import('openai')).default;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    OpenAI = require('openai').default;
   } catch {
     throw new Error(
       "openlit eval features require the 'openai' package. Install it with: npm install openai"
