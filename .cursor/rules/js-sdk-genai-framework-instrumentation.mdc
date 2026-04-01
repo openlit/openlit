@@ -17,6 +17,16 @@ The JS SDK has **zero backwards compatibility constraints**. You MUST:
 - The **only alignment targets** are: (1) Python SDK behavior, (2) OTel GenAI semantic conventions
 - Do NOT preserve any legacy JS SDK patterns or behavior
 
+## CRITICAL: Zero Provider/Framework Dependencies
+
+The `openlit` npm package must **never** list provider or framework packages (e.g. `@langchain/core`, `@openai/agents`, `@google/adk`) in `dependencies`. They belong in `devDependencies` only.
+
+- All `index.ts` files must type `moduleExports` as `any` -- no static imports of framework packages.
+- `wrapper.ts` / `processor.ts` must never import framework types. Duck-type everything.
+- OTel's `InstrumentationNodeModuleDefinition` hooks modules by **string name** at runtime. If the user hasn't installed the framework, the instrumentation is a silent no-op.
+
+---
+
 ## OTel Spec References
 
 - Agent Spans: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-agent-spans.md

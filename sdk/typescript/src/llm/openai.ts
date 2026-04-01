@@ -1,5 +1,3 @@
-import OpenAI from 'openai';
-
 export async function llmResponseOpenAI({
   prompt,
   model,
@@ -11,6 +9,14 @@ export async function llmResponseOpenAI({
   apiKey?: string;
   baseUrl?: string;
 }): Promise<string> {
+  let OpenAI: any;
+  try {
+    OpenAI = (await import('openai')).default;
+  } catch {
+    throw new Error(
+      "openlit guard/eval features require the 'openai' package. Install it with: npm install openai"
+    );
+  }
   const client = new OpenAI({
     apiKey,
     baseURL: baseUrl || 'https://api.openai.com/v1',

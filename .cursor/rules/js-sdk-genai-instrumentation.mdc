@@ -20,6 +20,29 @@ This guide defines how every GenAI provider instrumentation in the JS SDK must b
 
 ---
 
+## CRITICAL: Zero Provider Dependencies
+
+The `openlit` npm package must **never** list LLM provider or AI framework packages in `dependencies`. Only `@opentelemetry/*` and `js-tiktoken` belong there. Provider packages go in `devDependencies` only (for compilation/tests).
+
+### Why
+`npm install openlit` must not pull in 20+ provider trees. The OTel `InstrumentationNodeModuleDefinition` hooks modules by **string name** at runtime -- no static import needed.
+
+### Rules
+- **No static imports** of provider packages in `index.ts` or `wrapper.ts`. Use `moduleExports: any`.
+- **Duck-type everything**: access `args[0]?.model`, `response.choices`, etc. -- never import provider types.
+- Files under `src/llm/` and `src/evals/llm/` that instantiate provider clients must use **dynamic `import()`** with try/catch and a clear "install it with npm install ..." error message.
+
+```typescript
+// BAD
+import OpenAI from 'openai';
+protected _patch(moduleExports: typeof OpenAI) { ... }
+
+// GOOD
+protected _patch(moduleExports: any) { ... }
+```
+
+---
+
 ## 1. Span Structure
 
 ### Span Name

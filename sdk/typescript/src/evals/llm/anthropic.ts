@@ -1,5 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
-
 export async function llmResponseAnthropic({
   prompt,
   model,
@@ -9,6 +7,14 @@ export async function llmResponseAnthropic({
   model?: string;
   apiKey?: string;
 }): Promise<string> {
+  let Anthropic: any;
+  try {
+    Anthropic = (await import('@anthropic-ai/sdk')).default;
+  } catch {
+    throw new Error(
+      "openlit eval features require the '@anthropic-ai/sdk' package. Install it with: npm install @anthropic-ai/sdk"
+    );
+  }
   const client = new Anthropic({ apiKey });
   const usedModel = model || 'claude-3-opus-20240229';
   const response = await client.messages.create({
@@ -32,7 +38,7 @@ export async function llmResponseAnthropic({
     // Fallback: join all text blocks that have text
     return response.content
       .filter((p: { type: string; text?: unknown }) : p is { type: 'text'; text: string } => p.type === 'text' && typeof p.text === 'string')
-      .map(p => p.text)
+      .map((p: { text: string }) => p.text)
       .join(' ');
   }
   return '';
