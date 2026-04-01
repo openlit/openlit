@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 import RuleForm from "@/components/(playground)/rule-engine/form";
 import getMessage from "@/constants/messages";
@@ -43,6 +45,7 @@ import { toast } from "sonner";
 const m = getMessage();
 
 export default function PromptHub() {
+	const posthog = usePostHog();
 	const pingStatus = useRootStore(getPingStatus);
 	const params = useParams();
 	const searchParams = useSearchParams();
@@ -84,6 +87,10 @@ export default function PromptHub() {
 			failureCb: () => { },
 		});
 	}, [params.id]);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_DETAIL_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus === "success") fetchData();

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Info } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { toast } from "sonner";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function CreateCustomEvaluationTypePage() {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const [typeId, setTypeId] = useState("");
 	const [label, setLabel] = useState("");
@@ -20,6 +23,10 @@ export default function CreateCustomEvaluationTypePage() {
 
 	const { fireRequest: getTypes } = useFetchWrapper();
 	const { fireRequest: saveTypes, isLoading: isSaving } = useFetchWrapper();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPE_NEW_PAGE_VISITED);
+	}, []);
 
 	const handleCreate = async () => {
 		const id = typeId.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
+import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import {
 	getAllProvidersWithCustomModels,
@@ -14,6 +16,7 @@ import {
  * Get all available LLM providers with custom models merged in
  */
 export async function GET(request: NextRequest) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -45,9 +48,17 @@ export async function GET(request: NextRequest) {
 			);
 
 			if (err) {
+				PostHogServer.fireEvent({
+					event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_FAILURE,
+					startTimestamp,
+				});
 				return NextResponse.json({ error: err }, { status: 404 });
 			}
 
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_SUCCESS,
+				startTimestamp,
+			});
 			return NextResponse.json(provider);
 		}
 
@@ -60,9 +71,17 @@ export async function GET(request: NextRequest) {
 			);
 
 			if (err) {
+				PostHogServer.fireEvent({
+					event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_FAILURE,
+					startTimestamp,
+				});
 				return NextResponse.json({ error: err }, { status: 500 });
 			}
 
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_SUCCESS,
+				startTimestamp,
+			});
 			return NextResponse.json(providers);
 		}
 
@@ -73,11 +92,23 @@ export async function GET(request: NextRequest) {
 		);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json(providers);
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_PROVIDERS_LIST_FAILURE,
+			startTimestamp,
+		});
 		console.error("Providers GET error:", error);
 		return NextResponse.json(
 			{ error: getMessage().OPERATION_FAILED },

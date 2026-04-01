@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
 import { getRuleById } from "@/lib/platform/rule-engine";
 import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import PostHogServer from "@/lib/posthog";
 
 type Condition = {
 	field: string;
@@ -98,6 +100,7 @@ export async function POST(
 	_req: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -171,8 +174,16 @@ export async function POST(
 				matched: true,
 			}));
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_PREVIEW_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json({ results });
 	} catch (err: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_PREVIEW_FAILURE,
+			startTimestamp,
+		});
 		const message = err?.message || "Internal server error";
 		return NextResponse.json({ error: message }, { status: 500 });
 	}

@@ -17,6 +17,8 @@ import { columns } from "@/components/(playground)/exceptions/columns";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import ExceptionsGettingStarted from "@/components/(playground)/getting-started/tracing";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 function ExceptionPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -106,6 +108,12 @@ function ExceptionPage() {
 }
 
 export default function Page() {
+	const posthog = usePostHog();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.EXCEPTIONS_PAGE_VISITED);
+	}, []);
+
 	return (
 		<RequestProvider>
 			<ExceptionPage />

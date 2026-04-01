@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useEffect, useState } from "react";
 import { EVALUATION_TYPES } from "@/constants/evaluation-types";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Rule } from "@/types/rule-engine";
 import { Layers, CheckCircle2, ChevronRight, ArrowLeft, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +24,7 @@ interface EvaluationTypeDisplay {
 }
 
 export default function EvaluationTypesPage() {
+	const posthog = usePostHog();
 	const { fireRequest: getTypes, data: typesResponse } = useFetchWrapper<
 		EvaluationTypeDisplay[] | { data: any[] }
 	>();
@@ -41,6 +44,7 @@ export default function EvaluationTypesPage() {
 	}, {});
 
 	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPES_PAGE_VISITED);
 		getTypes({
 			requestType: "GET",
 			url: "/api/evaluation/types",

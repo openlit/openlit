@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
@@ -18,6 +20,7 @@ interface CustomModel extends ModelMetadata {
 }
 
 export default function SettingsManageModelsPage() {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 	const [selectedModel, setSelectedModel] = useState<ModelMetadata | null>(null);
@@ -28,6 +31,10 @@ export default function SettingsManageModelsPage() {
 		useFetchWrapper<ProviderMetadata[]>();
 	const { data: customModels, fireRequest: fetchCustomModels, isLoading: loadingCustom } =
 		useFetchWrapper<Record<string, CustomModel[]>>();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.SETTINGS_MANAGE_MODELS_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		loadProviders();

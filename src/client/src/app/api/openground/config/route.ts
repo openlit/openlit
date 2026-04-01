@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
 import { getDBConfigByUser } from "@/lib/db-config";
+import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import {
 	getOpenGroundConfigs,
@@ -15,6 +17,7 @@ import * as messages from "@/constants/messages/en";
  * Get all provider configurations for the current user
  */
 export async function GET(request: NextRequest) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -35,11 +38,23 @@ export async function GET(request: NextRequest) {
 		const { data, err } = await getOpenGroundConfigs(user.id, dbConfig.id);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json(data);
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_FAILURE,
+			startTimestamp,
+		});
 		console.error("Config GET error:", error);
 		return NextResponse.json(
 			{ error: messages.OPERATION_FAILED },
@@ -53,6 +68,7 @@ export async function GET(request: NextRequest) {
  * Create or update a provider configuration
  */
 export async function POST(request: NextRequest) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -90,11 +106,23 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_CONFIG_CREATE_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_CREATE_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json(data);
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_CREATE_FAILURE,
+			startTimestamp,
+		});
 		console.error("Config POST error:", error);
 		return NextResponse.json(
 			{ error: messages.OPERATION_FAILED },
@@ -108,6 +136,7 @@ export async function POST(request: NextRequest) {
  * Delete a provider configuration
  */
 export async function DELETE(request: NextRequest) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -138,11 +167,23 @@ export async function DELETE(request: NextRequest) {
 		const { data, err } = await deleteOpenGroundConfig(configId, user.id, dbConfig.id);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_CONFIG_DELETE_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_DELETE_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json({ message: data });
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_DELETE_FAILURE,
+			startTimestamp,
+		});
 		console.error("Config DELETE error:", error);
 		return NextResponse.json(
 			{ error: messages.OPERATION_FAILED },
@@ -156,6 +197,7 @@ export async function DELETE(request: NextRequest) {
  * Toggle active status of a configuration
  */
 export async function PATCH(request: NextRequest) {
+	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -191,11 +233,23 @@ export async function PATCH(request: NextRequest) {
 		);
 
 		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_CONFIG_UPDATE_FAILURE,
+				startTimestamp,
+			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_UPDATE_SUCCESS,
+			startTimestamp,
+		});
 		return NextResponse.json(data);
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_CONFIG_UPDATE_FAILURE,
+			startTimestamp,
+		});
 		console.error("Config PATCH error:", error);
 		return NextResponse.json(
 			{ error: messages.OPERATION_FAILED },

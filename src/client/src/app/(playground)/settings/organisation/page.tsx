@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,7 @@ interface PendingInvite {
 }
 
 export default function OrganisationSettingsPage() {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const messages = getMessage();
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -129,6 +132,10 @@ export default function OrganisationSettingsPage() {
 	const currentUserMember = members.find(m => m.id === currentUserId);
 	const currentUserRole = currentUserMember?.role;
 	const hasAdminPermissions = currentUserRole === 'owner' || currentUserRole === 'admin';
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.SETTINGS_ORGANISATION_PAGE_VISITED);
+	}, []);
 
 	// Fetch organisations on mount
 	useEffect(() => {

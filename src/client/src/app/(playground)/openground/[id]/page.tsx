@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import OpengroundHeader from "@/components/(playground)/openground/header";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -19,6 +21,7 @@ export default function OpengroundRequest({
 }: {
 	params: { id: string };
 }) {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<OpengroundRecord>();
 
 	const fetchData = useCallback(async () => {
@@ -34,6 +37,7 @@ export default function OpengroundRequest({
 	}, []);
 
 	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.OPENGROUND_DETAIL_PAGE_VISITED);
 		fetchData();
 	}, []);
 

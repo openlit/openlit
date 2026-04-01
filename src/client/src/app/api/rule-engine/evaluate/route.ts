@@ -1,11 +1,14 @@
+import { SERVER_EVENTS } from "@/constants/events";
 import { EvaluateInput } from "@/types/rule-engine";
 import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
 import { getAPIKeyInfo } from "@/lib/platform/api-keys";
 import { getCurrentUser } from "@/lib/session";
 import getMessage from "@/constants/messages";
+import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 export async function POST(request: Request) {
+	const startTimestamp = Date.now();
 	// --- Authentication ---
 	// Prefer Bearer token (external API usage); fall back to session auth.
 	const authorizationHeader = request.headers.get("Authorization") || "";
@@ -109,10 +112,18 @@ export async function POST(request: Request) {
 
 	const [err, res]: any = await asaw(evaluateRules(evaluateInput, databaseConfigId));
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_EVALUATE_FAILURE,
+			startTimestamp,
+		});
 		// Return a generic message — do not expose internal ClickHouse errors to callers.
 		return Response.json({ err: "Failed to evaluate rules" }, { status: 400 });
 	}
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.RULE_EVALUATE_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json(res);
 }
 
