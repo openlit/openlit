@@ -83,7 +83,8 @@ describe('HuggingFace Cross-Language Trace Comparison', () => {
             [SemanticConvention.SERVER_ADDRESS]: 'api-inference.huggingface.co',
             [SemanticConvention.SERVER_PORT]: 443,
           }),
-        })
+        }),
+        expect.anything()
       );
     });
 
@@ -101,7 +102,8 @@ describe('HuggingFace Cross-Language Trace Comparison', () => {
             [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: 'huggingface',
             [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'gpt2',
           }),
-        })
+        }),
+        expect.anything()
       );
     });
   });
