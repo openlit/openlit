@@ -20,14 +20,14 @@ export default function TabsContent({
 						<AttrRow
 							key={key.toString()}
 							label={key as string}
-							value={value.toString()}
+							value={value}
 						/>
 					))
 				) : (
 					<AttrRow
-						key={datumValue.toString()}
-						label={datumValue as string}
-						value={""}
+						key={`${dataKey}-${index}-val`}
+						label={typeof datumValue === "string" ? datumValue : `[${index}]`}
+						value={typeof datumValue === "string" ? "" : datumValue}
 					/>
 				)}
 			</section>
@@ -35,8 +35,8 @@ export default function TabsContent({
 		: objectEntries(dataValue).map(([key, value]) => (
 			<AttrRow
 				key={key.toString()}
-				label={value as string}
-				value={value as string || ""}
+				label={key as string}
+				value={value}
 			/>
 		));
 

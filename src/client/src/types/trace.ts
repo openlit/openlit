@@ -151,5 +151,6 @@ export interface TraceHeirarchySpan {
 	Timestamp?: string;
 	StatusCode?: string;
 	Cost?: number;
+	SpanAttributes?: Record<string, string | number>;
 	children?: TraceHeirarchySpan[];
 }
