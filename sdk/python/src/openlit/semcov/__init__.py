@@ -117,7 +117,7 @@ class SemanticConvention:
     GEN_AI_USER_MESSAGE = "gen_ai.user.message"
     GEN_AI_SYSTEM_MESSAGE = "gen_ai.system.message"
     GEN_AI_ASSISTANT_MESSAGE = "gen_ai.assistant.message"
-    GEN_AI_TOOL_MESSAGE = "gen_ai.tools.message"
+    GEN_AI_TOOL_MESSAGE = "gen_ai.tool.message"
     GEN_AI_CHOICE = "gen_ai.choice"
 
     # GenAI Event Names (OTel Semconv v1.29+)
@@ -358,6 +358,10 @@ class SemanticConvention:
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
     GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
     GEN_AI_SYSTEM_GOOGLE_ADK = "google_adk"
+    GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = "claude_agent_sdk"
+    GEN_AI_SYSTEM_AGENT_FRAMEWORK = "agent_framework"
+    GEN_AI_SYSTEM_STRANDS = "strands_agents"
+    GEN_AI_SYSTEM_SMOLAGENTS = "smolagents"
 
     # Graph Execution Attributes (framework-agnostic, usable across LangGraph, CrewAI, etc.)
     GEN_AI_GRAPH_NODES = "gen_ai.graph.nodes"
@@ -514,11 +518,9 @@ class SemanticConvention:
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"
     GEN_AI_TOOL_CALLS = "gen_ai.response.tool_calls"
 
-    # GenAI Content
+    # GenAI Content (input/output messages defined in Tier 1 above)
     GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
-    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
     GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
-    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
@@ -641,12 +643,11 @@ class SemanticConvention:
     DB_INDEX_NAME = "db.index.name"
     DB_COLLECTION_DIMENSION = "db.collection.dimension"
     DB_INDEX_DIMENSION = "db.index.dimension"
-    DB_COLLECTION_DIMENSION = "db.collection.dimension"
     DB_SEARCH_SIMILARITY_METRIC = "db.search.similarity_metric"
     DB_INDEX_METRIC = "db.create_index.metric"
     DB_COLLECTION_SPEC = "db.collection.spec"
     DB_INDEX_SPEC = "db.create_index.spec"
-    DB_NAMESPACE = "db.query.namespace"
+    DB_QUERY_NAMESPACE = "db.query.namespace"
     DB_UPDATE_METADATA = "db.update.metadata"
     DB_UPDATE_VALUES = "db.update.values"
     DB_UPDATE_ID = "db.update.id"
@@ -885,7 +886,7 @@ class SemanticConvention:
 
     # Browser-Use Agent Specific Attributes
     GEN_AI_AGENT_MAX_STEPS = "gen_ai.agent.max_steps"
-    GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task_id"
+    GEN_AI_BROWSER_AGENT_TASK_ID = "gen_ai.agent.task_id"
     GEN_AI_AGENT_SESSION_ID = "gen_ai.agent.session_id"
     GEN_AI_AGENT_USE_VISION = "gen_ai.agent.use_vision"
     GEN_AI_AGENT_MAX_FAILURES = "gen_ai.agent.max_failures"
@@ -907,7 +908,7 @@ class SemanticConvention:
     GEN_AI_ACTION_EXTRACTED_CONTENT_LENGTH = "gen_ai.action.extracted_content_length"
 
     # Browser-Use Browser Specific Attributes
-    GEN_AI_BROWSER_PAGE_TITLE = "gen_ai.browser.page_title"
+    GEN_AI_BROWSER_CURRENT_PAGE_TITLE = "gen_ai.browser.page_title"
     GEN_AI_BROWSER_TABS_COUNT = "gen_ai.browser.tabs_count"
 
     # Browser-Use Agent Execution Attributes
@@ -932,7 +933,6 @@ class SemanticConvention:
 
     # Browser-Use Operation Attributes
     GEN_AI_OPERATION_TYPE = "gen_ai.operation.type"
-    GEN_AI_CLIENT_OPERATION_DURATION = "gen_ai.client.operation.duration"
 
     # Browser-Use Span Name Components
     GEN_AI_SPAN_INVOKE_MODEL = "invoke_model"
@@ -1030,49 +1030,9 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_INDEX_NAME = "gen_ai.framework.index.name"
     GEN_AI_FRAMEWORK_INDEX_TYPE = "gen_ai.framework.index.type"
 
-    # === GENERAL FRAMEWORK SEMANTIC CONVENTIONS (reusable across frameworks) ===
-
-    # Framework tracing attributes (general, reusable across frameworks)
-    GEN_AI_FRAMEWORK_TAGS = "gen_ai.framework.tags"
-
-    # Framework performance tracking (general)
-    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = (
-        "gen_ai.framework.performance.vs_baseline"
-    )
-    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = (
-        "gen_ai.framework.performance.baseline_avg"
-    )
-    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = (
-        "gen_ai.framework.performance.baseline_percentile"
-    )
-
-    # Framework error classification (general)
-    GEN_AI_FRAMEWORK_ERROR_CLASS = "gen_ai.framework.error.class"
-    GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
-    GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
-
-    # Serialized function information (general, reusable)
-    GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
-    GEN_AI_SERIALIZED_SIGNATURE = "gen_ai.serialized.signature"
-    GEN_AI_SERIALIZED_DOC = "gen_ai.serialized.doc"
-    GEN_AI_SERIALIZED_MODULE = "gen_ai.serialized.module"
-
-    # Provider information (general, reusable)
-    GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
-
-    # Enhanced token details (general, reusable across providers)
-    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = (
-        "gen_ai.usage.completion_tokens_details.audio"
-    )
-    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
-        "gen_ai.usage.completion_tokens_details.reasoning"
-    )
-    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
-        "gen_ai.usage.prompt_tokens_details.cache_read"
-    )
-    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = (
-        "gen_ai.usage.prompt_tokens_details.cache_write"
-    )
+    # === GENERAL FRAMEWORK SEMANTIC CONVENTIONS ===
+    # All general framework attrs (tags, errors, serialized, provider, token details)
+    # are defined in Tier 2 above. Do not redefine here.
 
     # === STANDARD OPENTELEMETRY SEMANTIC CONVENTIONS ===
     # These are framework-agnostic and reusable across all agent frameworks

@@ -5,12 +5,12 @@ This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
 
-from typing import Dict
+from typing import Any, Dict
 import logging
 import os
 from importlib.util import find_spec
 from functools import wraps
-from contextlib import contextmanager
+from contextlib import ContextDecorator, contextmanager
 import requests
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -26,6 +26,8 @@ from openlit.__helpers import (
     get_env_variable,
     set_agent_name,
     reset_agent_name,
+    set_custom_attributes,
+    reset_custom_attributes,
     record_agent_invocation,
     record_agent_tool_error,
 )
@@ -96,15 +98,11 @@ def instrument_if_available(
                 instrumentor_instance.instrument(
                     environment=config.environment,
                     application_name=config.application_name,
-                    tracer=config.tracer,
-                    event_provider=config.event_provider,
                     pricing_info=config.pricing_info,
                     capture_message_content=config.capture_message_content,
-                    metrics_dict=config.metrics_dict,
                     disable_metrics=config.disable_metrics,
-                    detailed_tracing=config.detailed_tracing,
-                    capture_parameters=config.capture_parameters,
-                    enable_sqlcommenter=config.enable_sqlcommenter,
+                    disable_events=config.disable_events,
+                    capture_db_parameters=config.capture_db_parameters,
                 )
         else:
             logger.info(
@@ -120,49 +118,49 @@ def init(
     environment="default",
     application_name="default",
     service_name="default",
-    tracer=None,
-    event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
     disable_batch=False,
     capture_message_content=True,
     disabled_instrumentors=None,
-    meter=None,
     disable_metrics=False,
+    disable_events=False,
     pricing_json=None,
     collect_gpu_stats=False,
-    detailed_tracing=True,
     collect_system_metrics=False,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
     evals_logs_export=True,
     max_content_length=None,
+    custom_span_attributes=None,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
 
     This function sets up the openLIT environment with provided configurations
-    and initializes instrumentors for tracing.
+    and initializes instrumentors for tracing. Existing OTel providers
+    (TracerProvider, MeterProvider, LoggerProvider) are auto-detected and
+    reused when already configured.
 
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
-        tracer: Tracer instance (Optional).
-        event_logger: OTel Logger instance for emitting events (Optional).
-        meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
         disable_batch (bool): Flag to disable batch span processing (Optional).
         capture_message_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional).
+        disable_events (bool): Flag to disable OTel Logger event emission (Optional).
         pricing_json(str): File path or url to the pricing json (Optional).
         collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
-        detailed_tracing (bool): Enable detailed component-level tracing for debugging and optimization.
-                                Defaults to False to use workflow-level tracing with minimal storage overhead.
+        capture_db_parameters (bool): Capture database query parameters in per-key OTel format
+                                      (db.query.parameter.<key>). WARNING: may expose sensitive data.
         max_content_length (int): Maximum character length for captured content attributes (prompts,
                                  completions, tool output, etc.). None (default) means no truncation.
                                  Set to a positive integer to truncate content to that length.
+        custom_span_attributes (dict): Custom key-value attributes applied to every auto-instrumented
+                                       span. Values must be valid OTel attribute types (str, int,
+                                       float, bool, or sequences thereof). Optional.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     logger.info("Starting openLIT initialization...")
@@ -207,22 +205,22 @@ def init(
             disabled_instrumentors = env_config["disabled_instrumentors"]
         if disable_metrics is False and "disable_metrics" in env_config:
             disable_metrics = env_config["disable_metrics"]
+        if disable_events is False and "disable_events" in env_config:
+            disable_events = env_config["disable_events"]
         if pricing_json is None and "pricing_json" in env_config:
             pricing_json = env_config["pricing_json"]
         if collect_gpu_stats is False and "collect_gpu_stats" in env_config:
             collect_gpu_stats = env_config["collect_gpu_stats"]
-        if detailed_tracing is True and "detailed_tracing" in env_config:
-            detailed_tracing = env_config["detailed_tracing"]
         if collect_system_metrics is False and "collect_system_metrics" in env_config:
             collect_system_metrics = env_config["collect_system_metrics"]
-        if capture_parameters is False and "capture_parameters" in env_config:
-            capture_parameters = env_config["capture_parameters"]
-        if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
-            enable_sqlcommenter = env_config["enable_sqlcommenter"]
+        if capture_db_parameters is False and "capture_db_parameters" in env_config:
+            capture_db_parameters = env_config["capture_db_parameters"]
         if evals_logs_export is True and "evals_logs_export" in env_config:
             evals_logs_export = env_config["evals_logs_export"]
         if max_content_length is None and "max_content_length" in env_config:
             max_content_length = env_config["max_content_length"]
+        if custom_span_attributes is None and "custom_span_attributes" in env_config:
+            custom_span_attributes = env_config["custom_span_attributes"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -245,7 +243,7 @@ def init(
         tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
-            tracer=tracer,
+            tracer=None,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
             disable_batch=disable_batch,
@@ -259,7 +257,7 @@ def init(
         event_provider = setup_events(
             application_name=final_service_name,
             environment=environment,
-            event_logger=event_logger,
+            event_logger=None,
             otlp_endpoint=None,
             otlp_headers=None,
             disable_batch=disable_batch,
@@ -272,7 +270,7 @@ def init(
         metrics_dict, err = setup_meter(
             application_name=final_service_name,
             environment=environment,
-            meter=meter,
+            meter=None,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
         )
@@ -295,8 +293,6 @@ def init(
         config.update_config(
             environment,
             final_service_name,
-            tracer,
-            event_provider,
             otlp_endpoint,
             otlp_headers,
             disable_batch,
@@ -304,11 +300,11 @@ def init(
             metrics_dict,
             disable_metrics,
             fetch_pricing_info(pricing_json),
-            detailed_tracing,
-            capture_parameters,
-            enable_sqlcommenter,
+            disable_events,
+            capture_db_parameters,
             evals_logs_export,
             max_content_length,
+            custom_span_attributes,
         )
 
         # Create instrumentor instances dynamically
@@ -594,6 +590,56 @@ def agent_context(name):
         yield
     finally:
         reset_agent_name(token)
+
+
+class using_attributes(ContextDecorator):
+    """
+    Context manager and decorator to add custom attributes to all
+    auto-instrumented spans created within its scope.
+
+    Attributes are only applied to spans created while the context is active.
+    Values must be valid OTel attribute types (str, int, float, bool, or
+    sequences thereof).
+
+    As context manager:
+        with openlit.using_attributes({"user.id": "u1", "team": "ml"}):
+            client.chat.completions.create(...)
+
+    As decorator:
+        @openlit.using_attributes({"user.id": "u1"})
+        def my_func():
+            client.chat.completions.create(...)
+    """
+
+    def __init__(self, attributes: Dict[str, Any]):
+        self._attributes = attributes
+        self._token = None
+
+    def __enter__(self):
+        self._token = set_custom_attributes(self._attributes)
+        return self
+
+    def __exit__(self, *exc):
+        reset_custom_attributes(self._token)
+        return False
+
+
+def inject_additional_attributes(fn, attributes: Dict[str, Any]):
+    """
+    Execute *fn()* with custom span attributes attached to all
+    auto-instrumented spans created during its execution.
+
+    Usage:
+        response = openlit.inject_additional_attributes(
+            lambda: client.chat.completions.create(...),
+            {"user.id": "u123", "experiment": "v2"},
+        )
+    """
+    token = set_custom_attributes(attributes)
+    try:
+        return fn()
+    finally:
+        reset_custom_attributes(token)
 
 
 def trace(wrapped):

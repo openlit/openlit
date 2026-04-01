@@ -7,9 +7,11 @@ wrappers with OPERATION_MAP-driven span names, kinds, and attributes.
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.agno.agno import general_wrap
 from openlit.instrumentation.agno.async_agno import (
     async_general_wrap,
@@ -35,7 +37,6 @@ WORKFLOW_OPERATIONS = [
 ]
 
 # === DETAILED-TRACING OPERATIONS ===
-# Wrapped only when detailed_tracing=True
 DETAILED_OPERATIONS = [
     # Tool execution — execute_tool (FunctionCall.execute/aexecute)
     ("agno.tools.function", "FunctionCall.execute", "tool_execute", "sync"),
@@ -58,13 +59,11 @@ class AgnoInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         try:
             version = importlib.metadata.version("agno")
         except importlib.metadata.PackageNotFoundError:
@@ -127,145 +126,144 @@ class AgnoInstrumentor(BaseInstrumentor):
                 pass
 
         # -- detailed-tracing operations --
-        if detailed_tracing:
-            # Tool execution via FunctionCall
-            for module, method, op_key, sync_type in [
-                ("agno.tools.function", "FunctionCall.execute", "tool_execute", "sync"),
-                (
-                    "agno.tools.function",
-                    "FunctionCall.aexecute",
-                    "tool_aexecute",
-                    "async",
-                ),
-            ]:
-                try:
-                    if sync_type == "async":
-                        wrapper = async_general_wrap(op_key, *wrap_args)
-                    else:
-                        wrapper = general_wrap(op_key, *wrap_args)
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
-
-            # Team operations
+        # Tool execution via FunctionCall
+        for module, method, op_key, sync_type in [
+            ("agno.tools.function", "FunctionCall.execute", "tool_execute", "sync"),
+            (
+                "agno.tools.function",
+                "FunctionCall.aexecute",
+                "tool_aexecute",
+                "async",
+            ),
+        ]:
             try:
-                from agno.team.team import Team  # pylint: disable=import-error
-            except ImportError:
-                Team = None
-
-            if Team is not None:
-                # Team._arun_stream (agno < 2.5.3 private methods)
-                if hasattr(Team, "_arun_stream"):
-                    try:
-                        wrap_function_wrapper(
-                            "agno.team.team",
-                            "Team._arun_stream",
-                            async_general_wrap("team_arun", *wrap_args),
-                        )
-                        wrap_function_wrapper(
-                            "agno.team.team",
-                            "Team._arun",
-                            async_general_wrap("team_arun", *wrap_args),
-                        )
-                    except Exception:
-                        pass
+                if sync_type == "async":
+                    wrapper = async_general_wrap(op_key, *wrap_args)
                 else:
-                    try:
-                        wrap_function_wrapper(
-                            "agno.team.team",
-                            "Team.arun",
-                            async_general_wrap("team_arun", *wrap_args),
-                        )
-                    except Exception:
-                        pass
+                    wrapper = general_wrap(op_key, *wrap_args)
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
+        # Team operations
+        try:
+            from agno.team.team import Team  # pylint: disable=import-error
+        except ImportError:
+            Team = None
+
+        if Team is not None:
+            # Team._arun_stream (agno < 2.5.3 private methods)
+            if hasattr(Team, "_arun_stream"):
                 try:
                     wrap_function_wrapper(
                         "agno.team.team",
-                        "Team.run",
-                        general_wrap("team_run", *wrap_args),
+                        "Team._arun_stream",
+                        async_general_wrap("team_arun", *wrap_args),
+                    )
+                    wrap_function_wrapper(
+                        "agno.team.team",
+                        "Team._arun",
+                        async_general_wrap("team_arun", *wrap_args),
                     )
                 except Exception:
                     pass
-
-            # Workflow operations
-            try:
-                from agno.workflow.workflow import Workflow  # pylint: disable=import-error
-            except ImportError:
-                Workflow = None
-
-            if Workflow is not None:
-                if hasattr(Workflow, "run_workflow"):
-                    try:
-                        wrap_function_wrapper(
-                            "agno.workflow.workflow",
-                            "Workflow.run_workflow",
-                            general_wrap("workflow_run", *wrap_args),
-                        )
-                    except Exception:
-                        pass
-                    if hasattr(Workflow, "arun_workflow"):
-                        try:
-                            wrap_function_wrapper(
-                                "agno.workflow.workflow",
-                                "Workflow.arun_workflow",
-                                async_workflow_wrap("workflow_arun", *wrap_args),
-                            )
-                        except Exception:
-                            pass
-
+            else:
                 try:
                     wrap_function_wrapper(
-                        "agno.workflow.workflow",
-                        "Workflow.arun",
-                        async_workflow_wrap("workflow_arun", *wrap_args),
+                        "agno.team.team",
+                        "Team.arun",
+                        async_general_wrap("team_arun", *wrap_args),
                     )
                 except Exception:
                     pass
 
-            # VectorDB operations
             try:
                 wrap_function_wrapper(
-                    "agno.vectordb.base",
-                    "VectorDb.search",
-                    general_wrap("vectordb_search", *wrap_args),
-                )
-                wrap_function_wrapper(
-                    "agno.vectordb.base",
-                    "VectorDb.upsert",
-                    general_wrap("vectordb_upsert", *wrap_args),
+                    "agno.team.team",
+                    "Team.run",
+                    general_wrap("team_run", *wrap_args),
                 )
             except Exception:
                 pass
 
-            # Memory operations
-            memory_module, memory_class = resolve_agno_memory_target()
-            if memory_module is not None:
-                try:
-                    wrap_function_wrapper(
-                        memory_module,
-                        f"{memory_class}.add_user_memory",
-                        general_wrap("memory_add", *wrap_args),
-                    )
-                    wrap_function_wrapper(
-                        memory_module,
-                        f"{memory_class}.search_user_memories",
-                        general_wrap("memory_search", *wrap_args),
-                    )
-                except Exception:
-                    pass
+        # Workflow operations
+        try:
+            from agno.workflow.workflow import Workflow  # pylint: disable=import-error
+        except ImportError:
+            Workflow = None
 
-            # Knowledge operations
-            knowledge_module, knowledge_class = resolve_agno_knowledge_target()
-            if knowledge_module is not None:
+        if Workflow is not None:
+            if hasattr(Workflow, "run_workflow"):
                 try:
                     wrap_function_wrapper(
-                        knowledge_module,
-                        f"{knowledge_class}.search",
-                        general_wrap("knowledge_search", *wrap_args),
+                        "agno.workflow.workflow",
+                        "Workflow.run_workflow",
+                        general_wrap("workflow_run", *wrap_args),
                     )
                 except Exception:
                     pass
+                if hasattr(Workflow, "arun_workflow"):
+                    try:
+                        wrap_function_wrapper(
+                            "agno.workflow.workflow",
+                            "Workflow.arun_workflow",
+                            async_workflow_wrap("workflow_arun", *wrap_args),
+                        )
+                    except Exception:
+                        pass
+
+            try:
+                wrap_function_wrapper(
+                    "agno.workflow.workflow",
+                    "Workflow.arun",
+                    async_workflow_wrap("workflow_arun", *wrap_args),
+                )
+            except Exception:
+                pass
+
+        # VectorDB operations
+        try:
+            wrap_function_wrapper(
+                "agno.vectordb.base",
+                "VectorDb.search",
+                general_wrap("vectordb_search", *wrap_args),
+            )
+            wrap_function_wrapper(
+                "agno.vectordb.base",
+                "VectorDb.upsert",
+                general_wrap("vectordb_upsert", *wrap_args),
+            )
+        except Exception:
+            pass
+
+        # Memory operations
+        memory_module, memory_class = resolve_agno_memory_target()
+        if memory_module is not None:
+            try:
+                wrap_function_wrapper(
+                    memory_module,
+                    f"{memory_class}.add_user_memory",
+                    general_wrap("memory_add", *wrap_args),
+                )
+                wrap_function_wrapper(
+                    memory_module,
+                    f"{memory_class}.search_user_memories",
+                    general_wrap("memory_search", *wrap_args),
+                )
+            except Exception:
+                pass
+
+        # Knowledge operations
+        knowledge_module, knowledge_class = resolve_agno_knowledge_target()
+        if knowledge_module is not None:
+            try:
+                wrap_function_wrapper(
+                    knowledge_module,
+                    f"{knowledge_class}.search",
+                    general_wrap("knowledge_search", *wrap_args),
+                )
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         pass

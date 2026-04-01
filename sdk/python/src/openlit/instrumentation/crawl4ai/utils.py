@@ -13,7 +13,11 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    _apply_custom_span_attributes,
+    handle_exception,
+    truncate_content,
+)
 from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
@@ -369,6 +373,8 @@ def set_crawl_attributes(
                     SemanticConvention.GEN_AI_CRAWL_DEPTH,
                     config.deep_crawl_strategy.max_depth,
                 )
+
+    _apply_custom_span_attributes(span)
 
 
 def process_crawl_response(

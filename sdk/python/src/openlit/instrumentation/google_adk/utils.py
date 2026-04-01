@@ -25,6 +25,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    get_server_address_for_provider,
     truncate_content,
     truncate_message_content,
 )
@@ -116,13 +117,13 @@ class _PassthroughTracer(wrapt.ObjectProxy):  # pylint: disable=too-few-public-m
 # ---------------------------------------------------------------------------
 # Server address resolution
 # ---------------------------------------------------------------------------
-_NON_GOOGLE_PROVIDERS = {
-    "anthropic": ("api.anthropic.com", 443, "anthropic"),
-    "claude": ("api.anthropic.com", 443, "anthropic"),
-    "openai": ("api.openai.com", 443, "openai"),
-    "gpt": ("api.openai.com", 443, "openai"),
-    "mistral": ("api.mistral.ai", 443, "mistral"),
-    "cohere": ("api.cohere.ai", 443, "cohere"),
+_PREFIX_TO_PROVIDER = {
+    "anthropic": "anthropic",
+    "claude": "anthropic",
+    "openai": "openai",
+    "gpt": "openai",
+    "mistral": "mistral_ai",
+    "cohere": "cohere",
 }
 
 
@@ -132,7 +133,13 @@ def _detect_provider_from_model_str(model_str):
         return None
     lower = model_str.lower()
     prefix = lower.split("/")[0] if "/" in lower else lower.split("-")[0]
-    return _NON_GOOGLE_PROVIDERS.get(prefix)
+    provider_key = _PREFIX_TO_PROVIDER.get(prefix)
+    if provider_key is None:
+        return None
+    addr, port = get_server_address_for_provider(provider_key)
+    if not addr:
+        return None
+    return addr, port, provider_key
 
 
 def resolve_server_info(instance=None, model_name=None):
@@ -165,8 +172,10 @@ def resolve_server_info(instance=None, model_name=None):
             pass
 
     if os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1"):
-        return "aiplatform.googleapis.com", 443, "gcp.vertex_ai"
-    return "generativelanguage.googleapis.com", 443, "gcp.gemini"
+        addr, port = get_server_address_for_provider("gcp.vertex_ai")
+        return addr, port, "gcp.vertex_ai"
+    addr, port = get_server_address_for_provider("gcp.gemini")
+    return addr, port, "gcp.gemini"
 
 
 # ---------------------------------------------------------------------------
@@ -598,6 +607,21 @@ def _is_adk_event(obj):
 # ---------------------------------------------------------------------------
 # Tool span enrichment (called from trace_tool_call wrapper)
 # ---------------------------------------------------------------------------
+def _otel_gen_ai_tool_type(tool):
+    """Map an ADK tool instance's class name to OTel ``gen_ai.tool.type`` values.
+
+    OTel allows: ``function``, ``extension``, ``datastore``. ADK exposes Python
+    types like ``FunctionTool``, ``AgentTool``; we map by substring on the
+    class name.
+    """
+    name = type(tool).__name__
+    if "Function" in name:
+        return "function"
+    if "Agent" in name:
+        return "extension"
+    return "function"
+
+
 def enrich_tool_span(
     span,
     tool,
@@ -625,7 +649,9 @@ def enrich_tool_span(
         if tool:
             tool_name = getattr(tool, "name", None) or type(tool).__name__
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(tool_name))
-            span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, type(tool).__name__)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_TYPE, _otel_gen_ai_tool_type(tool)
+            )
             tool_desc = getattr(tool, "description", None)
             if tool_desc:
                 span.set_attribute(
@@ -822,6 +848,7 @@ def _set_runner_agent_attributes(span, instance, endpoint):
             or "google_adk"
         )
         span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(app_name))
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(id(instance)))
 
         if endpoint == "runner_run_live":
             span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "live")
@@ -839,6 +866,8 @@ def _set_agent_attributes(span, instance):
         name = getattr(instance, "name", None)
         if name:
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(name))
+
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(id(instance)))
 
         description = getattr(instance, "description", None)
         if description:

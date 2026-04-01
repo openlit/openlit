@@ -37,8 +37,6 @@ except Exception as e:
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true"
             ).lower()
             == "true",
-            detailed_tracing=os.environ.get("OPENLIT_DETAILED_TRACING", "true").lower()
-            == "true",
         )
 
         print("✅ OpenLIT fallback initialization successful!")

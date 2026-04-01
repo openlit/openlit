@@ -412,13 +412,20 @@ def _finalize_async_stream_span(
     )
 
     if execution_state["final_response"] and capture_message_content:
+        output_msgs = [
+            {
+                "role": "assistant",
+                "parts": [
+                    {
+                        "type": "text",
+                        "content": truncate_content(execution_state["final_response"]),
+                    }
+                ],
+            }
+        ]
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"]),
-        )
-        span.set_attribute(
-            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"]),
+            json.dumps(output_msgs),
         )
 
     span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")

@@ -4,8 +4,8 @@ Utilities for Psycopg (PostgreSQL) instrumentation.
 
 import re
 import time
-from typing import Tuple, Any, Optional
-from opentelemetry.trace import Status, StatusCode, get_current_span
+from typing import Tuple, Any
+from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     common_db_span_attributes,
     record_db_metrics,
@@ -214,7 +214,7 @@ def sanitize_parameter(value: Any, max_length: int = MAX_PARAM_LENGTH) -> str:
 
     Truncates long values and converts to string representation.
     Does NOT mask sensitive data - that's the user's responsibility
-    to not enable capture_parameters with sensitive queries.
+    to not enable capture_db_parameters with sensitive queries.
 
     Args:
         value: Parameter value
@@ -247,177 +247,6 @@ def sanitize_parameter(value: Any, max_length: int = MAX_PARAM_LENGTH) -> str:
     return str_value
 
 
-def format_parameters(
-    params: Any,
-    max_count: int = MAX_PARAMS_COUNT,
-    max_length: int = MAX_PARAM_LENGTH,
-) -> Optional[str]:
-    """
-    Format query parameters for span attributes.
-
-    Args:
-        params: Query parameters (tuple, list, dict, or None)
-        max_count: Maximum number of parameters to include
-        max_length: Maximum length per parameter value
-
-    Returns:
-        Formatted string or None if no parameters
-    """
-    if params is None:
-        return None
-
-    try:
-        if isinstance(params, dict):
-            # Named parameters: {"name": "value", ...}
-            items = list(params.items())[:max_count]
-            formatted = {k: sanitize_parameter(v, max_length) for k, v in items}
-            if len(params) > max_count:
-                formatted["..."] = f"<{len(params) - max_count} more>"
-            return str(formatted)
-
-        elif isinstance(params, (list, tuple)):
-            # Positional parameters: ($1, $2, ...)
-            items = list(params)[:max_count]
-            formatted = [sanitize_parameter(v, max_length) for v in items]
-            if len(params) > max_count:
-                formatted.append(f"<{len(params) - max_count} more>")
-            return str(formatted)
-
-        else:
-            # Single parameter
-            return sanitize_parameter(params, max_length)
-
-    except Exception:
-        return "<error formatting parameters>"
-
-
-def generate_sql_comment(
-    traceparent: Optional[str] = None,
-    tracestate: Optional[str] = None,
-    application_name: Optional[str] = None,
-) -> str:
-    """
-    Generate a SQL comment with trace context (SQLCommenter format).
-
-    This allows database logs to be correlated with application traces.
-    Format follows the SQLCommenter specification:
-    https://google.github.io/sqlcommenter/
-
-    Args:
-        traceparent: W3C Trace Context traceparent header value
-        tracestate: W3C Trace Context tracestate header value
-        application_name: Application name to include
-
-    Returns:
-        SQL comment string to append to queries
-    """
-    parts = []
-
-    if traceparent:
-        # URL-encode single quotes for safety
-        parts.append(f"traceparent='{traceparent}'")
-
-    if tracestate:
-        parts.append(f"tracestate='{tracestate}'")
-
-    if application_name:
-        # Sanitize application name (alphanumeric and underscores only)
-        safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", application_name)
-        parts.append(f"application='{safe_name}'")
-
-    if not parts:
-        return ""
-
-    return "/*" + ",".join(parts) + "*/"
-
-
-def get_trace_context_for_comment() -> Tuple[Optional[str], Optional[str]]:
-    """
-    Extract current trace context for SQLCommenter.
-
-    Returns:
-        Tuple of (traceparent, tracestate) or (None, None) if no active span
-    """
-    try:
-        span = get_current_span()
-        if span is None or not span.is_recording():
-            return None, None
-
-        ctx = span.get_span_context()
-        if ctx is None or not ctx.is_valid:
-            return None, None
-
-        # Format traceparent: version-trace_id-span_id-flags
-        # Version is always 00
-        trace_id = format(ctx.trace_id, "032x")
-        span_id = format(ctx.span_id, "016x")
-        flags = format(ctx.trace_flags, "02x")
-        traceparent = f"00-{trace_id}-{span_id}-{flags}"
-
-        # Get tracestate if available
-        tracestate = None
-        if ctx.trace_state:
-            # Convert trace state to string
-            tracestate_items = []
-            for key, value in ctx.trace_state.items():
-                tracestate_items.append(f"{key}={value}")
-            if tracestate_items:
-                tracestate = ",".join(tracestate_items)
-
-        return traceparent, tracestate
-
-    except Exception:
-        return None, None
-
-
-def inject_sql_comment(
-    query: Any,
-    application_name: Optional[str] = None,
-    enable_sqlcommenter: bool = False,
-) -> Any:
-    """
-    Inject SQLCommenter trace context into a SQL query.
-
-    Only modifies string queries. SQL composition objects are returned as-is.
-    Only injects if enable_sqlcommenter is True.
-
-    Args:
-        query: Original SQL query
-        application_name: Application name to include in comment
-        enable_sqlcommenter: Whether SQLCommenter is enabled
-
-    Returns:
-        Modified query with comment appended, or original query
-    """
-    if not enable_sqlcommenter:
-        return query
-
-    # Only inject into string queries
-    if not isinstance(query, str):
-        return query
-
-    # Don't inject if query already has a comment at the end
-    stripped = query.rstrip()
-    if stripped.endswith("*/"):
-        return query
-
-    # Get current trace context
-    traceparent, tracestate = get_trace_context_for_comment()
-
-    # Generate comment
-    comment = generate_sql_comment(traceparent, tracestate, application_name)
-
-    if not comment:
-        return query
-
-    # Append comment to query
-    # Handle queries that end with semicolon
-    if stripped.endswith(";"):
-        return stripped[:-1] + " " + comment + ";"
-    else:
-        return query + " " + comment
-
-
 def common_psycopg_logic(
     scope,
     environment,
@@ -428,7 +257,7 @@ def common_psycopg_logic(
     version,
     connection=None,
     endpoint=None,
-    capture_parameters=False,
+    capture_db_parameters=False,
     params=None,
 ):
     """
@@ -444,8 +273,8 @@ def common_psycopg_logic(
         version: SDK version
         connection: Database connection object
         endpoint: API endpoint name
-        capture_parameters: Whether to capture query parameters
-        params: Query parameters (if capture_parameters is True)
+        capture_db_parameters: Whether to capture query parameters
+        params: Query parameters (if capture_db_parameters is True)
     """
     scope._end_time = time.time()
 
@@ -482,13 +311,18 @@ def common_psycopg_logic(
         query_str = truncate_content(scope._query)
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query_str)
 
-    # Set query parameters if capture is enabled
-    if capture_parameters and params is not None:
-        formatted_params = format_parameters(params)
-        if formatted_params:
-            scope._span.set_attribute(
-                SemanticConvention.DB_QUERY_PARAMETER, formatted_params
-            )
+    # Set query parameters if capture is enabled (OTel per-key convention)
+    if capture_db_parameters and params is not None:
+        if isinstance(params, dict):
+            for key, value in list(params.items())[:MAX_PARAMS_COUNT]:
+                scope._span.set_attribute(
+                    f"db.query.parameter.{key}", sanitize_parameter(value)
+                )
+        elif isinstance(params, (list, tuple)):
+            for idx, value in enumerate(list(params)[:MAX_PARAMS_COUNT]):
+                scope._span.set_attribute(
+                    f"db.query.parameter.{idx}", sanitize_parameter(value)
+                )
 
     # Set query summary
     scope._span.set_attribute(
@@ -550,7 +384,7 @@ def process_cursor_response(
     cursor=None,
     connection=None,
     endpoint=None,
-    capture_parameters=False,
+    capture_db_parameters=False,
     params=None,
 ):
     """
@@ -575,7 +409,7 @@ def process_cursor_response(
         cursor: Cursor object
         connection: Connection object
         endpoint: API endpoint name
-        capture_parameters: Whether to capture query parameters
+        capture_db_parameters: Whether to capture query parameters
         params: Query parameters (tuple, list, dict, or None)
     """
     # Create scope object
@@ -609,7 +443,7 @@ def process_cursor_response(
         version,
         connection=connection,
         endpoint=endpoint,
-        capture_parameters=capture_parameters,
+        capture_db_parameters=capture_db_parameters,
         params=params,
     )
 

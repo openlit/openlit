@@ -7,9 +7,11 @@ All module paths verified against the actual CrewAI SDK.
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.crewai.crewai import general_wrap
 from openlit.instrumentation.crewai.async_crewai import async_general_wrap
 
@@ -98,13 +100,11 @@ class CrewAIInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("crewai")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
         wrap_args = (
             version,
             environment,
@@ -128,16 +128,15 @@ class CrewAIInstrumentor(BaseInstrumentor):
                 pass
 
         # -- detailed-tracing operations --
-        if detailed_tracing:
-            for module, method, op_key, sync_type in DETAILED_OPERATIONS:
-                try:
-                    if sync_type == "async":
-                        wrapper = async_general_wrap(op_key, *wrap_args)
-                    else:
-                        wrapper = general_wrap(op_key, *wrap_args)
-                    wrap_function_wrapper(module, method, wrapper)
-                except Exception:
-                    pass
+        for module, method, op_key, sync_type in DETAILED_OPERATIONS:
+            try:
+                if sync_type == "async":
+                    wrapper = async_general_wrap(op_key, *wrap_args)
+                else:
+                    wrapper = general_wrap(op_key, *wrap_args)
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
         # -- thread context propagation --
         self._install_context_propagation()
