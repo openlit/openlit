@@ -36,7 +36,7 @@ func main() {
 
 func run(logger *slog.Logger) error {
 	cfg := config.Load()
-	logger.Info("starting openlit-collector",
+	logger.Info("starting opentelemetry-gpu-collector",
 		"service", cfg.ServiceName,
 		"environment", cfg.Environment,
 		"interval", cfg.CollectionInterval,

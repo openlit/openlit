@@ -28,7 +28,7 @@ func NewMetricsCollector(provider *sdkmetric.MeterProvider, devices []gpu.Device
 		logger:  logger,
 	}
 
-	meter := provider.Meter("openlit.gpu.collector",
+	meter := provider.Meter("otelcol.gpu.collector",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 

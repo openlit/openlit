@@ -36,7 +36,7 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		proc:   proc,
 	}
 
-	meter := provider.Meter("openlit.process",
+	meter := provider.Meter("otelcol.process",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 

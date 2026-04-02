@@ -29,7 +29,7 @@ type SystemCollector struct {
 func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*SystemCollector, error) {
 	sc := &SystemCollector{logger: logger}
 
-	meter := provider.Meter("openlit.system",
+	meter := provider.Meter("otelcol.system",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 

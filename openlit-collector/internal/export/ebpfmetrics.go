@@ -27,7 +27,7 @@ type EBPFMetrics struct {
 
 // NewEBPFMetrics creates OTel instruments for eBPF CUDA event metrics.
 func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EBPFMetrics, error) {
-	meter := provider.Meter("openlit.gpu.ebpf",
+	meter := provider.Meter("otelcol.gpu.ebpf",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 

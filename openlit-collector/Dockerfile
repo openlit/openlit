@@ -24,7 +24,7 @@ RUN if [ -f /sys/kernel/btf/vmlinux ]; then \
       echo "WARNING: /sys/kernel/btf/vmlinux not available — skipping eBPF generation. Pre-generated bindings must exist."; \
     fi
 
-RUN GOOS=linux go build -o /openlit-collector ./cmd/collector/
+RUN GOOS=linux go build -o /opentelemetry-gpu-collector ./cmd/collector/
 
 # Stage 2: Minimal runtime image
 FROM debian:bookworm-slim
@@ -33,9 +33,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /openlit-collector /usr/local/bin/openlit-collector
+COPY --from=builder /opentelemetry-gpu-collector /usr/local/bin/opentelemetry-gpu-collector
 
 ENV GPU_APPLICATION_NAME=default
 ENV GPU_ENVIRONMENT=default
 
-ENTRYPOINT ["/usr/local/bin/openlit-collector"]
+ENTRYPOINT ["/usr/local/bin/opentelemetry-gpu-collector"]

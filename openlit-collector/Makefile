@@ -1,6 +1,6 @@
 .PHONY: all build generate setup-bpf test lint clean docker
 
-BINARY   := openlit-collector
+BINARY   := opentelemetry-gpu-collector
 CMD_DIR  := ./cmd/collector
 BPF_DIR  := ./internal/ebpf
 
@@ -43,4 +43,4 @@ clean:
 	rm -f $(BPF_DIR)/bpf/bpf_tracing.h $(BPF_DIR)/bpf/bpf_core_read.h $(BPF_DIR)/bpf/bpf_endian.h
 
 docker:
-	docker build -t openlit-collector:latest .
+	docker build -t opentelemetry-gpu-collector:latest .
