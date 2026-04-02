@@ -32,7 +32,7 @@ from openlit.__helpers import (
     record_agent_tool_error,
 )
 from openlit._config import OpenlitConfig  # noqa: F401 — re-exported for public API
-from openlit._instrumentors import MODULE_NAME_MAP, get_all_instrumentors
+from openlit._instrumentors import MODULE_NAME_MAP, INSTRUMENTOR_ALIASES, get_all_instrumentors
 
 # Import GPU instrumentor separately as it doesn't follow the standard pattern
 from openlit.instrumentation.gpu import GPUInstrumentor
@@ -149,6 +149,10 @@ def init(
         disable_batch (bool): Flag to disable batch span processing (Optional).
         capture_message_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
+                                          Common aliases are resolved automatically (e.g. "aiohttp"
+                                          maps to "aiohttp-client"). Note: "urllib3" must be disabled
+                                          separately from "requests" since requests uses urllib3
+                                          internally.
         disable_metrics (bool): Flag to disable metrics (Optional).
         disable_events (bool): Flag to disable OTel Logger event emission (Optional).
         pricing_json(str): File path or url to the pricing json (Optional).
@@ -163,6 +167,9 @@ def init(
                                        float, bool, or sequences thereof). Optional.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
+    disabled_instrumentors = [
+        INSTRUMENTOR_ALIASES.get(name, name) for name in disabled_instrumentors
+    ]
     logger.info("Starting openLIT initialization...")
 
     # Handle service_name/application_name migration
@@ -202,7 +209,10 @@ def init(
         if capture_message_content is True and "capture_message_content" in env_config:
             capture_message_content = env_config["capture_message_content"]
         if not disabled_instrumentors and "disabled_instrumentors" in env_config:
-            disabled_instrumentors = env_config["disabled_instrumentors"]
+            disabled_instrumentors = [
+                INSTRUMENTOR_ALIASES.get(name, name)
+                for name in env_config["disabled_instrumentors"]
+            ]
         if disable_metrics is False and "disable_metrics" in env_config:
             disable_metrics = env_config["disable_metrics"]
         if disable_events is False and "disable_events" in env_config:
@@ -231,9 +241,20 @@ def init(
         name for name in disabled_instrumentors if name not in MODULE_NAME_MAP
     ]
     for invalid_name in invalid_instrumentors:
-        logger.warning(
-            "Invalid instrumentor name detected and ignored: '%s'", invalid_name
-        )
+        suggestions = [
+            k for k in MODULE_NAME_MAP if invalid_name in k or k in invalid_name
+        ]
+        if suggestions:
+            logger.warning(
+                "Invalid instrumentor name '%s'. Did you mean: %s?",
+                invalid_name,
+                ", ".join(suggestions),
+            )
+        else:
+            logger.warning(
+                "Invalid instrumentor name detected and ignored: '%s'",
+                invalid_name,
+            )
 
     try:
         # Retrieve or create the single configuration instance.

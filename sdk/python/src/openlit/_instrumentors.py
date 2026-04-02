@@ -79,6 +79,22 @@ MODULE_NAME_MAP = {
     "urllib3": "urllib3",
 }
 
+# Common aliases so users can pass intuitive names (e.g. "aiohttp") that
+# differ from the canonical hyphenated keys used in MODULE_NAME_MAP.
+INSTRUMENTOR_ALIASES = {
+    "aiohttp": "aiohttp-client",
+    "openai_agents": "openai-agents",
+    "google_ai_studio": "google-ai-studio",
+    "azure_ai_inference": "azure-ai-inference",
+    "reka": "reka-api",
+    "browser_use": "browser-use",
+    "google_adk": "google-adk",
+    "claude_agent_sdk": "claude-agent-sdk",
+    "agent_framework": "agent-framework",
+    "psycopg_pool": "psycopg-pool",
+    "http": "httpx",
+}
+
 # Dictionary mapping instrumentor names to their full module paths
 INSTRUMENTOR_MAP = {
     # OpenLIT AI/ML instrumentations
