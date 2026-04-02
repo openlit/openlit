@@ -80,6 +80,22 @@ jobs:
           go-version-file: opentelemetry-gpu-collector/go.mod
           cache-dependency-path: opentelemetry-gpu-collector/go.sum
 
+      - name: Install eBPF build dependencies (linux targets only)
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
+            | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+
+      - name: Generate eBPF objects (linux targets only)
+        if: matrix.goos == 'linux'
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
       - name: Extract version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
