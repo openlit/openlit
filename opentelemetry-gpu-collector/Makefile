@@ -14,7 +14,7 @@ all: setup-bpf generate build
 setup-bpf:
 	@echo "==> Checking eBPF build dependencies..."
 	@command -v clang  >/dev/null 2>&1 || (echo "Installing clang/llvm..." && sudo apt-get update && sudo apt-get install -y clang llvm)
-	@(command -v bpftool >/dev/null 2>&1 || test -x /usr/sbin/bpftool) || (echo "Installing bpftool..." && sudo apt-get update && sudo apt-get install -y linux-tools-$$(uname -r) linux-tools-common 2>/dev/null || sudo apt-get install -y bpftool)
+	@(command -v bpftool >/dev/null 2>&1 || test -x /usr/sbin/bpftool) || { echo "bpftool not found. Install it with: sudo apt-get install linux-tools-\$$(uname -r) or linux-tools-generic" && exit 1; }
 	@dpkg -s libbpf-dev >/dev/null 2>&1 || (echo "Installing libbpf-dev..." && sudo apt-get update && sudo apt-get install -y libbpf-dev)
 	@echo "==> Generating vmlinux.h from kernel BTF..."
 	bash -c 'BPFTOOL=$$(command -v bpftool 2>/dev/null || echo /usr/sbin/bpftool); $$BPFTOOL btf dump file /sys/kernel/btf/vmlinux format c > $(BPF_DIR)/bpf/vmlinux.h'

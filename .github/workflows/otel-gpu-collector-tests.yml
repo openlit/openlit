@@ -25,6 +25,18 @@ jobs:
           go-version-file: opentelemetry-gpu-collector/go.mod
           cache-dependency-path: opentelemetry-gpu-collector/go.sum
 
+      - name: Install bpftool
+        run: |
+          # Try exact kernel version package first, fall back to generic
+          sudo apt-get update -q
+          sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-generic
+          # Ensure bpftool is on PATH when the versioned dir isn't in PATH
+          if ! command -v bpftool >/dev/null 2>&1 && ! test -x /usr/sbin/bpftool; then
+            BPFTOOL=$(find /usr/lib/linux-tools -name bpftool 2>/dev/null | head -1)
+            [ -n "$BPFTOOL" ] && sudo ln -sf "$BPFTOOL" /usr/local/bin/bpftool
+          fi
+
       - name: Generate eBPF objects
         working-directory: opentelemetry-gpu-collector
         run: make setup-bpf generate
