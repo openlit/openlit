@@ -1,0 +1,140 @@
+---
+title: 'Installation'
+description: 'Install the OpenTelemetry GPU Collector via Docker, binary, or from source'
+icon: 'circle-down'
+---
+
+## Docker (recommended)
+
+The easiest way to run the collector. The image is published to GitHub Container Registry and supports `linux/amd64` and `linux/arm64`.
+
+```bash
+docker pull ghcr.io/openlit/otel-gpu-collector:latest
+```
+
+### Tags
+
+| Tag | Description |
+|---|---|
+| `latest` | Most recent release |
+| `1.2.3` | Specific version |
+| `1.2` | Latest patch of a minor version |
+
+---
+
+## Pre-built binaries
+
+Download a binary for your platform from the [GitHub Releases](https://github.com/openlit/openlit/releases) page. Binaries are available for:
+
+| Platform | Architecture |
+|---|---|
+| Linux | amd64, arm64, armv7 |
+| macOS | amd64 (Intel), arm64 (Apple Silicon) |
+| Windows | amd64, arm64 |
+
+```bash
+# Example: Linux amd64
+curl -L https://github.com/openlit/openlit/releases/latest/download/opentelemetry-gpu-collector-<version>-linux-amd64 \
+    -o opentelemetry-gpu-collector
+chmod +x opentelemetry-gpu-collector
+
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+./opentelemetry-gpu-collector
+```
+
+<Note>
+GPU metrics (NVML, sysfs) and eBPF tracing only work on Linux. On macOS and Windows the binary runs with host and process metrics only.
+</Note>
+
+Verify the SHA256 checksum from the `SHA256SUMS.txt` file in the release:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+---
+
+## Build from source
+
+Requirements: Go 1.21+, CGO enabled (required for NVML on Linux).
+
+```bash
+git clone https://github.com/openlit/openlit.git
+cd openlit/opentelemetry-gpu-collector
+make build
+./opentelemetry-gpu-collector
+```
+
+For eBPF CUDA tracing support, also run:
+
+```bash
+make setup-bpf   # installs bpftool, generates vmlinux.h
+make generate    # runs bpf2go code generation
+make build
+```
+
+---
+
+## Upgrade
+
+### Docker
+
+```bash
+docker pull ghcr.io/openlit/otel-gpu-collector:latest
+docker stop otel-gpu-collector
+docker rm otel-gpu-collector
+# re-run with same flags
+```
+
+### Binary
+
+Download the new binary from the [Releases](https://github.com/openlit/openlit/releases) page, replace the existing file, and restart the process.
+
+---
+
+## Uninstall
+
+### Docker
+
+```bash
+docker stop otel-gpu-collector
+docker rm otel-gpu-collector
+docker rmi ghcr.io/openlit/otel-gpu-collector:latest
+```
+
+### Binary
+
+```bash
+rm /usr/local/bin/opentelemetry-gpu-collector
+```
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No GPU metrics — collector starts but reports no hw.gpu.* metrics">
+    - Confirm the host has a supported GPU: `lspci | grep -E 'VGA|3D|Display'`
+    - For NVIDIA: verify `libnvidia-ml.so` is present: `ldconfig -p | grep nvidia-ml`
+    - For Docker: ensure `--gpus all` (NVIDIA) or `--device /dev/dri` (AMD/Intel) is passed
+    - Check logs: `docker logs otel-gpu-collector` for `"discovered GPU"` entries
+  </Accordion>
+  <Accordion title="eBPF tracing not working">
+    - Confirm `OTEL_GPU_EBPF_ENABLED=true` is set
+    - Check kernel version: `uname -r` (requires 5.8+)
+    - The process needs `CAP_BPF` and `CAP_PERFMON`, or run as root
+    - For Docker: add `--privileged` or `--cap-add CAP_BPF --cap-add CAP_PERFMON`
+    - Verify `libcudart.so` is present on the host: `ldconfig -p | grep cudart`
+  </Accordion>
+  <Accordion title="Connection refused / no data reaching backend">
+    - Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is reachable from the container: `curl http://<endpoint>/health`
+    - For Docker networking: use the host IP or service name, not `localhost`
+    - Check if gRPC vs HTTP/protobuf matches the backend: set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` for HTTP backends (port 4318)
+  </Accordion>
+  <Accordion title="Intel GPU not detected">
+    - Verify the i915 or Xe driver is loaded: `lsmod | grep -E 'i915|xe'`
+    - Check DRM entries exist: `ls /sys/class/drm/`
+    - Requires Linux kernel 5.10+ for sysfs metric exposure
+    - Fan speed requires kernel 6.16+
+  </Accordion>
+</AccordionGroup>

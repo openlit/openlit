@@ -1,0 +1,225 @@
+name: Release OTel GPU Collector
+
+on:
+  push:
+    tags: [ 'otel-gpu-collector-*.*.*' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: openlit/otel-gpu-collector
+  BINARY_NAME: opentelemetry-gpu-collector
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 1. Unit tests ──────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          # Download static bpftool binary from libbpf/bpftool releases — avoids
+          # linux-tools-$(uname -r) which fails on azure/custom kernels.
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
+            | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+          bpftool version
+
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...
+
+  # ── 2. Cross-compile binaries ──────────────────────────────────────────────
+  build-binaries:
+    name: Build binaries (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Install eBPF build dependencies (linux targets only)
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
+            | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+
+      - name: Generate eBPF objects (linux targets only)
+        if: matrix.goos == 'linux'
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        working-directory: opentelemetry-gpu-collector
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: "0"
+        run: |
+          OUTPUT="${{ env.BINARY_NAME }}-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
+            -o "../dist/${OUTPUT}" ./cmd/collector
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}
+          path: dist/
+
+  # ── 3. GitHub Release with binary assets ──────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          name: "OTel GPU Collector ${{ steps.version.outputs.version }}"
+          files: |
+            dist/*
+          generate_release_notes: true
+
+  # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
+  docker:
+    name: Docker
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log into GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./opentelemetry-gpu-collector/
+          file: ./opentelemetry-gpu-collector/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          annotations: |
+            ${{ steps.meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/opentelemetry-gpu-collector/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI'
+
+      - name: Sign the published Docker image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
