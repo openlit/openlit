@@ -25,19 +25,32 @@ jobs:
           go-version-file: opentelemetry-gpu-collector/go.mod
           cache-dependency-path: opentelemetry-gpu-collector/go.sum
 
-      - name: Install bpftool
+      - name: Install eBPF build dependencies
         run: |
           sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
           sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-azure 2>/dev/null || \
             sudo apt-get install -y linux-tools-generic
-          if ! command -v bpftool >/dev/null 2>&1 && ! test -x /usr/sbin/bpftool; then
-            BPFTOOL=$(find /usr/lib/linux-tools -name bpftool 2>/dev/null | head -1)
-            [ -n "$BPFTOOL" ] && sudo ln -sf "$BPFTOOL" /usr/local/bin/bpftool
-          fi
+          BPFTOOL=$(find /usr/lib/linux-tools -name bpftool 2>/dev/null | head -1)
+          [ -n "$BPFTOOL" ] && sudo ln -sf "$BPFTOOL" /usr/local/bin/bpftool
+          echo "bpftool: $(bpftool version 2>&1 | head -1)"
+          echo "BTF file: $(ls -la /sys/kernel/btf/vmlinux 2>/dev/null || echo 'NOT FOUND')"
 
-      - name: Generate eBPF objects
+      - name: Generate vmlinux.h from kernel BTF
+        run: |
+          bpftool btf dump file /sys/kernel/btf/vmlinux format c \
+            > opentelemetry-gpu-collector/internal/ebpf/bpf/vmlinux.h
+
+      - name: Copy libbpf headers and generate eBPF objects
         working-directory: opentelemetry-gpu-collector
-        run: make setup-bpf generate
+        run: |
+          cp /usr/include/bpf/bpf_helpers.h    internal/ebpf/bpf/
+          cp /usr/include/bpf/bpf_helper_defs.h internal/ebpf/bpf/
+          cp /usr/include/bpf/bpf_tracing.h    internal/ebpf/bpf/
+          cp /usr/include/bpf/bpf_core_read.h  internal/ebpf/bpf/ 2>/dev/null || true
+          cp /usr/include/bpf/bpf_endian.h     internal/ebpf/bpf/ 2>/dev/null || true
+          make generate
 
       - name: Run tests
         working-directory: opentelemetry-gpu-collector
