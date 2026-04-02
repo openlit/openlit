@@ -1,6 +1,4 @@
 // GPU event eBPF probes for CUDA runtime interception.
-// Adapted from OpenTelemetry eBPF Instrumentation (OBI) v0.4.1
-// Original: https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation
 // License: Apache-2.0
 
 //go:build ignore

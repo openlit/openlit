@@ -15,7 +15,7 @@ import (
 )
 
 // SymbolResolver maps kernel function addresses to human-readable names
-// by parsing ELF symbols from process memory maps. Adapted from OBI v0.4.1.
+// by parsing ELF symbols from process memory maps.
 type SymbolResolver struct {
 	logger *slog.Logger
 	mu     sync.RWMutex

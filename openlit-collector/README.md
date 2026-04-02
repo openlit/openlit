@@ -228,7 +228,7 @@ The collector scans `/sys/bus/pci/devices/` for VGA/3D controllers and identifie
 
 ### eBPF CUDA Tracing
 
-Adapted from [OpenTelemetry eBPF Instrumentation (OBI) v0.4.1](https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/tree/v0.4.1). Attaches uprobes to `libcudart.so` to intercept:
+Attaches uprobes to `libcudart.so` to intercept:
 - `cudaLaunchKernel` -- kernel name, grid/block dimensions
 - `cudaMalloc` -- allocation size
 - `cudaMemcpyAsync` / `cudaMemcpy` -- copy size and direction
@@ -257,7 +257,7 @@ Whether it's big or small, we love contributions. Check out our [Contribution gu
 | AMD GPU hardware telemetry (sysfs/hwmon) | Done |
 | Intel GPU hardware telemetry (sysfs/hwmon) | Done |
 | DCGM-style metrics (power, temp, clocks, ECC) | Done |
-| eBPF CUDA kernel tracing (OBI-style) | Done |
+| eBPF CUDA kernel tracing | Done |
 | Prometheus `/metrics` endpoint | Planned |
 | ROCm HIP tracing (AMD eBPF) | Planned |
 | Per-process GPU utilization (DRM fdinfo) | Planned |
