@@ -95,7 +95,7 @@ OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracki
         | Environment Variable              | Description                                                   | Default Value           |
         |-----------------------------------|---------------------------------------------------------------|-------------------------|
         | `OTEL_SERVICE_NAME`               | Service/application name attached to all metrics              | `default`               |
-        | `OTEL_RESOURCE_ATTRIBUTES`        | Resource attributes, e.g. `deployment.environment=production` |                         |
+        | `OTEL_RESOURCE_ATTRIBUTES`        | Resource attributes, e.g. `deployment.environment=production` | `deployment.environment=default` |
         | `OTEL_EXPORTER_OTLP_ENDPOINT`     | OpenTelemetry OTLP endpoint URL                               | (required)              |
         | `OTEL_EXPORTER_OTLP_HEADERS`      | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
         | `OTEL_METRIC_EXPORT_INTERVAL`     | Metric polling interval in milliseconds                       | `10000`                 |

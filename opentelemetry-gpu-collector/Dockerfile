@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /opentelemetry-gpu-collector /usr/local/bin/opentelemetry-gpu-collector
 
-ENV GPU_APPLICATION_NAME=default
-ENV GPU_ENVIRONMENT=default
+ENV OTEL_SERVICE_NAME=default
+ENV OTEL_RESOURCE_ATTRIBUTES=deployment.environment=default
 
 ENTRYPOINT ["/usr/local/bin/opentelemetry-gpu-collector"]

@@ -137,12 +137,11 @@ All configuration uses standard OpenTelemetry environment variables.
 | `OTEL_EXPORTER_OTLP_HEADERS` | | Auth headers (`key=val,key2=val2`) |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` or `http/protobuf` |
 | `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
-| `OTEL_RESOURCE_ATTRIBUTES` | | Resource attributes (`deployment.environment=prod,team=ml`) |
-| `OTEL_METRIC_EXPORT_INTERVAL` | `10000` | Metric polling interval in **milliseconds** |
-| `GPU_APPLICATION_NAME` | `default` | Application name (alternative to `OTEL_SERVICE_NAME`) |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`deployment.environment=prod,team=ml`) |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
 | `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA kernel tracing (Linux only) |
 
-`deployment.environment` is read from `OTEL_RESOURCE_ATTRIBUTES` and attached as a resource attribute to all exported metrics.
+`deployment.environment` is read from `OTEL_RESOURCE_ATTRIBUTES` and defaults to `default` if not set.
 
 ## Metrics
 
@@ -237,11 +236,11 @@ Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires `CAP_BPF` + `CAP_PERFMON` or 
 
 The collector scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` (VGA), `0x0302` (3D controller), and `0x0380` (display controller), then maps the vendor ID:
 
-| Vendor ID | Backend |
-|---|---|
-| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — loads `libnvidia-ml.so` at runtime |
-| `0x1002` (AMD) | sysfs + hwmon — zero external dependencies |
-| `0x8086` (Intel) | sysfs + hwmon + DRM — support varies by kernel/driver |
+| Vendor ID | Backend | Collected metrics |
+|---|---|---|
+| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — loads `libnvidia-ml.so` at runtime | Utilization, memory, temperature, power, energy, clocks, ECC errors, PCIe errors, fan speed |
+| `0x1002` (AMD) | sysfs + hwmon — zero external dependencies | Utilization, memory, temperature, power, energy, fan speed |
+| `0x8086` (Intel) | sysfs + hwmon + DRM (i915/Xe driver) — requires Linux kernel 5.10+ | Temperature, power draw/limit, cumulative energy, graphics clock, fan speed (kernel 6.16+) |
 
 ### eBPF CUDA Tracing
 

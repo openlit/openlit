@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-	ApplicationName    string
 	Environment        string
 	OTLPEndpoint       string
 	OTLPHeaders        map[string]string
@@ -20,15 +19,14 @@ type Config struct {
 
 func Load() *Config {
 	cfg := &Config{
-		ApplicationName:    envOrDefault("GPU_APPLICATION_NAME", "default"),
-		OTLPEndpoint:       envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		OTLPProtocol:       envOrDefault("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"),
+		ServiceName:  envOrDefault("OTEL_SERVICE_NAME", "default"),
+		OTLPEndpoint: envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		OTLPProtocol: envOrDefault("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"),
 		// OTEL_METRIC_EXPORT_INTERVAL is in milliseconds per the OTel spec.
-		CollectionInterval: parseIntervalMS(os.Getenv("OTEL_METRIC_EXPORT_INTERVAL"), 10*time.Second),
+		CollectionInterval: parseIntervalMS(os.Getenv("OTEL_METRIC_EXPORT_INTERVAL"), 60*time.Second),
 		EBPFEnabled:        parseBool(envOrDefault("OTEL_GPU_EBPF_ENABLED", "false")),
 	}
 
-	cfg.ServiceName = envOrDefault("OTEL_SERVICE_NAME", cfg.ApplicationName)
 	cfg.OTLPHeaders = parseHeaders(os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"))
 	// deployment.environment comes from OTEL_RESOURCE_ATTRIBUTES per the OTel spec.
 	cfg.Environment = parseResourceAttr(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"), "deployment.environment", "default")

@@ -78,7 +78,6 @@ func TestParseResourceAttr(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Ensure no env vars interfere.
-	t.Setenv("GPU_APPLICATION_NAME", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "")
 	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "")
@@ -88,14 +87,14 @@ func TestLoadDefaults(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.ApplicationName != "default" {
-		t.Errorf("ApplicationName = %q, want %q", cfg.ApplicationName, "default")
+	if cfg.ServiceName != "default" {
+		t.Errorf("ServiceName = %q, want %q", cfg.ServiceName, "default")
 	}
 	if cfg.OTLPProtocol != "grpc" {
 		t.Errorf("OTLPProtocol = %q, want %q", cfg.OTLPProtocol, "grpc")
 	}
-	if cfg.CollectionInterval != 10*time.Second {
-		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 10*time.Second)
+	if cfg.CollectionInterval != 60*time.Second {
+		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 60*time.Second)
 	}
 	if cfg.EBPFEnabled {
 		t.Error("EBPFEnabled should be false by default")
@@ -106,7 +105,6 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnv(t *testing.T) {
-	t.Setenv("GPU_APPLICATION_NAME", "my-app")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "5000")
@@ -116,9 +114,6 @@ func TestLoadFromEnv(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.ApplicationName != "my-app" {
-		t.Errorf("ApplicationName = %q, want %q", cfg.ApplicationName, "my-app")
-	}
 	if cfg.OTLPEndpoint != "http://localhost:4317" {
 		t.Errorf("OTLPEndpoint = %q, want %q", cfg.OTLPEndpoint, "http://localhost:4317")
 	}

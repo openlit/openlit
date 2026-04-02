@@ -290,10 +290,11 @@
               },
               {
                 "group": "GPUs",
-                "icon": "server",
+                "icon": "microchip",
                 "pages": [
-                  "latest/sdk/integrations/nvidia-gpu",
-                  "latest/sdk/integrations/amd-gpu"
+                  "latest/gpu-collector/gpus/nvidia",
+                  "latest/gpu-collector/gpus/amd",
+                  "latest/gpu-collector/gpus/intel"
                 ]
               }
             ]
@@ -397,6 +398,35 @@
                   "latest/operator/destinations/murnitur"
                 ]
               }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "GPU Collector",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/gpu-collector/overview",
+              "latest/gpu-collector/quickstart",
+              "latest/gpu-collector/installation"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "latest/gpu-collector/configuration",
+              "latest/gpu-collector/metrics"
+            ]
+          },
+          {
+            "group": "GPU Vendors",
+            "icon": "microchip",
+            "pages": [
+              "latest/gpu-collector/gpus/nvidia",
+              "latest/gpu-collector/gpus/amd",
+              "latest/gpu-collector/gpus/intel"
             ]
           }
         ]
