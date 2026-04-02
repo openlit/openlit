@@ -38,7 +38,7 @@ export function runWithFrameworkLlm<T>(fn: () => T): T {
 
 /**
  * Set framework-LLM-active flag in the current execution context.
- * Used by SpanProcessor-based instrumentations (Mastra, Strands) where
+ * Used by SpanProcessor-based instrumentations (Strands) where
  * the processor observes spans rather than controlling execution.
  * Mirrors Python's ContextVar.set(True) in Strands processor.
  */

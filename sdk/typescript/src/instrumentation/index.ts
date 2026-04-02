@@ -23,7 +23,6 @@ import QdrantInstrumentation from './qdrant';
 import MilvusInstrumentation from './milvus';
 import AzureAIInferenceInstrumentation from './azure-ai-inference';
 import OpenAIAgentsInstrumentation from './openai-agents';
-import MastraInstrumentation from './mastra';
 import StrandsInstrumentation from './strands';
 import GoogleADKInstrumentation from './google-adk';
 import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
@@ -92,7 +91,6 @@ export default class Instrumentations {
     milvus: new MilvusInstrumentation(),
     'azure-ai-inference': new AzureAIInferenceInstrumentation(),
     'openai-agents': new OpenAIAgentsInstrumentation(),
-    mastra: new MastraInstrumentation(),
     strands: new StrandsInstrumentation(),
     'google-adk': new GoogleADKInstrumentation(),
     'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
