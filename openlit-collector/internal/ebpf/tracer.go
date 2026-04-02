@@ -13,14 +13,13 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpfel -type gpu_kernel_launch_t -type gpu_malloc_t -type gpu_memcpy_t gpuevent ./bpf/gpuevent.c -- -I./bpf -D__TARGET_ARCH_x86
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpfel gpuevent ./bpf/gpuevent.c -- -I./bpf -D__TARGET_ARCH_x86
 
 // Tracer manages eBPF programs for CUDA runtime interception.
 type Tracer struct {
@@ -162,7 +161,8 @@ func (t *Tracer) processKernelLaunch(data []byte) {
 }
 
 func (t *Tracer) processMalloc(data []byte) {
-	if len(data) < int(unsafe.Sizeof(gpueventGpuMallocT{})) {
+	// gpu_malloc_t: flags(1) + pad(3) + pid_info(12) + size(8) = 24 bytes
+	if len(data) < 24 {
 		return
 	}
 
