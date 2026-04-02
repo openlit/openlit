@@ -16,6 +16,7 @@ import (
 
 // ProcessCollector reports metrics about the collector process itself,
 // following the OpenTelemetry semantic conventions for process metrics.
+// https://opentelemetry.io/docs/specs/semconv/system/process-metrics/
 type ProcessCollector struct {
 	logger *slog.Logger
 	proc   *process.Process
@@ -39,6 +40,7 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 
+	// spec: process.cpu.time (Counter), attribute: cpu.mode
 	cpuTime, err := meter.Float64ObservableCounter("process.cpu.time",
 		metric.WithDescription("Process CPU time"),
 		metric.WithUnit("s"),
@@ -47,15 +49,17 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		return nil, fmt.Errorf("creating process.cpu.time: %w", err)
 	}
 
+	// spec: process.cpu.utilization (Gauge), attribute: cpu.mode
 	cpuUtil, err := meter.Float64ObservableGauge("process.cpu.utilization",
-		metric.WithDescription("Process CPU utilization (0.0-N where N = number of CPUs)"),
+		metric.WithDescription("Process CPU utilization"),
 		metric.WithUnit("1"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating process.cpu.utilization: %w", err)
 	}
 
-	memUsage, err := meter.Int64ObservableGauge("process.memory.usage",
+	// spec: process.memory.usage (UpDownCounter)
+	memUsage, err := meter.Int64ObservableUpDownCounter("process.memory.usage",
 		metric.WithDescription("Process resident memory (RSS)"),
 		metric.WithUnit("By"),
 	)
@@ -63,7 +67,8 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		return nil, fmt.Errorf("creating process.memory.usage: %w", err)
 	}
 
-	memVirtual, err := meter.Int64ObservableGauge("process.memory.virtual",
+	// spec: process.memory.virtual (UpDownCounter)
+	memVirtual, err := meter.Int64ObservableUpDownCounter("process.memory.virtual",
 		metric.WithDescription("Process virtual memory size"),
 		metric.WithUnit("By"),
 	)
@@ -71,7 +76,8 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		return nil, fmt.Errorf("creating process.memory.virtual: %w", err)
 	}
 
-	threadCount, err := meter.Int64ObservableGauge("process.thread.count",
+	// spec: process.thread.count (UpDownCounter)
+	threadCount, err := meter.Int64ObservableUpDownCounter("process.thread.count",
 		metric.WithDescription("Process thread count"),
 		metric.WithUnit("{thread}"),
 	)
@@ -79,14 +85,16 @@ func NewProcessCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger)
 		return nil, fmt.Errorf("creating process.thread.count: %w", err)
 	}
 
-	fdCount, err := meter.Int64ObservableGauge("process.open_file_descriptor.count",
+	// spec: process.unix.file_descriptor.count (UpDownCounter), unit: {file_descriptor}
+	fdCount, err := meter.Int64ObservableUpDownCounter("process.unix.file_descriptor.count",
 		metric.WithDescription("Open file descriptor count"),
-		metric.WithUnit("{count}"),
+		metric.WithUnit("{file_descriptor}"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating process.open_file_descriptor.count: %w", err)
+		return nil, fmt.Errorf("creating process.unix.file_descriptor.count: %w", err)
 	}
 
+	// Custom Go runtime metrics (no spec equivalent)
 	goRoutines, err := meter.Int64ObservableGauge("process.runtime.go.goroutines",
 		metric.WithDescription("Number of Go goroutines"),
 		metric.WithUnit("{goroutine}"),
@@ -138,11 +146,12 @@ func (pc *ProcessCollector) collectCPU(_ context.Context, o metric.Observer,
 ) {
 	times, err := pc.proc.Times()
 	if err == nil {
+		// spec: cpu.mode attribute values: user, system
 		o.ObserveFloat64(cpuTime, times.User,
-			metric.WithAttributes(attribute.String("state", "user")),
+			metric.WithAttributes(attribute.String("cpu.mode", "user")),
 		)
 		o.ObserveFloat64(cpuTime, times.System,
-			metric.WithAttributes(attribute.String("state", "system")),
+			metric.WithAttributes(attribute.String("cpu.mode", "system")),
 		)
 	}
 
@@ -153,8 +162,8 @@ func (pc *ProcessCollector) collectCPU(_ context.Context, o metric.Observer,
 }
 
 func (pc *ProcessCollector) collectMemory(_ context.Context, o metric.Observer,
-	usage metric.Int64ObservableGauge,
-	virtual metric.Int64ObservableGauge,
+	usage metric.Int64ObservableUpDownCounter,
+	virtual metric.Int64ObservableUpDownCounter,
 ) {
 	memInfo, err := pc.proc.MemoryInfo()
 	if err != nil {
@@ -166,7 +175,7 @@ func (pc *ProcessCollector) collectMemory(_ context.Context, o metric.Observer,
 }
 
 func (pc *ProcessCollector) collectThreads(_ context.Context, o metric.Observer,
-	threadCount metric.Int64ObservableGauge,
+	threadCount metric.Int64ObservableUpDownCounter,
 ) {
 	threads, err := pc.proc.NumThreads()
 	if err == nil {
@@ -175,7 +184,7 @@ func (pc *ProcessCollector) collectThreads(_ context.Context, o metric.Observer,
 }
 
 func (pc *ProcessCollector) collectFDs(_ context.Context, o metric.Observer,
-	fdCount metric.Int64ObservableGauge,
+	fdCount metric.Int64ObservableUpDownCounter,
 ) {
 	if runtime.GOOS == "windows" {
 		return

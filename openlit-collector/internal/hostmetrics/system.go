@@ -19,7 +19,7 @@ import (
 
 // SystemCollector registers OTel instruments for host-level system metrics
 // following the OpenTelemetry semantic conventions for system metrics.
-// Works on Linux, macOS, and Windows via gopsutil.
+// https://opentelemetry.io/docs/specs/semconv/system/system-metrics/
 type SystemCollector struct {
 	logger *slog.Logger
 	reg    []metric.Registration
@@ -42,16 +42,18 @@ func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) 
 		return nil, fmt.Errorf("creating system.cpu.utilization: %w", err)
 	}
 
-	cpuCount, err := meter.Int64ObservableGauge("system.cpu.count",
+	// spec: system.cpu.logical.count (UpDownCounter)
+	cpuCount, err := meter.Int64ObservableUpDownCounter("system.cpu.logical.count",
 		metric.WithDescription("Number of CPU logical cores"),
 		metric.WithUnit("{cpu}"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating system.cpu.count: %w", err)
+		return nil, fmt.Errorf("creating system.cpu.logical.count: %w", err)
 	}
 
 	// --- Memory ---
-	memUsage, err := meter.Int64ObservableGauge("system.memory.usage",
+	// spec: system.memory.usage (UpDownCounter), attribute: system.memory.state
+	memUsage, err := meter.Int64ObservableUpDownCounter("system.memory.usage",
 		metric.WithDescription("Memory usage by state"),
 		metric.WithUnit("By"),
 	)
@@ -68,6 +70,7 @@ func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) 
 	}
 
 	// --- Disk ---
+	// spec: system.disk.io, attributes: system.device + disk.io.direction
 	diskIO, err := meter.Int64ObservableCounter("system.disk.io",
 		metric.WithDescription("Disk I/O bytes"),
 		metric.WithUnit("By"),
@@ -84,7 +87,8 @@ func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) 
 		return nil, fmt.Errorf("creating system.disk.operations: %w", err)
 	}
 
-	fsUsage, err := meter.Int64ObservableGauge("system.filesystem.usage",
+	// spec: system.filesystem.usage, attributes: system.device + system.filesystem.*
+	fsUsage, err := meter.Int64ObservableUpDownCounter("system.filesystem.usage",
 		metric.WithDescription("Filesystem space usage"),
 		metric.WithUnit("By"),
 	)
@@ -101,6 +105,7 @@ func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) 
 	}
 
 	// --- Network ---
+	// spec: system.network.io, attributes: network.interface.name + network.io.direction
 	netIO, err := meter.Int64ObservableCounter("system.network.io",
 		metric.WithDescription("Network I/O bytes"),
 		metric.WithUnit("By"),
@@ -149,37 +154,34 @@ func (sc *SystemCollector) Close() {
 
 func (sc *SystemCollector) collectCPU(_ context.Context, o metric.Observer,
 	utilization metric.Float64ObservableGauge,
-	count metric.Int64ObservableGauge,
+	count metric.Int64ObservableUpDownCounter,
 ) {
 	logicalCores, err := cpu.Counts(true)
 	if err == nil {
 		o.ObserveInt64(count, int64(logicalCores))
 	}
 
-	// Per-CPU utilization over a very short window.
-	// Use Percent with 0 interval to get instant snapshot vs previous call.
 	percents, err := cpu.Percent(0, true)
 	if err != nil {
 		sc.logger.Debug("cpu percent error", "error", err)
 		return
 	}
 
+	// spec: cpu.logical_number attribute for per-core, cpu.mode for mode
 	for i, pct := range percents {
-		attrs := metric.WithAttributes(attribute.Int("cpu", i))
+		attrs := metric.WithAttributes(attribute.Int("cpu.logical_number", i))
 		o.ObserveFloat64(utilization, pct/100.0, attrs)
 	}
 
-	// Also report aggregate
+	// Aggregate across all cores
 	aggPercents, err := cpu.Percent(0, false)
 	if err == nil && len(aggPercents) > 0 {
-		o.ObserveFloat64(utilization, aggPercents[0]/100.0,
-			metric.WithAttributes(attribute.String("cpu", "total")),
-		)
+		o.ObserveFloat64(utilization, aggPercents[0]/100.0)
 	}
 }
 
 func (sc *SystemCollector) collectMemory(_ context.Context, o metric.Observer,
-	usage metric.Int64ObservableGauge,
+	usage metric.Int64ObservableUpDownCounter,
 	utilization metric.Float64ObservableGauge,
 ) {
 	v, err := mem.VirtualMemory()
@@ -188,37 +190,24 @@ func (sc *SystemCollector) collectMemory(_ context.Context, o metric.Observer,
 		return
 	}
 
+	// spec: system.memory.state attribute values: used, free, cached, buffers
 	o.ObserveInt64(usage, int64(v.Used),
-		metric.WithAttributes(attribute.String("state", "used")),
-	)
-	o.ObserveInt64(usage, int64(v.Available),
-		metric.WithAttributes(attribute.String("state", "available")),
+		metric.WithAttributes(attribute.String("system.memory.state", "used")),
 	)
 	o.ObserveInt64(usage, int64(v.Free),
-		metric.WithAttributes(attribute.String("state", "free")),
+		metric.WithAttributes(attribute.String("system.memory.state", "free")),
 	)
 
 	if runtime.GOOS == "linux" {
 		o.ObserveInt64(usage, int64(v.Cached),
-			metric.WithAttributes(attribute.String("state", "cached")),
+			metric.WithAttributes(attribute.String("system.memory.state", "cached")),
 		)
 		o.ObserveInt64(usage, int64(v.Buffers),
-			metric.WithAttributes(attribute.String("state", "buffers")),
+			metric.WithAttributes(attribute.String("system.memory.state", "buffers")),
 		)
 	}
 
 	o.ObserveFloat64(utilization, v.UsedPercent/100.0)
-
-	// Swap
-	s, err := mem.SwapMemory()
-	if err == nil {
-		o.ObserveInt64(usage, int64(s.Used),
-			metric.WithAttributes(attribute.String("state", "swap_used")),
-		)
-		o.ObserveInt64(usage, int64(s.Free),
-			metric.WithAttributes(attribute.String("state", "swap_free")),
-		)
-	}
 }
 
 func (sc *SystemCollector) collectDisk(_ context.Context, o metric.Observer,
@@ -232,13 +221,14 @@ func (sc *SystemCollector) collectDisk(_ context.Context, o metric.Observer,
 	}
 
 	for device, stat := range counters {
+		// spec: system.device + disk.io.direction
 		readAttrs := metric.WithAttributes(
-			attribute.String("device", device),
-			attribute.String("direction", "read"),
+			attribute.String("system.device", device),
+			attribute.String("disk.io.direction", "read"),
 		)
 		writeAttrs := metric.WithAttributes(
-			attribute.String("device", device),
-			attribute.String("direction", "write"),
+			attribute.String("system.device", device),
+			attribute.String("disk.io.direction", "write"),
 		)
 
 		o.ObserveInt64(ioBytes, int64(stat.ReadBytes), readAttrs)
@@ -249,7 +239,7 @@ func (sc *SystemCollector) collectDisk(_ context.Context, o metric.Observer,
 }
 
 func (sc *SystemCollector) collectFilesystem(_ context.Context, o metric.Observer,
-	usage metric.Int64ObservableGauge,
+	usage metric.Int64ObservableUpDownCounter,
 	utilization metric.Float64ObservableGauge,
 ) {
 	partitions, err := disk.Partitions(false)
@@ -264,20 +254,21 @@ func (sc *SystemCollector) collectFilesystem(_ context.Context, o metric.Observe
 			continue
 		}
 
-		attrs := []attribute.KeyValue{
-			attribute.String("device", p.Device),
-			attribute.String("mountpoint", p.Mountpoint),
-			attribute.String("type", p.Fstype),
+		// spec: system.device, system.filesystem.mountpoint, system.filesystem.type, system.filesystem.state
+		baseAttrs := []attribute.KeyValue{
+			attribute.String("system.device", p.Device),
+			attribute.String("system.filesystem.mountpoint", p.Mountpoint),
+			attribute.String("system.filesystem.type", p.Fstype),
 		}
 
 		o.ObserveInt64(usage, int64(stat.Used),
-			metric.WithAttributes(append(attrs, attribute.String("state", "used"))...),
+			metric.WithAttributes(append(baseAttrs, attribute.String("system.filesystem.state", "used"))...),
 		)
 		o.ObserveInt64(usage, int64(stat.Free),
-			metric.WithAttributes(append(attrs, attribute.String("state", "free"))...),
+			metric.WithAttributes(append(baseAttrs, attribute.String("system.filesystem.state", "free"))...),
 		)
 		o.ObserveFloat64(utilization, stat.UsedPercent/100.0,
-			metric.WithAttributes(attrs...),
+			metric.WithAttributes(baseAttrs...),
 		)
 	}
 }
@@ -297,13 +288,14 @@ func (sc *SystemCollector) collectNetwork(_ context.Context, o metric.Observer,
 			continue
 		}
 
+		// spec: network.interface.name + network.io.direction
 		rxAttrs := metric.WithAttributes(
-			attribute.String("device", stat.Name),
-			attribute.String("direction", "receive"),
+			attribute.String("network.interface.name", stat.Name),
+			attribute.String("network.io.direction", "receive"),
 		)
 		txAttrs := metric.WithAttributes(
-			attribute.String("device", stat.Name),
-			attribute.String("direction", "transmit"),
+			attribute.String("network.interface.name", stat.Name),
+			attribute.String("network.io.direction", "transmit"),
 		)
 
 		o.ObserveInt64(ioBytes, int64(stat.BytesRecv), rxAttrs)
@@ -313,10 +305,8 @@ func (sc *SystemCollector) collectNetwork(_ context.Context, o metric.Observer,
 	}
 }
 
-// cpuTimeSinceStart is used to initialize the first cpu.Percent call.
+// cpuTimeSinceStart primes the CPU percent calculation so the first real call returns meaningful data.
 func init() {
-	// Prime the CPU percent calculation so the first real call returns meaningful data.
-	// cpu.Percent with interval > 0 blocks, so we use a very short interval.
 	go func() {
 		_, _ = cpu.Percent(200*time.Millisecond, false)
 	}()
