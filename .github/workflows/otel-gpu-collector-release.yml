@@ -25,6 +25,10 @@ jobs:
           go-version-file: opentelemetry-gpu-collector/go.mod
           cache-dependency-path: opentelemetry-gpu-collector/go.sum
 
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
       - name: Run tests
         working-directory: opentelemetry-gpu-collector
         run: go test ./...
