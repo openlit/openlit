@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpf -type gpu_kernel_launch_t -type gpu_malloc_t -type gpu_memcpy_t gpuevent ./bpf/gpuevent.c -- -I./bpf
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpfel -type gpu_kernel_launch_t -type gpu_malloc_t -type gpu_memcpy_t gpuevent ./bpf/gpuevent.c -- -I./bpf
 
 // Tracer manages eBPF programs for CUDA runtime interception.
 type Tracer struct {
