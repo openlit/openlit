@@ -236,13 +236,13 @@
 
         ```sh
         docker run --gpus all \
-            -e GPU_APPLICATION_NAME='chatbot' \
-            -e GPU_ENVIRONMENT='staging' \
+            -e OTEL_SERVICE_NAME='chatbot' \
+            -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=staging' \
             -e OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318" \
             ghcr.io/openlit/otel-gpu-collector:latest
         ```
 
-        For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/otel-gpu-collector/).
+        For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/opentelemetry-gpu-collector/).
 
         **Note:** If you've deployed **OpenLIT** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
 
@@ -253,8 +253,8 @@
           otel-gpu-collector:
             image: ghcr.io/openlit/otel-gpu-collector:latest
             environment:
-              GPU_APPLICATION_NAME: 'chatbot'
-              GPU_ENVIRONMENT: 'staging'
+              OTEL_SERVICE_NAME: 'chatbot'
+              OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
               OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
             device_requests:
             - driver: nvidia
