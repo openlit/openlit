@@ -14,10 +14,10 @@ all: setup-bpf generate build
 setup-bpf:
 	@echo "==> Checking eBPF build dependencies..."
 	@command -v clang  >/dev/null 2>&1 || (echo "Installing clang/llvm..." && sudo apt-get update && sudo apt-get install -y clang llvm)
-	@command -v bpftool >/dev/null 2>&1 || (echo "Installing bpftool..." && sudo apt-get update && sudo apt-get install -y linux-tools-$$(uname -r) linux-tools-common 2>/dev/null || sudo apt-get install -y bpftool)
+	@(command -v bpftool >/dev/null 2>&1 || test -x /usr/sbin/bpftool) || (echo "Installing bpftool..." && sudo apt-get update && sudo apt-get install -y linux-tools-$$(uname -r) linux-tools-common 2>/dev/null || sudo apt-get install -y bpftool)
 	@dpkg -s libbpf-dev >/dev/null 2>&1 || (echo "Installing libbpf-dev..." && sudo apt-get update && sudo apt-get install -y libbpf-dev)
 	@echo "==> Generating vmlinux.h from kernel BTF..."
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(BPF_DIR)/bpf/vmlinux.h
+	bash -c 'BPFTOOL=$$(command -v bpftool 2>/dev/null || echo /usr/sbin/bpftool); $$BPFTOOL btf dump file /sys/kernel/btf/vmlinux format c > $(BPF_DIR)/bpf/vmlinux.h'
 	@echo "==> Copying libbpf headers..."
 	cp /usr/include/bpf/bpf_helpers.h    $(BPF_DIR)/bpf/
 	cp /usr/include/bpf/bpf_helper_defs.h $(BPF_DIR)/bpf/
