@@ -23,13 +23,14 @@ import (
 
 // Tracer manages eBPF programs for CUDA runtime interception.
 type Tracer struct {
-	logger   *slog.Logger
-	reader   *ringbuf.Reader
-	links    []link.Link
-	handler  EventHandler
-	symbols  *SymbolResolver
-	running  atomic.Bool
-	wg       sync.WaitGroup
+	logger  *slog.Logger
+	objs    *gpueventObjects
+	reader  *ringbuf.Reader
+	links   []link.Link
+	handler EventHandler
+	symbols *SymbolResolver
+	running atomic.Bool
+	wg      sync.WaitGroup
 }
 
 // NewTracer loads eBPF programs and attaches uprobes to libcudart.so.
@@ -46,20 +47,21 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 		return nil, fmt.Errorf("loading eBPF spec: %w", err)
 	}
 
-	var objs gpueventObjects
-	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{}); err != nil {
+	objs := new(gpueventObjects)
+	if err := spec.LoadAndAssign(objs, &ebpf.CollectionOptions{}); err != nil {
 		return nil, fmt.Errorf("loading eBPF objects: %w", err)
 	}
 
 	t := &Tracer{
 		logger:  logger,
+		objs:    objs,
 		handler: handler,
 		symbols: NewSymbolResolver(logger),
 	}
 
 	ex, err := link.OpenExecutable(cudaLib)
 	if err != nil {
-		objs.Close()
+		t.Close()
 		return nil, fmt.Errorf("opening %s: %w", cudaLib, err)
 	}
 
@@ -81,7 +83,7 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 	}
 
 	if len(t.links) == 0 {
-		objs.Close()
+		t.Close()
 		return nil, fmt.Errorf("no uprobes attached; CUDA symbols not found in %s", cudaLib)
 	}
 
@@ -193,6 +195,9 @@ func (t *Tracer) Close() {
 	}
 	for _, l := range t.links {
 		l.Close()
+	}
+	if t.objs != nil {
+		t.objs.Close()
 	}
 	t.wg.Wait()
 }

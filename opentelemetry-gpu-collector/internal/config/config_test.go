@@ -27,31 +27,6 @@ func TestParseIntervalMS(t *testing.T) {
 	}
 }
 
-func TestParseHeaders(t *testing.T) {
-	tests := []struct {
-		input string
-		want  map[string]string
-	}{
-		{"", map[string]string{}},
-		{"Authorization=Bearer token", map[string]string{"Authorization": "Bearer token"}},
-		{"k1=v1,k2=v2", map[string]string{"k1": "v1", "k2": "v2"}},
-		{"key=val=with=equals", map[string]string{"key": "val=with=equals"}},
-		{" k = v ", map[string]string{"k": "v"}},
-	}
-
-	for _, tt := range tests {
-		got := parseHeaders(tt.input)
-		if len(got) != len(tt.want) {
-			t.Errorf("parseHeaders(%q) returned %d entries, want %d", tt.input, len(got), len(tt.want))
-			continue
-		}
-		for k, v := range tt.want {
-			if got[k] != v {
-				t.Errorf("parseHeaders(%q)[%q] = %q, want %q", tt.input, k, got[k], v)
-			}
-		}
-	}
-}
 
 func TestParseResourceAttr(t *testing.T) {
 	tests := []struct {
@@ -78,8 +53,6 @@ func TestParseResourceAttr(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Ensure no env vars interfere.
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "")
 	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "")
 	t.Setenv("OTEL_GPU_EBPF_ENABLED", "")
 	t.Setenv("OTEL_SERVICE_NAME", "")
@@ -89,9 +62,6 @@ func TestLoadDefaults(t *testing.T) {
 
 	if cfg.ServiceName != "default" {
 		t.Errorf("ServiceName = %q, want %q", cfg.ServiceName, "default")
-	}
-	if cfg.OTLPProtocol != "grpc" {
-		t.Errorf("OTLPProtocol = %q, want %q", cfg.OTLPProtocol, "grpc")
 	}
 	if cfg.CollectionInterval != 60*time.Second {
 		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 60*time.Second)
@@ -105,8 +75,6 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnv(t *testing.T) {
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "5000")
 	t.Setenv("OTEL_GPU_EBPF_ENABLED", "true")
 	t.Setenv("OTEL_SERVICE_NAME", "gpu-collector")
@@ -114,12 +82,6 @@ func TestLoadFromEnv(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.OTLPEndpoint != "http://localhost:4317" {
-		t.Errorf("OTLPEndpoint = %q, want %q", cfg.OTLPEndpoint, "http://localhost:4317")
-	}
-	if cfg.OTLPProtocol != "http/protobuf" {
-		t.Errorf("OTLPProtocol = %q, want %q", cfg.OTLPProtocol, "http/protobuf")
-	}
 	if cfg.CollectionInterval != 5*time.Second {
 		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 5*time.Second)
 	}

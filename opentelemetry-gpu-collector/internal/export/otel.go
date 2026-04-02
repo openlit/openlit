@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -40,33 +41,17 @@ func NewMeterProvider(ctx context.Context, cfg *config.Config, logger *slog.Logg
 		return nil, nil, fmt.Errorf("creating resource: %w", err)
 	}
 
+	// OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS, and
+	// OTEL_EXPORTER_OTLP_PROTOCOL are read automatically by the SDK exporters
+	// via their built-in env var support — no manual wiring needed.
 	var exporter metric.Exporter
 
-	switch cfg.OTLPProtocol {
+	protocol := os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+	switch protocol {
 	case "http/protobuf", "http":
-		opts := []otlpmetrichttp.Option{}
-		if cfg.OTLPEndpoint != "" {
-			opts = append(opts, otlpmetrichttp.WithEndpoint(endpointHost(cfg.OTLPEndpoint)))
-			if isInsecure(cfg.OTLPEndpoint) {
-				opts = append(opts, otlpmetrichttp.WithInsecure())
-			}
-		}
-		for k, v := range cfg.OTLPHeaders {
-			opts = append(opts, otlpmetrichttp.WithHeaders(map[string]string{k: v}))
-		}
-		exporter, err = otlpmetrichttp.New(ctx, opts...)
-	default: // "grpc"
-		opts := []otlpmetricgrpc.Option{}
-		if cfg.OTLPEndpoint != "" {
-			opts = append(opts, otlpmetricgrpc.WithEndpoint(endpointHost(cfg.OTLPEndpoint)))
-			if isInsecure(cfg.OTLPEndpoint) {
-				opts = append(opts, otlpmetricgrpc.WithInsecure())
-			}
-		}
-		for k, v := range cfg.OTLPHeaders {
-			opts = append(opts, otlpmetricgrpc.WithHeaders(map[string]string{k: v}))
-		}
-		exporter, err = otlpmetricgrpc.New(ctx, opts...)
+		exporter, err = otlpmetrichttp.New(ctx)
+	default: // "grpc" or unset
+		exporter, err = otlpmetricgrpc.New(ctx)
 	}
 
 	if err != nil {
@@ -93,16 +78,3 @@ func NewMeterProvider(ctx context.Context, cfg *config.Config, logger *slog.Logg
 	return provider, shutdown, nil
 }
 
-// endpointHost strips the scheme from a URL to get the host:port for the OTLP exporter.
-func endpointHost(endpoint string) string {
-	for _, prefix := range []string{"https://", "http://"} {
-		if len(endpoint) > len(prefix) && endpoint[:len(prefix)] == prefix {
-			return endpoint[len(prefix):]
-		}
-	}
-	return endpoint
-}
-
-func isInsecure(endpoint string) bool {
-	return len(endpoint) >= 7 && endpoint[:7] == "http://"
-}

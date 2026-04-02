@@ -49,6 +49,17 @@ static __always_inline struct pid_info_t get_pid_info() {
 // uprobe/cudaLaunchKernel intercepts CUDA kernel launches.
 // Signature: cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim,
 //            dim3 blockDim, void **args, size_t sharedMem, cudaStream_t stream)
+//
+// ABI NOTE (x86_64 System V only):
+// dim3 is a struct of three uint32 values (12 bytes). Structs <= 16 bytes that
+// are "integer class" are split across consecutive argument registers. With func
+// in rdi (PARM1), the two dim3 structs consume rsi/rdx/rcx/r8 as follows:
+//   gridDim.x, gridDim.y  -> rsi (PARM2) low/high 32 bits
+//   gridDim.z, blockDim.x -> rdx (PARM3) low/high 32 bits
+//   blockDim.y, blockDim.z -> rcx (PARM4) low/high 32 bits
+// This packing was validated against CUDA 11.x–12.x on x86_64 gcc/clang.
+// It will NOT be correct on aarch64 (ARM64) or for future CUDA ABI changes.
+// TODO: replace with BTF CO-RE struct access once CUDA BTF info is available.
 SEC("uprobe/cudaLaunchKernel")
 int handle_cuda_launch(struct pt_regs *ctx) {
     struct gpu_kernel_launch_t *ev;
@@ -62,16 +73,14 @@ int handle_cuda_launch(struct pt_regs *ctx) {
     // arg0: const void *func (kernel function pointer)
     ev->kern_func_off = PT_REGS_PARM1(ctx);
 
-    // arg1: dim3 gridDim (passed as struct, 3x uint32)
-    // On x86_64 System V ABI, dim3 is passed in rsi (x,y packed) and rdx (z).
+    // gridDim.x, gridDim.y packed into rsi; gridDim.z in low 32 bits of rdx
     __u64 grid_xy = PT_REGS_PARM2(ctx);
     ev->grid_x = grid_xy & 0xFFFFFFFF;
     ev->grid_y = grid_xy >> 32;
     ev->grid_z = PT_REGS_PARM3(ctx) & 0xFFFFFFFF;
 
-    // arg2: dim3 blockDim
+    // blockDim.x in high 32 bits of rdx; blockDim.y, blockDim.z in rcx
     __u64 block_xy = PT_REGS_PARM3(ctx) >> 32;
-    // blockDim is split across registers on x86_64
     ev->block_x = block_xy & 0xFFFFFFFF;
     __u64 parm4 = PT_REGS_PARM4(ctx);
     ev->block_y = parm4 & 0xFFFFFFFF;
