@@ -7,7 +7,7 @@ BPF_DIR  := ./internal/ebpf
 GO       := go
 
 build:
-	CGO_ENABLED=0 $(GO) build -o $(BINARY) $(CMD_DIR)
+	$(GO) build -o $(BINARY) $(CMD_DIR)
 
 all: setup-bpf generate build
 
@@ -17,7 +17,7 @@ setup-bpf:
 	@command -v bpftool >/dev/null 2>&1 || (echo "Installing bpftool..." && sudo apt-get update && sudo apt-get install -y linux-tools-$$(uname -r) linux-tools-common 2>/dev/null || sudo apt-get install -y bpftool)
 	@dpkg -s libbpf-dev >/dev/null 2>&1 || (echo "Installing libbpf-dev..." && sudo apt-get update && sudo apt-get install -y libbpf-dev)
 	@echo "==> Generating vmlinux.h from kernel BTF..."
-	$(shell command -v bpftool || echo /usr/sbin/bpftool) btf dump file /sys/kernel/btf/vmlinux format c > $(BPF_DIR)/bpf/vmlinux.h
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(BPF_DIR)/bpf/vmlinux.h
 	@echo "==> Copying libbpf headers..."
 	cp /usr/include/bpf/bpf_helpers.h    $(BPF_DIR)/bpf/
 	cp /usr/include/bpf/bpf_helper_defs.h $(BPF_DIR)/bpf/

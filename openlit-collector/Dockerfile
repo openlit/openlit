@@ -24,7 +24,7 @@ RUN if [ -f /sys/kernel/btf/vmlinux ]; then \
       echo "WARNING: /sys/kernel/btf/vmlinux not available — skipping eBPF generation. Pre-generated bindings must exist."; \
     fi
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /openlit-collector ./cmd/collector/
+RUN GOOS=linux go build -o /openlit-collector ./cmd/collector/
 
 # Stage 2: Minimal runtime image
 FROM debian:bookworm-slim
