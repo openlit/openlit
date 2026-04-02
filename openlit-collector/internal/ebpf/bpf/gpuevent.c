@@ -58,7 +58,6 @@ int handle_cuda_launch(struct pt_regs *ctx) {
     if (!ev)
         return 0;
 
-    __builtin_memset(ev, 0, sizeof(*ev));
     ev->flags = EVENT_GPU_KERNEL_LAUNCH;
     ev->pid_info = get_pid_info();
 
@@ -99,7 +98,6 @@ int handle_cuda_malloc(struct pt_regs *ctx) {
     if (!ev)
         return 0;
 
-    __builtin_memset(ev, 0, sizeof(*ev));
     ev->flags = EVENT_GPU_MALLOC;
     ev->pid_info = get_pid_info();
     ev->size = PT_REGS_PARM2(ctx);
@@ -118,7 +116,6 @@ int handle_cuda_memcpy(struct pt_regs *ctx) {
     if (!ev)
         return 0;
 
-    __builtin_memset(ev, 0, sizeof(*ev));
     ev->flags = EVENT_GPU_MEMCPY;
     ev->pid_info = get_pid_info();
     ev->size = PT_REGS_PARM3(ctx);

@@ -54,4 +54,15 @@ struct gpu_memcpy_t {
     __u64 size;
 };
 
+// libbpf 0.3 (Debian Bullseye) only defines PT_REGS_PARM1–5.
+#ifndef PT_REGS_PARM6
+#if defined(__TARGET_ARCH_x86)
+#define PT_REGS_PARM6(x) ((__u64)(x)->r9)
+#elif defined(__TARGET_ARCH_arm64)
+#define PT_REGS_PARM6(x) ((__u64)(x)->regs[5])
+#else
+#error "PT_REGS_PARM6 not defined for this architecture"
+#endif
+#endif
+
 #endif /* __GPUEVENT_H__ */
