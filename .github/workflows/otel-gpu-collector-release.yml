@@ -58,9 +58,6 @@ jobs:
             goarch: amd64
           - goos: linux
             goarch: arm64
-          - goos: linux
-            goarch: arm
-            goarm: "7"
           - goos: darwin
             goarch: amd64
           - goos: darwin
