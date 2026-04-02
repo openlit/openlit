@@ -95,6 +95,31 @@ INSTRUMENTOR_ALIASES = {
     "http": "httpx",
 }
 
+
+def normalize_instrumentor_name(name):
+    """Normalize a user-provided instrumentor name for lookup.
+
+    Lowercases the input for case-insensitive matching and resolves any
+    configured alias from INSTRUMENTOR_ALIASES.  Returns the canonical key
+    used in MODULE_NAME_MAP / INSTRUMENTOR_MAP.
+    """
+    if not isinstance(name, str):
+        return name
+    lowered = name.lower()
+    return INSTRUMENTOR_ALIASES.get(lowered, lowered)
+
+
+def normalize_instrumentor_names(names):
+    """Normalize a list of user-provided instrumentor names.
+
+    Single entry point for alias resolution + case folding so every code
+    path (init kwarg, env var, config file, etc.) stays consistent.
+    """
+    if not names:
+        return []
+    return [normalize_instrumentor_name(n) for n in names]
+
+
 # Dictionary mapping instrumentor names to their full module paths
 INSTRUMENTOR_MAP = {
     # OpenLIT AI/ML instrumentations

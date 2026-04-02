@@ -32,7 +32,11 @@ from openlit.__helpers import (
     record_agent_tool_error,
 )
 from openlit._config import OpenlitConfig  # noqa: F401 — re-exported for public API
-from openlit._instrumentors import MODULE_NAME_MAP, INSTRUMENTOR_ALIASES, get_all_instrumentors
+from openlit._instrumentors import (
+    MODULE_NAME_MAP,
+    get_all_instrumentors,
+    normalize_instrumentor_names,
+)
 
 # Import GPU instrumentor separately as it doesn't follow the standard pattern
 from openlit.instrumentation.gpu import GPUInstrumentor
@@ -166,10 +170,7 @@ def init(
                                        span. Values must be valid OTel attribute types (str, int,
                                        float, bool, or sequences thereof). Optional.
     """
-    disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
-    disabled_instrumentors = [
-        INSTRUMENTOR_ALIASES.get(name, name) for name in disabled_instrumentors
-    ]
+    disabled_instrumentors = normalize_instrumentor_names(disabled_instrumentors)
     logger.info("Starting openLIT initialization...")
 
     # Handle service_name/application_name migration
@@ -209,10 +210,9 @@ def init(
         if capture_message_content is True and "capture_message_content" in env_config:
             capture_message_content = env_config["capture_message_content"]
         if not disabled_instrumentors and "disabled_instrumentors" in env_config:
-            disabled_instrumentors = [
-                INSTRUMENTOR_ALIASES.get(name, name)
-                for name in env_config["disabled_instrumentors"]
-            ]
+            disabled_instrumentors = normalize_instrumentor_names(
+                env_config["disabled_instrumentors"]
+            )
         if disable_metrics is False and "disable_metrics" in env_config:
             disable_metrics = env_config["disable_metrics"]
         if disable_events is False and "disable_events" in env_config:
@@ -241,8 +241,9 @@ def init(
         name for name in disabled_instrumentors if name not in MODULE_NAME_MAP
     ]
     for invalid_name in invalid_instrumentors:
+        lower_name = invalid_name.lower()
         suggestions = [
-            k for k in MODULE_NAME_MAP if invalid_name in k or k in invalid_name
+            k for k in MODULE_NAME_MAP if lower_name in k or k in lower_name
         ]
         if suggestions:
             logger.warning(
