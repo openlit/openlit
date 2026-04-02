@@ -35,7 +35,10 @@ import {
   emitStrandsInferenceEvent,
 } from './utils';
 
-const STRANDS_TRACER_SCOPE = 'strands.telemetry.tracer';
+const STRANDS_TRACER_SCOPES = new Set([
+  'strands.telemetry.tracer',
+  'strands-agents',
+]);
 
 /**
  * Enriches Strands-generated spans with OpenLIT telemetry.
@@ -57,13 +60,17 @@ export class StrandsSpanProcessor implements SpanProcessor {
 
   private static _isStrandsSpan(span: any): boolean {
     const scope = span.instrumentationLibrary;
-    if (scope && scope.name === STRANDS_TRACER_SCOPE) {
+    if (scope && STRANDS_TRACER_SCOPES.has(scope.name)) {
       return true;
     }
     const attrs = span.attributes || {};
+    const system = attrs['gen_ai.system'] || '';
+    const provider = attrs['gen_ai.provider.name'] || '';
     return (
-      attrs['gen_ai.system'] === SemanticConvention.GEN_AI_SYSTEM_STRANDS ||
-      attrs['gen_ai.provider.name'] === SemanticConvention.GEN_AI_SYSTEM_STRANDS
+      system === SemanticConvention.GEN_AI_SYSTEM_STRANDS ||
+      system === 'strands-agents' ||
+      provider === SemanticConvention.GEN_AI_SYSTEM_STRANDS ||
+      provider === 'strands-agents'
     );
   }
 
@@ -86,6 +93,15 @@ export class StrandsSpanProcessor implements SpanProcessor {
       if (span.attributes) {
         Object.assign(span.attributes, mapping);
       }
+    } catch {
+      // ignore
+    }
+  }
+
+  private static _setSpanName(span: any, name: string): void {
+    try {
+      if ('_name' in span) span._name = name;
+      if ('name' in span) span.name = name;
     } catch {
       // ignore
     }
@@ -319,13 +335,13 @@ export class StrandsSpanProcessor implements SpanProcessor {
       const attrs = span.attributes || {};
       if (operation === SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT) {
         const name = attrs[SemanticConvention.GEN_AI_AGENT_NAME];
-        if (name) (span as any)._name = `invoke_agent ${name}`;
+        if (name) StrandsSpanProcessor._setSpanName(span, `invoke_agent ${name}`);
       } else if (operation === SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS) {
         const name = attrs[SemanticConvention.GEN_AI_TOOL_NAME];
-        if (name) (span as any)._name = `execute_tool ${name}`;
+        if (name) StrandsSpanProcessor._setSpanName(span, `execute_tool ${name}`);
       } else if (operation === SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK) {
         const name = attrs[SemanticConvention.GEN_AI_WORKFLOW_NAME];
-        if (name) (span as any)._name = `invoke_workflow ${name}`;
+        if (name) StrandsSpanProcessor._setSpanName(span, `invoke_workflow ${name}`);
       }
     } catch {
       // ignore
@@ -341,11 +357,7 @@ export class StrandsSpanProcessor implements SpanProcessor {
 
     // Span name: "chat" → "chat {model}"
     if (modelName) {
-      try {
-        (span as any)._name = `chat ${modelName}`;
-      } catch {
-        // ignore
-      }
+      StrandsSpanProcessor._setSpanName(span, `chat ${modelName}`);
     }
 
     // Override gen_ai.provider.name with actual provider for chat spans

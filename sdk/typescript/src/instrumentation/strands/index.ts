@@ -43,6 +43,14 @@ export default class StrandsInstrumentation extends InstrumentationBase {
     );
   }
 
+  override enable(): void {
+    super.enable();
+    // Always register the processor eagerly so it works with both
+    // CJS require hooks and ESM imports (where the module definition
+    // hook may not fire because the module was already loaded).
+    this._registerProcessor('unknown');
+  }
+
   public manualPatch(_moduleExports?: any): void {
     this._registerProcessor('unknown');
   }
@@ -69,8 +77,6 @@ export default class StrandsInstrumentation extends InstrumentationBase {
     const provider = trace.getTracerProvider() as any;
     const actual = provider._delegate || provider;
 
-    // Try to prepend the processor (so it fires before exporters),
-    // matching Python's _active_span_processor._span_processors prepend pattern.
     const activeProcessor = actual._activeSpanProcessor;
     if (activeProcessor && Array.isArray(activeProcessor._spanProcessors)) {
       activeProcessor._spanProcessors.unshift(this._processor);
