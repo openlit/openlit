@@ -1,0 +1,30 @@
+name: OTel GPU Collector Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...

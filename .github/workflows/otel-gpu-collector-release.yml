@@ -1,0 +1,192 @@
+name: Release OTel GPU Collector
+
+on:
+  push:
+    tags: [ 'otel-gpu-collector-*.*.*' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: openlit/otel-gpu-collector
+  BINARY_NAME: opentelemetry-gpu-collector
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 1. Unit tests ──────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...
+
+  # ── 2. Cross-compile binaries ──────────────────────────────────────────────
+  build-binaries:
+    name: Build binaries (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        working-directory: opentelemetry-gpu-collector
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: "0"
+        run: |
+          OUTPUT="${{ env.BINARY_NAME }}-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
+            -o "../dist/${OUTPUT}" ./cmd/collector
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}
+          path: dist/
+
+  # ── 3. GitHub Release with binary assets ──────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "OTel GPU Collector ${{ steps.version.outputs.version }}"
+          files: |
+            dist/*
+          generate_release_notes: true
+
+  # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
+  docker:
+    name: Docker
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./opentelemetry-gpu-collector/
+          file: ./opentelemetry-gpu-collector/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          annotations: |
+            ${{ steps.meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/opentelemetry-gpu-collector/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI'
+
+      - name: Sign the published Docker image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
