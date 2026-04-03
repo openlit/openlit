@@ -333,14 +333,16 @@ async def _team_arun_stream_wrapper(
             except Exception:
                 TeamRunOutput = None
 
-            yield_run_response = kwargs.get("yield_run_response", None)
+            yield_run_output = kwargs.get("yield_run_output", None) or kwargs.get(
+                "yield_run_response", None
+            )
             new_kwargs = dict(kwargs)
-            new_kwargs["yield_run_response"] = True
+            new_kwargs["yield_run_output"] = True
 
             async for response in wrapped(*args, **new_kwargs):
                 if TeamRunOutput and isinstance(response, TeamRunOutput):
                     final_response = response
-                    if yield_run_response:
+                    if yield_run_output:
                         yield response
                 else:
                     yield response
