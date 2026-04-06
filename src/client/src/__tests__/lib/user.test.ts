@@ -29,6 +29,10 @@ jest.mock('bcrypt-ts', () => ({
   genSaltSync: jest.fn(() => '$2b$10$salt'),
   hashSync: jest.fn((pw: string) => `hashed:${pw}`),
 }));
+jest.mock('@/utils/validation', () => ({
+  validateEmail: jest.fn(() => ({ valid: true })),
+  validatePasswordComplexity: jest.fn(() => ({ valid: true })),
+}));
 
 import {
   getUserByEmail,
@@ -63,7 +67,7 @@ describe('getUserByEmail', () => {
   it('throws when user not found', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
     await expect(getUserByEmail({ email: 'nobody@x.com' })).rejects.toThrow(
-      'No user with this email exists'
+      'Invalid email or password'
     );
   });
 
