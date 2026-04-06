@@ -3,12 +3,13 @@ import Image from "next/image";
 import { isArray, isNil, isPlainObject } from "lodash";
 import {
 	CODE_ITEM_DISPLAY_KEYS,
+	ensureTraceRowShape,
 	getExtraTabsContentTypes,
 	getNormalizedTraceAttribute,
 	normalizeTrace,
 } from "@/helpers/client/trace";
 import { ReverseTraceMapping, TraceMapping } from "@/constants/traces";
-import { ExternalLink, X, DollarSign, Zap, Clock, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, X, DollarSign, Zap, Clock, Cpu, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 import {
 	Sheet,
 	SheetContent,
@@ -24,11 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HeirarchyDisplay from "./heirarchy-display";
 import { TraceRow, TransformedTraceRow } from "@/types/trace";
 import InfoPill from "./components/info-pill";
-import CodeItem from "./components/code-item";
 import TabsContentData from "./components/tabs-content";
 import ExtraTabs from "./components/extra-tabs";
 import ResourceAttributesTab from "./components/resource-attributes-tab";
 import SpanAttributesTab from "./components/span-attributes-tab";
+import { AttrRow } from "./components/attributes-tab";
 
 // Root-level TraceRow scalar fields that are already shown elsewhere in the UI and
 // should NOT be duplicated as info pills.
@@ -117,7 +118,7 @@ function LoadingSkeleton() {
 export default function RequestDetails() {
 	const [isOpen, setIsOpen] = useState(false);
 	const [request, updateRequest] = useRequest();
-	const { currentIndex, items, navigatePrev, navigateNext } = useRequestNavigation();
+	const { currentIndex, items, total, offset, navigatePrev, navigateNext } = useRequestNavigation();
 	const { data, fireRequest, isLoading } = useFetchWrapper();
 
 	// Cache the last successfully loaded record so navigation never flickers to a skeleton.
@@ -125,6 +126,7 @@ export default function RequestDetails() {
 	const [displayData, setDisplayData] = useState<{
 		item: TransformedTraceRow;
 		rawRecord: TraceRow;
+		evaluationSummary?: { runCount: number; totalCost: number; latestModel?: string };
 	} | null>(null);
 
 	const onClose = () => {
@@ -154,11 +156,15 @@ export default function RequestDetails() {
 
 	// Commit successful fetches into the display cache
 	useEffect(() => {
-		const record = (data as { record?: TraceRow })?.record;
-		if (record?.TraceId && !isLoading) {
+		const raw = (data as { record?: TraceRow })?.record;
+		const evaluationSummary = (data as { evaluationSummary?: { runCount: number; totalCost: number; latestModel?: string } })?.evaluationSummary;
+		const record = raw ? ensureTraceRowShape(raw) : null;
+		const hasId = record && ((record as any).TraceId ?? (record as any).trace_id);
+		if (record && hasId && !isLoading) {
 			setDisplayData({
 				item: normalizeTrace(record),
 				rawRecord: record,
+				evaluationSummary,
 			});
 		}
 	}, [data, isLoading]);
@@ -183,6 +189,7 @@ export default function RequestDetails() {
 
 	const normalizedItem: TransformedTraceRow | null = displayData?.item ?? null;
 	const rawRecord: TraceRow | null = displayData?.rawRecord ?? null;
+	const evaluationSummary = displayData?.evaluationSummary;
 
 	const extraTabs = normalizedItem
 		? getExtraTabsContentTypes(normalizedItem)
@@ -222,7 +229,7 @@ export default function RequestDetails() {
 	const parsedCost = parseFloat(normalizedItem?.cost as string);
 	const costValue =
 		isFinite(parsedCost) && parsedCost > 0
-			? `$${parsedCost.toFixed(6)}`
+			? `$${parsedCost.toFixed(10)}`
 			: undefined;
 	const parsedTokens = Number(normalizedItem?.totalTokens);
 	const tokensValue =
@@ -239,8 +246,8 @@ export default function RequestDetails() {
 			: undefined;
 
 	// Trace ID (short display)
-	const traceId = rawRecord?.TraceId;
-	const shortTraceId = traceId ? `${traceId.slice(0, 8)}…` : undefined;
+	const traceId = rawRecord?.TraceId ?? (rawRecord as any)?.trace_id;
+	const shortTraceId = traceId ? `${String(traceId).slice(0, 8)}…` : undefined;
 
 	return (
 		<Sheet open={isOpen}>
@@ -249,8 +256,9 @@ export default function RequestDetails() {
 				displayOverlay={false}
 				displayClose={false}
 			>
-				<SheetHeader className="flex-row bg-stone-100 dark:bg-stone-900 px-3 py-1.5 items-center space-y-0 gap-2 flex-wrap">
-					<SheetTitle className="text-stone-900 dark:text-stone-200 text-md font-bold leading-7 capitalize grow pr-1 truncate">
+				<SheetHeader className="flex-row bg-stone-100 dark:bg-stone-900 px-3 py-1.5 items-center space-y-0 gap-2">
+					{/* capitalize : classname is removed because it was rendering the name incorrectly */}
+					<SheetTitle className="text-stone-900 dark:text-stone-200 text-md font-bold leading-7 grow pr-1 truncate">
 						{!normalizedItem
 							? "Loading…"
 							: normalizedItem.spanName}
@@ -269,18 +277,18 @@ export default function RequestDetails() {
 						<div className="flex items-center gap-0.5 shrink-0">
 							<button
 								onClick={navigatePrev}
-								disabled={currentIndex <= 0}
+								disabled={currentIndex <= 0 && offset <= 0}
 								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Previous item"
 							>
 								<ChevronLeft className="h-4 w-4" />
 							</button>
 							<span className="text-xs text-stone-600 dark:text-stone-500 tabular-nums min-w-[3rem] text-center">
-								{currentIndex + 1} / {items.length}
+								{offset + currentIndex + 1} / {total || items.length}
 							</span>
 							<button
 								onClick={navigateNext}
-								disabled={currentIndex >= items.length - 1}
+								disabled={currentIndex >= items.length - 1 && offset + items.length >= total}
 								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Next item"
 							>
@@ -298,7 +306,7 @@ export default function RequestDetails() {
 					<LoadingSkeleton />
 				) : !normalizedItem ? null : (
 					<div
-						className={`flex flex-col gap-0 overflow-y-scroll bg-stone-100 dark:bg-stone-900 grow pb-4 transition-opacity duration-200 ${
+						className={`flex flex-col gap-0 overflow-y-scroll bg-stone-100 dark:bg-stone-900 grow pb-4 transition-opacity duration-200 scrollbar-hidden ${
 							isTransitioning ? "opacity-40" : "opacity-100"
 						}`}
 					>
@@ -324,6 +332,24 @@ export default function RequestDetails() {
 								label="Model"
 								value={modelValue}
 							/>
+							{evaluationSummary && evaluationSummary.runCount > 0 && (
+								<>
+									<MetricCard
+										icon={<BarChart3 className="h-3.5 w-3.5" />}
+										label="Eval Runs"
+										value={String(evaluationSummary.runCount)}
+									/>
+									<MetricCard
+										icon={<DollarSign className="h-3.5 w-3.5" />}
+										label="Eval Cost"
+										value={
+											evaluationSummary.totalCost > 0
+												? `$${evaluationSummary.totalCost.toFixed(10)}`
+												: undefined
+										}
+									/>
+								</>
+							)}
 						</div>
 
 						{/* Info pills — root-level span metadata (context, correlation IDs, scope) */}
@@ -346,22 +372,30 @@ export default function RequestDetails() {
 										value.toString().length > 0 && (
 											<InfoPill
 												key={key}
-												title={reverseKey ? TraceMapping[reverseKey].label : key}
+												title={key}
 												value={normalizedValue}
 											/>
 										)
 									);
 								})}
-							{CODE_ITEM_DISPLAY_KEYS.map(
-								(key) =>
-									normalizedItem[key] && (
-										<CodeItem
-											key={key}
-											label={TraceMapping[key].label}
-											text={normalizedItem[key]}
-										/>
-									)
-							)}
+							{CODE_ITEM_DISPLAY_KEYS.map((key) => {
+								const value = normalizedItem[key];
+								const mapping = TraceMapping[key];
+								const hasValue =
+									!isNil(value) &&
+									value !== "" &&
+									value !== mapping?.defaultValue;
+								if (!hasValue) return null;
+								const label = mapping?.label ?? key;
+								return (
+									<AttrRow
+										key={key}
+										label={label}
+										value={value}
+										className="bg-stone-50 dark:bg-stone-800/30 flex-col w-full mt-3"
+									/>
+								);
+							})}
 							{/* Image */}
 							{normalizedItem.image && normalizedItem.imageSize && (
 								<a
@@ -387,7 +421,7 @@ export default function RequestDetails() {
 							)}
 						</div>
 
-						<Tabs className="" defaultValue={tabKeys[0]?.toString()}>
+						<Tabs className="" defaultValue={"SpanAttributes"}>
 							<TabsList className="h-auto flex overflow-auto justify-start w-full rounded-none pt-2 bg-transparent dark:bg-transparent px-0">
 								{tabKeys.map((key) => {
 									return (

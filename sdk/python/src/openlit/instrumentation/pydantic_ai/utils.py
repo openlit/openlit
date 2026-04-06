@@ -13,7 +13,11 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception, truncate_content
+from openlit.__helpers import (
+    _apply_custom_span_attributes,
+    handle_exception,
+    truncate_content,
+)
 from openlit.semcov import SemanticConvention
 
 # Try to import enhanced helpers for business intelligence
@@ -226,6 +230,8 @@ def set_span_attributes(
     if additional_attrs:
         for key, value in additional_attrs.items():
             span.set_attribute(key, value)
+
+    _apply_custom_span_attributes(span)
 
 
 def add_message_tracking(span, messages: List[Dict], message_type: str = "input"):

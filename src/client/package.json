@@ -1,6 +1,6 @@
 {
   "name": "openlit",
-  "version": "1.16.1",
+  "version": "1.17.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -66,7 +66,7 @@
     "next-auth": "^4.24.7",
     "next-themes": "^0.3.0",
     "openai": "^4.50.0",
-    "posthog-js": "^1.261.7",
+    "posthog-js": "^1.364.4",
     "react": "^18.3.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-day-picker": "^8.10.1",

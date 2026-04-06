@@ -207,76 +207,62 @@ export async function getRequestViaTraceId(traceId: string) {
 }
 
 export async function getHeirarchyViaSpanId(spanId: string) {
-	const commonQuery = (
-		dir: "upward" | "downward",
-		id: string
-	) => `WITH RECURSIVE trace_hierarchy AS (
-						SELECT
-								${getTraceMappingKeyFullPath("id")},
-								${getTraceMappingKeyFullPath("parentSpanId")},
-								${getTraceMappingKeyFullPath("spanId")},
-								${getTraceMappingKeyFullPath("spanName")},
-								${getTraceMappingKeyFullPath("requestDuration")},
-								toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
-								Timestamp,
-								StatusCode,
-								0 AS level
-						FROM
-								${OTEL_TRACES_TABLE_NAME}
-						WHERE
-								SpanId = '${id}' -- Starting SpanId
+	// Step 1: Get the TraceId for this span
+	const traceIdQuery = `
+		SELECT ${getTraceMappingKeyFullPath("id")}
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE SpanId = '${spanId}'
+		LIMIT 1`;
 
-						UNION ALL
-
-						SELECT
-								ot.${getTraceMappingKeyFullPath("id")},
-								ot.${getTraceMappingKeyFullPath("parentSpanId")},
-								ot.${getTraceMappingKeyFullPath("spanId")},
-								ot.${getTraceMappingKeyFullPath("spanName")},
-								ot.${getTraceMappingKeyFullPath("requestDuration")},
-								toFloat64OrZero(ot.SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
-								ot.Timestamp,
-								ot.StatusCode,
-								th.level + 1 AS level
-						FROM
-								${OTEL_TRACES_TABLE_NAME} ot
-						INNER JOIN
-								trace_hierarchy th
-						ON
-								${dir === "upward"
-			? `ot.${getTraceMappingKeyFullPath(
-				"spanId"
-			)} = th.${getTraceMappingKeyFullPath("parentSpanId")}`
-			: `ot.${getTraceMappingKeyFullPath(
-				"parentSpanId"
-			)} = th.${getTraceMappingKeyFullPath("spanId")}`
-		}
-				)
-				SELECT *
-				FROM trace_hierarchy
-				ORDER BY level DESC;`;
-
-	const { data: upwardData, err: upwardErr } = await dataCollector({
-		query: commonQuery("upward", spanId),
+	const { data: traceIdData, err: traceIdErr } = await dataCollector({
+		query: traceIdQuery,
 	});
 
-	if ((upwardData as any[])?.[0]?.SpanId) {
-		const { data: downwardData, err: downwardErr } = await dataCollector({
-			query: commonQuery("downward", (upwardData as any[])?.[0]?.SpanId),
-		});
-
-		const heirarchy = buildHierarchy(downwardData as any[]);
-
-		return {
-			err: upwardErr || downwardErr || (heirarchy ? null : "Error in fetching heirarchy"),
-			record: heirarchy,
-		};
+	if (traceIdErr || !Array.isArray(traceIdData) || traceIdData.length === 0) {
+		console.error(`[heirarchy] Failed to find TraceId for spanId=${spanId}:`, traceIdErr);
+		return { err: "Span not found", record: {} };
 	}
 
-	return {
-		err: "Error in fetching heirarchy",
-		record: {},
-	};
+	const traceId = traceIdData[0].TraceId;
+	if (!traceId) {
+		console.error(`[heirarchy] TraceId is empty for spanId=${spanId}. Row:`, traceIdData[0]);
+		return { err: "TraceId not found for span", record: {} };
+	}
+
+	// Step 2: Fetch ALL spans belonging to this trace (include SpanAttributes for chat view)
+	const allSpansQuery = `
+		SELECT
+			${getTraceMappingKeyFullPath("id")},
+			${getTraceMappingKeyFullPath("parentSpanId")},
+			${getTraceMappingKeyFullPath("spanId")},
+			${getTraceMappingKeyFullPath("spanName")},
+			${getTraceMappingKeyFullPath("requestDuration")},
+			toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
+			Timestamp,
+			StatusCode,
+			SpanAttributes
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
+		ORDER BY Timestamp ASC`;
+
+	const { data: allSpans, err: allSpansErr } = await dataCollector({
+		query: allSpansQuery,
+	});
+
+	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
+		console.error(`[heirarchy] Failed to fetch spans for traceId=${traceId}:`, allSpansErr);
+		return { err: "Failed to fetch trace spans", record: {} };
+	}
+
+	// Step 3: Build the hierarchy tree in JS
+	const heirarchy = buildHierarchy(allSpans as any[]);
+
+	if (!heirarchy) {
+		console.error(`[heirarchy] buildHierarchy returned null for traceId=${traceId}, ${allSpans.length} spans`);
+		return { err: "Error building hierarchy", record: {} };
+	}
+
+	return { err: null, record: heirarchy };
 }
 
 export async function getRequestExist() {

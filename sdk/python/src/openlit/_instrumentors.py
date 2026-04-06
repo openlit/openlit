@@ -54,6 +54,11 @@ MODULE_NAME_MAP = {
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
     "mcp": "mcp",
+    "google-adk": "google.adk",
+    "claude-agent-sdk": "claude_agent_sdk",
+    "agent-framework": "agent_framework",
+    "strands": "strands",
+    "smolagents": "smolagents",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -73,6 +78,47 @@ MODULE_NAME_MAP = {
     "urllib": "urllib",
     "urllib3": "urllib3",
 }
+
+# Common aliases so users can pass intuitive names (e.g. "aiohttp") that
+# differ from the canonical hyphenated keys used in MODULE_NAME_MAP.
+INSTRUMENTOR_ALIASES = {
+    "aiohttp": "aiohttp-client",
+    "openai_agents": "openai-agents",
+    "google_ai_studio": "google-ai-studio",
+    "azure_ai_inference": "azure-ai-inference",
+    "reka": "reka-api",
+    "browser_use": "browser-use",
+    "google_adk": "google-adk",
+    "claude_agent_sdk": "claude-agent-sdk",
+    "agent_framework": "agent-framework",
+    "psycopg_pool": "psycopg-pool",
+    "http": "httpx",
+}
+
+
+def normalize_instrumentor_name(name):
+    """Normalize a user-provided instrumentor name for lookup.
+
+    Lowercases the input for case-insensitive matching and resolves any
+    configured alias from INSTRUMENTOR_ALIASES.  Returns the canonical key
+    used in MODULE_NAME_MAP / INSTRUMENTOR_MAP.
+    """
+    if not isinstance(name, str):
+        return name
+    lowered = name.lower()
+    return INSTRUMENTOR_ALIASES.get(lowered, lowered)
+
+
+def normalize_instrumentor_names(names):
+    """Normalize a list of user-provided instrumentor names.
+
+    Single entry point for alias resolution + case folding so every code
+    path (init kwarg, env var, config file, etc.) stays consistent.
+    """
+    if not names:
+        return []
+    return [normalize_instrumentor_name(n) for n in names]
+
 
 # Dictionary mapping instrumentor names to their full module paths
 INSTRUMENTOR_MAP = {
@@ -124,6 +170,11 @@ INSTRUMENTOR_MAP = {
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
+    "google-adk": "openlit.instrumentation.google_adk.GoogleADKInstrumentor",
+    "claude-agent-sdk": "openlit.instrumentation.claude_agent_sdk.ClaudeAgentSDKInstrumentor",
+    "agent-framework": "openlit.instrumentation.agent_framework.AgentFrameworkInstrumentor",
+    "strands": "openlit.instrumentation.strands.StrandsInstrumentor",
+    "smolagents": "openlit.instrumentation.smolagents.SmolAgentsInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
@@ -163,7 +214,7 @@ def get_instrumentor_class(name):
     try:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
-    except (ImportError, AttributeError):
+    except Exception:
         return None
 
 

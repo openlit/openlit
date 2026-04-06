@@ -6,10 +6,12 @@ import logging
 import json
 import re
 import time
+import threading
 from typing import Any, Collection, Dict, List, Optional, Literal, cast
 from uuid import UUID
 import importlib.metadata
 
+from opentelemetry import _logs, trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
@@ -17,6 +19,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.langchain.utils import (
     build_input_messages,
     common_chat_logic,
@@ -28,7 +31,7 @@ logger = logging.getLogger(__name__)
 _instruments = ("langchain-core >= 0.1.20",)
 
 
-class SpanHolder:
+class SpanHolder:  # pylint: disable=too-many-instance-attributes
     """Container for span and related metadata with performance optimization via __slots__."""
 
     __slots__ = (
@@ -50,6 +53,14 @@ class SpanHolder:
         "cache_creation_input_tokens",
         "input_messages_raw",
         "prompts",
+        "system_instructions",
+        "tool_definitions",
+        "provider",
+        "server_address",
+        "server_port",
+        "tool_calls",
+        "finish_reason",
+        "is_agent_chain",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -71,6 +82,14 @@ class SpanHolder:
         self.cache_creation_input_tokens = 0
         self.input_messages_raw: Any = None
         self.prompts: List[Any] = []
+        self.system_instructions: Optional[List[Dict[str, Any]]] = None
+        self.tool_definitions: Optional[List[Dict[str, Any]]] = None
+        self.provider: str = ""
+        self.server_address: str = ""
+        self.server_port: int = 0
+        self.tool_calls: Optional[List[Dict[str, Any]]] = None
+        self.finish_reason: str = "stop"
+        self.is_agent_chain: bool = False
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -239,6 +258,32 @@ def extract_model_name(
     return class_name or "unknown"
 
 
+def _extract_response_model_from_chain_outputs(
+    outputs: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    """Return an LLM model identifier from chain outputs when present."""
+    if not outputs or not isinstance(outputs, dict):
+        return None
+    for key in ("model", "model_name"):
+        val = outputs.get(key)
+        if isinstance(val, str) and val.strip() and val != "unknown":
+            return val
+    llm_out = outputs.get("llm_output")
+    if isinstance(llm_out, dict):
+        val = llm_out.get("model_name") or llm_out.get("model")
+        if val:
+            return str(val)
+    messages = outputs.get("messages")
+    if isinstance(messages, list) and messages:
+        last = messages[-1]
+        rm = getattr(last, "response_metadata", None)
+        if isinstance(rm, dict):
+            val = rm.get("model_name") or rm.get("model")
+            if val:
+                return str(val)
+    return None
+
+
 def extract_model_parameters(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extract model parameters from invocation_params (based on Langfuse's approach).
@@ -311,6 +356,49 @@ def detect_provider(serialized: Optional[Dict[str, Any]]) -> str:
     return SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
 
 
+_SKIP_CHAIN_CLASS_PREFIXES = frozenset(
+    {
+        "RunnableSequence",
+        "RunnableParallel",
+        "RunnableLambda",
+        "RunnablePassthrough",
+        "RunnableAssign",
+        "RunnablePick",
+        "RunnableBranch",
+        "RunnableEach",
+        "Prompt",
+        "PromptTemplate",
+        "ChatPromptTemplate",
+        "MessagesPlaceholder",
+        "SystemMessagePromptTemplate",
+        "HumanMessagePromptTemplate",
+        "AIMessagePromptTemplate",
+        "BasePromptTemplate",
+        "StrOutputParser",
+        "JsonOutputParser",
+        "PydanticOutputParser",
+    }
+)
+
+
+def _is_internal_chain(serialized: Optional[Dict[str, Any]], name: str) -> bool:
+    """Return True if this chain is internal LCEL / LangGraph plumbing that
+    should NOT produce a user-visible span."""
+    if serialized and "id" in serialized:
+        class_path = serialized["id"]
+        if isinstance(class_path, list) and class_path:
+            class_name = str(class_path[-1])
+            if class_name in _SKIP_CHAIN_CLASS_PREFIXES:
+                return True
+            if class_name.startswith("Runnable"):
+                return True
+
+    if name in _SKIP_CHAIN_CLASS_PREFIXES:
+        return True
+
+    return False
+
+
 def detect_observation_type(
     serialized: Optional[Dict[str, Any]], callback_type: str, name: str = ""
 ) -> str:
@@ -338,6 +426,27 @@ def detect_observation_type(
         return "chain"
 
     return "span"
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _resolve_conversation_id(metadata: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Extract conversation/thread ID from LangChain callback metadata."""
+    if not metadata:
+        return None
+    for key in ("thread_id", "conversation_id", "session_id"):
+        val = metadata.get(key)
+        if val:
+            return str(val)
+    configurable = metadata.get("configurable", {})
+    for key in ("thread_id", "conversation_id"):
+        val = configurable.get(key)
+        if val:
+            return str(val)
+    return None
 
 
 # =============================================================================
@@ -373,6 +482,10 @@ def _create_callback_handler_class(
         calculate_ttft,
         calculate_tbt,
         truncate_content,
+        is_langgraph_wrapper_active,
+        set_framework_llm_active,
+        reset_framework_llm_active,
+        get_server_address_for_provider,
     )
     from openlit.semcov import SemanticConvention
 
@@ -394,6 +507,8 @@ def _create_callback_handler_class(
             self._event_provider = event_provider
             self.spans: Dict[UUID, SpanHolder] = {}
             self.run_inline = True
+            self._lock = threading.RLock()
+            self._skipped_runs: Dict[UUID, Optional[UUID]] = {}
 
         def _get_name_from_callback(
             self,
@@ -414,6 +529,20 @@ def _create_callback_handler_class(
                         return class_id[-1]
             return "unknown"
 
+        def _resolve_parent_run_id(
+            self, parent_run_id: Optional[UUID]
+        ) -> Optional[UUID]:
+            """Walk up through skipped runs to find the nearest real parent."""
+            with self._lock:
+                visited = set()
+                current = parent_run_id
+                while current is not None and current in self._skipped_runs:
+                    if current in visited:
+                        break
+                    visited.add(current)
+                    current = self._skipped_runs[current]
+                return current
+
         def _create_span(
             self,
             run_id: UUID,
@@ -422,53 +551,50 @@ def _create_callback_handler_class(
             kind: SpanKind = SpanKind.INTERNAL,
         ) -> Any:
             """Create a new span with proper parent relationship."""
-            # For callback-based instrumentation, we manage parent-child relationships
-            # via the parent_context parameter, not via context attachment.
-            # This avoids "Failed to detach context" errors in streaming scenarios
-            # where callbacks may execute in different execution contexts.
-            parent_context = None
-            if parent_run_id is not None and parent_run_id in self.spans:
-                parent_span = self.spans[parent_run_id].span
-                parent_context = set_span_in_context(parent_span)
+            with self._lock:
+                parent_run_id = self._resolve_parent_run_id(parent_run_id)
+                parent_context = None
+                if parent_run_id is not None and parent_run_id in self.spans:
+                    parent_span = self.spans[parent_run_id].span
+                    parent_context = set_span_in_context(parent_span)
 
-            span = self._tracer.start_span(
-                span_name,
-                context=parent_context,
-                kind=kind,
-            )
+                span = self._tracer.start_span(
+                    span_name,
+                    context=parent_context,
+                    kind=kind,
+                )
 
-            # Don't attach to context - callbacks can execute in different contexts
-            holder = SpanHolder(span, token=None)
-            self.spans[run_id] = holder
+                holder = SpanHolder(span, token=None)
+                self.spans[run_id] = holder
 
-            if parent_run_id is not None and parent_run_id in self.spans:
-                self.spans[parent_run_id].children.append(run_id)
+                if parent_run_id is not None and parent_run_id in self.spans:
+                    self.spans[parent_run_id].children.append(run_id)
 
-            return span
+                return span
 
         def _end_span(self, run_id: UUID, error: Optional[str] = None) -> None:
             """End a span and clean up."""
-            if run_id not in self.spans:
-                return
+            with self._lock:
+                if run_id not in self.spans:
+                    return
 
-            holder = self.spans[run_id]
-            span = holder.span
+                holder = self.spans[run_id]
+                span = holder.span
 
-            # End any child spans that are still open
-            for child_id in holder.children:
-                if child_id in self.spans:
-                    child_holder = self.spans[child_id]
-                    if child_holder.span.end_time is None:
-                        child_holder.span.end()
+                for child_id in holder.children:
+                    if child_id in self.spans:
+                        child_holder = self.spans[child_id]
+                        if child_holder.span.end_time is None:
+                            child_holder.span.end()
 
-            if error:
-                span.set_status(Status(StatusCode.ERROR, error))
-            else:
-                span.set_status(Status(StatusCode.OK))
+                if error:
+                    span.set_status(Status(StatusCode.ERROR, error))
+                else:
+                    span.set_status(Status(StatusCode.OK))
 
-            span.end()
+                span.end()
 
-            del self.spans[run_id]
+                del self.spans[run_id]
 
         def _set_common_attributes(self, span, operation_type: str) -> None:
             """Set common attributes on a span."""
@@ -718,22 +844,54 @@ def _create_callback_handler_class(
                 name = self._get_name_from_callback(serialized, **kwargs)
                 obs_type = detect_observation_type(serialized, "chain", name=name)
 
-                # Use different operation type for agents vs chains
+                if obs_type != "agent" and _is_internal_chain(serialized, name):
+                    with self._lock:
+                        self._skipped_runs[run_id] = parent_run_id
+                    return
+
+                if (
+                    obs_type != "agent"
+                    and is_langgraph_wrapper_active()
+                    and parent_run_id is None
+                ):
+                    with self._lock:
+                        self._skipped_runs[run_id] = parent_run_id
+                    return
+
+                if obs_type != "agent" and parent_run_id is not None:
+                    with self._lock:
+                        self._skipped_runs[run_id] = parent_run_id
+                    return
+
                 if obs_type == "agent":
                     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
-                    span_name = f"agent {name}"
+                    span_name = f"invoke_agent {name}"
                 else:
                     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
-                    span_name = f"workflow {name}"
+                    span_name = f"invoke_workflow {name}"
 
                 span = self._create_span(run_id, parent_run_id, span_name)
+
+                if obs_type == "agent" and run_id in self.spans:
+                    self.spans[run_id].is_agent_chain = True
 
                 span.set_attribute(
                     SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(span, operation_type)
-                span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_TYPE, name)
+
+                if obs_type == "agent":
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, name)
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(run_id))
+                else:
+                    span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, name)
+
+                conv_id = _resolve_conversation_id(metadata)
+                if conv_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id
+                    )
 
                 if self._capture_message_content and inputs:
                     try:
@@ -757,6 +915,8 @@ def _create_callback_handler_class(
         ) -> None:
             """Run when chain ends."""
             try:
+                with self._lock:
+                    self._skipped_runs.pop(run_id, None)
                 if run_id not in self.spans:
                     return
 
@@ -777,6 +937,13 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, output_str
                     )
 
+                if holder.is_agent_chain and outputs:
+                    resp_model = _extract_response_model_from_chain_outputs(outputs)
+                    if resp_model:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_RESPONSE_MODEL, resp_model
+                        )
+
                 # Record metrics
                 if not self._disable_metrics and self._metrics:
                     try:
@@ -784,8 +951,8 @@ def _create_callback_handler_class(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
                             GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                            server_address="localhost",
-                            server_port=8080,
+                            server_address="",
+                            server_port=0,
                             environment=self._environment,
                             application_name=self._application_name,
                             start_time=holder.start_time,
@@ -809,12 +976,20 @@ def _create_callback_handler_class(
         ) -> None:
             """Run when chain errors."""
             try:
+                with self._lock:
+                    self._skipped_runs.pop(run_id, None)
                 if run_id in self.spans:
                     span = self.spans[run_id].span
                     span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_chain_error: %s", e)
@@ -845,6 +1020,13 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
+                # Suppress duplicate provider spans while framework owns the LLM span
+                fw_token = set_framework_llm_active()
+                from opentelemetry import context as otel_context
+
+                ctx_token = otel_context.attach(set_span_in_context(span))
+                self.spans[run_id].token = (fw_token, ctx_token)
+
                 span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
@@ -852,26 +1034,52 @@ def _create_callback_handler_class(
                 span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
                 self._set_model_parameters(span, model_params)
 
+                conv_id = _resolve_conversation_id(metadata)
+                if conv_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id
+                    )
+
                 # Store model info for later
                 self.spans[run_id].model_name = model_name
                 self.spans[run_id].model_parameters = model_params
                 self.spans[run_id].prompts = prompts if prompts else []
+                self.spans[run_id].provider = provider
 
-                if self._capture_message_content and prompts:
-                    prompt_str = truncate_content("\n".join(prompts))
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
+                # Resolve server address from invocation_params or provider defaults
+                invocation_params = kwargs.get("invocation_params", {})
+                api_base = invocation_params.get("api_base") or invocation_params.get(
+                    "base_url"
+                )
+                if api_base:
+                    try:
+                        from urllib.parse import urlparse
+
+                        parsed = urlparse(api_base)
+                        self.spans[run_id].server_address = parsed.hostname or ""
+                        self.spans[run_id].server_port = parsed.port or 443
+                    except Exception:
+                        pass
+                if not self.spans[run_id].server_address:
+                    default_host, default_port = get_server_address_for_provider(
+                        provider
                     )
+                    if default_host:
+                        self.spans[run_id].server_address = default_host
+                        self.spans[run_id].server_port = default_port
+
+                if prompts:
+                    prompt_str = truncate_content("\n".join(prompts))
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
 
-                    # Store structured prompts for event emission
-                    try:
-                        structured_prompts = build_input_messages(prompts)
-                        self.spans[run_id].input_messages = structured_prompts
-                    except Exception as prompt_err:
-                        logger.debug(
-                            "Error building structured prompts: %s", prompt_err
-                        )
+                    if self._capture_message_content:
+                        try:
+                            structured_prompts = build_input_messages(prompts)
+                            self.spans[run_id].input_messages = structured_prompts
+                        except Exception as prompt_err:
+                            logger.debug(
+                                "Error building structured prompts: %s", prompt_err
+                            )
 
             except Exception as e:
                 logger.debug("Error in on_llm_start: %s", e)
@@ -898,6 +1106,15 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
+                # Suppress duplicate OpenAI/provider spans while framework owns the LLM span
+                fw_token = set_framework_llm_active()
+
+                # Attach our span to OTel context so HTTP client spans nest under it
+                from opentelemetry import context as otel_context
+
+                ctx_token = otel_context.attach(set_span_in_context(span))
+                self.spans[run_id].token = (fw_token, ctx_token)
+
                 span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
@@ -905,9 +1122,38 @@ def _create_callback_handler_class(
                 span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
                 self._set_model_parameters(span, model_params)
 
-                # Store model info
+                conv_id = _resolve_conversation_id(metadata)
+                if conv_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id
+                    )
+
+                # Store model info and provider/server details
                 self.spans[run_id].model_name = model_name
                 self.spans[run_id].model_parameters = model_params
+                self.spans[run_id].provider = provider
+
+                # Resolve server address from invocation_params or provider defaults
+                invocation_params = kwargs.get("invocation_params", {})
+                api_base = invocation_params.get("api_base") or invocation_params.get(
+                    "base_url"
+                )
+                if api_base:
+                    try:
+                        from urllib.parse import urlparse
+
+                        parsed = urlparse(api_base)
+                        self.spans[run_id].server_address = parsed.hostname or ""
+                        self.spans[run_id].server_port = parsed.port or 443
+                    except Exception:
+                        pass
+                if not self.spans[run_id].server_address:
+                    default_host, default_port = get_server_address_for_provider(
+                        provider
+                    )
+                    if default_host:
+                        self.spans[run_id].server_address = default_host
+                        self.spans[run_id].server_port = default_port
 
                 # Always calculate prompt content for token estimation
                 if messages:
@@ -924,10 +1170,35 @@ def _create_callback_handler_class(
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
                     self.spans[run_id].input_messages_raw = messages
 
-                    # Set prompt attribute if capturing content
+                    # Extract system instructions from messages
                     if self._capture_message_content:
+                        sys_instructions = []
+                        for msg_list in messages:
+                            for msg in msg_list:
+                                role = getattr(msg, "type", "")
+                                if role == "system":
+                                    content = getattr(msg, "content", "")
+                                    if content:
+                                        sys_instructions.append(
+                                            {"type": "text", "content": str(content)}
+                                        )
+                        if sys_instructions:
+                            self.spans[run_id].system_instructions = sys_instructions
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                                json.dumps(sys_instructions),
+                            )
+
+                    # Extract tool definitions from invocation params
+                    invocation_params = kwargs.get("invocation_params", {})
+                    tools = invocation_params.get("tools") or invocation_params.get(
+                        "functions"
+                    )
+                    if tools and isinstance(tools, list):
+                        self.spans[run_id].tool_definitions = tools
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
+                            SemanticConvention.GEN_AI_TOOL_DEFINITIONS,
+                            json.dumps(tools, default=str),
                         )
 
                     # Store structured messages for event emission
@@ -1056,6 +1327,61 @@ def _create_callback_handler_class(
                     )
                 )
 
+                # Extract tool_calls and finish_reason from generations
+                if response.generations:
+                    for gen_list in response.generations:
+                        for gen in gen_list:
+                            msg = getattr(gen, "message", None)
+                            if msg:
+                                tc = getattr(msg, "tool_calls", None)
+                                if tc:
+                                    formatted_tools = []
+                                    for call in tc:
+                                        if isinstance(call, dict):
+                                            formatted_tools.append(
+                                                {
+                                                    "id": call.get("id", ""),
+                                                    "function": {
+                                                        "name": call.get("name", ""),
+                                                        "arguments": json.dumps(
+                                                            call.get("args", {})
+                                                        )
+                                                        if isinstance(
+                                                            call.get("args"), dict
+                                                        )
+                                                        else str(call.get("args", "")),
+                                                    },
+                                                }
+                                            )
+                                        else:
+                                            formatted_tools.append(
+                                                {
+                                                    "id": getattr(call, "id", ""),
+                                                    "function": {
+                                                        "name": getattr(
+                                                            call, "name", ""
+                                                        ),
+                                                        "arguments": json.dumps(
+                                                            getattr(call, "args", {})
+                                                        )
+                                                        if isinstance(
+                                                            getattr(call, "args", None),
+                                                            dict,
+                                                        )
+                                                        else str(
+                                                            getattr(call, "args", "")
+                                                        ),
+                                                    },
+                                                }
+                                            )
+                                    if formatted_tools:
+                                        holder.tool_calls = formatted_tools
+                                resp_meta = getattr(msg, "response_metadata", {})
+                                if isinstance(resp_meta, dict):
+                                    fr = resp_meta.get("finish_reason")
+                                    if fr:
+                                        holder.finish_reason = fr
+
                 # Handle token usage including reasoning tokens and cached tokens
                 if response.llm_output:
                     token_usage = response.llm_output.get(
@@ -1112,6 +1438,15 @@ def _create_callback_handler_class(
                         "model_name"
                     ) or response.llm_output.get("model", model_name)
 
+                # For non-streaming calls, TTFT equals the full duration since the
+                # entire response arrives at once.
+                if not is_streaming:
+                    ttft = duration
+
+                # Resolve server address/port: prefer holder values, fall back to defaults
+                scope_server_address = holder.server_address or "localhost"
+                scope_server_port = holder.server_port or 443
+
                 # Build scope and run common_chat_logic (OTel span/event/metrics)
                 scope = type("Scope", (), {})()
                 scope._span = span
@@ -1119,13 +1454,13 @@ def _create_callback_handler_class(
                 scope._model_parameters = holder.model_parameters or {}
                 scope._start_time = holder.start_time
                 scope._end_time = end_time
-                scope._server_address = "localhost"
-                scope._server_port = 8080
+                scope._server_address = scope_server_address
+                scope._server_port = scope_server_port
                 scope._response_model = response_model
                 scope._response_id = (response.llm_output or {}).get("id") or None
                 scope._llmresponse = completion_content or ""
-                scope._finish_reason = "stop"
-                scope._tools = None
+                scope._finish_reason = holder.finish_reason
+                scope._tools = holder.tool_calls
                 scope._input_tokens = input_tokens
                 scope._output_tokens = output_tokens
                 scope._cache_read_input_tokens = getattr(
@@ -1140,6 +1475,11 @@ def _create_callback_handler_class(
                 scope._request_model = model_name
                 scope._input_messages_raw = getattr(holder, "input_messages_raw", None)
                 scope._prompts = getattr(holder, "prompts", [])
+                scope._system_instructions = getattr(
+                    holder, "system_instructions", None
+                )
+                scope._tool_definitions = getattr(holder, "tool_definitions", None)
+                scope._provider = holder.provider or None
 
                 common_chat_logic(
                     scope,
@@ -1153,6 +1493,17 @@ def _create_callback_handler_class(
                     is_streaming,
                     self._event_provider,
                 )
+
+                # Reset the framework LLM flag and detach OTel context
+                if holder.token and isinstance(holder.token, tuple):
+                    fw_token, ctx_token = holder.token
+                    try:
+                        from opentelemetry import context as otel_context
+
+                        otel_context.detach(ctx_token)
+                    except Exception:
+                        pass
+                    reset_framework_llm_active(fw_token)
 
                 self._end_span(run_id)
 
@@ -1170,11 +1521,26 @@ def _create_callback_handler_class(
             """Run when LLM errors."""
             try:
                 if run_id in self.spans:
-                    span = self.spans[run_id].span
-                    span.set_attribute(
+                    holder = self.spans[run_id]
+                    holder.span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    holder.span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
+                    if holder.token and isinstance(holder.token, tuple):
+                        fw_token, ctx_token = holder.token
+                        try:
+                            from opentelemetry import context as otel_context
+
+                            otel_context.detach(ctx_token)
+                        except Exception:
+                            pass
+                        reset_framework_llm_active(fw_token)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_llm_error: %s", e)
@@ -1197,22 +1563,32 @@ def _create_callback_handler_class(
             """Run when tool starts."""
             try:
                 name = self._get_name_from_callback(serialized, **kwargs)
-                span_name = f"tool {name}"
+                span_name = f"execute_tool {name}"
 
                 span = self._create_span(run_id, parent_run_id, span_name)
 
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_PROVIDER_NAME,
-                    SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                )
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, name)
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(run_id))
+
+                description = (serialized or {}).get("description")
+                if description:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_DESCRIPTION, str(description)
+                    )
+
+                conv_id = _resolve_conversation_id(metadata)
+                if conv_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id
+                    )
 
                 if self._capture_message_content and input_str:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_TOOL_INPUT,
+                        SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
                         truncate_content(input_str),
                     )
 
@@ -1240,9 +1616,23 @@ def _create_callback_handler_class(
                     SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
                 )
 
+                tool_call_id = None
+                if hasattr(output, "tool_call_id"):
+                    tool_call_id = output.tool_call_id
+                elif isinstance(output, str) and "tool_call_id" in output:
+                    match = re.search(r"tool_call_id=['\"]([^'\"]+)['\"]", output)
+                    if match:
+                        tool_call_id = match.group(1)
+
+                if tool_call_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_call_id
+                    )
+
                 if self._capture_message_content and output:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_TOOL_OUTPUT, truncate_content(output)
+                        SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
+                        truncate_content(output),
                     )
 
                 # Record metrics
@@ -1252,8 +1642,8 @@ def _create_callback_handler_class(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
                             GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                            server_address="localhost",
-                            server_port=8080,
+                            server_address="",
+                            server_port=0,
                             environment=self._environment,
                             application_name=self._application_name,
                             start_time=holder.start_time,
@@ -1283,6 +1673,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_tool_error: %s", e)
@@ -1307,7 +1703,9 @@ def _create_callback_handler_class(
                 name = self._get_name_from_callback(serialized, **kwargs)
                 span_name = f"retrieval {name}"
 
-                span = self._create_span(run_id, parent_run_id, span_name)
+                span = self._create_span(
+                    run_id, parent_run_id, span_name, SpanKind.CLIENT
+                )
 
                 span.set_attribute(
                     SemanticConvention.GEN_AI_PROVIDER_NAME,
@@ -1316,10 +1714,17 @@ def _create_callback_handler_class(
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE
                 )
+                span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, name)
+
+                conv_id = _resolve_conversation_id(metadata)
+                if conv_id:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONVERSATION_ID, conv_id
+                    )
 
                 if self._capture_message_content and query:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_RETRIEVAL_QUERY,
+                        SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT,
                         truncate_content(query),
                     )
 
@@ -1352,13 +1757,19 @@ def _create_callback_handler_class(
                 )
 
                 if self._capture_message_content and documents:
-                    sample_docs = []
+                    structured_docs = []
                     for doc in documents[:3]:
                         content = getattr(doc, "page_content", str(doc))
-                        sample_docs.append(truncate_content(content))
+                        doc_entry = {"content": truncate_content(content)}
+                        doc_meta = getattr(doc, "metadata", None)
+                        if doc_meta and isinstance(doc_meta, dict):
+                            doc_id = doc_meta.get("id") or doc_meta.get("source")
+                            if doc_id:
+                                doc_entry["id"] = str(doc_id)
+                        structured_docs.append(doc_entry)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS,
-                        "; ".join(sample_docs),
+                        json.dumps(structured_docs),
                     )
 
                 # Record metrics
@@ -1368,8 +1779,8 @@ def _create_callback_handler_class(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
                             GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                            server_address="localhost",
-                            server_port=8080,
+                            server_address="",
+                            server_port=0,
                             environment=self._environment,
                             application_name=self._application_name,
                             start_time=holder.start_time,
@@ -1399,6 +1810,12 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
                         truncate_content(error),
                     )
+                    error_type = (
+                        type(error).__name__
+                        if hasattr(type(error), "__name__")
+                        else "_OTHER"
+                    )
+                    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
                 self._end_span(run_id, str(error))
             except Exception as e:
                 logger.debug("Error in on_retriever_error: %s", e)
@@ -1472,6 +1889,53 @@ def _create_callback_handler_class(
             except Exception as e:
                 logger.debug("Error in on_agent_finish: %s", e)
 
+        # =================================================================
+        # Retry Callback
+        # =================================================================
+
+        def on_retry(
+            self,
+            retry_state: Any,
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any,
+        ) -> None:
+            """Log a span event when LangChain retries an operation."""
+            try:
+                with self._lock:
+                    holder = self.spans.get(run_id)
+                if holder is not None:
+                    attempt = getattr(retry_state, "attempt_number", 0)
+                    attributes: Dict[str, Any] = {"retry.attempt": attempt}
+
+                    next_action = getattr(retry_state, "next_action", None)
+                    sleep = getattr(next_action, "sleep", None) if next_action else None
+                    if isinstance(sleep, (int, float)):
+                        attributes["retry.delay_ms"] = int(sleep * 1000)
+
+                    outcome = getattr(retry_state, "outcome", None)
+                    if outcome is not None:
+                        try:
+                            exc = outcome.exception()
+                        except Exception:
+                            exc = None
+                        if exc is not None:
+                            attributes["retry.error.type"] = type(exc).__name__
+                            attributes["retry.error.message"] = str(exc)[:256]
+
+                    retry_object = getattr(retry_state, "retry_object", None)
+                    stop_policy = (
+                        getattr(retry_object, "stop", None) if retry_object else None
+                    )
+                    max_attempts = getattr(stop_policy, "max_attempt_number", None)
+                    if isinstance(max_attempts, int):
+                        attributes["retry.max_attempts"] = max_attempts
+
+                    holder.span.add_event("retry", attributes=attributes)
+            except Exception as e:
+                logger.debug("Error in on_retry: %s", e)
+
     return OpenLITCallbackHandler
 
 
@@ -1515,6 +1979,454 @@ class _BaseCallbackManagerInitWrapper:
 # =============================================================================
 
 
+def _wrap_create_agent(tracer, version, environment, application_name):
+    """Wraps langchain.agents.create_agent to produce a create_agent span."""
+    from openlit.semcov import SemanticConvention
+    from openlit.__helpers import (
+        handle_exception,
+        set_create_agent_active,
+        reset_create_agent_active,
+        get_server_address_for_provider,
+        _apply_custom_span_attributes,
+    )
+
+    def wrapper(wrapped, instance, args, kwargs):
+        from urllib.parse import urlparse
+
+        llm = args[0] if args else kwargs.get("model")
+        model_name = "unknown"
+        provider = "langchain"
+        if llm is not None:
+            model_name = (
+                getattr(llm, "model_name", None)
+                or getattr(llm, "model", None)
+                or "unknown"
+            )
+            class_name = llm.__class__.__name__.lower()
+            class_module = (
+                llm.__class__.__module__.lower()
+                if hasattr(llm.__class__, "__module__")
+                else ""
+            )
+            class_path = f"{class_module}.{class_name}"
+            for prov_key, prov_val in PROVIDER_MAP.items():
+                if prov_key in class_path:
+                    provider = prov_val
+                    break
+
+        agent_name = kwargs.get("name", "default")
+        span_name = f"create_agent {agent_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            span.set_attribute(SemanticConvention.GEN_AI_OPERATION, "create_agent")
+            span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, agent_name)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+            server_address, server_port = "", 0
+            try:
+                base_url = getattr(llm, "base_url", None) or getattr(
+                    llm, "openai_api_base", None
+                )
+                if base_url:
+                    parsed = urlparse(str(base_url))
+                    if parsed.hostname:
+                        server_address = parsed.hostname
+                    if parsed.port:
+                        server_port = parsed.port
+                    elif parsed.scheme == "https":
+                        server_port = 443
+                    elif parsed.scheme == "http":
+                        server_port = 80
+            except Exception:
+                pass
+            if not server_address:
+                server_address, server_port = get_server_address_for_provider(provider)
+            if server_address:
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+
+            tools = args[1] if len(args) > 1 else kwargs.get("tools", [])
+            tool_names = []
+            if tools:
+                for t in tools:
+                    name = getattr(t, "name", None) or str(t)
+                    tool_names.append(name)
+                span.set_attribute("gen_ai.agent.tools", json.dumps(tool_names))
+
+            if tool_names:
+                description = f"Agent with tools: {', '.join(tool_names)}"
+            else:
+                description = "LangChain agent"
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description)
+
+            _apply_custom_span_attributes(span)
+
+            ca_token = set_create_agent_active()
+            try:
+                result = wrapped(*args, **kwargs)
+                result._openlit_creation_context = span.get_span_context()
+                span.set_status(Status(StatusCode.OK))
+                return result
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+            finally:
+                reset_create_agent_active(ca_token)
+
+    return wrapper
+
+
+def _embed_common(
+    span,
+    instance,
+    args,
+    kwargs,
+    result,
+    start_time,
+    end_time,
+    model_name,
+    provider,
+    server_address,
+    server_port,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    environment,
+    application_name,
+    version,
+):
+    """Shared post-call attribute/metric logic for sync and async embed wrappers."""
+    from openlit.semcov import SemanticConvention
+    from openlit.__helpers import (
+        general_tokens,
+        get_embed_model_cost,
+        record_embedding_metrics,
+    )
+
+    span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, end_time - start_time
+    )
+    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
+
+    encoding_format = getattr(instance, "encoding_format", None)
+    if encoding_format:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]
+        )
+
+    req_dimensions = getattr(instance, "dimensions", None)
+    if req_dimensions is not None:
+        try:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
+                int(req_dimensions),
+            )
+        except (TypeError, ValueError):
+            pass
+
+    input_tokens = 0
+    input_data = args[0] if args else None
+    if input_data is not None:
+        if isinstance(input_data, list):
+            input_tokens = sum(general_tokens(t) for t in input_data)
+        elif isinstance(input_data, str):
+            input_tokens = general_tokens(input_data)
+    if input_tokens > 0:
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
+
+    dimension_count = None
+    if result is not None and isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, list) and first:
+            dimension_count = len(first)
+        elif isinstance(first, (int, float)):
+            dimension_count = len(result)
+    if req_dimensions is None and dimension_count is not None:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT, dimension_count
+        )
+
+    cost = get_embed_model_cost(model_name, pricing_info, input_tokens)
+    if cost > 0:
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    if capture_message_content and input_data is not None:
+        if isinstance(input_data, list):
+            input_msgs = [
+                {"role": "user", "parts": [{"type": "text", "content": str(item)}]}
+                for item in input_data
+            ]
+        else:
+            input_msgs = [
+                {
+                    "role": "user",
+                    "parts": [{"type": "text", "content": str(input_data)}],
+                }
+            ]
+        span.set_attribute(
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(input_msgs)
+        )
+
+    span.set_status(Status(StatusCode.OK))
+
+    if not disable_metrics and metrics:
+        record_embedding_metrics(
+            metrics=metrics,
+            gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            GEN_AI_PROVIDER_NAME=provider,
+            server_address=server_address,
+            server_port=server_port,
+            request_model=model_name,
+            response_model=model_name,
+            environment=environment,
+            application_name=application_name,
+            start_time=start_time,
+            end_time=end_time,
+            input_tokens=input_tokens,
+            cost=cost,
+        )
+
+
+def _resolve_embed_provider_and_server(instance):
+    """Resolve provider name and server address/port from an Embeddings instance."""
+    from openlit.__helpers import get_server_address_for_provider
+
+    model_name = (
+        getattr(instance, "model", None)
+        or getattr(instance, "model_name", None)
+        or getattr(instance, "model_id", None)
+        or "unknown"
+    )
+
+    provider = "langchain"
+    class_name = instance.__class__.__name__.lower()
+    class_module = (
+        instance.__class__.__module__.lower()
+        if hasattr(instance.__class__, "__module__")
+        else ""
+    )
+    class_path = f"{class_module}.{class_name}"
+    for prov_key, prov_val in PROVIDER_MAP.items():
+        if prov_key in class_path:
+            provider = prov_val
+            break
+
+    server_address, server_port = "", 0
+    try:
+        from urllib.parse import urlparse
+
+        base_url = getattr(instance, "base_url", None) or getattr(
+            getattr(instance, "client", None), "base_url", None
+        )
+        if base_url:
+            parsed = urlparse(str(base_url))
+            server_address = parsed.hostname or ""
+            server_port = parsed.port or 443
+    except Exception:
+        pass
+    if not server_address:
+        server_address, server_port = get_server_address_for_provider(provider)
+
+    return model_name, provider, server_address, server_port
+
+
+def _wrap_embed(
+    tracer,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Wraps langchain_core.embeddings.Embeddings methods to produce embeddings spans."""
+    from openlit.semcov import SemanticConvention
+    from openlit.__helpers import handle_exception
+
+    def wrapper(wrapped, instance, args, kwargs):
+        from opentelemetry import context as context_api
+
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        model_name, provider, server_address, server_port = (
+            _resolve_embed_provider_and_server(instance)
+        )
+        span_name = f"embeddings {model_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+            if server_address:
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+
+            try:
+                result = wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                _embed_common(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    result,
+                    start_time,
+                    end_time,
+                    model_name,
+                    provider,
+                    server_address,
+                    server_port,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    environment,
+                    application_name,
+                    version,
+                )
+                return result
+
+            except Exception as e:
+                handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    from openlit.__helpers import record_embedding_metrics
+
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        provider,
+                        server_address,
+                        server_port,
+                        model_name,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
+                raise
+
+    return wrapper
+
+
+def _wrap_embed_async(
+    tracer,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Wraps async langchain_core.embeddings.Embeddings methods."""
+    from openlit.semcov import SemanticConvention
+    from openlit.__helpers import handle_exception
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        from opentelemetry import context as context_api
+
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return await wrapped(*args, **kwargs)
+
+        model_name, provider, server_address, server_port = (
+            _resolve_embed_provider_and_server(instance)
+        )
+        span_name = f"embeddings {model_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+            if server_address:
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+
+            try:
+                result = await wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                _embed_common(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    result,
+                    start_time,
+                    end_time,
+                    model_name,
+                    provider,
+                    server_address,
+                    server_port,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                    environment,
+                    application_name,
+                    version,
+                )
+                return result
+
+            except Exception as e:
+                handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    from openlit.__helpers import record_embedding_metrics
+
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        provider,
+                        server_address,
+                        server_port,
+                        model_name,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
+                raise
+
+    return wrapper
+
+
 class LangChainInstrumentor(BaseInstrumentor):
     """
     OpenLIT LangChain instrumentor with comprehensive features.
@@ -1537,12 +2449,12 @@ class LangChainInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics", False)
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
 
         handler_class = _create_callback_handler_class(
             tracer,
@@ -1572,11 +2484,69 @@ class LangChainInstrumentor(BaseInstrumentor):
         except Exception as e:
             logger.debug("Failed to wrap BaseCallbackManager.__init__: %s", e)
 
+        try:
+            wrap_function_wrapper(
+                module="langchain.agents",
+                name="create_agent",
+                wrapper=_wrap_create_agent(
+                    tracer, version, environment, application_name
+                ),
+            )
+            logger.debug("Successfully wrapped langchain.agents.create_agent")
+        except Exception:
+            logger.debug("langchain.agents.create_agent not available, skipping")
+
+        embed_kwargs = {
+            "tracer": tracer,
+            "version": version,
+            "environment": environment,
+            "application_name": application_name,
+            "pricing_info": pricing_info,
+            "capture_message_content": capture_message_content,
+            "metrics": metrics,
+            "disable_metrics": disable_metrics,
+        }
+        for method_name in ("embed_documents", "embed_query"):
+            try:
+                wrap_function_wrapper(
+                    module="langchain_core.embeddings",
+                    name=f"Embeddings.{method_name}",
+                    wrapper=_wrap_embed(**embed_kwargs),
+                )
+                logger.debug("Successfully wrapped Embeddings.%s", method_name)
+            except Exception:
+                logger.debug("Embeddings.%s not available, skipping", method_name)
+
+        for method_name in ("aembed_documents", "aembed_query"):
+            try:
+                wrap_function_wrapper(
+                    module="langchain_core.embeddings",
+                    name=f"Embeddings.{method_name}",
+                    wrapper=_wrap_embed_async(**embed_kwargs),
+                )
+                logger.debug("Successfully wrapped Embeddings.%s", method_name)
+            except Exception:
+                logger.debug("Embeddings.%s not available, skipping", method_name)
+
     def _uninstrument(self, **kwargs):
         """Remove instrumentation."""
         try:
             from opentelemetry.instrumentation.utils import unwrap
 
             unwrap("langchain_core.callbacks.manager", "BaseCallbackManager.__init__")
+            try:
+                unwrap("langchain.agents", "create_agent")
+            except Exception:
+                pass
+            for method_name in (
+                "embed_documents",
+                "embed_query",
+                "aembed_documents",
+                "aembed_query",
+            ):
+                try:
+                    unwrap("langchain_core.embeddings", f"Embeddings.{method_name}")
+                except Exception:
+                    pass
         except Exception as e:
             logger.debug("Error during uninstrumentation: %s", e)

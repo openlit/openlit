@@ -14,6 +14,7 @@ from opentelemetry.trace.status import Status, StatusCode
 
 from openlit.semcov import SemanticConvention
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     handle_exception,
     record_mcp_metrics,
 )
@@ -635,6 +636,8 @@ def set_mcp_span_attributes(
 
     # Extract new enhanced attributes
     _extract_enhanced_mcp_attributes(span, ctx, endpoint, response, **kwargs)
+
+    _apply_custom_span_attributes(span)
 
 
 def _capture_mcp_content(span, ctx: MCPInstrumentationContext, response: Any, **kwargs):

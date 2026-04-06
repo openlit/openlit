@@ -21,6 +21,7 @@ from openlit.__helpers import (
     otel_event,
     truncate_message_content,
 )
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def build_input_messages(messages):
 
         # Handle tool calls (for assistant messages)
         if "tool_calls" in msg:
-            for tool_call in msg.get("tool_calls", []):
+            for tool_call in msg.get("tool_calls") or []:
                 parts.append(
                     {
                         "type": "tool_call",
@@ -319,7 +320,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -385,19 +387,24 @@ def process_chunk(scope, chunk):
     except (IndexError, AttributeError, TypeError):
         pass
     scope._response_service_tier = (
-        str(chunked.get("system_fingerprint", "")) or scope._response_service_tier
+        str(chunked.get("service_tier") or "") or scope._response_service_tier
+    )
+    scope._response_system_fingerprint = (
+        str(chunked.get("system_fingerprint") or "")
+        or scope._response_system_fingerprint
     )
 
     if chunked.get("usage"):
         usage = chunked.get("usage", {})
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
-        prompt_tokens_details = usage.get(
-            "prompt_tokens_details", usage.get("input_tokens_details", {})
+        prompt_tokens_details = (
+            usage.get("prompt_tokens_details", usage.get("input_tokens_details", {}))
+            or {}
         )
         scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-        scope._cache_creation_input_tokens = usage.get(
-            "completion_tokens_details", {}
+        scope._cache_creation_input_tokens = (
+            usage.get("completion_tokens_details") or {}
         ).get("cached_tokens", 0)
         scope._end_time = time.time()
 
@@ -465,7 +472,8 @@ def common_chat_logic(
         safe_get(scope._kwargs.get("presence_penalty"), 0.0),
     )
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get("stop", [])
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+        safe_get(scope._kwargs.get("stop"), []),
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
@@ -478,23 +486,40 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_USER, safe_get(scope._kwargs.get("user"), "")
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
-        safe_get(scope._kwargs.get("service_tier"), "auto"),
+
+    # OpenAI-specific attributes: only set for OpenAI-compatible providers
+    provider_prefix = request_model.split("/", 1)[0] if "/" in request_model else ""
+    is_openai_compatible = provider_prefix in (
+        "openai",
+        "azure",
+        "azure_text",
+        "azure_ai",
+        "",
     )
+    if is_openai_compatible:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
+            safe_get(scope._kwargs.get("service_tier"), "auto"),
+        )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason or ""]
+        SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id or ""
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER, scope._response_service_tier
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
-        scope._response_service_tier,
-    )
+    if scope._finish_reason:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+            [scope._finish_reason.lower()],
+        )
+    if is_openai_compatible:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
+            scope._response_service_tier,
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+            scope._response_system_fingerprint,
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_OUTPUT_TYPE,
         "text" if isinstance(scope._llmresponse, str) else "json",
@@ -569,7 +594,9 @@ def common_chat_logic(
                 tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
                 extra = {
                     "response_id": scope._response_id,
-                    "finish_reasons": [scope._finish_reason],
+                    "finish_reasons": [scope._finish_reason.lower()]
+                    if scope._finish_reason
+                    else None,
                     "output_type": "text"
                     if isinstance(scope._llmresponse, str)
                     else "json",
@@ -701,19 +728,23 @@ def process_chat_response(
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
-    prompt_tokens_details = usage.get(
-        "prompt_tokens_details", usage.get("input_tokens_details", {})
+    prompt_tokens_details = (
+        usage.get("prompt_tokens_details", usage.get("input_tokens_details", {})) or {}
     )
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-    scope._cache_creation_input_tokens = usage.get("completion_tokens_details", {}).get(
-        "cached_tokens", 0
+    scope._cache_creation_input_tokens = (
+        usage.get("completion_tokens_details") or {}
+    ).get("cached_tokens", 0)
+    scope._response_id = response_dict.get("id") or ""
+    scope._response_model = response_dict.get("model") or ""
+    choices = response_dict.get("choices", [])
+    first_choice = choices[0] if choices else {}
+    raw_fr = first_choice.get("finish_reason")
+    scope._finish_reason = str(raw_fr).lower() if raw_fr else ""
+    scope._response_service_tier = str(response_dict.get("service_tier") or "")
+    scope._response_system_fingerprint = str(
+        response_dict.get("system_fingerprint") or ""
     )
-    scope._response_id = response_dict.get("id")
-    scope._response_model = response_dict.get("model")
-    scope._finish_reason = str(
-        response_dict.get("choices", [])[0].get("finish_reason", "")
-    )
-    scope._response_service_tier = str(response_dict.get("system_fingerprint", ""))
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
@@ -721,9 +752,7 @@ def process_chat_response(
 
     # Handle tool calls
     if scope._kwargs.get("tools"):
-        scope._tools = (
-            response_dict.get("choices", [{}])[0].get("message", {}).get("tool_calls")
-        )
+        scope._tools = first_choice.get("message", {}).get("tool_calls")
     else:
         scope._tools = None
 
@@ -772,7 +801,7 @@ def process_embedding_response(
     scope._end_time = time.time()
     scope._span = span
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
-    scope._response_model = response_dict.get("model")
+    scope._response_model = response_dict.get("model") or ""
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 

@@ -261,18 +261,24 @@ def parse_llm_response(response) -> JsonOutput:
 
 def get_event_provider():
     """
-    Safely retrieve the event provider from OpenLIT's global configuration.
+    Retrieve the event provider (OTel Logger) from the global LoggerProvider.
 
     This function enables evaluators to auto-wire event emission without storing
     references that cause cyclic imports. The provider is retrieved at call time,
     allowing OpenLIT initialization to complete before evaluation measure() calls.
 
     Returns:
-        The event provider if OpenLIT has been initialized with telemetry, else None.
+        The OTel Logger if a LoggerProvider has been configured, else None.
     """
     try:
-        return OpenlitConfig.event_provider
-    except AttributeError:
+        from opentelemetry import _logs
+        from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider
+
+        provider = _logs.get_logger_provider()
+        if isinstance(provider, SDKLoggerProvider):
+            return provider.get_logger("openlit.evals")
+        return None
+    except Exception:
         return None
 
 

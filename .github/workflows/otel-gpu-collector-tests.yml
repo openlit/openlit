@@ -1,0 +1,47 @@
+name: OTel GPU Collector Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          # Download static bpftool binary from libbpf/bpftool releases — avoids
+          # linux-tools-$(uname -r) which fails on azure/custom kernels.
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
+            | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+          bpftool version
+
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...

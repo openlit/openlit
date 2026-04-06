@@ -1,76 +1,205 @@
 """
-CrewAI utilities for comprehensive telemetry processing and business intelligence
+CrewAI utilities for OTel GenAI semantic convention compliant telemetry.
+
+Follows the same patterns as the LangGraph instrumentation (gold standard).
+All operation names, span kinds, and attributes comply with the OTel GenAI
+semantic conventions, particularly gen-ai-agent-spans.md which explicitly
+names CrewAI as a framework that SHOULD report invoke_workflow for crews.
 """
 
 import time
 import json
-from urllib.parse import urlparse
-from opentelemetry.trace import Status, StatusCode
+import contextvars
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
-    handle_exception,
+    format_input_message,
+    format_output_message,
+    format_system_instructions,
+    get_server_address_for_provider,
+    truncate_content,
+    _apply_custom_span_attributes,
 )
 from openlit.semcov import SemanticConvention
 
-# === OPERATION MAPPING - Framework Guide Compliant ===
+# ---------------------------------------------------------------------------
+# Contextvars for span deduplication
+# Prevents sync→async double-spanning (Crew.kickoff -> Crew.kickoff_async
+# internally, and same for Flow).
+# ---------------------------------------------------------------------------
+_crewai_crew_active = contextvars.ContextVar(
+    "openlit_crewai_crew_active", default=False
+)
+_crewai_flow_active = contextvars.ContextVar(
+    "openlit_crewai_flow_active", default=False
+)
+
+# Propagates the executing agent's model info to child execute_tool spans
+_current_agent_model_info = contextvars.ContextVar(
+    "openlit_crewai_agent_model_info", default=None
+)
+
+# ---------------------------------------------------------------------------
+# OTel GenAI Operation Mapping
+# ---------------------------------------------------------------------------
 OPERATION_MAP = {
-    # === STANDARD OPENTELEMETRY OPERATION NAMES ===
-    # Crew Operations (workflow management)
-    "crew_kickoff": "invoke_agent",
-    "crew_train": "invoke_agent",
-    "crew_replay": "invoke_agent",
-    "crew_test": "invoke_agent",
-    # Agent Operations (core agent functions)
-    "agent___init__": "create_agent",
-    "agent_execute_task": "invoke_agent",
-    "agent_backstory_property": "invoke_agent",
-    # Task Operations (task execution)
-    "task_execute": "invoke_agent",
-    "task_execute_async": "invoke_agent",
+    "crew_init": "create_agent",
+    "crew_kickoff": "invoke_workflow",
+    "crew_kickoff_async": "invoke_workflow",
+    "crew_kickoff_for_each": "invoke_workflow",
+    "crew_kickoff_for_each_async": "invoke_workflow",
     "task_execute_core": "invoke_agent",
-    # Tool Operations (tool execution)
+    "agent_kickoff": "invoke_agent",
     "tool_run": "execute_tool",
-    "tool___call__": "execute_tool",
-    "tool_execute": "execute_tool",
-    # Memory Operations (knowledge management)
-    "memory_save": "invoke_agent",
-    "memory_search": "invoke_agent",
-    "memory_reset": "invoke_agent",
+    "flow_kickoff": "invoke_workflow",
+    "flow_kickoff_async": "invoke_workflow",
+    "flow_execute_method": "invoke_agent",
+}
+
+# ---------------------------------------------------------------------------
+# SpanKind per operation type (OTel GenAI spec)
+# ---------------------------------------------------------------------------
+SPAN_KIND_MAP = {
+    "invoke_workflow": SpanKind.INTERNAL,
+    "invoke_agent": SpanKind.INTERNAL,
+    "execute_tool": SpanKind.INTERNAL,
+    "retrieval": SpanKind.CLIENT,
+    "create_agent": SpanKind.CLIENT,
 }
 
 
+def get_span_kind(operation_type):
+    """Return the correct SpanKind for *operation_type* per OTel GenAI spec."""
+    return SPAN_KIND_MAP.get(operation_type, SpanKind.INTERNAL)
+
+
+_MODEL_PREFIX_TO_PROVIDER = {
+    "gpt-": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "o4": "openai",
+    "davinci": "openai",
+    "claude": "anthropic",
+    "gemini": "google",
+    "mistral": "mistral_ai",
+    "command": "cohere",
+    "deepseek": "deepseek",
+    "llama": "groq",
+    "mixtral": "groq",
+}
+
+
+def _infer_provider_from_model(model_name):
+    """Map a model name string to a provider key in PROVIDER_DEFAULT_ENDPOINTS."""
+    if not model_name:
+        return None
+    lower = model_name.lower()
+
+    # Handle LiteLLM-style "provider/model" prefixes (e.g. "openai/gpt-4.1-nano")
+    if "/" in lower:
+        provider_prefix = lower.split("/", 1)[0]
+        if provider_prefix in _MODEL_PREFIX_TO_PROVIDER.values():
+            return provider_prefix
+        lower = lower.split("/", 1)[1]
+
+    for prefix, provider in _MODEL_PREFIX_TO_PROVIDER.items():
+        if lower.startswith(prefix):
+            return provider
+    return None
+
+
 def set_server_address_and_port(instance):
+    """Extract server address / port from a CrewAI instance's LLM config.
+
+    Falls back to PROVIDER_DEFAULT_ENDPOINTS when no explicit api_base is set.
+    For Tool instances, inherits from the parent agent via contextvar.
     """
-    Extract server information from CrewAI instance.
-
-    Args:
-        instance: CrewAI instance (Crew, Agent, Task, etc.)
-
-    Returns:
-        tuple: (server_address, server_port)
-    """
-    server_address = "localhost"
-    server_port = 8080
-
-    # Try to extract LLM endpoint information
+    server_address = ""
+    server_port = 0
     try:
-        if hasattr(instance, "llm") and hasattr(instance.llm, "api_base"):
-            parsed = urlparse(instance.llm.api_base)
-            server_address = parsed.hostname or "localhost"
-            server_port = parsed.port or 443
-        elif hasattr(instance, "agent") and hasattr(instance.agent, "llm"):
-            # For tasks that have an agent with LLM
-            if hasattr(instance.agent.llm, "api_base"):
-                parsed = urlparse(instance.agent.llm.api_base)
-                server_address = parsed.hostname or "localhost"
-                server_port = parsed.port or 443
-    except Exception:
-        # Graceful degradation
-        pass
+        llm = getattr(instance, "llm", None)
+        if not llm:
+            agent = getattr(instance, "agent", None)
+            if agent:
+                llm = getattr(agent, "llm", None)
 
+        # Crew instances: walk agents list
+        if not llm:
+            agents = getattr(instance, "agents", None)
+            if agents:
+                for ag in agents:
+                    llm = getattr(ag, "llm", None)
+                    if llm:
+                        break
+
+        if llm:
+            api_base = getattr(llm, "api_base", None) or getattr(llm, "base_url", None)
+            if api_base:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(str(api_base))
+                server_address = parsed.hostname or ""
+                server_port = parsed.port or 443
+
+        if not server_address:
+            model_name = _extract_model_name(instance)
+            provider = _infer_provider_from_model(model_name)
+            if provider:
+                server_address, server_port = get_server_address_for_provider(provider)
+
+        # Tool instances: inherit from parent agent via contextvar
+        if not server_address:
+            model_info = _current_agent_model_info.get()
+            if model_info:
+                server_address = model_info[1]
+                server_port = model_info[2]
+    except Exception:
+        pass
     return server_address, server_port
 
 
+def _compute_agent_model_info(instance):
+    """Return (model_name, server_address, server_port) for a task's agent."""
+    model_name = _extract_model_name(instance)
+    server_address, server_port = set_server_address_and_port(instance)
+    return (model_name, server_address, server_port)
+
+
+def generate_span_name(endpoint, instance, args=None, kwargs=None):
+    """Return an OTel-compliant span name: ``{operation} {entity_name}``."""
+    operation = OPERATION_MAP.get(endpoint, "invoke_agent")
+
+    if endpoint.startswith("crew_"):
+        name = getattr(instance, "name", None) or "CrewAI"
+        return f"{operation} {name}"
+
+    if endpoint == "task_execute_core":
+        agent = getattr(instance, "agent", None)
+        role = getattr(agent, "role", None) if agent else None
+        return f"{operation} {role or 'agent'}"
+
+    if endpoint.startswith("agent_"):
+        role = getattr(instance, "role", None) or "agent"
+        return f"{operation} {role}"
+
+    if endpoint == "tool_run":
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name}"
+
+    if endpoint in ("flow_kickoff", "flow_kickoff_async"):
+        name = getattr(instance, "name", None) or type(instance).__name__
+        return f"{operation} {name}"
+
+    if endpoint == "flow_execute_method":
+        node_name = args[0] if args else "node"
+        return f"{operation} {node_name}"
+
+    return f"{operation} {endpoint}"
+
+
+# ---------------------------------------------------------------------------
+# Main response processor
+# ---------------------------------------------------------------------------
 def process_crewai_response(
     response,
     operation_type,
@@ -89,56 +218,27 @@ def process_crewai_response(
     endpoint=None,
     **kwargs,
 ):
-    """
-    Process CrewAI response with comprehensive business intelligence.
-    OpenLIT's competitive advantage through superior observability.
-    """
-
+    """Set OTel-compliant span attributes, capture content, and record metrics."""
     end_time = time.time()
-    duration_ms = (end_time - start_time) * 1000
 
-    # Create proper scope object for common_framework_span_attributes
-    scope = type("GenericScope", (), {})()
+    # -- common framework attributes (provider, model, server, duration …) --
+    scope = type("Scope", (), {})()
     scope._span = span
     scope._start_time = start_time
     scope._end_time = end_time
 
-    # Get standard operation name from mapping
-    standard_operation = OPERATION_MAP.get(endpoint, "invoke_agent")
+    request_model = _extract_model_name(instance)
 
-    # Extract model information from agent's LLM for proper attribution
-    request_model = "unknown"
-    if instance:
-        llm = getattr(instance, "llm", None)
-        if llm:
-            # Try different model attribute names used by different LLM libraries
-            request_model = (
-                getattr(llm, "model_name", None)
-                or getattr(llm, "model", None)
-                or getattr(llm, "_model_name", None)
-                or "unknown"
-            )
-            if request_model != "unknown":
-                request_model = str(request_model)
-
-    # Create a wrapper instance that exposes model_name for common_framework_span_attributes
-    class ModelWrapper:
-        """Wrapper class to expose model_name for framework span attributes."""
-
-        def __init__(self, original_instance, model_name):
-            self._original = original_instance
-            self.model_name = model_name
+    class _ModelProxy:  # pylint: disable=too-few-public-methods
+        def __init__(self, orig, model):
+            self._original = orig
+            self.model_name = model
 
         def __getattr__(self, name):
             return getattr(self._original, name)
 
-        def get_original_instance(self):
-            """Get the original wrapped instance."""
-            return self._original
+    proxy = _ModelProxy(instance, request_model) if instance else None
 
-    model_instance = ModelWrapper(instance, request_model) if instance else None
-
-    # Set common framework span attributes
     common_framework_span_attributes(
         scope,
         SemanticConvention.GEN_AI_SYSTEM_CREWAI,
@@ -148,464 +248,449 @@ def process_crewai_response(
         application_name,
         version,
         endpoint,
-        model_instance,
+        proxy,
     )
 
-    # Set span name following OpenTelemetry format
-    _set_span_name(span, standard_operation, instance, endpoint, args, kwargs)
-
-    # === CORE SEMANTIC ATTRIBUTES ===
+    # Override raw endpoint with standard OTel operation name
+    standard_operation = OPERATION_MAP.get(endpoint, "invoke_agent")
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, standard_operation)
-    # Remove gen_ai.endpoint as requested
 
-    # === STANDARD BUSINESS INTELLIGENCE ===
-    # Only use standard OpenTelemetry attributes, no framework-specific ones
-    _set_agent_business_intelligence(span, instance, endpoint, args, kwargs)
-    _set_tool_business_intelligence(span, instance, endpoint, args, kwargs)
-    _set_task_business_intelligence(span, instance, endpoint, args, kwargs)
-    _set_crew_business_intelligence(span, instance, endpoint, args, kwargs)
-    # Remove framework-specific functions: _set_workflow_business_intelligence, _set_memory_business_intelligence
+    # -- entity-specific attributes --
+    _set_crew_attributes(span, instance, endpoint)
+    _set_agent_attributes(span, instance, endpoint, capture_message_content)
+    _set_task_attributes(span, instance, endpoint, capture_message_content)
+    _set_tool_attributes(
+        span, instance, endpoint, capture_message_content, args, kwargs, response
+    )
+    _set_flow_attributes(span, instance, endpoint)
 
-    # === PERFORMANCE INTELLIGENCE ===
-    # Use standard OpenTelemetry duration attribute through common_framework_span_attributes
-
-    # === CONTENT CAPTURE ===
+    # -- content capture as span attributes (JSON), not legacy span events --
     if capture_message_content:
-        _capture_content(span, instance, response, endpoint)
+        _capture_content_as_attributes(span, instance, response, endpoint)
 
-    # === COST TRACKING ===
-    _track_cost_and_tokens(span, instance, response, endpoint)
+    # -- output type --
+    span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+    )
 
-    # === RECORD METRICS ===
+    # -- recommended response attributes --
+    if request_model:
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
+    _set_response_usage(span, response)
+
+    # -- metrics --
     if not disable_metrics and metrics:
         _record_crewai_metrics(
-            metrics, standard_operation, duration_ms, environment, application_name
+            metrics,
+            standard_operation,
+            end_time - start_time,
+            environment,
+            application_name,
+            request_model,
+            server_address,
+            server_port,
         )
 
     span.set_status(Status(StatusCode.OK))
     return response
 
 
-def _set_span_name(span, operation_type, instance, endpoint, args, kwargs):
-    """Set span name following OpenTelemetry format: '{operation_type} {name}'"""
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _set_response_usage(span, response):
+    """Extract token usage from CrewAI TaskOutput / CrewOutput and set OTel attrs."""
     try:
-        # Get the operation name from our mapping
-        operation_name = OPERATION_MAP.get(endpoint, "invoke_agent")
-
-        if endpoint.startswith("crew_"):
-            # Crew operations: "invoke_agent {crew_name}"
-            crew_name = getattr(instance, "name", None) or "crew"
-            span.update_name(f"{operation_name} {crew_name}")
-
-        elif endpoint.startswith("agent_"):
-            if "create" in endpoint or endpoint == "agent___init__":
-                # Agent creation: "create_agent {agent_name}"
-                agent_name = getattr(instance, "name", None) or getattr(
-                    instance, "role", "agent"
-                )
-                span.update_name(f"create_agent {agent_name}")
-            else:
-                # Agent invocation: "invoke_agent {agent_name}"
-                agent_name = getattr(instance, "name", None) or getattr(
-                    instance, "role", "agent"
-                )
-                span.update_name(f"invoke_agent {agent_name}")
-
-        elif endpoint.startswith("task_"):
-            # Task operations: "invoke_agent task"
-            span.update_name("invoke_agent task")
-
-        elif endpoint.startswith("tool_"):
-            # Tool operations: "execute_tool {tool_name}"
-            tool_name = (
-                getattr(instance, "name", None)
-                or getattr(instance, "__class__", type(instance)).__name__
+        token_usage = getattr(response, "token_usage", None)
+        if not token_usage:
+            return
+        prompt_tokens = getattr(token_usage, "prompt_tokens", None) or getattr(
+            token_usage, "total_prompt_tokens", None
+        )
+        completion_tokens = getattr(token_usage, "completion_tokens", None) or getattr(
+            token_usage, "total_completion_tokens", None
+        )
+        if prompt_tokens is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, int(prompt_tokens)
             )
-            span.update_name(f"execute_tool {tool_name}")
-
-        elif endpoint.startswith("memory_"):
-            # Memory operations: "invoke_agent memory:{operation}"
-            memory_op = endpoint.split("_", 1)[1] if "_" in endpoint else "operation"
-            span.update_name(f"invoke_agent memory:{memory_op}")
-
-        else:
-            # Default fallback
-            span.update_name(f"{operation_name} {endpoint}")
-
-    except Exception as e:
-        handle_exception(span, e)
-        # Fallback naming
-        span.update_name(f"invoke_agent {endpoint}")
+        if completion_tokens is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, int(completion_tokens)
+            )
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ["stop"])
+    except Exception:
+        pass
 
 
-def _set_agent_business_intelligence(span, instance, endpoint, args, kwargs):
-    """Set agent business intelligence using standard OpenTelemetry semantic conventions"""
+def _extract_model_name(instance):
+    """Walk the instance hierarchy to find the LLM model name.
+
+    Returns the model name string or *None* when it cannot be determined.
+    """
+    if not instance:
+        return None
+
+    llm = getattr(instance, "llm", None)
+    if not llm:
+        agent = getattr(instance, "agent", None)
+        if agent:
+            llm = getattr(agent, "llm", None)
+
+    # Crew instances: walk agents list to find first agent's LLM
+    if not llm:
+        agents = getattr(instance, "agents", None)
+        if agents:
+            for ag in agents:
+                llm = getattr(ag, "llm", None)
+                if llm:
+                    break
+
+    # Tool instances: inherit from parent agent via contextvar
+    if not llm:
+        model_info = _current_agent_model_info.get()
+        if model_info:
+            return model_info[0]
+
+    if llm:
+        name = (
+            getattr(llm, "model_name", None)
+            or getattr(llm, "model", None)
+            or getattr(llm, "_model_name", None)
+        )
+        if name:
+            return str(name)
+    return None
+
+
+def _set_crew_attributes(span, instance, endpoint):
+    """Workflow attributes for Crew operations (OTel gen-ai-agent-spans)."""
+    if not endpoint.startswith("crew_"):
+        return
+    try:
+        crew_name = getattr(instance, "name", None) or "CrewAI"
+        span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, crew_name)
+
+        process = getattr(instance, "process", None)
+        if process:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_EXECUTION_MODE,
+                getattr(process, "value", str(process)),
+            )
+
+        agents = getattr(instance, "agents", None) or []
+        if agents:
+            agent_defs = []
+            for agent in agents[:10]:
+                entry = {}
+                role = getattr(agent, "role", None)
+                if role:
+                    entry["role"] = str(role)
+                goal = getattr(agent, "goal", None)
+                if goal:
+                    entry["goal"] = str(goal)
+                tools = getattr(agent, "tools", None) or []
+                if tools:
+                    entry["tools"] = [
+                        getattr(t, "name", type(t).__name__) for t in tools[:5]
+                    ]
+                if entry:
+                    agent_defs.append(entry)
+            if agent_defs:
+                span.set_attribute("gen_ai.crewai.crew.agents", json.dumps(agent_defs))
+
+        tasks = getattr(instance, "tasks", None) or []
+        if tasks:
+            span.set_attribute("gen_ai.crewai.crew.task_count", len(tasks))
+    except Exception:
+        pass
+
+
+def _set_agent_attributes(span, instance, endpoint, capture_message_content):
+    """Agent attributes per OTel GenAI semantic conventions."""
     if not endpoint.startswith("agent_"):
         return
-
     try:
-        # Standard OpenTelemetry Gen AI Agent attributes
-        agent_id = getattr(instance, "id", "")
+        agent_id = getattr(instance, "id", None)
         if agent_id:
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(agent_id))
 
-        agent_name = getattr(instance, "name", None) or getattr(instance, "role", "")
+        agent_name = getattr(instance, "role", None) or getattr(instance, "name", None)
         if agent_name:
-            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, agent_name)
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name))
 
-        # Agent description - use role + goal as description per OpenTelemetry spec
-        agent_role = getattr(instance, "role", "")
-        agent_goal = getattr(instance, "goal", "")
-        if agent_role and agent_goal:
-            description = f"{agent_role}: {agent_goal}"
-            span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, description)
-        elif agent_goal:
-            span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, agent_goal)
-
-        # Enhanced Agent Configuration Tracking using SemanticConvention
-        max_retry_limit = getattr(instance, "max_retry_limit", None)
-        if max_retry_limit is not None:
+        role = getattr(instance, "role", "")
+        goal = getattr(instance, "goal", "")
+        if role and goal:
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_MAX_RETRY_LIMIT, max_retry_limit
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION, f"{role}: {goal}"
             )
+        elif goal:
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(goal))
 
-        allow_delegation = getattr(instance, "allow_delegation", None)
-        if allow_delegation is not None:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_ALLOW_DELEGATION, allow_delegation
-            )
-
-        allow_code_execution = getattr(instance, "allow_code_execution", None)
-        if allow_code_execution is not None:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_ALLOW_CODE_EXECUTION,
-                allow_code_execution,
-            )
-
-        # Tools tracking using SemanticConvention
-        tools = getattr(instance, "tools", [])
-        if tools:
-            tool_names = [
-                getattr(tool, "name", str(tool)) for tool in tools[:5]
-            ]  # Limit to first 5
-            if tool_names:
+        backstory = getattr(instance, "backstory", None)
+        if backstory and capture_message_content:
+            formatted = format_system_instructions(backstory)
+            if formatted:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_AGENT_TOOLS, ", ".join(tool_names)
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    formatted,
                 )
 
-        # === OpenAI Agent-specific Attributes ===
-        _set_openai_agent_attributes(span, instance, endpoint, args, kwargs)
-
-        # === Conversation and Data Source Tracking ===
-        _set_conversation_and_data_source_attributes(
-            span, instance, endpoint, args, kwargs
-        )
-
-    except Exception as e:
-        handle_exception(span, e)
+        _set_tool_definitions(span, getattr(instance, "tools", None) or [])
+    except Exception:
+        pass
 
 
-def _set_openai_agent_attributes(span, instance, endpoint, args, kwargs):
-    """Set OpenAI-specific agent attributes when using OpenAI models"""
+def _set_task_attributes(span, instance, endpoint, capture_message_content):
+    """Attributes for task execution (invoke_agent spans)."""
+    if endpoint != "task_execute_core":
+        return
     try:
-        # Check if agent is using OpenAI LLM
-        llm = getattr(instance, "llm", None)
-        if llm:
-            llm_class = llm.__class__.__name__.lower()
-            llm_model = getattr(llm, "model_name", getattr(llm, "model", ""))
-
-            # Set model information
-            if llm_model:
-                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, llm_model)
-
-            # OpenAI-specific attributes (but keep gen_ai.system as crewai)
-            if "openai" in llm_class or "gpt" in str(llm_model).lower():
-                # OpenAI service tier if available
-                service_tier = getattr(llm, "service_tier", None)
-                if service_tier:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
-                        service_tier,
-                    )
-
-                # OpenAI Assistant API attributes if available
-                assistant_id = getattr(instance, "assistant_id", None) or kwargs.get(
-                    "assistant_id"
+        agent = getattr(instance, "agent", None)
+        if agent:
+            agent_name = getattr(agent, "role", None) or getattr(agent, "name", None)
+            if agent_name:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_NAME, str(agent_name)
                 )
-                if assistant_id:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_OPENAI_ASSISTANT_ID, assistant_id
-                    )
+            agent_id = getattr(agent, "id", None)
+            if agent_id:
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(agent_id))
 
-                thread_id = getattr(instance, "thread_id", None) or kwargs.get(
-                    "thread_id"
+            role = getattr(agent, "role", "")
+            goal = getattr(agent, "goal", "")
+            if role and goal:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
+                    f"{role}: {goal}",
                 )
-                if thread_id:
+            elif goal:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(goal)
+                )
+
+            backstory = getattr(agent, "backstory", None)
+            if backstory and capture_message_content:
+                formatted = format_system_instructions(backstory)
+                if formatted:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_OPENAI_THREAD_ID, thread_id
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
                     )
 
-                run_id = getattr(instance, "run_id", None) or kwargs.get("run_id")
-                if run_id:
-                    span.set_attribute(SemanticConvention.GEN_AI_OPENAI_RUN_ID, run_id)
-
-            # LiteLLM detection (but keep gen_ai.system as crewai)
-            elif "litellm" in llm_class:
-                # Could add LiteLLM-specific attributes here if needed
-                pass
-
-    except Exception as e:
-        handle_exception(span, e)
+            _set_tool_definitions(span, getattr(agent, "tools", None) or [])
+    except Exception:
+        pass
 
 
-def _set_conversation_and_data_source_attributes(
-    span, instance, endpoint, args, kwargs
+def _set_tool_attributes(
+    span, instance, endpoint, capture_message_content, args, kwargs, response
 ):
-    """Set conversation tracking and data source attributes"""
+    """Tool attributes per OTel GenAI semantic conventions."""
+    if endpoint != "tool_run":
+        return
     try:
-        # Conversation ID for multi-turn interactions
-        conversation_id = (
-            getattr(instance, "conversation_id", None)
-            or getattr(instance, "session_id", None)
-            or kwargs.get("conversation_id")
-            or kwargs.get("session_id")
-        )
-        if conversation_id:
+        tool_name = getattr(instance, "name", None) or type(instance).__name__
+        span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, str(tool_name))
+        span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, "function")
+
+        tool_desc = getattr(instance, "description", None)
+        if tool_desc:
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONVERSATION_ID, str(conversation_id)
+                SemanticConvention.GEN_AI_TOOL_DESCRIPTION,
+                truncate_content(str(tool_desc)),
             )
 
-        # Data source tracking for RAG operations
-        memory = getattr(instance, "memory", None)
-        if memory:
-            # Memory as data source
-            memory_provider = getattr(memory, "provider", None)
-            if memory_provider:
-                span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCE_TYPE, "memory")
+        if capture_message_content:
+            tool_input = None
+            if args:
+                try:
+                    tool_input = (
+                        json.dumps(args[0]) if len(args) == 1 else json.dumps(args)
+                    )
+                except (TypeError, ValueError):
+                    tool_input = str(args)
+            elif kwargs:
+                try:
+                    tool_input = json.dumps(kwargs)
+                except (TypeError, ValueError):
+                    tool_input = str(kwargs)
+            if tool_input:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_DATA_SOURCE_ID, str(memory_provider)
+                    SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                    truncate_content(tool_input),
                 )
-
-        # Knowledge base or vector store detection
-        knowledge_source = getattr(instance, "knowledge_source", None)
-        if knowledge_source:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_DATA_SOURCE_TYPE, "knowledge_base"
-            )
-            span.set_attribute(
-                SemanticConvention.GEN_AI_DATA_SOURCE_ID, str(knowledge_source)
-            )
-
-        # Tool-based data sources
-        tools = getattr(instance, "tools", [])
-        for tool in tools:
-            tool_name = getattr(tool, "name", "").lower()
-            if any(
-                keyword in tool_name
-                for keyword in ["search", "retrieval", "database", "vector"]
-            ):
+            if response is not None:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_DATA_SOURCE_TYPE, "external_tool"
+                    SemanticConvention.GEN_AI_TOOL_CALL_RESULT,
+                    truncate_content(str(response)),
                 )
-                break
-
-    except Exception as e:
-        handle_exception(span, e)
-
-
-def _set_task_business_intelligence(span, instance, endpoint, args, kwargs):
-    """Set task business intelligence using standard OpenTelemetry semantic conventions"""
-    if not endpoint.startswith("task_"):
-        return
-
-    try:
-        # Task ID tracking
-        task_id = getattr(instance, "id", None)
-        if task_id:
-            span.set_attribute(SemanticConvention.GEN_AI_AGENT_TASK_ID, str(task_id))
-
-        # Task description
-        task_description = getattr(instance, "description", "")
-        if task_description:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_TASK_DESCRIPTION, task_description
-            )
-
-        # Task expected output (keep only essential attributes that have semantic conventions or are critical)
-        expected_output = getattr(instance, "expected_output", "")
-        if expected_output:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_TASK_EXPECTED_OUTPUT, expected_output
-            )
-
-    except Exception as e:
-        handle_exception(span, e)
-
-
-def _set_crew_business_intelligence(span, instance, endpoint, args, kwargs):
-    """Set crew business intelligence using standard OpenTelemetry semantic conventions"""
-    if not endpoint.startswith("crew_"):
-        return
-
-    try:
-        # Only capture essential crew attributes - remove custom ones that don't have semantic conventions
+    except Exception:
         pass
 
-    except Exception as e:
-        handle_exception(span, e)
 
-
-def _set_tool_business_intelligence(span, instance, endpoint, args, kwargs):
-    """Set tool business intelligence using standard OpenTelemetry semantic conventions"""
-    if not endpoint.startswith("tool_"):
+def _set_flow_attributes(span, instance, endpoint):
+    """Workflow / agent attributes for Flow operations."""
+    if not endpoint.startswith("flow_"):
         return
-
     try:
-        # Standard OpenTelemetry Gen AI Tool attributes
-        tool_name = (
-            getattr(instance, "name", None)
-            or getattr(instance, "__class__", type(instance)).__name__
+        if endpoint in ("flow_kickoff", "flow_kickoff_async"):
+            flow_name = getattr(instance, "name", None) or type(instance).__name__
+            span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, str(flow_name))
+        if endpoint == "flow_execute_method":
+            node_name = getattr(instance, "_current_method_name", None)
+            if node_name:
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(node_name))
+    except Exception:
+        pass
+
+
+def _set_tool_definitions(span, tools):
+    """Set gen_ai.tool.definitions from a list of CrewAI tool instances."""
+    if not tools:
+        return
+    tool_defs = []
+    for tool in tools[:10]:
+        entry = {"type": "function"}
+        name = getattr(tool, "name", None)
+        if name:
+            entry["name"] = str(name)
+        desc = getattr(tool, "description", None)
+        if desc:
+            entry["description"] = truncate_content(str(desc))
+        if len(entry) > 1:
+            tool_defs.append(entry)
+    if tool_defs:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_DEFINITIONS, json.dumps(tool_defs)
         )
-        if tool_name:
-            span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_name)
-
-        # Tool call ID if available (for tracking specific tool invocations)
-        tool_call_id = kwargs.get("call_id", None) or getattr(instance, "call_id", None)
-        if tool_call_id:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tool_call_id)
-            )
-
-        # === OpenAI Function Calling Attributes ===
-        _set_openai_tool_attributes(span, instance, endpoint, args, kwargs)
-
-    except Exception as e:
-        handle_exception(span, e)
 
 
-def _set_openai_tool_attributes(span, instance, endpoint, args, kwargs):
-    """Set OpenAI function calling specific attributes using standard conventions"""
+def _capture_content_as_attributes(span, instance, response, endpoint):
+    """Record input/output as span attributes (JSON), not legacy span events."""
     try:
-        # Standard tool type classification (framework-agnostic)
-        tool_class = instance.__class__.__name__.lower()
-        if any(keyword in tool_class for keyword in ["search", "web", "browser"]):
-            tool_type = "search"
-        elif any(keyword in tool_class for keyword in ["file", "read", "write"]):
-            tool_type = "file_system"
-        elif any(keyword in tool_class for keyword in ["api", "http", "request"]):
-            tool_type = "api_client"
-        elif any(keyword in tool_class for keyword in ["database", "sql", "query"]):
-            tool_type = "database"
-        elif any(
-            keyword in tool_class for keyword in ["vector", "embedding", "retrieval"]
-        ):
-            tool_type = "vector_store"
-        else:
-            tool_type = "custom"
-
-        # Use standard tool type attribute from semcov
-        span.set_attribute(SemanticConvention.GEN_AI_TOOL_TYPE, tool_type)
-
-    except Exception as e:
-        handle_exception(span, e)
-
-
-def _capture_content(span, instance, response, endpoint):
-    """Capture input/output content with MIME types"""
-
-    try:
-        # Capture response content
-        if response:
-            span.add_event(
-                name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-                attributes={
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES: str(response)[
-                        :1000
-                    ],  # Limit size
-                },
-            )
-
-        # Capture input content based on operation type
-        if endpoint.startswith("task_"):
-            task_description = getattr(instance, "description", "")
-            if task_description:
-                span.add_event(
-                    name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-                    attributes={
-                        SemanticConvention.GEN_AI_INPUT_MESSAGES: task_description[
-                            :1000
-                        ],
-                    },
+        if endpoint == "task_execute_core":
+            desc = getattr(instance, "description", None)
+            if desc:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                    json.dumps([format_input_message("user", desc)]),
                 )
 
+        if response is not None:
+            output = truncate_content(str(response))
+            if output:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                    json.dumps([format_output_message(output)]),
+                )
     except Exception:
-        # Graceful degradation
         pass
 
 
-def _track_cost_and_tokens(span, instance, response, endpoint):
-    """Track cost and token usage for business intelligence"""
+def emit_create_agent_spans(
+    tracer,
+    instance,
+    version,
+    environment,
+    application_name,
+    capture_message_content,
+):
+    """Emit a ``create_agent`` span per agent defined on a Crew instance.
 
-    try:
-        # Token tracking from LLM calls
-        if hasattr(instance, "llm") and hasattr(instance.llm, "get_num_tokens"):
-            # This would be framework-specific implementation
-            pass
+    Returns a list of SpanContexts that the caller should store on
+    ``instance._openlit_creation_contexts`` so the ``invoke_workflow``
+    span created by ``Crew.kickoff`` can link back to them.
+    """
+    agents = getattr(instance, "agents", None) or []
+    if not agents:
+        return []
 
-        # Response length as a proxy metric and token estimation
-        if response:
-            response_length = len(str(response))
-            # Estimate token count (rough approximation: 4 chars per token)
-            estimated_tokens = response_length // 4
+    creation_contexts = []
+    for agent in agents:
+        role = getattr(agent, "role", None) or "agent"
+        span_name = f"create_agent {role}"
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             span.set_attribute(
-                SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, estimated_tokens
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
             )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_CREWAI,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(role))
 
-        # Cost estimation would require pricing information
-        # This could be enhanced with actual cost tracking
+            agent_id = getattr(agent, "id", None)
+            if agent_id:
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(agent_id))
 
-    except Exception:
-        # Graceful degradation
-        pass
+            goal = getattr(agent, "goal", "")
+            if role and goal:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
+                    f"{role}: {goal}",
+                )
+            elif goal:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(goal)
+                )
+
+            backstory = getattr(agent, "backstory", None)
+            if backstory and capture_message_content:
+                formatted = format_system_instructions(backstory)
+                if formatted:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                        formatted,
+                    )
+
+            _set_tool_definitions(span, getattr(agent, "tools", None) or [])
+
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+            span.set_status(Status(StatusCode.OK))
+
+            _apply_custom_span_attributes(span)
+
+            creation_contexts.append(span.get_span_context())
+
+    return creation_contexts
 
 
 def _record_crewai_metrics(
-    metrics, operation_type, duration_ms, environment, application_name
+    metrics,
+    operation_type,
+    duration,
+    environment,
+    application_name,
+    request_model,
+    server_address,
+    server_port,
 ):
-    """Record CrewAI-specific metrics"""
-
+    """Record OTel-compliant metrics with correct attribute keys."""
     try:
         attributes = {
-            "gen_ai.operation.name": operation_type,
-            "gen_ai.system": SemanticConvention.GEN_AI_SYSTEM_CREWAI,
+            SemanticConvention.GEN_AI_OPERATION: operation_type,
+            SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_CREWAI,
             "service.name": application_name,
             "deployment.environment": environment,
         }
+        if request_model and request_model != "unknown":
+            attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+        if server_address:
+            attributes[SemanticConvention.SERVER_ADDRESS] = server_address
+        if server_port:
+            attributes[SemanticConvention.SERVER_PORT] = server_port
 
-        # Record operation duration
         if "genai_client_operation_duration" in metrics:
-            metrics["genai_client_operation_duration"].record(
-                duration_ms / 1000, attributes
-            )
-
+            metrics["genai_client_operation_duration"].record(duration, attributes)
     except Exception:
-        # Graceful degradation
         pass
-
-
-def _parse_tools(tools):
-    """Parse tools list into JSON format"""
-
-    try:
-        result = []
-        for tool in tools:
-            tool_info = {}
-            if hasattr(tool, "name") and tool.name is not None:
-                tool_info["name"] = tool.name
-            if hasattr(tool, "description") and tool.description is not None:
-                tool_info["description"] = tool.description
-            if tool_info:
-                result.append(tool_info)
-        return json.dumps(result)
-    except Exception:
-        return "[]"

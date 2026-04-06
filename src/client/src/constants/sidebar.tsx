@@ -1,6 +1,7 @@
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	BookKey,
+	BookOpen,
 	BookText,
 	Component,
 	Home,
@@ -8,7 +9,9 @@ import {
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
+	SettingsIcon,
 	ShieldAlert,
+	SlidersHorizontal,
 	TextQuote
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
@@ -80,6 +83,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			type: "action",
 		},
 		{
+			icon: <BookOpen className={ICON_CLASSES} />,
+			text: "Contexts",
+			link: "/context",
+			type: "action",
+		},
+		{
+			icon: <SlidersHorizontal className={ICON_CLASSES} />,
+			text: "Rule Engine",
+			link: "/rule-engine",
+			type: "action",
+		},
+		{
 			icon: <MonitorPlay className={ICON_CLASSES} />,
 			text: "Openground",
 			link: "/openground",
@@ -97,8 +112,8 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		},
 		{
 			icon: <MonitorCog className={ICON_CLASSES} />,
-			text: "Evaluation Config",
-			link: "/settings/evaluation",
+			text: "Evaluations",
+			link: "/evaluations",
 			type: "action",
 		},
 		]
@@ -112,6 +127,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",
 				link: "/settings/api-keys",
+				type: "action",
+			},
+			{
+				icon: <SettingsIcon className={ICON_CLASSES} />,
+				text: "Manage Models",
+				link: "/settings/manage-models",
 				type: "action",
 			},
 		]

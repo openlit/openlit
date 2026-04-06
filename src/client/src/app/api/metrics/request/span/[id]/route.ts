@@ -1,4 +1,5 @@
 import { getRequestViaSpanId } from "@/lib/platform/request";
+import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
 
 export async function GET(_: Request, context: any) {
 	const { id } = context.params || {};
@@ -8,6 +9,14 @@ export async function GET(_: Request, context: any) {
 			status: 400,
 		});
 
-	const res: any = await getRequestViaSpanId(id);
+	const [spanRes, evalSummary] = await Promise.all([
+		getRequestViaSpanId(id),
+		getEvaluationSummaryForSpanId(id),
+	]);
+
+	const res: any = { ...spanRes };
+	if (evalSummary && evalSummary.runCount > 0) {
+		res.evaluationSummary = evalSummary;
+	}
 	return Response.json(res);
 }

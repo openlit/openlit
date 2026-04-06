@@ -247,7 +247,7 @@ def _add_browser_use_attributes(
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(instance.id))
         if hasattr(instance, "task_id"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_TASK_ID, str(instance.task_id)
+                SemanticConvention.GEN_AI_BROWSER_AGENT_TASK_ID, str(instance.task_id)
             )
         if hasattr(instance, "session_id"):
             span.set_attribute(
@@ -369,7 +369,8 @@ def _add_agent_configuration_attributes(
         # Task ID and session information
         if hasattr(agent_instance, "task_id"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_TASK_ID, str(agent_instance.task_id)
+                SemanticConvention.GEN_AI_BROWSER_AGENT_TASK_ID,
+                str(agent_instance.task_id),
             )
         if hasattr(agent_instance, "session_id"):
             span.set_attribute(
@@ -726,7 +727,7 @@ async def _create_individual_action_spans(
                             )
                         if hasattr(step.state, "title") and step.state.title:
                             action_span.set_attribute(
-                                SemanticConvention.GEN_AI_BROWSER_PAGE_TITLE,
+                                SemanticConvention.GEN_AI_BROWSER_CURRENT_PAGE_TITLE,
                                 truncate_content(step.state.title),
                             )
                         if hasattr(step.state, "tabs") and step.state.tabs:

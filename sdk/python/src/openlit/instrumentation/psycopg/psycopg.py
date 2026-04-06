@@ -14,7 +14,6 @@ from openlit.instrumentation.psycopg.utils import (
     extract_database_name,
     process_cursor_response,
     process_connection_response,
-    inject_sql_comment,
 )
 from openlit.semcov import SemanticConvention
 
@@ -29,15 +28,13 @@ def execute_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Cursor.execute operations.
 
     Args:
-        capture_parameters: If True, captures query parameters in spans (security risk!)
-        enable_sqlcommenter: If True, injects trace context as SQL comments
+        capture_db_parameters: If True, captures query parameters in spans (security risk!)
     """
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -70,14 +67,6 @@ def execute_wrap(
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
 
-            # Inject SQLCommenter if enabled (must be done inside span context)
-            modified_query = inject_sql_comment(
-                query, application_name, enable_sqlcommenter
-            )
-            if modified_query != query:
-                # Update args with modified query
-                args = (modified_query,) + args[1:] if args else args
-
             response = wrapped(*args, **kwargs)
 
             try:
@@ -86,7 +75,7 @@ def execute_wrap(
                     response,
                     db_operation,
                     table_name,
-                    query,  # Use original query for logging
+                    query,
                     server_address,
                     server_port,
                     database_name,
@@ -101,7 +90,7 @@ def execute_wrap(
                     cursor=instance,
                     connection=connection,
                     endpoint=gen_ai_endpoint,
-                    capture_parameters=capture_parameters,
+                    capture_db_parameters=capture_db_parameters,
                     params=params,
                 )
 
@@ -123,13 +112,12 @@ def executemany_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Cursor.executemany operations.
 
-    Note: For executemany, capture_parameters only captures first batch item
+    Note: For executemany, capture_db_parameters only captures first batch item
     to avoid huge traces.
     """
 
@@ -165,13 +153,6 @@ def executemany_wrap(
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
 
-            # Inject SQLCommenter if enabled
-            modified_query = inject_sql_comment(
-                query, application_name, enable_sqlcommenter
-            )
-            if modified_query != query:
-                args = (modified_query,) + args[1:] if args else args
-
             response = wrapped(*args, **kwargs)
 
             try:
@@ -201,7 +182,7 @@ def executemany_wrap(
                     cursor=instance,
                     connection=connection,
                     endpoint=gen_ai_endpoint,
-                    capture_parameters=capture_parameters,
+                    capture_db_parameters=capture_db_parameters,
                     params=first_params,
                 )
 
@@ -223,14 +204,13 @@ def copy_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Cursor.copy operations.
 
-    Note: COPY operations don't typically have parameters, so capture_parameters
-    has limited effect here. SQLCommenter is also not injected for COPY statements.
+    Note: COPY operations don't typically have parameters, so capture_db_parameters
+    has limited effect here.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -304,14 +284,13 @@ def commit_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Connection.commit operations.
 
-    Note: capture_parameters and enable_sqlcommenter are accepted for API
-    consistency but not used for commit operations.
+    Note: capture_db_parameters is accepted for API consistency but not used
+    for commit operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -374,14 +353,13 @@ def rollback_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Connection.rollback operations.
 
-    Note: capture_parameters and enable_sqlcommenter are accepted for API
-    consistency but not used for rollback operations.
+    Note: capture_db_parameters is accepted for API consistency but not used
+    for rollback operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -444,14 +422,12 @@ def callproc_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for Cursor.callproc operations (stored procedures).
 
-    Note: enable_sqlcommenter is not applicable to callproc (procedure calls
-    don't use SQL strings). capture_parameters captures procedure arguments.
+    Note: capture_db_parameters captures procedure arguments.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -505,7 +481,7 @@ def callproc_wrap(
                     cursor=instance,
                     connection=connection,
                     endpoint=gen_ai_endpoint,
-                    capture_parameters=capture_parameters,
+                    capture_db_parameters=capture_db_parameters,
                     params=proc_params,
                 )
 
@@ -527,14 +503,13 @@ def pool_getconn_wrap(
     capture_message_content,
     metrics,
     disable_metrics,
-    capture_parameters=False,
-    enable_sqlcommenter=False,
+    capture_db_parameters=False,
 ):
     """
     Generates a telemetry wrapper for ConnectionPool.getconn operations.
 
-    Note: capture_parameters and enable_sqlcommenter are accepted for API
-    consistency but not used for pool operations.
+    Note: capture_db_parameters is accepted for API consistency but not used
+    for pool operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):

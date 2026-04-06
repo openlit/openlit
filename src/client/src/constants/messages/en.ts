@@ -47,6 +47,62 @@ export const EVALUATION_CONFIG_UPDATING_FAILED =
 	"Evaluation config updation failed!";
 export const EVALUATION_RUN_FAILURE = "Evaluation run failed!";
 
+// Evaluation Settings page
+export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
+export const EVALUATION_CREATE_NEW = "Create new";
+export const EVALUATION_ENGINE_TITLE = "Evaluation Engine";
+export const EVALUATION_ENGINE_DESCRIPTION =
+	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_ENGINE_LABEL = "Engine";
+export const EVALUATION_CONFIG_SECTION = "Configuration";
+export const EVALUATION_PROVIDER_LABEL = "Provider";
+export const EVALUATION_SELECT_PROVIDER = "Select provider";
+export const EVALUATION_MODEL_LABEL = "Model";
+export const EVALUATION_SELECT_MODEL = "Select model";
+export const EVALUATION_MODEL_PLACEHOLDER = "e.g. gpt-4o-mini or custom model name";
+export const EVALUATION_MODEL_CUSTOM_HINT =
+	"Select from suggestions or type any model name supported by the provider.";
+export const EVALUATION_SELECT_PROVIDER_FIRST = "Select provider first";
+export const EVALUATION_API_KEY_VAULT = "API Key (Vault)";
+export const EVALUATION_SELECT_VAULT_KEY = "Select vault key";
+export const EVALUATION_AUTO_TITLE = "Auto Evaluation";
+export const EVALUATION_AUTO_DESCRIPTION =
+	"Runs Hallucination, Bias, and Toxicity by default. Rule engine evaluates traces, fetches context, and runs evaluation on schedule.";
+export const EVALUATION_ENABLE_AUTO = "Enable auto evaluation";
+export const EVALUATION_ENABLE_AUTO_DESCRIPTION =
+	"Evaluate new traces on a schedule";
+export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
+export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
+export const EVALUATION_CRON_HELP =
+	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAVING = "Saving...";
+export const EVALUATION_SAVE_CHANGES = "Save Changes";
+export const EVALUATION_CREATE_CONFIG = "Create Config";
+export const EVALUATION_MANUAL_TITLE = "Manual Evaluation";
+export const EVALUATION_MANUAL_DESCRIPTION =
+	"Run evaluations manually from the trace request details. Manual runs are stored in ClickHouse with source=manual.";
+export const EVALUATION_MANUAL_STEP_1 =
+	"Go to Requests and open chat/completion trace";
+export const EVALUATION_MANUAL_STEP_2 =
+	"Click the Evaluation tab in the trace details";
+export const EVALUATION_MANUAL_STEP_3 =
+	'Click "Run Evaluation" to evaluate the trace';
+export const EVALUATION_GO_TO_REQUESTS = "Go to Requests";
+export const EVALUATION_MANUAL_AND_AUTO = "Manual & Auto";
+export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
+	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
+
+// Manual feedback
+export const EVALUATION_MANUAL_FEEDBACK = "Manual Feedback";
+export const EVALUATION_MANUAL_FEEDBACK_DESCRIPTION =
+	"Add your feedback on this response";
+export const EVALUATION_FEEDBACK_POSITIVE = "Good";
+export const EVALUATION_FEEDBACK_NEGATIVE = "Bad";
+export const EVALUATION_FEEDBACK_NEUTRAL = "Neutral";
+export const EVALUATION_FEEDBACK_COMMENT_PLACEHOLDER = "Optional comment...";
+export const EVALUATION_FEEDBACK_SUBMIT = "Submit Feedback";
+export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
+
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
 export const TRACE_FETCHING_ERROR = "Error fetching trace!";
@@ -428,6 +484,7 @@ export const NAME = "Name";
 export const EMAIL = "Email";
 export const SAVE = "Save";
 export const ACTIVE = "Active";
+export const INACTIVE = "Inactive";
 export const STATUS = "Status";
 
 // Organisation Errors
@@ -468,9 +525,317 @@ export const INVITATION_DECLINE_FAILED = "Failed to decline invitation";
 export const INVITATION_CANCEL_FAILED = "Failed to cancel invitation";
 export const INVITED = "Invited";
 
+// Rule Engine
+export const RULE_CREATED = "Rule created successfully!";
+export const RULE_UPDATED = "Rule updated successfully!";
+export const RULE_DELETED = "Rule deleted successfully!";
+export const RULE_NOT_FOUND = "Rule not found!";
+export const RULE_NOT_CREATED = "Rule cannot be created!";
+export const RULE_NOT_UPDATED = "Rule cannot be updated!";
+export const RULE_NOT_DELETED = "Error deleting rule!";
+export const RULE_NAME_REQUIRED = "Rule name is required!";
+export const RULE_CONDITION_GROUP_ADDED = "Condition group added successfully!";
+export const RULE_CONDITION_GROUP_NOT_ADDED = "Condition group cannot be added!";
+export const RULE_ENTITY_ASSOCIATED = "Entity associated with rule successfully!";
+export const RULE_ENTITY_NOT_ASSOCIATED = "Entity cannot be associated with rule!";
+export const RULE_ENTITY_DELETED = "Rule entity association deleted successfully!";
+export const RULE_ENTITY_NOT_DELETED = "Error deleting rule entity association!";
+export const RULE_CONDITION_FIELD_REQUIRED = "Condition field is required!";
+export const RULE_CONDITION_OPERATOR_REQUIRED = "Condition operator is required!";
+export const RULE_CONDITION_VALUE_REQUIRED = "Condition value is required!";
+export const RULE_ENTITY_TYPE_INVALID = "Invalid entity type!";
+
+// Rule Engine – UI labels & feedback
+export const RULE_LOAD_FAILED = "Failed to load rule";
+export const RULE_UPDATE_FAILED = "Failed to update rule";
+export const RULE_CONDITIONS_SAVED = "Conditions saved!";
+export const RULE_CONDITIONS_SAVE_FAILED = "Failed to save conditions";
+export const RULE_CREATING = "Creating rule...";
+export const RULE_CREATE_FAILED = "Creation of rule failed!";
+export const RULE_ENTITY_ID_REQUIRED = "Entity ID is required";
+export const RULE_ENTITY_ALREADY_ASSOCIATED = "This entity is already associated with the rule";
+export const RULE_ENTITY_ASSOCIATE_FAILED = "Failed to associate entity";
+export const RULE_ENTITY_REMOVE_FAILED = "Failed to remove entity";
+export const RULE_ENTITY_REMOVED = "Entity removed";
+export const RULE_ENGINE_BREADCRUMB = "Rule Engine";
+export const RULE_CONDITION_GROUPS_TITLE = "Condition Groups";
+export const RULE_SAVE_CONDITIONS = "Save Conditions";
+export const RULE_CREATE_BUTTON = "Create Rule";
+export const RULE_CREATED_BY = "Created by";
+export const RULE_INACTIVE = "Inactive";
+
+// Rule Engine – info section
+export const RULE_DESCRIPTION_LABEL = "Description";
+export const RULE_DESCRIPTION_PLACEHOLDER = "What does this rule do?";
+export const RULE_DESCRIPTION_INFO = "Optional. Explain the purpose and intent of this rule.";
+export const RULE_GROUP_OPERATOR_LABEL = "Group Operator";
+export const RULE_GROUP_OPERATOR_INFO = "AND requires all condition groups to match. OR requires at least one group to match.";
+export const RULE_GROUP_OPERATOR_AND = "AND – all groups match";
+export const RULE_GROUP_OPERATOR_OR = "OR – any group matches";
+export const RULE_STATUS_INFO = "Only ACTIVE rules are evaluated during rule engine execution.";
+
+// Rule Engine – create form
+export const RULE_CREATE_NEW = "Create a new rule";
+export const RULE_CREATE_AND_LINK_TO = "Create rule and link to";
+export const RULE_CREATE_SUBMIT = "Create rule";
+export const RULE_NAME_PLACEHOLDER = "e.g. High cost alert";
+export const RULE_NAME_INFO = "A unique, descriptive name to identify this rule.";
+
+// Rule Engine – preview section
+export const RULE_PREVIEW_TITLE = "Rule Preview";
+export const RULE_PREVIEW_TOOLTIP = "Shows the top 5 matched traces from the last 100 records — just to verify the rule is working correctly.";
+export const RULE_PREVIEW_RUN = "Run Preview";
+export const RULE_PREVIEW_RUNNING = "Running\u2026";
+export const RULE_PREVIEW_EMPTY = "Click \u201cRun Preview\u201d to test your saved rule conditions against recent traces.";
+export const RULE_PREVIEW_NO_MATCHES = "No matching traces found in the last 100 records.";
+export const RULE_PREVIEW_FAILED = "Preview failed";
+
+// Rule Engine – entities card
+export const RULE_ASSOCIATED_ENTITIES = "Associated Entities";
+export const RULE_NO_ENTITIES = "No entities associated yet.";
+export const RULE_ASSOCIATE_NEW_ENTITY = "Associate New Entity";
+export const RULE_ASSOCIATE = "Associate";
+export const RULE_REMOVE_ENTITY_TITLE = "Remove entity association?";
+export const RULE_REMOVE_ENTITY_SUBTITLE = "This will remove the link between the rule and this entity.";
+
+// Rule Engine – condition builder
+export const RULE_NO_CONDITION_GROUPS = "No condition groups yet.";
+export const RULE_ADD_FIRST_GROUP = "Add First Group";
+export const RULE_ADD_GROUP = "Add Group";
+export const RULE_ADD_CONDITION = "Add Condition";
+export const RULE_WITHIN_GROUP = "within group";
+export const RULE_FIELD_VALUES_INFO = "Top 100 values from traces. Press Enter to add a custom value.";
+export const RULE_FIELD_VALUES_LOADING = "Loading values\u2026";
+export const RULE_FIELD_VALUES_SEARCH = "Search or type value\u2026";
+export const RULE_FIELD_VALUES_NO_MATCH = "No matching values";
+export const RULE_FIELD_PLACEHOLDER = "Field";
+export const RULE_OPERATOR_PLACEHOLDER = "Op";
+export const RULE_VALUE_PLACEHOLDER = "Value";
+
+// Rule Engine – condition field labels & descriptions
+export const RULE_FIELD_SERVICE_NAME = "Service Name";
+export const RULE_FIELD_SERVICE_NAME_DESC = "The service name reported by the SDK.";
+export const RULE_FIELD_SPAN_NAME = "Span Name";
+export const RULE_FIELD_SPAN_NAME_DESC = "The operation or span name.";
+export const RULE_FIELD_SPAN_KIND = "Span Kind";
+export const RULE_FIELD_SPAN_KIND_DESC = "CLIENT, SERVER, INTERNAL, etc.";
+export const RULE_FIELD_DURATION = "Duration (ms)";
+export const RULE_FIELD_DURATION_DESC = "Span duration in milliseconds.";
+export const RULE_FIELD_STATUS_CODE = "Status Code";
+export const RULE_FIELD_STATUS_CODE_DESC = "Span status: OK, ERROR, or UNSET.";
+export const RULE_FIELD_DEPLOYMENT_ENV = "Deployment Env";
+export const RULE_FIELD_DEPLOYMENT_ENV_DESC = "Deployment environment (e.g. production, staging).";
+export const RULE_FIELD_SERVICE_NAME_OTEL = "Service Name (OTel)";
+export const RULE_FIELD_SERVICE_NAME_OTEL_DESC = "OTel resource attribute: service.name.";
+export const RULE_FIELD_GEN_AI_SYSTEM = "Gen AI System";
+export const RULE_FIELD_GEN_AI_SYSTEM_DESC = "AI provider identifier (e.g. openai, anthropic).";
+export const RULE_FIELD_MODEL = "Model";
+export const RULE_FIELD_MODEL_DESC = "LLM model name (e.g. gpt-4o, claude-3-5-sonnet).";
+export const RULE_FIELD_INPUT_TOKENS = "Input Tokens";
+export const RULE_FIELD_INPUT_TOKENS_DESC = "Number of prompt/input tokens used.";
+export const RULE_FIELD_OUTPUT_TOKENS = "Output Tokens";
+export const RULE_FIELD_OUTPUT_TOKENS_DESC = "Number of completion/output tokens generated.";
+export const RULE_FIELD_TOTAL_COST = "Total Cost ($)";
+export const RULE_FIELD_TOTAL_COST_DESC = "Total cost of the request in USD.";
+export const RULE_FIELD_TEMPERATURE = "Temperature";
+export const RULE_FIELD_TEMPERATURE_DESC = "Sampling temperature used for the request (0\u20132).";
+
+// Context
+export const CONTEXT_CREATED = "Context created successfully!";
+export const CONTEXT_UPDATED = "Context updated successfully!";
+export const CONTEXT_DELETED = "Context deleted successfully!";
+export const CONTEXT_NOT_FOUND = "Context not found!";
+export const CONTEXT_NOT_CREATED = "Context cannot be created!";
+export const CONTEXT_NOT_UPDATED = "Context cannot be updated!";
+export const CONTEXT_NOT_DELETED = "Error deleting context!";
+export const CONTEXT_NAME_REQUIRED = "Context name is required!";
+export const CONTEXT_CONTENT_REQUIRED = "Context content is required!";
+
 // Onboarding
 export const ONBOARDING_WELCOME = "Welcome to OpenLIT";
 export const ONBOARDING_SUBTITLE = "Let's get you set up with an organisation";
 export const ONBOARDING_CREATE_DESCRIPTION = "Create a new organisation to get started";
 export const ONBOARDING_SKIP = "Skip for now (create a Personal organisation)";
 export const PERSONAL_ORGANISATION = "Personal";
+
+// Auth
+export const AUTH_WELCOME = "Welcome to OpenLIT";
+export const AUTH_SUBTITLE = "Open Source Platform for AI Engineering";
+export const AUTH_SIGNING_IN = "Signing in...";
+export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
+export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
+export const AUTH_OR = "Or";
+export const AUTH_EMAIL = "Email";
+export const AUTH_EMAIL_PLACEHOLDER = "user@openlit.io";
+export const AUTH_PASSWORD = "Password";
+export const AUTH_PASSWORD_PLACEHOLDER = "********";
+export const AUTH_SIGN_IN = "Sign in";
+export const AUTH_SIGN_UP = "Sign Up";
+export const AUTH_NO_ACCOUNT = "Don't have an account?";
+export const AUTH_HAVE_ACCOUNT = "Already have an account?";
+export const AUTH_GITHUB = "Github";
+export const AUTH_DOCUMENTATION = "Documentation";
+export const AUTH_FOOTER = "Open Source AI Observability Platform";
+export const AUTH_ERROR_ACCESS_DENIED = "Access denied for this account.";
+export const AUTH_ERROR_TRY_DIFFERENT = "Try signing with a different account.";
+export const AUTH_ERROR_CONFIRM_IDENTITY = "To confirm your identity, sign in with the same account you used originally.";
+export const AUTH_ERROR_CHECK_EMAIL = "Check your email address.";
+export const AUTH_ERROR_CREDENTIALS = "Sign in failed. Check the details you provided are correct.";
+export const AUTH_ERROR_CONFIGURATION = "There is a problem with the server configuration.";
+export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
+export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
+export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
+
+// Auth feature highlights
+export const AUTH_FEATURE_TRACING = "End-to-End Tracing";
+export const AUTH_FEATURE_TRACING_DESC = "Full request tracing across LLM providers";
+export const AUTH_FEATURE_ANALYTICS = "Cost & Token Analytics";
+export const AUTH_FEATURE_ANALYTICS_DESC = "Real-time cost tracking and token usage";
+export const AUTH_FEATURE_EVALS = "11 Evaluation Types";
+export const AUTH_FEATURE_EVALS_DESC = "Hallucination, bias, toxicity, safety & more";
+export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
+export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
+export const AUTH_FEATURE_OPENGROUND = "OpenGround";
+export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
+export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
+export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version, manage, and deploy prompts";
+export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
+export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
+export const AUTH_FEATURE_VAULT = "Vault";
+export const AUTH_FEATURE_VAULT_DESC = "Secure secrets and API key management";
+export const AUTH_FEATURE_INSTRUMENTATION = "Auto Instrumentation";
+export const AUTH_FEATURE_INSTRUMENTATION_DESC = "One-line setup for 60+ AI providers";
+export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
+export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
+
+// Context UI
+export const CONTEXT_TITLE = "Context";
+export const CONTEXT_CREATE = "Create Context";
+export const CONTEXT_BACK_TO_LIST = "Back to Contexts";
+export const CONTEXT_SAVE = "Save Context";
+export const CONTEXT_NAME = "Name";
+export const CONTEXT_NAME_PLACEHOLDER = "My Context";
+export const CONTEXT_DESCRIPTION = "Description";
+export const CONTEXT_DESCRIPTION_PLACEHOLDER = "Optional description";
+export const CONTEXT_DESCRIPTION_OPTIONAL = "(optional)";
+export const CONTEXT_CONTENT = "Content";
+export const CONTEXT_CONTENT_HINT = "The context content (required)";
+export const CONTEXT_CONTENT_PLACEHOLDER = "Enter context content...";
+export const CONTEXT_CONTENT_MARKDOWN_HINT = "Write your context content here. Markdown is supported.";
+export const CONTEXT_TAGS = "Tags";
+export const CONTEXT_TAGS_PLACEHOLDER = "Add tags";
+export const CONTEXT_TAGS_ENTER_PLACEHOLDER = "Add a tag, press Enter";
+export const CONTEXT_STATUS = "Status";
+export const CONTEXT_STATUS_PLACEHOLDER = "Select status";
+export const CONTEXT_STATUS_ACTIVE = "Active";
+export const CONTEXT_STATUS_INACTIVE = "Inactive";
+export const CONTEXT_UPDATE = "Update context";
+export const CONTEXT_CREATE_NEW = "Create a new context";
+export const CONTEXT_UPDATING = "Updating context...";
+export const CONTEXT_CREATING = "Creating context...";
+export const CONTEXT_UPDATED_SUCCESS = "Updated context successfully!";
+export const CONTEXT_CREATED_SUCCESS = "Created context successfully!";
+export const CONTEXT_UPDATE_FAILED = "Update of context failed!";
+export const CONTEXT_CREATE_FAILED = "Creation of context failed!";
+export const CONTEXT_META_PROPERTIES = "Meta Properties";
+export const CONTEXT_ADD_PROPERTY = "Add property";
+export const CONTEXT_NONE = "None";
+export const CONTEXT_WRITE = "Write";
+export const CONTEXT_PREVIEW = "Preview";
+export const CONTEXT_NOTHING_TO_PREVIEW = "Nothing to preview yet.";
+export const CONTEXT_NO_CONTENT = "No content yet. Click Edit to add content.";
+export const CONTEXT_RULES = "Rules";
+export const CONTEXT_NEW_RULE = "New Rule";
+export const CONTEXT_NO_RULES = "No rules linked yet.";
+export const CONTEXT_LINK_RULE = "Link existing rule";
+export const CONTEXT_SELECT_RULE = "Select a rule...";
+export const CONTEXT_ALL_RULES_LINKED = "All rules already linked";
+export const CONTEXT_ASSOCIATE = "Associate";
+export const CONTEXT_DELETE_CONFIRM = "Are you sure you want to delete this context?";
+export const CONTEXT_DELETE_WARNING = "Deleting context might break applications using it. Please confirm before deleting it.";
+export const CONTEXT_CREATED_BY = "Created By";
+
+// Prompt Hub UI
+export const PROMPT_HUB_CREATE = "Create new";
+export const PROMPT_HUB_CREATE_PROMPT = "Create Prompt";
+export const PROMPT_HUB_BACK = "Back to Prompt Hub";
+export const PROMPT_HUB_SAVE = "Save Prompt";
+export const PROMPT_HUB_NAME_HINT = "(lowercase letters and _ only)";
+export const PROMPT_HUB_NAME_PLACEHOLDER = "my_prompt";
+export const PROMPT_HUB_NAME_REQUIRED = "Prompt name is required";
+export const PROMPT_HUB_CONTENT_REQUIRED = "Prompt content is required";
+export const PROMPT_HUB_VARIABLE_HINT = "Use {{variableName}} for dynamic variables";
+export const PROMPT_HUB_CONTENT_PLACEHOLDER = "Write your prompt here. Use {{variable}} for dynamic content.";
+export const PROMPT_HUB_NOTHING_TO_PREVIEW = "Nothing to preview yet.";
+export const PROMPT_HUB_NO_CONTENT = "No prompt content.";
+export const PROMPT_HUB_VERSION = "Version";
+export const PROMPT_HUB_LATEST_VERSION = "Latest Version";
+export const PROMPT_HUB_DRAFT = "Draft";
+export const PROMPT_HUB_NO_VERSION = "No version assigned";
+export const PROMPT_HUB_DRAFT_DESCRIPTION = "Save as a draft — not yet published";
+export const PROMPT_HUB_MAJOR = "Major";
+export const PROMPT_HUB_MAJOR_DESCRIPTION = "Significant changes, not backwards compatible";
+export const PROMPT_HUB_MINOR = "Minor";
+export const PROMPT_HUB_MINOR_DESCRIPTION = "New features, backwards compatible";
+export const PROMPT_HUB_PATCH = "Patch";
+export const PROMPT_HUB_PATCH_DESCRIPTION = "Bug fixes and minor updates";
+export const PROMPT_HUB_PUBLISH = "Publish Version";
+export const PROMPT_HUB_CREATE_VERSION = "Create New Version";
+export const PROMPT_HUB_PUBLISHED_ON = "Published on";
+export const PROMPT_HUB_VERSIONS = "Versions";
+export const PROMPT_HUB_LATEST = "latest";
+export const PROMPT_HUB_DOWNLOADS = "Downloads";
+export const PROMPT_HUB_LAST_RELEASED = "Last Released On";
+export const PROMPT_HUB_LINKED_RULES = "Linked Rules";
+export const PROMPT_HUB_DELETE_CONFIRM = "Are you sure you want to delete this prompt?";
+export const PROMPT_HUB_DELETE_WARNING = "Deleting prompts might result in breaking application if they are getting used. Please confirm before deleting it.";
+export const PROMPT_HUB_CREATING = "Creating prompt...";
+export const PROMPT_HUB_CREATED_SUCCESS = "Prompt created successfully!";
+export const PROMPT_HUB_CREATE_FAILED_TOAST = "Failed to create prompt";
+export const PROMPT_HUB_SAVING = "Saving...";
+export const PROMPT_HUB_SAVED_SUCCESS = "Prompt saved!";
+export const PROMPT_HUB_SAVE_FAILED = "Failed to save prompt";
+export const PROMPT_HUB_EDITING_DRAFT = "Editing draft — publish when ready";
+export const PROMPT_HUB_CREATING_VERSION = "Creating a new version from the latest published";
+export const PROMPT_HUB_BACK_TO = "Back to";
+export const PROMPT_HUB_LEARN_MORE = "Learn more";
+export const PROMPT_HUB_NO_PROMPT_EXISTS = "No such prompt exists!";
+export const PROMPT_HUB_NO_VERSION_EXISTS = "No such version of the prompt";
+export const PROMPT_HUB_EXISTS = "exists!";
+export const PROMPT_HUB_RULE_NAME = "Rule name";
+export const PROMPT_HUB_RULE_DESCRIPTION = "Rule description";
+export const PROMPT_HUB_NO_RULES = "No rules linked yet.";
+export const PROMPT_HUB_SELECT_RULE = "Select a rule...";
+export const PROMPT_HUB_ALL_RULES_LINKED = "All rules already linked";
+export const PROMPT_HUB_NO_VERSION_CHANGE = "No version change";
+export const PROMPT_HUB_KEEP_DRAFT = "Keep as draft — not published";
+
+// Rule Engine UI
+export const RULE_ENGINE_CREATE = "Create rule";
+export const RULE_ENGINE_NAME = "Name";
+export const RULE_ENGINE_DESCRIPTION = "Description";
+export const RULE_ENGINE_GROUP_OPERATOR = "Group Operator";
+export const RULE_ENGINE_STATUS = "Status";
+export const RULE_ENGINE_CREATED_BY = "Created By";
+export const RULE_ENGINE_DELETE_CONFIRM = "Are you sure you want to delete this rule?";
+export const RULE_ENGINE_DELETE_WARNING = "Deleting this rule will also remove all its conditions and entity associations.";
+
+// Common UI
+export const CREATED_BY = "Created By";
+export const DESCRIPTION = "Description";
+export const EDIT = "Edit";
+export const WRITE = "Write";
+export const PREVIEW = "Preview";
+export const BACK = "Back";
+export const KEY = "Key";
+export const VALUE = "Value";
+export const AND = "AND";
+export const OR = "OR";
+export const TAGS = "Tags";
+export const META_PROPERTIES = "Meta Properties";
+export const ADD_PROPERTY = "Add property";
+export const NEW_RULE = "New Rule";
+export const LINK_EXISTING_RULE = "Link existing rule";
+export const ASSOCIATE = "Associate";
+export const RULES = "Rules";
+export const NO_DASH = "-";

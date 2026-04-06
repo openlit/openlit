@@ -28,7 +28,6 @@ func (suite *InjectorTestSuite) SetupTest() {
 		ServiceName:          "test-app",
 		ServiceNamespace:     "default",
 		CaptureMessageContent: true,
-		DetailedTracing:      true,
 		SharedVolumeName:     "instrumentation-packages",
 		SharedVolumePath:     "/instrumentation-packages",
 	}

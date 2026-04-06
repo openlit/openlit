@@ -88,13 +88,13 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		applicationName: {
 			label: "App Name",
 			type: "string",
-			path: "service.name",
+			path: ["SpanAttributes", "gen_ai.application_name"],
 			isRoot: true,
 		},
 		environment: {
 			label: "Environment",
 			type: "string",
-			path: "deployment.environment",
+			path: ["SpanAttributes", "gen_ai.environment"],
 			icon: Container,
 			isRoot: true,
 		},

@@ -3,6 +3,7 @@ Module for monitoring Amazon Bedrock API calls.
 """
 
 import time
+from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
@@ -252,9 +253,17 @@ def converse_stream(
                 f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
             )
 
-            # Get the streaming response
-            stream_response = original_method(*method_args, **method_kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            ctx = trace_api.set_span_in_context(span)
+            token = context_api.attach(ctx)
+            try:
+                stream_response = original_method(*method_args, **method_kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                context_api.detach(token)
+                span.end()
+                raise
+            context_api.detach(token)
 
             return TracedSyncStream(
                 stream_response,

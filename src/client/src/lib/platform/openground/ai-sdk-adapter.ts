@@ -150,12 +150,16 @@ export class AISdkAdapter {
 
 		const result = await generateText(options);
 
+		// Vercel AI SDK uses inputTokens/outputTokens (not promptTokens/completionTokens)
+		const promptTokens = result.usage?.inputTokens ?? (result.usage as any)?.promptTokens ?? 0;
+		const completionTokens = result.usage?.outputTokens ?? (result.usage as any)?.completionTokens ?? 0;
+
 		return {
 			text: result.text,
 			usage: {
-				promptTokens: (result.usage as any).promptTokens || 0,
-				completionTokens: (result.usage as any).completionTokens || 0,
-				totalTokens: (result.usage as any).totalTokens || 0,
+				promptTokens,
+				completionTokens,
+				totalTokens: promptTokens + completionTokens,
 			},
 			finishReason: result.finishReason,
 			model: `${config.provider}/${config.model}`,

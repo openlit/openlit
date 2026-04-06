@@ -382,15 +382,40 @@ Configure resource attributes that will be added to all telemetry data.
 
 ### Automatic Attributes
 
-The operator automatically sets these attributes (cannot be overridden):
+The operator automatically adds these Kubernetes resource attributes to `OTEL_RESOURCE_ATTRIBUTES`.
+If you also define `OTEL_RESOURCE_ATTRIBUTES` in your Deployment spec, your values take precedence on conflict.
 
 | Attribute | Source | Example | Description |
 |-----------|--------|---------|-------------|
-| `k8s.pod.name` | Pod metadata | `"chatbot-abc123"` | Kubernetes pod name |
+| `k8s.pod.name` | Downward API (`metadata.name`) | `"chatbot-abc123"` | Kubernetes pod name |
 | `k8s.namespace.name` | Pod namespace | `"production"` | Kubernetes namespace |
 | `k8s.deployment.name` | Owner reference | `"ai-chatbot"` | Deployment name (if applicable) |
 | `k8s.replicaset.name` | Owner reference | `"ai-chatbot-xyz789"` | ReplicaSet name (if applicable) |
-| `k8s.node.name` | Pod spec | `"worker-node-1"` | Node where pod is running |
+| `k8s.node.name` | Downward API (`spec.nodeName`) | `"worker-node-1"` | Node where pod is running |
+
+### Overriding Automatic Attributes
+
+To override any automatic attribute, set `OTEL_RESOURCE_ATTRIBUTES` in your Deployment spec:
+
+```yaml
+spec:
+  containers:
+  - name: my-app
+    env:
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "k8s.deployment.name=my-custom-name,my.custom.attr=value"
+```
+
+The operator merges your attributes with its auto-detected ones. Your values win on conflict.
+
+### Pod Annotations
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| `openlit.io/inject-python` | Force Python instrumentation on all containers (bypasses language detection) | `"true"` |
+| `openlit.io/container-languages` | Map containers to languages; `python` bypasses heuristics | `"app:python,sidecar:java"` |
+| `openlit.io/exclude-containers` | Exclude specific containers from instrumentation | `"sidecar,debug"` |
+| `openlit.io/include-containers` | Only instrument these containers (allowlist) | `"app,worker"` |
 
 <AccordionGroup>
   <Accordion title="Resource Attributes Examples">
@@ -435,5 +460,27 @@ The operator automatically sets these attributes (cannot be overridden):
         serviceNamespace: "multi-tenant"
         serviceVersion: "v1.5.2"
     ```
+  </Accordion>
+
+  <Accordion title="Custom Image Language Detection">
+    If your Python application uses a custom Docker image that the operator cannot auto-detect
+    as Python (e.g. private registry images like `my-registry.com/litellm:v1.0`), use one of
+    these approaches:
+
+    ```yaml
+    # Option 1: Force all containers as Python
+    metadata:
+      annotations:
+        openlit.io/inject-python: "true"
+
+    # Option 2: Map specific containers to Python
+    metadata:
+      annotations:
+        openlit.io/container-languages: "litellm:python"
+    ```
+
+    The operator auto-detects common Python images (`python`, `django`, `flask`, `fastapi`,
+    `uvicorn`, `gunicorn`, `litellm`, `streamlit`, `gradio`, `airflow`, `mlflow`, `ray`, etc.)
+    and Python-related environment variables or commands.
   </Accordion>
 </AccordionGroup>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,7 @@ interface PendingInvite {
 }
 
 export default function OrganisationSettingsPage() {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const messages = getMessage();
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -124,11 +127,15 @@ export default function OrganisationSettingsPage() {
 	const [hasFetchedOrgs, setHasFetchedOrgs] = useState(false);
 
 	const isCreator = currentOrg?.createdByUserId === currentUserId;
-	
+
 	// Get current user's role and permissions
 	const currentUserMember = members.find(m => m.id === currentUserId);
 	const currentUserRole = currentUserMember?.role;
 	const hasAdminPermissions = currentUserRole === 'owner' || currentUserRole === 'admin';
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.SETTINGS_ORGANISATION_PAGE_VISITED);
+	}, []);
 
 	// Fetch organisations on mount
 	useEffect(() => {
@@ -243,7 +250,7 @@ export default function OrganisationSettingsPage() {
 	};
 
 	const handleAcceptInvitation = async (invitationId: string) => {
-	await acceptInvitation(invitationId);
+		await acceptInvitation(invitationId);
 	};
 
 	const handleDeclineInvitation = async (invitationId: string) => {
@@ -356,36 +363,6 @@ export default function OrganisationSettingsPage() {
 										</Button>
 									</div>
 								</div>
-
-								<div className="space-y-1.5">
-									<Label htmlFor="invite-email" className="text-sm">
-										{messages.INVITE_NEW_MEMBER}
-									</Label>
-									<div className="flex gap-2">
-										<Input
-											id="invite-email"
-											placeholder="email@example.com"
-											type="email"
-											value={inviteEmail}
-											onChange={(e) => setInviteEmail(e.target.value)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter") {
-													handleInvite();
-												}
-											}}
-											className="h-9"
-										/>
-										<Button
-											onClick={handleInvite}
-											disabled={isInviting || !inviteEmail.trim()}
-											size="sm"
-											className="h-9"
-										>
-											<UserPlus className="h-3.5 w-3.5 mr-1.5" />
-											{isInviting ? messages.INVITING : messages.INVITE}
-										</Button>
-									</div>
-								</div>
 							</div>
 						) : (
 							<div className="py-4">
@@ -450,6 +427,37 @@ export default function OrganisationSettingsPage() {
 					</TabsContent>
 
 					<TabsContent value="members" className="mt-0 p-0 pt-2">
+						{hasAdminPermissions ? (
+							<div className="space-y-1.5 mb-3">
+								<Label htmlFor="invite-email" className="text-sm">
+									{messages.INVITE_NEW_MEMBER}
+								</Label>
+								<div className="flex gap-2">
+									<Input
+										id="invite-email"
+										placeholder="email@example.com"
+										type="email"
+										value={inviteEmail}
+										onChange={(e) => setInviteEmail(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												handleInvite();
+											}
+										}}
+										className="h-9"
+									/>
+									<Button
+										onClick={handleInvite}
+										disabled={isInviting || !inviteEmail.trim()}
+										size="sm"
+										className="h-9"
+									>
+										<UserPlus className="h-3.5 w-3.5 mr-1.5" />
+										{isInviting ? messages.INVITING : messages.INVITE}
+									</Button>
+								</div>
+							</div>
+						) : null}
 						{isLoading ? (
 							<div className="flex items-center justify-center py-8">
 								<Loader2 className="h-5 w-5 animate-spin" />
@@ -573,14 +581,14 @@ export default function OrganisationSettingsPage() {
 																		{messages.LEAVE_ORGANISATION_CONFIRMATION}
 																	</AlertDialogDescription>
 																</AlertDialogHeader>
-															<AlertDialogFooter>
-																<AlertDialogCancel>
-																	{messages.CANCEL}
-																</AlertDialogCancel>
-																<AlertDialogAction onClick={handleLeaveOrg}>
-																	{messages.LEAVE}
-																</AlertDialogAction>
-															</AlertDialogFooter>
+																<AlertDialogFooter>
+																	<AlertDialogCancel>
+																		{messages.CANCEL}
+																	</AlertDialogCancel>
+																	<AlertDialogAction onClick={handleLeaveOrg}>
+																		{messages.LEAVE}
+																	</AlertDialogAction>
+																</AlertDialogFooter>
 															</AlertDialogContent>
 														</AlertDialog>
 													)}

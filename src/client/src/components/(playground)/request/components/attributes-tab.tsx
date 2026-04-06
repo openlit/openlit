@@ -4,6 +4,7 @@ import { TraceMapping } from "@/constants/traces";
 import {
 	CODE_ITEM_DISPLAY_KEYS,
 	KNOWN_SPAN_ATTR_KEYS,
+	getTraceMappingKeyFullPath,
 } from "@/helpers/client/trace";
 import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { isNil } from "lodash";
@@ -87,18 +88,31 @@ export function GroupHeader({ label }: { label: string }) {
 	);
 }
 
-export function AttrRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+/** Safely convert any value to a displayable string */
+function safeStringify(val: unknown): string {
+	if (val === null || val === undefined) return "";
+	if (typeof val === "string") return val;
+	if (typeof val === "number" || typeof val === "boolean") return String(val);
+	try {
+		return JSON.stringify(val, null, 2);
+	} catch {
+		return "[Complex Object]";
+	}
+}
+
+export function AttrRow({ label, value, mono = false, className = "" }: { label: string; value: unknown; mono?: boolean; className?: string }) {
+	const displayValue = safeStringify(value);
 	return (
-		<div className="flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors">
-			<span className="w-44 shrink-0 text-xs text-stone-500 dark:text-stone-400 pt-px leading-relaxed">
+		<div className={`flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors ${className}`}>
+			<span className="w-44 shrink-0 text-xs text-stone-500 dark:text-stone-400 pt-px leading-relaxed break-all">
 				{label}
 			</span>
 			<span
-				className={`text-xs text-stone-800 dark:text-stone-200 break-all leading-relaxed ${
+				className={`text-xs text-stone-800 dark:text-stone-200 break-all leading-relaxed min-w-0 ${
 					mono ? "font-mono" : ""
 				}`}
 			>
-				{value}
+				{displayValue}
 			</span>
 		</div>
 	);
@@ -127,7 +141,7 @@ export default function AttributesTab({
 				const suffix = mapping?.valueSuffix ?? "";
 				return {
 					key,
-					label: mapping?.label ?? key,
+					label: mapping?.isRoot ? key : (() => { const fp = getTraceMappingKeyFullPath(key); return Array.isArray(fp) ? fp.join(".") : (fp as string); })(),
 					value: `${prefix}${normalizedItem[key]}${suffix}`,
 				};
 			}),
@@ -156,7 +170,7 @@ export default function AttributesTab({
 				<div key={group.label}>
 					<GroupHeader label={group.label} />
 					{group.entries.map(({ key, label, value }) => (
-						<AttrRow key={key} label={label} value={String(value)} />
+						<AttrRow key={key} label={label} value={value} />
 					))}
 				</div>
 			))}
@@ -164,7 +178,7 @@ export default function AttributesTab({
 				<div>
 					<GroupHeader label="Custom" />
 					{customEntries.map(([key, value]) => (
-						<AttrRow key={key} label={key} value={String(value)} mono />
+						<AttrRow key={key} label={key} value={value} mono />
 					))}
 				</div>
 			)}

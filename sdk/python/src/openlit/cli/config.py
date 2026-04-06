@@ -73,6 +73,12 @@ PARAMETER_CONFIG = {
         "cli_help": "Disable metrics collection",
         "cli_type": bool,
     },
+    "disable_events": {
+        "default": False,
+        "env_var": "OPENLIT_DISABLE_EVENTS",
+        "cli_help": "Disable OTel Logger event emission",
+        "cli_type": bool,
+    },
     "pricing_json": {
         "default": None,
         "env_var": "OPENLIT_PRICING_JSON",
@@ -85,29 +91,16 @@ PARAMETER_CONFIG = {
         "cli_help": "Enable GPU statistics collection",
         "cli_type": bool,
     },
-    "detailed_tracing": {
-        "default": True,
-        "env_var": "OPENLIT_DETAILED_TRACING",
-        "cli_help": "Enable detailed component-level tracing",
-        "cli_type": bool,
-        "has_negation": True,  # Supports --no_detailed_tracing
-    },
     "collect_system_metrics": {
         "default": False,
         "env_var": "OPENLIT_COLLECT_SYSTEM_METRICS",
         "cli_help": "Enable comprehensive system metrics (CPU, memory, disk, network, GPU if detected)",
         "cli_type": bool,
     },
-    "capture_parameters": {
+    "capture_db_parameters": {
         "default": False,
-        "env_var": "OPENLIT_CAPTURE_PARAMETERS",
-        "cli_help": "Capture database query parameters in spans (security risk - may expose sensitive data)",
-        "cli_type": bool,
-    },
-    "enable_sqlcommenter": {
-        "default": False,
-        "env_var": "OPENLIT_ENABLE_SQLCOMMENTER",
-        "cli_help": "Inject OpenTelemetry trace context as SQL comments for database log correlation",
+        "env_var": "OPENLIT_CAPTURE_DB_PARAMETERS",
+        "cli_help": "Capture database query parameters in OTel per-key format (security risk - may expose sensitive data)",
         "cli_type": bool,
     },
     "evals_logs_export": {
@@ -122,18 +115,12 @@ PARAMETER_CONFIG = {
         "cli_help": "Maximum character length for captured content (None = no limit)",
         "cli_type": int,
     },
-    # Parameters that are not exposed via CLI (internal use only)
-    "tracer": {
+    "custom_span_attributes": {
         "default": None,
-        "internal": True,  # Skip in CLI
-    },
-    "event_logger": {
-        "default": None,
-        "internal": True,  # Skip in CLI
-    },
-    "meter": {
-        "default": None,
-        "internal": True,  # Skip in CLI
+        "env_var": "OPENLIT_CUSTOM_SPAN_ATTRIBUTES",
+        "cli_help": 'Custom span attributes as JSON string (e.g. \'{"team": "ml"}\')',
+        "cli_type": str,
+        "parser": "json",
     },
 }
 
