@@ -55,7 +55,8 @@
                 ]
               },
               "latest/openlit/configuration",
-              "latest/openlit/oauth"
+              "latest/openlit/oauth",
+              "latest/openlit/organisation"
             ]
           },
           {
@@ -126,7 +127,9 @@
             "group": "Prompts and Experiments",
             "pages": [
               "latest/openlit/prompts-experiments/prompt-hub",
-              "latest/openlit/prompts-experiments/openground"
+              "latest/openlit/prompts-experiments/openground",
+              "latest/openlit/prompts-experiments/context",
+              "latest/openlit/prompts-experiments/rule-engine"
             ]
           },
           {
@@ -150,6 +153,12 @@
                     "group": "Vault",
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/vault/get"
+                    ]
+                  },
+                  {
+                    "group": "Rule Engine",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
                     ]
                   }
                 ]
@@ -190,7 +199,8 @@
               "latest/sdk/features/gpu",
               "latest/sdk/features/pricing",
               "latest/sdk/features/evaluations",
-              "latest/sdk/features/guardrails"
+              "latest/sdk/features/guardrails",
+              "latest/sdk/features/rule-engine"
             ]
           },
           {
@@ -272,11 +282,19 @@
                 ]
               },
               {
-                "group": "GPUs",
-                "icon": "server",
+                "group": "Security Tools",
+                "icon": "shield-halved",
                 "pages": [
-                  "latest/sdk/integrations/nvidia-gpu",
-                  "latest/sdk/integrations/amd-gpu"
+                  "latest/sdk/integrations/agent-governance-toolkit"
+                ]
+              },
+              {
+                "group": "GPUs",
+                "icon": "microchip",
+                "pages": [
+                  "latest/gpu-collector/gpus/nvidia",
+                  "latest/gpu-collector/gpus/amd",
+                  "latest/gpu-collector/gpus/intel"
                 ]
               }
             ]
@@ -380,6 +398,35 @@
                   "latest/operator/destinations/murnitur"
                 ]
               }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "GPU Collector",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/gpu-collector/overview",
+              "latest/gpu-collector/quickstart",
+              "latest/gpu-collector/installation"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "latest/gpu-collector/configuration",
+              "latest/gpu-collector/metrics"
+            ]
+          },
+          {
+            "group": "GPU Vendors",
+            "icon": "microchip",
+            "pages": [
+              "latest/gpu-collector/gpus/nvidia",
+              "latest/gpu-collector/gpus/amd",
+              "latest/gpu-collector/gpus/intel"
             ]
           }
         ]

@@ -157,19 +157,19 @@ describe('getRequestViaTraceId', () => {
 });
 
 describe('getHeirarchyViaSpanId', () => {
-  it('returns error when no upward data found', async () => {
+  it('returns error when span not found (traceId query returns empty)', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
     const result = await getHeirarchyViaSpanId('span-1');
-    expect(result.err).toBe('Error in fetching heirarchy');
+    expect(result.err).toBe('Span not found');
   });
 
-  it('executes downward query when upward span is found and returns hierarchy', async () => {
+  it('fetches all spans by traceId and builds hierarchy', async () => {
     const rootSpan = { SpanId: 'root-span', ParentSpanId: '', TraceId: 't1' };
     const childSpan = { SpanId: 'child-span', ParentSpanId: 'root-span', TraceId: 't1' };
 
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [rootSpan], err: null })   // upward query
-      .mockResolvedValueOnce({ data: [rootSpan, childSpan], err: null }); // downward query
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })   // step 1: get traceId
+      .mockResolvedValueOnce({ data: [rootSpan, childSpan], err: null }); // step 2: get all spans
 
     const result = await getHeirarchyViaSpanId('child-span');
     expect(dataCollector).toHaveBeenCalledTimes(2);
@@ -177,16 +177,13 @@ describe('getHeirarchyViaSpanId', () => {
     expect(result.record).toBeDefined();
   });
 
-  it('returns hierarchy error when downward query returns empty data', async () => {
-    const rootSpan = { SpanId: 'root-span', ParentSpanId: '', TraceId: 't1' };
-
+  it('returns error when all-spans query fails', async () => {
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [rootSpan], err: null })
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })
       .mockResolvedValueOnce({ data: [], err: 'DB error' });
 
     const result = await getHeirarchyViaSpanId('child-span');
     expect(dataCollector).toHaveBeenCalledTimes(2);
-    // err from downward query is propagated
     expect(result.err).toBeTruthy();
   });
 });

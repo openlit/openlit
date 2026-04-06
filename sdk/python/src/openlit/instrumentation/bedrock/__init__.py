@@ -2,9 +2,11 @@
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace, _logs
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.bedrock.bedrock import converse, converse_stream
 
 _instruments = ("boto3 >= 1.34.138",)
@@ -22,12 +24,12 @@ class BedrockInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("boto3")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
 
         # sync
         wrap_function_wrapper(

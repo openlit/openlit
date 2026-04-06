@@ -10,9 +10,11 @@ Provides comprehensive instrumentation for LangGraph applications including:
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.langgraph.langgraph import (
     general_wrap,
     wrap_compile,
@@ -49,15 +51,15 @@ EXECUTION_OPERATIONS_ALT = [
     ("langgraph.pregel.main", "Pregel.aget_state", "graph_aget_state", "async"),
 ]
 
-# === GRAPH CONSTRUCTION OPERATIONS (Detailed tracing only) ===
+# === GRAPH CONSTRUCTION OPERATIONS ===
+# graph_init and graph_add_edge are excluded: they produce orphaned spans
+# during graph building that add no monitoring value.
 CONSTRUCTION_OPERATIONS = [
-    ("langgraph.graph.state", "StateGraph.__init__", "graph_init", "sync"),
     ("langgraph.graph.state", "StateGraph.add_node", "graph_add_node", "special"),
-    ("langgraph.graph.state", "StateGraph.add_edge", "graph_add_edge", "sync"),
     ("langgraph.graph.state", "StateGraph.compile", "graph_compile", "special"),
 ]
 
-# === CHECKPOINTING OPERATIONS (Detailed tracing only) ===
+# === CHECKPOINTING OPERATIONS ===
 CHECKPOINT_OPERATIONS = [
     # Async PostgresSaver
     (
@@ -121,14 +123,13 @@ class LangGraphInstrumentor(BaseInstrumentor):
 
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics", False)
-        detailed_tracing = kwargs.get("detailed_tracing", False)
 
-        # === EXECUTION OPERATIONS (Always enabled) ===
+        # === EXECUTION OPERATIONS ===
         self._wrap_execution_operations(
             EXECUTION_OPERATIONS,
             version,
@@ -154,43 +155,29 @@ class LangGraphInstrumentor(BaseInstrumentor):
             disable_metrics,
         )
 
-        # === CONSTRUCTION OPERATIONS (Detailed tracing or always for key operations) ===
-        if detailed_tracing:
-            self._wrap_construction_operations(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            )
-        else:
-            # Always wrap compile and add_node for graph structure and per-node tracing
-            self._wrap_key_construction_operations(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            )
+        # === CONSTRUCTION OPERATIONS ===
+        self._wrap_construction_operations(
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
+        )
 
-        # === CHECKPOINTING OPERATIONS (Detailed tracing only) ===
-        if detailed_tracing:
-            self._wrap_checkpoint_operations(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            )
+        # === CHECKPOINTING OPERATIONS ===
+        self._wrap_checkpoint_operations(
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
+        )
 
     def _wrap_execution_operations(
         self,
@@ -300,61 +287,6 @@ class LangGraphInstrumentor(BaseInstrumentor):
                         metrics,
                         disable_metrics,
                     )
-
-                wrap_function_wrapper(module, method, wrapper)
-            except Exception:
-                pass
-
-    def _wrap_key_construction_operations(
-        self,
-        version,
-        environment,
-        application_name,
-        tracer,
-        pricing_info,
-        capture_message_content,
-        metrics,
-        disable_metrics,
-    ):
-        """Wrap only key construction operations (compile and add_node)."""
-        key_operations = [
-            (
-                "langgraph.graph.state",
-                "StateGraph.add_node",
-                "graph_add_node",
-                "special",
-            ),
-            ("langgraph.graph.state", "StateGraph.compile", "graph_compile", "special"),
-        ]
-
-        for module, method, operation_type, _ in key_operations:
-            try:
-                if "compile" in method:
-                    wrapper = wrap_compile(
-                        operation_type,
-                        version,
-                        environment,
-                        application_name,
-                        tracer,
-                        pricing_info,
-                        capture_message_content,
-                        metrics,
-                        disable_metrics,
-                    )
-                elif "add_node" in method:
-                    wrapper = wrap_add_node(
-                        operation_type,
-                        version,
-                        environment,
-                        application_name,
-                        tracer,
-                        pricing_info,
-                        capture_message_content,
-                        metrics,
-                        disable_metrics,
-                    )
-                else:
-                    continue
 
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:

@@ -4,11 +4,13 @@ This module has functions to calculate model costs based on tokens and to fetch 
 """
 
 import asyncio
+import inspect
 import os
 import json
 import logging
+from contextvars import ContextVar
 from urllib.parse import urlparse
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import math
 import requests
 from opentelemetry.sdk.resources import (
@@ -20,6 +22,130 @@ from opentelemetry.trace import Status, StatusCode
 from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
+
+# ContextVar for propagating agent name from agent frameworks to LLM instrumentors.
+# Set by framework instrumentors (CrewAI, PydanticAI, etc.) or via the public
+# openlit.set_agent_name() API so that downstream LLM call metrics are tagged
+# with gen_ai.agent.name without requiring changes to every LLM instrumentor.
+_current_agent_name: ContextVar[Optional[str]] = ContextVar(
+    "openlit_agent_name", default=None
+)
+
+# When True, a framework instrumentor (LangChain, LiteLLM, etc.) owns the LLM
+# chat span.  Provider-level instrumentors (OpenAI, Anthropic, ...) should skip
+# creating their own span and instead let the framework span be the single
+# source of truth.
+_framework_llm_span_active: ContextVar[bool] = ContextVar(
+    "openlit_framework_llm_span_active", default=False
+)
+
+# Prevents duplicate spans when both `litellm` and `litellm.main` are
+# wrapped.  The outer wrapper sets this; the inner one checks and skips.
+_litellm_span_active: ContextVar[bool] = ContextVar(
+    "openlit_litellm_span_active", default=False
+)
+
+# Set by the LangGraph wrapper before calling wrapped() so the LangChain
+# callback handler knows to skip its own top-level graph invocation span
+# (which would duplicate the LangGraph wrapper span).
+_langgraph_wrapper_active: ContextVar[bool] = ContextVar(
+    "openlit_langgraph_wrapper_active", default=False
+)
+
+# User-supplied custom span attributes propagated via context managers,
+# decorators, or the inject_additional_attributes() helper.
+_custom_span_attributes: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
+    "openlit_custom_span_attributes", default=None
+)
+
+
+def set_framework_llm_active():
+    """Set by framework LLM callbacks; returns a token to reset later."""
+    return _framework_llm_span_active.set(True)
+
+
+def reset_framework_llm_active(token):
+    """Reset the framework LLM flag using the token from set_framework_llm_active."""
+    _framework_llm_span_active.reset(token)
+
+
+def is_framework_llm_active() -> bool:
+    """Check if a framework instrumentor is currently handling the LLM span."""
+    return _framework_llm_span_active.get()
+
+
+def set_litellm_span_active():
+    """Set by LiteLLM wrapper; returns a token to reset later."""
+    return _litellm_span_active.set(True)
+
+
+def reset_litellm_span_active(token):
+    """Reset the LiteLLM span flag using the token from set_litellm_span_active."""
+    _litellm_span_active.reset(token)
+
+
+def is_litellm_span_active() -> bool:
+    """Check if a LiteLLM instrumentor is already handling this call."""
+    return _litellm_span_active.get()
+
+
+def set_langgraph_wrapper_active():
+    """Set by LangGraph wrapper; returns a token to reset later."""
+    return _langgraph_wrapper_active.set(True)
+
+
+def reset_langgraph_wrapper_active(token):
+    """Reset the LangGraph wrapper flag."""
+    _langgraph_wrapper_active.reset(token)
+
+
+def is_langgraph_wrapper_active() -> bool:
+    """Check if a LangGraph wrapper span is active (to suppress duplicate callback span)."""
+    return _langgraph_wrapper_active.get()
+
+
+_langgraph_conversation_id: ContextVar[str] = ContextVar(
+    "openlit_langgraph_conversation_id", default=""
+)
+
+
+def set_langgraph_conversation_id(conv_id):
+    """Propagate the conversation ID from invoke_workflow to child node spans."""
+    return _langgraph_conversation_id.set(conv_id)
+
+
+def reset_langgraph_conversation_id(token):
+    """Reset the conversation ID."""
+    _langgraph_conversation_id.reset(token)
+
+
+def get_langgraph_conversation_id() -> str:
+    """Get the current conversation ID set by the workflow span."""
+    return _langgraph_conversation_id.get()
+
+
+# Set by _wrap_create_agent (LangChain instrumentor) so that
+# wrap_compile (LangGraph instrumentor) does not emit a duplicate
+# create_agent span when compile() is called internally.
+_create_agent_active: ContextVar[bool] = ContextVar(
+    "openlit_create_agent_active", default=False
+)
+
+
+def set_create_agent_active():
+    """Set by create_agent wrapper; returns a token to reset later."""
+    return _create_agent_active.set(True)
+
+
+def reset_create_agent_active(token):
+    """Reset the create_agent flag."""
+    _create_agent_active.reset(token)
+
+
+def is_create_agent_active() -> bool:
+    """Check if a create_agent span is already being handled."""
+    return _create_agent_active.get()
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -103,7 +229,16 @@ def response_as_dict(response):
     if hasattr(response, "model_dump"):
         return response.model_dump()
     elif hasattr(response, "parse"):
-        return response_as_dict(response.parse())
+        if inspect.iscoroutinefunction(response.parse):
+            logger.warning("response.parse() is a coroutine function; skipping")
+            return {}
+        parsed = response.parse()
+        if asyncio.iscoroutine(parsed):
+            logger.warning(
+                "response.parse() returned a coroutine; cannot await in sync context"
+            )
+            return {}
+        return response_as_dict(parsed)
     else:
         return response
 
@@ -136,10 +271,16 @@ def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
     """
 
     try:
-        cost = ((prompt_tokens / 1000) * pricing_info["chat"][model]["promptPrice"]) + (
-            (completion_tokens / 1000) * pricing_info["chat"][model]["completionPrice"]
+        chat_pricing = pricing_info["chat"]
+        model_pricing = chat_pricing.get(model)
+        if model_pricing is None and "/" in model:
+            model_pricing = chat_pricing.get(model.split("/", 1)[1])
+        if model_pricing is None:
+            return 0
+        cost = ((prompt_tokens / 1000) * model_pricing["promptPrice"]) + (
+            (completion_tokens / 1000) * model_pricing["completionPrice"]
         )
-    except:
+    except Exception:
         cost = 0
     return cost
 
@@ -150,8 +291,14 @@ def get_embed_model_cost(model, pricing_info, prompt_tokens):
     """
 
     try:
-        cost = (prompt_tokens / 1000) * pricing_info["embeddings"][model]
-    except:
+        embed_pricing = pricing_info["embeddings"]
+        unit_cost = embed_pricing.get(model)
+        if unit_cost is None and "/" in model:
+            unit_cost = embed_pricing.get(model.split("/", 1)[1])
+        if unit_cost is None:
+            return 0
+        cost = (prompt_tokens / 1000) * unit_cost
+    except Exception:
         cost = 0
     return cost
 
@@ -268,6 +415,7 @@ def create_metrics_attributes(
     response_model: str,
     token_type: str = None,
     error_type: str = None,
+    include_agent_name: bool = False,
 ) -> Dict[Any, Any]:
     """
     Returns OTel metrics attributes.
@@ -276,6 +424,9 @@ def create_metrics_attributes(
         token_type: For gen_ai.client.token.usage metric only "input" and "output"
             are allowed per OTel GenAI semconv; do not use "reasoning" or "total".
         error_type: Optional error type for failed operations
+        include_agent_name: When True, reads gen_ai.agent.name from the current
+            context and adds it to the attributes. Only use for LLM completion
+            metrics — not for embeddings, audio, or DB metrics.
     """
 
     attributes = {
@@ -287,8 +438,16 @@ def create_metrics_attributes(
         SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
-        SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model,
+        SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model or "",
     }
+
+    # Propagate agent name from context if an agent framework set it.
+    # Gated behind include_agent_name to avoid leaking onto embedding,
+    # audio, or DB metrics that also call this function.
+    if include_agent_name:
+        agent_name = _current_agent_name.get()
+        if agent_name:
+            attributes[SemanticConvention.GEN_AI_AGENT_NAME] = agent_name
 
     # Add optional attributes for OTel compliance
     if token_type:
@@ -371,12 +530,54 @@ def set_server_address_and_port(
     return server_address, server_port
 
 
+PROVIDER_DEFAULT_ENDPOINTS = {
+    "openai": ("api.openai.com", 443),
+    "anthropic": ("api.anthropic.com", 443),
+    "google": ("generativelanguage.googleapis.com", 443),
+    "gcp.gemini": ("generativelanguage.googleapis.com", 443),
+    "gcp.vertex_ai": ("aiplatform.googleapis.com", 443),
+    "gcp.gen_ai": ("generativelanguage.googleapis.com", 443),
+    "mistral_ai": ("api.mistral.ai", 443),
+    "groq": ("api.groq.com", 443),
+    "together": ("api.together.xyz", 443),
+    "fireworks": ("api.fireworks.ai", 443),
+    "perplexity": ("api.perplexity.ai", 443),
+    "deepinfra": ("api.deepinfra.com", 443),
+    "aws.bedrock": ("bedrock-runtime.amazonaws.com", 443),
+    "azure": ("openai.azure.com", 443),
+    "azure.ai.openai": ("openai.azure.com", 443),
+    "azure.ai.inference": ("inference.ai.azure.com", 443),
+    "cohere": ("api.cohere.ai", 443),
+    "ollama": ("localhost", 11434),
+    "deepseek": ("api.deepseek.com", 443),
+    "x_ai": ("api.x.ai", 443),
+    "huggingface": ("api-inference.huggingface.co", 443),
+    "ibm.watsonx.ai": ("us-south.ml.cloud.ibm.com", 443),
+}
+
+
+def get_server_address_for_provider(provider_name: str) -> Tuple[str, int]:
+    """Return (server_address, server_port) for a provider name.
+
+    Universal helper usable by any framework instrumentor (LangChain,
+    LangGraph, CrewAI, etc.).  Returns ("", 0) for unknown providers.
+    """
+    return PROVIDER_DEFAULT_ENDPOINTS.get(provider_name, ("", 0))
+
+
 def otel_event(name, attributes, body):
     """
     Returns an OpenTelemetry LogRecord representing an event.
     """
 
-    base_attrs = attributes or {}
+    base_attrs = dict(attributes) if attributes else {}
+    global_attrs = OpenlitConfig.custom_span_attributes
+    if global_attrs:
+        for key, value in global_attrs.items():
+            base_attrs.setdefault(key, value)
+    context_attrs = _custom_span_attributes.get()
+    if context_attrs:
+        base_attrs.update(context_attrs)
     return LogRecord(
         attributes=base_attrs,
         body=body,
@@ -534,6 +735,7 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_completion_metrics(
@@ -573,7 +775,9 @@ def record_completion_metrics(
     records each on gen_ai.client.operation.time_per_output_chunk (streaming only).
     """
 
-    # Base attributes without token type
+    # Base attributes without token type.
+    # include_agent_name=True so that LLM completion metrics are tagged
+    # with gen_ai.agent.name when called within an agent context.
     base_attributes = create_metrics_attributes(
         operation=gen_ai_operation,
         system=GEN_AI_PROVIDER_NAME,
@@ -584,6 +788,7 @@ def record_completion_metrics(
         service_name=application_name,
         deployment_environment=environment,
         error_type=error_type,
+        include_agent_name=True,
     )
 
     # Record token usage with proper token type (OTel compliant)
@@ -639,6 +844,117 @@ def record_completion_metrics(
     # Cost (OpenLIT vendor extension; not in OTel GenAI semconv)
     if "genai_cost" in metrics:
         metrics["genai_cost"].record(cost, base_attributes)
+
+
+def set_agent_name(name: Optional[str]):
+    """
+    Set the current agent name in context so that downstream LLM call metrics
+    are automatically tagged with gen_ai.agent.name.
+
+    Returns a token that MUST be passed to reset_agent_name() when done,
+    typically in a finally block. For simpler usage, prefer
+    openlit.agent_context() which handles this automatically.
+    """
+    return _current_agent_name.set(name)
+
+
+def reset_agent_name(token):
+    """Reset the agent name context to its previous value."""
+    _current_agent_name.reset(token)
+
+
+def get_agent_name() -> Optional[str]:
+    """Get the current agent name from context, or None."""
+    return _current_agent_name.get()
+
+
+def set_custom_attributes(attrs: Dict[str, Any]):
+    """Set custom span attributes in context. Returns a token for reset."""
+    return _custom_span_attributes.set(attrs)
+
+
+def reset_custom_attributes(token):
+    """Reset custom span attributes context to its previous value."""
+    _custom_span_attributes.reset(token)
+
+
+def get_custom_attributes() -> Optional[Dict[str, Any]]:
+    """Get custom span attributes from context, or None."""
+    return _custom_span_attributes.get()
+
+
+def _apply_custom_span_attributes(span):
+    """
+    Apply global and context-scoped custom attributes to a span.
+    Global attributes (from init) are applied first; context attributes
+    (from using_attributes / inject_additional_attributes) override on conflict.
+    """
+    global_attrs = OpenlitConfig.custom_span_attributes
+    if global_attrs:
+        for key, value in global_attrs.items():
+            span.set_attribute(key, value)
+
+    context_attrs = _custom_span_attributes.get()
+    if context_attrs:
+        for key, value in context_attrs.items():
+            span.set_attribute(key, value)
+
+
+def record_agent_duration(
+    metrics, agent_name, duration, operation="chat", system=None, error_type=None
+):
+    """
+    Record gen_ai.agent.operation.duration for an agent request.
+    """
+    if not metrics or "genai_agent_operation_duration" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_NAME: agent_name,
+        SemanticConvention.GEN_AI_OPERATION: operation,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+    if error_type:
+        attributes[SemanticConvention.ERROR_TYPE] = error_type
+
+    metrics["genai_agent_operation_duration"].record(duration, attributes)
+
+
+def record_agent_invocation(metrics, source_agent, target_agent, system=None):
+    """
+    Record gen_ai.agent.invocations when one agent invokes another.
+    """
+    if not metrics or "genai_agent_invocations" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_SOURCE: source_agent,
+        SemanticConvention.GEN_AI_AGENT_TARGET: target_agent,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+
+    metrics["genai_agent_invocations"].add(1, attributes)
+
+
+def record_agent_tool_error(metrics, agent_name, tool_name, system=None, model=None):
+    """
+    Record gen_ai.agent.tool.errors when a tool execution fails.
+    """
+    if not metrics or "genai_agent_tool_errors" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_NAME: agent_name,
+        "gen_ai.tool.name": tool_name,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+    if model:
+        attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = model
+
+    metrics["genai_agent_tool_errors"].add(1, attributes)
 
 
 def record_embedding_metrics(
@@ -785,6 +1101,39 @@ def common_db_span_attributes(
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.DB_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
+
+
+def format_system_instructions(text):
+    """Format system instructions per OTel GenAI content schema.
+
+    Returns a JSON string ``[{"type": "text", "content": "..."}]`` or *None*
+    when *text* is falsy.  Handles lists/tuples by joining their string elements.
+    """
+    if not text:
+        return None
+    if isinstance(text, (list, tuple)):
+        text = " ".join(str(item) for item in text)
+    return json.dumps([{"type": "text", "content": truncate_content(str(text))}])
+
+
+def format_input_message(role, content):
+    """Return a single message dict following the OTel GenAI parts schema."""
+    return {
+        "role": role,
+        "parts": [{"type": "text", "content": truncate_content(str(content))}],
+    }
+
+
+def format_output_message(content, finish_reason=None):
+    """Return an assistant message dict following the OTel GenAI parts schema."""
+    msg = {
+        "role": "assistant",
+        "parts": [{"type": "text", "content": truncate_content(str(content))}],
+    }
+    if finish_reason:
+        msg["finish_reason"] = finish_reason
+    return msg
 
 
 def common_framework_span_attributes(
@@ -806,18 +1155,20 @@ def common_framework_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
     scope._span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, framework_system)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_MODEL,
-        getattr(instance, "model_name", "unknown") if instance else "unknown",
-    )
-    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-    scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    model_name = getattr(instance, "model_name", None) if instance else None
+    if model_name:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
+    if server_address:
+        scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+        if server_port:
+            scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
         scope._end_time - scope._start_time,
     )
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_mcp_metrics(

@@ -35,7 +35,7 @@ jest.mock('@/utils/string', () => ({
   unescapeString: jest.fn((s: string) => s),
 }));
 
-import { getCompiledPrompt } from '@/lib/platform/prompt/compiled';
+import { getCompiledPrompt, getCompiledPromptByDbConfig } from '@/lib/platform/prompt/compiled';
 import { getAPIKeyInfo } from '@/lib/platform/api-keys';
 import { validatePromptCompiledInput } from '@/helpers/server/prompt';
 import { getSpecificPrompt } from '@/lib/platform/prompt/index';
@@ -151,6 +151,52 @@ describe('getCompiledPrompt', () => {
 
   it('handles empty variables object gracefully', async () => {
     const result = await getCompiledPrompt({ ...validInput, variables: {} } as any);
+    expect(result.compiledPrompt).toBe('Hello {{name}}, your role is {{role}}');
+  });
+});
+
+describe('getCompiledPromptByDbConfig', () => {
+  const validInput = {
+    id: 'p1',
+    version: '1.0.0',
+    variables: { name: 'Bob', role: 'editor' },
+    shouldCompile: true,
+    databaseConfigId: 'db-42',
+  };
+
+  it('returns compiled prompt with variables substituted', async () => {
+    const result = await getCompiledPromptByDbConfig(validInput);
+    expect(result.compiledPrompt).toBe('Hello Bob, your role is editor');
+  });
+
+  it('returns raw prompt when shouldCompile=false', async () => {
+    const result = await getCompiledPromptByDbConfig({ ...validInput, shouldCompile: false });
+    expect(result.compiledPrompt).toBe('Hello {{name}}, your role is {{role}}');
+  });
+
+  it('passes databaseConfigId to getSpecificPrompt', async () => {
+    await getCompiledPromptByDbConfig(validInput);
+    expect(getSpecificPrompt).toHaveBeenCalledWith({ id: 'p1', version: '1.0.0' }, 'db-42');
+  });
+
+  it('parses metaProperties and tags JSON', async () => {
+    const result = await getCompiledPromptByDbConfig(validInput);
+    expect(result.metaProperties).toEqual({ key: 'val' });
+    expect(result.tags).toEqual(['tag1']);
+  });
+
+  it('throws NO_PROMPT when getSpecificPrompt returns empty data', async () => {
+    (getSpecificPrompt as jest.Mock).mockResolvedValue({ err: null, data: [] });
+    await expect(getCompiledPromptByDbConfig(validInput)).rejects.toThrow('No prompt');
+  });
+
+  it('throws when getSpecificPrompt returns an error', async () => {
+    (getSpecificPrompt as jest.Mock).mockResolvedValue({ err: 'DB error', data: null });
+    await expect(getCompiledPromptByDbConfig(validInput)).rejects.toThrow();
+  });
+
+  it('compiles prompt with empty variables when none provided', async () => {
+    const result = await getCompiledPromptByDbConfig({ ...validInput, variables: undefined });
     expect(result.compiledPrompt).toBe('Hello {{name}}, your role is {{role}}');
   });
 });

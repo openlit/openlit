@@ -277,7 +277,13 @@ class OpenLITCallbackHandler {
     try {
       const id: string[] = chain?.id || [];
       const name = id[id.length - 1] || 'chain';
-      const spanName = `workflow ${name}`;
+      const isAgent = id.some((part: string) => part.toLowerCase().includes('agent')) ||
+                      name.toLowerCase().includes('agent');
+
+      const operationType = isAgent
+        ? SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+        : SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK;
+      const spanName = isAgent ? `invoke_agent ${name}` : `invoke_workflow ${name}`;
 
       const parentCtx = this._getParentContext(parentRunId);
       const span = this.tracer.startSpan(
@@ -288,12 +294,18 @@ class OpenLITCallbackHandler {
 
       span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
       span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
-      span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK);
+      span.setAttribute(SemanticConvention.GEN_AI_OPERATION, operationType);
       span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, OpenlitConfig.environment || '');
       span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
 
+      if (isAgent) {
+        span.setAttribute(SemanticConvention.GEN_AI_AGENT_NAME, name);
+      } else {
+        span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, name);
+      }
+
       if (OpenlitConfig.traceContent && inputs) {
-        span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, JSON.stringify(inputs).slice(0, 2000));
+        span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_INPUT, JSON.stringify(inputs).slice(0, 2000));
       }
 
       this.spans.set(runId, {
@@ -316,7 +328,7 @@ class OpenLITCallbackHandler {
       const duration = (Date.now() - holder.startTime) / 1000;
       holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
       if (OpenlitConfig.traceContent && outputs) {
-        holder.span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(outputs).slice(0, 2000));
+        holder.span.setAttribute(SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, JSON.stringify(outputs).slice(0, 2000));
       }
       holder.span.setStatus({ code: 1 });
       holder.span.end();
@@ -325,6 +337,151 @@ class OpenLITCallbackHandler {
   }
 
   handleChainError(error: any, runId: string) {
+    try {
+      const holder = this.spans.get(runId);
+      if (!holder) return;
+      OpenLitHelper.handleException(holder.span, error);
+      holder.span.end();
+      this.spans.delete(runId);
+    } catch { /* non-blocking */ }
+  }
+
+  // ---- Tool callbacks --------------------------------------------------------
+
+  handleToolStart(tool: any, input: string, runId: string, parentRunId?: string) {
+    try {
+      const id: string[] = tool?.id || [];
+      const name = tool?.name || tool?.kwargs?.name || id[id.length - 1] || 'unknown';
+      const spanName = `execute_tool ${name}`;
+
+      const parentCtx = this._getParentContext(parentRunId);
+      const span = this.tracer.startSpan(
+        spanName,
+        { kind: SpanKind.INTERNAL },
+        parentCtx
+      );
+
+      span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
+      span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS);
+      span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, OpenlitConfig.environment || '');
+      span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, name);
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, 'function');
+
+      const description = tool?.description;
+      if (description) {
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_DESCRIPTION, String(description));
+      }
+
+      if (OpenlitConfig.traceContent && input) {
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, String(input).slice(0, 2000));
+      }
+
+      this.spans.set(runId, {
+        span,
+        startTime: Date.now(),
+        modelName: name,
+        parentRunId,
+        streamingContent: [],
+        tokenTimestamps: [],
+        promptTokens: 0,
+        completionTokens: 0,
+      });
+    } catch { /* non-blocking */ }
+  }
+
+  handleToolEnd(output: any, runId: string) {
+    try {
+      const holder = this.spans.get(runId);
+      if (!holder) return;
+      const duration = (Date.now() - holder.startTime) / 1000;
+      holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
+      if (OpenlitConfig.traceContent && output) {
+        holder.span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_RESULT, String(output).slice(0, 2000));
+      }
+      holder.span.setStatus({ code: 1 });
+      holder.span.end();
+      this.spans.delete(runId);
+    } catch { /* non-blocking */ }
+  }
+
+  handleToolError(error: any, runId: string) {
+    try {
+      const holder = this.spans.get(runId);
+      if (!holder) return;
+      OpenLitHelper.handleException(holder.span, error);
+      holder.span.end();
+      this.spans.delete(runId);
+    } catch { /* non-blocking */ }
+  }
+
+  // ---- Retriever callbacks ---------------------------------------------------
+
+  handleRetrieverStart(retriever: any, query: string, runId: string, parentRunId?: string) {
+    try {
+      const id: string[] = retriever?.id || [];
+      const name = retriever?.name || retriever?.kwargs?.name || id[id.length - 1] || 'unknown';
+      const spanName = `retrieval ${name}`;
+
+      const parentCtx = this._getParentContext(parentRunId);
+      const span = this.tracer.startSpan(
+        spanName,
+        { kind: SpanKind.CLIENT },
+        parentCtx
+      );
+
+      span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
+      span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE);
+      span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, OpenlitConfig.environment || '');
+      span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
+      span.setAttribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, name);
+
+      if (OpenlitConfig.traceContent && query) {
+        span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT, String(query).slice(0, 2000));
+      }
+
+      this.spans.set(runId, {
+        span,
+        startTime: Date.now(),
+        modelName: name,
+        parentRunId,
+        streamingContent: [],
+        tokenTimestamps: [],
+        promptTokens: 0,
+        completionTokens: 0,
+      });
+    } catch { /* non-blocking */ }
+  }
+
+  handleRetrieverEnd(documents: any[], runId: string) {
+    try {
+      const holder = this.spans.get(runId);
+      if (!holder) return;
+      const duration = (Date.now() - holder.startTime) / 1000;
+      holder.span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
+      holder.span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENT_COUNT, documents?.length || 0);
+
+      if (OpenlitConfig.traceContent && documents?.length > 0) {
+        const structured = documents.slice(0, 3).map((doc: any) => {
+          const content = doc?.pageContent || doc?.page_content || String(doc);
+          const entry: Record<string, string> = { content: content.slice(0, 2000) };
+          const meta = doc?.metadata;
+          if (meta) {
+            const docId = meta.id || meta.source;
+            if (docId) entry.id = String(docId);
+          }
+          return entry;
+        });
+        holder.span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS, JSON.stringify(structured));
+      }
+
+      holder.span.setStatus({ code: 1 });
+      holder.span.end();
+      this.spans.delete(runId);
+    } catch { /* non-blocking */ }
+  }
+
+  handleRetrieverError(error: any, runId: string) {
     try {
       const holder = this.spans.get(runId);
       if (!holder) return;

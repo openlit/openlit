@@ -26,15 +26,17 @@ from openlit.__helpers import (
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
+from openlit._config import OpenlitConfig
 
 logger = logging.getLogger(__name__)
 
 
 def handle_not_given(value, default=None):
     """
-    Handle OpenAI's NotGiven values and None values by converting them to appropriate defaults.
+    Handle OpenAI's NotGiven/Omit sentinel values and None by converting them to defaults.
+    The Responses API uses 'Omit' while the Chat Completions API uses 'NotGiven'.
     """
-    if hasattr(value, "__class__") and value.__class__.__name__ == "NotGiven":
+    if hasattr(value, "__class__") and value.__class__.__name__ in ("NotGiven", "Omit"):
         return default
     if value is None:
         return default
@@ -59,12 +61,26 @@ def format_content(messages):
 
     for message in messages:
         try:
-            role = message.get("role", "user") or message.role
-            content = message.get("content", "") or message.content
-
-        except:
+            if isinstance(message, dict):
+                role = message.get("role", "user") or "user"
+                content = message.get("content")
+                if content is None:
+                    # content=None is normal for tool-call assistant turns;
+                    # fall back to tool_calls summary or empty string
+                    tool_calls = message.get("tool_calls")
+                    if tool_calls:
+                        content = f"[{len(tool_calls)} tool call(s)]"
+                    else:
+                        content = ""
+            else:
+                # Handle message objects (e.g., Pydantic models)
+                role = getattr(message, "role", "user") or "user"
+                content = getattr(message, "content", None)
+                if content is None:
+                    content = ""
+        except Exception:
             role = "user"
-            content = str(messages)
+            content = str(message)
 
         if isinstance(content, list):
             content_str_list = []
@@ -276,15 +292,31 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
             if isinstance(tool_calls, list):
                 for tool_call in tool_calls:
                     try:
-                        # Extract tool call data
+                        # Extract tool call data -- OpenAI nests name/arguments
+                        # under a "function" key; fall back to top-level keys for
+                        # other providers that use a flat structure.
                         if isinstance(tool_call, dict):
+                            func = tool_call.get("function", {})
                             tool_id = tool_call.get("id", "")
-                            tool_name = tool_call.get("name", "")
-                            tool_args = tool_call.get("arguments", {})
+                            tool_name = func.get("name", "") or tool_call.get(
+                                "name", ""
+                            )
+                            tool_args = func.get("arguments", "") or tool_call.get(
+                                "arguments", {}
+                            )
                         else:
+                            func = getattr(tool_call, "function", None)
                             tool_id = getattr(tool_call, "id", "")
-                            tool_name = getattr(tool_call, "name", "")
-                            tool_args = getattr(tool_call, "arguments", {})
+                            tool_name = (
+                                getattr(func, "name", "")
+                                if func
+                                else getattr(tool_call, "name", "")
+                            )
+                            tool_args = (
+                                getattr(func, "arguments", "")
+                                if func
+                                else getattr(tool_call, "arguments", {})
+                            )
 
                         # Parse arguments if it's a string
                         if isinstance(tool_args, str):
@@ -565,7 +597,8 @@ def emit_inference_event(
             body="",  # Per spec, all data in attributes
         )
 
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
 
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
@@ -632,7 +665,15 @@ def process_chat_chunk(scope, chunk):
             chunked.get("choices", [])[0].get("finish_reason") or scope._finish_reason
         )
     except (IndexError, AttributeError, TypeError):
-        scope._finish_reason = "stop"
+        pass
+
+    # Extract token usage from the final streaming chunk (sent when
+    # stream_options={"include_usage": True}).  The usage chunk typically
+    # has an empty choices list, so this must run outside the choices block.
+    usage = chunked.get("usage")
+    if usage:
+        scope._input_tokens = usage.get("prompt_tokens", 0)
+        scope._output_tokens = usage.get("completion_tokens", 0)
 
     scope._system_fingerprint = (
         chunked.get("system_fingerprint") or scope._system_fingerprint
@@ -1209,18 +1250,22 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
         handle_not_given(scope._kwargs.get("frequency_penalty"), 0.0),
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-        handle_not_given(scope._kwargs.get("max_tokens"), -1),
-    )
+    max_tokens = handle_not_given(scope._kwargs.get("max_tokens"))
+    if max_tokens is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
+            max_tokens,
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
         handle_not_given(scope._kwargs.get("presence_penalty"), 0.0),
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-        handle_not_given(scope._kwargs.get("stop"), []),
-    )
+    stop_sequences = handle_not_given(scope._kwargs.get("stop"))
+    if stop_sequences:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+            stop_sequences,
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
         handle_not_given(scope._kwargs.get("temperature"), 1.0),
@@ -1357,7 +1402,7 @@ def common_chat_logic(
                     "temperature": handle_not_given(
                         scope._kwargs.get("temperature"), 1.0
                     ),
-                    "max_tokens": handle_not_given(scope._kwargs.get("max_tokens"), -1),
+                    "max_tokens": handle_not_given(scope._kwargs.get("max_tokens")),
                     "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
                     "frequency_penalty": handle_not_given(
                         scope._kwargs.get("frequency_penalty"), 0.0
@@ -1365,7 +1410,7 @@ def common_chat_logic(
                     "presence_penalty": handle_not_given(
                         scope._kwargs.get("presence_penalty"), 0.0
                     ),
-                    "stop_sequences": handle_not_given(scope._kwargs.get("stop"), []),
+                    "stop_sequences": handle_not_given(scope._kwargs.get("stop")),
                     "seed": int(handle_not_given(scope._kwargs.get("seed"), 0))
                     if handle_not_given(scope._kwargs.get("seed"))
                     else None,

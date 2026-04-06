@@ -24,7 +24,6 @@ type InjectorConfig struct {
 	ServiceName           string `json:"serviceName"`
 	ServiceNamespace      string `json:"serviceNamespace"`
 	CaptureMessageContent bool   `json:"captureMessageContent"`
-	DetailedTracing       bool   `json:"detailedTracing"`
 
 	// Volume and mount configuration
 	SharedVolumeName string `json:"sharedVolumeName"`

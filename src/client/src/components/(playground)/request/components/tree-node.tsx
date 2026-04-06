@@ -97,7 +97,7 @@ export default function TreeNode({ span, level, isLast = false, parentPath = [] 
 
 			{/* Node row */}
 			<div
-				className="flex items-center gap-2 cursor-pointer"
+				className="flex items-center gap-2 cursor-pointer max-w-md"
 				style={{ minHeight: NODE_HEIGHT }}
 				onClick={onClick}
 				title={tooltipText}
@@ -105,11 +105,10 @@ export default function TreeNode({ span, level, isLast = false, parentPath = [] 
 				{hasChildren ? (
 					<button
 						onClick={toggleExpanded}
-						className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-200 ${
-							isSelected
+						className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-200 ${isSelected
 								? "bg-primary/20 text-primary"
 								: "bg-stone-200/80 dark:bg-stone-700/80 text-stone-500 dark:text-stone-400 hover:bg-stone-300/80 dark:hover:bg-stone-600/80"
-						}`}
+							}`}
 						aria-label={isExpanded ? "Collapse" : "Expand"}
 					>
 						<ChevronRight
@@ -123,18 +122,16 @@ export default function TreeNode({ span, level, isLast = false, parentPath = [] 
 				)}
 
 				<div
-					className={`flex flex-1 min-w-0 items-center gap-3 rounded-md px-2 py-1.5 transition-colors ${
-						isSelected
+					className={`flex flex-1 min-w-0 items-center gap-3 rounded-md px-2 py-1.5 transition-colors ${isSelected
 							? "bg-primary/[0.08] dark:bg-primary/[0.08] text-primary dark:text-primary"
 							: "hover:bg-stone-200/50 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
-					}`}
+						}`}
 				>
 					<div
-						className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${
-							isSelected
+						className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${isSelected
 								? "bg-primary/20 text-primary"
 								: "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
-						}`}
+							}`}
 					>
 						{getSpanTypeIcon(span.SpanName)}
 					</div>

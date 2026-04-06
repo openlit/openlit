@@ -5,6 +5,7 @@ Supports comprehensive Firecrawl API operations with enhanced business intellige
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
@@ -27,7 +28,7 @@ class FireCrawlInstrumentor(BaseInstrumentor):
         """Instrument the firecrawl-py library functions."""
         application_name = kwargs.get("application_name", "default")
         environment = kwargs.get("environment", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content", True)
         disable_metrics = kwargs.get("disable_metrics")

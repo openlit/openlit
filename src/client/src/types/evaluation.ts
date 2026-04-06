@@ -9,11 +9,32 @@ export interface EvaluationConfigInput
 	databaseConfigId?: string;
 }
 
+export interface ManualFeedback {
+	createdAt: Date;
+	rating: "positive" | "negative" | "neutral";
+	comment?: string;
+}
+
+export interface EvaluationRun {
+	id: string;
+	createdAt: Date;
+	meta: Record<string, any>;
+	evaluations: Evaluation[];
+	cost?: number;
+}
+
 export interface EvaluationConfigResponse {
-	config: string;
-	configErr: string;
-	data: EvaluationResponse;
-	err: string;
+	config?: string;
+	configErr?: string;
+	data?: EvaluationResponse;
+	runs?: EvaluationRun[];
+	feedbacks?: ManualFeedback[];
+	ruleContext?: {
+		matchingRuleIds: string[];
+		contextApplied: boolean;
+		contextEntityIds?: string[];
+	};
+	err?: string;
 	success?: boolean;
 }
 export interface Evaluation {

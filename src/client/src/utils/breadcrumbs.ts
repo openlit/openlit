@@ -171,7 +171,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/openground\/[^/]+$/,
 		getTitle: (pathname, params) => {
 			if (pathname === "/openground/new") return getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND;
-			if (pathname === "/openground/models") return getMessage().OPENGROUND_MANAGE_MODELS;
+			if (pathname === "/openground/models" || pathname === "/settings/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
 			return params?.id ? getMessage().OPENGROUND_RUN_DETAILS : getMessage().FEATURE_OPENGROUND;
 		},
 		getBreadcrumbs: () => [
@@ -195,10 +195,34 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 	
 	{
-		regex: /^\/settings\/evaluation$/,
+		regex: /^\/evaluations\/settings$/,
 		getTitle: () => "Evaluation Settings",
 		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Settings", href: "/evaluations/settings" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/types$/,
+		getTitle: () => "Evaluation Types",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Evaluation Types", href: "/evaluations/types" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/manual$/,
+		getTitle: () => "Manual Marking",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Manual Marking", href: "/evaluations/manual" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/?$/,
+		getTitle: () => "Evaluations",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" }
 		],
 	},
 	

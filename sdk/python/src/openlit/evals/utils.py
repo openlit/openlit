@@ -151,7 +151,6 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
         messages=[
             {"role": "user", "content": prompt},
         ],
-        temperature=0.0,
         response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
@@ -207,7 +206,6 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,
-        temperature=0.0,
         tools=tools,
         stream=False,
     )
@@ -253,18 +251,24 @@ def parse_llm_response(response) -> JsonOutput:
 
 def get_event_provider():
     """
-    Safely retrieve the event provider from OpenLIT's global configuration.
+    Retrieve the event provider (OTel Logger) from the global LoggerProvider.
 
     This function enables evaluators to auto-wire event emission without storing
     references that cause cyclic imports. The provider is retrieved at call time,
     allowing OpenLIT initialization to complete before evaluation measure() calls.
 
     Returns:
-        The event provider if OpenLIT has been initialized with telemetry, else None.
+        The OTel Logger if a LoggerProvider has been configured, else None.
     """
     try:
-        return OpenlitConfig.event_provider
-    except AttributeError:
+        from opentelemetry import _logs
+        from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider
+
+        provider = _logs.get_logger_provider()
+        if isinstance(provider, SDKLoggerProvider):
+            return provider.get_logger("openlit.evals")
+        return None
+    except Exception:
         return None
 
 

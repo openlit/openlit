@@ -269,8 +269,13 @@ export default function FormField(
 ) {
 	return (
 		<div className={`${props.boundaryClass} text-stone-700 dark:text-stone-300`}>
-			<Label htmlFor={props.fieldTypeProps.name} className="col-span-1">
+			<Label htmlFor={props.fieldTypeProps.name} className="col-span-1 flex items-center gap-1">
 				{props.label}
+				{props.description ? (
+					<span className="text-xs">
+						{props.description}
+					</span>
+				) : null}
 			</Label>
 			{props.fieldType === "INPUT" ? (
 				<FormInputField {...props} />
@@ -286,11 +291,6 @@ export default function FormField(
 				<FormSelectField {...props} />
 			) : props.fieldType === "SWITCH" ? (
 				<FormSwitchField {...props} />
-			) : null}
-			{props.description ? (
-				<span className="text-xs -mt-[5px]">
-					{props.description}
-				</span>
 			) : null}
 		</div>
 	);

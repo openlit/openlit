@@ -5,7 +5,11 @@ LangGraph utilities for comprehensive telemetry processing and business intellig
 import time
 import json
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import common_framework_span_attributes, truncate_content
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    truncate_content,
+    get_server_address_for_provider,
+)
 from openlit.semcov import SemanticConvention
 
 
@@ -15,7 +19,7 @@ OPERATION_MAP = {
     "graph_init": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
     "graph_add_node": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
     "graph_add_edge": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-    "graph_compile": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+    "graph_compile": SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
     # Graph Execution Operations
     "graph_invoke": SemanticConvention.GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION,
     "graph_ainvoke": SemanticConvention.GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION,
@@ -33,21 +37,23 @@ OPERATION_MAP = {
 }
 
 
-def set_server_address_and_port(instance):
+def set_server_address_and_port(instance, provider_name=None):
     """
     Extract server information from LangGraph instance.
 
+    Falls back to the universal provider-to-endpoint map when no instance-
+    level URL is found.
+
     Args:
         instance: LangGraph instance (StateGraph, CompiledGraph, etc.)
+        provider_name: Optional provider string for universal lookup
 
     Returns:
         tuple: (server_address, server_port)
     """
-    server_address = "localhost"
-    server_port = 8080
+    server_address = ""
+    server_port = 0
 
-    # LangGraph doesn't have a direct server, but we can try to
-    # extract checkpointer connection info if available
     try:
         if hasattr(instance, "checkpointer"):
             checkpointer = instance.checkpointer
@@ -55,10 +61,13 @@ def set_server_address_and_port(instance):
                 conn = checkpointer.conn
                 if hasattr(conn, "info"):
                     info = conn.info
-                    server_address = info.host or "localhost"
+                    server_address = info.host or ""
                     server_port = info.port or 5432
     except Exception:
         pass
+
+    if not server_address and provider_name:
+        server_address, server_port = get_server_address_for_provider(provider_name)
 
     return server_address, server_port
 
@@ -159,12 +168,12 @@ def set_graph_attributes(span, nodes=None, edges=None):
     """
     if nodes:
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_NODES, json.dumps(list(nodes))
+            SemanticConvention.GEN_AI_GRAPH_NODES, json.dumps(list(nodes))
         )
-        span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_NODE_COUNT, len(nodes))
+        span.set_attribute(SemanticConvention.GEN_AI_GRAPH_NODE_COUNT, len(nodes))
         # Set individual node names
         for i, node in enumerate(list(nodes)[:10]):  # Limit to first 10
-            span.set_attribute(f"langgraph.node.{i}.name", str(node))
+            span.set_attribute(f"gen_ai.graph.node.{i}.name", str(node))
 
     if edges:
         edge_list = []
@@ -174,18 +183,14 @@ def set_graph_attributes(span, nodes=None, edges=None):
             elif isinstance(edge, str):
                 edge_list.append(edge)
 
-        span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_EDGES, json.dumps(edge_list)
-        )
-        span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_EDGE_COUNT, len(edge_list)
-        )
+        span.set_attribute(SemanticConvention.GEN_AI_GRAPH_EDGES, json.dumps(edge_list))
+        span.set_attribute(SemanticConvention.GEN_AI_GRAPH_EDGE_COUNT, len(edge_list))
         # Set individual edge info
         for i, edge in enumerate(edge_list[:10]):  # Limit to first 10
             parts = edge.split("->")
             if len(parts) == 2:
-                span.set_attribute(f"langgraph.edge.{i}.source", parts[0])
-                span.set_attribute(f"langgraph.edge.{i}.target", parts[1])
+                span.set_attribute(f"gen_ai.graph.edge.{i}.source", parts[0])
+                span.set_attribute(f"gen_ai.graph.edge.{i}.target", parts[1])
 
 
 def extract_llm_info_from_result(span, state, result):
@@ -198,18 +203,30 @@ def extract_llm_info_from_result(span, state, result):
         result: Result from node execution
     """
     try:
-        # Extract messages from state for context
+        # Extract messages from state as OTel-compliant gen_ai.input.messages
         if isinstance(state, dict) and "messages" in state:
             messages = state["messages"]
-            # Set prompt content from last few messages
-            for i, msg in enumerate(messages[-3:]):
+            input_msgs = []
+            for msg in messages[-3:]:
                 content = get_message_content(msg)
                 role = get_message_role(msg)
                 if content:
-                    span.set_attribute(
-                        f"gen_ai.prompt.{i}.content", truncate_content(content)
+                    input_msgs.append(
+                        {
+                            "role": role,
+                            "parts": [
+                                {
+                                    "type": "text",
+                                    "content": truncate_content(content),
+                                }
+                            ],
+                        }
                     )
-                    span.set_attribute(f"gen_ai.prompt.{i}.role", role)
+            if input_msgs:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                    json.dumps(input_msgs),
+                )
 
         # Extract from result
         if isinstance(result, dict) and "messages" in result:
@@ -259,7 +276,7 @@ def extract_llm_info_from_result(span, state, result):
                         if "finish_reason" in metadata:
                             span.set_attribute(
                                 SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                                metadata["finish_reason"],
+                                [metadata["finish_reason"]],
                             )
 
                         # Response ID
@@ -268,13 +285,16 @@ def extract_llm_info_from_result(span, state, result):
                                 SemanticConvention.GEN_AI_RESPONSE_ID, metadata["id"]
                             )
 
-                # Extract content
                 if hasattr(last_msg, "content"):
                     content = get_message_content(last_msg)
+                    role = get_message_role(last_msg)
                     if content:
+                        otel_msg = [
+                            {"role": role, "content": truncate_content(content)}
+                        ]
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            truncate_content(content),
+                            json.dumps(otel_msg),
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -390,14 +410,16 @@ def generate_span_name(operation_type, endpoint, instance=None, args=None, kwarg
 
     # State operations
     elif endpoint in ("graph_get_state", "graph_aget_state"):
-        return "retrieve graph_state"
+        return "retrieval graph_state"
 
     # Graph construction
     elif endpoint == "graph_init":
         return f"{operation_type} graph_init"
 
     elif endpoint == "graph_compile":
-        return f"{operation_type} graph_compile"
+        graph_name = _get_graph_name(instance)
+        agent_name = "default" if graph_name in ("graph", "LangGraph") else graph_name
+        return f"create_agent {agent_name}"
 
     elif endpoint == "graph_add_node":
         node_name = args[0] if args else "node"
@@ -419,7 +441,7 @@ def generate_span_name(operation_type, endpoint, instance=None, args=None, kwarg
         return f"{operation_type} checkpoint_write"
 
     elif endpoint == "checkpoint_read":
-        return "retrieve checkpoint"
+        return "retrieval checkpoint"
 
     # Default
     return f"{operation_type} {endpoint}"
@@ -521,9 +543,9 @@ def process_langgraph_response(
 
     # Set execution mode
     if endpoint in ("graph_invoke", "graph_ainvoke"):
-        span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "invoke")
+        span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "invoke")
     elif endpoint in ("graph_stream", "graph_astream"):
-        span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
+        span.set_attribute(SemanticConvention.GEN_AI_EXECUTION_MODE, "stream")
 
     # Extract config information
     config = kwargs.get("config") or (args[1] if len(args) > 1 else None)
@@ -531,11 +553,11 @@ def process_langgraph_response(
         config_info = extract_config_info(config)
         if config_info.get("thread_id"):
             span.set_attribute(
-                SemanticConvention.LANGGRAPH_THREAD_ID, config_info["thread_id"]
+                SemanticConvention.GEN_AI_CONVERSATION_ID, config_info["thread_id"]
             )
         if config_info.get("checkpoint_id"):
             span.set_attribute(
-                SemanticConvention.LANGGRAPH_CHECKPOINT_ID, config_info["checkpoint_id"]
+                SemanticConvention.GEN_AI_CHECKPOINT_ID, config_info["checkpoint_id"]
             )
 
     # Process response based on type
@@ -547,7 +569,7 @@ def process_langgraph_response(
         _process_compile_response(span, instance, response)
 
     # Set success status
-    span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
+    span.set_attribute(SemanticConvention.GEN_AI_GRAPH_STATUS, "success")
     span.set_status(Status(StatusCode.OK))
 
     # Record metrics
@@ -567,28 +589,27 @@ def _process_invoke_response(span, response, capture_message_content):
     """Process invoke/ainvoke response."""
     try:
         if isinstance(response, dict):
-            # Extract messages
             messages = extract_messages_from_output(response)
             if messages:
                 span.set_attribute(
-                    SemanticConvention.LANGGRAPH_MESSAGE_COUNT, len(messages)
+                    SemanticConvention.GEN_AI_GRAPH_MESSAGE_COUNT, len(messages)
                 )
 
-                # Get final response content
-                if messages:
-                    last_msg = messages[-1] if isinstance(messages, list) else messages
-                    content = get_message_content(last_msg)
-                    if content and capture_message_content:
-                        span.set_attribute(
-                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-                            truncate_content(content),
-                        )
+                if capture_message_content:
+                    otel_msgs = []
+                    for msg in messages:
+                        content = get_message_content(msg)
+                        role = get_message_role(msg)
+                        entry = {"role": role}
+                        if content:
+                            entry["content"] = truncate_content(content)
+                        otel_msgs.append(entry)
+                    if otel_msgs:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            truncate_content(content),
+                            json.dumps(otel_msgs),
                         )
 
-            # Try to extract LLM info
             extract_llm_info_from_result(span, {}, response)
 
     except Exception:
@@ -602,14 +623,15 @@ def _process_state_response(span, response):
             values = response.values
             if isinstance(values, dict) and "messages" in values:
                 span.set_attribute(
-                    SemanticConvention.LANGGRAPH_MESSAGE_COUNT, len(values["messages"])
+                    SemanticConvention.GEN_AI_GRAPH_MESSAGE_COUNT,
+                    len(values["messages"]),
                 )
 
         if hasattr(response, "next"):
             next_nodes = response.next
             if next_nodes:
                 span.set_attribute(
-                    "langgraph.state.next_nodes", json.dumps(list(next_nodes))
+                    "gen_ai.graph.next_nodes", json.dumps(list(next_nodes))
                 )
 
     except Exception:

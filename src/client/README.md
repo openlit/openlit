@@ -1,11 +1,11 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Exceptions, Prompts, Vault, Playground
+#### Observability, Evaluations, Rule Engine, Guardrails, Prompts, Vault, Playground, FleetHub
 
 # Open Source Platform for AI Engineering
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |** 
+**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Go SDK](https://github.com/openlit/openlit/tree/main/sdk/go) |**
 
 **[Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
 
@@ -31,17 +31,23 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
-- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools. 
+- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs (Python, TypeScript, Go) to send traces and metrics to your existing observability tools.
+
+- 🛡️ **11 Built-in Evaluation Types**: Automated LLM-as-a-Judge evaluation with hallucination, bias, toxicity, safety, instruction following, completeness, conciseness, sensitivity, relevance, coherence, and faithfulness detection.
+
+- ⚙️ **Rule Engine**: Define conditional rules with AND/OR logic to match runtime trace attributes and dynamically retrieve contexts, prompts, and evaluation configs.
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
-- 🔔 **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
+- 🐛 **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
 
 - 💭 **Prompt Management**: Manage and version prompts using Prompt Hub for consistent and easy access across applications.
 
 - 🔑 **API Keys and Secrets Management**: Securely handle your API keys and secrets centrally, avoiding insecure practices.
 
-- 🎮 **Experiemnt with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+- 🎮 **Experiment with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+
+- 🚀 **Fleet Hub for OpAMP Management**: Centrally manage and monitor OpenTelemetry Collectors across your infrastructure.
 
 ## 🚀 Quick Start
 
@@ -144,17 +150,19 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 
 | Feature                                                                                      | Status        |
 |----------------------------------------------------------------------------------------------|---------------|
-| [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/text-upgrade/sdk/python) | ✅ Completed  |
+| [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/main/sdk/python) | ✅ Completed  |
 | [OpenTelemetry-native GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
 | [Exceptions and Error Monitoring]()                                                          | ✅ Completed  |
 | [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/features/prompt-hub) | ✅ Completed  |
 | [OpenGround for Testing and Comparing LLMs]()                                                | ✅ Completed  |
 | [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault) | ✅ Completed  |
 | [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)           | ✅ Completed  |
-| [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                                   | 🔜 Coming Soon |
-| [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                            | 🔜 Coming Soon |
-| [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                                   | 🔜 Coming Soon |
-| [Real-Time Guardrails Implementation]()                                                      | 📝 Planned    |
+| [Auto-Evaluation with 11 Built-in Types (LLM-as-a-Judge)](https://docs.openlit.io/latest/openlit/evaluations/overview) | ✅ Completed  |
+| [Rule Engine with SDK Support (Python, TypeScript, Go)](https://docs.openlit.io/latest/openlit/prompts-experiments/rule-engine) | ✅ Completed  |
+| [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)              | ✅ Completed  |
+| [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)    | ✅ Completed  |
+| [Fleet Hub for OpAMP Management]()                                                           | ✅ Completed  |
+| [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)     | 🔜 Coming Soon |
 
 ## 🌱 Contributing
 

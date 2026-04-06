@@ -1,67 +1,73 @@
 "use client";
 
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import Link from "next/link";
 import { useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import { BookOpenText, TrashIcon } from "lucide-react";
+import { SlidersHorizontal, TrashIcon } from "lucide-react";
 import ConfirmationModal from "@/components/common/confirmation-modal";
+import getMessage from "@/constants/messages";
 import DataTable from "@/components/data-table/table";
 import { Columns } from "@/components/data-table/columns";
 import { PromptList } from "@/types/prompt";
 import PromptsGettingStarted from "@/components/(playground)/getting-started/prompts";
 import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
+import RuleForm from "@/components/(playground)/rule-engine/form";
+
+const m = getMessage();
 
 const columns: Columns<string, PromptList> = {
 	name: {
-		header: () => "Name",
+		header: () => m.NAME,
 		cell: ({ row }) => row.name,
 	},
 	createdBy: {
-		header: () => "Created By",
+		header: () => m.CREATED_BY,
 		cell: ({ row }) => row.createdBy,
 	},
 	latestVersion: {
-		header: () => "Latest Version",
+		header: () => m.PROMPT_HUB_LATEST_VERSION,
 		cell: ({ row }) => {
 			const latestVersion = row.latestVersion;
-			return latestVersion || "draft";
+			return latestVersion || m.PROMPT_HUB_DRAFT.toLowerCase();
 		},
 	},
 	downloads: {
-		header: () => "Downloads",
+		header: () => m.PROMPT_HUB_DOWNLOADS,
 		cell: ({ row }) => {
 			const totalDownloads = row.totalDownloads;
 			const latestVersion = row.latestVersion;
-			return latestVersion ? totalDownloads : "-";
+			return latestVersion ? totalDownloads : m.NO_DASH;
 		},
 	},
 	lastReleasedOn: {
-		header: () => "Last Released On",
+		header: () => m.PROMPT_HUB_LAST_RELEASED,
 		cell: ({ row }) => {
 			const latestVersionDate = row.latestVersionDate;
 			const latestVersion = row.latestVersion;
-			return latestVersion ? format(latestVersionDate, "MMM do, y") : "-";
+			return latestVersion ? format(latestVersionDate, "MMM do, y") : m.NO_DASH;
 		},
 	},
 	actions: {
-		header: () => "Actions",
+		header: () => m.ACTIONS,
 		cell: ({ row, extraFunctions }) => {
 			return (
-				<div className="flex justify-start items-center gap-4">
-					<Link
-						href={`/prompt-hub/${row.promptId}`}
-						className="inline-block "
-					>
-						<BookOpenText className="w-4" />
-					</Link>
+				<div
+					className="flex justify-start items-center gap-4"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<RuleForm entityId={row.promptId} entityType="prompt">
+						<SlidersHorizontal className="w-4 cursor-pointer text-stone-400 hover:text-primary transition-colors" />
+					</RuleForm>
 					<ConfirmationModal
 						handleYes={extraFunctions?.handleDelete}
-						title="Are you sure you want to delete this prompt?"
-						subtitle="Deleting prompts might result in breaking application if they are getting used. Please confirm before deleting it."
+						title={m.PROMPT_HUB_DELETE_CONFIRM}
+						subtitle={m.PROMPT_HUB_DELETE_WARNING}
 						params={{
 							id: row.promptId,
 						}}
@@ -72,19 +78,22 @@ const columns: Columns<string, PromptList> = {
 			);
 		},
 	},
-}
+};
 
 export default function PromptHub() {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<PromptList[]>();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
 		useFetchWrapper();
 	const pingStatus = useRootStore(getPingStatus);
+	const router = useRouter();
+
 	const fetchData = useCallback(async () => {
 		fireRequest({
 			requestType: "POST",
 			url: `/api/prompt/get`,
 			failureCb: (err?: string) => {
-				toast.error(err || `Cannot connect to server!`, {
+				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "prompt-hub",
 				});
 			},
@@ -103,7 +112,7 @@ export default function PromptHub() {
 					fetchData();
 				},
 				failureCb: (err?: string) => {
-					toast.error(err || `Cannot connect to server!`, {
+					toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 						id: "prompt-hub",
 					});
 				},
@@ -111,6 +120,10 @@ export default function PromptHub() {
 		},
 		[fetchData]
 	);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus !== "pending") {
@@ -140,8 +153,9 @@ export default function PromptHub() {
 					latestVersion: true,
 					downloads: true,
 					lastReleasedOn: true,
-					actions: true
+					actions: true,
 				}}
+				onClick={(row: PromptList) => router.push(`/prompt-hub/${row.promptId}`)}
 				extraFunctions={{
 					handleDelete: deletePrompt,
 				}}

@@ -3,12 +3,14 @@ Module for monitoring OpenAI API calls.
 """
 
 import time
+from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
     record_completion_metrics,
     record_embedding_metrics,
     set_server_address_and_port,
+    is_framework_llm_active,
 )
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
@@ -116,6 +118,9 @@ def async_chat_completions(
         Wraps the OpenAI async chat completions call.
         """
 
+        if is_framework_llm_active():
+            return await wrapped(*args, **kwargs)
+
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -125,8 +130,17 @@ def async_chat_completions(
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
-            awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            ctx = trace_api.set_span_in_context(span)
+            token = context_api.attach(ctx)
+            try:
+                awaited_wrapped = await wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                context_api.detach(token)
+                span.end()
+                raise
+            context_api.detach(token)
 
             return TracedAsyncStream(
                 awaited_wrapped,
@@ -295,8 +309,17 @@ def async_responses(
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
-            awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            ctx = trace_api.set_span_in_context(span)
+            token = context_api.attach(ctx)
+            try:
+                awaited_wrapped = await wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                context_api.detach(token)
+                span.end()
+                raise
+            context_api.detach(token)
 
             return TracedAsyncStream(
                 awaited_wrapped,

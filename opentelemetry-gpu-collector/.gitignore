@@ -1,0 +1,14 @@
+# Binary
+openlit-collector
+
+# Generated eBPF Go bindings (output of go generate / bpf2go)
+internal/ebpf/gpuevent_bpfel*.go
+internal/ebpf/gpuevent_bpfel*.o
+
+# Copied/generated eBPF build headers (from setup-bpf)
+internal/ebpf/bpf/vmlinux.h
+internal/ebpf/bpf/bpf_helpers.h
+internal/ebpf/bpf/bpf_helper_defs.h
+internal/ebpf/bpf/bpf_tracing.h
+internal/ebpf/bpf/bpf_core_read.h
+internal/ebpf/bpf/bpf_endian.h

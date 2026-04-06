@@ -13,7 +13,7 @@ export type TokenParams = MetricParams & {
 };
 
 export async function getAverageTokensPerRequest(params: TokenParams) {
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const primaryPath = `SpanAttributes['${getTraceMappingKeyFullPath(
 		params.type === "total"
 			? "totalTokens"
 			: params.type === "prompt"
@@ -21,14 +21,25 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 			: "completionTokens"
 	)}']`;
 
-	const currentWhereParams = { ...params, notEmpty: [{ key: keyPath }] };
+	// Backward compatibility: fall back to new OTel convention attributes
+	const fallbackAttr =
+		params.type === "total"
+			? "gen_ai.client.token.usage"
+			: params.type === "prompt"
+			? "gen_ai.client.token.usage.input"
+			: "gen_ai.client.token.usage.output";
+	const fallbackPath = `SpanAttributes['${fallbackAttr}']`;
+
+	const keyPath = `if(${primaryPath} != '', ${primaryPath}, ${fallbackPath})`;
+
+	const currentWhereParams = { ...params, notOrEmpty: [{ key: primaryPath }, { key: fallbackPath }] };
 
 	let query;
 
 	const commonQuery = (parameters: any) => `SELECT
 			AVG(toInt32OrZero(${keyPath})) AS total_tokens
 			${params.type === "total" ? `, '${params.timeLimit.start}' as start_date` : ""}
-			FROM ${OTEL_TRACES_TABLE_NAME} 
+			FROM ${OTEL_TRACES_TABLE_NAME}
 			WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" })}`;
 
 	if (params.type === "total") {
@@ -59,29 +70,37 @@ export async function getTokensPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 
-	const keyPaths: { key: string }[] = [
-		{
-			key: `SpanAttributes['${getTraceMappingKeyFullPath("totalTokens")}']`,
-		},
-		{
-			key: `SpanAttributes['${getTraceMappingKeyFullPath("promptTokens")}']`,
-		},
-		{
-			key: `SpanAttributes['${getTraceMappingKeyFullPath(
-				"completionTokens"
-			)}']`,
-		},
+	const primaryPaths = [
+		`SpanAttributes['${getTraceMappingKeyFullPath("totalTokens")}']`,
+		`SpanAttributes['${getTraceMappingKeyFullPath("promptTokens")}']`,
+		`SpanAttributes['${getTraceMappingKeyFullPath("completionTokens")}']`,
+	];
+
+	// Backward compatibility: fall back to new OTel convention attributes
+	const fallbackPaths = [
+		`SpanAttributes['gen_ai.client.token.usage']`,
+		`SpanAttributes['gen_ai.client.token.usage.input']`,
+		`SpanAttributes['gen_ai.client.token.usage.output']`,
+	];
+
+	const coalesced = primaryPaths.map(
+		(p, i) => `if(${p} != '', ${p}, ${fallbackPaths[i]})`
+	);
+
+	const filterPaths: { key: string }[] = [
+		...primaryPaths.map((key) => ({ key })),
+		...fallbackPaths.map((key) => ({ key })),
 	];
 
 	const query = `SELECT
-		SUM(toInt64OrZero(${keyPaths[0].key})) AS totaltokens,
-		SUM(toInt64OrZero(${keyPaths[1].key})) AS prompttokens,
-		SUM(toInt64OrZero(${keyPaths[2].key})) AS completiontokens,
+		SUM(toInt64OrZero(${coalesced[0]})) AS totaltokens,
+		SUM(toInt64OrZero(${coalesced[1]})) AS prompttokens,
+		SUM(toInt64OrZero(${coalesced[2]})) AS completiontokens,
 		formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
-		FROM ${OTEL_TRACES_TABLE_NAME} 
+		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getFilterWhereCondition({
 			...params,
-			notEmpty: keyPaths,
+			notOrEmpty: filterPaths,
 			operationType: "llm",
 		})}
 		GROUP BY request_time

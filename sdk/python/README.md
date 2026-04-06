@@ -221,6 +221,42 @@ Below are the parameters for use with the SDK for OpenLIT Vault for secret manag
 | `tags`       | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                                                                                |
 
 
+### OpenLIT Rule Engine - `openlit.evaluate_rule()`
+
+Evaluate trace attributes against the OpenLIT Rule Engine to retrieve matching rules and associated entities (contexts, prompts, evaluation configurations).
+
+| Parameter             | Description                                                                                                                        |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`                 | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
+| `api_key`             | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `entity_type`         | Type of entity to match: `"context"`, `"prompt"`, or `"evaluation"`.                                                               |
+| `fields`              | Dictionary of trace attributes to evaluate against rules. e.g. `{"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4"}`     |
+| `include_entity_data` | If `True`, include full entity data in the response. Default: `False`. Optional                                                    |
+| `entity_inputs`       | Optional dictionary of inputs for entity resolution (e.g. prompt variables, version).                                              |
+
+#### Example
+
+```python
+import openlit
+
+# Evaluate rules to get matching contexts
+result = openlit.evaluate_rule(
+    entity_type="context",
+    fields={
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4",
+        "service.name": "my-app",
+    },
+    include_entity_data=True,
+)
+
+if result:
+    print("Matching rules:", result["matchingRuleIds"])
+    print("Entities:", result["entities"])
+    # Use with evaluations:
+    # contexts = result.get("entity_data", {})
+```
+
 ## 🛣️ Roadmap
 
 We are dedicated to continuously improving OpenLIT SDKs. Here's a look at what's been accomplished and what's on the horizon:
