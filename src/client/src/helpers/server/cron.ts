@@ -34,91 +34,89 @@ export default class Cron {
 	}
 
 	updateCrontab(job: Job): void {
-		try {
-			this.validateCronSchedule(job.cronSchedule);
-			const currentCrontab = this.getCronJobs();
-			const lines = currentCrontab.split("\n");
+		this.validateCronSchedule(job.cronSchedule);
+		const currentCrontab = this.getCronJobs();
+		const lines = currentCrontab.split("\n");
 
-			const startIdx = lines.indexOf(this.START_MARKER);
-			const endIdx = lines.indexOf(this.END_MARKER);
+		const startIdx = lines.indexOf(this.START_MARKER);
+		const endIdx = lines.indexOf(this.END_MARKER);
 
-			// Extract existing managed section
-			let managedSection: string[] = [];
-			if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
-				managedSection = lines.slice(startIdx + 1, endIdx);
-			}
-
-			// Remove any existing entry with the same CRON_ID
-			managedSection = managedSection.filter(
-				(line) => !line.includes(`CRON_ID=${job.cronId}`)
-			);
-
-			const envVars = Object.entries(job.cronEnvVars)
-				.map(([key, value]) => `${key}=${value}`)
-				.join(" ");
-
-			this.createLogDirectoryIfNotExists(job.cronLogPath);
-
-			// Add the new cron job entry
-			const newEntry = `${job.cronSchedule} CRON_ID=${job.cronId} ${envVars} $(which node) ${job.cronScriptPath} >> ${job.cronLogPath} 2>&1`;
-			managedSection.push(newEntry);
-
-			// Construct the new crontab content
-			let newCrontab: string;
-			if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-				// If section does not exist, create it
-				newCrontab = [
-					currentCrontab.trim(),
-					this.START_MARKER,
-					newEntry,
-					this.END_MARKER,
-				]
-					.filter(Boolean)
-					.join("\n");
-			} else {
-				// Replace the existing managed section
-				newCrontab = [
-					...lines.slice(0, startIdx + 1),
-					...managedSection,
-					...lines.slice(endIdx),
-				].join("\n");
-			}
-
-			// Apply the new crontab safely using stdin
-			execSync("crontab -", { input: newCrontab, encoding: "utf-8" });
-		} catch (error) {
-			throw error;
+		// Extract existing managed section
+		let managedSection: string[] = [];
+		if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
+			managedSection = lines.slice(startIdx + 1, endIdx);
 		}
+
+		// Remove any existing entry with the same CRON_ID
+		managedSection = managedSection.filter(
+			(line) => !line.includes(`CRON_ID=${job.cronId}`)
+		);
+
+		const envVars = Object.entries(job.cronEnvVars)
+			.map(([key, value]) => `${key}=${value}`)
+			.join(" ");
+
+		this.createLogDirectoryIfNotExists(job.cronLogPath);
+
+		// Add the new cron job entry
+		const newEntry = `${job.cronSchedule} CRON_ID=${job.cronId} ${envVars} $(which node) ${job.cronScriptPath} >> ${job.cronLogPath} 2>&1`;
+		managedSection.push(newEntry);
+
+		// Construct the new crontab content
+		let newCrontab: string;
+		if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+			// If section does not exist, create it
+			newCrontab = [
+				currentCrontab.trim(),
+				this.START_MARKER,
+				newEntry,
+				this.END_MARKER,
+			]
+				.filter(Boolean)
+				.join("\n");
+		} else {
+			// Replace the existing managed section
+			newCrontab = [
+				...lines.slice(0, startIdx + 1),
+				...managedSection,
+				...lines.slice(endIdx),
+			].join("\n");
+		}
+
+		// Apply the new crontab safely using stdin
+		execSync("crontab -", {
+			input: newCrontab.trimEnd() + "\n",
+			encoding: "utf-8",
+		});
 	}
 
 	deleteCronJob(cronId: string): void {
-		try {
-			const currentCrontab = this.getCronJobs();
-			const lines = currentCrontab.split("\n");
+		const currentCrontab = this.getCronJobs();
+		const lines = currentCrontab.split("\n");
 
-			const startIdx = lines.indexOf(this.START_MARKER);
-			const endIdx = lines.indexOf(this.END_MARKER);
+		const startIdx = lines.indexOf(this.START_MARKER);
+		const endIdx = lines.indexOf(this.END_MARKER);
 
-			if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-				consoleLog("Cron job section not found in crontab");
-				return;
-			}
-
-			const managedSection = lines.slice(startIdx + 1, endIdx);
-			const updatedSection = managedSection.filter(
-				(line) => !line.includes(`CRON_ID=${cronId}`)
-			);
-
-			const newCrontab = [
-				...lines.slice(0, startIdx + 1),
-				...updatedSection,
-				...lines.slice(endIdx),
-			].join("\n");
-
-			// Apply the new crontab safely using stdin
-			execSync("crontab -", { input: newCrontab, encoding: "utf-8" });
-		} catch (error) {
-			throw error;
+		if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+			consoleLog("Cron job section not found in crontab");
+			return;
 		}
+
+		const managedSection = lines.slice(startIdx + 1, endIdx);
+		const updatedSection = managedSection.filter(
+			(line) => !line.includes(`CRON_ID=${cronId}`)
+		);
+
+		const newCrontab = [
+			...lines.slice(0, startIdx + 1),
+			...updatedSection,
+			...lines.slice(endIdx),
+		].join("\n");
+
+		// Apply the new crontab safely using stdin
+		execSync("crontab -", {
+			input: newCrontab.trimEnd() + "\n",
+			encoding: "utf-8",
+		});
 	}
 }
