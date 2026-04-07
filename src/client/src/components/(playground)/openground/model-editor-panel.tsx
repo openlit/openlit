@@ -87,7 +87,7 @@ export default function ModelEditorPanel({
 		const payload = {
 			provider: provider,
 			model: {
-				model_id: formData.model_id,
+				id: formData.model_id,
 				displayName: formData.displayName,
 				contextWindow: formData.contextWindow || 4096,
 				inputPricePerMToken: formData.inputPricePerMToken || 0,

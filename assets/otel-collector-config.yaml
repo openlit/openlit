@@ -7,6 +7,49 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  transform:
+      error_mode: ignore
+      trace_statements:
+        - context: span
+          statements:
+          # --- 1. MODEL NORMALIZATION ---
+          # Ensure OpenLIT sees the model ID for pricing lookups
+          - set(attributes["gen_ai.request.model"], attributes["model"]) 
+            where attributes["gen_ai.request.model"] == nil and attributes["model"] != nil
+
+          # --- 2. INPUT NORMALIZATION & CLAUDE CACHE MATH ---
+          # Identify the base input (Standard OTel key vs raw Claude/Copilot tag)
+          - set(attributes["tmp.base_input"], attributes["gen_ai.usage.input_tokens"]) 
+            where attributes["gen_ai.usage.input_tokens"] != nil
+          - set(attributes["tmp.base_input"], attributes["input_tokens"]) 
+            where attributes["tmp.base_input"] == nil and attributes["input_tokens"] != nil
+
+          # Initialize cache weights to 0 so the addition logic doesn't fail on nulls
+          - set(attributes["tmp.cache_weighted"], 0)
+          - set(attributes["tmp.cache_weighted"], attributes["cache_read_tokens"] * 0.1) 
+            where attributes["cache_read_tokens"] != nil
+          - set(attributes["tmp.cache_weighted"], attributes["tmp.cache_weighted"] + (attributes["cache_creation_tokens"] * 1.25)) 
+            where attributes["cache_creation_tokens"] != nil
+
+          # Set final Input Tokens: Base + Weighted Cache
+          - set(attributes["gen_ai.usage.input_tokens"], attributes["tmp.base_input"] + attributes["tmp.cache_weighted"]) 
+            where attributes["tmp.base_input"] != nil
+
+          # --- 3. OUTPUT NORMALIZATION ---
+          # Identify the base output (Standard OTel key vs raw Claude/Copilot tag)
+          - set(attributes["tmp.base_output"], attributes["gen_ai.usage.output_tokens"]) 
+            where attributes["gen_ai.usage.output_tokens"] != nil
+          - set(attributes["tmp.base_output"], attributes["output_tokens"]) 
+            where attributes["tmp.base_output"] == nil and attributes["output_tokens"] != nil
+
+          # Apply normalized output to the standard key
+          - set(attributes["gen_ai.usage.output_tokens"], attributes["tmp.base_output"]) 
+            where attributes["tmp.base_output"] != nil
+
+          # --- 4. TOTAL TOKENS CALCULATION ---
+          # Now that Input and Output are normalized, sum them for the Dashboard
+          - set(attributes["gen_ai.usage.total_tokens"], attributes["gen_ai.usage.input_tokens"] + attributes["gen_ai.usage.output_tokens"]) 
+            where attributes["gen_ai.usage.input_tokens"] != nil and attributes["gen_ai.usage.output_tokens"] != nil
   batch:
   memory_limiter:
     # 80% of maximum memory up to 2G
@@ -41,7 +84,7 @@ service:
       exporters: [clickhouse]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [transform, memory_limiter, batch]
       exporters: [clickhouse]
     metrics:
       receivers: [otlp]
