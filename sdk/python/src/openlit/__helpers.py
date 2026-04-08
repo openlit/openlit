@@ -227,7 +227,7 @@ def response_as_dict(response):
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):
-        return response.model_dump()
+        return response.model_dump(warnings=False)
     elif hasattr(response, "parse"):
         if inspect.iscoroutinefunction(response.parse):
             logger.warning("response.parse() is a coroutine function; skipping")

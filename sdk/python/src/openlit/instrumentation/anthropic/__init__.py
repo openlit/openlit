@@ -7,8 +7,8 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
-from openlit.instrumentation.anthropic.anthropic import messages
-from openlit.instrumentation.anthropic.async_anthropic import async_messages
+from openlit.instrumentation.anthropic.anthropic import messages, messages_stream
+from openlit.instrumentation.anthropic.async_anthropic import async_messages, async_messages_stream
 
 _instruments = ("anthropic >= 0.21.0",)
 
@@ -48,12 +48,46 @@ class AnthropicInstrumentor(BaseInstrumentor):
                 event_provider,
             ),
         )
+        
+        # sync stream
+        wrap_function_wrapper(
+            "anthropic.resources.messages",
+            "Messages.stream",
+            messages_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
 
         # async
         wrap_function_wrapper(
             "anthropic.resources.messages",
             "AsyncMessages.create",
             async_messages(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+        
+        # async stream
+        wrap_function_wrapper(
+            "anthropic.resources.messages",
+            "AsyncMessages.stream",
+            async_messages_stream(
                 version,
                 environment,
                 application_name,
