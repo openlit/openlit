@@ -6,7 +6,6 @@ import {
 } from '@opentelemetry/instrumentation';
 import { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
-import Cohere from 'cohere-ai';
 import CohereWrapper from './wrapper';
 
 export interface CohereInstrumentationConfig extends InstrumentationConfig {}
@@ -37,7 +36,7 @@ export default class OpenlitCohereInstrumentation extends InstrumentationBase {
     this._patch(cohere);
   }
 
-  protected _patch(moduleExports: typeof Cohere) {
+  protected _patch(moduleExports: any) {
     try {
       if (isWrapped(moduleExports.CohereClient.prototype.embed)) {
         this._unwrap(moduleExports.CohereClient.prototype, 'embed');
@@ -71,7 +70,7 @@ export default class OpenlitCohereInstrumentation extends InstrumentationBase {
     }
   }
 
-  protected _unpatch(moduleExports: typeof Cohere) {
+  protected _unpatch(moduleExports: any) {
     this._unwrap(moduleExports.CohereClient.prototype, 'embed');
     this._unwrap(moduleExports.CohereClient.prototype, 'chat');
     this._unwrap(moduleExports.CohereClient.prototype, 'chatStream');

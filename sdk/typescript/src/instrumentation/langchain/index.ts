@@ -18,23 +18,13 @@ export default class OpenlitLangChainInstrumentation extends InstrumentationBase
   }
 
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
-    // We bypass OTel's RequireInTheMiddleSingleton here because it uses a null-whitelist
-    // RITM instance, which causes RITM to report `name` as the `fullModuleName` (including
-    // the .cjs extension), e.g. '@langchain/core/language_models/chat_models.cjs'.
-    // The trie search then fails to match our registered bare name (without .cjs).
-    // Instead, we set up a direct require-in-the-middle Hook in enable() with a proper
-    // whitelist, which causes RITM to preserve the original specifier as `name`.
     return [];
   }
 
-  /** Override enable() to install a direct RITM Hook rather than going through the singleton. */
   public enable(): void {
-    super.enable(); // sets this._enabled = true, initialises tracer
+    super.enable();
     if (this._ritmHook) return;
     try {
-      // Require RITM directly — it is a transitive dep of @opentelemetry/instrumentation.
-      // Using a whitelist ['@langchain/core/language_models/chat_models'] causes RITM to
-      // preserve the original module specifier as `name` (avoiding the .cjs issue).
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Hook } = require('require-in-the-middle');
       this._ritmHook = new Hook(
@@ -45,10 +35,9 @@ export default class OpenlitLangChainInstrumentation extends InstrumentationBase
           return exports;
         }
       );
-    } catch { /* require-in-the-middle not available — no-op */ }
+    } catch { /* require-in-the-middle not available */ }
   }
 
-  /** Override disable() to remove our direct RITM Hook. */
   public disable(): void {
     super.disable();
     this._ritmHook?.unhook?.();
@@ -56,7 +45,6 @@ export default class OpenlitLangChainInstrumentation extends InstrumentationBase
     this._unpatch();
   }
 
-  /** Called from tests / manual usage — pass the @langchain/core/callbacks/manager exports. */
   public manualPatch(callbacksManagerModule: any): void {
     const CallbackManager = callbacksManagerModule?.CallbackManager;
     if (CallbackManager) {
@@ -65,10 +53,6 @@ export default class OpenlitLangChainInstrumentation extends InstrumentationBase
     }
   }
 
-  /**
-   * Scan require.cache for @langchain/core's dist/callbacks/manager.cjs.
-   * It is always loaded as a relative dep before the chat_models hook fires.
-   */
   private _patchFromCache(): void {
     try {
       const cache = (require as NodeJS.Require & { cache: Record<string, any> }).cache;
@@ -95,8 +79,6 @@ export default class OpenlitLangChainInstrumentation extends InstrumentationBase
 
   private _applyPatch(CallbackManager: any): void {
     try {
-      // Patch _configureSync — the single low-level entry point called by both
-      // CallbackManager.configure and getCallbackManagerForConfig (Runnables/chains).
       if (isWrapped(CallbackManager._configureSync)) {
         this._unwrap(CallbackManager, '_configureSync');
       }
