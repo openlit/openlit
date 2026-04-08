@@ -53,6 +53,9 @@ jest.mock('@/clickhouse/migrations', () => ({
 jest.mock('@/utils/log', () => ({
   consoleLog: jest.fn(),
 }));
+jest.mock('@/utils/validation', () => ({
+  validateDatabaseHost: jest.fn(() => ({ valid: true })),
+}));
 
 import {
   getDBConfigByUser,

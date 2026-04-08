@@ -42,6 +42,10 @@ jest.mock('@/utils/json', () => ({
 jest.mock('@/lib/platform/api-keys', () => ({
   getAPIKeyInfo: jest.fn(),
 }));
+jest.mock('@/utils/crypto', () => ({
+  encryptValue: jest.fn((v: string) => v),
+  decryptValue: jest.fn((v: string) => v),
+}));
 
 import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
