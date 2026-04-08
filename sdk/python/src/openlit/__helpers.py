@@ -227,7 +227,11 @@ def response_as_dict(response):
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):
-        return response.model_dump(warnings=False)
+        try:
+            return response.model_dump(warnings=False)
+        except TypeError:
+            # Fallback for non-Pydantic v2 objects with model_dump method
+            return response.model_dump()
     elif hasattr(response, "parse"):
         if inspect.iscoroutinefunction(response.parse):
             logger.warning("response.parse() is a coroutine function; skipping")
