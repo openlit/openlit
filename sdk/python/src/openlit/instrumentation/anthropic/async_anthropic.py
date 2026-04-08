@@ -272,14 +272,14 @@ def async_messages_stream(
             if name == "until_done":
                 return self._instrumented_until_done
             return getattr(self.__wrapped__, name)
-        
+
         async def _instrumented_get_final_message(self):
             """Awaits stream completion via proxy then returns the final message."""
             async for _ in self:
                 pass
             original_get_final_message = getattr(self.__wrapped__, 'get_final_message')
             return await original_get_final_message()
-        
+
         @property
         def _instrumented_text_stream(self):
             """Async generator that processes chunks through our proxy."""
@@ -291,7 +291,7 @@ def async_messages_stream(
                             hasattr(event.delta, 'text')):
                         yield event.delta.text
             return text_generator()
-        
+
         async def _instrumented_until_done(self):
             """Ensures the async span is closed by draining the stream."""
             async for _ in self:

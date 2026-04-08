@@ -48,7 +48,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
                 event_provider,
             ),
         )
-        
+
         # sync stream
         wrap_function_wrapper(
             "anthropic.resources.messages",
@@ -82,7 +82,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
                 event_provider,
             ),
         )
-        
+
         # async stream
         wrap_function_wrapper(
             "anthropic.resources.messages",

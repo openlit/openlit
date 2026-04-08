@@ -272,7 +272,7 @@ def messages_stream(
             if name == "until_done":
                 return self._instrumented_until_done
             return getattr(self.__wrapped__, name)
-        
+
         def _instrumented_get_final_message(self):
             """Drains the stream to finalize the span before returning the result."""
             for _ in self:
