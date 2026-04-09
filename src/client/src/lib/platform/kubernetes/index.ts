@@ -103,6 +103,40 @@ export async function createAgentInstrumentation(
 	}
 }
 
+export async function getAgentInstrumentation(
+	namespace: string,
+	serviceName: string
+): Promise<{ err?: string; data?: any; exists?: boolean }> {
+	try {
+		const k8s = await import("@kubernetes/client-node");
+		const kc = new k8s.KubeConfig();
+		kc.loadFromDefault();
+
+		const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
+		const result = await customApi.getNamespacedCustomObject({
+			group: "openlit.io",
+			version: "v1alpha1",
+			namespace,
+			plural: "autoinstrumentations",
+			name: `openlit-agent-${serviceName}`,
+		});
+
+		return { data: result, exists: true };
+	} catch (error: any) {
+		consoleLog(error);
+		if (error.statusCode === 404 || error.body?.code === 404) {
+			return { exists: false };
+		}
+
+		return {
+			err:
+				error.body?.message ||
+				error.message ||
+				"Failed to read AutoInstrumentation CRD",
+		};
+	}
+}
+
 export async function deleteAgentInstrumentation(
 	namespace: string,
 	serviceName: string

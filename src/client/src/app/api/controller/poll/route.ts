@@ -13,10 +13,11 @@ import crypto from "crypto";
 
 function deterministicServiceId(
 	controllerInstanceId: string,
+	workloadKey: string,
 	namespace: string,
 	serviceName: string
 ): string {
-	const key = `${controllerInstanceId}:${namespace}:${serviceName}`;
+	const key = `${controllerInstanceId}:${workloadKey}:${namespace}:${serviceName}`;
 	const hash = crypto.createHash("md5").update(key).digest("hex");
 	return [
 		hash.slice(0, 8),
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
 			services_instrumented,
 			services,
 			action_results,
+			resource_attributes,
 		} = body;
 
 		if (!instance_id) {
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
 				services_discovered: services_discovered || 0,
 				services_instrumented: services_instrumented || 0,
 				config_hash: config_hash || "",
+				resource_attributes: resource_attributes || {},
 				last_heartbeat: now,
 			},
 			dbId
@@ -86,12 +89,16 @@ export async function POST(request: Request) {
 		// 2. Upsert discovered services
 		if (Array.isArray(services) && services.length > 0) {
 			const rows = services.map((svc: any) => {
+				if (!svc.workload_key) {
+					throw new Error("controller poll: service is missing workload_key");
+				}
 				const ns = svc.namespace || "";
 				const name = svc.service_name || "";
 				return {
-					id: deterministicServiceId(instance_id, ns, name),
+					id: deterministicServiceId(instance_id, svc.workload_key, ns, name),
 					controller_instance_id: instance_id,
 					service_name: name,
+					workload_key: svc.workload_key,
 					namespace: ns,
 					language_runtime: svc.language_runtime || "",
 					llm_providers: svc.llm_providers || [],
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
 					pid: svc.pid || 0,
 					exe_path: svc.exe_path || "",
 					instrumentation_status: svc.instrumentation_status || "discovered",
+					resource_attributes: svc.resource_attributes || {},
 					last_seen: now,
 					updated_at: now,
 				};
@@ -114,13 +122,19 @@ export async function POST(request: Request) {
 		if (Array.isArray(action_results)) {
 			for (const ar of action_results) {
 				if (ar.action_id && ar.status) {
-					await completeAction(
+					const completeResult = await completeAction(
 						ar.action_id,
 						instance_id,
 						ar.status === "completed" ? "completed" : "failed",
 						ar.error || "",
 						dbId
 					);
+					if (completeResult?.err) {
+						console.error(
+							"controller poll: completeAction error:",
+							completeResult.err
+						);
+					}
 				}
 			}
 		}

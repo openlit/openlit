@@ -15,6 +15,7 @@ export interface ControllerInstance {
 	services_instrumented: number;
 	last_heartbeat: string;
 	config_hash: string;
+	resource_attributes?: Record<string, string>;
 	created_at: string;
 }
 
@@ -22,6 +23,7 @@ export interface ControllerService {
 	id: string;
 	controller_instance_id: string;
 	service_name: string;
+	workload_key: string;
 	namespace: string;
 	language_runtime: string;
 	llm_providers: string[];
@@ -30,9 +32,12 @@ export interface ControllerService {
 	pid: number;
 	exe_path: string;
 	instrumentation_status: InstrumentationStatus;
+	resource_attributes?: Record<string, string>;
 	first_seen: string;
 	last_seen: string;
 	updated_at: string;
+	pending_action?: "instrument" | "uninstrument" | null;
+	pending_action_status?: "pending" | "acknowledged" | null;
 }
 
 export interface ExportConfig {
@@ -107,7 +112,7 @@ export interface ControllerStatus {
 	};
 }
 
-export type ActionType = "instrument" | "uninstrument" | "apply_config";
+export type ActionType = "instrument" | "uninstrument";
 export type ActionStatus = "pending" | "acknowledged" | "completed" | "failed";
 
 export interface PendingAction {

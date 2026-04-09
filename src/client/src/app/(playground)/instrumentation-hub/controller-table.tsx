@@ -11,6 +11,7 @@ import DataTable from "@/components/data-table/table";
 import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
+import { formatBrowserDateTime } from "@/utils/date";
 
 interface ControllerTableProps {
 	instances: ControllerInstance[];
@@ -28,6 +29,7 @@ const HEALTH_STYLES: Record<ControllerHealth, string> = {
 type ControllerColumnKey =
 	| "controller"
 	| "mode"
+	| "metadata"
 	| "status"
 	| "services"
 	| "lastHeartbeat";
@@ -74,6 +76,38 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 			);
 		},
 	},
+	metadata: {
+		header: () => "Metadata",
+		cell: ({ row }) => {
+			const attrs = row.resource_attributes;
+			if (!attrs || Object.keys(attrs).length === 0) return null;
+			const node = attrs["k8s.node.name"] || attrs["host.name"];
+			const ns = attrs["k8s.namespace.name"];
+			const pod = attrs["k8s.pod.name"];
+			return (
+				<div className="text-xs space-y-0.5">
+					{node && (
+						<div className="text-stone-600 dark:text-stone-400">
+							<span className="text-stone-400 dark:text-stone-500">node:</span>{" "}
+							{node}
+						</div>
+					)}
+					{ns && (
+						<div className="text-stone-600 dark:text-stone-400">
+							<span className="text-stone-400 dark:text-stone-500">ns:</span>{" "}
+							{ns}
+						</div>
+					)}
+					{pod && (
+						<div className="text-stone-600 dark:text-stone-400 truncate max-w-[200px]">
+							<span className="text-stone-400 dark:text-stone-500">pod:</span>{" "}
+							{pod}
+						</div>
+					)}
+				</div>
+			);
+		},
+	},
 	status: {
 		header: () => "Status",
 		cell: ({ row }) => (
@@ -103,7 +137,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		header: () => "Last Heartbeat",
 		cell: ({ row }) => (
 			<span className="text-xs truncate">
-				{new Date(row.last_heartbeat).toLocaleString()}
+				{formatBrowserDateTime(row.last_heartbeat)}
 			</span>
 		),
 	},
@@ -112,6 +146,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 const VISIBILITY_COLUMNS: Record<ControllerColumnKey, boolean> = {
 	controller: true,
 	mode: true,
+	metadata: true,
 	status: true,
 	services: true,
 	lastHeartbeat: true,

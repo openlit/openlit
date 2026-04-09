@@ -1,17 +1,21 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import type {
 	ControllerInstance,
 	ControllerConfig,
 	ControllerHealth,
+	ControllerService,
 	PayloadExtractionConfig,
 } from "@/types/controller";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
+import { formatBrowserDateTime } from "@/utils/date";
+import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import {
+	ArrowLeft,
 	ChevronDown,
 	ChevronRight,
 	Save,
@@ -61,22 +65,22 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const DEFAULT_PAYLOAD_EXTRACTION: PayloadExtractionConfig = {
-	openai: true,
-	anthropic: true,
-	gemini: true,
-	cohere: true,
-	mistral: true,
-	groq: true,
-	deepseek: true,
-	together: true,
-	fireworks: true,
-	vercel_ai: true,
-	vertex_ai: true,
-	azure_inference: true,
-	azure_openai: true,
-	bedrock: true,
-	litellm: true,
-	ollama: true,
+	openai: false,
+	anthropic: false,
+	gemini: false,
+	cohere: false,
+	mistral: false,
+	groq: false,
+	deepseek: false,
+	together: false,
+	fireworks: false,
+	vercel_ai: false,
+	vertex_ai: false,
+	azure_inference: false,
+	azure_openai: false,
+	bedrock: false,
+	litellm: false,
+	ollama: false,
 };
 
 const DEFAULT_CONFIG: ControllerConfig = {
@@ -98,6 +102,7 @@ const DEFAULT_CONFIG: ControllerConfig = {
 export default function ControllerDetailPage() {
 	const params = useParams();
 	const instanceId = params.instance_id as string;
+	const router = useRouter();
 
 	const {
 		fireRequest: fetchInstance,
@@ -114,6 +119,12 @@ export default function ControllerDetailPage() {
 			});
 		}
 	}, [instanceId, fetchInstance]);
+	useDynamicBreadcrumbs(
+		{
+			title: instance?.node_name || instance?.instance_id || "Controller",
+		},
+		[instance?.node_name, instance?.instance_id]
+	);
 
 	if (instanceLoading || !instance) {
 		return (
@@ -128,6 +139,13 @@ export default function ControllerDetailPage() {
 
 	return (
 		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
+			<button
+				onClick={() => router.push("/instrumentation-hub")}
+				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
+			>
+				<ArrowLeft className="w-4 h-4" />
+				Back to Hub
+			</button>
 			<ControllerHeader instance={instance} />
 			<ControllerConfigEditor instance={instance} />
 		</div>
@@ -156,7 +174,7 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 							{instance.version && `v${instance.version} · `}
 							{instance.mode === "kubernetes" ? "Kubernetes" : instance.mode === "docker" ? "Docker" : "Linux"} ·{" "}
 							Last heartbeat{" "}
-							{new Date(instance.last_heartbeat).toLocaleString()}
+							{formatBrowserDateTime(instance.last_heartbeat)}
 						</p>
 					</div>
 				</div>
@@ -171,6 +189,10 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 				<Stat label="Services Discovered" value={instance.services_discovered} />
 				<Stat label="Instrumented" value={instance.services_instrumented} />
 			</div>
+			{instance.resource_attributes &&
+				Object.keys(instance.resource_attributes).length > 0 && (
+					<ResourceAttributesPanel attrs={instance.resource_attributes} />
+				)}
 		</div>
 	);
 }
@@ -188,6 +210,39 @@ function Stat({ label, value }: { label: string; value: number }) {
 	);
 }
 
+function ResourceAttributesPanel({
+	attrs,
+}: {
+	attrs: Record<string, string>;
+}) {
+	const entries = Object.entries(attrs).sort(([a], [b]) =>
+		a.localeCompare(b)
+	);
+	return (
+		<div className="mt-5 border dark:border-stone-700 rounded-lg overflow-hidden">
+			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b dark:border-stone-700">
+				<span className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide">
+					Resource Attributes
+				</span>
+			</div>
+			<div className="max-h-72 overflow-y-auto px-4 py-3">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+					{entries.map(([key, value]) => (
+						<div key={key} className="flex flex-col min-w-0">
+							<span className="text-[11px] text-stone-400 dark:text-stone-500 font-mono break-all">
+								{key}
+							</span>
+							<span className="text-sm text-stone-700 dark:text-stone-300 break-all">
+								{value}
+							</span>
+						</div>
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function ControllerConfigEditor({
 	instance,
 }: {
@@ -199,6 +254,11 @@ function ControllerConfigEditor({
 		isLoading: configLoading,
 		isFetched: configFetched,
 	} = useFetchWrapper<ControllerConfig | null>();
+	const {
+		fireRequest: fetchServices,
+		data: services,
+		isFetched: servicesFetched,
+	} = useFetchWrapper<ControllerService[]>();
 	const { fireRequest: saveConfig, isLoading: saving } = useFetchWrapper();
 
 	const [config, setConfig] = useState<ControllerConfig>(DEFAULT_CONFIG);
@@ -212,11 +272,24 @@ function ControllerConfigEditor({
 	}, [instance.instance_id, fetchConfig]);
 
 	useEffect(() => {
+		fetchServices({
+			requestType: "GET",
+			url: "/api/controller/catalog",
+			responseDataKey: "data",
+		});
+	}, [fetchServices]);
+
+	useEffect(() => {
 		if (!configFetched) return;
+		const defaults = buildDefaultConfig(instance.instance_id, services || []);
 		if (savedConfig) {
-			setConfig(mergeConfig(DEFAULT_CONFIG, savedConfig));
+			setConfig(mergeConfig(defaults, savedConfig));
+			return;
 		}
-	}, [configFetched, savedConfig]);
+		if (servicesFetched) {
+			setConfig(defaults);
+		}
+	}, [configFetched, savedConfig, services, servicesFetched, instance.instance_id]);
 
 	const handleSave = useCallback(() => {
 		saveConfig({
@@ -608,5 +681,35 @@ function mergeConfig(
 		custom_llm_hosts:
 			saved.custom_llm_hosts || defaults.custom_llm_hosts || [],
 		environment: saved.environment || defaults.environment || "default",
+	};
+}
+
+function buildDefaultConfig(
+	instanceId: string,
+	services: ControllerService[]
+): ControllerConfig {
+	const relevantServices = services.filter(
+		(service) => service.controller_instance_id === instanceId
+	);
+	const sourceServices = relevantServices.some(
+		(service) => service.instrumentation_status === "instrumented"
+	)
+		? relevantServices.filter(
+				(service) => service.instrumentation_status === "instrumented"
+			)
+		: relevantServices;
+
+	const payloadExtraction = { ...DEFAULT_PAYLOAD_EXTRACTION };
+	for (const service of sourceServices) {
+		for (const provider of service.llm_providers || []) {
+			if (provider in payloadExtraction) {
+				payloadExtraction[provider as keyof PayloadExtractionConfig] = true;
+			}
+		}
+	}
+
+	return {
+		...DEFAULT_CONFIG,
+		payload_extraction: payloadExtraction,
 	};
 }

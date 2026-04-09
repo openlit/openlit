@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openlit
+  namespace: openlit
+  labels:
+    app: openlit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openlit
+  template:
+    metadata:
+      labels:
+        app: openlit
+    spec:
+      containers:
+        - name: openlit
+          image: openlit:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: INIT_DB_HOST
+              value: "clickhouse.openlit.svc.cluster.local"
+            - name: INIT_DB_PORT
+              value: "8123"
+            - name: INIT_DB_DATABASE
+              value: "openlit"
+            - name: INIT_DB_USERNAME
+              value: "default"
+            - name: INIT_DB_PASSWORD
+              value: "OPENLIT"
+            - name: SQLITE_DATABASE_URL
+              value: "file:/app/client/data/data.db"
+            - name: PORT
+              value: "3000"
+            - name: DOCKER_PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          volumeMounts:
+            - name: data
+              mountPath: /app/client/data
+            - name: otel-config
+              mountPath: /etc/otel
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: otel-config
+          configMap:
+            name: otel-collector-config
+            items:
+              - key: config.yaml
+                path: otel-collector-config.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openlit
+  namespace: openlit
+spec:
+  selector:
+    app: openlit
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

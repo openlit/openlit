@@ -17,6 +17,7 @@ export default async function CreateControllerMigration(
 			id UUID DEFAULT generateUUIDv4(),
 			controller_instance_id String,
 			service_name String,
+			workload_key String DEFAULT '',
 			namespace String DEFAULT '',
 			language_runtime String DEFAULT '',
 			llm_providers Array(String),
@@ -32,7 +33,7 @@ export default async function CreateControllerMigration(
 			last_seen DateTime DEFAULT now(),
 			updated_at DateTime DEFAULT now()
 		) ENGINE = ReplacingMergeTree(updated_at)
-		ORDER BY (controller_instance_id, namespace, service_name);
+		ORDER BY (controller_instance_id, workload_key);
 		`,
 		`
 		CREATE TABLE IF NOT EXISTS ${CONTROLLER_INSTANCES_TABLE} (
@@ -40,7 +41,7 @@ export default async function CreateControllerMigration(
 			instance_id String,
 			node_name String DEFAULT '',
 			version String DEFAULT '',
-			mode Enum8('standalone' = 0, 'kubernetes' = 1) DEFAULT 'standalone',
+			mode Enum8('linux' = 0, 'kubernetes' = 1, 'docker' = 2) DEFAULT 'linux',
 			status Enum8('healthy' = 0, 'degraded' = 1, 'error' = 2) DEFAULT 'healthy',
 			listen_addr String DEFAULT '',
 			external_url String DEFAULT '',
@@ -64,7 +65,7 @@ export default async function CreateControllerMigration(
 		CREATE TABLE IF NOT EXISTS ${CONTROLLER_ACTIONS_TABLE} (
 			id UUID DEFAULT generateUUIDv4(),
 			instance_id String,
-			action_type Enum8('instrument' = 0, 'uninstrument' = 1, 'apply_config' = 2),
+			action_type Enum8('instrument' = 0, 'uninstrument' = 1),
 			service_key String DEFAULT '',
 			payload String DEFAULT '{}',
 			status Enum8('pending' = 0, 'acknowledged' = 1, 'completed' = 2, 'failed' = 3) DEFAULT 'pending',

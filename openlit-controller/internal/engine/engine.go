@@ -15,18 +15,22 @@ import (
 
 // InstrumentPattern represents a service pattern for OBI discovery.
 type InstrumentPattern struct {
-	ServiceID string
-	ExePath   string // glob, e.g. "*python*"
-	CmdArgs   string // glob, e.g. "*app.py*"
+	ServiceID      string
+	ExePath        string
+	CmdArgs        string
+	TargetPIDs     []int
+	ContainersOnly bool
+	K8sNamespace   string
+	K8sPodName     string
 }
 
 // Engine orchestrates the eBPF scanner and per-service OBI instrumentation.
 type Engine struct {
-	mu         sync.RWMutex
-	cancel     context.CancelFunc
-	services   map[string]*openlit.ServiceState
-	logger     *zap.Logger
-	running    bool
+	mu       sync.RWMutex
+	cancel   context.CancelFunc
+	services map[string]*openlit.ServiceState
+	logger   *zap.Logger
+	running  bool
 
 	scanner      *scanner.Scanner
 	obi          *OBIManager
@@ -122,7 +126,7 @@ func (e *Engine) InstrumentService(serviceID string) error {
 		return nil // already instrumented
 	}
 
-	pat := derivePattern(svc)
+	pat := derivePattern(svc, e.deployMode)
 	e.patterns[serviceID] = pat
 	svc.InstrumentationStatus = "instrumented"
 
@@ -130,6 +134,9 @@ func (e *Engine) InstrumentService(serviceID string) error {
 		zap.String("service", svc.ServiceName),
 		zap.String("exe_pattern", pat.ExePath),
 		zap.String("cmd_pattern", pat.CmdArgs),
+		zap.Ints("target_pids", pat.TargetPIDs),
+		zap.String("k8s_namespace", pat.K8sNamespace),
+		zap.String("k8s_pod_name", pat.K8sPodName),
 	)
 	return e.rebuildOBI()
 }
@@ -159,32 +166,74 @@ func (e *Engine) rebuildOBI() error {
 	entries := make([]obiTarget, 0, len(e.patterns))
 	for id, p := range e.patterns {
 		entry := obiTarget{
-			Path:    p.ExePath,
-			CmdArgs: p.CmdArgs,
+			Path:           p.ExePath,
+			CmdArgs:        p.CmdArgs,
+			TargetPIDs:     p.TargetPIDs,
+			ContainersOnly: p.ContainersOnly,
+			K8sNamespace:   p.K8sNamespace,
+			K8sPodName:     p.K8sPodName,
 		}
-		if e.deployMode == config.DeployDocker {
-			// In Docker mode, let OBI derive service names from container names
-			// rather than using a static name that would label all matching
-			// processes identically.
-			entry.ContainersOnly = true
-		} else if svc, ok := e.services[id]; ok {
+		svc, ok := e.services[id]
+		if ok && e.deployMode != config.DeployDocker {
+			// In Docker mode OBI should keep container-derived naming instead of
+			// applying a static service name to every matching container.
 			entry.Name = svc.ServiceName
+		}
+		if e.deployMode == config.DeployDocker && !entry.ContainersOnly {
+			entry.ContainersOnly = true
 		}
 		entries = append(entries, entry)
 	}
-	cfg := BuildInstrumentConfig(e.otlpEndpoint, entries, e.deployMode, e.environment)
+	cfg := BuildInstrumentConfig(
+		e.otlpEndpoint,
+		entries,
+		e.enabledProvidersForPatterns(),
+		e.deployMode,
+		e.environment,
+	)
 	if e.obi.IsRunning() {
 		return e.obi.Restart(context.Background(), cfg)
 	}
 	return e.obi.Start(context.Background(), cfg)
 }
 
-// derivePattern generates OBI-compatible glob patterns from service metadata.
-// For Docker containers, the cmdline (e.g. "python -u app.py") is the same across
-// containers running the same image, so the pattern intentionally matches all of
-// them. OBI's container awareness auto-names each by its Docker container name.
-func derivePattern(svc *openlit.ServiceState) InstrumentPattern {
+func (e *Engine) enabledProvidersForPatterns() map[string]bool {
+	enabled := make(map[string]bool)
+	for id := range e.patterns {
+		if svc, ok := e.services[id]; ok {
+			for _, provider := range svc.LLMProviders {
+				enabled[provider] = true
+			}
+		}
+	}
+	return enabled
+}
+
+// derivePattern generates workload-scoped OBI selectors from service metadata.
+func derivePattern(svc *openlit.ServiceState, mode config.DeployMode) InstrumentPattern {
 	pat := InstrumentPattern{ServiceID: svc.ID}
+
+	switch mode {
+	case config.DeployKubernetes:
+		if svc.ResourceAttributes != nil {
+			pat.K8sNamespace = svc.ResourceAttributes["k8s.namespace.name"]
+			pat.K8sPodName = svc.ResourceAttributes["k8s.pod.name"]
+		}
+		if pat.K8sNamespace != "" && pat.K8sPodName != "" {
+			return pat
+		}
+	case config.DeployDocker:
+		pat.ContainersOnly = true
+		if svc.PID > 0 {
+			pat.TargetPIDs = []int{svc.PID}
+			return pat
+		}
+	default:
+		if svc.PID > 0 {
+			pat.TargetPIDs = []int{svc.PID}
+			return pat
+		}
+	}
 
 	runtime := strings.ToLower(svc.LanguageRuntime)
 	switch {
@@ -201,13 +250,29 @@ func derivePattern(svc *openlit.ServiceState) InstrumentPattern {
 			pat.ExePath = "*" + filepath.Base(svc.ExePath) + "*"
 		}
 	}
-
-	// Use the actual script/jar name from the cmdline for cmd_args matching.
 	if script := extractScriptArg(svc.Cmdline); script != "" {
 		pat.CmdArgs = "*" + script + "*"
 	}
 
 	return pat
+}
+
+func instrumentPatternEqual(a, b InstrumentPattern) bool {
+	if a.ServiceID != b.ServiceID ||
+		a.ExePath != b.ExePath ||
+		a.CmdArgs != b.CmdArgs ||
+		a.ContainersOnly != b.ContainersOnly ||
+		a.K8sNamespace != b.K8sNamespace ||
+		a.K8sPodName != b.K8sPodName ||
+		len(a.TargetPIDs) != len(b.TargetPIDs) {
+		return false
+	}
+	for i := range a.TargetPIDs {
+		if a.TargetPIDs[i] != b.TargetPIDs[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // extractScriptArg finds the first non-flag argument in a cmdline string,

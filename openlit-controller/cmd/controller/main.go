@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -71,7 +72,8 @@ func main() {
 		}
 	}()
 
-	go runPollLoop(ctx, client, eng, logger, cfg.PollInterval, nodeName, mode)
+	controllerAttrs := buildControllerResourceAttrs(mode, cfg.Environment)
+	go runPollLoop(ctx, client, eng, logger, cfg.PollInterval, nodeName, mode, controllerAttrs)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -93,10 +95,11 @@ func runPollLoop(
 	interval time.Duration,
 	nodeName string,
 	mode openlit.ControllerMode,
+	controllerAttrs map[string]string,
 ) {
-	iid := instanceID()
+	iid := instanceID(mode)
 
-	poll(ctx, client, eng, logger, iid, nodeName, mode, nil)
+	poll(ctx, client, eng, logger, iid, nodeName, mode, nil, controllerAttrs)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -108,7 +111,7 @@ func runPollLoop(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			results := poll(ctx, client, eng, logger, iid, nodeName, mode, pendingResults)
+			results := poll(ctx, client, eng, logger, iid, nodeName, mode, pendingResults, controllerAttrs)
 			pendingResults = results
 		}
 	}
@@ -123,6 +126,7 @@ func poll(
 	nodeName string,
 	mode openlit.ControllerMode,
 	actionResults []openlit.ActionResult,
+	controllerAttrs map[string]string,
 ) []openlit.ActionResult {
 	discovered, instrumented := eng.ServiceCount()
 
@@ -131,6 +135,7 @@ func poll(
 	for _, svc := range services {
 		dsvcs = append(dsvcs, openlit.DiscoveredService{
 			ServiceName:           svc.ServiceName,
+			WorkloadKey:           svc.WorkloadKey,
 			Namespace:             svc.Namespace,
 			LanguageRuntime:       svc.LanguageRuntime,
 			LLMProviders:          svc.LLMProviders,
@@ -139,6 +144,7 @@ func poll(
 			PID:                   svc.PID,
 			ExePath:               svc.ExePath,
 			InstrumentationStatus: svc.InstrumentationStatus,
+			ResourceAttributes:    svc.ResourceAttributes,
 		})
 	}
 
@@ -151,6 +157,7 @@ func poll(
 		ServicesInstrumented: instrumented,
 		Services:             dsvcs,
 		ActionResults:        actionResults,
+		ResourceAttributes:   controllerAttrs,
 	})
 	if err != nil {
 		logger.Debug("poll failed", zap.Error(err))
@@ -207,7 +214,43 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 	}
 }
 
-func instanceID() string {
+func buildControllerResourceAttrs(mode openlit.ControllerMode, environment string) map[string]string {
 	hostname, _ := os.Hostname()
-	return fmt.Sprintf("%s-%d", hostname, os.Getpid())
+	attrs := map[string]string{
+		"host.name":              hostname,
+		"os.type":                runtime.GOOS,
+		"host.arch":              runtime.GOARCH,
+		"controller.version":     server.Version,
+		"deployment.environment": environment,
+	}
+
+	switch mode {
+	case openlit.ModeKubernetes:
+		if v := os.Getenv("NODE_NAME"); v != "" {
+			attrs["k8s.node.name"] = v
+		}
+		if v := os.Getenv("POD_NAME"); v != "" {
+			attrs["k8s.pod.name"] = v
+		}
+		if v := os.Getenv("POD_NAMESPACE"); v != "" {
+			attrs["k8s.namespace.name"] = v
+		}
+		if v := os.Getenv("POD_UID"); v != "" {
+			attrs["k8s.pod.uid"] = v
+		}
+	case openlit.ModeDocker:
+		attrs["container.runtime"] = "docker"
+	}
+
+	return attrs
+}
+
+func instanceID(mode openlit.ControllerMode) string {
+	if mode == openlit.ModeKubernetes {
+		if nodeName := os.Getenv("NODE_NAME"); nodeName != "" {
+			return nodeName
+		}
+	}
+	hostname, _ := os.Hostname()
+	return hostname
 }

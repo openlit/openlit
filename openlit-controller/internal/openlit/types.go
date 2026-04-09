@@ -20,6 +20,7 @@ type PollRequest struct {
 	ServicesInstrumented int                 `json:"services_instrumented"`
 	Services             []DiscoveredService `json:"services"`
 	ActionResults        []ActionResult      `json:"action_results,omitempty"`
+	ResourceAttributes   map[string]string   `json:"resource_attributes,omitempty"`
 }
 
 // PollResponse is returned by OpenLIT with pending actions.
@@ -41,29 +42,33 @@ type ActionResult struct {
 }
 
 type DiscoveredService struct {
-	ServiceName           string   `json:"service_name"`
-	Namespace             string   `json:"namespace,omitempty"`
-	LanguageRuntime       string   `json:"language_runtime,omitempty"`
-	LLMProviders          []string `json:"llm_providers"`
-	OpenPorts             []uint16 `json:"open_ports,omitempty"`
-	DeploymentName        string   `json:"deployment_name,omitempty"`
-	PID                   int      `json:"pid,omitempty"`
-	ExePath               string   `json:"exe_path,omitempty"`
-	InstrumentationStatus string   `json:"instrumentation_status"`
+	ServiceName           string            `json:"service_name"`
+	WorkloadKey           string            `json:"workload_key,omitempty"`
+	Namespace             string            `json:"namespace,omitempty"`
+	LanguageRuntime       string            `json:"language_runtime,omitempty"`
+	LLMProviders          []string          `json:"llm_providers"`
+	OpenPorts             []uint16          `json:"open_ports,omitempty"`
+	DeploymentName        string            `json:"deployment_name,omitempty"`
+	PID                   int               `json:"pid,omitempty"`
+	ExePath               string            `json:"exe_path,omitempty"`
+	InstrumentationStatus string            `json:"instrumentation_status"`
+	ResourceAttributes    map[string]string `json:"resource_attributes,omitempty"`
 }
 
 type ServiceState struct {
-	ID                    string    `json:"id"`
-	ServiceName           string    `json:"service_name"`
-	Namespace             string    `json:"namespace,omitempty"`
-	LanguageRuntime       string    `json:"language_runtime,omitempty"`
-	LLMProviders          []string  `json:"llm_providers"`
-	OpenPorts             []uint16  `json:"open_ports,omitempty"`
-	DeploymentName        string    `json:"deployment_name,omitempty"`
-	InstrumentationStatus string    `json:"instrumentation_status"`
-	FirstSeen             time.Time `json:"first_seen"`
-	LastSeen              time.Time `json:"last_seen"`
-	PID                   int       `json:"pid,omitempty"`
-	ExePath               string    `json:"exe_path,omitempty"`
-	Cmdline               string    `json:"cmdline,omitempty"`
+	ID                    string            `json:"id"`
+	ServiceName           string            `json:"service_name"`
+	WorkloadKey           string            `json:"workload_key,omitempty"`
+	Namespace             string            `json:"namespace,omitempty"`
+	LanguageRuntime       string            `json:"language_runtime,omitempty"`
+	LLMProviders          []string          `json:"llm_providers"`
+	OpenPorts             []uint16          `json:"open_ports,omitempty"`
+	DeploymentName        string            `json:"deployment_name,omitempty"`
+	InstrumentationStatus string            `json:"instrumentation_status"`
+	FirstSeen             time.Time         `json:"first_seen"`
+	LastSeen              time.Time         `json:"last_seen"`
+	PID                   int               `json:"pid,omitempty"`
+	ExePath               string            `json:"exe_path,omitempty"`
+	Cmdline               string            `json:"cmdline,omitempty"`
+	ResourceAttributes    map[string]string `json:"resource_attributes,omitempty"`
 }

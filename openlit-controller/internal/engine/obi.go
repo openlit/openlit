@@ -20,11 +20,17 @@ type OBIManager struct {
 	mu         sync.Mutex
 	cmd        *exec.Cmd
 	cancel     context.CancelFunc
+	waitDone   chan struct{}
 	binaryPath string
 	configPath string
 	logger     *zap.Logger
 	running    bool
 }
+
+const (
+	obiStopGracePeriod = 1500 * time.Millisecond
+	obiStopKillWait    = 1 * time.Second
+)
 
 func NewOBIManager(binaryPath string, logger *zap.Logger) *OBIManager {
 	m := &OBIManager{
@@ -60,6 +66,7 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 
 	childCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
+	m.waitDone = make(chan struct{})
 
 	m.cmd = exec.CommandContext(childCtx, m.binaryPath, "--config", m.configPath)
 	m.cmd.Env = os.Environ()
@@ -81,11 +88,20 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 	m.running = true
 	m.logger.Info("OBI started", zap.Int("pid", m.cmd.Process.Pid))
 
+	cmd := m.cmd
+	waitDone := m.waitDone
+
 	go func() {
-		err := m.cmd.Wait()
+		err := cmd.Wait()
 		m.mu.Lock()
 		m.running = false
+		if m.cmd == cmd {
+			m.cmd = nil
+			m.cancel = nil
+			m.waitDone = nil
+		}
 		m.mu.Unlock()
+		close(waitDone)
 
 		if childCtx.Err() != nil {
 			m.logger.Debug("OBI stopped (context cancelled)")
@@ -101,38 +117,50 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 
 func (m *OBIManager) Stop() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if !m.running || m.cmd == nil || m.cmd.Process == nil {
 		m.running = false
+		m.cmd = nil
+		m.cancel = nil
+		m.waitDone = nil
+		m.mu.Unlock()
 		return nil
 	}
+	cmd := m.cmd
+	cancel := m.cancel
+	waitDone := m.waitDone
+	m.mu.Unlock()
 
-	if err := m.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		m.logger.Warn("failed to send SIGTERM to OBI", zap.Error(err))
 	}
 
-	done := make(chan struct{})
-	go func() {
-		m.cmd.Wait()
-		close(done)
-	}()
-
 	select {
-	case <-done:
+	case <-waitDone:
 		m.logger.Debug("OBI stopped gracefully")
-	case <-time.After(5 * time.Second):
+	case <-time.After(obiStopGracePeriod):
 		m.logger.Warn("OBI did not exit after SIGTERM, sending SIGKILL")
-		m.cmd.Process.Kill()
-		<-done
+		if err := cmd.Process.Kill(); err != nil {
+			m.logger.Warn("failed to SIGKILL OBI", zap.Error(err))
+		}
+		select {
+		case <-waitDone:
+		case <-time.After(obiStopKillWait):
+			m.logger.Warn("OBI wait did not finish after SIGKILL; continuing shutdown")
+		}
 	}
 
-	if m.cancel != nil {
-		m.cancel()
-		m.cancel = nil
+	if cancel != nil {
+		cancel()
 	}
-	m.running = false
-	m.cmd = nil
+
+	m.mu.Lock()
+	if m.cmd == cmd || !m.running {
+		m.running = false
+		m.cmd = nil
+		m.cancel = nil
+		m.waitDone = nil
+	}
+	m.mu.Unlock()
 
 	os.Remove(m.configPath)
 	return nil
@@ -197,9 +225,17 @@ type obiGenAI struct {
 	OpenAI         obiEnabled `yaml:"openai"`
 	Anthropic      obiEnabled `yaml:"anthropic"`
 	Gemini         obiEnabled `yaml:"gemini"`
+	Cohere         obiEnabled `yaml:"cohere"`
+	Mistral        obiEnabled `yaml:"mistral"`
+	Groq           obiEnabled `yaml:"groq"`
+	Deepseek       obiEnabled `yaml:"deepseek"`
+	Together       obiEnabled `yaml:"together"`
+	Fireworks      obiEnabled `yaml:"fireworks"`
 	AzureInference obiEnabled `yaml:"azure_inference"`
+	AzureOpenAI    obiEnabled `yaml:"azure_openai"`
 	Bedrock        obiEnabled `yaml:"bedrock"`
 	VercelAI       obiEnabled `yaml:"vercel_ai"`
+	VertexAI       obiEnabled `yaml:"vertex_ai"`
 	LiteLLM        obiEnabled `yaml:"litellm"`
 	Ollama         obiEnabled `yaml:"ollama"`
 }
@@ -226,7 +262,10 @@ type obiTarget struct {
 	Name           string `yaml:"name,omitempty"`
 	Path           string `yaml:"exe_path,omitempty"`
 	CmdArgs        string `yaml:"cmd_args,omitempty"`
+	TargetPIDs     []int  `yaml:"target_pids,omitempty"`
 	ContainersOnly bool   `yaml:"containers_only,omitempty"`
+	K8sNamespace   string `yaml:"k8s_namespace,omitempty"`
+	K8sPodName     string `yaml:"k8s_pod_name,omitempty"`
 }
 
 type obiAttributes struct {
@@ -245,8 +284,13 @@ type obiAttrIncludeExclude struct {
 }
 
 // BuildInstrumentConfig creates an OBI config from pattern-based entries.
-// GenAI payload extraction is always enabled.
-func BuildInstrumentConfig(otlpEndpoint string, entries []obiTarget, mode config.DeployMode, environment string) OBIConfig {
+func BuildInstrumentConfig(
+	otlpEndpoint string,
+	entries []obiTarget,
+	enabledProviders map[string]bool,
+	mode config.DeployMode,
+	environment string,
+) OBIConfig {
 	excludeOTel := false
 
 	cfg := OBIConfig{
@@ -267,14 +311,22 @@ func BuildInstrumentConfig(otlpEndpoint string, entries []obiTarget, mode config
 
 	cfg.EBPF.BufferSizes.HTTP = 8192
 	cfg.EBPF.ProtocolDebug = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.OpenAI.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Anthropic.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Gemini.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.AzureInference.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Bedrock.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.VercelAI.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.LiteLLM.Enabled = true
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Ollama.Enabled = true
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.OpenAI.Enabled = enabledProviders["openai"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Anthropic.Enabled = enabledProviders["anthropic"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Gemini.Enabled = enabledProviders["gemini"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Cohere.Enabled = enabledProviders["cohere"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Mistral.Enabled = enabledProviders["mistral"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Groq.Enabled = enabledProviders["groq"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Deepseek.Enabled = enabledProviders["deepseek"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Together.Enabled = enabledProviders["together"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Fireworks.Enabled = enabledProviders["fireworks"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.AzureInference.Enabled = enabledProviders["azure_inference"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.AzureOpenAI.Enabled = enabledProviders["azure_openai"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Bedrock.Enabled = enabledProviders["bedrock"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.VercelAI.Enabled = enabledProviders["vercel_ai"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.VertexAI.Enabled = enabledProviders["vertex_ai"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.LiteLLM.Enabled = enabledProviders["litellm"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Ollama.Enabled = enabledProviders["ollama"]
 
 	cfg.Attributes.Select = obiAttrSelection{
 		"traces": {
@@ -293,7 +345,7 @@ func BuildInstrumentConfig(otlpEndpoint string, entries []obiTarget, mode config
 
 	cfg.ResourceAttrs = map[string]string{
 		"deployment.environment": environment,
-		"telemetry.sdk.name":    "openlit",
+		"telemetry.sdk.name":     "openlit",
 	}
 
 	return cfg

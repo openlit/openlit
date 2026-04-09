@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { RefreshCw, SlidersHorizontal } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { getFilterDetails } from "@/selectors/filter";
+import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
+import { TIME_RANGE_TYPE } from "@/store/filter";
 import type { ControllerInstance, ControllerService } from "@/types/controller";
 import { Button } from "@/components/ui/button";
 import Filter from "@/components/(playground)/filter";
@@ -18,6 +20,8 @@ type Tab = "services" | "controllers";
 export default function InstrumentationHub() {
 	const [activeTab, setActiveTab] = useState<Tab>("services");
 	const [filtersVisible, setFiltersVisible] = useState(false);
+	const [serviceRows, setServiceRows] = useState<ControllerService[]>([]);
+	const [controllerRows, setControllerRows] = useState<ControllerInstance[]>([]);
 
 	const [systemFilter, setSystemFilter] = useState<string>("");
 	const [providerFilter, setProviderFilter] = useState<string>("");
@@ -27,7 +31,9 @@ export default function InstrumentationHub() {
 	const [pendingProvider, setPendingProvider] = useState<string>("");
 	const [pendingStatus, setPendingStatus] = useState<string>("");
 
+	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
+	const updateFilter = useRootStore(getUpdateFilter);
 	const pingStatus = useRootStore(getPingStatus);
 
 	const {
@@ -48,30 +54,22 @@ export default function InstrumentationHub() {
 			requestType: "GET",
 			url: "/api/controller/instances",
 			responseDataKey: "data",
+			successCb: (data) => {
+				setControllerRows(data || []);
+			},
 		});
-		const params = new URLSearchParams();
-		if (filter.timeLimit.start)
-			params.set(
-				"start",
-				new Date(filter.timeLimit.start)
-					.toISOString()
-					.replace("T", " ")
-					.replace(/\.\d{3}Z$/, "")
-			);
-		if (filter.timeLimit.end)
-			params.set(
-				"end",
-				new Date(filter.timeLimit.end)
-					.toISOString()
-					.replace("T", " ")
-					.replace(/\.\d{3}Z$/, "")
-			);
 		fetchServices({
 			requestType: "GET",
-			url: `/api/controller/catalog?${params.toString()}`,
+			url: "/api/controller/catalog",
 			responseDataKey: "data",
+			successCb: (data) => {
+				setServiceRows(data || []);
+			},
 		});
-	}, [fetchInstances, fetchServices, filter.timeLimit.start, filter.timeLimit.end]);
+	}, [
+		fetchInstances,
+		fetchServices,
+	]);
 
 	useEffect(() => {
 		if (
@@ -82,30 +80,54 @@ export default function InstrumentationHub() {
 			refresh();
 	}, [filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
-	const isLoading = instancesLoading || servicesLoading;
-	const hasControllers = instances && instances.length > 0;
+	useEffect(() => {
+		if (!pathname.startsWith("/instrumentation-hub")) return;
+		if (filter.timeLimit.type === TIME_RANGE_TYPE.CUSTOM) return;
 
-	const totalControllers = instances?.length || 0;
-	const totalServices = services?.length || 0;
+		updateFilter("timeLimit.type", filter.timeLimit.type);
+	}, [pathname, filter.timeLimit.type, updateFilter]);
+
+	useEffect(() => {
+		if (
+			!serviceRows.some(
+				(service) =>
+					service.pending_action_status === "pending" ||
+					service.pending_action_status === "acknowledged"
+			)
+		)
+			return;
+
+		const interval = window.setInterval(() => {
+			refresh();
+		}, 2500);
+
+		return () => window.clearInterval(interval);
+	}, [serviceRows, refresh]);
+
+	const isLoading = instancesLoading || servicesLoading;
+	const hasControllers = controllerRows.length > 0;
+
+	const totalControllers = controllerRows.length;
+	const totalServices = serviceRows.length;
 	const instrumentedServices =
-		services?.filter((s) => s.instrumentation_status === "instrumented")
-			.length || 0;
+		serviceRows.filter((s) => s.instrumentation_status === "instrumented")
+			.length;
 
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
-		for (const svc of services || []) {
+		for (const svc of serviceRows) {
 			for (const p of svc.llm_providers || []) set.add(p);
 		}
 		return Array.from(set).sort();
-	}, [services]);
+	}, [serviceRows]);
 
 	const allSystems = useMemo(() => {
 		const set = new Set<string>();
-		for (const inst of instances || []) {
+		for (const inst of controllerRows) {
 			set.add(inst.mode === "kubernetes" ? "kubernetes" : inst.mode === "docker" ? "docker" : "linux");
 		}
 		return Array.from(set).sort();
-	}, [instances]);
+	}, [controllerRows]);
 
 	const filtersApplied = !!(systemFilter || providerFilter || statusFilter);
 
@@ -295,13 +317,6 @@ export default function InstrumentationHub() {
 								}`}
 							>
 								{tab.label}
-								{tab.id === "controllers" &&
-									instances &&
-									instances.length > 0 && (
-										<span className="ml-2 text-xs bg-stone-200 dark:bg-stone-700 px-1.5 py-0.5 rounded-full">
-											{instances.length}
-										</span>
-									)}
 							</button>
 						))}
 					</div>
@@ -309,8 +324,8 @@ export default function InstrumentationHub() {
 					{/* Content */}
 					{activeTab === "services" && (
 						<ServiceTable
-							services={services || []}
-							instances={instances || []}
+							services={serviceRows}
+							instances={controllerRows}
 							onRefresh={refresh}
 							isFetched={servicesFetched && instancesFetched}
 							isLoading={isLoading}
@@ -322,7 +337,7 @@ export default function InstrumentationHub() {
 
 					{activeTab === "controllers" && (
 						<ControllerTable
-							instances={instances || []}
+							instances={controllerRows}
 							isFetched={instancesFetched}
 							isLoading={instancesLoading}
 						/>

@@ -7,17 +7,16 @@ import (
 	"runtime"
 
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
-	"go.uber.org/zap"
 )
 
 type statusResponse struct {
-	Status    string              `json:"status"`
-	Mode      openlit.ControllerMode `json:"mode"`
-	Version   string              `json:"version"`
-	NodeName  string              `json:"node_name,omitempty"`
-	OS        string              `json:"os"`
-	Arch      string              `json:"arch"`
-	Engine    engineStatus        `json:"engine"`
+	Status   string                 `json:"status"`
+	Mode     openlit.ControllerMode `json:"mode"`
+	Version  string                 `json:"version"`
+	NodeName string                 `json:"node_name,omitempty"`
+	OS       string                 `json:"os"`
+	Arch     string                 `json:"arch"`
+	Engine   engineStatus           `json:"engine"`
 }
 
 type engineStatus struct {
@@ -53,38 +52,6 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 	services := s.engine.GetServices()
 	writeJSON(w, http.StatusOK, services)
-}
-
-func (s *Server) handleInstrument(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "service id required"})
-		return
-	}
-
-	if err := s.engine.InstrumentService(id); err != nil {
-		s.logger.Error("instrument service failed", zap.Error(err))
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "instrumented"})
-}
-
-func (s *Server) handleUninstrument(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "service id required"})
-		return
-	}
-
-	if err := s.engine.UninstrumentService(id); err != nil {
-		s.logger.Error("uninstrument service failed", zap.Error(err))
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "discovered"})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

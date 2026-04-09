@@ -19,6 +19,10 @@ type ProcessMetadata struct {
 	Runtime        string
 	Namespace      string
 	DeploymentName string
+	PodName        string
+	PodUID         string
+	ContainerID    string
+	ContainerName  string
 }
 
 func readCmdline(procRoot string, pid int) string {
@@ -89,10 +93,16 @@ func EnrichProcess(procRoot string, pid int, container *ContainerEnricher, mode 
 	}
 	if container != nil && (mode == config.DeployDocker || mode == config.DeployKubernetes) {
 		svc := &openlit.DiscoveredService{ServiceName: meta.ServiceName}
-		container.Enrich(svc, procRoot, pid, mode)
+		containerMeta := container.Enrich(svc, procRoot, pid, mode)
 		meta.ServiceName = svc.ServiceName
 		meta.Namespace = svc.Namespace
 		meta.DeploymentName = svc.DeploymentName
+		if containerMeta != nil {
+			meta.PodName = containerMeta.PodName
+			meta.PodUID = containerMeta.PodUID
+			meta.ContainerID = containerMeta.ContainerID
+			meta.ContainerName = containerMeta.ContainerName
+		}
 	}
 	return meta
 }

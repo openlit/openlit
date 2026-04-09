@@ -16,15 +16,17 @@ export async function POST(
 		}
 
 		const service = serviceRes.data[0];
-
-		const serviceKey = service.namespace
-			? `${service.namespace}/${service.service_name}`
-			: service.service_name;
+		if (!service.workload_key) {
+			return Response.json(
+				{ error: "Service is missing workload_key" },
+				{ status: 500 }
+			);
+		}
 
 		await queueAction(
 			service.controller_instance_id,
 			"instrument",
-			serviceKey
+			service.workload_key
 		);
 
 		return Response.json({ status: "queued", action: "instrument" });

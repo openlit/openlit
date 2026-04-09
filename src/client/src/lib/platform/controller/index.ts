@@ -73,31 +73,68 @@ export async function getDiscoveredServices(
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerService[] }> {
 	const tbl = CONTROLLER_SERVICES_TABLE;
+	const actionTbl = CONTROLLER_ACTIONS_TABLE;
 	let timeFilter = "";
 	if (timeStart && timeEnd) {
 		timeFilter = `WHERE ${tbl}.last_seen >= '${timeStart}' AND ${tbl}.last_seen <= '${timeEnd}'`;
 	}
 	const query = `
+		WITH aggregated_services AS (
+			SELECT
+				argMax(id, ${tbl}.last_seen) AS id,
+				controller_instance_id,
+				argMax(service_name, ${tbl}.last_seen) AS service_name,
+				workload_key,
+				argMax(namespace, ${tbl}.last_seen) AS namespace,
+				argMax(language_runtime, ${tbl}.last_seen) AS language_runtime,
+				arrayDistinct(arrayFlatten(groupArray(llm_providers))) AS llm_providers,
+				argMax(open_ports, ${tbl}.last_seen) AS open_ports,
+				argMax(deployment_name, ${tbl}.last_seen) AS deployment_name,
+				argMax(pid, ${tbl}.last_seen) AS pid,
+				argMax(exe_path, ${tbl}.last_seen) AS exe_path,
+				argMax(instrumentation_status, ${tbl}.last_seen) AS instrumentation_status,
+				argMax(resource_attributes, ${tbl}.last_seen) AS resource_attributes,
+				min(${tbl}.first_seen) AS first_seen,
+				max(${tbl}.last_seen) AS last_seen,
+				max(${tbl}.updated_at) AS updated_at
+			FROM ${tbl}
+			FINAL
+			${timeFilter}
+			GROUP BY controller_instance_id, workload_key
+		),
+		active_actions AS (
+			SELECT
+				instance_id,
+				service_key,
+				CAST(argMax(action_type, updated_at), 'Nullable(String)') AS pending_action,
+				CAST(argMax(status, updated_at), 'Nullable(String)') AS pending_action_status,
+				max(updated_at) AS pending_action_updated_at
+			FROM ${actionTbl}
+			FINAL
+			WHERE status IN ('pending', 'acknowledged')
+			  AND updated_at >= now() - INTERVAL 15 SECOND
+			GROUP BY instance_id, service_key
+		)
 		SELECT
-			argMax(id, ${tbl}.last_seen) AS id,
-			argMax(controller_instance_id, ${tbl}.last_seen) AS controller_instance_id,
-			service_name,
-			namespace,
-			argMax(language_runtime, ${tbl}.last_seen) AS language_runtime,
-			arrayDistinct(arrayFlatten(groupArray(llm_providers))) AS llm_providers,
-			argMax(open_ports, ${tbl}.last_seen) AS open_ports,
-			argMax(deployment_name, ${tbl}.last_seen) AS deployment_name,
-			argMax(pid, ${tbl}.last_seen) AS pid,
-			argMax(exe_path, ${tbl}.last_seen) AS exe_path,
-			argMax(instrumentation_status, ${tbl}.last_seen) AS instrumentation_status,
-			min(${tbl}.first_seen) AS first_seen,
-			max(${tbl}.last_seen) AS last_seen,
-			max(${tbl}.updated_at) AS updated_at
-		FROM ${tbl}
-		FINAL
-		${timeFilter}
-		GROUP BY namespace, service_name
-		ORDER BY last_seen DESC
+			aggregated_services.*,
+			if(
+				isNull(active_actions.pending_action_updated_at) OR
+					active_actions.pending_action_updated_at < aggregated_services.updated_at,
+				CAST(NULL, 'Nullable(String)'),
+				active_actions.pending_action
+			) AS pending_action,
+			if(
+				isNull(active_actions.pending_action_updated_at) OR
+					active_actions.pending_action_updated_at < aggregated_services.updated_at,
+				CAST(NULL, 'Nullable(String)'),
+				active_actions.pending_action_status
+			) AS pending_action_status
+		FROM aggregated_services
+		LEFT JOIN active_actions
+			ON active_actions.instance_id = aggregated_services.controller_instance_id
+			AND active_actions.service_key = aggregated_services.workload_key
+		ORDER BY aggregated_services.last_seen DESC
+		SETTINGS join_use_nulls = 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
 		err?: unknown;
@@ -109,12 +146,47 @@ export async function getServiceById(
 	serviceId: string,
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerService[] }> {
+	const actionTbl = CONTROLLER_ACTIONS_TABLE;
 	const query = `
-		SELECT *
-		FROM ${CONTROLLER_SERVICES_TABLE}
-		FINAL
-		WHERE id = '${serviceId}'
-		LIMIT 1
+		WITH service_row AS (
+			SELECT *
+			FROM ${CONTROLLER_SERVICES_TABLE}
+			FINAL
+			WHERE id = '${serviceId}'
+			LIMIT 1
+		),
+		active_action AS (
+			SELECT
+				instance_id,
+				service_key,
+				CAST(argMax(action_type, updated_at), 'Nullable(String)') AS pending_action,
+				CAST(argMax(status, updated_at), 'Nullable(String)') AS pending_action_status,
+				max(updated_at) AS pending_action_updated_at
+			FROM ${actionTbl}
+			FINAL
+			WHERE status IN ('pending', 'acknowledged')
+			  AND updated_at >= now() - INTERVAL 15 SECOND
+			GROUP BY instance_id, service_key
+		)
+		SELECT
+			service_row.*,
+			if(
+				isNull(active_action.pending_action_updated_at) OR
+					active_action.pending_action_updated_at < service_row.updated_at,
+				CAST(NULL, 'Nullable(String)'),
+				active_action.pending_action
+			) AS pending_action,
+			if(
+				isNull(active_action.pending_action_updated_at) OR
+					active_action.pending_action_updated_at < service_row.updated_at,
+				CAST(NULL, 'Nullable(String)'),
+				active_action.pending_action_status
+			) AS pending_action_status
+		FROM service_row
+		LEFT JOIN active_action
+			ON active_action.instance_id = service_row.controller_instance_id
+			AND active_action.service_key = service_row.workload_key
+		SETTINGS join_use_nulls = 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
 		err?: unknown;
@@ -135,23 +207,6 @@ export async function upsertServices(
 		"insert",
 		dbConfigId
 	);
-}
-
-export async function updateServiceStatus(
-	controllerInstanceId: string,
-	namespace: string,
-	serviceName: string,
-	status: "discovered" | "instrumented",
-	dbConfigId?: string
-) {
-	const query = `
-		ALTER TABLE ${CONTROLLER_SERVICES_TABLE}
-		UPDATE instrumentation_status = '${status}', updated_at = now()
-		WHERE controller_instance_id = '${controllerInstanceId}'
-		  AND namespace = '${namespace}'
-		  AND service_name = '${serviceName}'
-	`;
-	return dataCollector({ query }, "exec", dbConfigId);
 }
 
 export async function getControllerConfig(
@@ -201,6 +256,34 @@ export async function queueAction(
 	payload: string = "{}",
 	dbConfigId?: string
 ) {
+	const existingAction = (await dataCollector(
+		{
+			query: `
+				SELECT id, action_type, status
+				FROM ${CONTROLLER_ACTIONS_TABLE}
+				FINAL
+				WHERE instance_id = '${instanceId}'
+				  AND service_key = '${serviceKey}'
+				  AND status IN ('pending', 'acknowledged')
+				ORDER BY updated_at DESC
+				LIMIT 1
+			`,
+		},
+		"query",
+		dbConfigId
+	)) as {
+		err?: unknown;
+		data?: Array<{
+			id: string;
+			action_type: ActionType;
+			status: ActionStatus;
+		}>;
+	};
+
+	if (existingAction.data && existingAction.data.length > 0) {
+		return { data: existingAction.data[0] };
+	}
+
 	return dataCollector(
 		{
 			table: CONTROLLER_ACTIONS_TABLE,
@@ -268,16 +351,54 @@ export async function completeAction(
 	result: string = "",
 	dbConfigId?: string
 ) {
+	const existingAction = (await dataCollector(
+		{
+			query: `
+				SELECT id, instance_id, action_type, service_key, payload, created_at
+				FROM ${CONTROLLER_ACTIONS_TABLE}
+				FINAL
+				WHERE id = '${actionId}'
+				  AND instance_id = '${instanceId}'
+				LIMIT 1
+			`,
+		},
+		"query",
+		dbConfigId
+	)) as {
+		err?: unknown;
+		data?: Array<{
+			id: string;
+			instance_id: string;
+			action_type: ActionType;
+			service_key: string;
+			payload: string;
+			created_at: string;
+		}>;
+	};
+
+	if (existingAction.err) {
+		return existingAction;
+	}
+
+	if (!existingAction.data || existingAction.data.length === 0) {
+		return { err: `Action ${actionId} not found` };
+	}
+
+	const action = existingAction.data[0];
 	return dataCollector(
 		{
 			table: CONTROLLER_ACTIONS_TABLE,
 			values: [
 				{
-					id: actionId,
-					instance_id: instanceId,
+					id: action.id,
+					instance_id: action.instance_id,
+					action_type: action.action_type,
+					service_key: action.service_key,
+					payload: action.payload,
 					status,
-				result,
-				updated_at: clickhouseNow(),
+					result,
+					created_at: action.created_at,
+					updated_at: clickhouseNow(),
 				},
 			],
 		},

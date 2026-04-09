@@ -35,11 +35,19 @@ type ContainerEnricher struct {
 // PodInfo holds Kubernetes pod metadata resolved from a container ID.
 type PodInfo struct {
 	PodName        string
+	PodUID         string
 	Namespace      string
 	DeploymentName string
 	Labels         map[string]string
 	NodeName       string
 	fetchedAt      time.Time
+}
+
+type ContainerMetadata struct {
+	ContainerID   string
+	ContainerName string
+	PodName       string
+	PodUID        string
 }
 
 func NewContainerEnricher(logger *zap.Logger, mode config.DeployMode) *ContainerEnricher {
@@ -75,11 +83,13 @@ func NewContainerEnricher(logger *zap.Logger, mode config.DeployMode) *Container
 }
 
 // Enrich adds container and K8s metadata to a discovered service.
-func (e *ContainerEnricher) Enrich(svc *openlit.DiscoveredService, procRoot string, pid int, mode config.DeployMode) {
+func (e *ContainerEnricher) Enrich(svc *openlit.DiscoveredService, procRoot string, pid int, mode config.DeployMode) *ContainerMetadata {
 	containerID := getContainerID(procRoot, pid)
 	if containerID == "" {
-		return
+		return nil
 	}
+
+	meta := &ContainerMetadata{ContainerID: containerID}
 
 	if mode == config.DeployDocker {
 		if e.dockerClient != nil {
@@ -90,11 +100,12 @@ func (e *ContainerEnricher) Enrich(svc *openlit.DiscoveredService, procRoot stri
 				svc.ServiceName = containerID[:12]
 			} else {
 				svc.ServiceName = name
+				meta.ContainerName = name
 			}
 		} else if svc.ServiceName == "" || svc.ServiceName == "unknown" {
 			svc.ServiceName = containerID[:12]
 		}
-		return
+		return meta
 	}
 
 	if mode == config.DeployKubernetes && e.k8sClient != nil {
@@ -102,19 +113,25 @@ func (e *ContainerEnricher) Enrich(svc *openlit.DiscoveredService, procRoot stri
 			info := cached.(*PodInfo)
 			if time.Since(info.fetchedAt) < 2*time.Minute {
 				applyPodInfo(svc, info)
-				return
+				meta.PodName = info.PodName
+				meta.PodUID = info.PodUID
+				return meta
 			}
 		}
 
 		info, err := e.k8sClient.getPodByContainerID(containerID, e.nodeName)
 		if err != nil {
 			e.logger.Debug("failed to resolve pod info", zap.String("container_id", containerID[:12]), zap.Error(err))
-			return
+			return meta
 		}
 		info.fetchedAt = time.Now()
 		e.podCache.Store(containerID, info)
 		applyPodInfo(svc, info)
+		meta.PodName = info.PodName
+		meta.PodUID = info.PodUID
 	}
+
+	return meta
 }
 
 func applyPodInfo(svc *openlit.DiscoveredService, info *PodInfo) {
@@ -214,6 +231,7 @@ func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodIn
 		Items []struct {
 			Metadata struct {
 				Name            string            `json:"name"`
+				UID             string            `json:"uid"`
 				Namespace       string            `json:"namespace"`
 				Labels          map[string]string `json:"labels"`
 				OwnerReferences []struct {
@@ -242,6 +260,7 @@ func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodIn
 			if strings.Contains(cs.ContainerID, containerID) {
 				info := &PodInfo{
 					PodName:   pod.Metadata.Name,
+					PodUID:    pod.Metadata.UID,
 					Namespace: pod.Metadata.Namespace,
 					Labels:    pod.Metadata.Labels,
 					NodeName:  pod.Spec.NodeName,

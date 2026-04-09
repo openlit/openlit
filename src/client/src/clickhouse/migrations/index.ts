@@ -9,6 +9,8 @@ import CreateOpengroundCustomModelsMigration from "./create-openground-custom-mo
 import CreateRuleEngineMigration from "./create-rule-engine-migration";
 import CreateControllerMigration from "./create-controller-migration";
 import AlterControllerModeMigration from "./alter-controller-mode-migration";
+import AddControllerResourceAttrsMigration from "./add-controller-resource-attrs-migration";
+import AddControllerWorkloadKeyMigration from "./add-controller-workload-key-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	return Promise.all([
@@ -23,5 +25,7 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateRuleEngineMigration(databaseConfigId),
 		CreateControllerMigration(databaseConfigId),
 		AlterControllerModeMigration(databaseConfigId),
+		AddControllerResourceAttrsMigration(databaseConfigId),
+		AddControllerWorkloadKeyMigration(databaseConfigId),
 	]);
 }

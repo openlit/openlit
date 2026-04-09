@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type {
 	ControllerService,
@@ -10,6 +12,7 @@ import type {
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { formatBrowserDateTime } from "@/utils/date";
 import { toast } from "sonner";
 import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
@@ -48,18 +51,22 @@ function ActionButton({
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const isInstrumented = service.instrumentation_status === "instrumented";
+	const pendingAction = service.pending_action || undefined;
+	const isPending =
+		service.pending_action_status === "pending" ||
+		service.pending_action_status === "acknowledged";
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
+		if (isPending) return;
+
 		const action = isInstrumented ? "uninstrument" : "instrument";
 		await fireRequest({
 			requestType: "POST",
 			url: `/api/controller/catalog/${service.id}/${action}`,
 			successCb: () => {
 				toast.success(
-					isInstrumented
-						? `Removed instrumentation from ${service.service_name}`
-						: `Queued instrumentation for ${service.service_name}`
+					`Queued ${action} for ${service.service_name}`
 				);
 				onRefresh();
 			},
@@ -72,18 +79,28 @@ function ActionButton({
 	return (
 		<button
 			onClick={handleAction}
-			disabled={isLoading}
-			className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+			disabled={isLoading || isPending}
+			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+				isPending
+					? "border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800"
+					:
 				isInstrumented
 					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
 					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
 			}`}
 		>
-			{isLoading
-				? "..."
-				: isInstrumented
-					? "Uninstrument"
-					: "Instrument"}
+			{(isLoading || isPending) && (
+				<Loader2 className="w-3 h-3 animate-spin" />
+			)}
+			{isPending
+				? pendingAction === "instrument"
+					? "Instrumenting..."
+					: "Uninstrumenting..."
+				: isLoading
+					? "Working..."
+					: isInstrumented
+						? "Uninstrument"
+						: "Instrument"}
 		</button>
 	);
 }
@@ -158,6 +175,21 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		cell: ({ row }) => {
 			const isInstrumented =
 				row.instrumentation_status === "instrumented";
+			const pendingAction = row.pending_action || undefined;
+			const isPending =
+				row.pending_action_status === "pending" ||
+				row.pending_action_status === "acknowledged";
+
+			if (pendingAction && isPending) {
+				return (
+					<Badge variant="outline" className="inline-flex items-center gap-1.5">
+						<Loader2 className="w-3 h-3 animate-spin" />
+						{pendingAction === "instrument"
+							? "Instrumenting"
+							: "Uninstrumenting"}
+					</Badge>
+				);
+			}
 			return (
 				<Badge variant={isInstrumented ? "default" : "secondary"}>
 					{isInstrumented ? "Instrumented" : "Discovered"}
@@ -169,7 +201,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		header: () => "Last Seen",
 		cell: ({ row }) => (
 			<span className="text-xs truncate">
-				{new Date(row.last_seen).toLocaleString()}
+				{formatBrowserDateTime(row.last_seen)}
 			</span>
 		),
 	},
@@ -203,6 +235,7 @@ export default function ServiceTable({
 	systemFilter,
 	providerFilter,
 }: ServiceTableProps) {
+	const router = useRouter();
 	const instanceMap = useMemo(() => {
 		const map = new Map<string, ControllerInstance>();
 		for (const inst of instances) {
@@ -254,6 +287,7 @@ export default function ServiceTable({
 			isLoading={isLoading}
 			visibilityColumns={VISIBILITY_COLUMNS}
 			extraFunctions={{ onRefresh }}
+			onClick={(row) => router.push(`/instrumentation-hub/${row.id}`)}
 		/>
 	);
 }
