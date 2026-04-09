@@ -4,9 +4,9 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type {
-	CollectorService,
-	CollectorInstance,
-} from "@/types/collector";
+	ControllerService,
+	ControllerInstance,
+} from "@/types/controller";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -17,8 +17,8 @@ import DockerSvg from "@/components/svg/docker";
 import { ProviderIcon } from "@/components/svg/providers";
 
 interface ServiceTableProps {
-	services: CollectorService[];
-	instances: CollectorInstance[];
+	services: ControllerService[];
+	instances: ControllerInstance[];
 	onRefresh: () => void;
 	isFetched: boolean;
 	isLoading: boolean;
@@ -27,7 +27,7 @@ interface ServiceTableProps {
 	providerFilter: string;
 }
 
-interface EnrichedService extends CollectorService {
+interface EnrichedService extends ControllerService {
 	mode: "linux" | "docker" | "kubernetes" | "standalone";
 }
 
@@ -54,7 +54,7 @@ function ActionButton({
 		const action = isInstrumented ? "uninstrument" : "instrument";
 		await fireRequest({
 			requestType: "POST",
-			url: `/api/collector/catalog/${service.id}/${action}`,
+			url: `/api/controller/catalog/${service.id}/${action}`,
 			successCb: () => {
 				toast.success(
 					isInstrumented
@@ -204,7 +204,7 @@ export default function ServiceTable({
 	providerFilter,
 }: ServiceTableProps) {
 	const instanceMap = useMemo(() => {
-		const map = new Map<string, CollectorInstance>();
+		const map = new Map<string, ControllerInstance>();
 		for (const inst of instances) {
 			map.set(inst.instance_id, inst);
 		}
@@ -213,7 +213,7 @@ export default function ServiceTable({
 
 	const enriched: EnrichedService[] = useMemo(() => {
 		return services.map((svc) => {
-			const inst = instanceMap.get(svc.collector_instance_id);
+			const inst = instanceMap.get(svc.controller_instance_id);
 			return {
 				...svc,
 				mode: inst?.mode || "linux",

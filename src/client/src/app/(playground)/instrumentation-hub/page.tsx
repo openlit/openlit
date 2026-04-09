@@ -6,14 +6,14 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import type { CollectorInstance, CollectorService } from "@/types/collector";
+import type { ControllerInstance, ControllerService } from "@/types/controller";
 import { Button } from "@/components/ui/button";
 import Filter from "@/components/(playground)/filter";
-import NoCollector from "./no-collector";
+import NoController from "./no-controller";
 import ServiceTable from "./service-table";
-import CollectorTable from "./collector-table";
+import ControllerTable from "./controller-table";
 
-type Tab = "services" | "collectors";
+type Tab = "services" | "controllers";
 
 export default function InstrumentationHub() {
 	const [activeTab, setActiveTab] = useState<Tab>("services");
@@ -35,18 +35,18 @@ export default function InstrumentationHub() {
 		data: instances,
 		isFetched: instancesFetched,
 		isLoading: instancesLoading,
-	} = useFetchWrapper<CollectorInstance[]>();
+	} = useFetchWrapper<ControllerInstance[]>();
 	const {
 		fireRequest: fetchServices,
 		data: services,
 		isFetched: servicesFetched,
 		isLoading: servicesLoading,
-	} = useFetchWrapper<CollectorService[]>();
+	} = useFetchWrapper<ControllerService[]>();
 
 	const refresh = useCallback(() => {
 		fetchInstances({
 			requestType: "GET",
-			url: "/api/collector/instances",
+			url: "/api/controller/instances",
 			responseDataKey: "data",
 		});
 		const params = new URLSearchParams();
@@ -68,7 +68,7 @@ export default function InstrumentationHub() {
 			);
 		fetchServices({
 			requestType: "GET",
-			url: `/api/collector/catalog?${params.toString()}`,
+			url: `/api/controller/catalog?${params.toString()}`,
 			responseDataKey: "data",
 		});
 	}, [fetchInstances, fetchServices, filter.timeLimit.start, filter.timeLimit.end]);
@@ -83,9 +83,9 @@ export default function InstrumentationHub() {
 	}, [filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
 	const isLoading = instancesLoading || servicesLoading;
-	const hasCollectors = instances && instances.length > 0;
+	const hasControllers = instances && instances.length > 0;
 
-	const totalCollectors = instances?.length || 0;
+	const totalControllers = instances?.length || 0;
 	const totalServices = services?.length || 0;
 	const instrumentedServices =
 		services?.filter((s) => s.instrumentation_status === "instrumented")
@@ -124,9 +124,9 @@ export default function InstrumentationHub() {
 		setStatusFilter("");
 	};
 
-	const handleStatClick = (stat: "collectors" | "discovered" | "instrumented") => {
-		if (stat === "collectors") {
-			setActiveTab("collectors");
+	const handleStatClick = (stat: "controllers" | "discovered" | "instrumented") => {
+		if (stat === "controllers") {
+			setActiveTab("controllers");
 		} else if (stat === "discovered") {
 			setActiveTab("services");
 			setStatusFilter("");
@@ -230,21 +230,21 @@ export default function InstrumentationHub() {
 				</div>
 			</div>
 
-			{!hasCollectors && !isLoading ? (
-				<NoCollector />
+			{!hasControllers && !isLoading ? (
+				<NoController />
 			) : (
 				<>
 					{/* Stat cards */}
 					<div className="grid grid-cols-3 gap-4">
 						<button
-							onClick={() => handleStatClick("collectors")}
+							onClick={() => handleStatClick("controllers")}
 							className="border dark:border-stone-700 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
 						>
 							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{totalCollectors}
+								{totalControllers}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								Collectors
+								Controllers
 							</div>
 						</button>
 						<button
@@ -276,7 +276,7 @@ export default function InstrumentationHub() {
 						{(
 							[
 								{ id: "services", label: "Services" },
-								{ id: "collectors", label: "Collectors" },
+								{ id: "controllers", label: "Controllers" },
 							] as const
 						).map((tab) => (
 							<button
@@ -295,7 +295,7 @@ export default function InstrumentationHub() {
 								}`}
 							>
 								{tab.label}
-								{tab.id === "collectors" &&
+								{tab.id === "controllers" &&
 									instances &&
 									instances.length > 0 && (
 										<span className="ml-2 text-xs bg-stone-200 dark:bg-stone-700 px-1.5 py-0.5 rounded-full">
@@ -320,8 +320,8 @@ export default function InstrumentationHub() {
 						/>
 					)}
 
-					{activeTab === "collectors" && (
-						<CollectorTable
+					{activeTab === "controllers" && (
+						<ControllerTable
 							instances={instances || []}
 							isFetched={instancesFetched}
 							isLoading={instancesLoading}

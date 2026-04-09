@@ -3,10 +3,10 @@ export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/prompt/get-compiled",
 	"/api/vault/get-secrets",
 	"/api/rule-engine/evaluate",
-	"/api/collector/poll",
-	"/api/collector/register",
-	"/api/collector/heartbeat",
-	"/api/collector/services",
+	"/api/controller/poll",
+	"/api/controller/register",
+	"/api/controller/heartbeat",
+	"/api/controller/services",
 ];
 
 export const CRON_JOB_ROUTES = ["/api/evaluation/auto"];

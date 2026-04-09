@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import type { CollectorService, CollectorInstance } from "@/types/collector";
+import type { ControllerService, ControllerInstance } from "@/types/controller";
 import { toast } from "sonner";
 
 export default function ServiceDetail() {
@@ -16,23 +16,23 @@ export default function ServiceDetail() {
 		fireRequest: fetchService,
 		data: service,
 		isLoading,
-	} = useFetchWrapper<CollectorService>();
+	} = useFetchWrapper<ControllerService>();
 	const {
 		fireRequest: fetchInstances,
 		data: instances,
-	} = useFetchWrapper<CollectorInstance[]>();
+	} = useFetchWrapper<ControllerInstance[]>();
 	const { fireRequest: doAction, isLoading: actionLoading } =
 		useFetchWrapper();
 
 	const refresh = useCallback(() => {
 		fetchService({
 			requestType: "GET",
-			url: `/api/collector/catalog/${id}`,
+			url: `/api/controller/catalog/${id}`,
 			responseDataKey: "data",
 		});
 		fetchInstances({
 			requestType: "GET",
-			url: "/api/collector/instances",
+			url: "/api/controller/instances",
 			responseDataKey: "data",
 		});
 	}, [id, fetchService, fetchInstances]);
@@ -48,7 +48,7 @@ export default function ServiceDetail() {
 		const action = isInstrumented ? "uninstrument" : "instrument";
 		await doAction({
 			requestType: "POST",
-			url: `/api/collector/catalog/${id}/${action}`,
+			url: `/api/controller/catalog/${id}/${action}`,
 			successCb: () => {
 				toast.success(
 					isInstrumented
@@ -66,7 +66,7 @@ export default function ServiceDetail() {
 	const enableAgentSDK = async () => {
 		await doAction({
 			requestType: "POST",
-			url: `/api/collector/catalog/${id}/agent-instrument`,
+			url: `/api/controller/catalog/${id}/agent-instrument`,
 			successCb: () => {
 				toast.success(
 					"Agent SDK will be injected on next pod restart"

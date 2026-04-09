@@ -92,9 +92,9 @@ services:
       clickhouse:
         condition: service_healthy
 
-  openlit-collector:
-    image: openlit-collector:multi-provider
-    container_name: openlit-collector-dev
+  openlit-controller:
+    image: openlit-controller:multi-provider
+    container_name: openlit-controller-dev
     privileged: true
     pid: host
     ports:

@@ -7,8 +7,8 @@ import CreateCustomDashboardsMigration from "./create-custom-dashboards-migratio
 import CreateOpengroundMigration from "./create-openground-migration";
 import CreateOpengroundCustomModelsMigration from "./create-openground-custom-models-migration";
 import CreateRuleEngineMigration from "./create-rule-engine-migration";
-import CreateCollectorMigration from "./create-collector-migration";
-import AlterCollectorModeMigration from "./alter-collector-mode-migration";
+import CreateControllerMigration from "./create-controller-migration";
+import AlterControllerModeMigration from "./alter-controller-mode-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	return Promise.all([
@@ -21,7 +21,7 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateOpengroundMigration(databaseConfigId),
 		CreateOpengroundCustomModelsMigration(databaseConfigId),
 		CreateRuleEngineMigration(databaseConfigId),
-		CreateCollectorMigration(databaseConfigId),
-		AlterCollectorModeMigration(databaseConfigId),
+		CreateControllerMigration(databaseConfigId),
+		AlterControllerModeMigration(databaseConfigId),
 	]);
 }

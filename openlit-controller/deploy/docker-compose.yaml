@@ -1,0 +1,32 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+
+  openlit:
+    image: ghcr.io/openlit/openlit:latest
+    ports:
+      - "3000:3000"
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: "8123"
+    depends_on:
+      - clickhouse
+
+  openlit-controller:
+    image: ghcr.io/openlit/openlit-controller:latest
+    privileged: true
+    pid: host
+    ports:
+      - "4321:4321"
+    environment:
+      OPENLIT_URL: http://openlit:3000
+    depends_on:
+      - openlit
+
+volumes:
+  clickhouse-data:

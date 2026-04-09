@@ -324,12 +324,12 @@ GROUP BY TraceId
 
 echo "✅ All 9 OTEL tables created successfully"
 echo ""
-echo "Creating OpenLIT Collector tables..."
+echo "Creating OpenLIT Controller tables..."
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
-CREATE TABLE IF NOT EXISTS openlit_collector_services (
+CREATE TABLE IF NOT EXISTS openlit_controller_services (
     \`id\` UUID DEFAULT generateUUIDv4(),
-    \`collector_instance_id\` String,
+    \`controller_instance_id\` String,
     \`service_name\` String,
     \`namespace\` String DEFAULT '',
     \`language_runtime\` String DEFAULT '',
@@ -346,11 +346,11 @@ CREATE TABLE IF NOT EXISTS openlit_collector_services (
     \`last_seen\` DateTime DEFAULT now(),
     \`updated_at\` DateTime DEFAULT now()
 ) ENGINE = ReplacingMergeTree(updated_at)
-ORDER BY (collector_instance_id, namespace, service_name)
+ORDER BY (controller_instance_id, namespace, service_name)
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
-CREATE TABLE IF NOT EXISTS openlit_collector_instances (
+CREATE TABLE IF NOT EXISTS openlit_controller_instances (
     \`id\` UUID DEFAULT generateUUIDv4(),
     \`instance_id\` String,
     \`node_name\` String DEFAULT '',
@@ -369,7 +369,7 @@ ORDER BY (instance_id)
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
-CREATE TABLE IF NOT EXISTS openlit_collector_config (
+CREATE TABLE IF NOT EXISTS openlit_controller_config (
     \`instance_id\` String,
     \`config\` String DEFAULT '{}',
     \`updated_at\` DateTime DEFAULT now()
@@ -378,7 +378,7 @@ ORDER BY (instance_id)
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
-CREATE TABLE IF NOT EXISTS openlit_collector_actions (
+CREATE TABLE IF NOT EXISTS openlit_controller_actions (
     \`id\` UUID DEFAULT generateUUIDv4(),
     \`instance_id\` String,
     \`action_type\` Enum8('instrument' = 0, 'uninstrument' = 1, 'apply_config' = 2),
@@ -392,5 +392,5 @@ CREATE TABLE IF NOT EXISTS openlit_collector_actions (
 ORDER BY (instance_id, id)
 "
 
-echo "✅ All 4 Collector tables created successfully"
+echo "✅ All 4 Controller tables created successfully"
 echo "===================================================================="

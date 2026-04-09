@@ -250,8 +250,8 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 
 	{
-		regex: /^\/instrumentation-hub\/collector\/[^/]+$/,
-		getTitle: () => "Collector",
+		regex: /^\/instrumentation-hub\/controller\/[^/]+$/,
+		getTitle: () => "Controller",
 		getBreadcrumbs: () => [
 			{ title: "Instrumentation Hub", href: "/instrumentation-hub" }
 		],
