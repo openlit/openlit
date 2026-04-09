@@ -1,0 +1,4 @@
+[submodule "openlit-collector/.obi-src"]
+	path = openlit-collector/.obi-src
+	url = https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation.git
+	branch = main

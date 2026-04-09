@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenLIT Collector - LLM Observability via eBPF
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/openlit-collector --config /etc/openlit-collector/config.yaml
+EnvironmentFile=-/etc/openlit-collector/env
+Restart=always
+RestartSec=5
+AmbientCapabilities=CAP_BPF CAP_SYS_PTRACE CAP_NET_RAW CAP_PERFMON CAP_DAC_READ_SEARCH CAP_CHECKPOINT_RESTORE
+
+[Install]
+WantedBy=multi-user.target

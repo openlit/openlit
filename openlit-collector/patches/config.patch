@@ -1,0 +1,75 @@
+diff --git a/pkg/config/payload_extraction.go b/pkg/config/payload_extraction.go
+index abcdef0..1234567 100644
+--- a/pkg/config/payload_extraction.go
++++ b/pkg/config/payload_extraction.go
+@@ -67,10 +67,29 @@ type GenAIConfig struct {
+ 	// OpenAI payload extraction and parsing
+ 	OpenAI OpenAIConfig `yaml:"openai"`
+ 	// Anthropic payload extraction and parsing
+ 	Anthropic AnthropicConfig `yaml:"anthropic"`
++	// OpenLIT custom providers
++	Cohere      CohereConfig      `yaml:"cohere"`
++	Mistral     MistralConfig     `yaml:"mistral"`
++	Groq        GroqConfig        `yaml:"groq"`
++	Deepseek    DeepseekConfig    `yaml:"deepseek"`
++	Together    TogetherConfig    `yaml:"together"`
++	Fireworks   FireworksConfig   `yaml:"fireworks"`
++	Ollama      OllamaConfig      `yaml:"ollama"`
++	Bedrock     BedrockConfig     `yaml:"bedrock"`
++	AzureOpenAI AzureOpenAIConfig `yaml:"azure_openai"`
+ }
+ 
+ func (g *GenAIConfig) Enabled() bool {
+-	return g.Anthropic.Enabled || g.OpenAI.Enabled
++	return g.Anthropic.Enabled || g.OpenAI.Enabled ||
++		g.Cohere.Enabled || g.Mistral.Enabled ||
++		g.Groq.Enabled || g.Deepseek.Enabled ||
++		g.Together.Enabled || g.Fireworks.Enabled ||
++		g.Ollama.Enabled || g.Bedrock.Enabled ||
++		g.AzureOpenAI.Enabled
+ }
+ 
+ type OpenAIConfig struct {
+@@ -82,6 +101,42 @@ type AnthropicConfig struct {
+ 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_ANTHROPIC_ENABLED" validate:"boolean"`
+ }
+ 
++type CohereConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_COHERE_ENABLED" validate:"boolean"`
++}
++
++type MistralConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_MISTRAL_ENABLED" validate:"boolean"`
++}
++
++type GroqConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_GROQ_ENABLED" validate:"boolean"`
++}
++
++type DeepseekConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_DEEPSEEK_ENABLED" validate:"boolean"`
++}
++
++type TogetherConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_TOGETHER_ENABLED" validate:"boolean"`
++}
++
++type FireworksConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_FIREWORKS_ENABLED" validate:"boolean"`
++}
++
++type OllamaConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_OLLAMA_ENABLED" validate:"boolean"`
++}
++
++type BedrockConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_BEDROCK_ENABLED" validate:"boolean"`
++}
++
++type AzureOpenAIConfig struct {
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_AZURE_OPENAI_ENABLED" validate:"boolean"`
++}
++
+ // EnrichmentConfig configures HTTP header and payload extraction with policy-based rules.
+ type EnrichmentConfig struct {
+ 	// Enable HTTP header and payload enrichment

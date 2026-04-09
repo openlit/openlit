@@ -1,0 +1,117 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.4.1
+    container_name: clickhouse-dev
+    environment:
+      CLICKHOUSE_PASSWORD: OPENLIT
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DATABASE: openlit
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: true
+    volumes:
+      - clickhouse-dev-data:/var/lib/clickhouse
+      - ./assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
+      - ./assets/clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user=default --password=OPENLIT --query='SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+  otel-collector:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.98.0
+    container_name: otel-collector-dev
+    volumes:
+      - ./assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml:ro
+    command: ["--config", "/etc/otel/otel-collector-config.yaml"]
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: "8123"
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  openai-app:
+    build: ./examples/openai-chat-app
+    container_name: openai-app-dev
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  anthropic-app:
+    build: ./examples/anthropic-chat-app
+    container_name: anthropic-app-dev
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  gemini-app:
+    build: ./examples/gemini-chat-app
+    container_name: gemini-app-dev
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  bedrock-app:
+    build: ./examples/bedrock-chat-app
+    container_name: bedrock-app-dev
+    environment:
+      AWS_BEARER_BEDROCK_TOKEN: ${AWS_BEARER_BEDROCK_TOKEN}
+      AWS_REGION: us-east-1
+      BEDROCK_MODEL_ID: amazon.nova-micro-v1:0
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  azure-inference-app:
+    build: ./examples/azure-inference-chat-app
+    container_name: azure-inference-app-dev
+    environment:
+      AZURE_INFERENCE_API_KEY: ${AZURE_INFERENCE_API_KEY}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  openlit-collector:
+    image: openlit-collector:multi-provider
+    container_name: openlit-collector-dev
+    privileged: true
+    pid: host
+    ports:
+      - "4321:4321"
+    environment:
+      OPENLIT_URL: http://host.docker.internal:3000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OPENLIT_POLL_INTERVAL: 5s
+      OPENLIT_PROC_ROOT: /host/proc
+      OPENLIT_ENVIRONMENT: ${OPENLIT_ENVIRONMENT:-default}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - otel-collector
+
+volumes:
+  clickhouse-dev-data:
