@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash2Icon } from "lucide-react";
 import getMessage from "@/constants/messages";
@@ -13,9 +14,18 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 
 interface CustomModel extends ModelMetadata {
-	id: string; // UUID from database
+	id: string;
+	customId?: string; // UUID from database
 	model_id: string; // Model identifier like "gpt-4o"
+	modelType?: string;
 }
+
+const MODEL_TYPES = [
+	{ value: "chat", label: "Chat" },
+	{ value: "embeddings", label: "Embeddings" },
+	{ value: "images", label: "Images" },
+	{ value: "audio", label: "Audio" },
+];
 
 interface ModelEditorPanelProps {
 	model: ModelMetadata | null;
@@ -44,6 +54,7 @@ export default function ModelEditorPanel({
 		id: "", // UUID (only for existing custom models)
 		model_id: "", // Model identifier
 		displayName: "",
+		modelType: "chat",
 		contextWindow: 4096,
 		inputPricePerMToken: 0,
 		outputPricePerMToken: 0,
@@ -52,23 +63,27 @@ export default function ModelEditorPanel({
 
 	useEffect(() => {
 		if (model && isCustomModel) {
-			// Only allow editing custom models
-			const customModel = model as CustomModel;
+			const customModel = model as any;
+			// The API returns `customId` as the UUID and `id` as the model_id.
+			// Map them correctly: UUID goes to `id`, model identifier goes to `model_id`.
+			const uuid = customModel.customId || customModel.id || "";
+			const modelIdentifier = customModel.model_id || customModel.id || "";
 			setFormData({
-				id: customModel.id || "", // UUID for existing custom models
-				model_id: customModel.model_id,
+				id: uuid,
+				model_id: modelIdentifier,
 				displayName: model.displayName,
+				modelType: customModel.modelType || "chat",
 				contextWindow: model.contextWindow,
 				inputPricePerMToken: model.inputPricePerMToken,
 				outputPricePerMToken: model.outputPricePerMToken,
 				capabilities: model.capabilities || [],
 			});
 		} else if (isAddingNew) {
-			// Reset form for new model
 			setFormData({
 				id: "",
 				model_id: "",
 				displayName: "",
+				modelType: "chat",
 				contextWindow: 4096,
 				inputPricePerMToken: 0,
 				outputPricePerMToken: 0,
@@ -87,15 +102,16 @@ export default function ModelEditorPanel({
 		const payload = {
 			provider: provider,
 			model: {
+				id: formData.model_id,
 				model_id: formData.model_id,
 				displayName: formData.displayName,
+				modelType: formData.modelType || "chat",
 				contextWindow: formData.contextWindow || 4096,
 				inputPricePerMToken: formData.inputPricePerMToken || 0,
 				outputPricePerMToken: formData.outputPricePerMToken || 0,
 				capabilities: formData.capabilities || [],
 			},
-			// Send UUID id for updates of existing custom models, undefined for new models
-			id: formData.id || undefined,
+			customId: formData.id || undefined,
 		};
 
 		fireSaveRequest({
@@ -117,12 +133,15 @@ export default function ModelEditorPanel({
 	};
 
 	const handleDelete = () => {
-		const id = (model as CustomModel)?.id;
-		if (!id) return;
+		if (!formData.model_id || !provider) return;
+
+		const params = new URLSearchParams();
+		params.set("model_id", formData.model_id);
+		params.set("provider", provider);
 
 		fireDeleteRequest({
 			requestType: "DELETE",
-			url: `/api/openground/models?id=${id}`,
+			url: `/api/openground/models?${params.toString()}`,
 			successCb: () => {
 				toast.success(getMessage().OPENGROUND_MODEL_DELETED_SUCCESS, {
 					id: "model-deleted",
@@ -173,6 +192,29 @@ export default function ModelEditorPanel({
 							value={formData.displayName}
 							onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
 						/>
+					</div>
+
+					{/* Model Type */}
+					<div className="space-y-2">
+						<Label>Model Type</Label>
+						<Select
+							value={formData.modelType || "chat"}
+							onValueChange={(val) => setFormData({ ...formData, modelType: val })}
+						>
+							<SelectTrigger>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{MODEL_TYPES.map((mt) => (
+									<SelectItem key={mt.value} value={mt.value}>
+										{mt.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<p className="text-xs text-stone-500 dark:text-stone-400">
+							Determines pricing format when exported (chat, embeddings, images, audio)
+						</p>
 					</div>
 
 					{/* Context Window */}

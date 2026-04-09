@@ -7,6 +7,7 @@ import {
 	Home,
 	Key,
 	LayoutDashboard,
+	MessageSquare,
 	MonitorCog,
 	MonitorPlay,
 	SettingsIcon,
@@ -36,6 +37,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
+		type: "action",
+	},
+	{
+		icon: <MessageSquare className={ICON_CLASSES} />,
+		text: "Chat",
+		link: "/chat",
 		type: "action",
 	},
 	{

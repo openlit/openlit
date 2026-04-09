@@ -26,6 +26,8 @@ export const config = {
 		"/dashboards/:path*",
 		"/d/:path*",
 		"/fleet-hub",
-		"/onboarding"
+		"/onboarding",
+		"/chat",
+		"/chat/:path*"
 	],
 };
