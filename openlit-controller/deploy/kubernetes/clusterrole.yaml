@@ -8,4 +8,4 @@ rules:
     verbs: [get, list, watch]
   - apiGroups: [apps]
     resources: [deployments, replicasets, statefulsets, daemonsets]
-    verbs: [get, list, watch]
+    verbs: [get, list, watch, patch]

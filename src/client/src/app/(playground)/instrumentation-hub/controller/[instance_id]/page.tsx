@@ -344,6 +344,32 @@ function ControllerConfigEditor({
 							OpenLIT SDK convention)
 						</p>
 					</div>
+					<div>
+						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+							Poll Interval (seconds)
+						</label>
+						<input
+							type="number"
+							min={5}
+							max={300}
+							value={config.poll_interval_seconds ?? 30}
+							onChange={(e) =>
+								setConfig((prev) => ({
+									...prev,
+									poll_interval_seconds: Math.max(
+										5,
+										Math.min(300, parseInt(e.target.value) || 30)
+									),
+								}))
+							}
+							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+						/>
+						<p className="text-xs text-stone-400 mt-1">
+							How often the controller polls for updates and
+							reports services. Lower values mean faster action
+							response but more load. (5-300s)
+						</p>
+					</div>
 				</div>
 			</ConfigSection>
 

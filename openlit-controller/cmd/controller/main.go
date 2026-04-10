@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,7 +46,7 @@ func main() {
 		zap.String("proc_root", cfg.ProcRoot),
 	)
 
-	eng := engine.New(logger, cfg.OBIBinaryPath, cfg.OTLPEndpoint, cfg.ProcRoot, cfg.Environment)
+	eng := engine.New(logger, cfg.OBIBinaryPath, cfg.OTLPEndpoint, cfg.ProcRoot, cfg.Environment, cfg.SDKVersion, cfg.DeployMode)
 	client := openlit.NewClient(cfg.OpenlitURL, cfg.APIKey, logger)
 
 	var mode openlit.ControllerMode
@@ -72,8 +74,8 @@ func main() {
 		}
 	}()
 
-	controllerAttrs := buildControllerResourceAttrs(mode, cfg.Environment)
-	go runPollLoop(ctx, client, eng, logger, cfg.PollInterval, nodeName, mode, controllerAttrs)
+	controllerAttrs := buildControllerResourceAttrs(mode, cfg.Environment, eng.ControllerCapabilities())
+	go runPollLoop(ctx, client, eng, logger, cfg.PollInterval, nodeName, mode, cfg.ClusterID, controllerAttrs)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -95,29 +97,51 @@ func runPollLoop(
 	interval time.Duration,
 	nodeName string,
 	mode openlit.ControllerMode,
+	clusterID string,
 	controllerAttrs map[string]string,
 ) {
 	iid := instanceID(mode)
+	currentInterval := interval
 
-	poll(ctx, client, eng, logger, iid, nodeName, mode, nil, controllerAttrs)
+	resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, nil, controllerAttrs)
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(currentInterval)
 	defer ticker.Stop()
 
 	var pendingResults []openlit.ActionResult
+	if resp != nil {
+		pendingResults = resp.actionResults
+		if next := resp.pollInterval; next > 0 && next != currentInterval {
+			currentInterval = next
+			ticker.Reset(currentInterval)
+			logger.Info("poll interval updated from config", zap.Duration("interval", currentInterval))
+		}
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			results := poll(ctx, client, eng, logger, iid, nodeName, mode, pendingResults, controllerAttrs)
-			pendingResults = results
+			resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, pendingResults, controllerAttrs)
+			if resp != nil {
+				pendingResults = resp.actionResults
+				if next := resp.pollInterval; next > 0 && next != currentInterval {
+					currentInterval = next
+					ticker.Reset(currentInterval)
+					logger.Info("poll interval updated from config", zap.Duration("interval", currentInterval))
+				}
+			}
 		}
 	}
 }
 
-func poll(
+type pollResult struct {
+	actionResults []openlit.ActionResult
+	pollInterval  time.Duration
+}
+
+func doPoll(
 	_ context.Context,
 	client *openlit.Client,
 	eng *engine.Engine,
@@ -125,31 +149,38 @@ func poll(
 	instanceID string,
 	nodeName string,
 	mode openlit.ControllerMode,
+	clusterID string,
 	actionResults []openlit.ActionResult,
 	controllerAttrs map[string]string,
-) []openlit.ActionResult {
+) *pollResult {
 	discovered, instrumented := eng.ServiceCount()
 
 	services := eng.GetServices()
 	dsvcs := make([]openlit.DiscoveredService, 0, len(services))
 	for _, svc := range services {
 		dsvcs = append(dsvcs, openlit.DiscoveredService{
-			ServiceName:           svc.ServiceName,
-			WorkloadKey:           svc.WorkloadKey,
-			Namespace:             svc.Namespace,
-			LanguageRuntime:       svc.LanguageRuntime,
-			LLMProviders:          svc.LLMProviders,
-			OpenPorts:             svc.OpenPorts,
-			DeploymentName:        svc.DeploymentName,
-			PID:                   svc.PID,
-			ExePath:               svc.ExePath,
-			InstrumentationStatus: svc.InstrumentationStatus,
-			ResourceAttributes:    svc.ResourceAttributes,
+			ServiceName:              svc.ServiceName,
+			WorkloadKey:              svc.WorkloadKey,
+			Namespace:                svc.Namespace,
+			LanguageRuntime:          svc.LanguageRuntime,
+			LLMProviders:             svc.LLMProviders,
+			OpenPorts:                svc.OpenPorts,
+			DeploymentName:           svc.DeploymentName,
+			PID:                      svc.PID,
+			ExePath:                  svc.ExePath,
+			InstrumentationStatus:    svc.InstrumentationStatus,
+			AgentObservabilityStatus: svc.AgentObservabilityStatus,
+			AgentObservabilitySource: svc.AgentObservabilitySource,
+			ObservabilityConflict:    svc.ObservabilityConflict,
+			ObservabilityReason:      svc.ObservabilityReason,
+			FirstSeen:                svc.FirstSeen.UTC().Format("2006-01-02 15:04:05"),
+			ResourceAttributes:       svc.ResourceAttributes,
 		})
 	}
 
 	resp, err := client.Poll(&openlit.PollRequest{
 		InstanceID:           instanceID,
+		ClusterID:            clusterID,
 		Version:              server.Version,
 		Mode:                 mode,
 		NodeName:             nodeName,
@@ -170,17 +201,41 @@ func poll(
 		results = append(results, result)
 	}
 
-	return results
+	pr := &pollResult{actionResults: results}
+
+	if resp.ConfigChanged && resp.Config != nil {
+		if v, ok := resp.Config["poll_interval_seconds"]; ok {
+			if seconds, ok := v.(float64); ok && seconds >= 5 && seconds <= 300 {
+				pr.pollInterval = time.Duration(seconds) * time.Second
+			}
+		}
+	}
+
+	return pr
 }
 
 func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap.Logger) openlit.ActionResult {
 	var execErr error
 
 	switch action.ActionType {
-	case "instrument":
+	case openlit.ActionInstrument:
 		execErr = eng.InstrumentService(action.ServiceKey)
-	case "uninstrument":
+	case openlit.ActionUninstrument:
 		execErr = eng.UninstrumentService(action.ServiceKey)
+	case openlit.ActionEnablePythonSDK:
+		payload, err := parsePythonSDKPayload(action.Payload)
+		if err != nil {
+			execErr = err
+			break
+		}
+		execErr = eng.EnablePythonSDK(action.ServiceKey, payload)
+	case openlit.ActionDisablePythonSDK:
+		payload, err := parsePythonSDKPayload(action.Payload)
+		if err != nil {
+			execErr = err
+			break
+		}
+		execErr = eng.DisablePythonSDK(action.ServiceKey, payload)
 	default:
 		logger.Warn("unknown action type", zap.String("type", action.ActionType))
 		return openlit.ActionResult{
@@ -214,14 +269,43 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 	}
 }
 
-func buildControllerResourceAttrs(mode openlit.ControllerMode, environment string) map[string]string {
+func parsePythonSDKPayload(raw string) (openlit.PythonSDKActionPayload, error) {
+	payload := openlit.PythonSDKActionPayload{
+		TargetRuntime:          "python",
+		InstrumentationProfile: "controller_managed",
+		DuplicatePolicy:        "block_if_existing_otel_detected",
+		ObservabilityScope:     "agent",
+	}
+	if raw == "" || raw == "{}" {
+		return payload, nil
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return payload, fmt.Errorf("parse python SDK payload: %w", err)
+	}
+	if payload.TargetRuntime == "" {
+		payload.TargetRuntime = "python"
+	}
+	if payload.InstrumentationProfile == "" {
+		payload.InstrumentationProfile = "controller_managed"
+	}
+	if payload.DuplicatePolicy == "" {
+		payload.DuplicatePolicy = "block_if_existing_otel_detected"
+	}
+	if payload.ObservabilityScope == "" {
+		payload.ObservabilityScope = "agent"
+	}
+	return payload, nil
+}
+
+func buildControllerResourceAttrs(mode openlit.ControllerMode, environment string, capabilities []string) map[string]string {
 	hostname, _ := os.Hostname()
 	attrs := map[string]string{
-		"host.name":              hostname,
-		"os.type":                runtime.GOOS,
-		"host.arch":              runtime.GOARCH,
-		"controller.version":     server.Version,
-		"deployment.environment": environment,
+		"host.name":               hostname,
+		"os.type":                 runtime.GOOS,
+		"host.arch":               runtime.GOARCH,
+		"controller.version":      server.Version,
+		"deployment.environment":  environment,
+		"controller.capabilities": strings.Join(capabilities, ","),
 	}
 
 	switch mode {

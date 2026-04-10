@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +31,27 @@ export default function ServiceDetail() {
 		fireRequest: fetchAgentObservability,
 		data: agentObservability,
 		isFetched: agentObservabilityFetched,
-	} = useFetchWrapper<{ enabled: boolean }>();
+	} = useFetchWrapper<{
+		enabled: boolean;
+		supported: boolean;
+		automatable?: boolean;
+		mode: "kubernetes" | "docker" | "linux";
+		status: string;
+		desired_status: string | null;
+		transitioning: boolean;
+		source: string;
+		conflict?: string;
+		reason: string;
+		workload_kind?: string | null;
+		is_naked_pod?: boolean;
+		is_manual?: boolean;
+		is_containerized?: boolean;
+	}>();
 	const { fireRequest: doAction, isLoading: actionLoading } =
 		useFetchWrapper();
+	const [agentActionPending, setAgentActionPending] = useState(false);
+	const [agentLocalIntent, setAgentLocalIntent] = useState<"enabling" | "disabling" | null>(null);
+	const agentPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const refresh = useCallback(() => {
 		fetchService({
@@ -77,16 +95,52 @@ export default function ServiceDetail() {
 		(candidate) => candidate.instance_id === service?.controller_instance_id
 	);
 	const mode = instance?.mode || "linux";
-	const isK8s = mode === "kubernetes";
+	const isPython = service?.language_runtime === "python";
 	const agentObservabilityEnabled = !!agentObservability?.enabled;
+	const agentTransitioning =
+		agentActionPending || !!agentObservability?.transitioning;
+	const agentActionLabel =
+		mode === "docker"
+			? "Requires container recreate."
+			: mode === "linux"
+				? "Requires systemd service restart."
+				: "Triggers a rolling update.";
 
 	useEffect(() => {
-		if (!service || !isK8s) return;
+		if (!service || !isPython) return;
 		fetchAgentObservability({
 			requestType: "GET",
 			url: `/api/controller/catalog/${id}/agent-instrument`,
 		});
-	}, [service, isK8s, id, fetchAgentObservability]);
+	}, [service, isPython, id, fetchAgentObservability]);
+
+	useEffect(() => {
+		if (!agentTransitioning) {
+			if (agentPollRef.current) {
+				clearInterval(agentPollRef.current);
+				agentPollRef.current = null;
+			}
+			if (agentActionPending && agentObservabilityFetched) {
+				setAgentActionPending(false);
+				setAgentLocalIntent(null);
+			}
+			return;
+		}
+		if (agentPollRef.current) return;
+		agentPollRef.current = setInterval(() => {
+			fetchAgentObservability({
+				requestType: "GET",
+				url: `/api/controller/catalog/${id}/agent-instrument`,
+			});
+			refresh();
+		}, 3000);
+		return () => {
+			if (agentPollRef.current) {
+				clearInterval(agentPollRef.current);
+				agentPollRef.current = null;
+			}
+		};
+	}, [agentTransitioning, agentActionPending, agentObservabilityFetched, id, fetchAgentObservability, refresh]);
 
 	const toggleInstrumentation = async () => {
 		const action = isInstrumented ? "uninstrument" : "instrument";
@@ -106,15 +160,24 @@ export default function ServiceDetail() {
 	};
 
 	const toggleAgentObservability = async () => {
-		const requestType = agentObservabilityEnabled ? "DELETE" : "POST";
+		const enabling = !agentObservabilityEnabled;
+		if (enabling && agentObservability?.is_naked_pod) {
+			const confirmed = window.confirm(
+				"This pod has no Deployment or DaemonSet. Enabling Agent Observability will restart the pod. Continue?"
+			);
+			if (!confirmed) return;
+		}
+		const requestType = enabling ? "POST" : "DELETE";
+		setAgentLocalIntent(enabling ? "enabling" : "disabling");
 		await doAction({
 			requestType,
 			url: `/api/controller/catalog/${id}/agent-instrument`,
 			successCb: () => {
+				setAgentActionPending(true);
 				toast.success(
-					agentObservabilityEnabled
-						? "Agent observability disabled"
-						: "Agent observability will be enabled on next pod restart"
+					enabling
+						? "Agent observability is being deployed. The workload will be updated automatically."
+						: "Agent observability removal queued. The workload will be updated automatically."
 				);
 				fetchAgentObservability({
 					requestType: "GET",
@@ -123,12 +186,56 @@ export default function ServiceDetail() {
 			},
 			failureCb: (err: any) => {
 				toast.error(`Failed: ${err}`);
+				setAgentLocalIntent(null);
 			},
 		});
 	};
 
 	const formatProviderLabel = (provider: string) =>
 		provider.replaceAll("_", " ");
+
+	const pendingActionLabel = (action?: string | null) => {
+		switch (action) {
+			case "instrument":
+				return "Instrumenting";
+			case "uninstrument":
+				return "Uninstrumenting";
+			case "enable_python_sdk":
+				return "Enabling Agent Observability";
+			case "disable_python_sdk":
+				return "Disabling Agent Observability";
+			default:
+				return "Working";
+		}
+	};
+	const agentReasonText = agentObservability?.reason
+		? `${agentObservability.reason}. `
+		: "";
+	const agentToggleLabel = () => {
+		if (!agentObservabilityFetched) return "Checking...";
+		if (agentTransitioning) {
+			if (agentLocalIntent === "enabling") return "Deploying...";
+			if (agentLocalIntent === "disabling") return "Removing...";
+			return agentObservability?.desired_status === "enabled"
+				? "Deploying..."
+				: "Removing...";
+		}
+		if (agentObservability?.conflict === "existing_otel") return "Conflict detected";
+		if (agentObservability?.automatable === false) {
+			if (!agentObservability?.reason) return "Unavailable";
+			if (agentObservability.reason.includes("writable Docker socket")) {
+				return "Docker access needed";
+			}
+			if (agentObservability.reason.includes("systemd")) {
+				return "Not manageable";
+			}
+			if (agentObservability.reason.includes("advertise")) {
+				return "Controller upgrade needed";
+			}
+			return "Unavailable";
+		}
+		return agentObservabilityEnabled ? "Disable" : "Enable";
+	};
 
 	if (isLoading || !service) {
 		return (
@@ -165,6 +272,11 @@ export default function ServiceDetail() {
 								{service.service_name}
 							</h1>
 							<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+								{service.cluster_id && service.cluster_id !== "default" && (
+									<span className="text-blue-600 dark:text-blue-400">
+										{service.cluster_id} ·{" "}
+									</span>
+								)}
 								{service.namespace && `${service.namespace} · `}
 								{mode === "kubernetes"
 									? "Kubernetes"
@@ -183,9 +295,7 @@ export default function ServiceDetail() {
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />}
 						{isPending && pendingAction
-							? pendingAction === "instrument"
-								? "Instrumenting"
-								: "Uninstrumenting"
+							? pendingActionLabel(pendingAction)
 							: isInstrumented
 								? "Instrumented"
 								: "Discovered"}
@@ -249,8 +359,8 @@ export default function ServiceDetail() {
 								LLM Observability
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-								Enable eBPF-based LLM observability for RED metrics,
-								model name, tokens, and tool calls.
+								Enable eBPF-based observability for LLM and VectorDB
+								traffic — RED metrics, model name, tokens, and tool calls.
 							</div>
 						</div>
 						<button
@@ -269,9 +379,7 @@ export default function ServiceDetail() {
 								<Loader2 className="w-3 h-3 animate-spin" />
 							)}
 							{isPending && pendingAction
-								? pendingAction === "instrument"
-									? "Instrumenting..."
-									: "Uninstrumenting..."
+								? `${pendingActionLabel(pendingAction)}...`
 								: actionLoading
 									? "Working..."
 									: isInstrumented
@@ -280,7 +388,7 @@ export default function ServiceDetail() {
 						</button>
 					</div>
 
-					{isK8s && (
+					{isPython && (
 						<div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg">
 							<div>
 								<div className="font-medium text-stone-900 dark:text-stone-100">
@@ -289,30 +397,81 @@ export default function ServiceDetail() {
 								<div className="text-sm text-stone-500 dark:text-stone-400 mt-1">
 									Injects the OpenLIT agent SDK for LangChain,
 									LangGraph, CrewAI, and similar agent frameworks.
-									Requires a pod restart.
+									{" "}{agentActionLabel}
 								</div>
 								<div className="text-xs text-stone-400 mt-1">
 									Currently{" "}
 									{!agentObservabilityFetched
 										? "checking status"
-										: agentObservabilityEnabled
-											? "enabled"
-											: "disabled"}
+										: agentTransitioning
+											? agentLocalIntent === "enabling" || agentObservability?.desired_status === "enabled"
+												? "deploying (rolling update in progress)"
+												: "removing (rolling update in progress)"
+											: agentObservabilityEnabled
+												? "enabled"
+												: "disabled"}
 									.{" "}
+									{!agentTransitioning && agentReasonText}
 									Use this only for agent framework spans.
 									Provider-level LLM traffic still comes from eBPF.
 								</div>
+								{agentObservabilityEnabled &&
+									service?.resource_attributes?.[
+										"openlit.sdk.version"
+									] && (
+										<div className="mt-1.5 text-xs text-stone-400">
+											SDK version:{" "}
+											<span className="font-mono text-stone-500 dark:text-stone-300">
+												{
+													service.resource_attributes[
+														"openlit.sdk.version"
+													]
+												}
+											</span>
+										</div>
+									)}
+								{agentObservability?.is_manual && agentObservability?.reason && (
+									<div className="mt-2 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-2.5 py-2">
+										<div className="font-medium text-blue-700 dark:text-blue-400 mb-1">
+											Manual setup required
+										</div>
+										<pre className="whitespace-pre-wrap text-blue-600 dark:text-blue-300 font-mono text-[11px] leading-relaxed">
+											{agentObservability.reason}
+										</pre>
+									</div>
+								)}
+								{agentObservability?.is_containerized && agentObservability?.status === "unsupported" && (
+									<div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-1.5">
+										This process runs inside a container. Mount the Docker socket or use a Docker/Kubernetes-mode controller for Agent Observability.
+									</div>
+								)}
+								{agentObservability?.is_naked_pod && (
+									<div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-1.5">
+										This is a naked pod (no Deployment, DaemonSet, or StatefulSet).
+										Enabling or disabling Agent Observability will restart the pod.
+									</div>
+								)}
 							</div>
 							<button
 								onClick={toggleAgentObservability}
-								disabled={actionLoading}
-								className="px-4 py-2 text-sm font-medium border dark:border-stone-600 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors disabled:opacity-50"
+								disabled={
+									actionLoading ||
+									agentTransitioning ||
+									agentObservability?.automatable === false ||
+									agentObservability?.conflict === "existing_otel"
+								}
+								className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
+									agentTransitioning
+										? "border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+										: agentObservabilityEnabled
+											? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+											: "bg-stone-900 text-white hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+								}`}
 							>
-								{!agentObservabilityFetched
-									? "Checking..."
-									: agentObservabilityEnabled
-										? "Disable"
-										: "Enable"}
+								{(agentTransitioning || actionLoading) && (
+									<Loader2 className="w-3 h-3 animate-spin" />
+								)}
+								{agentToggleLabel()}
 							</button>
 						</div>
 					)}

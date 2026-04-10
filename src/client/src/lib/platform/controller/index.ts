@@ -81,26 +81,34 @@ export async function getDiscoveredServices(
 	const query = `
 		WITH aggregated_services AS (
 			SELECT
-				argMax(id, ${tbl}.last_seen) AS id,
-				controller_instance_id,
-				argMax(service_name, ${tbl}.last_seen) AS service_name,
-				workload_key,
-				argMax(namespace, ${tbl}.last_seen) AS namespace,
-				argMax(language_runtime, ${tbl}.last_seen) AS language_runtime,
-				arrayDistinct(arrayFlatten(groupArray(llm_providers))) AS llm_providers,
-				argMax(open_ports, ${tbl}.last_seen) AS open_ports,
-				argMax(deployment_name, ${tbl}.last_seen) AS deployment_name,
-				argMax(pid, ${tbl}.last_seen) AS pid,
-				argMax(exe_path, ${tbl}.last_seen) AS exe_path,
-				argMax(instrumentation_status, ${tbl}.last_seen) AS instrumentation_status,
-				argMax(resource_attributes, ${tbl}.last_seen) AS resource_attributes,
-				min(${tbl}.first_seen) AS first_seen,
-				max(${tbl}.last_seen) AS last_seen,
-				max(${tbl}.updated_at) AS updated_at
-			FROM ${tbl}
-			FINAL
-			${timeFilter}
-			GROUP BY controller_instance_id, workload_key
+				argMax(s.id, s.last_seen) AS id,
+				argMax(s.controller_instance_id, s.last_seen) AS controller_instance_id,
+				argMax(s.cluster_id, s.last_seen) AS cluster_id,
+				argMax(s.service_name, s.last_seen) AS service_name,
+				argMax(s.workload_key, s.last_seen) AS workload_key,
+				argMax(s.namespace, s.last_seen) AS namespace,
+				argMax(s.language_runtime, s.last_seen) AS language_runtime,
+				arrayDistinct(arrayFlatten(groupArray(s.llm_providers))) AS llm_providers,
+				argMax(s.open_ports, s.last_seen) AS open_ports,
+				argMax(s.deployment_name, s.last_seen) AS deployment_name,
+				argMax(s.pid, s.last_seen) AS pid,
+				argMax(s.exe_path, s.last_seen) AS exe_path,
+				argMax(s.instrumentation_status, s.last_seen) AS instrumentation_status,
+				argMax(s.desired_instrumentation_status, s.last_seen) AS desired_instrumentation_status,
+				argMax(s.desired_agent_status, s.last_seen) AS desired_agent_status,
+				argMax(s.resource_attributes, s.last_seen) AS resource_attributes,
+				min(s.first_seen) AS first_seen,
+				max(s.last_seen) AS last_seen,
+				max(s.updated_at) AS updated_at
+			FROM (
+				SELECT
+					*,
+					concat(cluster_id, ':', if(deployment_name != '', concat(namespace, ':', deployment_name), concat(namespace, ':', service_name))) AS group_key
+				FROM ${tbl}
+				FINAL
+				${timeFilter}
+			) AS s
+			GROUP BY s.group_key
 		),
 		active_actions AS (
 			SELECT
@@ -194,6 +202,27 @@ export async function getServiceById(
 	}>;
 }
 
+export async function getControllerIdsForWorkload(
+	serviceName: string,
+	namespace: string,
+	clusterId: string = "default",
+	dbConfigId?: string
+): Promise<{ err?: unknown; data?: Array<{ controller_instance_id: string }> }> {
+	const query = `
+		SELECT DISTINCT controller_instance_id
+		FROM ${CONTROLLER_SERVICES_TABLE}
+		FINAL
+		WHERE service_name = '${serviceName}'
+		  AND namespace = '${namespace}'
+		  AND cluster_id = '${clusterId}'
+		  AND last_seen >= now() - INTERVAL 5 MINUTE
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: Array<{ controller_instance_id: string }>;
+	}>;
+}
+
 export async function upsertServices(
 	services: Partial<ControllerService>[],
 	dbConfigId?: string
@@ -247,6 +276,162 @@ export async function saveControllerConfig(
 	);
 }
 
+export async function getDesiredStatesForWorkloads(
+	workloadKeys: string[],
+	clusterId: string,
+	dbConfigId?: string
+): Promise<{
+	err?: unknown;
+	data?: Array<{
+		workload_key: string;
+		desired_instrumentation_status: string;
+		desired_agent_status: string;
+	}>;
+}> {
+	if (workloadKeys.length === 0) return { data: [] };
+	const escaped = workloadKeys.map((k) => `'${k}'`).join(",");
+	const query = `
+		SELECT
+			workload_key,
+			argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
+			argMax(desired_agent_status, updated_at) AS desired_agent_status
+		FROM ${CONTROLLER_SERVICES_TABLE}
+		FINAL
+		WHERE cluster_id = '${clusterId}'
+		  AND workload_key IN (${escaped})
+		GROUP BY workload_key
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: Array<{
+			workload_key: string;
+			desired_instrumentation_status: string;
+			desired_agent_status: string;
+		}>;
+	}>;
+}
+
+export async function updateDesiredStatus(
+	workloadKey: string,
+	clusterId: string,
+	fields: {
+		desired_instrumentation_status?: "none" | "instrumented";
+		desired_agent_status?: "none" | "enabled";
+	},
+	dbConfigId?: string
+) {
+	const setClauses: string[] = [];
+	if (fields.desired_instrumentation_status !== undefined) {
+		setClauses.push(
+			`desired_instrumentation_status = '${fields.desired_instrumentation_status}'`
+		);
+	}
+	if (fields.desired_agent_status !== undefined) {
+		setClauses.push(
+			`desired_agent_status = '${fields.desired_agent_status}'`
+		);
+	}
+	if (setClauses.length === 0) return { data: "ok" };
+
+	const query = `
+		ALTER TABLE ${CONTROLLER_SERVICES_TABLE}
+		UPDATE ${setClauses.join(", ")}
+		WHERE workload_key = '${workloadKey}'
+		  AND cluster_id = '${clusterId}'
+		SETTINGS mutations_sync = 1
+	`;
+	return dataCollector({ query }, "query", dbConfigId);
+}
+
+export async function getServicesToReconcile(
+	controllerInstanceId: string,
+	reportedServices: Array<{
+		workload_key: string;
+		instrumentation_status: string;
+		resource_attributes?: Record<string, string>;
+	}>,
+	dbConfigId?: string
+): Promise<{
+	instrumentKeys: string[];
+	uninstrumentKeys: string[];
+	enableAgentKeys: string[];
+	disableAgentKeys: string[];
+}> {
+	const result = {
+		instrumentKeys: [] as string[],
+		uninstrumentKeys: [] as string[],
+		enableAgentKeys: [] as string[],
+		disableAgentKeys: [] as string[],
+	};
+
+	const query = `
+		SELECT workload_key, desired_instrumentation_status, desired_agent_status
+		FROM ${CONTROLLER_SERVICES_TABLE}
+		FINAL
+		WHERE controller_instance_id = '${controllerInstanceId}'
+		  AND (desired_instrumentation_status != 'none' OR desired_agent_status != 'none')
+	`;
+	const res = (await dataCollector({ query }, "query", dbConfigId)) as {
+		err?: unknown;
+		data?: Array<{
+			workload_key: string;
+			desired_instrumentation_status: string;
+			desired_agent_status: string;
+		}>;
+	};
+
+	if (res.err || !res.data) return result;
+
+	const reportedMap = new Map<
+		string,
+		{
+			instrumentation_status: string;
+			agent_status: string;
+		}
+	>();
+	for (const svc of reportedServices) {
+		const agentStatus =
+			svc.resource_attributes?.["openlit.agent_observability.status"] ||
+			"disabled";
+		reportedMap.set(svc.workload_key, {
+			instrumentation_status: svc.instrumentation_status,
+			agent_status: agentStatus,
+		});
+	}
+
+	for (const row of res.data) {
+		const reported = reportedMap.get(row.workload_key);
+		if (!reported) continue;
+
+		if (
+			row.desired_instrumentation_status === "instrumented" &&
+			reported.instrumentation_status !== "instrumented"
+		) {
+			result.instrumentKeys.push(row.workload_key);
+		}
+		if (
+			row.desired_instrumentation_status === "none" &&
+			reported.instrumentation_status === "instrumented"
+		) {
+			result.uninstrumentKeys.push(row.workload_key);
+		}
+		if (
+			row.desired_agent_status === "enabled" &&
+			reported.agent_status !== "enabled"
+		) {
+			result.enableAgentKeys.push(row.workload_key);
+		}
+		if (
+			row.desired_agent_status === "none" &&
+			reported.agent_status === "enabled"
+		) {
+			result.disableAgentKeys.push(row.workload_key);
+		}
+	}
+
+	return result;
+}
+
 // --- Action queue (pull-based: UI queues actions, controller polls for them) ---
 
 export async function queueAction(
@@ -264,6 +449,7 @@ export async function queueAction(
 				FINAL
 				WHERE instance_id = '${instanceId}'
 				  AND service_key = '${serviceKey}'
+				  AND action_type = '${actionType}'
 				  AND status IN ('pending', 'acknowledged')
 				ORDER BY updated_at DESC
 				LIMIT 1

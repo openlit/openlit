@@ -22,6 +22,9 @@ type InstrumentPattern struct {
 	ContainersOnly bool
 	K8sNamespace   string
 	K8sPodName     string
+	K8sDeployment  string
+	K8sDaemonSet   string
+	K8sStatefulSet string
 }
 
 // Engine orchestrates the eBPF scanner and per-service OBI instrumentation.
@@ -39,12 +42,19 @@ type Engine struct {
 	deployMode   config.DeployMode
 	container    *ContainerEnricher
 	environment  string
+	sdkVersion   string
 
 	patterns map[string]InstrumentPattern // serviceID -> pattern
 }
 
-func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment string) *Engine {
-	mode := config.DetectDeployMode()
+const (
+	CapabilityOBILLMObservability     = "obi_llm_observability"
+	CapabilityPythonSDKKubernetesV1   = "python_sdk_injection_kubernetes_v1"
+	CapabilityPythonSDKDockerV1       = "python_sdk_injection_docker_v1"
+	CapabilityPythonSDKLinuxSystemdV1 = "python_sdk_injection_linux_systemd_v1"
+)
+
+func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment, sdkVersion string, mode config.DeployMode) *Engine {
 	if procRoot == "" {
 		procRoot = "/proc"
 	}
@@ -56,6 +66,7 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment 
 		zap.String("proc_root", procRoot),
 		zap.String("obi_binary", obiBinaryPath),
 		zap.String("otlp_endpoint", otlpEndpoint),
+		zap.String("sdk_version", sdkVersion),
 	)
 
 	return &Engine{
@@ -68,6 +79,7 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment 
 		deployMode:   mode,
 		container:    container,
 		environment:  environment,
+		sdkVersion:   sdkVersion,
 	}
 }
 
@@ -137,6 +149,9 @@ func (e *Engine) InstrumentService(serviceID string) error {
 		zap.Ints("target_pids", pat.TargetPIDs),
 		zap.String("k8s_namespace", pat.K8sNamespace),
 		zap.String("k8s_pod_name", pat.K8sPodName),
+		zap.String("k8s_deployment", pat.K8sDeployment),
+		zap.String("k8s_daemonset", pat.K8sDaemonSet),
+		zap.String("k8s_statefulset", pat.K8sStatefulSet),
 	)
 	return e.rebuildOBI()
 }
@@ -172,6 +187,9 @@ func (e *Engine) rebuildOBI() error {
 			ContainersOnly: p.ContainersOnly,
 			K8sNamespace:   p.K8sNamespace,
 			K8sPodName:     p.K8sPodName,
+			K8sDeployment:  p.K8sDeployment,
+			K8sDaemonSet:   p.K8sDaemonSet,
+			K8sStatefulSet: p.K8sStatefulSet,
 		}
 		svc, ok := e.services[id]
 		if ok && e.deployMode != config.DeployDocker {
@@ -217,9 +235,21 @@ func derivePattern(svc *openlit.ServiceState, mode config.DeployMode) Instrument
 	case config.DeployKubernetes:
 		if svc.ResourceAttributes != nil {
 			pat.K8sNamespace = svc.ResourceAttributes["k8s.namespace.name"]
-			pat.K8sPodName = svc.ResourceAttributes["k8s.pod.name"]
+			workloadKind := svc.ResourceAttributes["k8s.workload.kind"]
+			if svc.DeploymentName != "" {
+				switch workloadKind {
+				case "DaemonSet":
+					pat.K8sDaemonSet = svc.DeploymentName
+				case "StatefulSet":
+					pat.K8sStatefulSet = svc.DeploymentName
+				default:
+					pat.K8sDeployment = svc.DeploymentName
+				}
+			} else {
+				pat.K8sPodName = svc.ResourceAttributes["k8s.pod.name"]
+			}
 		}
-		if pat.K8sNamespace != "" && pat.K8sPodName != "" {
+		if pat.K8sNamespace != "" && (pat.K8sDeployment != "" || pat.K8sDaemonSet != "" || pat.K8sStatefulSet != "" || pat.K8sPodName != "") {
 			return pat
 		}
 	case config.DeployDocker:
@@ -264,6 +294,9 @@ func instrumentPatternEqual(a, b InstrumentPattern) bool {
 		a.ContainersOnly != b.ContainersOnly ||
 		a.K8sNamespace != b.K8sNamespace ||
 		a.K8sPodName != b.K8sPodName ||
+		a.K8sDeployment != b.K8sDeployment ||
+		a.K8sDaemonSet != b.K8sDaemonSet ||
+		a.K8sStatefulSet != b.K8sStatefulSet ||
 		len(a.TargetPIDs) != len(b.TargetPIDs) {
 		return false
 	}
@@ -316,6 +349,27 @@ func (e *Engine) ControllerMode() openlit.ControllerMode {
 	default:
 		return openlit.ModeLinux
 	}
+}
+
+func (e *Engine) ControllerCapabilities() []string {
+	capabilities := []string{CapabilityOBILLMObservability}
+
+	switch e.deployMode {
+	case config.DeployKubernetes:
+		if e.container != nil && e.container.k8sClient != nil {
+			capabilities = append(capabilities, CapabilityPythonSDKKubernetesV1)
+		}
+	case config.DeployDocker:
+		if e.container != nil && e.container.dockerClient != nil && e.container.dockerClient.canManage() {
+			capabilities = append(capabilities, CapabilityPythonSDKDockerV1)
+		}
+	default:
+		if linuxSystemdSDKSupported() {
+			capabilities = append(capabilities, CapabilityPythonSDKLinuxSystemdV1)
+		}
+	}
+
+	return capabilities
 }
 
 func (e *Engine) ServiceCount() (discovered, instrumented int) {

@@ -5,6 +5,7 @@ export type ControllerHealth = "healthy" | "degraded" | "error";
 export interface ControllerInstance {
 	id: string;
 	instance_id: string;
+	cluster_id: string;
 	node_name: string;
 	version: string;
 	mode: ControllerMode;
@@ -22,6 +23,7 @@ export interface ControllerInstance {
 export interface ControllerService {
 	id: string;
 	controller_instance_id: string;
+	cluster_id: string;
 	service_name: string;
 	workload_key: string;
 	namespace: string;
@@ -32,11 +34,18 @@ export interface ControllerService {
 	pid: number;
 	exe_path: string;
 	instrumentation_status: InstrumentationStatus;
+	desired_instrumentation_status: "none" | "instrumented";
+	desired_agent_status: "none" | "enabled";
 	resource_attributes?: Record<string, string>;
 	first_seen: string;
 	last_seen: string;
 	updated_at: string;
-	pending_action?: "instrument" | "uninstrument" | null;
+	pending_action?:
+		| "instrument"
+		| "uninstrument"
+		| "enable_python_sdk"
+		| "disable_python_sdk"
+		| null;
 	pending_action_status?: "pending" | "acknowledged" | null;
 }
 
@@ -96,6 +105,7 @@ export interface ControllerConfig {
 	payload_extraction: PayloadExtractionConfig;
 	custom_llm_hosts?: string[];
 	environment?: string;
+	poll_interval_seconds?: number;
 }
 
 export interface ControllerStatus {
@@ -112,8 +122,31 @@ export interface ControllerStatus {
 	};
 }
 
-export type ActionType = "instrument" | "uninstrument";
+export type ActionType =
+	| "instrument"
+	| "uninstrument"
+	| "enable_python_sdk"
+	| "disable_python_sdk";
 export type ActionStatus = "pending" | "acknowledged" | "completed" | "failed";
+
+export type PythonSDKActionRuntime = "python";
+export type PythonSDKInstrumentationProfile = "controller_managed";
+export type PythonSDKDuplicatePolicy =
+	| "prefer_sdk_agent_spans"
+	| "prefer_obi_llm_spans"
+	| "block_if_existing_otel_detected";
+export type PythonSDKObservabilityScope = "agent";
+
+export interface PythonSDKActionPayload {
+	target_runtime: PythonSDKActionRuntime;
+	instrumentation_profile: PythonSDKInstrumentationProfile;
+	duplicate_policy: PythonSDKDuplicatePolicy;
+	observability_scope: PythonSDKObservabilityScope;
+	otlp_endpoint?: string | null;
+	sdk_version?: string;
+	enable_http_instrumentation?: boolean;
+	resource_attributes?: Record<string, string>;
+}
 
 export interface PendingAction {
 	id: string;

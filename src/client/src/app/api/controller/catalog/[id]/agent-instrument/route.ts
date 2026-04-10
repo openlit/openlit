@@ -1,11 +1,37 @@
-import { getServiceById, getControllerInstances } from "@/lib/platform/controller";
 import {
-	createAgentInstrumentation,
-	deleteAgentInstrumentation,
-	getAgentInstrumentation,
-} from "@/lib/platform/kubernetes";
+	getControllerInstanceById,
+	getServiceById,
+	queueAction,
+	updateDesiredStatus,
+} from "@/lib/platform/controller";
+import type { PythonSDKActionPayload } from "@/types/controller";
 
-async function getK8sService(params: Promise<{ id: string }>) {
+function capabilityForMode(mode: string | undefined) {
+	switch (mode) {
+		case "kubernetes":
+			return "python_sdk_injection_kubernetes_v1";
+		case "docker":
+			return "python_sdk_injection_docker_v1";
+		case "linux":
+			return "python_sdk_injection_linux_systemd_v1";
+		default:
+			return "";
+	}
+}
+
+function preflightReasonForMode(mode: string, supportsPythonSDK: boolean) {
+	if (supportsPythonSDK) return "";
+	switch (mode) {
+		case "docker":
+			return "Docker Agent Observability requires a writable Docker socket and a Docker-capable controller.";
+		case "linux":
+			return "Linux Agent Observability requires a controller with systemd management support.";
+		default:
+			return "Selected controller does not advertise Agent Observability support for this mode yet.";
+	}
+}
+
+async function getService(params: Promise<{ id: string }>) {
 	const { id } = await params;
 
 	const serviceRes = await getServiceById(id);
@@ -16,24 +42,31 @@ async function getK8sService(params: Promise<{ id: string }>) {
 	}
 
 	const service = serviceRes.data[0];
-
-	const instancesRes = await getControllerInstances();
-	const isK8s = instancesRes.data?.some((i) => i.mode === "kubernetes");
-
-	if (!isK8s) {
+	if (service.language_runtime !== "python") {
 		return {
 			error: Response.json(
 				{
 					error:
-						"Agent SDK injection is only available in Kubernetes mode. " +
-						"No Kubernetes-mode controller instances detected.",
+						"Agent observability is only available for Python services.",
 				},
 				{ status: 400 }
 			),
 		};
 	}
 
-	return { service, namespace: service.namespace || "default" };
+	const instanceRes = await getControllerInstanceById(
+		service.controller_instance_id
+	);
+	const instance = instanceRes.data?.[0];
+	const expectedCapability = capabilityForMode(instance?.mode);
+	const capabilities =
+		instance?.resource_attributes?.["controller.capabilities"] || "";
+	const supportsPythonSDK = capabilities
+		.split(",")
+		.map((item) => item.trim())
+		.includes(expectedCapability);
+
+	return { service, supportsPythonSDK, mode: instance?.mode || "linux" };
 }
 
 export async function GET(
@@ -41,22 +74,60 @@ export async function GET(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const result = await getK8sService(params);
+		const result = await getService(params);
 		if ("error" in result) return result.error;
-
-		const status = await getAgentInstrumentation(
-			result.namespace,
-			result.service.service_name
-		);
-
-		if (status.err) {
-			return Response.json({ error: status.err }, { status: 502 });
+		const attrs = result.service.resource_attributes || {};
+		const status = attrs["openlit.agent_observability.status"] || "disabled";
+		const source = attrs["openlit.agent_observability.source"] || "none";
+		const desiredStatus = attrs["openlit.agent_observability.desired_status"] || "";
+		let reason =
+			attrs["openlit.observability.reason"] ||
+			(result.service.language_runtime === "python"
+				? "Python runtime detected but OpenLIT Python SDK not enabled"
+				: "Agent observability is only available for Python services");
+		const conflict = attrs["openlit.observability.conflict"] || "";
+		let automatable = result.supportsPythonSDK;
+		const isContainerized = attrs["openlit.is_containerized"] === "true";
+		if (result.mode === "linux" && attrs["systemd.scope"] === "user") {
+			automatable = false;
+			reason = "User-scoped systemd services are not supported yet.";
+		}
+		if (result.mode === "docker" && !attrs["container.id"]) {
+			automatable = false;
+			reason = "Docker container metadata is missing for this workload.";
+		}
+		if (status === "enabled" && source === "existing_openlit") {
+			automatable = false;
+			reason =
+				"Existing OpenLIT instrumentation was detected, but it is not controller-managed and will not be removed automatically.";
+		}
+		if (!automatable && !attrs["openlit.observability.reason"]) {
+			reason = preflightReasonForMode(result.mode, result.supportsPythonSDK) || reason;
 		}
 
+		const transitioning = desiredStatus !== "" && desiredStatus !== status;
+		const workloadKind = attrs["k8s.workload.kind"] || "";
+		const isNakedPod = result.mode === "kubernetes" && (!workloadKind || workloadKind === "Pod");
+
+		const isManual = status === "manual" || desiredStatus === "manual";
+
 		return Response.json({
-			enabled: !!status.exists,
+			enabled: status === "enabled" || status === "manual",
+			supported: result.service.language_runtime === "python",
+			automatable,
+			mode: result.mode,
+			status,
+			desired_status: desiredStatus || null,
+			transitioning,
+			source,
+			conflict,
+			reason,
 			service: result.service.service_name,
-			namespace: result.namespace,
+			namespace: result.service.namespace || "default",
+			workload_kind: workloadKind || null,
+			is_naked_pod: isNakedPod,
+			is_manual: isManual,
+			is_containerized: isContainerized,
 		});
 	} catch (error: any) {
 		return Response.json(
@@ -71,29 +142,55 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const serviceContext = await getK8sService(params);
+		const serviceContext = await getService(params);
 		if ("error" in serviceContext) return serviceContext.error;
-
-		const body = await request.json().catch(() => ({}));
-		const otlpEndpoint = body?.otlp_endpoint;
-
-		const creation = await createAgentInstrumentation({
-			namespace: serviceContext.namespace,
-			serviceName: serviceContext.service.service_name,
-			otlpEndpoint,
-		});
-
-		if (creation.err) {
-			return Response.json({ error: creation.err }, { status: 502 });
+		if (!serviceContext.supportsPythonSDK) {
+			return Response.json(
+				{
+					error:
+						"Selected controller does not advertise Agent Observability support for this mode yet.",
+				},
+				{ status: 409 }
+			);
 		}
 
+		const body = await request.json().catch(() => ({}));
+		if (!serviceContext.service.workload_key) {
+			return Response.json(
+				{ error: "Service is missing workload_key" },
+				{ status: 500 }
+			);
+		}
+
+		const payload: PythonSDKActionPayload = {
+			target_runtime: "python",
+			instrumentation_profile: "controller_managed",
+			duplicate_policy: "block_if_existing_otel_detected",
+			observability_scope: "agent",
+			otlp_endpoint: body?.otlp_endpoint || null,
+			enable_http_instrumentation: body?.enable_http_instrumentation ?? true,
+			resource_attributes: {
+				"service.workload.key": serviceContext.service.workload_key,
+			},
+		};
+
+		await updateDesiredStatus(serviceContext.service.workload_key, serviceContext.service.cluster_id || "default", {
+			desired_agent_status: "enabled",
+		});
+
+		await queueAction(
+			serviceContext.service.controller_instance_id,
+			"enable_python_sdk",
+			serviceContext.service.workload_key,
+			JSON.stringify(payload)
+		);
+
 		return Response.json({
-			status: "created",
+			status: "queued",
 			message:
-				"AutoInstrumentation CRD created. Agent SDK will be injected on next pod restart. " +
-				"Only agent framework instrumentors are enabled (LLM provider data comes from eBPF).",
+				"Controller-managed Python SDK rollout queued. Workload-level changes will be applied on the next controller poll.",
 			service: serviceContext.service.service_name,
-			namespace: serviceContext.namespace,
+			namespace: serviceContext.service.namespace || "default",
 		});
 	} catch (error: any) {
 		return Response.json(
@@ -108,23 +205,45 @@ export async function DELETE(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const result = await getK8sService(params);
+		const result = await getService(params);
 		if ("error" in result) return result.error;
-
-		const deletion = await deleteAgentInstrumentation(
-			result.namespace,
-			result.service.service_name
-		);
-
-		if (deletion.err) {
-			return Response.json({ error: deletion.err }, { status: 502 });
+		if (!result.supportsPythonSDK) {
+			return Response.json(
+				{
+					error:
+						"Selected controller does not advertise Agent Observability support for this mode yet.",
+				},
+				{ status: 409 }
+			);
+		}
+		if (!result.service.workload_key) {
+			return Response.json(
+				{ error: "Service is missing workload_key" },
+				{ status: 500 }
+			);
 		}
 
+		await updateDesiredStatus(result.service.workload_key, result.service.cluster_id || "default", {
+			desired_agent_status: "none",
+		});
+
+		await queueAction(
+			result.service.controller_instance_id,
+			"disable_python_sdk",
+			result.service.workload_key,
+			JSON.stringify({
+				target_runtime: "python",
+				instrumentation_profile: "controller_managed",
+				duplicate_policy: "block_if_existing_otel_detected",
+				observability_scope: "agent",
+			} satisfies PythonSDKActionPayload)
+		);
+
 		return Response.json({
-			status: "deleted",
-			message: "Agent observability disabled.",
+			status: "queued",
+			message: "Controller-managed Python SDK removal queued.",
 			service: result.service.service_name,
-			namespace: result.namespace,
+			namespace: result.service.namespace || "default",
 		});
 	} catch (error: any) {
 		return Response.json(

@@ -109,7 +109,7 @@ services:
       - /proc:/host/proc:ro
       - /sys/kernel/debug:/sys/kernel/debug:ro
       - /sys/fs/bpf:/sys/fs/bpf:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       - otel-collector
 

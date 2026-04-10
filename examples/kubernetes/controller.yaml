@@ -11,10 +11,10 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [pods, nodes, namespaces, services, replicationcontrollers]
-    verbs: [get, list, watch]
+    verbs: [get, list, watch, create, delete]
   - apiGroups: [apps]
     resources: [deployments, replicasets, statefulsets, daemonsets]
-    verbs: [get, list, watch]
+    verbs: [get, list, watch, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

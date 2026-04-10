@@ -1,4 +1,4 @@
-import { getServiceById, queueAction } from "@/lib/platform/controller";
+import { getServiceById, getControllerIdsForWorkload, queueAction, updateDesiredStatus } from "@/lib/platform/controller";
 
 export async function POST(
 	request: Request,
@@ -23,13 +23,27 @@ export async function POST(
 			);
 		}
 
-		await queueAction(
-			service.controller_instance_id,
-			"uninstrument",
-			service.workload_key
+		await updateDesiredStatus(service.workload_key, service.cluster_id || "default", {
+			desired_instrumentation_status: "none",
+		});
+
+		const controllerIds = await getControllerIdsForWorkload(
+			service.service_name,
+			service.namespace || "",
+			service.cluster_id || "default"
+		);
+		const targets = controllerIds.data?.map((r) => r.controller_instance_id) || [];
+		if (targets.length === 0) {
+			targets.push(service.controller_instance_id);
+		}
+
+		await Promise.all(
+			targets.map((cid) =>
+				queueAction(cid, "uninstrument", service.workload_key)
+			)
 		);
 
-		return Response.json({ status: "queued", action: "uninstrument" });
+		return Response.json({ status: "queued", action: "uninstrument", controllers: targets.length });
 	} catch (error: any) {
 		return Response.json(
 			{ error: error.message || "Uninstrumentation failed" },

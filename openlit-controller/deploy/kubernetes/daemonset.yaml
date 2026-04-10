@@ -39,6 +39,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.uid
+            - name: OPENLIT_CLUSTER_ID
+              value: "default"
           securityContext:
             privileged: true
           volumeMounts:

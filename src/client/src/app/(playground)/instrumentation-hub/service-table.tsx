@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import type {
 	ControllerService,
 	ControllerInstance,
@@ -32,17 +31,19 @@ interface ServiceTableProps {
 
 interface EnrichedService extends ControllerService {
 	mode: "linux" | "docker" | "kubernetes" | "standalone";
+	agentStatus: "enabled" | "disabled" | "unsupported";
+	agentSource: string;
 }
 
 type ServiceColumnKey =
 	| "service"
 	| "system"
 	| "providers"
-	| "status"
-	| "lastSeen"
-	| "action";
+	| "aiObservability"
+	| "agentObservability"
+	| "lastSeen";
 
-function ActionButton({
+function AIObservabilityCell({
 	service,
 	onRefresh,
 }: {
@@ -50,16 +51,18 @@ function ActionButton({
 	onRefresh: () => void;
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
-	const isInstrumented = service.instrumentation_status === "instrumented";
+	const isInstrumented =
+		service.instrumentation_status === "instrumented" ||
+		service.desired_instrumentation_status === "instrumented";
 	const pendingAction = service.pending_action || undefined;
 	const isPending =
-		service.pending_action_status === "pending" ||
-		service.pending_action_status === "acknowledged";
+		(service.pending_action_status === "pending" ||
+			service.pending_action_status === "acknowledged") &&
+		(pendingAction === "instrument" || pendingAction === "uninstrument");
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (isPending) return;
-
 		const action = isInstrumented ? "uninstrument" : "instrument";
 		await fireRequest({
 			requestType: "POST",
@@ -76,31 +79,105 @@ function ActionButton({
 		});
 	};
 
+	if (isPending) {
+		return (
+			<button
+				disabled
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
+			>
+				<Loader2 className="w-3 h-3 animate-spin" />
+				{isInstrumented ? "Disabling..." : "Enabling..."}
+			</button>
+		);
+	}
+
 	return (
 		<button
 			onClick={handleAction}
-			disabled={isLoading || isPending}
+			disabled={isLoading}
 			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
-				isPending
-					? "border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800"
-					:
 				isInstrumented
 					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
 					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
 			}`}
 		>
-			{(isLoading || isPending) && (
+			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+			{isLoading ? "Working..." : isInstrumented ? "Disable" : "Enable"}
+		</button>
+	);
+}
+
+function AgentObservabilityCell({
+	service,
+	onRefresh,
+}: {
+	service: EnrichedService;
+	onRefresh: () => void;
+}) {
+	const { fireRequest, isLoading } = useFetchWrapper();
+	const { agentStatus } = service;
+	const pendingAction = service.pending_action || undefined;
+	const isPending =
+		(service.pending_action_status === "pending" ||
+			service.pending_action_status === "acknowledged") &&
+		(pendingAction === "enable_python_sdk" ||
+			pendingAction === "disable_python_sdk");
+
+	if (agentStatus === "unsupported") {
+		return (
+			<span className="text-xs text-stone-400 dark:text-stone-500">—</span>
+		);
+	}
+
+	const handleAction = async (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (isPending) return;
+		const enabling = agentStatus !== "enabled";
+		await fireRequest({
+			requestType: enabling ? "POST" : "DELETE",
+			url: `/api/controller/catalog/${service.id}/agent-instrument`,
+			successCb: () => {
+				toast.success(
+					enabling
+						? `Enabling Agent Observability for ${service.service_name}`
+						: `Disabling Agent Observability for ${service.service_name}`
+				);
+				onRefresh();
+			},
+			failureCb: (err: any) => {
+				toast.error(`Failed: ${err}`);
+			},
+		});
+	};
+
+	if (isPending) {
+		return (
+			<button
+				disabled
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
+			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-			)}
-			{isPending
-				? pendingAction === "instrument"
-					? "Instrumenting..."
-					: "Uninstrumenting..."
-				: isLoading
-					? "Working..."
-					: isInstrumented
-						? "Uninstrument"
-						: "Instrument"}
+				{agentStatus === "enabled" ? "Disabling..." : "Enabling..."}
+			</button>
+		);
+	}
+
+	return (
+		<button
+			onClick={handleAction}
+			disabled={isLoading}
+			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+				agentStatus === "enabled"
+					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
+			}`}
+		>
+			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+			{isLoading
+				? "Working..."
+				: agentStatus === "enabled"
+					? "Disable"
+					: "Enable"}
 		</button>
 	);
 }
@@ -117,6 +194,11 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 				>
 					{row.service_name}
 				</Link>
+				{row.cluster_id && row.cluster_id !== "default" && (
+					<span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex-shrink-0">
+						{row.cluster_id}
+					</span>
+				)}
 				{row.mode !== "kubernetes" && row.pid > 0 && (
 					<span className="text-xs text-stone-400 flex-shrink-0">
 						PID {row.pid}
@@ -165,37 +247,10 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 						</span>
 					))
 				) : (
-					<span className="text-stone-400">-</span>
+					<span className="text-stone-400">—</span>
 				)}
 			</div>
 		),
-	},
-	status: {
-		header: () => "Status",
-		cell: ({ row }) => {
-			const isInstrumented =
-				row.instrumentation_status === "instrumented";
-			const pendingAction = row.pending_action || undefined;
-			const isPending =
-				row.pending_action_status === "pending" ||
-				row.pending_action_status === "acknowledged";
-
-			if (pendingAction && isPending) {
-				return (
-					<Badge variant="outline" className="inline-flex items-center gap-1.5">
-						<Loader2 className="w-3 h-3 animate-spin" />
-						{pendingAction === "instrument"
-							? "Instrumenting"
-							: "Uninstrumenting"}
-					</Badge>
-				);
-			}
-			return (
-				<Badge variant={isInstrumented ? "default" : "secondary"}>
-					{isInstrumented ? "Instrumented" : "Discovered"}
-				</Badge>
-			);
-		},
 	},
 	lastSeen: {
 		header: () => "Last Seen",
@@ -205,10 +260,19 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 			</span>
 		),
 	},
-	action: {
-		header: () => "Action",
+	aiObservability: {
+		header: () => "LLM Observability",
 		cell: ({ row, extraFunctions }) => (
-			<ActionButton
+			<AIObservabilityCell
+				service={row}
+				onRefresh={extraFunctions.onRefresh}
+			/>
+		),
+	},
+	agentObservability: {
+		header: () => "Agent Observability",
+		cell: ({ row, extraFunctions }) => (
+			<AgentObservabilityCell
 				service={row}
 				onRefresh={extraFunctions.onRefresh}
 			/>
@@ -220,9 +284,9 @@ const VISIBILITY_COLUMNS: Record<ServiceColumnKey, boolean> = {
 	service: true,
 	system: true,
 	providers: true,
-	status: true,
 	lastSeen: true,
-	action: true,
+	aiObservability: true,
+	agentObservability: true,
 };
 
 export default function ServiceTable({
@@ -247,9 +311,30 @@ export default function ServiceTable({
 	const enriched: EnrichedService[] = useMemo(() => {
 		return services.map((svc) => {
 			const inst = instanceMap.get(svc.controller_instance_id);
+			const attrs = svc.resource_attributes || {};
+		const isPython =
+			(attrs["process.runtime.name"] || "").toLowerCase() === "python";
+			const agentStatusRaw =
+				attrs["openlit.agent_observability.status"] || "";
+			const agentSource =
+				attrs["openlit.agent_observability.source"] || "";
+
+			let agentStatus: "enabled" | "disabled" | "unsupported" =
+				"disabled";
+			if (!isPython) {
+				agentStatus = "unsupported";
+			} else if (
+				agentStatusRaw === "enabled" ||
+				svc.desired_agent_status === "enabled"
+			) {
+				agentStatus = "enabled";
+			}
+
 			return {
 				...svc,
 				mode: inst?.mode || "linux",
+				agentStatus,
+				agentSource,
 			};
 		});
 	}, [services, instanceMap]);

@@ -17,86 +17,94 @@ for cmd in docker k3d kubectl; do
   fi
 done
 
-# ── 2. Verify k3d cluster exists ────────────────────────────────────────
-if ! k3d cluster list 2>/dev/null | grep -q "${CLUSTER_NAME}"; then
-  echo "ERROR: k3d cluster '${CLUSTER_NAME}' not found. Create it first:"
-  echo "  k3d cluster create ${CLUSTER_NAME}"
-  exit 1
+# ── 2. Create k3d cluster (1 server + 2 agents = 3 nodes) ───────────────
+if k3d cluster list 2>/dev/null | grep -q "${CLUSTER_NAME}"; then
+  echo "Deleting existing k3d cluster '${CLUSTER_NAME}'..."
+  k3d cluster delete "${CLUSTER_NAME}"
 fi
 
-echo "Using existing k3d cluster '${CLUSTER_NAME}'"
+echo "Creating 3-node k3d cluster '${CLUSTER_NAME}' (1 server + 2 agents)..."
+k3d cluster create "${CLUSTER_NAME}" --agents 2 --wait
 kubectl cluster-info --context "k3d-${CLUSTER_NAME}"
 echo ""
 
-# ── 3. Build and load the OpenLIT Dashboard image ───────────────────────
-echo "Building OpenLIT Dashboard image (from local source)..."
+# ── 3. Build all images ─────────────────────────────────────────────────
+echo "Building OpenLIT Dashboard image..."
 docker build -t openlit:local "$REPO_ROOT/src"
-k3d image import openlit:local -c "$CLUSTER_NAME"
-echo "Dashboard image loaded into k3d cluster."
 echo ""
 
-# ── 4. Build and load the OpenLIT Controller image ──────────────────────
 echo "Building OpenLIT Controller image..."
 docker build -t openlit-controller:local "$REPO_ROOT/openlit-controller"
-k3d image import openlit-controller:local -c "$CLUSTER_NAME"
-echo "Controller image loaded into k3d cluster."
 echo ""
 
-# ── 5. Build and load sample app images into k3d ────────────────────────
 echo "Building sample app images..."
-
-IMAGES="openlit-example-openai openlit-example-anthropic openlit-example-bedrock openlit-example-gemini"
-DIRS="openai-chat-app anthropic-chat-app bedrock-chat-app gemini-chat-app"
-
-set -- $DIRS
-for img in $IMAGES; do
-  dir="$REPO_ROOT/examples/$1"; shift
-  echo "  Building ${img} from ${dir}..."
-  docker build -t "${img}:latest" "$dir" --quiet
-  k3d image import "${img}:latest" -c "$CLUSTER_NAME"
-done
-
-echo "All images loaded into k3d cluster."
+docker build -t openlit-example-gemini:latest   "$REPO_ROOT/examples/gemini-chat-app"   --quiet
+docker build -t openlit-example-crewai:latest   "$REPO_ROOT/examples/crewai-agent-app"  --quiet
+docker build -t openlit-example-bedrock:latest  "$REPO_ROOT/examples/bedrock-chat-app"  --quiet
 echo ""
 
-# ── 6. Deploy everything with Kustomize ─────────────────────────────────
-echo "Applying Kubernetes manifests..."
-kubectl apply -k "$SCRIPT_DIR"
+echo "Loading all images into k3d cluster..."
+k3d image import \
+  openlit:local \
+  openlit-controller:local \
+  openlit-example-gemini:latest \
+  openlit-example-crewai:latest \
+  openlit-example-bedrock:latest \
+  -c "$CLUSTER_NAME"
+echo "All images loaded."
 echo ""
 
-# ── 7. Wait for ClickHouse to be ready ──────────────────────────────────
-echo "Waiting for ClickHouse to be ready..."
+# ── 4. Deploy infrastructure (namespace, clickhouse, otel, dashboard) ───
+echo "Deploying infrastructure..."
+kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
+kubectl apply -f "$SCRIPT_DIR/clickhouse.yaml"
+kubectl apply -f "$SCRIPT_DIR/otel-collector.yaml"
+kubectl apply -f "$SCRIPT_DIR/openlit.yaml"
+
+echo "Waiting for ClickHouse..."
 kubectl rollout status statefulset/clickhouse -n "$K8S_NAMESPACE" --timeout=120s
-
 echo "Waiting for OTEL Collector..."
 kubectl rollout status deployment/otel-collector -n "$K8S_NAMESPACE" --timeout=60s
-
 echo "Waiting for OpenLIT dashboard..."
 kubectl rollout status deployment/openlit -n "$K8S_NAMESPACE" --timeout=120s
-
 echo ""
 
-# ── 8. Print access instructions ────────────────────────────────────────
+# ── 5. Deploy sample apps FIRST (before the controller) ─────────────────
+echo "Deploying sample apps (before controller, to test discovery of existing LLM connections)..."
+kubectl apply -f "$SCRIPT_DIR/sample-apps.yaml"
+
+echo "Waiting for sample apps to start..."
+kubectl wait --for=condition=Ready pod -l app=gemini-app -n "$K8S_NAMESPACE" --timeout=60s 2>/dev/null || true
+kubectl rollout status deployment/crewai-agent-app -n "$K8S_NAMESPACE" --timeout=60s 2>/dev/null || true
+kubectl rollout status daemonset/bedrock-app -n "$K8S_NAMESPACE" --timeout=60s 2>/dev/null || true
+
+echo "Sample apps running. Letting them make LLM API calls for 15 seconds..."
+sleep 15
+echo ""
+
+# ── 6. Deploy the controller (discovers already-running apps) ────────────
+echo "Deploying OpenLIT Controller (should discover existing LLM traffic)..."
+kubectl apply -f "$SCRIPT_DIR/controller.yaml"
+kubectl rollout status daemonset/openlit-controller -n "$K8S_NAMESPACE" --timeout=120s
+echo ""
+
+# ── 7. Print access instructions ────────────────────────────────────────
 echo "=== Setup Complete ==="
 echo ""
-echo "All components are running in the '${K8S_NAMESPACE}' namespace."
+echo "  Cluster: 3 nodes (1 server + 2 agents)"
+echo "  Workload types:"
+echo "    - gemini-app       : naked Pod"
+echo "    - crewai-agent-app : Deployment (2 replicas, spread across nodes)"
+echo "    - bedrock-app      : DaemonSet (runs on every node)"
+echo ""
+echo "  Controller was deployed AFTER apps — it should discover existing LLM connections."
 echo ""
 echo "To access the OpenLIT dashboard:"
 echo "  kubectl port-forward svc/openlit -n ${K8S_NAMESPACE} 3000:3000"
 echo "  Then open http://localhost:3000"
 echo ""
-echo "To set your API keys (edit the secret, then restart apps):"
-echo "  kubectl edit secret llm-api-keys -n ${K8S_NAMESPACE}"
-echo "  kubectl rollout restart deployment -n ${K8S_NAMESPACE} -l 'app in (openai-app, anthropic-app, bedrock-app, gemini-app)'"
+echo "Node distribution:"
+kubectl get pods -n "$K8S_NAMESPACE" -o wide --no-headers | awk '{printf "  %-40s %s\n", $1, $7}'
 echo ""
 echo "To check controller logs:"
 echo "  kubectl logs -n ${K8S_NAMESPACE} -l app=openlit-controller -f"
-echo ""
-echo "To check sample app logs:"
-echo "  kubectl logs -n ${K8S_NAMESPACE} -l app=openai-app -f"
-echo ""
-echo "To tear down (resources only, keeps cluster):"
-echo "  kubectl delete -k $SCRIPT_DIR"
-echo ""
-echo "To tear down (entire cluster):"
-echo "  k3d cluster delete ${CLUSTER_NAME}"

@@ -26,6 +26,8 @@ type Config struct {
 	OTLPEndpoint  string        `yaml:"otlp_endpoint"`
 	ProcRoot      string        `yaml:"proc_root"`
 	Environment   string        `yaml:"environment"`
+	ClusterID     string        `yaml:"cluster_id"`
+	SDKVersion    string        `yaml:"sdk_version"`
 	DeployMode    DeployMode    `yaml:"-"`
 }
 
@@ -33,14 +35,8 @@ func DetectDeployMode() DeployMode {
 	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount"); err == nil {
 		return DeployKubernetes
 	}
-	if _, err := os.Stat("/.dockerenv"); err == nil {
+	if _, err := os.Stat("/var/run/docker.sock"); err == nil {
 		return DeployDocker
-	}
-	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
-		s := string(data)
-		if strings.Contains(s, "docker") || strings.Contains(s, "containerd") || strings.Contains(s, "kubepods") {
-			return DeployDocker
-		}
 	}
 	return DeployLinux
 }
@@ -48,7 +44,7 @@ func DetectDeployMode() DeployMode {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		APIListen:     ":4321",
-		PollInterval:  2 * time.Second,
+		PollInterval:  30 * time.Second,
 		OBIBinaryPath: "/usr/local/bin/obi",
 		OTLPEndpoint:  "http://localhost:4318",
 		ProcRoot:      "/proc",
@@ -100,8 +96,23 @@ func Load(path string) (*Config, error) {
 		cfg.Environment = "default"
 	}
 
+	if v := os.Getenv("OPENLIT_CLUSTER_ID"); v != "" {
+		cfg.ClusterID = v
+	}
+	if cfg.ClusterID == "" {
+		cfg.ClusterID = "default"
+	}
+
+	if v := os.Getenv("OPENLIT_SDK_VERSION"); v != "" {
+		cfg.SDKVersion = v
+	}
+
 	cfg.OpenlitURL = strings.TrimRight(cfg.OpenlitURL, "/")
-	cfg.DeployMode = DetectDeployMode()
+	if v := os.Getenv("OPENLIT_DEPLOY_MODE"); v != "" {
+		cfg.DeployMode = DeployMode(v)
+	} else {
+		cfg.DeployMode = DetectDeployMode()
+	}
 
 	if cfg.OpenlitURL == "" {
 		return nil, fmt.Errorf("openlit_url is required (set via config file or OPENLIT_URL env var)")

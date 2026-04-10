@@ -1,0 +1,83 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.4.1
+    container_name: openlit-clickhouse
+    environment:
+      CLICKHOUSE_PASSWORD: OPENLIT
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DATABASE: openlit
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: "true"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ../../assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
+      - ../../assets/clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user=default --password=OPENLIT --query='SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+  otel-collector:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.98.0
+    container_name: openlit-otel-collector
+    volumes:
+      - ../../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml:ro
+    command: ["--config", "/etc/otel/otel-collector-config.yaml"]
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: "8123"
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  openlit:
+    image: openlit:local
+    container_name: openlit-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: "8123"
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
+    volumes:
+      - openlit-data:/app/client/data
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # Simulates a bare Linux host: controller + sample Python apps as processes
+  linux-host:
+    build:
+      context: .
+      dockerfile: Dockerfile.host
+    container_name: openlit-linux-host
+    privileged: true
+    pid: host
+    environment:
+      OPENLIT_URL: http://openlit:3000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OPENLIT_POLL_INTERVAL: 10s
+      OPENLIT_PROC_ROOT: /host/proc
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+    depends_on:
+      - openlit
+      - otel-collector
+
+volumes:
+  clickhouse-data:
+  openlit-data:

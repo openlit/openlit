@@ -25,8 +25,14 @@ services:
       - "4321:4321"
     environment:
       OPENLIT_URL: http://openlit:3000
+      OPENLIT_PROC_ROOT: /host/proc
     depends_on:
       - openlit
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
 
 volumes:
   clickhouse-data:

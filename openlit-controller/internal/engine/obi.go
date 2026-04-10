@@ -259,13 +259,16 @@ type obiDiscovery struct {
 }
 
 type obiTarget struct {
-	Name           string `yaml:"name,omitempty"`
-	Path           string `yaml:"exe_path,omitempty"`
-	CmdArgs        string `yaml:"cmd_args,omitempty"`
-	TargetPIDs     []int  `yaml:"target_pids,omitempty"`
-	ContainersOnly bool   `yaml:"containers_only,omitempty"`
-	K8sNamespace   string `yaml:"k8s_namespace,omitempty"`
-	K8sPodName     string `yaml:"k8s_pod_name,omitempty"`
+	Name            string `yaml:"name,omitempty"`
+	Path            string `yaml:"exe_path,omitempty"`
+	CmdArgs         string `yaml:"cmd_args,omitempty"`
+	TargetPIDs      []int  `yaml:"target_pids,omitempty"`
+	ContainersOnly  bool   `yaml:"containers_only,omitempty"`
+	K8sNamespace    string `yaml:"k8s_namespace,omitempty"`
+	K8sPodName      string `yaml:"k8s_pod_name,omitempty"`
+	K8sDeployment   string `yaml:"k8s_deployment_name,omitempty"`
+	K8sDaemonSet    string `yaml:"k8s_daemonset_name,omitempty"`
+	K8sStatefulSet  string `yaml:"k8s_statefulset_name,omitempty"`
 }
 
 type obiAttributes struct {
@@ -291,7 +294,7 @@ func BuildInstrumentConfig(
 	mode config.DeployMode,
 	environment string,
 ) OBIConfig {
-	excludeOTel := false
+	excludeOTel := true
 
 	cfg := OBIConfig{
 		LogLevel:     "info",
@@ -310,7 +313,7 @@ func BuildInstrumentConfig(
 	}
 
 	cfg.EBPF.BufferSizes.HTTP = 8192
-	cfg.EBPF.ProtocolDebug = true
+	cfg.EBPF.ProtocolDebug = false
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.OpenAI.Enabled = enabledProviders["openai"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Anthropic.Enabled = enabledProviders["anthropic"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Gemini.Enabled = enabledProviders["gemini"]

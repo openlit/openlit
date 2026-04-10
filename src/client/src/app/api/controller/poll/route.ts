@@ -6,6 +6,9 @@ import {
 	markActionsAcknowledged,
 	completeAction,
 	getConfigHash,
+	getServicesToReconcile,
+	queueAction,
+	getDesiredStatesForWorkloads,
 } from "@/lib/platform/controller";
 import { getFirstDBConfig } from "@/lib/db-config";
 import type { ControllerConfig } from "@/types/controller";
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
 			services,
 			action_results,
 			resource_attributes,
+			cluster_id: rawClusterId,
 		} = body;
 
 		if (!instance_id) {
@@ -54,6 +58,8 @@ export async function POST(request: Request) {
 				{ status: 400 }
 			);
 		}
+
+		const clusterId = rawClusterId || "default";
 
 		const dbConfig = await getFirstDBConfig();
 		if (!dbConfig) {
@@ -66,10 +72,11 @@ export async function POST(request: Request) {
 
 		const now = clickhouseNow();
 
-		// 1. Upsert controller instance (acts as register + heartbeat)
+		// 1. Upsert controller instance
 		const instResult = await upsertControllerInstance(
 			{
 				instance_id,
+				cluster_id: clusterId,
 				version: version || "",
 				mode: mode || "linux",
 				node_name: node_name || "",
@@ -86,17 +93,45 @@ export async function POST(request: Request) {
 			console.error("controller poll: upsert instance error:", instResult.err);
 		}
 
-		// 2. Upsert discovered services
+		// 2. Upsert discovered services — carry forward desired_* columns
+		//    so the ReplacingMergeTree INSERT doesn't revert them to defaults
+		const reportedServices: Array<{
+			workload_key: string;
+			instrumentation_status: string;
+			resource_attributes?: Record<string, string>;
+		}> = [];
+
 		if (Array.isArray(services) && services.length > 0) {
+			const workloadKeys = services
+				.map((s: any) => s.workload_key)
+				.filter(Boolean) as string[];
+			const desiredRes = await getDesiredStatesForWorkloads(
+				workloadKeys,
+				clusterId,
+				dbId
+			);
+			const desiredMap = new Map(
+				(desiredRes.data || []).map((d) => [d.workload_key, d])
+			);
+
 			const rows = services.map((svc: any) => {
 				if (!svc.workload_key) {
 					throw new Error("controller poll: service is missing workload_key");
 				}
 				const ns = svc.namespace || "";
 				const name = svc.service_name || "";
+				const desired = desiredMap.get(svc.workload_key);
+
+				reportedServices.push({
+					workload_key: svc.workload_key,
+					instrumentation_status: svc.instrumentation_status || "discovered",
+					resource_attributes: svc.resource_attributes,
+				});
+
 				return {
 					id: deterministicServiceId(instance_id, svc.workload_key, ns, name),
 					controller_instance_id: instance_id,
+					cluster_id: clusterId,
 					service_name: name,
 					workload_key: svc.workload_key,
 					namespace: ns,
@@ -107,7 +142,14 @@ export async function POST(request: Request) {
 					pid: svc.pid || 0,
 					exe_path: svc.exe_path || "",
 					instrumentation_status: svc.instrumentation_status || "discovered",
+					desired_instrumentation_status:
+						(desired?.desired_instrumentation_status || "none") as
+							"none" | "instrumented",
+					desired_agent_status:
+						(desired?.desired_agent_status || "none") as
+							"none" | "enabled",
 					resource_attributes: svc.resource_attributes || {},
+					first_seen: svc.first_seen || now,
 					last_seen: now,
 					updated_at: now,
 				};
@@ -139,7 +181,54 @@ export async function POST(request: Request) {
 			}
 		}
 
-		// 4. Check if config has changed
+		// 4. Reconciliation: compare desired vs. reported state and queue missing actions
+		if (reportedServices.length > 0) {
+			try {
+				const reconcile = await getServicesToReconcile(
+					instance_id,
+					reportedServices,
+					dbId
+				);
+				for (const key of reconcile.instrumentKeys) {
+					await queueAction(instance_id, "instrument", key, "{}", dbId);
+				}
+				for (const key of reconcile.uninstrumentKeys) {
+					await queueAction(instance_id, "uninstrument", key, "{}", dbId);
+				}
+				for (const key of reconcile.enableAgentKeys) {
+					await queueAction(
+						instance_id,
+						"enable_python_sdk",
+						key,
+						JSON.stringify({
+							target_runtime: "python",
+							instrumentation_profile: "controller_managed",
+							duplicate_policy: "block_if_existing_otel_detected",
+							observability_scope: "agent",
+						}),
+						dbId
+					);
+				}
+				for (const key of reconcile.disableAgentKeys) {
+					await queueAction(
+						instance_id,
+						"disable_python_sdk",
+						key,
+						JSON.stringify({
+							target_runtime: "python",
+							instrumentation_profile: "controller_managed",
+							duplicate_policy: "block_if_existing_otel_detected",
+							observability_scope: "agent",
+						}),
+						dbId
+					);
+				}
+			} catch (reconcileErr) {
+				console.error("controller poll: reconciliation error:", reconcileErr);
+			}
+		}
+
+		// 5. Check if config has changed
 		let configChanged = false;
 		let config: ControllerConfig | null = null;
 		let serverConfigHash = "";
@@ -162,7 +251,7 @@ export async function POST(request: Request) {
 			}
 		}
 
-		// 5. Get pending actions and mark them acknowledged
+		// 6. Get pending actions and mark them acknowledged
 		const actionsRes = await getPendingActions(instance_id, dbId);
 		const pendingActions = actionsRes.data || [];
 

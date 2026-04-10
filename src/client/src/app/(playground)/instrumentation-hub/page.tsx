@@ -109,9 +109,11 @@ export default function InstrumentationHub() {
 
 	const totalControllers = controllerRows.length;
 	const totalServices = serviceRows.length;
-	const instrumentedServices =
-		serviceRows.filter((s) => s.instrumentation_status === "instrumented")
-			.length;
+	const instrumentedServices = serviceRows.filter(
+		(s) =>
+			s.instrumentation_status === "instrumented" ||
+			s.desired_agent_status === "enabled"
+	).length;
 
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();

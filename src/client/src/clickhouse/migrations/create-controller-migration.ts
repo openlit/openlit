@@ -65,7 +65,12 @@ export default async function CreateControllerMigration(
 		CREATE TABLE IF NOT EXISTS ${CONTROLLER_ACTIONS_TABLE} (
 			id UUID DEFAULT generateUUIDv4(),
 			instance_id String,
-			action_type Enum8('instrument' = 0, 'uninstrument' = 1),
+			action_type Enum8(
+				'instrument' = 0,
+				'uninstrument' = 1,
+				'enable_python_sdk' = 2,
+				'disable_python_sdk' = 3
+			),
 			service_key String DEFAULT '',
 			payload String DEFAULT '{}',
 			status Enum8('pending' = 0, 'acknowledged' = 1, 'completed' = 2, 'failed' = 3) DEFAULT 'pending',

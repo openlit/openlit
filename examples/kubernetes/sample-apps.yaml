@@ -5,32 +5,65 @@ metadata:
   namespace: openlit
 type: Opaque
 stringData:
-  OPENAI_API_KEY: "REPLACE_ME"
-  ANTHROPIC_API_KEY: "REPLACE_ME"
-  GEMINI_API_KEY: "REPLACE_ME"
-  AWS_BEARER_BEDROCK_TOKEN: "REPLACE_ME"
+  OPENAI_API_KEY: "random_key"
+  GEMINI_API_KEY: "random_key"
+  AWS_BEARER_BEDROCK_TOKEN: "random_key"
 ---
-# OpenAI sample app
+# Gemini sample app — naked Pod (no controller, no ReplicaSet)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gemini-app
+  namespace: openlit
+  labels:
+    app: gemini-app
+spec:
+  containers:
+    - name: gemini-app
+      image: openlit-example-gemini:latest
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: llm-api-keys
+              key: GEMINI_API_KEY
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+---
+# CrewAI agent app — Deployment with 2 replicas (spread across nodes)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: openai-app
+  name: crewai-agent-app
   namespace: openlit
   labels:
-    app: openai-app
+    app: crewai-agent-app
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: openai-app
+      app: crewai-agent-app
   template:
     metadata:
       labels:
-        app: openai-app
+        app: crewai-agent-app
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: crewai-agent-app
       containers:
-        - name: openai-app
-          image: openlit-example-openai:latest
+        - name: crewai-agent-app
+          image: openlit-example-crewai:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: OPENAI_API_KEY
@@ -40,58 +73,21 @@ spec:
                   key: OPENAI_API_KEY
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
+              cpu: 100m
               memory: 128Mi
----
-# Anthropic sample app
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: anthropic-app
-  namespace: openlit
-  labels:
-    app: anthropic-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: anthropic-app
-  template:
-    metadata:
-      labels:
-        app: anthropic-app
-    spec:
-      containers:
-        - name: anthropic-app
-          image: openlit-example-anthropic:latest
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: ANTHROPIC_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: llm-api-keys
-                  key: ANTHROPIC_API_KEY
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
             limits:
-              cpu: 200m
-              memory: 128Mi
+              cpu: 500m
+              memory: 512Mi
 ---
-# Bedrock sample app
+# Bedrock sample app — DaemonSet (runs on every node)
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: bedrock-app
   namespace: openlit
   labels:
     app: bedrock-app
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: bedrock-app
@@ -121,39 +117,8 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
----
-# Gemini sample app
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: gemini-app
-  namespace: openlit
-  labels:
-    app: gemini-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: gemini-app
-  template:
-    metadata:
-      labels:
-        app: gemini-app
-    spec:
-      containers:
-        - name: gemini-app
-          image: openlit-example-gemini:latest
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: GEMINI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: llm-api-keys
-                  key: GEMINI_API_KEY
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
