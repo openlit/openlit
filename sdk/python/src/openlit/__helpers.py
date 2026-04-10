@@ -459,12 +459,26 @@ def create_metrics_attributes(
     if error_type:
         attributes[SemanticConvention.ERROR_TYPE] = error_type
 
-    # Merge custom metrics attributes from config
-    config = OpenlitConfig()
-    if config.custom_metrics_attributes:
-        attributes.update(config.custom_metrics_attributes)
+    _apply_custom_metrics_attributes(attributes)
 
     return attributes
+
+
+def _apply_custom_metrics_attributes(attributes: Dict[Any, Any]) -> None:
+    """
+    Merges user-defined custom_metrics_attributes from OpenlitConfig into the
+    given attributes dict. Custom attributes cannot overwrite reserved core
+    keys (service.name, telemetry.sdk.name, deployment.environment) to prevent
+    accidental corruption of standard OTel resource attributes.
+    """
+    config = OpenlitConfig()
+    if not config.custom_metrics_attributes:
+        return
+
+    reserved_keys = {TELEMETRY_SDK_NAME, SERVICE_NAME, DEPLOYMENT_ENVIRONMENT}
+    for key, value in config.custom_metrics_attributes.items():
+        if key not in reserved_keys:
+            attributes[key] = value
 
 
 def create_db_metrics_attributes(
@@ -489,10 +503,7 @@ def create_db_metrics_attributes(
         SemanticConvention.SERVER_PORT: server_port,
     }
 
-    # Merge custom metrics attributes from config
-    config = OpenlitConfig()
-    if config.custom_metrics_attributes:
-        attributes.update(config.custom_metrics_attributes)
+    _apply_custom_metrics_attributes(attributes)
 
     return attributes
 
