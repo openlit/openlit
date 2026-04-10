@@ -459,6 +459,11 @@ def create_metrics_attributes(
     if error_type:
         attributes[SemanticConvention.ERROR_TYPE] = error_type
 
+    # Merge custom metrics attributes from config
+    config = OpenlitConfig()
+    if config.custom_metrics_attributes:
+        attributes.update(config.custom_metrics_attributes)
+
     return attributes
 
 
@@ -474,7 +479,7 @@ def create_db_metrics_attributes(
     Returns OTel metrics attributes for database operations
     """
 
-    return {
+    attributes = {
         TELEMETRY_SDK_NAME: "openlit",
         SERVICE_NAME: service_name,
         DEPLOYMENT_ENVIRONMENT: deployment_environment,
@@ -483,6 +488,13 @@ def create_db_metrics_attributes(
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
     }
+
+    # Merge custom metrics attributes from config
+    config = OpenlitConfig()
+    if config.custom_metrics_attributes:
+        attributes.update(config.custom_metrics_attributes)
+
+    return attributes
 
 
 def set_server_address_and_port(
