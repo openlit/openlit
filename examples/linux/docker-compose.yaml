@@ -1,61 +1,55 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.4.1
-    container_name: openlit-clickhouse
+    container_name: clickhouse
     environment:
-      CLICKHOUSE_PASSWORD: OPENLIT
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_DATABASE: openlit
-      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: "true"
+      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
+      CLICKHOUSE_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: true
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../../assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
       - ../../assets/clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     ports:
-      - "8123:8123"
       - "9000:9000"
+      - "8123:8123"
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --user=default --password=OPENLIT --query='SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "clickhouse-client --user=$${CLICKHOUSE_USER} --password=$${CLICKHOUSE_PASSWORD} --query='SELECT 1' || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 30s
+      start_period: 100s
+    restart: always
 
-  otel-collector:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.98.0
-    container_name: openlit-otel-collector
-    volumes:
-      - ../../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml:ro
-    command: ["--config", "/etc/otel/otel-collector-config.yaml"]
+  openlit:
+    image: openlit:local
+    container_name: openlit
     environment:
       INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: "8123"
-      INIT_DB_DATABASE: openlit
-      INIT_DB_USERNAME: default
-      INIT_DB_PASSWORD: OPENLIT
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+      HOSTNAME: "0.0.0.0"
     ports:
+      - "3000:3000"
       - "4317:4317"
       - "4318:4318"
     depends_on:
       clickhouse:
         condition: service_healthy
-
-  openlit:
-    image: openlit:local
-    container_name: openlit-dashboard
-    ports:
-      - "3000:3000"
-    environment:
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: "8123"
-      INIT_DB_DATABASE: openlit
-      INIT_DB_USERNAME: default
-      INIT_DB_PASSWORD: OPENLIT
     volumes:
       - openlit-data:/app/client/data
-    depends_on:
-      clickhouse:
-        condition: service_healthy
+      - ../../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
 
   # Simulates a bare Linux host: controller + sample Python apps as processes
   linux-host:
@@ -67,7 +61,7 @@ services:
     pid: host
     environment:
       OPENLIT_URL: http://openlit:3000
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
       OPENLIT_POLL_INTERVAL: 10s
       OPENLIT_PROC_ROOT: /host/proc
     volumes:
@@ -75,8 +69,8 @@ services:
       - /sys/kernel/debug:/sys/kernel/debug:ro
       - /sys/fs/bpf:/sys/fs/bpf:rw
     depends_on:
-      - openlit
-      - otel-collector
+      openlit:
+        condition: service_healthy
 
 volumes:
   clickhouse-data:

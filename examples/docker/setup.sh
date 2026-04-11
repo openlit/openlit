@@ -28,15 +28,15 @@ echo "Cleaning up any existing stack..."
 docker compose -f "$SCRIPT_DIR/docker-compose.yaml" down -v --remove-orphans 2>/dev/null || true
 echo ""
 
-# ── 3. Start sample apps first, then controller ─────────────────────────
-echo "Starting infrastructure (ClickHouse, OTEL Collector, Dashboard)..."
-docker compose -f "$SCRIPT_DIR/docker-compose.yaml" up -d clickhouse otel-collector openlit
+# ── 3. Start infrastructure, then apps, then controller ──────────────────
+echo "Starting infrastructure (ClickHouse + OpenLIT Dashboard)..."
+docker compose -f "$SCRIPT_DIR/docker-compose.yaml" up -d clickhouse openlit
 
-echo "Waiting for ClickHouse to be healthy..."
-until docker inspect --format='{{.State.Health.Status}}' openlit-clickhouse 2>/dev/null | grep -q healthy; do
-  sleep 2
+echo "Waiting for OpenLIT dashboard to be healthy..."
+until docker inspect --format='{{.State.Health.Status}}' openlit 2>/dev/null | grep -q healthy; do
+  sleep 3
 done
-echo "ClickHouse ready."
+echo "OpenLIT dashboard ready."
 
 echo ""
 echo "Starting sample apps (before controller, to test discovery)..."
@@ -62,9 +62,10 @@ echo ""
 echo "  Controller was deployed AFTER apps — it should discover existing LLM connections."
 echo ""
 echo "  Dashboard: http://localhost:3000"
+echo "  Credentials: user@openlit.io / openlituser"
 echo ""
 echo "  To check controller logs:"
 echo "    docker logs -f openlit-controller"
 echo ""
 echo "  To tear down:"
-echo "    bash $(basename "$SCRIPT_DIR")/teardown.sh"
+echo "    cd $(basename "$SCRIPT_DIR") && ./teardown.sh"

@@ -521,7 +521,7 @@ func newDockerAPIClient(logger *zap.Logger) (*dockerAPIClient, error) {
 	return &dockerAPIClient{
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   5 * time.Second,
+			Timeout:   30 * time.Second,
 		},
 		logger:   logger,
 		writable: canCurrentProcessWrite(dockerSocket),
@@ -705,9 +705,19 @@ func (d *dockerAPIClient) startContainer(containerID string) error {
 }
 
 func (d *dockerAPIClient) waitContainer(containerID string) (int, error) {
-	resp, err := d.doRequest(http.MethodPost, fmt.Sprintf("/containers/%s/wait", containerID), nil, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	endpoint := fmt.Sprintf("http://docker/containers/%s/wait", containerID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return 0, err
+	}
+
+	// Use the transport directly to bypass the client's 5s global timeout
+	resp, err := d.httpClient.Transport.RoundTrip(req)
+	if err != nil {
+		return 0, fmt.Errorf("docker wait: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
