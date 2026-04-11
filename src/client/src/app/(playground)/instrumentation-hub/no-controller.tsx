@@ -3,9 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
 	Radar,
-	Terminal,
-	Container,
-	Ship,
 	Copy,
 	Check,
 	KeyRound,
@@ -16,11 +13,14 @@ import { getPingStatus } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { ApiKey } from "@/types/api-key";
 import copy from "copy-to-clipboard";
+import KubernetesSvg from "@/components/svg/kubernetes";
+import DockerSvg from "@/components/svg/docker";
+import LinuxSvg from "@/components/svg/linux";
 
 const TABS = [
-	{ id: "linux", label: "Linux", icon: Terminal },
-	{ id: "docker", label: "Docker", icon: Container },
-	{ id: "kubernetes", label: "Kubernetes", icon: Ship },
+	{ id: "kubernetes", label: "Kubernetes", icon: KubernetesSvg },
+	{ id: "docker", label: "Docker", icon: DockerSvg },
+	{ id: "linux", label: "Linux", icon: LinuxSvg },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -92,7 +92,7 @@ function buildCommands(
 }
 
 export default function NoController() {
-	const [activeTab, setActiveTab] = useState<TabId>("linux");
+	const [activeTab, setActiveTab] = useState<TabId>("kubernetes");
 	const [copied, setCopied] = useState(false);
 	const [openlitUrl, setOpenlitUrl] = useState("http://localhost:3000");
 

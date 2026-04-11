@@ -222,7 +222,7 @@ func TestScanTCPFileWithInodesValidFile(t *testing.T) {
 	dir := t.TempDir()
 	tcpFile := filepath.Join(dir, "tcp")
 	content := `  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
-   0: 0100007F:C350 0100C000:01BB 01 00000000:00000000 00:00000000 00000000     0        0 12345 1 0000000000000000 100 0 0 10 0
+   0: 0100007F:C350 010200C0:01BB 01 00000000:00000000 00:00000000 00000000     0        0 12345 1 0000000000000000 100 0 0 10 0
 `
 	if err := os.WriteFile(tcpFile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
