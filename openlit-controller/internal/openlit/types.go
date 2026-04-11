@@ -29,6 +29,7 @@ type PollRequest struct {
 	Services             []DiscoveredService `json:"services"`
 	ActionResults        []ActionResult      `json:"action_results,omitempty"`
 	ResourceAttributes   map[string]string   `json:"resource_attributes,omitempty"`
+	ConfigHash           string              `json:"config_hash,omitempty"`
 }
 
 // PollResponse is returned by OpenLIT with pending actions.
@@ -36,6 +37,7 @@ type PollResponse struct {
 	Actions       []PendingAction        `json:"actions"`
 	ConfigChanged bool                   `json:"config_changed,omitempty"`
 	Config        map[string]interface{} `json:"config,omitempty"`
+	ConfigHash    string                 `json:"config_hash,omitempty"`
 }
 
 type PendingAction struct {
@@ -46,14 +48,12 @@ type PendingAction struct {
 }
 
 type PythonSDKActionPayload struct {
-	TargetRuntime             string            `json:"target_runtime"`
-	InstrumentationProfile    string            `json:"instrumentation_profile"`
-	DuplicatePolicy           string            `json:"duplicate_policy"`
-	ObservabilityScope        string            `json:"observability_scope"`
-	OTLPEndpoint              string            `json:"otlp_endpoint,omitempty"`
-	SDKVersion                string            `json:"sdk_version,omitempty"`
-	EnableHTTPInstrumentation bool              `json:"enable_http_instrumentation,omitempty"`
-	ResourceAttributes        map[string]string `json:"resource_attributes,omitempty"`
+	TargetRuntime          string `json:"target_runtime"`
+	InstrumentationProfile string `json:"instrumentation_profile"`
+	DuplicatePolicy        string `json:"duplicate_policy"`
+	ObservabilityScope     string `json:"observability_scope"`
+	OTLPEndpoint           string `json:"otlp_endpoint,omitempty"`
+	SDKVersion             string `json:"sdk_version,omitempty"`
 }
 
 type ActionResult struct {

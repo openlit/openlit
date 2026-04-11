@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,9 +44,8 @@ type PodInfo struct {
 	Namespace      string
 	DeploymentName string
 	WorkloadKind   string
-	Labels         map[string]string
-	NodeName       string
-	fetchedAt      time.Time
+	Labels    map[string]string
+	fetchedAt time.Time
 }
 
 type ContainerMetadata struct {
@@ -207,11 +207,25 @@ func newK8sAPIClient(logger *zap.Logger) (*k8sAPIClient, error) {
 		return nil, fmt.Errorf("reading service account token: %w", err)
 	}
 
+	tlsConfig := &tls.Config{}
+	caPath := "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	if caCert, err := os.ReadFile(caPath); err == nil {
+		pool, _ := x509.SystemCertPool()
+		if pool == nil {
+			pool = x509.NewCertPool()
+		}
+		pool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = pool
+	} else {
+		logger.Warn("cluster CA not found, falling back to InsecureSkipVerify", zap.String("ca_path", caPath), zap.Error(err))
+		tlsConfig.InsecureSkipVerify = true
+	}
+
 	return &k8sAPIClient{
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: tlsConfig,
 			},
 		},
 		apiServer: "https://kubernetes.default.svc",
@@ -275,7 +289,6 @@ func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodIn
 					PodUID:    pod.Metadata.UID,
 					Namespace: pod.Metadata.Namespace,
 					Labels:    pod.Metadata.Labels,
-					NodeName:  pod.Spec.NodeName,
 				}
 
 				foundOwner := false

@@ -1,4 +1,4 @@
-export type ControllerMode = "linux" | "docker" | "kubernetes";
+export type ControllerMode = "linux" | "docker" | "kubernetes" | "standalone";
 export type InstrumentationStatus = "discovered" | "instrumented";
 export type ControllerHealth = "healthy" | "degraded" | "error";
 
@@ -47,6 +47,8 @@ export interface ControllerService {
 		| "disable_python_sdk"
 		| null;
 	pending_action_status?: "pending" | "acknowledged" | null;
+	last_error?: string | null;
+	last_error_action?: ActionType | null;
 }
 
 export interface ExportConfig {
@@ -106,20 +108,6 @@ export interface ControllerConfig {
 	custom_llm_hosts?: string[];
 	environment?: string;
 	poll_interval_seconds?: number;
-}
-
-export interface ControllerStatus {
-	status: string;
-	mode: ControllerMode;
-	version: string;
-	node_name: string;
-	os: string;
-	arch: string;
-	engine: {
-		running: boolean;
-		services_discovered: number;
-		services_instrumented: number;
-	};
 }
 
 export type ActionType =

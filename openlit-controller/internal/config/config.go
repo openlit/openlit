@@ -109,7 +109,13 @@ func Load(path string) (*Config, error) {
 
 	cfg.OpenlitURL = strings.TrimRight(cfg.OpenlitURL, "/")
 	if v := os.Getenv("OPENLIT_DEPLOY_MODE"); v != "" {
-		cfg.DeployMode = DeployMode(v)
+		mode := DeployMode(v)
+		switch mode {
+		case DeployLinux, DeployDocker, DeployKubernetes:
+			cfg.DeployMode = mode
+		default:
+			return nil, fmt.Errorf("unknown OPENLIT_DEPLOY_MODE %q (must be linux, docker, or kubernetes)", v)
+		}
 	} else {
 		cfg.DeployMode = DetectDeployMode()
 	}

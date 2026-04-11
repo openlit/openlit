@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// InstrumentPattern represents a service pattern for OBI discovery.
-type InstrumentPattern struct {
+// instrumentPattern represents a service pattern for OBI discovery.
+type instrumentPattern struct {
 	ServiceID      string
 	ExePath        string
 	CmdArgs        string
@@ -44,7 +44,7 @@ type Engine struct {
 	environment  string
 	sdkVersion   string
 
-	patterns map[string]InstrumentPattern // serviceID -> pattern
+	patterns map[string]instrumentPattern // serviceID -> pattern
 }
 
 const (
@@ -71,7 +71,7 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 
 	return &Engine{
 		services:     make(map[string]*openlit.ServiceState),
-		patterns:     make(map[string]InstrumentPattern),
+		patterns:     make(map[string]instrumentPattern),
 		logger:       logger,
 		obi:          NewOBIManager(obiBinaryPath, logger),
 		otlpEndpoint: otlpEndpoint,
@@ -140,7 +140,6 @@ func (e *Engine) InstrumentService(serviceID string) error {
 
 	pat := derivePattern(svc, e.deployMode)
 	e.patterns[serviceID] = pat
-	svc.InstrumentationStatus = "instrumented"
 
 	e.logger.Info("instrumented service",
 		zap.String("service", svc.ServiceName),
@@ -153,7 +152,12 @@ func (e *Engine) InstrumentService(serviceID string) error {
 		zap.String("k8s_daemonset", pat.K8sDaemonSet),
 		zap.String("k8s_statefulset", pat.K8sStatefulSet),
 	)
-	return e.rebuildOBI()
+	if err := e.rebuildOBI(); err != nil {
+		delete(e.patterns, serviceID)
+		return err
+	}
+	svc.InstrumentationStatus = "instrumented"
+	return nil
 }
 
 // UninstrumentService removes the pattern and restarts or stops OBI.
@@ -166,15 +170,23 @@ func (e *Engine) UninstrumentService(serviceID string) error {
 		return fmt.Errorf("service %q not found", serviceID)
 	}
 
+	oldPattern := e.patterns[serviceID]
 	delete(e.patterns, serviceID)
-	svc.InstrumentationStatus = "discovered"
 
 	e.logger.Info("uninstrumented service", zap.String("service", svc.ServiceName))
 
+	var err error
 	if len(e.patterns) == 0 {
-		return e.obi.Stop()
+		err = e.obi.Stop()
+	} else {
+		err = e.rebuildOBI()
 	}
-	return e.rebuildOBI()
+	if err != nil {
+		e.patterns[serviceID] = oldPattern
+		return err
+	}
+	svc.InstrumentationStatus = "discovered"
+	return nil
 }
 
 func (e *Engine) rebuildOBI() error {
@@ -228,8 +240,8 @@ func (e *Engine) enabledProvidersForPatterns() map[string]bool {
 }
 
 // derivePattern generates workload-scoped OBI selectors from service metadata.
-func derivePattern(svc *openlit.ServiceState, mode config.DeployMode) InstrumentPattern {
-	pat := InstrumentPattern{ServiceID: svc.ID}
+func derivePattern(svc *openlit.ServiceState, mode config.DeployMode) instrumentPattern {
+	pat := instrumentPattern{ServiceID: svc.ID}
 
 	switch mode {
 	case config.DeployKubernetes:
@@ -287,7 +299,7 @@ func derivePattern(svc *openlit.ServiceState, mode config.DeployMode) Instrument
 	return pat
 }
 
-func instrumentPatternEqual(a, b InstrumentPattern) bool {
+func instrumentPatternEqual(a, b instrumentPattern) bool {
 	if a.ServiceID != b.ServiceID ||
 		a.ExePath != b.ExePath ||
 		a.CmdArgs != b.CmdArgs ||

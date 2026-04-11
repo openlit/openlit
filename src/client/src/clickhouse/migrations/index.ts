@@ -15,6 +15,7 @@ import AddControllerSDKActionsMigration from "./add-controller-sdk-actions-migra
 import AddControllerTTLMigration from "./add-controller-ttl-migration";
 import AddControllerDesiredStateMigration from "./add-controller-desired-state-migration";
 import AddControllerClusterIdMigration from "./add-controller-cluster-id-migration";
+import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	return Promise.all([
@@ -35,5 +36,6 @@ export default async function migrations(databaseConfigId?: string) {
 		AddControllerTTLMigration(databaseConfigId),
 		AddControllerDesiredStateMigration(databaseConfigId),
 		AddControllerClusterIdMigration(databaseConfigId),
+		UpdateControllerActionsTTLMigration(databaseConfigId),
 	]);
 }

@@ -54,10 +54,19 @@ func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, services)
 }
 
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
+}
+
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		// Response already partially written; log but cannot recover.
+		_ = err
+	}
 }
 
 var Version = "dev"

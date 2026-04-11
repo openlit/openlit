@@ -34,6 +34,7 @@ func (e *Engine) enablePythonSDKDocker(
 
 	inspect, err := e.container.dockerClient.inspectContainer(containerID)
 	if err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to inspect Docker container: %v", err))
 		return err
 	}
 
@@ -72,6 +73,7 @@ func (e *Engine) enablePythonSDKDocker(
 
 	payloadMap, err := buildDockerContainerCreatePayload(inspect, svc, payload, volumeName, true)
 	if err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to build container config: %v", err))
 		return err
 	}
 
@@ -108,6 +110,7 @@ func (e *Engine) disablePythonSDKDocker(svc *openlit.ServiceState) error {
 
 	inspect, err := e.container.dockerClient.inspectContainer(containerID)
 	if err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to inspect Docker container: %v", err))
 		return err
 	}
 
@@ -202,35 +205,74 @@ func (e *Engine) recreateDockerContainer(inspect map[string]any, payload map[str
 		return err
 	}
 	if err := e.container.dockerClient.renameContainer(containerID, backupName); err != nil {
+		if startErr := e.container.dockerClient.startContainer(containerID); startErr != nil {
+			e.logger.Error("CRITICAL: container stopped and rename failed; could not restart original",
+				zap.String("container_id", containerID),
+				zap.String("workload", originalName),
+				zap.Error(startErr),
+			)
+		}
 		return err
 	}
 
 	newID, createErr := e.container.dockerClient.createContainer(originalName, payload)
 	if createErr != nil {
-		e.logger.Warn("docker agent observability rollback triggered",
+		e.logger.Error("docker rollback: create failed, restoring original",
 			zap.String("workload", originalName),
-			zap.String("rollback_result", "restore_original_after_create_failure"),
 			zap.Error(createErr),
 		)
-		_ = e.container.dockerClient.renameContainer(containerID, originalName)
-		_ = e.container.dockerClient.startContainer(containerID)
+		if renameErr := e.container.dockerClient.renameContainer(containerID, originalName); renameErr != nil {
+			e.logger.Error("docker rollback: rename-back failed",
+				zap.String("container_id", containerID),
+				zap.String("workload", originalName),
+				zap.Error(renameErr),
+			)
+		}
+		if startErr := e.container.dockerClient.startContainer(containerID); startErr != nil {
+			e.logger.Error("CRITICAL: docker rollback failed — container is stopped and could not be restored. Manual intervention required.",
+				zap.String("container_id", containerID),
+				zap.String("workload", originalName),
+				zap.Error(startErr),
+			)
+		}
 		return createErr
 	}
 
 	if err := e.container.dockerClient.startContainer(newID); err != nil {
-		e.logger.Warn("docker agent observability rollback triggered",
+		e.logger.Error("docker rollback: start of new container failed, restoring original",
 			zap.String("workload", originalName),
-			zap.String("rollback_result", "restore_original_after_start_failure"),
 			zap.Error(err),
 		)
-		_ = e.container.dockerClient.removeContainer(newID, true)
-		_ = e.container.dockerClient.renameContainer(containerID, originalName)
-		_ = e.container.dockerClient.startContainer(containerID)
+		if removeErr := e.container.dockerClient.removeContainer(newID, true); removeErr != nil {
+			e.logger.Error("docker rollback: remove new container failed",
+				zap.String("new_container_id", newID),
+				zap.String("workload", originalName),
+				zap.Error(removeErr),
+			)
+		}
+		if renameErr := e.container.dockerClient.renameContainer(containerID, originalName); renameErr != nil {
+			e.logger.Error("docker rollback: rename-back failed",
+				zap.String("container_id", containerID),
+				zap.String("workload", originalName),
+				zap.Error(renameErr),
+			)
+		}
+		if startErr := e.container.dockerClient.startContainer(containerID); startErr != nil {
+			e.logger.Error("CRITICAL: docker rollback failed — container is stopped and could not be restored. Manual intervention required.",
+				zap.String("container_id", containerID),
+				zap.String("workload", originalName),
+				zap.Error(startErr),
+			)
+		}
 		return err
 	}
 
 	if err := e.container.dockerClient.removeContainer(containerID, true); err != nil {
-		return err
+		e.logger.Warn("docker cleanup: failed to remove old container (new container is running)",
+			zap.String("old_container_id", containerID),
+			zap.String("workload", originalName),
+			zap.Error(err),
+		)
 	}
 	return nil
 }
@@ -629,9 +671,22 @@ func cloneMap(source map[string]any) map[string]any {
 	if source == nil {
 		return map[string]any{}
 	}
-	data, _ := json.Marshal(source)
+	data, err := json.Marshal(source)
+	if err != nil {
+		result := make(map[string]any, len(source))
+		for k, v := range source {
+			result[k] = v
+		}
+		return result
+	}
 	var copied map[string]any
-	_ = json.Unmarshal(data, &copied)
+	if err := json.Unmarshal(data, &copied); err != nil {
+		result := make(map[string]any, len(source))
+		for k, v := range source {
+			result[k] = v
+		}
+		return result
+	}
 	return copied
 }
 

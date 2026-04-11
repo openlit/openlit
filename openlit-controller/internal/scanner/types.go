@@ -3,10 +3,7 @@ package scanner
 // LLMConnectEvent is emitted when a process connects to a known LLM API endpoint.
 type LLMConnectEvent struct {
 	PID      uint32
-	Comm     string
 	Provider string
-	DestIP   string
-	DestPort uint16
 }
 
 var providerNames = map[uint8]string{

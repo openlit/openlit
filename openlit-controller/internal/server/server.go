@@ -21,6 +21,7 @@ func New(listenAddr string, eng *engine.Engine, logger *zap.Logger) *Server {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 	mux.HandleFunc("GET /api/services", s.handleGetServices)
 

@@ -6,17 +6,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
-const (
-	systemdDropInBaseDir = "/etc/systemd/system"
-	systemdSDKStateDir   = "/var/lib/openlit/python-sdk"
-	systemdDropInName    = "openlit-python-sdk.conf"
-)
+var systemdDropInBaseDir = "/etc/systemd/system"
 
-var execStartArgvPattern = regexp.MustCompile(`argv\[\]=([^;]+)`)
+const (
+	systemdSDKStateDir = "/var/lib/openlit/python-sdk"
+	systemdDropInName  = "openlit-python-sdk.conf"
+)
 
 func linuxSystemdSDKSupported() bool {
 	if _, err := exec.LookPath("systemctl"); err != nil {
@@ -33,33 +31,6 @@ func linuxSystemdSDKSupported() bool {
 
 func systemdDropInPath(unit string) string {
 	return filepath.Join(systemdDropInBaseDir, unit+".d", systemdDropInName)
-}
-
-func resolveSystemdUnitFromPID(procRoot string, pid int) (string, bool) {
-	return detectSystemdUnit(readCgroup(procRoot, pid))
-}
-
-func readSystemdExecStart(unit string) ([]string, error) {
-	output, err := exec.Command("systemctl", "show", unit, "--property=ExecStart", "--value").CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("systemctl show ExecStart failed: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	value := strings.TrimSpace(string(output))
-	if value == "" {
-		return nil, fmt.Errorf("systemd unit %s has empty ExecStart", unit)
-	}
-	match := execStartArgvPattern.FindStringSubmatch(value)
-	if len(match) == 2 {
-		args := strings.Fields(strings.TrimSpace(match[1]))
-		if len(args) > 0 {
-			return args, nil
-		}
-	}
-	args := strings.Fields(value)
-	if len(args) == 0 {
-		return nil, fmt.Errorf("failed to parse ExecStart for %s", unit)
-	}
-	return args, nil
 }
 
 func writeSystemdDropIn(unit string, content string) error {

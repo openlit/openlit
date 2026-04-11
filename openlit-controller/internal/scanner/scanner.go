@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
+
 	"time"
 
 	"github.com/cilium/ebpf/link"
@@ -199,20 +199,7 @@ func (s *Scanner) parseEvent(raw []byte) (LLMConnectEvent, error) {
 	}
 
 	pid := binary.LittleEndian.Uint32(raw[0:4])
-	daddr := raw[4:8]
-	dport := binary.LittleEndian.Uint16(raw[8:10])
 	providerID := raw[10]
-
-	commBytes := raw[11:27]
-	commEnd := 0
-	for i, b := range commBytes {
-		if b == 0 {
-			break
-		}
-		commEnd = i + 1
-	}
-
-	ip := net.IPv4(daddr[0], daddr[1], daddr[2], daddr[3])
 
 	provName, ok := providerNames[providerID]
 	if !ok {
@@ -221,9 +208,6 @@ func (s *Scanner) parseEvent(raw []byte) (LLMConnectEvent, error) {
 
 	return LLMConnectEvent{
 		PID:      pid,
-		Comm:     string(commBytes[:commEnd]),
 		Provider: provName,
-		DestIP:   ip.String(),
-		DestPort: dport,
 	}, nil
 }

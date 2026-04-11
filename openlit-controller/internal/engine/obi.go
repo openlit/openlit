@@ -25,6 +25,7 @@ type OBIManager struct {
 	configPath string
 	logger     *zap.Logger
 	running    bool
+	lastConfig *OBIConfig
 }
 
 const (
@@ -85,6 +86,8 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 		return fmt.Errorf("starting OBI: %w", err)
 	}
 
+	cfgCopy := cfg
+	m.lastConfig = &cfgCopy
 	m.running = true
 	m.logger.Info("OBI started", zap.Int("pid", m.cmd.Process.Pid))
 
@@ -94,6 +97,7 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 	go func() {
 		err := cmd.Wait()
 		m.mu.Lock()
+		lastCfg := m.lastConfig
 		m.running = false
 		if m.cmd == cmd {
 			m.cmd = nil
@@ -109,6 +113,10 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 		}
 		if err != nil {
 			m.logger.Error("OBI exited unexpectedly", zap.Error(err))
+		}
+
+		if lastCfg != nil {
+			go m.restartWithBackoff(ctx, *lastCfg)
 		}
 	}()
 
@@ -177,6 +185,46 @@ func (m *OBIManager) IsRunning() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.running
+}
+
+const (
+	obiRestartMaxAttempts  = 5
+	obiRestartInitialDelay = 2 * time.Second
+	obiRestartMaxDelay     = 60 * time.Second
+)
+
+func (m *OBIManager) restartWithBackoff(ctx context.Context, cfg OBIConfig) {
+	delay := obiRestartInitialDelay
+	for attempt := 1; attempt <= obiRestartMaxAttempts; attempt++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+
+		m.mu.Lock()
+		if m.running {
+			m.mu.Unlock()
+			return
+		}
+		m.mu.Unlock()
+
+		m.logger.Warn("attempting OBI auto-restart",
+			zap.Int("attempt", attempt),
+			zap.Duration("delay", delay),
+		)
+		if err := m.Start(ctx, cfg); err != nil {
+			m.logger.Error("OBI auto-restart failed", zap.Int("attempt", attempt), zap.Error(err))
+			delay = delay * 2
+			if delay > obiRestartMaxDelay {
+				delay = obiRestartMaxDelay
+			}
+			continue
+		}
+		m.logger.Info("OBI auto-restart succeeded", zap.Int("attempt", attempt))
+		return
+	}
+	m.logger.Error("OBI auto-restart exhausted all attempts", zap.Int("max_attempts", obiRestartMaxAttempts))
 }
 
 func (m *OBIManager) writeConfig(cfg OBIConfig) error {

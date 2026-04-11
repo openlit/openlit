@@ -276,8 +276,9 @@ export async function POST(request: Request) {
 			actions,
 		});
 	} catch (error: any) {
+		console.error("controller poll: unhandled error:", error);
 		return Response.json(
-			{ error: error.message || "Poll failed" },
+			{ error: "Internal server error" },
 			{ status: 500 }
 		);
 	}

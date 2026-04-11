@@ -41,22 +41,6 @@ func init() {
 	}
 }
 
-// AddCustomHosts merges user-defined custom LLM hosts into the resolution map.
-// A generic provider ID (200+) is assigned. OBI detection determines the
-// actual provider from the traffic content.
-func AddCustomHosts(customHosts []string) {
-	var id uint8 = 200
-	for _, host := range customHosts {
-		if host == "" {
-			continue
-		}
-		if _, exists := llmHosts[host]; !exists {
-			llmHosts[host] = id
-			id++
-		}
-	}
-}
-
 // HostResolver periodically resolves LLM API hostnames and updates the BPF map.
 type HostResolver struct {
 	ipMap  *ebpf.Map

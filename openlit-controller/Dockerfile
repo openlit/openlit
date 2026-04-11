@@ -19,6 +19,8 @@ RUN /generate.sh && \
 # --- Build controller ---
 FROM golang:1.24-bookworm AS builder
 
+ARG VERSION=dev
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     clang llvm libbpf-dev linux-headers-generic bpftool && \
     rm -rf /var/lib/apt/lists/*
@@ -31,7 +33,7 @@ COPY . .
 
 RUN make setup-bpf generate
 
-RUN CGO_ENABLED=0 go build -ldflags "-X github.com/openlit/openlit/openlit-controller/internal/server.Version=$(cat VERSION 2>/dev/null || echo dev)" \
+RUN CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/openlit/openlit/openlit-controller/internal/server.Version=${VERSION}" \
     -o openlit-controller ./cmd/controller
 
 # --- Runtime ---

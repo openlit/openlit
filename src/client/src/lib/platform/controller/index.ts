@@ -19,6 +19,10 @@ function clickhouseNow(): string {
 	return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
+function escapeClickHouse(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 // --- ClickHouse queries (OpenLIT dashboard reads/writes) ---
 
 export async function getControllerInstances(
@@ -29,6 +33,7 @@ export async function getControllerInstances(
 		FROM ${CONTROLLER_INSTANCES_TABLE}
 		FINAL
 		ORDER BY last_heartbeat DESC
+		LIMIT 100
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
 		err?: unknown;
@@ -122,6 +127,19 @@ export async function getDiscoveredServices(
 			WHERE status IN ('pending', 'acknowledged')
 			  AND updated_at >= now() - INTERVAL 15 SECOND
 			GROUP BY instance_id, service_key
+		),
+		failed_actions AS (
+			SELECT
+				instance_id,
+				service_key,
+				CAST(argMax(action_type, updated_at), 'Nullable(String)') AS last_error_action,
+				CAST(argMax(result, updated_at), 'Nullable(String)') AS last_error,
+				max(updated_at) AS failed_at
+			FROM ${actionTbl}
+			FINAL
+			WHERE status = 'failed'
+			  AND updated_at >= now() - INTERVAL 60 SECOND
+			GROUP BY instance_id, service_key
 		)
 		SELECT
 			aggregated_services.*,
@@ -136,11 +154,16 @@ export async function getDiscoveredServices(
 					active_actions.pending_action_updated_at < aggregated_services.updated_at,
 				CAST(NULL, 'Nullable(String)'),
 				active_actions.pending_action_status
-			) AS pending_action_status
+			) AS pending_action_status,
+			failed_actions.last_error AS last_error,
+			failed_actions.last_error_action AS last_error_action
 		FROM aggregated_services
 		LEFT JOIN active_actions
 			ON active_actions.instance_id = aggregated_services.controller_instance_id
 			AND active_actions.service_key = aggregated_services.workload_key
+		LEFT JOIN failed_actions
+			ON failed_actions.instance_id = aggregated_services.controller_instance_id
+			AND failed_actions.service_key = aggregated_services.workload_key
 		ORDER BY aggregated_services.last_seen DESC
 		SETTINGS join_use_nulls = 1
 	`;
@@ -160,7 +183,7 @@ export async function getServiceById(
 			SELECT *
 			FROM ${CONTROLLER_SERVICES_TABLE}
 			FINAL
-			WHERE id = '${serviceId}'
+			WHERE id = '${escapeClickHouse(serviceId)}'
 			LIMIT 1
 		),
 		active_action AS (
@@ -174,6 +197,19 @@ export async function getServiceById(
 			FINAL
 			WHERE status IN ('pending', 'acknowledged')
 			  AND updated_at >= now() - INTERVAL 15 SECOND
+			GROUP BY instance_id, service_key
+		),
+		failed_action AS (
+			SELECT
+				instance_id,
+				service_key,
+				CAST(argMax(action_type, updated_at), 'Nullable(String)') AS last_error_action,
+				CAST(argMax(result, updated_at), 'Nullable(String)') AS last_error,
+				max(updated_at) AS failed_at
+			FROM ${actionTbl}
+			FINAL
+			WHERE status = 'failed'
+			  AND updated_at >= now() - INTERVAL 60 SECOND
 			GROUP BY instance_id, service_key
 		)
 		SELECT
@@ -189,11 +225,16 @@ export async function getServiceById(
 					active_action.pending_action_updated_at < service_row.updated_at,
 				CAST(NULL, 'Nullable(String)'),
 				active_action.pending_action_status
-			) AS pending_action_status
+			) AS pending_action_status,
+			failed_action.last_error AS last_error,
+			failed_action.last_error_action AS last_error_action
 		FROM service_row
 		LEFT JOIN active_action
 			ON active_action.instance_id = service_row.controller_instance_id
 			AND active_action.service_key = service_row.workload_key
+		LEFT JOIN failed_action
+			ON failed_action.instance_id = service_row.controller_instance_id
+			AND failed_action.service_key = service_row.workload_key
 		SETTINGS join_use_nulls = 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
@@ -212,9 +253,9 @@ export async function getControllerIdsForWorkload(
 		SELECT DISTINCT controller_instance_id
 		FROM ${CONTROLLER_SERVICES_TABLE}
 		FINAL
-		WHERE service_name = '${serviceName}'
-		  AND namespace = '${namespace}'
-		  AND cluster_id = '${clusterId}'
+		WHERE service_name = '${escapeClickHouse(serviceName)}'
+		  AND namespace = '${escapeClickHouse(namespace)}'
+		  AND cluster_id = '${escapeClickHouse(clusterId)}'
 		  AND last_seen >= now() - INTERVAL 5 MINUTE
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
@@ -289,7 +330,7 @@ export async function getDesiredStatesForWorkloads(
 	}>;
 }> {
 	if (workloadKeys.length === 0) return { data: [] };
-	const escaped = workloadKeys.map((k) => `'${k}'`).join(",");
+	const escaped = workloadKeys.map((k) => `'${escapeClickHouse(k)}'`).join(",");
 	const query = `
 		SELECT
 			workload_key,
@@ -297,7 +338,7 @@ export async function getDesiredStatesForWorkloads(
 			argMax(desired_agent_status, updated_at) AS desired_agent_status
 		FROM ${CONTROLLER_SERVICES_TABLE}
 		FINAL
-		WHERE cluster_id = '${clusterId}'
+		WHERE cluster_id = '${escapeClickHouse(clusterId)}'
 		  AND workload_key IN (${escaped})
 		GROUP BY workload_key
 	`;
@@ -336,8 +377,8 @@ export async function updateDesiredStatus(
 	const query = `
 		ALTER TABLE ${CONTROLLER_SERVICES_TABLE}
 		UPDATE ${setClauses.join(", ")}
-		WHERE workload_key = '${workloadKey}'
-		  AND cluster_id = '${clusterId}'
+		WHERE workload_key = '${escapeClickHouse(workloadKey)}'
+		  AND cluster_id = '${escapeClickHouse(clusterId)}'
 		SETTINGS mutations_sync = 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId);
@@ -368,7 +409,7 @@ export async function getServicesToReconcile(
 		SELECT workload_key, desired_instrumentation_status, desired_agent_status
 		FROM ${CONTROLLER_SERVICES_TABLE}
 		FINAL
-		WHERE controller_instance_id = '${controllerInstanceId}'
+		WHERE controller_instance_id = '${escapeClickHouse(controllerInstanceId)}'
 		  AND (desired_instrumentation_status != 'none' OR desired_agent_status != 'none')
 	`;
 	const res = (await dataCollector({ query }, "query", dbConfigId)) as {
@@ -391,6 +432,7 @@ export async function getServicesToReconcile(
 	>();
 	for (const svc of reportedServices) {
 		const agentStatus =
+			(svc as any).agent_observability_status ||
 			svc.resource_attributes?.["openlit.agent_observability.status"] ||
 			"disabled";
 		reportedMap.set(svc.workload_key, {

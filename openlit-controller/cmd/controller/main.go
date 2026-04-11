@@ -68,9 +68,14 @@ func main() {
 	}
 
 	srv := server.New(cfg.APIListen, eng, logger)
+	fatalCh := make(chan error, 1)
 	go func() {
 		if err := srv.Start(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("REST API server failed", zap.Error(err))
+			logger.Error("REST API server failed", zap.Error(err))
+			select {
+			case fatalCh <- err:
+			default:
+			}
 		}
 	}()
 
@@ -79,8 +84,15 @@ func main() {
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
 
+	select {
+	case <-sigCh:
+		logger.Info("received shutdown signal")
+	case err := <-fatalCh:
+		logger.Error("initiating shutdown due to fatal component error", zap.Error(err))
+	}
+
+	cancel()
 	logger.Info("shutting down")
 	eng.Stop()
 
@@ -102,8 +114,9 @@ func runPollLoop(
 ) {
 	iid := instanceID(mode)
 	currentInterval := interval
+	var currentConfigHash string
 
-	resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, nil, controllerAttrs)
+	resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, nil, controllerAttrs, currentConfigHash)
 
 	ticker := time.NewTicker(currentInterval)
 	defer ticker.Stop()
@@ -111,6 +124,9 @@ func runPollLoop(
 	var pendingResults []openlit.ActionResult
 	if resp != nil {
 		pendingResults = resp.actionResults
+		if resp.configHash != "" {
+			currentConfigHash = resp.configHash
+		}
 		if next := resp.pollInterval; next > 0 && next != currentInterval {
 			currentInterval = next
 			ticker.Reset(currentInterval)
@@ -123,9 +139,12 @@ func runPollLoop(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, pendingResults, controllerAttrs)
+			resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, pendingResults, controllerAttrs, currentConfigHash)
 			if resp != nil {
 				pendingResults = resp.actionResults
+				if resp.configHash != "" {
+					currentConfigHash = resp.configHash
+				}
 				if next := resp.pollInterval; next > 0 && next != currentInterval {
 					currentInterval = next
 					ticker.Reset(currentInterval)
@@ -139,6 +158,7 @@ func runPollLoop(
 type pollResult struct {
 	actionResults []openlit.ActionResult
 	pollInterval  time.Duration
+	configHash    string
 }
 
 func doPoll(
@@ -152,6 +172,7 @@ func doPoll(
 	clusterID string,
 	actionResults []openlit.ActionResult,
 	controllerAttrs map[string]string,
+	configHash string,
 ) *pollResult {
 	discovered, instrumented := eng.ServiceCount()
 
@@ -189,9 +210,10 @@ func doPoll(
 		Services:             dsvcs,
 		ActionResults:        actionResults,
 		ResourceAttributes:   controllerAttrs,
+		ConfigHash:           configHash,
 	})
 	if err != nil {
-		logger.Debug("poll failed", zap.Error(err))
+		logger.Warn("poll failed", zap.Error(err))
 		return nil
 	}
 
@@ -202,6 +224,10 @@ func doPoll(
 	}
 
 	pr := &pollResult{actionResults: results}
+
+	if resp.ConfigHash != "" {
+		pr.configHash = resp.ConfigHash
+	}
 
 	if resp.ConfigChanged && resp.Config != nil {
 		if v, ok := resp.Config["poll_interval_seconds"]; ok {

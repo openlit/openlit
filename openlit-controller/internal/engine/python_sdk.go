@@ -9,6 +9,7 @@ import (
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
+	"go.uber.org/zap"
 )
 
 const (
@@ -29,10 +30,9 @@ const (
 type pythonSDKDecision string
 
 const (
-	pythonSDKDecisionApply  pythonSDKDecision = "apply_controller_managed_sdk"
-	pythonSDKDecisionAdopt  pythonSDKDecision = "adopt_existing_openlit"
-	pythonSDKDecisionBlock  pythonSDKDecision = "block_existing_otel"
-	pythonSDKDecisionManual pythonSDKDecision = "manual_follow_up_required"
+	pythonSDKDecisionApply pythonSDKDecision = "apply_controller_managed_sdk"
+	pythonSDKDecisionAdopt pythonSDKDecision = "adopt_existing_openlit"
+	pythonSDKDecisionBlock pythonSDKDecision = "block_existing_otel"
 )
 
 type pythonSDKPreflightResult struct {
@@ -403,6 +403,7 @@ func (e *Engine) enablePythonSDKKubernetes(
 
 	workload, err := e.container.k8sClient.getWorkload(namespace, workloadKind, workloadName)
 	if err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to fetch workload %s/%s: %v", workloadKind, workloadName, err))
 		return fmt.Errorf("fetching workload %s/%s: %w", workloadKind, workloadName, err)
 	}
 
@@ -429,7 +430,11 @@ func (e *Engine) enablePythonSDKKubernetes(
 	if err != nil {
 		return err
 	}
-	return e.container.k8sClient.patchWorkload(namespace, workloadKind, workloadName, patch)
+	if err := e.container.k8sClient.patchWorkload(namespace, workloadKind, workloadName, patch); err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
+		return err
+	}
+	return nil
 }
 
 func (e *Engine) disablePythonSDKKubernetes(svc *openlit.ServiceState) error {
@@ -452,6 +457,7 @@ func (e *Engine) disablePythonSDKKubernetes(svc *openlit.ServiceState) error {
 
 	workload, err := e.container.k8sClient.getWorkload(namespace, workloadKind, workloadName)
 	if err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to fetch workload %s/%s: %v", workloadKind, workloadName, err))
 		return fmt.Errorf("fetching workload %s/%s: %w", workloadKind, workloadName, err)
 	}
 
@@ -459,7 +465,11 @@ func (e *Engine) disablePythonSDKKubernetes(svc *openlit.ServiceState) error {
 	if err != nil {
 		return err
 	}
-	return e.container.k8sClient.patchWorkload(namespace, workloadKind, workloadName, patch)
+	if err := e.container.k8sClient.patchWorkload(namespace, workloadKind, workloadName, patch); err != nil {
+		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
+		return err
+	}
+	return nil
 }
 
 func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload openlit.PythonSDKActionPayload) error {
@@ -567,11 +577,31 @@ func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload open
 		}
 	}
 
+	originalPodJSON, _ := json.Marshal(pod)
+
 	if err := e.container.k8sClient.deletePod(namespace, podName, 0); err != nil {
 		return fmt.Errorf("deleting naked pod %s/%s for SDK injection: %w", namespace, podName, err)
 	}
 
 	if err := e.container.k8sClient.createPod(namespace, pod); err != nil {
+		e.logger.Error("naked pod create failed after delete, attempting rollback with original spec",
+			zap.String("namespace", namespace),
+			zap.String("pod", podName),
+			zap.Error(err),
+		)
+		var originalPod map[string]any
+		if unmarshalErr := json.Unmarshal(originalPodJSON, &originalPod); unmarshalErr == nil {
+			stripPodRuntimeFields(originalPod)
+			if restoreErr := e.container.k8sClient.createPod(namespace, originalPod); restoreErr != nil {
+				e.logger.Error("CRITICAL: naked pod rollback failed — pod is deleted and could not be restored. Manual intervention required.",
+					zap.String("namespace", namespace),
+					zap.String("pod", podName),
+					zap.Error(restoreErr),
+				)
+				e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "",
+					fmt.Sprintf("CRITICAL: Pod %s/%s was deleted but could not be recreated. Manual intervention required.", namespace, podName))
+			}
+		}
 		return fmt.Errorf("recreating naked pod %s/%s with SDK: %w", namespace, podName, err)
 	}
 
@@ -634,11 +664,31 @@ func (e *Engine) disablePythonSDKNakedPod(svc *openlit.ServiceState) error {
 		}
 	}
 
+	originalPodJSON, _ := json.Marshal(pod)
+
 	if err := e.container.k8sClient.deletePod(namespace, podName, 0); err != nil {
 		return fmt.Errorf("deleting naked pod %s/%s for SDK removal: %w", namespace, podName, err)
 	}
 
 	if err := e.container.k8sClient.createPod(namespace, pod); err != nil {
+		e.logger.Error("naked pod create failed after delete during disable, attempting rollback",
+			zap.String("namespace", namespace),
+			zap.String("pod", podName),
+			zap.Error(err),
+		)
+		var originalPod map[string]any
+		if unmarshalErr := json.Unmarshal(originalPodJSON, &originalPod); unmarshalErr == nil {
+			stripPodRuntimeFields(originalPod)
+			if restoreErr := e.container.k8sClient.createPod(namespace, originalPod); restoreErr != nil {
+				e.logger.Error("CRITICAL: naked pod rollback failed — pod is deleted and could not be restored. Manual intervention required.",
+					zap.String("namespace", namespace),
+					zap.String("pod", podName),
+					zap.Error(restoreErr),
+				)
+				e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "",
+					fmt.Sprintf("CRITICAL: Pod %s/%s was deleted but could not be recreated. Manual intervention required.", namespace, podName))
+			}
+		}
 		return fmt.Errorf("recreating naked pod %s/%s without SDK: %w", namespace, podName, err)
 	}
 

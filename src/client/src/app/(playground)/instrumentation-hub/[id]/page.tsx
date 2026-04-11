@@ -478,6 +478,31 @@ export default function ServiceDetail() {
 				</div>
 			</div>
 
+			{service?.last_error && (
+				<div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+					<div className="flex items-start gap-3">
+						<div className="text-red-600 dark:text-red-400 mt-0.5 text-sm font-medium shrink-0">
+							Action Failed
+						</div>
+						<div className="text-sm text-red-700 dark:text-red-300 min-w-0">
+							<span className="font-medium">
+								{service.last_error_action === "instrument"
+									? "Instrument"
+									: service.last_error_action === "uninstrument"
+										? "Uninstrument"
+										: service.last_error_action === "enable_python_sdk"
+											? "Enable Agent Observability"
+											: service.last_error_action === "disable_python_sdk"
+												? "Disable Agent Observability"
+												: "Action"}
+							</span>
+							{": "}
+							{service.last_error}
+						</div>
+					</div>
+				</div>
+			)}
+
 			<div className="border dark:border-stone-700 rounded-lg p-4">
 				<h3 className="text-sm font-medium text-stone-600 dark:text-stone-400 mb-3">
 					Service Info

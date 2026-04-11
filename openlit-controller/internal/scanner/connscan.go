@@ -92,8 +92,6 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 				events = append(events, LLMConnectEvent{
 					PID:      uint32(pid),
 					Provider: provName,
-					DestIP:   m.remoteIP.String(),
-					DestPort: 443,
 				})
 			}
 		}
