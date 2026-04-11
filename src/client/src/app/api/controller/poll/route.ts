@@ -11,6 +11,7 @@ import {
 	getDesiredStatesForWorkloads,
 } from "@/lib/platform/controller";
 import { getFirstDBConfig } from "@/lib/db-config";
+import { getAPIKeyInfo, hasAnyAPIKeys } from "@/lib/platform/api-keys";
 import type { ControllerConfig } from "@/types/controller";
 import crypto from "crypto";
 
@@ -35,8 +36,59 @@ function clickhouseNow(): string {
 	return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
+async function authenticatePollRequest(
+	request: Request
+): Promise<{ dbId: string } | Response> {
+	const authHeader = request.headers.get("Authorization") || "";
+
+	if (authHeader.startsWith("Bearer ")) {
+		const apiKey = authHeader.replace(/^Bearer /, "").trim();
+		if (!apiKey) {
+			return Response.json(
+				{ error: "Invalid API key" },
+				{ status: 401 }
+			);
+		}
+		const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
+		if (keyErr || !apiInfo?.databaseConfigId) {
+			return Response.json(
+				{ error: "Invalid API key" },
+				{ status: 401 }
+			);
+		}
+		return { dbId: apiInfo.databaseConfigId };
+	}
+
+	const keysExist = await hasAnyAPIKeys();
+	if (keysExist) {
+		return Response.json(
+			{
+				error:
+					"Authentication required. Set OPENLIT_API_KEY on your controller with a valid OpenLIT API key.",
+			},
+			{ status: 401 }
+		);
+	}
+
+	const dbConfig = await getFirstDBConfig();
+	if (!dbConfig) {
+		return Response.json(
+			{
+				error:
+					"No database configuration found. Complete onboarding first.",
+			},
+			{ status: 503 }
+		);
+	}
+	return { dbId: dbConfig.id };
+}
+
 export async function POST(request: Request) {
 	try {
+		const authResult = await authenticatePollRequest(request);
+		if (authResult instanceof Response) return authResult;
+		const { dbId } = authResult;
+
 		const body = await request.json();
 		const {
 			instance_id,
@@ -60,15 +112,6 @@ export async function POST(request: Request) {
 		}
 
 		const clusterId = rawClusterId || "default";
-
-		const dbConfig = await getFirstDBConfig();
-		if (!dbConfig) {
-			return Response.json(
-				{ error: "No database configuration found. Complete onboarding first." },
-				{ status: 503 }
-			);
-		}
-		const dbId = dbConfig.id;
 
 		const now = clickhouseNow();
 

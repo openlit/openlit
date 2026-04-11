@@ -100,3 +100,10 @@ export async function deleteAPIKey(id: string) {
 		prisma.aPIKeys.update({ where: { id }, data: { isDeleted: true } })
 	);
 }
+
+export async function hasAnyAPIKeys(): Promise<boolean> {
+	const count = await prisma.aPIKeys.count({
+		where: { isDeleted: false },
+	});
+	return count > 0;
+}

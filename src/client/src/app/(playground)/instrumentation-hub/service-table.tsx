@@ -31,7 +31,7 @@ interface ServiceTableProps {
 
 interface EnrichedService extends ControllerService {
 	mode: "linux" | "docker" | "kubernetes" | "standalone";
-	agentStatus: "enabled" | "disabled" | "unsupported";
+	agentStatus: "enabled" | "disabled" | "unsupported" | "manual";
 	agentSource: string;
 }
 
@@ -132,7 +132,7 @@ function AgentObservabilityCell({
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (isPending) return;
-		const enabling = agentStatus !== "enabled";
+		const enabling = agentStatus !== "enabled" && agentStatus !== "manual";
 		await fireRequest({
 			requestType: enabling ? "POST" : "DELETE",
 			url: `/api/controller/catalog/${service.id}/agent-instrument`,
@@ -157,8 +157,28 @@ function AgentObservabilityCell({
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{agentStatus === "enabled" ? "Disabling..." : "Enabling..."}
+				{agentStatus === "enabled" || agentStatus === "manual"
+					? "Disabling..."
+					: "Enabling..."}
 			</button>
+		);
+	}
+
+	if (agentStatus === "manual") {
+		return (
+			<div className="flex items-center gap-2">
+				<span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+					Manual
+				</span>
+				<button
+					onClick={handleAction}
+					disabled={isLoading}
+					className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+				>
+					{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+					{isLoading ? "..." : "Disable"}
+				</button>
+			</div>
 		);
 	}
 
@@ -319,8 +339,8 @@ export default function ServiceTable({
 			const agentSource =
 				attrs["openlit.agent_observability.source"] || "";
 
-			let agentStatus: "enabled" | "disabled" | "unsupported" =
-				"disabled";
+		let agentStatus: "enabled" | "disabled" | "unsupported" | "manual" =
+			"disabled";
 			if (!isPython) {
 				agentStatus = "unsupported";
 			} else if (
@@ -328,6 +348,8 @@ export default function ServiceTable({
 				svc.desired_agent_status === "enabled"
 			) {
 				agentStatus = "enabled";
+			} else if (agentStatusRaw === "manual") {
+				agentStatus = "manual";
 			}
 
 			return {

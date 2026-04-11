@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -723,10 +724,24 @@ func (e *Engine) enablePythonSDKBareProcess(
 		return fmt.Errorf("missing python executable path for bare process %s", svc.ServiceName)
 	}
 
+	preflight := evaluatePythonSDKPreflight(
+		readEnviron(e.procRoot, svc.PID),
+		strings.Fields(svc.Cmdline),
+		payload.DuplicatePolicy,
+	)
+	if preflight.Decision == pythonSDKDecisionBlock {
+		e.setDesiredAgentObservabilityState(svc.ID, "conflict", preflight.Source, preflight.Conflict, preflight.Reason)
+		return fmt.Errorf("%s", preflight.Reason)
+	}
+	if preflight.Decision == pythonSDKDecisionAdopt {
+		e.setDesiredAgentObservabilityState(svc.ID, "enabled", preflight.Source, "", preflight.Reason)
+		return nil
+	}
+
 	fingerprint := shortHash(svc.WorkloadKey)
 	sdkRoot := filepath.Join(bareProcessSDKStateDir, fingerprint)
 
-	e.logger.Info("installing Python SDK for bare process (manual mode)",
+	e.logger.Info("installing Python SDK for bare process",
 		zap.String("service", svc.ServiceName),
 		zap.String("workload_key", svc.WorkloadKey),
 		zap.String("sdk_root", sdkRoot),
@@ -748,35 +763,127 @@ func (e *Engine) enablePythonSDKBareProcess(
 	packagesDir := filepath.Join(sdkRoot, pythonSDKPackagesDirName)
 	pythonPath := bootstrapDir + ":" + packagesDir
 
-	reason := fmt.Sprintf(
-		"OpenLIT SDK installed at %s. To activate, set these environment variables and restart your process:\n"+
-			"  PYTHONPATH=%s:$PYTHONPATH\n"+
-			"  OPENLIT_CONTROLLER_MODE=agent_observability\n"+
-			"  OTEL_SERVICE_NAME=%s\n"+
-			"  OTEL_EXPORTER_OTLP_ENDPOINT=%s\n"+
-			"  OTEL_DEPLOYMENT_ENVIRONMENT=%s\n"+
-			"  OPENLIT_DISABLED_INSTRUMENTORS=%s",
-		sdkRoot,
-		pythonPath,
-		svc.ServiceName,
-		payload.OTLPEndpoint,
-		payload.Environment,
-		strings.Join(controllerManagedDisabledInstrumentors, ","),
-	)
+	existingPythonPath := readEnviron(e.procRoot, svc.PID)["PYTHONPATH"]
+	if existingPythonPath != "" {
+		pythonPath = pythonPath + ":" + existingPythonPath
+	}
+
+	envOverrides := map[string]string{
+		"PYTHONPATH":                     pythonPath,
+		"OPENLIT_CONTROLLER_MODE":        "agent_observability",
+		"OTEL_SERVICE_NAME":              svc.ServiceName,
+		"OTEL_EXPORTER_OTLP_ENDPOINT":    payload.OTLPEndpoint,
+		"OTEL_DEPLOYMENT_ENVIRONMENT":     payload.Environment,
+		"OPENLIT_DISABLED_INSTRUMENTORS":  strings.Join(controllerManagedDisabledInstrumentors, ","),
+	}
+
+	newPID, err := restartProcessWithEnv(e.procRoot, svc.PID, envOverrides)
+	if err != nil {
+		e.logger.Warn("bare process restart failed, falling back to manual mode",
+			zap.String("service", svc.ServiceName),
+			zap.Error(err),
+		)
+
+		manualReason := fmt.Sprintf(
+			"OpenLIT SDK installed at %s. To activate, set these environment variables and restart your process:\n"+
+				"  PYTHONPATH=%s:$PYTHONPATH\n"+
+				"  OPENLIT_CONTROLLER_MODE=agent_observability\n"+
+				"  OTEL_SERVICE_NAME=%s\n"+
+				"  OTEL_EXPORTER_OTLP_ENDPOINT=%s\n"+
+				"  OTEL_DEPLOYMENT_ENVIRONMENT=%s\n"+
+				"  OPENLIT_DISABLED_INSTRUMENTORS=%s",
+			sdkRoot,
+			bootstrapDir+":"+packagesDir,
+			svc.ServiceName,
+			payload.OTLPEndpoint,
+			payload.Environment,
+			strings.Join(controllerManagedDisabledInstrumentors, ","),
+		)
+		e.setDesiredAgentObservabilityState(svc.ID, "manual", "controller_managed", "", manualReason)
+		return nil
+	}
+
+	e.mu.Lock()
+	if s, ok := e.services[svc.ID]; ok {
+		s.PID = newPID
+	}
+	e.mu.Unlock()
 
 	e.setDesiredAgentObservabilityState(
 		svc.ID,
-		"manual",
+		"enabled",
 		"controller_managed",
 		"",
-		reason,
+		fmt.Sprintf("OpenLIT SDK active via process restart (PID %d → %d)", svc.PID, newPID),
 	)
 
-	e.logger.Info("bare process Agent O11y: SDK installed, manual activation required",
+	e.logger.Info("bare process Agent O11y: enabled via restart",
 		zap.String("service", svc.ServiceName),
+		zap.Int("old_pid", svc.PID),
+		zap.Int("new_pid", newPID),
 		zap.String("sdk_root", sdkRoot),
-		zap.String("pythonpath", pythonPath),
 	)
+
+	return nil
+}
+
+var openlitEnvKeysToStrip = []string{
+	"PYTHONPATH",
+	"OPENLIT_CONTROLLER_MODE",
+	"OTEL_SERVICE_NAME",
+	"OTEL_EXPORTER_OTLP_ENDPOINT",
+	"OTEL_DEPLOYMENT_ENVIRONMENT",
+	"OPENLIT_DISABLED_INSTRUMENTORS",
+}
+
+func (e *Engine) disablePythonSDKBareProcess(
+	svc *openlit.ServiceState,
+) error {
+	fingerprint := shortHash(svc.WorkloadKey)
+	sdkRoot := filepath.Join(bareProcessSDKStateDir, fingerprint)
+
+	e.logger.Info("disabling bare process Agent O11y",
+		zap.String("service", svc.ServiceName),
+		zap.Int("pid", svc.PID),
+		zap.String("sdk_root", sdkRoot),
+	)
+
+	newPID, err := restartProcessWithoutKeys(e.procRoot, svc.PID, openlitEnvKeysToStrip)
+	if err != nil {
+		e.logger.Warn("bare process restart for disable failed",
+			zap.String("service", svc.ServiceName),
+			zap.Error(err),
+		)
+		e.setDesiredAgentObservabilityState(
+			svc.ID,
+			"disabled",
+			"none",
+			"",
+			"Agent O11y disabled. Remove PYTHONPATH environment variable and restart the process.",
+		)
+	} else {
+		e.mu.Lock()
+		if s, ok := e.services[svc.ID]; ok {
+			s.PID = newPID
+		}
+		e.mu.Unlock()
+
+		e.setDesiredAgentObservabilityState(
+			svc.ID,
+			"disabled",
+			"none",
+			"",
+			fmt.Sprintf("Agent O11y disabled via process restart (PID %d → %d)", svc.PID, newPID),
+		)
+
+		e.logger.Info("bare process Agent O11y: disabled via restart",
+			zap.String("service", svc.ServiceName),
+			zap.Int("old_pid", svc.PID),
+			zap.Int("new_pid", newPID),
+		)
+	}
+
+	_ = os.RemoveAll(sdkRoot)
 
 	return nil
 }

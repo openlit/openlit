@@ -274,13 +274,9 @@ func (e *Engine) DisablePythonSDK(serviceID string, _ openlit.PythonSDKActionPay
 			return nil
 		}
 
-		e.setDesiredAgentObservabilityState(
-			serviceID,
-			"disabled",
-			"none",
-			"",
-			"Agent O11y disabled. Remove PYTHONPATH environment variable and restart the process.",
-		)
+		if err := e.disablePythonSDKBareProcess(svc); err != nil {
+			return err
+		}
 		return nil
 	}
 }

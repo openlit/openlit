@@ -52,6 +52,7 @@ const (
 	CapabilityPythonSDKKubernetesV1   = "python_sdk_injection_kubernetes_v1"
 	CapabilityPythonSDKDockerV1       = "python_sdk_injection_docker_v1"
 	CapabilityPythonSDKLinuxSystemdV1 = "python_sdk_injection_linux_systemd_v1"
+	CapabilityPythonSDKLinuxBareV1    = "python_sdk_injection_linux_bare_v1"
 )
 
 func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment, sdkVersion string, mode config.DeployMode) *Engine {
@@ -376,6 +377,7 @@ func (e *Engine) ControllerCapabilities() []string {
 			capabilities = append(capabilities, CapabilityPythonSDKDockerV1)
 		}
 	default:
+		capabilities = append(capabilities, CapabilityPythonSDKLinuxBareV1)
 		if linuxSystemdSDKSupported() {
 			capabilities = append(capabilities, CapabilityPythonSDKLinuxSystemdV1)
 		}

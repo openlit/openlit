@@ -1,10 +1,15 @@
 package engine
 
 import (
+	"bytes"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
@@ -47,6 +52,26 @@ func readExePath(procRoot string, pid int) string {
 		return ""
 	}
 	return link
+}
+
+func readCwd(procRoot string, pid int) string {
+	link, err := os.Readlink(filepath.Join(procRoot, strconv.Itoa(pid), "cwd"))
+	if err != nil {
+		return ""
+	}
+	return link
+}
+
+func readCmdlineArgs(procRoot string, pid int) []string {
+	data, err := os.ReadFile(filepath.Join(procRoot, strconv.Itoa(pid), "cmdline"))
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+	data = bytes.TrimRight(data, "\x00")
+	if len(data) == 0 {
+		return nil
+	}
+	return strings.Split(string(data), "\x00")
 }
 
 func readEnviron(procRoot string, pid int) map[string]string {
@@ -234,4 +259,90 @@ func EnrichProcess(procRoot string, pid int, container *ContainerEnricher, mode 
 		}
 	}
 	return meta
+}
+
+func envMapToSlice(env map[string]string) []string {
+	s := make([]string, 0, len(env))
+	for k, v := range env {
+		s = append(s, k+"="+v)
+	}
+	return s
+}
+
+func waitForProcessExit(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if err := syscall.Kill(pid, 0); err != nil {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
+func restartProcess(procRoot string, pid int, fullEnv map[string]string) (int, error) {
+	args := readCmdlineArgs(procRoot, pid)
+	if len(args) == 0 {
+		return 0, fmt.Errorf("cannot read cmdline for pid %d", pid)
+	}
+
+	cwd := readCwd(procRoot, pid)
+	if cwd == "" {
+		cwd = "/"
+	}
+
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+		return 0, fmt.Errorf("SIGTERM pid %d: %w", pid, err)
+	}
+
+	if !waitForProcessExit(pid, 5*time.Second) {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		waitForProcessExit(pid, 2*time.Second)
+	}
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Dir = cwd
+	cmd.Env = envMapToSlice(fullEnv)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("start new process: %w", err)
+	}
+
+	go cmd.Wait()
+
+	return cmd.Process.Pid, nil
+}
+
+func restartProcessWithEnv(procRoot string, pid int, envOverrides map[string]string) (int, error) {
+	existingEnv := readEnviron(procRoot, pid)
+	if existingEnv == nil {
+		existingEnv = make(map[string]string)
+	}
+	for k, v := range envOverrides {
+		existingEnv[k] = v
+	}
+	return restartProcess(procRoot, pid, existingEnv)
+}
+
+func restartProcessWithoutKeys(procRoot string, pid int, keysToRemove []string) (int, error) {
+	existingEnv := readEnviron(procRoot, pid)
+	if existingEnv == nil {
+		existingEnv = make(map[string]string)
+	}
+	cleaned := stripEnvOverrides(existingEnv, keysToRemove)
+	return restartProcess(procRoot, pid, cleaned)
+}
+
+func stripEnvOverrides(env map[string]string, keysToRemove []string) map[string]string {
+	cleaned := make(map[string]string, len(env))
+	for k, v := range env {
+		cleaned[k] = v
+	}
+	for _, key := range keysToRemove {
+		delete(cleaned, key)
+	}
+	return cleaned
 }

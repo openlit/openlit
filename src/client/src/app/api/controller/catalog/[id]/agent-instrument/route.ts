@@ -6,16 +6,16 @@ import {
 } from "@/lib/platform/controller";
 import type { PythonSDKActionPayload } from "@/types/controller";
 
-function capabilityForMode(mode: string | undefined) {
+function capabilityForMode(mode: string | undefined): { value: string; prefix: boolean } {
 	switch (mode) {
 		case "kubernetes":
-			return "python_sdk_injection_kubernetes_v1";
+			return { value: "python_sdk_injection_kubernetes_v1", prefix: false };
 		case "docker":
-			return "python_sdk_injection_docker_v1";
+			return { value: "python_sdk_injection_docker_v1", prefix: false };
 		case "linux":
-			return "python_sdk_injection_linux_systemd_v1";
+			return { value: "python_sdk_injection_linux_", prefix: true };
 		default:
-			return "";
+			return { value: "", prefix: false };
 	}
 }
 
@@ -25,7 +25,7 @@ function preflightReasonForMode(mode: string, supportsPythonSDK: boolean) {
 		case "docker":
 			return "Docker Agent Observability requires a writable Docker socket and a Docker-capable controller.";
 		case "linux":
-			return "Linux Agent Observability requires a controller with systemd management support.";
+			return "Linux Agent Observability requires a Python runtime on the target host.";
 		default:
 			return "Selected controller does not advertise Agent Observability support for this mode yet.";
 	}
@@ -58,13 +58,17 @@ async function getService(params: Promise<{ id: string }>) {
 		service.controller_instance_id
 	);
 	const instance = instanceRes.data?.[0];
-	const expectedCapability = capabilityForMode(instance?.mode);
+	const expected = capabilityForMode(instance?.mode);
 	const capabilities =
 		instance?.resource_attributes?.["controller.capabilities"] || "";
 	const supportsPythonSDK = capabilities
 		.split(",")
 		.map((item) => item.trim())
-		.includes(expectedCapability);
+		.some((cap) =>
+			expected.prefix
+				? cap.startsWith(expected.value)
+				: cap === expected.value
+		);
 
 	return { service, supportsPythonSDK, mode: instance?.mode || "linux" };
 }
