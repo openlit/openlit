@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -91,7 +92,7 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 
 	for _, entry := range procDirs {
 		pid, err := strconv.Atoi(entry.Name())
-		if err != nil || pid == selfPID {
+		if err != nil || pid == selfPID || pid < 0 || pid > math.MaxUint32 {
 			continue
 		}
 

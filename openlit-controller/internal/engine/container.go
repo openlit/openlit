@@ -207,19 +207,19 @@ func newK8sAPIClient(logger *zap.Logger) (*k8sAPIClient, error) {
 		return nil, fmt.Errorf("reading service account token: %w", err)
 	}
 
-	tlsConfig := &tls.Config{}
 	caPath := "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	if caCert, err := os.ReadFile(caPath); err == nil {
-		pool, _ := x509.SystemCertPool()
-		if pool == nil {
-			pool = x509.NewCertPool()
-		}
-		pool.AppendCertsFromPEM(caCert)
-		tlsConfig.RootCAs = pool
-	} else {
-		logger.Warn("cluster CA not found, falling back to InsecureSkipVerify", zap.String("ca_path", caPath), zap.Error(err))
-		tlsConfig.InsecureSkipVerify = true
+	caCert, err := os.ReadFile(caPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading cluster CA certificate at %s: %w", caPath, err)
 	}
+	pool, _ := x509.SystemCertPool()
+	if pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to parse cluster CA certificate at %s", caPath)
+	}
+	tlsConfig := &tls.Config{RootCAs: pool}
 
 	return &k8sAPIClient{
 		httpClient: &http.Client{

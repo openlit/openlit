@@ -2,11 +2,11 @@ name: OpenLIT Controller Tests
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "controller"]
     paths:
       - 'openlit-controller/**'
   pull_request:
-    branches: ["main"]
+    branches: ["main", "controller"]
     paths:
       - 'openlit-controller/**'
 

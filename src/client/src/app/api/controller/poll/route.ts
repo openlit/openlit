@@ -36,6 +36,10 @@ function clickhouseNow(): string {
 	return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
+function sanitizeLogValue(val: unknown): string {
+	return String(val).replace(/[\r\n\t]/g, " ").slice(0, 500);
+}
+
 async function authenticatePollRequest(
 	request: Request
 ): Promise<{ dbId: string } | Response> {
@@ -133,7 +137,7 @@ export async function POST(request: Request) {
 			dbId
 		);
 		if (instResult?.err) {
-			console.error("controller poll: upsert instance error:", instResult.err);
+			console.error("controller poll: upsert instance error:", sanitizeLogValue(instResult.err));
 		}
 
 		// 2. Upsert discovered services — carry forward desired_* columns
@@ -199,7 +203,7 @@ export async function POST(request: Request) {
 			});
 			const svcResult = await upsertServices(rows, dbId);
 			if (svcResult?.err) {
-				console.error("controller poll: upsert services error:", svcResult.err);
+				console.error("controller poll: upsert services error:", sanitizeLogValue(svcResult.err));
 			}
 		}
 
@@ -217,7 +221,7 @@ export async function POST(request: Request) {
 					if (completeResult?.err) {
 						console.error(
 							"controller poll: completeAction error:",
-							completeResult.err
+							sanitizeLogValue(completeResult.err)
 						);
 					}
 				}
@@ -268,7 +272,7 @@ export async function POST(request: Request) {
 					);
 				}
 			} catch (reconcileErr) {
-				console.error("controller poll: reconciliation error:", reconcileErr);
+				console.error("controller poll: reconciliation error:", sanitizeLogValue(reconcileErr));
 			}
 		}
 
@@ -302,7 +306,7 @@ export async function POST(request: Request) {
 		if (pendingActions.length > 0) {
 			const ackResult = await markActionsAcknowledged(pendingActions, instance_id, dbId);
 			if (ackResult?.err) {
-				console.error("controller poll: markActionsAcknowledged error:", ackResult.err);
+				console.error("controller poll: markActionsAcknowledged error:", sanitizeLogValue(ackResult.err));
 			}
 		}
 
@@ -320,7 +324,7 @@ export async function POST(request: Request) {
 			actions,
 		});
 	} catch (error: any) {
-		console.error("controller poll: unhandled error:", error);
+		console.error("controller poll: unhandled error:", sanitizeLogValue(error?.message || error));
 		return Response.json(
 			{ error: "Internal server error" },
 			{ status: 500 }
