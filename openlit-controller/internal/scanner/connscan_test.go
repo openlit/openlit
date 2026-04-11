@@ -54,13 +54,14 @@ func TestParseHexIPPortInvalidFormat(t *testing.T) {
 
 func TestParseHexIPPortIPv6Mapped(t *testing.T) {
 	// IPv4-mapped IPv6: ::ffff:127.0.0.1 = 00000000 00000000 FFFF0000 0100007F
-	ip, port := parseHexIPPort("00000000000000000000FFFF00000100007F:01BB", false)
+	ip, _ := parseHexIPPort("00000000000000000000FFFF00000100007F:01BB", false)
 	// This is malformed for non-v6 mode — should return nil
 	if ip != nil {
 		t.Fatalf("expected nil for oversized hex without v6 flag, got %s", ip)
 	}
 
 	// Proper v6 parsing
+	var port uint16
 	ip, port = parseHexIPPort("0000000000000000FFFF00000100007F:01BB", true)
 	if port != 443 {
 		t.Fatalf("expected port 443, got %d", port)
