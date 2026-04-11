@@ -1,511 +1,323 @@
-This guide demonstrates how to implement real-time cost tracking, token usage monitoring, hallucination detection, and latency optimization for your AI applications with OpenTelemetry traces and metrics.
+Get real-time cost tracking, token usage monitoring, and latency optimization for your AI applications.
 
-```mermaid
-flowchart TB;
-    subgraph " "
-        direction LR;
-        subgraph " "
-            direction LR;
-            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
-            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
-        end
-        subgraph " "
-            direction RL;
-            OpenLIT_UI[OpenLIT] -->|Pulls Data| ClickHouseDB;
-        end
-    end
-```
+## Select where your AI application is running
 
-<Steps>
-    <Step title="Deploy OpenLIT">
-      <Steps>
-        <Step title="Git clone OpenLIT repository">
+<Tabs>
+  <Tab title="Kubernetes" icon="dharmachakra">
+
+    <Steps>
+      <Step title="Deploy OpenLIT with the Controller" titleSize="h3">
+        Deploy OpenLIT and the Controller together using the [Helm chart](https://github.com/openlit/helm/tree/main/charts/openlit). The Controller automatically discovers your services and lets you enable LLM observability from the dashboard — no code changes needed.
+
+        ```shell
+        helm repo add openlit https://openlit.github.io/helm/
+        helm repo update
+        helm install openlit openlit/openlit --set openlit-controller.enabled=true
+        ```
+
+        The Controller's DaemonSet, RBAC, and configuration are all handled by the chart.
+        The dashboard URL and OTLP endpoint are auto-derived from the Helm release name.
+
+        For detailed configuration options, see the [Installation guide](/latest/openlit/installation) and [Controller configuration](/latest/controller/configuration).
+      </Step>
+      <Step title="Enable observability from the Instrumentation Hub">
+        1. Open the OpenLIT dashboard and navigate to **Instrumentation Hub**
+        2. Your services making LLM API calls will appear automatically
+        3. Click **Enable** next to any service to start collecting traces and metrics
+
+        <Tip>
+        The Controller uses eBPF for zero-code LLM observability and can also inject the OpenLIT Python SDK for agent framework traces — no code changes, image rebuilds, or redeployments required. For deeper application-level tracing, you can also use the [OpenLIT SDKs](/latest/sdk/overview).
+        </Tip>
+      </Step>
+    </Steps>
+
+  </Tab>
+  <Tab title="Docker" icon="docker" iconType="brands">
+
+    <Steps>
+      <Step title="Deploy OpenLIT with Docker Compose" titleSize="h3">
         ```shell
         git clone git@github.com:openlit/openlit.git
         ```
-        </Step>
-        <Step title="Start Docker Compose">
-        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), Run the below command:
+
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), add the Controller service to your `docker-compose.yml`:
+
+        ```yaml
+        openlit-controller:
+          image: ghcr.io/openlit/controller:latest
+          privileged: true
+          pid: "host"
+          volumes:
+            - /proc:/host/proc:ro
+            - /sys/kernel/debug:/sys/kernel/debug:ro
+            - /sys/fs/bpf:/sys/fs/bpf:rw
+            - /var/run/docker.sock:/var/run/docker.sock
+          environment:
+            OPENLIT_URL: "http://openlit:3000"
+            OPENLIT_PROC_ROOT: "/host/proc"
+            OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
+          depends_on:
+            - openlit
+        ```
+
+        Then start everything:
+
         ```shell
         docker compose up -d
         ```
-        </Step>
-      </Steps>
-    </Step>
-    <Step title="Install OpenLIT SDK">
-        <Card
-            title="Want zero-code observability? Try the OpenLIT Controller"
-            icon="tower-broadcast"
-            href="/latest/controller/quickstart"
-          >
-          The Controller uses eBPF to automatically discover and instrument LLM traffic across Kubernetes, Docker, and Linux — no SDK required. Use SDKs for deeper application-level tracing.
-        </Card>
+      </Step>
+      <Step title="Enable observability from the Instrumentation Hub">
+        1. Open the OpenLIT dashboard at `http://127.0.0.1:3000`
+        2. Navigate to **Instrumentation Hub**
+        3. Your containers making LLM API calls will appear automatically
+        4. Click **Enable** next to any service to start collecting traces and metrics
+
+        <Tip>
+        The Controller uses eBPF for zero-code LLM observability and can also inject the OpenLIT Python SDK for agent framework traces — no code changes or image rebuilds required. For deeper application-level tracing, you can also use the [OpenLIT SDKs](/latest/sdk/overview).
+        </Tip>
+      </Step>
+    </Steps>
+
+  </Tab>
+  <Tab title="Linux" icon="linux" iconType="brands">
+
+    <Steps>
+      <Step title="Deploy OpenLIT" titleSize="h3">
+        ```shell
+        git clone git@github.com:openlit/openlit.git
+        ```
+
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit):
+
+        ```shell
+        docker compose up -d
+        ```
+      </Step>
+      <Step title="Install the OpenLIT Controller" titleSize="h3">
         <Tabs>
-        <Tab title="Python">
-           ```shell
-           pip install openlit
-           ```
-        </Tab>
-        <Tab title="Typescript">
-           ```shell
-           npm install openlit
-           ```
-        </Tab>
+          <Tab title="x86_64 (amd64)">
+            ```bash
+            curl -fsSL https://github.com/openlit/openlit/releases/latest/download/openlit-controller-linux-amd64 \
+              -o /usr/local/bin/openlit-controller
+            chmod +x /usr/local/bin/openlit-controller
+            ```
+          </Tab>
+          <Tab title="ARM64 (aarch64)">
+            ```bash
+            curl -fsSL https://github.com/openlit/openlit/releases/latest/download/openlit-controller-linux-arm64 \
+              -o /usr/local/bin/openlit-controller
+            chmod +x /usr/local/bin/openlit-controller
+            ```
+          </Tab>
         </Tabs>
 
-    </Step>
-    <Step title="Instrument your AI application">
-      <Tabs>
-        <Tab title="Python">
-          <Tip>
-          Not sure which method to choose? Check out [Instrumentation Methods](/latest/sdk/instrumentation-methods) to understand the differences.
-          </Tip>
-          <Tabs>
-            <Tab title="Zero-code instrumentation">              
-              <Tabs>
-                <Tab title="Via CLI arguments">
+        Verify the installation:
+
+        ```bash
+        openlit-controller --version
+        ```
+
+        Create a systemd service with the configuration passed as environment variables:
+
+        ```ini /etc/systemd/system/openlit-controller.service
+        [Unit]
+        Description=OpenLIT Controller
+        After=network.target
+
+        [Service]
+        Environment="OPENLIT_URL=http://your-openlit-host:3000"
+        Environment="OTEL_EXPORTER_OTLP_ENDPOINT=http://your-openlit-host:4318"
+        Environment="OPENLIT_POLL_INTERVAL=60s"
+        Environment="OPENLIT_ENVIRONMENT=production"
+        ExecStart=/usr/local/bin/openlit-controller
+        Restart=always
+        RestartSec=5
+
+        [Install]
+        WantedBy=multi-user.target
+        ```
+
+        ```bash
+        systemctl daemon-reload
+        systemctl enable --now openlit-controller
+        ```
+      </Step>
+      <Step title="Enable observability from the Instrumentation Hub">
+        1. Open the OpenLIT dashboard and navigate to **Instrumentation Hub**
+        2. Your processes making LLM API calls will appear automatically
+        3. Click **Enable** next to any service to start collecting traces and metrics
+
+        <Tip>
+        The Controller uses eBPF for zero-code LLM observability and can also inject the OpenLIT Python SDK for agent framework traces — no code changes required. For deeper application-level tracing, you can also use the [OpenLIT SDKs](/latest/sdk/overview).
+        </Tip>
+      </Step>
+    </Steps>
+
+  </Tab>
+  <Tab title="Local Development" icon="laptop-code">
+
+    <Steps>
+      <Step title="Deploy OpenLIT" titleSize="h3">
+        ```shell
+        git clone git@github.com:openlit/openlit.git
+        ```
+
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit):
+
+        ```shell
+        docker compose up -d
+        ```
+      </Step>
+      <Step title="Install the OpenLIT SDK">
+        <Tabs>
+          <Tab title="Python">
+            ```shell
+            pip install openlit
+            ```
+          </Tab>
+          <Tab title="Typescript">
+            ```shell
+            npm install openlit
+            ```
+          </Tab>
+        </Tabs>
+      </Step>
+      <Step title="Instrument your AI application">
+        <Tabs>
+          <Tab title="Python">
+            <Tip>
+            Not sure which method to choose? Check out [Instrumentation Methods](/latest/sdk/instrumentation-methods) to understand the differences.
+            </Tip>
+            <Tabs>
+              <Tab title="Zero-code instrumentation">
                 ```bash
-                # Install OpenLIT
-                pip install openlit
-                
-                # Configure via CLI arguments
                 openlit-instrument \
                   --service-name my-ai-app \
-                  --environment production \
+                  --environment development \
                   --otlp-endpoint http://127.0.0.1:4318 \
                   python your_app.py
                 ```
-                </Tab>
-                <Tab title="Via environment variables">
-                ```bash
-                # Configure via environment variables
-                export OTEL_SERVICE_NAME=my-ai-app
-                export OTEL_DEPLOYMENT_ENVIRONMENT=production
-                export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-                
-                # Run with zero code changes
-                openlit-instrument python your_app.py
+              </Tab>
+              <Tab title="Manual instrumentation">
+                ```python
+                import openlit
+
+                openlit.init(otlp_endpoint="http://127.0.0.1:4318")
                 ```
-                </Tab>
-              </Tabs>
-            </Tab>
-            <Tab title="Manual instrumentation">
-              <Tabs>
-                <Tab title="Via function parameters">
-                  ```python
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-                  ```
-
-                  Examples:
-
-                  <CodeGroup>
-
-                  ```python OpenAI
-                  from openai import OpenAI
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  client = OpenAI(
-                      api_key="YOUR_OPENAI_KEY"
-                  )
-
-                  chat_completion = client.chat.completions.create(
-                      messages=[
-                          {
-                              "role": "user",
-                              "content": "What is LLM Observability?",
-                          }
-                      ],
-                      model="gpt-3.5-turbo",
-                  )
-                  ```
-
-                  ```python Anthropic
-                  import os
-                  from anthropic import Anthropic
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  client = Anthropic(
-                      # This is the default and can be omitted
-                      api_key=os.environ.get("ANTHROPIC_API_KEY"),
-                  )
-
-                  message = client.messages.create(
-                      max_tokens=1024,
-                      messages=[
-                          {
-                              "role": "user",
-                              "content": "Hello, What is LLM Observability?",
-                          }
-                      ],
-                      model="claude-3-opus-20240229",
-                  )
-                  ```
-
-                  ```python Cohere
-                  import cohere
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  co = cohere.Client(
-                      api_key="YOUR_API_KEY",
-                  )
-
-                  chat = co.chat(
-                      message="hello world!",
-                      model="command"
-                  )
-                  ```
-
-                  ```python LiteLLM
-                  from litellm import completion
-                  import os
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  os.environ["HUGGINGFACE_API_KEY"] = "huggingface_api_key"
-
-                  # e.g. Call 'WizardLM/WizardCoder-Python-34B-V1.0' hosted on HF Inference endpoints
-                  response = completion(
-                    model="huggingface/WizardLM/WizardCoder-Python-34B-V1.0",
-                    messages=[{ "content": "Hello, how are you?","role": "user"}],
-                    api_base="https://my-endpoint.huggingface.cloud"
-                  )
-                  ```
-
-                  ```python Langchain
-                  from langchain_core.messages import HumanMessage, SystemMessage
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  from langchain_openai import ChatOpenAI
-
-                  model = ChatOpenAI(model="gpt-4o-mini")
-
-                  messages = [
-                      SystemMessage(content="Translate the following from English into Italian"),
-                      HumanMessage(content="hi!"),
-                  ]
-
-                  model.invoke(messages)
-                  ```
-
-                  ```python Ollama
-                  import ollama
-                  import openlit
-
-                  openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-
-                  response = ollama.chat(model='llama3.1', messages=[
-                    {
-                      'role': 'user',
-                      'content': 'Why is the sky blue?',
-                    },
-                  ])
-                  ```
-
-                  </CodeGroup>
-                </Tab>
-                <Tab title="Via environment variables">
-                  Add the following two lines to your application code:
-                  ```python
-                  import openlit
-
-                  openlit.init()
-                  ```
-
-                  Run the following command to configure the OTEL export endpoint:
-                  ```shell
-                  export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
-                  ```
-
-                  Examples:
-
-                  <CodeGroup>
-
-                  ```python OpenAI
-                  from openai import OpenAI
-                  import openlit
-
-                  openlit.init()
-
-                  client = OpenAI(
-                      api_key="YOUR_OPENAI_KEY"
-                  )
-
-                  chat_completion = client.chat.completions.create(
-                      messages=[
-                          {
-                              "role": "user",
-                              "content": "What is LLM Observability?",
-                          }
-                      ],
-                      model="gpt-3.5-turbo",
-                  )
-                  ```
-
-                  ```python Anthropic
-                  import os
-                  from anthropic import Anthropic
-                  import openlit
-
-                  openlit.init()
-
-                  client = Anthropic(
-                      # This is the default and can be omitted
-                      api_key=os.environ.get("ANTHROPIC_API_KEY"),
-                  )
-
-                  message = client.messages.create(
-                      max_tokens=1024,
-                      messages=[
-                          {
-                              "role": "user",
-                              "content": "Hello, What is LLM Observability?",
-                          }
-                      ],
-                      model="claude-3-opus-20240229",
-                  )
-                  ```
-
-                  ```python Cohere
-                  import cohere
-                  import openlit
-
-                  openlit.init()
-
-                  co = cohere.Client(
-                      api_key="YOUR_API_KEY",
-                  )
-
-                  chat = co.chat(
-                      message="hello world!",
-                      model="command"
-                  )
-                  ```
-
-                  ```python LiteLLM
-                  from litellm import completion
-                  import os
-                  import openlit
-
-                  openlit.init()
-
-                  os.environ["HUGGINGFACE_API_KEY"] = "huggingface_api_key"
-
-                  # e.g. Call 'WizardLM/WizardCoder-Python-34B-V1.0' hosted on HF Inference endpoints
-                  response = completion(
-                    model="huggingface/WizardLM/WizardCoder-Python-34B-V1.0",
-                    messages=[{ "content": "Hello, how are you?","role": "user"}],
-                    api_base="https://my-endpoint.huggingface.cloud"
-                  )
-                  ```
-
-                  ```python Langchain
-                  from langchain_core.messages import HumanMessage, SystemMessage
-                  import openlit
-
-                  openlit.init()
-
-                  from langchain_openai import ChatOpenAI
-
-                  model = ChatOpenAI(model="gpt-4o-mini")
-
-                  messages = [
-                      SystemMessage(content="Translate the following from English into Italian"),
-                      HumanMessage(content="hi!"),
-                  ]
-
-                  model.invoke(messages)
-                  ```
-
-                  ```python Ollama
-                  import ollama
-                  import openlit
-
-                  openlit.init()
-
-                  response = ollama.chat(model='llama3.1', messages=[
-                    {
-                      'role': 'user',
-                      'content': 'Why is the sky blue?',
-                    },
-                  ])
-                  ```
-
-                  </CodeGroup>
-                </Tab>
-              </Tabs>
-            </Tab>
-          </Tabs>
-        </Tab>
-        <Tab title="Typescript">
-          <Tabs>
-            <Tab title="SDK Integration">
-              <Tabs>
-                <Tab title="Via function parameters">
-                   ```typescript
-                  import Openlit from "openlit"
-
-                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
-                  ```
-
-                  Example Usage for monitoring `OpenAI` Usage:
-
-                  ```typescript
-                  import Openlit from "openlit"
-
-                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
-
-                  async function main() {
-                        const OpenAI = await import("openai").then((e) => e.default);
-                        const openai = new OpenAI({
-                            apiKey: YOUR_OPENAI_KEY,
-                        });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo",
-                            messages: [{ role: "system", content: "Who are you ?" }],
-                        });
-
-                        console.log(completion?.choices?.[0]);
-                    }
-
-                    main();
-                  ```
-                  OR
-                  ```typescript
-                  import openlit from "openlit"
-                  import OpenAI from "openai"
-
-                  openlit.init({ 
-                    otlpEndpoint: "http://127.0.0.1:4318", 
-                    instrumentations: {
-                      openai: OpenAI,
-                    } 
-                  })
-
-                  async function main() {
-                        const openai = new OpenAI({
-                            apiKey: YOUR_OPENAI_KEY,
-                        });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo",
-                            messages: [{ role: "system", content: "Who are you ?" }],
-                        });
-
-                        console.log(completion?.choices?.[0]);
-                    }
-
-                    main();
-                  ```
-                </Tab>
-                <Tab title="Via environment variables">
-                   Add the following two lines to your application code:
-              ```typescript
-              import openlit from "openlit"
-
-              openlit.init()
-              ```
-
-              Run the following command to configure the OTEL export endpoint:
-              ```shell
-              export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
-              ```
-
-              Example Usage for monitoring `OpenAI` Usage:
-
-              ```typescript
-              import openlit from "openlit"
-
-              openlit.init()
-
-              async function main() {
-                    const OpenAI = await import("openai").then((e) => e.default);
-                    const openai = new OpenAI({
-                        apiKey: YOUR_OPENAI_KEY,
-                    });
-                    const completion = await openai.chat.completions.create({
-                        model: "gpt-3.5-turbo",
-                        messages: [{ role: "system", content: "Who are you ?" }],
-                    });
-
-                    console.log(completion?.choices?.[0]);
-                }
-
-                main();
-              ```
-                OR
-              ```typescript
-              import openlit from "openlit"
-              import OpenAI from "openai"
-
-              openlit.init({
-                instrumentations: {
-                  openai: OpenAI,
-                } 
-              })
-
-              async function main() {
-                    const openai = new OpenAI({
-                        apiKey: YOUR_OPENAI_KEY,
-                    });
-                    const completion = await openai.chat.completions.create({
-                        model: "gpt-3.5-turbo",
-                        messages: [{ role: "system", content: "Who are you ?" }],
-                    });
-
-                    console.log(completion?.choices?.[0]);
-                }
-
-                main();
-              ```
-                </Tab>
-              </Tabs>
-            </Tab>
-          </Tabs>
-        </Tab>
-      </Tabs>
-      Refer to OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) or [Typescript SDK repository](https://github.com/openlit/openlit/tree/main/sdk/typescript) for more advanced configurations and use cases.
-    </Step>
-    <Step title="Monitor, debug and test the quality of your AI applications">
-    With real-time LLM observability data now flowing to OpenLIT, visualize comprehensive AI performance metrics including token costs, latency patterns, hallucination rates, and model accuracy to optimize your production AI applications.
-
-    Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
-    - **Email**: `user@openlit.io`
-    - **Password**: `openlituser`
-    <Frame>
-      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true" />
-      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true" />
-    </Frame>
-    </Step>
-
-</Steps>
-
-You're all set! Your AI applications now have observability with real-time performance monitoring, cost tracking, and AI safety evaluations. 
-
-**Send Observability telemetry to other OpenTelemetry backends**
-
-```mermaid
-flowchart TB;
-    subgraph " "
-        direction LR;
-        ApplicationCode[Application Code] -->|Instrumented with| OpenLIT_SDK[OpenLIT SDK];
-        OpenLIT_SDK -->|Sends Traces & Metrics| OT_Backend[OpenTelemetry Backend];
-    end
-```
-
-If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, checkout our [Supported Destinations](/latest/sdk/destinations/overview) guide.
-
-```sh
-docker compose down
-```
+
+                Examples:
+
+                <CodeGroup>
+
+                ```python OpenAI
+                from openai import OpenAI
+                import openlit
+
+                openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+                client = OpenAI(api_key="YOUR_OPENAI_KEY")
+
+                chat_completion = client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": "What is LLM Observability?",
+                        }
+                    ],
+                    model="gpt-4o-mini",
+                )
+                ```
+
+                ```python Anthropic
+                import os
+                from anthropic import Anthropic
+                import openlit
+
+                openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+                client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+                message = client.messages.create(
+                    max_tokens=1024,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": "Hello, What is LLM Observability?",
+                        }
+                    ],
+                    model="claude-sonnet-4-20250514",
+                )
+                ```
+
+                ```python LangChain
+                from langchain_core.messages import HumanMessage, SystemMessage
+                import openlit
+
+                openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+                from langchain_openai import ChatOpenAI
+
+                model = ChatOpenAI(model="gpt-4o-mini")
+
+                messages = [
+                    SystemMessage(content="Translate the following from English into Italian"),
+                    HumanMessage(content="hi!"),
+                ]
+
+                model.invoke(messages)
+                ```
+
+                </CodeGroup>
+              </Tab>
+            </Tabs>
+          </Tab>
+          <Tab title="Typescript">
+            ```typescript
+            import Openlit from "openlit"
+
+            Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+            ```
+
+            Example with OpenAI:
+
+            ```typescript
+            import Openlit from "openlit"
+
+            Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+            async function main() {
+                const OpenAI = await import("openai").then((e) => e.default);
+                const openai = new OpenAI({ apiKey: YOUR_OPENAI_KEY });
+                const completion = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [{ role: "system", content: "Who are you?" }],
+                });
+                console.log(completion?.choices?.[0]);
+            }
+
+            main();
+            ```
+          </Tab>
+        </Tabs>
+
+        Refer to OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) or [Typescript SDK repository](https://github.com/openlit/openlit/tree/main/sdk/typescript) for more advanced configurations and use cases.
+      </Step>
+    </Steps>
+
+  </Tab>
+</Tabs>
+
+## Monitor and optimize your AI applications
+
+With real-time LLM observability data now flowing to OpenLIT, visualize comprehensive AI performance metrics including token costs, latency patterns, hallucination rates, and model accuracy to optimize your production AI applications.
+
+Head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials:
+- **Email**: `user@openlit.io`
+- **Password**: `openlituser`
+
+<Frame>
+  <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true" />
+  <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true" />
+</Frame>
 
 If you have any questions or need support, reach out to our [community](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ).

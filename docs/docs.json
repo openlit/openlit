@@ -65,7 +65,17 @@
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
               "latest/openlit/observability/error",
-              "latest/openlit/observability/fleet-hub"
+              "latest/openlit/observability/fleet-hub",
+              {
+                "group": "Instrumentation Hub",
+                "icon": "radar",
+                "pages": [
+                  "latest/controller/overview",
+                  "latest/controller/quickstart",
+                  "latest/controller/architecture",
+                  "latest/controller/configuration"
+                ]
+              }
             ]
           },
           {
@@ -329,20 +339,6 @@
                   "latest/sdk/destinations/murnitur"
                 ]
               }
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Controller",
-        "groups": [
-          {
-            "group": "Getting Started",
-            "pages": [
-              "latest/controller/overview",
-              "latest/controller/quickstart",
-              "latest/controller/architecture",
-              "latest/controller/configuration"
             ]
           }
         ]

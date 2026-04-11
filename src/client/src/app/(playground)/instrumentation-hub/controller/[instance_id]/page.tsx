@@ -352,13 +352,13 @@ function ControllerConfigEditor({
 							type="number"
 							min={5}
 							max={300}
-							value={config.poll_interval_seconds ?? 30}
+							value={config.poll_interval_seconds ?? 60}
 							onChange={(e) =>
 								setConfig((prev) => ({
 									...prev,
 									poll_interval_seconds: Math.max(
 										5,
-										Math.min(300, parseInt(e.target.value) || 30)
+										Math.min(300, parseInt(e.target.value) || 60)
 									),
 								}))
 							}

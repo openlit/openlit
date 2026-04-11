@@ -44,7 +44,7 @@ func DetectDeployMode() DeployMode {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		APIListen:     ":4321",
-		PollInterval:  30 * time.Second,
+		PollInterval:  60 * time.Second,
 		OBIBinaryPath: "/usr/local/bin/obi",
 		OTLPEndpoint:  "http://localhost:4318",
 		ProcRoot:      "/proc",

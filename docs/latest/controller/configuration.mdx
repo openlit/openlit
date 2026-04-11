@@ -11,7 +11,7 @@ The Controller is configured via a YAML file mounted at `/etc/openlit/config.yam
 ```yaml /etc/openlit/config.yaml
 openlit_url: "http://openlit:3000"
 otlp_endpoint: "http://openlit:4318"
-poll_interval: 10
+poll_interval: 60s
 environment: "production"
 api_listen: ":4321"
 ```
@@ -21,11 +21,15 @@ api_listen: ":4321"
 | Field | Env Variable | Default | Description |
 |---|---|---|---|
 | `openlit_url` | `OPENLIT_URL` | (required) | URL of the OpenLIT dashboard for the poll API |
-| `otlp_endpoint` | `OTLP_ENDPOINT` | (required) | OTLP HTTP endpoint for sending traces and metrics |
-| `poll_interval` | `POLL_INTERVAL` | `10` | Seconds between poll cycles |
-| `environment` | `ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`) |
-| `api_listen` | `API_LISTEN` | `:4321` | Address for the Controller's REST API |
-| `cluster_id` | `CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
+| `otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint for sending traces and metrics |
+| `poll_interval` | `OPENLIT_POLL_INTERVAL` | `60s` | Duration between poll cycles (e.g., `60s`, `2m`) |
+| `environment` | `OPENLIT_ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`) |
+| `api_listen` | `OPENLIT_API_LISTEN` | `:4321` | Address for the Controller's REST API |
+| `cluster_id` | `OPENLIT_CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
+| `api_key` | `OPENLIT_API_KEY` | — | API key for authenticating with the dashboard |
+| `sdk_version` | `OPENLIT_SDK_VERSION` | (auto) | Pin a specific OpenLIT Python SDK version |
+
+Environment variables take precedence over config file values.
 
 ## Deployment Mode
 
@@ -64,14 +68,16 @@ rules:
 
 ### Volume Mounts
 
-| Mount | Purpose |
-|---|---|
-| `/host/proc` (from host `/proc`) | Process inspection for service discovery |
-| `/etc/openlit` (from ConfigMap) | Configuration file |
+| Mount | Host path | Purpose |
+|---|---|---|
+| `/host/proc` | `/proc` (read-only) | Scans `/proc/net/tcp` to discover processes with connections to LLM APIs, reads `/proc/<pid>/cgroup` for container metadata |
+| `/sys/kernel/debug` | `/sys/kernel/debug` (read-only) | Required by the kernel for attaching eBPF kprobes to `tcp_connect` |
+| `/sys/fs/bpf` | `/sys/fs/bpf` (read-write) | eBPF map pinning — allows the OBI engine to persist eBPF maps across probe reloads |
+| `/etc/openlit-controller` | ConfigMap | Configuration file (managed by Helm chart) |
 
 ### Security Context
 
-The Controller requires `privileged: true` and `hostPID: true` for eBPF-based service discovery and LLM traffic interception.
+The Controller requires `privileged: true` and `hostPID: true` because eBPF kprobe attachment and `/proc` scanning across all namespaces require elevated kernel access. The Controller itself is read-only (it inspects traffic, it doesn't modify it).
 
 ## Docker Configuration
 
@@ -79,14 +85,15 @@ The Controller requires `privileged: true` and `hostPID: true` for eBPF-based se
 
 ```yaml
 volumes:
-  - /proc:/host/proc:ro        # Process inspection
-  - /var/run/docker.sock:/var/run/docker.sock  # Container management
+  - /proc:/host/proc:ro                        # /proc/net/tcp scanning for LLM connection discovery
+  - /sys/kernel/debug:/sys/kernel/debug:ro     # eBPF kprobe attachment
+  - /sys/fs/bpf:/sys/fs/bpf:rw                # eBPF map pinning
+  - /var/run/docker.sock:/var/run/docker.sock  # Container discovery + SDK injection
 ```
 
-The Docker socket is required for:
-- Discovering which containers are running
-- Injecting the Python SDK into containers (Agent Observability)
-- Reading container metadata (name, labels, etc.)
+- **`/proc`** — Scan process network connections to detect LLM API calls
+- **`/sys/kernel/debug`** + **`/sys/fs/bpf`** — Required for eBPF operation (LLM traffic interception)
+- **Docker socket** — Discover running containers, read labels/metadata, and inject the Python SDK for Agent Observability
 
 ## Linux Configuration
 

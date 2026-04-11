@@ -44,13 +44,19 @@ Automatically injects the OpenLIT Python SDK into running Python applications to
 
 ## Deployment Modes
 
-The Controller runs in three modes, auto-detected based on the environment:
+The Controller auto-detects its environment and adapts accordingly:
 
-| Mode | How it runs | What it discovers |
-|---|---|---|
-| **Kubernetes** | DaemonSet on every node | Pods, Deployments, DaemonSets, StatefulSets |
-| **Docker** | Sidecar container | Docker containers on the same host |
-| **Linux** | Systemd service or process | Bare-metal processes on the host |
+<CardGroup cols={3}>
+  <Card title="Kubernetes" icon="dharmachakra">
+    Runs as a **DaemonSet** on every node. Discovers Pods, Deployments, DaemonSets, and StatefulSets. SDK injection triggers rolling updates.
+  </Card>
+  <Card title="Docker" icon="docker" iconType="brands">
+    Runs as a **sidecar container** alongside your services. Discovers containers via the Docker socket. SDK injection recreates the container.
+  </Card>
+  <Card title="Linux" icon="linux" iconType="brands">
+    Runs as a **systemd service** or standalone process. Discovers bare-metal processes on the host. SDK injection uses systemd drop-in files.
+  </Card>
+</CardGroup>
 
 ## Architecture
 
@@ -92,6 +98,67 @@ flowchart LR
 3. **LLM Observability** — One-click eBPF instrumentation for LLM traffic metrics
 4. **Agent Observability** — One-click SDK injection for agent framework traces
 5. **Reconciliation** — The Controller automatically restores your desired state after pod restarts, container recreates, or process restarts
+
+## The Instrumentation Hub
+
+The **Instrumentation Hub** is the dashboard page where you manage all Controller-discovered services. Once the Controller is running, navigate to **Instrumentation Hub** in the OpenLIT sidebar.
+
+### Services view
+
+The main view shows every service the Controller has discovered across your infrastructure:
+
+| Column | Description |
+|---|---|
+| **Service** | Service name (derived from Kubernetes workload name, Docker container name, or process executable) |
+| **Platform** | Kubernetes, Docker, or Linux |
+| **LLM Providers** | Detected LLM API connections (OpenAI, Anthropic, Gemini, etc.) |
+| **LLM Observability** | Toggle to enable/disable eBPF-based LLM tracing |
+| **Agent Observability** | Toggle to enable/disable Python SDK injection (Python services only) |
+| **Status** | Current instrumentation state (`Discovered`, `Instrumenting`, `Active`, `Error`) |
+
+### Enabling observability
+
+Click **Enable** next to any service. The Controller will:
+
+1. **LLM Observability** — Attach eBPF probes to intercept LLM API traffic. Takes effect within seconds, no restart required.
+2. **Agent Observability** — Inject the OpenLIT Python SDK. In Kubernetes this triggers a rolling update; in Docker the container is recreated; on Linux the systemd service is restarted.
+
+### Disabling observability
+
+Click **Disable** to remove instrumentation:
+
+- **LLM Observability** — eBPF probes are detached immediately. No application restart.
+- **Agent Observability** — The injected SDK environment variables are removed. In Kubernetes a rolling update restores the original pod spec. In Docker the container is recreated without the SDK. On Linux the systemd drop-in is removed and the service is restarted.
+
+### Service detail page
+
+Click on a service name to see its detail page:
+
+- **Controller instance** — Which Controller node is managing this service
+- **Workload info** — Namespace, deployment name, container image (Kubernetes), container ID (Docker), or PID/executable (Linux)
+- **Instrumentation status** — Current state for both LLM and Agent Observability
+- **SDK version** — The OpenLIT Python SDK version injected (for Agent Observability)
+- **Last seen** — When the Controller last reported this service
+
+### Controller instances
+
+The **Controller** tab shows all running Controller instances with their:
+
+- Node/host name
+- Deploy mode (Kubernetes, Docker, Linux)
+- Poll interval and last poll time
+- Number of services discovered
+- Version
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Service not appearing in the Hub | Controller not running, or service is not making LLM API calls | Check controller logs (`kubectl logs`, `docker logs`, or `journalctl`). The service must have active TCP connections to LLM API endpoints to be discovered. |
+| LLM Observability enabled but no traces | eBPF probe failed to attach | Check controller logs for eBPF errors. Ensure the Controller has privileged access and required volume mounts. |
+| Agent Observability shows "Error" | SDK injection failed | Check controller logs. For Kubernetes, verify RBAC allows patching deployments. For Docker, verify the Docker socket is mounted. |
+| Service keeps reappearing after disable | Desired state mismatch | The Controller reconciles desired state from ClickHouse. If the service reappears, check that the disable action completed successfully in the dashboard. |
+| Traces appear but with wrong service name | Service name detection issue | The Controller derives service names from workload metadata. You can override using the `OTEL_SERVICE_NAME` environment variable in your application. |
 
 ## Getting Started
 
