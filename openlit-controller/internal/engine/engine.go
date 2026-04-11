@@ -119,7 +119,9 @@ func (e *Engine) Stop() {
 	if e.scanner != nil {
 		e.scanner.Close()
 	}
-	e.obi.Stop()
+	if err := e.obi.Stop(); err != nil {
+		e.logger.Warn("OBI stop error", zap.Error(err))
+	}
 	e.running = false
 	e.logger.Info("engine stopped")
 }

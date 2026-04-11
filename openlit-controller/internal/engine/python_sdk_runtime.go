@@ -178,7 +178,7 @@ func (e *Engine) prepareDockerSDKVolume(
 	if err != nil {
 		return err
 	}
-	defer e.container.dockerClient.removeContainer(helperID, true)
+	defer func() { _ = e.container.dockerClient.removeContainer(helperID, true) }()
 
 	if err := e.container.dockerClient.startContainer(helperID); err != nil {
 		return err

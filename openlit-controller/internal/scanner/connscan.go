@@ -133,7 +133,7 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 			}
 			seen[key] = struct{}{}
 
-			provName, _ := providerNames[m.providerID]
+			provName := providerNames[m.providerID]
 			events = append(events, LLMConnectEvent{
 				PID:      uint32(pid),
 				Provider: provName,

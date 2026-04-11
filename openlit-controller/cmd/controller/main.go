@@ -26,7 +26,7 @@ func main() {
 	flag.Parse()
 
 	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	if *openlitURL != "" {
 		os.Setenv("OPENLIT_URL", *openlitURL)
@@ -98,7 +98,9 @@ func main() {
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
-	srv.Shutdown(shutdownCtx)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Warn("HTTP server shutdown error", zap.Error(err))
+	}
 }
 
 func runPollLoop(

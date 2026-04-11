@@ -686,24 +686,6 @@ func (d *dockerAPIClient) createContainer(name string, payload map[string]any) (
 	return result.ID, nil
 }
 
-func (d *dockerAPIClient) putArchive(containerID, targetPath string, tarball []byte) error {
-	resp, err := d.doRequest(
-		http.MethodPut,
-		fmt.Sprintf("/containers/%s/archive?path=%s", containerID, url.QueryEscape(targetPath)),
-		bytes.NewReader(tarball),
-		"application/x-tar",
-	)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("docker put archive returned %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
-	}
-	return nil
-}
-
 func (d *dockerAPIClient) startContainer(containerID string) error {
 	resp, err := d.doRequest(http.MethodPost, fmt.Sprintf("/containers/%s/start", containerID), nil, "")
 	if err != nil {

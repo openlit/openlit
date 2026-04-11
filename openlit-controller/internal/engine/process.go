@@ -311,7 +311,7 @@ func restartProcess(procRoot string, pid int, fullEnv map[string]string) (int, e
 		return 0, fmt.Errorf("start new process: %w", err)
 	}
 
-	go cmd.Wait()
+	go func() { _ = cmd.Wait() }()
 
 	return cmd.Process.Pid, nil
 }

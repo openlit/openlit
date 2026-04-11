@@ -211,19 +211,16 @@ export async function POST(request: Request) {
 		if (Array.isArray(action_results)) {
 			for (const ar of action_results) {
 				if (ar.action_id && ar.status) {
-					const completeResult = await completeAction(
-						ar.action_id,
-						instance_id,
-						ar.status === "completed" ? "completed" : "failed",
-						ar.error || "",
-						dbId
-					);
-					if (completeResult?.err) {
-						console.error(
-							"controller poll: completeAction error:",
-							sanitizeLogValue(completeResult.err)
-						);
-					}
+				const completeResult = await completeAction(
+					ar.action_id,
+					instance_id,
+					ar.status === "completed" ? "completed" : "failed",
+					ar.error || "",
+					dbId
+				);
+				if (completeResult?.err) {
+					console.error("controller poll: completeAction failed");
+				}
 				}
 			}
 		}
