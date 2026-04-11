@@ -90,7 +90,9 @@ export default function ServiceDetail() {
 		return () => window.clearInterval(interval);
 	}, [isPending, refresh]);
 
-	const isInstrumented = service?.instrumentation_status === "instrumented";
+	const isInstrumented =
+		service?.instrumentation_status === "instrumented" ||
+		service?.desired_instrumentation_status === "instrumented";
 	const instance = instances?.find(
 		(candidate) => candidate.instance_id === service?.controller_instance_id
 	);

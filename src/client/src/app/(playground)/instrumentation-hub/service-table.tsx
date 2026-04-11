@@ -86,7 +86,7 @@ function AIObservabilityCell({
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{isInstrumented ? "Disabling..." : "Enabling..."}
+				{pendingAction === "uninstrument" ? "Disabling..." : "Enabling..."}
 			</button>
 		);
 	}

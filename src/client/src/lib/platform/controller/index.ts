@@ -4,6 +4,7 @@ import {
 	CONTROLLER_INSTANCES_TABLE,
 	CONTROLLER_CONFIG_TABLE,
 	CONTROLLER_ACTIONS_TABLE,
+	CONTROLLER_DESIRED_STATES_TABLE,
 } from "./table-details";
 import type {
 	ControllerConfig,
@@ -83,6 +84,7 @@ export async function getDiscoveredServices(
 	if (timeStart && timeEnd) {
 		timeFilter = `WHERE ${tbl}.last_seen >= '${timeStart}' AND ${tbl}.last_seen <= '${timeEnd}'`;
 	}
+	const desiredTbl = CONTROLLER_DESIRED_STATES_TABLE;
 	const query = `
 		WITH aggregated_services AS (
 			SELECT
@@ -99,8 +101,6 @@ export async function getDiscoveredServices(
 				argMax(s.pid, s.last_seen) AS pid,
 				argMax(s.exe_path, s.last_seen) AS exe_path,
 				argMax(s.instrumentation_status, s.last_seen) AS instrumentation_status,
-				argMax(s.desired_instrumentation_status, s.last_seen) AS desired_instrumentation_status,
-				argMax(s.desired_agent_status, s.last_seen) AS desired_agent_status,
 				argMax(s.resource_attributes, s.last_seen) AS resource_attributes,
 				min(s.first_seen) AS first_seen,
 				max(s.last_seen) AS last_seen,
@@ -114,6 +114,16 @@ export async function getDiscoveredServices(
 				${timeFilter}
 			) AS s
 			GROUP BY s.group_key
+		),
+		desired_states AS (
+			SELECT
+				workload_key,
+				cluster_id,
+				argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
+				argMax(desired_agent_status, updated_at) AS desired_agent_status
+			FROM ${desiredTbl}
+			FINAL
+			GROUP BY workload_key, cluster_id
 		),
 		active_actions AS (
 			SELECT
@@ -142,7 +152,25 @@ export async function getDiscoveredServices(
 			GROUP BY instance_id, service_key
 		)
 		SELECT
-			aggregated_services.*,
+			aggregated_services.id,
+			aggregated_services.controller_instance_id,
+			aggregated_services.cluster_id,
+			aggregated_services.service_name,
+			aggregated_services.workload_key,
+			aggregated_services.namespace,
+			aggregated_services.language_runtime,
+			aggregated_services.llm_providers,
+			aggregated_services.open_ports,
+			aggregated_services.deployment_name,
+			aggregated_services.pid,
+			aggregated_services.exe_path,
+			aggregated_services.instrumentation_status,
+			aggregated_services.resource_attributes,
+			aggregated_services.first_seen,
+			aggregated_services.last_seen,
+			aggregated_services.updated_at,
+			ifNull(desired_states.desired_instrumentation_status, 'none') AS desired_instrumentation_status,
+			ifNull(desired_states.desired_agent_status, 'none') AS desired_agent_status,
 			if(
 				isNull(active_actions.pending_action_updated_at) OR
 					active_actions.pending_action_updated_at < aggregated_services.updated_at,
@@ -158,6 +186,9 @@ export async function getDiscoveredServices(
 			failed_actions.last_error AS last_error,
 			failed_actions.last_error_action AS last_error_action
 		FROM aggregated_services
+		LEFT JOIN desired_states
+			ON desired_states.workload_key = aggregated_services.workload_key
+			AND desired_states.cluster_id = aggregated_services.cluster_id
 		LEFT JOIN active_actions
 			ON active_actions.instance_id = aggregated_services.controller_instance_id
 			AND active_actions.service_key = aggregated_services.workload_key
@@ -178,6 +209,7 @@ export async function getServiceById(
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerService[] }> {
 	const actionTbl = CONTROLLER_ACTIONS_TABLE;
+	const desiredTbl = CONTROLLER_DESIRED_STATES_TABLE;
 	const query = `
 		WITH service_row AS (
 			SELECT *
@@ -185,6 +217,16 @@ export async function getServiceById(
 			FINAL
 			WHERE id = '${escapeClickHouse(serviceId)}'
 			LIMIT 1
+		),
+		desired_state AS (
+			SELECT
+				workload_key,
+				cluster_id,
+				argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
+				argMax(desired_agent_status, updated_at) AS desired_agent_status
+			FROM ${desiredTbl}
+			FINAL
+			GROUP BY workload_key, cluster_id
 		),
 		active_action AS (
 			SELECT
@@ -213,7 +255,25 @@ export async function getServiceById(
 			GROUP BY instance_id, service_key
 		)
 		SELECT
-			service_row.*,
+			service_row.id,
+			service_row.controller_instance_id,
+			service_row.service_name,
+			service_row.workload_key,
+			service_row.namespace,
+			service_row.language_runtime,
+			service_row.llm_providers,
+			service_row.open_ports,
+			service_row.deployment_name,
+			service_row.pid,
+			service_row.exe_path,
+			service_row.instrumentation_status,
+			service_row.resource_attributes,
+			service_row.first_seen,
+			service_row.last_seen,
+			service_row.updated_at,
+			service_row.cluster_id,
+			ifNull(desired_state.desired_instrumentation_status, 'none') AS desired_instrumentation_status,
+			ifNull(desired_state.desired_agent_status, 'none') AS desired_agent_status,
 			if(
 				isNull(active_action.pending_action_updated_at) OR
 					active_action.pending_action_updated_at < service_row.updated_at,
@@ -229,6 +289,9 @@ export async function getServiceById(
 			failed_action.last_error AS last_error,
 			failed_action.last_error_action AS last_error_action
 		FROM service_row
+		LEFT JOIN desired_state
+			ON desired_state.workload_key = service_row.workload_key
+			AND desired_state.cluster_id = service_row.cluster_id
 		LEFT JOIN active_action
 			ON active_action.instance_id = service_row.controller_instance_id
 			AND active_action.service_key = service_row.workload_key
@@ -336,7 +399,7 @@ export async function getDesiredStatesForWorkloads(
 			workload_key,
 			argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
 			argMax(desired_agent_status, updated_at) AS desired_agent_status
-		FROM ${CONTROLLER_SERVICES_TABLE}
+		FROM ${CONTROLLER_DESIRED_STATES_TABLE}
 		FINAL
 		WHERE cluster_id = '${escapeClickHouse(clusterId)}'
 		  AND workload_key IN (${escaped})
@@ -361,27 +424,51 @@ export async function updateDesiredStatus(
 	},
 	dbConfigId?: string
 ) {
-	const setClauses: string[] = [];
-	if (fields.desired_instrumentation_status !== undefined) {
-		setClauses.push(
-			`desired_instrumentation_status = '${fields.desired_instrumentation_status}'`
-		);
-	}
-	if (fields.desired_agent_status !== undefined) {
-		setClauses.push(
-			`desired_agent_status = '${fields.desired_agent_status}'`
-		);
-	}
-	if (setClauses.length === 0) return { data: "ok" };
+	if (
+		fields.desired_instrumentation_status === undefined &&
+		fields.desired_agent_status === undefined
+	)
+		return { data: "ok" };
 
-	const query = `
-		ALTER TABLE ${CONTROLLER_SERVICES_TABLE}
-		UPDATE ${setClauses.join(", ")}
-		WHERE workload_key = '${escapeClickHouse(workloadKey)}'
-		  AND cluster_id = '${escapeClickHouse(clusterId)}'
-		SETTINGS mutations_sync = 1
-	`;
-	return dataCollector({ query }, "query", dbConfigId);
+	let currentInstr: "none" | "instrumented" = "none";
+	let currentAgent: "none" | "enabled" = "none";
+
+	if (
+		fields.desired_instrumentation_status === undefined ||
+		fields.desired_agent_status === undefined
+	) {
+		const current = await getDesiredStatesForWorkloads(
+			[workloadKey],
+			clusterId,
+			dbConfigId
+		);
+		const existing = current.data?.find(
+			(d) => d.workload_key === workloadKey
+		);
+		if (existing) {
+			currentInstr = existing.desired_instrumentation_status as "none" | "instrumented";
+			currentAgent = existing.desired_agent_status as "none" | "enabled";
+		}
+	}
+
+	return dataCollector(
+		{
+			table: CONTROLLER_DESIRED_STATES_TABLE,
+			values: [
+				{
+					workload_key: workloadKey,
+					cluster_id: clusterId,
+					desired_instrumentation_status:
+						fields.desired_instrumentation_status ?? currentInstr,
+					desired_agent_status:
+						fields.desired_agent_status ?? currentAgent,
+					updated_at: clickhouseNow(),
+				},
+			],
+		},
+		"insert",
+		dbConfigId
+	);
 }
 
 export async function getServicesToReconcile(
@@ -391,6 +478,7 @@ export async function getServicesToReconcile(
 		instrumentation_status: string;
 		resource_attributes?: Record<string, string>;
 	}>,
+	clusterId: string,
 	dbConfigId?: string
 ): Promise<{
 	instrumentKeys: string[];
@@ -405,69 +493,52 @@ export async function getServicesToReconcile(
 		disableAgentKeys: [] as string[],
 	};
 
-	const query = `
-		SELECT workload_key, desired_instrumentation_status, desired_agent_status
-		FROM ${CONTROLLER_SERVICES_TABLE}
-		FINAL
-		WHERE controller_instance_id = '${escapeClickHouse(controllerInstanceId)}'
-		  AND (desired_instrumentation_status != 'none' OR desired_agent_status != 'none')
-	`;
-	const res = (await dataCollector({ query }, "query", dbConfigId)) as {
-		err?: unknown;
-		data?: Array<{
-			workload_key: string;
-			desired_instrumentation_status: string;
-			desired_agent_status: string;
-		}>;
-	};
+	const workloadKeys = reportedServices.map((s) => s.workload_key).filter(Boolean);
+	if (workloadKeys.length === 0) return result;
 
-	if (res.err || !res.data) return result;
+	const desiredRes = await getDesiredStatesForWorkloads(
+		workloadKeys,
+		clusterId,
+		dbConfigId
+	);
+	if (desiredRes.err || !desiredRes.data) return result;
 
-	const reportedMap = new Map<
-		string,
-		{
-			instrumentation_status: string;
-			agent_status: string;
-		}
-	>();
+	const desiredMap = new Map(
+		desiredRes.data.map((d) => [d.workload_key, d])
+	);
+
 	for (const svc of reportedServices) {
+		const desired = desiredMap.get(svc.workload_key);
+		if (!desired) continue;
+
 		const agentStatus =
 			(svc as any).agent_observability_status ||
 			svc.resource_attributes?.["openlit.agent_observability.status"] ||
 			"disabled";
-		reportedMap.set(svc.workload_key, {
-			instrumentation_status: svc.instrumentation_status,
-			agent_status: agentStatus,
-		});
-	}
-
-	for (const row of res.data) {
-		const reported = reportedMap.get(row.workload_key);
-		if (!reported) continue;
 
 		if (
-			row.desired_instrumentation_status === "instrumented" &&
-			reported.instrumentation_status !== "instrumented"
+			desired.desired_instrumentation_status === "instrumented" &&
+			svc.instrumentation_status !== "instrumented"
 		) {
-			result.instrumentKeys.push(row.workload_key);
+			result.instrumentKeys.push(svc.workload_key);
 		}
 		if (
-			row.desired_instrumentation_status === "none" &&
-			reported.instrumentation_status === "instrumented"
+			desired.desired_instrumentation_status === "none" &&
+			svc.instrumentation_status === "instrumented"
 		) {
-			result.uninstrumentKeys.push(row.workload_key);
+			result.uninstrumentKeys.push(svc.workload_key);
 		}
 		if (
-			row.desired_agent_status === "enabled" &&
-			reported.agent_status !== "enabled"
+			desired.desired_agent_status === "enabled" &&
+			agentStatus !== "enabled"
 		) {
-			result.enableAgentKeys.push(row.workload_key);
+			result.enableAgentKeys.push(svc.workload_key);
 		}
 		if (
-			row.desired_agent_status === "none" &&
-			reported.agent_status === "enabled"
+			desired.desired_agent_status === "none" &&
+			agentStatus === "enabled"
 		) {
-			result.disableAgentKeys.push(row.workload_key);
+			result.disableAgentKeys.push(svc.workload_key);
 		}
 	}
 

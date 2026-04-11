@@ -13,6 +13,7 @@ func TestBuildSystemdDropInContent(t *testing.T) {
 		"/var/lib/openlit/python-sdk/myapp",
 		"myapp",
 		"http://otel:4318",
+		"production",
 		"openai,anthropic",
 		"/usr/lib/python3",
 		"abc123",
@@ -33,6 +34,9 @@ func TestBuildSystemdDropInContent(t *testing.T) {
 	if !strings.Contains(content, "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4318") {
 		t.Error("expected OTEL_EXPORTER_OTLP_ENDPOINT")
 	}
+	if !strings.Contains(content, "OTEL_DEPLOYMENT_ENVIRONMENT=production") {
+		t.Error("expected OTEL_DEPLOYMENT_ENVIRONMENT")
+	}
 	if !strings.Contains(content, "openlit-managed-config-hash=abc123") {
 		t.Error("expected config hash comment")
 	}
@@ -47,6 +51,7 @@ func TestBuildSystemdDropInContentNoPreviousPythonPath(t *testing.T) {
 		"/var/lib/openlit/python-sdk/myapp",
 		"myapp",
 		"http://otel:4318",
+		"default",
 		"openai",
 		"",
 		"hash1",

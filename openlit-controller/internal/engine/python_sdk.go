@@ -83,6 +83,9 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	if payload.SDKVersion == "" {
 		payload.SDKVersion = e.sdkVersion
 	}
+	if payload.Environment == "" {
+		payload.Environment = e.environment
+	}
 
 	svc, err := e.serviceSnapshot(serviceID)
 	if err != nil {
@@ -931,6 +934,7 @@ func applyPythonSDKContainerSettings(
 	env = upsertEnvValue(env, "OPENLIT_CONTROLLER_MODE", controllerManagedAgentMode)
 	env = upsertEnvValue(env, "OTEL_SERVICE_NAME", svc.ServiceName)
 	env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
+	env = upsertEnvValue(env, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
 	env = upsertEnvValue(
 		env,
 		"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -956,6 +960,7 @@ func removePythonSDKContainerSettings(container map[string]any) {
 	for _, key := range []string{
 		"OPENLIT_CONTROLLER_MODE",
 		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_DEPLOYMENT_ENVIRONMENT",
 		"OPENLIT_DISABLED_INSTRUMENTORS",
 	} {
 		env = removeEnvValue(env, key)

@@ -38,7 +38,7 @@ data:
   config.yaml: |
     openlit_url: "http://openlit.openlit.svc.cluster.local:3000"
     obi_binary_path: "/usr/local/bin/obi"
-    otlp_endpoint: "http://otel-collector.openlit.svc.cluster.local:4318"
+    otlp_endpoint: "http://openlit.openlit.svc.cluster.local:4318"
     poll_interval: 10s
 ---
 apiVersion: apps/v1

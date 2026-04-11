@@ -66,6 +66,7 @@ func buildSystemdDropInContent(
 	sdkRoot string,
 	serviceName string,
 	otlpEndpoint string,
+	environment string,
 	disabledInstrumentors string,
 	existingPythonPath string,
 	configHash string,
@@ -82,6 +83,7 @@ func buildSystemdDropInContent(
 	buf.WriteString("Environment=\"OPENLIT_CONTROLLER_MODE=agent_observability\"\n")
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_SERVICE_NAME=%s\"\n", escapeSystemdValue(serviceName)))
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_ENDPOINT=%s\"\n", escapeSystemdValue(otlpEndpoint)))
+	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_DEPLOYMENT_ENVIRONMENT=%s\"\n", escapeSystemdValue(environment)))
 	buf.WriteString(fmt.Sprintf("Environment=\"OPENLIT_DISABLED_INSTRUMENTORS=%s\"\n", escapeSystemdValue(disabledInstrumentors)))
 	return buf.String()
 }

@@ -54,6 +54,7 @@ type PythonSDKActionPayload struct {
 	ObservabilityScope     string `json:"observability_scope"`
 	OTLPEndpoint           string `json:"otlp_endpoint,omitempty"`
 	SDKVersion             string `json:"sdk_version,omitempty"`
+	Environment            string `json:"environment,omitempty"`
 }
 
 type ActionResult struct {

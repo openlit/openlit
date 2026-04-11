@@ -187,6 +187,7 @@ export async function POST(request: Request) {
 				const reconcile = await getServicesToReconcile(
 					instance_id,
 					reportedServices,
+					clusterId,
 					dbId
 				);
 				for (const key of reconcile.instrumentKeys) {

@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - clickhouse.yaml
-  - otel-collector.yaml
   - openlit.yaml
   - controller.yaml
   - sample-apps.yaml

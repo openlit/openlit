@@ -305,6 +305,7 @@ func buildDockerContainerCreatePayload(
 		envValues = upsertEnvString(envValues, "OPENLIT_CONTROLLER_MODE", controllerManagedAgentMode)
 		envValues = upsertEnvString(envValues, "OTEL_SERVICE_NAME", svc.ServiceName)
 		envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
+		envValues = upsertEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
 		envValues = upsertEnvString(
 			envValues,
 			"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -319,6 +320,7 @@ func buildDockerContainerCreatePayload(
 	} else {
 		envValues = removeEnvString(envValues, "OPENLIT_CONTROLLER_MODE")
 		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT")
 		envValues = removeEnvString(envValues, "OPENLIT_DISABLED_INSTRUMENTORS")
 		envValues = rewritePythonPathWithoutManagedSDK(envValues)
 		labels := extractStringMap(createPayload["Labels"])
@@ -391,6 +393,7 @@ func (e *Engine) enablePythonSDKLinux(
 		sdkRoot,
 		svc.ServiceName,
 		payload.OTLPEndpoint,
+		payload.Environment,
 		strings.Join(controllerManagedDisabledInstrumentors, ","),
 		env["PYTHONPATH"],
 		nextHash,
@@ -751,11 +754,13 @@ func (e *Engine) enablePythonSDKBareProcess(
 			"  OPENLIT_CONTROLLER_MODE=agent_observability\n"+
 			"  OTEL_SERVICE_NAME=%s\n"+
 			"  OTEL_EXPORTER_OTLP_ENDPOINT=%s\n"+
+			"  OTEL_DEPLOYMENT_ENVIRONMENT=%s\n"+
 			"  OPENLIT_DISABLED_INSTRUMENTORS=%s",
 		sdkRoot,
 		pythonPath,
 		svc.ServiceName,
 		payload.OTLPEndpoint,
+		payload.Environment,
 		strings.Join(controllerManagedDisabledInstrumentors, ","),
 	)
 
