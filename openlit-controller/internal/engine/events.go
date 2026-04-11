@@ -17,11 +17,15 @@ import (
 )
 
 func (e *Engine) consumeScannerEvents(ctx context.Context) {
+	selfPID := uint32(os.Getpid())
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case ev := <-e.scanner.Events():
+			if ev.PID == selfPID {
+				continue
+			}
 			e.handleLLMEvent(ev)
 		}
 	}

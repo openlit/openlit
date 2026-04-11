@@ -55,13 +55,27 @@ func (c *ConnScanner) UpdateIPs(resolved map[string][]net.IP) {
 	}
 }
 
-// Scan iterates over all PIDs and reads each process's /proc/<pid>/net/tcp{,6}
-// to find established connections to known LLM IPs. This covers all network
-// namespaces, including containerized processes.
+// Scan finds established connections to known LLM API IPs and attributes each
+// connection to the PID that actually owns the socket.
+//
+// For each PID it:
+//  1. Reads /proc/<pid>/net/tcp{,6} to find LLM connections with socket inodes.
+//     (In Docker/K8s this is scoped to the container's network namespace;
+//     in Linux host mode every PID sees the same global table.)
+//  2. Reads /proc/<pid>/fd/ to find which socket inodes this PID owns.
+//  3. Only emits events for connections whose socket is owned by this PID.
+//
+// The fd-ownership check is what makes this correct in Linux host mode where
+// all processes share one network namespace.
+//
+// To avoid redundantly parsing the same /proc/<pid>/net/tcp for PIDs that
+// share a network namespace, results are cached by namespace inode.
 func (c *ConnScanner) Scan() []LLMConnectEvent {
 	if len(c.knownIPs) == 0 {
 		return nil
 	}
+
+	selfPID := os.Getpid()
 
 	procDirs, err := os.ReadDir(c.procRoot)
 	if err != nil {
@@ -69,39 +83,114 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 		return nil
 	}
 
-	seen := make(map[string]struct{}) // dedupe by "pid:remoteIP"
+	// Cache: netns inode → LLM connections found in that namespace.
+	netnsCache := make(map[uint64]map[uint64]connMatch)
+
+	seen := make(map[string]struct{})
 	var events []LLMConnectEvent
 
 	for _, entry := range procDirs {
 		pid, err := strconv.Atoi(entry.Name())
-		if err != nil {
+		if err != nil || pid == selfPID {
 			continue
 		}
 
-		for _, variant := range []string{"tcp", "tcp6"} {
-			path := filepath.Join(c.procRoot, entry.Name(), "net", variant)
-			matches := c.scanTCPFile(path, variant == "tcp6")
-			for _, m := range matches {
-				key := fmt.Sprintf("%d:%s", pid, m.remoteIP)
-				if _, dup := seen[key]; dup {
-					continue
-				}
-				seen[key] = struct{}{}
+		pidDir := filepath.Join(c.procRoot, entry.Name())
 
-				provName, _ := providerNames[m.providerID]
-				events = append(events, LLMConnectEvent{
-					PID:      uint32(pid),
-					Provider: provName,
-				})
+		// Determine the network namespace for this PID.
+		nsInode := readNetnsInode(pidDir)
+
+		// Step 1: find LLM connections visible to this PID's netns (with inodes).
+		inodeToMatch, cached := netnsCache[nsInode]
+		if !cached {
+			inodeToMatch = make(map[uint64]connMatch)
+			for _, variant := range []string{"tcp", "tcp6"} {
+				path := filepath.Join(pidDir, "net", variant)
+				matches := c.scanTCPFileWithInodes(path, variant == "tcp6")
+				for _, m := range matches {
+					inodeToMatch[m.inode] = m
+				}
 			}
+			if nsInode != 0 {
+				netnsCache[nsInode] = inodeToMatch
+			}
+		}
+		if len(inodeToMatch) == 0 {
+			continue
+		}
+
+		// Step 2: check which of those sockets this PID actually owns.
+		ownedInodes := readSocketInodes(filepath.Join(pidDir, "fd"))
+		for _, inode := range ownedInodes {
+			m, ok := inodeToMatch[inode]
+			if !ok {
+				continue
+			}
+			key := fmt.Sprintf("%d:%s", pid, m.remoteIP)
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+
+			provName, _ := providerNames[m.providerID]
+			events = append(events, LLMConnectEvent{
+				PID:      uint32(pid),
+				Provider: provName,
+			})
 		}
 	}
 	return events
 }
 
-// scanTCPFile parses a single /proc/<pid>/net/tcp{,6} file and returns
-// connections to known LLM IPs.
-func (c *ConnScanner) scanTCPFile(path string, isV6 bool) []connMatch {
+// readNetnsInode reads the network namespace inode for a process via its
+// /proc/<pid>/ns/net symlink. Returns 0 if the ns cannot be determined.
+func readNetnsInode(pidDir string) uint64 {
+	link, err := os.Readlink(filepath.Join(pidDir, "ns", "net"))
+	if err != nil {
+		return 0
+	}
+	// Format: "net:[4026531993]"
+	start := strings.IndexByte(link, '[')
+	end := strings.IndexByte(link, ']')
+	if start < 0 || end < 0 || end <= start+1 {
+		return 0
+	}
+	inode, err := strconv.ParseUint(link[start+1:end], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return inode
+}
+
+// readSocketInodes reads /proc/<pid>/fd/ and returns inode numbers for all
+// socket file descriptors (symlinks of the form "socket:[12345]").
+func readSocketInodes(fdDir string) []uint64 {
+	entries, err := os.ReadDir(fdDir)
+	if err != nil {
+		return nil
+	}
+	var inodes []uint64
+	for _, e := range entries {
+		link, err := os.Readlink(filepath.Join(fdDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(link, "socket:[") {
+			continue
+		}
+		inodeStr := link[8 : len(link)-1] // extract number from "socket:[12345]"
+		inode, err := strconv.ParseUint(inodeStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		inodes = append(inodes, inode)
+	}
+	return inodes
+}
+
+// scanTCPFileWithInodes parses /proc/net/tcp{,6} and returns connections
+// to known LLM IPs along with their socket inode numbers.
+func (c *ConnScanner) scanTCPFileWithInodes(path string, isV6 bool) []connMatch {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil
@@ -114,7 +203,7 @@ func (c *ConnScanner) scanTCPFile(path string, isV6 bool) []connMatch {
 
 	for sc.Scan() {
 		fields := strings.Fields(sc.Text())
-		if len(fields) < 4 {
+		if len(fields) < 10 {
 			continue
 		}
 		if fields[3] != tcpEstablished {
@@ -130,7 +219,11 @@ func (c *ConnScanner) scanTCPFile(path string, isV6 bool) []connMatch {
 		if !ok {
 			continue
 		}
-		matches = append(matches, connMatch{remoteIP: ip4, providerID: provID})
+		inode, err := strconv.ParseUint(fields[9], 10, 64)
+		if err != nil {
+			continue
+		}
+		matches = append(matches, connMatch{remoteIP: ip4, providerID: provID, inode: inode})
 	}
 	return matches
 }
@@ -138,6 +231,7 @@ func (c *ConnScanner) scanTCPFile(path string, isV6 bool) []connMatch {
 type connMatch struct {
 	remoteIP   net.IP
 	providerID uint8
+	inode      uint64
 }
 
 

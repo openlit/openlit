@@ -36,11 +36,11 @@ docker compose -f "$SCRIPT_DIR/docker-compose.yaml" down -v --remove-orphans 2>/
 echo ""
 
 # ── 3. Start infrastructure ─────────────────────────────────────────────
-echo "Starting infrastructure (ClickHouse, OTEL Collector, Dashboard)..."
-docker compose -f "$SCRIPT_DIR/docker-compose.yaml" up -d clickhouse otel-collector openlit
+echo "Starting infrastructure (ClickHouse + Dashboard)..."
+docker compose -f "$SCRIPT_DIR/docker-compose.yaml" up -d clickhouse openlit
 
 echo "Waiting for ClickHouse to be healthy..."
-until docker inspect --format='{{.State.Health.Status}}' openlit-clickhouse 2>/dev/null | grep -q healthy; do
+until docker inspect --format='{{.State.Health.Status}}' clickhouse 2>/dev/null | grep -q healthy; do
   sleep 2
 done
 echo "ClickHouse ready."
