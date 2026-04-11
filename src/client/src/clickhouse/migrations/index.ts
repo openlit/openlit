@@ -7,6 +7,16 @@ import CreateCustomDashboardsMigration from "./create-custom-dashboards-migratio
 import CreateOpengroundMigration from "./create-openground-migration";
 import CreateOpengroundCustomModelsMigration from "./create-openground-custom-models-migration";
 import CreateRuleEngineMigration from "./create-rule-engine-migration";
+import CreateControllerMigration from "./create-controller-migration";
+import AlterControllerModeMigration from "./alter-controller-mode-migration";
+import AddControllerResourceAttrsMigration from "./add-controller-resource-attrs-migration";
+import AddControllerWorkloadKeyMigration from "./add-controller-workload-key-migration";
+import AddControllerSDKActionsMigration from "./add-controller-sdk-actions-migration";
+import AddControllerTTLMigration from "./add-controller-ttl-migration";
+import AddControllerDesiredStateMigration from "./add-controller-desired-state-migration";
+import AddControllerClusterIdMigration from "./add-controller-cluster-id-migration";
+import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
+import CreateControllerDesiredStatesTableMigration from "./create-controller-desired-states-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	return Promise.all([
@@ -19,5 +29,15 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateOpengroundMigration(databaseConfigId),
 		CreateOpengroundCustomModelsMigration(databaseConfigId),
 		CreateRuleEngineMigration(databaseConfigId),
+		CreateControllerMigration(databaseConfigId),
+		AlterControllerModeMigration(databaseConfigId),
+		AddControllerResourceAttrsMigration(databaseConfigId),
+		AddControllerWorkloadKeyMigration(databaseConfigId),
+		AddControllerSDKActionsMigration(databaseConfigId),
+		AddControllerTTLMigration(databaseConfigId),
+		AddControllerDesiredStateMigration(databaseConfigId),
+		AddControllerClusterIdMigration(databaseConfigId),
+		UpdateControllerActionsTTLMigration(databaseConfigId),
+		CreateControllerDesiredStatesTableMigration(databaseConfigId),
 	]);
 }

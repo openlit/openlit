@@ -1,0 +1,42 @@
+diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
+index abcdef0..1234567 100644
+--- a/pkg/appolly/app/request/span.go
++++ b/pkg/appolly/app/request/span.go
+@@ -94,6 +94,15 @@ const (
+ 	HTTPSubtypeOpenAI        = 6 // http + OpenAI
+ 	HTTPSubtypeAnthropic     = 7 // http + Anthropic
++	HTTPSubtypeCohere        = 8  // http + Cohere
++	HTTPSubtypeMistral       = 9  // http + Mistral (OpenAI-compatible)
++	HTTPSubtypeGroq          = 10 // http + Groq (OpenAI-compatible)
++	HTTPSubtypeDeepseek      = 11 // http + Deepseek (OpenAI-compatible)
++	HTTPSubtypeTogether      = 12 // http + Together (OpenAI-compatible)
++	HTTPSubtypeFireworks     = 13 // http + Fireworks (OpenAI-compatible)
++	HTTPSubtypeOllama        = 14 // http + Ollama
++	HTTPSubtypeBedrock       = 15 // http + AWS Bedrock
++	HTTPSubtypeAzureOpenAI   = 16 // http + Azure OpenAI (OpenAI-compatible)
+ )
+ 
+ type GenAI struct {
+ 	OpenAI    *VendorOpenAI
+ 	Anthropic *VendorAnthropic
++	Cohere    *VendorCohere
++	Bedrock   *VendorBedrock
+ }
++
++// VendorCohere holds parsed Cohere API request/response data.
++type VendorCohere struct {
++	Model        string `json:"model"`
++	InputTokens  int    `json:"input_tokens"`
++	OutputTokens int    `json:"output_tokens"`
++	Operation    string `json:"operation"`
++	Provider     string `json:"provider"`
++}
++
++// VendorBedrock holds parsed AWS Bedrock API request/response data.
++type VendorBedrock struct {
++	Model        string `json:"model"`
++	InputTokens  int    `json:"input_tokens"`
++	OutputTokens int    `json:"output_tokens"`
++	Operation    string `json:"operation"`
++	Provider     string `json:"provider"`
++}

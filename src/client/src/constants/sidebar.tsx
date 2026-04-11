@@ -9,6 +9,7 @@ import {
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
+	Radar,
 	SettingsIcon,
 	ShieldAlert,
 	SlidersHorizontal,
@@ -57,6 +58,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			icon: <ShieldAlert className={ICON_CLASSES} />,
 			text: "Exceptions",
 			link: "/exceptions",
+			type: "action",
+		},
+		{
+			icon: <Radar className={ICON_CLASSES} />,
+			text: "Instrumentation Hub",
+			link: "/instrumentation-hub",
 			type: "action",
 		},
 		{

@@ -48,6 +48,27 @@ import openlit.evals
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
+CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS = [
+    "openai",
+    "anthropic",
+    "cohere",
+    "mistral",
+    "bedrock",
+    "vertexai",
+    "groq",
+    "ollama",
+    "vllm",
+    "google-ai-studio",
+    "azure-ai-inference",
+    "litellm",
+    "together",
+    "httpx",
+    "requests",
+    "urllib",
+    "urllib3",
+    "aiohttp-client",
+]
+
 
 def module_exists(module_name):
     """Check if nested modules exist, addressing the dot notation issue."""
@@ -118,6 +139,22 @@ def instrument_if_available(
         logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
 
+def apply_controller_mode_defaults(controller_mode, disabled_instrumentors):
+    """Apply controller-managed defaults for OpenLIT auto-instrumentation."""
+    normalized_disabled = normalize_instrumentor_names(disabled_instrumentors)
+    if controller_mode != "agent_observability":
+        return normalized_disabled
+
+    merged = list(dict.fromkeys(
+        normalized_disabled
+        + normalize_instrumentor_names(CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS)
+    ))
+    logger.info(
+        "Controller-managed agent observability mode enabled; default duplicate-prone instrumentors will be disabled"
+    )
+    return merged
+
+
 def init(
     environment="default",
     application_name="default",
@@ -130,6 +167,7 @@ def init(
     disable_metrics=False,
     disable_events=False,
     pricing_json=None,
+    controller_mode=None,
     collect_gpu_stats=False,
     collect_system_metrics=False,
     capture_db_parameters=False,
@@ -213,6 +251,8 @@ def init(
             disabled_instrumentors = normalize_instrumentor_names(
                 env_config["disabled_instrumentors"]
             )
+        if controller_mode is None and "controller_mode" in env_config:
+            controller_mode = env_config["controller_mode"]
         if disable_metrics is False and "disable_metrics" in env_config:
             disable_metrics = env_config["disable_metrics"]
         if disable_events is False and "disable_events" in env_config:
@@ -235,6 +275,17 @@ def init(
     except ImportError:
         # Fallback if config module is not available - continue without env var support
         pass
+
+    disabled_instrumentors = apply_controller_mode_defaults(
+        controller_mode,
+        disabled_instrumentors,
+    )
+    if controller_mode == "agent_observability":
+        custom_span_attributes = custom_span_attributes or {}
+        custom_span_attributes.setdefault(
+            "openlit.controller.mode",
+            "agent_observability",
+        )
 
     # Validate disabled instrumentors
     invalid_instrumentors = [

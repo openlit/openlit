@@ -1,0 +1,91 @@
+diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
+index abcdef0..1234567 100644
+--- a/pkg/appolly/app/request/span.go
++++ b/pkg/appolly/app/request/span.go
+@@ -1194,6 +1194,10 @@ func (s *Span) GenAIInputTokens() int {
+ 	if s.GenAI.Anthropic != nil {
+ 		return s.GenAI.Anthropic.Output.Usage.InputTokens
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.InputTokens
++	}
++	if s.GenAI.Bedrock != nil {
++		return s.GenAI.Bedrock.InputTokens
++	}
+ 
+ 	return 0
+ }
+@@ -1210,6 +1214,10 @@ func (s *Span) GenAIOutputTokens() int {
+ 	if s.GenAI.Anthropic != nil {
+ 		return s.GenAI.Anthropic.Output.Usage.OutputTokens
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.OutputTokens
++	}
++	if s.GenAI.Bedrock != nil {
++		return s.GenAI.Bedrock.OutputTokens
++	}
+ 
+ 	return 0
+ }
+@@ -1226,6 +1234,10 @@ func (s *Span) GenAIOperationName() string {
+ 	if s.GenAI.Anthropic != nil {
+ 		return s.GenAI.Anthropic.Output.Type
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Operation
++	}
++	if s.GenAI.Bedrock != nil {
++		return s.GenAI.Bedrock.Operation
++	}
+ 	return ""
+ }
+ 
+@@ -1239,6 +1251,18 @@ func (s *Span) GenAIProviderName() string {
+ 	if s.GenAI.Anthropic != nil {
+ 		return semconv.GenAIProviderNameAnthropic.Value.AsString()
+ 	}
++	if s.GenAI.Cohere != nil {
++		return "cohere"
++	}
++	if s.GenAI.Bedrock != nil {
++		return "aws.bedrock"
++	}
++	// OpenAI-compatible providers: the SubType encodes the actual provider
++	switch s.SubType {
++	case HTTPSubtypeGroq: return "groq"
++	case HTTPSubtypeDeepseek: return "deepseek"
++	case HTTPSubtypeTogether: return "together"
++	case HTTPSubtypeFireworks: return "fireworks"
++	case HTTPSubtypeMistral: return "mistral"
++	case HTTPSubtypeOllama: return "ollama"
++	case HTTPSubtypeAzureOpenAI: return "azure.openai"
++	}
+ 	return ""
+ }
+ 
+@@ -1252,6 +1276,10 @@ func (s *Span) GenAIRequestModel() string {
+ 	if s.GenAI.Anthropic != nil {
+ 		return s.GenAI.Anthropic.Input.Model
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Model
++	}
++	if s.GenAI.Bedrock != nil {
++		return s.GenAI.Bedrock.Model
++	}
+ 	return ""
+ }
+ 
+@@ -1265,5 +1293,9 @@ func (s *Span) GenAIResponseModel() string {
+ 	if s.GenAI.Anthropic != nil {
+ 		return s.GenAI.Anthropic.Output.Model
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Model
++	}
++	if s.GenAI.Bedrock != nil {
++		return s.GenAI.Bedrock.Model
++	}
+ 	return ""
+ }

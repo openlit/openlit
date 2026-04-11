@@ -1,0 +1,400 @@
+"use client";
+
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import type {
+	ControllerService,
+	ControllerInstance,
+} from "@/types/controller";
+import { Columns } from "@/components/data-table/columns";
+import DataTable from "@/components/data-table/table";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { formatBrowserDateTime } from "@/utils/date";
+import { toast } from "sonner";
+import LinuxSvg from "@/components/svg/linux";
+import KubernetesSvg from "@/components/svg/kubernetes";
+import DockerSvg from "@/components/svg/docker";
+import { ProviderIcon } from "@/components/svg/providers";
+
+interface ServiceTableProps {
+	services: ControllerService[];
+	instances: ControllerInstance[];
+	onRefresh: () => void;
+	isFetched: boolean;
+	isLoading: boolean;
+	statusFilter: string;
+	systemFilter: string;
+	providerFilter: string;
+}
+
+interface EnrichedService extends ControllerService {
+	mode: "linux" | "docker" | "kubernetes" | "standalone";
+	agentStatus: "enabled" | "disabled" | "unsupported" | "manual";
+	agentSource: string;
+}
+
+type ServiceColumnKey =
+	| "service"
+	| "system"
+	| "providers"
+	| "aiObservability"
+	| "agentObservability"
+	| "lastSeen";
+
+function AIObservabilityCell({
+	service,
+	onRefresh,
+}: {
+	service: EnrichedService;
+	onRefresh: () => void;
+}) {
+	const { fireRequest, isLoading } = useFetchWrapper();
+	const isInstrumented =
+		service.instrumentation_status === "instrumented" ||
+		service.desired_instrumentation_status === "instrumented";
+	const pendingAction = service.pending_action || undefined;
+	const isPending =
+		(service.pending_action_status === "pending" ||
+			service.pending_action_status === "acknowledged") &&
+		(pendingAction === "instrument" || pendingAction === "uninstrument");
+
+	const handleAction = async (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (isPending) return;
+		const action = isInstrumented ? "uninstrument" : "instrument";
+		await fireRequest({
+			requestType: "POST",
+			url: `/api/controller/catalog/${service.id}/${action}`,
+			successCb: () => {
+				toast.success(
+					`Queued ${action} for ${service.service_name}`
+				);
+				onRefresh();
+			},
+			failureCb: (err: any) => {
+				toast.error(`Failed: ${err}`);
+			},
+		});
+	};
+
+	if (isPending) {
+		return (
+			<button
+				disabled
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
+			>
+				<Loader2 className="w-3 h-3 animate-spin" />
+				{pendingAction === "uninstrument" ? "Disabling..." : "Enabling..."}
+			</button>
+		);
+	}
+
+	return (
+		<button
+			onClick={handleAction}
+			disabled={isLoading}
+			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+				isInstrumented
+					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
+			}`}
+		>
+			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+			{isLoading ? "Working..." : isInstrumented ? "Disable" : "Enable"}
+		</button>
+	);
+}
+
+function AgentObservabilityCell({
+	service,
+	onRefresh,
+}: {
+	service: EnrichedService;
+	onRefresh: () => void;
+}) {
+	const { fireRequest, isLoading } = useFetchWrapper();
+	const { agentStatus } = service;
+	const pendingAction = service.pending_action || undefined;
+	const isPending =
+		(service.pending_action_status === "pending" ||
+			service.pending_action_status === "acknowledged") &&
+		(pendingAction === "enable_python_sdk" ||
+			pendingAction === "disable_python_sdk");
+
+	if (agentStatus === "unsupported") {
+		return (
+			<span className="text-xs text-stone-400 dark:text-stone-500">—</span>
+		);
+	}
+
+	const handleAction = async (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (isPending) return;
+		const enabling = agentStatus !== "enabled" && agentStatus !== "manual";
+		await fireRequest({
+			requestType: enabling ? "POST" : "DELETE",
+			url: `/api/controller/catalog/${service.id}/agent-instrument`,
+			successCb: () => {
+				toast.success(
+					enabling
+						? `Enabling Agent Observability for ${service.service_name}`
+						: `Disabling Agent Observability for ${service.service_name}`
+				);
+				onRefresh();
+			},
+			failureCb: (err: any) => {
+				toast.error(`Failed: ${err}`);
+			},
+		});
+	};
+
+	if (isPending) {
+		return (
+			<button
+				disabled
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
+			>
+				<Loader2 className="w-3 h-3 animate-spin" />
+				{agentStatus === "enabled" || agentStatus === "manual"
+					? "Disabling..."
+					: "Enabling..."}
+			</button>
+		);
+	}
+
+	if (agentStatus === "manual") {
+		return (
+			<div className="flex items-center gap-2">
+				<span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+					Manual
+				</span>
+				<button
+					onClick={handleAction}
+					disabled={isLoading}
+					className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+				>
+					{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+					{isLoading ? "..." : "Disable"}
+				</button>
+			</div>
+		);
+	}
+
+	return (
+		<button
+			onClick={handleAction}
+			disabled={isLoading}
+			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+				agentStatus === "enabled"
+					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
+			}`}
+		>
+			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+			{isLoading
+				? "Working..."
+				: agentStatus === "enabled"
+					? "Disable"
+					: "Enable"}
+		</button>
+	);
+}
+
+const columns: Columns<ServiceColumnKey, EnrichedService> = {
+	service: {
+		header: () => "Service",
+		cell: ({ row }) => (
+			<div className="flex items-center gap-2 overflow-hidden">
+				<Link
+					href={`/instrumentation-hub/${row.id}`}
+					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
+					onClick={(e) => e.stopPropagation()}
+				>
+					{row.service_name}
+				</Link>
+				{row.cluster_id && row.cluster_id !== "default" && (
+					<span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex-shrink-0">
+						{row.cluster_id}
+					</span>
+				)}
+				{row.mode !== "kubernetes" && row.pid > 0 && (
+					<span className="text-xs text-stone-400 flex-shrink-0">
+						PID {row.pid}
+					</span>
+				)}
+			</div>
+		),
+		enableHiding: false,
+	},
+	system: {
+		header: () => "System",
+		cell: ({ row }) => {
+			const title =
+				row.mode === "kubernetes"
+					? "Kubernetes"
+					: row.mode === "docker"
+						? "Docker"
+						: "Linux";
+			return (
+				<div
+					className="flex items-center text-stone-600 dark:text-stone-400"
+					title={title}
+				>
+					{row.mode === "kubernetes" ? (
+						<KubernetesSvg className="w-5 h-5" />
+					) : row.mode === "docker" ? (
+						<DockerSvg className="w-5 h-5" />
+					) : (
+						<LinuxSvg className="w-5 h-5" />
+					)}
+				</div>
+			);
+		},
+	},
+	providers: {
+		header: () => "Providers",
+		cell: ({ row }) => (
+			<div className="flex items-center gap-2">
+				{row.llm_providers && row.llm_providers.length > 0 ? (
+					row.llm_providers.map((p) => (
+						<span key={p} title={p}>
+							<ProviderIcon
+								provider={p}
+								className="w-5 h-5"
+							/>
+						</span>
+					))
+				) : (
+					<span className="text-stone-400">—</span>
+				)}
+			</div>
+		),
+	},
+	lastSeen: {
+		header: () => "Last Seen",
+		cell: ({ row }) => (
+			<span className="text-xs truncate">
+				{formatBrowserDateTime(row.last_seen)}
+			</span>
+		),
+	},
+	aiObservability: {
+		header: () => "LLM Observability",
+		cell: ({ row, extraFunctions }) => (
+			<AIObservabilityCell
+				service={row}
+				onRefresh={extraFunctions.onRefresh}
+			/>
+		),
+	},
+	agentObservability: {
+		header: () => "Agent Observability",
+		cell: ({ row, extraFunctions }) => (
+			<AgentObservabilityCell
+				service={row}
+				onRefresh={extraFunctions.onRefresh}
+			/>
+		),
+	},
+};
+
+const VISIBILITY_COLUMNS: Record<ServiceColumnKey, boolean> = {
+	service: true,
+	system: true,
+	providers: true,
+	lastSeen: true,
+	aiObservability: true,
+	agentObservability: true,
+};
+
+export default function ServiceTable({
+	services,
+	instances,
+	onRefresh,
+	isFetched,
+	isLoading,
+	statusFilter,
+	systemFilter,
+	providerFilter,
+}: ServiceTableProps) {
+	const router = useRouter();
+	const instanceMap = useMemo(() => {
+		const map = new Map<string, ControllerInstance>();
+		for (const inst of instances) {
+			map.set(inst.instance_id, inst);
+		}
+		return map;
+	}, [instances]);
+
+	const enriched: EnrichedService[] = useMemo(() => {
+		return services.map((svc) => {
+			const inst = instanceMap.get(svc.controller_instance_id);
+			const attrs = svc.resource_attributes || {};
+		const isPython =
+			(attrs["process.runtime.name"] || "").toLowerCase() === "python";
+			const agentStatusRaw =
+				attrs["openlit.agent_observability.status"] || "";
+			const agentSource =
+				attrs["openlit.agent_observability.source"] || "";
+
+		let agentStatus: "enabled" | "disabled" | "unsupported" | "manual" =
+			"disabled";
+			if (!isPython) {
+				agentStatus = "unsupported";
+			} else if (
+				agentStatusRaw === "enabled" ||
+				svc.desired_agent_status === "enabled"
+			) {
+				agentStatus = "enabled";
+			} else if (agentStatusRaw === "manual") {
+				agentStatus = "manual";
+			}
+
+			return {
+				...svc,
+				mode: inst?.mode || "linux",
+				agentStatus,
+				agentSource,
+			};
+		});
+	}, [services, instanceMap]);
+
+	const filtered = useMemo(() => {
+		return enriched.filter((svc) => {
+			if (statusFilter && svc.instrumentation_status !== statusFilter)
+				return false;
+			if (
+				providerFilter &&
+				!(svc.llm_providers || []).includes(providerFilter)
+			)
+				return false;
+			if (systemFilter) {
+				if (systemFilter === "kubernetes" && svc.mode !== "kubernetes")
+					return false;
+				if (
+					systemFilter === "docker" &&
+					svc.mode !== "docker" &&
+					svc.mode !== "standalone"
+				)
+					return false;
+				if (systemFilter === "linux" && svc.mode !== "linux")
+					return false;
+			}
+			return true;
+		});
+	}, [enriched, statusFilter, providerFilter, systemFilter]);
+
+	return (
+		<DataTable
+			columns={columns}
+			data={filtered}
+			isFetched={isFetched}
+			isLoading={isLoading}
+			visibilityColumns={VISIBILITY_COLUMNS}
+			extraFunctions={{ onRefresh }}
+			onClick={(row) => router.push(`/instrumentation-hub/${row.id}`)}
+		/>
+	);
+}
