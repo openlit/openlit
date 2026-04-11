@@ -10,6 +10,20 @@ The fastest way to get the Controller running is through the **LLM Observability
 
 <O11yQuickstart />
 
+## Authenticate with an API Key
+
+If you've created an API key in **Settings → API Keys**, configure the Controller to use it. This secures the poll endpoint so only authorized controllers can register services and receive commands.
+
+| Platform | How to pass the key |
+|---|---|
+| **Kubernetes** | `--set openlit-controller.apiKey="YOUR_KEY"` in Helm |
+| **Docker** | `OPENLIT_API_KEY` environment variable |
+| **Linux** | `Environment="OPENLIT_API_KEY=YOUR_KEY"` in the systemd unit |
+
+<Info>
+On a fresh install with no API keys, the Controller can connect without authentication. Once you create your first API key, all controllers must authenticate. See [Configuration](/latest/controller/configuration) for the full reference.
+</Info>
+
 ## What's Next?
 
 Once services are discovered, use the **Instrumentation Hub** to:

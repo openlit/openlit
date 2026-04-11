@@ -28,11 +28,11 @@ const HEALTH_STYLES: Record<ControllerHealth, string> = {
 
 type ControllerColumnKey =
 	| "controller"
-	| "mode"
+	| "system"
 	| "metadata"
-	| "status"
 	| "services"
-	| "lastHeartbeat";
+	| "lastSeen"
+	| "status";
 
 const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	controller: {
@@ -51,8 +51,8 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		),
 		enableHiding: false,
 	},
-	mode: {
-		header: () => "Mode",
+	system: {
+		header: () => "System",
 		cell: ({ row }) => {
 			const title =
 				row.mode === "kubernetes"
@@ -108,17 +108,6 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 			);
 		},
 	},
-	status: {
-		header: () => "Status",
-		cell: ({ row }) => (
-			<Badge
-				variant="outline"
-				className={HEALTH_STYLES[row.status] || ""}
-			>
-				{row.status}
-			</Badge>
-		),
-	},
 	services: {
 		header: () => "Services",
 		cell: ({ row }) => (
@@ -133,23 +122,34 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 			</span>
 		),
 	},
-	lastHeartbeat: {
-		header: () => "Last Heartbeat",
+	lastSeen: {
+		header: () => "Last Seen",
 		cell: ({ row }) => (
 			<span className="text-xs truncate">
 				{formatBrowserDateTime(row.last_heartbeat)}
 			</span>
 		),
 	},
+	status: {
+		header: () => "Status",
+		cell: ({ row }) => (
+			<Badge
+				variant="outline"
+				className={HEALTH_STYLES[row.status] || ""}
+			>
+				{row.status}
+			</Badge>
+		),
+	},
 };
 
 const VISIBILITY_COLUMNS: Record<ControllerColumnKey, boolean> = {
 	controller: true,
-	mode: true,
+	system: true,
 	metadata: true,
-	status: true,
 	services: true,
-	lastHeartbeat: true,
+	lastSeen: true,
+	status: true,
 };
 
 export default function ControllerTable({

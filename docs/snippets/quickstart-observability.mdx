@@ -18,6 +18,18 @@ Get real-time cost tracking, token usage monitoring, and latency optimization fo
         The Controller's DaemonSet, RBAC, and configuration are all handled by the chart.
         The dashboard URL and OTLP endpoint are auto-derived from the Helm release name.
 
+        <Tip title="Secure with an API Key">
+        If you've created an API key in **Settings → API Keys**, pass it to the Controller so it authenticates with the dashboard:
+
+        ```shell
+        helm install openlit openlit/openlit \
+          --set openlit-controller.enabled=true \
+          --set openlit-controller.apiKey="YOUR_OPENLIT_API_KEY"
+        ```
+
+        You can also set the `OPENLIT_API_KEY` environment variable. See [Controller configuration](/latest/controller/configuration) for details.
+        </Tip>
+
         For detailed configuration options, see the [Installation guide](/latest/openlit/installation) and [Controller configuration](/latest/controller/configuration).
       </Step>
       <Step title="Enable observability from the Instrumentation Hub">
@@ -56,6 +68,7 @@ Get real-time cost tracking, token usage monitoring, and latency optimization fo
             OPENLIT_URL: "http://openlit:3000"
             OPENLIT_PROC_ROOT: "/host/proc"
             OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
+            # OPENLIT_API_KEY: "your-api-key"  # Recommended: see tip below
           depends_on:
             - openlit
         ```
@@ -65,6 +78,17 @@ Get real-time cost tracking, token usage monitoring, and latency optimization fo
         ```shell
         docker compose up -d
         ```
+
+        <Tip title="Secure with an API Key">
+        If you've created an API key in **Settings → API Keys**, add it to the Controller's environment to authenticate requests:
+
+        ```yaml
+        environment:
+          OPENLIT_API_KEY: "your-openlit-api-key"
+        ```
+
+        See [Controller configuration](/latest/controller/configuration) for all available options.
+        </Tip>
       </Step>
       <Step title="Enable observability from the Instrumentation Hub">
         1. Open the OpenLIT dashboard at `http://127.0.0.1:3000`
@@ -129,6 +153,7 @@ Get real-time cost tracking, token usage monitoring, and latency optimization fo
         Environment="OTEL_EXPORTER_OTLP_ENDPOINT=http://your-openlit-host:4318"
         Environment="OPENLIT_POLL_INTERVAL=60s"
         Environment="OPENLIT_ENVIRONMENT=production"
+        # Environment="OPENLIT_API_KEY=your-api-key"  # Recommended: see tip below
         ExecStart=/usr/local/bin/openlit-controller
         Restart=always
         RestartSec=5
@@ -141,6 +166,16 @@ Get real-time cost tracking, token usage monitoring, and latency optimization fo
         systemctl daemon-reload
         systemctl enable --now openlit-controller
         ```
+
+        <Tip title="Secure with an API Key">
+        If you've created an API key in **Settings → API Keys**, add it to the systemd service to authenticate Controller requests:
+
+        ```ini
+        Environment="OPENLIT_API_KEY=your-openlit-api-key"
+        ```
+
+        Then reload: `systemctl daemon-reload && systemctl restart openlit-controller`
+        </Tip>
       </Step>
       <Step title="Enable observability from the Instrumentation Hub">
         1. Open the OpenLIT dashboard and navigate to **Instrumentation Hub**

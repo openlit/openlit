@@ -392,7 +392,8 @@ func (e *Engine) ServiceCount() (discovered, instrumented int) {
 
 	for _, svc := range e.services {
 		discovered++
-		if svc.InstrumentationStatus == "instrumented" {
+		if svc.InstrumentationStatus == "instrumented" ||
+			svc.AgentObservabilityStatus == "enabled" {
 			instrumented++
 		}
 	}
