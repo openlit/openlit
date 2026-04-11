@@ -1,0 +1,246 @@
+---
+title: "Controller Quickstart"
+sidebarTitle: "Quickstart"
+description: "Get zero-code LLM and Agent observability running in under 5 minutes"
+---
+
+Choose your deployment environment to get started:
+
+<Tabs>
+  <Tab title="Kubernetes">
+    ### Prerequisites
+    - A running Kubernetes cluster
+    - `kubectl` configured to access your cluster
+    - OpenLIT dashboard deployed ([installation guide](/latest/openlit/installation))
+
+    ### 1. Deploy the Controller
+
+    The Controller runs as a **DaemonSet** so it can discover services on every node.
+
+    ```yaml controller.yaml
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: openlit-controller
+      namespace: openlit
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: openlit-controller
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "pods/log"]
+        verbs: ["get", "list", "watch", "delete", "create"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+        verbs: ["get", "list", "watch", "update", "patch"]
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: openlit-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: openlit-controller
+    subjects:
+      - kind: ServiceAccount
+        name: openlit-controller
+        namespace: openlit
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: openlit-controller-config
+      namespace: openlit
+    data:
+      config.yaml: |
+        openlit_url: "http://openlit.openlit.svc.cluster.local:3000"
+        otlp_endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+        poll_interval: 10
+        environment: "production"
+    ---
+    apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      name: openlit-controller
+      namespace: openlit
+    spec:
+      selector:
+        matchLabels:
+          app: openlit-controller
+      template:
+        metadata:
+          labels:
+            app: openlit-controller
+        spec:
+          serviceAccountName: openlit-controller
+          hostPID: true
+          containers:
+            - name: controller
+              image: ghcr.io/openlit/controller:latest
+              securityContext:
+                privileged: true
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/openlit
+                - name: proc
+                  mountPath: /host/proc
+                  readOnly: true
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+          volumes:
+            - name: config
+              configMap:
+                name: openlit-controller-config
+            - name: proc
+              hostPath:
+                path: /proc
+    ```
+
+    ```bash
+    kubectl apply -f controller.yaml
+    ```
+
+    ### 2. Verify Discovery
+
+    After a few seconds, check the controller logs:
+
+    ```bash
+    kubectl logs -n openlit -l app=openlit-controller --tail=20
+    ```
+
+    You should see log lines like:
+    ```
+    discovered LLM service  service=my-app  provider=openai
+    ```
+
+    ### 3. Open the Instrumentation Hub
+
+    Navigate to **Instrumentation Hub** in the OpenLIT dashboard. Your services will appear with **Enable** buttons for both LLM and Agent Observability.
+
+  </Tab>
+  <Tab title="Docker">
+    ### Prerequisites
+    - Docker installed
+    - OpenLIT running via Docker Compose ([installation guide](/latest/openlit/installation))
+
+    ### 1. Add the Controller to Docker Compose
+
+    Add the following service to your `docker-compose.yml`:
+
+    ```yaml
+    openlit-controller:
+      image: ghcr.io/openlit/controller:latest
+      privileged: true
+      pid: "host"
+      volumes:
+        - /proc:/host/proc:ro
+        - /var/run/docker.sock:/var/run/docker.sock
+      environment:
+        OPENLIT_URL: "http://openlit:3000"
+        OTLP_ENDPOINT: "http://openlit:4318"
+        POLL_INTERVAL: "10"
+        ENVIRONMENT: "docker-local"
+      depends_on:
+        - openlit
+    ```
+
+    ```bash
+    docker compose up -d
+    ```
+
+    ### 2. Verify Discovery
+
+    ```bash
+    docker logs openlit-controller --tail=20
+    ```
+
+    ### 3. Open the Instrumentation Hub
+
+    Navigate to **Instrumentation Hub** at `http://localhost:3000`. Your Docker containers making LLM API calls will appear.
+
+  </Tab>
+  <Tab title="Linux">
+    ### Prerequisites
+    - Linux host with systemd
+    - OpenLIT dashboard accessible from this host
+
+    ### 1. Install the Controller
+
+    ```bash
+    curl -fsSL https://github.com/openlit/openlit/releases/latest/download/openlit-controller-linux-amd64 \
+      -o /usr/local/bin/openlit-controller
+    chmod +x /usr/local/bin/openlit-controller
+    ```
+
+    ### 2. Create Configuration
+
+    ```bash
+    mkdir -p /etc/openlit
+    cat > /etc/openlit/config.yaml <<EOF
+    openlit_url: "http://your-openlit-host:3000"
+    otlp_endpoint: "http://your-openlit-host:4318"
+    poll_interval: 10
+    environment: "production"
+    EOF
+    ```
+
+    ### 3. Create Systemd Service
+
+    ```ini /etc/systemd/system/openlit-controller.service
+    [Unit]
+    Description=OpenLIT Controller
+    After=network.target
+
+    [Service]
+    ExecStart=/usr/local/bin/openlit-controller
+    Restart=always
+    RestartSec=5
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+    ```bash
+    systemctl daemon-reload
+    systemctl enable --now openlit-controller
+    ```
+
+    ### 4. Verify Discovery
+
+    ```bash
+    journalctl -u openlit-controller -f
+    ```
+
+    ### 5. Open the Instrumentation Hub
+
+    Navigate to **Instrumentation Hub** in the OpenLIT dashboard. Processes making LLM API calls will appear.
+
+  </Tab>
+</Tabs>
+
+## What's Next?
+
+Once services are discovered, use the **Instrumentation Hub** to:
+
+1. **Enable LLM Observability** — Click **Enable** next to any service to start capturing LLM metrics via eBPF
+2. **Enable Agent Observability** — For Python services, click **Enable** to inject the OpenLIT SDK for agent framework traces
+3. **View traces and metrics** — Head to the **Requests** and **Dashboards** sections to see your data
+
+<Tip>
+The Controller automatically reconciles desired state. If a pod restarts, a container is recreated, or a process bounces, the Controller will re-enable the observability you configured.
+</Tip>
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" href="/latest/controller/configuration" icon="gear">
+    Customize polling intervals, OTLP endpoints, and more
+  </Card>
+  <Card title="Architecture Deep Dive" href="/latest/controller/architecture" icon="sitemap">
+    How eBPF discovery, SDK injection, and reconciliation work
+  </Card>
+</CardGroup>

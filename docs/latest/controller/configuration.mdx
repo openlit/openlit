@@ -1,0 +1,116 @@
+---
+title: "Controller Configuration"
+sidebarTitle: "Configuration"
+description: "Configuration options for the OpenLIT Controller"
+---
+
+The Controller is configured via a YAML file mounted at `/etc/openlit/config.yaml` or through environment variables.
+
+## Configuration File
+
+```yaml /etc/openlit/config.yaml
+openlit_url: "http://openlit:3000"
+otlp_endpoint: "http://openlit:4318"
+poll_interval: 10
+environment: "production"
+api_listen: ":4321"
+```
+
+## Configuration Reference
+
+| Field | Env Variable | Default | Description |
+|---|---|---|---|
+| `openlit_url` | `OPENLIT_URL` | (required) | URL of the OpenLIT dashboard for the poll API |
+| `otlp_endpoint` | `OTLP_ENDPOINT` | (required) | OTLP HTTP endpoint for sending traces and metrics |
+| `poll_interval` | `POLL_INTERVAL` | `10` | Seconds between poll cycles |
+| `environment` | `ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`) |
+| `api_listen` | `API_LISTEN` | `:4321` | Address for the Controller's REST API |
+| `cluster_id` | `CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
+
+## Deployment Mode
+
+The Controller auto-detects its deployment mode:
+
+- **Kubernetes** — Detected when the `KUBERNETES_SERVICE_HOST` environment variable is present
+- **Docker** — Detected when `/var/run/docker.sock` is accessible
+- **Linux** — Default fallback when neither Kubernetes nor Docker is detected
+
+You can override auto-detection with the `OPENLIT_DEPLOY_MODE` environment variable:
+
+```bash
+OPENLIT_DEPLOY_MODE=docker  # Force Docker mode
+OPENLIT_DEPLOY_MODE=linux   # Force Linux mode
+```
+
+## Kubernetes Configuration
+
+### Required RBAC
+
+The Controller needs the following ClusterRole to discover and modify workloads:
+
+```yaml
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch", "delete", "create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+```
+
+- `get/list/watch` on pods — for service discovery
+- `delete/create` on pods — for naked pod Agent Observability (requires pod restart)
+- `update/patch` on deployments/daemonsets/statefulsets — for Agent Observability SDK injection
+
+### Volume Mounts
+
+| Mount | Purpose |
+|---|---|
+| `/host/proc` (from host `/proc`) | Process inspection for service discovery |
+| `/etc/openlit` (from ConfigMap) | Configuration file |
+
+### Security Context
+
+The Controller requires `privileged: true` and `hostPID: true` for eBPF-based service discovery and LLM traffic interception.
+
+## Docker Configuration
+
+### Required Volumes
+
+```yaml
+volumes:
+  - /proc:/host/proc:ro        # Process inspection
+  - /var/run/docker.sock:/var/run/docker.sock  # Container management
+```
+
+The Docker socket is required for:
+- Discovering which containers are running
+- Injecting the Python SDK into containers (Agent Observability)
+- Reading container metadata (name, labels, etc.)
+
+## Linux Configuration
+
+### Systemd Integration
+
+For Agent Observability on Linux, the Controller manages systemd drop-in files to inject the SDK. It needs:
+
+- Write access to `/etc/systemd/system/` for creating drop-in configurations
+- Ability to run `systemctl daemon-reload` and `systemctl restart`
+
+### Proc Filesystem
+
+The Controller reads `/proc` to discover running processes and their network connections. Ensure `/host/proc` is mounted (or the Controller runs on the host directly with access to `/proc`).
+
+## Multi-Cluster Setup
+
+To run Controllers across multiple Kubernetes clusters reporting to the same OpenLIT dashboard, set a unique `cluster_id` for each cluster:
+
+```yaml
+# Cluster A
+cluster_id: "us-east-prod"
+
+# Cluster B
+cluster_id: "eu-west-prod"
+```
+
+Services from different clusters will appear in the Instrumentation Hub with their cluster label, and desired states are scoped per cluster.
