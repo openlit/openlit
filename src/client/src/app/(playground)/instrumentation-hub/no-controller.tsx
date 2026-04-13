@@ -82,7 +82,7 @@ function buildCommands(
 			return [
 				`helm repo add openlit https://openlit.github.io/helm`,
 				`helm repo update`,
-				`helm install openlit openlit/openlit \\`,
+				`helm upgrade --install openlit openlit/openlit \\`,
 				`  --set openlit-controller.enabled=true`,
 				...(apiKey
 					? [`  --set openlit-controller.apiKey="${apiKey}"`]
