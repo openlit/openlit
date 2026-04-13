@@ -6,10 +6,12 @@ import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
 import {
 	OPENLIT_PROVIDERS_TABLE_NAME,
 	OPENLIT_PROVIDER_MODELS_TABLE_NAME,
+} from "@/lib/platform/providers/table-details";
+import {
 	OPENLIT_OPENGROUND_CONFIG_TABLE_NAME,
 	OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME,
 } from "@/lib/platform/openground/table-details";
-import { DEFAULT_MODELS_BY_PROVIDER } from "@/lib/platform/openground/default-models";
+import { DEFAULT_MODELS_BY_PROVIDER } from "@/lib/platform/providers/default-models";
 
 const MIGRATION_ID = "create-providers-and-provider-models-tables";
 

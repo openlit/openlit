@@ -4,7 +4,7 @@ import { authOptions } from "@/app/auth";
 import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
-import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
 import asaw from "@/utils/asaw";
 import Sanitizer from "@/utils/sanitizer";
 

@@ -9,7 +9,7 @@ import {
 	getAllProvidersWithCustomModels,
 	getProviderByIdWithCustomModels,
 	searchProvidersWithCustomModels,
-} from "@/lib/platform/openground/provider-service";
+} from "@/lib/platform/providers/provider-service";
 
 /**
  * GET /api/openground/providers

@@ -6,7 +6,7 @@ import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { getDBConfigById } from "@/lib/db-config";
 import { getRequestViaSpanId } from "@/lib/platform/request";
-import { ProviderRegistry } from "@/lib/platform/openground/provider-registry";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getPricingConfigById } from "./config";
 import { getLastRunCronLogByCronId, insertCronLog } from "@/lib/platform/cron-log";
 import { CronRunStatus, CronType } from "@/types/cron";

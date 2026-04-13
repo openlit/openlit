@@ -1,6 +1,6 @@
 import { AISdkAdapter } from "./ai-sdk-adapter";
-import { getOpenGroundConfigWithSecret } from "./config";
-import { ProviderRegistry } from "./provider-registry";
+import { getOpenGroundConfigWithSecret } from "@/lib/platform/providers/config";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { createOpengroundEvaluation } from "@/lib/platform/openground-clickhouse";
 import type { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import { getSpecificPrompt } from "@/lib/platform/prompt";
