@@ -773,8 +773,8 @@ func (e *Engine) enablePythonSDKBareProcess(
 		"OPENLIT_CONTROLLER_MODE":        "agent_observability",
 		"OTEL_SERVICE_NAME":              svc.ServiceName,
 		"OTEL_EXPORTER_OTLP_ENDPOINT":    payload.OTLPEndpoint,
-		"OTEL_DEPLOYMENT_ENVIRONMENT":     payload.Environment,
-		"OPENLIT_DISABLED_INSTRUMENTORS":  strings.Join(controllerManagedDisabledInstrumentors, ","),
+		"OTEL_DEPLOYMENT_ENVIRONMENT":    payload.Environment,
+		"OPENLIT_DISABLED_INSTRUMENTORS": strings.Join(controllerManagedDisabledInstrumentors, ","),
 	}
 
 	newPID, err := restartProcessWithEnv(e.procRoot, svc.PID, envOverrides)

@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	eventChannelSize         = 256
-	hostRefreshInterval      = 5 * time.Minute
-	connScanInterval         = 30 * time.Second
-	connScanInitialInterval  = 5 * time.Second
+	eventChannelSize           = 256
+	hostRefreshInterval        = 5 * time.Minute
+	connScanInterval           = 30 * time.Second
+	connScanInitialInterval    = 5 * time.Second
 	connScanInitialBurstCycles = 6 // fast scan for the first 30s (6 × 5s)
 )
 

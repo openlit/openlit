@@ -235,7 +235,6 @@ type connMatch struct {
 	inode      uint64
 }
 
-
 // parseHexIPPort parses "AABBCCDD:01BB" (IPv4) or 32-char hex for IPv6.
 // For IPv6, only IPv4-mapped addresses (::ffff:x.x.x.x) are returned.
 func parseHexIPPort(s string, isV6 bool) (net.IP, uint16) {
@@ -277,7 +276,6 @@ func parseHexIPPort(s string, isV6 bool) (net.IP, uint16) {
 	ip := net.IPv4(raw[3], raw[2], raw[1], raw[0])
 	return ip.To4(), uint16(portVal)
 }
-
 
 // ResolveAllHosts resolves all LLM hostnames and returns the results.
 // Used to feed both the BPF map and the ConnScanner's known IP set.
@@ -323,4 +321,3 @@ func countIPs(m map[string][]net.IP) int {
 	}
 	return n
 }
-

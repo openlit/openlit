@@ -44,8 +44,8 @@ type PodInfo struct {
 	Namespace      string
 	DeploymentName string
 	WorkloadKind   string
-	Labels    map[string]string
-	fetchedAt time.Time
+	Labels         map[string]string
+	fetchedAt      time.Time
 }
 
 type ContainerMetadata struct {
