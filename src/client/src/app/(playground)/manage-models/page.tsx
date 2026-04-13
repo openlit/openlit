@@ -57,10 +57,11 @@ export default function SettingsManageModelsPage() {
 		});
 	};
 
-	const handleSelectModel = (model: ModelMetadata, provider: string, isCustom: boolean) => {
+	const handleSelectModel = (model: ModelMetadata, provider: string, _isCustom: boolean) => {
 		setSelectedModel(model);
 		setSelectedProvider(provider);
-		setIsCustomModel(isCustom);
+		// All models are editable now
+		setIsCustomModel(true);
 		setIsAddingNew(false);
 	};
 

@@ -4,7 +4,7 @@ import { authOptions } from "@/app/auth";
 import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
-import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
 import asaw from "@/utils/asaw";
 
 // Extend the session type to include id
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 		SELECT name
 		FROM system.tables
 		WHERE database = currentDatabase()
-		AND name = '${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}'
+		AND name = '${OPENLIT_PROVIDER_MODELS_TABLE_NAME}'
 	`;
 
 	const { data: tableData, err: tableErr } = await dataCollector(
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 	);
 
 	// Try to get table schema
-	const schemaQuery = `DESCRIBE TABLE ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}`;
+	const schemaQuery = `DESCRIBE TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}`;
 	const { data: schemaData, err: schemaErr } = await dataCollector(
 		{ query: schemaQuery },
 		"query",
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 	);
 
 	// Try to count rows
-	const countQuery = `SELECT count() as count FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}`;
+	const countQuery = `SELECT count() as count FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}`;
 	const { data: countData, err: countErr } = await dataCollector(
 		{ query: countQuery },
 		"query",
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 	);
 
 	// Get actual data to see what's being stored
-	const dataQuery = `SELECT toString(id) as id, provider, model_id, display_name FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME} LIMIT 5`;
+	const dataQuery = `SELECT toString(id) as id, provider, model_id, display_name FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME} LIMIT 5`;
 	const { data: sampleData, err: dataQueryErr } = await dataCollector(
 		{ query: dataQuery },
 		"query",
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
 	);
 
 	return NextResponse.json({
-		tableName: OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME,
+		tableName: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
 		databaseConfigId: dbConfig.id,
 		userId: session.user.id,
 		checks: {

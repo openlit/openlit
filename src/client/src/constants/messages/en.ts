@@ -259,6 +259,60 @@ export const OPENGROUND_SEARCH_MODELS = "Search models...";
 export const OPENGROUND_NO_MODELS_FOUND = "No models found";
 export const OPENGROUND_CUSTOM_MODELS = "Custom Models";
 
+// Pricing
+export const PRICING_TITLE = "Pricing";
+export const PRICING_PAGE_DESCRIPTION =
+	"Recalculate the cost of LLM traces using the current model pricing in Manage Models. Updates the `gen_ai.usage.cost` attribute on existing traces.";
+export const PRICING_INFO_BAR =
+	"Pricing is computed from the input/output token counts on the trace and the per-million-token price stored for each model in Manage Models. Edit a model there to update what auto/manual pricing computes.";
+export const PRICING_AUTO_TITLE = "Auto Pricing";
+export const PRICING_AUTO_DESCRIPTION =
+	"Recompute pricing on a schedule for new LLM traces.";
+export const PRICING_AUTO_ENABLE_LABEL = "Enable Auto Pricing";
+export const PRICING_AUTO_ENABLE_HINT =
+	"Periodically recompute and store pricing for new traces.";
+export const PRICING_AUTO_CRON_LABEL = "Cron Schedule";
+export const PRICING_AUTO_CRON_PLACEHOLDER = "*/15 * * * *";
+export const PRICING_AUTO_CRON_HELP =
+	"Standard cron expression. Example: */15 * * * * runs every 15 minutes.";
+export const PRICING_MANUAL_TITLE = "Manual Pricing";
+export const PRICING_MANUAL_DESCRIPTION =
+	"Recalculate the cost for a specific trace on demand.";
+export const PRICING_MANUAL_STEP_1 = "Open any LLM request in the trace explorer.";
+export const PRICING_MANUAL_STEP_2 =
+	'Click "Recalculate Cost" in the trace detail panel.';
+export const PRICING_MANUAL_STEP_3 =
+	"The gen_ai.usage.cost attribute is updated using the latest model pricing.";
+export const PRICING_GO_TO_REQUESTS = "Go to Requests";
+export const PRICING_SAVE = "Save";
+export const PRICING_UPDATE = "Update";
+export const PRICING_CONFIG_SAVED = "Pricing config saved";
+export const PRICING_HOW_AUTO_WORKS_TITLE = "How Auto Pricing Works";
+export const PRICING_HOW_AUTO_WORKS_DESCRIPTION =
+	"On each cron tick, OpenLIT selects LLM spans from otel_traces, looks up each span's provider + model in openlit_provider_models, recomputes the cost from token counts, and writes it back to gen_ai.usage.cost.";
+export const PRICING_HOW_AUTO_WORKS_STEP_1 =
+	"Selects LLM spans: spans whose gen_ai.operation.name matches supported LLM operations (e.g. chat).";
+export const PRICING_HOW_AUTO_WORKS_STEP_2 =
+	"Incremental window: only spans with Timestamp >= the last successful cron run are processed. First run processes all historical LLM spans.";
+export const PRICING_HOW_AUTO_WORKS_STEP_3 =
+	"Looks up the model: for each span, reads gen_ai.system (provider) + gen_ai.request.model and finds the matching row in openlit_provider_models.";
+export const PRICING_HOW_AUTO_WORKS_STEP_4 =
+	"Computes cost: (input_tokens / 1M) × input_price_per_m_token + (output_tokens / 1M) × output_price_per_m_token.";
+export const PRICING_HOW_AUTO_WORKS_STEP_5 =
+	"Writes back: ALTER TABLE otel_traces UPDATE SpanAttributes['gen_ai.usage.cost'] for each processed span. Spans with missing provider/model/tokens or an unknown model are skipped (not errors).";
+export const PRICING_HOW_AUTO_WORKS_STEP_6 =
+	"Run is logged: totalSpans, totalUpdated, totalFailed, totalSkipped are recorded in the cron log with SUCCESS / PARTIAL_SUCCESS / FAILURE status.";
+
+// Recalculate Cost (in trace detail panel)
+export const RECALCULATE_COST_LABEL = "Recalculate Cost";
+export const RECALCULATE_COST_UPDATING = "Updating…";
+export const RECALCULATE_COST_TITLE =
+	"Recalculate cost using the model's price in Manage Models";
+export const RECALCULATE_COST_SUCCESS = "Cost updated";
+export const RECALCULATE_COST_FAILURE =
+	"Could not update cost — model not found in Manage Models or pricing unavailable";
+export const RECALCULATE_COST_REQUEST_FAILED = "Failed to recalculate cost";
+
 // Features Title
 export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";

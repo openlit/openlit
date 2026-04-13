@@ -5,7 +5,7 @@ import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
-import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
 import asaw from "@/utils/asaw";
 
 interface SessionWithId {
@@ -40,9 +40,7 @@ export async function GET(request: NextRequest) {
 			model_type,
 			input_price_per_m_token as inputPrice,
 			output_price_per_m_token as outputPrice
-		FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		ORDER BY model_type, model_id
 	`;
 

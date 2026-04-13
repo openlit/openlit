@@ -171,7 +171,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/openground\/[^/]+$/,
 		getTitle: (pathname, params) => {
 			if (pathname === "/openground/new") return getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND;
-			if (pathname === "/openground/models" || pathname === "/settings/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
+			if (pathname === "/openground/models" || pathname === "/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
 			return params?.id ? getMessage().OPENGROUND_RUN_DETAILS : getMessage().FEATURE_OPENGROUND;
 		},
 		getBreadcrumbs: () => [

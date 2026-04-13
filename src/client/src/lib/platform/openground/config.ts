@@ -2,12 +2,11 @@ import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
-import { OPENLIT_OPENGROUND_CONFIG_TABLE_NAME } from "./table-details";
+import { OPENLIT_PROVIDERS_TABLE_NAME } from "./table-details";
 
 export interface OpenGroundConfigData {
 	id: string;
 	userId: string;
-	databaseConfigId: string;
 	provider: string;
 	vaultId: string;
 	modelId?: string;
@@ -33,16 +32,14 @@ export async function getOpenGroundConfigs(
       SELECT
         id,
         user_id as userId,
-        database_config_id as databaseConfigId,
         provider,
         vault_id as vaultId,
         model_id as modelId,
         is_active as isActive,
         created_at as createdAt,
         updated_at as updatedAt
-      FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
       WHERE user_id = '${Sanitizer.sanitizeValue(userId)}'
-      AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
       ORDER BY created_at DESC
     `;
 
@@ -73,22 +70,19 @@ export async function getOpenGroundConfigWithSecret(
 	databaseConfigId: string
 ): Promise<{ data?: OpenGroundConfigWithSecret; err?: string }> {
 	try {
-		// Get the config from ClickHouse
 		const configQuery = `
       SELECT
         id,
         user_id as userId,
-        database_config_id as databaseConfigId,
         provider,
         vault_id as vaultId,
         model_id as modelId,
         is_active as isActive,
         created_at as createdAt,
         updated_at as updatedAt
-      FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
       WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
       AND user_id = '${Sanitizer.sanitizeValue(userId)}'
-      AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
       AND is_active = true
       LIMIT 1
     `;
@@ -105,7 +99,6 @@ export async function getOpenGroundConfigWithSecret(
 
 		const config = (configData as any[])[0];
 
-		// Fetch the API key from Vault (ClickHouse)
 		const vaultQuery = `
       SELECT key, value
       FROM ${OPENLIT_VAULT_TABLE_NAME}
@@ -151,12 +144,10 @@ export async function upsertOpenGroundConfig(data: {
 	isActive?: boolean;
 }): Promise<{ data?: OpenGroundConfigData; err?: string }> {
 	try {
-		// Check if config exists
 		const checkQuery = `
       SELECT id
-      FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
       WHERE user_id = '${Sanitizer.sanitizeValue(data.userId)}'
-      AND database_config_id = '${Sanitizer.sanitizeValue(data.databaseConfigId)}'
       AND provider = '${Sanitizer.sanitizeValue(data.provider)}'
       LIMIT 1
     `;
@@ -170,10 +161,9 @@ export async function upsertOpenGroundConfig(data: {
 		const exists = (existingData as any[])?.length > 0;
 
 		if (exists) {
-			// Update existing config
 			const configId = (existingData as any[])[0].id;
 			const updateQuery = `
-        ALTER TABLE ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+        ALTER TABLE ${OPENLIT_PROVIDERS_TABLE_NAME}
         UPDATE
           vault_id = '${Sanitizer.sanitizeValue(data.vaultId)}',
           model_id = ${data.modelId ? `'${Sanitizer.sanitizeValue(data.modelId)}'` : "NULL"},
@@ -193,17 +183,14 @@ export async function upsertOpenGroundConfig(data: {
 				return { err: getMessage().OPERATION_FAILED };
 			}
 
-			// Fetch and return the updated config
 			return getOpenGroundConfigById(configId, data.databaseConfigId);
 		} else {
-			// Insert new config
 			const { err: insertErr } = await dataCollector(
 				{
-					table: OPENLIT_OPENGROUND_CONFIG_TABLE_NAME,
+					table: OPENLIT_PROVIDERS_TABLE_NAME,
 					values: [
 						{
 							user_id: data.userId,
-							database_config_id: data.databaseConfigId,
 							provider: data.provider,
 							vault_id: data.vaultId,
 							model_id: data.modelId || null,
@@ -220,21 +207,19 @@ export async function upsertOpenGroundConfig(data: {
 				return { err: getMessage().OPERATION_FAILED };
 			}
 
-			// Get the inserted config
 			const { data: lastInsert } = await dataCollector(
 				{
 					query: `
             SELECT
               id,
               user_id as userId,
-              database_config_id as databaseConfigId,
               provider,
               vault_id as vaultId,
               model_id as modelId,
               is_active as isActive,
               created_at as createdAt,
               updated_at as updatedAt
-            FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+            FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
             WHERE user_id = '${Sanitizer.sanitizeValue(data.userId)}'
             AND provider = '${Sanitizer.sanitizeValue(data.provider)}'
             ORDER BY created_at DESC
@@ -265,14 +250,13 @@ async function getOpenGroundConfigById(
     SELECT
       id,
       user_id as userId,
-      database_config_id as databaseConfigId,
       provider,
       vault_id as vaultId,
       model_id as modelId,
       is_active as isActive,
       created_at as createdAt,
       updated_at as updatedAt
-    FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+    FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
     WHERE id = '${Sanitizer.sanitizeValue(configId)}'
     LIMIT 1
   `;
@@ -300,7 +284,7 @@ export async function deleteOpenGroundConfig(
 ): Promise<{ data?: string; err?: string }> {
 	try {
 		const query = `
-      ALTER TABLE ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      ALTER TABLE ${OPENLIT_PROVIDERS_TABLE_NAME}
       DELETE WHERE id = '${Sanitizer.sanitizeValue(configId)}'
       AND user_id = '${Sanitizer.sanitizeValue(userId)}'
     `;
@@ -334,7 +318,7 @@ export async function toggleOpenGroundConfigStatus(
 ): Promise<{ data?: OpenGroundConfigData; err?: string }> {
 	try {
 		const query = `
-      ALTER TABLE ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      ALTER TABLE ${OPENLIT_PROVIDERS_TABLE_NAME}
       UPDATE
         is_active = ${isActive},
         updated_at = now()
@@ -349,7 +333,6 @@ export async function toggleOpenGroundConfigStatus(
 			return { err: getMessage().OPERATION_FAILED };
 		}
 
-		// Fetch and return the updated config
 		return getOpenGroundConfigById(configId, databaseConfigId);
 	} catch (error: any) {
 		console.error("Error toggling OpenGround config status:", error);
@@ -367,9 +350,8 @@ export async function getActiveProviders(
 	try {
 		const query = `
       SELECT DISTINCT provider
-      FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
+      FROM ${OPENLIT_PROVIDERS_TABLE_NAME}
       WHERE user_id = '${Sanitizer.sanitizeValue(userId)}'
-      AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
       AND is_active = true
     `;
 

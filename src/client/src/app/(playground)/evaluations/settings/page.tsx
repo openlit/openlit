@@ -218,7 +218,7 @@ export default function EvaluationSettingsPage() {
 							<div className="grid gap-3">
 								<div className="flex items-center justify-between">
 									<Label>{getMessage().EVALUATION_PROVIDER_LABEL}</Label>
-									<Link href="/settings/manage-models">
+									<Link href="/manage-models">
 										<Button variant="ghost" size="sm" className="h-7 text-xs px-2">
 											<SettingsIcon className="h-3 w-3 mr-1" />
 											{getMessage().OPENGROUND_MANAGE_MODELS}

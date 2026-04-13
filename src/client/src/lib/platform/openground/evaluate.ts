@@ -82,18 +82,14 @@ async function calculateCost(
 	provider: string,
 	model: string,
 	promptTokens: number,
-	completionTokens: number
+	completionTokens: number,
+	databaseConfigId: string
 ): Promise<number> {
-	// Get pricing from registry
-	const providerMetadata = await ProviderRegistry.getProviderById(provider);
-	if (!providerMetadata) {
-		// Use separate parameter to prevent log injection
-		console.warn('Provider metadata not found for:', provider);
-		return 0;
-	}
-
-	const modelMetadata = providerMetadata.supportedModels.find(
-		(m) => m.id === model
+	// Look up the model directly from the openlit_provider_models table
+	const modelMetadata = await ProviderRegistry.getModel(
+		provider,
+		model,
+		databaseConfigId
 	);
 	if (!modelMetadata) {
 		// Use separate parameters to prevent log injection
@@ -161,7 +157,8 @@ async function evaluateProvider(
 			provider,
 			model,
 			result.usage.promptTokens,
-			result.usage.completionTokens
+			result.usage.completionTokens,
+			databaseConfigId
 		);
 
 		return {

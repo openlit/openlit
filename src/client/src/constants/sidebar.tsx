@@ -3,6 +3,7 @@ import {
 	BookKey,
 	BookOpen,
 	BookText,
+	CircleDollarSign,
 	Component,
 	Home,
 	Key,
@@ -124,6 +125,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/evaluations",
 			type: "action",
 		},
+		{
+			icon: <SettingsIcon className={ICON_CLASSES} />,
+			text: "Manage Models",
+			link: "/manage-models",
+			type: "action",
+		},
+		{
+			icon: <CircleDollarSign className={ICON_CLASSES} />,
+			text: "Pricing",
+			link: "/pricing",
+			type: "action",
+		},
 		]
 	},
 	{
@@ -135,12 +148,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",
 				link: "/settings/api-keys",
-				type: "action",
-			},
-			{
-				icon: <SettingsIcon className={ICON_CLASSES} />,
-				text: "Manage Models",
-				link: "/settings/manage-models",
 				type: "action",
 			},
 		]
