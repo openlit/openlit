@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-openai-app
+  namespace: openlit
+  labels:
+    app: demo-openai-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-openai-app
+  template:
+    metadata:
+      labels:
+        app: demo-openai-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/openlit/demo-openai-app:latest
+          env:
+            - name: OPENAI_API_KEY
+              value: "demo-key"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-anthropic-app
+  namespace: openlit
+  labels:
+    app: demo-anthropic-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-anthropic-app
+  template:
+    metadata:
+      labels:
+        app: demo-anthropic-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/openlit/demo-anthropic-app:latest
+          env:
+            - name: ANTHROPIC_API_KEY
+              value: "demo-key"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-gemini-app
+  namespace: openlit
+  labels:
+    app: demo-gemini-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-gemini-app
+  template:
+    metadata:
+      labels:
+        app: demo-gemini-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/openlit/demo-gemini-app:latest
+          env:
+            - name: GEMINI_API_KEY
+              value: "demo-key"

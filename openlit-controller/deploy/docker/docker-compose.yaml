@@ -1,0 +1,101 @@
+services:
+  # --- Infrastructure ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.4.1
+    container_name: openlit-clickhouse
+    environment:
+      CLICKHOUSE_PASSWORD: OPENLIT
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DATABASE: openlit
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user=default --password=OPENLIT --query='SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 60s
+    restart: always
+
+  openlit:
+    image: ghcr.io/openlit/openlit:latest
+    container_name: openlit
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: "8123"
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+    ports:
+      - "3000:3000"
+      - "4318:4318"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - openlit-data:/app/client/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
+
+  # --- OpenLIT Controller ---
+  openlit-controller:
+    image: ghcr.io/openlit/openlit-controller:latest
+    container_name: openlit-controller
+    privileged: true
+    pid: host
+    environment:
+      OPENLIT_URL: http://openlit:3000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
+      OPENLIT_PROC_ROOT: /host/proc
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    depends_on:
+      openlit:
+        condition: service_healthy
+    restart: always
+
+  # --- Sample Python Apps (from examples/) ---
+  openai-app:
+    build: ../../../examples/openai-chat-app
+    container_name: demo-openai-app
+    environment:
+      OPENAI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  anthropic-app:
+    build: ../../../examples/anthropic-chat-app
+    container_name: demo-anthropic-app
+    environment:
+      ANTHROPIC_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  gemini-app:
+    build: ../../../examples/gemini-chat-app
+    container_name: demo-gemini-app
+    environment:
+      GEMINI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+volumes:
+  clickhouse-data:
+  openlit-data:
