@@ -21,7 +21,7 @@ import { toast } from "sonner";
 
 interface CustomModel extends ModelMetadata {
   id: string; // UUID from database
-  model_id: string; // Model identifier like "gpt-4o"
+  modelId: string; // Model identifier like "gpt-4o"
 }
 
 interface ModelEditorPanelProps {
@@ -50,7 +50,7 @@ export default function ModelEditorPanel({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [formData, setFormData] = useState<Partial<CustomModel>>({
     id: "", // UUID (only for existing custom models)
-    model_id: "", // Model identifier
+    modelId: "", // Model identifier
     displayName: "",
     contextWindow: 4096,
     inputPricePerMToken: 0,
@@ -64,7 +64,7 @@ export default function ModelEditorPanel({
       const customModel = model as CustomModel;
       setFormData({
         id: customModel.id || "", // UUID for existing custom models
-        model_id: customModel.model_id,
+        modelId: customModel.modelId,
         displayName: model.displayName,
         contextWindow: model.contextWindow,
         inputPricePerMToken: model.inputPricePerMToken,
@@ -75,7 +75,7 @@ export default function ModelEditorPanel({
       // Reset form for new model
       setFormData({
         id: "",
-        model_id: "",
+        modelId: "",
         displayName: "",
         contextWindow: 4096,
         inputPricePerMToken: 0,
@@ -86,7 +86,7 @@ export default function ModelEditorPanel({
   }, [model, isAddingNew, isCustomModel]);
 
   const handleSave = () => {
-    if (!formData.model_id || !formData.displayName || !provider) {
+    if (!formData.modelId || !formData.displayName || !provider) {
       toast.error(
         getMessage().OPENGROUND_MODEL_ID +
           " and " +
@@ -99,7 +99,7 @@ export default function ModelEditorPanel({
     const payload = {
       provider: provider,
       model: {
-        id: formData.model_id,
+        id: formData.modelId,
         displayName: formData.displayName,
         contextWindow: formData.contextWindow || 4096,
         inputPricePerMToken: formData.inputPricePerMToken || 0,
@@ -172,9 +172,9 @@ export default function ModelEditorPanel({
             <Input
               id="model-id"
               placeholder="gpt-4o-custom"
-              value={formData.model_id}
+              value={formData.modelId}
               onChange={(e) =>
-                setFormData({ ...formData, model_id: e.target.value })
+                setFormData({ ...formData, modelId: e.target.value })
               }
               disabled={!isAddingNew}
             />
@@ -281,28 +281,26 @@ export default function ModelEditorPanel({
           </div>
 
           {/* Actions */}
-          {
-            <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving
-                  ? getMessage().SAVING
-                  : getMessage().OPENGROUND_SAVE_MODEL}
+          <div className="flex gap-2 pt-4">
+            <Button onClick={handleSave} disabled={saving} className="flex-1">
+              {saving
+                ? getMessage().SAVING
+                : getMessage().OPENGROUND_SAVE_MODEL}
+            </Button>
+            {isCustomModel && !isAddingNew && (
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleting}
+              >
+                <Trash2Icon className="h-4 w-4 mr-2" />
+                {getMessage().DELETE}
               </Button>
-              {isCustomModel && !isAddingNew && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                  disabled={deleting}
-                >
-                  <Trash2Icon className="h-4 w-4 mr-2" />
-                  {getMessage().DELETE}
-                </Button>
-              )}
-              <Button variant="outline" onClick={onCancel}>
-                {getMessage().CANCEL}
-              </Button>
-            </div>
-          }
+            )}
+            <Button variant="outline" onClick={onCancel}>
+              {getMessage().CANCEL}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
