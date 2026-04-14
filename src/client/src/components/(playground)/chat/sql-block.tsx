@@ -21,6 +21,8 @@ import ResultDisplay from "./result-display";
 interface SqlBlockProps {
 	code: string;
 	messageId?: string;
+	/** Pre-loaded query results from the backend */
+	preloadedResult?: any[] | null;
 	onExecute?: (
 		query: string,
 		messageId?: string
@@ -30,11 +32,12 @@ interface SqlBlockProps {
 export default function SqlBlock({
 	code,
 	messageId,
+	preloadedResult,
 	onExecute,
 }: SqlBlockProps) {
 	const [copied, setCopied] = useState(false);
 	const [executing, setExecuting] = useState(false);
-	const [result, setResult] = useState<any[] | null>(null);
+	const [result, setResult] = useState<any[] | null>(preloadedResult || null);
 	const [stats, setStats] = useState<any>(null);
 	const [error, setError] = useState<string | null>(null);
 	const { resolvedTheme } = useTheme();

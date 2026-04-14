@@ -250,6 +250,22 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 			{ title: "Fleet Hub", href: "/fleet-hub" }
 		],
 	},
+
+	// Chat
+	{
+		regex: /^\/chat$/,
+		getTitle: () => getMessage().CHAT_TITLE,
+		getBreadcrumbs: () => [],
+		getDescription: () => getMessage().CHAT_DESCRIPTION,
+	},
+	{
+		regex: /^\/chat\/settings$/,
+		getTitle: () => getMessage().CHAT_SETTINGS_LINK,
+		getBreadcrumbs: () => [
+			{ title: getMessage().CHAT_TITLE, href: "/chat" }
+		],
+		getDescription: () => getMessage().CHAT_SETTINGS_DESCRIPTION,
+	},
 ];
 
 // Main function to generate page header based on pathname

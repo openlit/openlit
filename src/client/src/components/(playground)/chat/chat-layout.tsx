@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
+import { useRootStore } from "@/store";
+import {
+	getChatConversations,
+	getChatActiveId,
+	getChatHasConfig,
+	getChatConfigInfo,
+	getChatIsLoadingConversations,
+	getChatIsLoadingConfig,
+	getChatActions,
+} from "@/selectors/chat";
 import getMessage from "@/constants/messages";
 import { toast } from "sonner";
-
-interface Conversation {
-	id: string;
-	title: string;
-	totalCost: number;
-	totalMessages: number;
-	updatedAt: string;
-}
 
 interface ChatLayoutProps {
 	initialConversationId: string | null;
@@ -24,16 +26,28 @@ interface ChatLayoutProps {
 export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 	const m = getMessage();
 	const router = useRouter();
-	const [conversations, setConversations] = useState<Conversation[]>([]);
-	const [activeId, setActiveId] = useState<string | null>(initialConversationId);
-	const [hasConfig, setHasConfig] = useState(false);
-	const [loadingConversations, setLoadingConversations] = useState(true);
-	const [loadingConfig, setLoadingConfig] = useState(true);
 
-	// Sync activeId with URL param changes
+	const conversations = useRootStore(getChatConversations);
+	const activeId = useRootStore(getChatActiveId);
+	const hasConfig = useRootStore(getChatHasConfig);
+	const configInfo = useRootStore(getChatConfigInfo);
+	const loadingConversations = useRootStore(getChatIsLoadingConversations);
+	const loadingConfig = useRootStore(getChatIsLoadingConfig);
+	const {
+		setConversations,
+		setActiveConversationId,
+		setHasConfig,
+		setConfigInfo,
+		setIsLoadingConversations,
+		setIsLoadingConfig,
+		addConversation,
+		removeConversation,
+	} = useRootStore(getChatActions);
+
+	// Sync activeId with URL param
 	useEffect(() => {
-		setActiveId(initialConversationId);
-	}, [initialConversationId]);
+		setActiveConversationId(initialConversationId);
+	}, [initialConversationId, setActiveConversationId]);
 
 	const fetchConversations = useCallback(async () => {
 		try {
@@ -46,6 +60,8 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 						title: c.title || m.CHAT_NEW_CONVERSATION,
 						totalCost: Number(c.totalCost) || 0,
 						totalMessages: Number(c.totalMessages) || 0,
+						totalPromptTokens: Number(c.totalPromptTokens) || 0,
+						totalCompletionTokens: Number(c.totalCompletionTokens) || 0,
 						updatedAt: c.updatedAt,
 					}))
 				);
@@ -53,21 +69,40 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 		} catch {
 			// Silently fail
 		} finally {
-			setLoadingConversations(false);
+			setIsLoadingConversations(false);
 		}
-	}, [m]);
+	}, [m, setConversations, setIsLoadingConversations]);
 
 	const fetchConfig = useCallback(async () => {
 		try {
-			const res = await fetch("/api/chat/config");
-			const result = await res.json();
-			setHasConfig(!!result.data?.provider);
+			const [configRes, providersRes] = await Promise.all([
+				fetch("/api/chat/config").then((r) => r.json()),
+				fetch("/api/openground/providers").then((r) => r.json()),
+			]);
+
+			const config = configRes.data;
+			setHasConfig(!!config?.provider);
+
+			if (config?.provider) {
+				const providersList = Array.isArray(providersRes) ? providersRes : providersRes?.data || [];
+				const providerObj = providersList.find((p: any) => p.providerId === config.provider);
+				const modelObj = providerObj?.supportedModels?.find((md: any) => md.id === config.model);
+
+				setConfigInfo({
+					providerName: providerObj?.displayName || config.provider,
+					modelName: modelObj?.displayName,
+					modelId: config.model,
+					inputPricePerMToken: modelObj?.inputPricePerMToken,
+					outputPricePerMToken: modelObj?.outputPricePerMToken,
+					contextWindow: modelObj?.contextWindow,
+				});
+			}
 		} catch {
 			setHasConfig(false);
 		} finally {
-			setLoadingConfig(false);
+			setIsLoadingConfig(false);
 		}
-	}, []);
+	}, [setHasConfig, setConfigInfo, setIsLoadingConfig]);
 
 	useEffect(() => {
 		fetchConversations();
@@ -90,13 +125,23 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 			const res = await fetch("/api/chat/conversation", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title: "" }),
+				body: JSON.stringify({
+					title: "",
+					provider: configInfo?.providerName || "",
+					model: configInfo?.modelId || configInfo?.modelName || "",
+				}),
 			});
 			const result = await res.json();
 
 			if (result.data) {
 				const newId = result.data;
-				await fetchConversations();
+				addConversation({
+					id: newId,
+					title: m.CHAT_NEW_CONVERSATION,
+					totalCost: 0,
+					totalMessages: 0,
+					updatedAt: new Date().toISOString(),
+				});
 				navigateTo(newId);
 				return newId;
 			}
@@ -104,13 +149,13 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 			toast.error(m.CHAT_FAILED_TO_CREATE_CONVERSATION);
 		}
 		return null;
-	}, [fetchConversations, navigateTo, m]);
+	}, [addConversation, navigateTo, m, configInfo]);
 
 	const handleDeleteConversation = useCallback(
 		async (id: string) => {
 			try {
 				await fetch(`/api/chat/conversation/${id}`, { method: "DELETE" });
-				setConversations((prev) => prev.filter((c) => c.id !== id));
+				removeConversation(id);
 				if (activeId === id) {
 					navigateTo(null);
 				}
@@ -118,7 +163,7 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 				toast.error(m.CHAT_FAILED_TO_DELETE_CONVERSATION);
 			}
 		},
-		[activeId, navigateTo, m]
+		[activeId, removeConversation, navigateTo, m]
 	);
 
 	const handleSelectConversation = useCallback(
@@ -134,7 +179,6 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 
 	return (
 		<Card className="flex h-full w-full overflow-hidden border-stone-200 dark:border-stone-800">
-			{/* Conversation Sidebar */}
 			<ResizeablePanel
 				defaultWidth={280}
 				minWidth={220}
@@ -152,13 +196,12 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 				/>
 			</ResizeablePanel>
 
-			{/* Chat Panel */}
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
 				<ChatPanel
 					conversationId={activeId}
 					hasConfig={hasConfig && !loadingConfig}
+					configInfo={configInfo}
 					onNewConversation={handleNewConversation}
-					onConversationUpdate={fetchConversations}
 				/>
 			</div>
 		</Card>

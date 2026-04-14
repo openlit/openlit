@@ -23,9 +23,11 @@ function parseStructuredBlocks(text: string): {
 	cleanText: string;
 	entities: EntityLink[];
 	dashboards: string[];
+	queryResults: any[][];
 } {
 	const entities: EntityLink[] = [];
 	const dashboards: string[] = [];
+	const queryResults: any[][] = [];
 
 	// Parse ```entities blocks
 	const entitiesRegex = /```entities\s*\n([\s\S]*?)```/g;
@@ -57,12 +59,24 @@ function parseStructuredBlocks(text: string): {
 		if (json) dashboards.push(json);
 	}
 
+	// Parse ```query-result blocks (in order — each maps to the preceding SQL block)
+	const queryResultRegex = /```query-result\s*\n([\s\S]*?)```/g;
+	while ((match = queryResultRegex.exec(text)) !== null) {
+		try {
+			const parsed = JSON.parse(match[1].trim());
+			queryResults.push(Array.isArray(parsed) ? parsed : []);
+		} catch {
+			queryResults.push([]);
+		}
+	}
+
 	const cleanText = text
 		.replace(/```entities\s*\n[\s\S]*?```/g, "")
 		.replace(/```dashboard\s*\n[\s\S]*?```/g, "")
+		.replace(/```query-result\s*\n[\s\S]*?```/g, "")
 		.trim();
 
-	return { cleanText, entities, dashboards };
+	return { cleanText, entities, dashboards, queryResults };
 }
 
 interface MessageBubbleProps {
@@ -82,7 +96,11 @@ interface MessageBubbleProps {
 	messageId?: string;
 }
 
-const StreamingMessage = () => (
+const StreamingCursor = () => (
+	<span className="inline-block w-[2px] h-[18px] bg-stone-800 dark:bg-stone-200 animate-blink align-text-bottom ml-0.5" />
+);
+
+const StreamingDots = () => (
 	<div className="flex items-center gap-1.5 mt-1">
 		<div className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-500 animate-pulse" />
 		<div className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-500 animate-pulse [animation-delay:150ms]" />
@@ -110,18 +128,21 @@ export default function MessageBubble({
 
 	// During streaming, pass raw content to ReactMarkdown (it handles incomplete code blocks).
 	// After streaming completes, parse and strip structured blocks for clean rendering.
-	const { cleanText, entities, dashboards } = useMemo(() => {
+	const { cleanText, entities, dashboards, queryResults } = useMemo(() => {
 		if (isStreaming) {
-			return { cleanText: content || "", entities: [], dashboards: [] };
+			return { cleanText: content || "", entities: [], dashboards: [], queryResults: [] };
 		}
 		return parseStructuredBlocks(content || "");
 	}, [content, isStreaming]);
+
+	// Track SQL block index to pair with query results
+	let sqlBlockIndex = 0;
 
 	if (role === "user") {
 		return (
 			<div className="flex justify-end py-4">
 				<div className="flex gap-3 max-w-[80%]">
-					<div className="flex-1 min-w-0 pt-0.5">
+					<div className="flex-1 min-w-0">
 						<div className="rounded-2xl rounded-br-sm bg-stone-100 dark:bg-stone-800 px-4 py-3">
 							<p className="text-sm leading-relaxed text-stone-900 dark:text-stone-300 whitespace-pre-wrap">
 								{content}
@@ -141,7 +162,7 @@ export default function MessageBubble({
 			<div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
 				<Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
 			</div>
-			<div className="flex-1 min-w-0 pt-0.5">
+			<div className="flex-1 min-w-0">
 				{cleanText && (
 					<div className="chat-markdown">
 						<ReactMarkdown
@@ -236,13 +257,21 @@ export default function MessageBubble({
 									const lang = match?.[1];
 
 									if (lang === "sql") {
+										const currentIndex = sqlBlockIndex++;
+										const preloaded = queryResults[currentIndex] || null;
 										return (
 											<SqlBlock
 												code={String(children).replace(/\n$/, "")}
 												messageId={messageId}
+												preloadedResult={preloaded}
 												onExecute={onExecuteQuery}
 											/>
 										);
+									}
+
+									if (lang === "query-result") {
+										// Query results are handled via preloadedResult on SqlBlock — hide raw block
+										return null;
 									}
 
 									if (lang === "dashboard") {
@@ -312,9 +341,9 @@ export default function MessageBubble({
 					</div>
 				)}
 
-				{/* Streaming indicator */}
+				{/* Streaming indicator — blinking cursor when text is flowing, dots when waiting */}
 				{isStreaming && (
-					<StreamingMessage />
+					cleanText ? <StreamingCursor /> : <StreamingDots />
 				)}
 
 				{/* Stats footer */}

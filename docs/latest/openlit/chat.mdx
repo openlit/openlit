@@ -1,0 +1,180 @@
+---
+title: 'AI Chat Copilot'
+description: 'Use natural language to query data, manage resources, and create dashboards'
+---
+
+The Chat feature is an AI-powered copilot built into OpenLIT that lets you interact with your observability platform using natural language. It can query your telemetry data, create and manage platform resources, and generate complete dashboards.
+
+## Key Features
+
+- **Natural Language Queries**: Ask questions about your traces, metrics, costs, and tokens — the AI converts them to ClickHouse SQL and executes them
+- **Resource Management**: Create and manage rules, contexts, prompts, vault secrets, and custom models through conversation
+- **Dashboard Generation**: Describe the dashboard you want and get a complete importable layout with working queries
+- **SQL Execution**: Generated queries run automatically with results displayed inline as tables and charts
+- **Save as Widget**: Save any query result as a reusable dashboard widget
+
+## Get Started
+
+<Steps>
+  <Step title="Configure AI Provider">
+    Navigate to **Chat → Settings** (gear icon in chat sidebar) and configure:
+    1. **Provider** — Select from 14 supported providers (OpenAI, Anthropic, Google, etc.)
+    2. **Model** — Choose a model from the provider's list (includes custom models from Manage Models)
+    3. **API Key** — Select a vault secret containing your provider's API key
+
+    <Info>
+      Store your API key in the **Vault** first, then select it in Chat Settings.
+    </Info>
+  </Step>
+
+  <Step title="Start a Conversation">
+    Click **New Chat** in the sidebar or use the floating chat button available on any page.
+    
+    Try example prompts like:
+    - "What are my top 5 most expensive models this week?"
+    - "Show me error rate by provider over the last 24 hours"
+    - "Create a rule that triggers when request duration exceeds 5 seconds"
+  </Step>
+
+  <Step title="View Results">
+    - **SQL queries** appear in a collapsible accordion with syntax highlighting
+    - **Query results** display automatically as tables, bar charts, line charts, or pie charts
+    - **Entity cards** link to created resources (rules, contexts, prompts)
+    - **Dashboard cards** show an import button for generated dashboards
+  </Step>
+</Steps>
+
+## Data Queries
+
+Ask questions about your OpenTelemetry data and the AI generates ClickHouse SQL with dynamic time filters.
+
+### Supported Tables
+
+| Table | Description |
+|-------|-------------|
+| `otel_traces` | Traces and spans (LLM calls, API requests, etc.) |
+| `otel_metrics_gauge` | Gauge metrics (GPU temperature, memory, etc.) |
+| `otel_metrics_sum` | Counter/sum metrics (token counts, etc.) |
+| `otel_metrics_histogram` | Histogram metrics (request durations, etc.) |
+
+### Example Queries
+
+```
+"How many requests did I get today?"
+"What is my total cost breakdown by provider?"
+"Show me the slowest requests in the last hour"
+"Which models have the highest error rate?"
+```
+
+### Save as Widget
+
+Click **Save as Widget** on any query result to:
+1. Choose a widget type (Stat Card, Bar Chart, Line Chart, Pie Chart, Area Chart, Table)
+2. Select a dashboard to add it to
+3. The query is automatically converted to use dynamic time filters (`{{filter.timeLimit.start/end}}`)
+
+## Resource Management
+
+The chat can create and manage platform resources through natural language. All operations execute immediately.
+
+### Supported Operations
+
+| Resource | Operations |
+|----------|-----------|
+| **Rules** | Create, update, delete, list, get details, link/unlink entities |
+| **Contexts** | Create, update, delete, list |
+| **Prompts** | Create, update version, delete, list |
+| **Vault Secrets** | Create, update, delete, list |
+| **Custom Models** | Create, update, delete, list |
+
+### Examples
+
+```
+"Create a vault secret called OPENAI_KEY with value sk-..."
+"Create a rule named high-cost-alert that triggers when cost exceeds 0.1"
+"Create a prompt template for customer feedback summarization"
+"Link the customer-context to the high-cost-alert rule"
+"List all my vault secrets"
+```
+
+<Note>
+  Vault key names are automatically normalized to UPPER_SNAKE_CASE (e.g., "my openai key" becomes "MY_OPENAI_KEY").
+</Note>
+
+## Dashboard Generation
+
+Describe the dashboard you want and the AI generates a complete importable layout.
+
+### How it Works
+
+1. Ask: *"Create a GPU monitoring dashboard with utilization, memory, and temperature widgets"*
+2. The AI generates a dashboard JSON with:
+   - Widget definitions (type, title, SQL query, display properties)
+   - Grid layout positions
+   - Dynamic time filters (`{{filter.timeLimit.start/end}}`)
+3. A **dashboard card** appears with:
+   - Dashboard title and widget count
+   - Widget preview chips
+   - **Import Dashboard** button
+   - **Download JSON** button
+4. Click **Import Dashboard** to create it instantly
+
+### Dashboard Queries
+
+All generated queries use the Mustache template pattern for dynamic time filtering:
+
+```sql
+WITH
+  parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,
+  parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time
+SELECT ...
+FROM otel_traces
+WHERE Timestamp >= start_time AND Timestamp <= end_time
+```
+
+This ensures dashboards respond to the time filter controls in the UI.
+
+## Cost & Token Tracking
+
+Each conversation tracks:
+- **Per-message**: Input tokens, output tokens, estimated cost
+- **Per-conversation**: Accumulated totals displayed in the sidebar
+
+The cost formula:
+```
+cost = (input_tokens / 1M) × input_price + (output_tokens / 1M) × output_price
+```
+
+Hover over the info icon next to the chat input to see your current provider, model, and pricing details.
+
+## Conversation Management
+
+- **URL-based navigation**: Each conversation has a unique URL (`/chat?id=<uuid>`)
+- **Auto-generated titles**: Titles are generated after the first message exchange
+- **Persistent history**: Conversations and messages are stored in ClickHouse
+- **Search**: Filter conversations by title in the sidebar
+- **Delete**: Hover over a conversation and click the trash icon
+
+## Configuration
+
+### Chat Settings
+
+Access via the gear icon in the chat sidebar or navigate to `/chat/settings`.
+
+| Setting | Description |
+|---------|-------------|
+| **Provider** | LLM provider (OpenAI, Anthropic, Google, Mistral, Cohere, Groq, etc.) |
+| **Model** | Model from the provider's list (includes custom models) |
+| **API Key** | Vault secret reference for the provider's API key |
+
+### Supported Providers
+
+OpenAI, Anthropic, Google, Mistral, Cohere, Groq, Perplexity, Azure OpenAI, Together AI, Fireworks AI, DeepSeek, xAI, Hugging Face, Replicate
+
+## Security
+
+- All SQL queries execute with `readonly` mode — no write operations possible
+- Queries are validated against an allowlist of tables (`otel_traces`, `otel_metrics_*`)
+- DDL/DML statements (INSERT, UPDATE, DELETE, DROP, etc.) are rejected
+- API keys are stored in the Vault and never sent to the client
+- Query results have a LIMIT cap of 10,000 rows

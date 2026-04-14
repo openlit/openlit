@@ -124,6 +124,12 @@
             ]
           },
           {
+            "group": "AI Chat Copilot",
+            "pages": [
+              "latest/openlit/chat"
+            ]
+          },
+          {
             "group": "Prompts and Experiments",
             "pages": [
               "latest/openlit/prompts-experiments/prompt-hub",

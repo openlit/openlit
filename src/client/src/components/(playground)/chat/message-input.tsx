@@ -2,8 +2,17 @@
 
 import { useRef, useCallback, useEffect, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Info } from "lucide-react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import getMessage from "@/constants/messages";
+
+import { ChatConfigInfo } from "@/types/store/chat";
+
+export type { ChatConfigInfo };
 
 interface MessageInputProps {
 	value: string;
@@ -11,6 +20,7 @@ interface MessageInputProps {
 	onSubmit: () => void;
 	isLoading: boolean;
 	disabled?: boolean;
+	configInfo?: ChatConfigInfo | null;
 }
 
 const MAX_TEXTAREA_HEIGHT = 150;
@@ -21,6 +31,7 @@ export default function MessageInput({
 	onSubmit,
 	isLoading,
 	disabled = false,
+	configInfo,
 }: MessageInputProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const m = getMessage();
@@ -28,17 +39,13 @@ export default function MessageInput({
 	const resizeTextarea = useCallback(() => {
 		const textarea = textareaRef.current;
 		if (!textarea) return;
-		// Reset to auto to get the natural scrollHeight
 		textarea.style.height = "auto";
-		// Cap at MAX_TEXTAREA_HEIGHT — overflow becomes scrollable
 		const newHeight = Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT);
 		textarea.style.height = `${newHeight}px`;
-		// Enable scroll when content exceeds max height
 		textarea.style.overflowY =
 			textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? "auto" : "hidden";
 	}, []);
 
-	// Resize when value changes (including paste, programmatic set)
 	useEffect(() => {
 		resizeTextarea();
 	}, [value, resizeTextarea]);
@@ -87,9 +94,39 @@ export default function MessageInput({
 					)}
 				</Button>
 			</div>
-			<p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2 text-center">
-				{m.CHAT_ENTER_TO_SEND}
-			</p>
+			<div className="flex items-center justify-center gap-2 mt-2 max-w-4xl mx-auto">
+				<p className="text-[11px] text-stone-400 dark:text-stone-500">
+					{m.CHAT_ENTER_TO_SEND}
+				</p>
+				{configInfo?.providerName && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span className="inline-flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 cursor-help">
+								<Info className="h-3 w-3" />
+								{configInfo.providerName} / {configInfo.modelName || configInfo.modelId}
+							</span>
+						</TooltipTrigger>
+						<TooltipContent side="top" className="max-w-xs text-xs space-y-1.5 p-3">
+							<p className="font-medium">Active Configuration</p>
+							<p><span className="text-stone-400">Provider:</span> {configInfo.providerName}</p>
+							<p><span className="text-stone-400">Model:</span> {configInfo.modelName || configInfo.modelId}</p>
+							{configInfo.inputPricePerMToken !== undefined && (
+								<>
+									<hr className="border-stone-200 dark:border-stone-700" />
+									<p className="font-medium">Pricing</p>
+									<p><span className="text-stone-400">Input:</span> ${configInfo.inputPricePerMToken}/M tokens</p>
+									<p><span className="text-stone-400">Output:</span> ${configInfo.outputPricePerMToken}/M tokens</p>
+									{configInfo.contextWindow && (
+										<p><span className="text-stone-400">Context:</span> {configInfo.contextWindow.toLocaleString()} tokens</p>
+									)}
+									<hr className="border-stone-200 dark:border-stone-700" />
+									<p className="text-stone-400">cost = (input_tokens / 1M) × ${configInfo.inputPricePerMToken} + (output_tokens / 1M) × ${configInfo.outputPricePerMToken}</p>
+								</>
+							)}
+						</TooltipContent>
+					</Tooltip>
+				)}
+			</div>
 		</div>
 	);
 }

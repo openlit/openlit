@@ -10,12 +10,20 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, Info } from "lucide-react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import getMessage from "@/constants/messages";
 
 interface ModelMetadata {
 	id: string;
 	displayName: string;
+	contextWindow?: number;
+	inputPricePerMToken?: number;
+	outputPricePerMToken?: number;
 }
 
 interface ProviderMetadata {
@@ -123,7 +131,8 @@ export default function ChatSettingsForm() {
 	}
 
 	const selectedProviderName = providers.find((p) => p.providerId === provider)?.displayName;
-	const selectedModelName = availableModels.find((md) => md.id === model)?.displayName;
+	const selectedModelObj = availableModels.find((md) => md.id === model);
+	const selectedModelName = selectedModelObj?.displayName;
 	const selectedVaultName = vaultSecrets.find((s: any) => s.id === vaultId)?.key;
 
 	return (
@@ -132,10 +141,35 @@ export default function ChatSettingsForm() {
 			{hasExistingConfig && (
 				<div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
 					<CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-					<div>
-						<p className="text-sm font-medium text-green-800 dark:text-green-200">
-							{m.CONFIGURED}
-						</p>
+					<div className="flex-1">
+						<div className="flex items-center gap-2">
+							<p className="text-sm font-medium text-green-800 dark:text-green-200">
+								{m.CONFIGURED}
+							</p>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Info className="h-3.5 w-3.5 text-green-600 dark:text-green-400 cursor-help" />
+								</TooltipTrigger>
+								<TooltipContent side="right" className="max-w-xs text-xs space-y-1.5 p-3">
+									<p className="font-medium">Chat Configuration</p>
+									<p><span className="text-stone-400">Provider:</span> {selectedProviderName || provider}</p>
+									<p><span className="text-stone-400">Model:</span> {selectedModelName || model}</p>
+									<p><span className="text-stone-400">API Key:</span> {selectedVaultName || "configured"}</p>
+									{selectedModelObj && (
+										<>
+											<hr className="border-stone-200 dark:border-stone-700" />
+											<p className="font-medium">Pricing (per message)</p>
+											<p><span className="text-stone-400">Input:</span> ${selectedModelObj.inputPricePerMToken}/M tokens</p>
+											<p><span className="text-stone-400">Output:</span> ${selectedModelObj.outputPricePerMToken}/M tokens</p>
+											<p><span className="text-stone-400">Context:</span> {selectedModelObj.contextWindow?.toLocaleString()} tokens</p>
+											<hr className="border-stone-200 dark:border-stone-700" />
+											<p className="font-medium">Cost calculation</p>
+											<p className="text-stone-400">cost = (input_tokens / 1M) × input_price + (output_tokens / 1M) × output_price</p>
+										</>
+									)}
+								</TooltipContent>
+							</Tooltip>
+						</div>
 						<p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
 							{selectedProviderName} / {selectedModelName || model} / {selectedVaultName || vaultId}
 						</p>
