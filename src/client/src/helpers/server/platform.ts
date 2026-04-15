@@ -8,14 +8,7 @@ import {
 } from "date-fns";
 import { getTraceMappingKeyFullPath } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
-
-/**
- * Escape a string value for safe inclusion in a ClickHouse SQL single-quoted literal.
- * Prevents SQL injection by escaping single quotes.
- */
-function escapeStringValue(value: string): string {
-	return value.replace(/'/g, "''");
-}
+import { escapeStringValue } from "./sql-sanitize";
 
 export const validateMetricsRequestType = {
 	// Request

@@ -231,6 +231,25 @@ describe('getHeirarchyViaSpanId', () => {
     expect(dataCollector).toHaveBeenCalledTimes(2);
     expect(result.err).toBeTruthy();
   });
+
+  it('escapes single quotes in spanId to prevent SQL injection', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    await getHeirarchyViaSpanId("span'; DROP TABLE otel_traces; --");
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("SpanId = 'span''; DROP TABLE otel_traces; --'");
+    expect(query).not.toContain("span'; DROP");
+  });
+
+  it('escapes single quotes in derived traceId in allSpans query', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ TraceId: "t1'; DROP TABLE otel_traces; --" }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getHeirarchyViaSpanId('safe-span');
+    const { query: allSpansQuery } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(allSpansQuery).toContain("t1''; DROP TABLE otel_traces; --'");
+    expect(allSpansQuery).not.toContain("t1'; DROP");
+  });
 });
 
 describe('getRequestExist', () => {

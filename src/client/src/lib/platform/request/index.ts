@@ -8,10 +8,11 @@ import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { escapeStringValue } from "@/helpers/server/sql-sanitize";
 
 /**
  * Sanitize a sorting direction to prevent SQL injection.
- * Only allows "ASC" or "DESC" (case-insensitive), defaults to "desc".
+ * Only allows "ASC" or "DESC" (case-insensitive), defaults to "DESC".
  */
 function sanitizeSortDirection(direction: string): string {
 	const upper = direction.toUpperCase();
@@ -21,21 +22,14 @@ function sanitizeSortDirection(direction: string): string {
 /**
  * Sanitize a sorting column/type to prevent SQL injection.
  * Only allows characters valid in ClickHouse column identifiers and
- * SpanAttributes['...'] accessor patterns.
+ * SpanAttributes['...'] accessor patterns. Falls back to "Timestamp"
+ * if the sanitized result is empty.
  */
 function sanitizeSortType(type: string): string {
 	// Strip any character that isn't alphanumeric, dot, underscore,
 	// single quote, or square bracket — the set needed for column names
 	// and SpanAttributes['gen_ai.usage.cost'] patterns.
-	return type.replace(/[^A-Za-z0-9_.'[\]]/g, "");
-}
-
-/**
- * Escape a string value for safe inclusion in a ClickHouse SQL single-quoted literal.
- * Prevents SQL injection by escaping single quotes.
- */
-function escapeStringValue(value: string): string {
-	return value.replace(/'/g, "''");
+	return type.replace(/[^A-Za-z0-9_.'[\]]/g, "") || "Timestamp";
 }
 
 export async function getRequestPerTime(params: MetricParams) {
