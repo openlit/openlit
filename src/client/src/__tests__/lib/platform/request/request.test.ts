@@ -130,6 +130,35 @@ describe('getRequests', () => {
     const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
     expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
   });
+
+  it('sanitizes malicious sorting direction to prevent SQL injection', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp', direction: "ASC; DROP TABLE otel_traces; --" as any },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('ORDER BY Timestamp DESC');
+    expect(query).not.toContain('DROP');
+  });
+
+  it('strips unsafe characters from sorting type to prevent SQL injection', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: "Timestamp; DROP TABLE otel_traces; --", direction: 'ASC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    // Semicolons, spaces, and dashes are stripped, preventing statement injection
+    expect(query).not.toContain(';');
+    expect(query).not.toContain('--');
+  });
 });
 
 describe('getRequestViaSpanId', () => {
@@ -143,6 +172,14 @@ describe('getRequestViaSpanId', () => {
     expect(query).toContain("SpanId='span-1'");
     expect(result.record).toEqual({ SpanId: 'span-1', SpanName: 'test' });
   });
+
+  it('escapes single quotes in spanId to prevent SQL injection', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    await getRequestViaSpanId("span'; DROP TABLE otel_traces; --");
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("SpanId='span''; DROP TABLE otel_traces; --'");
+    expect(query).not.toContain("span'; DROP");
+  });
 });
 
 describe('getRequestViaTraceId', () => {
@@ -153,6 +190,14 @@ describe('getRequestViaTraceId', () => {
     });
     const result = await getRequestViaTraceId('trace-1');
     expect(result.record).toEqual({ TraceId: 'trace-1' });
+  });
+
+  it('escapes single quotes in traceId to prevent SQL injection', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    await getRequestViaTraceId("trace'; DROP TABLE otel_traces; --");
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("trace''; DROP TABLE otel_traces; --'");
+    expect(query).not.toContain("trace'; DROP");
   });
 });
 
