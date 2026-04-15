@@ -122,6 +122,13 @@ PARAMETER_CONFIG = {
         "cli_type": str,
         "parser": "json",
     },
+    "custom_metrics_attributes": {
+        "default": None,
+        "env_var": "OPENLIT_CUSTOM_METRICS_ATTRIBUTES",
+        "cli_help": 'Custom metrics attributes as JSON string (e.g. \'{"team": "ml"}\')',
+        "cli_type": str,
+        "parser": "json",
+    },
 }
 
 

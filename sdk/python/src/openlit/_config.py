@@ -50,6 +50,7 @@ class OpenlitConfig:
         cls.evals_logs_export = True
         cls.max_content_length = None  # None = no truncation
         cls.custom_span_attributes = {}
+        cls.custom_metrics_attributes = {}
 
     @classmethod
     def update_config(
@@ -68,6 +69,7 @@ class OpenlitConfig:
         evals_logs_export=True,
         max_content_length=None,
         custom_span_attributes=None,
+        custom_metrics_attributes=None,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -87,6 +89,7 @@ class OpenlitConfig:
             evals_logs_export (bool): Emit evaluation results as OTEL Log Records instead of OTEL Events.
             max_content_length: Maximum character length for captured content (None = no limit).
             custom_span_attributes (dict): Custom key-value attributes applied to every span.
+            custom_metrics_attributes (dict): Custom key-value attributes applied to every metric.
         """
         cls.environment = environment
         cls.application_name = application_name
@@ -102,3 +105,4 @@ class OpenlitConfig:
         cls.evals_logs_export = evals_logs_export
         cls.max_content_length = max_content_length
         cls.custom_span_attributes = custom_span_attributes or {}
+        cls.custom_metrics_attributes = custom_metrics_attributes or {}
