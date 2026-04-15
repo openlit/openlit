@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: opentelemetry-gpu-collector/go.mod
           cache-dependency-path: opentelemetry-gpu-collector/go.sum
