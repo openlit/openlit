@@ -227,7 +227,11 @@ def response_as_dict(response):
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):
-        return response.model_dump()
+        try:
+            return response.model_dump(warnings=False)
+        except TypeError:
+            # Fallback for non-Pydantic v2 objects with model_dump method
+            return response.model_dump()
     elif hasattr(response, "parse"):
         if inspect.iscoroutinefunction(response.parse):
             logger.warning("response.parse() is a coroutine function; skipping")
@@ -455,7 +459,26 @@ def create_metrics_attributes(
     if error_type:
         attributes[SemanticConvention.ERROR_TYPE] = error_type
 
+    _apply_custom_metrics_attributes(attributes)
+
     return attributes
+
+
+def _apply_custom_metrics_attributes(attributes: Dict[Any, Any]) -> None:
+    """
+    Merges user-defined custom_metrics_attributes from OpenlitConfig into the
+    given attributes dict. Custom attributes cannot overwrite reserved core
+    keys (service.name, telemetry.sdk.name, deployment.environment) to prevent
+    accidental corruption of standard OTel resource attributes.
+    """
+    config = OpenlitConfig()
+    if not config.custom_metrics_attributes:
+        return
+
+    reserved_keys = {TELEMETRY_SDK_NAME, SERVICE_NAME, DEPLOYMENT_ENVIRONMENT}
+    for key, value in config.custom_metrics_attributes.items():
+        if key not in reserved_keys:
+            attributes[key] = value
 
 
 def create_db_metrics_attributes(
@@ -470,7 +493,7 @@ def create_db_metrics_attributes(
     Returns OTel metrics attributes for database operations
     """
 
-    return {
+    attributes = {
         TELEMETRY_SDK_NAME: "openlit",
         SERVICE_NAME: service_name,
         DEPLOYMENT_ENVIRONMENT: deployment_environment,
@@ -479,6 +502,10 @@ def create_db_metrics_attributes(
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
     }
+
+    _apply_custom_metrics_attributes(attributes)
+
+    return attributes
 
 
 def set_server_address_and_port(
