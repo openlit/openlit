@@ -40,6 +40,9 @@ export default function ChatPanel({
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const skipNextLoadRef = useRef(false);
 
+	// Input state — ref avoids re-renders, state keeps textarea controlled
+	const [inputValue, setInputValue] = useInputState(inputRef);
+
 	// Load messages when conversation changes
 	useEffect(() => {
 		if (skipNextLoadRef.current) {
@@ -145,7 +148,7 @@ export default function ChatPanel({
 
 			// Add user message optimistically
 			addMessage({ role: "user", content, createdAt: new Date().toISOString() });
-			inputRef.current = "";
+			setInputValue("");
 			setIsStreaming(true);
 
 			// Add empty assistant message for streaming
@@ -213,7 +216,7 @@ export default function ChatPanel({
 				abortControllerRef.current = null;
 			}
 		},
-		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, setMessages, setIsStreaming, refreshConversation]
+		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, setMessages, setIsStreaming, setInputValue, refreshConversation]
 	);
 
 	const handleExecuteQuery = useCallback(
@@ -235,9 +238,6 @@ export default function ChatPanel({
 		},
 		[]
 	);
-
-	// Input state managed via ref to avoid re-renders on keystroke
-	const [inputValue, setInputValue] = useInputState(inputRef);
 
 	const showEmptyState = !conversationId && messages.length === 0 && !isStreaming;
 

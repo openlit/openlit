@@ -17,6 +17,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import getMessage from "@/constants/messages";
+import SecretForm from "@/components/(playground)/vault/form";
 
 interface ModelMetadata {
 	id: string;
@@ -245,7 +246,7 @@ export default function ChatSettingsForm() {
 						))}
 					</SelectContent>
 				</Select>
-				<p className="text-xs text-stone-400 dark:text-stone-500">
+				<div className="flex flex-wrap items-center gap-1 text-xs text-stone-400 dark:text-stone-500">
 					{m.CHAT_SETTINGS_API_KEY_HINT_PREFIX}{" "}
 					<a
 						href="/vault"
@@ -254,7 +255,35 @@ export default function ChatSettingsForm() {
 						{m.FEATURE_VAULT}
 					</a>{" "}
 					{m.CHAT_SETTINGS_API_KEY_HINT_SUFFIX}
-				</p>
+					{" or "}
+					<SecretForm
+						successCallback={() => {
+							// Reload vault secrets after creation
+							fetch("/api/vault/get", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({}),
+							})
+								.then((r) => r.json())
+								.then((res) => {
+									const secrets = Array.isArray(res) ? res : res?.data || [];
+									setVaultSecrets(secrets);
+									// Auto-select the newly created secret (last one)
+									if (secrets.length > 0) {
+										setVaultId(secrets[secrets.length - 1].id);
+									}
+								})
+								.catch(() => {});
+						}}
+					>
+						<Button
+							variant="ghost"
+							className="py-0 h-auto px-0 text-xs text-primary hover:bg-transparent underline"
+						>
+							{m.EVALUATION_CREATE_NEW}
+						</Button>
+					</SecretForm>
+				</div>
 			</div>
 
 			<Button onClick={handleSave} disabled={saving}>

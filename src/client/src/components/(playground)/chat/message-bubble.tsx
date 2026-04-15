@@ -163,7 +163,7 @@ export default function MessageBubble({
 				<Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
 			</div>
 			<div className="flex-1 min-w-0">
-				{cleanText && (
+				{cleanText ? (
 					<div className="chat-markdown">
 						<ReactMarkdown
 							components={{
@@ -316,19 +316,19 @@ export default function MessageBubble({
 							{cleanText}
 						</ReactMarkdown>
 					</div>
-				)}
+				) : null}
 
 				{/* Dashboard import cards */}
-				{dashboards.length > 0 && !isStreaming && (
+				{dashboards.length > 0 && !isStreaming ? (
 					<div className="mt-3">
 						{dashboards.map((json, i) => (
 							<DashboardImportCard key={i} dashboardJson={json} />
 						))}
 					</div>
-				)}
+				) : null}
 
 				{/* Entity link cards from LLM-generated ```entities blocks */}
-				{entities.length > 0 && !isStreaming && (
+				{entities.length > 0 && !isStreaming ? (
 					<div className="flex flex-col gap-1.5 mt-3 max-w-sm">
 						{entities.map((entity, i) => (
 							<EntityCard
@@ -339,15 +339,15 @@ export default function MessageBubble({
 							/>
 						))}
 					</div>
-				)}
+				) : null}
 
 				{/* Streaming indicator — blinking cursor when text is flowing, dots when waiting */}
-				{isStreaming && (
+				{isStreaming ? (
 					cleanText ? <StreamingCursor /> : <StreamingDots />
-				)}
+				) : null}
 
 				{/* Stats footer */}
-				{hasStats && !isStreaming && (
+				{hasStats && !isStreaming ? (
 					<div className="flex items-center gap-4 mt-2.5 text-xs text-stone-500 dark:text-stone-400">
 						{promptTokens !== undefined && promptTokens > 0 && (
 							<span className="flex items-center gap-1">
@@ -368,7 +368,7 @@ export default function MessageBubble({
 							</span>
 						)}
 					</div>
-				)}
+				) : null}
 			</div>
 		</div>
 	);

@@ -137,6 +137,11 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 
 	let streamError: any = null;
 
+	// Shared usage stats — written by onFinish, read after stream consumption
+	let finishStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
+	let finishResolve: () => void;
+	const finishPromise = new Promise<void>((resolve) => { finishResolve = resolve; });
+
 	const result = streamText({
 		model: modelInstance,
 		system: getChatSystemPrompt(),
@@ -151,6 +156,10 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 			const completionTokens = usage?.outputTokens ?? 0;
 			const cost = (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
 
+			// Store stats so the main flow can use them when saving the message
+			finishStats = { promptTokens, completionTokens, cost };
+
+			// Build tool-call fallback text if no LLM text was produced
 			let finalText = text;
 			if (!finalText && steps) {
 				const summaries: string[] = [];
@@ -171,49 +180,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 				if (summaries.length > 0) finalText = summaries.join("\n\n");
 			}
 
-			// Execute SQL blocks and append results
-			let contentToSave = finalText || "";
-			if (contentToSave) {
-				const sqlBlocks = extractSQLFromResponse(contentToSave);
-				for (const sql of sqlBlocks) {
-					const validation = validateSQL(sql);
-					if (validation.valid && validation.query) {
-						try {
-							const { data: queryData, err: queryErr } = await dataCollector({
-								query: validation.query,
-								enable_readonly: true,
-							});
-							if (!queryErr && queryData) {
-								const resultJson = JSON.stringify(queryData);
-								const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-								const sqlBlockRegex = new RegExp(
-									"```sql\\s*\\n" + escapedSql.replace(/\n/g, "\\n") + "\\s*\\n?```"
-								);
-								if (sqlBlockRegex.test(contentToSave)) {
-									contentToSave = contentToSave.replace(
-										sqlBlockRegex,
-										(match) => `${match}\n\`\`\`query-result\n${resultJson}\n\`\`\``
-									);
-								} else {
-									contentToSave += `\n\n\`\`\`query-result\n${resultJson}\n\`\`\``;
-								}
-							}
-						} catch {
-							// Skip failed queries
-						}
-					}
-				}
-			}
-
-			await addMessage({
-				conversationId,
-				role: "assistant",
-				content: contentToSave,
-				promptTokens,
-				completionTokens,
-				cost,
-			});
-
+			// Update conversation stats
 			await updateConversation(conversationId, {
 				addPromptTokens: promptTokens,
 				addCompletionTokens: completionTokens,
@@ -221,6 +188,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 				incrementMessages: true,
 			});
 
+			// Generate title for first message
 			if (isFirstMessage && finalText) {
 				generateConversationTitle(provider, apiKey, model, content, finalText, conversationId).catch(() => {
 					updateConversation(conversationId, {
@@ -228,6 +196,8 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 					}).catch(() => {});
 				});
 			}
+
+			finishResolve!();
 		},
 	});
 
@@ -266,7 +236,64 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 		await addMessage({ conversationId, role: "assistant", content: responseText });
 	}
 
+	// Execute SQL blocks in the response and append results BEFORE returning to client
+	if (responseText && !responseText.startsWith("**Error:**")) {
+		responseText = await executeSQLBlocksInResponse(responseText);
+
+		// Wait for onFinish to complete so we have token/cost stats
+		await Promise.race([finishPromise, new Promise((r) => setTimeout(r, 5000))]);
+
+		// Save the enriched message with query results AND token/cost stats
+		await addMessage({
+			conversationId,
+			role: "assistant",
+			content: responseText,
+			promptTokens: finishStats.promptTokens,
+			completionTokens: finishStats.completionTokens,
+			cost: finishStats.cost,
+		});
+	}
+
 	return { responseText, streamError };
+}
+
+/**
+ * Find SQL code blocks in a response, execute them, and append query-result blocks.
+ */
+async function executeSQLBlocksInResponse(text: string): Promise<string> {
+	const sqlBlocks = extractSQLFromResponse(text);
+	if (sqlBlocks.length === 0) return text;
+
+	let enrichedText = text;
+	for (const sql of sqlBlocks) {
+		const validation = validateSQL(sql);
+		if (validation.valid && validation.query) {
+			try {
+				const { data: queryData, err: queryErr } = await dataCollector({
+					query: validation.query,
+					enable_readonly: true,
+				});
+				if (!queryErr && queryData) {
+					const resultJson = JSON.stringify(queryData);
+					const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+					const sqlBlockRegex = new RegExp(
+						"```sql\\s*\\n" + escapedSql.replace(/\n/g, "\\n") + "\\s*\\n?```"
+					);
+					if (sqlBlockRegex.test(enrichedText)) {
+						enrichedText = enrichedText.replace(
+							sqlBlockRegex,
+							(match) => `${match}\n\`\`\`query-result\n${resultJson}\n\`\`\``
+						);
+					} else {
+						enrichedText += `\n\n\`\`\`query-result\n${resultJson}\n\`\`\``;
+					}
+				}
+			} catch {
+				// Skip failed queries — user can run manually
+			}
+		}
+	}
+	return enrichedText;
 }
 
 // ==================== Title Generation ====================
