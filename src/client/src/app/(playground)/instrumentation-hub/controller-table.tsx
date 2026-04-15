@@ -12,6 +12,7 @@ import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import { formatBrowserDateTime } from "@/utils/date";
+import getMessage from "@/constants/messages";
 
 interface ControllerTableProps {
 	instances: ControllerInstance[];
@@ -36,7 +37,7 @@ type ControllerColumnKey =
 
 const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	controller: {
-		header: () => "Controller",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_CONTROLLER,
 		cell: ({ row }) => (
 			<div className="overflow-hidden">
 				<div className="font-medium text-stone-900 dark:text-stone-100 truncate">
@@ -52,14 +53,14 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		enableHiding: false,
 	},
 	system: {
-		header: () => "System",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_SYSTEM,
 		cell: ({ row }) => {
 			const title =
 				row.mode === "kubernetes"
-					? "Kubernetes"
+					? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES
 					: row.mode === "docker"
-						? "Docker"
-						: "Linux";
+						? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER
+						: getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX;
 			return (
 				<div
 					className="flex items-center text-stone-600 dark:text-stone-400"
@@ -77,7 +78,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		},
 	},
 	metadata: {
-		header: () => "Metadata",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_METADATA,
 		cell: ({ row }) => {
 			const attrs = row.resource_attributes;
 			if (!attrs || Object.keys(attrs).length === 0) return null;
@@ -88,19 +89,19 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 				<div className="text-xs space-y-0.5">
 					{node && (
 						<div className="text-stone-600 dark:text-stone-400">
-							<span className="text-stone-400 dark:text-stone-500">node:</span>{" "}
+							<span className="text-stone-400 dark:text-stone-500">{getMessage().INSTRUMENTATION_HUB_METADATA_NODE_LABEL}</span>{" "}
 							{node}
 						</div>
 					)}
 					{ns && (
 						<div className="text-stone-600 dark:text-stone-400">
-							<span className="text-stone-400 dark:text-stone-500">ns:</span>{" "}
+							<span className="text-stone-400 dark:text-stone-500">{getMessage().INSTRUMENTATION_HUB_METADATA_NS_LABEL}</span>{" "}
 							{ns}
 						</div>
 					)}
 					{pod && (
 						<div className="text-stone-600 dark:text-stone-400 truncate max-w-[200px]">
-							<span className="text-stone-400 dark:text-stone-500">pod:</span>{" "}
+							<span className="text-stone-400 dark:text-stone-500">{getMessage().INSTRUMENTATION_HUB_METADATA_POD_LABEL}</span>{" "}
 							{pod}
 						</div>
 					)}
@@ -109,21 +110,20 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		},
 	},
 	services: {
-		header: () => "Services",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_SERVICES,
 		cell: ({ row }) => (
 			<span className="text-xs">
-				{row.services_discovered} discovered
+				{getMessage().INSTRUMENTATION_HUB_SERVICES_DISCOVERED_COUNT(row.services_discovered)}
 				{row.services_instrumented > 0 && (
 					<>
-						{" / "}
-						{row.services_instrumented} instrumented
+						{getMessage().INSTRUMENTATION_HUB_SERVICES_INSTRUMENTED_COUNT(row.services_instrumented)}
 					</>
 				)}
 			</span>
 		),
 	},
 	lastSeen: {
-		header: () => "Last Seen",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_LAST_SEEN,
 		cell: ({ row }) => (
 			<span className="text-xs truncate">
 				{formatBrowserDateTime(row.last_heartbeat)}
@@ -131,7 +131,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 		),
 	},
 	status: {
-		header: () => "Status",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_STATUS,
 		cell: ({ row }) => (
 			<Badge
 				variant="outline"

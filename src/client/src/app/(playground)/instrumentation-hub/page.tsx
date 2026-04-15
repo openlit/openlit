@@ -11,6 +11,7 @@ import { TIME_RANGE_TYPE } from "@/store/filter";
 import type { ControllerInstance, ControllerService } from "@/types/controller";
 import { Button } from "@/components/ui/button";
 import Filter from "@/components/(playground)/filter";
+import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
 import ServiceTable from "./service-table";
 import ControllerTable from "./controller-table";
@@ -201,18 +202,18 @@ export default function InstrumentationHub() {
 					<div className="flex grow gap-3 overflow-auto flex-wrap">
 						{allSystems.length > 0 && (
 							<FilterPill
-								label="System"
+								label={getMessage().INSTRUMENTATION_HUB_FILTER_SYSTEM}
 								value={pendingSystem}
 							options={allSystems.map((s) => ({
 								value: s,
-								label: s === "kubernetes" ? "Kubernetes" : s === "docker" ? "Docker" : "Linux",
+								label: s === "kubernetes" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES : s === "docker" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER : getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX,
 							}))}
 								onChange={setPendingSystem}
 							/>
 						)}
 						{allProviders.length > 0 && (
 							<FilterPill
-								label="Provider"
+								label={getMessage().INSTRUMENTATION_HUB_FILTER_PROVIDER}
 								value={pendingProvider}
 								options={allProviders.map((p) => ({
 									value: p,
@@ -222,11 +223,11 @@ export default function InstrumentationHub() {
 							/>
 						)}
 						<FilterPill
-							label="Status"
+							label={getMessage().INSTRUMENTATION_HUB_FILTER_STATUS}
 							value={pendingStatus}
 							options={[
-								{ value: "discovered", label: "Discovered" },
-								{ value: "instrumented", label: "Instrumented" },
+								{ value: "discovered", label: getMessage().INSTRUMENTATION_HUB_FILTER_STATUS_DISCOVERED },
+								{ value: "instrumented", label: getMessage().INSTRUMENTATION_HUB_FILTER_STATUS_INSTRUMENTED },
 							]}
 							onChange={setPendingStatus}
 						/>
@@ -239,7 +240,7 @@ export default function InstrumentationHub() {
 								className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
 								onClick={clearFilters}
 							>
-								Clear Filters
+								{getMessage().INSTRUMENTATION_HUB_CLEAR_FILTERS}
 							</Button>
 						)}
 						<Button
@@ -248,7 +249,7 @@ export default function InstrumentationHub() {
 							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
 							onClick={applyFilters}
 						>
-							Apply Filters
+							{getMessage().INSTRUMENTATION_HUB_APPLY_FILTERS}
 						</Button>
 					</div>
 				</div>
@@ -262,45 +263,45 @@ export default function InstrumentationHub() {
 					<div className="grid grid-cols-3 gap-4">
 						<button
 							onClick={() => handleStatClick("controllers")}
-							className="border dark:border-stone-700 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
 						>
 							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
 								{totalControllers}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								Controllers
+								{getMessage().INSTRUMENTATION_HUB_STAT_CONTROLLERS}
 							</div>
 						</button>
 						<button
 							onClick={() => handleStatClick("discovered")}
-							className="border dark:border-stone-700 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
 						>
 							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
 								{totalServices}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								Discovered Services
+								{getMessage().INSTRUMENTATION_HUB_STAT_DISCOVERED_SERVICES}
 							</div>
 						</button>
 						<button
 							onClick={() => handleStatClick("instrumented")}
-							className="border dark:border-stone-700 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
 						>
 							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
 								{instrumentedServices}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								Instrumented Services
+								{getMessage().INSTRUMENTATION_HUB_STAT_INSTRUMENTED_SERVICES}
 							</div>
 						</button>
 					</div>
 
 					{/* Tab switcher */}
-					<div className="flex border-b dark:border-stone-700">
+					<div className="flex border-b border-stone-200 dark:border-stone-700">
 						{(
 							[
-								{ id: "services", label: "Services" },
-								{ id: "controllers", label: "Controllers" },
+								{ id: "services", label: getMessage().INSTRUMENTATION_HUB_TAB_SERVICES },
+								{ id: "controllers", label: getMessage().INSTRUMENTATION_HUB_TAB_CONTROLLERS },
 							] as const
 						).map((tab) => (
 							<button

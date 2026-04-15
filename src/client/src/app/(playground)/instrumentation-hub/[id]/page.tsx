@@ -13,6 +13,7 @@ import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import { ProviderIcon } from "@/components/svg/providers";
+import getMessage from "@/constants/messages";
 
 export default function ServiceDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -76,7 +77,7 @@ export default function ServiceDetail() {
 		service?.pending_action_status === "acknowledged";
 	useDynamicBreadcrumbs(
 		{
-			title: service?.service_name || "Service Detail",
+			title: service?.service_name || getMessage().INSTRUMENTATION_HUB_SERVICE_DETAIL_DEFAULT_TITLE,
 		},
 		[service?.service_name]
 	);
@@ -103,10 +104,10 @@ export default function ServiceDetail() {
 		agentActionPending || !!agentObservability?.transitioning;
 	const agentActionLabel =
 		mode === "docker"
-			? "Requires container recreate."
+			? getMessage().INSTRUMENTATION_HUB_AGENT_ACTION_DOCKER
 			: mode === "linux"
-				? "Requires systemd service restart."
-				: "Triggers a rolling update.";
+				? getMessage().INSTRUMENTATION_HUB_AGENT_ACTION_LINUX
+				: getMessage().INSTRUMENTATION_HUB_AGENT_ACTION_K8S;
 
 	useEffect(() => {
 		if (!service || !isPython) return;
@@ -151,12 +152,12 @@ export default function ServiceDetail() {
 			url: `/api/controller/catalog/${id}/${action}`,
 			successCb: () => {
 				toast.success(
-					`Queued ${action}`
+					getMessage().INSTRUMENTATION_HUB_QUEUED_ACTION(action)
 				);
 				refresh();
 			},
 			failureCb: (err: any) => {
-				toast.error(`Failed: ${err}`);
+				toast.error(getMessage().INSTRUMENTATION_HUB_SERVICE_FAILED(err));
 			},
 		});
 	};
@@ -165,7 +166,7 @@ export default function ServiceDetail() {
 		const enabling = !agentObservabilityEnabled;
 		if (enabling && agentObservability?.is_naked_pod) {
 			const confirmed = window.confirm(
-				"This pod has no Deployment or DaemonSet. Enabling Agent Observability will restart the pod. Continue?"
+				getMessage().INSTRUMENTATION_HUB_NAKED_POD_CONFIRM
 			);
 			if (!confirmed) return;
 		}
@@ -178,8 +179,8 @@ export default function ServiceDetail() {
 				setAgentActionPending(true);
 				toast.success(
 					enabling
-						? "Agent observability is being deployed. The workload will be updated automatically."
-						: "Agent observability removal queued. The workload will be updated automatically."
+						? getMessage().INSTRUMENTATION_HUB_AGENT_DEPLOY_QUEUED
+						: getMessage().INSTRUMENTATION_HUB_AGENT_REMOVE_QUEUED
 				);
 				fetchAgentObservability({
 					requestType: "GET",
@@ -187,7 +188,7 @@ export default function ServiceDetail() {
 				});
 			},
 			failureCb: (err: any) => {
-				toast.error(`Failed: ${err}`);
+				toast.error(getMessage().INSTRUMENTATION_HUB_SERVICE_FAILED(err));
 				setAgentLocalIntent(null);
 			},
 		});
@@ -199,50 +200,50 @@ export default function ServiceDetail() {
 	const pendingActionLabel = (action?: string | null) => {
 		switch (action) {
 			case "instrument":
-				return "Instrumenting";
+				return getMessage().INSTRUMENTATION_HUB_PENDING_INSTRUMENTING;
 			case "uninstrument":
-				return "Uninstrumenting";
+				return getMessage().INSTRUMENTATION_HUB_PENDING_UNINSTRUMENTING;
 			case "enable_python_sdk":
-				return "Enabling Agent Observability";
+				return getMessage().INSTRUMENTATION_HUB_PENDING_ENABLING_AGENT;
 			case "disable_python_sdk":
-				return "Disabling Agent Observability";
+				return getMessage().INSTRUMENTATION_HUB_PENDING_DISABLING_AGENT;
 			default:
-				return "Working";
+				return getMessage().INSTRUMENTATION_HUB_PENDING_WORKING;
 		}
 	};
 	const agentReasonText = agentObservability?.reason
 		? `${agentObservability.reason}. `
 		: "";
 	const agentToggleLabel = () => {
-		if (!agentObservabilityFetched) return "Checking...";
+		if (!agentObservabilityFetched) return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_CHECKING;
 		if (agentTransitioning) {
-			if (agentLocalIntent === "enabling") return "Deploying...";
-			if (agentLocalIntent === "disabling") return "Removing...";
+			if (agentLocalIntent === "enabling") return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_DEPLOYING;
+			if (agentLocalIntent === "disabling") return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_REMOVING;
 			return agentObservability?.desired_status === "enabled"
-				? "Deploying..."
-				: "Removing...";
+				? getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_DEPLOYING
+				: getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_REMOVING;
 		}
-		if (agentObservability?.conflict === "existing_otel") return "Conflict detected";
+		if (agentObservability?.conflict === "existing_otel") return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_CONFLICT;
 		if (agentObservability?.automatable === false) {
-			if (!agentObservability?.reason) return "Unavailable";
+			if (!agentObservability?.reason) return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_UNAVAILABLE;
 			if (agentObservability.reason.includes("writable Docker socket")) {
-				return "Docker access needed";
+				return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_DOCKER_NEEDED;
 			}
 			if (agentObservability.reason.includes("systemd")) {
-				return "Not manageable";
+				return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_NOT_MANAGEABLE;
 			}
 			if (agentObservability.reason.includes("advertise")) {
-				return "Controller upgrade needed";
+				return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_CONTROLLER_UPGRADE;
 			}
-			return "Unavailable";
+			return getMessage().INSTRUMENTATION_HUB_AGENT_TOGGLE_UNAVAILABLE;
 		}
-		return agentObservabilityEnabled ? "Disable" : "Enable";
+		return agentObservabilityEnabled ? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLE : getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLE;
 	};
 
 	if (isLoading || !service) {
 		return (
 			<div className="flex items-center justify-center w-full py-16">
-				<div className="text-stone-400">Loading service details...</div>
+				<div className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_LOADING_SERVICE_DETAILS}</div>
 			</div>
 		);
 	}
@@ -254,7 +255,7 @@ export default function ServiceDetail() {
 				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
 			>
 				<ArrowLeft className="w-4 h-4" />
-				Back to Hub
+				{getMessage().INSTRUMENTATION_HUB_BACK_TO_HUB}
 			</button>
 
 			<div className="border dark:border-stone-800 rounded-lg p-6">
@@ -281,11 +282,11 @@ export default function ServiceDetail() {
 								)}
 								{service.namespace && `${service.namespace} · `}
 								{mode === "kubernetes"
-									? "Kubernetes"
+									? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES
 									: mode === "docker"
-										? "Docker"
-										: "Linux"}{" "}
-								· Last seen {formatBrowserDateTime(service.last_seen)}
+										? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER
+										: getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX}{" "}
+								· {getMessage().INSTRUMENTATION_HUB_LAST_SEEN_PREFIX}{formatBrowserDateTime(service.last_seen)}
 							</p>
 						</div>
 					</div>
@@ -299,23 +300,23 @@ export default function ServiceDetail() {
 						{isPending && pendingAction
 							? pendingActionLabel(pendingAction)
 							: isInstrumented
-								? "Instrumented"
-								: "Discovered"}
+								? getMessage().INSTRUMENTATION_HUB_STATUS_INSTRUMENTED
+								: getMessage().INSTRUMENTATION_HUB_STATUS_DISCOVERED}
 					</Badge>
 				</div>
 
 				<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
 					<Stat
-						label="Providers"
+						label={getMessage().INSTRUMENTATION_HUB_STAT_PROVIDERS}
 						value={String(service.llm_providers?.length || 0)}
 					/>
-					<Stat label="PID" value={service.pid > 0 ? String(service.pid) : "-"} />
+					<Stat label={getMessage().INSTRUMENTATION_HUB_STAT_PID} value={service.pid > 0 ? String(service.pid) : "-"} />
 					<Stat
-						label="Runtime"
-						value={service.language_runtime || "Unknown"}
+						label={getMessage().INSTRUMENTATION_HUB_STAT_RUNTIME}
+						value={service.language_runtime || getMessage().INSTRUMENTATION_HUB_STAT_RUNTIME_UNKNOWN}
 					/>
 					<Stat
-						label="First Seen"
+						label={getMessage().INSTRUMENTATION_HUB_STAT_FIRST_SEEN}
 						value={formatBrowserDateTime(service.first_seen)}
 					/>
 				</div>
@@ -323,13 +324,13 @@ export default function ServiceDetail() {
 				{service.llm_providers && service.llm_providers.length > 0 && (
 					<div className="mt-5">
 						<div className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
-							Model Providers
+							{getMessage().INSTRUMENTATION_HUB_MODEL_PROVIDERS}
 						</div>
 						<div className="flex flex-wrap gap-2">
 							{service.llm_providers.map((provider) => (
 								<div
 									key={provider}
-									className="inline-flex items-center gap-2 rounded-md border dark:border-stone-700 px-3 py-2 text-sm text-stone-700 dark:text-stone-200"
+									className="inline-flex items-center gap-2 rounded-md border dark:border-stone-800 px-3 py-2 text-sm text-stone-700 dark:text-stone-200"
 								>
 									<ProviderIcon
 										provider={provider}
@@ -350,19 +351,18 @@ export default function ServiceDetail() {
 					)}
 			</div>
 
-			<div className="border dark:border-stone-700 rounded-lg p-4">
+			<div className="border dark:border-stone-800 rounded-lg p-4">
 				<h3 className="text-sm font-medium text-stone-600 dark:text-stone-400 mb-4">
-					Controls
+					{getMessage().INSTRUMENTATION_HUB_CONTROLS}
 				</h3>
 				<div className="flex flex-col gap-4">
 					<div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg">
 						<div>
 							<div className="font-medium text-stone-900 dark:text-stone-100">
-								LLM Observability
+								{getMessage().INSTRUMENTATION_HUB_LLM_OBSERVABILITY_LABEL}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-								Enable eBPF-based observability for LLM and VectorDB
-								traffic — RED metrics, model name, tokens, and tool calls.
+								{getMessage().INSTRUMENTATION_HUB_LLM_OBSERVABILITY_DESCRIPTION}
 							</div>
 						</div>
 						<button
@@ -381,12 +381,12 @@ export default function ServiceDetail() {
 								<Loader2 className="w-3 h-3 animate-spin" />
 							)}
 							{isPending && pendingAction
-								? `${pendingActionLabel(pendingAction)}...`
+								? getMessage().INSTRUMENTATION_HUB_WORKING_SUFFIX(pendingActionLabel(pendingAction))
 								: actionLoading
-									? "Working..."
+									? getMessage().INSTRUMENTATION_HUB_ACTION_WORKING_ELLIPSIS
 									: isInstrumented
-										? "Disable"
-										: "Enable"}
+										? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLE
+										: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLE}
 						</button>
 					</div>
 
@@ -394,35 +394,33 @@ export default function ServiceDetail() {
 						<div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg">
 							<div>
 								<div className="font-medium text-stone-900 dark:text-stone-100">
-									Agent Observability
+									{getMessage().INSTRUMENTATION_HUB_AGENT_OBSERVABILITY_LABEL}
 								</div>
 								<div className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-									Injects the OpenLIT agent SDK for LangChain,
-									LangGraph, CrewAI, and similar agent frameworks.
+									{getMessage().INSTRUMENTATION_HUB_AGENT_OBSERVABILITY_DESCRIPTION}
 									{" "}{agentActionLabel}
 								</div>
 								<div className="text-xs text-stone-400 mt-1">
-									Currently{" "}
+									{getMessage().INSTRUMENTATION_HUB_CURRENTLY_PREFIX}
 									{!agentObservabilityFetched
-										? "checking status"
+										? getMessage().INSTRUMENTATION_HUB_CHECKING_STATUS
 										: agentTransitioning
 											? agentLocalIntent === "enabling" || agentObservability?.desired_status === "enabled"
-												? "deploying (rolling update in progress)"
-												: "removing (rolling update in progress)"
+												? getMessage().INSTRUMENTATION_HUB_DEPLOYING_IN_PROGRESS
+												: getMessage().INSTRUMENTATION_HUB_REMOVING_IN_PROGRESS
 											: agentObservabilityEnabled
-												? "enabled"
-												: "disabled"}
+												? getMessage().INSTRUMENTATION_HUB_ENABLED
+												: getMessage().INSTRUMENTATION_HUB_DISABLED}
 									.{" "}
 									{!agentTransitioning && agentReasonText}
-									Use this only for agent framework spans.
-									Provider-level LLM traffic still comes from eBPF.
+									{getMessage().INSTRUMENTATION_HUB_AGENT_USE_NOTE}
 								</div>
 								{agentObservabilityEnabled &&
 									service?.resource_attributes?.[
 										"openlit.sdk.version"
 									] && (
 										<div className="mt-1.5 text-xs text-stone-400">
-											SDK version:{" "}
+											{getMessage().INSTRUMENTATION_HUB_SDK_VERSION_LABEL}{" "}
 											<span className="font-mono text-stone-500 dark:text-stone-300">
 												{
 													service.resource_attributes[
@@ -435,7 +433,7 @@ export default function ServiceDetail() {
 								{agentObservability?.is_manual && agentObservability?.reason && (
 									<div className="mt-2 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-2.5 py-2">
 										<div className="font-medium text-blue-700 dark:text-blue-400 mb-1">
-											Manual setup required
+											{getMessage().INSTRUMENTATION_HUB_MANUAL_SETUP_REQUIRED}
 										</div>
 										<pre className="whitespace-pre-wrap text-blue-600 dark:text-blue-300 font-mono text-[11px] leading-relaxed">
 											{agentObservability.reason}
@@ -444,13 +442,12 @@ export default function ServiceDetail() {
 								)}
 								{agentObservability?.is_containerized && agentObservability?.status === "unsupported" && (
 									<div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-1.5">
-										This process runs inside a container. Mount the Docker socket or use a Docker/Kubernetes-mode controller for Agent Observability.
+										{getMessage().INSTRUMENTATION_HUB_CONTAINERIZED_WARNING}
 									</div>
 								)}
 								{agentObservability?.is_naked_pod && (
 									<div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-1.5">
-										This is a naked pod (no Deployment, DaemonSet, or StatefulSet).
-										Enabling or disabling Agent Observability will restart the pod.
+										{getMessage().INSTRUMENTATION_HUB_NAKED_POD_WARNING}
 									</div>
 								)}
 							</div>
@@ -484,19 +481,19 @@ export default function ServiceDetail() {
 				<div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
 					<div className="flex items-start gap-3">
 						<div className="text-red-600 dark:text-red-400 mt-0.5 text-sm font-medium shrink-0">
-							Action Failed
+							{getMessage().INSTRUMENTATION_HUB_ACTION_FAILED}
 						</div>
 						<div className="text-sm text-red-700 dark:text-red-300 min-w-0">
 							<span className="font-medium">
 								{service.last_error_action === "instrument"
-									? "Instrument"
+									? getMessage().INSTRUMENTATION_HUB_LAST_ERROR_INSTRUMENT
 									: service.last_error_action === "uninstrument"
-										? "Uninstrument"
+										? getMessage().INSTRUMENTATION_HUB_LAST_ERROR_UNINSTRUMENT
 										: service.last_error_action === "enable_python_sdk"
-											? "Enable Agent Observability"
+											? getMessage().INSTRUMENTATION_HUB_LAST_ERROR_ENABLE_AGENT
 											: service.last_error_action === "disable_python_sdk"
-												? "Disable Agent Observability"
-												: "Action"}
+												? getMessage().INSTRUMENTATION_HUB_LAST_ERROR_DISABLE_AGENT
+												: getMessage().INSTRUMENTATION_HUB_LAST_ERROR_ACTION}
 							</span>
 							{": "}
 							{service.last_error}
@@ -505,26 +502,26 @@ export default function ServiceDetail() {
 				</div>
 			)}
 
-			<div className="border dark:border-stone-700 rounded-lg p-4">
+			<div className="border dark:border-stone-800 rounded-lg p-4">
 				<h3 className="text-sm font-medium text-stone-600 dark:text-stone-400 mb-3">
-					Service Info
+					{getMessage().INSTRUMENTATION_HUB_SERVICE_INFO}
 				</h3>
 				<div className="grid grid-cols-2 gap-3 text-sm">
 					<div>
-						<span className="text-stone-400">First Seen</span>
+						<span className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_STAT_FIRST_SEEN}</span>
 						<div className="text-stone-900 dark:text-stone-100">
 							{formatBrowserDateTime(service.first_seen)}
 						</div>
 					</div>
 					<div>
-						<span className="text-stone-400">Last Seen</span>
+						<span className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_COLUMN_LAST_SEEN}</span>
 						<div className="text-stone-900 dark:text-stone-100">
 							{formatBrowserDateTime(service.last_seen)}
 						</div>
 					</div>
 					{service.open_ports && service.open_ports.length > 0 && (
 						<div>
-							<span className="text-stone-400">Open Ports</span>
+							<span className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_OPEN_PORTS}</span>
 							<div className="text-stone-900 dark:text-stone-100">
 								{service.open_ports.join(", ")}
 							</div>
@@ -532,7 +529,7 @@ export default function ServiceDetail() {
 					)}
 					{service.pid > 0 && (
 						<div>
-							<span className="text-stone-400">PID</span>
+							<span className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_STAT_PID}</span>
 							<div className="text-stone-900 dark:text-stone-100">
 								{service.pid}
 							</div>
@@ -540,7 +537,7 @@ export default function ServiceDetail() {
 					)}
 					{service.exe_path && (
 						<div className="col-span-2">
-							<span className="text-stone-400">Executable</span>
+							<span className="text-stone-400">{getMessage().INSTRUMENTATION_HUB_EXECUTABLE}</span>
 							<div className="text-stone-900 dark:text-stone-100 font-mono text-xs">
 								{service.exe_path}
 							</div>
@@ -554,7 +551,7 @@ export default function ServiceDetail() {
 
 function Stat({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="border dark:border-stone-700 rounded-lg p-3">
+		<div className="border dark:border-stone-800 rounded-lg p-3">
 			<div className="text-sm font-semibold text-stone-900 dark:text-stone-100 break-all">
 				{value}
 			</div>
@@ -574,10 +571,10 @@ function ResourceAttributesPanel({
 		a.localeCompare(b)
 	);
 	return (
-		<div className="mt-5 border dark:border-stone-700 rounded-lg overflow-hidden">
-			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b dark:border-stone-700">
+		<div className="mt-5 border dark:border-stone-800 rounded-lg overflow-hidden">
+			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700">
 				<span className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide">
-					Resource Attributes
+					{getMessage().INSTRUMENTATION_HUB_RESOURCE_ATTRIBUTES}
 				</span>
 			</div>
 			<div className="max-h-72 overflow-y-auto px-4 py-3">

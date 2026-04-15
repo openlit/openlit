@@ -60,12 +60,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/exceptions",
 			type: "action",
 		},
-		{
-			icon: <Radar className={ICON_CLASSES} />,
-			text: "Instrumentation Hub",
-			link: "/instrumentation-hub",
-			type: "action",
-		},
+		// {
+		// 	icon: <Radar className={ICON_CLASSES} />,
+		// 	text: "Instrumentation Hub",
+		// 	link: "/instrumentation-hub",
+		// 	type: "action",
+		// },
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",

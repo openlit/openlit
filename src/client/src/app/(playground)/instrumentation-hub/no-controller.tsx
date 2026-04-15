@@ -16,11 +16,12 @@ import copy from "copy-to-clipboard";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import LinuxSvg from "@/components/svg/linux";
+import getMessage from "@/constants/messages";
 
 const TABS = [
-	{ id: "kubernetes", label: "Kubernetes", icon: KubernetesSvg },
-	{ id: "docker", label: "Docker", icon: DockerSvg },
-	{ id: "linux", label: "Linux", icon: LinuxSvg },
+	{ id: "kubernetes", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES, icon: KubernetesSvg },
+	{ id: "docker", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER, icon: DockerSvg },
+	{ id: "linux", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX, icon: LinuxSvg },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -137,11 +138,10 @@ export default function NoController() {
 						<Radar className="w-8 h-8 text-stone-500 dark:text-stone-400" />
 					</div>
 					<h2 className="text-2xl font-semibold text-stone-700 dark:text-stone-200 mb-2">
-						No controllers detected
+						{getMessage().INSTRUMENTATION_HUB_NO_CONTROLLERS_TITLE}
 					</h2>
 					<p className="text-stone-500 dark:text-stone-400 text-center max-w-md">
-						Install the OpenLIT Controller to automatically discover and
-						instrument LLM API calls using eBPF.
+						{getMessage().INSTRUMENTATION_HUB_NO_CONTROLLERS_DESCRIPTION}
 					</p>
 				</div>
 
@@ -149,9 +149,7 @@ export default function NoController() {
 					<div className="flex items-start gap-3 mb-4 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30">
 						<KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
 						<p className="text-sm text-emerald-700 dark:text-emerald-300">
-							Commands below are pre-filled with your API key and
-							dashboard URL. The controller will authenticate
-							automatically.
+							{getMessage().INSTRUMENTATION_HUB_API_KEY_PREFILLED_MESSAGE}
 						</p>
 					</div>
 				)}
@@ -160,21 +158,20 @@ export default function NoController() {
 					<div className="flex items-start gap-3 mb-4 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
 						<Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
 						<p className="text-sm text-amber-700 dark:text-amber-300">
-							<strong>Recommended:</strong> Create an API key in{" "}
+							<strong>{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_PREFIX}</strong>{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_BEFORE_LINK}
 							<a
 								href="/settings"
 								className="underline hover:text-amber-900 dark:hover:text-amber-100"
 							>
-								Settings &rarr; API Keys
-							</a>{" "}
-							to secure your controller connection. Once created,
-							refresh this page to see pre-filled commands.
+								{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_LINK_TEXT}
+							</a>
+							{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_AFTER_LINK}
 						</p>
 					</div>
 				)}
 
-				<div className="border dark:border-stone-700 rounded-lg overflow-hidden">
-					<div className="flex border-b dark:border-stone-700">
+				<div className="border dark:border-stone-800 rounded-lg overflow-hidden">
+					<div className="flex border-b border-stone-200 dark:border-stone-700">
 						{TABS.map((tab) => {
 							const Icon = tab.icon;
 							return (
@@ -197,7 +194,7 @@ export default function NoController() {
 						<button
 							onClick={handleCopy}
 							className="absolute top-3 right-3 p-1.5 rounded-md text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
-							title="Copy to clipboard"
+							title={getMessage().INSTRUMENTATION_HUB_COPY_TO_CLIPBOARD}
 						>
 							{copied ? (
 								<Check className="w-4 h-4 text-emerald-500" />

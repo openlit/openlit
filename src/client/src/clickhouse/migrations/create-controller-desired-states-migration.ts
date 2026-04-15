@@ -22,18 +22,18 @@ export default async function CreateControllerDesiredStatesTableMigration(
 		SETTINGS index_granularity = 8192
 		`,
 		`
-		INSERT INTO ${CONTROLLER_DESIRED_STATES_TABLE}
+		INSERT INTO ${CONTROLLER_DESIRED_STATES_TABLE} (workload_key, cluster_id, desired_instrumentation_status, desired_agent_status, updated_at)
 		SELECT
 			workload_key,
 			cluster_id,
-			argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
-			argMax(desired_agent_status, updated_at) AS desired_agent_status,
-			max(updated_at) AS updated_at
+			argMax(desired_instrumentation_status, updated_at) AS latest_instrumentation_status,
+			argMax(desired_agent_status, updated_at) AS latest_agent_status,
+			max(updated_at) AS latest_updated_at
 		FROM ${CONTROLLER_SERVICES_TABLE}
 		FINAL
 		WHERE workload_key != ''
 		GROUP BY workload_key, cluster_id
-		HAVING desired_instrumentation_status != 'none' OR desired_agent_status != 'none'
+		HAVING latest_instrumentation_status != 'none' OR latest_agent_status != 'none'
 		`,
 	];
 

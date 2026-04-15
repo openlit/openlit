@@ -24,6 +24,8 @@ import {
 import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
+import { Button } from "@/components/ui/button";
+import getMessage from "@/constants/messages";
 
 const HEALTH_STYLES: Record<ControllerHealth, string> = {
 	healthy: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -49,19 +51,19 @@ const SUPPORTED_PROVIDERS: Array<keyof PayloadExtractionConfig> = [
 ];
 
 const PROVIDER_LABELS: Record<string, string> = {
-	openai: "OpenAI",
-	anthropic: "Anthropic",
-	gemini: "Gemini",
-	cohere: "Cohere",
-	mistral: "Mistral",
-	groq: "Groq",
-	deepseek: "DeepSeek",
-	together: "Together AI",
-	fireworks: "Fireworks AI",
-	vercel_ai: "Vercel AI Gateway",
-	vertex_ai: "Vertex AI",
-	azure_inference: "Azure AI Inference",
-	bedrock: "AWS Bedrock",
+	openai: getMessage().INSTRUMENTATION_HUB_PROVIDER_OPENAI,
+	anthropic: getMessage().INSTRUMENTATION_HUB_PROVIDER_ANTHROPIC,
+	gemini: getMessage().INSTRUMENTATION_HUB_PROVIDER_GEMINI,
+	cohere: getMessage().INSTRUMENTATION_HUB_PROVIDER_COHERE,
+	mistral: getMessage().INSTRUMENTATION_HUB_PROVIDER_MISTRAL,
+	groq: getMessage().INSTRUMENTATION_HUB_PROVIDER_GROQ,
+	deepseek: getMessage().INSTRUMENTATION_HUB_PROVIDER_DEEPSEEK,
+	together: getMessage().INSTRUMENTATION_HUB_PROVIDER_TOGETHER,
+	fireworks: getMessage().INSTRUMENTATION_HUB_PROVIDER_FIREWORKS,
+	vercel_ai: getMessage().INSTRUMENTATION_HUB_PROVIDER_VERCEL_AI,
+	vertex_ai: getMessage().INSTRUMENTATION_HUB_PROVIDER_VERTEX_AI,
+	azure_inference: getMessage().INSTRUMENTATION_HUB_PROVIDER_AZURE_INFERENCE,
+	bedrock: getMessage().INSTRUMENTATION_HUB_PROVIDER_BEDROCK,
 };
 
 const DEFAULT_PAYLOAD_EXTRACTION: PayloadExtractionConfig = {
@@ -121,7 +123,7 @@ export default function ControllerDetailPage() {
 	}, [instanceId, fetchInstance]);
 	useDynamicBreadcrumbs(
 		{
-			title: instance?.node_name || instance?.instance_id || "Controller",
+			title: instance?.node_name || instance?.instance_id || getMessage().INSTRUMENTATION_HUB_CONTROLLER_DEFAULT_TITLE,
 		},
 		[instance?.node_name, instance?.instance_id]
 	);
@@ -131,7 +133,7 @@ export default function ControllerDetailPage() {
 			<div className="flex flex-col w-full gap-4 p-1">
 				<div className="flex items-center justify-center py-16 text-stone-400">
 					<Loader2 className="w-5 h-5 animate-spin mr-2" />
-					Loading controller...
+					{getMessage().INSTRUMENTATION_HUB_LOADING_CONTROLLER}
 				</div>
 			</div>
 		);
@@ -144,7 +146,7 @@ export default function ControllerDetailPage() {
 				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
 			>
 				<ArrowLeft className="w-4 h-4" />
-				Back to Hub
+				{getMessage().INSTRUMENTATION_HUB_BACK_TO_HUB}
 			</button>
 			<ControllerHeader instance={instance} />
 			<ControllerConfigEditor instance={instance} />
@@ -172,8 +174,8 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 						</h2>
 						<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
 							{instance.version && `v${instance.version} · `}
-							{instance.mode === "kubernetes" ? "Kubernetes" : instance.mode === "docker" ? "Docker" : "Linux"} ·{" "}
-							Last heartbeat{" "}
+							{instance.mode === "kubernetes" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES : instance.mode === "docker" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER : getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX} ·{" "}
+							{getMessage().INSTRUMENTATION_HUB_LAST_HEARTBEAT_PREFIX}
 							{formatBrowserDateTime(instance.last_heartbeat)}
 						</p>
 					</div>
@@ -186,8 +188,8 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 				</Badge>
 			</div>
 			<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
-				<Stat label="Services Discovered" value={instance.services_discovered} />
-				<Stat label="Instrumented" value={instance.services_instrumented} />
+				<Stat label={getMessage().INSTRUMENTATION_HUB_STAT_SERVICES_DISCOVERED} value={instance.services_discovered} />
+				<Stat label={getMessage().INSTRUMENTATION_HUB_STAT_INSTRUMENTED} value={instance.services_instrumented} />
 			</div>
 			{instance.resource_attributes &&
 				Object.keys(instance.resource_attributes).length > 0 && (
@@ -199,7 +201,7 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
 	return (
-		<div className="border dark:border-stone-700 rounded-lg p-3">
+		<div className="border dark:border-stone-800 rounded-lg p-3">
 			<div className="text-lg font-semibold text-stone-900 dark:text-stone-100">
 				{value}
 			</div>
@@ -219,10 +221,10 @@ function ResourceAttributesPanel({
 		a.localeCompare(b)
 	);
 	return (
-		<div className="mt-5 border dark:border-stone-700 rounded-lg overflow-hidden">
-			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b dark:border-stone-700">
+		<div className="mt-5 border dark:border-stone-800 rounded-lg overflow-hidden">
+			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700">
 				<span className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide">
-					Resource Attributes
+					{getMessage().INSTRUMENTATION_HUB_RESOURCE_ATTRIBUTES}
 				</span>
 			</div>
 			<div className="max-h-72 overflow-y-auto px-4 py-3">
@@ -301,11 +303,11 @@ function ControllerConfigEditor({
 			}),
 			successCb: () => {
 				toast.success(
-					"Configuration saved. Controller will pick it up on next poll."
+					getMessage().INSTRUMENTATION_HUB_CONFIG_SAVED
 				);
 			},
 			failureCb: (err: any) => {
-				toast.error(`Failed to save config: ${err}`);
+				toast.error(getMessage().INSTRUMENTATION_HUB_CONFIG_SAVE_FAILED(err));
 			},
 		});
 	}, [config, instance.instance_id, saveConfig]);
@@ -314,205 +316,200 @@ function ControllerConfigEditor({
 		return (
 			<div className="flex items-center justify-center py-8 text-stone-400">
 				<Loader2 className="w-4 h-4 animate-spin mr-2" />
-				Loading configuration...
+				{getMessage().INSTRUMENTATION_HUB_LOADING_CONFIG}
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col gap-6 max-w-3xl">
-			<ConfigSection title="General">
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<div>
-						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-							Environment
-						</label>
-						<input
-							type="text"
-							value={config.environment || "default"}
-							onChange={(e) =>
-								setConfig((prev) => ({
-									...prev,
-									environment: e.target.value,
-								}))
-							}
-							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-							placeholder="default"
-						/>
-						<p className="text-xs text-stone-400 mt-1">
-							Sets deployment.environment on all traces (matches
-							OpenLIT SDK convention)
-						</p>
-					</div>
-					<div>
-						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-							Poll Interval (seconds)
-						</label>
-						<input
-							type="number"
-							min={5}
-							max={300}
-							value={config.poll_interval_seconds ?? 60}
-							onChange={(e) =>
-								setConfig((prev) => ({
-									...prev,
-									poll_interval_seconds: Math.max(
-										5,
-										Math.min(300, parseInt(e.target.value) || 60)
-									),
-								}))
-							}
-							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-						/>
-						<p className="text-xs text-stone-400 mt-1">
-							How often the controller polls for updates and
-							reports services. Lower values mean faster action
-							response but more load. (5-300s)
-						</p>
-					</div>
-				</div>
-			</ConfigSection>
-
-			<ConfigSection title="Export Settings">
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<div>
-						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-							OTLP Endpoint
-						</label>
-						<input
-							type="text"
-							value={config.export.otlp_endpoint}
-							onChange={(e) =>
-								setConfig((prev) => ({
-									...prev,
-									export: {
-										...prev.export,
-										otlp_endpoint: e.target.value,
-									},
-								}))
-							}
-							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-							placeholder="http://localhost:4318"
-						/>
-					</div>
-					<div>
-						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-							OTLP Protocol
-						</label>
-						<select
-							value={config.export.otlp_protocol}
-							onChange={(e) =>
-								setConfig((prev) => ({
-									...prev,
-									export: {
-										...prev.export,
-										otlp_protocol: e.target.value,
-									},
-								}))
-							}
-							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-						>
-							<option value="http/protobuf">HTTP/Protobuf</option>
-							<option value="grpc">gRPC</option>
-						</select>
-					</div>
-				</div>
-				<HeadersEditor
-					headers={config.export.otlp_headers}
-					onChange={(headers) =>
-						setConfig((prev) => ({
-							...prev,
-							export: {
-								...prev.export,
-								otlp_headers: headers,
-							},
-						}))
-					}
-				/>
-			</ConfigSection>
-
-			<ConfigSection title="Discovery">
-				<div className="flex flex-col gap-3">
-					<ToggleRow
-						label="Auto-discover LLM services"
-						description="Automatically scan for applications making LLM API calls"
-						checked={config.discovery.auto_discover}
-						onChange={(v) =>
-							setConfig((prev) => ({
-								...prev,
-								discovery: {
-									...prev.discovery,
-									auto_discover: v,
-								},
-							}))
-						}
-					/>
-				</div>
-			</ConfigSection>
-
-			<ConfigSection title="Custom LLM Hosts">
-				<p className="text-xs text-stone-400 mb-3">
-					Add custom hostnames for self-hosted LLM proxies (e.g.
-					LiteLLM, Ollama, Azure per-deployment endpoints).
-					Comma-separated. The controller will resolve these and monitor
-					traffic to them.
-				</p>
-				<input
-					type="text"
-					value={(config.custom_llm_hosts || []).join(", ")}
-					onChange={(e) =>
-						setConfig((prev) => ({
-							...prev,
-							custom_llm_hosts: e.target.value
-								.split(",")
-								.map((h) => h.trim())
-								.filter(Boolean),
-						}))
-					}
-					className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-					placeholder="litellm.internal:4000, ollama.internal:11434, my-azure.openai.azure.com"
-				/>
-			</ConfigSection>
-
-			<ConfigSection title="Payload Extraction (LLM Providers)">
-				<p className="text-xs text-stone-400 mb-3">
-					Enable payload extraction to capture GenAI span attributes
-					(prompts, completions, tokens) for each provider.
-				</p>
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-					{SUPPORTED_PROVIDERS.map((key) => (
-						<ToggleRow
-							key={key}
-							label={PROVIDER_LABELS[key]}
-							checked={config.payload_extraction[key]}
-							onChange={(v) =>
-								setConfig((prev) => ({
-									...prev,
-									payload_extraction: {
-										...prev.payload_extraction,
-										[key]: v,
-									},
-								}))
-							}
-							compact
-						/>
-					))}
-				</div>
-			</ConfigSection>
-
+		<div className="flex flex-col gap-6">
 			<div className="flex justify-end pt-2">
-				<button
+				<Button
 					onClick={handleSave}
 					disabled={saving}
-					className="flex items-center gap-2 px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-sm font-medium hover:bg-stone-800 dark:hover:bg-stone-200 disabled:opacity-50 transition-colors"
+					variant="default"
+					className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
 				>
 					{saving ? (
 						<Loader2 className="w-4 h-4 animate-spin" />
 					) : (
 						<Save className="w-4 h-4" />
 					)}
-					{saving ? "Saving..." : "Save Configuration"}
-				</button>
+					{saving ? getMessage().INSTRUMENTATION_HUB_SAVING : getMessage().INSTRUMENTATION_HUB_SAVE_CONFIGURATION}
+				</Button>
+			</div>
+			<div className="grid grid-cols-2 gap-6 w-full">
+				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_GENERAL}>
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT}
+							</label>
+							<input
+								type="text"
+								value={config.environment || "default"}
+								onChange={(e) =>
+									setConfig((prev) => ({
+										...prev,
+										environment: e.target.value,
+									}))
+								}
+								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT_PLACEHOLDER}
+							/>
+							<p className="text-xs text-stone-400 mt-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT_HELP}
+							</p>
+						</div>
+						<div>
+							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_POLL_INTERVAL}
+							</label>
+							<input
+								type="number"
+								min={5}
+								max={300}
+								value={config.poll_interval_seconds ?? 60}
+								onChange={(e) =>
+									setConfig((prev) => ({
+										...prev,
+										poll_interval_seconds: Math.max(
+											5,
+											Math.min(300, parseInt(e.target.value) || 60)
+										),
+									}))
+								}
+								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+							/>
+							<p className="text-xs text-stone-400 mt-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_POLL_INTERVAL_HELP}
+							</p>
+						</div>
+					</div>
+				</ConfigSection>
+
+				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_EXPORT_SETTINGS}>
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_ENDPOINT}
+							</label>
+							<input
+								type="text"
+								value={config.export.otlp_endpoint}
+								onChange={(e) =>
+									setConfig((prev) => ({
+										...prev,
+										export: {
+											...prev.export,
+											otlp_endpoint: e.target.value,
+										},
+									}))
+								}
+								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_ENDPOINT_PLACEHOLDER}
+							/>
+						</div>
+						<div>
+							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL}
+							</label>
+							<select
+								value={config.export.otlp_protocol}
+								onChange={(e) =>
+									setConfig((prev) => ({
+										...prev,
+										export: {
+											...prev.export,
+											otlp_protocol: e.target.value,
+										},
+									}))
+								}
+								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+							>
+								<option value="http/protobuf">{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL_HTTP}</option>
+								<option value="grpc">{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL_GRPC}</option>
+							</select>
+						</div>
+					</div>
+					<HeadersEditor
+						headers={config.export.otlp_headers}
+						onChange={(headers) =>
+							setConfig((prev) => ({
+								...prev,
+								export: {
+									...prev.export,
+									otlp_headers: headers,
+								},
+							}))
+						}
+					/>
+				</ConfigSection>
+
+				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_DISCOVERY}>
+					<div className="flex flex-col gap-3">
+						<ToggleRow
+							label={getMessage().INSTRUMENTATION_HUB_CONFIG_AUTO_DISCOVER_LABEL}
+							description={getMessage().INSTRUMENTATION_HUB_CONFIG_AUTO_DISCOVER_DESCRIPTION}
+							checked={config.discovery.auto_discover}
+							onChange={(v) =>
+								setConfig((prev) => ({
+									...prev,
+									discovery: {
+										...prev.discovery,
+										auto_discover: v,
+									},
+								}))
+							}
+						/>
+					</div>
+				</ConfigSection>
+
+				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS}>
+					<p className="text-xs text-stone-400 mb-3">
+						{getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS_HELP}
+					</p>
+					<input
+						type="text"
+						value={(config.custom_llm_hosts || []).join(", ")}
+						onChange={(e) =>
+							setConfig((prev) => ({
+								...prev,
+								custom_llm_hosts: e.target.value
+									.split(",")
+									.map((h) => h.trim())
+									.filter(Boolean),
+							}))
+						}
+						className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+						placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER}
+					/>
+				</ConfigSection>
+
+				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_PAYLOAD_EXTRACTION}>
+					<p className="text-xs text-stone-400 mb-3">
+						{getMessage().INSTRUMENTATION_HUB_CONFIG_PAYLOAD_EXTRACTION_HELP}
+					</p>
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+						{SUPPORTED_PROVIDERS.map((key) => (
+							<ToggleRow
+								key={key}
+								label={PROVIDER_LABELS[key]}
+								checked={config.payload_extraction[key]}
+								onChange={(v) =>
+									setConfig((prev) => ({
+										...prev,
+										payload_extraction: {
+											...prev.payload_extraction,
+											[key]: v,
+										},
+									}))
+								}
+								compact
+							/>
+						))}
+					</div>
+				</ConfigSection>
 			</div>
 		</div>
 	);
@@ -528,7 +525,7 @@ function ConfigSection({
 	const [open, setOpen] = useState(true);
 
 	return (
-		<div className="border dark:border-stone-700 rounded-lg overflow-hidden">
+		<div className="border dark:border-stone-800 rounded-lg overflow-hidden">
 			<button
 				onClick={() => setOpen(!open)}
 				className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800/80 transition-colors"
@@ -543,7 +540,7 @@ function ConfigSection({
 				)}
 			</button>
 			{open && (
-				<div className="px-4 py-4 bg-white dark:bg-stone-800/50 border-t dark:border-stone-700">
+				<div className="px-4 py-4 bg-white dark:bg-stone-800/50 border-t border-stone-200 dark:border-stone-700 h-full">
 					{children}
 				</div>
 			)}
@@ -634,7 +631,7 @@ function HeadersEditor({
 	return (
 		<div className="mt-3">
 			<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">
-				OTLP Headers
+				{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_HEADERS}
 			</label>
 			{entries.length > 0 && (
 				<div className="flex flex-col gap-2 mb-2">
@@ -646,7 +643,7 @@ function HeadersEditor({
 								onChange={(e) =>
 									updateHeader(key, e.target.value, value)
 								}
-								placeholder="Header name"
+								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_NAME_PLACEHOLDER}
 								className="flex-1 px-2 py-1.5 text-xs border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							/>
 							<input
@@ -655,14 +652,14 @@ function HeadersEditor({
 								onChange={(e) =>
 									updateHeader(key, key, e.target.value)
 								}
-								placeholder="Value"
+								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_VALUE_PLACEHOLDER}
 								className="flex-1 px-2 py-1.5 text-xs border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							/>
 							<button
 								onClick={() => removeHeader(key)}
 								className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-1"
 							>
-								Remove
+								{getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_REMOVE}
 							</button>
 						</div>
 					))}
@@ -672,7 +669,7 @@ function HeadersEditor({
 				onClick={addHeader}
 				className="text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 underline"
 			>
-				+ Add Header
+				{getMessage().INSTRUMENTATION_HUB_CONFIG_ADD_HEADER}
 			</button>
 		</div>
 	);

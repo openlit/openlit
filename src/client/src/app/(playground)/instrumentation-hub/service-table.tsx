@@ -17,6 +17,7 @@ import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import { ProviderIcon } from "@/components/svg/providers";
+import getMessage from "@/constants/messages";
 
 interface ServiceTableProps {
 	services: ControllerService[];
@@ -69,12 +70,12 @@ function AIObservabilityCell({
 			url: `/api/controller/catalog/${service.id}/${action}`,
 			successCb: () => {
 				toast.success(
-					`Queued ${action} for ${service.service_name}`
+					getMessage().INSTRUMENTATION_HUB_SERVICE_QUEUED_ACTION(action, service.service_name)
 				);
 				onRefresh();
 			},
 			failureCb: (err: any) => {
-				toast.error(`Failed: ${err}`);
+				toast.error(getMessage().INSTRUMENTATION_HUB_SERVICE_FAILED(err));
 			},
 		});
 	};
@@ -86,7 +87,7 @@ function AIObservabilityCell({
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{pendingAction === "uninstrument" ? "Disabling..." : "Enabling..."}
+				{pendingAction === "uninstrument" ? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLING : getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLING}
 			</button>
 		);
 	}
@@ -102,7 +103,7 @@ function AIObservabilityCell({
 			}`}
 		>
 			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-			{isLoading ? "Working..." : isInstrumented ? "Disable" : "Enable"}
+			{isLoading ? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_WORKING : isInstrumented ? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLE : getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLE}
 		</button>
 	);
 }
@@ -139,13 +140,13 @@ function AgentObservabilityCell({
 			successCb: () => {
 				toast.success(
 					enabling
-						? `Enabling Agent Observability for ${service.service_name}`
-						: `Disabling Agent Observability for ${service.service_name}`
+						? getMessage().INSTRUMENTATION_HUB_AGENT_ENABLING_FOR(service.service_name)
+						: getMessage().INSTRUMENTATION_HUB_AGENT_DISABLING_FOR(service.service_name)
 				);
 				onRefresh();
 			},
 			failureCb: (err: any) => {
-				toast.error(`Failed: ${err}`);
+				toast.error(getMessage().INSTRUMENTATION_HUB_SERVICE_FAILED(err));
 			},
 		});
 	};
@@ -158,8 +159,8 @@ function AgentObservabilityCell({
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
 				{agentStatus === "enabled" || agentStatus === "manual"
-					? "Disabling..."
-					: "Enabling..."}
+					? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLING
+					: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLING}
 			</button>
 		);
 	}
@@ -168,7 +169,7 @@ function AgentObservabilityCell({
 		return (
 			<div className="flex items-center gap-2">
 				<span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-					Manual
+					{getMessage().INSTRUMENTATION_HUB_SERVICE_MANUAL_BADGE}
 				</span>
 				<button
 					onClick={handleAction}
@@ -176,7 +177,7 @@ function AgentObservabilityCell({
 					className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
 				>
 					{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-					{isLoading ? "..." : "Disable"}
+					{isLoading ? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ELLIPSIS : getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLE}
 				</button>
 			</div>
 		);
@@ -194,17 +195,17 @@ function AgentObservabilityCell({
 		>
 			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
 			{isLoading
-				? "Working..."
+				? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_WORKING
 				: agentStatus === "enabled"
-					? "Disable"
-					: "Enable"}
+					? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLE
+					: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLE}
 		</button>
 	);
 }
 
 const columns: Columns<ServiceColumnKey, EnrichedService> = {
 	service: {
-		header: () => "Service",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_SERVICE,
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2 overflow-hidden">
 				<Link
@@ -221,7 +222,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 				)}
 				{row.mode !== "kubernetes" && row.pid > 0 && (
 					<span className="text-xs text-stone-400 flex-shrink-0">
-						PID {row.pid}
+						{getMessage().INSTRUMENTATION_HUB_SERVICE_PID_PREFIX} {row.pid}
 					</span>
 				)}
 			</div>
@@ -229,14 +230,14 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		enableHiding: false,
 	},
 	system: {
-		header: () => "System",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_SYSTEM,
 		cell: ({ row }) => {
 			const title =
 				row.mode === "kubernetes"
-					? "Kubernetes"
+					? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES
 					: row.mode === "docker"
-						? "Docker"
-						: "Linux";
+						? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER
+						: getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX;
 			return (
 				<div
 					className="flex items-center text-stone-600 dark:text-stone-400"
@@ -254,7 +255,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		},
 	},
 	providers: {
-		header: () => "Providers",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_PROVIDERS,
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2">
 				{row.llm_providers && row.llm_providers.length > 0 ? (
@@ -273,7 +274,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		),
 	},
 	lastSeen: {
-		header: () => "Last Seen",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_LAST_SEEN,
 		cell: ({ row }) => (
 			<span className="text-xs truncate">
 				{formatBrowserDateTime(row.last_seen)}
@@ -281,7 +282,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		),
 	},
 	aiObservability: {
-		header: () => "LLM Observability",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_LLM_OBSERVABILITY,
 		cell: ({ row, extraFunctions }) => (
 			<AIObservabilityCell
 				service={row}
@@ -290,7 +291,7 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		),
 	},
 	agentObservability: {
-		header: () => "Agent Observability",
+		header: () => getMessage().INSTRUMENTATION_HUB_COLUMN_AGENT_OBSERVABILITY,
 		cell: ({ row, extraFunctions }) => (
 			<AgentObservabilityCell
 				service={row}
