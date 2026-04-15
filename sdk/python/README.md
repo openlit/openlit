@@ -192,6 +192,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
 | `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
+| `custom_metrics_attributes`  | Custom key-value attributes applied to every metric recording. Useful for grouping metrics by custom tags (e.g., client ID, team, project). | `None` |    No    |
 
 ### OpenLIT Prompt Hub - `openlit.get_prompt()`
 
