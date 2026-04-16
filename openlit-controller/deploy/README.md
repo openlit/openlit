@@ -2,21 +2,21 @@
 
 Ready-to-run demos for every deployment mode. Each folder contains everything you need to get the controller running with sample LLM apps.
 
-All demos use the same sample apps from `examples/` (OpenAI, Anthropic, Gemini) so behavior is consistent across platforms.
+All images are **built from source** — no pre-built images are pulled from a registry. All demos use the same sample apps from `examples/` (OpenAI, Anthropic, Gemini, CrewAI) so behavior is consistent across platforms.
 
 ## Pick your platform
 
 | Platform | Setup time | What you need |
 |----------|-----------|---------------|
-| [**Docker**](./docker/) | ~1 minute | Docker + Docker Compose |
-| [**Kubernetes**](./kubernetes/) | ~2 minutes | kubectl + a cluster |
-| [**Linux**](./linux/) | ~2 minutes | Linux machine + Docker + Python 3 |
+| [**Docker**](./docker/) | ~2 minutes | Docker + Docker Compose + full repo clone |
+| [**Kubernetes**](./kubernetes/) | ~3 minutes | kubectl + a cluster + Docker + full repo clone |
+| [**Linux**](./linux/) | ~3 minutes | Linux machine + Docker + Go + Python 3 |
 
 ## Docker (recommended for trying it out)
 
 ```bash
 cd docker
-docker compose up -d
+docker compose up -d --build
 # Open http://localhost:3000
 ```
 

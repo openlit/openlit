@@ -18,7 +18,8 @@ spec:
       hostPID: true
       containers:
         - name: controller
-          image: ghcr.io/openlit/openlit-controller:latest
+          image: openlit-controller:local
+          imagePullPolicy: IfNotPresent
           args: ["--config", "/etc/openlit-controller/config.yaml"]
           env:
             - name: OPENLIT_PROC_ROOT

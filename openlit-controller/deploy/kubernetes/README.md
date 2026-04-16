@@ -1,6 +1,6 @@
 # OpenLIT Controller — Kubernetes Demo
 
-Deploy the full OpenLIT stack with the Controller and sample LLM apps on any Kubernetes cluster.
+Deploy the full OpenLIT stack with the Controller and sample LLM apps on any Kubernetes cluster. All images are **built from source** and loaded into the cluster automatically.
 
 The sample apps are the same ones from the repo's `examples/` folder, packaged as container images.
 
@@ -14,17 +14,20 @@ The sample apps are the same ones from the repo's `examples/` folder, packaged a
 | **demo-openai-app**     | Deployment  | Sample app calling OpenAI (from examples/)        |
 | **demo-anthropic-app**  | Deployment  | Sample app calling Anthropic (from examples/)     |
 | **demo-gemini-app**     | Deployment  | Sample app calling Gemini (from examples/)        |
+| **demo-crewai-app**     | Deployment  | Sample CrewAI agent app (from examples/)          |
 
 ## Prerequisites
 
-- A Kubernetes cluster (minikube, kind, EKS, GKE, etc.)
+- A Kubernetes cluster (minikube, kind, k3d, EKS, GKE, etc.)
 - `kubectl` configured and pointing to your cluster
+- `docker` (images are built from source)
 - The cluster nodes must run Linux with kernel 5.8+ (for eBPF)
+- **Full repo clone** (images are built from `src/`, `openlit-controller/`, and `examples/`)
 
 ## Quick Start
 
 ```bash
-# 1. Run the setup script
+# 1. Run the setup script (builds images + deploys everything)
 bash setup.sh
 
 # 2. Forward the dashboard port to your machine
@@ -33,6 +36,11 @@ kubectl port-forward -n openlit svc/openlit 3000:3000
 # 3. Open the dashboard
 open http://localhost:3000
 ```
+
+The setup script will:
+1. Build all images from source (OpenLIT, controller, sample apps)
+2. Auto-detect your cluster (k3d, kind, or minikube) and load images
+3. Deploy ClickHouse, OpenLIT, the controller, and sample apps
 
 The Controller runs as a DaemonSet on every node and automatically discovers the sample apps making LLM API calls. Check **Instrumentation Hub** in the dashboard.
 

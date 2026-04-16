@@ -70,7 +70,8 @@ spec:
     spec:
       containers:
         - name: openlit
-          image: ghcr.io/openlit/openlit:latest
+          image: openlit:local
+          imagePullPolicy: IfNotPresent
           env:
             - name: INIT_DB_HOST
               value: clickhouse

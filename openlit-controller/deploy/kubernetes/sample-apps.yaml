@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/openlit/demo-openai-app:latest
+          image: demo-openai-app:local
+          imagePullPolicy: IfNotPresent
           env:
             - name: OPENAI_API_KEY
               value: "demo-key"
@@ -41,7 +42,8 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/openlit/demo-anthropic-app:latest
+          image: demo-anthropic-app:local
+          imagePullPolicy: IfNotPresent
           env:
             - name: ANTHROPIC_API_KEY
               value: "demo-key"
@@ -65,7 +67,33 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/openlit/demo-gemini-app:latest
+          image: demo-gemini-app:local
+          imagePullPolicy: IfNotPresent
           env:
             - name: GEMINI_API_KEY
+              value: "demo-key"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-crewai-app
+  namespace: openlit
+  labels:
+    app: demo-crewai-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-crewai-app
+  template:
+    metadata:
+      labels:
+        app: demo-crewai-app
+    spec:
+      containers:
+        - name: app
+          image: demo-crewai-app:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OPENAI_API_KEY
               value: "demo-key"

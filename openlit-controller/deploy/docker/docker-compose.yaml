@@ -20,7 +20,10 @@ services:
     restart: always
 
   openlit:
-    image: ghcr.io/openlit/openlit:latest
+    image: openlit:local
+    build:
+      context: ../../../src
+      dockerfile: Dockerfile
     container_name: openlit
     environment:
       INIT_DB_HOST: clickhouse
@@ -47,7 +50,10 @@ services:
 
   # --- OpenLIT Controller ---
   openlit-controller:
-    image: ghcr.io/openlit/openlit-controller:latest
+    image: openlit-controller:local
+    build:
+      context: ../../
+      dockerfile: Dockerfile
     container_name: openlit-controller
     privileged: true
     pid: host
@@ -65,7 +71,7 @@ services:
         condition: service_healthy
     restart: always
 
-  # --- Sample Python Apps (from examples/) ---
+  # --- Sample Apps (built from examples/) ---
   openai-app:
     build: ../../../examples/openai-chat-app
     container_name: demo-openai-app
@@ -91,6 +97,16 @@ services:
     container_name: demo-gemini-app
     environment:
       GEMINI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  crewai-app:
+    build: ../../../examples/crewai-agent-app
+    container_name: demo-crewai-app
+    environment:
+      OPENAI_API_KEY: "demo-key"
     restart: unless-stopped
     depends_on:
       openlit:

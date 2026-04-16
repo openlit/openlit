@@ -27,6 +27,7 @@ fi
 pkill -f "openai-chat-app/app.py" 2>/dev/null || true
 pkill -f "anthropic-chat-app/app.py" 2>/dev/null || true
 pkill -f "gemini-chat-app/app.py" 2>/dev/null || true
+pkill -f "crewai-agent-app/app.py" 2>/dev/null || true
 sudo pkill -f "openlit-controller" 2>/dev/null || true
 
 # --- Stop Docker services ---

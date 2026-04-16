@@ -1,6 +1,6 @@
 # OpenLIT Controller — Docker Demo
 
-Run the full OpenLIT stack with the Controller and sample LLM apps in Docker.
+Run the full OpenLIT stack with the Controller and sample LLM apps in Docker. All images are **built from source** — no pre-built images are pulled.
 
 The sample apps are shared from the repo's `examples/` folder — the same apps used by all demos.
 
@@ -14,18 +14,19 @@ The sample apps are shared from the repo's `examples/` folder — the same apps 
 | **openai-chat-app**    | Sample app calling OpenAI (from examples/)      |
 | **anthropic-chat-app** | Sample app calling Anthropic (from examples/)   |
 | **gemini-chat-app**    | Sample app calling Gemini (from examples/)      |
+| **crewai-agent-app**   | Sample CrewAI agent app (from examples/)        |
 
 ## Prerequisites
 
 - Docker Engine 20.10+ with Docker Compose v2
 - Linux host (eBPF requires a Linux kernel — Docker Desktop on macOS/Windows runs a Linux VM, which works)
-- **Full repo clone** (sample apps are built from `examples/`)
+- **Full repo clone** (images are built from source)
 
 ## Quick Start
 
 ```bash
-# 1. Start everything
-docker compose up -d
+# 1. Start everything (builds all images from source)
+docker compose up -d --build
 
 # 2. Wait ~30 seconds for services to initialize, then open the dashboard
 open http://localhost:3000

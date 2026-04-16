@@ -1,6 +1,8 @@
 # OpenLIT Controller — Linux Demo
 
-Run the OpenLIT Controller natively on a Linux machine with sample LLM apps. The infrastructure (ClickHouse + OpenLIT dashboard) runs in Docker, while the controller and apps run directly on the host.
+Run the OpenLIT Controller natively on a Linux machine with sample LLM apps. All components are **built from source** — the controller is compiled with Go and the OpenLIT Docker image is built locally.
+
+The infrastructure (ClickHouse + OpenLIT dashboard) runs in Docker, while the controller and apps run directly on the host.
 
 The sample apps are shared from the repo's `examples/` folder — the same apps used by all demos.
 
@@ -14,19 +16,21 @@ The sample apps are shared from the repo's `examples/` folder — the same apps 
 | **openai-chat-app**    | Host     | Sample app calling OpenAI (from examples/)|
 | **anthropic-chat-app** | Host     | Sample app calling Anthropic (from examples/)|
 | **gemini-chat-app**    | Host     | Sample app calling Gemini (from examples/)|
+| **crewai-agent-app**   | Host     | Sample CrewAI agent app (from examples/)  |
 
 ## Prerequisites
 
 - **Linux** machine with kernel 5.8+ (Ubuntu 22.04+, Debian 12+, Fedora 37+)
 - **Docker** with Docker Compose v2 (for ClickHouse + OpenLIT)
+- **Go 1.24+** (to build the controller from source)
 - **Python 3.8+** with pip
 - **Root access** (the controller needs eBPF capabilities)
-- **Full repo clone** (sample apps are in `examples/`)
+- **Full repo clone** (everything is built from source)
 
 ## Quick Start
 
 ```bash
-# 1. Run setup (downloads controller, starts everything)
+# 1. Run setup (builds everything from source, starts all services)
 sudo bash setup.sh
 
 # 2. Open the dashboard
@@ -34,10 +38,11 @@ open http://localhost:3000
 ```
 
 The setup script will:
-1. Start ClickHouse + OpenLIT in Docker
-2. Download and install the controller binary
-3. Start the controller (connects to the dashboard automatically)
-4. Start 3 sample Python apps that call OpenAI, Anthropic, and Gemini
+1. Build the OpenLIT Docker image from source
+2. Start ClickHouse + OpenLIT in Docker
+3. Build the controller binary from source (Go)
+4. Start the controller (connects to the dashboard automatically)
+5. Start 4 sample Python apps that call OpenAI, Anthropic, Gemini, and CrewAI
 
 Within ~30 seconds, the controller discovers the apps and they appear in **Instrumentation Hub**.
 

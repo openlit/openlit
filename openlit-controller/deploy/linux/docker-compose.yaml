@@ -20,7 +20,10 @@ services:
     restart: always
 
   openlit:
-    image: ghcr.io/openlit/openlit:latest
+    image: openlit:local
+    build:
+      context: ../../../src
+      dockerfile: Dockerfile
     container_name: openlit
     environment:
       INIT_DB_HOST: clickhouse
