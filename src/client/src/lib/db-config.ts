@@ -7,6 +7,7 @@ import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
 import { getCurrentOrganisation } from "./organisation";
+import { validateDatabaseHost } from "@/utils/validation";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -121,6 +122,17 @@ export const upsertDBConfig = async (
 	if (!dbConfig.host) throw new Error("No host provided");
 	if (!dbConfig.port) throw new Error("No port provided");
 	if (!dbConfig.database) throw new Error("No database provided");
+
+	// Validate host to prevent SSRF
+	const hostValidation = validateDatabaseHost(dbConfig.host);
+	if (!hostValidation.valid) {
+		throw new Error(hostValidation.error || "Invalid host");
+	}
+
+	// Ensure port is a string (Prisma expects String type)
+	if (typeof dbConfig.port !== "string") {
+		dbConfig.port = String(dbConfig.port);
+	}
 
 	const user = await getCurrentUser();
 
