@@ -841,7 +841,7 @@ export const RULES = "Rules";
 export const NO_DASH = "-";
 
 // Chat
-export const CHAT_TITLE = "Chat";
+export const CHAT_TITLE = "Otter";
 export const CHAT_DESCRIPTION = "Ask questions about your observability data using natural language";
 export const CHAT_SETTINGS_TITLE = "Chat Settings";
 export const CHAT_SETTINGS_DESCRIPTION = "Configure the AI provider for the chat feature";

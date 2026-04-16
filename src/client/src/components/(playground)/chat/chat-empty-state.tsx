@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
+import Otter from "@/components/svg/otter";
 
 interface ChatEmptyStateProps {
 	onSendQuestion: (question: string) => void;
@@ -42,8 +43,9 @@ export default function ChatEmptyState({
 
 	return (
 		<div className="flex flex-col items-center justify-center flex-1 px-6 py-12">
-			<div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-100 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/20 mb-5">
-				<MessageSquare className="w-7 h-7 text-orange-600 dark:text-orange-400" />
+			<div className="flex items-center justify-center w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-200 mb-5">
+				{/* <MessageSquare className="w-7 h-7 text-orange-600 dark:text-orange-400" /> */}
+				<Otter className="w-12 h-12 text-stone-800 dark:text-stone-800" />
 			</div>
 			<h2 className="text-xl font-semibold text-stone-900 dark:text-stone-100 mb-1.5">
 				{m.CHAT_EMPTY_TITLE}
