@@ -2,7 +2,7 @@
 FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS builder
 
 # Installing node and npm
-RUN apk add --no-cache nodejs npm
+RUN apk add --no-cache nodejs npm openssl
 
 # Installing extra packages
 RUN apk add --no-cache rust cargo build-base
@@ -116,6 +116,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends file && \
     echo "otelcontribcol:" && file /app/opamp/otelcontribcol && \
     echo "opampsupervisor:" && file /app/opamp/opampsupervisor && \
     rm -rf /var/lib/apt/lists/*
+
+# Fix Windows CRLF line endings in shell scripts (required for Windows Docker Desktop compatibility)
+RUN find /app -name "*.sh" -exec sed -i 's/\r$//' {} +
 
 # Execute entrypoint script to generate NextAuth.js secret and run commands
 RUN chmod +x ./scripts/entrypoint.sh /app/opamp/otelcontribcol /app/opamp/opampsupervisor /app/opamp/opamp-server /app/opamp/setup-supervisor.sh
