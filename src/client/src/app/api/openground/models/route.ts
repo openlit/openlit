@@ -162,13 +162,9 @@ export async function POST(request: NextRequest) {
 	const body = await request.json();
 	const { provider, model, customId } = body;
 
-	console.log("POST /api/openground/models - Body:", JSON.stringify(body, null, 2));
-	console.log("CustomId type:", typeof customId, "value:", customId);
-
 	// Support both model.id and model.model_id for compatibility
 	const modelId = model?.id || model?.model_id;
 	if (!provider || !modelId || !model?.displayName) {
-		console.error("Validation failed - provider:", provider, "model.id:", modelId, "model.displayName:", model?.displayName);
 		return NextResponse.json(
 			{ error: "Provider, model ID, and display name are required" },
 			{ status: 400 }
@@ -198,8 +194,6 @@ export async function POST(request: NextRequest) {
 			  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
 		`;
 
-		console.log("Update query:", updateQuery);
-
 		const { err } = await dataCollector(
 			{ query: updateQuery },
 			"exec",
@@ -211,7 +205,6 @@ export async function POST(request: NextRequest) {
 				event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
 				startTimestamp,
 			});
-			console.error("Error updating model:", err);
 			return NextResponse.json(
 				{ error: err || getMessage().OPERATION_FAILED },
 				{ status: 500 }
@@ -253,7 +246,6 @@ export async function POST(request: NextRequest) {
 			event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
 			startTimestamp,
 		});
-		console.error("Error inserting custom model:", err);
 		return NextResponse.json(
 			{ error: err || getMessage().OPERATION_FAILED },
 			{ status: 500 }
@@ -285,8 +277,6 @@ export async function POST(request: NextRequest) {
 		"query",
 		dbConfig.id
 	);
-
-	console.log("Newly created model:", JSON.stringify(newModel, null, 2));
 
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_SUCCESS,
@@ -349,8 +339,6 @@ export async function DELETE(request: NextRequest) {
 		WHERE ${whereConditions.join(" AND ")}
 	`;
 
-	console.log("Delete query:", deleteQuery);
-
 	const { err } = await dataCollector(
 		{ query: deleteQuery },
 		"exec",
@@ -362,7 +350,6 @@ export async function DELETE(request: NextRequest) {
 			event: SERVER_EVENTS.OPENGROUND_MODELS_DELETE_FAILURE,
 			startTimestamp,
 		});
-		console.error("Delete error:", err);
 		return NextResponse.json(
 			{ error: err || getMessage().OPERATION_FAILED },
 			{ status: 500 }
