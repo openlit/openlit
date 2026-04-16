@@ -84,9 +84,108 @@ This is useful for feeding custom pricing into the OpenLIT Python or TypeScript 
 Click the **Export Pricing** button in the top-right corner of the Manage Models page to download this file directly.
 </Tip>
 
+## Public SDK Pricing URL
+
+Each database config has a **public, unauthenticated** pricing URL that you can pass directly to the OpenLIT SDK. This lets your SDK load pricing from the same models you manage in the UI — no manual JSON files needed.
+
+The URL is shown in a bar below the header on the Manage Models page. Click **Copy** to copy it to your clipboard.
+
+<Tip>
+Click the **SDK Usage** button in the header to open a dialog with ready-to-paste code snippets for Python, TypeScript, and Go. Each snippet pre-fills the public URL and includes a copy button.
+</Tip>
+
+<CodeGroup>
+```python Python
+import openlit
+
+openlit.init(
+    otlp_endpoint="http://127.0.0.1:4318",
+    pricing_json="http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+)
+```
+
+```typescript TypeScript
+import openlit from "openlit";
+
+openlit.init({
+  otlpEndpoint: "http://127.0.0.1:4318",
+  pricingJson: "http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+});
+```
+
+```go Go
+package main
+
+import openlit "github.com/openlit/openlit/sdk/go"
+
+func main() {
+    openlit.Init(openlit.Config{
+        OtlpEndpoint: "http://127.0.0.1:4318",
+        PricingJson:  "http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+    })
+}
+```
+</CodeGroup>
+
+**Endpoint:** `GET /api/pricing/export/{dbConfigId}`
+
+- No authentication required — safe to embed in application configs.
+- Returns the same SDK-compatible pricing JSON format as the export button.
+- Responses are cached for 5 minutes (`Cache-Control: public, max-age=300`).
+
+<Warning>
+The URL contains your database config ID. While the endpoint only returns pricing data (no secrets or traces), share it only with systems that should access your model pricing.
+</Warning>
+
+<Note>
+The SDK fetches this URL on startup. If you update a model's price in Manage Models, restart your app (or wait for the SDK's refresh interval) to pick up the new pricing.
+</Note>
+
+## Import pricing JSON
+
+You can bulk-import models from a JSON file. This is useful for syncing pricing across environments or importing from a colleague's export.
+
+<Steps>
+  <Step title="Open the import dialog">
+    Click the **Import Pricing JSON** button in the header of the Manage Models page.
+  </Step>
+  <Step title="Paste JSON">
+    Paste either the **structured format** or the **SDK pricing_json format**.
+
+    **Structured format** (recommended — includes provider and metadata):
+    ```json
+    {
+      "models": [
+        {
+          "provider": "openai",
+          "model_id": "gpt-4o-2024-08-06",
+          "displayName": "GPT-4o (Aug 2024)",
+          "inputPricePerMToken": 2.5,
+          "outputPricePerMToken": 10
+        }
+      ]
+    }
+    ```
+
+    **SDK pricing_json format** (provider defaults to `"unknown"` — edit after import):
+    ```json
+    {
+      "chat": {
+        "gpt-4o": { "promptPrice": 0.0025, "completionPrice": 0.01 }
+      }
+    }
+    ```
+  </Step>
+  <Step title="Import">
+    Click **Import Pricing JSON**. Models that already exist (same `provider` + `model_id`) are automatically **skipped** — no duplicates are created.
+  </Step>
+</Steps>
+
+**Endpoint:** `POST /api/openground/models/import` (authenticated)
+
 ## Architecture
 
 - **ClickHouse tables**: `openlit_providers` (API key configs) and `openlit_provider_models` (all models with pricing).
 - **No `database_config_id` column** — each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default models.
 - **Platform library**: `src/lib/platform/providers/` — `provider-registry.ts`, `models-service.ts`, `config.ts`, `default-models.ts`.
-- **API routes**: `GET/POST/DELETE /api/openground/models`, `GET /api/openground/models/export`, `GET /api/openground/providers`.
+- **API routes**: `GET/POST/DELETE /api/openground/models`, `GET /api/openground/models/export`, `GET /api/openground/providers`, `POST /api/openground/models/import`, `GET /api/pricing/export/{dbConfigId}` (public).

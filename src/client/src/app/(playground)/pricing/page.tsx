@@ -197,7 +197,7 @@ export default function PricingPage() {
 							<li>{m.PRICING_MANUAL_STEP_2}</li>
 							<li>{m.PRICING_MANUAL_STEP_3}</li>
 						</ol>
-						<Link href="/requests">
+						<Link href="/requests" className="mt-3 inline-block">
 							<Button variant="default">{m.PRICING_GO_TO_REQUESTS}</Button>
 						</Link>
 					</CardContent>

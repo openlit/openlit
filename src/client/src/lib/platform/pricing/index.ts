@@ -47,30 +47,15 @@ async function computeCostForTrace(
 
 	const allKeys = Object.keys(trace.SpanAttributes || {});
 	const genAiKeys = allKeys.filter((k) => k.startsWith("gen_ai"));
-	console.log(
-		"[pricing] computeCostForTrace",
-		JSON.stringify({
-			spanId: trace.SpanId,
-			provider,
-			model,
-			promptTokens,
-			completionTokens,
-			providerKey: PROVIDER_KEY,
-			modelKey: MODEL_KEY,
-			genAiKeysOnTrace: genAiKeys,
-		})
-	);
 
 	if (!provider || !model) {
 		const reason = `Missing ${!provider ? "provider" : ""}${
 			!provider && !model ? " and " : ""
 		}${!model ? "model" : ""} attribute on the trace (provider='${provider}', model='${model}')`;
-		console.warn("[pricing] skip:", reason);
 		return { cost: null, reason };
 	}
 	if (promptTokens === 0 && completionTokens === 0) {
 		const reason = `Trace has zero tokens (prompt=${promptTokens}, completion=${completionTokens})`;
-		console.warn("[pricing] skip:", reason);
 		return { cost: null, reason };
 	}
 
@@ -81,19 +66,8 @@ async function computeCostForTrace(
 	);
 	if (!modelMeta) {
 		const reason = `Model '${model}' not found under provider '${provider}' in openlit_provider_models. Add it in Manage Models.`;
-		console.warn("[pricing] skip:", reason);
 		return { cost: null, reason };
 	}
-
-	console.log(
-		"[pricing] matched model:",
-		JSON.stringify({
-			provider,
-			model,
-			inputPricePerMToken: modelMeta.inputPricePerMToken,
-			outputPricePerMToken: modelMeta.outputPricePerMToken,
-		})
-	);
 
 	const inputCost = (promptTokens / 1_000_000) * modelMeta.inputPricePerMToken;
 	const outputCost =

@@ -92,6 +92,22 @@ describe('getCustomModelsGroupedByProvider', () => {
     expect(Object.keys(result.data!)).toContain('anthropic');
     expect(result.data!['openai']).toHaveLength(1);
   });
+
+  it('returns error when underlying getCustomModels fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'fail' });
+
+    const result = await getCustomModelsGroupedByProvider('user-1', 'db-1');
+
+    expect(result.err).toBe('fail');
+  });
+
+  it('handles empty data', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
+
+    const result = await getCustomModelsGroupedByProvider('user-1', 'db-1');
+
+    expect(result.data).toEqual({});
+  });
 });
 
 describe('createCustomModel', () => {
@@ -124,6 +140,32 @@ describe('createCustomModel', () => {
       'insert',
       'db-1'
     );
+  });
+
+  it('returns error when insert fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: 'insert failed' });
+
+    const result = await createCustomModel('user-1', 'db-1', {
+      provider: 'openai',
+      model_id: 'm',
+      displayName: 'M',
+    });
+
+    expect(result.err).toBe('insert failed');
+  });
+
+  it('returns error when post-insert select fails', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ err: null }) // insert succeeds
+      .mockResolvedValueOnce({ err: 'select failed' });
+
+    const result = await createCustomModel('user-1', 'db-1', {
+      provider: 'openai',
+      model_id: 'm',
+      displayName: 'M',
+    });
+
+    expect(result.err).toBe('select failed');
   });
 });
 
@@ -160,6 +202,40 @@ describe('updateCustomModel', () => {
       'db-1'
     );
   });
+
+  it('updates all optional fields together', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await updateCustomModel('user-1', 'db-1', 'id', {
+      displayName: 'New',
+      modelType: 'chat',
+      contextWindow: 8000,
+      inputPricePerMToken: 1.5,
+      outputPricePerMToken: 3.0,
+      capabilities: ['streaming', 'vision'],
+    });
+
+    expect(result.data).toBe(true);
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringMatching(
+          /display_name.*model_type.*context_window.*capabilities/s
+        ),
+      }),
+      'exec',
+      'db-1'
+    );
+  });
+
+  it('returns error when ALTER UPDATE fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'alter failed' });
+
+    const result = await updateCustomModel('user-1', 'db-1', 'id', {
+      displayName: 'X',
+    });
+
+    expect(result.err).toBe('alter failed');
+  });
 });
 
 describe('deleteCustomModel', () => {
@@ -176,6 +252,14 @@ describe('deleteCustomModel', () => {
       'db-1'
     );
   });
+
+  it('returns error on DELETE failure', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'delete failed' });
+
+    const result = await deleteCustomModel('user-1', 'db-1', 'id');
+
+    expect(result.err).toBe('delete failed');
+  });
 });
 
 describe('getCustomModelsForProvider', () => {
@@ -187,5 +271,13 @@ describe('getCustomModelsForProvider', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data![0].id).toBe('gpt-4o-custom');
     expect(result.data![0]).not.toHaveProperty('model_id');
+  });
+
+  it('returns error when underlying getCustomModels fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'fail' });
+
+    const result = await getCustomModelsForProvider('user-1', 'db-1', 'openai');
+
+    expect(result.err).toBe('fail');
   });
 });

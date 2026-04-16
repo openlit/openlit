@@ -258,6 +258,27 @@ export const OPENGROUND_ALL_PROVIDERS = "All Providers";
 export const OPENGROUND_SEARCH_MODELS = "Search models...";
 export const OPENGROUND_NO_MODELS_FOUND = "No models found";
 export const OPENGROUND_CUSTOM_MODELS = "Custom Models";
+export const MANAGE_MODELS_EXPORT_PRICING = "Export Pricing";
+export const MANAGE_MODELS_IMPORT_PRICING = "Import Pricing JSON";
+export const MANAGE_MODELS_IMPORT_SUCCESS = "Import complete";
+export const MANAGE_MODELS_IMPORT_FAILED = "Import failed";
+export const MANAGE_MODELS_PRICING_URL_LABEL = "SDK Pricing URL";
+export const MANAGE_MODELS_PRICING_URL_DESCRIPTION =
+	"Use this URL in your OpenLIT SDK to load pricing from this database. The endpoint is public and does not require authentication.";
+export const MANAGE_MODELS_PRICING_URL_COPIED = "URL copied to clipboard";
+export const MANAGE_MODELS_IMPORT_DIALOG_TITLE = "Import Pricing JSON";
+export const MANAGE_MODELS_IMPORT_DIALOG_DESCRIPTION =
+	"Paste a pricing JSON (SDK format or structured models array). Existing models with the same provider + model ID are skipped.";
+export const MANAGE_MODELS_SDK_USAGE = "SDK Usage";
+export const MANAGE_MODELS_SDK_USAGE_DIALOG_TITLE =
+	"Use this pricing in your OpenLIT SDK";
+export const MANAGE_MODELS_SDK_USAGE_DIALOG_DESCRIPTION =
+	"Pass this public URL to pricing_json in openlit.init() and your SDK will use the model pricing from Manage Models. No API key required.";
+export const MANAGE_MODELS_SDK_USAGE_NOTE_LABEL = "Note:";
+export const MANAGE_MODELS_SDK_USAGE_NOTE =
+	"The SDK fetches this URL on startup. If you update a model's price here, it will be applied to future tracing.";
+export const COPY = "Copy";
+export const MANAGE_MODELS_INVALID_JSON = "Invalid JSON";
 
 // Pricing
 export const PRICING_TITLE = "Pricing";

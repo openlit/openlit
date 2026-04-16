@@ -5,6 +5,11 @@ export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/rule-engine/evaluate",
 ];
 
+/** Routes that don't require auth, matched by prefix (for dynamic segments). */
+export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN = [
+	"/api/pricing/export/",
+];
+
 export const CRON_JOB_ROUTES = ["/api/evaluation/auto", "/api/pricing/auto"];
 
 // Non-API routes that are accessible without completing onboarding

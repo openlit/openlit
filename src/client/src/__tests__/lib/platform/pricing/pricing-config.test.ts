@@ -176,6 +176,23 @@ describe('setPricingConfig', () => {
     expect(prisma.pricingConfigs.update).toHaveBeenCalled();
   });
 
+  it('throws when cron updateCrontab fails (auto=true)', async () => {
+    (getDBConfigByUser as jest.Mock).mockResolvedValue(mockDBConfig);
+    (prisma.pricingConfigs.create as jest.Mock).mockResolvedValue({ id: 'pc-new' });
+    (Cron as jest.Mock).mockImplementation(() => ({
+      validateCronSchedule: jest.fn(),
+      updateCrontab: jest.fn().mockRejectedValue(new Error('cron failed')),
+      deleteCronJob: jest.fn(),
+    }));
+
+    await expect(
+      setPricingConfig(
+        { auto: true, recurringTime: '*/15 * * * *', meta: '{}' },
+        'http://localhost:3000'
+      )
+    ).rejects.toThrow('cron failed');
+  });
+
   it('deletes cron job when auto=false', async () => {
     (getDBConfigByUser as jest.Mock).mockResolvedValue(mockDBConfig);
     (prisma.pricingConfigs.findFirst as jest.Mock).mockResolvedValue({
@@ -241,5 +258,47 @@ describe('restorePricingCronJobs', () => {
     if (cronInstance) {
       expect(cronInstance.updateCrontab).not.toHaveBeenCalled();
     }
+  });
+
+  it('catches per-config errors and continues', async () => {
+    (prisma.pricingConfigs.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'pc-1',
+        auto: true,
+        recurringTime: '*/10 * * * *',
+        meta: JSON.stringify({ cronJobId: 'cron-1' }),
+      },
+      {
+        id: 'pc-2',
+        auto: true,
+        recurringTime: '*/10 * * * *',
+        meta: JSON.stringify({ cronJobId: 'cron-2' }),
+      },
+    ]);
+    let call = 0;
+    (Cron as jest.Mock).mockImplementation(() => ({
+      validateCronSchedule: jest.fn(),
+      updateCrontab: jest.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) throw new Error('cron-1 failed');
+      }),
+      deleteCronJob: jest.fn(),
+    }));
+
+    // Should not throw — per-config errors are caught
+    await expect(
+      restorePricingCronJobs('http://localhost:3000')
+    ).resolves.toBeUndefined();
+  });
+
+  it('catches top-level findMany errors', async () => {
+    (prisma.pricingConfigs.findMany as jest.Mock).mockRejectedValue(
+      new Error('DB down')
+    );
+
+    // Should not throw — top-level error is caught
+    await expect(
+      restorePricingCronJobs('http://localhost:3000')
+    ).resolves.toBeUndefined();
   });
 });

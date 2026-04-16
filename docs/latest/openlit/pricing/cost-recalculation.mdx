@@ -104,7 +104,9 @@ When the OpenLIT server restarts (e.g. after a container redeployment), all acti
 | `/api/pricing/config` | `POST` | Create or update pricing config |
 | `/api/pricing/{spanId}` | `POST` | Manually recalculate cost for a single trace |
 | `/api/pricing/auto` | `POST` | Trigger auto pricing run (called by cron; allowlisted in middleware) |
-| `/api/openground/models/export` | `GET` | Export all model pricing as SDK-compatible JSON |
+| `/api/openground/models/export` | `GET` | Export all model pricing as downloadable JSON (authenticated) |
+| `/api/pricing/export/{dbConfigId}` | `GET` | Public pricing URL for SDK `pricing_json` (no auth) |
+| `/api/openground/models/import` | `POST` | Bulk-import models from JSON, skipping duplicates |
 
 ## Configuration
 
