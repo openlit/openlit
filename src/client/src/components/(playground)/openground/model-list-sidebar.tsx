@@ -4,15 +4,17 @@ import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { SearchIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import { cn } from "@/lib/utils";
 
 interface CustomModel extends ModelMetadata {
-	id: string; // UUID from database
+	id: string;
+	customId?: string; // UUID from database
 	model_id: string; // Model identifier like "gpt-4o"
 	provider?: string;
+	modelType?: string;
 }
 
 interface ModelListSidebarProps {
@@ -72,13 +74,14 @@ export default function ModelListSidebar({
 		if (selectedProvider !== provider) return false;
 		if (!selectedModel) return false;
 
-		// Only custom models can be selected (static models are display-only)
 		if (!isCustom || !selectedIsCustom) return false;
 
-		// Check id (UUID) to match custom models
-		const customModel = model as CustomModel;
-		const selectedCustomModel = selectedModel as CustomModel;
-		return customModel.id === selectedCustomModel.id;
+		// Match by customId (UUID) or model_id
+		const customModel = model as any;
+		const selectedCustomModel = selectedModel as any;
+		const customModelKey = customModel.customId || customModel.id;
+		const selectedKey = selectedCustomModel.customId || selectedCustomModel.id;
+		return customModelKey === selectedKey;
 	};
 
 	return (
@@ -111,7 +114,10 @@ export default function ModelListSidebar({
 						{filteredProviders.map((provider) => {
 							const isExpanded = expandedProviders.has(provider.providerId);
 							const providerCustomModels = customModels[provider.providerId] || [];
-							const totalModels = provider.supportedModels.length + providerCustomModels.length;
+							// Deduplicate: exclude custom model IDs from static count
+							const customModelIds = new Set(providerCustomModels.map((cm) => cm.model_id || cm.id));
+							const staticModels = provider.supportedModels.filter((m) => !customModelIds.has(m.id));
+							const totalModels = staticModels.length + providerCustomModels.length;
 
 							return (
 								<div key={provider.providerId} className="mb-2">
@@ -150,7 +156,7 @@ export default function ModelListSidebar({
 									{isExpanded && (
 										<div className="ml-4 mt-1 space-y-1">
 											{/* Static Models - Display only, not editable */}
-											{provider.supportedModels.map((model) => (
+											{staticModels.map((model) => (
 												<div
 													key={model.id}
 													className="w-full text-left p-2 rounded-md border-l-2 border-transparent opacity-75"
@@ -178,15 +184,18 @@ export default function ModelListSidebar({
 															key={model.id}
 															onClick={() => onSelectModel(model, provider.providerId, true)}
 															className={cn(
-																"w-full text-left p-2 rounded-md transition-colors border-l-2",
+																"w-full text-left p-2 rounded-md transition-colors border-l-2 group/model",
 																isModelSelected(model, provider.providerId, true)
 																	? "bg-primary/10 dark:bg-primary/20 border-primary text-stone-900 dark:text-stone-100"
 																	: "border-transparent hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
 															)}
 														>
-															<div className="flex items-center gap-2">
-																<div className="text-sm font-medium">{model.displayName}</div>
-																<Badge className="text-xs h-4">Custom</Badge>
+															<div className="flex items-center justify-between">
+																<div className="flex items-center gap-2">
+																	<div className="text-sm font-medium">{model.displayName}</div>
+																	<Badge className="text-xs h-4">Custom</Badge>
+																</div>
+																<PencilIcon className="h-3 w-3 text-stone-400 opacity-0 group-hover/model:opacity-100 transition-opacity" />
 															</div>
 															<div className="flex items-center gap-2 mt-1">
 																<Badge variant="outline" className="text-xs">

@@ -34,6 +34,7 @@ export async function getCustomModels(
 			model_id,
 			provider,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
@@ -53,23 +54,9 @@ export async function getCustomModels(
 		return { err: err as string };
 	}
 
-	// Filter out invalid UUIDs
-	const invalidIds: string[] = [];
-	const validModels = (data as any[] || []).filter((model: any) => {
-		const isValid = model.id && isValidUUID(model.id);
-		if (!isValid) {
-			invalidIds.push(model.id || 'null');
-		}
-		return isValid;
-	});
-
-	// Log invalid IDs for cleanup
-	if (invalidIds.length > 0) {
-		// Use separate parameters to prevent log injection
-		console.warn('Found', invalidIds.length, 'models with invalid UUIDs:', invalidIds);
-	}
-
-	return { data: validModels as CustomModel[] };
+	// Return all models — don't filter by UUID validity since ClickHouse
+	// may store UUIDs in non-standard string format depending on insert method
+	return { data: (data as CustomModel[]) || [] };
 }
 
 /**
@@ -119,6 +106,7 @@ export async function createCustomModel(
 					provider: input.provider,
 					model_id: input.model_id,
 					display_name: input.displayName,
+					model_type: input.modelType || "chat",
 					context_window: input.contextWindow || 4096,
 					input_price_per_m_token: input.inputPricePerMToken || 0,
 					output_price_per_m_token: input.outputPricePerMToken || 0,
@@ -143,6 +131,7 @@ export async function createCustomModel(
 			model_id,
 			provider,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
@@ -178,16 +167,14 @@ export async function updateCustomModel(
 	id: string,
 	input: Partial<CustomModelInput>
 ): Promise<{ data?: boolean; err?: string }> {
-	// Validate UUID format
-	if (!isValidUUID(id)) {
-		return { err: `Invalid UUID format: ${id}` };
-	}
-
 	// Build update fields
 	const updateFields: string[] = [];
 
 	if (input.displayName !== undefined) {
 		updateFields.push(`display_name = '${Sanitizer.sanitizeValue(input.displayName)}'`);
+	}
+	if (input.modelType !== undefined) {
+		updateFields.push(`model_type = '${Sanitizer.sanitizeValue(input.modelType)}'`);
 	}
 	if (input.contextWindow !== undefined) {
 		updateFields.push(`context_window = ${input.contextWindow}`);
@@ -214,7 +201,7 @@ export async function updateCustomModel(
 	const updateQuery = `
 		ALTER TABLE ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
 		UPDATE ${updateFields.join(", ")}
-		WHERE id = toUUID('${Sanitizer.sanitizeValue(id)}')
+		WHERE (toString(id) = '${Sanitizer.sanitizeValue(id)}' OR model_id = '${Sanitizer.sanitizeValue(id)}')
 		  AND created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
 		  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
 	`;
@@ -240,14 +227,9 @@ export async function deleteCustomModel(
 	databaseConfigId: string,
 	id: string
 ): Promise<{ data?: boolean; err?: string }> {
-	// Validate UUID format
-	if (!isValidUUID(id)) {
-		return { err: `Invalid UUID format: ${id}` };
-	}
-
 	const deleteQuery = `
 		DELETE FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE id = toUUID('${Sanitizer.sanitizeValue(id)}')
+		WHERE (toString(id) = '${Sanitizer.sanitizeValue(id)}' OR model_id = '${Sanitizer.sanitizeValue(id)}')
 		  AND created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
 		  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
 	`;

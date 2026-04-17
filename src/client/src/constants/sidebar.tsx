@@ -7,6 +7,7 @@ import {
 	Home,
 	Key,
 	LayoutDashboard,
+	MessageSquare,
 	MonitorCog,
 	MonitorPlay,
 	SettingsIcon,
@@ -17,6 +18,7 @@ import {
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import OrganisationSwitch from "@/components/(playground)/sidebar/organisation-switch";
+import Otter from "@/components/svg/otter";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
@@ -36,6 +38,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
+		type: "action",
+	},
+	{
+		icon: <Otter className={ICON_CLASSES} />,
+		text: "Otter Chat",
+		link: "/chat",
 		type: "action",
 	},
 	{

@@ -5,7 +5,7 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
+import { ArrowLeftIcon, SettingsIcon, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
 import ModelListSidebar from "@/components/(playground)/openground/model-list-sidebar";
@@ -15,8 +15,10 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 
 interface CustomModel extends ModelMetadata {
 	id: string;
+	customId?: string;
 	model_id: string;
 	provider?: string;
+	modelType?: string;
 }
 
 export default function SettingsManageModelsPage() {
@@ -93,6 +95,17 @@ export default function SettingsManageModelsPage() {
 						{getMessage().OPENGROUND_MANAGE_MODELS_DESCRIPTION}
 					</p>
 				</div>
+				<Button
+					variant="outline"
+					size="sm"
+					className="gap-2"
+					onClick={() => {
+						window.open("/api/openground/models/export", "_blank");
+					}}
+				>
+					<Download className="h-4 w-4" />
+					Export Pricing
+				</Button>
 			</div>
 
 			{/* Main Content - Split Layout */}
