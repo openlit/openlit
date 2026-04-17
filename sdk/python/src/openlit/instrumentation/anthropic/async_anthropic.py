@@ -277,19 +277,23 @@ def async_messages_stream(
             """Awaits stream completion via proxy then returns the final message."""
             async for _ in self:
                 pass
-            original_get_final_message = getattr(self.__wrapped__, 'get_final_message')
+            original_get_final_message = getattr(self.__wrapped__, "get_final_message")
             return await original_get_final_message()
 
         @property
         def _instrumented_text_stream(self):
             """Async generator that processes chunks through our proxy."""
+
             async def text_generator():
                 async for event in self:
-                    if (hasattr(event, 'delta') and
-                        hasattr(event.delta, 'type') and
-                        event.delta.type == 'text_delta' and
-                            hasattr(event.delta, 'text')):
+                    if (
+                        hasattr(event, "delta")
+                        and hasattr(event.delta, "type")
+                        and event.delta.type == "text_delta"
+                        and hasattr(event.delta, "text")
+                    ):
                         yield event.delta.text
+
             return text_generator()
 
         async def _instrumented_until_done(self):

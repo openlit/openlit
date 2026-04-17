@@ -1000,9 +1000,7 @@ class SemanticConvention:
     GEN_AI_OPENAI_FINE_TUNING_FINE_TUNED_MODEL = (
         "gen_ai.openai.fine_tuning.fine_tuned_model"
     )
-    GEN_AI_OPENAI_FINE_TUNING_TRAINING_FILE = (
-        "gen_ai.openai.fine_tuning.training_file"
-    )
+    GEN_AI_OPENAI_FINE_TUNING_TRAINING_FILE = "gen_ai.openai.fine_tuning.training_file"
     GEN_AI_OPENAI_FINE_TUNING_TRAINED_TOKENS = (
         "gen_ai.openai.fine_tuning.trained_tokens"
     )

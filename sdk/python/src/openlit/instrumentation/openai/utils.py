@@ -940,7 +940,10 @@ def common_response_logic(
             len(scope._built_in_tools),
         )
 
-    if hasattr(scope, "_web_search_citations_count") and scope._web_search_citations_count > 0:
+    if (
+        hasattr(scope, "_web_search_citations_count")
+        and scope._web_search_citations_count > 0
+    ):
         scope._span.set_attribute(
             SemanticConvention.OPENAI_RESPONSE_WEB_SEARCH_CITATIONS_COUNT,
             scope._web_search_citations_count,
@@ -1158,14 +1161,39 @@ def process_response_response(
         for item in output:
             item_type = item.get("type", "")
             if item_type == "web_search_call":
-                built_in_tools.append({"type": "web_search", "id": item.get("id", ""), "status": item.get("status", "")})
+                built_in_tools.append(
+                    {
+                        "type": "web_search",
+                        "id": item.get("id", ""),
+                        "status": item.get("status", ""),
+                    }
+                )
             elif item_type == "file_search_call":
                 results = item.get("results", [])
-                built_in_tools.append({"type": "file_search", "id": item.get("id", ""), "status": item.get("status", ""), "results_count": len(results)})
+                built_in_tools.append(
+                    {
+                        "type": "file_search",
+                        "id": item.get("id", ""),
+                        "status": item.get("status", ""),
+                        "results_count": len(results),
+                    }
+                )
             elif item_type == "code_interpreter_call":
-                built_in_tools.append({"type": "code_interpreter", "id": item.get("id", ""), "status": item.get("status", "")})
+                built_in_tools.append(
+                    {
+                        "type": "code_interpreter",
+                        "id": item.get("id", ""),
+                        "status": item.get("status", ""),
+                    }
+                )
             elif item_type == "computer_use_call":
-                built_in_tools.append({"type": "computer_use", "id": item.get("id", ""), "status": item.get("status", "")})
+                built_in_tools.append(
+                    {
+                        "type": "computer_use",
+                        "id": item.get("id", ""),
+                        "status": item.get("status", ""),
+                    }
+                )
             elif item_type == "message":
                 for content_part in item.get("content", []):
                     for annotation in content_part.get("annotations", []):
@@ -2209,8 +2237,9 @@ def common_transcription_logic(
 ):
     """Common logic for processing audio transcription/translation operations."""
 
-    cost = get_audio_model_cost(request_model, pricing_info, None,
-                                 duration=getattr(scope, "_duration", 0))
+    cost = get_audio_model_cost(
+        request_model, pricing_info, None, duration=getattr(scope, "_duration", 0)
+    )
 
     common_span_attributes(
         scope,
@@ -2230,22 +2259,33 @@ def common_transcription_logic(
 
     language = scope._kwargs.get("language")
     if language:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_LANGUAGE, language)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_AUDIO_LANGUAGE, language
+        )
     response_format = scope._kwargs.get("response_format")
     if response_format:
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, str(response_format)
+            SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
+            str(response_format),
         )
     temperature = handle_not_given(scope._kwargs.get("temperature"))
     if temperature is not None:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature
+        )
 
     if hasattr(scope, "_duration") and scope._duration:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_AUDIO_DURATION, scope._duration)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_AUDIO_DURATION, scope._duration
+        )
 
     if hasattr(scope, "_input_tokens") and scope._input_tokens:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+        )
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
             scope._input_tokens + scope._output_tokens,
@@ -2256,10 +2296,21 @@ def common_transcription_logic(
     if capture_message_content:
         file_obj = scope._kwargs.get("file")
         file_name = getattr(file_obj, "name", "unknown") if file_obj else "unknown"
-        input_msgs = [{"role": "user", "parts": [{"type": "text", "content": f"[audio file: {file_name}]"}]}]
+        input_msgs = [
+            {
+                "role": "user",
+                "parts": [{"type": "text", "content": f"[audio file: {file_name}]"}],
+            }
+        ]
         output_msgs = None
         if hasattr(scope, "_transcription_text") and scope._transcription_text:
-            output_msgs = [{"role": "assistant", "parts": [{"type": "text", "content": scope._transcription_text}], "finish_reason": "stop"}]
+            output_msgs = [
+                {
+                    "role": "assistant",
+                    "parts": [{"type": "text", "content": scope._transcription_text}],
+                    "finish_reason": "stop",
+                }
+            ]
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
 
         if event_provider:
@@ -2297,10 +2348,22 @@ def common_transcription_logic(
 
 
 def process_transcription_response(
-    response, request_model, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, end_time, span,
-    capture_message_content=False, disable_metrics=False, version="1.0.0",
-    event_provider=None, **kwargs,
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    end_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    event_provider=None,
+    **kwargs,
 ):
     """Process audio transcription response and generate telemetry."""
 
@@ -2333,8 +2396,15 @@ def process_transcription_response(
     scope._duration = response_dict.get("duration", 0)
 
     common_transcription_logic(
-        scope, request_model, pricing_info, environment, application_name,
-        metrics, capture_message_content, disable_metrics, version,
+        scope,
+        request_model,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
         event_provider=event_provider,
     )
 
@@ -2342,10 +2412,21 @@ def process_transcription_response(
 
 
 def process_moderation_response(
-    response, request_model, server_port, server_address,
-    environment, application_name, metrics, start_time, end_time, span,
-    capture_message_content=False, disable_metrics=False, version="1.0.0",
-    event_provider=None, **kwargs,
+    response,
+    request_model,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    end_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    event_provider=None,
+    **kwargs,
 ):
     """Process moderation response and generate telemetry."""
 
@@ -2396,7 +2477,9 @@ def process_moderation_response(
 
         category_scores = first_result.get("category_scores", {})
         if flagged_categories:
-            top_scores = {cat: category_scores.get(cat, 0) for cat in flagged_categories}
+            top_scores = {
+                cat: category_scores.get(cat, 0) for cat in flagged_categories
+            }
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_MODERATION_CATEGORY_SCORES,
                 json.dumps(top_scores),
@@ -2405,7 +2488,9 @@ def process_moderation_response(
     if capture_message_content:
         input_data = kwargs.get("input", "")
         if isinstance(input_data, str):
-            input_msgs = [{"role": "user", "parts": [{"type": "text", "content": input_data}]}]
+            input_msgs = [
+                {"role": "user", "parts": [{"type": "text", "content": input_data}]}
+            ]
         elif isinstance(input_data, list):
             input_msgs = [
                 {"role": "user", "parts": [{"type": "text", "content": str(item)}]}
@@ -2430,16 +2515,31 @@ def process_moderation_response(
             application_name,
             start_time,
             end_time,
-            0, 0, 0, None, None,
+            0,
+            0,
+            0,
+            None,
+            None,
         )
 
     return response
 
 
 def process_lightweight_response(
-    response, operation_type, request_model, server_port, server_address,
-    environment, application_name, metrics, start_time, end_time, span,
-    disable_metrics=False, version="1.0.0", **kwargs,
+    response,
+    operation_type,
+    request_model,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    end_time,
+    span,
+    disable_metrics=False,
+    version="1.0.0",
+    **kwargs,
 ):
     """
     Generic lightweight processor for infrastructure/CRUD APIs.
@@ -2489,64 +2589,125 @@ def process_lightweight_response(
 
     if operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH:
         if response_dict.get("endpoint"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_ENDPOINT, response_dict["endpoint"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_ENDPOINT,
+                response_dict["endpoint"],
+            )
         if response_dict.get("input_file_id"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_INPUT_FILE_ID, response_dict["input_file_id"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_INPUT_FILE_ID,
+                response_dict["input_file_id"],
+            )
         if response_dict.get("output_file_id"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_OUTPUT_FILE_ID, response_dict["output_file_id"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_OUTPUT_FILE_ID,
+                response_dict["output_file_id"],
+            )
         request_counts = response_dict.get("request_counts", {})
         if request_counts:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_TOTAL, request_counts.get("total", 0))
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_COMPLETED, request_counts.get("completed", 0))
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_FAILED, request_counts.get("failed", 0))
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_TOTAL,
+                request_counts.get("total", 0),
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_COMPLETED,
+                request_counts.get("completed", 0),
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_FAILED,
+                request_counts.get("failed", 0),
+            )
         usage = response_dict.get("usage", {})
         if usage:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, usage.get("input_tokens", 0))
-            scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, usage.get("output_tokens", 0))
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                usage.get("input_tokens", 0),
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                usage.get("output_tokens", 0),
+            )
 
     elif operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING:
         if response_dict.get("fine_tuned_model"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_FINE_TUNED_MODEL, response_dict["fine_tuned_model"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_FINE_TUNED_MODEL,
+                response_dict["fine_tuned_model"],
+            )
         if response_dict.get("training_file"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_TRAINING_FILE, response_dict["training_file"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_TRAINING_FILE,
+                response_dict["training_file"],
+            )
         if response_dict.get("trained_tokens"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_TRAINED_TOKENS, response_dict["trained_tokens"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_TRAINED_TOKENS,
+                response_dict["trained_tokens"],
+            )
         hyperparams = response_dict.get("hyperparameters", {})
         if hyperparams:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_HYPERPARAMETERS, json.dumps(hyperparams))
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FINE_TUNING_HYPERPARAMETERS,
+                json.dumps(hyperparams),
+            )
 
     elif operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_FILE:
         if response_dict.get("filename"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FILE_FILENAME, response_dict["filename"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FILE_FILENAME,
+                response_dict["filename"],
+            )
         if response_dict.get("purpose"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FILE_PURPOSE, response_dict["purpose"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FILE_PURPOSE, response_dict["purpose"]
+            )
         if response_dict.get("bytes"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_FILE_BYTES, response_dict["bytes"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_FILE_BYTES, response_dict["bytes"]
+            )
 
     elif operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO:
         if response_dict.get("size"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_VIDEO_SIZE, response_dict["size"])
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_VIDEO_SIZE, response_dict["size"]
+            )
         if response_dict.get("seconds"):
-            scope._span.set_attribute(SemanticConvention.GEN_AI_OPENAI_VIDEO_SECONDS, str(response_dict["seconds"]))
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_OPENAI_VIDEO_SECONDS,
+                str(response_dict["seconds"]),
+            )
 
     elif operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB:
         data = response_dict.get("data", [])
         if data:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_VECTORDB_SEARCH_RESULTS_COUNT, len(data))
-            scores = [item.get("score", 0) for item in data[:5] if isinstance(item, dict)]
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_VECTORDB_SEARCH_RESULTS_COUNT, len(data)
+            )
+            scores = [
+                item.get("score", 0) for item in data[:5] if isinstance(item, dict)
+            ]
             if scores:
-                scope._span.set_attribute(SemanticConvention.GEN_AI_VECTORDB_SEARCH_TOP_SCORES, json.dumps(scores))
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_VECTORDB_SEARCH_TOP_SCORES,
+                    json.dumps(scores),
+                )
         search_query = kwargs.get("query", "")
         if search_query:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_VECTORDB_SEARCH_QUERY, str(search_query))
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_VECTORDB_SEARCH_QUERY, str(search_query)
+            )
 
     if operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT:
         usage = response_dict.get("usage", {})
         if usage:
             input_tokens = usage.get("input_tokens", 0)
             output_tokens = usage.get("output_tokens", 0)
-            scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
-            scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
+            )
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -2563,7 +2724,11 @@ def process_lightweight_response(
             application_name,
             start_time,
             end_time,
-            0, 0, 0, None, None,
+            0,
+            0,
+            0,
+            None,
+            None,
         )
 
     return response

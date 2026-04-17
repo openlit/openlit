@@ -114,11 +114,29 @@ from openlit.instrumentation.openai.async_openai import (
 _instruments = ("openai >= 1.92.0",)
 
 
-def _standard_args(version, environment, application_name, tracer, pricing_info,
-                   capture_message_content, metrics, disable_metrics, event_provider):
+def _standard_args(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider,
+):
     """Return the standard argument tuple used by all wrapper constructors."""
-    return (version, environment, application_name, tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics, event_provider)
+    return (
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+        event_provider,
+    )
 
 
 class OpenAIInstrumentor(BaseInstrumentor):
@@ -141,8 +159,15 @@ class OpenAIInstrumentor(BaseInstrumentor):
         event_provider = _logs.get_logger_provider().get_logger(__name__)
 
         sa = _standard_args(
-            version, environment, application_name, tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics, event_provider,
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
+            event_provider,
         )
 
         # chat completions

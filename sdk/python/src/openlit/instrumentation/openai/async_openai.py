@@ -802,7 +802,9 @@ def async_audio_transcription(
         )
         request_model = kwargs.get("model", "whisper-1")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -858,7 +860,9 @@ def async_audio_translation(
         )
         request_model = kwargs.get("model", "whisper-1")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -970,7 +974,9 @@ def async_moderation(
         )
         request_model = kwargs.get("model", "omni-moderation-latest")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_MODERATION} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_MODERATION} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -1004,11 +1010,22 @@ def async_moderation(
     return wrapper
 
 
-def _make_async_lightweight_wrapper(span_prefix, operation_type, default_model="unknown"):
+def _make_async_lightweight_wrapper(
+    span_prefix, operation_type, default_model="unknown"
+):
     """Factory for creating lightweight async wrappers for infrastructure APIs."""
 
-    def outer(version, environment, application_name, tracer, pricing_info,
-              capture_message_content, metrics, disable_metrics, event_provider=None):
+    def outer(
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+        event_provider=None,
+    ):
         async def wrapper(wrapped, instance, args, kwargs):
             server_address, server_port = set_server_address_and_port(
                 instance, "api.openai.com", 443
@@ -1042,100 +1059,142 @@ def _make_async_lightweight_wrapper(span_prefix, operation_type, default_model="
                     handle_exception(span, e)
 
                 return response
+
         return wrapper
+
     return outer
 
 
 # Responses API extras
 async_responses_retrieve = _make_async_lightweight_wrapper(
-    "responses.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o")
+    "responses.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o"
+)
 async_responses_cancel = _make_async_lightweight_wrapper(
-    "responses.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o")
+    "responses.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o"
+)
 async_responses_token_count = _make_async_lightweight_wrapper(
-    "responses.token_count", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o")
+    "responses.token_count", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o"
+)
 
 # Chat messages
 async_chat_messages_list = _make_async_lightweight_wrapper(
-    "chat.messages.list", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o")
+    "chat.messages.list", SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, "gpt-4o"
+)
 
 # Batch
 async_batch_create = _make_async_lightweight_wrapper(
-    "batch.create", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH)
+    "batch.create", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH
+)
 async_batch_retrieve = _make_async_lightweight_wrapper(
-    "batch.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH)
+    "batch.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH
+)
 async_batch_list = _make_async_lightweight_wrapper(
-    "batch.list", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH)
+    "batch.list", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH
+)
 async_batch_cancel = _make_async_lightweight_wrapper(
-    "batch.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH)
+    "batch.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_BATCH
+)
 
 # Fine-tuning
 async_fine_tuning_create = _make_async_lightweight_wrapper(
-    "fine_tuning.create", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING)
+    "fine_tuning.create", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING
+)
 async_fine_tuning_retrieve = _make_async_lightweight_wrapper(
-    "fine_tuning.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING)
+    "fine_tuning.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING
+)
 async_fine_tuning_list = _make_async_lightweight_wrapper(
-    "fine_tuning.list", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING)
+    "fine_tuning.list", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING
+)
 async_fine_tuning_cancel = _make_async_lightweight_wrapper(
-    "fine_tuning.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING)
+    "fine_tuning.cancel", SemanticConvention.GEN_AI_OPERATION_TYPE_FINE_TUNING
+)
 
 # Vector stores
 async_vector_store_create = _make_async_lightweight_wrapper(
-    "vector_store.create", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.create", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 async_vector_store_retrieve = _make_async_lightweight_wrapper(
-    "vector_store.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 async_vector_store_update = _make_async_lightweight_wrapper(
-    "vector_store.update", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.update", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 async_vector_store_delete = _make_async_lightweight_wrapper(
-    "vector_store.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 async_vector_store_list = _make_async_lightweight_wrapper(
-    "vector_store.list", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.list", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 async_vector_store_search = _make_async_lightweight_wrapper(
-    "vector_store.search", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    "vector_store.search", SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+)
 
 # Files
 async_file_create = _make_async_lightweight_wrapper(
-    "file.create", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE)
+    "file.create", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE
+)
 async_file_retrieve = _make_async_lightweight_wrapper(
-    "file.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE)
+    "file.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE
+)
 async_file_delete = _make_async_lightweight_wrapper(
-    "file.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE)
+    "file.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE
+)
 async_file_content = _make_async_lightweight_wrapper(
-    "file.content", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE)
+    "file.content", SemanticConvention.GEN_AI_OPERATION_TYPE_FILE
+)
 
 # Video
 async_video_create = _make_async_lightweight_wrapper(
-    "video.create", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.create", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_retrieve = _make_async_lightweight_wrapper(
-    "video.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_list = _make_async_lightweight_wrapper(
-    "video.list", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.list", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_delete = _make_async_lightweight_wrapper(
-    "video.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_edit_op = _make_async_lightweight_wrapper(
-    "video.edit", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.edit", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_extend = _make_async_lightweight_wrapper(
-    "video.extend", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.extend", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 async_video_remix = _make_async_lightweight_wrapper(
-    "video.remix", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2")
+    "video.remix", SemanticConvention.GEN_AI_OPERATION_TYPE_VIDEO, "sora-2"
+)
 
 # Conversations
 async_conversation_create = _make_async_lightweight_wrapper(
-    "conversation.create", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.create", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_retrieve = _make_async_lightweight_wrapper(
-    "conversation.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_update = _make_async_lightweight_wrapper(
-    "conversation.update", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.update", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_delete = _make_async_lightweight_wrapper(
-    "conversation.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_item_create = _make_async_lightweight_wrapper(
-    "conversation.item.create", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.item.create", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_item_list = _make_async_lightweight_wrapper(
-    "conversation.item.list", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.item.list", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_item_retrieve = _make_async_lightweight_wrapper(
-    "conversation.item.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.item.retrieve", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 async_conversation_item_delete = _make_async_lightweight_wrapper(
-    "conversation.item.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION)
+    "conversation.item.delete", SemanticConvention.GEN_AI_OPERATION_TYPE_CONVERSATION
+)
 
 # Realtime
 async_realtime_session_create = _make_async_lightweight_wrapper(
-    "realtime.session", SemanticConvention.GEN_AI_OPERATION_TYPE_REALTIME, "gpt-4o-realtime-preview")
+    "realtime.session",
+    SemanticConvention.GEN_AI_OPERATION_TYPE_REALTIME,
+    "gpt-4o-realtime-preview",
+)

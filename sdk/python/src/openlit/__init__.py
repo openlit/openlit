@@ -247,9 +247,7 @@ def init(
     ]
     for invalid_name in invalid_instrumentors:
         lower_name = invalid_name.lower()
-        suggestions = [
-            k for k in MODULE_NAME_MAP if lower_name in k or k in lower_name
-        ]
+        suggestions = [k for k in MODULE_NAME_MAP if lower_name in k or k in lower_name]
         if suggestions:
             logger.warning(
                 "Invalid instrumentor name '%s'. Did you mean: %s?",
