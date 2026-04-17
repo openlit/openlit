@@ -62,7 +62,7 @@ export default function ModelEditorPanel({
 	});
 
 	useEffect(() => {
-		if (model && isCustomModel) {
+		if (model && !isAddingNew) {
 			const customModel = model as any;
 			// The API returns `customId` as the UUID and `id` as the model_id.
 			// Map them correctly: UUID goes to `id`, model identifier goes to `model_id`.
@@ -272,27 +272,25 @@ export default function ModelEditorPanel({
 						</p>
 					</div>
 
-					{/* Actions */}
-					{(
-						<div className="flex gap-2 pt-4">
-							<Button onClick={handleSave} disabled={saving} className="flex-1">
-								{saving ? getMessage().SAVING : getMessage().OPENGROUND_SAVE_MODEL}
+					{/* Actions — all models editable now */}
+					<div className="flex gap-2 pt-4">
+						<Button onClick={handleSave} disabled={saving} className="flex-1">
+							{saving ? getMessage().SAVING : getMessage().OPENGROUND_SAVE_MODEL}
+						</Button>
+						{!isAddingNew && (
+							<Button
+								variant="destructive"
+								onClick={() => setShowDeleteDialog(true)}
+								disabled={deleting}
+							>
+								<Trash2Icon className="h-4 w-4 mr-2" />
+								{getMessage().DELETE}
 							</Button>
-							{isCustomModel && !isAddingNew && (
-								<Button
-									variant="destructive"
-									onClick={() => setShowDeleteDialog(true)}
-									disabled={deleting}
-								>
-									<Trash2Icon className="h-4 w-4 mr-2" />
-									{getMessage().DELETE}
-								</Button>
-							)}
-							<Button variant="outline" onClick={onCancel}>
-								{getMessage().CANCEL}
-							</Button>
-						</div>
-					)}
+						)}
+						<Button variant="outline" onClick={onCancel}>
+							{getMessage().CANCEL}
+						</Button>
+					</div>
 				</CardContent>
 			</Card>
 

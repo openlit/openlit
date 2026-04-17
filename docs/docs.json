@@ -130,6 +130,13 @@
             ]
           },
           {
+            "group": "Pricing & Models",
+            "pages": [
+              "latest/openlit/pricing/manage-models",
+              "latest/openlit/pricing/cost-recalculation"
+            ]
+          },
+          {
             "group": "Prompts and Experiments",
             "pages": [
               "latest/openlit/prompts-experiments/prompt-hub",

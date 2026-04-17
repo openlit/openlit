@@ -7,7 +7,7 @@ import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
 import Sanitizer from "@/utils/sanitizer";
-import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
 import asaw from "@/utils/asaw";
 
 // Extend the session type to include id
@@ -56,11 +56,10 @@ export async function GET(request: NextRequest) {
 				context_window as contextWindow,
 				input_price_per_m_token as inputPricePerMToken,
 				output_price_per_m_token as outputPricePerMToken,
-				capabilities
-			FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-			WHERE created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'
-			  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
-			ORDER BY provider, created_at DESC
+				capabilities,
+				is_default as isDefault
+			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+			ORDER BY provider, is_default DESC, created_at DESC
 		`;
 
 		const { data, err } = await dataCollector(
@@ -104,15 +103,15 @@ export async function GET(request: NextRequest) {
 			provider,
 			model_id as id,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
-			capabilities
-		FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
-		  AND provider = '${Sanitizer.sanitizeValue(provider)}'
-		ORDER BY created_at DESC
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
+		ORDER BY is_default DESC, created_at DESC
 	`;
 
 	const { data, err } = await dataCollector(
@@ -179,7 +178,7 @@ export async function POST(request: NextRequest) {
 			.join(", ");
 
 		const updateQuery = `
-			ALTER TABLE ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
+			ALTER TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 			UPDATE
 				display_name = '${Sanitizer.sanitizeValue(model.displayName)}',
 				model_type = '${Sanitizer.sanitizeValue(model.modelType || "chat")}',
@@ -190,8 +189,6 @@ export async function POST(request: NextRequest) {
 				updated_at = now()
 			WHERE model_id = '${Sanitizer.sanitizeValue(modelId)}'
 			  AND provider = '${Sanitizer.sanitizeValue(provider)}'
-			  AND created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'
-			  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
 		`;
 
 		const { err } = await dataCollector(
@@ -221,7 +218,7 @@ export async function POST(request: NextRequest) {
 	// Insert new model - Use dataCollector's insert type to let ClickHouse handle UUID generation
 	const { err } = await dataCollector(
 		{
-			table: OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME,
+			table: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
 			values: [
 				{
 					provider: provider,
@@ -232,8 +229,8 @@ export async function POST(request: NextRequest) {
 					input_price_per_m_token: model.inputPricePerMToken || 0,
 					output_price_per_m_token: model.outputPricePerMToken || 0,
 					capabilities: model.capabilities || [],
+					is_default: false,
 					created_by_user_id: session.user.id,
-					database_config_id: dbConfig.id,
 				},
 			],
 		},
@@ -259,14 +256,14 @@ export async function POST(request: NextRequest) {
 			provider,
 			model_id as id,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
-			capabilities
-		FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'
-		  AND provider = '${Sanitizer.sanitizeValue(provider)}'
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
 		  AND model_id = '${Sanitizer.sanitizeValue(modelId)}'
 		ORDER BY created_at DESC
 		LIMIT 1
@@ -322,10 +319,7 @@ export async function DELETE(request: NextRequest) {
 	}
 
 	// Build WHERE clause — prefer model_id+provider match, fall back to UUID id
-	const whereConditions = [
-		`created_by_user_id = '${Sanitizer.sanitizeValue(session.user.id)}'`,
-		`database_config_id = '${Sanitizer.sanitizeValue(dbConfig.id)}'`,
-	];
+	const whereConditions: string[] = [];
 
 	if (modelId && provider) {
 		whereConditions.push(`model_id = '${Sanitizer.sanitizeValue(modelId)}'`);
@@ -335,7 +329,7 @@ export async function DELETE(request: NextRequest) {
 	}
 
 	const deleteQuery = `
-		DELETE FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
+		DELETE FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		WHERE ${whereConditions.join(" AND ")}
 	`;
 

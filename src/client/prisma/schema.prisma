@@ -220,3 +220,11 @@ model EvaluationConfigs {
   recurringTime    String
   meta             String
 }
+
+model PricingConfigs {
+  id               String  @id @default(cuid())
+  databaseConfigId String  @unique @map("database_config_id")
+  auto             Boolean @default(false)
+  recurringTime    String  @default("")
+  meta             String  @default("{}")
+}

@@ -28,7 +28,7 @@ import {
 	updateCustomModel,
 	deleteCustomModel,
 	getCustomModels,
-} from "../openground/custom-models-service";
+} from "@/lib/platform/providers/models-service";
 
 /**
  * Normalize a vault key name to UPPER_SNAKE_CASE.

@@ -15,6 +15,7 @@ interface CustomModel extends ModelMetadata {
 	model_id: string; // Model identifier like "gpt-4o"
 	provider?: string;
 	modelType?: string;
+	isDefault?: boolean;
 }
 
 interface ModelListSidebarProps {
@@ -57,31 +58,25 @@ export default function ModelListSidebar({
 		const query = searchQuery.toLowerCase();
 		return providers.filter((provider) => {
 			const matchesProviderName = provider.displayName.toLowerCase().includes(query);
-			const matchesModelName = provider.supportedModels.some((model) =>
-				model.displayName.toLowerCase().includes(query) ||
-				model.id.toLowerCase().includes(query)
-			);
-			const matchesCustomModel = customModels[provider.providerId]?.some((model) =>
-				model.displayName.toLowerCase().includes(query) ||
-				model.model_id.toLowerCase().includes(query)
+			const matchesModelName = (customModels[provider.providerId] || []).some(
+				(model) =>
+					model.displayName.toLowerCase().includes(query) ||
+					(model.model_id || "").toLowerCase().includes(query)
 			);
 
-			return matchesProviderName || matchesModelName || matchesCustomModel;
+			return matchesProviderName || matchesModelName;
 		});
 	}, [providers, customModels, searchQuery]);
 
-	const isModelSelected = (model: ModelMetadata, provider: string, isCustom: boolean) => {
+	const isModelSelected = (model: CustomModel, provider: string) => {
 		if (selectedProvider !== provider) return false;
 		if (!selectedModel) return false;
 
-		if (!isCustom || !selectedIsCustom) return false;
-
-		// Match by customId (UUID) or model_id
-		const customModel = model as any;
 		const selectedCustomModel = selectedModel as any;
-		const customModelKey = customModel.customId || customModel.id;
-		const selectedKey = selectedCustomModel.customId || selectedCustomModel.id;
-		return customModelKey === selectedKey;
+		const currentKey = model.customId || model.id || model.model_id;
+		const selectedKey =
+			selectedCustomModel.customId || selectedCustomModel.id || selectedCustomModel.model_id;
+		return currentKey === selectedKey;
 	};
 
 	return (
@@ -113,11 +108,8 @@ export default function ModelListSidebar({
 					<div className="p-2">
 						{filteredProviders.map((provider) => {
 							const isExpanded = expandedProviders.has(provider.providerId);
-							const providerCustomModels = customModels[provider.providerId] || [];
-							// Deduplicate: exclude custom model IDs from static count
-							const customModelIds = new Set(providerCustomModels.map((cm) => cm.model_id || cm.id));
-							const staticModels = provider.supportedModels.filter((m) => !customModelIds.has(m.id));
-							const totalModels = staticModels.length + providerCustomModels.length;
+							const providerModels = customModels[provider.providerId] || [];
+							const totalModels = providerModels.length;
 
 							return (
 								<div key={provider.providerId} className="mb-2">
@@ -152,62 +144,46 @@ export default function ModelListSidebar({
 										</Button>
 									</button>
 
-									{/* Models List */}
+									{/* Models List — all editable */}
 									{isExpanded && (
 										<div className="ml-4 mt-1 space-y-1">
-											{/* Static Models - Display only, not editable */}
-											{staticModels.map((model) => (
-												<div
-													key={model.id}
-													className="w-full text-left p-2 rounded-md border-l-2 border-transparent opacity-75"
-												>
-													<div className="text-sm font-medium text-stone-700 dark:text-stone-300">{model.displayName}</div>
-													<div className="flex items-center gap-2 mt-1">
-														<Badge variant="outline" className="text-xs">
-															{model.contextWindow.toLocaleString()} tokens
-														</Badge>
-														<Badge variant="outline" className="text-xs">
-															${model.inputPricePerMToken}/M
-														</Badge>
-													</div>
+											{providerModels.length === 0 ? (
+												<div className="text-xs text-stone-400 dark:text-stone-500 px-2 py-2">
+													{getMessage().OPENGROUND_NO_MODELS_FOUND}
 												</div>
-											))}
-
-											{/* Custom Models Section */}
-											{providerCustomModels.length > 0 && (
-												<>
-													<div className="text-xs font-medium text-stone-500 dark:text-stone-400 px-2 py-1 mt-2">
-														{getMessage().OPENGROUND_CUSTOM_MODELS}
-													</div>
-													{providerCustomModels.map((model) => (
-														<button
-															key={model.id}
-															onClick={() => onSelectModel(model, provider.providerId, true)}
-															className={cn(
-																"w-full text-left p-2 rounded-md transition-colors border-l-2 group/model",
-																isModelSelected(model, provider.providerId, true)
-																	? "bg-primary/10 dark:bg-primary/20 border-primary text-stone-900 dark:text-stone-100"
-																	: "border-transparent hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
-															)}
-														>
-															<div className="flex items-center justify-between">
-																<div className="flex items-center gap-2">
-																	<div className="text-sm font-medium">{model.displayName}</div>
+											) : (
+												providerModels.map((model) => (
+													<button
+														key={model.customId || model.id || model.model_id}
+														onClick={() => onSelectModel(model, provider.providerId, true)}
+														className={cn(
+															"w-full text-left p-2 rounded-md transition-colors border-l-2 group/model",
+															isModelSelected(model, provider.providerId)
+																? "bg-primary/10 dark:bg-primary/20 border-primary text-stone-900 dark:text-stone-100"
+																: "border-transparent hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+														)}
+													>
+														<div className="flex items-center justify-between">
+															<div className="flex items-center gap-2">
+																<div className="text-sm font-medium">{model.displayName}</div>
+																{model.isDefault ? (
+																	<Badge variant="outline" className="text-xs h-4">Default</Badge>
+																) : (
 																	<Badge className="text-xs h-4">Custom</Badge>
-																</div>
-																<PencilIcon className="h-3 w-3 text-stone-400 opacity-0 group-hover/model:opacity-100 transition-opacity" />
+																)}
 															</div>
-															<div className="flex items-center gap-2 mt-1">
-																<Badge variant="outline" className="text-xs">
-																	{model.contextWindow.toLocaleString()} tokens
-																</Badge>
-																<Badge variant="outline" className="text-xs">
-																	${model.inputPricePerMToken}/M
-																</Badge>
-															</div>
-														</button>
-													))}
-												</>
+															<PencilIcon className="h-3 w-3 text-stone-400 opacity-0 group-hover/model:opacity-100 transition-opacity" />
+														</div>
+														<div className="flex items-center gap-2 mt-1">
+															<Badge variant="outline" className="text-xs">
+																{(model.contextWindow || 0).toLocaleString()} tokens
+															</Badge>
+															<Badge variant="outline" className="text-xs">
+																${model.inputPricePerMToken}/M
+															</Badge>
+														</div>
+													</button>
+												))
 											)}
 										</div>
 									)}
