@@ -247,7 +247,7 @@ async function loadProviderModelsFromDb(
 			capabilities: row.capabilities || [],
 		}));
 	} catch (error) {
-		console.error("Error loading provider models for", providerId, error);
+		console.error("Error loading provider models for", error);
 		return [];
 	}
 }
