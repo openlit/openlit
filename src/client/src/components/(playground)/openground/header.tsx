@@ -24,7 +24,7 @@ export default function OpengroundHeader({
 			<div className={className}>
 				{showButton ? (
 					<>
-						<Link href={"/settings/manage-models"}>
+						<Link href={"/manage-models"}>
 							<Button variant="outline" className="h-auto py-1">
 								<SettingsIcon className="h-4 w-4 mr-2" />
 								{getMessage().OPENGROUND_MANAGE_MODELS}

@@ -1,0 +1,121 @@
+---
+title: 'Cost Recalculation'
+description: 'Recalculate the cost of LLM traces using current model pricing — manually or on a schedule'
+sidebarTitle: 'Cost Recalculation'
+---
+
+The Pricing feature recalculates the `gen_ai.usage.cost` attribute on existing LLM traces using the per-model pricing stored in [Manage Models](/latest/openlit/pricing/manage-models). This is useful when:
+
+- Your SDK didn't send cost data (or sent `0`).
+- Model pricing has changed and you want historical traces to reflect the new prices.
+- You added a custom model after traces were already ingested.
+
+## How it works
+
+For each trace, OpenLIT:
+
+1. Reads `gen_ai.system` (provider) and `gen_ai.request.model` from the span attributes.
+2. Looks up the matching model in the `openlit_provider_models` ClickHouse table.
+3. Computes the cost:
+   ```
+   cost = (input_tokens / 1,000,000) × input_price_per_m_token
+        + (output_tokens / 1,000,000) × output_price_per_m_token
+   ```
+4. Writes the result back to the trace:
+   ```sql
+   ALTER TABLE otel_traces
+   UPDATE SpanAttributes = mapUpdate(SpanAttributes, map('gen_ai.usage.cost', '<cost>'))
+   WHERE SpanId = '<span_id>'
+   ```
+
+<Info>
+Traces with missing provider, model, or zero tokens are **skipped** — they are not counted as errors.
+If the model is not found in Manage Models, the trace is also skipped. Add the model first, then recalculate.
+</Info>
+
+## Manual recalculation
+
+Recalculate the cost for a single trace directly from the trace detail panel.
+
+<Steps>
+  <Step title="Open a trace">
+    Navigate to **Requests** and click on any LLM trace to open the detail panel.
+  </Step>
+  <Step title="Click the recalculate icon">
+    In the **Cost** metric card at the top of the panel, click the refresh icon (↻).
+    - If the cost is missing or zero, a **pinging dot** draws attention to the icon.
+    - If the cost already exists, clicking recalculates it using the latest pricing.
+  </Step>
+  <Step title="See the result">
+    A toast notification shows the updated cost. The panel refreshes automatically to display the new value.
+  </Step>
+</Steps>
+
+**API**: `POST /api/pricing/{spanId}` — returns `{ success, data: { spanId, cost } }` or `{ success: false, err: "..." }`.
+
+## Auto recalculation (cron-based)
+
+Automatically recompute pricing on a schedule for all newly ingested LLM traces.
+
+<Steps>
+  <Step title="Open the Pricing page">
+    Navigate to **Pricing** in the sidebar under the Configuration section.
+  </Step>
+  <Step title="Enable Auto Pricing">
+    Toggle the **Enable Auto Pricing** switch.
+  </Step>
+  <Step title="Set the cron schedule">
+    Enter a standard cron expression. For example:
+    - `*/15 * * * *` — every 15 minutes
+    - `0 * * * *` — every hour
+    - `0 0 * * *` — once a day at midnight
+  </Step>
+  <Step title="Save">
+    Click **Save** (or **Update** if editing). OpenLIT installs a cron job that runs the pricing recalculation on the schedule you defined.
+  </Step>
+</Steps>
+
+### How auto pricing selects traces
+
+On each cron tick:
+
+| Step | What happens |
+|------|-------------|
+| **1. Select LLM spans** | Queries `otel_traces` for spans whose `gen_ai.operation.name` matches supported LLM operations (e.g. `chat`). |
+| **2. Incremental window** | Only spans with `Timestamp >= last successful cron run` are processed. The first run processes all historical LLM spans. |
+| **3. Look up model** | For each span, reads `gen_ai.system` (provider) and `gen_ai.request.model`, then finds the matching row in `openlit_provider_models`. |
+| **4. Compute cost** | `(input_tokens / 1M) × input_price + (output_tokens / 1M) × output_price`. |
+| **5. Write back** | Updates `SpanAttributes['gen_ai.usage.cost']` on the trace via `ALTER TABLE otel_traces UPDATE`. |
+| **6. Log run** | Records `totalSpans`, `totalUpdated`, `totalFailed`, `totalSkipped` in the cron log with a status of `SUCCESS`, `PARTIAL_SUCCESS`, or `FAILURE`. |
+
+<Note>
+Spans with missing provider/model/tokens or an unknown model are **skipped** (not counted as errors). Add the model to Manage Models and the next cron run will pick it up.
+</Note>
+
+### Cron restoration on restart
+
+When the OpenLIT server restarts (e.g. after a container redeployment), all active auto-pricing cron jobs are automatically restored from the database. No manual re-setup is needed.
+
+## API reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/pricing/config` | `GET` | Get the current pricing config (auto flag, cron schedule) |
+| `/api/pricing/config` | `POST` | Create or update pricing config |
+| `/api/pricing/{spanId}` | `POST` | Manually recalculate cost for a single trace |
+| `/api/pricing/auto` | `POST` | Trigger auto pricing run (called by cron; allowlisted in middleware) |
+| `/api/openground/models/export` | `GET` | Export all model pricing as downloadable JSON (authenticated) |
+| `/api/pricing/export/{dbConfigId}` | `GET` | Public pricing URL for SDK `pricing_json` (no auth) |
+| `/api/openground/models/import` | `POST` | Bulk-import models from JSON, skipping duplicates |
+
+## Configuration
+
+The pricing config is stored in the SQLite `PricingConfigs` table (managed by Prisma):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String | Config ID (auto-generated) |
+| `databaseConfigId` | String | Links to the ClickHouse database config |
+| `auto` | Boolean | Whether auto pricing is enabled |
+| `recurringTime` | String | Cron schedule (e.g. `*/15 * * * *`) |
+| `meta` | String (JSON) | Internal metadata including `cronJobId` |

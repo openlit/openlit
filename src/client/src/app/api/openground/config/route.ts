@@ -9,7 +9,7 @@ import {
 	upsertOpenGroundConfig,
 	deleteOpenGroundConfig,
 	toggleOpenGroundConfigStatus,
-} from "@/lib/platform/openground/config";
+} from "@/lib/platform/providers/config";
 import * as messages from "@/constants/messages/en";
 
 /**
