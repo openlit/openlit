@@ -109,8 +109,9 @@ def _make_tool_use_block(name="Bash", input_data=None, tool_id="toolu_001"):
     return block
 
 
-def _make_tool_result_block(tool_use_id="toolu_001", content="file1.txt\nfile2.txt",
-                            is_error=False):
+def _make_tool_result_block(
+    tool_use_id="toolu_001", content="file1.txt\nfile2.txt", is_error=False
+):
     block = MagicMock()
     type(block).__name__ = "ToolResultBlock"
     block.tool_use_id = tool_use_id
@@ -126,6 +127,7 @@ def _make_usage(input_tokens=100, output_tokens=50, cache_read=0, cache_creation
     (e.g. cache_write_input_tokens) that break int() coercion.
     """
     from types import SimpleNamespace
+
     return SimpleNamespace(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -176,7 +178,14 @@ def _get_span_attrs(span):
 # ===========================================================================
 class TestOperationMap:
     def test_has_required_endpoints(self):
-        for key in ("query", "receive_response", "execute_tool", "subagent", "chat", "create_agent"):
+        for key in (
+            "query",
+            "receive_response",
+            "execute_tool",
+            "subagent",
+            "chat",
+            "create_agent",
+        ):
             assert key in OPERATION_MAP, f"Missing endpoint: {key}"
 
     def test_query_maps_to_invoke_agent(self):
@@ -186,24 +195,42 @@ class TestOperationMap:
         assert OPERATION_MAP["chat"] == SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
 
     def test_execute_tool_maps_to_tools(self):
-        assert OPERATION_MAP["execute_tool"] == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        assert (
+            OPERATION_MAP["execute_tool"]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        )
 
     def test_create_agent_maps_correctly(self):
-        assert OPERATION_MAP["create_agent"] == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
+        assert (
+            OPERATION_MAP["create_agent"]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
+        )
 
 
 class TestSpanKindMap:
     def test_agent_is_internal(self):
-        assert SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT] == SpanKind.INTERNAL
+        assert (
+            SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT]
+            == SpanKind.INTERNAL
+        )
 
     def test_chat_is_client(self):
-        assert SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT] == SpanKind.CLIENT
+        assert (
+            SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT]
+            == SpanKind.CLIENT
+        )
 
     def test_tools_is_internal(self):
-        assert SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS] == SpanKind.INTERNAL
+        assert (
+            SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS]
+            == SpanKind.INTERNAL
+        )
 
     def test_create_agent_is_client(self):
-        assert SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT] == SpanKind.CLIENT
+        assert (
+            SPAN_KIND_MAP[SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT]
+            == SpanKind.CLIENT
+        )
 
 
 class TestFinishReasonMap:
@@ -259,16 +286,25 @@ class TestSpanNameGeneration:
         )
 
     def test_chat_span_name_with_model(self):
-        assert generate_span_name("chat", "claude-sonnet-4-20250514") == "chat claude-sonnet-4-20250514"
+        assert (
+            generate_span_name("chat", "claude-sonnet-4-20250514")
+            == "chat claude-sonnet-4-20250514"
+        )
 
     def test_execute_tool_span_name(self):
         assert generate_span_name("execute_tool", "Bash") == "execute_tool Bash"
 
     def test_create_agent_span_name(self):
-        assert generate_span_name("create_agent", "claude_agent_sdk") == "create_agent claude_agent_sdk"
+        assert (
+            generate_span_name("create_agent", "claude_agent_sdk")
+            == "create_agent claude_agent_sdk"
+        )
 
     def test_subagent_span_name(self):
-        assert generate_span_name("subagent", "search_agent") == "invoke_agent search_agent"
+        assert (
+            generate_span_name("subagent", "search_agent")
+            == "invoke_agent search_agent"
+        )
 
     def test_unknown_operation_falls_back(self):
         name = generate_span_name("unknown_op")
@@ -287,8 +323,14 @@ class TestSpanNameGeneration:
 
 class TestGetSpanKind:
     def test_known_operation_types(self):
-        assert get_span_kind(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT) == SpanKind.CLIENT
-        assert get_span_kind(SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT) == SpanKind.INTERNAL
+        assert (
+            get_span_kind(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+            == SpanKind.CLIENT
+        )
+        assert (
+            get_span_kind(SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+            == SpanKind.INTERNAL
+        )
 
     def test_unknown_defaults_to_internal(self):
         assert get_span_kind("completely_unknown") == SpanKind.INTERNAL
@@ -299,7 +341,9 @@ class TestGetSpanKind:
 # ===========================================================================
 class TestExtractUsage:
     def test_full_usage_object(self):
-        usage = _make_usage(input_tokens=10, output_tokens=50, cache_read=90, cache_creation=5)
+        usage = _make_usage(
+            input_tokens=10, output_tokens=50, cache_read=90, cache_creation=5
+        )
         attrs = extract_usage(usage)
 
         assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 10 + 90 + 5
@@ -315,9 +359,12 @@ class TestExtractUsage:
 
     def test_no_cache_tokens(self):
         from types import SimpleNamespace
+
         usage = SimpleNamespace(
-            input_tokens=100, output_tokens=50,
-            cache_read_input_tokens=None, cache_creation_input_tokens=None,
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_input_tokens=None,
+            cache_creation_input_tokens=None,
         )
         attrs = extract_usage(usage)
         assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 100
@@ -343,9 +390,12 @@ class TestExtractUsage:
 
     def test_non_numeric_handled_gracefully(self):
         from types import SimpleNamespace
+
         usage = SimpleNamespace(
-            input_tokens="not_a_number", output_tokens="bad",
-            cache_read_input_tokens=None, cache_creation_input_tokens=None,
+            input_tokens="not_a_number",
+            output_tokens="bad",
+            cache_read_input_tokens=None,
+            cache_creation_input_tokens=None,
         )
         attrs = extract_usage(usage)
         assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 0
@@ -365,10 +415,12 @@ class TestMapFinishReason:
 
     def test_none_defaults_to_stop(self):
         from openlit.instrumentation.claude_agent_sdk.utils import _map_finish_reason
+
         assert _map_finish_reason(None) == "stop"
 
     def test_unknown_passed_through(self):
         from openlit.instrumentation.claude_agent_sdk.utils import _map_finish_reason
+
         assert _map_finish_reason("custom_reason") == "custom_reason"
 
 
@@ -422,9 +474,11 @@ class TestHasMeaningfulContent:
 # ===========================================================================
 class TestBuildInputFromToolResults:
     def test_builds_tool_call_response_parts(self):
-        msg = _make_user_message(content=[
-            _make_tool_result_block("toolu_001", "result_data"),
-        ])
+        msg = _make_user_message(
+            content=[
+                _make_tool_result_block("toolu_001", "result_data"),
+            ]
+        )
         result = build_input_from_tool_results(msg)
 
         assert result is not None
@@ -435,10 +489,12 @@ class TestBuildInputFromToolResults:
         assert "result_data" in result[0]["parts"][0]["response"]
 
     def test_multiple_tool_results(self):
-        msg = _make_user_message(content=[
-            _make_tool_result_block("toolu_001", "res1"),
-            _make_tool_result_block("toolu_002", "res2"),
-        ])
+        msg = _make_user_message(
+            content=[
+                _make_tool_result_block("toolu_001", "res1"),
+                _make_tool_result_block("toolu_002", "res2"),
+            ]
+        )
         result = build_input_from_tool_results(msg)
         assert len(result[0]["parts"]) == 2
 
@@ -469,7 +525,9 @@ class TestSetChatSpanAttributes:
                 content=[_make_text_block("Hello!")],
             )
         set_chat_span_attributes(
-            span, message, capture,
+            span,
+            message,
+            capture,
             environment="test",
             application_name="test_app",
             version="0.1.0",
@@ -481,8 +539,14 @@ class TestSetChatSpanAttributes:
 
     def test_required_attributes_present(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC
+        assert (
+            attrs[SemanticConvention.GEN_AI_OPERATION]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
+        )
+        assert (
+            attrs[SemanticConvention.GEN_AI_PROVIDER_NAME]
+            == SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC
+        )
 
     def test_gen_ai_system_set(self):
         _, attrs = self._call()
@@ -495,8 +559,13 @@ class TestSetChatSpanAttributes:
 
     def test_model_attributes(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
-        assert attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] == "claude-sonnet-4-20250514"
+        assert (
+            attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
+        )
+        assert (
+            attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL]
+            == "claude-sonnet-4-20250514"
+        )
 
     def test_usage_tokens(self):
         _, attrs = self._call()
@@ -568,7 +637,9 @@ class TestSetChatSpanAttributes:
 # ===========================================================================
 class TestOutputMessageSchema:
     def test_text_output_follows_parts_schema(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _build_output_messages
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _build_output_messages,
+        )
 
         msg = _make_assistant_message(content=[_make_text_block("Hello!")])
         result = _build_output_messages(msg, "stop")
@@ -580,11 +651,15 @@ class TestOutputMessageSchema:
         assert result[0]["parts"][0]["content"] == "Hello!"
 
     def test_tool_call_output_follows_parts_schema(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _build_output_messages
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _build_output_messages,
+        )
 
-        msg = _make_assistant_message(content=[
-            _make_tool_use_block("Bash", {"command": "ls"}, "toolu_001"),
-        ])
+        msg = _make_assistant_message(
+            content=[
+                _make_tool_use_block("Bash", {"command": "ls"}, "toolu_001"),
+            ]
+        )
         result = _build_output_messages(msg, "tool_call")
 
         tc_part = result[0]["parts"][0]
@@ -596,12 +671,16 @@ class TestOutputMessageSchema:
 
     def test_reasoning_output_uses_correct_type(self):
         """OTel ReasoningPart requires type='reasoning', not 'thinking'."""
-        from openlit.instrumentation.claude_agent_sdk.utils import _build_output_messages
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _build_output_messages,
+        )
 
-        msg = _make_assistant_message(content=[
-            _make_thinking_block("Let me analyze..."),
-            _make_text_block("The answer is 42."),
-        ])
+        msg = _make_assistant_message(
+            content=[
+                _make_thinking_block("Let me analyze..."),
+                _make_text_block("The answer is 42."),
+            ]
+        )
         result = _build_output_messages(msg, "stop")
 
         parts = result[0]["parts"]
@@ -612,13 +691,17 @@ class TestOutputMessageSchema:
         assert text_part["type"] == "text"
 
     def test_mixed_content_output(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _build_output_messages
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _build_output_messages,
+        )
 
-        msg = _make_assistant_message(content=[
-            _make_thinking_block("Thinking..."),
-            _make_text_block("Here's the plan:"),
-            _make_tool_use_block("Bash", {"command": "ls"}, "toolu_x"),
-        ])
+        msg = _make_assistant_message(
+            content=[
+                _make_thinking_block("Thinking..."),
+                _make_text_block("Here's the plan:"),
+                _make_tool_use_block("Bash", {"command": "ls"}, "toolu_x"),
+            ]
+        )
         result = _build_output_messages(msg, "tool_call")
         parts = result[0]["parts"]
 
@@ -628,7 +711,9 @@ class TestOutputMessageSchema:
         assert parts[2]["type"] == "tool_call"
 
     def test_empty_content_returns_none(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _build_output_messages
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _build_output_messages,
+        )
 
         msg = _make_assistant_message(content=[])
         assert _build_output_messages(msg, "stop") is None
@@ -638,18 +723,28 @@ class TestOutputMessageSchema:
 # Tool Span Attributes
 # ===========================================================================
 class TestSetToolSpanAttributes:
-    def _call(self, tool_name="Bash", tool_input=None, tool_use_id="toolu_001",
-              capture=True):
+    def _call(
+        self, tool_name="Bash", tool_input=None, tool_use_id="toolu_001", capture=True
+    ):
         span = MagicMock()
         set_tool_span_attributes(
-            span, tool_name, tool_input or {"command": "ls"}, tool_use_id,
-            capture, "test", "test_app", "0.1.0",
+            span,
+            tool_name,
+            tool_input or {"command": "ls"},
+            tool_use_id,
+            capture,
+            "test",
+            "test_app",
+            "0.1.0",
         )
         return span, _get_span_attrs(span)
 
     def test_operation_name_is_execute_tool(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        assert (
+            attrs[SemanticConvention.GEN_AI_OPERATION]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        )
 
     def test_gen_ai_system_set(self):
         _, attrs = self._call()
@@ -708,8 +803,11 @@ class TestFinalizeToolSpan:
     def test_error_sets_error_type_and_status(self):
         span = MagicMock()
         finalize_tool_span(
-            span, None, capture_message_content=True,
-            is_error=True, error_message="Permission denied",
+            span,
+            None,
+            capture_message_content=True,
+            is_error=True,
+            error_message="Permission denied",
         )
 
         attrs = _get_span_attrs(span)
@@ -727,7 +825,10 @@ class TestSetCreateAgentAttributes:
         set_create_agent_attributes(span, "0.1.0", "test", "test_app")
 
         attrs = _get_span_attrs(span)
-        assert attrs[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
+        assert (
+            attrs[SemanticConvention.GEN_AI_OPERATION]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
+        )
         assert attrs[GEN_AI_SYSTEM_ATTR] == "anthropic"
         assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "claude_agent_sdk"
         assert attrs[SemanticConvention.SERVER_ADDRESS] == "api.anthropic.com"
@@ -746,26 +847,43 @@ class TestSetCreateAgentAttributes:
 # Root Span (invoke_agent) Attributes
 # ===========================================================================
 class TestSetInitialSpanAttributes:
-    def _call(self, model="claude-sonnet-4-20250514", prompt="Hello", capture=True,
-              system_prompt=None):
+    def _call(
+        self,
+        model="claude-sonnet-4-20250514",
+        prompt="Hello",
+        capture=True,
+        system_prompt=None,
+    ):
         span = MagicMock()
         options = MagicMock()
         options.model = model
         options.system_prompt = system_prompt
 
         set_initial_span_attributes(
-            span, 1000.0, "0.1.0", "test", "test_app",
-            options=options, prompt=prompt, capture_message_content=capture,
+            span,
+            1000.0,
+            "0.1.0",
+            "test",
+            "test_app",
+            options=options,
+            prompt=prompt,
+            capture_message_content=capture,
         )
         return span, _get_span_attrs(span)
 
     def test_operation_name(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+        assert (
+            attrs[SemanticConvention.GEN_AI_OPERATION]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+        )
 
     def test_provider_name(self):
         _, attrs = self._call()
-        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK
+        assert (
+            attrs[SemanticConvention.GEN_AI_PROVIDER_NAME]
+            == SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK
+        )
 
     def test_gen_ai_system(self):
         _, attrs = self._call()
@@ -780,8 +898,14 @@ class TestSetInitialSpanAttributes:
         options = MagicMock()
         options.model = None
         set_initial_span_attributes(
-            span, 1000.0, "0.1.0", "test", "test_app",
-            options=options, prompt="Hi", capture_message_content=False,
+            span,
+            1000.0,
+            "0.1.0",
+            "test",
+            "test_app",
+            options=options,
+            prompt="Hi",
+            capture_message_content=False,
         )
         attrs = _get_span_attrs(span)
         assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == (
@@ -790,7 +914,9 @@ class TestSetInitialSpanAttributes:
 
     def test_request_model(self):
         _, attrs = self._call(model="claude-sonnet-4-20250514")
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
+        assert (
+            attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
+        )
 
     def test_input_messages_parts_schema(self):
         """gen_ai.input.messages must use [{role, parts}] schema."""
@@ -809,7 +935,9 @@ class TestSetInitialSpanAttributes:
 
     def test_system_instructions_json_schema(self):
         """gen_ai.system_instructions must follow [{'type': 'text', 'content': '...'}]."""
-        _, attrs = self._call(system_prompt="You are a helpful assistant.", capture=True)
+        _, attrs = self._call(
+            system_prompt="You are a helpful assistant.", capture=True
+        )
         raw = attrs.get(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS)
         assert raw is not None
         parsed = json.loads(raw)
@@ -821,12 +949,19 @@ class TestSetInitialSpanAttributes:
 class TestUpdateRootFromAssistant:
     def test_sets_model_and_session(self):
         span = MagicMock()
-        msg = _make_assistant_message(model="claude-sonnet-4-20250514", session_id="sess_x")
+        msg = _make_assistant_message(
+            model="claude-sonnet-4-20250514", session_id="sess_x"
+        )
         update_root_from_assistant(span, msg)
 
         attrs = _get_span_attrs(span)
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
-        assert attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] == "claude-sonnet-4-20250514"
+        assert (
+            attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-sonnet-4-20250514"
+        )
+        assert (
+            attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL]
+            == "claude-sonnet-4-20250514"
+        )
         assert attrs[SemanticConvention.GEN_AI_CONVERSATION_ID] == "sess_x"
 
     def test_handles_none_model_gracefully(self):
@@ -851,9 +986,13 @@ class TestProcessResultMessage:
         assert attrs[SemanticConvention.GEN_AI_CONVERSATION_ID] == "sess_abc"
 
     def test_usage_extracted(self):
-        usage = _make_usage(input_tokens=100, output_tokens=50, cache_read=200, cache_creation=50)
+        usage = _make_usage(
+            input_tokens=100, output_tokens=50, cache_read=200, cache_creation=50
+        )
         _, attrs, result_usage = self._call(usage=usage)
-        assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 350  # 100 + 200 + 50
+        assert (
+            attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 350
+        )  # 100 + 200 + 50
         assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 50
         assert result_usage["input_tokens"] == 350
         assert result_usage["output_tokens"] == 50
@@ -864,7 +1003,10 @@ class TestProcessResultMessage:
 
     def test_response_model_from_model_usage(self):
         _, attrs, _ = self._call(model_usage={"claude-sonnet-4-20250514": {}})
-        assert attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] == "claude-sonnet-4-20250514"
+        assert (
+            attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL]
+            == "claude-sonnet-4-20250514"
+        )
 
     def test_num_turns_set(self):
         _, attrs, _ = self._call(num_turns=3)
@@ -937,8 +1079,14 @@ class TestFinalizeSpan:
         }
         span = MagicMock()
         finalize_span(
-            span, 1000.0, metrics, False, "test", "test_app",
-            input_tokens=500, output_tokens=200,
+            span,
+            1000.0,
+            metrics,
+            False,
+            "test",
+            "test_app",
+            input_tokens=500,
+            output_tokens=200,
         )
         assert metrics["genai_client_usage_tokens"].record.call_count == 2
 
@@ -955,8 +1103,14 @@ class TestFinalizeSpan:
         }
         span = MagicMock()
         finalize_span(
-            span, 1000.0, metrics, False, "test", "test_app",
-            input_tokens=0, output_tokens=0,
+            span,
+            1000.0,
+            metrics,
+            False,
+            "test",
+            "test_app",
+            input_tokens=0,
+            output_tokens=0,
         )
         metrics["genai_client_usage_tokens"].record.assert_not_called()
 
@@ -967,10 +1121,12 @@ class TestFinalizeSpan:
 class TestCostCalculation:
     def test_no_pricing_returns_zero(self):
         from openlit.instrumentation.claude_agent_sdk.utils import _calculate_cost
+
         assert _calculate_cost("claude-sonnet-4-20250514", None, 100, 50) == 0
 
     def test_no_model_returns_zero(self):
         from openlit.instrumentation.claude_agent_sdk.utils import _calculate_cost
+
         assert _calculate_cost(None, {"some": "info"}, 100, 50) == 0
 
 
@@ -979,7 +1135,9 @@ class TestCostCalculation:
 # ===========================================================================
 class TestEmitChatInferenceEvent:
     def test_emits_event(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _emit_chat_inference_event
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _emit_chat_inference_event,
+        )
 
         event_provider = MagicMock()
         _emit_chat_inference_event(
@@ -995,7 +1153,9 @@ class TestEmitChatInferenceEvent:
         event_provider.emit.assert_called_once()
 
     def test_no_event_when_provider_is_none(self):
-        from openlit.instrumentation.claude_agent_sdk.utils import _emit_chat_inference_event
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            _emit_chat_inference_event,
+        )
 
         _emit_chat_inference_event(None, "model", "id", "sess", "stop", {}, None, None)
 
@@ -1005,13 +1165,19 @@ class TestEmitChatInferenceEvent:
 # ===========================================================================
 class TestToolSpanTracker:
     def _make_tracker(self):
-        from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import _ToolSpanTracker
+        from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
+            _ToolSpanTracker,
+        )
 
         tracer = MagicMock()
         tracer.start_span.return_value = MagicMock()
         parent_span = MagicMock()
         return _ToolSpanTracker(
-            tracer, parent_span, "0.1.0", "test", "test_app",
+            tracer,
+            parent_span,
+            "0.1.0",
+            "test",
+            "test_app",
             capture_message_content=True,
         )
 
@@ -1059,17 +1225,27 @@ class TestToolSpanTracker:
 class TestSubagentSpanTracker:
     def _make_tracker(self):
         from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
-            _SubagentSpanTracker, _ToolSpanTracker,
+            _SubagentSpanTracker,
+            _ToolSpanTracker,
         )
 
         tracer = MagicMock()
         tracer.start_span.return_value = MagicMock()
         parent_span = MagicMock()
         tool_tracker = _ToolSpanTracker(
-            tracer, parent_span, "0.1.0", "test", "test_app", True,
+            tracer,
+            parent_span,
+            "0.1.0",
+            "test",
+            "test_app",
+            True,
         )
         return _SubagentSpanTracker(
-            tracer, tool_tracker, "0.1.0", "test", "test_app",
+            tracer,
+            tool_tracker,
+            "0.1.0",
+            "test",
+            "test_app",
         )
 
     def test_start_and_end_subagent(self):
@@ -1135,13 +1311,16 @@ class TestBufferChatMessage:
         from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
             _buffer_chat_message,
         )
+
         if chat_state is None:
             chat_state = {"last_boundary_ns": 1_000_000}
         _buffer_chat_message(message, chat_state)
         return chat_state
 
     def test_buffers_message_with_llm_call_data(self):
-        msg = _make_assistant_message(usage=_make_usage(), content=[_make_text_block("Hi")])
+        msg = _make_assistant_message(
+            usage=_make_usage(), content=[_make_text_block("Hi")]
+        )
         state = self._call(msg)
         assert state["pending_chat_msg"] is msg
         assert state["pending_chat_msg_id"] == "msg_001"
@@ -1149,7 +1328,9 @@ class TestBufferChatMessage:
 
     def test_replaces_on_same_message_id(self):
         msg1 = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Sure!")], message_id="msg_X",
+            usage=_make_usage(),
+            content=[_make_text_block("Sure!")],
+            message_id="msg_X",
         )
         msg2 = _make_assistant_message(
             usage=_make_usage(),
@@ -1177,6 +1358,7 @@ class TestFlushPendingChat:
         from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
             _flush_pending_chat,
         )
+
         tracer = overrides.pop("tracer", MagicMock())
         span = MagicMock()
         tracer.start_span.return_value = span
@@ -1197,7 +1379,8 @@ class TestFlushPendingChat:
 
     def test_creates_span_when_buffer_present(self):
         msg = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Hello")],
+            usage=_make_usage(),
+            content=[_make_text_block("Hello")],
         )
         state = {
             "last_boundary_ns": 1_000_000,
@@ -1215,7 +1398,9 @@ class TestFlushPendingChat:
         span.end.assert_called_once_with(end_time=2_000_000)
 
     def test_clears_buffer_after_flush(self):
-        msg = _make_assistant_message(usage=_make_usage(), content=[_make_text_block("Hi")])
+        msg = _make_assistant_message(
+            usage=_make_usage(), content=[_make_text_block("Hi")]
+        )
         state = {
             "last_boundary_ns": 1_000_000,
             "pending_chat_msg": msg,
@@ -1229,7 +1414,9 @@ class TestFlushPendingChat:
         assert "pending_end_ns" not in state
 
     def test_updates_last_boundary_ns(self):
-        msg = _make_assistant_message(usage=_make_usage(), content=[_make_text_block("Hi")])
+        msg = _make_assistant_message(
+            usage=_make_usage(), content=[_make_text_block("Hi")]
+        )
         state = {
             "last_boundary_ns": 1_000_000,
             "pending_chat_msg": msg,
@@ -1245,8 +1432,12 @@ class TestFlushPendingChat:
         tracer.start_span.assert_not_called()
 
     def test_consumes_pending_input(self):
-        msg = _make_assistant_message(usage=_make_usage(), content=[_make_text_block("Hi")])
-        pending_input = [{"role": "user", "parts": [{"type": "text", "content": "Hello"}]}]
+        msg = _make_assistant_message(
+            usage=_make_usage(), content=[_make_text_block("Hi")]
+        )
+        pending_input = [
+            {"role": "user", "parts": [{"type": "text", "content": "Hello"}]}
+        ]
         state = {
             "last_boundary_ns": 1_000_000,
             "pending_chat_msg": msg,
@@ -1263,16 +1454,27 @@ class TestProcessMessageFlushTriggers:
 
     def _make_deps(self):
         from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
-            _ToolSpanTracker, _SubagentSpanTracker,
+            _ToolSpanTracker,
+            _SubagentSpanTracker,
         )
+
         tracer = MagicMock()
         tracer.start_span.return_value = MagicMock()
         parent_span = MagicMock()
         tool_tracker = _ToolSpanTracker(
-            tracer, parent_span, "0.1.0", "test", "test_app", True,
+            tracer,
+            parent_span,
+            "0.1.0",
+            "test",
+            "test_app",
+            True,
         )
         subagent_tracker = _SubagentSpanTracker(
-            tracer, tool_tracker, "0.1.0", "test", "test_app",
+            tracer,
+            tool_tracker,
+            "0.1.0",
+            "test",
+            "test_app",
         )
         return tracer, parent_span, tool_tracker, subagent_tracker
 
@@ -1280,19 +1482,28 @@ class TestProcessMessageFlushTriggers:
         from openlit.instrumentation.claude_agent_sdk.claude_agent_sdk import (
             _process_message,
         )
+
         tracer, parent_span, tool_tracker, subagent_tracker = self._make_deps()
         if chat_state is None:
             chat_state = {"last_boundary_ns": 1_000_000}
         result = _process_message(
-            message, parent_span, tool_tracker, subagent_tracker,
-            capture_message_content=True, tracer=tracer, chat_state=chat_state,
-            version="0.1.0", environment="test", application_name="test_app",
+            message,
+            parent_span,
+            tool_tracker,
+            subagent_tracker,
+            capture_message_content=True,
+            tracer=tracer,
+            chat_state=chat_state,
+            version="0.1.0",
+            environment="test",
+            application_name="test_app",
         )
         return tracer, chat_state, result
 
     def test_assistant_message_buffers_not_flushes(self):
         msg = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Hello")],
+            usage=_make_usage(),
+            content=[_make_text_block("Hello")],
         )
         tracer, state, _ = self._process(msg)
         assert "pending_chat_msg" in state
@@ -1300,7 +1511,8 @@ class TestProcessMessageFlushTriggers:
 
     def test_user_message_flushes_pending_chat(self):
         buffered_msg = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Planning...")],
+            usage=_make_usage(),
+            content=[_make_text_block("Planning...")],
             message_id="msg_A",
         )
         state = {
@@ -1309,16 +1521,19 @@ class TestProcessMessageFlushTriggers:
             "pending_chat_msg_id": "msg_A",
             "pending_end_ns": 2_000_000,
         }
-        user_msg = _make_user_message(content=[
-            _make_tool_result_block("toolu_001", "result_data"),
-        ])
+        user_msg = _make_user_message(
+            content=[
+                _make_tool_result_block("toolu_001", "result_data"),
+            ]
+        )
         tracer, state, _ = self._process(user_msg, chat_state=state)
         tracer.start_span.assert_called_once()
         assert "pending_chat_msg" not in state
 
     def test_result_message_flushes_pending_chat(self):
         buffered_msg = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Summary")],
+            usage=_make_usage(),
+            content=[_make_text_block("Summary")],
             message_id="msg_B",
         )
         state = {
@@ -1333,7 +1548,8 @@ class TestProcessMessageFlushTriggers:
 
     def test_different_message_id_flushes_previous(self):
         msg1 = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("First")],
+            usage=_make_usage(),
+            content=[_make_text_block("First")],
             message_id="msg_1",
         )
         state = {
@@ -1343,7 +1559,8 @@ class TestProcessMessageFlushTriggers:
             "pending_end_ns": 2_000_000,
         }
         msg2 = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Second")],
+            usage=_make_usage(),
+            content=[_make_text_block("Second")],
             message_id="msg_2",
         )
         tracer, state, _ = self._process(msg2, chat_state=state)
@@ -1353,7 +1570,8 @@ class TestProcessMessageFlushTriggers:
 
     def test_same_message_id_replaces_buffer(self):
         msg1 = _make_assistant_message(
-            usage=_make_usage(), content=[_make_text_block("Text only")],
+            usage=_make_usage(),
+            content=[_make_text_block("Text only")],
             message_id="msg_same",
         )
         state = {
@@ -1378,10 +1596,12 @@ class TestProcessMessageFlushTriggers:
 class TestInstrumentorImport:
     def test_import_instrumentor(self):
         from openlit.instrumentation.claude_agent_sdk import ClaudeAgentSDKInstrumentor
+
         assert ClaudeAgentSDKInstrumentor is not None
 
     def test_import_utils(self):
         from openlit.instrumentation.claude_agent_sdk import utils
+
         assert hasattr(utils, "OPERATION_MAP")
         assert hasattr(utils, "extract_usage")
         assert hasattr(utils, "set_chat_span_attributes")
@@ -1394,6 +1614,7 @@ class TestInstrumentorImport:
             wrap_client_query,
             wrap_receive_response,
         )
+
         assert wrap_query is not None
         assert wrap_connect is not None
         assert wrap_client_query is not None
@@ -1405,9 +1626,11 @@ class TestInstrumentorImport:
 # ===========================================================================
 class TestInputMessageSchema:
     def test_tool_result_follows_otel_schema(self):
-        msg = _make_user_message(content=[
-            _make_tool_result_block("toolu_001", "file1.txt\nfile2.txt"),
-        ])
+        msg = _make_user_message(
+            content=[
+                _make_tool_result_block("toolu_001", "file1.txt\nfile2.txt"),
+            ]
+        )
         result = build_input_from_tool_results(msg)
 
         assert result[0]["role"] == "user"
@@ -1417,10 +1640,12 @@ class TestInputMessageSchema:
         assert "file1.txt" in part["response"]
 
     def test_multiple_tool_results(self):
-        msg = _make_user_message(content=[
-            _make_tool_result_block("toolu_a", "res_a"),
-            _make_tool_result_block("toolu_b", "res_b"),
-        ])
+        msg = _make_user_message(
+            content=[
+                _make_tool_result_block("toolu_a", "res_a"),
+                _make_tool_result_block("toolu_b", "res_b"),
+            ]
+        )
         result = build_input_from_tool_results(msg)
         parts = result[0]["parts"]
 
@@ -1441,27 +1666,40 @@ class TestRecordMetrics:
             "genai_client_usage_tokens": MagicMock(),
         }
         _record_metrics(
-            metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
-            1.5, "test", "test_app",
-            input_tokens=500, output_tokens=200,
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+            1.5,
+            "test",
+            "test_app",
+            input_tokens=500,
+            output_tokens=200,
         )
 
         token_calls = metrics["genai_client_usage_tokens"].record.call_args_list
         assert len(token_calls) == 2
 
         input_call_attrs = token_calls[0][0][1]
-        assert input_call_attrs[SemanticConvention.GEN_AI_TOKEN_TYPE] == SemanticConvention.GEN_AI_TOKEN_TYPE_INPUT
+        assert (
+            input_call_attrs[SemanticConvention.GEN_AI_TOKEN_TYPE]
+            == SemanticConvention.GEN_AI_TOKEN_TYPE_INPUT
+        )
 
         output_call_attrs = token_calls[1][0][1]
-        assert output_call_attrs[SemanticConvention.GEN_AI_TOKEN_TYPE] == SemanticConvention.GEN_AI_TOKEN_TYPE_OUTPUT
+        assert (
+            output_call_attrs[SemanticConvention.GEN_AI_TOKEN_TYPE]
+            == SemanticConvention.GEN_AI_TOKEN_TYPE_OUTPUT
+        )
 
     def test_metrics_include_gen_ai_system(self):
         from openlit.instrumentation.claude_agent_sdk.utils import _record_metrics
 
         metrics = {"genai_client_operation_duration": MagicMock()}
         _record_metrics(
-            metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
-            1.0, "test", "test_app",
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+            1.0,
+            "test",
+            "test_app",
         )
 
         call_attrs = metrics["genai_client_operation_duration"].record.call_args[0][1]

@@ -605,7 +605,7 @@ def otel_event(name, attributes, body):
     context_attrs = _custom_span_attributes.get()
     if context_attrs:
         base_attrs.update(context_attrs)
-    return LogRecord(
+    return LogRecord(  # pylint: disable=unexpected-keyword-arg
         attributes=base_attrs,
         body=body,
         event_name=name,

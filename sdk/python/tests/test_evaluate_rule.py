@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 def test_evaluate_rule_exists():
     """evaluate_rule is importable from openlit."""
     from openlit import evaluate_rule
+
     assert callable(evaluate_rule)
 
 
@@ -111,7 +112,9 @@ def test_evaluate_rule_http_error_returns_none(mock_post):
     assert result is None
 
 
-@patch.dict("os.environ", {"OPENLIT_URL": "http://env-url:3000", "OPENLIT_API_KEY": "env-key"})
+@patch.dict(
+    "os.environ", {"OPENLIT_URL": "http://env-url:3000", "OPENLIT_API_KEY": "env-key"}
+)
 @patch("openlit.requests.post")
 def test_evaluate_rule_uses_env_vars(mock_post):
     """Falls back to environment variables for url and api_key."""

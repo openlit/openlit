@@ -25,6 +25,7 @@ together
 transformers
 groq
 elevenlabs
+crewai>=1.10.0; python_version >= "3.10"
 agno
 
 # Vector DBs
