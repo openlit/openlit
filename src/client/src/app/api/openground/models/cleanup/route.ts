@@ -70,16 +70,11 @@ export async function POST(request: NextRequest) {
 		});
 	}
 
-	// Use separate parameters to prevent log injection
-	console.log('Found', invalidModels.length, 'models with invalid UUIDs:', invalidModels);
-
 	// Delete all rows with invalid UUIDs
 	const deleteQuery = `
 		ALTER TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		DELETE WHERE NOT match(toString(id), '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 	`;
-
-	console.log("Cleanup query:", deleteQuery);
 
 	const { err: deleteErr } = await dataCollector(
 		{ query: deleteQuery },

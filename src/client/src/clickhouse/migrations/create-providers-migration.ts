@@ -12,6 +12,7 @@ import {
 	OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME,
 } from "@/lib/platform/openground/table-details";
 import { DEFAULT_MODELS_BY_PROVIDER } from "@/lib/platform/providers/default-models";
+import { consoleLog } from "@/utils/log";
 
 const MIGRATION_ID = "create-providers-and-provider-models-tables";
 
@@ -114,7 +115,7 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 		`;
 		await dataCollector({ query: copyConfigsQuery }, "exec", dbConfig.id);
 	} catch (e) {
-		console.log("Legacy openground_configs not found or empty — skipping copy");
+		consoleLog("Legacy openground_configs not found or empty — skipping copy");
 	}
 
 	// 4. Copy existing custom models from legacy custom_models -> openlit_provider_models
@@ -135,7 +136,7 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 		`;
 		await dataCollector({ query: copyModelsQuery }, "exec", dbConfig.id);
 	} catch (e) {
-		console.log("Legacy openground_custom_models not found or empty — skipping copy");
+		consoleLog("Legacy openground_custom_models not found or empty — skipping copy");
 	}
 
 	// 5. Seed default models from the static registry.
