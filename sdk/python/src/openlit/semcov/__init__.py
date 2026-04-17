@@ -956,6 +956,83 @@ class SemanticConvention:
     GEN_AI_BROWSER_CONSOLE_LOGS = "gen_ai.browser.console.logs"
     GEN_AI_BROWSER_NETWORK_TIMING = "gen_ai.browser.network.timing"
 
+    # OpenAI Responses API Built-in Tool Tracking
+    OPENAI_RESPONSE_BUILT_IN_TOOLS = "openai.response.built_in_tools"
+    OPENAI_RESPONSE_BUILT_IN_TOOL_COUNT = "openai.response.built_in_tool.count"
+    OPENAI_RESPONSE_WEB_SEARCH_CITATIONS_COUNT = (
+        "openai.response.web_search.citations_count"
+    )
+
+    # Audio Transcription/Translation (STT) Attributes
+    GEN_AI_REQUEST_AUDIO_LANGUAGE = "gen_ai.request.audio.language"
+    GEN_AI_RESPONSE_AUDIO_DURATION = "gen_ai.response.audio.duration"
+    GEN_AI_RESPONSE_AUDIO_TEXT = "gen_ai.response.audio.text"
+
+    # Moderation API Attributes
+    GEN_AI_OPERATION_TYPE_MODERATION = "moderation"
+    GEN_AI_MODERATION_FLAGGED = "gen_ai.moderation.flagged"
+    GEN_AI_MODERATION_CATEGORIES = "gen_ai.moderation.categories"
+    GEN_AI_MODERATION_CATEGORY_SCORES = "gen_ai.moderation.category_scores"
+
+    # Batch API Attributes
+    GEN_AI_OPERATION_TYPE_BATCH = "batch"
+    GEN_AI_OPENAI_BATCH_ID = "gen_ai.openai.batch.id"
+    GEN_AI_OPENAI_BATCH_STATUS = "gen_ai.openai.batch.status"
+    GEN_AI_OPENAI_BATCH_ENDPOINT = "gen_ai.openai.batch.endpoint"
+    GEN_AI_OPENAI_BATCH_INPUT_FILE_ID = "gen_ai.openai.batch.input_file_id"
+    GEN_AI_OPENAI_BATCH_OUTPUT_FILE_ID = "gen_ai.openai.batch.output_file_id"
+    GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_TOTAL = (
+        "gen_ai.openai.batch.request_counts.total"
+    )
+    GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_COMPLETED = (
+        "gen_ai.openai.batch.request_counts.completed"
+    )
+    GEN_AI_OPENAI_BATCH_REQUEST_COUNTS_FAILED = (
+        "gen_ai.openai.batch.request_counts.failed"
+    )
+    GEN_AI_OPENAI_BATCH_MODEL = "gen_ai.openai.batch.model"
+
+    # Fine-tuning API Attributes
+    GEN_AI_OPERATION_TYPE_FINE_TUNING = "fine_tuning"
+    GEN_AI_OPENAI_FINE_TUNING_JOB_ID = "gen_ai.openai.fine_tuning.job_id"
+    GEN_AI_OPENAI_FINE_TUNING_STATUS = "gen_ai.openai.fine_tuning.status"
+    GEN_AI_OPENAI_FINE_TUNING_MODEL = "gen_ai.openai.fine_tuning.model"
+    GEN_AI_OPENAI_FINE_TUNING_FINE_TUNED_MODEL = (
+        "gen_ai.openai.fine_tuning.fine_tuned_model"
+    )
+    GEN_AI_OPENAI_FINE_TUNING_TRAINING_FILE = (
+        "gen_ai.openai.fine_tuning.training_file"
+    )
+    GEN_AI_OPENAI_FINE_TUNING_TRAINED_TOKENS = (
+        "gen_ai.openai.fine_tuning.trained_tokens"
+    )
+    GEN_AI_OPENAI_FINE_TUNING_HYPERPARAMETERS = (
+        "gen_ai.openai.fine_tuning.hyperparameters"
+    )
+
+    # Files API Attributes
+    GEN_AI_OPERATION_TYPE_FILE = "file"
+    GEN_AI_OPENAI_FILE_ID = "gen_ai.openai.file.id"
+    GEN_AI_OPENAI_FILE_FILENAME = "gen_ai.openai.file.filename"
+    GEN_AI_OPENAI_FILE_PURPOSE = "gen_ai.openai.file.purpose"
+    GEN_AI_OPENAI_FILE_BYTES = "gen_ai.openai.file.bytes"
+
+    # Video/Sora API Attributes
+    GEN_AI_OPERATION_TYPE_VIDEO = "video"
+    GEN_AI_OPENAI_VIDEO_ID = "gen_ai.openai.video.id"
+    GEN_AI_OPENAI_VIDEO_STATUS = "gen_ai.openai.video.status"
+    GEN_AI_OPENAI_VIDEO_MODEL = "gen_ai.openai.video.model"
+    GEN_AI_OPENAI_VIDEO_SIZE = "gen_ai.openai.video.size"
+    GEN_AI_OPENAI_VIDEO_SECONDS = "gen_ai.openai.video.seconds"
+
+    # Realtime API Attributes
+    GEN_AI_OPERATION_TYPE_REALTIME = "realtime"
+    GEN_AI_OPENAI_REALTIME_SESSION_ID = "gen_ai.openai.realtime.session_id"
+
+    # Conversations API Attributes
+    GEN_AI_OPERATION_TYPE_CONVERSATION = "conversation"
+    GEN_AI_OPENAI_CONVERSATION_ID = "gen_ai.openai.conversation.id"
+
     # Guard
     GUARD_REQUESTS = "guard.requests"
     GUARD_VERDICT = "guard.verdict"
