@@ -9,8 +9,6 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
-
-logger = logging.getLogger(__name__)
 from openlit.instrumentation.openai.openai import (
     chat_completions,
     embedding,
@@ -113,6 +111,8 @@ from openlit.instrumentation.openai.async_openai import (
 )
 
 _instruments = ("openai >= 1.92.0",)
+
+logger = logging.getLogger(__name__)
 
 
 def _standard_args(
