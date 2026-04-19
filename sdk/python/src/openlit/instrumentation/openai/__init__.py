@@ -1,5 +1,6 @@
 """Initializer of Auto Instrumentation of OpenAI Functions"""
 
+import logging
 from typing import Collection
 import importlib.metadata
 from opentelemetry import _logs
@@ -8,6 +9,8 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
+
+logger = logging.getLogger(__name__)
 from openlit.instrumentation.openai.openai import (
     chat_completions,
     embedding,
@@ -57,7 +60,6 @@ from openlit.instrumentation.openai.openai import (
     conversation_item_list,
     conversation_item_retrieve,
     conversation_item_delete,
-    realtime_session_create,
 )
 from openlit.instrumentation.openai.async_openai import (
     async_chat_completions,
@@ -108,7 +110,6 @@ from openlit.instrumentation.openai.async_openai import (
     async_conversation_item_list,
     async_conversation_item_retrieve,
     async_conversation_item_delete,
-    async_realtime_session_create,
 )
 
 _instruments = ("openai >= 1.92.0",)
@@ -137,6 +138,14 @@ def _standard_args(
         disable_metrics,
         event_provider,
     )
+
+
+def _safe_wrap(module, class_method, wrapper):
+    """Wrap a function, silently skipping if the module doesn't exist in this SDK version."""
+    try:
+        wrap_function_wrapper(module, class_method, wrapper)
+    except ModuleNotFoundError:
+        logger.debug("Skipping %s.%s — module not in this openai version", module, class_method)
 
 
 class OpenAIInstrumentor(BaseInstrumentor):
@@ -206,49 +215,49 @@ class OpenAIInstrumentor(BaseInstrumentor):
             async_responses(*sa),
         )
 
-        # responses retrieve
-        wrap_function_wrapper(
+        # responses retrieve (may not exist in older SDK versions)
+        _safe_wrap(
             "openai.resources.responses.responses",
             "Responses.retrieve",
             responses_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.responses.responses",
             "AsyncResponses.retrieve",
             async_responses_retrieve(*sa),
         )
 
-        # responses cancel
-        wrap_function_wrapper(
+        # responses cancel (may not exist in older SDK versions)
+        _safe_wrap(
             "openai.resources.responses.responses",
             "Responses.cancel",
             responses_cancel(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.responses.responses",
             "AsyncResponses.cancel",
             async_responses_cancel(*sa),
         )
 
-        # responses input tokens count
-        wrap_function_wrapper(
+        # responses input tokens count (may not exist in older SDK versions)
+        _safe_wrap(
             "openai.resources.responses.input_tokens",
             "InputTokens.count",
             responses_token_count(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.responses.input_tokens",
             "AsyncInputTokens.count",
             async_responses_token_count(*sa),
         )
 
-        # chat messages list
-        wrap_function_wrapper(
+        # chat messages list (may not exist in older SDK versions)
+        _safe_wrap(
             "openai.resources.chat.completions.messages",
             "Messages.list",
             chat_messages_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.chat.completions.messages",
             "AsyncMessages.list",
             async_chat_messages_list(*sa),
@@ -339,372 +348,361 @@ class OpenAIInstrumentor(BaseInstrumentor):
         )
 
         # moderations
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.moderations",
             "Moderations.create",
             moderation(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.moderations",
             "AsyncModerations.create",
             async_moderation(*sa),
         )
 
         # batch API
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "Batches.create",
             batch_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "AsyncBatches.create",
             async_batch_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "Batches.retrieve",
             batch_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "AsyncBatches.retrieve",
             async_batch_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "Batches.list",
             batch_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "AsyncBatches.list",
             async_batch_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "Batches.cancel",
             batch_cancel(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.batches",
             "AsyncBatches.cancel",
             async_batch_cancel(*sa),
         )
 
         # fine-tuning jobs
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "Jobs.create",
             fine_tuning_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "AsyncJobs.create",
             async_fine_tuning_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "Jobs.retrieve",
             fine_tuning_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "AsyncJobs.retrieve",
             async_fine_tuning_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "Jobs.list",
             fine_tuning_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "AsyncJobs.list",
             async_fine_tuning_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "Jobs.cancel",
             fine_tuning_cancel(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.fine_tuning.jobs.jobs",
             "AsyncJobs.cancel",
             async_fine_tuning_cancel(*sa),
         )
 
         # vector stores
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.create",
             vector_store_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.create",
             async_vector_store_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.retrieve",
             vector_store_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.retrieve",
             async_vector_store_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.update",
             vector_store_update(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.update",
             async_vector_store_update(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.delete",
             vector_store_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.delete",
             async_vector_store_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.list",
             vector_store_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.list",
             async_vector_store_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "VectorStores.search",
             vector_store_search(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.vector_stores.vector_stores",
             "AsyncVectorStores.search",
             async_vector_store_search(*sa),
         )
 
         # files API
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "Files.create",
             file_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "AsyncFiles.create",
             async_file_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "Files.retrieve",
             file_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "AsyncFiles.retrieve",
             async_file_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "Files.delete",
             file_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "AsyncFiles.delete",
             async_file_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "Files.content",
             file_content(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.files",
             "AsyncFiles.content",
             async_file_content(*sa),
         )
 
         # video / sora API
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.create",
             video_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.create",
             async_video_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.retrieve",
             video_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.retrieve",
             async_video_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.list",
             video_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.list",
             async_video_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.delete",
             video_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.delete",
             async_video_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.edit",
             video_edit_op(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.edit",
             async_video_edit_op(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.extend",
             video_extend(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.extend",
             async_video_extend(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "Videos.remix",
             video_remix(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.videos",
             "AsyncVideos.remix",
             async_video_remix(*sa),
         )
 
         # conversations API
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "Conversations.create",
             conversation_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "AsyncConversations.create",
             async_conversation_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "Conversations.retrieve",
             conversation_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "AsyncConversations.retrieve",
             async_conversation_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "Conversations.update",
             conversation_update(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "AsyncConversations.update",
             async_conversation_update(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "Conversations.delete",
             conversation_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.conversations",
             "AsyncConversations.delete",
             async_conversation_delete(*sa),
         )
 
         # conversation items
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "Items.create",
             conversation_item_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "AsyncItems.create",
             async_conversation_item_create(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "Items.list",
             conversation_item_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "AsyncItems.list",
             async_conversation_item_list(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "Items.retrieve",
             conversation_item_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "AsyncItems.retrieve",
             async_conversation_item_retrieve(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "Items.delete",
             conversation_item_delete(*sa),
         )
-        wrap_function_wrapper(
+        _safe_wrap(
             "openai.resources.conversations.items",
             "AsyncItems.delete",
             async_conversation_item_delete(*sa),
         )
 
-        # realtime API
-        wrap_function_wrapper(
-            "openai.resources.realtime.sessions",
-            "Sessions.create",
-            realtime_session_create(*sa),
-        )
-        wrap_function_wrapper(
-            "openai.resources.realtime.sessions",
-            "AsyncSessions.create",
-            async_realtime_session_create(*sa),
-        )
 
     def _uninstrument(self, **kwargs):
         pass
