@@ -145,7 +145,9 @@ def _safe_wrap(module, class_method, wrapper):
     try:
         wrap_function_wrapper(module, class_method, wrapper)
     except ModuleNotFoundError:
-        logger.debug("Skipping %s.%s — module not in this openai version", module, class_method)
+        logger.debug(
+            "Skipping %s.%s — module not in this openai version", module, class_method
+        )
 
 
 class OpenAIInstrumentor(BaseInstrumentor):
@@ -702,7 +704,6 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "AsyncItems.delete",
             async_conversation_item_delete(*sa),
         )
-
 
     def _uninstrument(self, **kwargs):
         pass
