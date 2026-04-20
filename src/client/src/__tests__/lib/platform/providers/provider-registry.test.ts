@@ -93,11 +93,12 @@ describe('ProviderRegistry', () => {
       expect(providers).toEqual([]);
     });
 
-    it('handles DB errors gracefully', async () => {
-      (dataCollector as jest.Mock).mockRejectedValue(new Error('DB down'));
+    it('propagates DB errors to the caller', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ err: 'connection refused' });
 
-      const providers = await ProviderRegistry.getAvailableProviders('db-1');
-      expect(providers).toEqual([]);
+      await expect(
+        ProviderRegistry.getAvailableProviders('db-1')
+      ).rejects.toThrow('Failed to load provider metadata');
     });
   });
 
@@ -114,10 +115,18 @@ describe('ProviderRegistry', () => {
     });
 
     it('returns null when provider not found in DB', async () => {
-      (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [] });
+      (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
 
       const provider = await ProviderRegistry.getProviderById('nonexistent', 'db-1');
       expect(provider).toBeNull();
+    });
+
+    it('propagates DB errors', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ err: 'query failed' });
+
+      await expect(
+        ProviderRegistry.getProviderById('openai', 'db-1')
+      ).rejects.toThrow('Failed to load provider openai');
     });
   });
 

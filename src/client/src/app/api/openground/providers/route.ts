@@ -12,7 +12,10 @@ import {
 	searchProvidersWithCustomModels,
 } from "@/lib/platform/providers/provider-service";
 import { dataCollector } from "@/lib/platform/common";
-import { OPENLIT_PROVIDER_METADATA_TABLE_NAME } from "@/lib/platform/providers/table-details";
+import {
+	OPENLIT_PROVIDER_METADATA_TABLE_NAME,
+	OPENLIT_PROVIDER_MODELS_TABLE_NAME,
+} from "@/lib/platform/providers/table-details";
 
 /**
  * GET /api/openground/providers
@@ -189,7 +192,12 @@ export async function POST(request: NextRequest) {
 
 /**
  * PUT /api/openground/providers
- * Update an existing provider's metadata
+ * Update an existing provider's metadata.
+ *
+ * Since the table uses ReplacingMergeTree, we INSERT a new row with the same
+ * provider_id — the engine deduplicates by primary key, keeping the row with
+ * the latest updated_at. This avoids string-interpolated ALTER TABLE UPDATE
+ * and the SQL injection surface that comes with it.
  */
 export async function PUT(request: NextRequest) {
 	try {
@@ -219,28 +227,48 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
-		const updateFields: string[] = [];
-		if (displayName !== undefined) {
-			updateFields.push(`display_name = '${Sanitizer.sanitizeValue(displayName)}'`);
-		}
-		if (description !== undefined) {
-			updateFields.push(`description = '${Sanitizer.sanitizeValue(description)}'`);
-		}
-		if (requiresVault !== undefined) {
-			updateFields.push(`requires_vault = ${!!requiresVault}`);
-		}
-		if (configSchema !== undefined) {
-			updateFields.push(`config_schema = '${Sanitizer.sanitizeValue(JSON.stringify(configSchema))}'`);
-		}
-		updateFields.push(`updated_at = now()`);
-
-		const query = `
-			ALTER TABLE ${OPENLIT_PROVIDER_METADATA_TABLE_NAME}
-			UPDATE ${updateFields.join(", ")}
+		// Fetch the existing row so we can merge unchanged fields
+		const existingQuery = `
+			SELECT provider_id, display_name, description, requires_vault, config_schema, is_default
+			FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
 			WHERE provider_id = '${Sanitizer.sanitizeValue(providerId)}'
+			LIMIT 1
 		`;
+		const { data: existingRows } = await dataCollector(
+			{ query: existingQuery },
+			"query",
+			dbConfig.id
+		);
 
-		const { err } = await dataCollector({ query }, "exec", dbConfig.id);
+		const existing = (existingRows as any[])?.[0];
+		if (!existing) {
+			return NextResponse.json(
+				{ error: "Provider not found" },
+				{ status: 404 }
+			);
+		}
+
+		// INSERT a new row — ReplacingMergeTree deduplicates by provider_id
+		const { err } = await dataCollector(
+			{
+				table: OPENLIT_PROVIDER_METADATA_TABLE_NAME,
+				values: [
+					{
+						provider_id: providerId,
+						display_name: displayName ?? existing.display_name,
+						description: description ?? existing.description,
+						requires_vault: requiresVault ?? existing.requires_vault,
+						config_schema:
+							configSchema !== undefined
+								? JSON.stringify(configSchema)
+								: existing.config_schema,
+						is_default: existing.is_default,
+					},
+				],
+			},
+			"insert",
+			dbConfig.id
+		);
 
 		if (err) {
 			return NextResponse.json(
@@ -304,7 +332,7 @@ export async function DELETE(request: NextRequest) {
 			),
 			dataCollector(
 				{
-					query: `DELETE FROM openlit_provider_models WHERE provider = '${sanitizedId}'`,
+					query: `DELETE FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME} WHERE provider = '${sanitizedId}'`,
 				},
 				"exec",
 				dbConfig.id

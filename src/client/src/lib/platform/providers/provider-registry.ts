@@ -36,125 +36,82 @@ function parseProviderRow(row: ProviderMetadataRow): Omit<ProviderMetadata, "sup
 
 /**
  * Load all provider metadata rows from ClickHouse.
+ *
+ * Errors are intentionally NOT caught — they propagate to the caller so the
+ * API can respond with a 5xx instead of silently returning an empty list.
  */
 async function loadAllProvidersFromDb(
 	databaseConfigId: string
 ): Promise<Omit<ProviderMetadata, "supportedModels">[]> {
-	try {
-		const query = `
-			SELECT
-				provider_id,
-				display_name,
-				description,
-				requires_vault,
-				config_schema,
-				is_default
-			FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
-			ORDER BY is_default DESC, display_name ASC
-		`;
+	const query = `
+		SELECT
+			provider_id,
+			display_name,
+			description,
+			requires_vault,
+			config_schema,
+			is_default
+		FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
+		ORDER BY is_default DESC, display_name ASC
+	`;
 
-		const { data } = await dataCollector({ query }, "query", databaseConfigId);
-		return ((data as ProviderMetadataRow[]) || []).map(parseProviderRow);
-	} catch (error) {
-		console.error("Error loading provider metadata:", error);
-		return [];
-	}
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	if (err) throw new Error(`Failed to load provider metadata: ${err}`);
+	return ((data as ProviderMetadataRow[]) || []).map(parseProviderRow);
 }
 
 async function loadProviderFromDb(
 	providerId: string,
 	databaseConfigId: string
 ): Promise<Omit<ProviderMetadata, "supportedModels"> | null> {
-	try {
-		const query = `
-			SELECT
-				provider_id,
-				display_name,
-				description,
-				requires_vault,
-				config_schema,
-				is_default
-			FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
-			WHERE provider_id = '${Sanitizer.sanitizeValue(providerId)}'
-			LIMIT 1
-		`;
+	const query = `
+		SELECT
+			provider_id,
+			display_name,
+			description,
+			requires_vault,
+			config_schema,
+			is_default
+		FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
+		WHERE provider_id = '${Sanitizer.sanitizeValue(providerId)}'
+		LIMIT 1
+	`;
 
-		const { data } = await dataCollector({ query }, "query", databaseConfigId);
-		const rows = (data as ProviderMetadataRow[]) || [];
-		return rows.length > 0 ? parseProviderRow(rows[0]) : null;
-	} catch (error) {
-		console.error("Error loading provider:", providerId, error);
-		return null;
-	}
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	if (err) throw new Error(`Failed to load provider ${providerId}: ${err}`);
+	const rows = (data as ProviderMetadataRow[]) || [];
+	return rows.length > 0 ? parseProviderRow(rows[0]) : null;
 }
 
 /**
- * Load all models for a database config from openlit_provider_models,
- * grouped by providerId.
+ * Load all models grouped by provider. Errors propagate.
  */
 async function loadAllModelsFromDb(
 	databaseConfigId: string
 ): Promise<Record<string, ModelMetadata[]>> {
-	try {
-		const query = `
-			SELECT
-				provider,
-				model_id as id,
-				display_name as displayName,
-				model_type as modelType,
-				context_window as contextWindow,
-				input_price_per_m_token as inputPricePerMToken,
-				output_price_per_m_token as outputPricePerMToken,
-				capabilities
-			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
-			ORDER BY provider, is_default DESC, created_at DESC
-		`;
+	const query = `
+		SELECT
+			provider,
+			model_id as id,
+			display_name as displayName,
+			model_type as modelType,
+			context_window as contextWindow,
+			input_price_per_m_token as inputPricePerMToken,
+			output_price_per_m_token as outputPricePerMToken,
+			capabilities
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		ORDER BY provider, is_default DESC, created_at DESC
+	`;
 
-		const { data } = await dataCollector({ query }, "query", databaseConfigId);
-		const rows = (data as any[]) || [];
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	if (err) throw new Error(`Failed to load provider models: ${err}`);
+	const rows = (data as any[]) || [];
 
-		const grouped: Record<string, ModelMetadata[]> = {};
-		for (const row of rows) {
-			const provider = row.provider;
-			if (!grouped[provider]) grouped[provider] = [];
-			grouped[provider].push({
-				id: row.id,
-				displayName: row.displayName,
-				modelType: row.modelType,
-				contextWindow: Number(row.contextWindow) || 0,
-				inputPricePerMToken: Number(row.inputPricePerMToken) || 0,
-				outputPricePerMToken: Number(row.outputPricePerMToken) || 0,
-				capabilities: row.capabilities || [],
-			});
-		}
-		return grouped;
-	} catch (error) {
-		console.error("Error loading provider models:", error);
-		return {};
-	}
-}
-
-async function loadProviderModelsFromDb(
-	providerId: string,
-	databaseConfigId: string
-): Promise<ModelMetadata[]> {
-	try {
-		const query = `
-			SELECT
-				model_id as id,
-				display_name as displayName,
-				model_type as modelType,
-				context_window as contextWindow,
-				input_price_per_m_token as inputPricePerMToken,
-				output_price_per_m_token as outputPricePerMToken,
-				capabilities
-			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
-			WHERE provider = '${Sanitizer.sanitizeValue(providerId)}'
-			ORDER BY is_default DESC, created_at DESC
-		`;
-
-		const { data } = await dataCollector({ query }, "query", databaseConfigId);
-		return ((data as any[]) || []).map((row) => ({
+	const grouped: Record<string, ModelMetadata[]> = {};
+	for (const row of rows) {
+		const provider = row.provider;
+		if (!grouped[provider]) grouped[provider] = [];
+		grouped[provider].push({
 			id: row.id,
 			displayName: row.displayName,
 			modelType: row.modelType,
@@ -162,11 +119,40 @@ async function loadProviderModelsFromDb(
 			inputPricePerMToken: Number(row.inputPricePerMToken) || 0,
 			outputPricePerMToken: Number(row.outputPricePerMToken) || 0,
 			capabilities: row.capabilities || [],
-		}));
-	} catch (error) {
-		console.error("Error loading provider models for", providerId, error);
-		return [];
+		});
 	}
+	return grouped;
+}
+
+async function loadProviderModelsFromDb(
+	providerId: string,
+	databaseConfigId: string
+): Promise<ModelMetadata[]> {
+	const query = `
+		SELECT
+			model_id as id,
+			display_name as displayName,
+			model_type as modelType,
+			context_window as contextWindow,
+			input_price_per_m_token as inputPricePerMToken,
+			output_price_per_m_token as outputPricePerMToken,
+			capabilities
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(providerId)}'
+		ORDER BY is_default DESC, created_at DESC
+	`;
+
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	if (err) throw new Error(`Failed to load models for provider ${providerId}: ${err}`);
+	return ((data as any[]) || []).map((row) => ({
+		id: row.id,
+		displayName: row.displayName,
+		modelType: row.modelType,
+		contextWindow: Number(row.contextWindow) || 0,
+		inputPricePerMToken: Number(row.inputPricePerMToken) || 0,
+		outputPricePerMToken: Number(row.outputPricePerMToken) || 0,
+		capabilities: row.capabilities || [],
+	}));
 }
 
 export class ProviderRegistry {
