@@ -8,6 +8,29 @@ import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { escapeStringValue } from "@/helpers/server/sql-sanitize";
+
+/**
+ * Sanitize a sorting direction to prevent SQL injection.
+ * Only allows "ASC" or "DESC" (case-insensitive), defaults to "DESC".
+ */
+function sanitizeSortDirection(direction: string): string {
+	const upper = direction.toUpperCase();
+	return upper === "ASC" || upper === "DESC" ? upper : "DESC";
+}
+
+/**
+ * Sanitize a sorting column/type to prevent SQL injection.
+ * Only allows characters valid in ClickHouse column identifiers and
+ * SpanAttributes['...'] accessor patterns. Falls back to "Timestamp"
+ * if the sanitized result is empty.
+ */
+function sanitizeSortType(type: string): string {
+	// Strip any character that isn't alphanumeric, dot, underscore,
+	// single quote, or square bracket — the set needed for column names
+	// and SpanAttributes['gen_ai.usage.cost'] patterns.
+	return type.replace(/[^A-Za-z0-9_.'[\]]/g, "") || "Timestamp";
+}
 
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
@@ -162,14 +185,21 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const safeDirection = params.sorting
+		? sanitizeSortDirection(params.sorting.direction)
+		: "DESC";
+	const safeType = params.sorting
+		? sanitizeSortType(params.sorting.type)
+		: "Timestamp";
+
+	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getFilterWhereCondition(params, true)}
 		${params.sorting
-			? params.sorting.type.includes("cost")
-				? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
-				: params.sorting.type.includes("tokens")
-					? `ORDER BY toInt32OrZero(${params.sorting.type}) ${params.sorting.direction} `
-					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
+			? safeType.includes("cost")
+				? `ORDER BY toFloat64OrZero(${safeType}) ${safeDirection} `
+				: safeType.includes("tokens")
+					? `ORDER BY toInt32OrZero(${safeType}) ${safeDirection} `
+					: `ORDER BY ${safeType} ${safeDirection} `
 			: `ORDER BY Timestamp desc `
 		}
 		LIMIT ${limit}
@@ -184,8 +214,9 @@ export async function getRequests(params: MetricParams) {
 }
 
 export async function getRequestViaSpanId(spanId: string) {
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE SpanId='${spanId}'`;
+	const safeSpanId = escapeStringValue(spanId);
+	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE SpanId='${safeSpanId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -195,9 +226,10 @@ export async function getRequestViaSpanId(spanId: string) {
 }
 
 export async function getRequestViaTraceId(traceId: string) {
+	const safeTraceId = escapeStringValue(traceId);
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
-	)}='${traceId}'`;
+	)}='${safeTraceId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -207,11 +239,12 @@ export async function getRequestViaTraceId(traceId: string) {
 }
 
 export async function getHeirarchyViaSpanId(spanId: string) {
+	const safeSpanId = escapeStringValue(spanId);
 	// Step 1: Get the TraceId for this span
 	const traceIdQuery = `
 		SELECT ${getTraceMappingKeyFullPath("id")}
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE SpanId = '${spanId}'
+		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
 	const { data: traceIdData, err: traceIdErr } = await dataCollector({
@@ -229,6 +262,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		return { err: "TraceId not found for span", record: {} };
 	}
 
+	const safeTraceId = escapeStringValue(traceId);
 	// Step 2: Fetch ALL spans belonging to this trace (include SpanAttributes for chat view)
 	const allSpansQuery = `
 		SELECT
@@ -242,7 +276,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			StatusCode,
 			SpanAttributes
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
+		WHERE ${getTraceMappingKeyFullPath("id")} = '${safeTraceId}'
 		ORDER BY Timestamp ASC`;
 
 	const { data: allSpans, err: allSpansErr } = await dataCollector({
