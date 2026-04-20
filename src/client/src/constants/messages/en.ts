@@ -280,6 +280,23 @@ export const MANAGE_MODELS_SDK_USAGE_NOTE =
 export const COPY = "Copy";
 export const MANAGE_MODELS_INVALID_JSON = "Invalid JSON";
 
+// Provider management
+export const MANAGE_PROVIDERS_ADD = "Add Provider";
+export const MANAGE_PROVIDERS_EDIT = "Edit Provider";
+export const MANAGE_PROVIDERS_DELETE = "Delete Provider";
+export const MANAGE_PROVIDERS_DELETE_CONFIRM =
+	"This will delete the provider and all its models. Are you sure?";
+export const MANAGE_PROVIDERS_SAVED = "Provider saved";
+export const MANAGE_PROVIDERS_DELETED = "Provider deleted";
+export const MANAGE_PROVIDERS_SAVE_FAILED = "Failed to save provider";
+export const MANAGE_PROVIDERS_DELETE_FAILED = "Failed to delete provider";
+export const MANAGE_PROVIDERS_ID_LABEL = "Provider ID";
+export const MANAGE_PROVIDERS_ID_HINT =
+	"Lowercase identifier (e.g. my-provider). Must match what the SDK sends in gen_ai.system.";
+export const MANAGE_PROVIDERS_DISPLAY_NAME = "Display Name";
+export const MANAGE_PROVIDERS_DESCRIPTION = "Description";
+export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
+
 // Pricing
 export const PRICING_TITLE = "Pricing";
 export const PRICING_PAGE_DESCRIPTION =

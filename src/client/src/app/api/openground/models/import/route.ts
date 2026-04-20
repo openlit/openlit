@@ -4,7 +4,10 @@ import { authOptions } from "@/app/auth";
 import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
-import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
+import {
+	OPENLIT_PROVIDER_MODELS_TABLE_NAME,
+	OPENLIT_PROVIDER_METADATA_TABLE_NAME,
+} from "@/lib/platform/providers/table-details";
 import asaw from "@/utils/asaw";
 
 interface SessionWithId {
@@ -126,62 +129,106 @@ export async function POST(request: NextRequest) {
 		}
 	}
 
-	if (modelsToImport.length === 0) {
+	// --- Import providers if present ---
+	let providersImported = 0;
+	let providersSkipped = 0;
+
+	if (Array.isArray(body.providers) && body.providers.length > 0) {
+		const { data: existingProviders } = await dataCollector(
+			{
+				query: `SELECT provider_id FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL`,
+			},
+			"query",
+			dbConfig.id
+		);
+
+		const existingProviderIds = new Set(
+			((existingProviders as any[]) || []).map((r: any) => r.provider_id)
+		);
+
+		const providersToInsert = body.providers
+			.filter((p: any) => p.providerId && !existingProviderIds.has(p.providerId))
+			.map((p: any) => ({
+				provider_id: p.providerId,
+				display_name: p.displayName || p.providerId,
+				description: p.description || "",
+				requires_vault: p.requiresVault ?? true,
+				config_schema: JSON.stringify(p.configSchema || {}),
+				is_default: false,
+			}));
+
+		providersSkipped = body.providers.length - providersToInsert.length;
+
+		if (providersToInsert.length > 0) {
+			await dataCollector(
+				{
+					table: OPENLIT_PROVIDER_METADATA_TABLE_NAME,
+					values: providersToInsert,
+				},
+				"insert",
+				dbConfig.id
+			);
+			providersImported = providersToInsert.length;
+		}
+	}
+
+	// --- Import models ---
+	if (modelsToImport.length === 0 && providersImported === 0 && providersSkipped === 0) {
 		return NextResponse.json(
-			{ error: "No models to import. Provide a 'models' array or SDK pricing_json format." },
+			{ error: "No models or providers to import." },
 			{ status: 400 }
 		);
 	}
 
-	// Fetch existing models to skip duplicates
-	const existingQuery = `
-		SELECT provider, model_id
-		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
-	`;
-	const { data: existingRows } = await dataCollector(
-		{ query: existingQuery },
-		"query",
-		dbConfig.id
-	);
+	let modelsImported = 0;
+	let modelsSkipped = 0;
 
-	const existingKeys = new Set(
-		((existingRows as any[]) || []).map((r: any) => `${r.provider}::${r.model_id}`)
-	);
-
-	const toInsert = modelsToImport.filter(
-		(m) => !existingKeys.has(`${m.provider}::${m.model_id}`)
-	);
-
-	const skipped = modelsToImport.length - toInsert.length;
-
-	if (toInsert.length === 0) {
-		return NextResponse.json({
-			success: true,
-			imported: 0,
-			skipped,
-			message: "All models already exist",
-		});
-	}
-
-	const { err } = await dataCollector(
-		{
-			table: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
-			values: toInsert,
-		},
-		"insert",
-		dbConfig.id
-	);
-
-	if (err) {
-		return NextResponse.json(
-			{ error: err || getMessage().OPERATION_FAILED },
-			{ status: 500 }
+	if (modelsToImport.length > 0) {
+		const { data: existingRows } = await dataCollector(
+			{
+				query: `SELECT provider, model_id FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}`,
+			},
+			"query",
+			dbConfig.id
 		);
+
+		const existingKeys = new Set(
+			((existingRows as any[]) || []).map(
+				(r: any) => `${r.provider}::${r.model_id}`
+			)
+		);
+
+		const toInsert = modelsToImport.filter(
+			(m) => !existingKeys.has(`${m.provider}::${m.model_id}`)
+		);
+
+		modelsSkipped = modelsToImport.length - toInsert.length;
+
+		if (toInsert.length > 0) {
+			const { err } = await dataCollector(
+				{
+					table: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
+					values: toInsert,
+				},
+				"insert",
+				dbConfig.id
+			);
+
+			if (err) {
+				return NextResponse.json(
+					{ error: err || getMessage().OPERATION_FAILED },
+					{ status: 500 }
+				);
+			}
+			modelsImported = toInsert.length;
+		}
 	}
 
 	return NextResponse.json({
 		success: true,
-		imported: toInsert.length,
-		skipped,
+		imported: modelsImported,
+		skipped: modelsSkipped,
+		providersImported,
+		providersSkipped,
 	});
 }

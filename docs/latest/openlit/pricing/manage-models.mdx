@@ -29,7 +29,27 @@ Every ClickHouse database connected to OpenLIT automatically gets a pre-populate
 | Hugging Face | Llama 3 70B, Mistral 7B, Gemma 2 9B |
 | Replicate | Llama 3 70B, Llama 3 8B, Mixtral 8x7B |
 
-## Get started
+## Managing providers
+
+Providers (e.g. OpenAI, Anthropic) are the top-level grouping for models. OpenLIT ships with 14 built-in providers, but you can add your own or edit any existing one.
+
+<Steps>
+  <Step title="Add a new provider">
+    Click the **Add Provider** button (`+` icon) in the header toolbar. Fill in:
+    - **Provider ID** — a lowercase slug (e.g. `my-llm`). As you type, special characters are automatically replaced with hyphens. This must match the value your SDK sends in `gen_ai.system`.
+    - **Display Name** — the label shown in the UI (e.g. "My LLM").
+    - **Description** — optional, shown in provider lists.
+    - **Requires API Key** — toggle on if the provider needs a Vault secret.
+  </Step>
+  <Step title="Edit an existing provider">
+    Hover over a provider name in the sidebar and click the pencil icon. You can change the display name, description, and vault requirement. The Provider ID cannot be changed after creation.
+  </Step>
+  <Step title="Delete a provider">
+    Use the `DELETE /api/openground/providers?provider=<id>` API endpoint. This removes the provider **and all its models**.
+  </Step>
+</Steps>
+
+## Managing models
 
 <Steps>
   <Step title="Open Manage Models">
@@ -141,9 +161,9 @@ The URL contains your database config ID. While the endpoint only returns pricin
 The SDK fetches this URL on startup. If you update a model's price in Manage Models, restart your app (or wait for the SDK's refresh interval) to pick up the new pricing.
 </Note>
 
-## Import pricing JSON
+## Import providers and models
 
-You can bulk-import models from a JSON file. This is useful for syncing pricing across environments or importing from a colleague's export.
+You can bulk-import providers and models from a JSON file. This is useful for syncing across environments, sharing setups with teammates, or adding a custom provider with all its models in one step.
 
 <Steps>
   <Step title="Open the import dialog">
@@ -152,7 +172,29 @@ You can bulk-import models from a JSON file. This is useful for syncing pricing 
   <Step title="Paste JSON">
     Paste either the **structured format** or the **SDK pricing_json format**.
 
-    **Structured format** (recommended — includes provider and metadata):
+    **Structured format with providers + models** (recommended):
+    ```json
+    {
+      "providers": [
+        {
+          "providerId": "my-provider",
+          "displayName": "My Provider",
+          "description": "Custom LLM provider"
+        }
+      ],
+      "models": [
+        {
+          "provider": "my-provider",
+          "model_id": "my-model-v1",
+          "displayName": "My Model v1",
+          "inputPricePerMToken": 2.5,
+          "outputPricePerMToken": 10
+        }
+      ]
+    }
+    ```
+
+    **Models only** (provider must already exist):
     ```json
     {
       "models": [
@@ -177,15 +219,33 @@ You can bulk-import models from a JSON file. This is useful for syncing pricing 
     ```
   </Step>
   <Step title="Import">
-    Click **Import Pricing JSON**. Models that already exist (same `provider` + `model_id`) are automatically **skipped** — no duplicates are created.
+    Click **Import Pricing JSON**. Providers and models that already exist are automatically **skipped** — no duplicates are created. The response shows counts for both:
+    - `imported` / `skipped` — models
+    - `providersImported` / `providersSkipped` — providers
   </Step>
 </Steps>
 
 **Endpoint:** `POST /api/openground/models/import` (authenticated)
 
+## API reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/openground/providers` | `GET` | List all providers with models |
+| `/api/openground/providers` | `POST` | Create a new provider |
+| `/api/openground/providers` | `PUT` | Update a provider's metadata |
+| `/api/openground/providers?provider=<id>` | `DELETE` | Delete a provider and all its models |
+| `/api/openground/models` | `GET` | List all models |
+| `/api/openground/models` | `POST` | Create or update a model |
+| `/api/openground/models` | `DELETE` | Delete a model |
+| `/api/openground/models/import` | `POST` | Bulk import providers + models from JSON |
+| `/api/openground/models/export` | `GET` | Export pricing as downloadable JSON |
+| `/api/pricing/export/{dbConfigId}` | `GET` | Public pricing URL for SDK (no auth) |
+
 ## Architecture
 
-- **ClickHouse tables**: `openlit_providers` (API key configs) and `openlit_provider_models` (all models with pricing).
-- **No `database_config_id` column** — each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default models.
+- **ClickHouse tables**: `openlit_provider_metadata` (provider definitions), `openlit_providers` (API key configs), and `openlit_provider_models` (all models with pricing).
+- **No `database_config_id` column** — each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default providers and models.
+- **Fully dynamic** — both providers and models are stored in ClickHouse and editable via the UI or API. No hardcoded provider list.
 - **Platform library**: `src/lib/platform/providers/` — `provider-registry.ts`, `models-service.ts`, `config.ts`, `default-models.ts`.
-- **API routes**: `GET/POST/DELETE /api/openground/models`, `GET /api/openground/models/export`, `GET /api/openground/providers`, `POST /api/openground/models/import`, `GET /api/pricing/export/{dbConfigId}` (public).
+- **Seeding**: `default-models.ts` contains the initial 14 providers and 45+ models used only by the migration for first-run seeding.

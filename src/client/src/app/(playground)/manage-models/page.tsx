@@ -11,11 +11,15 @@ import {
 	Copy,
 	Link as LinkIcon,
 	Code2,
+	PlusCircle,
 } from "lucide-react";
 import getMessage from "@/constants/messages";
 import ModelListSidebar from "@/components/(playground)/openground/model-list-sidebar";
 import ModelEditorPanel from "@/components/(playground)/openground/model-editor-panel";
 import SdkUsageDialog from "@/components/(playground)/openground/sdk-usage-dialog";
+import ProviderEditorDialog, {
+	ProviderFormData,
+} from "@/components/(playground)/openground/provider-editor-dialog";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import {
@@ -51,6 +55,8 @@ export default function ManageModelsPage() {
 	const [isAddingNew, setIsAddingNew] = useState(false);
 	const [showImport, setShowImport] = useState(false);
 	const [showSdkUsage, setShowSdkUsage] = useState(false);
+	const [showProviderEditor, setShowProviderEditor] = useState(false);
+	const [editingProvider, setEditingProvider] = useState<ProviderFormData | null>(null);
 	const [importJson, setImportJson] = useState("");
 
 	// Pull the active database config from the zustand store
@@ -120,6 +126,26 @@ export default function ManageModelsPage() {
 		setIsCustomModel(false);
 	};
 
+	const handleAddProvider = () => {
+		setEditingProvider(null);
+		setShowProviderEditor(true);
+	};
+
+	const handleEditProvider = (provider: ProviderMetadata) => {
+		setEditingProvider({
+			providerId: provider.providerId,
+			displayName: provider.displayName,
+			description: provider.description || "",
+			requiresVault: provider.requiresVault,
+		});
+		setShowProviderEditor(true);
+	};
+
+	const handleProviderSaved = () => {
+		loadProviders();
+		loadAllCustomModels();
+	};
+
 	// Build the public pricing URL from the active db config
 	const pricingUrl = dbConfigId
 		? `${typeof window !== "undefined" ? window.location.origin : ""}/api/pricing/export/${dbConfigId}`
@@ -173,8 +199,22 @@ export default function ManageModelsPage() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								variant="outline"
+								size="sm"
+								className="gap-2"
+								onClick={handleAddProvider}
+							>
+								<PlusCircle className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							{m.MANAGE_PROVIDERS_ADD}
+						</TooltipContent>
+					</Tooltip>
 					{pricingUrl && (
-
 						<Tooltip>
 							<TooltipTrigger>
 								<Button
@@ -262,6 +302,7 @@ export default function ManageModelsPage() {
 					selectedIsCustom={isCustomModel}
 					onSelectModel={handleSelectModel}
 					onAddNew={handleAddNew}
+					onEditProvider={handleEditProvider}
 				/>
 
 				<div className="flex-1 overflow-auto bg-stone-50 dark:bg-stone-950">
@@ -315,11 +356,18 @@ export default function ManageModelsPage() {
 					</DialogHeader>
 					<Textarea
 						placeholder={`{
+  "providers": [
+    {
+      "providerId": "my-provider",
+      "displayName": "My Provider",
+      "description": "Custom LLM provider"
+    }
+  ],
   "models": [
     {
-      "provider": "openai",
-      "model_id": "gpt-4o-2024-08-06",
-      "displayName": "GPT-4o (Aug 2024)",
+      "provider": "my-provider",
+      "model_id": "my-model-v1",
+      "displayName": "My Model v1",
       "inputPricePerMToken": 2.5,
       "outputPricePerMToken": 10
     }
@@ -345,6 +393,14 @@ export default function ManageModelsPage() {
 				open={showSdkUsage}
 				onOpenChange={setShowSdkUsage}
 				pricingUrl={pricingUrl}
+			/>
+
+			{/* Provider Editor Dialog */}
+			<ProviderEditorDialog
+				open={showProviderEditor}
+				onOpenChange={setShowProviderEditor}
+				provider={editingProvider}
+				onSaved={handleProviderSaved}
 			/>
 		</div>
 	);

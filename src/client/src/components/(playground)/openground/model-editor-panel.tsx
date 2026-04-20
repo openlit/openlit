@@ -178,7 +178,11 @@ export default function ModelEditorPanel({
 							id="model-id"
 							placeholder="gpt-4o-custom"
 							value={formData.model_id}
-							onChange={(e) => setFormData({ ...formData, model_id: e.target.value })}
+							onChange={(e) => {
+								let v = e.target.value.toLowerCase().replace(/ /g, "-");
+								v = v.replace(/[^a-z0-9-/.]/g, "");
+								setFormData({ ...formData, model_id: v });
+							}}
 							disabled={!isAddingNew}
 						/>
 					</div>
