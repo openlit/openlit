@@ -8,6 +8,7 @@ import CreateOpengroundMigration from "./create-openground-migration";
 import CreateRuleEngineMigration from "./create-rule-engine-migration";
 import CreateChatMigration from "./create-chat-migration";
 import CreateProvidersMigration from "./create-providers-migration";
+import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
 
 export default async function migrations(databaseConfigId?: string) {
@@ -27,6 +28,9 @@ export default async function migrations(databaseConfigId?: string) {
 	// Create new provider/model tables, copy any legacy data, seed defaults
 	await CreateProvidersMigration(databaseConfigId);
 
-	// Drop the legacy openground config + custom-models tables
-	await DropLegacyOpengroundTablesMigration(databaseConfigId);
+	// Create provider metadata table + seed default providers, then drop legacy tables
+	await Promise.all([
+		CreateProviderMetadataMigration(databaseConfigId),
+		DropLegacyOpengroundTablesMigration(databaseConfigId),
+	]);
 }

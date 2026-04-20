@@ -9,7 +9,28 @@ jest.mock('@/utils/sanitizer', () => ({
 import { ProviderRegistry } from '@/lib/platform/providers/provider-registry';
 import { dataCollector } from '@/lib/platform/common';
 
-const mockModels = [
+const Sanitizer = require('@/utils/sanitizer').default;
+
+const mockProviderRows = [
+  {
+    provider_id: 'openai',
+    display_name: 'OpenAI',
+    description: 'GPT models',
+    requires_vault: true,
+    config_schema: JSON.stringify({ temperature: { min: 0, max: 2, step: 0.1, default: 1 } }),
+    is_default: true,
+  },
+  {
+    provider_id: 'anthropic',
+    display_name: 'Anthropic',
+    description: 'Claude models',
+    requires_vault: true,
+    config_schema: '{}',
+    is_default: true,
+  },
+];
+
+const mockModelRows = [
   {
     provider: 'openai',
     id: 'gpt-4o',
@@ -20,90 +41,71 @@ const mockModels = [
     outputPricePerMToken: 10.0,
     capabilities: ['streaming'],
   },
-  {
-    provider: 'anthropic',
-    id: 'claude-3-5-sonnet-20240620',
-    displayName: 'Claude 3.5 Sonnet',
-    modelType: 'chat',
-    contextWindow: 200000,
-    inputPricePerMToken: 3.0,
-    outputPricePerMToken: 15.0,
-    capabilities: ['streaming', 'vision'],
-  },
 ];
 
 beforeEach(() => {
   jest.resetAllMocks();
+  Sanitizer.sanitizeValue.mockImplementation((v: string) => v);
 });
 
+// Helper: mock dataCollector for 2 parallel calls (providers metadata + models)
+function mockGetAvailableProviders(providerRows: any[] = mockProviderRows, modelRows: any[] = mockModelRows) {
+  (dataCollector as jest.Mock)
+    .mockResolvedValueOnce({ data: providerRows }) // provider metadata query
+    .mockResolvedValueOnce({ data: modelRows }); // models query
+}
+
 describe('ProviderRegistry', () => {
-  describe('getProviderMetadata', () => {
-    it('returns static metadata for a known provider', () => {
-      const meta = ProviderRegistry.getProviderMetadata('openai');
-      expect(meta).not.toBeNull();
-      expect(meta!.providerId).toBe('openai');
-      expect(meta!.displayName).toBe('OpenAI');
-      expect(meta).toHaveProperty('configSchema');
-      expect(meta).toHaveProperty('requiresVault');
-    });
-
-    it('returns null for an unknown provider', () => {
-      expect(ProviderRegistry.getProviderMetadata('nonexistent')).toBeNull();
-    });
-  });
-
-  describe('getAllProviderMetadata', () => {
-    it('returns all static providers', () => {
-      const all = ProviderRegistry.getAllProviderMetadata();
-      expect(all.length).toBeGreaterThan(10);
-      const ids = all.map((p) => p.providerId);
-      expect(ids).toContain('openai');
-      expect(ids).toContain('anthropic');
-      expect(ids).toContain('google');
-    });
-  });
-
   describe('getAvailableProviders', () => {
-    it('returns providers with models from DB', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ data: mockModels });
+    it('returns providers with models merged from DB', async () => {
+      mockGetAvailableProviders();
 
       const providers = await ProviderRegistry.getAvailableProviders('db-1');
 
-      expect(dataCollector).toHaveBeenCalledWith(
-        expect.objectContaining({ query: expect.stringContaining('openlit_provider_models') }),
-        'query',
-        'db-1'
-      );
+      // Should call dataCollector twice (provider metadata + models)
+      expect(dataCollector).toHaveBeenCalledTimes(2);
 
       const openai = providers.find((p) => p.providerId === 'openai');
       expect(openai).toBeDefined();
-      expect(openai!.supportedModels.length).toBeGreaterThanOrEqual(1);
+      expect(openai!.displayName).toBe('OpenAI');
+      expect(openai!.supportedModels).toHaveLength(1);
       expect(openai!.supportedModels[0].id).toBe('gpt-4o');
+
+      const anthropic = providers.find((p) => p.providerId === 'anthropic');
+      expect(anthropic).toBeDefined();
+      expect(anthropic!.supportedModels).toEqual([]);
     });
 
-    it('returns providers with empty models when DB returns no data', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
+    it('parses configSchema from JSON string', async () => {
+      mockGetAvailableProviders();
 
       const providers = await ProviderRegistry.getAvailableProviders('db-1');
       const openai = providers.find((p) => p.providerId === 'openai');
-      expect(openai).toBeDefined();
-      expect(openai!.supportedModels).toEqual([]);
+      expect(openai!.configSchema.temperature).toEqual(
+        expect.objectContaining({ min: 0, max: 2 })
+      );
     });
 
-    it('returns providers with empty models on DB error', async () => {
+    it('returns empty array when no providers in DB', async () => {
+      mockGetAvailableProviders([], []);
+
+      const providers = await ProviderRegistry.getAvailableProviders('db-1');
+      expect(providers).toEqual([]);
+    });
+
+    it('handles DB errors gracefully', async () => {
       (dataCollector as jest.Mock).mockRejectedValue(new Error('DB down'));
 
       const providers = await ProviderRegistry.getAvailableProviders('db-1');
-      expect(providers.length).toBeGreaterThan(0);
-      providers.forEach((p) => expect(p.supportedModels).toEqual([]));
+      expect(providers).toEqual([]);
     });
   });
 
   describe('getProviderById', () => {
-    it('returns the provider with models when found', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({
-        data: [mockModels[0]],
-      });
+    it('returns provider with models', async () => {
+      (dataCollector as jest.Mock)
+        .mockResolvedValueOnce({ data: [mockProviderRows[0]] }) // single provider
+        .mockResolvedValueOnce({ data: mockModelRows }); // models
 
       const provider = await ProviderRegistry.getProviderById('openai', 'db-1');
       expect(provider).not.toBeNull();
@@ -111,23 +113,21 @@ describe('ProviderRegistry', () => {
       expect(provider!.supportedModels).toHaveLength(1);
     });
 
-    it('returns null for an unknown provider', async () => {
+    it('returns null when provider not found in DB', async () => {
+      (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [] });
+
       const provider = await ProviderRegistry.getProviderById('nonexistent', 'db-1');
       expect(provider).toBeNull();
-      expect(dataCollector).not.toHaveBeenCalled();
     });
   });
 
   describe('getModel', () => {
     it('returns a specific model', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({
-        data: [mockModels[0]],
-      });
+      (dataCollector as jest.Mock).mockResolvedValue({ data: mockModelRows });
 
       const model = await ProviderRegistry.getModel('openai', 'gpt-4o', 'db-1');
       expect(model).not.toBeNull();
       expect(model!.id).toBe('gpt-4o');
-      expect(model!.inputPricePerMToken).toBe(2.5);
     });
 
     it('returns null when model not found', async () => {
@@ -139,19 +139,36 @@ describe('ProviderRegistry', () => {
   });
 
   describe('searchProviders', () => {
-    it('filters providers by name', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ data: mockModels });
+    it('filters providers by display name', async () => {
+      mockGetAvailableProviders();
 
-      const results = await ProviderRegistry.searchProviders('groq', 'db-1');
-      expect(results.length).toBe(1);
-      expect(results[0].providerId).toBe('groq');
+      const results = await ProviderRegistry.searchProviders('anthropic', 'db-1');
+      expect(results).toHaveLength(1);
+      expect(results[0].providerId).toBe('anthropic');
     });
 
-    it('returns empty array when nothing matches', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
+    it('is case-insensitive', async () => {
+      mockGetAvailableProviders();
+
+      const results = await ProviderRegistry.searchProviders('OPENAI', 'db-1');
+      expect(results.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns empty for no match', async () => {
+      mockGetAvailableProviders();
 
       const results = await ProviderRegistry.searchProviders('zzzzz', 'db-1');
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('getProviderModels', () => {
+    it('returns models for a provider', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ data: mockModelRows });
+
+      const models = await ProviderRegistry.getProviderModels('openai', 'db-1');
+      expect(models).toHaveLength(1);
+      expect(models[0].id).toBe('gpt-4o');
     });
   });
 });

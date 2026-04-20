@@ -27,6 +27,7 @@ interface ModelListSidebarProps {
 	selectedIsCustom: boolean;
 	onSelectModel: (model: ModelMetadata, provider: string, isCustom: boolean) => void;
 	onAddNew: (provider: string) => void;
+	onEditProvider?: (provider: ProviderMetadata) => void;
 }
 
 export default function ModelListSidebar({
@@ -38,6 +39,7 @@ export default function ModelListSidebar({
 	selectedIsCustom,
 	onSelectModel,
 	onAddNew,
+	onEditProvider,
 }: ModelListSidebarProps) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
@@ -116,7 +118,7 @@ export default function ModelListSidebar({
 									{/* Provider Header */}
 									<button
 										onClick={() => toggleProvider(provider.providerId)}
-										className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+										className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors group/provider"
 									>
 										<div className="flex items-center gap-2">
 											{isExpanded ? (
@@ -131,17 +133,32 @@ export default function ModelListSidebar({
 												{totalModels}
 											</Badge>
 										</div>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="h-6 w-6 p-0 text-stone-500"
-											onClick={(e) => {
-												e.stopPropagation();
-												onAddNew(provider.providerId);
-											}}
-										>
-											<PlusIcon className="h-3 w-3" />
-										</Button>
+										<div className="flex items-center gap-0.5">
+											{onEditProvider && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-6 w-6 p-0 text-stone-400 opacity-0 group-hover/provider:opacity-100 transition-opacity"
+													onClick={(e) => {
+														e.stopPropagation();
+														onEditProvider(provider);
+													}}
+												>
+													<PencilIcon className="h-3 w-3" />
+												</Button>
+											)}
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-6 w-6 p-0 text-stone-500"
+												onClick={(e) => {
+													e.stopPropagation();
+													onAddNew(provider.providerId);
+												}}
+											>
+												<PlusIcon className="h-3 w-3" />
+											</Button>
+										</div>
 									</button>
 
 									{/* Models List — all editable */}
