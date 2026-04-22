@@ -32,7 +32,7 @@ Detects and prevents attempts to manipulate AI behavior through malicious inputs
 <Tabs>
   <Tab title="LLM-Based Detection (Python)">
 
-    With LLM-based detection, you can use providers like OpenAI or Anthropic. Alternatively, you can specify a `base_url` with `provider="openai"` to use any provider that is compatible with the OpenAI SDK.
+    With LLM-based detection, you can use providers like OpenAI, Anthropic, or Forge. Alternatively, you can specify a `base_url` with `provider="openai"` to use any provider that is compatible with the OpenAI SDK.
     
     ```python
     import openlit
@@ -50,7 +50,7 @@ Detects and prevents attempts to manipulate AI behavior through malicious inputs
   </Tab>
   <Tab title="LLM-Based Detection (TypeScript)">
 
-    With LLM-based detection, you can use providers like OpenAI or Anthropic. You can also specify a `baseUrl` with `provider: "openai"` to use any provider compatible with the OpenAI SDK.
+    With LLM-based detection, you can use providers like OpenAI, Anthropic, or Forge. You can also specify a `baseUrl` with `provider: "openai"` to use any provider compatible with the OpenAI SDK.
 
     ```typescript
     import openlit from "openlit";
@@ -111,6 +111,10 @@ Detects and prevents attempts to manipulate AI behavior through malicious inputs
     GPT-4o, GPT-4o mini
     </Accordion>
 
+    <Accordion title="Forge">
+    OpenAI-compatible (e.g., OpenAI/gpt-4o-mini)
+    </Accordion>
+
     <Accordion title="Anthropic">
     Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
     </Accordion>
@@ -124,8 +128,8 @@ These parameters are used to set up the `PromptInjection` class:
 
 | Name                | Description                                                                                       | Default Value | Example Value           |
 |---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
+| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. To use Forge, set `FORGE_API_KEY` (and optional `FORGE_API_BASE`) with `provider="openai"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
+| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `FORGE_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
 | `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
 | `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
 | `custom_rules`      | Custom rules for prompt injection detection using regex (optional).                               | `None`        | `[{"pattern": r"assume the role", "classification": "impersonation"}]` |
@@ -171,7 +175,7 @@ These parameters are passed when you call the `detect` method to analyze a speci
 
 2. **Detection Choice**:
    - **Regex Detection**: Uses regex if no provider is specified but custom rules are provided.
-   - **LLM Detection**: Uses an LLM (OpenAI or Anthropic) if a provider is specified.
+   - **LLM Detection**: Uses an LLM (OpenAI, Anthropic, or Forge) if a provider is specified.
 
 3. **Evaluation**:
    - **Regex**: Applies custom rules to find prompt injections.
@@ -210,7 +214,7 @@ Detects and flags discussions on potentially controversial or harmful subjects. 
 <Tabs>
   <Tab title="LLM-Based Detection (Python)">
 
-    With LLM-based detection, you can use providers like OpenAI or Anthropic. Alternatively, you can specify a `base_url` with `provider="openai"` to use any provider compatible with the OpenAI SDK.
+    With LLM-based detection, you can use providers like OpenAI, Anthropic, or Forge. Alternatively, you can specify a `base_url` with `provider="openai"` to use any provider compatible with the OpenAI SDK.
     
     ```python
     import openlit
@@ -228,7 +232,7 @@ Detects and flags discussions on potentially controversial or harmful subjects. 
   </Tab>
   <Tab title="LLM-Based Detection (TypeScript)">
 
-    With LLM-based detection, you can use providers like OpenAI or Anthropic. You can also specify a `baseUrl` with `provider: "openai"` to use any provider compatible with the OpenAI SDK.
+    With LLM-based detection, you can use providers like OpenAI, Anthropic, or Forge. You can also specify a `baseUrl` with `provider: "openai"` to use any provider compatible with the OpenAI SDK.
 
     ```typescript
     import openlit from "openlit";
@@ -289,6 +293,10 @@ Detects and flags discussions on potentially controversial or harmful subjects. 
     GPT-4o, GPT-4o mini
   </Accordion>
 
+  <Accordion title="Forge">
+    OpenAI-compatible (e.g., OpenAI/gpt-4o-mini)
+  </Accordion>
+
   <Accordion title="Anthropic">
     Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
   </Accordion>
@@ -302,8 +310,8 @@ These parameters are used to set up the `SensitiveTopic` class:
 
 | Name                | Description                                                                                           | Default Value | Example Value           |
 |---------------------|-------------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
+| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. To use Forge, set `FORGE_API_KEY` (and optional `FORGE_API_BASE`) with `provider="openai"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
+| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `FORGE_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
 | `model`             | Specific model to use with the LLM provider (optional).                                             | `None`        | `"gpt-4o"`              |
 | `base_url`          | Base URL for the LLM API (optional).                                                                | `None`        | `"https://api.openai.com/v1"` |
 | `custom_rules`      | Custom rules for detecting sensitive topics using regex (optional).                                 | `None`        | `[{"pattern": r"mental health", "classification": "mental_health"}]` |
@@ -346,7 +354,7 @@ These parameters are passed when you call the `detect` method to analyze a speci
 
 2. **Detection Choice**:
    - **Regex Detection**: Uses regex if no provider is specified but custom rules are available.
-   - **LLM Detection**: Utilizes an LLM (OpenAI or Anthropic) if a provider is specified.
+   - **LLM Detection**: Utilizes an LLM (OpenAI, Anthropic, or Forge) if a provider is specified.
 
 3. **Evaluation**:
    - **Regex**: Applies custom rules to identify sensitive topics.
@@ -428,6 +436,10 @@ Ensures that prompts are focused solely on approved subjects by validating again
     GPT-4o, GPT-4o mini
   </Accordion>
 
+  <Accordion title="Forge">
+    OpenAI-compatible (e.g., OpenAI/gpt-4o-mini)
+  </Accordion>
+
   <Accordion title="Anthropic">
     Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
   </Accordion>
@@ -441,8 +453,8 @@ These parameters are used to set up the `TopicRestriction` class:
 
 | Name                | Description                                                                                       | Default Value | Example Value           |
 |---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`.                                        | `None`        | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
+| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. To use Forge, set `FORGE_API_KEY` (and optional `FORGE_API_BASE`) with `provider="openai"`. | `None`        | `"openai"`              |
+| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `FORGE_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
 | `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
 | `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
 | `valid_topics`      | List of topics considered valid (required).                                                       | `None`        | `["finance", "education"]` |
@@ -479,7 +491,7 @@ These parameters are passed when you call the `detect` method to analyze a speci
 
 2. **Prompt Creation**: Constructs a system prompt that includes specified valid and invalid topics for the LLM to assess.
 
-3. **LLM Evaluation**: Utilizes the LLM (OpenAI or Anthropic) to evaluate the text against the provided topic constraints.
+3. **LLM Evaluation**: Utilizes the LLM (OpenAI, Anthropic, or Forge) to evaluate the text against the provided topic constraints.
 
 4. **JSON Output**: Provides results with a score, verdict ("yes" or "no"), guard type, classification, and a brief explanation.
 </Accordion>
@@ -514,7 +526,7 @@ Detects issues related to prompt injections, ensures conversations stay on valid
 <Tabs>
   <Tab title="LLM-Based Detection">
 
-    With LLM-based detection, you can use providers like OpenAI or Anthropic. Alternatively, specify a `base_url` with `provider="openai"` to use any provider compatible with the OpenAI SDK.
+    With LLM-based detection, you can use providers like OpenAI, Anthropic, or Forge. Alternatively, specify a `base_url` with `provider="openai"` to use any provider compatible with the OpenAI SDK.
     
     ```python
     import openlit
@@ -567,6 +579,10 @@ Detects issues related to prompt injections, ensures conversations stay on valid
     GPT-4o, GPT-4o mini
   </Accordion>
 
+  <Accordion title="Forge">
+    OpenAI-compatible (e.g., OpenAI/gpt-4o-mini)
+  </Accordion>
+
   <Accordion title="Anthropic">
     Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
   </Accordion>
@@ -580,8 +596,8 @@ These parameters are used to set up the `All` class:
 
 | Name                | Description                                                                                       | Default Value | Example Value           |
 |---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
+| `provider`          | The LLM provider name, either `"openai"` or `"anthropic"`. To use Forge, set `FORGE_API_KEY` (and optional `FORGE_API_BASE`) with `provider="openai"`. Omitting this with `custom_rules` uses regex detection without an LLM. | `None`        | `"openai"`              |
+| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `FORGE_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
 | `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
 | `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
 | `custom_rules`      | Custom rules for detection using regex (optional).                                                | `None`        | `[{"pattern": r"economic policies", "classification": "valid_topic"}]` |
@@ -651,7 +667,7 @@ These parameters are passed when you call the `detect` method to analyze a speci
 
 2. **Detection Choice**:
    - **Regex Detection**: Uses regex if no provider is specified but custom rules are provided.
-   - **LLM Detection**: Utilizes an LLM (OpenAI or Anthropic) if a provider is specified.
+   - **LLM Detection**: Utilizes an LLM (OpenAI, Anthropic, or Forge) if a provider is specified.
 
 3. **Evaluation**:
    - **Regex**: Applies custom rules to detect prompt injections, topic restrictions, and sensitive topics.
