@@ -1,8 +1,21 @@
-import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+
+function spanCreationAttrs(
+  operationName: string,
+  requestModel: string
+): Attributes {
+  return {
+    [SemanticConvention.GEN_AI_OPERATION]: operationName,
+    [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+    [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+    [SemanticConvention.SERVER_ADDRESS]: OpenAIWrapper.serverAddress,
+    [SemanticConvention.SERVER_PORT]: OpenAIWrapper.serverPort,
+  };
+}
 
 class OpenAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
@@ -12,9 +25,16 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'gpt-4o';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -36,7 +56,16 @@ class OpenAIWrapper extends BaseWrapper {
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
             span.end();
+            throw e;
           });
       };
     };
@@ -64,9 +93,9 @@ class OpenAIWrapper extends BaseWrapper {
       return response;
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
+      throw e;
     } finally {
       span.end();
-      // Record metrics after span has ended if parameters are available
       if (metricParams) {
         BaseWrapper.recordMetrics(span, metricParams);
       }
@@ -120,7 +149,7 @@ class OpenAIWrapper extends BaseWrapper {
         },
       };
       
-      let toolCalls: any[] = [];
+      const toolCalls: any[] = [];
       
       for await (const chunk of response) {
         timestamps.push(Date.now());
@@ -146,14 +175,12 @@ class OpenAIWrapper extends BaseWrapper {
           result.choices[0].message.content += chunk.choices[0].delta.content;
         }
 
-        // Improved tool calls handling for streaming
         if (chunk.choices[0]?.delta.tool_calls) {
           const deltaTools = chunk.choices[0].delta.tool_calls;
           
           for (const tool of deltaTools) {
             const idx = tool.index || 0;
             
-            // Extend array if needed
             while (toolCalls.length <= idx) {
               toolCalls.push({
                 id: '',
@@ -163,7 +190,6 @@ class OpenAIWrapper extends BaseWrapper {
             }
             
             if (tool.id) {
-              // New tool call
               toolCalls[idx].id = tool.id;
               toolCalls[idx].type = tool.type || 'function';
               if (tool.function?.name) {
@@ -173,7 +199,6 @@ class OpenAIWrapper extends BaseWrapper {
                 toolCalls[idx].function.arguments = tool.function.arguments;
               }
             } else if (tool.function?.arguments) {
-              // Append arguments to existing tool call
               toolCalls[idx].function.arguments += tool.function.arguments;
             }
           }
@@ -212,7 +237,6 @@ class OpenAIWrapper extends BaseWrapper {
 
       args[0].tools = tools;
       
-      // Calculate TTFT and TBT
       const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
       let tbt = 0;
       if (timestamps.length > 1) {
@@ -232,9 +256,9 @@ class OpenAIWrapper extends BaseWrapper {
       return result;
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
+      throw e;
     } finally {
       span.end();
-      // Record metrics after span has ended if parameters are available
       if (metricParams) {
         BaseWrapper.recordMetrics(span, metricParams);
       }
@@ -256,7 +280,8 @@ class OpenAIWrapper extends BaseWrapper {
     ttft?: number;
     tbt?: number;
   }) {
-    const traceContent = OpenlitConfig.traceContent;
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const requestModel = args[0]?.model || 'gpt-4o';
     const {
       messages,
       frequency_penalty = 0,
@@ -269,44 +294,47 @@ class OpenAIWrapper extends BaseWrapper {
       top_p,
       user,
       stream = false,
-      tools,
+      tools: _tools,
+      service_tier,
     } = args[0];
 
-    // Request Params attributes : Start
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens || -1);
+    if (max_tokens != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed ? String(seed) : '');
+    if (presence_penalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
+    }
+    if (frequency_penalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
+    }
+    if (seed != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, Number(seed));
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
     if (stop) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, Array.isArray(stop) ? stop : [stop]);
     }
-    if (user) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
+    if (n && n !== 1) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT, n);
+    }
+    if (service_tier && service_tier !== 'auto') {
+      span.setAttribute(SemanticConvention.OPENAI_REQUEST_SERVICE_TIER, service_tier);
     }
 
-    if (traceContent) {
+    if (captureContent) {
       span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages || []));
     }
-    // Request Params attributes : End
-
-    span.setAttribute(
-      SemanticConvention.GEN_AI_OPERATION,
-      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-    );
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
-    const model = result.model || 'gpt-3.5-turbo';
-    const responseModel = result.model || model;
+    const responseModel = result.model || requestModel;
 
-    const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
 
-    // Calculate cost of the operation
     const cost = OpenLitHelper.getChatModelCost(
-      model,
+      requestModel,
       pricingInfo,
       result.usage.prompt_tokens,
       result.usage.completion_tokens
@@ -314,7 +342,7 @@ class OpenAIWrapper extends BaseWrapper {
 
     OpenAIWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user,
       cost,
       aiSystem: OpenAIWrapper.aiSystem,
@@ -322,62 +350,34 @@ class OpenAIWrapper extends BaseWrapper {
       serverPort: OpenAIWrapper.serverPort,
     });
 
-    // Response model
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
 
-    // OpenAI-specific attributes
+    span.setAttribute(SemanticConvention.OPENAI_API_TYPE, 'chat_completions');
     if (result.system_fingerprint) {
-      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT, result.system_fingerprint);
+      span.setAttribute(SemanticConvention.OPENAI_RESPONSE_SYSTEM_FINGERPRINT, result.system_fingerprint);
     }
     if (result.service_tier) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER, result.service_tier);
+      span.setAttribute(SemanticConvention.OPENAI_RESPONSE_SERVICE_TIER, result.service_tier);
     }
 
-    // Token usage
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.prompt_tokens);
-    span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-      result.usage.completion_tokens
-    );
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
-    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, result.usage.total_tokens);
+    const inputTokens = result.usage.prompt_tokens;
+    const outputTokens = result.usage.completion_tokens;
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
     
-    // Enhanced token details
-    if (result.usage.completion_tokens_details) {
-      if (result.usage.completion_tokens_details.reasoning_tokens) {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-          result.usage.completion_tokens_details.reasoning_tokens
-        );
-        span.setAttribute(
-          SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING,
-          result.usage.completion_tokens_details.reasoning_tokens
-        );
-      }
-      if (result.usage.completion_tokens_details.audio_tokens) {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO,
-          result.usage.completion_tokens_details.audio_tokens
-        );
-      }
+    if (result.usage.prompt_tokens_details?.cached_tokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        result.usage.prompt_tokens_details.cached_tokens
+      );
+    }
+    if (result.usage.prompt_tokens_details?.cache_creation_tokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        result.usage.prompt_tokens_details.cache_creation_tokens
+      );
     }
     
-    if (result.usage.prompt_tokens_details) {
-      if (result.usage.prompt_tokens_details.cached_tokens) {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ,
-          result.usage.prompt_tokens_details.cached_tokens
-        );
-      }
-      if (result.usage.prompt_tokens_details.audio_tokens) {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE,
-          result.usage.prompt_tokens_details.audio_tokens
-        );
-      }
-    }
-    
-    // TTFT and TBT metrics
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     }
@@ -385,7 +385,6 @@ class OpenAIWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
-    // Finish reason
     if (result.choices[0].finish_reason) {
       span.setAttribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
@@ -393,19 +392,16 @@ class OpenAIWrapper extends BaseWrapper {
       );
     }
     
-    // Output type
     const outputType = typeof result.choices[0].message.content === 'string' 
       ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT 
       : SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON;
     span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputType);
 
-    // Tool calls handling
     if (result.choices[0].message.tool_calls) {
       const toolCalls = result.choices[0].message.tool_calls;
       const toolNames = toolCalls.map((t: any) => t.function?.name || '').filter(Boolean);
       const toolIds = toolCalls.map((t: any) => t.id || '').filter(Boolean);
       const toolArgs = toolCalls.map((t: any) => t.function?.arguments || '').filter(Boolean);
-      const toolTypes = toolCalls.map((t: any) => t.type || '').filter(Boolean);
       
       if (toolNames.length > 0) {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, toolNames.join(', '));
@@ -414,29 +410,46 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, toolIds.join(', '));
       }
       if (toolArgs.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
-      }
-      if (toolTypes.length > 0) {
-        const toolTypesStr = toolTypes.join(', ');
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_ARGS, toolArgs.join(', '));
       }
     }
 
-    // Content
-    if (traceContent) {
+    let inputMessagesJson: string | undefined;
+    let outputMessagesJson: string | undefined;
+    if (captureContent) {
       const toolCalls = result.choices[0].message.tool_calls;
-      const outputJson = OpenLitHelper.buildOutputMessages(
+      outputMessagesJson = OpenLitHelper.buildOutputMessages(
         result.choices[0].message.content || '',
         result.choices[0].finish_reason || 'stop',
         toolCalls
       );
-      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputJson);
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+      inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
+    }
+
+    if (!OpenlitConfig.disableEvents) {
+      const eventAttrs: Attributes = {
+        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+        [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+        [SemanticConvention.SERVER_ADDRESS]: OpenAIWrapper.serverAddress,
+        [SemanticConvention.SERVER_PORT]: OpenAIWrapper.serverPort,
+        [SemanticConvention.GEN_AI_RESPONSE_ID]: result.id,
+        [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [result.choices[0].finish_reason],
+        [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
+        [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+        [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      };
+      if (captureContent) {
+        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      }
+      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
     return {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user,
       cost,
       aiSystem: OpenAIWrapper.aiSystem,
@@ -445,34 +458,35 @@ class OpenAIWrapper extends BaseWrapper {
 
   static _patchEmbedding(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.embeddings';
-    const traceContent = OpenlitConfig.traceContent;
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'text-embedding-ada-002';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, requestModel),
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams: BaseSpanAttributes | undefined;
           try {
             const response = await originalMethod.apply(this, args);
 
-            const model = response.model || 'text-embedding-ada-002';
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+            const _responseModel = response.model || requestModel;
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost = OpenLitHelper.getEmbedModelCost(
-              model,
+              requestModel,
               pricingInfo,
               response.usage.prompt_tokens
             );
 
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING
-            );
-
             const { dimensions, encoding_format = 'float', input, user } = args[0];
-            // Set base span attributes
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -481,37 +495,23 @@ class OpenAIWrapper extends BaseWrapper {
             });
 
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
-
-            // Request Params attributes : Start
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]);
             if (dimensions) {
-              span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
+              span.setAttribute(SemanticConvention.GEN_AI_EMBEDDINGS_DIMENSION_COUNT, dimensions);
             }
-            if (user) {
-              span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
-            }
-            if (traceContent) {
+            if (captureContent) {
               const formattedInput = typeof input === 'string' ? input : JSON.stringify(input);
               span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, formattedInput);
             }
 
-            // Request Params attributes : End
             span.setAttribute(
               SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-              response.usage.prompt_tokens
-            );
-            span.setAttribute(
-              SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-              response.usage.total_tokens
-            );
-            span.setAttribute(
-              SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
               response.usage.prompt_tokens
             );
 
             metricParams = {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -537,13 +537,19 @@ class OpenAIWrapper extends BaseWrapper {
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'gpt-3.5-turbo';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING, requestModel),
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
           let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
-            const model = response.model || 'gpt-3.5-turbo';
             const {
               hyperparameters = {},
               suffix = '',
@@ -552,22 +558,14 @@ class OpenAIWrapper extends BaseWrapper {
               validation_file,
             } = args[0];
 
-            // Set base span attributes
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               aiSystem: OpenAIWrapper.aiSystem,
               serverAddress: OpenAIWrapper.serverAddress,
               serverPort: OpenAIWrapper.serverPort,
             });
-
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING
-            );
-
-            // Request Params attributes : Start
 
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TRAINING_FILE, training_file);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_VALIDATION_FILE, validation_file);
@@ -584,7 +582,6 @@ class OpenAIWrapper extends BaseWrapper {
               hyperparameters?.n_epochs || 'auto'
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX, suffix);
-            // Request Params attributes : End
 
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
             span.setAttribute(
@@ -593,10 +590,9 @@ class OpenAIWrapper extends BaseWrapper {
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FINETUNE_STATUS, response.status);
 
-            // Store metric parameters for use after span ends
             metricParams = {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               aiSystem: OpenAIWrapper.aiSystem,
             };
@@ -604,9 +600,9 @@ class OpenAIWrapper extends BaseWrapper {
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
+            throw e;
           } finally {
             span.end();
-            // Record metrics after span has ended if parameters are available
             if (metricParams) {
               BaseWrapper.recordMetrics(span, metricParams);
             }
@@ -618,11 +614,18 @@ class OpenAIWrapper extends BaseWrapper {
 
   static _patchImageGenerate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.images';
-    const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'dall-e-2';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, requestModel),
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
@@ -636,23 +639,16 @@ class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
-            );
+            const responseModel = response.model || requestModel;
 
-            const model = response.model || 'dall-e-2';
-
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-            // Calculate cost of the operation
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost =
               (response.data?.length || 1) *
-              OpenLitHelper.getImageModelCost(model, pricingInfo, size, quality);
+              OpenLitHelper.getImageModelCost(responseModel, pricingInfo, size, quality);
 
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -660,36 +656,29 @@ class OpenAIWrapper extends BaseWrapper {
               serverPort: OpenAIWrapper.serverPort,
             });
 
-            // Request Params attributes : Start
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, size);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, quality);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_STYLE, style);
 
-            if (traceContent) {
+            if (captureContent) {
               span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
             }
-            // Request Params attributes : End
-
-            let imagesCount = 0;
 
             if (response.data) {
+              const imageUrls: string[] = [];
+              const revisedPrompts: string[] = [];
               for (const items of response.data) {
-                span.setAttribute(
-                  `${SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT}.${imagesCount}`,
-                  items.revised_prompt || ''
-                );
-
-                const attributeName = `${SemanticConvention.GEN_AI_RESPONSE_IMAGE}.${imagesCount}`;
-                span.setAttribute(attributeName, items[response_format]);
-
-                imagesCount++;
+                revisedPrompts.push(items.revised_prompt || '');
+                const value = items[response_format];
+                imageUrls.push(value && !String(value).startsWith('data:') ? value : '[base64_image_data]');
               }
+              span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_IMAGE, imageUrls);
+              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT, revisedPrompts);
             }
 
-            // Store metric parameters for use after span ends
             metricParams = {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -698,9 +687,9 @@ class OpenAIWrapper extends BaseWrapper {
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
+            throw e;
           } finally {
             span.end();
-            // Record metrics after span has ended if parameters are available
             if (metricParams) {
               BaseWrapper.recordMetrics(span, metricParams);
             }
@@ -712,11 +701,18 @@ class OpenAIWrapper extends BaseWrapper {
 
   static _patchImageVariation(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.images';
-    const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'dall-e-2';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, requestModel),
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
@@ -730,24 +726,18 @@ class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
-            );
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.created);
 
-            const model = response.model || 'dall-e-2';
+            const responseModel = response.model || requestModel;
 
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-            // Calculate cost of the operation
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
             const cost =
               (response.data?.length || 1) *
-              OpenLitHelper.getImageModelCost(model, pricingInfo, size, quality);
+              OpenLitHelper.getImageModelCost(responseModel, pricingInfo, size, quality);
 
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -755,35 +745,29 @@ class OpenAIWrapper extends BaseWrapper {
               serverPort: OpenAIWrapper.serverPort,
             });
 
-            // Request Params attributes : Start
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, size);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, quality);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_STYLE, style);
 
-            if (traceContent) {
+            if (captureContent) {
               span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
             }
-            // Request Params attributes : End
 
-            let imagesCount = 0;
             if (response.data) {
+              const imageUrls: string[] = [];
+              const revisedPrompts: string[] = [];
               for (const items of response.data) {
-                span.setAttribute(
-                  `${SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT}.${imagesCount}`,
-                  items.revised_prompt || ''
-                );
-
-                const attributeName = `${SemanticConvention.GEN_AI_RESPONSE_IMAGE}.${imagesCount}`;
-                span.setAttribute(attributeName, items[response_format]);
-
-                imagesCount++;
+                revisedPrompts.push(items.revised_prompt || '');
+                const value = items[response_format];
+                imageUrls.push(value && !String(value).startsWith('data:') ? value : '[base64_image_data]');
               }
+              span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_IMAGE, imageUrls);
+              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT, revisedPrompts);
             }
 
-            // Store metric parameters for use after span ends
             metricParams = {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -792,9 +776,9 @@ class OpenAIWrapper extends BaseWrapper {
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
+            throw e;
           } finally {
             span.end();
-            // Record metrics after span has ended if parameters are available
             if (metricParams) {
               BaseWrapper.recordMetrics(span, metricParams);
             }
@@ -806,32 +790,32 @@ class OpenAIWrapper extends BaseWrapper {
 
   static _patchAudioCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.audio.speech';
-    const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'tts-1';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, requestModel),
+        }, effectiveCtx);
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          const captureContent = OpenlitConfig.captureMessageContent;
           let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
             const { input, user, voice, response_format = 'mp3', speed = 1 } = args[0];
 
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO
-            );
+            const responseModel = response.model || requestModel;
 
-            const model = response.model || 'tts-1';
-
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-            // Calculate cost of the operation
-            const cost = OpenLitHelper.getAudioModelCost(model, pricingInfo, input);
+            const pricingInfo = OpenlitConfig.pricingInfo || {};
+            const cost = OpenLitHelper.getAudioModelCost(responseModel, pricingInfo, input);
 
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -839,7 +823,6 @@ class OpenAIWrapper extends BaseWrapper {
               serverPort: OpenAIWrapper.serverPort,
             });
 
-            // Request Params attributes : Start
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, voice);
             span.setAttribute(
               SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
@@ -847,15 +830,13 @@ class OpenAIWrapper extends BaseWrapper {
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED, speed);
 
-            if (traceContent) {
+            if (captureContent) {
               span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, input);
             }
-            // Request Params attributes : End
 
-            // Store metric parameters for use after span ends
             metricParams = {
               genAIEndpoint,
-              model,
+              model: requestModel,
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
@@ -864,9 +845,9 @@ class OpenAIWrapper extends BaseWrapper {
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
+            throw e;
           } finally {
             span.end();
-            // Record metrics after span has ended if parameters are available
             if (metricParams) {
               BaseWrapper.recordMetrics(span, metricParams);
             }
@@ -880,9 +861,16 @@ class OpenAIWrapper extends BaseWrapper {
     const genAIEndpoint = 'openai.resources.responses';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'gpt-4o';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -904,7 +892,16 @@ class OpenAIWrapper extends BaseWrapper {
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
             span.end();
+            throw e;
           });
       };
     };
@@ -932,6 +929,7 @@ class OpenAIWrapper extends BaseWrapper {
       return response;
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
+      throw e;
     } finally {
       span.end();
       if (metricParams) {
@@ -956,7 +954,6 @@ class OpenAIWrapper extends BaseWrapper {
     const startTime = Date.now();
     
     try {
-      const { input } = args[0];
       const result = {
         id: '',
         model: '',
@@ -973,7 +970,7 @@ class OpenAIWrapper extends BaseWrapper {
       };
       
       let llmResponse = '';
-      let responseTools: any[] = [];
+      const responseTools: any[] = [];
       
       for await (const chunk of response) {
         timestamps.push(Date.now());
@@ -1015,7 +1012,6 @@ class OpenAIWrapper extends BaseWrapper {
         yield chunk;
       }
       
-      // Construct output array
       if (llmResponse) {
         result.output.push({
           type: 'message',
@@ -1027,7 +1023,6 @@ class OpenAIWrapper extends BaseWrapper {
         result.output.push(...responseTools);
       }
       
-      // Calculate TTFT and TBT
       const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
       let tbt = 0;
       if (timestamps.length > 1) {
@@ -1047,6 +1042,7 @@ class OpenAIWrapper extends BaseWrapper {
       return result;
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
+      throw e;
     } finally {
       span.end();
       if (metricParams) {
@@ -1070,7 +1066,8 @@ class OpenAIWrapper extends BaseWrapper {
     ttft?: number;
     tbt?: number;
   }) {
-    const traceContent = OpenlitConfig.traceContent;
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const requestModel = args[0]?.model || 'gpt-4o';
     const {
       input,
       temperature = 1.0,
@@ -1080,40 +1077,33 @@ class OpenAIWrapper extends BaseWrapper {
       stream = false,
     } = args[0];
 
-    // Normalize Responses API input to messages array for buildInputMessages
     const responsesMessages = typeof input === 'string'
       ? [{ role: 'user', content: input }]
       : (Array.isArray(input) ? input : []);
 
-    // Request Params attributes
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_output_tokens || -1);
+    if (max_output_tokens != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_output_tokens);
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
     if (reasoning?.effort) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT, reasoning.effort);
     }
 
-    if (traceContent) {
+    if (captureContent) {
       span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(responsesMessages));
     }
 
-    span.setAttribute(
-      SemanticConvention.GEN_AI_OPERATION,
-      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-    );
+    const responseModel = result.model || requestModel;
 
-    const model = result.model || 'gpt-4o';
-    const responseModel = result.model || model;
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
 
-    const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-    // Calculate cost
     const inputTokens = result.usage?.input_tokens || 0;
     const outputTokens = result.usage?.output_tokens || 0;
     const cost = OpenLitHelper.getChatModelCost(
-      model,
+      requestModel,
       pricingInfo,
       inputTokens,
       outputTokens
@@ -1121,7 +1111,7 @@ class OpenAIWrapper extends BaseWrapper {
 
     OpenAIWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user: '',
       cost,
       aiSystem: OpenAIWrapper.aiSystem,
@@ -1129,23 +1119,19 @@ class OpenAIWrapper extends BaseWrapper {
       serverPort: OpenAIWrapper.serverPort,
     });
 
-    // Response attributes
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [result.status || 'completed']);
     span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT);
     
+    span.setAttribute(SemanticConvention.OPENAI_API_TYPE, 'responses');
     if (result.service_tier) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER, result.service_tier);
+      span.setAttribute(SemanticConvention.OPENAI_RESPONSE_SERVICE_TIER, result.service_tier);
     }
 
-    // Token usage
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, inputTokens + outputTokens);
-    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, inputTokens + outputTokens);
     
-    // Reasoning tokens
     if (result.usage?.output_tokens_details?.reasoning_tokens) {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
@@ -1153,7 +1139,6 @@ class OpenAIWrapper extends BaseWrapper {
       );
     }
     
-    // TTFT and TBT metrics
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     }
@@ -1161,7 +1146,6 @@ class OpenAIWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
-    // Extract completion text from output
     let completionText = '';
     if (result.output && Array.isArray(result.output)) {
       for (const item of result.output) {
@@ -1175,13 +1159,11 @@ class OpenAIWrapper extends BaseWrapper {
       }
     }
 
-    // Tool calls handling for Responses API
     const toolCalls = result.tools || [];
     if (toolCalls.length > 0) {
       const toolNames = toolCalls.map((t: any) => t.name || '').filter(Boolean);
       const toolIds = toolCalls.map((t: any) => t.call_id || '').filter(Boolean);
       const toolArgs = toolCalls.map((t: any) => t.arguments || '').filter(Boolean);
-      const toolTypes = toolCalls.map((t: any) => t.type || '').filter(Boolean);
       
       if (toolNames.length > 0) {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, toolNames.join(', '));
@@ -1190,24 +1172,41 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, toolIds.join(', '));
       }
       if (toolArgs.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs.join(', '));
-      }
-      if (toolTypes.length > 0) {
-        const toolTypesStr = toolTypes.join(', ');
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_ARGS, toolArgs.join(', '));
       }
     }
 
-    // Content
-    if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-        OpenLitHelper.buildOutputMessages(completionText, result.status || 'stop'));
+    let inputMessagesJson: string | undefined;
+    let outputMessagesJson: string | undefined;
+    if (captureContent) {
+      outputMessagesJson = OpenLitHelper.buildOutputMessages(completionText, result.status || 'stop');
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+      inputMessagesJson = OpenLitHelper.buildInputMessages(responsesMessages);
+    }
+
+    if (!OpenlitConfig.disableEvents) {
+      const eventAttrs: Attributes = {
+        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+        [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+        [SemanticConvention.SERVER_ADDRESS]: OpenAIWrapper.serverAddress,
+        [SemanticConvention.SERVER_PORT]: OpenAIWrapper.serverPort,
+        [SemanticConvention.GEN_AI_RESPONSE_ID]: result.id,
+        [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [result.status || 'completed'],
+        [SemanticConvention.GEN_AI_OUTPUT_TYPE]: SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
+        [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+        [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      };
+      if (captureContent) {
+        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      }
+      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
     return {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user: '',
       cost,
       aiSystem: OpenAIWrapper.aiSystem,

@@ -12,6 +12,7 @@ import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
 import VercelAIInstrumentation from './vercel-ai';
 import LangChainInstrumentation from './langchain';
+import LangGraphInstrumentation from './langgraph';
 import PineconeInstrumentation from './pinecone';
 import BedrockInstrumentation from './bedrock';
 import LlamaIndexInstrumentation from './llamaindex';
@@ -20,6 +21,52 @@ import ReplicateInstrumentation from './replicate';
 import ChromaInstrumentation from './chroma';
 import QdrantInstrumentation from './qdrant';
 import MilvusInstrumentation from './milvus';
+import AzureAIInferenceInstrumentation from './azure-ai-inference';
+import OpenAIAgentsInstrumentation from './openai-agents';
+import StrandsInstrumentation from './strands';
+import GoogleADKInstrumentation from './google-adk';
+import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
+
+/**
+ * OTel community instrumentations loaded dynamically (like Python SDK).
+ * Each entry maps a logical name to the npm package and exported class.
+ * If the package is installed, the instrumentation is registered automatically.
+ * If not installed, it is silently skipped.
+ *
+ * Node.js equivalents of the Python SDK's OTel instrumentations:
+ *   Python: requests, urllib, urllib3  → Node: http  (@opentelemetry/instrumentation-http)
+ *   Python: httpx, aiohttp-client     → Node: undici (@opentelemetry/instrumentation-undici)
+ *   Python: django, flask, fastapi…   → Node: express, fastify, koa, hapi, nestjs-core
+ */
+const OTEL_COMMUNITY_INSTRUMENTATIONS: Record<string, { pkg: string; cls: string }> = {
+  // HTTP client instrumentations
+  'http':         { pkg: '@opentelemetry/instrumentation-http',         cls: 'HttpInstrumentation' },
+  'undici':       { pkg: '@opentelemetry/instrumentation-undici',       cls: 'UndiciInstrumentation' },
+  // HTTP framework instrumentations
+  'express':      { pkg: '@opentelemetry/instrumentation-express',      cls: 'ExpressInstrumentation' },
+  'fastify':      { pkg: '@opentelemetry/instrumentation-fastify',      cls: 'FastifyInstrumentation' },
+  'koa':          { pkg: '@opentelemetry/instrumentation-koa',          cls: 'KoaInstrumentation' },
+  'hapi':         { pkg: '@opentelemetry/instrumentation-hapi',         cls: 'HapiInstrumentation' },
+  'nestjs-core':  { pkg: '@opentelemetry/instrumentation-nestjs-core',  cls: 'NestInstrumentation' },
+};
+
+function loadOtelCommunityInstrumentations(disabledInstrumentors: string[]): any[] {
+  const instances: any[] = [];
+  for (const [name, { pkg, cls }] of Object.entries(OTEL_COMMUNITY_INSTRUMENTATIONS)) {
+    if (disabledInstrumentors.includes(name)) continue;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mod = require(pkg);
+      const InstrClass = mod[cls];
+      if (InstrClass) {
+        instances.push(new InstrClass());
+      }
+    } catch {
+      // Package not installed — skip silently (same as Python SDK)
+    }
+  }
+  return instances;
+}
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
@@ -33,6 +80,7 @@ export default class Instrumentations {
     ollama: new OllamaInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),
     langchain: new LangChainInstrumentation(),
+    langgraph: new LangGraphInstrumentation(),
     pinecone: new PineconeInstrumentation(),
     bedrock: new BedrockInstrumentation(),
     llamaindex: new LlamaIndexInstrumentation(),
@@ -41,22 +89,32 @@ export default class Instrumentations {
     chroma: new ChromaInstrumentation(),
     qdrant: new QdrantInstrumentation(),
     milvus: new MilvusInstrumentation(),
+    'azure-ai-inference': new AzureAIInferenceInstrumentation(),
+    'openai-agents': new OpenAIAgentsInstrumentation(),
+    strands: new StrandsInstrumentation(),
+    'google-adk': new GoogleADKInstrumentation(),
+    'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
   };
 
   static setup(
     tracerProvider: TracerProvider,
-    disabledInstrumentations: string[] = [],
+    disabledInstrumentors: string[] = [],
     instrumentations?: OpenlitInstrumentations
   ) {
+    const otelCommunity = loadOtelCommunityInstrumentations(disabledInstrumentors);
+
     if (instrumentations === undefined) {
-      const filteredInstrumentations = this.getFilteredInstrumentations(disabledInstrumentations);
+      const filteredInstrumentations = this.getFilteredInstrumentations(disabledInstrumentors);
       registerInstrumentations({
-        instrumentations: filteredInstrumentations.map(([_, instrumentation]) => instrumentation),
+        instrumentations: [
+          ...filteredInstrumentations.map(([_, instrumentation]) => instrumentation),
+          ...otelCommunity,
+        ],
         tracerProvider,
       });
     } else {
       const filteredInstrumentations = this.getFilteredInstrumentations(
-        disabledInstrumentations,
+        disabledInstrumentors,
         instrumentations
       );
       filteredInstrumentations.forEach(([k, instrumentation]) => {
@@ -68,19 +126,20 @@ export default class Instrumentations {
         }
       });
       registerInstrumentations({
+        instrumentations: otelCommunity,
         tracerProvider,
       });
     }
   }
 
   static getFilteredInstrumentations(
-    disabledInstrumentations: string[],
+    disabledInstrumentors: string[],
     instrumentations?: OpenlitInstrumentations
   ): [InstrumentationType, any][] {
     const availableInstrumentations = instrumentations || this.availableInstrumentations;
     return Object.keys(availableInstrumentations)
       .filter((k) => {
-        if (disabledInstrumentations.includes(k)) {
+        if (disabledInstrumentors.includes(k)) {
           if (typeof availableInstrumentations[k as InstrumentationType].disable === 'function') {
             availableInstrumentations[k as InstrumentationType].disable();
           }

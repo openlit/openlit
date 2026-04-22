@@ -77,6 +77,7 @@ describe('OpenAIWrapper', () => {
     it('should set span attributes and return metric parameters', async () => {
       const mockArgs = [
         {
+          model: 'gpt-3.5-turbo',
           messages: [{ role: 'user', content: 'test message' }],
           max_tokens: 100,
           temperature: 0.7,
@@ -112,7 +113,7 @@ describe('OpenAIWrapper', () => {
 
       jest.restoreAllMocks();
 
-      jest.spyOn(OpenlitConfig, 'updatePricingJson').mockResolvedValue({});
+      (OpenlitConfig as any).pricingInfo = {};
       jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
 
       const metricParams = await OpenAIWrapper._chatCompletionCommonSetter({
@@ -140,7 +141,7 @@ describe('OpenAIWrapper', () => {
         SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
         3
       );
-      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, '3');
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, 3);
       expect(span.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
         false
@@ -156,22 +157,13 @@ describe('OpenAIWrapper', () => {
         'gpt-3.5-turbo'
       );
       expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+        SemanticConvention.OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
         'fp_test'
       );
       expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
+        SemanticConvention.OPENAI_RESPONSE_SERVICE_TIER,
         'default'
       );
-      expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-        30
-      );
-      expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING,
-        5
-      );
-
       expect(metricParams).toEqual({
         genAIEndpoint: mockGenAIEndpoint,
         model: 'gpt-3.5-turbo',
@@ -211,7 +203,7 @@ describe('OpenAIWrapper', () => {
         ],
       };
 
-      jest.spyOn(OpenlitConfig, 'updatePricingJson').mockResolvedValue({});
+      (OpenlitConfig as any).pricingInfo = {};
       jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
 
       await OpenAIWrapper._chatCompletionCommonSetter({
@@ -230,12 +222,8 @@ describe('OpenAIWrapper', () => {
         'call_123'
       );
       expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
-        ['{"location":"SF"}']
-      );
-      expect(span.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_TOOL_TYPE,
-        'function'
+        SemanticConvention.GEN_AI_TOOL_ARGS,
+        '{"location":"SF"}'
       );
     });
   });

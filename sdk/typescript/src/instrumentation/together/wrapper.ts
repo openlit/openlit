@@ -1,21 +1,41 @@
-import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
+function spanCreationAttrs(
+  operationName: string,
+  requestModel: string
+): Attributes {
+  return {
+    [SemanticConvention.GEN_AI_OPERATION]: operationName,
+    [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: SemanticConvention.GEN_AI_SYSTEM_TOGETHER,
+    [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+    [SemanticConvention.SERVER_ADDRESS]: TogetherWrapper.serverAddress,
+    [SemanticConvention.SERVER_PORT]: TogetherWrapper.serverPort,
+  };
+}
+
 class TogetherWrapper extends BaseWrapper {
-  static aiSystem = 'together';
+  static aiSystem = SemanticConvention.GEN_AI_SYSTEM_TOGETHER;
   static serverAddress = 'api.together.xyz';
   static serverPort = 443;
-  
+
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'together.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+        }, effectiveCtx);
         return context
-          .with(trace.setSpan(context.active(), span), async () => {
+          .with(trace.setSpan(effectiveCtx, span), async () => {
             return originalMethod.apply(this, args);
           })
           .then((response: any) => {
@@ -37,6 +57,14 @@ class TogetherWrapper extends BaseWrapper {
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: TogetherWrapper.aiSystem,
+              serverAddress: TogetherWrapper.serverAddress,
+              serverPort: TogetherWrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
             span.end();
             throw e;
           });
@@ -89,12 +117,13 @@ class TogetherWrapper extends BaseWrapper {
     let metricParams;
     const timestamps: number[] = [];
     const startTime = Date.now();
-    
+
     try {
       const { messages } = args[0];
+      let { tools } = args[0];
       const result = {
         id: '0',
-        model: args[0].model || '',  // model is not in Together streaming chunks
+        model: args[0].model || '',
         choices: [
           {
             index: 0,
@@ -109,12 +138,11 @@ class TogetherWrapper extends BaseWrapper {
         },
       };
 
-      let toolCalls: any[] = [];
+      const toolCalls: any[] = [];
 
       for await (const chunk of response) {
         timestamps.push(Date.now());
 
-        // id is only present on the first chunk
         if (chunk.id) result.id = chunk.id;
 
         if (chunk.choices[0]?.finish_reason) {
@@ -124,21 +152,20 @@ class TogetherWrapper extends BaseWrapper {
           result.choices[0].message.content += chunk.choices[0].delta.content;
         }
 
-        // Handle tool calls for streaming
         if (chunk.choices[0]?.delta?.tool_calls) {
           const deltaTools = chunk.choices[0].delta.tool_calls;
-          
+
           for (const tool of deltaTools) {
             const idx = tool.index || 0;
-            
+
             while (toolCalls.length <= idx) {
               toolCalls.push({
                 id: '',
                 type: 'function',
-                function: { name: '', arguments: '' }
+                function: { name: '', arguments: '' },
               });
             }
-            
+
             if (tool.id) {
               toolCalls[idx].id = tool.id;
               toolCalls[idx].type = tool.type || 'function';
@@ -152,20 +179,20 @@ class TogetherWrapper extends BaseWrapper {
               toolCalls[idx].function.arguments += tool.function.arguments;
             }
           }
-          
+
+          tools = true;
         }
 
         yield chunk;
       }
-      
+
       if (toolCalls.length > 0) {
         result.choices[0].message = {
           ...result.choices[0].message,
-          tool_calls: toolCalls
+          tool_calls: toolCalls,
         } as any;
       }
 
-      // Fall back to token estimation if usage wasn't returned in the stream
       if (!result.usage.prompt_tokens && !result.usage.completion_tokens) {
         let promptTokens = 0;
         for (const message of messages || []) {
@@ -184,7 +211,8 @@ class TogetherWrapper extends BaseWrapper {
         }
       }
 
-      // Calculate TTFT and TBT
+      args[0].tools = tools;
+
       const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
       let tbt = 0;
       if (timestamps.length > 1) {
@@ -228,56 +256,60 @@ class TogetherWrapper extends BaseWrapper {
     ttft?: number;
     tbt?: number;
   }) {
-    const traceContent = OpenlitConfig.traceContent;
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const requestModel = args[0]?.model || 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo';
     const {
       messages,
       frequency_penalty = 0,
       max_tokens = null,
+      n = 1,
       presence_penalty = 0,
+      seed = null,
       stop = null,
-      temperature = 0.7,
+      temperature = 1,
       top_p,
       top_k,
       user,
       stream = false,
     } = args[0];
 
-    // Request Params attributes
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
-    if (top_k !== undefined) {
+    if (top_k != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, top_k);
     }
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens || -1);
+    if (max_tokens != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
+    if (presence_penalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
+    }
+    if (frequency_penalty) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
+    }
+    if (seed != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, Number(seed));
+    }
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
     if (stop) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, Array.isArray(stop) ? stop : [stop]);
     }
-    if (user) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
+    if (n && n !== 1) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT, n);
     }
 
-    if (traceContent) {
+    if (captureContent) {
       span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages || []));
     }
 
-    span.setAttribute(
-      SemanticConvention.GEN_AI_OPERATION,
-      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
-    );
-
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
-    const model = result.model || args[0].model || 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo';
-    const responseModel = result.model || model;
+    const responseModel = result.model || requestModel;
 
-    const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
 
-    // Calculate cost of the operation
     const cost = OpenLitHelper.getChatModelCost(
-      model,
+      requestModel,
       pricingInfo,
       result.usage.prompt_tokens,
       result.usage.completion_tokens
@@ -285,7 +317,7 @@ class TogetherWrapper extends BaseWrapper {
 
     TogetherWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user,
       cost,
       aiSystem: TogetherWrapper.aiSystem,
@@ -293,19 +325,13 @@ class TogetherWrapper extends BaseWrapper {
       serverPort: TogetherWrapper.serverPort,
     });
 
-    // Response model
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
 
-    // Token usage
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.prompt_tokens);
-    span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-      result.usage.completion_tokens
-    );
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
-    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, result.usage.total_tokens);
-    
-    // TTFT and TBT metrics
+    const inputTokens = result.usage.prompt_tokens;
+    const outputTokens = result.usage.completion_tokens;
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     }
@@ -313,28 +339,24 @@ class TogetherWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
-    // Finish reason
     if (result.choices[0].finish_reason) {
       span.setAttribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
         [result.choices[0].finish_reason]
       );
     }
-    
-    // Output type
-    const outputType = typeof result.choices[0].message.content === 'string' 
-      ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT 
+
+    const outputType = typeof result.choices[0].message.content === 'string'
+      ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
       : SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON;
     span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputType);
 
-    // Tool calls handling
     if (result.choices[0].message.tool_calls) {
       const toolCalls = result.choices[0].message.tool_calls;
       const toolNames = toolCalls.map((t: any) => t.function?.name || '').filter(Boolean);
       const toolIds = toolCalls.map((t: any) => t.id || '').filter(Boolean);
       const toolArgs = toolCalls.map((t: any) => t.function?.arguments || '').filter(Boolean);
-      const toolTypes = toolCalls.map((t: any) => t.type || '').filter(Boolean);
-      
+
       if (toolNames.length > 0) {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, toolNames.join(', '));
       }
@@ -342,28 +364,46 @@ class TogetherWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, toolIds.join(', '));
       }
       if (toolArgs.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
-      }
-      if (toolTypes.length > 0) {
-        const toolTypesStr = toolTypes.join(', ');
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_ARGS, toolArgs.join(', '));
       }
     }
 
-    // Content
-    if (traceContent) {
-      const completionContent = result.choices[0].message.content || '';
+    let inputMessagesJson: string | undefined;
+    let outputMessagesJson: string | undefined;
+    if (captureContent) {
       const toolCalls = result.choices[0].message.tool_calls;
-      span.setAttribute(
-        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-        OpenLitHelper.buildOutputMessages(completionContent, result.choices[0].finish_reason || 'stop', toolCalls)
+      outputMessagesJson = OpenLitHelper.buildOutputMessages(
+        result.choices[0].message.content || '',
+        result.choices[0].finish_reason || 'stop',
+        toolCalls
       );
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+      inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
+    }
+
+    if (!OpenlitConfig.disableEvents) {
+      const eventAttrs: Attributes = {
+        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+        [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+        [SemanticConvention.SERVER_ADDRESS]: TogetherWrapper.serverAddress,
+        [SemanticConvention.SERVER_PORT]: TogetherWrapper.serverPort,
+        [SemanticConvention.GEN_AI_RESPONSE_ID]: result.id,
+        [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [result.choices[0].finish_reason],
+        [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
+        [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+        [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      };
+      if (captureContent) {
+        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      }
+      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
     return {
       genAIEndpoint,
-      model,
+      model: requestModel,
       user,
       cost,
       aiSystem: TogetherWrapper.aiSystem,
