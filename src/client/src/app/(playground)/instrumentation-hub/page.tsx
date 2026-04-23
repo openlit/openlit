@@ -89,14 +89,20 @@ export default function InstrumentationHub() {
 	}, [pathname, filter.timeLimit.type, updateFilter]);
 
 	useEffect(() => {
-		if (
-			!serviceRows.some(
-				(service) =>
-					service.pending_action_status === "pending" ||
-					service.pending_action_status === "acknowledged"
+		const hasActiveWork = serviceRows.some((service) => {
+			if (
+				service.pending_action_status === "pending" ||
+				service.pending_action_status === "acknowledged"
 			)
-		)
-			return;
+				return true;
+			const attrs = service.resource_attributes || {};
+			const actualAgent = attrs["openlit.agent_observability.status"] || "";
+			const desiredAgent = service.desired_agent_status || "none";
+			if (desiredAgent === "enabled" && actualAgent !== "enabled") return true;
+			if (desiredAgent === "none" && actualAgent === "enabled") return true;
+			return false;
+		});
+		if (!hasActiveWork) return;
 
 		const interval = window.setInterval(() => {
 			refresh();

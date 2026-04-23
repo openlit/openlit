@@ -34,6 +34,8 @@ interface EnrichedService extends ControllerService {
 	mode: "linux" | "docker" | "kubernetes" | "standalone";
 	agentStatus: "enabled" | "disabled" | "unsupported" | "manual";
 	agentSource: string;
+	agentTransitioning: boolean;
+	agentTransitionDirection: "enabling" | "disabling" | null;
 }
 
 type ServiceColumnKey =
@@ -116,13 +118,14 @@ function AgentObservabilityCell({
 	onRefresh: () => void;
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
-	const { agentStatus } = service;
+	const { agentStatus, agentTransitioning, agentTransitionDirection } = service;
 	const pendingAction = service.pending_action || undefined;
 	const isPending =
 		(service.pending_action_status === "pending" ||
 			service.pending_action_status === "acknowledged") &&
 		(pendingAction === "enable_python_sdk" ||
 			pendingAction === "disable_python_sdk");
+	const showTransitioning = isPending || agentTransitioning;
 
 	if (agentStatus === "unsupported") {
 		return (
@@ -132,7 +135,7 @@ function AgentObservabilityCell({
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (isPending) return;
+		if (showTransitioning) return;
 		const enabling = agentStatus !== "enabled" && agentStatus !== "manual";
 		await fireRequest({
 			requestType: enabling ? "POST" : "DELETE",
@@ -151,16 +154,21 @@ function AgentObservabilityCell({
 		});
 	};
 
-	if (isPending) {
+	if (showTransitioning) {
+		const transitionLabel = isPending
+			? pendingAction === "enable_python_sdk"
+				? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLING
+				: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLING
+			: agentTransitionDirection === "enabling"
+				? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLING
+				: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLING;
 		return (
 			<button
 				disabled
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{agentStatus === "enabled" || agentStatus === "manual"
-					? getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_DISABLING
-					: getMessage().INSTRUMENTATION_HUB_SERVICE_ACTION_ENABLING}
+				{transitionLabel}
 			</button>
 		);
 	}
@@ -353,11 +361,21 @@ export default function ServiceTable({
 				agentStatus = "manual";
 			}
 
+			const actualNormalized = agentStatusRaw === "enabled" ? "enabled" : "disabled";
+			const desiredNormalized = svc.desired_agent_status === "enabled" ? "enabled" : "disabled";
+			const agentTransitioning = isPython && actualNormalized !== desiredNormalized;
+			let agentTransitionDirection: "enabling" | "disabling" | null = null;
+			if (agentTransitioning) {
+				agentTransitionDirection = desiredNormalized === "enabled" ? "enabling" : "disabling";
+			}
+
 			return {
 				...svc,
 				mode: inst?.mode || "linux",
 				agentStatus,
 				agentSource,
+				agentTransitioning,
+				agentTransitionDirection,
 			};
 		});
 	}, [services, instanceMap]);

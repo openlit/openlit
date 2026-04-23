@@ -1,13 +1,11 @@
 diff --git a/pkg/ebpf/common/http_transform.go b/pkg/ebpf/common/http_transform.go
-index abcdef0..1234567 100644
+index a79d1d7..c6d4f88 100644
 --- a/pkg/ebpf/common/http_transform.go
 +++ b/pkg/ebpf/common/http_transform.go
-@@ -184,6 +184,48 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, re
+@@ -197,6 +197,54 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
  		}
  	}
  
-+	// OpenLIT custom providers: OpenAI-compatible providers reuse OpenAISpan with host-based routing.
-+	// Groq, Deepseek, Together, Fireworks, Mistral, Azure OpenAI all use OpenAI-compatible format.
 +	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Groq.Enabled {
 +		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
 +		if ok {
@@ -56,6 +54,6 @@ index abcdef0..1234567 100644
 +		}
 +	}
 +
- 	if parseCtx != nil && parseCtx.payloadExtraction.HTTP.Enrichment.Enabled {
- 		ebpfhttp.EnrichHTTPSpan(&httpSpan, req, resp, parseCtx.payloadExtraction.HTTP.Enrichment)
- 	}
+ 	if parseCtx != nil && parseCtx.payloadExtraction.HTTP.JSONRPC.Enabled {
+ 		span, ok := ebpfhttp.JSONRPCSpan(&httpSpan, req, resp)
+ 		if ok {

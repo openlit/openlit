@@ -1,16 +1,12 @@
 # OBI Patches
 
-This directory contains patch files applied to the upstream OBI (OpenTelemetry eBPF Instrumentation) submodule in `.obi-src/` during `make vendor-providers`.
+This directory contains patch files applied on top of the upstream OBI (OpenTelemetry eBPF Instrumentation) v0.8.0 during Docker build.
 
 ## Patch Files
 
-- `http_transform.patch` - Adds hostname routing for new providers in the HTTP transform layer
-- `span.patch` - Adds span types for new GenAI providers
-- `span_getters.patch` - Adds getter functions for provider-specific attributes
-- `tracesgen.patch` - Adds trace generation for new providers
-- `metrics.patch` - Adds metrics export for new providers
-- `prom.patch` - Adds Prometheus metric export
-- `config.patch` - Adds config flags for enabling/disabling providers
+- `config.patch` - Adds config types and flags for new GenAI providers (Cohere, Mistral, Groq, Deepseek, Together, Fireworks, Ollama, Azure OpenAI)
+- `http_transform.patch` - Adds hostname routing for OpenAI-compatible providers in the HTTP transform layer
+- `span.patch` - Adds span subtypes, VendorCohere struct, and getter functions for new providers
 
 ## Creating Patches
 

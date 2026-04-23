@@ -1,8 +1,8 @@
 # --- Build OBI from source (with multi-provider GenAI support) ---
 FROM ghcr.io/open-telemetry/obi-generator:0.2.11 AS obi-builder
 
-ARG OBI_REPO=https://github.com/ishanjainn/opentelemetry-ebpf-instrumentation.git
-ARG OBI_BRANCH=openlit/providers
+ARG OBI_REPO=https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation.git
+ARG OBI_BRANCH=v0.8.0
 ARG TARGETARCH
 
 ENV GOARCH=${TARGETARCH}
@@ -12,6 +12,14 @@ WORKDIR /obi-src
 RUN apk add --no-cache make git bash
 
 RUN git clone --depth 1 --branch ${OBI_BRANCH} ${OBI_REPO} .
+
+COPY patches/ /tmp/patches/
+RUN for patch in /tmp/patches/*.patch; do \
+      [ -f "$patch" ] || continue; \
+      echo "Applying $patch"; \
+      git apply "$patch"; \
+    done
+
 RUN go mod download
 RUN /generate.sh && \
     CGO_ENABLED=0 GOOS=linux go build -a -o /obi ./cmd/obi

@@ -1,5 +1,6 @@
 import {
 	getControllerInstanceById,
+	getControllerIdsForWorkload,
 	getServiceById,
 	queueAction,
 	updateDesiredStatus,
@@ -182,11 +183,25 @@ export async function POST(
 			desired_agent_status: "enabled",
 		});
 
-		await queueAction(
-			serviceContext.service.controller_instance_id,
-			"enable_python_sdk",
-			serviceContext.service.workload_key,
-			JSON.stringify(payload)
+		const controllerIds = await getControllerIdsForWorkload(
+			serviceContext.service.service_name,
+			serviceContext.service.namespace || "",
+			serviceContext.service.cluster_id || "default"
+		);
+		const targets = controllerIds.data?.map((r) => r.controller_instance_id) || [];
+		if (targets.length === 0) {
+			targets.push(serviceContext.service.controller_instance_id);
+		}
+
+		await Promise.all(
+			targets.map((cid) =>
+				queueAction(
+					cid,
+					"enable_python_sdk",
+					serviceContext.service.workload_key,
+					JSON.stringify(payload)
+				)
+			)
 		);
 
 		return Response.json({
@@ -195,6 +210,7 @@ export async function POST(
 				"Controller-managed Python SDK rollout queued. Workload-level changes will be applied on the next controller poll.",
 			service: serviceContext.service.service_name,
 			namespace: serviceContext.service.namespace || "default",
+			controllers: targets.length,
 		});
 	} catch (error: any) {
 		return Response.json(
@@ -231,16 +247,32 @@ export async function DELETE(
 			desired_agent_status: "none",
 		});
 
-		await queueAction(
-			result.service.controller_instance_id,
-			"disable_python_sdk",
-			result.service.workload_key,
-			JSON.stringify({
-				target_runtime: "python",
-				instrumentation_profile: "controller_managed",
-				duplicate_policy: "block_if_existing_otel_detected",
-				observability_scope: "agent",
-			} satisfies PythonSDKActionPayload)
+		const disablePayload = JSON.stringify({
+			target_runtime: "python",
+			instrumentation_profile: "controller_managed",
+			duplicate_policy: "block_if_existing_otel_detected",
+			observability_scope: "agent",
+		} satisfies PythonSDKActionPayload);
+
+		const controllerIds = await getControllerIdsForWorkload(
+			result.service.service_name,
+			result.service.namespace || "",
+			result.service.cluster_id || "default"
+		);
+		const targets = controllerIds.data?.map((r) => r.controller_instance_id) || [];
+		if (targets.length === 0) {
+			targets.push(result.service.controller_instance_id);
+		}
+
+		await Promise.all(
+			targets.map((cid) =>
+				queueAction(
+					cid,
+					"disable_python_sdk",
+					result.service.workload_key,
+					disablePayload
+				)
+			)
 		);
 
 		return Response.json({
@@ -248,6 +280,7 @@ export async function DELETE(
 			message: "Controller-managed Python SDK removal queued.",
 			service: result.service.service_name,
 			namespace: result.service.namespace || "default",
+			controllers: targets.length,
 		});
 	} catch (error: any) {
 		return Response.json(
