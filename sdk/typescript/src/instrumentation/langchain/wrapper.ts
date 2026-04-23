@@ -179,7 +179,7 @@ class OpenLITCallbackHandler {
       let completionContent = '';
       let finishReason = 'stop';
       let responseModel = modelName;
-      const toolCalls: Array<{ id: string; type: string; name: string; arguments: unknown }> = [];
+      let toolCalls: Array<{ id: string; type: string; name: string; arguments: unknown }> = [];
 
       if (output?.llm_output) {
         const lu = output.llm_output;
@@ -213,6 +213,13 @@ class OpenLITCallbackHandler {
             msg?.additional_kwargs?.tool_calls ||
             [];
           if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
+            // When the provider returns multiple generations (n > 1 or multiple
+            // prompts), LangChain still collapses into a single assistant
+            // message here. Take the last generation that carries tool_calls
+            // to stay symmetric with how `finishReason` below is overwritten
+            // (last-writer-wins) rather than merging tool calls from different
+            // choices into a single message.
+            toolCalls = [];
             for (const tc of rawToolCalls) {
               toolCalls.push({
                 id: tc.id || tc.tool_call_id || '',
@@ -274,9 +281,19 @@ class OpenLITCallbackHandler {
       if (toolCalls.length > 0) {
         const toolNames = toolCalls.map((t) => t.name || '').filter(Boolean);
         const toolIds = toolCalls.map((t) => t.id || '').filter(Boolean);
-        const toolArgs = toolCalls.map((t) =>
-          typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {})
-        );
+        const toolArgs = toolCalls.map((t) => {
+          if (typeof t.arguments === 'string') {
+            return t.arguments;
+          }
+          try {
+            return JSON.stringify(t.arguments ?? {});
+          } catch {
+            // Circular references, BigInt, etc. — never let span finalisation
+            // throw here (the outer try/catch would swallow the error and
+            // leave the span un-ended / the run entry in `spans` leaked).
+            return '[unserializable]';
+          }
+        });
         if (toolNames.length > 0) {
           span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, toolNames.join(', '));
         }

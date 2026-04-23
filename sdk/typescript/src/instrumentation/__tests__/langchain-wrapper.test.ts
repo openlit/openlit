@@ -234,4 +234,99 @@ describe('LangChain wrapper — tool_calls propagation', () => {
       { id: 'legacy_1', type: 'function', name: 'lookup', arguments: '{"k":"v"}' },
     ]);
   });
+
+  it('does not merge tool_calls across multiple generations (n > 1)', async () => {
+    // When the provider returns multiple choices, LangChain still collapses to
+    // one assistant message and `finishReason`/`completionContent` take the
+    // last writer. Tool calls must follow the same last-writer-wins rule —
+    // otherwise calls from different choices get flattened into one message
+    // and flat tool-name / id attributes become cross-choice joins.
+    const span = makeSpan();
+    seedRun(handler, 'run-tc-5', span);
+
+    const output = {
+      generations: [
+        [
+          {
+            text: '',
+            message: {
+              content: '',
+              tool_calls: [{ id: 'choice_a_1', name: 'tool_a', args: {} }],
+              response_metadata: { finish_reason: 'tool_calls' },
+            },
+          },
+          {
+            text: '',
+            message: {
+              content: '',
+              tool_calls: [{ id: 'choice_b_1', name: 'tool_b', args: {} }],
+              response_metadata: { finish_reason: 'tool_calls' },
+            },
+          },
+        ],
+      ],
+    };
+
+    handler.handleLLMEnd(output, 'run-tc-5');
+    await new Promise((r) => setImmediate(r));
+
+    const [, , toolCalls] = (OpenLitHelper.buildOutputMessages as jest.Mock).mock.calls[0];
+    // Expect only the last generation's tool_calls — NOT both merged.
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0].name).toBe('tool_b');
+
+    // Flat attributes must not be a cross-choice join like "tool_a, tool_b".
+    const setAttr = span.setAttribute as jest.Mock;
+    expect(setAttr).toHaveBeenCalledWith(SemanticConvention.GEN_AI_TOOL_NAME, 'tool_b');
+    expect(setAttr).toHaveBeenCalledWith(SemanticConvention.GEN_AI_TOOL_CALL_ID, 'choice_b_1');
+  });
+
+  it('survives unserialisable tool arguments (circular refs / BigInt) and still ends the span', async () => {
+    // If JSON.stringify throws, the outer try/catch in _finalizeLLMSpan would
+    // swallow the error and leave the span un-ended + the `spans` entry
+    // leaked. Guard per-argument serialisation and fall back to a sentinel.
+    const span = makeSpan();
+    seedRun(handler, 'run-tc-6', span);
+
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    const output = {
+      generations: [
+        [
+          {
+            text: '',
+            message: {
+              content: '',
+              tool_calls: [
+                { id: 'call_circ', name: 'bad_args', args: circular },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                { id: 'call_big', name: 'big_args', args: { n: (10n as any) } },
+                { id: 'call_ok', name: 'ok_args', args: { x: 1 } },
+              ],
+              response_metadata: { finish_reason: 'tool_calls' },
+            },
+          },
+        ],
+      ],
+    };
+
+    expect(() => handler.handleLLMEnd(output, 'run-tc-6')).not.toThrow();
+    await new Promise((r) => setImmediate(r));
+
+    const setAttr = span.setAttribute as jest.Mock;
+    const argsCall = setAttr.mock.calls.find(
+      (c) => c[0] === SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS
+    );
+    expect(argsCall).toBeTruthy();
+    const [, argsValue] = argsCall!;
+    expect(argsValue).toHaveLength(3);
+    expect(argsValue[0]).toBe('[unserializable]'); // circular
+    expect(argsValue[1]).toBe('[unserializable]'); // BigInt
+    expect(argsValue[2]).toBe('{"x":1}');           // ok
+
+    // Most important: the span was finalised, not leaked.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((handler as any).spans.has('run-tc-6')).toBe(false);
+  });
 });
