@@ -67,6 +67,12 @@ PARAMETER_CONFIG = {
         "cli_type": str,
         "parser": "csv",  # Special handling needed
     },
+    "controller_mode": {
+        "default": None,
+        "env_var": "OPENLIT_CONTROLLER_MODE",
+        "cli_help": "Controller-managed instrumentation profile",
+        "cli_type": str,
+    },
     "disable_metrics": {
         "default": False,
         "env_var": "OPENLIT_DISABLE_METRICS",

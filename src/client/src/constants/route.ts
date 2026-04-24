@@ -3,6 +3,7 @@ export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/prompt/get-compiled",
 	"/api/vault/get-secrets",
 	"/api/rule-engine/evaluate",
+	"/api/controller/poll",
 ];
 
 /** Routes that don't require auth, matched by prefix (for dynamic segments). */

@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse
+  namespace: openlit
+spec:
+  serviceName: clickhouse
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:24.4.1
+          env:
+            - name: CLICKHOUSE_PASSWORD
+              value: OPENLIT
+            - name: CLICKHOUSE_USER
+              value: default
+            - name: CLICKHOUSE_DATABASE
+              value: openlit
+          ports:
+            - containerPort: 8123
+            - containerPort: 9000
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: openlit
+spec:
+  selector:
+    app: clickhouse
+  ports:
+    - name: http
+      port: 8123
+    - name: native
+      port: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openlit
+  namespace: openlit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openlit
+  template:
+    metadata:
+      labels:
+        app: openlit
+    spec:
+      containers:
+        - name: openlit
+          image: openlit:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: INIT_DB_HOST
+              value: clickhouse
+            - name: INIT_DB_PORT
+              value: "8123"
+            - name: INIT_DB_DATABASE
+              value: openlit
+            - name: INIT_DB_USERNAME
+              value: default
+            - name: INIT_DB_PASSWORD
+              value: OPENLIT
+            - name: SQLITE_DATABASE_URL
+              value: file:/app/client/data/data.db
+          ports:
+            - containerPort: 3000
+            - containerPort: 4318
+          volumeMounts:
+            - name: data
+              mountPath: /app/client/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openlit
+  namespace: openlit
+spec:
+  selector:
+    app: openlit
+  ports:
+    - name: ui
+      port: 3000
+    - name: otlp-http
+      port: 4318
