@@ -70,8 +70,14 @@ class TestOperationMap:
             assert key in SPAN_KIND_MAP, f"Missing span kind: {key}"
 
     def test_get_operation_type_defaults(self):
-        assert get_operation_type("agent_init") == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
-        assert get_operation_type("unknown_key") == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+        assert (
+            get_operation_type("agent_init")
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT
+        )
+        assert (
+            get_operation_type("unknown_key")
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+        )
 
     def test_runner_endpoints_map_to_invoke_agent(self):
         for key in ("runner_run_async", "runner_run", "runner_run_live"):
@@ -99,7 +105,9 @@ class TestSpanNameGeneration:
     def test_agent_run_async_span_name(self):
         instance = MagicMock()
         instance.name = "sub_agent"
-        assert generate_span_name("agent_run_async", instance) == "invoke_agent sub_agent"
+        assert (
+            generate_span_name("agent_run_async", instance) == "invoke_agent sub_agent"
+        )
 
     def test_fallback_app_name(self):
         instance = MagicMock(spec=[])
@@ -424,7 +432,9 @@ class TestToolSpanEnrichment:
         span.set_attribute.assert_any_call(
             SemanticConvention.GEN_AI_TOOL_NAME, "get_weather"
         )
-        set_calls = {call[0][0]: call[0][1] for call in span.set_attribute.call_args_list}
+        set_calls = {
+            call[0][0]: call[0][1] for call in span.set_attribute.call_args_list
+        }
         assert SemanticConvention.GEN_AI_TOOL_CALL_ID in set_calls
         assert set_calls[SemanticConvention.GEN_AI_TOOL_CALL_ID] == "call_abc"
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT in set_calls
@@ -460,14 +470,13 @@ class TestToolSpanEnrichment:
         tool.description = None
 
         enrich_tool_span(
-            span, tool,
+            span,
+            tool,
             function_args=None,
             function_response_event=None,
             capture_message_content=True,
         )
-        span.set_attribute.assert_any_call(
-            SemanticConvention.GEN_AI_TOOL_NAME, "noop"
-        )
+        span.set_attribute.assert_any_call(SemanticConvention.GEN_AI_TOOL_NAME, "noop")
 
 
 class TestMergedToolSpanEnrichment:
@@ -505,7 +514,9 @@ class TestMergedToolSpanEnrichment:
             SemanticConvention.GEN_AI_TOOL_CALL_ID, "evt_123"
         )
 
-        set_calls = {call[0][0]: call[0][1] for call in span.set_attribute.call_args_list}
+        set_calls = {
+            call[0][0]: call[0][1] for call in span.set_attribute.call_args_list
+        }
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT in set_calls
         result = json.loads(set_calls[SemanticConvention.GEN_AI_TOOL_CALL_RESULT])
         assert len(result) == 2
@@ -514,8 +525,12 @@ class TestMergedToolSpanEnrichment:
 
     def test_merged_without_capture(self):
         span = MagicMock()
-        enrich_merged_tool_span(span, "evt_1", MagicMock(), capture_message_content=False)
-        set_calls = {call[0][0]: call[0][1] for call in span.set_attribute.call_args_list}
+        enrich_merged_tool_span(
+            span, "evt_1", MagicMock(), capture_message_content=False
+        )
+        set_calls = {
+            call[0][0]: call[0][1] for call in span.set_attribute.call_args_list
+        }
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT not in set_calls
 
 
@@ -552,9 +567,7 @@ class TestMetricsRecording:
     """Tests for record_google_adk_metrics."""
 
     def test_records_duration(self):
-        metrics = {
-            "genai_client_operation_duration": MagicMock()
-        }
+        metrics = {"genai_client_operation_duration": MagicMock()}
         record_google_adk_metrics(
             metrics,
             "invoke_workflow",
@@ -586,34 +599,51 @@ class TestToolNameExtraction:
 
     def test_callable_name_via_dunder(self):
         """Raw Python functions have __name__, not .name."""
+
         def get_weather(city: str) -> dict:
             """Get weather for a city."""
             return {}
 
-        t_name = getattr(get_weather, "name", None) or getattr(get_weather, "__name__", None) or type(get_weather).__name__
+        t_name = (
+            getattr(get_weather, "name", None)
+            or getattr(get_weather, "__name__", None)
+            or type(get_weather).__name__
+        )
         assert t_name == "get_weather"
 
     def test_lambda_falls_back_to_lambda(self):
         def _anon(x):
             return x
+
         _anon.__name__ = "<lambda>"
-        t_name = getattr(_anon, "name", None) or getattr(_anon, "__name__", None) or type(_anon).__name__
+        t_name = (
+            getattr(_anon, "name", None)
+            or getattr(_anon, "__name__", None)
+            or type(_anon).__name__
+        )
         assert t_name == "<lambda>"
 
     def test_basetool_style_name(self):
         """BaseTool subclasses have .name."""
         tool = MagicMock()
         tool.name = "my_tool"
-        t_name = getattr(tool, "name", None) or getattr(tool, "__name__", None) or type(tool).__name__
+        t_name = (
+            getattr(tool, "name", None)
+            or getattr(tool, "__name__", None)
+            or type(tool).__name__
+        )
         assert t_name == "my_tool"
 
     def test_docstring_as_description(self):
         """Raw callables use __doc__ as description fallback."""
+
         def calculate(expression: str) -> dict:
             """Evaluate a math expression."""
             return {}
 
-        t_desc = getattr(calculate, "description", None) or getattr(calculate, "__doc__", None)
+        t_desc = getattr(calculate, "description", None) or getattr(
+            calculate, "__doc__", None
+        )
         assert "Evaluate a math expression" in t_desc
 
 
@@ -622,10 +652,12 @@ class TestInstrumentorImport:
 
     def test_import_instrumentor(self):
         from openlit.instrumentation.google_adk import GoogleADKInstrumentor
+
         assert GoogleADKInstrumentor is not None
 
     def test_import_utils(self):
         from openlit.instrumentation.google_adk import utils
+
         assert hasattr(utils, "OPERATION_MAP")
         assert hasattr(utils, "_PassthroughTracer")
         assert hasattr(utils, "enrich_llm_span")
@@ -636,11 +668,13 @@ class TestInstrumentorImport:
             async_runner_wrap,
             async_agent_wrap,
         )
+
         assert async_runner_wrap is not None
         assert async_agent_wrap is not None
 
     def test_import_sync_wrappers(self):
         from openlit.instrumentation.google_adk.google_adk import sync_runner_wrap
+
         assert sync_runner_wrap is not None
 
 
@@ -648,7 +682,9 @@ class TestServerInfoNonGoogle:
     """Tests for resolve_server_info with non-Google backends."""
 
     def test_anthropic_model_detection(self):
-        addr, _, provider = resolve_server_info(model_name="anthropic/claude-sonnet-4-20250514")
+        addr, _, provider = resolve_server_info(
+            model_name="anthropic/claude-sonnet-4-20250514"
+        )
         assert addr == "api.anthropic.com"
         assert provider == "anthropic"
 
@@ -751,7 +787,9 @@ class TestInputMessageSchema:
         capture_input_messages(span, llm_request, capture_message_content=True)
 
         call_args = span.set_attribute.call_args_list
-        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        msg_call = [
+            c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES
+        ]
         assert len(msg_call) == 1
         messages = json.loads(msg_call[0][0][1])
         assert messages[0]["role"] == "user"
@@ -781,7 +819,9 @@ class TestInputMessageSchema:
         capture_input_messages(span, llm_request, capture_message_content=True)
 
         call_args = span.set_attribute.call_args_list
-        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        msg_call = [
+            c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES
+        ]
         messages = json.loads(msg_call[0][0][1])
         tool_part = messages[0]["parts"][0]
         assert tool_part["type"] == "tool_call"
@@ -809,7 +849,9 @@ class TestInputMessageSchema:
         capture_input_messages(span, llm_request, capture_message_content=True)
 
         call_args = span.set_attribute.call_args_list
-        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES]
+        msg_call = [
+            c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_INPUT_MESSAGES
+        ]
         messages = json.loads(msg_call[0][0][1])
         resp_part = messages[0]["parts"][0]
         assert resp_part["type"] == "tool_call_response"
@@ -833,7 +875,9 @@ class TestOutputMessageSchema:
         capture_output_messages(span, llm_response, True, "stop")
 
         call_args = span.set_attribute.call_args_list
-        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+        msg_call = [
+            c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES
+        ]
         assert len(msg_call) == 1
         messages = json.loads(msg_call[0][0][1])
         assert messages[0]["role"] == "assistant"
@@ -860,7 +904,9 @@ class TestOutputMessageSchema:
         capture_output_messages(span, llm_response, True, "tool_calls")
 
         call_args = span.set_attribute.call_args_list
-        msg_call = [c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+        msg_call = [
+            c for c in call_args if c[0][0] == SemanticConvention.GEN_AI_OUTPUT_MESSAGES
+        ]
         messages = json.loads(msg_call[0][0][1])
         assert messages[0]["finish_reason"] == "tool_calls"
         assert messages[0]["parts"][0]["type"] == "tool_call"

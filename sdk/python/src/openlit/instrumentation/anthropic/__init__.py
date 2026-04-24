@@ -8,7 +8,10 @@ from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.anthropic.anthropic import messages, messages_stream
-from openlit.instrumentation.anthropic.async_anthropic import async_messages, async_messages_stream
+from openlit.instrumentation.anthropic.async_anthropic import (
+    async_messages,
+    async_messages_stream,
+)
 
 _instruments = ("anthropic >= 0.21.0",)
 

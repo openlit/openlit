@@ -28,6 +28,8 @@ export const config = {
 		"/fleet-hub",
 		"/instrumentation-hub",
 		"/instrumentation-hub/:path*",
-		"/onboarding"
+		"/onboarding",
+		"/chat",
+		"/chat/:path*"
 	],
 };

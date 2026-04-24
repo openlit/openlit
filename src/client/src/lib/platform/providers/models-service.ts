@@ -1,32 +1,32 @@
 import { dataCollector } from "@/lib/platform/common";
 import Sanitizer from "@/utils/sanitizer";
-import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "./table-details";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "./table-details";
 import { CustomModel, CustomModelInput, ModelMetadata } from "@/types/openground";
 
 /**
- * Validate UUID format
+ * Model management service for openlit_provider_models.
+ *
+ * All models (seeded defaults + user-created) live in a single table per
+ * ClickHouse instance. Every model returned by this service is editable/deletable.
  */
-function isValidUUID(id: string): boolean {
-	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-	return uuidRegex.test(id);
-}
 
 /**
- * Get all custom models for a user, optionally filtered by provider
+ * Get all models for a database config, optionally filtered by provider.
  */
 export async function getCustomModels(
 	userId: string,
 	databaseConfigId: string,
 	provider?: string
 ): Promise<{ data?: CustomModel[]; err?: string }> {
-	const whereConditions = [
-		`created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'`,
-		`database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'`,
-	];
+	const whereConditions: string[] = [];
 
 	if (provider) {
 		whereConditions.push(`provider = '${Sanitizer.sanitizeValue(provider)}'`);
 	}
+
+	const whereClause = whereConditions.length > 0
+		? `WHERE ${whereConditions.join(" AND ")}`
+		: "";
 
 	const query = `
 		SELECT
@@ -34,13 +34,15 @@ export async function getCustomModels(
 			model_id,
 			provider,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
-			capabilities
-		FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE ${whereConditions.join(" AND ")}
-		ORDER BY provider, created_at DESC
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		${whereClause}
+		ORDER BY provider, is_default DESC, created_at DESC
 	`;
 
 	const { data, err } = await dataCollector(
@@ -53,27 +55,11 @@ export async function getCustomModels(
 		return { err: err as string };
 	}
 
-	// Filter out invalid UUIDs
-	const invalidIds: string[] = [];
-	const validModels = (data as any[] || []).filter((model: any) => {
-		const isValid = model.id && isValidUUID(model.id);
-		if (!isValid) {
-			invalidIds.push(model.id || 'null');
-		}
-		return isValid;
-	});
-
-	// Log invalid IDs for cleanup
-	if (invalidIds.length > 0) {
-		// Use separate parameters to prevent log injection
-		console.warn('Found', invalidIds.length, 'models with invalid UUIDs:', invalidIds);
-	}
-
-	return { data: validModels as CustomModel[] };
+	return { data: (data as CustomModel[]) || [] };
 }
 
 /**
- * Get all custom models grouped by provider
+ * Get all models grouped by provider.
  */
 export async function getCustomModelsGroupedByProvider(
 	userId: string,
@@ -85,7 +71,6 @@ export async function getCustomModelsGroupedByProvider(
 		return { err };
 	}
 
-	// Group by provider
 	const grouped: Record<string, CustomModel[]> = {};
 	(models || []).forEach((model) => {
 		if (!grouped[model.provider!]) {
@@ -98,33 +83,32 @@ export async function getCustomModelsGroupedByProvider(
 }
 
 /**
- * Create a new custom model
+ * Create a new model.
  */
 export async function createCustomModel(
 	userId: string,
 	databaseConfigId: string,
 	input: CustomModelInput
 ): Promise<{ data?: CustomModel; err?: string }> {
-	// Validate required fields
 	if (!input.provider || !input.model_id || !input.displayName) {
 		return { err: "Provider, model ID, and display name are required" };
 	}
 
-	// Insert new model
 	const { err } = await dataCollector(
 		{
-			table: OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME,
+			table: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
 			values: [
 				{
 					provider: input.provider,
 					model_id: input.model_id,
 					display_name: input.displayName,
+					model_type: input.modelType || "chat",
 					context_window: input.contextWindow || 4096,
 					input_price_per_m_token: input.inputPricePerMToken || 0,
 					output_price_per_m_token: input.outputPricePerMToken || 0,
 					capabilities: input.capabilities || [],
+					is_default: false,
 					created_by_user_id: userId,
-					database_config_id: databaseConfigId,
 				},
 			],
 		},
@@ -136,21 +120,20 @@ export async function createCustomModel(
 		return { err: err as string };
 	}
 
-	// Fetch the newly created model
 	const selectQuery = `
 		SELECT
 			toString(id) as id,
 			model_id,
 			provider,
 			display_name as displayName,
+			model_type as modelType,
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
-			capabilities
-		FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
-		  AND provider = '${Sanitizer.sanitizeValue(input.provider)}'
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(input.provider)}'
 		  AND model_id = '${Sanitizer.sanitizeValue(input.model_id)}'
 		ORDER BY created_at DESC
 		LIMIT 1
@@ -170,7 +153,7 @@ export async function createCustomModel(
 }
 
 /**
- * Update an existing custom model
+ * Update an existing model. Matches on the (provider, model_id) composite key.
  */
 export async function updateCustomModel(
 	userId: string,
@@ -178,16 +161,13 @@ export async function updateCustomModel(
 	id: string,
 	input: Partial<CustomModelInput>
 ): Promise<{ data?: boolean; err?: string }> {
-	// Validate UUID format
-	if (!isValidUUID(id)) {
-		return { err: `Invalid UUID format: ${id}` };
-	}
-
-	// Build update fields
 	const updateFields: string[] = [];
 
 	if (input.displayName !== undefined) {
 		updateFields.push(`display_name = '${Sanitizer.sanitizeValue(input.displayName)}'`);
+	}
+	if (input.modelType !== undefined) {
+		updateFields.push(`model_type = '${Sanitizer.sanitizeValue(input.modelType)}'`);
 	}
 	if (input.contextWindow !== undefined) {
 		updateFields.push(`context_window = ${input.contextWindow}`);
@@ -212,11 +192,9 @@ export async function updateCustomModel(
 	}
 
 	const updateQuery = `
-		ALTER TABLE ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
+		ALTER TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		UPDATE ${updateFields.join(", ")}
-		WHERE id = toUUID('${Sanitizer.sanitizeValue(id)}')
-		  AND created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
+		WHERE (toString(id) = '${Sanitizer.sanitizeValue(id)}' OR model_id = '${Sanitizer.sanitizeValue(id)}')
 	`;
 
 	const { err } = await dataCollector(
@@ -233,23 +211,16 @@ export async function updateCustomModel(
 }
 
 /**
- * Delete a custom model
+ * Delete a model.
  */
 export async function deleteCustomModel(
 	userId: string,
 	databaseConfigId: string,
 	id: string
 ): Promise<{ data?: boolean; err?: string }> {
-	// Validate UUID format
-	if (!isValidUUID(id)) {
-		return { err: `Invalid UUID format: ${id}` };
-	}
-
 	const deleteQuery = `
-		DELETE FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		WHERE id = toUUID('${Sanitizer.sanitizeValue(id)}')
-		  AND created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
-		  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
+		DELETE FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE (toString(id) = '${Sanitizer.sanitizeValue(id)}' OR model_id = '${Sanitizer.sanitizeValue(id)}')
 	`;
 
 	const { err } = await dataCollector(
@@ -266,8 +237,7 @@ export async function deleteCustomModel(
 }
 
 /**
- * Get custom models for a provider to merge with static models
- * Returns models in the format expected by provider metadata
+ * Get models for a provider (used when merging with provider metadata).
  */
 export async function getCustomModelsForProvider(
 	userId: string,
@@ -284,9 +254,8 @@ export async function getCustomModelsForProvider(
 		return { err };
 	}
 
-	// Transform to ModelMetadata format (using model_id as id)
 	const transformed = (models || []).map((model) => ({
-		id: model.model_id, // Use model_id as id for consistency with static models
+		id: model.model_id,
 		displayName: model.displayName,
 		contextWindow: model.contextWindow,
 		inputPricePerMToken: model.inputPricePerMToken,

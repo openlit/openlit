@@ -58,8 +58,15 @@ export default class Cron {
 
 		this.createLogDirectoryIfNotExists(job.cronLogPath);
 
+		// Resolve the absolute path to Node now (at crontab-write time) using the
+		// currently-running interpreter. Cron's PATH is minimal and often does not
+		// include node (nvm/homebrew installs especially), so `$(which node)` at
+		// run-time collapses to empty and /bin/sh tries to exec the .js directly,
+		// failing with "Permission denied".
+		const nodeBin = process.execPath;
+
 		// Add the new cron job entry
-		const newEntry = `${job.cronSchedule} CRON_ID=${job.cronId} ${envVars} $(which node) ${job.cronScriptPath} >> ${job.cronLogPath} 2>&1`;
+		const newEntry = `${job.cronSchedule} CRON_ID=${job.cronId} ${envVars} ${nodeBin} ${job.cronScriptPath} >> ${job.cronLogPath} 2>&1`;
 		managedSection.push(newEntry);
 
 		// Construct the new crontab content

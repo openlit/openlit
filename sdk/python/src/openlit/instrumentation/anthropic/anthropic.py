@@ -277,19 +277,23 @@ def messages_stream(
             """Drains the stream to finalize the span before returning the result."""
             for _ in self:
                 pass
-            original_get_final_message = getattr(self.__wrapped__, 'get_final_message')
+            original_get_final_message = getattr(self.__wrapped__, "get_final_message")
             return original_get_final_message()
 
         @property
         def _instrumented_text_stream(self):
             """Yields text while ensuring every chunk hits our instrumentation."""
+
             def text_generator():
                 for event in self:
-                    if (hasattr(event, 'delta') and
-                        hasattr(event.delta, 'type') and
-                        event.delta.type == 'text_delta' and
-                            hasattr(event.delta, 'text')):
+                    if (
+                        hasattr(event, "delta")
+                        and hasattr(event.delta, "type")
+                        and event.delta.type == "text_delta"
+                        and hasattr(event.delta, "text")
+                    ):
                         yield event.delta.text
+
             return text_generator()
 
         def _instrumented_until_done(self):

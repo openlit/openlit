@@ -47,6 +47,7 @@ Customize OpenLIT SDK behavior for your specific instrumentation needs:
 | `pricing_json` | `--pricing_json` | `OPENLIT_PRICING_JSON` | Custom pricing configuration for accurate LLM cost tracking | `None` | No |
 | `disable_events` | `--disable_events` | `OPENLIT_DISABLE_EVENTS` | Disable OTel Logger event emission | `False` | No |
 | `collect_system_metrics` | `--collect_system_metrics` | `OPENLIT_COLLECT_SYSTEM_METRICS` | Comprehensive system monitoring (CPU, memory, disk, network, GPU) for AI workloads | `False` | No |
+| `custom_metrics_attributes` | N/A | N/A | Custom key-value attributes applied to every metric recording. Useful for grouping metrics by custom tags (e.g., client ID, team, project). Reserved keys like `service.name` cannot be overwritten. | `None` | No |
 
 ### Database instrumentation options
 

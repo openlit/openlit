@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import SecretForm from "@/components/(playground)/vault/form";
 import getMessage from "@/constants/messages";
+import { consoleLog } from "@/utils/log";
 
 interface ProviderConfigDialogProps {
 	providerId: string;
@@ -93,7 +94,7 @@ export default function ProviderConfigDialog({
 			url: "/api/openground/config",
 			failureCb: (err?: string) => {
 				// Silently fail if no config exists yet
-				console.log("No existing config:", err);
+				consoleLog("No existing config:", err);
 			},
 		});
 	};

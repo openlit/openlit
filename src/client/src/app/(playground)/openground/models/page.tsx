@@ -11,7 +11,7 @@ export default function OpengroundModelsPage() {
 
 	useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.OPENGROUND_MODELS_PAGE_VISITED);
-		router.replace("/settings/manage-models");
+		router.replace("/manage-models");
 	}, []);
 
 	return null;

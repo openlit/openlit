@@ -171,7 +171,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/openground\/[^/]+$/,
 		getTitle: (pathname, params) => {
 			if (pathname === "/openground/new") return getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND;
-			if (pathname === "/openground/models" || pathname === "/settings/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
+			if (pathname === "/openground/models" || pathname === "/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
 			return params?.id ? getMessage().OPENGROUND_RUN_DETAILS : getMessage().FEATURE_OPENGROUND;
 		},
 		getBreadcrumbs: () => [
@@ -272,6 +272,22 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [
 			{ title: "Fleet Hub", href: "/fleet-hub" }
 		],
+	},
+
+	// Chat
+	{
+		regex: /^\/chat$/,
+		getTitle: () => getMessage().CHAT_TITLE,
+		getBreadcrumbs: () => [],
+		getDescription: () => getMessage().CHAT_DESCRIPTION,
+	},
+	{
+		regex: /^\/chat\/settings$/,
+		getTitle: () => getMessage().CHAT_SETTINGS_LINK,
+		getBreadcrumbs: () => [
+			{ title: getMessage().CHAT_TITLE, href: "/chat" }
+		],
+		getDescription: () => getMessage().CHAT_SETTINGS_DESCRIPTION,
 	},
 ];
 

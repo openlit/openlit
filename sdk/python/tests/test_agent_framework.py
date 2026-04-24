@@ -91,8 +91,7 @@ class TestOperationMap:
 
     def test_agent_run_maps_to_invoke_agent(self):
         assert (
-            OPERATION_MAP["agent_run"]
-            == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
+            OPERATION_MAP["agent_run"] == SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
         )
 
     def test_workflow_run_maps_to_invoke_workflow(self):
@@ -143,9 +142,7 @@ class TestSpanNameGeneration:
     def test_agent_run_span_name(self):
         instance = MagicMock()
         instance.name = "weather_agent"
-        assert (
-            generate_span_name("agent_run", instance) == "invoke_agent weather_agent"
-        )
+        assert generate_span_name("agent_run", instance) == "invoke_agent weather_agent"
 
     def test_agent_run_fallback_to_id(self):
         instance = MagicMock(spec=["id"])
@@ -374,7 +371,8 @@ class TestToolAttributes:
         tool.description = None
 
         _set_tool_attributes(
-            span, tool,
+            span,
+            tool,
             capture_message_content=True,
             tool_call_id="call-123",
             arguments={"query": "weather"},
@@ -385,10 +383,7 @@ class TestToolAttributes:
             SemanticConvention.GEN_AI_TOOL_CALL_ID, "call-123"
         )
         # Check arguments and result are JSON
-        call_args = {
-            c[0][0]: c[0][1]
-            for c in span.set_attribute.call_args_list
-        }
+        call_args = {c[0][0]: c[0][1] for c in span.set_attribute.call_args_list}
         assert SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS in call_args
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT in call_args
 
@@ -399,7 +394,8 @@ class TestToolAttributes:
         tool.description = None
 
         _set_tool_attributes(
-            span, tool,
+            span,
+            tool,
             capture_message_content=False,
             arguments={"query": "test"},
             result="some result",
@@ -652,12 +648,13 @@ class TestMetricsRecording:
 
     def test_skips_unknown_model(self):
         metrics = {"genai_client_operation_duration": MagicMock()}
-        _record_metrics(
-            metrics, "invoke_agent", 1.0, "dev", "app", "unknown", "", 0
+        _record_metrics(metrics, "invoke_agent", 1.0, "dev", "app", "unknown", "", 0)
+        call_attrs = (
+            metrics["genai_client_operation_duration"]
+            .record.call_args[1]
+            .get("attributes")
+            or metrics["genai_client_operation_duration"].record.call_args[0][1]
         )
-        call_attrs = metrics["genai_client_operation_duration"].record.call_args[1].get(
-            "attributes"
-        ) or metrics["genai_client_operation_duration"].record.call_args[0][1]
         assert SemanticConvention.GEN_AI_REQUEST_MODEL not in call_attrs
 
     def test_no_metrics_dict(self):
@@ -708,9 +705,7 @@ class TestWrapAgentInit:
         )
 
         registry = _AgentCreationRegistry()
-        wrapper_fn = _wrap_agent_init(
-            tracer, "test", "app", True, registry
-        )
+        wrapper_fn = _wrap_agent_init(tracer, "test", "app", True, registry)
 
         original_init = MagicMock(return_value=None)
         instance = MagicMock()
@@ -740,9 +735,7 @@ class TestWrapAgentInit:
         )
 
         registry = _AgentCreationRegistry()
-        wrapper_fn = _wrap_agent_init(
-            tracer, "test", "app", False, registry
-        )
+        wrapper_fn = _wrap_agent_init(tracer, "test", "app", False, registry)
 
         original_init = MagicMock(return_value=None)
         instance = MagicMock()
@@ -894,7 +887,9 @@ class TestToolExecuteWrap:
         instance.description = "Get weather for a city"
 
         result_coro = wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "call-1", "city": "NYC"},
         )
         result = await result_coro
@@ -917,16 +912,19 @@ class TestToolExecuteWrap:
         instance.description = "Get weather"
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "call-42", "city": "SF"},
         )
 
-        call_attrs = {
-            c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
         assert call_attrs[SemanticConvention.GEN_AI_TOOL_NAME] == "get_weather"
         assert call_attrs[SemanticConvention.GEN_AI_TOOL_CALL_ID] == "call-42"
-        assert call_attrs[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        assert (
+            call_attrs[SemanticConvention.GEN_AI_OPERATION]
+            == SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS
+        )
 
     @pytest.mark.asyncio
     async def test_captures_arguments_when_enabled(self):
@@ -940,13 +938,13 @@ class TestToolExecuteWrap:
         instance.description = None
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "call-1", "arguments": {"query": "hello"}},
         )
 
-        call_attrs = {
-            c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
         assert SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS in call_attrs
         parsed = json.loads(call_attrs[SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS])
         assert parsed == {"query": "hello"}
@@ -963,13 +961,13 @@ class TestToolExecuteWrap:
         instance.description = None
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "call-1"},
         )
 
-        call_attrs = {
-            c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT in call_attrs
 
     @pytest.mark.asyncio
@@ -984,13 +982,13 @@ class TestToolExecuteWrap:
         instance.description = None
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "call-1", "password": "abc"},
         )
 
-        call_attrs = {
-            c[0][0] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0] for c in mock_span.set_attribute.call_args_list}
         assert SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS not in call_attrs
         assert SemanticConvention.GEN_AI_TOOL_CALL_RESULT not in call_attrs
 
@@ -1007,7 +1005,9 @@ class TestToolExecuteWrap:
 
         with pytest.raises(ValueError, match="tool error"):
             await wrapper_fn(
-                failing_invoke, instance, [],
+                failing_invoke,
+                instance,
+                [],
                 {"tool_call_id": "call-1"},
             )
 
@@ -1024,8 +1024,16 @@ class TestToolExecuteWrap:
         )
         registry = _AgentCreationRegistry()
         wrapper_fn = tool_execute_wrap(
-            "tool_execute", "1.0.0", "prod", "app",
-            tracer, {}, False, metrics_mock, False, registry,
+            "tool_execute",
+            "1.0.0",
+            "prod",
+            "app",
+            tracer,
+            {},
+            False,
+            metrics_mock,
+            False,
+            registry,
         )
 
         async def fake_invoke(*args, **kwargs):
@@ -1051,13 +1059,13 @@ class TestToolExecuteWrap:
         instance.description = None
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "c1", "arguments": {"city": "SF"}, "context": None},
         )
 
-        call_attrs = {
-            c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
         args_str = call_attrs.get(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, "")
         assert "context" not in args_str
         assert "city" in args_str
@@ -1080,13 +1088,13 @@ class TestToolExecuteWrap:
         instance.description = None
 
         await wrapper_fn(
-            fake_invoke, instance, [],
+            fake_invoke,
+            instance,
+            [],
             {"tool_call_id": "c1"},
         )
 
-        call_attrs = {
-            c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list
-        }
+        call_attrs = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
         result_str = call_attrs.get(SemanticConvention.GEN_AI_TOOL_CALL_RESULT, "")
         assert "62°F, foggy" in result_str
 

@@ -6,6 +6,7 @@ import { PageStore } from "@/types/store/page";
 import { DashboardStore } from "./dashboards";
 import { OrganisationStore } from "./organisation";
 import { RuleEngineStore } from "./rule-engine";
+import { ChatStore } from "./chat";
 
 export type RootStore = {
 	user: UserStore;
@@ -16,4 +17,5 @@ export type RootStore = {
 	dashboards: DashboardStore;
 	organisation: OrganisationStore;
 	ruleEngine: RuleEngineStore;
+	chat: ChatStore;
 };

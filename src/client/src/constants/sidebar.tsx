@@ -3,10 +3,12 @@ import {
 	BookKey,
 	BookOpen,
 	BookText,
+	CircleDollarSign,
 	Component,
 	Home,
 	Key,
 	LayoutDashboard,
+	MessageSquare,
 	MonitorCog,
 	MonitorPlay,
 	Radar,
@@ -18,6 +20,7 @@ import {
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import OrganisationSwitch from "@/components/(playground)/sidebar/organisation-switch";
+import Otter from "@/components/svg/otter";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
@@ -37,6 +40,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
+		type: "action",
+	},
+	{
+		icon: <Otter className={ICON_CLASSES} />,
+		text: "Otter Chat",
+		link: "/chat",
 		type: "action",
 	},
 	{
@@ -123,6 +132,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/evaluations",
 			type: "action",
 		},
+		{
+			icon: <SettingsIcon className={ICON_CLASSES} />,
+			text: "Manage Models",
+			link: "/manage-models",
+			type: "action",
+		},
+		{
+			icon: <CircleDollarSign className={ICON_CLASSES} />,
+			text: "Pricing",
+			link: "/pricing",
+			type: "action",
+		},
 		]
 	},
 	{
@@ -134,12 +155,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",
 				link: "/settings/api-keys",
-				type: "action",
-			},
-			{
-				icon: <SettingsIcon className={ICON_CLASSES} />,
-				text: "Manage Models",
-				link: "/settings/manage-models",
 				type: "action",
 			},
 		]
