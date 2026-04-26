@@ -25,6 +25,8 @@ from openlit.instrumentation.openai.utils import (
     process_transcription_response,
     process_moderation_response,
     process_lightweight_response,
+    set_openai_request_span_attributes,
+    set_span_error_type,
 )
 from openlit.semcov import SemanticConvention
 
@@ -134,6 +136,17 @@ def async_chat_completions(
 
         if streaming:
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                True,
+                version,
+            )
             ctx = trace_api.set_span_in_context(span)
             token = context_api.attach(ctx)
             try:
@@ -158,7 +171,42 @@ def async_chat_completions(
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
-                response = await wrapped(*args, **kwargs)
+                set_openai_request_span_attributes(
+                    span,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    server_address,
+                    server_port,
+                    request_model,
+                    environment,
+                    application_name,
+                    False,
+                    version,
+                )
+                try:
+                    response = await wrapped(*args, **kwargs)
+                except Exception as e:
+                    err_type = set_span_error_type(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
+                    raise
 
                 try:
                     response = process_chat_response(

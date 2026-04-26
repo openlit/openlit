@@ -6,6 +6,11 @@ import json
 import time
 import logging
 
+from opentelemetry.sdk.resources import (
+    DEPLOYMENT_ENVIRONMENT,
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+)
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -29,6 +34,49 @@ from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
 
 logger = logging.getLogger(__name__)
+
+
+def set_openai_request_span_attributes(
+    span,
+    operation_name,
+    server_address,
+    server_port,
+    request_model,
+    environment,
+    application_name,
+    is_stream,
+    version,
+):
+    """
+    Set OpenAI request attributes that are known before the provider returns.
+    """
+
+    attributes = {
+        TELEMETRY_SDK_NAME: "openlit",
+        SemanticConvention.GEN_AI_OPERATION: operation_name,
+        SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+        SemanticConvention.SERVER_ADDRESS: server_address,
+        SemanticConvention.SERVER_PORT: server_port,
+        DEPLOYMENT_ENVIRONMENT: environment,
+        SERVICE_NAME: application_name,
+        SemanticConvention.GEN_AI_REQUEST_IS_STREAM: is_stream,
+        SemanticConvention.GEN_AI_SDK_VERSION: version,
+    }
+    if request_model:
+        attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+
+    for key, value in attributes.items():
+        if value is not None:
+            span.set_attribute(key, value)
+
+
+def set_span_error_type(span, error):
+    """Set error status and OTel error.type without recording duplicate events."""
+
+    error_type = type(error).__name__ or "_OTHER"
+    span.set_status(Status(StatusCode.ERROR))
+    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
+    return error_type
 
 
 def handle_not_given(value, default=None):
