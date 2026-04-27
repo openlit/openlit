@@ -363,6 +363,17 @@ def responses(
 
         if streaming:
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                True,
+                version,
+            )
             ctx = trace_api.set_span_in_context(span)
             token = context_api.attach(ctx)
             try:
@@ -387,7 +398,42 @@ def responses(
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
-                response = wrapped(*args, **kwargs)
+                set_openai_request_span_attributes(
+                    span,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    server_address,
+                    server_port,
+                    request_model,
+                    environment,
+                    application_name,
+                    False,
+                    version,
+                )
+                try:
+                    response = wrapped(*args, **kwargs)
+                except Exception as e:
+                    err_type = set_span_error_type(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
+                    raise
 
                 try:
                     response = process_response_response(
@@ -466,7 +512,42 @@ def chat_completions_parse(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                err_type = set_span_error_type(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=err_type,
+                    )
+                raise
 
             try:
                 response = process_chat_response(
@@ -547,7 +628,39 @@ def embedding(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                err_type = set_span_error_type(span, e)
+                if not disable_metrics and metrics:
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=err_type,
+                    )
+                raise
 
             try:
                 response = process_embedding_response(
@@ -623,7 +736,22 @@ def image_generate(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -703,7 +831,22 @@ def image_variatons(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -783,7 +926,22 @@ def audio_create(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -861,7 +1019,22 @@ def audio_transcription(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -919,7 +1092,22 @@ def audio_translation(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -975,7 +1163,22 @@ def image_edit(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -1033,7 +1236,22 @@ def moderation(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            set_openai_request_span_attributes(
+                span,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_MODERATION,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                False,
+                version,
+            )
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                set_span_error_type(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -1086,7 +1304,22 @@ def _make_lightweight_wrapper(span_prefix, operation_type, default_model="unknow
 
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
-                response = wrapped(*args, **kwargs)
+                set_openai_request_span_attributes(
+                    span,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    request_model,
+                    environment,
+                    application_name,
+                    False,
+                    version,
+                )
+                try:
+                    response = wrapped(*args, **kwargs)
+                except Exception as e:
+                    set_span_error_type(span, e)
+                    raise
                 end_time = time.time()
 
                 try:

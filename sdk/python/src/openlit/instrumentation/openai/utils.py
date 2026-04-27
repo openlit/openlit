@@ -14,6 +14,7 @@ from opentelemetry.sdk.resources import (
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -69,10 +70,13 @@ def set_openai_request_span_attributes(
         if value is not None:
             span.set_attribute(key, value)
 
+    _apply_custom_span_attributes(span)
+
 
 def set_span_error_type(span, error):
-    """Set error status and OTel error.type without recording duplicate events."""
+    """Record exception, set error status and OTel error.type on the span."""
 
+    span.record_exception(error)
     error_type = type(error).__name__ or "_OTHER"
     span.set_status(Status(StatusCode.ERROR))
     span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
