@@ -600,7 +600,8 @@ def common_chat_logic(
         and scope._reasoning_tokens > 0
     ):
         scope._span.set_attribute(
-            "gen_ai.usage.reasoning_tokens", scope._reasoning_tokens
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+            scope._reasoning_tokens,
         )
 
     # OTel cached token attributes (set even when 0)

@@ -110,7 +110,7 @@ jobs:
             -o "../dist/${OUTPUT}" ./cmd/collector
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}
           path: dist/
