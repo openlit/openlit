@@ -40,12 +40,7 @@ export interface ControllerService {
 	first_seen: string;
 	last_seen: string;
 	updated_at: string;
-	pending_action?:
-		| "instrument"
-		| "uninstrument"
-		| "enable_python_sdk"
-		| "disable_python_sdk"
-		| null;
+	pending_action?: string | null;
 	pending_action_status?: "pending" | "acknowledged" | null;
 	last_error?: string | null;
 	last_error_action?: ActionType | null;
@@ -110,12 +105,45 @@ export interface ControllerConfig {
 	poll_interval_seconds?: number;
 }
 
-export type ActionType =
-	| "instrument"
-	| "uninstrument"
-	| "enable_python_sdk"
-	| "disable_python_sdk";
+export type ActionType = string;
 export type ActionStatus = "pending" | "acknowledged" | "completed" | "failed";
+
+export const KNOWN_ACTIONS = {
+	INSTRUMENT: "instrument",
+	UNINSTRUMENT: "uninstrument",
+	ENABLE_AGENT: "enable_python_sdk",
+	DISABLE_AGENT: "disable_python_sdk",
+	PUSH_PROMPTS: "push_prompts",
+	REMOVE_PROMPTS: "remove_prompts",
+	PUSH_ENVS: "push_envs",
+	REMOVE_ENVS: "remove_envs",
+} as const;
+
+export interface FeatureDesiredState {
+	workload_key: string;
+	cluster_id: string;
+	feature: string;
+	desired_status: string;
+	config: string;
+	updated_at: string;
+}
+
+export interface EnvironmentFeatureConfig {
+	environment: string;
+	cluster_id: string;
+	feature: string;
+	config: string;
+	updated_at: string;
+}
+
+export interface PromptConfig {
+	templates: Array<{ name: string; content: string; version: number }>;
+}
+
+export interface EnvConfig {
+	variables: Record<string, string>;
+	secrets_masked?: boolean;
+}
 
 export type PythonSDKActionRuntime = "python";
 export type PythonSDKInstrumentationProfile = "controller_managed";

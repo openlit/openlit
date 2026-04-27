@@ -4,7 +4,8 @@ import {
 	CONTROLLER_INSTANCES_TABLE,
 	CONTROLLER_CONFIG_TABLE,
 	CONTROLLER_ACTIONS_TABLE,
-	CONTROLLER_DESIRED_STATES_TABLE,
+	CONTROLLER_DESIRED_STATES_V2_TABLE,
+	CONTROLLER_ENV_CONFIGS_TABLE,
 } from "./table-details";
 import type {
 	ControllerConfig,
@@ -13,6 +14,8 @@ import type {
 	ActionType,
 	ActionStatus,
 	PendingAction,
+	FeatureDesiredState,
+	EnvironmentFeatureConfig,
 } from "@/types/controller";
 import crypto from "crypto";
 
@@ -84,7 +87,7 @@ export async function getDiscoveredServices(
 	if (timeStart && timeEnd) {
 		timeFilter = `WHERE ${tbl}.last_seen >= '${timeStart}' AND ${tbl}.last_seen <= '${timeEnd}'`;
 	}
-	const desiredTbl = CONTROLLER_DESIRED_STATES_TABLE;
+	const desiredTbl = CONTROLLER_DESIRED_STATES_V2_TABLE;
 	const query = `
 		WITH aggregated_services AS (
 			SELECT
@@ -119,8 +122,8 @@ export async function getDiscoveredServices(
 			SELECT
 				workload_key,
 				cluster_id,
-				argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
-				argMax(desired_agent_status, updated_at) AS desired_agent_status
+				max(if(feature = 'instrumentation', desired_status, '')) AS desired_instrumentation_status,
+				max(if(feature = 'agent', desired_status, '')) AS desired_agent_status
 			FROM ${desiredTbl}
 			FINAL
 			GROUP BY workload_key, cluster_id
@@ -169,8 +172,8 @@ export async function getDiscoveredServices(
 			aggregated_services.first_seen AS first_seen,
 			aggregated_services.last_seen AS last_seen,
 			aggregated_services.updated_at AS updated_at,
-			ifNull(desired_states.desired_instrumentation_status, 'none') AS desired_instrumentation_status,
-			ifNull(desired_states.desired_agent_status, 'none') AS desired_agent_status,
+			if(desired_states.desired_instrumentation_status = '' OR isNull(desired_states.desired_instrumentation_status), 'none', desired_states.desired_instrumentation_status) AS desired_instrumentation_status,
+			if(desired_states.desired_agent_status = '' OR isNull(desired_states.desired_agent_status), 'none', desired_states.desired_agent_status) AS desired_agent_status,
 			if(
 				isNull(active_actions.pending_action_updated_at) OR
 					active_actions.pending_action_updated_at < aggregated_services.updated_at,
@@ -209,7 +212,7 @@ export async function getServiceById(
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerService[] }> {
 	const actionTbl = CONTROLLER_ACTIONS_TABLE;
-	const desiredTbl = CONTROLLER_DESIRED_STATES_TABLE;
+	const desiredTbl = CONTROLLER_DESIRED_STATES_V2_TABLE;
 	const query = `
 		WITH service_row AS (
 			SELECT *
@@ -222,8 +225,8 @@ export async function getServiceById(
 			SELECT
 				workload_key,
 				cluster_id,
-				argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
-				argMax(desired_agent_status, updated_at) AS desired_agent_status
+				max(if(feature = 'instrumentation', desired_status, '')) AS desired_instrumentation_status,
+				max(if(feature = 'agent', desired_status, '')) AS desired_agent_status
 			FROM ${desiredTbl}
 			FINAL
 			GROUP BY workload_key, cluster_id
@@ -272,8 +275,8 @@ export async function getServiceById(
 			service_row.last_seen AS last_seen,
 			service_row.updated_at AS updated_at,
 			service_row.cluster_id AS cluster_id,
-			ifNull(desired_state.desired_instrumentation_status, 'none') AS desired_instrumentation_status,
-			ifNull(desired_state.desired_agent_status, 'none') AS desired_agent_status,
+			if(desired_state.desired_instrumentation_status = '' OR isNull(desired_state.desired_instrumentation_status), 'none', desired_state.desired_instrumentation_status) AS desired_instrumentation_status,
+			if(desired_state.desired_agent_status = '' OR isNull(desired_state.desired_agent_status), 'none', desired_state.desired_agent_status) AS desired_agent_status,
 			if(
 				isNull(active_action.pending_action_updated_at) OR
 					active_action.pending_action_updated_at < service_row.updated_at,
@@ -380,6 +383,72 @@ export async function saveControllerConfig(
 	);
 }
 
+// --- Generic feature desired state functions (v2 table) ---
+
+export async function getFeatureDesiredStates(
+	workloadKeys: string[],
+	clusterId: string,
+	features?: string[],
+	dbConfigId?: string
+): Promise<{ err?: unknown; data?: FeatureDesiredState[] }> {
+	if (workloadKeys.length === 0) return { data: [] };
+	const escaped = workloadKeys
+		.map((k) => `'${escapeClickHouse(k)}'`)
+		.join(",");
+	const featureFilter = features?.length
+		? `AND feature IN (${features.map((f) => `'${escapeClickHouse(f)}'`).join(",")})`
+		: "";
+	const query = `
+		SELECT
+			workload_key,
+			cluster_id,
+			feature,
+			desired_status,
+			config,
+			updated_at
+		FROM ${CONTROLLER_DESIRED_STATES_V2_TABLE}
+		FINAL
+		WHERE cluster_id = '${escapeClickHouse(clusterId)}'
+		  AND workload_key IN (${escaped})
+		  ${featureFilter}
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: FeatureDesiredState[];
+	}>;
+}
+
+export async function updateFeatureDesiredState(
+	workloadKey: string,
+	clusterId: string,
+	feature: string,
+	desiredStatus: string,
+	config: string = "{}",
+	dbConfigId?: string
+) {
+	return dataCollector(
+		{
+			table: CONTROLLER_DESIRED_STATES_V2_TABLE,
+			values: [
+				{
+					workload_key: workloadKey,
+					cluster_id: clusterId,
+					feature,
+					desired_status: desiredStatus,
+					config,
+					updated_at: clickhouseNow(),
+				},
+			],
+		},
+		"insert",
+		dbConfigId
+	);
+}
+
+/**
+ * Backward-compatible wrapper. Reads from the v2 table and pivots
+ * feature rows into the old column-based format callers expect.
+ */
 export async function getDesiredStatesForWorkloads(
 	workloadKeys: string[],
 	clusterId: string,
@@ -393,28 +462,44 @@ export async function getDesiredStatesForWorkloads(
 	}>;
 }> {
 	if (workloadKeys.length === 0) return { data: [] };
-	const escaped = workloadKeys.map((k) => `'${escapeClickHouse(k)}'`).join(",");
-	const query = `
-		SELECT
+	const res = await getFeatureDesiredStates(
+		workloadKeys,
+		clusterId,
+		["instrumentation", "agent"],
+		dbConfigId
+	);
+	if (res.err) return { err: res.err };
+
+	const map = new Map<
+		string,
+		{ desired_instrumentation_status: string; desired_agent_status: string }
+	>();
+	for (const row of res.data || []) {
+		if (!map.has(row.workload_key)) {
+			map.set(row.workload_key, {
+				desired_instrumentation_status: "none",
+				desired_agent_status: "none",
+			});
+		}
+		const entry = map.get(row.workload_key)!;
+		if (row.feature === "instrumentation") {
+			entry.desired_instrumentation_status = row.desired_status;
+		} else if (row.feature === "agent") {
+			entry.desired_agent_status = row.desired_status;
+		}
+	}
+
+	return {
+		data: Array.from(map.entries()).map(([workload_key, vals]) => ({
 			workload_key,
-			argMax(desired_instrumentation_status, updated_at) AS desired_instrumentation_status,
-			argMax(desired_agent_status, updated_at) AS desired_agent_status
-		FROM ${CONTROLLER_DESIRED_STATES_TABLE}
-		FINAL
-		WHERE cluster_id = '${escapeClickHouse(clusterId)}'
-		  AND workload_key IN (${escaped})
-		GROUP BY workload_key
-	`;
-	return dataCollector({ query }, "query", dbConfigId) as Promise<{
-		err?: unknown;
-		data?: Array<{
-			workload_key: string;
-			desired_instrumentation_status: string;
-			desired_agent_status: string;
-		}>;
-	}>;
+			...vals,
+		})),
+	};
 }
 
+/**
+ * Backward-compatible wrapper. Writes to the v2 table, one row per feature.
+ */
 export async function updateDesiredStatus(
 	workloadKey: string,
 	clusterId: string,
@@ -430,38 +515,76 @@ export async function updateDesiredStatus(
 	)
 		return { data: "ok" };
 
-	let currentInstr: "none" | "instrumented" = "none";
-	let currentAgent: "none" | "enabled" = "none";
-
-	if (
-		fields.desired_instrumentation_status === undefined ||
-		fields.desired_agent_status === undefined
-	) {
-		const current = await getDesiredStatesForWorkloads(
-			[workloadKey],
-			clusterId,
-			dbConfigId
+	const writes: Promise<any>[] = [];
+	if (fields.desired_instrumentation_status !== undefined) {
+		writes.push(
+			updateFeatureDesiredState(
+				workloadKey,
+				clusterId,
+				"instrumentation",
+				fields.desired_instrumentation_status,
+				"{}",
+				dbConfigId
+			)
 		);
-		const existing = current.data?.find(
-			(d) => d.workload_key === workloadKey
-		);
-		if (existing) {
-			currentInstr = existing.desired_instrumentation_status as "none" | "instrumented";
-			currentAgent = existing.desired_agent_status as "none" | "enabled";
-		}
 	}
+	if (fields.desired_agent_status !== undefined) {
+		writes.push(
+			updateFeatureDesiredState(
+				workloadKey,
+				clusterId,
+				"agent",
+				fields.desired_agent_status,
+				"{}",
+				dbConfigId
+			)
+		);
+	}
+	await Promise.all(writes);
+	return { data: "ok" };
+}
 
+// --- Environment-level feature configs ---
+
+export async function getEnvironmentFeatureConfigs(
+	environment: string,
+	clusterId: string,
+	features?: string[],
+	dbConfigId?: string
+): Promise<{ err?: unknown; data?: EnvironmentFeatureConfig[] }> {
+	const featureFilter = features?.length
+		? `AND feature IN (${features.map((f) => `'${escapeClickHouse(f)}'`).join(",")})`
+		: "";
+	const query = `
+		SELECT environment, cluster_id, feature, config, updated_at
+		FROM ${CONTROLLER_ENV_CONFIGS_TABLE}
+		FINAL
+		WHERE environment = '${escapeClickHouse(environment)}'
+		  AND cluster_id = '${escapeClickHouse(clusterId)}'
+		  ${featureFilter}
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: EnvironmentFeatureConfig[];
+	}>;
+}
+
+export async function saveEnvironmentFeatureConfig(
+	environment: string,
+	clusterId: string,
+	feature: string,
+	config: string,
+	dbConfigId?: string
+) {
 	return dataCollector(
 		{
-			table: CONTROLLER_DESIRED_STATES_TABLE,
+			table: CONTROLLER_ENV_CONFIGS_TABLE,
 			values: [
 				{
-					workload_key: workloadKey,
+					environment,
 					cluster_id: clusterId,
-					desired_instrumentation_status:
-						fields.desired_instrumentation_status ?? currentInstr,
-					desired_agent_status:
-						fields.desired_agent_status ?? currentAgent,
+					feature,
+					config,
 					updated_at: clickhouseNow(),
 				},
 			],
@@ -471,6 +594,10 @@ export async function updateDesiredStatus(
 	);
 }
 
+/**
+ * @deprecated Use feature handler reconciliation via getAllFeatureHandlers() instead.
+ * Kept for backward compatibility with existing tests.
+ */
 export async function getServicesToReconcile(
 	controllerInstanceId: string,
 	reportedServices: Array<{
@@ -493,7 +620,9 @@ export async function getServicesToReconcile(
 		disableAgentKeys: [] as string[],
 	};
 
-	const workloadKeys = reportedServices.map((s) => s.workload_key).filter(Boolean);
+	const workloadKeys = reportedServices
+		.map((s) => s.workload_key)
+		.filter(Boolean);
 	if (workloadKeys.length === 0) return result;
 
 	const desiredRes = await getDesiredStatesForWorkloads(

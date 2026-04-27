@@ -51,19 +51,19 @@ const SUPPORTED_PROVIDERS: Array<keyof PayloadExtractionConfig> = [
 ];
 
 const PROVIDER_LABELS: Record<string, string> = {
-	openai: getMessage().INSTRUMENTATION_HUB_PROVIDER_OPENAI,
-	anthropic: getMessage().INSTRUMENTATION_HUB_PROVIDER_ANTHROPIC,
-	gemini: getMessage().INSTRUMENTATION_HUB_PROVIDER_GEMINI,
-	cohere: getMessage().INSTRUMENTATION_HUB_PROVIDER_COHERE,
-	mistral: getMessage().INSTRUMENTATION_HUB_PROVIDER_MISTRAL,
-	groq: getMessage().INSTRUMENTATION_HUB_PROVIDER_GROQ,
-	deepseek: getMessage().INSTRUMENTATION_HUB_PROVIDER_DEEPSEEK,
-	together: getMessage().INSTRUMENTATION_HUB_PROVIDER_TOGETHER,
-	fireworks: getMessage().INSTRUMENTATION_HUB_PROVIDER_FIREWORKS,
-	vercel_ai: getMessage().INSTRUMENTATION_HUB_PROVIDER_VERCEL_AI,
-	vertex_ai: getMessage().INSTRUMENTATION_HUB_PROVIDER_VERTEX_AI,
-	azure_inference: getMessage().INSTRUMENTATION_HUB_PROVIDER_AZURE_INFERENCE,
-	bedrock: getMessage().INSTRUMENTATION_HUB_PROVIDER_BEDROCK,
+	openai: getMessage().AGENTS_PROVIDER_OPENAI,
+	anthropic: getMessage().AGENTS_PROVIDER_ANTHROPIC,
+	gemini: getMessage().AGENTS_PROVIDER_GEMINI,
+	cohere: getMessage().AGENTS_PROVIDER_COHERE,
+	mistral: getMessage().AGENTS_PROVIDER_MISTRAL,
+	groq: getMessage().AGENTS_PROVIDER_GROQ,
+	deepseek: getMessage().AGENTS_PROVIDER_DEEPSEEK,
+	together: getMessage().AGENTS_PROVIDER_TOGETHER,
+	fireworks: getMessage().AGENTS_PROVIDER_FIREWORKS,
+	vercel_ai: getMessage().AGENTS_PROVIDER_VERCEL_AI,
+	vertex_ai: getMessage().AGENTS_PROVIDER_VERTEX_AI,
+	azure_inference: getMessage().AGENTS_PROVIDER_AZURE_INFERENCE,
+	bedrock: getMessage().AGENTS_PROVIDER_BEDROCK,
 };
 
 const DEFAULT_PAYLOAD_EXTRACTION: PayloadExtractionConfig = {
@@ -123,7 +123,7 @@ export default function ControllerDetailPage() {
 	}, [instanceId, fetchInstance]);
 	useDynamicBreadcrumbs(
 		{
-			title: instance?.node_name || instance?.instance_id || getMessage().INSTRUMENTATION_HUB_CONTROLLER_DEFAULT_TITLE,
+			title: instance?.node_name || instance?.instance_id || getMessage().AGENTS_CONTROLLER_DEFAULT_TITLE,
 		},
 		[instance?.node_name, instance?.instance_id]
 	);
@@ -133,7 +133,7 @@ export default function ControllerDetailPage() {
 			<div className="flex flex-col w-full gap-4 p-1">
 				<div className="flex items-center justify-center py-16 text-stone-400">
 					<Loader2 className="w-5 h-5 animate-spin mr-2" />
-					{getMessage().INSTRUMENTATION_HUB_LOADING_CONTROLLER}
+					{getMessage().AGENTS_LOADING_CONTROLLER}
 				</div>
 			</div>
 		);
@@ -142,11 +142,11 @@ export default function ControllerDetailPage() {
 	return (
 		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
 			<button
-				onClick={() => router.push("/instrumentation-hub")}
+				onClick={() => router.push("/agents")}
 				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
 			>
 				<ArrowLeft className="w-4 h-4" />
-				{getMessage().INSTRUMENTATION_HUB_BACK_TO_HUB}
+				{getMessage().AGENTS_BACK_TO_HUB}
 			</button>
 			<ControllerHeader instance={instance} />
 			<ControllerConfigEditor instance={instance} />
@@ -174,8 +174,8 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 						</h2>
 						<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
 							{instance.version && `v${instance.version} · `}
-							{instance.mode === "kubernetes" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES : instance.mode === "docker" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER : getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX} ·{" "}
-							{getMessage().INSTRUMENTATION_HUB_LAST_HEARTBEAT_PREFIX}
+							{instance.mode === "kubernetes" ? getMessage().AGENTS_SYSTEM_KUBERNETES : instance.mode === "docker" ? getMessage().AGENTS_SYSTEM_DOCKER : getMessage().AGENTS_SYSTEM_LINUX} ·{" "}
+							{getMessage().AGENTS_LAST_HEARTBEAT_PREFIX}
 							{formatBrowserDateTime(instance.last_heartbeat)}
 						</p>
 					</div>
@@ -188,8 +188,8 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 				</Badge>
 			</div>
 			<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
-				<Stat label={getMessage().INSTRUMENTATION_HUB_STAT_SERVICES_DISCOVERED} value={instance.services_discovered} />
-				<Stat label={getMessage().INSTRUMENTATION_HUB_STAT_INSTRUMENTED} value={instance.services_instrumented} />
+				<Stat label={getMessage().AGENTS_STAT_SERVICES_DISCOVERED} value={instance.services_discovered} />
+				<Stat label={getMessage().AGENTS_STAT_INSTRUMENTED} value={instance.services_instrumented} />
 			</div>
 			{instance.resource_attributes &&
 				Object.keys(instance.resource_attributes).length > 0 && (
@@ -224,7 +224,7 @@ function ResourceAttributesPanel({
 		<div className="mt-5 border dark:border-stone-800 rounded-lg overflow-hidden">
 			<div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700">
 				<span className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide">
-					{getMessage().INSTRUMENTATION_HUB_RESOURCE_ATTRIBUTES}
+					{getMessage().AGENTS_RESOURCE_ATTRIBUTES}
 				</span>
 			</div>
 			<div className="max-h-72 overflow-y-auto px-4 py-3">
@@ -303,11 +303,11 @@ function ControllerConfigEditor({
 			}),
 			successCb: () => {
 				toast.success(
-					getMessage().INSTRUMENTATION_HUB_CONFIG_SAVED
+					getMessage().AGENTS_CONFIG_SAVED
 				);
 			},
 			failureCb: (err: any) => {
-				toast.error(getMessage().INSTRUMENTATION_HUB_CONFIG_SAVE_FAILED(err));
+				toast.error(getMessage().AGENTS_CONFIG_SAVE_FAILED(err));
 			},
 		});
 	}, [config, instance.instance_id, saveConfig]);
@@ -316,7 +316,7 @@ function ControllerConfigEditor({
 		return (
 			<div className="flex items-center justify-center py-8 text-stone-400">
 				<Loader2 className="w-4 h-4 animate-spin mr-2" />
-				{getMessage().INSTRUMENTATION_HUB_LOADING_CONFIG}
+				{getMessage().AGENTS_LOADING_CONFIG}
 			</div>
 		);
 	}
@@ -335,15 +335,15 @@ function ControllerConfigEditor({
 					) : (
 						<Save className="w-4 h-4" />
 					)}
-					{saving ? getMessage().INSTRUMENTATION_HUB_SAVING : getMessage().INSTRUMENTATION_HUB_SAVE_CONFIGURATION}
+					{saving ? getMessage().AGENTS_SAVING : getMessage().AGENTS_SAVE_CONFIGURATION}
 				</Button>
 			</div>
 			<div className="grid grid-cols-2 gap-6 w-full">
-				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_GENERAL}>
+				<ConfigSection title={getMessage().AGENTS_CONFIG_GENERAL}>
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT}
+								{getMessage().AGENTS_CONFIG_ENVIRONMENT}
 							</label>
 							<input
 								type="text"
@@ -355,15 +355,15 @@ function ControllerConfigEditor({
 									}))
 								}
 								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT_PLACEHOLDER}
+								placeholder={getMessage().AGENTS_CONFIG_ENVIRONMENT_PLACEHOLDER}
 							/>
 							<p className="text-xs text-stone-400 mt-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_ENVIRONMENT_HELP}
+								{getMessage().AGENTS_CONFIG_ENVIRONMENT_HELP}
 							</p>
 						</div>
 						<div>
 							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_POLL_INTERVAL}
+								{getMessage().AGENTS_CONFIG_POLL_INTERVAL}
 							</label>
 							<input
 								type="number"
@@ -382,17 +382,17 @@ function ControllerConfigEditor({
 								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							/>
 							<p className="text-xs text-stone-400 mt-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_POLL_INTERVAL_HELP}
+								{getMessage().AGENTS_CONFIG_POLL_INTERVAL_HELP}
 							</p>
 						</div>
 					</div>
 				</ConfigSection>
 
-				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_EXPORT_SETTINGS}>
+				<ConfigSection title={getMessage().AGENTS_CONFIG_EXPORT_SETTINGS}>
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_ENDPOINT}
+								{getMessage().AGENTS_CONFIG_OTLP_ENDPOINT}
 							</label>
 							<input
 								type="text"
@@ -407,12 +407,12 @@ function ControllerConfigEditor({
 									}))
 								}
 								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_ENDPOINT_PLACEHOLDER}
+								placeholder={getMessage().AGENTS_CONFIG_OTLP_ENDPOINT_PLACEHOLDER}
 							/>
 						</div>
 						<div>
 							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL}
+								{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL}
 							</label>
 							<select
 								value={config.export.otlp_protocol}
@@ -427,8 +427,8 @@ function ControllerConfigEditor({
 								}
 								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							>
-								<option value="http/protobuf">{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL_HTTP}</option>
-								<option value="grpc">{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_PROTOCOL_GRPC}</option>
+								<option value="http/protobuf">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_HTTP}</option>
+								<option value="grpc">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_GRPC}</option>
 							</select>
 						</div>
 					</div>
@@ -446,11 +446,11 @@ function ControllerConfigEditor({
 					/>
 				</ConfigSection>
 
-				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_DISCOVERY}>
+				<ConfigSection title={getMessage().AGENTS_CONFIG_DISCOVERY}>
 					<div className="flex flex-col gap-3">
 						<ToggleRow
-							label={getMessage().INSTRUMENTATION_HUB_CONFIG_AUTO_DISCOVER_LABEL}
-							description={getMessage().INSTRUMENTATION_HUB_CONFIG_AUTO_DISCOVER_DESCRIPTION}
+							label={getMessage().AGENTS_CONFIG_AUTO_DISCOVER_LABEL}
+							description={getMessage().AGENTS_CONFIG_AUTO_DISCOVER_DESCRIPTION}
 							checked={config.discovery.auto_discover}
 							onChange={(v) =>
 								setConfig((prev) => ({
@@ -465,9 +465,9 @@ function ControllerConfigEditor({
 					</div>
 				</ConfigSection>
 
-				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS}>
+				<ConfigSection title={getMessage().AGENTS_CONFIG_CUSTOM_LLM_HOSTS}>
 					<p className="text-xs text-stone-400 mb-3">
-						{getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS_HELP}
+						{getMessage().AGENTS_CONFIG_CUSTOM_LLM_HOSTS_HELP}
 					</p>
 					<input
 						type="text"
@@ -482,13 +482,13 @@ function ControllerConfigEditor({
 							}))
 						}
 						className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-						placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER}
+						placeholder={getMessage().AGENTS_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER}
 					/>
 				</ConfigSection>
 
-				<ConfigSection title={getMessage().INSTRUMENTATION_HUB_CONFIG_PAYLOAD_EXTRACTION}>
+				<ConfigSection title={getMessage().AGENTS_CONFIG_PAYLOAD_EXTRACTION}>
 					<p className="text-xs text-stone-400 mb-3">
-						{getMessage().INSTRUMENTATION_HUB_CONFIG_PAYLOAD_EXTRACTION_HELP}
+						{getMessage().AGENTS_CONFIG_PAYLOAD_EXTRACTION_HELP}
 					</p>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 						{SUPPORTED_PROVIDERS.map((key) => (
@@ -631,7 +631,7 @@ function HeadersEditor({
 	return (
 		<div className="mt-3">
 			<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">
-				{getMessage().INSTRUMENTATION_HUB_CONFIG_OTLP_HEADERS}
+				{getMessage().AGENTS_CONFIG_OTLP_HEADERS}
 			</label>
 			{entries.length > 0 && (
 				<div className="flex flex-col gap-2 mb-2">
@@ -643,7 +643,7 @@ function HeadersEditor({
 								onChange={(e) =>
 									updateHeader(key, e.target.value, value)
 								}
-								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_NAME_PLACEHOLDER}
+								placeholder={getMessage().AGENTS_CONFIG_HEADER_NAME_PLACEHOLDER}
 								className="flex-1 px-2 py-1.5 text-xs border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							/>
 							<input
@@ -652,14 +652,14 @@ function HeadersEditor({
 								onChange={(e) =>
 									updateHeader(key, key, e.target.value)
 								}
-								placeholder={getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_VALUE_PLACEHOLDER}
+								placeholder={getMessage().AGENTS_CONFIG_HEADER_VALUE_PLACEHOLDER}
 								className="flex-1 px-2 py-1.5 text-xs border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
 							/>
 							<button
 								onClick={() => removeHeader(key)}
 								className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-1"
 							>
-								{getMessage().INSTRUMENTATION_HUB_CONFIG_HEADER_REMOVE}
+								{getMessage().AGENTS_CONFIG_HEADER_REMOVE}
 							</button>
 						</div>
 					))}
@@ -669,7 +669,7 @@ function HeadersEditor({
 				onClick={addHeader}
 				className="text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 underline"
 			>
-				{getMessage().INSTRUMENTATION_HUB_CONFIG_ADD_HEADER}
+				{getMessage().AGENTS_CONFIG_ADD_HEADER}
 			</button>
 		</div>
 	);

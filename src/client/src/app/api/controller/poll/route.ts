@@ -6,13 +6,15 @@ import {
 	markActionsAcknowledged,
 	completeAction,
 	getConfigHash,
-	getServicesToReconcile,
 	queueAction,
-	getDesiredStatesForWorkloads,
+	getFeatureDesiredStates,
+	getEnvironmentFeatureConfigs,
 } from "@/lib/platform/controller";
+import { getAllFeatureHandlers } from "@/lib/platform/controller/features";
+import type { ReportedService } from "@/lib/platform/controller/features";
 import { getFirstDBConfig } from "@/lib/db-config";
 import { getAPIKeyInfo, hasAnyAPIKeys } from "@/lib/platform/api-keys";
-import type { ControllerConfig } from "@/types/controller";
+import type { ControllerConfig, FeatureDesiredState } from "@/types/controller";
 import crypto from "crypto";
 
 function deterministicServiceId(
@@ -39,6 +41,8 @@ function clickhouseNow(): string {
 function sanitizeLogValue(val: unknown): string {
 	return String(val).replace(/[\r\n\t]/g, " ").slice(0, 500);
 }
+
+// --- Phase 1: Authentication ---
 
 async function authenticatePollRequest(
 	request: Request
@@ -87,6 +91,290 @@ async function authenticatePollRequest(
 	return { dbId: dbConfig.id };
 }
 
+// --- Phase 2: Upsert instance ---
+
+async function phaseUpsertInstance(
+	body: any,
+	now: string,
+	dbId: string
+) {
+	const instResult = await upsertControllerInstance(
+		{
+			instance_id: body.instance_id,
+			cluster_id: body.cluster_id,
+			version: body.version || "",
+			mode: body.mode || "linux",
+			node_name: body.node_name || "",
+			status: "healthy",
+			services_discovered: body.services_discovered || 0,
+			services_instrumented: body.services_instrumented || 0,
+			config_hash: body.config_hash || "",
+			resource_attributes: body.resource_attributes || {},
+			last_heartbeat: now,
+		},
+		dbId
+	);
+	if (instResult?.err) {
+		console.error(
+			"controller poll: upsert instance error:",
+			sanitizeLogValue(instResult.err)
+		);
+	}
+}
+
+// --- Phase 3: Upsert services ---
+
+async function phaseUpsertServices(
+	body: any,
+	now: string,
+	clusterId: string,
+	dbId: string
+): Promise<ReportedService[]> {
+	const reportedServices: ReportedService[] = [];
+
+	if (!Array.isArray(body.services) || body.services.length === 0) {
+		return reportedServices;
+	}
+
+	const workloadKeys = body.services
+		.map((s: any) => s.workload_key)
+		.filter(Boolean) as string[];
+
+	const desiredRes = await getFeatureDesiredStates(
+		workloadKeys,
+		clusterId,
+		["instrumentation", "agent"],
+		dbId
+	);
+	const desiredMap = new Map<string, { instr: string; agent: string }>();
+	for (const d of desiredRes.data || []) {
+		if (!desiredMap.has(d.workload_key)) {
+			desiredMap.set(d.workload_key, { instr: "none", agent: "none" });
+		}
+		const entry = desiredMap.get(d.workload_key)!;
+		if (d.feature === "instrumentation") entry.instr = d.desired_status;
+		if (d.feature === "agent") entry.agent = d.desired_status;
+	}
+
+	const rows = body.services.map((svc: any) => {
+		if (!svc.workload_key) {
+			throw new Error(
+				"controller poll: service is missing workload_key"
+			);
+		}
+		const ns = svc.namespace || "";
+		const name = svc.service_name || "";
+		const desired = desiredMap.get(svc.workload_key);
+
+		reportedServices.push({
+			workload_key: svc.workload_key,
+			instrumentation_status:
+				svc.instrumentation_status || "discovered",
+			resource_attributes: svc.resource_attributes,
+		});
+
+		return {
+			id: deterministicServiceId(
+				body.instance_id,
+				svc.workload_key,
+				ns,
+				name
+			),
+			controller_instance_id: body.instance_id,
+			cluster_id: clusterId,
+			service_name: name,
+			workload_key: svc.workload_key,
+			namespace: ns,
+			language_runtime: svc.language_runtime || "",
+			llm_providers: svc.llm_providers || [],
+			open_ports: svc.open_ports || [],
+			deployment_name: svc.deployment_name || "",
+			pid: svc.pid || 0,
+			exe_path: svc.exe_path || "",
+			instrumentation_status:
+				svc.instrumentation_status || "discovered",
+			desired_instrumentation_status: (desired?.instr || "none") as
+				| "none"
+				| "instrumented",
+			desired_agent_status: (desired?.agent || "none") as
+				| "none"
+				| "enabled",
+			resource_attributes: svc.resource_attributes || {},
+			first_seen: svc.first_seen || now,
+			last_seen: now,
+			updated_at: now,
+		};
+	});
+
+	const svcResult = await upsertServices(rows, dbId);
+	if (svcResult?.err) {
+		console.error(
+			"controller poll: upsert services error:",
+			sanitizeLogValue(svcResult.err)
+		);
+	}
+
+	return reportedServices;
+}
+
+// --- Phase 4: Process action results ---
+
+async function phaseProcessActionResults(
+	actionResults: any[] | undefined,
+	instanceId: string,
+	dbId: string
+) {
+	if (!Array.isArray(actionResults)) return;
+	for (const ar of actionResults) {
+		if (ar.action_id && ar.status) {
+			const completeResult = await completeAction(
+				ar.action_id,
+				instanceId,
+				ar.status === "completed" ? "completed" : "failed",
+				ar.error || "",
+				dbId
+			);
+			if (completeResult?.err) {
+				console.error("controller poll: completeAction failed");
+			}
+		}
+	}
+}
+
+// --- Phase 5: Generic feature reconciliation ---
+
+async function phaseReconcileAllFeatures(
+	instanceId: string,
+	reportedServices: ReportedService[],
+	clusterId: string,
+	environment: string,
+	dbId: string
+) {
+	if (reportedServices.length === 0) return;
+
+	const workloadKeys = reportedServices
+		.map((s) => s.workload_key)
+		.filter(Boolean);
+	if (workloadKeys.length === 0) return;
+
+	const handlers = getAllFeatureHandlers();
+
+	const [desiredRes, envConfigRes] = await Promise.all([
+		getFeatureDesiredStates(workloadKeys, clusterId, undefined, dbId),
+		getEnvironmentFeatureConfigs(environment, clusterId, undefined, dbId),
+	]);
+
+	const desiredByFeature = new Map<
+		string,
+		Map<string, FeatureDesiredState>
+	>();
+	for (const d of desiredRes.data || []) {
+		if (!desiredByFeature.has(d.feature)) {
+			desiredByFeature.set(d.feature, new Map());
+		}
+		desiredByFeature.get(d.feature)!.set(d.workload_key, d);
+	}
+
+	const envConfigByFeature = new Map<string, any>();
+	for (const ec of envConfigRes.data || []) {
+		envConfigByFeature.set(ec.feature, ec);
+	}
+
+	for (const handler of handlers) {
+		try {
+			const featureDesired =
+				desiredByFeature.get(handler.feature) || new Map();
+			const featureEnvConfig = envConfigByFeature.get(handler.feature);
+			const actions = handler.reconcile(
+				reportedServices,
+				featureDesired,
+				featureEnvConfig
+			);
+			for (const action of actions) {
+				await queueAction(
+					instanceId,
+					action.actionType,
+					action.serviceKey,
+					action.payload,
+					dbId
+				);
+			}
+		} catch (reconcileErr) {
+			console.error(
+				`controller poll: reconciliation error for feature "${handler.feature}":`,
+				sanitizeLogValue(reconcileErr)
+			);
+		}
+	}
+}
+
+// --- Phase 6: Config check ---
+
+async function phaseCheckConfig(
+	instanceId: string,
+	clientConfigHash: string,
+	dbId: string
+): Promise<{
+	configChanged: boolean;
+	config: ControllerConfig | null;
+	serverConfigHash: string;
+}> {
+	let configChanged = false;
+	let config: ControllerConfig | null = null;
+	let serverConfigHash = "";
+
+	const configRes = await getControllerConfig(instanceId, dbId);
+	if (
+		configRes.data &&
+		configRes.data.length > 0 &&
+		configRes.data[0].config
+	) {
+		try {
+			config = JSON.parse(configRes.data[0].config);
+			if (config) {
+				serverConfigHash = getConfigHash(config);
+				configChanged =
+					!clientConfigHash ||
+					clientConfigHash !== serverConfigHash;
+			}
+		} catch {
+			// No valid config stored
+		}
+	}
+
+	return { configChanged, config, serverConfigHash };
+}
+
+// --- Phase 7: Gather and acknowledge pending actions ---
+
+async function phaseGatherActions(instanceId: string, dbId: string) {
+	const actionsRes = await getPendingActions(instanceId, dbId);
+	const pendingActions = actionsRes.data || [];
+
+	if (pendingActions.length > 0) {
+		const ackResult = await markActionsAcknowledged(
+			pendingActions,
+			instanceId,
+			dbId
+		);
+		if (ackResult?.err) {
+			console.error(
+				"controller poll: markActionsAcknowledged error:",
+				sanitizeLogValue(ackResult.err)
+			);
+		}
+	}
+
+	return pendingActions.map((a) => ({
+		id: a.id,
+		action_type: a.action_type,
+		service_key: a.service_key,
+		payload: a.payload,
+	}));
+}
+
+// --- Main handler ---
+
 export async function POST(request: Request) {
 	try {
 		const authResult = await authenticatePollRequest(request);
@@ -94,225 +382,47 @@ export async function POST(request: Request) {
 		const { dbId } = authResult;
 
 		const body = await request.json();
-		const {
-			instance_id,
-			version,
-			mode,
-			node_name,
-			config_hash,
-			services_discovered,
-			services_instrumented,
-			services,
-			action_results,
-			resource_attributes,
-			cluster_id: rawClusterId,
-		} = body;
-
-		if (!instance_id) {
+		if (!body.instance_id) {
 			return Response.json(
 				{ error: "instance_id is required" },
 				{ status: 400 }
 			);
 		}
 
-		const clusterId = rawClusterId || "default";
-
+		const clusterId = body.cluster_id || "default";
 		const now = clickhouseNow();
 
-		// 1. Upsert controller instance
-		const instResult = await upsertControllerInstance(
-			{
-				instance_id,
-				cluster_id: clusterId,
-				version: version || "",
-				mode: mode || "linux",
-				node_name: node_name || "",
-				status: "healthy",
-				services_discovered: services_discovered || 0,
-				services_instrumented: services_instrumented || 0,
-				config_hash: config_hash || "",
-				resource_attributes: resource_attributes || {},
-				last_heartbeat: now,
-			},
+		await phaseUpsertInstance(body, now, dbId);
+
+		const reportedServices = await phaseUpsertServices(
+			body,
+			now,
+			clusterId,
 			dbId
 		);
-		if (instResult?.err) {
-			console.error("controller poll: upsert instance error:", sanitizeLogValue(instResult.err));
-		}
 
-		// 2. Upsert discovered services — carry forward desired_* columns
-		//    so the ReplacingMergeTree INSERT doesn't revert them to defaults
-		const reportedServices: Array<{
-			workload_key: string;
-			instrumentation_status: string;
-			resource_attributes?: Record<string, string>;
-		}> = [];
+		await phaseProcessActionResults(
+			body.action_results,
+			body.instance_id,
+			dbId
+		);
 
-		if (Array.isArray(services) && services.length > 0) {
-			const workloadKeys = services
-				.map((s: any) => s.workload_key)
-				.filter(Boolean) as string[];
-			const desiredRes = await getDesiredStatesForWorkloads(
-				workloadKeys,
-				clusterId,
+		await phaseReconcileAllFeatures(
+			body.instance_id,
+			reportedServices,
+			clusterId,
+			body.environment || "default",
+			dbId
+		);
+
+		const { configChanged, config, serverConfigHash } =
+			await phaseCheckConfig(
+				body.instance_id,
+				body.config_hash || "",
 				dbId
 			);
-			const desiredMap = new Map(
-				(desiredRes.data || []).map((d) => [d.workload_key, d])
-			);
 
-			const rows = services.map((svc: any) => {
-				if (!svc.workload_key) {
-					throw new Error("controller poll: service is missing workload_key");
-				}
-				const ns = svc.namespace || "";
-				const name = svc.service_name || "";
-				const desired = desiredMap.get(svc.workload_key);
-
-				reportedServices.push({
-					workload_key: svc.workload_key,
-					instrumentation_status: svc.instrumentation_status || "discovered",
-					resource_attributes: svc.resource_attributes,
-				});
-
-				return {
-					id: deterministicServiceId(instance_id, svc.workload_key, ns, name),
-					controller_instance_id: instance_id,
-					cluster_id: clusterId,
-					service_name: name,
-					workload_key: svc.workload_key,
-					namespace: ns,
-					language_runtime: svc.language_runtime || "",
-					llm_providers: svc.llm_providers || [],
-					open_ports: svc.open_ports || [],
-					deployment_name: svc.deployment_name || "",
-					pid: svc.pid || 0,
-					exe_path: svc.exe_path || "",
-					instrumentation_status: svc.instrumentation_status || "discovered",
-					desired_instrumentation_status:
-						(desired?.desired_instrumentation_status || "none") as
-							"none" | "instrumented",
-					desired_agent_status:
-						(desired?.desired_agent_status || "none") as
-							"none" | "enabled",
-					resource_attributes: svc.resource_attributes || {},
-					first_seen: svc.first_seen || now,
-					last_seen: now,
-					updated_at: now,
-				};
-			});
-			const svcResult = await upsertServices(rows, dbId);
-			if (svcResult?.err) {
-				console.error("controller poll: upsert services error:", sanitizeLogValue(svcResult.err));
-			}
-		}
-
-		// 3. Process action results from previous poll cycle
-		if (Array.isArray(action_results)) {
-			for (const ar of action_results) {
-				if (ar.action_id && ar.status) {
-				const completeResult = await completeAction(
-					ar.action_id,
-					instance_id,
-					ar.status === "completed" ? "completed" : "failed",
-					ar.error || "",
-					dbId
-				);
-				if (completeResult?.err) {
-					console.error("controller poll: completeAction failed");
-				}
-				}
-			}
-		}
-
-		// 4. Reconciliation: compare desired vs. reported state and queue missing actions
-		if (reportedServices.length > 0) {
-			try {
-				const reconcile = await getServicesToReconcile(
-					instance_id,
-					reportedServices,
-					clusterId,
-					dbId
-				);
-				for (const key of reconcile.instrumentKeys) {
-					await queueAction(instance_id, "instrument", key, "{}", dbId);
-				}
-				for (const key of reconcile.uninstrumentKeys) {
-					await queueAction(instance_id, "uninstrument", key, "{}", dbId);
-				}
-				for (const key of reconcile.enableAgentKeys) {
-					await queueAction(
-						instance_id,
-						"enable_python_sdk",
-						key,
-						JSON.stringify({
-							target_runtime: "python",
-							instrumentation_profile: "controller_managed",
-							duplicate_policy: "block_if_existing_otel_detected",
-							observability_scope: "agent",
-						}),
-						dbId
-					);
-				}
-				for (const key of reconcile.disableAgentKeys) {
-					await queueAction(
-						instance_id,
-						"disable_python_sdk",
-						key,
-						JSON.stringify({
-							target_runtime: "python",
-							instrumentation_profile: "controller_managed",
-							duplicate_policy: "block_if_existing_otel_detected",
-							observability_scope: "agent",
-						}),
-						dbId
-					);
-				}
-			} catch (reconcileErr) {
-				console.error("controller poll: reconciliation error:", sanitizeLogValue(reconcileErr));
-			}
-		}
-
-		// 5. Check if config has changed
-		let configChanged = false;
-		let config: ControllerConfig | null = null;
-		let serverConfigHash = "";
-
-		const configRes = await getControllerConfig(instance_id, dbId);
-		if (
-			configRes.data &&
-			configRes.data.length > 0 &&
-			configRes.data[0].config
-		) {
-			try {
-				config = JSON.parse(configRes.data[0].config);
-				if (config) {
-					serverConfigHash = getConfigHash(config);
-					configChanged =
-						!config_hash || config_hash !== serverConfigHash;
-				}
-			} catch {
-				// No valid config stored
-			}
-		}
-
-		// 6. Get pending actions and mark them acknowledged
-		const actionsRes = await getPendingActions(instance_id, dbId);
-		const pendingActions = actionsRes.data || [];
-
-		if (pendingActions.length > 0) {
-			const ackResult = await markActionsAcknowledged(pendingActions, instance_id, dbId);
-			if (ackResult?.err) {
-				console.error("controller poll: markActionsAcknowledged error:", sanitizeLogValue(ackResult.err));
-			}
-		}
-
-		const actions = pendingActions.map((a) => ({
-			id: a.id,
-			action_type: a.action_type,
-			service_key: a.service_key,
-			payload: a.payload,
-		}));
+		const actions = await phaseGatherActions(body.instance_id, dbId);
 
 		return Response.json({
 			config_changed: configChanged,
@@ -321,7 +431,10 @@ export async function POST(request: Request) {
 			actions,
 		});
 	} catch (error: any) {
-		console.error("controller poll: unhandled error:", sanitizeLogValue(error?.message || error));
+		console.error(
+			"controller poll: unhandled error:",
+			sanitizeLogValue(error?.message || error)
+		);
 		return Response.json(
 			{ error: "Internal server error" },
 			{ status: 500 }

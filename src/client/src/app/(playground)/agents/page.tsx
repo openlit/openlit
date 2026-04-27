@@ -18,7 +18,7 @@ import ControllerTable from "./controller-table";
 
 type Tab = "services" | "controllers";
 
-export default function InstrumentationHub() {
+export default function AgentsPage() {
 	const [activeTab, setActiveTab] = useState<Tab>("services");
 	const [filtersVisible, setFiltersVisible] = useState(false);
 	const [serviceRows, setServiceRows] = useState<ControllerService[]>([]);
@@ -82,7 +82,7 @@ export default function InstrumentationHub() {
 	}, [filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
 	useEffect(() => {
-		if (!pathname.startsWith("/instrumentation-hub")) return;
+		if (!pathname.startsWith("/agents")) return;
 		if (filter.timeLimit.type === TIME_RANGE_TYPE.CUSTOM) return;
 
 		updateFilter("timeLimit.type", filter.timeLimit.type);
@@ -208,18 +208,18 @@ export default function InstrumentationHub() {
 					<div className="flex grow gap-3 overflow-auto flex-wrap">
 						{allSystems.length > 0 && (
 							<FilterPill
-								label={getMessage().INSTRUMENTATION_HUB_FILTER_SYSTEM}
+								label={getMessage().AGENTS_FILTER_SYSTEM}
 								value={pendingSystem}
 							options={allSystems.map((s) => ({
 								value: s,
-								label: s === "kubernetes" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES : s === "docker" ? getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER : getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX,
+								label: s === "kubernetes" ? getMessage().AGENTS_SYSTEM_KUBERNETES : s === "docker" ? getMessage().AGENTS_SYSTEM_DOCKER : getMessage().AGENTS_SYSTEM_LINUX,
 							}))}
 								onChange={setPendingSystem}
 							/>
 						)}
 						{allProviders.length > 0 && (
 							<FilterPill
-								label={getMessage().INSTRUMENTATION_HUB_FILTER_PROVIDER}
+								label={getMessage().AGENTS_FILTER_PROVIDER}
 								value={pendingProvider}
 								options={allProviders.map((p) => ({
 									value: p,
@@ -229,11 +229,11 @@ export default function InstrumentationHub() {
 							/>
 						)}
 						<FilterPill
-							label={getMessage().INSTRUMENTATION_HUB_FILTER_STATUS}
+							label={getMessage().AGENTS_FILTER_STATUS}
 							value={pendingStatus}
 							options={[
-								{ value: "discovered", label: getMessage().INSTRUMENTATION_HUB_FILTER_STATUS_DISCOVERED },
-								{ value: "instrumented", label: getMessage().INSTRUMENTATION_HUB_FILTER_STATUS_INSTRUMENTED },
+								{ value: "discovered", label: getMessage().AGENTS_FILTER_STATUS_DISCOVERED },
+								{ value: "instrumented", label: getMessage().AGENTS_FILTER_STATUS_INSTRUMENTED },
 							]}
 							onChange={setPendingStatus}
 						/>
@@ -246,7 +246,7 @@ export default function InstrumentationHub() {
 								className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
 								onClick={clearFilters}
 							>
-								{getMessage().INSTRUMENTATION_HUB_CLEAR_FILTERS}
+								{getMessage().AGENTS_CLEAR_FILTERS}
 							</Button>
 						)}
 						<Button
@@ -255,7 +255,7 @@ export default function InstrumentationHub() {
 							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
 							onClick={applyFilters}
 						>
-							{getMessage().INSTRUMENTATION_HUB_APPLY_FILTERS}
+							{getMessage().AGENTS_APPLY_FILTERS}
 						</Button>
 					</div>
 				</div>
@@ -275,7 +275,7 @@ export default function InstrumentationHub() {
 								{totalControllers}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().INSTRUMENTATION_HUB_STAT_CONTROLLERS}
+								{getMessage().AGENTS_STAT_CONTROLLERS}
 							</div>
 						</button>
 						<button
@@ -286,7 +286,7 @@ export default function InstrumentationHub() {
 								{totalServices}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().INSTRUMENTATION_HUB_STAT_DISCOVERED_SERVICES}
+								{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
 							</div>
 						</button>
 						<button
@@ -297,7 +297,7 @@ export default function InstrumentationHub() {
 								{instrumentedServices}
 							</div>
 							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().INSTRUMENTATION_HUB_STAT_INSTRUMENTED_SERVICES}
+								{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
 							</div>
 						</button>
 					</div>
@@ -306,8 +306,8 @@ export default function InstrumentationHub() {
 					<div className="flex border-b border-stone-200 dark:border-stone-700">
 						{(
 							[
-								{ id: "services", label: getMessage().INSTRUMENTATION_HUB_TAB_SERVICES },
-								{ id: "controllers", label: getMessage().INSTRUMENTATION_HUB_TAB_CONTROLLERS },
+								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
+								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
 							] as const
 						).map((tab) => (
 							<button

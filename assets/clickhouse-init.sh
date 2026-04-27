@@ -384,12 +384,7 @@ clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
 CREATE TABLE IF NOT EXISTS openlit_controller_actions (
     \`id\` UUID DEFAULT generateUUIDv4(),
     \`instance_id\` String,
-    \`action_type\` Enum8(
-        'instrument' = 0,
-        'uninstrument' = 1,
-        'enable_python_sdk' = 2,
-        'disable_python_sdk' = 3
-    ),
+    \`action_type\` LowCardinality(String),
     \`service_key\` String DEFAULT '',
     \`payload\` String DEFAULT '{}',
     \`status\` Enum8('pending' = 0, 'acknowledged' = 1, 'completed' = 2, 'failed' = 3) DEFAULT 'pending',
@@ -400,5 +395,28 @@ CREATE TABLE IF NOT EXISTS openlit_controller_actions (
 ORDER BY (instance_id, id)
 "
 
-echo "✅ All 4 Controller tables created successfully"
+clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
+CREATE TABLE IF NOT EXISTS openlit_controller_desired_states_v2 (
+    \`workload_key\` String,
+    \`cluster_id\` String DEFAULT 'default',
+    \`feature\` LowCardinality(String),
+    \`desired_status\` LowCardinality(String) DEFAULT 'none',
+    \`config\` String DEFAULT '{}',
+    \`updated_at\` DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY (workload_key, cluster_id, feature)
+"
+
+clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
+CREATE TABLE IF NOT EXISTS openlit_controller_env_configs (
+    \`environment\` String DEFAULT 'default',
+    \`cluster_id\` String DEFAULT 'default',
+    \`feature\` LowCardinality(String),
+    \`config\` String DEFAULT '{}',
+    \`updated_at\` DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY (environment, cluster_id, feature)
+"
+
+echo "✅ All 6 Controller tables created successfully"
 echo "===================================================================="

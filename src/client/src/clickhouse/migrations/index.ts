@@ -16,6 +16,7 @@ import AddControllerDesiredStateMigration from "./add-controller-desired-state-m
 import AddControllerClusterIdMigration from "./add-controller-cluster-id-migration";
 import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
 import CreateControllerDesiredStatesTableMigration from "./create-controller-desired-states-migration";
+import GeneralizeControllerDesiredStatesMigration from "./generalize-controller-desired-states-migration";
 import CreateChatMigration from "./create-chat-migration";
 import CreateProvidersMigration from "./create-providers-migration";
 import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
@@ -42,6 +43,7 @@ export default async function migrations(databaseConfigId?: string) {
 		AddControllerClusterIdMigration(databaseConfigId),
 		UpdateControllerActionsTTLMigration(databaseConfigId),
 		CreateControllerDesiredStatesTableMigration(databaseConfigId),
+		GeneralizeControllerDesiredStatesMigration(databaseConfigId),
 		CreateChatMigration(databaseConfigId),
 		// Create new provider/model tables, copy any legacy data, seed defaults
 		await CreateProvidersMigration(databaseConfigId),

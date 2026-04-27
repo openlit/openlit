@@ -242,26 +242,26 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
-	// Instrumentation Hub
+	// Agents
 	{
-		regex: /^\/instrumentation-hub$/,
-		getTitle: () => "Instrumentation Hub",
+		regex: /^\/agents$/,
+		getTitle: () => "Agents",
 		getBreadcrumbs: () => [],
 	},
 
 	{
-		regex: /^\/instrumentation-hub\/controller\/[^/]+$/,
+		regex: /^\/agents\/controller\/[^/]+$/,
 		getTitle: () => "Controller",
 		getBreadcrumbs: () => [
-			{ title: "Instrumentation Hub", href: "/instrumentation-hub" }
+			{ title: "Agents", href: "/agents" }
 		],
 	},
 
 	{
-		regex: /^\/instrumentation-hub\/[^/]+$/,
+		regex: /^\/agents\/[^/]+$/,
 		getTitle: () => "Service Detail",
 		getBreadcrumbs: () => [
-			{ title: "Instrumentation Hub", href: "/instrumentation-hub" }
+			{ title: "Agents", href: "/agents" }
 		],
 	},
 

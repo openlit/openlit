@@ -19,9 +19,9 @@ import LinuxSvg from "@/components/svg/linux";
 import getMessage from "@/constants/messages";
 
 const TABS = [
-	{ id: "kubernetes", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_KUBERNETES, icon: KubernetesSvg },
-	{ id: "docker", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_DOCKER, icon: DockerSvg },
-	{ id: "linux", label: getMessage().INSTRUMENTATION_HUB_SYSTEM_LINUX, icon: LinuxSvg },
+	{ id: "kubernetes", label: getMessage().AGENTS_SYSTEM_KUBERNETES, icon: KubernetesSvg },
+	{ id: "docker", label: getMessage().AGENTS_SYSTEM_DOCKER, icon: DockerSvg },
+	{ id: "linux", label: getMessage().AGENTS_SYSTEM_LINUX, icon: LinuxSvg },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -138,10 +138,10 @@ export default function NoController() {
 						<Radar className="w-8 h-8 text-stone-500 dark:text-stone-400" />
 					</div>
 					<h2 className="text-2xl font-semibold text-stone-700 dark:text-stone-200 mb-2">
-						{getMessage().INSTRUMENTATION_HUB_NO_CONTROLLERS_TITLE}
+						{getMessage().AGENTS_NO_CONTROLLERS_TITLE}
 					</h2>
 					<p className="text-stone-500 dark:text-stone-400 text-center max-w-md">
-						{getMessage().INSTRUMENTATION_HUB_NO_CONTROLLERS_DESCRIPTION}
+						{getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
 					</p>
 				</div>
 
@@ -149,7 +149,7 @@ export default function NoController() {
 					<div className="flex items-start gap-3 mb-4 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30">
 						<KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
 						<p className="text-sm text-emerald-700 dark:text-emerald-300">
-							{getMessage().INSTRUMENTATION_HUB_API_KEY_PREFILLED_MESSAGE}
+							{getMessage().AGENTS_API_KEY_PREFILLED_MESSAGE}
 						</p>
 					</div>
 				)}
@@ -158,14 +158,14 @@ export default function NoController() {
 					<div className="flex items-start gap-3 mb-4 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
 						<Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
 						<p className="text-sm text-amber-700 dark:text-amber-300">
-							<strong>{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_PREFIX}</strong>{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_BEFORE_LINK}
+							<strong>{getMessage().AGENTS_API_KEY_RECOMMENDED_PREFIX}</strong>{getMessage().AGENTS_API_KEY_RECOMMENDED_BEFORE_LINK}
 							<a
 								href="/settings"
 								className="underline hover:text-amber-900 dark:hover:text-amber-100"
 							>
-								{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_LINK_TEXT}
+								{getMessage().AGENTS_API_KEY_RECOMMENDED_LINK_TEXT}
 							</a>
-							{getMessage().INSTRUMENTATION_HUB_API_KEY_RECOMMENDED_AFTER_LINK}
+							{getMessage().AGENTS_API_KEY_RECOMMENDED_AFTER_LINK}
 						</p>
 					</div>
 				)}
@@ -194,7 +194,7 @@ export default function NoController() {
 						<button
 							onClick={handleCopy}
 							className="absolute top-3 right-3 p-1.5 rounded-md text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
-							title={getMessage().INSTRUMENTATION_HUB_COPY_TO_CLIPBOARD}
+							title={getMessage().AGENTS_COPY_TO_CLIPBOARD}
 						>
 							{copied ? (
 								<Check className="w-4 h-4 text-emerald-500" />

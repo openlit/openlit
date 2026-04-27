@@ -71,8 +71,8 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		},
 		// {
 		// 	icon: <Radar className={ICON_CLASSES} />,
-		// 	text: "Instrumentation Hub",
-		// 	link: "/instrumentation-hub",
+		// 	text: "Agents",
+		// 	link: "/agents",
 		// 	type: "action",
 		// },
 		{
