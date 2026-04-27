@@ -17,6 +17,8 @@ import { normalizeTrace } from "@/helpers/client/trace";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import TracingGettingStarted from "@/components/(playground)/getting-started/tracing";
+import GroupedTable, { buildGroupValueFilter } from "@/components/(playground)/request/grouped-table";
+import GroupBreadcrumb from "@/components/(playground)/request/group-breadcrumb";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 
@@ -36,6 +38,7 @@ function RequestPage() {
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const { data: existData, fireRequest: fireExistRequest, isFetched: isFetchedExist, isLoading: isLoadingExist } = useFetchWrapper();
+
 	useEffect(() => {
 		fireExistRequest({
 			requestType: "POST",
@@ -43,9 +46,21 @@ function RequestPage() {
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+
+	// When both groupBy and groupValue are set, inject the group filter into the flat list fetch
+	const effectiveFilter = useMemo(() => {
+		if (filter.groupBy && filter.groupValue) {
+			return {
+				...filter,
+				selectedConfig: buildGroupValueFilter(filter.groupBy, filter.groupValue, filter.selectedConfig),
+			};
+		}
+		return filter;
+	}, [filter]);
+
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify(filter),
+			body: JSON.stringify(effectiveFilter),
 			requestType: "POST",
 			url: "/api/metrics/request",
 			failureCb: (err?: string) => {
@@ -54,17 +69,22 @@ function RequestPage() {
 				});
 			},
 		});
-	}, [filter, fireRequest]);
+	}, [effectiveFilter, fireRequest]);
+
+	// Show flat list when: no groupBy, OR groupBy + groupValue (drilled in)
+	const showFlatList = !filter.groupBy || !!filter.groupValue;
 
 	useEffect(() => {
 		if (
-			filter.timeLimit.start &&
-			filter.timeLimit.end &&
-			pingStatus === "success"
+			effectiveFilter.filterReady &&
+			effectiveFilter.timeLimit.start &&
+			effectiveFilter.timeLimit.end &&
+			pingStatus === "success" &&
+			showFlatList
 		)
 			fetchData();
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter, pingStatus]);
+	}, [effectiveFilter, pingStatus, showFlatList]);
 
 	const normalizedData = useMemo(
 		() => ((data as any)?.records || []).map(normalizeTrace),
@@ -106,19 +126,33 @@ function RequestPage() {
 	return (
 		<>
 			<TracesFilter
-				total={(data as any)?.total}
+				total={showFlatList ? (data as any)?.total : undefined}
 				supportDynamicFilters
 				pageName="request"
 				columns={columns}
 			/>
-			<DataTable
-				columns={columns}
-				data={normalizedData}
-				isFetched={isFetched || pingStatus !== "pending"}
-				isLoading={isLoading || pingStatus === "pending"}
-				visibilityColumns={visibilityColumns}
-				onClick={onClick}
-			/>
+
+			{/* Breadcrumb — visible as soon as groupBy is selected */}
+			{filter.groupBy && (
+				<GroupBreadcrumb
+					groupBy={filter.groupBy}
+					groupValue={filter.groupValue}
+					updateFilter={updateFilter}
+				/>
+			)}
+
+			{filter.groupBy && !filter.groupValue ? (
+				<GroupedTable groupBy={filter.groupBy} />
+			) : (
+				<DataTable
+					columns={columns}
+					data={normalizedData}
+					isFetched={isFetched || pingStatus !== "pending"}
+					isLoading={isLoading || pingStatus === "pending"}
+					visibilityColumns={visibilityColumns}
+					onClick={onClick}
+				/>
+			)}
 			<RequestDetails />
 		</>
 	);

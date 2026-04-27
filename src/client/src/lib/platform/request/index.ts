@@ -9,6 +9,24 @@ import {
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
 
+const PREDEFINED_GROUP_BY: Record<string, string> = {
+	model: `SpanAttributes['gen_ai.request.model']`,
+	provider: `SpanAttributes['gen_ai.system']`,
+	spanName: `SpanName`,
+	applicationName: `ResourceAttributes['service.name']`,
+};
+
+export function getGroupByExpression(groupBy: string): string {
+	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
+	const sep = groupBy.indexOf(":");
+	if (sep === -1) return `SpanAttributes['${groupBy.replace(/'/g, "''")}']`;
+	const attrType = groupBy.slice(0, sep);
+	const key = groupBy.slice(sep + 1).replace(/'/g, "''");
+	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
+	if (attrType === "Field") return key.replace(/[^A-Za-z0-9_.]/g, "");
+	return `SpanAttributes['${key}']`;
+}
+
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
@@ -297,4 +315,21 @@ export async function getAttributeKeys(params: MetricParams) {
 		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 	};
+}
+
+export async function getGroupedRequests(params: MetricParams, groupBy: string) {
+	const expr = getGroupByExpression(groupBy);
+	const query = `
+		SELECT
+			${expr} AS group_value,
+			CAST(COUNT(*) AS INTEGER) AS count,
+			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
+			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
+			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params, true)}
+		GROUP BY group_value
+		ORDER BY count DESC
+	`;
+	return dataCollector({ query });
 }

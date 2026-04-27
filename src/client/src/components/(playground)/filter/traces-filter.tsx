@@ -15,7 +15,8 @@ import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, SlidersHorizontal, Trash2, ChevronDown } from "lucide-react";
+import { Plus, SlidersHorizontal, Trash2, ChevronDown, Layers, Link2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -27,7 +28,9 @@ import {
 	CustomFilter,
 	CustomFilterAttributeType,
 	FilterConfig,
+	FilterSorting,
 	FilterType,
+	TIME_RANGES,
 } from "@/types/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -583,6 +586,270 @@ const DynamicFilters = ({
 	);
 };
 
+// ─── GroupBy selector ─────────────────────────────────────────────────────────
+
+const GROUP_BY_OPTIONS: { key: string; label: string }[] = [
+	{ key: "model", label: "Model" },
+	{ key: "provider", label: "Provider" },
+	{ key: "spanName", label: "Span Name" },
+	{ key: "applicationName", label: "Application" },
+];
+
+const PREDEFINED_GROUP_BY_KEYS = new Set<string>(GROUP_BY_OPTIONS.map((o) => o.key));
+
+function getGroupByDisplayLabel(groupBy: string | undefined): string | undefined {
+	if (!groupBy) return undefined;
+	const predefined = GROUP_BY_OPTIONS.find((o) => o.key === groupBy)?.label;
+	if (predefined) return predefined;
+	const sep = groupBy.indexOf(":");
+	return sep !== -1 ? groupBy.slice(sep + 1) : groupBy;
+}
+
+// Simple inline suggest input — renders suggestions as a regular div child (no portal)
+// so it doesn't conflict with the Popover's DismissableLayer.
+function InlineSuggest({
+	value,
+	onChange,
+	options,
+	placeholder,
+}: {
+	value: string;
+	onChange: (val: string) => void;
+	options: string[];
+	placeholder?: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const filtered = value
+		? options.filter((o) => o.toLowerCase().includes(value.toLowerCase())).slice(0, 40)
+		: options.slice(0, 40);
+
+	return (
+		<div className="relative">
+			<Input
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				onFocus={() => setOpen(true)}
+				onBlur={() => setTimeout(() => setOpen(false), 120)}
+				placeholder={placeholder}
+				className="h-7 text-xs"
+			/>
+			{open && filtered.length > 0 && (
+				<div className="absolute top-full left-0 right-0 z-50 mt-0.5 max-h-40 overflow-auto rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 shadow-md">
+					{filtered.map((opt) => (
+						<button
+							key={opt}
+							type="button"
+							className="w-full text-left text-xs px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								onChange(opt);
+								setOpen(false);
+							}}
+						>
+							{opt}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function GroupByDropdown({
+	groupBy,
+	onChangeGroupBy,
+}: {
+	groupBy?: string;
+	onChangeGroupBy: (key: string | undefined) => void;
+}) {
+	const attributeKeys = useRootStore(getAttributeKeys);
+	const [open, setOpen] = useState(false);
+	const [customAttrType, setCustomAttrType] = useState<CustomFilterAttributeType>("SpanAttributes");
+	const [customKey, setCustomKey] = useState("");
+
+	// When groupBy changes externally (e.g. from URL restore), pre-fill the custom form
+	useEffect(() => {
+		if (groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy)) {
+			const sep = groupBy.indexOf(":");
+			if (sep !== -1) {
+				const attrType = groupBy.slice(0, sep) as CustomFilterAttributeType;
+				const key = groupBy.slice(sep + 1);
+				setCustomAttrType(attrType);
+				setCustomKey(key);
+			} else {
+				setCustomKey(groupBy);
+			}
+		} else if (!groupBy) {
+			setCustomKey("");
+		}
+	}, [groupBy]);
+
+	const activeLabel = getGroupByDisplayLabel(groupBy);
+	const isCustomActive = !!groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy);
+
+	const customOptions =
+		customAttrType === "SpanAttributes"
+			? (attributeKeys?.spanAttributeKeys ?? [])
+			: customAttrType === "ResourceAttributes"
+			? (attributeKeys?.resourceAttributeKeys ?? [])
+			: [];
+
+	const applyCustom = () => {
+		const k = customKey.trim();
+		if (!k) return;
+		onChangeGroupBy(`${customAttrType}:${k}`);
+		setOpen(false);
+	};
+
+	const selectPredefined = (key: string | undefined) => {
+		onChangeGroupBy(key);
+		setOpen(false);
+	};
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<Button
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 p-1 h-[30px] relative gap-1.5 text-xs aspect-square"
+					variant="outline"
+				>
+					<Layers className="w-3 h-3 shrink-0" />
+					{activeLabel ? <span className="max-w-[80px] truncate">{activeLabel}</span> : null}
+					{groupBy && (
+						<span className="w-2 h-2 bg-primary absolute -top-0 -right-0 rounded-full" />
+					)}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-64 p-1" align="end">
+				{/* Predefined options */}
+				<button
+					className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+					onClick={() => selectPredefined(undefined)}
+				>
+					None
+					{!groupBy && <span className="ml-auto text-primary">✓</span>}
+				</button>
+				{GROUP_BY_OPTIONS.map(({ key, label }) => (
+					<button
+						key={key}
+						className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+						onClick={() => selectPredefined(key)}
+					>
+						{label}
+						{groupBy === key && <span className="ml-auto text-primary">✓</span>}
+					</button>
+				))}
+
+				{/* Custom attribute section */}
+				<div className="border-t dark:border-stone-700 mt-1 pt-2 px-1 pb-1">
+					<p className="text-xs text-stone-400 dark:text-stone-500 mb-1.5">
+						Custom attribute
+						{isCustomActive && <span className="ml-1.5 text-primary">✓</span>}
+					</p>
+					<div className="flex flex-col gap-1.5">
+						<select
+							value={customAttrType}
+							onChange={(e) => {
+								setCustomAttrType(e.target.value as CustomFilterAttributeType);
+								setCustomKey("");
+							}}
+							className="h-7 w-full rounded-md border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
+						>
+							<option value="SpanAttributes">Span Attributes</option>
+							<option value="ResourceAttributes">Resource Attributes</option>
+							<option value="Field">Field</option>
+						</select>
+						<InlineSuggest
+							value={customKey}
+							onChange={setCustomKey}
+							options={customOptions}
+							placeholder="e.g. gen_ai.request.user"
+						/>
+						<Button
+							size="default"
+							variant="outline"
+							className="h-7 text-xs w-full"
+							onClick={applyCustom}
+						>
+							Apply
+						</Button>
+					</div>
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+// ─── Local storage persistence ────────────────────────────────────────────────
+
+const FILTER_STORAGE_KEY = "openlit_filter_v1";
+
+// Params that indicate a meaningful filter is present in the URL
+const FILTER_PARAM_KEYS = ["tr", "ts", "te", "limit", "models", "providers", "traceTypes", "appNames", "spanNames", "envs", "maxCost", "cf", "gb", "gbv"];
+
+type PersistedFilter = {
+	timeLimitType: string;
+	timeLimitStart?: string;
+	timeLimitEnd?: string;
+	limit: number;
+	selectedConfig: Partial<FilterConfig>;
+	sorting: FilterSorting;
+	groupBy?: string;
+	groupValue?: string;
+};
+
+function saveFilterToStorage(filter: FilterType) {
+	try {
+		const toSave: PersistedFilter = {
+			timeLimitType: filter.timeLimit.type,
+			timeLimitStart: filter.timeLimit.start
+				? new Date(filter.timeLimit.start).toISOString()
+				: undefined,
+			timeLimitEnd: filter.timeLimit.end
+				? new Date(filter.timeLimit.end).toISOString()
+				: undefined,
+			limit: filter.limit,
+			selectedConfig: filter.selectedConfig,
+			sorting: filter.sorting,
+			groupBy: filter.groupBy,
+			groupValue: filter.groupValue,
+		};
+		localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(toSave));
+	} catch {}
+}
+
+function loadFilterFromStorage(): PersistedFilter | null {
+	try {
+		const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+		return raw ? (JSON.parse(raw) as PersistedFilter) : null;
+	} catch {
+		return null;
+	}
+}
+
+function applyStoredFilter(
+	saved: PersistedFilter,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	validTimeRanges: Set<string>
+) {
+	// Time limit first (it resets selectedConfig, so must come before selectedConfig)
+	if (saved.timeLimitType === "CUSTOM" && saved.timeLimitStart && saved.timeLimitEnd) {
+		updateFilter("timeLimit.type", "CUSTOM", {
+			start: new Date(saved.timeLimitStart),
+			end: new Date(saved.timeLimitEnd),
+		});
+	} else if (validTimeRanges.has(saved.timeLimitType)) {
+		updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+	}
+	if (saved.limit) updateFilter("limit", saved.limit);
+	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
+		updateFilter("selectedConfig", saved.selectedConfig);
+	}
+	if (saved.sorting?.type) updateFilter("sorting", saved.sorting);
+	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);
+	if (saved.groupValue) updateFilter("groupValue", saved.groupValue);
+}
+
 // ─── URL filter sync hook ─────────────────────────────────────────────────────
 
 const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
@@ -593,42 +860,51 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 	// Tracks whether the initial URL read has been applied to the store
 	const initializedFromUrl = useRef(false);
 
-	// On mount: read URL params and apply to the store (client-side only)
+	// On mount: URL params take priority; fall back to localStorage if URL has none.
 	useEffect(() => {
 		if (initializedFromUrl.current) return;
 		initializedFromUrl.current = true;
 
 		const params = new URLSearchParams(window.location.search);
+		const hasUrlParams = FILTER_PARAM_KEYS.some((k) => params.has(k));
 
-		// Time limit
-		const tr = params.get("tr");
-		if (tr && VALID_TIME_RANGES.has(tr)) {
-			if (tr === "CUSTOM") {
-				const ts = params.get("ts");
-				const te = params.get("te");
-				if (ts && te) {
-					updateFilter("timeLimit.type", "CUSTOM", {
-						start: new Date(ts),
-						end: new Date(te),
-					});
+		if (hasUrlParams) {
+			// ── Apply URL params ──────────────────────────────────────────────
+			const tr = params.get("tr");
+			if (tr && VALID_TIME_RANGES.has(tr)) {
+				if (tr === "CUSTOM") {
+					const ts = params.get("ts");
+					const te = params.get("te");
+					if (ts && te) {
+						updateFilter("timeLimit.type", "CUSTOM", {
+							start: new Date(ts),
+							end: new Date(te),
+						});
+					}
+				} else {
+					updateFilter("timeLimit.type", tr);
 				}
-			} else {
-				updateFilter("timeLimit.type", tr);
 			}
+			const limitParam = params.get("limit");
+			if (limitParam) {
+				const parsed = parseInt(limitParam, 10);
+				if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
+			}
+			const config = paramsToConfig(params);
+			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
+			const gb = params.get("gb");
+			if (gb) updateFilter("groupBy", gb);
+			const gbv = params.get("gbv");
+			if (gbv) updateFilter("groupValue", gbv);
+		} else {
+			// ── Fall back to localStorage ─────────────────────────────────────
+			const saved = loadFilterFromStorage();
+			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
 		}
 
-		// Page size
-		const limitParam = params.get("limit");
-		if (limitParam) {
-			const parsed = parseInt(limitParam, 10);
-			if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
-		}
-
-		// Selected config (filters)
-		const config = paramsToConfig(params);
-		if (hasActiveConfig(config)) {
-			updateFilter("selectedConfig", config);
-		}
+		// Signal that the initial filter read (URL / localStorage) is complete.
+		// Pages use this flag to avoid fetching before the correct params are applied.
+		updateFilter("filterReady", true);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -657,13 +933,24 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 		// Selected config
 		configToParams(filter.selectedConfig, params);
 
-		const qs = params.toString();
-		if (qs === prevSerializedRef.current) return;
-		prevSerializedRef.current = qs;
+		// Group by
+		if (filter.groupBy) params.set("gb", filter.groupBy);
+		else params.delete("gb");
 
-		router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+		// Group value
+		if (filter.groupValue) params.set("gbv", filter.groupValue);
+		else params.delete("gbv");
+
+		const qs = params.toString();
+		if (qs !== prevSerializedRef.current) {
+			prevSerializedRef.current = qs;
+			router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+		}
+
+		// Persist to localStorage so other pages (and refreshes) pick up these filters
+		saveFilterToStorage(filter);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.selectedConfig]);
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.selectedConfig, filter.groupBy, filter.groupValue]);
 }
 
 // ─── TracesFilter (exported) ──────────────────────────────────────────────────
@@ -675,7 +962,7 @@ export default function TracesFilter({
 	pageName,
 	columns,
 }: {
-	total: number;
+	total?: number;
 	supportDynamicFilters?: boolean;
 	includeOnlySorting?: string[];
 	pageName: PAGE;
@@ -685,6 +972,20 @@ export default function TracesFilter({
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
+
+	const onChangeGroupBy = (key: string | undefined) => {
+		updateFilter("groupBy", key ?? null);
+	};
+
+	const onShareLink = () => {
+		if (typeof window !== "undefined") {
+			navigator.clipboard.writeText(window.location.href).then(() => {
+				toast.success("Link copied to clipboard");
+			}).catch(() => {
+				toast.error("Could not copy link");
+			});
+		}
+	};
 
 	useFilterUrlSync(filter, updateFilter);
 
@@ -731,20 +1032,26 @@ export default function TracesFilter({
 		<div className="flex flex-col items-center w-full justify-between mb-4">
 			<div className="flex w-full gap-4">
 				<Filter />
-				{filterConfig && total > 0 && (
+				{filterConfig && !!total && total > 0 && (
 					<TracesPagination
 						currentPage={filter.offset / filter.limit + 1}
 						currentSize={filter.limit}
-						totalPage={ceil((total || 0) / filter.limit)}
+						totalPage={ceil(total / filter.limit)}
 						onClickPageAction={onClickPageAction}
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
 				<VisibilityColumns columns={columns} pageName={pageName} />
-				{total > 0 && (
+				{!!total && total > 0 && (
 					<Sorting
 						sorting={filter.sorting}
 						includeOnlySorting={includeOnlySorting}
+					/>
+				)}
+				{supportDynamicFilters && (
+					<GroupByDropdown
+						groupBy={filter.groupBy}
+						onChangeGroupBy={onChangeGroupBy}
 					/>
 				)}
 				{supportDynamicFilters && (
@@ -760,6 +1067,15 @@ export default function TracesFilter({
 						)}
 					</Button>
 				)}
+				<Button
+					variant="outline"
+					size="default"
+					title="Copy shareable link"
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
+					onClick={onShareLink}
+				>
+					<Link2 className="w-3 h-3" />
+				</Button>
 			</div>
 			{supportDynamicFilters && (
 				<DynamicFilters
