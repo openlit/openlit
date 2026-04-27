@@ -179,6 +179,7 @@ class OpenLITCallbackHandler {
       let completionContent = '';
       let finishReason = 'stop';
       let responseModel = modelName;
+      let toolCalls: Array<{ id: string; type: string; name: string; arguments: unknown }> = [];
 
       if (output?.llm_output) {
         const lu = output.llm_output;
@@ -202,6 +203,31 @@ class OpenLITCallbackHandler {
           const content = gen?.text || msg?.content || '';
           if (content && typeof content === 'string' && content.length > completionContent.length) {
             completionContent = content;
+          }
+          // Tool calls — LangChain surfaces these on AIMessage.tool_calls as
+          // `{ id, name, args }`. Normalise the field name so helpers.buildOutputMessages
+          // (which accepts a toolCalls array) can fold them into gen_ai.output.messages.
+          const rawToolCalls =
+            msg?.tool_calls ||
+            gen?.message?.tool_calls ||
+            msg?.additional_kwargs?.tool_calls ||
+            [];
+          if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
+            // When the provider returns multiple generations (n > 1 or multiple
+            // prompts), LangChain still collapses into a single assistant
+            // message here. Take the last generation that carries tool_calls
+            // to stay symmetric with how `finishReason` below is overwritten
+            // (last-writer-wins) rather than merging tool calls from different
+            // choices into a single message.
+            toolCalls = [];
+            for (const tc of rawToolCalls) {
+              toolCalls.push({
+                id: tc.id || tc.tool_call_id || '',
+                type: tc.type || 'function',
+                name: tc.name || tc.function?.name || '',
+                arguments: tc.args ?? tc.arguments ?? tc.function?.arguments ?? {},
+              });
+            }
           }
           // Finish reason
           const fr = gen?.generationInfo?.finish_reason || msg?.response_metadata?.finish_reason;
@@ -239,11 +265,44 @@ class OpenLITCallbackHandler {
         }
       }
 
-      if (OpenlitConfig.traceContent && completionContent) {
+      if (OpenlitConfig.traceContent && (completionContent || toolCalls.length > 0)) {
         span.setAttribute(
           SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-          OpenLitHelper.buildOutputMessages(completionContent, finishReason)
+          OpenLitHelper.buildOutputMessages(
+            completionContent,
+            finishReason,
+            toolCalls.length > 0 ? toolCalls : undefined
+          )
         );
+      }
+
+      // Flatten tool-call metadata for easier indexing / filtering in backends
+      // that don't expand the nested gen_ai.output.messages JSON.
+      if (toolCalls.length > 0) {
+        const toolNames = toolCalls.map((t) => t.name || '').filter(Boolean);
+        const toolIds = toolCalls.map((t) => t.id || '').filter(Boolean);
+        const toolArgs = toolCalls.map((t) => {
+          if (typeof t.arguments === 'string') {
+            return t.arguments;
+          }
+          try {
+            return JSON.stringify(t.arguments ?? {});
+          } catch {
+            // Circular references, BigInt, etc. — never let span finalisation
+            // throw here (the outer try/catch would swallow the error and
+            // leave the span un-ended / the run entry in `spans` leaked).
+            return '[unserializable]';
+          }
+        });
+        if (toolNames.length > 0) {
+          span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, toolNames.join(', '));
+        }
+        if (toolIds.length > 0) {
+          span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, toolIds.join(', '));
+        }
+        if (toolArgs.length > 0) {
+          span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
+        }
       }
 
       // base attributes (system, endpoint, etc.)
@@ -534,3 +593,4 @@ class LangChainWrapper extends BaseWrapper {
 }
 
 export default LangChainWrapper;
+export { OpenLITCallbackHandler };
