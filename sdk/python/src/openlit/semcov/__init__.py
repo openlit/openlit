@@ -569,6 +569,7 @@ class SemanticConvention:
     GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
         "gen_ai.usage.completion_tokens_details.reasoning_tokens"
     )
+    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
     GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
         "gen_ai.usage.prompt_tokens_details.cached_tokens"
     )
