@@ -328,6 +328,42 @@ describe('getFilterWhereCondition', () => {
     expect(result).toContain("= 'it''s'");
   });
 
+  it('escapes single quotes in model names to prevent SQL injection', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: { models: ["model'; DROP TABLE traces; --"] },
+      } as any,
+      true
+    );
+    expect(result).toContain("'model''; DROP TABLE traces; --'");
+    expect(result).not.toContain("model'; DROP");
+  });
+
+  it('escapes single quotes in provider names to prevent SQL injection', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: { providers: ["open'ai"] },
+      } as any,
+      true
+    );
+    expect(result).toContain("'open''ai'");
+    expect(result).not.toContain("open'ai'");
+  });
+
+  it('escapes single quotes in environment names to prevent SQL injection', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: { environments: ["prod'; DROP TABLE traces; --"] },
+      } as any,
+      true
+    );
+    expect(result).toContain("'prod''; DROP TABLE traces; --'");
+    expect(result).not.toContain("prod'; DROP");
+  });
+
   it('adds notOrEmpty conditions', () => {
     const result = getFilterWhereCondition({
       notOrEmpty: [{ key: 'SpanAttributes' }, { key: 'ServiceName' }],

@@ -8,6 +8,7 @@ import {
 } from "date-fns";
 import { getTraceMappingKeyFullPath } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
+import { escapeStringValue } from "./sql-sanitize";
 
 export const validateMetricsRequestType = {
 	// Request
@@ -186,7 +187,7 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"model"
 					)}'] IN (${filter.selectedConfig.models
-						.map((model) => `'${model}'`)
+						.map((model) => `'${escapeStringValue(model)}'`)
 						.join(", ")})`
 				);
 			}
@@ -196,11 +197,11 @@ export const getFilterWhereCondition = (
 					`(SpanAttributes['${getTraceMappingKeyFullPath(
 						"system"
 					)}'] IN (${filter.selectedConfig.providers
-						.map((provider) => `'${provider}'`)
+						.map((provider) => `'${escapeStringValue(provider)}'`)
 						.join(", ")}) OR SpanAttributes['${getTraceMappingKeyFullPath(
 						"provider"
 					)}'] IN (${filter.selectedConfig.providers
-						.map((provider) => `'${provider}'`)
+						.map((provider) => `'${escapeStringValue(provider)}'`)
 						.join(", ")}))`
 				);
 			}
@@ -210,7 +211,7 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"type"
 					)}'] IN (${filter.selectedConfig.traceTypes
-						.map((type) => `'${type}'`)
+						.map((type) => `'${escapeStringValue(type)}'`)
 						.join(", ")})`
 				);
 			}
@@ -228,7 +229,7 @@ export const getFilterWhereCondition = (
 					`ResourceAttributes['${getTraceMappingKeyFullPath(
 						"applicationName"
 					)}'] IN (${filter.selectedConfig.applicationNames
-						.map((applicationName) => `'${applicationName}'`)
+						.map((applicationName) => `'${escapeStringValue(applicationName)}'`)
 						.join(", ")})`
 				);
 			}
@@ -236,7 +237,7 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.spanNames?.length) {
 				whereArray.push(
 					`SpanName IN (${filter.selectedConfig.spanNames
-						.map((spanName) => `'${spanName}'`)
+						.map((spanName) => `'${escapeStringValue(spanName)}'`)
 						.join(", ")})`
 				);
 			}
@@ -246,7 +247,7 @@ export const getFilterWhereCondition = (
 					`ResourceAttributes['${getTraceMappingKeyFullPath(
 						"environment"
 					)}'] IN (${filter.selectedConfig.environments
-						.map((environment) => `'${environment}'`)
+						.map((environment) => `'${escapeStringValue(environment)}'`)
 						.join(", ")})`
 				);
 			}
