@@ -352,6 +352,28 @@ function buildOutputMessages(text: string, finishReason: string, toolCalls?: any
   } catch { return []; }
 }
 
+function shouldCaptureMessageContent(): boolean {
+  return OpenlitConfig.captureMessageContent ?? (OpenlitConfig as any).traceContent ?? true;
+}
+
+function normalizeToolCalls(rawToolCalls: any[]): Array<{ id: string; type: string; name: string; arguments: unknown }> {
+  return rawToolCalls.map((call: any) => ({
+    id: call?.id || call?.tool_call_id || '',
+    type: call?.type || 'function',
+    name: call?.name || call?.function?.name || '',
+    arguments: call?.args ?? call?.arguments ?? call?.function?.arguments ?? {},
+  }));
+}
+
+function stringifyToolCallArgument(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value ?? {});
+  } catch {
+    return '[unserializable]';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Conversation ID extraction (mirrors Python _resolve_conversation_id)
 // ---------------------------------------------------------------------------
@@ -504,7 +526,7 @@ class OpenLITCallbackHandler {
     const holder = this.spans.get(runId);
     if (!holder) return;
 
-    for (const childId of holder.children) {
+    for (const childId of holder.children || []) {
       const child = this.spans.get(childId);
       if (child) {
         try { child.span.end(); } catch { /* already ended */ }
@@ -825,7 +847,15 @@ class OpenLITCallbackHandler {
     try {
       const holder = this.spans.get(runId);
       if (!holder) return;
-      const { span, startTime, modelName, modelParameters, streamingContent, tokenTimestamps, firstTokenTime } = holder;
+      const {
+        span,
+        startTime,
+        modelName,
+        modelParameters = {},
+        streamingContent = [],
+        tokenTimestamps = [],
+        firstTokenTime,
+      } = holder;
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
@@ -922,19 +952,11 @@ class OpenLITCallbackHandler {
           const fr = gen?.generationInfo?.finish_reason || msg?.response_metadata?.finish_reason;
           if (fr) holder.finishReason = fr;
 
-          // Tool calls
-          const tc = msg?.tool_calls;
+          // Tool calls. Keep last-writer-wins semantics across generations so
+          // choices are not merged into one assistant message.
+          const tc = msg?.tool_calls || msg?.additional_kwargs?.tool_calls || gen?.message?.tool_calls;
           if (tc && Array.isArray(tc) && tc.length > 0) {
-            holder.toolCalls = tc.map((call: any) => {
-              const isDict = typeof call === 'object';
-              return {
-                id: isDict ? (call.id || '') : '',
-                function: {
-                  name: isDict ? (call.name || '') : '',
-                  arguments: isDict ? (typeof call.args === 'object' ? JSON.stringify(call.args) : String(call.args || '')) : '',
-                },
-              };
-            });
+            holder.toolCalls = normalizeToolCalls(tc);
           }
         }
       }
@@ -984,24 +1006,30 @@ class OpenLITCallbackHandler {
 
       // Tool calls on span
       if (holder.toolCalls && holder.toolCalls.length > 0) {
-        const names = holder.toolCalls.map((t: any) => t.function?.name || '').filter(Boolean);
+        const names = holder.toolCalls.map((t: any) => t.name || t.function?.name || '').filter(Boolean);
         const ids = holder.toolCalls.map((t: any) => t.id || '').filter(Boolean);
-        const args = holder.toolCalls.map((t: any) => t.function?.arguments || '').filter(Boolean);
+        const args = holder.toolCalls.map((t: any) => stringifyToolCallArgument(t.arguments ?? t.function?.arguments));
         if (names.length) span.setAttribute(SemanticConvention.GEN_AI_TOOL_NAME, names.join(', '));
         if (ids.length) span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, ids.join(', '));
-        if (args.length) span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, args.join(', '));
+        if (args.length) span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, args);
       }
 
+      let outputMessagesJson: string | null = null;
+
       // Content attributes (gated by captureMessageContent)
-      if (OpenlitConfig.captureMessageContent) {
+      if (shouldCaptureMessageContent()) {
         const inputRaw = holder.inputMessagesRaw || holder.prompts || [];
-        const inputMsgs = holder.inputMessagesStructured.length > 0
-          ? holder.inputMessagesStructured
+        const inputMessagesStructured = holder.inputMessagesStructured || [];
+        const inputMsgs = inputMessagesStructured.length > 0
+          ? inputMessagesStructured
           : buildInputMessages(inputRaw);
-        const outputMsgs = buildOutputMessages(completionContent, holder.finishReason, holder.toolCalls);
+        const outputToolCalls = holder.toolCalls && holder.toolCalls.length > 0 ? holder.toolCalls : undefined;
+        outputMessagesJson = OpenLitHelper.buildOutputMessages(completionContent, holder.finishReason, outputToolCalls);
 
         if (inputMsgs.length > 0) span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, JSON.stringify(inputMsgs));
-        if (outputMsgs.length > 0) span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(outputMsgs));
+        if (outputMessagesJson && (outputMessagesJson !== '[]' || completionContent || outputToolCalls)) {
+          span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+        }
       }
 
       // Emit inference event (always emitted; content within is gated)
@@ -1018,14 +1046,14 @@ class OpenLITCallbackHandler {
       if (serverPort) eventAttrs[SemanticConvention.SERVER_PORT] = serverPort;
       if (responseId) eventAttrs[SemanticConvention.GEN_AI_RESPONSE_ID] = responseId;
 
-      if (OpenlitConfig.captureMessageContent) {
+      if (shouldCaptureMessageContent()) {
         const inputRaw = holder.inputMessagesRaw || holder.prompts || [];
-        const inputMsgs = holder.inputMessagesStructured.length > 0
-          ? holder.inputMessagesStructured
+        const inputMessagesStructured = holder.inputMessagesStructured || [];
+        const inputMsgs = inputMessagesStructured.length > 0
+          ? inputMessagesStructured
           : buildInputMessages(inputRaw);
-        const outputMsgs = buildOutputMessages(completionContent, holder.finishReason, holder.toolCalls);
         if (inputMsgs.length > 0) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = JSON.stringify(inputMsgs);
-        if (outputMsgs.length > 0) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = JSON.stringify(outputMsgs);
+        if (outputMessagesJson && outputMessagesJson !== '[]') eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
         if (holder.systemInstructions) {
           eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = JSON.stringify(holder.systemInstructions);
         }
@@ -1046,7 +1074,9 @@ class OpenLITCallbackHandler {
         if (maxT != null) eventAttrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] = maxT;
       }
 
-      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
+      if (typeof OpenLitHelper.emitInferenceEvent === 'function') {
+        OpenLitHelper.emitInferenceEvent(span, eventAttrs);
+      }
 
       // Record metrics
       const metricParams: BaseSpanAttributes = {
