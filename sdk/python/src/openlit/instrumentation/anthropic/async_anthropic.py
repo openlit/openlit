@@ -202,3 +202,220 @@ def async_messages(
             return response
 
     return wrapper
+
+
+def async_messages_stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider=None,
+):
+    """
+    Generates a telemetry wrapper for Anthropic AsyncMessages.stream calls.
+    """
+
+    class TracedAsyncMessageStream:
+        """
+        Wrapper for Anthropic Async MessageStream to collect telemetry
+        """
+
+        def __init__(
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+        ):
+            self.__wrapped__ = wrapped
+            self._span = span
+            self._span_name = span_name
+            self._llmresponse = ""
+            self._response_id = ""
+            self._response_model = ""
+            self._finish_reason = ""
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._tool_arguments = ""
+            self._tool_id = ""
+            self._tool_name = ""
+            self._tool_calls = None
+            self._response_role = ""
+            self._kwargs = kwargs
+            self._start_time = time.time()
+            self._end_time = None
+            self._timestamps = []
+            self._ttft = 0
+            self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+
+        def __aiter__(self):
+            return self
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped stream object."""
+            if name == "text_stream":
+                return self._instrumented_text_stream
+            if name == "get_final_message":
+                return self._instrumented_get_final_message
+            if name == "until_done":
+                return self._instrumented_until_done
+            return getattr(self.__wrapped__, name)
+
+        async def _instrumented_get_final_message(self):
+            """Awaits stream completion via proxy then returns the final message."""
+            async for _ in self:
+                pass
+            original_get_final_message = getattr(self.__wrapped__, "get_final_message")
+            return await original_get_final_message()
+
+        @property
+        def _instrumented_text_stream(self):
+            """Async generator that processes chunks through our proxy."""
+
+            async def text_generator():
+                async for event in self:
+                    if (
+                        hasattr(event, "delta")
+                        and hasattr(event.delta, "type")
+                        and event.delta.type == "text_delta"
+                        and hasattr(event.delta, "text")
+                    ):
+                        yield event.delta.text
+
+            return text_generator()
+
+        async def _instrumented_until_done(self):
+            """Ensures the async span is closed by draining the stream."""
+            async for _ in self:
+                pass
+
+        async def __anext__(self):
+            try:
+                chunk = await self.__wrapped__.__anext__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopAsyncIteration:
+                try:
+                    with self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                except Exception as e:
+                    handle_exception(self._span, e)
+                raise
+
+    class TracedAsyncMessageStreamManager:
+        """
+        Wrapper for Anthropic AsyncMessageStreamManager to instrument the 'async with' block.
+        """
+
+        def __init__(
+            self,
+            original_manager,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+        ):
+            self._original_manager = original_manager
+            self._span = span
+            self._span_name = span_name
+            self._kwargs = kwargs
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+            self._token = None
+
+        async def __aenter__(self):
+            """
+            Attaches the span context and enters the original async stream manager.
+            """
+            ctx = trace_api.set_span_in_context(self._span)
+            self._token = context_api.attach(ctx)
+
+            stream = await self._original_manager.__aenter__()
+
+            return TracedAsyncMessageStream(
+                stream,
+                self._span,
+                self._span_name,
+                self._kwargs,
+                self._server_address,
+                self._server_port,
+                self._event_provider,
+            )
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            """
+            Detaches context and handles exceptions occurring inside the 'async with' block.
+            """
+            if self._token:
+                context_api.detach(self._token)
+
+            if exc_type:
+                handle_exception(self._span, exc_val)
+                if self._span.is_recording():
+                    self._span.end()
+
+            return await self._original_manager.__aexit__(exc_type, exc_val, exc_tb)
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the original manager."""
+            return getattr(self._original_manager, name)
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Intercepts the Anthropic async_messages.stream call to inject telemetry.
+        """
+
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
+
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.anthropic.com", 443
+        )
+        request_model = kwargs.get("model", "claude-3-5-sonnet-latest")
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+
+        span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+
+        try:
+            original_manager = wrapped(*args, **kwargs)
+        except Exception as e:
+            handle_exception(span, e)
+            span.end()
+            raise
+
+        return TracedAsyncMessageStreamManager(
+            original_manager,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider,
+        )
+
+    return wrapper

@@ -346,3 +346,9 @@ OpenLIT is available under the [Apache-2.0 license](LICENSE).
     <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" height="80px" width="200px">
   </a>
 </p>
+
+## 💻 Contributors
+
+<a href="https://github.com/openlit/openlit/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit" />
+</a>

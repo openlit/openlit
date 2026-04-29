@@ -9,7 +9,8 @@ import {
 	normalizeTrace,
 } from "@/helpers/client/trace";
 import { ReverseTraceMapping, TraceMapping } from "@/constants/traces";
-import { ExternalLink, X, DollarSign, Zap, Clock, Cpu, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { ExternalLink, X, DollarSign, Zap, Clock, Cpu, ChevronLeft, ChevronRight, BarChart3, RefreshCw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
 	Sheet,
 	SheetContent,
@@ -21,6 +22,7 @@ import { ValueOf } from "@/types/util";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
+import getMessage from "@/constants/messages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HeirarchyDisplay from "./heirarchy-display";
 import { TraceRow, TransformedTraceRow } from "@/types/trace";
@@ -79,6 +81,90 @@ function MetricCard({
 			</div>
 			<span className="text-sm font-semibold text-stone-800 dark:text-stone-200 truncate">
 				{value ?? "—"}
+			</span>
+		</div>
+	);
+}
+
+function CostMetricCard({
+	costValue,
+	spanId,
+	hasModel,
+	onRecalculated,
+}: {
+	costValue: string | undefined;
+	spanId: string | undefined;
+	hasModel: boolean;
+	onRecalculated: () => void;
+}) {
+	const m = getMessage();
+	const hasCost = !!costValue;
+	const canRecalculate = hasModel && !!spanId;
+
+	const { fireRequest, isLoading } = useFetchWrapper<{
+		success: boolean;
+		err?: string;
+		data?: { spanId: string; cost: number };
+	}>();
+
+	const handleRecalculate = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (!spanId || isLoading) return;
+		fireRequest({
+			requestType: "POST",
+			url: `/api/pricing/${spanId}`,
+			successCb: (res) => {
+				if (res?.success) {
+					toast.success(
+						`${m.RECALCULATE_COST_SUCCESS}: $${(res.data?.cost ?? 0).toFixed(10)}`,
+						{ id: "pricing-update" }
+					);
+					onRecalculated();
+				} else {
+					toast.error(res?.err || m.RECALCULATE_COST_FAILURE, {
+						id: "pricing-update",
+					});
+				}
+			},
+			failureCb: (err?: string) => {
+				toast.error(err || m.RECALCULATE_COST_REQUEST_FAILED, {
+					id: "pricing-update",
+				});
+			},
+		});
+	};
+
+	return (
+		<div className="relative flex flex-col gap-1 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg min-w-[100px] shrink-0">
+			<div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400">
+				<DollarSign className="h-3.5 w-3.5" />
+				<span className="text-xs font-medium">Cost</span>
+				{canRecalculate && (
+					<TooltipProvider delayDuration={200}>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									onClick={handleRecalculate}
+									disabled={isLoading}
+									className="relative ml-auto p-0.5 rounded hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors disabled:opacity-50"
+								>
+									<RefreshCw
+										className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`}
+									/>
+									{!hasCost && !isLoading && (
+										<span className="w-2 h-2 bg-primary absolute -top-0.5 -right-0.5 rounded-full animate-ping" />
+									)}
+								</button>
+							</TooltipTrigger>
+							<TooltipContent side="bottom" className="max-w-[220px] text-xs">
+								{m.RECALCULATE_COST_TITLE}
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
+			</div>
+			<span className="text-sm font-semibold text-stone-800 dark:text-stone-200 truncate">
+				{costValue ?? "—"}
 			</span>
 		</div>
 	);
@@ -312,10 +398,11 @@ export default function RequestDetails() {
 					>
 						{/* Key metrics strip */}
 						<div className="shrink-0 flex items-center gap-2 px-4 py-3 overflow-x-auto bg-white dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800">
-							<MetricCard
-								icon={<DollarSign className="h-3.5 w-3.5" />}
-								label="Cost"
-								value={costValue}
+							<CostMetricCard
+								costValue={costValue}
+								spanId={normalizedItem?.spanId ? String(normalizedItem.spanId) : undefined}
+								hasModel={!!modelValue}
+								onRecalculated={fetchData}
 							/>
 							<MetricCard
 								icon={<Zap className="h-3.5 w-3.5" />}

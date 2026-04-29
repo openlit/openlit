@@ -7,6 +7,7 @@ import CustomPostHogProvider from "@/components/(playground)/posthog";
 import NavigationEvents from "@/components/common/navigation-events";
 import AppInit from "@/components/common/app-init";
 import { PortalProvider } from "@/components/(playground)/header-portal";
+import ChatFloatingButton from "@/components/(playground)/chat/chat-floating-button";
 
 export default async function PlaygroundLayout({
 	children,
@@ -30,6 +31,7 @@ export default async function PlaygroundLayout({
 							</main>
 						</div>
 					</div>
+					<ChatFloatingButton />
 				</PortalProvider>
 			</TooltipProvider>
 			<Suspense fallback={null}>

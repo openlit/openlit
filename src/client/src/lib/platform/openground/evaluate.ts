@@ -1,6 +1,6 @@
 import { AISdkAdapter } from "./ai-sdk-adapter";
-import { getOpenGroundConfigWithSecret } from "./config";
-import { ProviderRegistry } from "./provider-registry";
+import { getOpenGroundConfigWithSecret } from "@/lib/platform/providers/config";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { createOpengroundEvaluation } from "@/lib/platform/openground-clickhouse";
 import type { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import { getSpecificPrompt } from "@/lib/platform/prompt";
@@ -82,18 +82,14 @@ async function calculateCost(
 	provider: string,
 	model: string,
 	promptTokens: number,
-	completionTokens: number
+	completionTokens: number,
+	databaseConfigId: string
 ): Promise<number> {
-	// Get pricing from registry
-	const providerMetadata = await ProviderRegistry.getProviderById(provider);
-	if (!providerMetadata) {
-		// Use separate parameter to prevent log injection
-		console.warn('Provider metadata not found for:', provider);
-		return 0;
-	}
-
-	const modelMetadata = providerMetadata.supportedModels.find(
-		(m) => m.id === model
+	// Look up the model directly from the openlit_provider_models table
+	const modelMetadata = await ProviderRegistry.getModel(
+		provider,
+		model,
+		databaseConfigId
 	);
 	if (!modelMetadata) {
 		// Use separate parameters to prevent log injection
@@ -161,7 +157,8 @@ async function evaluateProvider(
 			provider,
 			model,
 			result.usage.promptTokens,
-			result.usage.completionTokens
+			result.usage.completionTokens,
+			databaseConfigId
 		);
 
 		return {

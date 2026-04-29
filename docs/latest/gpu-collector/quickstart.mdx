@@ -1,0 +1,143 @@
+---
+title: 'Quickstart'
+description: 'Get the OpenTelemetry GPU Collector running in under 5 minutes'
+icon: 'bolt'
+---
+
+In this guide you'll pull the collector Docker image, point it at your OTel backend, and start seeing GPU and host metrics within minutes.
+
+## Prerequisites
+
+- **Linux host** with NVIDIA, AMD, or Intel GPU (for GPU metrics)
+- **Docker** installed
+- An **OpenTelemetry-compatible backend** (OpenLIT, Grafana, Datadog, or any OTLP endpoint)
+
+<AccordionGroup>
+  <Accordion title="Don't have an OTel backend? Start OpenLIT locally">
+    ```bash
+    docker run -d \
+      --name openlit \
+      -p 3000:3000 \
+      -p 4318:4318 \
+      ghcr.io/openlit/openlit:latest
+    ```
+    Then use `http://localhost:4318` as your `OTEL_EXPORTER_OTLP_ENDPOINT`.
+  </Accordion>
+</AccordionGroup>
+
+<Steps titleSize="h3">
+  <Step title="Pull the collector image">
+    ```bash
+    docker pull ghcr.io/openlit/otel-gpu-collector:latest
+    ```
+  </Step>
+
+  <Step title="Run the collector">
+
+    <Tabs>
+      <Tab title="NVIDIA GPU">
+        ```bash
+        docker run -d \
+          --name otel-gpu-collector \
+          --gpus all \
+          -e OTEL_SERVICE_NAME=my-app \
+          -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+          -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+          ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+        Requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host.
+      </Tab>
+      <Tab title="AMD GPU">
+        ```bash
+        docker run -d \
+          --name otel-gpu-collector \
+          --device /dev/kfd:/dev/kfd \
+          --device /dev/dri:/dev/dri \
+          -e OTEL_SERVICE_NAME=my-app \
+          -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+          -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+          ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+      </Tab>
+      <Tab title="Intel GPU">
+        ```bash
+        docker run -d \
+          --name otel-gpu-collector \
+          --device /dev/dri:/dev/dri \
+          -e OTEL_SERVICE_NAME=my-app \
+          -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+          -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+          ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+        Requires Linux kernel 5.10+ with the i915 or Xe driver.
+      </Tab>
+      <Tab title="Host metrics only">
+        ```bash
+        docker run -d \
+          --name otel-gpu-collector \
+          -e OTEL_SERVICE_NAME=my-app \
+          -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+          -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+          ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+        The collector will export host and process metrics even without GPU access.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify it's running">
+    ```bash
+    docker logs otel-gpu-collector
+    ```
+
+    You should see output like:
+    ```
+    time=2024-01-01T00:00:00Z level=INFO msg="starting opentelemetry-gpu-collector"
+    time=2024-01-01T00:00:00Z level=INFO msg="discovered GPU" address=0000:01:00.0 vendor=nvidia
+    time=2024-01-01T00:00:00Z level=INFO msg="system metrics collector initialized"
+    time=2024-01-01T00:00:00Z level=INFO msg="process metrics collector initialized"
+    time=2024-01-01T00:00:00Z level=INFO msg="collector running"
+    ```
+  </Step>
+
+  <Step title="View metrics in your backend">
+    Open your OTel backend and look for metrics in the `hw.gpu.*`, `system.*`, and `process.*` namespaces.
+
+    If using OpenLIT, navigate to `http://localhost:3000` and go to the **Metrics** section.
+  </Step>
+</Steps>
+
+## Docker Compose
+
+Add the collector as a service alongside your existing stack:
+
+```yaml
+services:
+  otel-gpu-collector:
+    image: ghcr.io/openlit/otel-gpu-collector:latest
+    environment:
+      OTEL_SERVICE_NAME: my-app
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - otel-collector
+    restart: always
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Configuration" href="/latest/gpu-collector/configuration" icon="sliders">
+    Full reference for all environment variables and defaults
+  </Card>
+  <Card title="Metrics reference" href="/latest/gpu-collector/metrics" icon="table">
+    Complete list of all metrics, types, units, and attributes
+  </Card>
+</CardGroup>

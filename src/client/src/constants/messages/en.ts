@@ -258,6 +258,98 @@ export const OPENGROUND_ALL_PROVIDERS = "All Providers";
 export const OPENGROUND_SEARCH_MODELS = "Search models...";
 export const OPENGROUND_NO_MODELS_FOUND = "No models found";
 export const OPENGROUND_CUSTOM_MODELS = "Custom Models";
+export const MANAGE_MODELS_EXPORT_PRICING = "Export Pricing";
+export const MANAGE_MODELS_IMPORT_PRICING = "Import Pricing JSON";
+export const MANAGE_MODELS_IMPORT_SUCCESS = "Import complete";
+export const MANAGE_MODELS_IMPORT_FAILED = "Import failed";
+export const MANAGE_MODELS_PRICING_URL_LABEL = "SDK Pricing URL";
+export const MANAGE_MODELS_PRICING_URL_DESCRIPTION =
+	"Use this URL in your OpenLIT SDK to load pricing from this database. The endpoint is public and does not require authentication.";
+export const MANAGE_MODELS_PRICING_URL_COPIED = "URL copied to clipboard";
+export const MANAGE_MODELS_IMPORT_DIALOG_TITLE = "Import Pricing JSON";
+export const MANAGE_MODELS_IMPORT_DIALOG_DESCRIPTION =
+	"Paste a pricing JSON (SDK format or structured models array). Existing models with the same provider + model ID are skipped.";
+export const MANAGE_MODELS_SDK_USAGE = "SDK Usage";
+export const MANAGE_MODELS_SDK_USAGE_DIALOG_TITLE =
+	"Use this pricing in your OpenLIT SDK";
+export const MANAGE_MODELS_SDK_USAGE_DIALOG_DESCRIPTION =
+	"Pass this public URL to pricing_json in openlit.init() and your SDK will use the model pricing from Manage Models. No API key required.";
+export const MANAGE_MODELS_SDK_USAGE_NOTE_LABEL = "Note:";
+export const MANAGE_MODELS_SDK_USAGE_NOTE =
+	"The SDK fetches this URL on startup. If you update a model's price here, it will be applied to future tracing.";
+export const COPY = "Copy";
+export const MANAGE_MODELS_INVALID_JSON = "Invalid JSON";
+
+// Provider management
+export const MANAGE_PROVIDERS_ADD = "Add Provider";
+export const MANAGE_PROVIDERS_EDIT = "Edit Provider";
+export const MANAGE_PROVIDERS_DELETE = "Delete Provider";
+export const MANAGE_PROVIDERS_DELETE_CONFIRM =
+	"This will delete the provider and all its models. Are you sure?";
+export const MANAGE_PROVIDERS_SAVED = "Provider saved";
+export const MANAGE_PROVIDERS_DELETED = "Provider deleted";
+export const MANAGE_PROVIDERS_SAVE_FAILED = "Failed to save provider";
+export const MANAGE_PROVIDERS_DELETE_FAILED = "Failed to delete provider";
+export const MANAGE_PROVIDERS_ID_LABEL = "Provider ID";
+export const MANAGE_PROVIDERS_ID_HINT =
+	"Lowercase identifier (e.g. my-provider). Must match what the SDK sends in gen_ai.system.";
+export const MANAGE_PROVIDERS_DISPLAY_NAME = "Display Name";
+export const MANAGE_PROVIDERS_DESCRIPTION = "Description";
+export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
+
+// Pricing
+export const PRICING_TITLE = "Pricing";
+export const PRICING_PAGE_DESCRIPTION =
+	"Recalculate the cost of LLM traces using the current model pricing in Manage Models. Updates the `gen_ai.usage.cost` attribute on existing traces.";
+export const PRICING_INFO_BAR =
+	"Pricing is computed from the input/output token counts on the trace and the per-million-token price stored for each model in Manage Models. Edit a model there to update what auto/manual pricing computes.";
+export const PRICING_AUTO_TITLE = "Auto Pricing";
+export const PRICING_AUTO_DESCRIPTION =
+	"Recompute pricing on a schedule for new LLM traces.";
+export const PRICING_AUTO_ENABLE_LABEL = "Enable Auto Pricing";
+export const PRICING_AUTO_ENABLE_HINT =
+	"Periodically recompute and store pricing for new traces.";
+export const PRICING_AUTO_CRON_LABEL = "Cron Schedule";
+export const PRICING_AUTO_CRON_PLACEHOLDER = "*/15 * * * *";
+export const PRICING_AUTO_CRON_HELP =
+	"Standard cron expression. Example: */15 * * * * runs every 15 minutes.";
+export const PRICING_MANUAL_TITLE = "Manual Pricing";
+export const PRICING_MANUAL_DESCRIPTION =
+	"Recalculate the cost for a specific trace on demand.";
+export const PRICING_MANUAL_STEP_1 = "Open any LLM request in the trace explorer.";
+export const PRICING_MANUAL_STEP_2 =
+	'Click "Recalculate Cost" in the trace detail panel.';
+export const PRICING_MANUAL_STEP_3 =
+	"The gen_ai.usage.cost attribute is updated using the latest model pricing.";
+export const PRICING_GO_TO_REQUESTS = "Go to Requests";
+export const PRICING_SAVE = "Save";
+export const PRICING_UPDATE = "Update";
+export const PRICING_CONFIG_SAVED = "Pricing config saved";
+export const PRICING_HOW_AUTO_WORKS_TITLE = "How Auto Pricing Works";
+export const PRICING_HOW_AUTO_WORKS_DESCRIPTION =
+	"On each cron tick, OpenLIT selects LLM spans from otel_traces, looks up each span's provider + model in openlit_provider_models, recomputes the cost from token counts, and writes it back to gen_ai.usage.cost.";
+export const PRICING_HOW_AUTO_WORKS_STEP_1 =
+	"Selects LLM spans: spans whose gen_ai.operation.name matches supported LLM operations (e.g. chat).";
+export const PRICING_HOW_AUTO_WORKS_STEP_2 =
+	"Incremental window: only spans with Timestamp >= the last successful cron run are processed. First run processes all historical LLM spans.";
+export const PRICING_HOW_AUTO_WORKS_STEP_3 =
+	"Looks up the model: for each span, reads gen_ai.system (provider) + gen_ai.request.model and finds the matching row in openlit_provider_models.";
+export const PRICING_HOW_AUTO_WORKS_STEP_4 =
+	"Computes cost: (input_tokens / 1M) × input_price_per_m_token + (output_tokens / 1M) × output_price_per_m_token.";
+export const PRICING_HOW_AUTO_WORKS_STEP_5 =
+	"Writes back: ALTER TABLE otel_traces UPDATE SpanAttributes['gen_ai.usage.cost'] for each processed span. Spans with missing provider/model/tokens or an unknown model are skipped (not errors).";
+export const PRICING_HOW_AUTO_WORKS_STEP_6 =
+	"Run is logged: totalSpans, totalUpdated, totalFailed, totalSkipped are recorded in the cron log with SUCCESS / PARTIAL_SUCCESS / FAILURE status.";
+
+// Recalculate Cost (in trace detail panel)
+export const RECALCULATE_COST_LABEL = "Recalculate Cost";
+export const RECALCULATE_COST_UPDATING = "Updating…";
+export const RECALCULATE_COST_TITLE =
+	"Recalculate cost using the model's price in Manage Models";
+export const RECALCULATE_COST_SUCCESS = "Cost updated";
+export const RECALCULATE_COST_FAILURE =
+	"Could not update cost — model not found in Manage Models or pricing unavailable";
+export const RECALCULATE_COST_REQUEST_FAILED = "Failed to recalculate cost";
 
 // Features Title
 export const FEATURE_OPENGROUND = "Openground";
@@ -839,3 +931,69 @@ export const LINK_EXISTING_RULE = "Link existing rule";
 export const ASSOCIATE = "Associate";
 export const RULES = "Rules";
 export const NO_DASH = "-";
+
+// Chat
+export const CHAT_TITLE = "Otter";
+export const CHAT_DESCRIPTION = "Ask questions about your observability data using natural language";
+export const CHAT_SETTINGS_TITLE = "Chat Settings";
+export const CHAT_SETTINGS_DESCRIPTION = "Configure the AI provider for the chat feature";
+export const CHAT_NEW_CHAT = "New Chat";
+export const CHAT_SEARCH_CONVERSATIONS = "Search conversations...";
+export const CHAT_NO_MATCHING_CONVERSATIONS = "No matching conversations";
+export const CHAT_NO_CONVERSATIONS_YET = "No conversations yet";
+export const CHAT_NEW_CONVERSATION = "New conversation";
+export const CHAT_ASK_QUESTION = "Ask a question about your data...";
+export const CHAT_ENTER_TO_SEND = "Press Enter to send, Shift+Enter for new line";
+export const CHAT_EMPTY_TITLE = "Your AI-Powered Observability Copilot";
+export const CHAT_EMPTY_DESCRIPTION = "Query your telemetry data, create dashboards, manage rules, prompts, and more — all through natural language. What would you like to explore?";
+export const CHAT_CONFIGURE_PROVIDER = "Configure your AI provider in";
+export const CHAT_SETTINGS_LINK = "Chat Settings";
+export const CHAT_TO_GET_STARTED = "to get started.";
+export const CHAT_EXAMPLE_Q1 = "Create a GPU monitoring dashboard with utilization, memory, and temperature widgets";
+export const CHAT_EXAMPLE_Q2 = "What are my top 5 most expensive models this week and how much did they cost?";
+export const CHAT_EXAMPLE_Q3 = "Create a rule that triggers when request duration exceeds 5 seconds";
+export const CHAT_EXAMPLE_Q4 = "Show me error rate by provider over the last 24 hours as a line chart";
+export const CHAT_EXAMPLE_Q5 = "Create a prompt template for summarizing customer feedback with a tone variable";
+export const CHAT_EXAMPLE_Q6 = "List all my vault secrets and show which ones are used in evaluations";
+export const CHAT_SQL_LABEL = "SQL Query";
+export const CHAT_COPY = "Copy";
+export const CHAT_COPIED = "Copied";
+export const CHAT_EXECUTE = "Execute";
+export const CHAT_RUNNING = "Running...";
+export const CHAT_QUERY_EXECUTION_FAILED = "Query execution failed";
+export const CHAT_NO_DATA_RETURNED = "No data returned";
+export const CHAT_SAVE_AS_WIDGET = "Save as Widget";
+export const CHAT_SAVE_WIDGET_TITLE = "Save as Widget";
+export const CHAT_WIDGET_TITLE_LABEL = "Title";
+export const CHAT_WIDGET_TITLE_PLACEHOLDER = "Widget title";
+export const CHAT_WIDGET_TYPE_LABEL = "Widget Type";
+export const CHAT_WIDGET_DASHBOARD_LABEL = "Add to Dashboard (optional)";
+export const CHAT_WIDGET_DASHBOARD_PLACEHOLDER = "Select a dashboard";
+export const CHAT_WIDGET_SAVED = "Widget saved successfully";
+export const CHAT_WIDGET_SAVE_FAILED = "Failed to save widget";
+export const CHAT_WIDGET_ENTER_TITLE = "Please enter a title";
+export const CHAT_SETTINGS_PROVIDER_LABEL = "AI Provider";
+export const CHAT_SETTINGS_PROVIDER_PLACEHOLDER = "Select a provider";
+export const CHAT_SETTINGS_MODEL_LABEL = "Model";
+export const CHAT_SETTINGS_MODEL_PLACEHOLDER = "Select a model";
+export const CHAT_SETTINGS_MODEL_HINT = "Models are managed in";
+export const CHAT_SETTINGS_MANAGE_MODELS = "Manage Models";
+export const CHAT_SETTINGS_MODEL_HINT_SUFFIX = ". Custom models you add there will appear here.";
+export const CHAT_SETTINGS_API_KEY_LABEL = "API Key (from Vault)";
+export const CHAT_SETTINGS_API_KEY_PLACEHOLDER = "Select a vault secret";
+export const CHAT_SETTINGS_API_KEY_HINT_PREFIX = "Store your API key in the";
+export const CHAT_SETTINGS_API_KEY_HINT_SUFFIX = "first, then select it here";
+export const CHAT_SETTINGS_SAVE = "Save Configuration";
+export const CHAT_SETTINGS_SAVED = "Chat configuration saved";
+export const CHAT_SETTINGS_SAVE_FAILED = "Failed to save configuration";
+export const CHAT_SETTINGS_LOAD_FAILED = "Failed to load configuration";
+export const CHAT_SETTINGS_FILL_ALL = "Please fill in all fields";
+export const CHAT_SETTINGS_SELECT_PROVIDER_FIRST = "Select a provider first";
+export const CHAT_FAILED_TO_CREATE_CONVERSATION = "Failed to create conversation";
+export const CHAT_FAILED_TO_DELETE_CONVERSATION = "Failed to delete conversation";
+export const CHAT_ROWS = "rows";
+export const CHAT_TOKENS = "tokens";
+export const CHAT_ERROR_PREFIX = "Error:";
+export const CHAT_SOMETHING_WENT_WRONG = "Something went wrong. Please try again.";
+export const CHAT_FAILED_TO_GET_RESPONSE = "Failed to get response";
+export const CHAT_NO_RESPONSE_STREAM = "No response stream";
