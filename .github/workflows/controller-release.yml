@@ -132,13 +132,11 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS.txt
 
-      - name: Create GitHub Release
+      - name: Upload release assets
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
-          name: "OpenLIT Controller ${{ steps.version.outputs.version }}"
           files: |
             dist/*
-          generate_release_notes: true
 
   # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
   docker:
