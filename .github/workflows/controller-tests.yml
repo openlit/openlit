@@ -1,0 +1,48 @@
+name: OpenLIT Controller Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'openlit-controller/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'openlit-controller/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: openlit-controller/go.mod
+          cache-dependency-path: openlit-controller/go.sum
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+
+      - name: Generate eBPF objects
+        working-directory: openlit-controller
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: openlit-controller
+        run: go test -race -count=1 ./...
+
+      - name: Lint
+        working-directory: openlit-controller
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./...

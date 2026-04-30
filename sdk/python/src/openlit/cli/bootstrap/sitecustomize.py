@@ -33,6 +33,7 @@ except ImportError:
                 "OTEL_EXPORTER_OTLP_HEADERS": "otlp_headers",
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "capture_message_content",
                 "OPENLIT_DISABLED_INSTRUMENTORS": "disabled_instrumentors",
+                "OPENLIT_CONTROLLER_MODE": "controller_mode",
                 "OPENLIT_DISABLE_BATCH": "disable_batch",
                 "OPENLIT_DISABLE_METRICS": "disable_metrics",
                 "OPENLIT_DISABLE_EVENTS": "disable_events",

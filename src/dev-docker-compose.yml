@@ -68,12 +68,91 @@ services:
       - openlit-data:/app/client/data
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://openlit:3000"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 30s
     restart: always
+
+  # --- Controller + Sample Apps (only with: --profile full) ---
+  openlit-controller:
+    image: openlit-controller:dev
+    build:
+      context: ../openlit-controller
+      dockerfile: Dockerfile
+    container_name: openlit-controller
+    profiles: [full]
+    privileged: true
+    pid: host
+    environment:
+      OPENLIT_URL: http://openlit:3000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
+      OPENLIT_POLL_INTERVAL: 10s
+      OPENLIT_PROC_ROOT: /host/proc
+      OPENLIT_INSTANCE_ID: ${OPENLIT_INSTANCE_ID:-}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    depends_on:
+      openlit:
+        condition: service_healthy
+    restart: always
+
+  openai-app:
+    build: ../examples/openai-chat-app
+    container_name: demo-openai-app
+    profiles: [full]
+    environment:
+      OPENAI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  anthropic-app:
+    build: ../examples/anthropic-chat-app
+    container_name: demo-anthropic-app
+    profiles: [full]
+    environment:
+      ANTHROPIC_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  gemini-app:
+    build: ../examples/gemini-chat-app
+    container_name: demo-gemini-app
+    profiles: [full]
+    environment:
+      GEMINI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  crewai-app:
+    build: ../examples/crewai-agent-app
+    container_name: demo-crewai-app
+    profiles: [full]
+    environment:
+      OPENAI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  non-llm-app:
+    build: ../examples/non-llm-http-app
+    container_name: demo-non-llm-app
+    profiles: [full]
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
 
 volumes:
   clickhouse-data:

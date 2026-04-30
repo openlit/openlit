@@ -1,0 +1,59 @@
+diff --git a/pkg/ebpf/common/http_transform.go b/pkg/ebpf/common/http_transform.go
+index a79d1d7..c6d4f88 100644
+--- a/pkg/ebpf/common/http_transform.go
++++ b/pkg/ebpf/common/http_transform.go
+@@ -197,6 +197,54 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
+ 		}
+ 	}
+ 
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Groq.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeGroq
++			return span
++		}
++	}
++
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Deepseek.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeDeepseek
++			return span
++		}
++	}
++
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Together.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeTogether
++			return span
++		}
++	}
++
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Fireworks.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeFireworks
++			return span
++		}
++	}
++
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.AzureOpenAI.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeAzureOpenAI
++			return span
++		}
++	}
++
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Mistral.Enabled {
++		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++		if ok {
++			span.SubType = request.HTTPSubtypeMistral
++			return span
++		}
++	}
++
+ 	if parseCtx != nil && parseCtx.payloadExtraction.HTTP.JSONRPC.Enabled {
+ 		span, ok := ebpfhttp.JSONRPCSpan(&httpSpan, req, resp)
+ 		if ok {
