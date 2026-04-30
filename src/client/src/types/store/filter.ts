@@ -1,5 +1,6 @@
 export type TIME_RANGES = "24H" | "7D" | "1M" | "3M" | "CUSTOM";
 export type REFRESH_RATES = "Never" | "30s" | "1m" | "5m" | "15m";
+export type GroupByKey = string;
 
 export type FilterSorting = {
 	type: string;
@@ -17,6 +18,9 @@ export interface FilterType {
 	selectedConfig: Partial<FilterConfig>;
 	sorting: FilterSorting;
 	refreshRate: REFRESH_RATES;
+	groupBy?: GroupByKey;
+	groupValue?: string;
+	filterReady?: boolean;
 }
 
 export type CustomFilterAttributeType = "SpanAttributes" | "ResourceAttributes" | "Field";
