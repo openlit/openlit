@@ -107,8 +107,8 @@ describe("getServicesToReconcile", () => {
 			data: [
 				{
 					workload_key: "wk-1",
-					desired_instrumentation_status: "instrumented",
-					desired_agent_status: "none",
+					feature: "instrumentation",
+					desired_status: "instrumented",
 				},
 			],
 		} as any);
@@ -134,8 +134,8 @@ describe("getServicesToReconcile", () => {
 			data: [
 				{
 					workload_key: "wk-1",
-					desired_instrumentation_status: "none",
-					desired_agent_status: "none",
+					feature: "instrumentation",
+					desired_status: "none",
 				},
 			],
 		} as any);
@@ -161,8 +161,8 @@ describe("getServicesToReconcile", () => {
 			data: [
 				{
 					workload_key: "wk-1",
-					desired_instrumentation_status: "none",
-					desired_agent_status: "enabled",
+					feature: "agent",
+					desired_status: "enabled",
 				},
 			],
 		} as any);
@@ -187,8 +187,8 @@ describe("getServicesToReconcile", () => {
 			data: [
 				{
 					workload_key: "wk-1",
-					desired_instrumentation_status: "none",
-					desired_agent_status: "none",
+					feature: "agent",
+					desired_status: "none",
 				},
 			],
 		} as any);
@@ -248,8 +248,8 @@ describe("getServicesToReconcile", () => {
 			data: [
 				{
 					workload_key: "wk-1",
-					desired_instrumentation_status: "none",
-					desired_agent_status: "enabled",
+					feature: "agent",
+					desired_status: "enabled",
 				},
 			],
 		} as any);
@@ -335,11 +335,11 @@ describe("getDiscoveredServices", () => {
 		expect(q).toContain("2026-04-14 23:59:59");
 	});
 
-	it("omits time filter when not provided", async () => {
+	it("applies a 24-hour default filter when no time range is provided", async () => {
 		mockedDataCollector.mockResolvedValue({ data: [] } as any);
 		await getDiscoveredServices(undefined, undefined, "db-1");
 		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
-		expect(q).not.toContain("last_seen >=");
+		expect(q).toContain("last_seen >= now() - INTERVAL 24 HOUR");
 	});
 });
 
@@ -404,18 +404,8 @@ describe("updateDesiredStatus", () => {
 		expect(mockedDataCollector).not.toHaveBeenCalled();
 	});
 
-	it("inserts with provided instrumentation field, preserving existing agent", async () => {
-		mockedDataCollector
-			.mockResolvedValueOnce({
-				data: [
-					{
-						workload_key: "wk-1",
-						desired_instrumentation_status: "none",
-						desired_agent_status: "enabled",
-					},
-				],
-			} as any)
-			.mockResolvedValueOnce({ data: "ok" } as any);
+	it("writes only the instrumentation feature when only that field is provided", async () => {
+		mockedDataCollector.mockResolvedValue({ data: "ok" } as any);
 
 		await updateDesiredStatus(
 			"wk-1",
@@ -424,13 +414,13 @@ describe("updateDesiredStatus", () => {
 			"db-1"
 		);
 
-		const insertCall = mockedDataCollector.mock.calls[1];
-		const row = (insertCall[0] as any).values[0];
-		expect(row.desired_instrumentation_status).toBe("instrumented");
-		expect(row.desired_agent_status).toBe("enabled");
+		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
+		const row = (mockedDataCollector.mock.calls[0][0] as any).values[0];
+		expect(row.feature).toBe("instrumentation");
+		expect(row.desired_status).toBe("instrumented");
 	});
 
-	it("writes both fields directly when both are provided (no lookup)", async () => {
+	it("writes one row per feature when both fields are provided", async () => {
 		mockedDataCollector.mockResolvedValue({ data: "ok" } as any);
 		await updateDesiredStatus(
 			"wk-1",
@@ -441,44 +431,39 @@ describe("updateDesiredStatus", () => {
 			},
 			"db-1"
 		);
-		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
-		const row = (mockedDataCollector.mock.calls[0][0] as any).values[0];
-		expect(row.desired_instrumentation_status).toBe("instrumented");
-		expect(row.desired_agent_status).toBe("enabled");
+		expect(mockedDataCollector).toHaveBeenCalledTimes(2);
+		const features = mockedDataCollector.mock.calls.map(
+			(c) => (c[0] as any).values[0].feature
+		);
+		expect(features).toContain("instrumentation");
+		expect(features).toContain("agent");
 	});
 });
 
 describe("queueAction", () => {
-	it("returns the existing action when a duplicate is pending", async () => {
-		mockedDataCollector.mockResolvedValueOnce({
-			data: [
-				{ id: "act-1", action_type: "instrument", status: "pending" },
-			],
-		} as any);
-
-		const result = await queueAction(
-			"ctrl-1",
-			"instrument" as any,
-			"wk-1",
-			"{}",
-			"db-1"
-		);
-		expect((result as any).data.id).toBe("act-1");
-		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
-	});
-
-	it("inserts a new action when none exists", async () => {
-		mockedDataCollector
-			.mockResolvedValueOnce({ data: [] } as any)
-			.mockResolvedValueOnce({ data: "ok" } as any);
+	it("inserts a pending action with a deterministic id", async () => {
+		mockedDataCollector.mockResolvedValue({ data: "ok" } as any);
 
 		await queueAction("ctrl-1", "instrument" as any, "wk-1", "{}", "db-1");
-		expect(mockedDataCollector).toHaveBeenCalledTimes(2);
-		const insert = mockedDataCollector.mock.calls[1];
-		const row = (insert[0] as any).values[0];
+		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
+		const row = (mockedDataCollector.mock.calls[0][0] as any).values[0];
 		expect(row.instance_id).toBe("ctrl-1");
 		expect(row.service_key).toBe("wk-1");
 		expect(row.status).toBe("pending");
+		expect(row.id).toMatch(/^[0-9a-f]{32}$/);
+	});
+
+	it("produces the same id for the same instance/service/action", async () => {
+		mockedDataCollector.mockResolvedValue({ data: "ok" } as any);
+
+		await queueAction("ctrl-1", "instrument" as any, "wk-1", "{}", "db-1");
+		const id1 = (mockedDataCollector.mock.calls[0][0] as any).values[0].id;
+
+		mockedDataCollector.mockClear();
+		await queueAction("ctrl-1", "instrument" as any, "wk-1", "{}", "db-1");
+		const id2 = (mockedDataCollector.mock.calls[0][0] as any).values[0].id;
+
+		expect(id1).toBe(id2);
 	});
 });
 
