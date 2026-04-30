@@ -33,7 +33,12 @@ export async function getControllerInstances(
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerInstance[] }> {
 	const query = `
-		SELECT *
+		SELECT *,
+			CASE
+				WHEN last_heartbeat >= now() - INTERVAL 2 MINUTE THEN 'active'
+				WHEN last_heartbeat >= now() - INTERVAL 10 MINUTE THEN 'degraded'
+				ELSE 'inactive'
+			END AS computed_status
 		FROM ${CONTROLLER_INSTANCES_TABLE}
 		FINAL
 		ORDER BY last_heartbeat DESC
@@ -50,7 +55,12 @@ export async function getControllerInstanceById(
 	dbConfigId?: string
 ): Promise<{ err?: unknown; data?: ControllerInstance[] }> {
 	const query = `
-		SELECT *
+		SELECT *,
+			CASE
+				WHEN last_heartbeat >= now() - INTERVAL 2 MINUTE THEN 'active'
+				WHEN last_heartbeat >= now() - INTERVAL 10 MINUTE THEN 'degraded'
+				ELSE 'inactive'
+			END AS computed_status
 		FROM ${CONTROLLER_INSTANCES_TABLE}
 		FINAL
 		WHERE instance_id = '${instanceId}'

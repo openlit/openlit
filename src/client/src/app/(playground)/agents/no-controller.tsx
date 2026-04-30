@@ -92,7 +92,7 @@ function buildCommands(
 	}
 }
 
-export default function NoController() {
+export default function NoController({ inModal = false }: { inModal?: boolean }) {
 	const [activeTab, setActiveTab] = useState<TabId>("kubernetes");
 	const [copied, setCopied] = useState(false);
 	const [openlitUrl, setOpenlitUrl] = useState("http://localhost:3000");
@@ -131,19 +131,21 @@ export default function NoController() {
 	};
 
 	return (
-		<div className="flex flex-col items-center justify-center w-full py-16 px-4">
+		<div className={`flex flex-col items-center w-full ${inModal ? "py-2 px-1" : "justify-center py-16 px-4"}`}>
 			<div className="max-w-2xl w-full">
-				<div className="flex flex-col items-center mb-8">
-					<div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-4">
-						<Radar className="w-8 h-8 text-stone-500 dark:text-stone-400" />
+				{!inModal && (
+					<div className="flex flex-col items-center mb-8">
+						<div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-4">
+							<Radar className="w-8 h-8 text-stone-500 dark:text-stone-400" />
+						</div>
+						<h2 className="text-2xl font-semibold text-stone-700 dark:text-stone-200 mb-2">
+							{getMessage().AGENTS_NO_CONTROLLERS_TITLE}
+						</h2>
+						<p className="text-stone-500 dark:text-stone-400 text-center max-w-md">
+							{getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
+						</p>
 					</div>
-					<h2 className="text-2xl font-semibold text-stone-700 dark:text-stone-200 mb-2">
-						{getMessage().AGENTS_NO_CONTROLLERS_TITLE}
-					</h2>
-					<p className="text-stone-500 dark:text-stone-400 text-center max-w-md">
-						{getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
-					</p>
-				</div>
+				)}
 
 				{firstKey && (
 					<div className="flex items-start gap-3 mb-4 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30">

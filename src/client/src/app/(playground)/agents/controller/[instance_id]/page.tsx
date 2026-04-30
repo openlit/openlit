@@ -29,9 +29,12 @@ import getMessage from "@/constants/messages";
 
 const HEALTH_STYLES: Record<ControllerHealth, string> = {
 	healthy: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+	active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
 	degraded:
 		"bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
 	error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+	inactive:
+		"bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400",
 };
 
 const SUPPORTED_PROVIDERS: Array<keyof PayloadExtractionConfig> = [
@@ -142,7 +145,7 @@ export default function ControllerDetailPage() {
 	return (
 		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
 			<button
-				onClick={() => router.push("/agents")}
+				onClick={() => router.push("/agents?tab=controllers")}
 				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
 			>
 				<ArrowLeft className="w-4 h-4" />
@@ -180,12 +183,12 @@ function ControllerHeader({ instance }: { instance: ControllerInstance }) {
 						</p>
 					</div>
 				</div>
-				<Badge
-					variant="outline"
-					className={HEALTH_STYLES[instance.status] || ""}
-				>
-					{instance.status}
-				</Badge>
+			<Badge
+				variant="outline"
+				className={HEALTH_STYLES[instance.computed_status || instance.status] || ""}
+			>
+				{instance.computed_status || instance.status}
+			</Badge>
 			</div>
 			<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
 				<Stat label={getMessage().AGENTS_STAT_SERVICES_DISCOVERED} value={instance.services_discovered} />

@@ -107,3 +107,11 @@ sudo curl -sSL https://get.openlit.io/controller | sudo bash
 ```
 
 This installs the controller as a persistent systemd service. See `../install.sh` for details.
+
+### Controller Identity
+
+The controller uses the machine's hostname as its identity. This is stable across restarts. To override it, set `OPENLIT_INSTANCE_ID`:
+
+```bash
+OPENLIT_INSTANCE_ID="my-linux-controller" openlit-controller
+```

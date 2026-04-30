@@ -22,9 +22,12 @@ interface ControllerTableProps {
 
 const HEALTH_STYLES: Record<ControllerHealth, string> = {
 	healthy: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+	active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
 	degraded:
 		"bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
 	error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+	inactive:
+		"bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400",
 };
 
 type ControllerColumnKey =
@@ -38,18 +41,21 @@ type ControllerColumnKey =
 const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	controller: {
 		header: () => getMessage().AGENTS_COLUMN_CONTROLLER,
-		cell: ({ row }) => (
-			<div className="overflow-hidden">
-				<div className="font-medium text-stone-900 dark:text-stone-100 truncate">
-					{row.node_name || row.instance_id}
-				</div>
-				{row.version && (
-					<div className="text-xs text-stone-400 mt-0.5">
-						v{row.version}
+		cell: ({ row }) => {
+			const stale = (row.computed_status || row.status) === "inactive";
+			return (
+				<div className={`overflow-hidden ${stale ? "opacity-50" : ""}`}>
+					<div className="font-medium text-stone-900 dark:text-stone-100 truncate">
+						{row.node_name || row.instance_id}
 					</div>
-				)}
-			</div>
-		),
+					{row.version && (
+						<div className="text-xs text-stone-400 mt-0.5">
+							v{row.version}
+						</div>
+					)}
+				</div>
+			);
+		},
 		enableHiding: false,
 	},
 	system: {
@@ -132,14 +138,17 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	},
 	status: {
 		header: () => getMessage().AGENTS_COLUMN_STATUS,
-		cell: ({ row }) => (
-			<Badge
-				variant="outline"
-				className={HEALTH_STYLES[row.status] || ""}
-			>
-				{row.status}
-			</Badge>
-		),
+		cell: ({ row }) => {
+			const health = row.computed_status || row.status;
+			return (
+				<Badge
+					variant="outline"
+					className={HEALTH_STYLES[health] || ""}
+				>
+					{health}
+				</Badge>
+			);
+		},
 	},
 };
 

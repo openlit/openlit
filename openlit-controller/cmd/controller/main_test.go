@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
@@ -86,11 +88,30 @@ func TestBuildControllerResourceAttrsKubernetes(t *testing.T) {
 	}
 }
 
+func TestInstanceIDEnvOverride(t *testing.T) {
+	t.Setenv("OPENLIT_INSTANCE_ID", "custom-id-42")
+	for _, mode := range []openlit.ControllerMode{openlit.ModeLinux, openlit.ModeDocker, openlit.ModeKubernetes} {
+		id := instanceID(mode)
+		if id != "custom-id-42" {
+			t.Errorf("mode %s: expected custom-id-42, got %q", mode, id)
+		}
+	}
+}
+
 func TestInstanceIDKubernetes(t *testing.T) {
 	t.Setenv("NODE_NAME", "k8s-node-1")
 	id := instanceID(openlit.ModeKubernetes)
 	if id != "k8s-node-1" {
 		t.Errorf("expected k8s-node-1, got %q", id)
+	}
+}
+
+func TestInstanceIDKubernetesEnvTakesPriority(t *testing.T) {
+	t.Setenv("OPENLIT_INSTANCE_ID", "override")
+	t.Setenv("NODE_NAME", "k8s-node-1")
+	id := instanceID(openlit.ModeKubernetes)
+	if id != "override" {
+		t.Errorf("expected OPENLIT_INSTANCE_ID to take priority, got %q", id)
 	}
 }
 
@@ -105,6 +126,112 @@ func TestInstanceIDDocker(t *testing.T) {
 	id := instanceID(openlit.ModeDocker)
 	if id == "" {
 		t.Error("expected non-empty instance ID")
+	}
+}
+
+func TestProcHostHostname(t *testing.T) {
+	tmpDir := t.TempDir()
+	sysDir := filepath.Join(tmpDir, "sys", "kernel")
+	if err := os.MkdirAll(sysDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysDir, "hostname"), []byte("my-docker-host\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENLIT_PROC_ROOT", tmpDir)
+
+	name, err := procHostHostname()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "my-docker-host" {
+		t.Errorf("expected my-docker-host, got %q", name)
+	}
+}
+
+func TestDockerStableIDReturnsNonEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	sysDir := filepath.Join(tmpDir, "sys", "kernel")
+	if err := os.MkdirAll(sysDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysDir, "hostname"), []byte("my-docker-host\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENLIT_PROC_ROOT", tmpDir)
+
+	id, err := dockerStableID()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty docker stable ID")
+	}
+}
+
+func TestProcHostHostnameMissingFile(t *testing.T) {
+	t.Setenv("OPENLIT_PROC_ROOT", t.TempDir())
+	_, err := procHostHostname()
+	if err == nil {
+		t.Error("expected error when hostname file is missing")
+	}
+}
+
+func TestProcHostHostnameEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	sysDir := filepath.Join(tmpDir, "sys", "kernel")
+	if err := os.MkdirAll(sysDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysDir, "hostname"), []byte("  \n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENLIT_PROC_ROOT", tmpDir)
+
+	name, err := procHostHostname()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "" {
+		t.Errorf("expected empty string for whitespace-only hostname, got %q", name)
+	}
+}
+
+func TestDockerStableIDDeterministic(t *testing.T) {
+	tmpDir := t.TempDir()
+	sysDir := filepath.Join(tmpDir, "sys", "kernel")
+	if err := os.MkdirAll(sysDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysDir, "hostname"), []byte("stable-host\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENLIT_PROC_ROOT", tmpDir)
+
+	id1, _ := dockerStableID()
+	id2, _ := dockerStableID()
+	if id1 != id2 {
+		t.Errorf("expected deterministic results, got %q and %q", id1, id2)
+	}
+}
+
+func TestInstanceIDDockerWithProcRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+	sysDir := filepath.Join(tmpDir, "sys", "kernel")
+	if err := os.MkdirAll(sysDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysDir, "hostname"), []byte("docker-host\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENLIT_PROC_ROOT", tmpDir)
+
+	id := instanceID(openlit.ModeDocker)
+	if id == "" {
+		t.Error("expected non-empty instance ID")
+	}
+	if len(id) < len("docker-host") {
+		t.Errorf("expected ID starting with docker-host, got %q", id)
 	}
 }
 

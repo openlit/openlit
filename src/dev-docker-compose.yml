@@ -90,6 +90,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
       OPENLIT_POLL_INTERVAL: 10s
       OPENLIT_PROC_ROOT: /host/proc
+      OPENLIT_INSTANCE_ID: ${OPENLIT_INSTANCE_ID:-}
     volumes:
       - /proc:/host/proc:ro
       - /sys/kernel/debug:/sys/kernel/debug:ro
@@ -139,6 +140,15 @@ services:
     profiles: [full]
     environment:
       OPENAI_API_KEY: "demo-key"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
+  non-llm-app:
+    build: ../examples/non-llm-http-app
+    container_name: demo-non-llm-app
+    profiles: [full]
     restart: unless-stopped
     depends_on:
       openlit:

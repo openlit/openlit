@@ -2,12 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -358,11 +363,83 @@ func buildControllerResourceAttrs(mode openlit.ControllerMode, environment strin
 }
 
 func instanceID(mode openlit.ControllerMode) string {
+	if env := os.Getenv("OPENLIT_INSTANCE_ID"); env != "" {
+		return env
+	}
 	if mode == openlit.ModeKubernetes {
 		if nodeName := os.Getenv("NODE_NAME"); nodeName != "" {
 			return nodeName
 		}
 	}
+	if mode == openlit.ModeDocker {
+		if h, err := dockerStableID(); err == nil && h != "" {
+			return h
+		}
+	}
 	hostname, _ := os.Hostname()
 	return hostname
+}
+
+func dockerStableID() (string, error) {
+	hostName, err := dockerHostHostname()
+	if err != nil {
+		hostName, err = procHostHostname()
+	}
+	if err != nil || hostName == "" {
+		return "", fmt.Errorf("could not determine host hostname: %w", err)
+	}
+	containerHostname, _ := os.Hostname()
+	if containerHostname != "" && containerHostname != hostName {
+		h := sha256.Sum256([]byte(containerHostname))
+		hostName = hostName + "-" + hex.EncodeToString(h[:])[:6]
+	}
+	return hostName, nil
+}
+
+// dockerHostHostname queries the Docker Engine API for the real host hostname.
+func dockerHostHostname() (string, error) {
+	const sock = "/var/run/docker.sock"
+	if _, err := os.Stat(sock); err != nil {
+		return "", err
+	}
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", sock, 2*time.Second)
+			},
+		},
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get("http://docker/info")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	var info struct {
+		Name string `json:"Name"`
+	}
+	if err := json.Unmarshal(body, &info); err != nil {
+		return "", err
+	}
+	if info.Name == "" {
+		return "", fmt.Errorf("empty Name in docker info")
+	}
+	return info.Name, nil
+}
+
+// procHostHostname reads the host hostname from the mounted /proc filesystem.
+func procHostHostname() (string, error) {
+	procRoot := os.Getenv("OPENLIT_PROC_ROOT")
+	if procRoot == "" {
+		procRoot = "/proc"
+	}
+	data, err := os.ReadFile(filepath.Join(procRoot, "sys/kernel/hostname"))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }

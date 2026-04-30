@@ -82,3 +82,15 @@ openlit-controller:
 ```
 
 4. Restart: `docker compose up -d openlit-controller`
+
+### Controller Identity
+
+The controller automatically derives a stable identity from the Docker host's hostname (via the already-mounted `/proc`). This means `docker restart` and `docker stop && start` preserve the same controller entry on the Agents page.
+
+If you need a fully custom identity (e.g., multiple controllers on the same host), set `OPENLIT_INSTANCE_ID`:
+
+```yaml
+openlit-controller:
+  environment:
+    OPENLIT_INSTANCE_ID: "my-docker-controller-1"
+```

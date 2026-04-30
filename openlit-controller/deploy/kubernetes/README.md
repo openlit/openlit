@@ -96,6 +96,18 @@ data:
 
 ### Use Helm instead
 
+### Controller Identity
+
+The controller uses `NODE_NAME` (set via the Kubernetes downward API in the DaemonSet spec) as its identity. This is stable across pod restarts on the same node. To override it, set `OPENLIT_INSTANCE_ID` in the DaemonSet env:
+
+```yaml
+env:
+  - name: OPENLIT_INSTANCE_ID
+    value: "my-k8s-controller"
+```
+
+### Use Helm instead
+
 For production deployments, use the Helm chart:
 
 ```bash

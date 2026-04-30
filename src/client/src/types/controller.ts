@@ -1,6 +1,6 @@
 export type ControllerMode = "linux" | "docker" | "kubernetes" | "standalone";
 export type InstrumentationStatus = "discovered" | "instrumented";
-export type ControllerHealth = "healthy" | "degraded" | "error";
+export type ControllerHealth = "healthy" | "active" | "degraded" | "error" | "inactive";
 
 export interface ControllerInstance {
 	id: string;
@@ -10,6 +10,7 @@ export interface ControllerInstance {
 	version: string;
 	mode: ControllerMode;
 	status: ControllerHealth;
+	computed_status?: ControllerHealth;
 	listen_addr: string;
 	external_url: string;
 	services_discovered: number;

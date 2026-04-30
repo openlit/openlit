@@ -28,6 +28,7 @@ api_listen: ":4321"
 | `cluster_id` | `OPENLIT_CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
 | `api_key` | `OPENLIT_API_KEY` | — | API key for authenticating with the dashboard |
 | `sdk_version` | `OPENLIT_SDK_VERSION` | (auto) | Pin a specific OpenLIT Python SDK version |
+| — | `OPENLIT_INSTANCE_ID` | (auto) | Override the controller's identity. By default, the instance ID is derived automatically (hostname on Linux, host hostname on Docker, `NODE_NAME` on K8s). Set this to force a stable, custom identity — useful when the automatic ID is not stable across restarts |
 
 Environment variables take precedence over config file values.
 
@@ -107,6 +108,24 @@ For Agent Observability on Linux, the Controller manages systemd drop-in files t
 ### Proc Filesystem
 
 The Controller reads `/proc` to discover running processes and their network connections. Ensure `/host/proc` is mounted (or the Controller runs on the host directly with access to `/proc`).
+
+## Controller Identity
+
+Each controller registers itself in the dashboard with a unique `instance_id`. This ID determines whether a restarted controller appears as the same entry or a new one on the Agents page.
+
+| Platform | Default `instance_id` | Behavior on restart |
+|---|---|---|
+| **Linux** | Machine hostname | Stable — hostname persists across restarts |
+| **Docker** | Host hostname + container hash | Stable across `docker restart` / `stop+start`. New entry on `docker rm && run` (old entry auto-detected as stale) |
+| **Kubernetes** | `NODE_NAME` (downward API) | Stable — same node, same ID across pod restarts |
+
+To override the automatic identity on any platform, set `OPENLIT_INSTANCE_ID`:
+
+```bash
+OPENLIT_INSTANCE_ID="my-controller-1" openlit-controller
+```
+
+The dashboard automatically detects stale controllers by checking heartbeat age — controllers that haven't reported in over 10 minutes are marked as stale and dimmed in the UI.
 
 ## Multi-Cluster Setup
 

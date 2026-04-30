@@ -368,11 +368,12 @@ export const AGENTS_APPLY_FILTERS = "Apply Filters";
 export const AGENTS_SYSTEM_KUBERNETES = "Kubernetes";
 export const AGENTS_SYSTEM_DOCKER = "Docker";
 export const AGENTS_SYSTEM_LINUX = "Linux";
-export const AGENTS_STAT_CONTROLLERS = "Controllers";
+export const AGENTS_STAT_CONTROLLERS = "Active Controllers";
 export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Services";
 export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Services";
 export const AGENTS_TAB_SERVICES = "Services";
 export const AGENTS_TAB_CONTROLLERS = "Controllers";
+export const AGENTS_ADD_CONTROLLER = "Add Controller";
 
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";

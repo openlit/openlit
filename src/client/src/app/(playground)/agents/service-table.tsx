@@ -25,9 +25,9 @@ interface ServiceTableProps {
 	onRefresh: () => void;
 	isFetched: boolean;
 	isLoading: boolean;
-	statusFilter: string;
-	systemFilter: string;
-	providerFilter: string;
+	statusFilter: string[];
+	systemFilter: string[];
+	providerFilter: string[];
 }
 
 interface EnrichedService extends ControllerService {
@@ -382,24 +382,25 @@ export default function ServiceTable({
 
 	const filtered = useMemo(() => {
 		return enriched.filter((svc) => {
-			if (statusFilter && svc.instrumentation_status !== statusFilter)
-				return false;
 			if (
-				providerFilter &&
-				!(svc.llm_providers || []).includes(providerFilter)
+				statusFilter.length > 0 &&
+				!statusFilter.includes(svc.instrumentation_status)
 			)
 				return false;
-			if (systemFilter) {
-				if (systemFilter === "kubernetes" && svc.mode !== "kubernetes")
+			if (
+				providerFilter.length > 0 &&
+				!(svc.llm_providers || []).some((p) => providerFilter.includes(p))
+			)
+				return false;
+			if (systemFilter.length > 0) {
+				const sysMatch = systemFilter.some((sf) => {
+					if (sf === "kubernetes") return svc.mode === "kubernetes";
+					if (sf === "docker")
+						return svc.mode === "docker" || svc.mode === "standalone";
+					if (sf === "linux") return svc.mode === "linux";
 					return false;
-				if (
-					systemFilter === "docker" &&
-					svc.mode !== "docker" &&
-					svc.mode !== "standalone"
-				)
-					return false;
-				if (systemFilter === "linux" && svc.mode !== "linux")
-					return false;
+				});
+				if (!sysMatch) return false;
 			}
 			return true;
 		});
