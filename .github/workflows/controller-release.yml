@@ -2,7 +2,7 @@ name: Release OpenLIT Controller
 
 on:
   push:
-    tags: [ 'controller-v*.*.*' ]
+    tags: [ 'controller-*.*.*' ]
 
 env:
   REGISTRY: ghcr.io
@@ -79,7 +79,7 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/controller-v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/tags/controller-}" >> $GITHUB_OUTPUT
 
       - name: Build binary
         working-directory: openlit-controller
@@ -125,7 +125,7 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/controller-v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/tags/controller-}" >> $GITHUB_OUTPUT
 
       - name: Create checksums
         run: |
@@ -171,7 +171,7 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/controller-v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/tags/controller-}" >> $GITHUB_OUTPUT
 
       - name: Extract Docker metadata
         id: meta
