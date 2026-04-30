@@ -144,8 +144,7 @@ export default function GroupedTable({
 			requestType: "POST",
 			url: apiUrl,
 		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter, groupBy]);
+	}, [filter, groupBy, fireRequest, apiUrl]);
 
 	useEffect(() => {
 		// Don't fetch before URL/localStorage params have been applied.

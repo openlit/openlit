@@ -16,14 +16,40 @@ const PREDEFINED_GROUP_BY: Record<string, string> = {
 	applicationName: `ResourceAttributes['service.name']`,
 };
 
-export function getGroupByExpression(groupBy: string): string {
+const ALLOWED_FIELD_GROUP_BY = new Set([
+	"TraceId",
+	"ParentSpanId",
+	"TraceState",
+	"SpanId",
+	"SpanName",
+	"SpanKind",
+	"ServiceName",
+	"ScopeName",
+	"ScopeVersion",
+	"Timestamp",
+	"Duration",
+	"StatusCode",
+	"StatusMessage",
+]);
+
+export function getGroupByExpression(groupBy: string): string | null {
 	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
 	const sep = groupBy.indexOf(":");
-	if (sep === -1) return `SpanAttributes['${groupBy.replace(/'/g, "''")}']`;
+	if (sep === -1) {
+		const sanitized = groupBy.replace(/'/g, "''").trim();
+		if (!sanitized) return null;
+		return `SpanAttributes['${sanitized}']`;
+	}
 	const attrType = groupBy.slice(0, sep);
-	const key = groupBy.slice(sep + 1).replace(/'/g, "''");
+	const key = groupBy.slice(sep + 1).replace(/'/g, "''").trim();
+	if (!key) return null;
 	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
-	if (attrType === "Field") return key.replace(/[^A-Za-z0-9_.]/g, "");
+	if (attrType === "Field") {
+		const field = key.replace(/[^A-Za-z0-9_.]/g, "");
+		if (!field || !ALLOWED_FIELD_GROUP_BY.has(field)) return null;
+		return field;
+	}
+	if (attrType === "SpanAttributes") return `SpanAttributes['${key}']`;
 	return `SpanAttributes['${key}']`;
 }
 
@@ -319,6 +345,12 @@ export async function getAttributeKeys(params: MetricParams) {
 
 export async function getGroupedRequests(params: MetricParams, groupBy: string) {
 	const expr = getGroupByExpression(groupBy);
+	if (!expr) {
+		return {
+			err: "Invalid groupBy value",
+			data: [],
+		};
+	}
 	const query = `
 		SELECT
 			${expr} AS group_value,

@@ -1,4 +1,8 @@
-import { transformTracesToGraph, getParallelPairs } from "@/lib/platform/graph-transform";
+import {
+	PARALLEL_X_GAP,
+	transformTracesToGraph,
+	getParallelPairs,
+} from "@/lib/platform/graph-transform";
 
 const span = (
 	SpanId: string,
@@ -66,6 +70,22 @@ describe("graph transform", () => {
 			"SEQUENTIAL:interaction->llm",
 			"SEQUENTIAL:llm->tool",
 		]);
+	});
+
+	it("lays out parallel siblings at the same depth side-by-side", () => {
+		const root = span("root", "2026-01-01T00:00:00.000Z", 100_000_000, [
+			span("first", "2026-01-01T00:00:00.000Z", 50_000_000),
+			span("second", "2026-01-01T00:00:00.000Z", 50_000_000),
+		]);
+
+		const graph = transformTracesToGraph(root);
+		const rootNode = graph.nodes.get("root")!;
+		const firstNode = graph.nodes.get("first")!;
+		const secondNode = graph.nodes.get("second")!;
+
+		expect(firstNode.y).toBeCloseTo(secondNode.y);
+		expect(secondNode.x - firstNode.x).toBeCloseTo(PARALLEL_X_GAP);
+		expect((firstNode.x + secondNode.x) / 2).toBeCloseTo(rootNode.x + 220);
 	});
 
 	it("lays out execution vertically with child spans indented", () => {

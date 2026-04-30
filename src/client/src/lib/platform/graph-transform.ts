@@ -57,7 +57,7 @@ interface SiblingAnalysis {
 
 const NODE_WIDTH = 160;
 const X_GAP = 220;
-const PARALLEL_X_GAP = NODE_WIDTH + 72;
+export const PARALLEL_X_GAP = NODE_WIDTH + 72;
 const V_GAP = 112;
 const EPSILON_MS = 0.001;
 

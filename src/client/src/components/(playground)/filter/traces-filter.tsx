@@ -978,13 +978,22 @@ export default function TracesFilter({
 	};
 
 	const onShareLink = () => {
-		if (typeof window !== "undefined") {
-			navigator.clipboard.writeText(window.location.href).then(() => {
+		if (typeof window === "undefined") return;
+
+		const clipboard = navigator.clipboard;
+		if (!clipboard?.writeText) {
+			toast.error("Copy to clipboard is not supported in this browser");
+			return;
+		}
+
+		clipboard
+			.writeText(window.location.href)
+			.then(() => {
 				toast.success("Link copied to clipboard");
-			}).catch(() => {
+			})
+			.catch(() => {
 				toast.error("Could not copy link");
 			});
-		}
 	};
 
 	useFilterUrlSync(filter, updateFilter);
