@@ -19,6 +19,28 @@ The OpenLIT platform provides comprehensive trace visualization capabilities. Yo
 
 2. **Dashboard Widgets**: Create custom trace widgets in your dashboards to monitor specific trace metrics, latency trends, and performance insights alongside other observability data.
 
+## Group traces
+
+Use **Group By** on the Traces page to roll up large trace lists into meaningful groups before drilling into individual spans. Grouping works with the selected time range and any active filters, so you can narrow the dataset first and then compare trace segments.
+
+You can group traces by:
+
+- **Model**: Compare requests by `gen_ai.request.model`.
+- **Provider**: Compare requests by `gen_ai.system`.
+- **Span Name**: Group repeated operations or framework steps.
+- **Application**: Compare services using the `service.name` resource attribute.
+- **Custom attribute**: Group by any span attribute, resource attribute, or top-level trace field available in your trace data.
+
+Grouped rows show the number of spans in each group, total cost, token usage, and average duration. Click a group row to drill into the matching traces. The breadcrumb above the table shows the current grouping path and lets you return to all groups or remove grouping.
+
+<Note>
+  Grouping is best for finding high-volume models, expensive providers, slow span types, or application-level hotspots before opening an individual trace.
+</Note>
+
+## Filter and group together
+
+Grouping can be combined with the existing trace filters. For example, you can filter to a single environment, apply a maximum cost threshold, and then group by model to find which models dominate that filtered slice. Custom attribute filters and custom group-by attributes can be used together when you need to inspect application-specific metadata.
+
 ---
 
 <CardGroup cols={3}>

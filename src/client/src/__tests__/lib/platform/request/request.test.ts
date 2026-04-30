@@ -14,6 +14,7 @@ import {
   getHeirarchyViaSpanId,
   getRequestExist,
   getAttributeKeys,
+  getGroupedRequests,
 } from '@/lib/platform/request/index';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -239,5 +240,25 @@ describe('getAttributeKeys', () => {
     const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
     expect(call1[0].query).toContain('SpanAttributes');
     expect(call2[0].query).toContain('ResourceAttributes');
+  });
+});
+
+describe('getGroupedRequests', () => {
+  it('returns an error and skips querying for an invalid Field groupBy', async () => {
+    const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
+
+    expect(result.err).toBe('Invalid groupBy value');
+    expect(result.data).toEqual([]);
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
+
+  it('builds a grouped query for an allowed Field groupBy', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
+
+    await getGroupedRequests(baseParams as any, 'Field:SpanName');
+
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('SpanName AS group_value');
   });
 });
