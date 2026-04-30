@@ -330,28 +330,6 @@ function buildParts(content: any): any[] {
   return [{ type: 'text', content: String(content) }];
 }
 
-function buildOutputMessages(text: string, finishReason: string, toolCalls?: any[] | null): any[] {
-  try {
-    const parts: any[] = [];
-    if (text) parts.push({ type: 'text', content: String(text) });
-    if (toolCalls) {
-      for (const tc of toolCalls) {
-        if (typeof tc === 'object' && tc !== null) {
-          const func = tc.function || tc.function_call || {};
-          parts.push({
-            type: 'tool_call',
-            id: tc.id || '',
-            name: func.name || '',
-            arguments: func.arguments || func.args || {},
-          });
-        }
-      }
-    }
-    if (parts.length === 0) return [];
-    return [{ role: 'assistant', parts, finish_reason: finishReason }];
-  } catch { return []; }
-}
-
 function shouldCaptureMessageContent(): boolean {
   return OpenlitConfig.captureMessageContent ?? (OpenlitConfig as any).traceContent ?? true;
 }
