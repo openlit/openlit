@@ -6,5 +6,12 @@ export async function GET(request: Request) {
 	const end = searchParams.get("end") || undefined;
 
 	const res = await getDiscoveredServices(start, end);
-	return Response.json(res);
+	if (res.err) {
+		console.error("controller catalog error:", res.err);
+		return Response.json(
+			{ error: "Failed to fetch services" },
+			{ status: 500 }
+		);
+	}
+	return Response.json({ data: res.data || [] });
 }

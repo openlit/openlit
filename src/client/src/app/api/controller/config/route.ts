@@ -18,7 +18,8 @@ export async function GET(request: Request) {
 
 	const res = await getControllerConfig(instanceId);
 	if (res.err) {
-		return Response.json({ error: res.err }, { status: 500 });
+		console.error("controller config error:", res.err);
+		return Response.json({ error: "Failed to fetch config" }, { status: 500 });
 	}
 
 	if (!res.data || res.data.length === 0) {

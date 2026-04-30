@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,8 +44,11 @@ func (c *Client) post(path string, body interface{}, out interface{}) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := c.baseURL + path
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+	u, err := url.JoinPath(c.baseURL, path)
+	if err != nil {
+		return fmt.Errorf("build URL: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, u, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}

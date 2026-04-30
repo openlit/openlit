@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
@@ -31,6 +32,7 @@ type instrumentPattern struct {
 type Engine struct {
 	mu       sync.RWMutex
 	cancel   context.CancelFunc
+	appCtx   context.Context
 	services map[string]*openlit.ServiceState
 	logger   *zap.Logger
 	running  bool
@@ -89,6 +91,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	defer e.mu.Unlock()
 
 	ctx, e.cancel = context.WithCancel(ctx)
+	e.appCtx = ctx
 	e.running = true
 
 	e.logger.Info("engine starting",
@@ -105,17 +108,20 @@ func (e *Engine) Start(ctx context.Context) error {
 		go e.consumeScannerEvents(ctx)
 	}
 
+	go e.pruneStaleServices(ctx)
+
 	e.logger.Info("engine started")
 	return nil
 }
 
 func (e *Engine) Stop() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	if e.cancel != nil {
 		e.cancel()
 	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if e.scanner != nil {
 		e.scanner.Close()
 	}
@@ -224,10 +230,14 @@ func (e *Engine) rebuildOBI() error {
 		e.deployMode,
 		e.environment,
 	)
-	if e.obi.IsRunning() {
-		return e.obi.Restart(context.Background(), cfg)
+	ctx := e.appCtx
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return e.obi.Start(context.Background(), cfg)
+	if e.obi.IsRunning() {
+		return e.obi.Restart(ctx, cfg)
+	}
+	return e.obi.Start(ctx, cfg)
 }
 
 func (e *Engine) enabledProvidersForPatterns() map[string]bool {
@@ -386,6 +396,31 @@ func (e *Engine) ControllerCapabilities() []string {
 	}
 
 	return capabilities
+}
+
+func (e *Engine) pruneStaleServices(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			e.mu.Lock()
+			cutoff := time.Now().Add(-30 * time.Minute)
+			pruned := 0
+			for id, svc := range e.services {
+				if svc.LastSeen.Before(cutoff) && svc.InstrumentationStatus != "instrumented" {
+					delete(e.services, id)
+					pruned++
+				}
+			}
+			e.mu.Unlock()
+			if pruned > 0 {
+				e.logger.Info("pruned stale services", zap.Int("count", pruned))
+			}
+		}
+	}
 }
 
 func (e *Engine) ServiceCount() (discovered, instrumented int) {

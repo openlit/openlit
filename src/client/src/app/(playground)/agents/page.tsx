@@ -38,6 +38,7 @@ export default function AgentsPage() {
 	const [systemFilter, setSystemFilter] = useState<string[]>([]);
 	const [providerFilter, setProviderFilter] = useState<string[]>([]);
 	const [statusFilter, setStatusFilter] = useState<string[]>([]);
+	const [refreshError, setRefreshError] = useState<string | null>(null);
 
 	const setActiveTab = useCallback((tab: Tab) => {
 		setActiveTabState(tab);
@@ -50,6 +51,11 @@ export default function AgentsPage() {
 		const qs = params.toString();
 		router.replace(`/agents${qs ? `?${qs}` : ""}`, { scroll: false });
 	}, [router]);
+
+	useEffect(() => {
+		const tab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
+		setActiveTabState(tab);
+	}, [searchParams]);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -70,6 +76,7 @@ export default function AgentsPage() {
 	} = useFetchWrapper<ControllerService[]>();
 
 	const refresh = useCallback(() => {
+		setRefreshError(null);
 		fetchInstances({
 			requestType: "GET",
 			url: "/api/controller/instances",
@@ -77,6 +84,7 @@ export default function AgentsPage() {
 			successCb: (data) => {
 				setControllerRows(data || []);
 			},
+			failureCb: (err: any) => setRefreshError(String(err)),
 		});
 		fetchServices({
 			requestType: "GET",
@@ -85,6 +93,7 @@ export default function AgentsPage() {
 			successCb: (data) => {
 				setServiceRows(data || []);
 			},
+			failureCb: (err: any) => setRefreshError(String(err)),
 		});
 	}, [
 		fetchInstances,
@@ -184,7 +193,7 @@ export default function AgentsPage() {
 			setter((prev) =>
 				operationType === "delete"
 					? prev.filter((v) => v !== value)
-					: [...prev, value]
+					: prev.includes(value) ? prev : [...prev, value]
 			);
 		},
 		[]
@@ -267,6 +276,12 @@ export default function AgentsPage() {
 					</button>
 				</div>
 			</div>
+
+			{refreshError && (
+				<div className="px-4 py-2 rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
+					Failed to refresh: {refreshError}
+				</div>
+			)}
 
 			{!hasControllers && !isLoading ? (
 				<NoController />

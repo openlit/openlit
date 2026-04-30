@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf/link"
@@ -30,14 +30,16 @@ const (
 // new outgoing connections, and periodically scans /proc/net/tcp to catch
 // already-established connections to known LLM API endpoints.
 type Scanner struct {
-	objs     *llmScannerObjects
-	links    []link.Link
-	reader   *ringbuf.Reader
-	resolver *HostResolver
-	connScan *ConnScanner
-	eventsCh chan LLMConnectEvent
-	logger   *zap.Logger
-	procRoot string
+	objs      *llmScannerObjects
+	links     []link.Link
+	reader    *ringbuf.Reader
+	resolver  *HostResolver
+	connScan  *ConnScanner
+	eventsCh  chan LLMConnectEvent
+	logger    *zap.Logger
+	procRoot  string
+	closeCh   chan struct{}
+	closeOnce sync.Once
 }
 
 // New loads the BPF program, attaches kprobes, and initialises the host resolver.
@@ -87,6 +89,7 @@ func New(logger *zap.Logger, procRoot string) (*Scanner, error) {
 		eventsCh: make(chan LLMConnectEvent, eventChannelSize),
 		logger:   logger,
 		procRoot: procRoot,
+		closeCh:  make(chan struct{}),
 	}, nil
 }
 
@@ -94,9 +97,22 @@ func New(logger *zap.Logger, procRoot string) (*Scanner, error) {
 // and periodically scanning /proc/net/tcp for existing connections.
 // Blocks until ctx is cancelled.
 func (s *Scanner) Run(ctx context.Context) {
-	go s.resolver.RunRefreshLoop(ctx, hostRefreshInterval)
+	go s.runHostRefreshLoop(ctx)
 	go s.runConnScanLoop(ctx)
 	s.readEvents(ctx)
+}
+
+func (s *Scanner) runHostRefreshLoop(ctx context.Context) {
+	ticker := time.NewTicker(hostRefreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			RefreshAndUpdateBoth(s.resolver, s.connScan, s.logger)
+		}
+	}
 }
 
 // Events returns the channel that emits LLM connection events.
@@ -105,7 +121,12 @@ func (s *Scanner) Events() <-chan LLMConnectEvent {
 }
 
 // Close tears down kprobes, ring buffer reader, and BPF objects.
+// Signals producer goroutines via closeCh before closing eventsCh
+// to prevent send-on-closed-channel panics.
 func (s *Scanner) Close() error {
+	s.closeOnce.Do(func() { close(s.closeCh) })
+	time.Sleep(50 * time.Millisecond)
+
 	var errs []error
 	if s.reader != nil {
 		errs = append(errs, s.reader.Close())
@@ -149,6 +170,8 @@ func (s *Scanner) doConnScan() {
 	events := s.connScan.Scan()
 	for _, ev := range events {
 		select {
+		case <-s.closeCh:
+			return
 		case s.eventsCh <- ev:
 		default:
 			s.logger.Debug("event channel full, dropping conn scan event",
@@ -183,6 +206,8 @@ func (s *Scanner) readEvents(ctx context.Context) {
 		}
 
 		select {
+		case <-s.closeCh:
+			return
 		case s.eventsCh <- ev:
 		default:
 			s.logger.Debug("event channel full, dropping event",

@@ -21,9 +21,10 @@ import CreateChatMigration from "./create-chat-migration";
 import CreateProvidersMigration from "./create-providers-migration";
 import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
+import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
 
 export default async function migrations(databaseConfigId?: string) {
-	// Run base migrations in parallel
+	// Group 1: Independent table creations (safe to parallel)
 	await Promise.all([
 		CreatePromptMigration(databaseConfigId),
 		CreateVaultMigration(databaseConfigId),
@@ -34,20 +35,26 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateOpengroundMigration(databaseConfigId),
 		CreateRuleEngineMigration(databaseConfigId),
 		CreateControllerMigration(databaseConfigId),
-		AlterControllerModeMigration(databaseConfigId),
-		AddControllerResourceAttrsMigration(databaseConfigId),
-		AddControllerWorkloadKeyMigration(databaseConfigId),
-		AddControllerSDKActionsMigration(databaseConfigId),
-		AddControllerTTLMigration(databaseConfigId),
-		AddControllerDesiredStateMigration(databaseConfigId),
-		AddControllerClusterIdMigration(databaseConfigId),
-		UpdateControllerActionsTTLMigration(databaseConfigId),
-		CreateControllerDesiredStatesTableMigration(databaseConfigId),
-		GeneralizeControllerDesiredStatesMigration(databaseConfigId),
 		CreateChatMigration(databaseConfigId),
-		// Create new provider/model tables, copy any legacy data, seed defaults
-		await CreateProvidersMigration(databaseConfigId),
-		// Create provider metadata table + seed default providers, then drop legacy tables
+	]);
+
+	// Group 2: Controller schema modifications (must be sequential --
+	// each ALTER/CREATE depends on the previous step completing)
+	await AlterControllerModeMigration(databaseConfigId);
+	await AddControllerResourceAttrsMigration(databaseConfigId);
+	await AddControllerWorkloadKeyMigration(databaseConfigId);
+	await AddControllerSDKActionsMigration(databaseConfigId);
+	await AddControllerTTLMigration(databaseConfigId);
+	await AddControllerDesiredStateMigration(databaseConfigId);
+	await AddControllerClusterIdMigration(databaseConfigId);
+	await UpdateControllerActionsTTLMigration(databaseConfigId);
+	await CreateControllerDesiredStatesTableMigration(databaseConfigId);
+	await GeneralizeControllerDesiredStatesMigration(databaseConfigId);
+	await AddControllerSkippingIndexesMigration(databaseConfigId);
+
+	// Group 3: Provider migrations (sequential -- metadata depends on providers)
+	await CreateProvidersMigration(databaseConfigId);
+	await Promise.all([
 		CreateProviderMetadataMigration(databaseConfigId),
 		DropLegacyOpengroundTablesMigration(databaseConfigId),
 	]);

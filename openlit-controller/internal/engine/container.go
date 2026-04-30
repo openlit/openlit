@@ -89,7 +89,23 @@ func NewContainerEnricher(logger *zap.Logger, mode config.DeployMode) *Container
 		}
 	}
 
+	go e.pruneCaches()
+
 	return e
+}
+
+func (e *ContainerEnricher) pruneCaches() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		e.podCache.Range(func(key, value any) bool {
+			info := value.(*PodInfo)
+			if time.Since(info.fetchedAt) > 10*time.Minute {
+				e.podCache.Delete(key)
+			}
+			return true
+		})
+	}
 }
 
 // Enrich adds container and K8s metadata to a discovered service.
@@ -235,90 +251,103 @@ func newK8sAPIClient(logger *zap.Logger) (*k8sAPIClient, error) {
 }
 
 func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodInfo, error) {
-	url := fmt.Sprintf("%s/api/v1/pods?fieldSelector=spec.nodeName=%s&limit=500", c.apiServer, nodeName)
+	continueToken := ""
+	for {
+		u := fmt.Sprintf("%s/api/v1/pods?fieldSelector=spec.nodeName=%s&limit=500", c.apiServer, nodeName)
+		if continueToken != "" {
+			u += "&continue=" + continueToken
+		}
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+		req, err := http.NewRequest("GET", u, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.token)
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("K8s API returned %d", resp.StatusCode)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("K8s API returned %d", resp.StatusCode)
+		}
 
-	var podList struct {
-		Items []struct {
+		var podList struct {
 			Metadata struct {
-				Name            string            `json:"name"`
-				UID             string            `json:"uid"`
-				Namespace       string            `json:"namespace"`
-				Labels          map[string]string `json:"labels"`
-				OwnerReferences []struct {
-					Kind string `json:"kind"`
-					Name string `json:"name"`
-				} `json:"ownerReferences"`
+				Continue string `json:"continue"`
 			} `json:"metadata"`
-			Spec struct {
-				NodeName string `json:"nodeName"`
-			} `json:"spec"`
-			Status struct {
-				ContainerStatuses []struct {
-					ContainerID string `json:"containerID"`
-				} `json:"containerStatuses"`
-			} `json:"status"`
-		} `json:"items"`
-	}
+			Items []struct {
+				Metadata struct {
+					Name            string            `json:"name"`
+					UID             string            `json:"uid"`
+					Namespace       string            `json:"namespace"`
+					Labels          map[string]string `json:"labels"`
+					OwnerReferences []struct {
+						Kind string `json:"kind"`
+						Name string `json:"name"`
+					} `json:"ownerReferences"`
+				} `json:"metadata"`
+				Spec struct {
+					NodeName string `json:"nodeName"`
+				} `json:"spec"`
+				Status struct {
+					ContainerStatuses []struct {
+						ContainerID string `json:"containerID"`
+					} `json:"containerStatuses"`
+				} `json:"status"`
+			} `json:"items"`
+		}
 
-	if err := json.NewDecoder(resp.Body).Decode(&podList); err != nil {
-		return nil, fmt.Errorf("decoding pod list: %w", err)
-	}
+		if err := json.NewDecoder(resp.Body).Decode(&podList); err != nil {
+			return nil, fmt.Errorf("decoding pod list: %w", err)
+		}
 
-	for _, pod := range podList.Items {
-		for _, cs := range pod.Status.ContainerStatuses {
-			// containerID format: containerd://<hash> or docker://<hash>
-			if strings.Contains(cs.ContainerID, containerID) {
-				info := &PodInfo{
-					PodName:   pod.Metadata.Name,
-					PodUID:    pod.Metadata.UID,
-					Namespace: pod.Metadata.Namespace,
-					Labels:    pod.Metadata.Labels,
-				}
+		for _, pod := range podList.Items {
+			for _, cs := range pod.Status.ContainerStatuses {
+				if strings.Contains(cs.ContainerID, containerID) {
+					info := &PodInfo{
+						PodName:   pod.Metadata.Name,
+						PodUID:    pod.Metadata.UID,
+						Namespace: pod.Metadata.Namespace,
+						Labels:    pod.Metadata.Labels,
+					}
 
-				foundOwner := false
-				for _, ref := range pod.Metadata.OwnerReferences {
-					if ref.Kind == "ReplicaSet" {
-						hash := pod.Metadata.Labels["pod-template-hash"]
-						if hash != "" && strings.HasSuffix(ref.Name, "-"+hash) {
-							info.DeploymentName = strings.TrimSuffix(ref.Name, "-"+hash)
-							info.WorkloadKind = "Deployment"
-						} else {
-							info.DeploymentName = ref.Name
-							info.WorkloadKind = "ReplicaSet"
+					foundOwner := false
+					for _, ref := range pod.Metadata.OwnerReferences {
+						if ref.Kind == "ReplicaSet" {
+							hash := pod.Metadata.Labels["pod-template-hash"]
+							if hash != "" && strings.HasSuffix(ref.Name, "-"+hash) {
+								info.DeploymentName = strings.TrimSuffix(ref.Name, "-"+hash)
+								info.WorkloadKind = "Deployment"
+							} else {
+								info.DeploymentName = ref.Name
+								info.WorkloadKind = "ReplicaSet"
+							}
+							foundOwner = true
+							break
 						}
-						foundOwner = true
-						break
+						if ref.Kind == "Deployment" || ref.Kind == "StatefulSet" || ref.Kind == "DaemonSet" {
+							info.DeploymentName = ref.Name
+							info.WorkloadKind = ref.Kind
+							foundOwner = true
+							break
+						}
 					}
-					if ref.Kind == "Deployment" || ref.Kind == "StatefulSet" || ref.Kind == "DaemonSet" {
-						info.DeploymentName = ref.Name
-						info.WorkloadKind = ref.Kind
-						foundOwner = true
-						break
+					if !foundOwner {
+						info.WorkloadKind = "Pod"
 					}
-				}
-				if !foundOwner {
-					info.WorkloadKind = "Pod"
-				}
 
-				return info, nil
+					return info, nil
+				}
 			}
 		}
+
+		if podList.Metadata.Continue == "" {
+			break
+		}
+		continueToken = podList.Metadata.Continue
 	}
 
 	return nil, fmt.Errorf("no pod found for container %s on node %s", containerID[:12], nodeName)
@@ -531,14 +560,32 @@ func newDockerAPIClient(logger *zap.Logger) (*dockerAPIClient, error) {
 		},
 	}
 
-	return &dockerAPIClient{
+	client := &dockerAPIClient{
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   30 * time.Second,
 		},
 		logger:   logger,
 		writable: canCurrentProcessWrite(dockerSocket),
-	}, nil
+	}
+
+	go client.pruneNameCache()
+
+	return client, nil
+}
+
+func (d *dockerAPIClient) pruneNameCache() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		d.nameCache.Range(func(key, value any) bool {
+			cn := value.(*cachedName)
+			if time.Since(cn.fetchedAt) > 10*time.Minute {
+				d.nameCache.Delete(key)
+			}
+			return true
+		})
+	}
 }
 
 func canCurrentProcessWrite(path string) bool {

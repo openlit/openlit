@@ -330,6 +330,7 @@ clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
 CREATE TABLE IF NOT EXISTS openlit_controller_services (
     \`id\` UUID DEFAULT generateUUIDv4(),
     \`controller_instance_id\` String,
+    \`cluster_id\` String DEFAULT 'default',
     \`service_name\` String,
     \`workload_key\` String DEFAULT '',
     \`namespace\` String DEFAULT '',
@@ -349,15 +350,17 @@ CREATE TABLE IF NOT EXISTS openlit_controller_services (
     \`updated_at\` DateTime DEFAULT now()
 ) ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY (controller_instance_id, workload_key)
+TTL last_seen + INTERVAL 7 DAY
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
 CREATE TABLE IF NOT EXISTS openlit_controller_instances (
     \`id\` UUID DEFAULT generateUUIDv4(),
     \`instance_id\` String,
+    \`cluster_id\` String DEFAULT 'default',
     \`node_name\` String DEFAULT '',
     \`version\` String DEFAULT '',
-    \`mode\` Enum8('linux' = 0, 'kubernetes' = 1, 'docker' = 2) DEFAULT 'linux',
+    \`mode\` Enum8('linux' = 0, 'kubernetes' = 1, 'docker' = 2, 'standalone' = 3) DEFAULT 'linux',
     \`status\` Enum8('healthy' = 0, 'degraded' = 1, 'error' = 2) DEFAULT 'healthy',
     \`listen_addr\` String DEFAULT '',
     \`external_url\` String DEFAULT '',
@@ -369,6 +372,7 @@ CREATE TABLE IF NOT EXISTS openlit_controller_instances (
     \`created_at\` DateTime DEFAULT now()
 ) ENGINE = ReplacingMergeTree(last_heartbeat)
 ORDER BY (instance_id)
+TTL last_heartbeat + INTERVAL 7 DAY
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "
@@ -393,6 +397,7 @@ CREATE TABLE IF NOT EXISTS openlit_controller_actions (
     \`updated_at\` DateTime DEFAULT now()
 ) ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY (instance_id, id)
+TTL updated_at + INTERVAL 7 DAY
 "
 
 clickhouse-client --database="${CLICKHOUSE_DATABASE}" --query "

@@ -141,6 +141,9 @@ func runPollLoop(
 		}
 	}
 
+	consecutiveFailures := 0
+	const maxBackoffMultiplier = 4
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -148,6 +151,7 @@ func runPollLoop(
 		case <-ticker.C:
 			resp := doPoll(ctx, client, eng, logger, iid, nodeName, mode, clusterID, pendingResults, controllerAttrs, currentConfigHash)
 			if resp != nil {
+				consecutiveFailures = 0
 				pendingResults = resp.actionResults
 				if resp.configHash != "" {
 					currentConfigHash = resp.configHash
@@ -156,6 +160,24 @@ func runPollLoop(
 					currentInterval = next
 					ticker.Reset(currentInterval)
 					logger.Info("poll interval updated from config", zap.Duration("interval", currentInterval))
+				}
+			} else {
+				consecutiveFailures++
+				if consecutiveFailures > 1 {
+					backoff := consecutiveFailures
+					if backoff > maxBackoffMultiplier {
+						backoff = maxBackoffMultiplier
+					}
+					delay := time.Duration(backoff) * currentInterval / 2
+					logger.Warn("poll failed, backing off",
+						zap.Int("consecutive_failures", consecutiveFailures),
+						zap.Duration("backoff", delay),
+					)
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(delay):
+					}
 				}
 			}
 		}

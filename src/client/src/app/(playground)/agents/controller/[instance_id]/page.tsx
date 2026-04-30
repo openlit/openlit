@@ -113,6 +113,7 @@ export default function ControllerDetailPage() {
 		fireRequest: fetchInstance,
 		data: instance,
 		isLoading: instanceLoading,
+		error: instanceError,
 	} = useFetchWrapper<ControllerInstance>();
 
 	useEffect(() => {
@@ -121,6 +122,9 @@ export default function ControllerDetailPage() {
 				requestType: "GET",
 				url: `/api/controller/instances/${instanceId}`,
 				responseDataKey: "data",
+				failureCb: (err: any) => {
+					toast.error(`Failed to load controller: ${err}`);
+				},
 			});
 		}
 	}, [instanceId, fetchInstance]);
@@ -131,12 +135,29 @@ export default function ControllerDetailPage() {
 		[instance?.node_name, instance?.instance_id]
 	);
 
-	if (instanceLoading || !instance) {
+	if (instanceLoading) {
 		return (
 			<div className="flex flex-col w-full gap-4 p-1">
 				<div className="flex items-center justify-center py-16 text-stone-400">
 					<Loader2 className="w-5 h-5 animate-spin mr-2" />
 					{getMessage().AGENTS_LOADING_CONTROLLER}
+				</div>
+			</div>
+		);
+	}
+
+	if (instanceError || !instance) {
+		return (
+			<div className="flex flex-col w-full gap-4 p-1">
+				<button
+					onClick={() => router.push("/agents?tab=controllers")}
+					className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
+				>
+					<ArrowLeft className="w-4 h-4" />
+					{getMessage().AGENTS_BACK_TO_HUB}
+				</button>
+				<div className="text-center py-16 text-stone-500 dark:text-stone-400">
+					Controller not found or failed to load.
 				</div>
 			</div>
 		);

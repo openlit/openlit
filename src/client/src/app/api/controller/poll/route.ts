@@ -78,6 +78,7 @@ async function authenticatePollRequest(
 		);
 	}
 
+	console.warn("controller poll: no API keys configured -- poll endpoint is unauthenticated");
 	const dbConfig = await getFirstDBConfig();
 	if (!dbConfig) {
 		return Response.json(
@@ -385,6 +386,24 @@ export async function POST(request: Request) {
 		if (!body.instance_id) {
 			return Response.json(
 				{ error: "instance_id is required" },
+				{ status: 400 }
+			);
+		}
+		if (typeof body.instance_id !== "string" || body.instance_id.length > 256) {
+			return Response.json(
+				{ error: "invalid instance_id" },
+				{ status: 400 }
+			);
+		}
+		if (Array.isArray(body.services) && body.services.length > 500) {
+			return Response.json(
+				{ error: "too many services (max 500)" },
+				{ status: 400 }
+			);
+		}
+		if (Array.isArray(body.action_results) && body.action_results.length > 200) {
+			return Response.json(
+				{ error: "too many action_results (max 200)" },
 				{ status: 400 }
 			);
 		}

@@ -63,7 +63,7 @@ export async function getControllerInstanceById(
 			END AS computed_status
 		FROM ${CONTROLLER_INSTANCES_TABLE}
 		FINAL
-		WHERE instance_id = '${instanceId}'
+		WHERE instance_id = '${escapeClickHouse(instanceId)}'
 		LIMIT 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
@@ -95,7 +95,9 @@ export async function getDiscoveredServices(
 	const actionTbl = CONTROLLER_ACTIONS_TABLE;
 	let timeFilter = "";
 	if (timeStart && timeEnd) {
-		timeFilter = `WHERE ${tbl}.last_seen >= '${timeStart}' AND ${tbl}.last_seen <= '${timeEnd}'`;
+		timeFilter = `WHERE ${tbl}.last_seen >= '${escapeClickHouse(timeStart)}' AND ${tbl}.last_seen <= '${escapeClickHouse(timeEnd)}'`;
+	} else {
+		timeFilter = `WHERE ${tbl}.last_seen >= now() - INTERVAL 24 HOUR`;
 	}
 	const desiredTbl = CONTROLLER_DESIRED_STATES_V2_TABLE;
 	const query = `
@@ -209,6 +211,7 @@ export async function getDiscoveredServices(
 			ON failed_actions.instance_id = aggregated_services.controller_instance_id
 			AND failed_actions.service_key = aggregated_services.workload_key
 		ORDER BY aggregated_services.last_seen DESC
+		LIMIT 1000
 		SETTINGS join_use_nulls = 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
@@ -363,7 +366,7 @@ export async function getControllerConfig(
 		SELECT config
 		FROM ${CONTROLLER_CONFIG_TABLE}
 		FINAL
-		WHERE instance_id = '${instanceId}'
+		WHERE instance_id = '${escapeClickHouse(instanceId)}'
 		LIMIT 1
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
@@ -693,47 +696,26 @@ export async function queueAction(
 	payload: string = "{}",
 	dbConfigId?: string
 ) {
-	const existingAction = (await dataCollector(
-		{
-			query: `
-				SELECT id, action_type, status
-				FROM ${CONTROLLER_ACTIONS_TABLE}
-				FINAL
-				WHERE instance_id = '${instanceId}'
-				  AND service_key = '${serviceKey}'
-				  AND action_type = '${actionType}'
-				  AND status IN ('pending', 'acknowledged')
-				ORDER BY updated_at DESC
-				LIMIT 1
-			`,
-		},
-		"query",
-		dbConfigId
-	)) as {
-		err?: unknown;
-		data?: Array<{
-			id: string;
-			action_type: ActionType;
-			status: ActionStatus;
-		}>;
-	};
+	const deterministicId = crypto
+		.createHash("md5")
+		.update(`${instanceId}:${serviceKey}:${actionType}:pending`)
+		.digest("hex")
+		.slice(0, 32);
 
-	if (existingAction.data && existingAction.data.length > 0) {
-		return { data: existingAction.data[0] };
-	}
-
+	const now = clickhouseNow();
 	return dataCollector(
 		{
 			table: CONTROLLER_ACTIONS_TABLE,
 			values: [
 				{
+					id: deterministicId,
 					instance_id: instanceId,
 					action_type: actionType,
 					service_key: serviceKey,
 					payload,
-				status: "pending",
-				created_at: clickhouseNow(),
-				updated_at: clickhouseNow(),
+					status: "pending",
+					created_at: now,
+					updated_at: now,
 				},
 			],
 		},
@@ -750,9 +732,10 @@ export async function getPendingActions(
 		SELECT *
 		FROM ${CONTROLLER_ACTIONS_TABLE}
 		FINAL
-		WHERE instance_id = '${instanceId}'
+		WHERE instance_id = '${escapeClickHouse(instanceId)}'
 		  AND status = 'pending'
 		ORDER BY created_at ASC
+		LIMIT 500
 	`;
 	return dataCollector({ query }, "query", dbConfigId) as Promise<{
 		err?: unknown;
@@ -795,8 +778,8 @@ export async function completeAction(
 				SELECT id, instance_id, action_type, service_key, payload, created_at
 				FROM ${CONTROLLER_ACTIONS_TABLE}
 				FINAL
-				WHERE id = '${actionId}'
-				  AND instance_id = '${instanceId}'
+				WHERE id = '${escapeClickHouse(actionId)}'
+				  AND instance_id = '${escapeClickHouse(instanceId)}'
 				LIMIT 1
 			`,
 		},
