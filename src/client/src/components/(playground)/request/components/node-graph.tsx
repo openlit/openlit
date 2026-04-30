@@ -1,22 +1,15 @@
 "use client";
 
 /**
- * Graph View — DAG (Directed Acyclic Graph) visualization of span hierarchy.
+ * Graph view for the span hierarchy.
  *
- * ## Sequencing logic
+ * The transform creates three edge kinds:
+ * - SEQUENTIAL: parent enters first child, or one execution wave follows another.
+ * - PARALLEL: two sibling spans overlap in time.
+ * - DELEGATED: supported as a fallback structural edge.
  *
- * Layout uses a bottom-up tree placement algorithm:
- * 1. Walk the hierarchy tree recursively; leaf spans are placed left-to-right
- *    in the order they appear (siblings are pre-sorted by Timestamp in
- *    buildHierarchy on the server).
- * 2. Each parent node is centered above its children.
- * 3. Y-axis represents tree depth (parent→child), X-axis spreads siblings.
- *
- * Edges between parent and child are classified as "parallel" or "sequential"
- * by checking whether sibling spans have overlapping time windows:
- *   - parallel: spanA.start < spanB.end AND spanB.start < spanA.end
- *   - sequential: no time overlap
- * Parallel edges are drawn as dashed indigo lines; sequential as solid gray.
+ * Y position is execution order. X position is hierarchy indentation, with
+ * parallel spans spread into temporary side-by-side lanes.
  */
 
 import { TraceHeirarchySpan } from "@/types/trace";
@@ -26,477 +19,250 @@ import {
 	getSpanCostFormatted,
 	getSpanTooltipText,
 } from "@/helpers/client/trace";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { transformTracesToGraph } from "@/lib/platform/graph-transform";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { Maximize, Minus, Plus } from "lucide-react";
 
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 52;
-const H_GAP = 24;
-const V_GAP = 48;
-
-interface NodeLayout {
-	span: TraceHeirarchySpan;
-	x: number;
-	y: number;
-}
-
-function getNodeStroke(durationNs: number, isSelected: boolean): string {
-	if (isSelected) return "#6366f1";
-	const seconds = durationNs * 1e-9;
-	if (seconds > 10) return "#ef4444";
-	if (seconds > 5) return "#eab308";
-	if (seconds > 1) return "#3b82f6";
-	return "#22c55e";
-}
-
-function getNodeFill(durationNs: number, isSelected: boolean): string {
-	if (isSelected) return "rgba(99,102,241,0.08)";
-	const seconds = durationNs * 1e-9;
-	if (seconds > 10) return "rgba(239,68,68,0.06)";
-	if (seconds > 5) return "rgba(234,179,8,0.06)";
-	if (seconds > 1) return "rgba(59,130,246,0.06)";
-	return "rgba(34,197,94,0.06)";
-}
-
-function parseTimestampMs(ts?: string): number | null {
-	if (!ts) return null;
-	const withZ = ts.endsWith("Z") ? ts : ts + "Z";
-	const ms = new Date(withZ).getTime();
-	return isNaN(ms) ? null : ms;
-}
-
-function classifySiblingRelationship(
-	a: TraceHeirarchySpan,
-	b: TraceHeirarchySpan
-): "parallel" | "sequential" {
-	const aStart = parseTimestampMs(a.Timestamp);
-	const bStart = parseTimestampMs(b.Timestamp);
-	if (aStart === null || bStart === null) return "sequential";
-	const aDurMs = a.Duration / 1e6;
-	const bDurMs = b.Duration / 1e6;
-	const aEnd = aStart + aDurMs;
-	const bEnd = bStart + bDurMs;
-	return aStart < bEnd && bStart < aEnd ? "parallel" : "sequential";
-}
-
-function detectParallelPairs(root: TraceHeirarchySpan): Set<string> {
-	const parallelPairs = new Set<string>();
-	function walk(span: TraceHeirarchySpan) {
-		if (span.children && span.children.length > 1) {
-			for (let i = 0; i < span.children.length; i++) {
-				for (let j = i + 1; j < span.children.length; j++) {
-					if (
-						classifySiblingRelationship(
-							span.children[i],
-							span.children[j]
-						) === "parallel"
-					) {
-						parallelPairs.add(
-							[span.children[i].SpanId, span.children[j].SpanId]
-								.sort()
-								.join("|")
-						);
-					}
-				}
-			}
-		}
-		span.children?.forEach(walk);
-	}
-	walk(root);
-	return parallelPairs;
-}
-
-function isParallelSpan(
-	span: TraceHeirarchySpan,
-	siblings: TraceHeirarchySpan[],
-	parallelPairs: Set<string>
-): boolean {
-	for (const sib of siblings) {
-		if (sib.SpanId === span.SpanId) continue;
-		const key = [span.SpanId, sib.SpanId].sort().join("|");
-		if (parallelPairs.has(key)) return true;
-	}
-	return false;
-}
-
-function layoutTree(root: TraceHeirarchySpan): NodeLayout[] {
-	const nodes: NodeLayout[] = [];
-	let leafCounter = 0;
-
-	function assignPositions(
-		span: TraceHeirarchySpan,
-		level: number
-	): { centerX: number } {
-		const y = level * (NODE_HEIGHT + V_GAP);
-		if (!span.children || span.children.length === 0) {
-			const x = leafCounter * (NODE_WIDTH + H_GAP);
-			leafCounter++;
-			nodes.push({ span, x, y });
-			return { centerX: x + NODE_WIDTH / 2 };
-		}
-		const childCenters: number[] = [];
-		for (const child of span.children) {
-			const { centerX } = assignPositions(child, level + 1);
-			childCenters.push(centerX);
-		}
-		const leftmost = childCenters[0];
-		const rightmost = childCenters[childCenters.length - 1];
-		const center = (leftmost + rightmost) / 2;
-		nodes.push({ span, x: center - NODE_WIDTH / 2, y });
-		return { centerX: center };
-	}
-
-	assignPositions(root, 0);
-	return nodes;
-}
-
-function truncate(text: string, maxLen: number): string {
-	return text.length > maxLen ? text.slice(0, maxLen - 1) + "\u2026" : text;
-}
-
+const NODE_W = 160;
+const NODE_H = 52;
 const ZOOM_STEP = 0.05;
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 3;
+
+function nodeStroke(ns: number, sel: boolean): string {
+	if (sel) return "#6366f1";
+	const s = ns * 1e-9;
+	if (s > 10) return "#ef4444";
+	if (s > 5) return "#eab308";
+	if (s > 1) return "#3b82f6";
+	return "#22c55e";
+}
+
+function nodeFill(ns: number, sel: boolean): string {
+	if (sel) return "rgba(99,102,241,0.09)";
+	const s = ns * 1e-9;
+	if (s > 10) return "rgba(239,68,68,0.06)";
+	if (s > 5) return "rgba(234,179,8,0.06)";
+	if (s > 1) return "rgba(59,130,246,0.06)";
+	return "rgba(34,197,94,0.06)";
+}
+
+function trunc(s: string, n: number): string {
+	return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
 
 export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	const [request, updateRequest] = useRequest();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = useState(1);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
-	const [isPanning, setIsPanning] = useState(false);
-	const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+	const [panning, setPanning] = useState(false);
+	const dragStart = useRef({ mx: 0, my: 0, px: 0, py: 0 });
 
-	const nodes = layoutTree(record);
-	const parallelPairs = detectParallelPairs(record);
+	const graph = useMemo(() => transformTracesToGraph(record), [record]);
+	const nodeById = useMemo(() => graph.nodes, [graph.nodes]);
+	const seqMarkerId = useMemo(
+		() => `arr-seq-${record.SpanId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
+		[record.SpanId]
+	);
 
-	const nodeMap = new Map<string, NodeLayout>();
-	for (const n of nodes) {
-		nodeMap.set(n.span.SpanId, n);
-	}
-
-	const minX = Math.min(...nodes.map((n) => n.x));
-	const maxX = Math.max(...nodes.map((n) => n.x + NODE_WIDTH));
-	const maxY = Math.max(...nodes.map((n) => n.y + NODE_HEIGHT));
-	const PADDING = 20;
-	const svgWidth = maxX - minX + PADDING * 2;
-	const svgHeight = maxY + PADDING * 2;
-	const offsetX = -minX + PADDING;
-	const offsetY = PADDING;
-
-	const edges: {
-		from: NodeLayout;
-		to: NodeLayout;
-		type: "parallel" | "sequential";
-	}[] = [];
-	function collectEdges(span: TraceHeirarchySpan) {
-		const fromLayout = nodeMap.get(span.SpanId);
-		if (!fromLayout) return;
-		if (span.children) {
-			const siblings = span.children;
-			for (const child of span.children) {
-				const toLayout = nodeMap.get(child.SpanId);
-				if (toLayout) {
-					edges.push({
-						from: fromLayout,
-						to: toLayout,
-						type: isParallelSpan(child, siblings, parallelPairs)
-							? "parallel"
-							: "sequential",
-					});
-				}
-				collectEdges(child);
-			}
-		}
-	}
-	collectEdges(record);
+	const PAD = 40;
+	const xs = Array.from(nodeById.values()).map(n => n.x);
+	const ys = Array.from(nodeById.values()).map(n => n.y);
+	const minX = Math.min(...xs);
+	const maxX = Math.max(...xs);
+	const minY = Math.min(...ys);
+	const maxY = Math.max(...ys);
+	const svgW = (maxX - minX) + NODE_W + PAD * 2;
+	const svgH = (maxY - minY) + NODE_H + PAD * 2;
+	const ox = -minX + PAD;
+	const oy = -minY + PAD;
 
 	const fitToView = useCallback(() => {
-		if (!containerRef.current) return;
-		const cw = containerRef.current.clientWidth;
-		const ch = containerRef.current.clientHeight;
-		if (cw === 0 || ch === 0) return;
-		const scaleX = cw / svgWidth;
-		const scaleY = ch / svgHeight;
-		const newZoom = Math.max(
-			MIN_ZOOM,
-			Math.min(MAX_ZOOM, Math.min(scaleX, scaleY, 1) * 0.85)
-		);
-		const scaledW = svgWidth * newZoom;
-		const scaledH = svgHeight * newZoom;
-		setPan({
-			x: (cw - scaledW) / 2,
-			y: (ch - scaledH) / 2,
-		});
-		setZoom(newZoom);
-	}, [svgWidth, svgHeight]);
+		const el = containerRef.current;
+		if (!el) return;
+		const { clientWidth: cw, clientHeight: ch } = el;
+		if (!cw || !ch) return;
+		const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(cw / svgW, ch / svgH) * 0.9));
+		setPan({ x: (cw - svgW * z) / 2, y: (ch - svgH * z) / 2 });
+		setZoom(z);
+	}, [svgW, svgH]);
 
-	// Auto-fit on mount (key={record.SpanId} in parent ensures fresh mount)
+	useEffect(() => { const t = setTimeout(fitToView, 60); return () => clearTimeout(t); }, [fitToView]);
 	useEffect(() => {
-		const timer = setTimeout(fitToView, 60);
-		return () => clearTimeout(timer);
-	}, [fitToView]);
-
-	// Also re-fit when the container resizes (e.g. panel drag)
-	useEffect(() => {
-		if (!containerRef.current) return;
-		const ro = new ResizeObserver(() => fitToView());
-		ro.observe(containerRef.current);
+		const el = containerRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(fitToView);
+		ro.observe(el);
 		return () => ro.disconnect();
 	}, [fitToView]);
 
-	const handleWheel = useCallback(
-		(e: React.WheelEvent) => {
-			e.preventDefault();
-			if (!containerRef.current) return;
-			const rect = containerRef.current.getBoundingClientRect();
-			const mouseX = e.clientX - rect.left;
-			const mouseY = e.clientY - rect.top;
-			const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-			const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
-			const scale = newZoom / zoom;
-			setPan((p) => ({
-				x: mouseX - scale * (mouseX - p.x),
-				y: mouseY - scale * (mouseY - p.y),
-			}));
-			setZoom(newZoom);
-		},
-		[zoom]
-	);
+	const onWheel = useCallback((e: React.WheelEvent) => {
+		e.preventDefault();
+		const el = containerRef.current;
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		const mx = e.clientX - r.left;
+		const my = e.clientY - r.top;
+		const nz = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP)));
+		const sc = nz / zoom;
+		setPan(p => ({ x: mx - sc * (mx - p.x), y: my - sc * (my - p.y) }));
+		setZoom(nz);
+	}, [zoom]);
 
-	const handleMouseDown = useCallback(
-		(e: React.MouseEvent) => {
-			if (e.button !== 0) return;
-			setIsPanning(true);
-			panStart.current = {
-				x: e.clientX,
-				y: e.clientY,
-				panX: pan.x,
-				panY: pan.y,
-			};
-		},
-		[pan]
-	);
+	const onMouseDown = useCallback((e: React.MouseEvent) => {
+		if (e.button !== 0) return;
+		setPanning(true);
+		dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+	}, [pan]);
 
-	const handleMouseMove = useCallback(
-		(e: React.MouseEvent) => {
-			if (!isPanning) return;
-			setPan({
-				x: panStart.current.panX + (e.clientX - panStart.current.x),
-				y: panStart.current.panY + (e.clientY - panStart.current.y),
-			});
-		},
-		[isPanning]
-	);
+	const onMouseMove = useCallback((e: React.MouseEvent) => {
+		if (!panning) return;
+		setPan({ x: dragStart.current.px + e.clientX - dragStart.current.mx, y: dragStart.current.py + e.clientY - dragStart.current.my });
+	}, [panning]);
 
-	const handleMouseUp = useCallback(() => setIsPanning(false), []);
+	const onMouseUp = useCallback(() => setPanning(false), []);
 
 	return (
 		<div className="relative flex-1 w-full min-h-0 h-full">
-			{/* Controls — top-right */}
+
+			{/* Zoom controls */}
 			<div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white/90 dark:bg-stone-900/90 rounded-md border border-stone-200 dark:border-stone-700 p-0.5 shadow-sm">
-				<button
-					onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
-					className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-					title="Zoom in"
-				>
-					<Plus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
-				</button>
-				<span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400 min-w-[32px] text-center select-none">
-					{Math.round(zoom * 100)}%
-				</span>
-				<button
-					onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
-					className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-					title="Zoom out"
-				>
-					<Minus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
-				</button>
+				<button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom in"><Plus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
+				<span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400 min-w-[32px] text-center select-none">{Math.round(zoom * 100)}%</span>
+				<button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom out"><Minus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
 				<div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
-				<button
-					onClick={fitToView}
-					className="p-1 rounded hover:bg-primary/10 transition-colors"
-					title="Fit to view"
-				>
-					<Maximize className="h-3.5 w-3.5 text-primary" />
-				</button>
+				<button onClick={fitToView} className="p-1 rounded hover:bg-primary/10" title="Fit to view"><Maximize className="h-3.5 w-3.5 text-primary" /></button>
 			</div>
 
-			{/* Legend — bottom-left, above the canvas */}
-			<div className="absolute bottom-2 left-2 z-20 flex items-center gap-3 text-[10px] text-stone-500 dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 rounded px-2 py-1 border border-stone-200 dark:border-stone-700 shadow-sm">
-				<span className="flex items-center gap-1">
-					<svg width="16" height="6">
-						<line
-							x1="0"
-							y1="3"
-							x2="16"
-							y2="3"
-							stroke="#6366f1"
-							strokeWidth="1.5"
-							strokeDasharray="4 2"
-						/>
-					</svg>
-					Parallel
-				</span>
-				<span className="flex items-center gap-1">
-					<svg width="16" height="6">
-						<line
-							x1="0"
-							y1="3"
-							x2="16"
-							y2="3"
-							stroke="rgba(120,113,108,0.5)"
-							strokeWidth="1.5"
-						/>
-					</svg>
+			{/* Legend */}
+			<div className="absolute bottom-2 left-2 z-20 flex flex-col gap-1.5 text-[10px] text-stone-500 dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 rounded px-2.5 py-2 border border-stone-200 dark:border-stone-700 shadow-sm">
+				<div className="font-semibold text-stone-700 dark:text-stone-300 mb-0.5">Edge Types</div>
+				<span className="flex items-center gap-2">
+					<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#3b82f6" strokeWidth="1.5" /></svg>
 					Sequential
 				</span>
+				<span className="flex items-center gap-2">
+					<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="5 3" /></svg>
+					Parallel
+				</span>
 			</div>
 
-			{/* Pan/zoom canvas — fills all available space */}
+			{/* Canvas */}
 			<div
 				ref={containerRef}
 				className="absolute inset-0"
-				style={{ cursor: isPanning ? "grabbing" : "grab" }}
-				onWheel={handleWheel}
-				onMouseDown={handleMouseDown}
-				onMouseMove={handleMouseMove}
-				onMouseUp={handleMouseUp}
-				onMouseLeave={handleMouseUp}
+				style={{ cursor: panning ? "grabbing" : "grab" }}
+				onWheel={onWheel}
+				onMouseDown={onMouseDown}
+				onMouseMove={onMouseMove}
+				onMouseUp={onMouseUp}
+				onMouseLeave={onMouseUp}
 			>
 				<svg
-					width={svgWidth}
-					height={svgHeight}
-					viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+					width={svgW} height={svgH}
+					viewBox={`0 0 ${svgW} ${svgH}`}
 					className="block"
-					style={{
-						transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-						transformOrigin: "0 0",
-					}}
+					style={{ transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
 				>
-					{/* Edges */}
-					{edges.map(({ from, to, type }, i) => {
-						const x1 = from.x + offsetX + NODE_WIDTH / 2;
-						const y1 = from.y + offsetY + NODE_HEIGHT;
-						const x2 = to.x + offsetX + NODE_WIDTH / 2;
-						const y2 = to.y + offsetY;
-						const midY = (y1 + y2) / 2;
-						const isParallel = type === "parallel";
+					<defs>
+						<marker id={seqMarkerId} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+							<path d="M 0 1 L 7 4 L 0 7 Z" fill="#3b82f6" />
+						</marker>
+					</defs>
+
+					{graph.edges.map((edge, i) => {
+						const fromNode = nodeById.get(edge.from);
+						const toNode = nodeById.get(edge.to);
+						if (!fromNode || !toNode) return null;
+
+						const isSeq = edge.kind === "SEQUENTIAL";
+						const isPar = edge.kind === "PARALLEL";
+						const isDelegate = edge.kind === "DELEGATED";
+
+						const stroke = isDelegate ? "rgba(156,163,175,0.75)" : isSeq ? "#3b82f6" : "#6366f1";
+						const dash = isPar ? "6 3" : undefined;
+						const marker = isSeq ? `url(#${seqMarkerId})` : undefined;
+
+						if (!isPar) {
+							const x1 = fromNode.x + ox + NODE_W / 2;
+							const y1 = fromNode.y + oy + NODE_H;
+							const x2 = toNode.x + ox + NODE_W / 2;
+							const y2 = toNode.y + oy;
+							const midY = (y1 + y2) / 2;
+
+							return (
+								<path key={`e${i}`}
+									d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+									fill="none"
+									stroke={stroke}
+									strokeWidth={isDelegate ? 1 : 1.5}
+									markerEnd={marker}
+									opacity={isDelegate ? 0.72 : 0.88}
+								/>
+							);
+						}
+
+						const leftToRight = fromNode.x <= toNode.x;
+						const x1 = fromNode.x + ox + (leftToRight ? NODE_W : 0);
+						const x2 = toNode.x + ox + (leftToRight ? 0 : NODE_W);
+						const y1 = fromNode.y + oy + NODE_H / 2;
+						const y2 = toNode.y + oy + NODE_H / 2;
+						const midX = (x1 + x2) / 2;
+
 						return (
-							<path
-								key={i}
-								d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+							<path key={`e${i}`}
+								d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
 								fill="none"
-								stroke={
-									isParallel
-										? "#6366f1"
-										: "rgba(120,113,108,0.5)"
-								}
-								strokeWidth={1.5}
-								strokeDasharray={isParallel ? "6 3" : undefined}
+								stroke={stroke}
+								strokeWidth={1.4}
+								strokeDasharray={dash}
+								opacity={0.55}
 							/>
 						);
 					})}
 
-					{/* Edge labels */}
-					{edges.map(({ from, to, type }, i) => {
-						const x1 = from.x + offsetX + NODE_WIDTH / 2;
-						const y1 = from.y + offsetY + NODE_HEIGHT;
-						const x2 = to.x + offsetX + NODE_WIDTH / 2;
-						const y2 = to.y + offsetY;
-						const isParallel = type === "parallel";
-						return (
-							<text
-								key={`label-${i}`}
-								x={(x1 + x2) / 2 + 8}
-								y={(y1 + y2) / 2}
-								fontSize={8}
-								fill={
-									isParallel
-										? "#6366f1"
-										: "rgba(120,113,108,0.6)"
-								}
-								textAnchor="start"
-								dominantBaseline="middle"
-							>
-								{isParallel ? "parallel" : "seq"}
-							</text>
-						);
-					})}
-
-					{/* Nodes */}
-					{nodes.map(({ span, x, y }) => {
-						const isSelected =
-							request?.spanId === span.SpanId;
-						const nx = x + offsetX;
-						const ny = y + offsetY;
-						const stroke = getNodeStroke(
-							span.Duration,
-							isSelected
-						);
-						const fill = getNodeFill(
-							span.Duration,
-							isSelected
-						);
-						const durationDisplay =
-							getSpanDurationDisplay(span);
-						const costDisplay = getSpanCostFormatted(
-							span,
-							10
-						);
-						const tooltipText = getSpanTooltipText(span);
+					{Array.from(nodeById.values()).map(node => {
+						const sel = request?.spanId === node.spanId;
+						const nx = node.x + ox;
+						const ny = node.y + oy;
+						const str = nodeStroke(node.duration, sel);
+						const fil = nodeFill(node.duration, sel);
+						const displaySpan = {
+							SpanId: node.spanId,
+							SpanName: node.spanName,
+							Duration: node.duration,
+							Timestamp: node.timestamp,
+							Cost: node.cost,
+						};
+						const dur = getSpanDurationDisplay(displaySpan);
+						const cost = getSpanCostFormatted(displaySpan, 4);
+						const tooltipText = getSpanTooltipText(displaySpan);
 
 						return (
-							<g
-								key={span.SpanId}
-								onClick={(e) => {
-									e.stopPropagation();
-									updateRequest({
-										spanId: span.SpanId,
-									});
-								}}
+							<g key={node.spanId}
+								onClick={e => { e.stopPropagation(); updateRequest({ spanId: node.spanId }); }}
 								style={{ cursor: "pointer" }}
 							>
 								<title>{tooltipText}</title>
-								<rect
-									x={nx}
-									y={ny}
-									width={NODE_WIDTH}
-									height={NODE_HEIGHT}
-									rx={6}
-									fill={fill}
-									stroke={stroke}
-									strokeWidth={
-										isSelected ? 2 : 1.5
-									}
-								/>
-								<text
-									x={nx + NODE_WIDTH / 2}
-									y={ny + 18}
-									textAnchor="middle"
-									fontSize={10}
-									fontWeight={
-										isSelected ? 600 : 400
-									}
-									fill={
-										isSelected
-											? "#6366f1"
-											: "currentColor"
-									}
+
+								<rect x={nx} y={ny} width={NODE_W} height={NODE_H} rx={6}
+									fill={fil} stroke={str} strokeWidth={sel ? 2 : 1.5} />
+
+								<text x={nx + NODE_W / 2} y={ny + 18}
+									textAnchor="middle" fontSize={10}
+									fontWeight={sel ? 600 : 400}
+									fill={sel ? "#6366f1" : "currentColor"}
 									className="fill-stone-700 dark:fill-stone-300"
 								>
-									{truncate(span.SpanName, 20)}
+									{trunc(node.spanName, 20)}
 								</text>
-								<text
-									x={nx + NODE_WIDTH / 2}
-									y={ny + 34}
-									textAnchor="middle"
-									fontSize={9}
-									fill={stroke}
-									opacity={0.9}
+
+								<text x={nx + NODE_W / 2} y={ny + 34}
+									textAnchor="middle" fontSize={9}
+									fill={str} opacity={0.85}
 								>
-									{costDisplay
-										? `${durationDisplay} \u2022 ${costDisplay}`
-										: durationDisplay}
+									{cost ? `${dur} • ${cost}` : dur}
 								</text>
 							</g>
 						);

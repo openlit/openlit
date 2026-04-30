@@ -296,8 +296,8 @@ class SemanticConvention:
     # GenAI System Names (OTel Semconv)
     GEN_AI_SYSTEM_ANTHROPIC = "anthropic"
     GEN_AI_SYSTEM_AWS_BEDROCK = "aws.bedrock"
-    GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "az.ai.inference"
-    GEN_AI_SYSTEM_AZURE_OPENAI = "az.ai.openai"
+    GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "azure.ai.inference"
+    GEN_AI_SYSTEM_AZURE_OPENAI = "azure.ai.openai"
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_DEEPSEEK = "deepseek"
     GEN_AI_SYSTEM_GEMINI = "gemini"
@@ -331,7 +331,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
     GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
     GEN_AI_SYSTEM_VLLM = "vLLM"
-    GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "google.ai.studio"
+    GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "gcp.gemini"
     GEN_AI_SYSTEM_REKAAI = "rekaai"
     GEN_AI_SYSTEM_PREMAI = "premai"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
@@ -569,6 +569,7 @@ class SemanticConvention:
     GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
         "gen_ai.usage.completion_tokens_details.reasoning_tokens"
     )
+    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
     GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
         "gen_ai.usage.prompt_tokens_details.cached_tokens"
     )

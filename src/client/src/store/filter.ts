@@ -105,6 +105,13 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			case "limit":
 			case "selectedConfig":
 			case "sorting":
+			case "groupBy":
+				set(object, "offset", 0);
+				// Changing groupBy always resets the drilled-in groupValue so stale
+				// drill-down filters don't bleed into the new group selection.
+				set(object, "groupValue", null);
+				break;
+			case "groupValue":
 				set(object, "offset", 0);
 				break;
 			case "offset":

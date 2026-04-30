@@ -263,7 +263,8 @@
                   "latest/sdk/integrations/krutrim",
                   "latest/sdk/integrations/titan-ml",
                   "latest/sdk/integrations/sarvam",
-                  "latest/sdk/integrations/premai"
+                  "latest/sdk/integrations/premai",
+                  "latest/sdk/integrations/replicate"
                 ]
               },
               {
@@ -301,7 +302,12 @@
                   "latest/sdk/integrations/firecrawl",
                   "latest/sdk/integrations/dynamiq",
                   "latest/sdk/integrations/controlflow",
-                  "latest/sdk/integrations/swarmzero"
+                  "latest/sdk/integrations/swarmzero",
+                  "latest/sdk/integrations/langgraph",
+                  "latest/sdk/integrations/strands",
+                  "latest/sdk/integrations/google-adk",
+                  "latest/sdk/integrations/claude-agent-sdk",
+                  "latest/sdk/integrations/vercel-ai"
                 ]
               },
               {

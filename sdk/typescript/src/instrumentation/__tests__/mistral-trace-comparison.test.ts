@@ -1,68 +1,337 @@
-/**
- * Cross-Language Trace Comparison Tests for Mistral Integration
- */
-
+import { Span, trace } from '@opentelemetry/api';
 import MistralWrapper from '../mistral/wrapper';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import BaseWrapper from '../base-wrapper';
 import SemanticConvention from '../../semantic-convention';
 
-jest.mock('../../config');
-jest.mock('../../helpers');
-jest.mock('../base-wrapper');
+jest.mock('../../../src/config');
+jest.mock('../../../src/helpers');
+jest.mock('../../../src/instrumentation/base-wrapper');
 
-describe('Mistral Cross-Language Trace Comparison', () => {
-  let mockSpan: any;
+const mockTracer = trace.getTracer('test-tracer');
+
+describe('MistralWrapper', () => {
+  let span: Span;
 
   beforeEach(() => {
-    // Create mock span
-    mockSpan = {
-      setAttribute: jest.fn(),
-      addEvent: jest.fn(),
-      end: jest.fn(),
-      setStatus: jest.fn(),
-    };
-
-    // Mock OpenlitConfig
-    (OpenlitConfig as any).environment = 'openlit-testing';
-    (OpenlitConfig as any).applicationName = 'openlit-test';
-    (OpenlitConfig as any).traceContent = true;
-    (OpenlitConfig as any).pricing_json = {};
-    (OpenlitConfig as any).updatePricingJson = jest.fn().mockResolvedValue({});
-
-    // Mock OpenLitHelper
-    (OpenLitHelper as any).getChatModelCost = jest.fn().mockReturnValue(0.001);
-    (OpenLitHelper as any).getEmbedModelCost = jest.fn().mockReturnValue(0.0001);
-    (OpenLitHelper as any).openaiTokens = jest.fn().mockReturnValue(5);
-    (OpenLitHelper as any).handleException = jest.fn();
-    (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, generator) => stream);
-
-    // Mock BaseWrapper
-    (BaseWrapper as any).recordMetrics = jest.fn();
-    (BaseWrapper as any).setBaseSpanAttributes = jest.fn().mockImplementation((span, attrs) => {
-      span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, attrs.aiSystem);
-      span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, attrs.genAIEndpoint);
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, attrs.model);
-      if (attrs.cost !== undefined) {
-        span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, attrs.cost);
-      }
-      if (attrs.serverAddress) {
-        span.setAttribute(SemanticConvention.SERVER_ADDRESS, attrs.serverAddress);
-      }
-      if (attrs.serverPort !== undefined) {
-        span.setAttribute(SemanticConvention.SERVER_PORT, attrs.serverPort);
-      }
-      span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
-    });
-  });
-
-  afterEach(() => {
+    span = mockTracer.startSpan('test-span');
+    span.setAttribute = jest.fn();
+    span.addEvent = jest.fn();
     jest.clearAllMocks();
   });
 
-  describe('Chat Completion Trace Consistency', () => {
-    it('should set same attributes as Python SDK', async () => {
+  afterEach(() => {
+    span.end();
+  });
+
+  describe('_chatCompletion', () => {
+    it('should call recordMetrics after span ends', async () => {
+      const mockArgs = [{ messages: [{ role: 'user', content: 'test message' }] }];
+      const mockResponse = {
+        id: '123',
+        model: 'mistral-small-latest',
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        choices: [
+          {
+            message: { content: 'response text', role: 'assistant' },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+      const mockGenAIEndpoint = 'mistral.chat.completions';
+      jest
+        .spyOn(MistralWrapper, '_chatCompletionCommonSetter')
+        .mockImplementationOnce(async ({ genAIEndpoint, span }) => {
+          span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, 1);
+          span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 100);
+          span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 0.7);
+
+          return {
+            genAIEndpoint,
+            model: 'mistral-small-latest',
+            user: 'test-user',
+            cost: 0.5,
+            aiSystem: SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
+          };
+        });
+
+      await MistralWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: mockGenAIEndpoint,
+        response: mockResponse,
+        span,
+      });
+
+      expect(BaseWrapper.recordMetrics).toHaveBeenCalledWith(span, {
+        genAIEndpoint: mockGenAIEndpoint,
+        model: 'mistral-small-latest',
+        user: 'test-user',
+        cost: 0.5,
+        aiSystem: SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
+      });
+    });
+  });
+
+  describe('_chatCompletionCommonSetter', () => {
+    it('should set span attributes and return metric parameters', async () => {
+      const mockArgs = [
+        {
+          model: 'mistral-small-latest',
+          messages: [{ role: 'user', content: 'test message' }],
+          max_tokens: 100,
+          temperature: 0.7,
+          top_p: 1,
+          user: 'test-user',
+          presence_penalty: 2,
+          frequency_penalty: 3,
+          seed: 3,
+          stream: false,
+          stop: ['STOP'],
+        },
+      ];
+
+      const mockResult = {
+        id: '123',
+        model: 'mistral-small-latest',
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+        choices: [
+          {
+            message: { content: 'response text', role: 'assistant' },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+      const mockGenAIEndpoint = 'mistral.chat.completions';
+
+      jest.restoreAllMocks();
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
+
+      const metricParams = await MistralWrapper._chatCompletionCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: mockGenAIEndpoint,
+        result: mockResult,
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_P, 1);
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
+        100
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
+        0.7
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
+        2
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+        3
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, 3);
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
+        false
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+        ['STOP']
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_MODEL,
+        'mistral-small-latest'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+        10
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+        20
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+        ['stop']
+      );
+
+      expect(metricParams).toEqual({
+        genAIEndpoint: mockGenAIEndpoint,
+        model: 'mistral-small-latest',
+        user: 'test-user',
+        cost: 0.5,
+        aiSystem: SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
+      });
+    });
+
+    it('should NOT set sentinel values for optional request params', async () => {
+      const mockArgs = [
+        {
+          model: 'mistral-small-latest',
+          messages: [{ role: 'user', content: 'test' }],
+          stream: false,
+        },
+      ];
+
+      const mockResult = {
+        id: '456',
+        model: 'mistral-small-latest',
+        usage: { prompt_tokens: 5, completion_tokens: 10, total_tokens: 15 },
+        choices: [
+          {
+            message: { content: 'test response', role: 'assistant' },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+
+      jest.restoreAllMocks();
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+
+      await MistralWrapper._chatCompletionCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'mistral.chat.completions',
+        result: mockResult,
+        span,
+      });
+
+      const setAttrCalls = (span.setAttribute as jest.Mock).mock.calls;
+      const attrKeys = setAttrCalls.map((c: any[]) => c[0]);
+
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_SEED);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT);
+    });
+
+    it('should handle tool calls properly', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'test message' }],
+          tools: [{ type: 'function', function: { name: 'get_weather' } }],
+        },
+      ];
+
+      const mockResult = {
+        id: '123',
+        model: 'mistral-small-latest',
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        choices: [
+          {
+            message: {
+              content: null,
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"location":"SF"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      };
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
+
+      await MistralWrapper._chatCompletionCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'mistral.chat.completions',
+        result: mockResult,
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_NAME,
+        'get_weather'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_CALL_ID,
+        'call_123'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_ARGS,
+        '{"location":"SF"}'
+      );
+    });
+
+    it('should emit inference event when events not disabled', async () => {
+      const mockArgs = [
+        {
+          model: 'mistral-small-latest',
+          messages: [{ role: 'user', content: 'test message' }],
+          stream: false,
+        },
+      ];
+
+      const mockResult = {
+        id: '789',
+        model: 'mistral-small-latest',
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        choices: [
+          {
+            message: { content: 'response text', role: 'assistant' },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+
+      jest.restoreAllMocks();
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).captureMessageContent = false;
+      (OpenlitConfig as any).disableEvents = false;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+      jest.spyOn(OpenLitHelper, 'emitInferenceEvent').mockImplementation(() => {});
+
+      await MistralWrapper._chatCompletionCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'mistral.chat.completions',
+        result: mockResult,
+        span,
+      });
+
+      expect(OpenLitHelper.emitInferenceEvent).toHaveBeenCalledWith(
+        span,
+        expect.objectContaining({
+          [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+          [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'mistral-small-latest',
+          [SemanticConvention.GEN_AI_RESPONSE_MODEL]: 'mistral-small-latest',
+          [SemanticConvention.SERVER_ADDRESS]: 'api.mistral.ai',
+          [SemanticConvention.SERVER_PORT]: 443,
+          [SemanticConvention.GEN_AI_RESPONSE_ID]: '789',
+          [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: 10,
+          [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: 20,
+        })
+      );
+    });
+  });
+
+  describe('Cross-Language Trace Comparison', () => {
+    it('should use mistral_ai as provider name (matching Python SDK)', () => {
+      expect(MistralWrapper.aiSystem).toBe('mistral_ai');
+      expect(MistralWrapper.aiSystem).toBe(SemanticConvention.GEN_AI_SYSTEM_MISTRAL);
+    });
+
+    it('should set same attributes as Python SDK for chat completion', async () => {
       const mockArgs = [
         {
           messages: [{ role: 'user', content: 'What is Mistral AI?' }],
@@ -90,30 +359,34 @@ describe('Mistral Cross-Language Trace Comparison', () => {
           total_tokens: 23,
         },
       };
-      
+
+      jest.restoreAllMocks();
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).captureMessageContent = true;
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.001);
+      jest.spyOn(OpenLitHelper, 'buildInputMessages').mockReturnValue('[]');
+      jest.spyOn(OpenLitHelper, 'buildOutputMessages').mockReturnValue('[]');
+
       await MistralWrapper._chatCompletion({
         args: mockArgs,
         genAIEndpoint: 'mistral.chat.completions',
         response: mockResponse,
-        span: mockSpan,
+        span,
       });
 
-      // Verify critical attributes are set (matching Python SDK)
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_PROVIDER_NAME, 'mistral');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MODEL, 'mistral-small-latest');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_MODEL, 'mistral-small-latest');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 8);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 15);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, 23);
-      // Python SDK parity: server.address, server.port, gen_ai.sdk.version
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_ADDRESS, 'api.mistral.ai');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
-    });
-  });
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 8);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 15);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_MODEL, 'mistral-small-latest');
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ['stop']);
 
-  describe('Embedding Trace Consistency', () => {
+      const setAttrCalls = (span.setAttribute as jest.Mock).mock.calls;
+      const attrKeys = setAttrCalls.map((c: any[]) => c[0]);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE);
+    });
+
     it('should set embedding attributes matching Python SDK', async () => {
       const mockArgs = [
         {
@@ -131,20 +404,29 @@ describe('Mistral Cross-Language Trace Comparison', () => {
         },
       };
 
+      jest.restoreAllMocks();
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).captureMessageContent = true;
+      jest.spyOn(OpenLitHelper, 'getEmbedModelCost').mockReturnValue(0.0001);
+
       const mockTracer: any = {
-        startSpan: jest.fn().mockReturnValue(mockSpan),
+        startSpan: jest.fn().mockReturnValue(span),
       };
-      
+
       const patchMethod = MistralWrapper._patchEmbedding(mockTracer);
       const wrappedMethod = patchMethod(async () => mockResponse);
-      
+
       await wrappedMethod.call({}, ...mockArgs);
 
-      // Verify embedding-specific attributes
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_PROVIDER_NAME, 'mistral');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MODEL, 'mistral-embed');
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 3);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 3);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, ['float']);
+
+      const setAttrCalls = (span.setAttribute as jest.Mock).mock.calls;
+      const attrKeys = setAttrCalls.map((c: any[]) => c[0]);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_SERVER_TTFT);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_SERVER_TBT);
     });
   });
 });

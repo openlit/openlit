@@ -7,6 +7,7 @@ import { metrics } from '@opentelemetry/api';
 import SemanticConvention from '../semantic-convention';
 import { SetupMetricsOptions } from '../types';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { parseExporters } from './utils';
 
 const DB_CLIENT_OPERATION_DURATION_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10];
 
@@ -23,6 +24,8 @@ const GEN_AI_SERVER_TFTT = [
 const GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
   1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864,
 ];
+
+let METER_SET = false;
 
 export default class Metrics {
   static meterProvider: MeterProvider;
@@ -41,16 +44,12 @@ export default class Metrics {
   static dbClientOperationDuration: ReturnType<
     ReturnType<typeof metrics.getMeter>['createHistogram']
   >;
-  static genaiRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
-  static genaiPromptTokens: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
-  static genaiCompletionTokens: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
-  static genaiReasoningTokens: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
   static genaiCost: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
   static dbRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
 
   static initializeMetrics() {
     this.genaiClientUsageTokens = this.meter.createHistogram(
-      SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
+      SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
       {
         description: 'Measures number of input and output tokens used',
         unit: '{token}',
@@ -123,31 +122,6 @@ export default class Metrics {
         },
       }
     );
-    this.genaiRequests = this.meter.createCounter(SemanticConvention.GEN_AI_REQUESTS, {
-      description: 'Number of requests to GenAI',
-      unit: '1',
-    });
-    this.genaiPromptTokens = this.meter.createCounter(
-      SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-      {
-        description: 'Number of prompt tokens processed.',
-        unit: '1',
-      }
-    );
-    this.genaiCompletionTokens = this.meter.createCounter(
-      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-      {
-        description: 'Number of completion tokens processed.',
-        unit: '1',
-      }
-    );
-    this.genaiReasoningTokens = this.meter.createCounter(
-      SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-      {
-        description: 'Number of reasoning thought tokens processed.',
-        unit: '1',
-      }
-    );
     this.genaiCost = this.meter.createHistogram(SemanticConvention.GEN_AI_USAGE_COST, {
       description: 'The distribution of GenAI request costs.',
       unit: 'USD',
@@ -158,53 +132,88 @@ export default class Metrics {
     });
   }
 
-  static handleExporterFallback(err: Error, allowConsoleExporterFallback: boolean): ConsoleMetricExporter {
-    if (allowConsoleExporterFallback) {
-      console.warn(
-        '[Metrics] Falling back to ConsoleMetricExporter. WARNING: ConsoleMetricExporter may expose sensitive data in logs. Do NOT use in production!',
-        err
-      );
-      return new ConsoleMetricExporter();
-    } else {
-      throw new Error(
-        '[Metrics] Failed to initialize OTLPMetricExporter and fallback to ConsoleMetricExporter is disabled. Set allowConsoleExporterFallback=true to enable fallback (not recommended for production).'
-      );
-    }
-  }
-
   static setup(options: SetupMetricsOptions) {
     if (options.meter) {
       this.meter = options.meter;
       this.initializeMetrics();
       return this.meter;
     }
+
     try {
-      let metricExporter: OTLPMetricExporter | ConsoleMetricExporter;
-      try {
-        const url = options.otlpEndpoint + '/v1/metrics';
-        metricExporter = new OTLPMetricExporter({
-          url,
-          headers: options.otlpHeaders as Record<string, string> | undefined,
-        });
-      } catch (err) {
-        metricExporter = this.handleExporterFallback(err as Error, options.allowConsoleExporterFallback ?? false);
+      if (!METER_SET) {
+        const existingProvider = metrics.getMeterProvider();
+        const isSDKProvider =
+          existingProvider &&
+          typeof (existingProvider as any).getMeter === 'function' &&
+          existingProvider.constructor.name !== 'NoopMeterProvider';
+
+        if (isSDKProvider) {
+          this.meterProvider = existingProvider as unknown as MeterProvider;
+        } else {
+          const readers = Metrics.buildMetricReaders(options);
+          this.meterProvider = new MeterProvider({
+            resource: options.resource,
+            readers,
+          });
+          metrics.setGlobalMeterProvider(this.meterProvider);
+          this.metricReaders.push(...(readers as PeriodicExportingMetricReader[]));
+        }
+
+        this.meter = this.meterProvider.getMeter('openlit', '1.0.0');
+        this.initializeMetrics();
+        METER_SET = true;
       }
-      const metricReader = new PeriodicExportingMetricReader({
-        exportIntervalMillis: options.exportIntervalMillis || 60000,
-        exporter: metricExporter,
-      });
-      this.meterProvider = new MeterProvider({
-        resource: options.resource,
-        readers: [metricReader],
-      });
-      metrics.setGlobalMeterProvider(this.meterProvider);
-      this.meter = this.meterProvider.getMeter('openlit', '1.0.0');
-      this.metricReaders.push(metricReader);
-      this.initializeMetrics();
+
       return this.meter;
     } catch (e) {
       console.error('[Metrics] Failed to initialize metrics:', e);
       return null;
     }
+  }
+
+  private static buildMetricReaders(options: SetupMetricsOptions) {
+    const readers: PeriodicExportingMetricReader[] = [];
+    const exporterList = parseExporters('OTEL_METRICS_EXPORTER');
+
+    if (exporterList) {
+      for (const name of exporterList) {
+        if (name === 'otlp') {
+          readers.push(Metrics.createOTLPReader(options));
+        } else if (name === 'console') {
+          readers.push(Metrics.createConsoleReader(options));
+        }
+      }
+    } else {
+      if (options.otlpEndpoint) {
+        readers.push(Metrics.createOTLPReader(options));
+      } else {
+        readers.push(Metrics.createConsoleReader(options));
+      }
+    }
+
+    return readers;
+  }
+
+  private static createOTLPReader(options: SetupMetricsOptions): PeriodicExportingMetricReader {
+    const url = (options.otlpEndpoint || '') + '/v1/metrics';
+    const exporter = new OTLPMetricExporter({
+      url,
+      headers: options.otlpHeaders as Record<string, string> | undefined,
+    });
+    return new PeriodicExportingMetricReader({
+      exportIntervalMillis: options.exportIntervalMillis || 60000,
+      exporter,
+    });
+  }
+
+  private static createConsoleReader(options: SetupMetricsOptions): PeriodicExportingMetricReader {
+    return new PeriodicExportingMetricReader({
+      exportIntervalMillis: options.exportIntervalMillis || 60000,
+      exporter: new ConsoleMetricExporter(),
+    });
+  }
+
+  static resetForTesting() {
+    METER_SET = false;
   }
 }

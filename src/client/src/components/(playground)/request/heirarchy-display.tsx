@@ -109,7 +109,7 @@ export default function HeirarchyDisplay() {
 					<AccordionContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down transition-all h-full pb-0" parentClassName="h-full w-full">
 						<div className="flex flex-col h-full">
 							{/* View mode tabs — horizontal at the top */}
-							<div className="flex items-center gap-1 px-3 py-1.5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 shrink-0">
+							<div className="flex items-center gap-1 px-3 py-1.5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 shrink-0 z-10">
 								{VIEW_TABS.map(({ mode, label }) => (
 									<button
 										key={mode}

@@ -49,7 +49,7 @@ class ChromaWrapper extends BaseWrapper {
                 if (params.whereDocument) span.setAttribute(SemanticConvention.DB_WHERE_DOCUMENT, JSON.stringify(params.whereDocument));
                 const returnedCount = response?.ids?.[0]?.length || 0;
                 span.setAttribute(SemanticConvention.DB_N_RESULTS, returnedCount);
-                if (OpenlitConfig.traceContent && params.queryTexts) {
+                if (OpenlitConfig.captureMessageContent && params.queryTexts) {
                   span.setAttribute(SemanticConvention.DB_QUERY_TEXT, JSON.stringify(params.queryTexts));
                 }
                 span.setAttribute(SemanticConvention.DB_QUERY_SUMMARY,

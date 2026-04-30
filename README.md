@@ -201,14 +201,14 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/bedrock"><b>AWS Bedrock</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/azure-ai-inference"><b>Azure AI Inference</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/azure-ai-inference"><b>Azure AI Inference</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vertexai"><b>Vertex AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vllm"><b>vLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/reka"><b>Reka</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/litellm"><b>LiteLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/huggingface"><b>Hugging Face</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/huggingface"><b>Hugging Face</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/ai21"><b>AI21</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
@@ -219,6 +219,7 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/multion"><b>MultiOn</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/replicate"><b>Replicate</b></a><br/><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 
@@ -245,18 +246,19 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/dynamiq"><b>Dynamiq</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai-agents"><b>OpenAI Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai-agents"><b>OpenAI Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/firecrawl"><b>Firecrawl</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/google-adk"><b>Google ADK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/google-adk"><b>Google ADK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/langgraph"><b>LangGraph</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/langgraph"><b>LangGraph</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/smolagents"><b>Smolagents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/strands"><b>Strands Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/claude-agent-sdk"><b>Claude Agent SDK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/strands"><b>Strands Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/claude-agent-sdk"><b>Claude Agent SDK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/agent-framework"><b>MS Agent Framework</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vercel-ai"><b>Vercel AI</b></a><br/><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 
@@ -265,9 +267,9 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 <table>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/pinecone"><b>Pinecone</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/chromadb"><b>ChromaDB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/qdrant"><b>Qdrant</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/milvus"><b>Milvus</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/chromadb"><b>ChromaDB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/qdrant"><b>Qdrant</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/milvus"><b>Milvus</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/astradb"><b>Astra DB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
