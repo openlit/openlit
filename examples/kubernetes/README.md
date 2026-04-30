@@ -90,7 +90,7 @@ kubectl rollout restart daemonset/bedrock-app -n openlit
 
 ## What to Test
 
-1. **LLM Observability (eBPF)** -- The controller auto-discovers LLM API connections. Check the Instrumentation Hub to see discovered services and enable/disable instrumentation.
+1. **LLM Observability (eBPF)** -- The controller auto-discovers LLM API connections. Check the Agents page to see discovered services and enable/disable instrumentation.
 2. **Agent Observability (SDK injection)** -- Enable Agent Observability on any Python service. The controller injects the OpenLIT SDK via init containers and restarts the workload.
 3. **Naked Pod warning** -- `gemini-app` is a naked Pod (no controller). Agent Observability should show "unsupported" since it cannot be restarted safely.
 4. **Multi-node** -- The controller DaemonSet runs on all 3 nodes. Each instance discovers services on its own node.

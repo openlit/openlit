@@ -67,7 +67,7 @@
               "latest/openlit/observability/error",
               "latest/openlit/observability/fleet-hub",
               {
-                "group": "Instrumentation Hub",
+                "group": "Agents",
                 "icon": "radar",
                 "pages": [
                   "latest/controller/overview",

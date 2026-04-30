@@ -32,7 +32,7 @@ docker compose up -d --build
 open http://localhost:3000
 ```
 
-The Controller will automatically discover the sample apps making LLM API calls and show them in **Instrumentation Hub**.
+The Controller will automatically discover the sample apps making LLM API calls and show them on the **Agents** page.
 
 ## Check status
 

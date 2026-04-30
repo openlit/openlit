@@ -42,7 +42,7 @@ The setup script will:
 2. Auto-detect your cluster (k3d, kind, or minikube) and load images
 3. Deploy ClickHouse, OpenLIT, the controller, and sample apps
 
-The Controller runs as a DaemonSet on every node and automatically discovers the sample apps making LLM API calls. Check **Instrumentation Hub** in the dashboard.
+The Controller runs as a DaemonSet on every node and automatically discovers the sample apps making LLM API calls. Check the **Agents** page in the dashboard.
 
 ## Check status
 

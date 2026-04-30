@@ -44,7 +44,7 @@ The setup script will:
 4. Start the controller (connects to the dashboard automatically)
 5. Start 4 sample Python apps that call OpenAI, Anthropic, Gemini, and CrewAI
 
-Within ~30 seconds, the controller discovers the apps and they appear in **Instrumentation Hub**.
+Within ~30 seconds, the controller discovers the apps and they appear in the **Agents** page.
 
 ## Check status
 

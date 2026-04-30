@@ -78,7 +78,7 @@ flowchart LR
 
     subgraph "OpenLIT Dashboard"
         direction TB
-        UI[Instrumentation Hub]
+        UI[Agents]
         CH[(ClickHouse)]
         OTEL[OTEL Collector]
     end
@@ -94,14 +94,14 @@ flowchart LR
 ```
 
 1. **Service Discovery** — The Controller scans for processes making LLM API calls (OpenAI, Anthropic, Gemini, Bedrock, etc.)
-2. **Instrumentation Hub** — Discovered services appear in the OpenLIT dashboard where you can enable/disable observability
+2. **Agents** — Discovered services appear in the OpenLIT dashboard where you can enable/disable observability
 3. **LLM Observability** — One-click eBPF instrumentation for LLM traffic metrics
 4. **Agent Observability** — One-click SDK injection for agent framework traces
 5. **Reconciliation** — The Controller automatically restores your desired state after pod restarts, container recreates, or process restarts
 
-## The Instrumentation Hub
+## The Agents Page
 
-The **Instrumentation Hub** is the dashboard page where you manage all Controller-discovered services. Once the Controller is running, navigate to **Instrumentation Hub** in the OpenLIT sidebar.
+The **Agents** page is the dashboard page where you manage all Controller-discovered services. Once the Controller is running, navigate to **Agents** in the OpenLIT sidebar.
 
 ### Services view
 
