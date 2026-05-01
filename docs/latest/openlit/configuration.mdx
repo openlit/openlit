@@ -124,6 +124,52 @@ For detailed OAuth setup instructions, see the [OAuth Authentication Setup](/lat
   ```
 </ResponseField>
 
+## Security variables
+
+OpenLIT enables stricter API protections by default, including security response headers, CSRF checks for browser session API requests, vault secret encryption, and restricted CORS for the vault secrets API.
+
+<ResponseField name="OPENLIT_VAULT_ENCRYPTION_KEY">
+  Secret used to encrypt Vault values at rest with AES-256-GCM. If this is not set, OpenLIT falls back to `NEXTAUTH_SECRET`.
+
+  Use a stable, high-entropy value and keep it unchanged across restarts. Changing this value after secrets are encrypted prevents existing Vault values from being decrypted.
+
+  **Generate with**:
+  ```bash
+  openssl rand -base64 32
+  ```
+
+  **Example**:
+  ```yaml
+  export OPENLIT_VAULT_ENCRYPTION_KEY=your-vault-encryption-key
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_ALLOWED_CORS_ORIGINS">
+  Comma-separated list of browser origins that are allowed to call API-key authenticated Vault secret retrieval from another domain.
+
+  Configure this when a browser application hosted on a different origin needs to call `POST /api/vault/get-secrets`. Server-to-server SDK or REST calls usually do not need this because they do not send a browser `Origin` header.
+
+  Specify complete origins, including scheme and host. Do not use `*`.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_ALLOWED_CORS_ORIGINS=https://app.example.com,https://admin.example.com
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_ALLOWED_ORIGINS">
+  Backward-compatible alias for `OPENLIT_ALLOWED_CORS_ORIGINS`.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_ALLOWED_ORIGINS=https://app.example.com
+  ```
+</ResponseField>
+
+<Note>
+  `NEXTAUTH_URL` is also treated as an allowed same-site origin for Vault CORS checks. Browser requests from other domains must be listed in `OPENLIT_ALLOWED_CORS_ORIGINS` or `OPENLIT_ALLOWED_ORIGINS`.
+</Note>
+
 ## Environment file placement
 
 Environment variables can be configured in multiple ways depending on your deployment method:
@@ -181,6 +227,10 @@ GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
+
+# Security Configuration (Optional)
+OPENLIT_VAULT_ENCRYPTION_KEY="your-vault-encryption-key"
+OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
 ```
 
 ---
