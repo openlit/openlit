@@ -11,6 +11,7 @@ import {
 	MessageSquare,
 	MonitorCog,
 	MonitorPlay,
+	Radar,
 	SettingsIcon,
 	ShieldAlert,
 	SlidersHorizontal,
@@ -68,6 +69,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/exceptions",
 			type: "action",
 		},
+		// {
+		// 	icon: <Radar className={ICON_CLASSES} />,
+		// 	text: "Agents",
+		// 	link: "/agents",
+		// 	type: "action",
+		// },
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",

@@ -113,6 +113,12 @@ export const getDBConfigById = async ({ id }: { id: string }) => {
 	});
 };
 
+export const getFirstDBConfig = async (): Promise<DatabaseConfig | null> => {
+	return await prisma.databaseConfig.findFirst({
+		orderBy: { createdAt: "asc" },
+	});
+};
+
 export const upsertDBConfig = async (
 	dbConfig: Partial<DatabaseConfig>,
 	id?: string

@@ -42,45 +42,44 @@ export default async function migrationHelper({
 		return { migrationExist: true, queriesRun: false };
 	}
 
-	const queriesRun = await Promise.all(
-		queries.map(async (query) => {
-			if (typeof query === "string") {
-				const { err } = await dataCollector(
-					{ query },
-					"exec",
-					dbConfig.id
+	const queriesRun: Array<{ err?: unknown }> = [];
+	for (const query of queries) {
+		if (typeof query === "string") {
+			const { err } = await dataCollector(
+				{ query },
+				"exec",
+				dbConfig.id
+			);
+			if (err) {
+				console.log(
+					`********* Migration Error : ${clickhouseMigrationId} *********`
 				);
-				if (err) {
-					console.log(
-						`********* Migration Error : ${clickhouseMigrationId} *********`
-					);
-					consoleLog(err);
-					console.log(
-						`********* Migration Error : ${clickhouseMigrationId} *********`
-					);
-				}
-				return { err };
-			}
-			if (query.type === "insert") {
-				const { err } = await dataCollector(
-					{
-						table: query.table,
-						values: query.values,
-					},
-					"insert",
-					dbConfig.id
+				consoleLog(err);
+				console.log(
+					`********* Migration Error : ${clickhouseMigrationId} *********`
 				);
-				if (err) {
-					console.log(
-						`********* Migration Error : ${clickhouseMigrationId} (insert) *********`
-					);
-					consoleLog(err);
-				}
-				return { err };
 			}
-			return { err: new Error("Unknown query type") };
-		})
-	);
+			queriesRun.push({ err });
+		} else if (query.type === "insert") {
+			const { err } = await dataCollector(
+				{
+					table: query.table,
+					values: query.values,
+				},
+				"insert",
+				dbConfig.id
+			);
+			if (err) {
+				console.log(
+					`********* Migration Error : ${clickhouseMigrationId} (insert) *********`
+				);
+				consoleLog(err);
+			}
+			queriesRun.push({ err });
+		} else {
+			queriesRun.push({ err: new Error("Unknown query type") });
+		}
+	}
 
 	if (queriesRun.filter(({ err }) => !err).length === queries.length) {
 		await asaw(

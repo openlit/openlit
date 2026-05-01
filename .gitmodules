@@ -1,0 +1,4 @@
+[submodule "openlit-controller/.obi-src"]
+	path = openlit-controller/.obi-src
+	url = https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation.git
+	branch = main

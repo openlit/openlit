@@ -28,6 +28,8 @@ export const config = {
 		"/dashboards/:path*",
 		"/d/:path*",
 		"/fleet-hub",
+		"/agents",
+		"/agents/:path*",
 		"/onboarding",
 		"/chat",
 		"/chat/:path*"

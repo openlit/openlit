@@ -242,6 +242,29 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
+	// Agents
+	{
+		regex: /^\/agents$/,
+		getTitle: () => "Agents",
+		getBreadcrumbs: () => [],
+	},
+
+	{
+		regex: /^\/agents\/controller\/[^/]+$/,
+		getTitle: () => "Controller",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
+	{
+		regex: /^\/agents\/[^/]+$/,
+		getTitle: () => "Service Detail",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
 	// Fleet Hub
 	{
 		regex: /^\/fleet-hub\/[^/]+$/,

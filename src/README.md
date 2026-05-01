@@ -1,27 +1,50 @@
 # Testing and Developing Locally
 
-This guide covers the steps needed to set up the development environment for OpenLIT Stack using Docker Compose. Our setup includes two main components: `client`, both of which are orchestrated by a Docker Compose file named `dev-docker-compose.yml`.
+This guide covers the steps needed to set up the development environment for OpenLIT using Docker Compose. The setup is orchestrated by `dev-docker-compose.yml` and supports two modes:
+
+| Mode | What starts | Use case |
+|------|-------------|----------|
+| **Default** | ClickHouse + OpenLIT UI | Working on the OpenLIT dashboard/UI |
+| **Full** (`--profile full`) | + Controller + sample apps (OpenAI, Anthropic, Gemini, CrewAI) | Testing the full end-to-end setup |
 
 ## Running the Development Environment
 
-To run the development environment, follow these steps:
+1. Open a terminal and `cd` into the `src/` directory.
 
-1. Open a terminal and set context as this directory ()`/src`).
+2. **UI only** — build and start the OpenLIT dashboard:
 
-3. Use the following Docker Compose command to build and start the containers as specified in the `dev-docker-compose.yml` file:
-
-    ```
+    ```bash
     docker compose -f dev-docker-compose.yml up --build -d
     ```
 
-    The `--build` flag ensures that Docker builds images for our services (if needed) before starting the containers.
+3. **Full setup** — also build the controller and sample apps:
 
-4. Once the command completes, the `client` services should be running in containers, and you can access OpenLIT Client at 127.0.0.1:3000.
-
-5. To stop the services and remove the containers, you can use the following command:
-
-    ```
-    docker compose -f dev-docker-compose.yml down
+    ```bash
+    docker compose -f dev-docker-compose.yml --profile full up --build -d
     ```
 
-This command stops all running containers and removes them along with their networks. It's a clean way to shut down your development environment.
+4. Once the command completes, access the OpenLIT dashboard at http://127.0.0.1:3000.
+
+## What's included in full mode
+
+| Service | Description |
+|---------|-------------|
+| **ClickHouse** | Time-series database for telemetry |
+| **OpenLIT** | Dashboard + OTLP collector (port 3000) |
+| **Controller** | eBPF-based LLM service discovery (built from `openlit-controller/`) |
+| **openai-app** | Sample OpenAI chat app (from `examples/`) |
+| **anthropic-app** | Sample Anthropic chat app (from `examples/`) |
+| **gemini-app** | Sample Gemini chat app (from `examples/`) |
+| **crewai-app** | Sample CrewAI agent app (from `examples/`) |
+
+## Stopping the environment
+
+```bash
+# Stop and remove containers
+docker compose -f dev-docker-compose.yml --profile full down
+
+# Also remove stored data (ClickHouse + OpenLIT)
+docker compose -f dev-docker-compose.yml --profile full down -v
+```
+
+> **Note:** Include `--profile full` in the down command if you started with it, otherwise the profiled services won't be stopped.
