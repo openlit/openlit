@@ -10,6 +10,7 @@ import CreateChatMigration from "./create-chat-migration";
 import CreateProvidersMigration from "./create-providers-migration";
 import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
+import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Run base migrations in parallel
@@ -33,4 +34,6 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateProviderMetadataMigration(databaseConfigId),
 		DropLegacyOpengroundTablesMigration(databaseConfigId),
 	]);
+
+	await EncryptVaultValuesMigration(databaseConfigId);
 }

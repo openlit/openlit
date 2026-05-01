@@ -7,6 +7,7 @@ import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
 import { getCurrentOrganisation } from "./organisation";
+import { validateDatabaseHost } from "@/utils/validation";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -121,6 +122,15 @@ export const upsertDBConfig = async (
 	if (!dbConfig.host) throw new Error("No host provided");
 	if (!dbConfig.port) throw new Error("No port provided");
 	if (!dbConfig.database) throw new Error("No database provided");
+
+	const hostValidation = validateDatabaseHost(dbConfig.host);
+	if (!hostValidation.valid) {
+		throw new Error(hostValidation.error || "Invalid host");
+	}
+
+	if (typeof dbConfig.port !== "string") {
+		dbConfig.port = String(dbConfig.port);
+	}
 
 	const user = await getCurrentUser();
 
@@ -509,7 +519,7 @@ async function checkPermissionForDbAction(
 					"User doesn't have permission to edit the database config"
 				);
 			break;
-		case "EDIT":
+		case "SHARE":
 			if (!dbUserConfig.canShare)
 				throw new Error(
 					"User doesn't have permission to share the database config"

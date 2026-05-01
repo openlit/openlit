@@ -93,12 +93,30 @@ describe('getAllAPIKeys', () => {
 
 describe('deleteAPIKey', () => {
   it('marks API key as deleted', async () => {
-    (asaw as jest.Mock).mockResolvedValue([null, {}]);
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (prisma.aPIKeys.findFirst as jest.Mock).mockResolvedValue({ id: 'key-id-1' });
     (prisma.aPIKeys.update as jest.Mock).mockResolvedValue({});
     await deleteAPIKey('key-id-1');
+    expect(prisma.aPIKeys.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'key-id-1',
+        databaseConfigId: 'db-1',
+        isDeleted: false,
+      },
+    });
     expect(prisma.aPIKeys.update).toHaveBeenCalledWith({
       where: { id: 'key-id-1' },
       data: { isDeleted: true },
     });
+  });
+
+  it('rejects deleting an API key outside the current db config', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (prisma.aPIKeys.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await expect(deleteAPIKey('key-id-2')).rejects.toThrow('API key not found');
+    expect(prisma.aPIKeys.update).not.toHaveBeenCalled();
   });
 });

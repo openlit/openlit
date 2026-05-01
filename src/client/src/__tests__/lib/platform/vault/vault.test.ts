@@ -42,6 +42,11 @@ jest.mock('@/utils/json', () => ({
 jest.mock('@/lib/platform/api-keys', () => ({
   getAPIKeyInfo: jest.fn(),
 }));
+jest.mock('@/utils/crypto', () => ({
+  encryptValue: jest.fn((value: string) => `enc:v1:${value}`),
+  decryptValue: jest.fn((value: string) => value.replace(/^enc:v1:/, '')),
+  isEncrypted: jest.fn((value: string) => value.startsWith('enc:v1:')),
+}));
 
 import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
@@ -185,7 +190,7 @@ describe('upsertSecret', () => {
       const [insertParams, insertMode] = (dataCollector as jest.Mock).mock.calls[1];
       expect(insertMode).toBe('insert');
       expect(insertParams.table).toBe('openlit_vault');
-      expect(insertParams.values[0]).toMatchObject({ key: 'MY_SECRET', value: 'abc123' });
+      expect(insertParams.values[0]).toMatchObject({ key: 'MY_SECRET', value: 'enc:v1:abc123' });
       expect(result).toEqual({ data: {}, message: 'Secret saved!' });
     });
 
@@ -261,7 +266,7 @@ describe('upsertSecret', () => {
       (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
       await upsertSecret({ id: 'sid', value: 'new-value' });
       const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-      expect(query).toContain("value = 'new-value'");
+      expect(query).toContain("value = 'enc:v1:new-value'");
     });
 
     it('includes tags in UPDATE set clause when tags are provided', async () => {
