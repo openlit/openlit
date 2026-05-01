@@ -7,7 +7,7 @@ jest.mock('ai', () => ({
   jsonSchema: jest.fn((s: any) => s),
 }));
 
-import { getModelInstance, formatStreamError, buildConversationMessages } from '@/lib/platform/chat/stream';
+import { getModelInstance, formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
 
 // Mock external dependencies
 jest.mock('@ai-sdk/openai', () => ({
@@ -44,7 +44,16 @@ jest.mock('@/lib/platform/chat/tools', () => ({
   getChatTools: jest.fn(() => ({})),
 }));
 
-import { getConversationMessages } from '@/lib/platform/chat/conversation';
+import { streamText, generateText } from 'ai';
+import { dataCollector } from '@/lib/platform/common';
+import { addMessage, getConversationMessages, updateConversation } from '@/lib/platform/chat/conversation';
+import { extractSQLFromResponse, validateSQL } from '@/lib/platform/chat/sql-validator';
+
+async function* streamParts(parts: any[]) {
+  for (const part of parts) {
+    yield part;
+  }
+}
 
 describe('getModelInstance', () => {
   it('creates OpenAI model instance', () => {
@@ -162,5 +171,271 @@ describe('buildConversationMessages', () => {
     });
     const messages = await buildConversationMessages('c1', 'Same message');
     expect(messages).toHaveLength(1);
+  });
+});
+
+describe('streamChatMessage', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (addMessage as jest.Mock).mockResolvedValue({ data: 'msg-id' });
+    (updateConversation as jest.Mock).mockResolvedValue({ err: null });
+    (getConversationMessages as jest.Mock).mockResolvedValue({
+      data: [
+        { role: 'user', content: 'Earlier question' },
+        { role: 'user', content: 'Show traces' },
+      ],
+    });
+    (extractSQLFromResponse as jest.Mock).mockReturnValue([]);
+    (validateSQL as jest.Mock).mockReturnValue({ valid: false });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    (generateText as jest.Mock).mockResolvedValue({ text: 'Trace Summary' });
+  });
+
+  it('streams text, enriches SQL query results, and saves assistant stats', async () => {
+    const response = 'Here is SQL:\n```sql\nSELECT 1\n```';
+    (extractSQLFromResponse as jest.Mock).mockReturnValue(['SELECT 1']);
+    (validateSQL as jest.Mock).mockReturnValue({ valid: true, query: 'SELECT 1' });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ one: 1 }], err: null });
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: response,
+        usage: { inputTokens: 100, outputTokens: 20 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          { type: 'text-delta', text: 'Here is SQL:\n' },
+          { type: 'text-delta', text: '```sql\nSELECT 1\n```' },
+        ]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Show traces',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.streamError).toBeNull();
+    expect(result.responseText).toContain('```query-result');
+    expect(result.responseText).toContain('"one":1');
+    expect(dataCollector).toHaveBeenCalledWith({
+      query: 'SELECT 1',
+      enable_readonly: true,
+    });
+    expect(updateConversation).toHaveBeenCalledWith('c1', {
+      addPromptTokens: 100,
+      addCompletionTokens: 20,
+      addCost: 0.0006,
+      incrementMessages: true,
+    });
+    expect(addMessage).toHaveBeenLastCalledWith({
+      conversationId: 'c1',
+      role: 'assistant',
+      content: expect.stringContaining('```query-result'),
+      promptTokens: 100,
+      completionTokens: 20,
+      cost: 0.0006,
+    });
+  });
+
+  it('saves a sanitized error response when streaming fails before text arrives', async () => {
+    (streamText as jest.Mock).mockImplementation(({ onError }) => {
+      onError({ error: { statusCode: 401 } });
+      return { fullStream: streamParts([]) };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Hello',
+      provider: 'openai',
+      apiKey: 'bad-key',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toContain('Invalid API key');
+    expect(addMessage).toHaveBeenLastCalledWith({
+      conversationId: 'c1',
+      role: 'assistant',
+      content: expect.stringContaining('Invalid API key'),
+    });
+  });
+
+  it('uses tool-result fallback content when no text deltas are streamed', async () => {
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 0, outputTokens: 0 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          {
+            type: 'tool-result',
+            result: { success: true, message: 'Secret stored', details: 'Key: API_KEY' },
+          },
+        ]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Store secret',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toContain('**Secret stored**');
+    expect(result.responseText).toContain('Key: API_KEY');
+  });
+
+  it('generates a title for the first message using onFinish tool summaries', async () => {
+    (getConversationMessages as jest.Mock).mockResolvedValue({
+      data: [{ role: 'user', content: 'Create a rule' }],
+    });
+    (generateText as jest.Mock).mockResolvedValue({ text: '"Rule Created"' });
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 1, outputTokens: 1 },
+        steps: [
+          {
+            toolResults: [
+              { result: { success: true, message: 'Rule created', details: 'ID: rule-1' } },
+              { result: { success: false, error: 'secondary warning' } },
+            ],
+          },
+        ],
+      });
+      return {
+        fullStream: streamParts([
+          {
+            type: 'tool-result',
+            result: { success: true, message: 'Rule created', details: 'ID: rule-1' },
+          },
+        ]),
+      };
+    });
+
+    await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Create a rule',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('Rule created'),
+        maxOutputTokens: 20,
+      })
+    );
+    expect(updateConversation).toHaveBeenCalledWith('c1', {
+      title: 'Rule Created',
+    });
+  });
+
+  it('falls back to a truncated title when title generation fails', async () => {
+    const longPrompt = 'Explain the longest running trace in the current project';
+    (getConversationMessages as jest.Mock).mockResolvedValue({
+      data: [{ role: 'user', content: longPrompt }],
+    });
+    (generateText as jest.Mock).mockRejectedValue(new Error('title failed'));
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: 'Trace analysis',
+        usage: { inputTokens: 1, outputTokens: 1 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([{ type: 'text-delta', text: 'Trace analysis' }]),
+      };
+    });
+
+    await streamChatMessage({
+      conversationId: 'c1',
+      content: longPrompt,
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(updateConversation).toHaveBeenCalledWith('c1', {
+      title: `${longPrompt.slice(0, 50)}...`,
+    });
+  });
+
+  it('appends query results when a SQL block cannot be replaced exactly', async () => {
+    (extractSQLFromResponse as jest.Mock).mockReturnValue(['SELECT 1']);
+    (validateSQL as jest.Mock).mockReturnValue({ valid: true, query: 'SELECT 1' });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ one: 1 }], err: null });
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: 'Run SELECT 1',
+        usage: { inputTokens: 1, outputTokens: 1 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([{ type: 'text-delta', text: 'Run SELECT 1' }]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Run SQL',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toBe('Run SELECT 1\n\n```query-result\n[{"one":1}]\n```');
+  });
+
+  it('continues when SQL execution throws', async () => {
+    (extractSQLFromResponse as jest.Mock).mockReturnValue(['SELECT 1']);
+    (validateSQL as jest.Mock).mockReturnValue({ valid: true, query: 'SELECT 1' });
+    (dataCollector as jest.Mock).mockRejectedValue(new Error('db unavailable'));
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '```sql\nSELECT 1\n```',
+        usage: { inputTokens: 1, outputTokens: 1 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([{ type: 'text-delta', text: '```sql\nSELECT 1\n```' }]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Run SQL',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toBe('```sql\nSELECT 1\n```');
   });
 });
