@@ -124,11 +124,17 @@ describe('getSecrets', () => {
 	    expect(query).toContain("v.created_by = 'user@example.com'");
 	  });
 
-  it('adds WHERE clause when key filter is provided', async () => {
-    await getSecrets({ key: 'my-key' });
-    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-    expect(query).toContain("v.key = 'my-key'");
-  });
+	  it('adds WHERE clause when key filter is provided', async () => {
+	    await getSecrets({ key: 'my-key' });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = 'my-key'");
+	  });
+
+	  it('escapes backslashes before quotes in key filters', async () => {
+	    await getSecrets({ key: "a\\b'c" });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = 'a\\\\b\\'c'");
+	  });
 
   it('adds hasAny tags filter when tags are provided (covers lines 133-135)', async () => {
     await getSecrets({ tags: ['tagA', 'tagB'] });
@@ -263,12 +269,20 @@ describe('upsertSecret', () => {
 	      expect(result).toBe('Secret saved!');
 	    });
 
-    it('includes key in UPDATE set clause when key is provided', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
-      await upsertSecret({ id: 'sid', key: 'UPDATED_KEY' });
-      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-      expect(query).toContain("key = 'UPDATED_KEY'");
-    });
+	    it('includes key in UPDATE set clause when key is provided', async () => {
+	      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+	      await upsertSecret({ id: 'sid', key: 'UPDATED_KEY' });
+	      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	      expect(query).toContain("key = 'UPDATED_KEY'");
+	    });
+
+	    it('escapes backslashes before quotes in UPDATE set values', async () => {
+	      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+	      await upsertSecret({ id: "sid\\1", key: "a\\b'c" });
+	      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	      expect(query).toContain("key = 'a\\\\b\\'c'");
+	      expect(query).toContain("WHERE id = 'sid\\\\1'");
+	    });
 
     it('includes value in UPDATE set clause when value is provided', async () => {
       (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });

@@ -15,7 +15,7 @@ import { getAPIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
 
 function escapeClickHouseString(value: string) {
-	return value.replace(/'/g, "\\'");
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function getOwnerEmailCondition(user: { email?: string | null }, alias?: string) {

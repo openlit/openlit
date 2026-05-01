@@ -8,6 +8,10 @@ import { consoleLog } from "@/utils/log";
 
 const MIGRATION_ID = "encrypt-vault-values";
 
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 export default async function EncryptVaultValuesMigration(
 	databaseConfigId?: string
 ) {
@@ -63,11 +67,12 @@ export default async function EncryptVaultValuesMigration(
 		}
 
 		for (const secret of plaintextSecrets) {
-			const encrypted = encryptValue(secret.value).replace(/'/g, "\\'");
+			const encrypted = escapeClickHouseString(encryptValue(secret.value));
+			const secretId = escapeClickHouseString(secret.id);
 			const updateQuery = `
 				ALTER TABLE ${OPENLIT_VAULT_TABLE_NAME}
 				UPDATE value = '${encrypted}'
-				WHERE id = '${secret.id}'
+				WHERE id = '${secretId}'
 			`;
 
 			const { err: updateErr } = await dataCollector(
