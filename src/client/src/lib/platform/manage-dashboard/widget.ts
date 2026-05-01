@@ -155,6 +155,65 @@ export function deleteWidget(id: string) {
 	return dataCollector({ query }, "exec");
 }
 
+function validateQuery(query: string): { valid: boolean; error?: string } {
+	const trimmed = query.trim();
+
+	if (!/^SELECT\b/i.test(trimmed)) {
+		return { valid: false, error: "Only SELECT queries are allowed" };
+	}
+
+	return validateSafeQueryContent(trimmed);
+}
+
+function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
+	if (/\bsystem\./i.test(value)) {
+		return { valid: false, error: "Access to system tables is not allowed" };
+	}
+
+	if (/\binformation_schema\./i.test(value)) {
+		return {
+			valid: false,
+			error: "Access to information_schema tables is not allowed",
+		};
+	}
+
+	const dangerousFunctions =
+		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
+	if (dangerousFunctions.test(value)) {
+		return { valid: false, error: "Query contains disallowed functions" };
+	}
+
+	const dangerousKeywords =
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
+	if (dangerousKeywords.test(value)) {
+		return { valid: false, error: "Query contains disallowed operations" };
+	}
+
+	return { valid: true };
+}
+
+function validateFilterValues(value: unknown): { valid: boolean; error?: string } {
+	if (typeof value === "string") {
+		return validateSafeQueryContent(value);
+	}
+
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const validation = validateFilterValues(item);
+			if (!validation.valid) return validation;
+		}
+	}
+
+	if (value && typeof value === "object") {
+		for (const item of Object.values(value)) {
+			const validation = validateFilterValues(item);
+			if (!validation.valid) return validation;
+		}
+	}
+
+	return { valid: true };
+}
+
 export async function runWidgetQuery(
 	widgetId: string,
 	{
@@ -175,12 +234,22 @@ export async function runWidgetQuery(
 		? userQuery
 		: widget.config?.query || "";
 
+	const filterValidation = validateFilterValues(filter);
+	if (!filterValidation.valid) {
+		return { err: filterValidation.error || "Invalid filter" };
+	}
+
 	const exactQuery = mustache.render(query, { filter });
+
+	const validation = validateQuery(exactQuery);
+	if (!validation.valid) {
+		return { err: validation.error || "Invalid query" };
+	}
 
 	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
 
 	if (err) {
-		return { err: err || getMessage().WIDGET_RUN_FAILED };
+		return { err: "Query execution failed" };
 	}
 
 	return { data };

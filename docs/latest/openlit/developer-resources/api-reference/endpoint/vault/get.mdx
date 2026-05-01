@@ -2,3 +2,21 @@
 title: 'Get Secret(s)'
 openapi: 'POST /api/vault/get-secrets'
 ---
+
+## Cross-origin browser requests
+
+`POST /api/vault/get-secrets` is an API-key authenticated endpoint for retrieving Vault secrets. Browser requests from a different origin are blocked unless the calling origin is explicitly allowed.
+
+To allow a browser application hosted on another domain, configure the OpenLIT deployment with a comma-separated origin allowlist:
+
+```bash
+OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
+```
+
+`OPENLIT_ALLOWED_ORIGINS` is also supported as a backward-compatible alias. `NEXTAUTH_URL` is automatically treated as an allowed same-site origin.
+
+Use complete origins such as `https://app.example.com`. Do not configure wildcard origins for this endpoint.
+
+<Note>
+  Server-to-server SDK or REST requests usually do not need CORS configuration because CORS is enforced by browsers.
+</Note>

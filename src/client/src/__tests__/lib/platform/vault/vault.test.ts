@@ -42,6 +42,11 @@ jest.mock('@/utils/json', () => ({
 jest.mock('@/lib/platform/api-keys', () => ({
   getAPIKeyInfo: jest.fn(),
 }));
+jest.mock('@/utils/crypto', () => ({
+  encryptValue: jest.fn((value: string) => `enc:v1:${value}`),
+  decryptValue: jest.fn((value: string) => value.replace(/^enc:v1:/, '')),
+  isEncrypted: jest.fn((value: string) => value.startsWith('enc:v1:')),
+}));
 
 import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
@@ -90,11 +95,12 @@ describe('deleteSecret', () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: null });
     const result = await deleteSecret('secret-id-1');
     expect(dataCollector).toHaveBeenCalledTimes(1);
-    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-    expect(query).toContain('DELETE FROM');
-    expect(query).toContain('secret-id-1');
-    expect(result[0]).toBeUndefined(); // no error
-  });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain('DELETE FROM');
+	    expect(query).toContain('secret-id-1');
+	    expect(query).toContain("created_by = 'user@example.com'");
+	    expect(result[0]).toBeUndefined(); // no error
+	  });
 
   it('throws when user is not authenticated', async () => {
     (getCurrentUser as jest.Mock).mockResolvedValue(null);
@@ -112,16 +118,23 @@ describe('getSecrets', () => {
   it('calls dataCollector with SELECT query', async () => {
     await getSecrets({});
     expect(dataCollector).toHaveBeenCalledTimes(1);
-    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-    expect(query).toContain('SELECT');
-    expect(query).toContain('openlit_vault');
-  });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain('SELECT');
+	    expect(query).toContain('openlit_vault');
+	    expect(query).toContain("v.created_by = 'user@example.com'");
+	  });
 
-  it('adds WHERE clause when key filter is provided', async () => {
-    await getSecrets({ key: 'my-key' });
-    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-    expect(query).toContain("v.key = 'my-key'");
-  });
+	  it('adds WHERE clause when key filter is provided', async () => {
+	    await getSecrets({ key: 'my-key' });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = 'my-key'");
+	  });
+
+	  it('escapes backslashes before quotes in key filters', async () => {
+	    await getSecrets({ key: "a\\b'c" });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = 'a\\\\b\\'c'");
+	  });
 
   it('adds hasAny tags filter when tags are provided (covers lines 133-135)', async () => {
     await getSecrets({ tags: ['tagA', 'tagB'] });
@@ -148,11 +161,17 @@ describe('getSecrets', () => {
     await expect(getSecrets({ key: 'my-key' })).rejects.toThrow('Unauthorized');
   });
 
-  it('bypasses auth check when databaseConfigId is provided', async () => {
-    await expect(getSecrets({ databaseConfigId: 'db-1' })).resolves.toBeDefined();
-    expect(getCurrentUser).not.toHaveBeenCalled();
-  });
-});
+	  it('bypasses auth check when databaseConfigId is provided', async () => {
+	    await expect(getSecrets({ databaseConfigId: 'db-1' })).resolves.toBeDefined();
+	    expect(getCurrentUser).not.toHaveBeenCalled();
+	  });
+
+	  it('does not add session ownership filters for databaseConfigId API-key reads', async () => {
+	    await getSecrets({ databaseConfigId: 'db-1' });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).not.toContain('created_by');
+	  });
+	});
 
 describe('getSecretById', () => {
   it('calls dataCollector with id filter', async () => {
@@ -185,7 +204,7 @@ describe('upsertSecret', () => {
       const [insertParams, insertMode] = (dataCollector as jest.Mock).mock.calls[1];
       expect(insertMode).toBe('insert');
       expect(insertParams.table).toBe('openlit_vault');
-      expect(insertParams.values[0]).toMatchObject({ key: 'MY_SECRET', value: 'abc123' });
+      expect(insertParams.values[0]).toMatchObject({ key: 'MY_SECRET', value: 'enc:v1:abc123' });
       expect(result).toEqual({ data: {}, message: 'Secret saved!' });
     });
 
@@ -243,25 +262,33 @@ describe('upsertSecret', () => {
       expect(dataCollector).toHaveBeenCalledTimes(1);
       const [{ query }, mode] = (dataCollector as jest.Mock).mock.calls[0];
       expect(mode).toBe('exec');
-      expect(query).toContain('ALTER TABLE');
-      expect(query).toContain('openlit_vault');
-      expect(query).toContain("WHERE id = 'secret-id-1'");
-      expect(query).toContain("updated_by = 'user@example.com'");
-      expect(result).toBe('Secret saved!');
-    });
+	      expect(query).toContain('ALTER TABLE');
+	      expect(query).toContain('openlit_vault');
+	      expect(query).toContain("WHERE id = 'secret-id-1' AND created_by = 'user@example.com'");
+	      expect(query).toContain("updated_by = 'user@example.com'");
+	      expect(result).toBe('Secret saved!');
+	    });
 
-    it('includes key in UPDATE set clause when key is provided', async () => {
-      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
-      await upsertSecret({ id: 'sid', key: 'UPDATED_KEY' });
-      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-      expect(query).toContain("key = 'UPDATED_KEY'");
-    });
+	    it('includes key in UPDATE set clause when key is provided', async () => {
+	      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+	      await upsertSecret({ id: 'sid', key: 'UPDATED_KEY' });
+	      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	      expect(query).toContain("key = 'UPDATED_KEY'");
+	    });
+
+	    it('escapes backslashes before quotes in UPDATE set values', async () => {
+	      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+	      await upsertSecret({ id: "sid\\1", key: "a\\b'c" });
+	      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	      expect(query).toContain("key = 'a\\\\b\\'c'");
+	      expect(query).toContain("WHERE id = 'sid\\\\1'");
+	    });
 
     it('includes value in UPDATE set clause when value is provided', async () => {
       (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
       await upsertSecret({ id: 'sid', value: 'new-value' });
       const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-      expect(query).toContain("value = 'new-value'");
+      expect(query).toContain("value = 'enc:v1:new-value'");
     });
 
     it('includes tags in UPDATE set clause when tags are provided', async () => {

@@ -1,4 +1,9 @@
-import { unescapeString, convertToTitleCase } from '@/utils/string';
+import {
+  unescapeString,
+  convertToTitleCase,
+  escapeHtml,
+  escapeEmailForDisplay,
+} from '@/utils/string';
 
 describe('unescapeString', () => {
   it('replaces \\n escape sequences with actual newlines', () => {
@@ -49,5 +54,25 @@ describe('convertToTitleCase', () => {
 
   it('converts multi-word snake_case to Title Case', () => {
     expect(convertToTitleCase('open_telemetry_sdk')).toBe('Open Telemetry Sdk');
+  });
+});
+
+describe('escapeHtml', () => {
+  it('escapes HTML-sensitive characters', () => {
+    expect(escapeHtml(`<script>alert('x')</script>&"`)).toBe(
+      '&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&amp;&quot;'
+    );
+  });
+});
+
+describe('escapeEmailForDisplay', () => {
+  it('escapes unsafe email display text', () => {
+    expect(escapeEmailForDisplay('"><img src=x onerror=alert(1)>@test.com')).toBe(
+      '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;@test.com'
+    );
+  });
+
+  it('returns an empty string for missing email', () => {
+    expect(escapeEmailForDisplay(null)).toBe('');
   });
 });

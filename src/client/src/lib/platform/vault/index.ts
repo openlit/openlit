@@ -12,20 +12,57 @@ import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo } from "../api-keys";
+import { decryptValue, encryptValue } from "@/utils/crypto";
 
-export async function getSecretByName({ key }: { key: string }) {
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function getOwnerEmailCondition(user: { email?: string | null }, alias?: string) {
+	const column = alias ? `${alias}.created_by` : "created_by";
+	return `${column} = '${escapeClickHouseString(user.email || "")}'`;
+}
+
+function decryptSecrets<T extends Record<string, any>>(secrets: T[]): T[] {
+	return secrets.map((secret) => ({
+		...secret,
+		value:
+			typeof secret.value === "string"
+				? decryptValue(secret.value)
+				: secret.value,
+	}));
+}
+
+export async function getSecretByName({
+	key,
+	createdBy,
+}: {
+	key: string;
+	createdBy?: string;
+}) {
+	const conditions = [
+		`key='${escapeClickHouseString(Sanitizer.sanitizeValue(key))}'`,
+		createdBy
+			? `created_by = '${escapeClickHouseString(Sanitizer.sanitizeValue(createdBy))}'`
+			: "",
+	].filter(Boolean);
+
 	const query = `
-		SELECT * FROM ${OPENLIT_VAULT_TABLE_NAME} WHERE key='${Sanitizer.sanitizeValue(
-		key
-	)}';
-  `;
+			SELECT * FROM ${OPENLIT_VAULT_TABLE_NAME} WHERE ${conditions.join(" AND ")};
+	  `;
 
 	const { data }: { data?: any } = await dataCollector({ query });
 	return data?.[0];
 }
 
-export async function checkNameValidity({ key }: { key: string }) {
-	const data = await getSecretByName({ key });
+export async function checkNameValidity({
+	key,
+	createdBy,
+}: {
+	key: string;
+	createdBy?: string;
+}) {
+	const data = await getSecretByName({ key, createdBy });
 	return { isValid: !data?.id };
 }
 
@@ -39,23 +76,41 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 	const verifiedSecretObj = verifySecretInput(secretInput);
 	throwIfError(!verifiedSecretObj.success, verifiedSecretObj.err!);
 
+	const encryptedValue = secretInput.value
+		? escapeClickHouseString(encryptValue(secretInput.value))
+		: undefined;
+	const ownerCondition = getOwnerEmailCondition(user!);
+	const ownerEmail = escapeClickHouseString(user!.email || "");
+
 	if (!secretInputParams.id) {
-		const { isValid } = await checkNameValidity({ key: secretInput.key || "" });
+		const { isValid } = await checkNameValidity({
+			key: secretInput.key || "",
+			createdBy: user!.email || "",
+		});
 		throwIfError(!isValid, getMessage().SECRET_NAME_TAKEN);
 	}
 
 	if (secretInputParams.id) {
+		const secretId = escapeClickHouseString(
+			Sanitizer.sanitizeValue(secretInput.id || "")
+		);
 		const updateValues = [
-			`updated_by = '${user!.email}'`,
-			secretInput.key && "key = '" + secretInput.key + "'",
-			secretInput.value && "value = '" + secretInput.value + "'",
-			secretInput.tags && "tags = '" + jsonStringify(secretInput.tags) + "'",
+			`updated_by = '${ownerEmail}'`,
+			secretInput.key &&
+				"key = '" +
+					escapeClickHouseString(Sanitizer.sanitizeValue(secretInput.key)) +
+					"'",
+			encryptedValue && "value = '" + encryptedValue + "'",
+			secretInput.tags &&
+				"tags = '" +
+					escapeClickHouseString(jsonStringify(secretInput.tags)) +
+					"'",
 		];
 		const updateQuery = `
-      ALTER TABLE ${OPENLIT_VAULT_TABLE_NAME}
-      UPDATE 
-        ${updateValues.filter((e) => e).join(" , ")}
-      WHERE id = '${secretInput.id}'`;
+	      ALTER TABLE ${OPENLIT_VAULT_TABLE_NAME}
+	      UPDATE 
+	        ${updateValues.filter((e) => e).join(" , ")}
+	      WHERE id = '${secretId}' AND ${ownerCondition}`;
 		const { err, data } = await dataCollector(
 			{
 				query: updateQuery,
@@ -77,7 +132,7 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 				values: [
 					{
 						key: secretInput.key,
-						value: secretInput.value,
+						value: encryptedValue || "",
 						tags: secretInput.tags,
 						created_by: user!.email,
 					},
@@ -103,10 +158,11 @@ export async function deleteSecret(secretIdParam: string) {
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const secretId = Sanitizer.sanitizeValue(secretIdParam);
+	const ownerCondition = getOwnerEmailCondition(user!);
 
 	const { err } = await dataCollector(
 		{
-			query: `DELETE FROM ${OPENLIT_VAULT_TABLE_NAME} WHERE id = '${secretId}';`,
+			query: `DELETE FROM ${OPENLIT_VAULT_TABLE_NAME} WHERE id = '${escapeClickHouseString(secretId)}' AND ${ownerCondition};`,
 		},
 		"exec"
 	);
@@ -122,16 +178,24 @@ export async function getSecrets(
 	filters: SecretGetFilters,
 	{ selectValue }: { selectValue?: boolean } = {}
 ) {
+	let user: Awaited<ReturnType<typeof getCurrentUser>> | null = null;
 	if (!filters.databaseConfigId) {
-		const user = await getCurrentUser();
+		user = await getCurrentUser();
 		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	}
 
 	const filteredConditions: string[] = [
-		filters.key ? "v.key = '" + filters.key + "'" : "",
+		user ? getOwnerEmailCondition(user, "v") : "",
+		filters.key
+			? "v.key = '" +
+				escapeClickHouseString(Sanitizer.sanitizeValue(filters.key)) +
+				"'"
+			: "",
 		filters.tags && filters.tags.length > 0
 			? `hasAny(JSONExtractArrayRaw(v.tags), ['"` +
-			  filters.tags.join(`"' , '"`) +
+			  filters.tags
+					.map((tag) => escapeClickHouseString(Sanitizer.sanitizeValue(tag)))
+					.join(`"' , '"`) +
 			  `"'])`
 			: "",
 	].filter((e) => !!e);
@@ -148,7 +212,16 @@ export async function getSecrets(
 			v.created_at DESC;
 	`;
 
-	return await dataCollector({ query }, "query", filters.databaseConfigId);
+	const result = await dataCollector({ query }, "query", filters.databaseConfigId);
+
+	if (selectValue && result.data && Array.isArray(result.data)) {
+		return {
+			...result,
+			data: decryptSecrets(result.data as any[]),
+		};
+	}
+
+	return result;
 }
 
 export async function getSecretsFromDatabaseId(
@@ -188,5 +261,14 @@ export async function getSecretById(
 		!!excludeVaultValue ? "EXCEPT value" : ""
 	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${id}';`;
 
-	return await dataCollector({ query }, "query", databaseConfigId);
+	const result = await dataCollector({ query }, "query", databaseConfigId);
+
+	if (!excludeVaultValue && result.data && Array.isArray(result.data)) {
+		return {
+			...result,
+			data: decryptSecrets(result.data as any[]),
+		};
+	}
+
+	return result;
 }

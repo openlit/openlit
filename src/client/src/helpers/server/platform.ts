@@ -9,6 +9,10 @@ import {
 import { getTraceMappingKeyFullPath } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
 
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 export const validateMetricsRequestType = {
 	// Request
 	REQUEST_PER_TIME: "REQUEST_PER_TIME",
@@ -254,12 +258,12 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.customFilters?.length) {
 				filter.selectedConfig.customFilters.forEach(({ attributeType, key, value }) => {
 					if (key && value) {
-						const safeValue = value.replace(/'/g, "''");
+						const safeValue = escapeClickHouseString(value);
 						if (attributeType === "SpanAttributes") {
-							const safeKey = key.replace(/'/g, "''");
+							const safeKey = escapeClickHouseString(key);
 							whereArray.push(`SpanAttributes['${safeKey}'] = '${safeValue}'`);
 						} else if (attributeType === "ResourceAttributes") {
-							const safeKey = key.replace(/'/g, "''");
+							const safeKey = escapeClickHouseString(key);
 							whereArray.push(`ResourceAttributes['${safeKey}'] = '${safeValue}'`);
 						} else if (attributeType === "Field") {
 							// Direct column — key must be an identifier, strip anything non-alphanumeric/underscore

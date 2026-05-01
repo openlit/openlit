@@ -32,16 +32,20 @@ const ALLOWED_FIELD_GROUP_BY = new Set([
 	"StatusMessage",
 ]);
 
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 export function getGroupByExpression(groupBy: string): string | null {
 	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
 	const sep = groupBy.indexOf(":");
 	if (sep === -1) {
-		const sanitized = groupBy.replace(/'/g, "''").trim();
+		const sanitized = escapeClickHouseString(groupBy).trim();
 		if (!sanitized) return null;
 		return `SpanAttributes['${sanitized}']`;
 	}
 	const attrType = groupBy.slice(0, sep);
-	const key = groupBy.slice(sep + 1).replace(/'/g, "''").trim();
+	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
 	if (!key) return null;
 	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
 	if (attrType === "Field") {

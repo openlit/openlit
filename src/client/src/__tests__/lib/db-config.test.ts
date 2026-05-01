@@ -73,7 +73,7 @@ const mockOrg = { id: 'org1', name: 'Test Org' };
 const mockDbConfig = {
   id: 'db1',
   name: 'Test DB',
-  host: 'localhost',
+  host: 'clickhouse.example.com',
   port: '8123',
   username: 'admin',
   password: 'pass',
@@ -173,7 +173,7 @@ describe('upsertDBConfig', () => {
   const validConfig = {
     name: 'My DB',
     username: 'admin',
-    host: 'localhost',
+    host: 'clickhouse.example.com',
     port: '8123',
     database: 'default',
   };
@@ -412,6 +412,14 @@ describe('shareDBConfig', () => {
       shareArray: [{ email: 'new@example.com' }],
     });
     expect(result[0][1]).toEqual({ success: false });
+  });
+
+  it('throws when user lacks share permission', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { canShare: false }]);
+
+    await expect(
+      shareDBConfig({ id: 'db1', shareArray: [{ email: 'new@example.com' }] })
+    ).rejects.toThrow("User doesn't have permission to share the database config");
   });
 });
 
