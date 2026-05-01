@@ -87,6 +87,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
 import getMessage from "@/constants/messages";
+import { escapeEmailForDisplay } from "@/utils/string";
 
 interface Member {
 	id: string;
@@ -132,6 +133,7 @@ export default function OrganisationSettingsPage() {
 	const currentUserMember = members.find(m => m.id === currentUserId);
 	const currentUserRole = currentUserMember?.role;
 	const hasAdminPermissions = currentUserRole === 'owner' || currentUserRole === 'admin';
+	const displayEmail = (email: string) => escapeEmailForDisplay(email);
 
 	useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.SETTINGS_ORGANISATION_PAGE_VISITED);
@@ -479,11 +481,11 @@ export default function OrganisationSettingsPage() {
 											<TableCell className="py-2 pl-2">
 												<div>
 													<p className="font-medium">
-														{member.name || member.email}
+														{member.name || displayEmail(member.email)}
 													</p>
 													{member.name && (
 														<p className="text-xs text-muted-foreground">
-															{member.email}
+															{displayEmail(member.email)}
 														</p>
 													)}
 												</div>
@@ -616,7 +618,9 @@ export default function OrganisationSettingsPage() {
 								<TableBody>
 									{orgPendingInvites.map((invite) => (
 										<TableRow key={invite.id} className="text-sm">
-											<TableCell className="py-2 pl-2">{invite.email}</TableCell>
+											<TableCell className="py-2 pl-2">
+												{displayEmail(invite.email)}
+											</TableCell>
 											<TableCell className="py-2 text-xs text-muted-foreground">
 												{new Date(invite.invitedAt).toLocaleDateString()}
 											</TableCell>

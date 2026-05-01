@@ -116,11 +116,53 @@ export function validateEmail(email: string): {
 		return { valid: false, error: "Email is required" };
 	}
 
-	if (email.length > 254) {
+	const trimmed = email.trim();
+
+	if (trimmed.length > 254) {
 		return { valid: false, error: "Email is too long" };
 	}
 
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+	if (/[<>"'`&]/.test(trimmed)) {
+		return { valid: false, error: "Email contains invalid characters" };
+	}
+
+	const parts = trimmed.split("@");
+	if (parts.length !== 2) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	const [localPart, domain] = parts;
+
+	if (
+		localPart.length === 0 ||
+		localPart.length > 64 ||
+		localPart.startsWith(".") ||
+		localPart.endsWith(".") ||
+		localPart.includes("..")
+	) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	if (!/^[A-Za-z0-9.!#$%*+/=?^_{|}~-]+$/.test(localPart)) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	if (domain.length === 0 || domain.length > 253 || domain.includes("..")) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	const labels = domain.split(".");
+	if (labels.length < 2) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	const labelRegex = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
+	if (!labels.every((label) => labelRegex.test(label))) {
+		return { valid: false, error: "Invalid email format" };
+	}
+
+	const tld = labels[labels.length - 1];
+	if (!/^[A-Za-z]{2,63}$/.test(tld)) {
 		return { valid: false, error: "Invalid email format" };
 	}
 

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { useEffect } from "react";
 import getMessage from "@/constants/messages";
+import { escapeEmailForDisplay } from "@/utils/string";
 
 const DROPDOWN_MENU_ITEM_CLASS = "flex w-full text-xs gap-2 hover:bg-primary/10 dark:hover:bg-primary/10 px-2 py-1.5";
 const DROPDOWN_MENU_ICON_CLASS = "w-4 h-4";
@@ -31,6 +32,7 @@ export default function UserActions() {
 	}, [user]);
 
 	if (!user) return null;
+	const displayEmail = escapeEmailForDisplay(user.email);
 
 	return (
 		<DropdownMenu>
@@ -38,11 +40,11 @@ export default function UserActions() {
 				<Button variant="outline" className="flex gap-2 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal w-full">
 					<Avatar className={"h-5 w-5 rounded-lg"}>
 						<AvatarImage className="rounded-full" src={user!.image || ""} alt={user!.name || ""} />
-						<AvatarFallback className="rounded-lg bg-transparent dark:bg-transparent">{user!.name?.substring(0, 2) || user!.email?.substring(0, 2)}</AvatarFallback>
+						<AvatarFallback className="rounded-lg bg-transparent dark:bg-transparent">{user!.name?.substring(0, 2) || displayEmail.substring(0, 2)}</AvatarFallback>
 					</Avatar>
 					<div className="grid flex-1 text-left text-xs leading-tight group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap">
 						<span className="truncate font-medium">{user!.name}</span>
-						<span className="truncate text-xs">{user!.email}</span>
+						<span className="truncate text-xs">{displayEmail}</span>
 					</div>
 					<ChevronsUpDown className={`size-4 block group-data-[state=close]:hidden shrink-0 self-center`} />
 				</Button>
@@ -57,11 +59,11 @@ export default function UserActions() {
 					<div className="flex items-center gap-2 px-1 text-left text-sm">
 						<Avatar className="h-8 w-8 rounded-lg">
 							<AvatarImage src={user!.image || ""} alt={user!.name || ""} />
-							<AvatarFallback className="rounded-lg">{user!.name?.substring(0, 2) || user!.email?.substring(0, 2)}</AvatarFallback>
+							<AvatarFallback className="rounded-lg">{user!.name?.substring(0, 2) || displayEmail.substring(0, 2)}</AvatarFallback>
 						</Avatar>
 						<div className="grid flex-1 text-left text-xs leading-tight text-ellipsis overflow-hidden whitespace-nowrap">
 							<span className="truncate font-medium">{user!.name}</span>
-							<span className="truncate text-xs">{user!.email}</span>
+							<span className="truncate text-xs">{displayEmail}</span>
 						</div>
 					</div>
 				</DropdownMenuLabel>

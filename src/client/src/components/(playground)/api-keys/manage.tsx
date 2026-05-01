@@ -13,6 +13,7 @@ import Generate from "./generate";
 import { ApiKey } from "@/types/api-key";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
+import { escapeEmailForDisplay } from "@/utils/string";
 
 const columns: Columns<string, ApiKey> = {
 	name: {
@@ -32,7 +33,7 @@ const columns: Columns<string, ApiKey> = {
 	createdBy: {
 		header: () => "Created By",
 		cell: ({ row }) => {
-			return row.createdByUser.email;
+			return escapeEmailForDisplay(row.createdByUser.email);
 		},
 	},
 	createdAt: {

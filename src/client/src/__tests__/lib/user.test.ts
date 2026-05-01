@@ -134,6 +134,16 @@ describe('createNewUser', () => {
       'Cannot create a user!'
     );
   });
+
+  it('rejects HTML/script-bearing registration email before storing it', async () => {
+    await expect(
+      createNewUser({
+        email: '"><img src=x onerror=alert(1)>@test.com',
+        password: 'Pass1234',
+      })
+    ).rejects.toThrow('Email contains invalid characters');
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('updateUser', () => {

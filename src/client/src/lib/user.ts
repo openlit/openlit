@@ -75,7 +75,9 @@ export const createNewUser = async (
 	},
 	options?: { selectPassword?: boolean }
 ) => {
-	const emailValidation = validateEmail(email);
+	const normalizedEmail = email.toLowerCase().trim();
+
+	const emailValidation = validateEmail(normalizedEmail);
 	if (!emailValidation.valid) {
 		throw new Error(emailValidation.error || "Invalid email");
 	}
@@ -85,9 +87,6 @@ export const createNewUser = async (
 		throw new Error(passwordValidation.error || "Password too weak");
 	}
 
-	// Normalize email to lowercase for case-insensitive comparison
-	const normalizedEmail = email.toLowerCase().trim();
-	
 	const [, existingUser] = await asaw(getUserByEmail({ email: normalizedEmail }));
 	if (existingUser) throw new Error("User already exists! Please signin!");
 
