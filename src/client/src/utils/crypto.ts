@@ -13,12 +13,11 @@ const ENCRYPTED_PREFIX = "enc:v1:";
 function getEncryptionKey(): Uint8Array {
 	const secret =
 		process.env.OPENLIT_VAULT_ENCRYPTION_KEY ||
-		process.env.NEXTAUTH_SECRET ||
-		"";
+		process.env.NEXTAUTH_SECRET;
 
 	if (!secret) {
-		console.warn(
-			"WARNING: No encryption key configured. Set OPENLIT_VAULT_ENCRYPTION_KEY or NEXTAUTH_SECRET."
+		throw new Error(
+			"No encryption key configured. Set OPENLIT_VAULT_ENCRYPTION_KEY or NEXTAUTH_SECRET."
 		);
 	}
 

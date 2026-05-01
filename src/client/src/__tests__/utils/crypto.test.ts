@@ -43,16 +43,12 @@ describe("vault crypto utilities", () => {
 		expect(decryptValue(encrypted)).toBe("fallback-secret");
 	});
 
-	it("warns when no encryption key is configured", () => {
+	it("throws when no encryption key is configured", () => {
 		delete process.env.OPENLIT_VAULT_ENCRYPTION_KEY;
 		delete process.env.NEXTAUTH_SECRET;
-		const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
 
-		const encrypted = encryptValue("weakly-keyed-secret");
-
-		expect(encrypted).toMatch(/^enc:v1:/);
-		expect(warnSpy).toHaveBeenCalledWith(
-			"WARNING: No encryption key configured. Set OPENLIT_VAULT_ENCRYPTION_KEY or NEXTAUTH_SECRET."
+		expect(() => encryptValue("weakly-keyed-secret")).toThrow(
+			"No encryption key configured. Set OPENLIT_VAULT_ENCRYPTION_KEY or NEXTAUTH_SECRET."
 		);
 	});
 
