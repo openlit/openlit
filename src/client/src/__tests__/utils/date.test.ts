@@ -1,4 +1,4 @@
-import { formatDate } from '@/utils/date';
+import { formatBrowserDateTime, formatDate } from '@/utils/date';
 
 describe('formatDate', () => {
   const isoDate = '2024-06-15T10:30:00Z';
@@ -32,5 +32,36 @@ describe('formatDate', () => {
   it('handles year-only date string', () => {
     const result = formatDate('2020-01-01');
     expect(result).toMatch(/2020/);
+  });
+
+  it('returns fallback for invalid or empty date strings', () => {
+    expect(formatDate('not-a-date')).toBe('-');
+    expect(formatDate('')).toBe('-');
+  });
+
+  it('normalizes date strings that use a space separator', () => {
+    const result = formatDate('2024-06-15 10:30:00', { time: true });
+
+    expect(result).toMatch(/Jun/i);
+    expect(result).toMatch(/2024/);
+    expect(result).toMatch(/:/);
+  });
+});
+
+describe('formatBrowserDateTime', () => {
+  it('formats valid browser date time strings', () => {
+    const result = formatBrowserDateTime('2024-06-15T10:30:00Z');
+
+    expect(result).toMatch(/2024/);
+  });
+
+  it('uses the default fallback for missing or invalid dates', () => {
+    expect(formatBrowserDateTime(null)).toBe('-');
+    expect(formatBrowserDateTime(undefined)).toBe('-');
+    expect(formatBrowserDateTime('not-a-date')).toBe('-');
+  });
+
+  it('uses a custom fallback when provided', () => {
+    expect(formatBrowserDateTime('', 'No date')).toBe('No date');
   });
 });

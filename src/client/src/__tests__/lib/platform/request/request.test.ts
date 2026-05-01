@@ -4,6 +4,7 @@ jest.mock('@/lib/platform/common', () => ({
 }));
 
 import {
+  getGroupByExpression,
   getRequestPerTime,
   getTotalRequests,
   getAverageRequestDuration,
@@ -187,6 +188,27 @@ describe('getHeirarchyViaSpanId', () => {
     expect(dataCollector).toHaveBeenCalledTimes(2);
     expect(result.err).toBeTruthy();
   });
+
+  it('returns error when trace id is missing from the span row', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [{}], err: null });
+
+    const result = await getHeirarchyViaSpanId('span-1');
+
+    expect(result).toEqual({ err: 'TraceId not found for span', record: {} });
+  });
+
+  it('returns error when hierarchy cannot be built', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })
+      .mockResolvedValueOnce({
+        data: [{ SpanId: 'orphan', ParentSpanId: 'missing-parent', TraceId: 't1' }],
+        err: null,
+      });
+
+    const result = await getHeirarchyViaSpanId('orphan');
+
+    expect(result).toEqual({ err: 'Error building hierarchy', record: {} });
+  });
 });
 
 describe('getRequestExist', () => {
@@ -244,6 +266,18 @@ describe('getAttributeKeys', () => {
 });
 
 describe('getGroupedRequests', () => {
+  it('returns predefined and attribute group expressions', () => {
+    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.system']");
+    expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
+    expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
+    expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(
+      "ResourceAttributes['service.namespace']"
+    );
+    expect(getGroupByExpression('')).toBeNull();
+    expect(getGroupByExpression('Field:NotAllowed')).toBeNull();
+  });
+
   it('returns an error and skips querying for an invalid Field groupBy', async () => {
     const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
 
