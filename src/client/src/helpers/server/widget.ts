@@ -47,5 +47,5 @@ export function sanitizeWidget(widget: Widget) {
 }
 
 export function escapeSingleQuotes(input: string) {
-	return input.replace(/'([^']*)'/g, "''$1''");
+	return input.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }

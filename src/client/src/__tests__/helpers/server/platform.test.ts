@@ -246,18 +246,31 @@ describe('getFilterWhereCondition', () => {
     expect(result).toContain("'production'");
   });
 
-  it('adds SpanAttributes custom filter (covers lines 250-252)', () => {
-    const result = getFilterWhereCondition(
-      {
-        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
-        selectedConfig: {
+	  it('adds SpanAttributes custom filter (covers lines 250-252)', () => {
+	    const result = getFilterWhereCondition(
+	      {
+	        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+	        selectedConfig: {
           customFilters: [{ attributeType: 'SpanAttributes', key: 'gen_ai.system', value: 'openai' }],
         },
       } as any,
       true
-    );
-    expect(result).toContain("SpanAttributes['gen_ai.system'] = 'openai'");
-  });
+	    );
+	    expect(result).toContain("SpanAttributes['gen_ai.system'] = 'openai'");
+	  });
+
+	  it('escapes backslashes before quotes in custom attribute filters', () => {
+	    const result = getFilterWhereCondition(
+	      {
+	        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+	        selectedConfig: {
+	          customFilters: [{ attributeType: 'SpanAttributes', key: "gen\\ai.system", value: "open\\ai's" }],
+	        },
+	      } as any,
+	      true
+	    );
+	    expect(result).toContain("SpanAttributes['gen\\\\ai.system'] = 'open\\\\ai\\'s'");
+	  });
 
   it('adds ResourceAttributes custom filter (covers lines 253-255)', () => {
     const result = getFilterWhereCondition(
@@ -325,7 +338,7 @@ describe('getFilterWhereCondition', () => {
       } as any,
       true
     );
-    expect(result).toContain("= 'it''s'");
+    expect(result).toContain("= 'it\\'s'");
   });
 
   it('adds notOrEmpty conditions', () => {

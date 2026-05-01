@@ -27,7 +27,9 @@ jest.mock("@/helpers/server/widget", () => ({
 				: widget?.config,
 	})),
 	sanitizeWidget: jest.fn((widget: any) => widget),
-	escapeSingleQuotes: jest.fn((value: string) => value.replace(/'/g, "\\'")),
+	escapeSingleQuotes: jest.fn((value: string) =>
+		value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+	),
 }));
 
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";

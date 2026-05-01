@@ -261,4 +261,13 @@ describe('getGroupedRequests', () => {
     const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
     expect(query).toContain('SpanName AS group_value');
   });
+
+  it('escapes backslashes before quotes in attribute groupBy values', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
+
+    await getGroupedRequests(baseParams as any, "SpanAttributes:gen\\ai.system's");
+
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("SpanAttributes['gen\\\\ai.system\\'s'] AS group_value");
+  });
 });
