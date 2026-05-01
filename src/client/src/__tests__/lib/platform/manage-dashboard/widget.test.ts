@@ -18,22 +18,26 @@ jest.mock("@/utils/sanitizer", () => ({
 		sanitizeValue: jest.fn((value: string) => value),
 	},
 }));
-jest.mock("@/helpers/server/widget", () => ({
-	normalizeWidgetToClient: jest.fn((widget: any) => ({
-		...widget,
-		config:
-			typeof widget?.config === "string"
-				? JSON.parse(widget.config)
-				: widget?.config,
-	})),
-	sanitizeWidget: jest.fn((widget: any) => widget),
-	escapeSingleQuotes: jest.fn((value: string) =>
-		value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
-	),
-}));
+jest.mock("@/helpers/server/widget", () => {
+	const escapeClickHouseTestString = (value: string) =>
+		JSON.stringify(value).slice(1, -1).split("'").join("\\'");
+
+	return {
+		normalizeWidgetToClient: jest.fn((widget: any) => ({
+			...widget,
+			config:
+				typeof widget?.config === "string"
+					? JSON.parse(widget.config)
+					: widget?.config,
+		})),
+		sanitizeWidget: jest.fn((widget: any) => widget),
+		escapeSingleQuotes: jest.fn(escapeClickHouseTestString),
+	};
+});
 
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
 import { dataCollector } from "@/lib/platform/common";
+import { escapeSingleQuotes } from "@/helpers/server/widget";
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -135,5 +139,9 @@ describe("runWidgetQuery", () => {
 		expect(dataCollector).toHaveBeenLastCalledWith(
 			{ query: "SELECT count() FROM otel_traces", enable_readonly: true }
 		);
+	});
+
+	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
+		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
 	});
 });
