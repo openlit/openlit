@@ -69,6 +69,53 @@ describe("runWidgetQuery", () => {
 		expect(dataCollector).toHaveBeenCalledTimes(1);
 	});
 
+	it('rejects system table names injected through Mustache filter values', async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT * FROM {{filter.tbl}}",
+			filter: { tbl: "system.users" } as any,
+		});
+
+		expect(result).toEqual({ err: "Access to system tables is not allowed" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects information_schema table access", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT * FROM information_schema.schemata",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({
+			err: "Access to information_schema tables is not allowed",
+		});
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("validates the rendered query after Mustache expansion", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT * FROM {{filter.prefix}}{{filter.suffix}}",
+			filter: { prefix: "syst", suffix: "em.users" } as any,
+		});
+
+		expect(result).toEqual({ err: "Access to system tables is not allowed" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
 	it("runs allowed SELECT user queries in readonly mode", async () => {
 		(dataCollector as jest.Mock)
 			.mockResolvedValueOnce({
