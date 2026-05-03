@@ -355,7 +355,8 @@
                   "latest/sdk/destinations/siglens",
                   "latest/sdk/destinations/oodle",
                   "latest/sdk/destinations/langfuse",
-                  "latest/sdk/destinations/murnitur"
+                  "latest/sdk/destinations/murnitur",
+                  "latest/sdk/destinations/victoriametrics-stack"
                 ]
               }
             ]
