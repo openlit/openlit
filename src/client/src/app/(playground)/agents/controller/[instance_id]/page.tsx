@@ -412,63 +412,64 @@ function ControllerConfigEditor({
 					</div>
 				</ConfigSection>
 
-				<ConfigSection title={getMessage().AGENTS_CONFIG_EXPORT_SETTINGS}>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div>
-							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().AGENTS_CONFIG_OTLP_ENDPOINT}
-							</label>
-							<input
-								type="text"
-								value={config.export.otlp_endpoint}
-								onChange={(e) =>
-									setConfig((prev) => ({
-										...prev,
-										export: {
-											...prev.export,
-											otlp_endpoint: e.target.value,
-										},
-									}))
-								}
-								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-								placeholder={getMessage().AGENTS_CONFIG_OTLP_ENDPOINT_PLACEHOLDER}
-							/>
-						</div>
-						<div>
-							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
-								{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL}
-							</label>
-							<select
-								value={config.export.otlp_protocol}
-								onChange={(e) =>
-									setConfig((prev) => ({
-										...prev,
-										export: {
-											...prev.export,
-											otlp_protocol: e.target.value,
-										},
-									}))
-								}
-								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
-							>
-								<option value="http/protobuf">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_HTTP}</option>
-								<option value="grpc">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_GRPC}</option>
-							</select>
-						</div>
+			<ConfigSection title={getMessage().AGENTS_CONFIG_EXPORT_SETTINGS}>
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+							{getMessage().AGENTS_CONFIG_OTLP_ENDPOINT}
+						</label>
+						<input
+							type="text"
+							value={config.export.otlp_endpoint}
+							onChange={(e) =>
+								setConfig((prev) => ({
+									...prev,
+									export: {
+										...prev.export,
+										otlp_endpoint: e.target.value,
+									},
+								}))
+							}
+							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+							placeholder={getMessage().AGENTS_CONFIG_OTLP_ENDPOINT_PLACEHOLDER}
+						/>
 					</div>
-					<HeadersEditor
-						headers={config.export.otlp_headers}
-						onChange={(headers) =>
-							setConfig((prev) => ({
-								...prev,
-								export: {
-									...prev.export,
-									otlp_headers: headers,
-								},
-							}))
-						}
-					/>
-				</ConfigSection>
+					<div>
+						<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+							{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL}
+						</label>
+						<select
+							value={config.export.otlp_protocol}
+							onChange={(e) =>
+								setConfig((prev) => ({
+									...prev,
+									export: {
+										...prev.export,
+										otlp_protocol: e.target.value,
+									},
+								}))
+							}
+							className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+						>
+							<option value="http/protobuf">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_HTTP}</option>
+							<option value="grpc">{getMessage().AGENTS_CONFIG_OTLP_PROTOCOL_GRPC}</option>
+						</select>
+					</div>
+				</div>
+				<PerSignalEndpoints config={config} setConfig={setConfig} />
+				<HeadersEditor
+					headers={config.export.otlp_headers}
+					onChange={(headers) =>
+						setConfig((prev) => ({
+							...prev,
+							export: {
+								...prev.export,
+								otlp_headers: headers,
+							},
+						}))
+					}
+				/>
+			</ConfigSection>
 
 				<ConfigSection title={getMessage().AGENTS_CONFIG_DISCOVERY}>
 					<div className="flex flex-col gap-3">
@@ -535,6 +536,90 @@ function ControllerConfigEditor({
 					</div>
 				</ConfigSection>
 			</div>
+		</div>
+	);
+}
+
+function PerSignalEndpoints({
+	config,
+	setConfig,
+}: {
+	config: ControllerConfig;
+	setConfig: React.Dispatch<React.SetStateAction<ControllerConfig>>;
+}) {
+	const [expanded, setExpanded] = useState(
+		!!(
+			config.export.otlp_traces_endpoint ||
+			config.export.otlp_metrics_endpoint ||
+			config.export.otlp_logs_endpoint
+		)
+	);
+
+	const fields: {
+		key: "otlp_traces_endpoint" | "otlp_metrics_endpoint" | "otlp_logs_endpoint";
+		label: string;
+		placeholder: string;
+	}[] = [
+		{
+			key: "otlp_traces_endpoint",
+			label: "Traces Endpoint",
+			placeholder: "e.g. http://victoria-traces:4318",
+		},
+		{
+			key: "otlp_metrics_endpoint",
+			label: "Metrics Endpoint",
+			placeholder: "e.g. http://victoria-metrics:4318",
+		},
+		{
+			key: "otlp_logs_endpoint",
+			label: "Logs Endpoint",
+			placeholder: "e.g. http://victoria-logs:4318",
+		},
+	];
+
+	return (
+		<div className="mt-3">
+			<button
+				type="button"
+				onClick={() => setExpanded(!expanded)}
+				className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-300 transition-colors"
+			>
+				{expanded ? (
+					<ChevronDown className="w-3 h-3" />
+				) : (
+					<ChevronRight className="w-3 h-3" />
+				)}
+				Per-signal endpoint overrides
+			</button>
+			{expanded && (
+				<div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+					{fields.map(({ key, label, placeholder }) => (
+						<div key={key}>
+							<label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">
+								{label}
+							</label>
+							<input
+								type="text"
+								value={config.export[key] || ""}
+								onChange={(e) =>
+									setConfig((prev) => ({
+										...prev,
+										export: {
+											...prev.export,
+											[key]: e.target.value,
+										},
+									}))
+								}
+								className="w-full px-3 py-2 text-sm border dark:border-stone-700 rounded-md bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-400"
+								placeholder={placeholder}
+							/>
+						</div>
+					))}
+					<p className="col-span-full text-xs text-stone-400">
+						Leave empty to use the main OTLP endpoint for all signals.
+					</p>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -711,6 +796,9 @@ function mergeConfig(
 				saved.export?.otlp_headers || defaults.export.otlp_headers,
 			otlp_protocol:
 				saved.export?.otlp_protocol || defaults.export.otlp_protocol,
+			otlp_traces_endpoint: saved.export?.otlp_traces_endpoint || "",
+			otlp_metrics_endpoint: saved.export?.otlp_metrics_endpoint || "",
+			otlp_logs_endpoint: saved.export?.otlp_logs_endpoint || "",
 		},
 		discovery: {
 			auto_discover:

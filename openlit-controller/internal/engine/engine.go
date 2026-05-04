@@ -14,6 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// ExportConfig holds the OTLP export settings that can be updated at runtime
+// from the Agents UI configuration editor.
+type ExportConfig struct {
+	OTLPEndpoint        string
+	OTLPProtocol        string
+	OTLPHeaders         map[string]string
+	OTLPTracesEndpoint  string
+	OTLPMetricsEndpoint string
+	OTLPLogsEndpoint    string
+}
+
 // instrumentPattern represents a service pattern for OBI discovery.
 type instrumentPattern struct {
 	ServiceID      string
@@ -37,10 +48,10 @@ type Engine struct {
 	logger   *zap.Logger
 	running  bool
 
-	scanner      *scanner.Scanner
-	obi          *OBIManager
-	otlpEndpoint string
-	procRoot     string
+	scanner    *scanner.Scanner
+	obi        *OBIManager
+	exportCfg  ExportConfig
+	procRoot   string
 	deployMode   config.DeployMode
 	container    *ContainerEnricher
 	environment  string
@@ -73,16 +84,19 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 	)
 
 	return &Engine{
-		services:     make(map[string]*openlit.ServiceState),
-		patterns:     make(map[string]instrumentPattern),
-		logger:       logger,
-		obi:          NewOBIManager(obiBinaryPath, logger),
-		otlpEndpoint: otlpEndpoint,
-		procRoot:     procRoot,
-		deployMode:   mode,
-		container:    container,
-		environment:  environment,
-		sdkVersion:   sdkVersion,
+		services: make(map[string]*openlit.ServiceState),
+		patterns: make(map[string]instrumentPattern),
+		logger:   logger,
+		obi:      NewOBIManager(obiBinaryPath, logger),
+		exportCfg: ExportConfig{
+			OTLPEndpoint: otlpEndpoint,
+			OTLPProtocol: "http/protobuf",
+		},
+		procRoot:   procRoot,
+		deployMode: mode,
+		container:  container,
+		environment: environment,
+		sdkVersion:  sdkVersion,
 	}
 }
 
@@ -224,7 +238,7 @@ func (e *Engine) rebuildOBI() error {
 		entries = append(entries, entry)
 	}
 	cfg := BuildInstrumentConfig(
-		e.otlpEndpoint,
+		e.exportCfg,
 		entries,
 		e.enabledProvidersForPatterns(),
 		e.deployMode,
@@ -396,6 +410,50 @@ func (e *Engine) ControllerCapabilities() []string {
 	}
 
 	return capabilities
+}
+
+// UpdateExportConfig replaces the runtime export settings. If OBI-relevant
+// fields (endpoint, protocol) changed and OBI is running, it triggers a
+// rebuildOBI so the new config takes effect immediately.
+func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	obiChanged := cfg.OTLPEndpoint != e.exportCfg.OTLPEndpoint ||
+		cfg.OTLPProtocol != e.exportCfg.OTLPProtocol ||
+		cfg.OTLPTracesEndpoint != e.exportCfg.OTLPTracesEndpoint
+
+	e.exportCfg = cfg
+	e.logger.Info("export config updated",
+		zap.String("otlp_endpoint", cfg.OTLPEndpoint),
+		zap.String("otlp_protocol", cfg.OTLPProtocol),
+		zap.String("otlp_traces_endpoint", cfg.OTLPTracesEndpoint),
+		zap.String("otlp_metrics_endpoint", cfg.OTLPMetricsEndpoint),
+		zap.String("otlp_logs_endpoint", cfg.OTLPLogsEndpoint),
+	)
+
+	if obiChanged && e.obi.IsRunning() {
+		if err := e.rebuildOBI(); err != nil {
+			e.logger.Error("failed to rebuild OBI after export config update", zap.Error(err))
+		}
+	}
+}
+
+// GetExportConfig returns a snapshot of the current export configuration.
+// The returned value is a deep copy safe for use outside the engine lock.
+func (e *Engine) GetExportConfig() ExportConfig {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	cfg := e.exportCfg
+	if cfg.OTLPHeaders != nil {
+		cloned := make(map[string]string, len(cfg.OTLPHeaders))
+		for k, v := range cfg.OTLPHeaders {
+			cloned[k] = v
+		}
+		cfg.OTLPHeaders = cloned
+	}
+	return cfg
 }
 
 func (e *Engine) pruneStaleServices(ctx context.Context) {

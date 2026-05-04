@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
@@ -77,8 +79,24 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	if payload.DuplicatePolicy == "" {
 		payload.DuplicatePolicy = defaultDuplicatePolicy
 	}
+	expCfg := e.GetExportConfig()
 	if payload.OTLPEndpoint == "" {
-		payload.OTLPEndpoint = e.otlpEndpoint
+		payload.OTLPEndpoint = expCfg.OTLPEndpoint
+	}
+	if payload.OTLPProtocol == "" {
+		payload.OTLPProtocol = expCfg.OTLPProtocol
+	}
+	if payload.OTLPHeaders == nil && len(expCfg.OTLPHeaders) > 0 {
+		payload.OTLPHeaders = expCfg.OTLPHeaders
+	}
+	if payload.OTLPTracesEndpoint == "" {
+		payload.OTLPTracesEndpoint = expCfg.OTLPTracesEndpoint
+	}
+	if payload.OTLPMetricsEndpoint == "" {
+		payload.OTLPMetricsEndpoint = expCfg.OTLPMetricsEndpoint
+	}
+	if payload.OTLPLogsEndpoint == "" {
+		payload.OTLPLogsEndpoint = expCfg.OTLPLogsEndpoint
 	}
 	if payload.SDKVersion == "" {
 		payload.SDKVersion = e.sdkVersion
@@ -931,6 +949,21 @@ func applyPythonSDKContainerSettings(
 	env = upsertEnvValue(env, "OTEL_SERVICE_NAME", svc.ServiceName)
 	env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
 	env = upsertEnvValue(env, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
+	if payload.OTLPProtocol != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_PROTOCOL", payload.OTLPProtocol)
+	}
+	if payload.OTLPTracesEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", payload.OTLPTracesEndpoint)
+	}
+	if payload.OTLPMetricsEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", payload.OTLPMetricsEndpoint)
+	}
+	if payload.OTLPLogsEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", payload.OTLPLogsEndpoint)
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_HEADERS", formatOTLPHeaders(payload.OTLPHeaders))
+	}
 	env = upsertEnvValue(
 		env,
 		"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -956,6 +989,11 @@ func removePythonSDKContainerSettings(container map[string]any) {
 	for _, key := range []string{
 		"OPENLIT_CONTROLLER_MODE",
 		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_PROTOCOL",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_HEADERS",
 		"OTEL_DEPLOYMENT_ENVIRONMENT",
 		"OPENLIT_DISABLED_INSTRUMENTORS",
 	} {
@@ -970,6 +1008,28 @@ func removePythonSDKContainerSettings(container map[string]any) {
 		openlitInstrumentationVolume,
 	)
 	container["volumeMounts"] = objectSliceToAny(volumeMounts)
+}
+
+// formatOTLPHeaders converts a map of headers to the format specified by the
+// OTel spec for OTEL_EXPORTER_OTLP_HEADERS: "key1=value1,key2=value2".
+// Values containing ',' or '=' are percent-encoded per the spec. Keys are
+// sorted for deterministic output.
+func formatOTLPHeaders(headers map[string]string) string {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v := headers[k]
+		if strings.ContainsAny(v, ",=") {
+			v = url.QueryEscape(v)
+		}
+		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, ",")
 }
 
 func pythonSDKConfigHash(svc *openlit.ServiceState, payload openlit.PythonSDKActionPayload) string {
