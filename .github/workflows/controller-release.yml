@@ -16,7 +16,7 @@ jobs:
   # ── 1. Unit tests ──────────────────────────────────────────────────────────
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +48,7 @@ jobs:
   build-binaries:
     name: Build binaries (linux/${{ matrix.goarch }})
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -110,7 +110,7 @@ jobs:
   release:
     name: GitHub Release
     needs: build-binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -142,7 +142,7 @@ jobs:
   docker:
     name: Docker
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
