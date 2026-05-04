@@ -28,7 +28,7 @@ export default async function CreateControllerDesiredStatesTableMigration(
 			cluster_id,
 			argMax(desired_instrumentation_status, updated_at) AS latest_instrumentation_status,
 			argMax(desired_agent_status, updated_at) AS latest_agent_status,
-			max(updated_at) AS latest_updated_at
+			max(updated_at)
 		FROM ${CONTROLLER_SERVICES_TABLE}
 		FINAL
 		WHERE workload_key != ''
