@@ -35,7 +35,7 @@ export default async function GeneralizeControllerDesiredStatesMigration(
 			'instrumentation' AS feature,
 			argMax(desired_instrumentation_status, updated_at) AS desired_status,
 			'{}' AS config,
-			max(updated_at) AS updated_at
+			max(updated_at)
 		FROM openlit_controller_desired_states
 		FINAL
 		WHERE workload_key != ''
@@ -52,7 +52,7 @@ export default async function GeneralizeControllerDesiredStatesMigration(
 			'agent' AS feature,
 			argMax(desired_agent_status, updated_at) AS desired_status,
 			'{}' AS config,
-			max(updated_at) AS updated_at
+			max(updated_at)
 		FROM openlit_controller_desired_states
 		FINAL
 		WHERE workload_key != ''
