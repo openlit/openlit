@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
@@ -1008,11 +1010,23 @@ func removePythonSDKContainerSettings(container map[string]any) {
 	container["volumeMounts"] = objectSliceToAny(volumeMounts)
 }
 
-// formatOTLPHeaders converts a map of headers to the W3C Baggage-style format
-// used by OTEL_EXPORTER_OTLP_HEADERS: "key1=value1,key2=value2".
+// formatOTLPHeaders converts a map of headers to the format specified by the
+// OTel spec for OTEL_EXPORTER_OTLP_HEADERS: "key1=value1,key2=value2".
+// Values containing ',' or '=' are percent-encoded per the spec. Keys are
+// sorted for deterministic output.
 func formatOTLPHeaders(headers map[string]string) string {
-	parts := make([]string, 0, len(headers))
-	for k, v := range headers {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v := headers[k]
+		if strings.ContainsAny(v, ",=") {
+			v = url.QueryEscape(v)
+		}
 		parts = append(parts, k+"="+v)
 	}
 	return strings.Join(parts, ",")

@@ -268,19 +268,19 @@ func doPoll(
 		if exportRaw, ok := resp.Config["export"]; ok {
 			if exportMap, ok := exportRaw.(map[string]interface{}); ok {
 				newCfg := eng.GetExportConfig()
-				if v, ok := exportMap["otlp_endpoint"].(string); ok && v != "" {
+				if v, ok := exportMap["otlp_endpoint"].(string); ok {
 					newCfg.OTLPEndpoint = v
 				}
-				if v, ok := exportMap["otlp_protocol"].(string); ok && v != "" {
+				if v, ok := exportMap["otlp_protocol"].(string); ok {
 					newCfg.OTLPProtocol = v
 				}
-				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok && v != "" {
+				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok {
 					newCfg.OTLPTracesEndpoint = v
 				}
-				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok && v != "" {
+				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok {
 					newCfg.OTLPMetricsEndpoint = v
 				}
-				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok && v != "" {
+				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok {
 					newCfg.OTLPLogsEndpoint = v
 				}
 				if headersRaw, ok := exportMap["otlp_headers"]; ok {

@@ -440,10 +440,20 @@ func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
 }
 
 // GetExportConfig returns a snapshot of the current export configuration.
+// The returned value is a deep copy safe for use outside the engine lock.
 func (e *Engine) GetExportConfig() ExportConfig {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return e.exportCfg
+
+	cfg := e.exportCfg
+	if cfg.OTLPHeaders != nil {
+		cloned := make(map[string]string, len(cfg.OTLPHeaders))
+		for k, v := range cfg.OTLPHeaders {
+			cloned[k] = v
+		}
+		cfg.OTLPHeaders = cloned
+	}
+	return cfg
 }
 
 func (e *Engine) pruneStaleServices(ctx context.Context) {
