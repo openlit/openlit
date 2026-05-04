@@ -12,10 +12,8 @@ import AddControllerResourceAttrsMigration from "./add-controller-resource-attrs
 import AddControllerWorkloadKeyMigration from "./add-controller-workload-key-migration";
 import AddControllerSDKActionsMigration from "./add-controller-sdk-actions-migration";
 import AddControllerTTLMigration from "./add-controller-ttl-migration";
-import AddControllerDesiredStateMigration from "./add-controller-desired-state-migration";
 import AddControllerClusterIdMigration from "./add-controller-cluster-id-migration";
 import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
-import CreateControllerDesiredStatesTableMigration from "./create-controller-desired-states-migration";
 import GeneralizeControllerDesiredStatesMigration from "./generalize-controller-desired-states-migration";
 import CreateChatMigration from "./create-chat-migration";
 import CreateProvidersMigration from "./create-providers-migration";
@@ -46,10 +44,8 @@ export default async function migrations(databaseConfigId?: string) {
 	await AddControllerWorkloadKeyMigration(databaseConfigId);
 	await AddControllerSDKActionsMigration(databaseConfigId);
 	await AddControllerTTLMigration(databaseConfigId);
-	await AddControllerDesiredStateMigration(databaseConfigId);
 	await AddControllerClusterIdMigration(databaseConfigId);
 	await UpdateControllerActionsTTLMigration(databaseConfigId);
-	await CreateControllerDesiredStatesTableMigration(databaseConfigId);
 	await GeneralizeControllerDesiredStatesMigration(databaseConfigId);
 	await AddControllerSkippingIndexesMigration(databaseConfigId);
 
