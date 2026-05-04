@@ -137,26 +137,6 @@ async function phaseUpsertServices(
 		return reportedServices;
 	}
 
-	const workloadKeys = body.services
-		.map((s: any) => s.workload_key)
-		.filter(Boolean) as string[];
-
-	const desiredRes = await getFeatureDesiredStates(
-		workloadKeys,
-		clusterId,
-		["instrumentation", "agent"],
-		dbId
-	);
-	const desiredMap = new Map<string, { instr: string; agent: string }>();
-	for (const d of desiredRes.data || []) {
-		if (!desiredMap.has(d.workload_key)) {
-			desiredMap.set(d.workload_key, { instr: "none", agent: "none" });
-		}
-		const entry = desiredMap.get(d.workload_key)!;
-		if (d.feature === "instrumentation") entry.instr = d.desired_status;
-		if (d.feature === "agent") entry.agent = d.desired_status;
-	}
-
 	const rows = body.services.map((svc: any) => {
 		if (!svc.workload_key) {
 			throw new Error(
@@ -165,7 +145,6 @@ async function phaseUpsertServices(
 		}
 		const ns = svc.namespace || "";
 		const name = svc.service_name || "";
-		const desired = desiredMap.get(svc.workload_key);
 
 		reportedServices.push({
 			workload_key: svc.workload_key,
@@ -194,12 +173,6 @@ async function phaseUpsertServices(
 			exe_path: svc.exe_path || "",
 			instrumentation_status:
 				svc.instrumentation_status || "discovered",
-			desired_instrumentation_status: (desired?.instr || "none") as
-				| "none"
-				| "instrumented",
-			desired_agent_status: (desired?.agent || "none") as
-				| "none"
-				| "enabled",
 			resource_attributes: svc.resource_attributes || {},
 			first_seen: svc.first_seen || now,
 			last_seen: now,
