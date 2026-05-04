@@ -51,6 +51,9 @@ export interface ExportConfig {
 	otlp_endpoint: string;
 	otlp_headers: Record<string, string>;
 	otlp_protocol: string;
+	otlp_traces_endpoint?: string;
+	otlp_metrics_endpoint?: string;
+	otlp_logs_endpoint?: string;
 }
 
 export interface DiscoveryTarget {
@@ -160,6 +163,11 @@ export interface PythonSDKActionPayload {
 	duplicate_policy: PythonSDKDuplicatePolicy;
 	observability_scope: PythonSDKObservabilityScope;
 	otlp_endpoint?: string | null;
+	otlp_protocol?: string;
+	otlp_headers?: Record<string, string>;
+	otlp_traces_endpoint?: string;
+	otlp_metrics_endpoint?: string;
+	otlp_logs_endpoint?: string;
 	sdk_version?: string;
 	enable_http_instrumentation?: boolean;
 	resource_attributes?: Record<string, string>;

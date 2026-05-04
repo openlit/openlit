@@ -2,6 +2,7 @@ import {
 	getServiceById,
 	getControllerInstanceById,
 	getControllerIdsForWorkload,
+	getControllerConfig,
 	queueAction,
 	updateFeatureDesiredState,
 } from "@/lib/platform/controller";
@@ -223,6 +224,32 @@ const agentHandler: FeatureHandler = {
 				targets.push(ctx.service.controller_instance_id);
 			}
 
+			let exportOverrides: Partial<PythonSDKActionPayload> = {};
+			if (enabling) {
+				const cfgRes = await getControllerConfig(
+					ctx.service.controller_instance_id,
+					dbConfigId
+				);
+				const raw = cfgRes.data?.[0]?.config;
+				if (raw) {
+					try {
+						const savedCfg = JSON.parse(raw) as import("@/types/controller").ControllerConfig;
+						const exp = savedCfg.export;
+						if (exp) {
+							if (exp.otlp_endpoint) exportOverrides.otlp_endpoint = exp.otlp_endpoint;
+							if (exp.otlp_protocol) exportOverrides.otlp_protocol = exp.otlp_protocol;
+							if (exp.otlp_headers && Object.keys(exp.otlp_headers).length > 0)
+								exportOverrides.otlp_headers = exp.otlp_headers;
+							if (exp.otlp_traces_endpoint) exportOverrides.otlp_traces_endpoint = exp.otlp_traces_endpoint;
+							if (exp.otlp_metrics_endpoint) exportOverrides.otlp_metrics_endpoint = exp.otlp_metrics_endpoint;
+							if (exp.otlp_logs_endpoint) exportOverrides.otlp_logs_endpoint = exp.otlp_logs_endpoint;
+						}
+					} catch {
+						// Config parse failure is non-fatal; the controller will use its defaults.
+					}
+				}
+			}
+
 			const actionPayload: PythonSDKActionPayload = {
 				target_runtime: "python",
 				instrumentation_profile: "controller_managed",
@@ -230,8 +257,9 @@ const agentHandler: FeatureHandler = {
 				observability_scope: "agent",
 				...(enabling
 					? {
+							...exportOverrides,
 							otlp_endpoint:
-								(payload?.otlp_endpoint as string) || null,
+								(payload?.otlp_endpoint as string) || exportOverrides.otlp_endpoint || null,
 							enable_http_instrumentation:
 								(payload?.enable_http_instrumentation as boolean) ??
 								true,

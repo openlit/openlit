@@ -48,13 +48,18 @@ type PendingAction struct {
 }
 
 type PythonSDKActionPayload struct {
-	TargetRuntime          string `json:"target_runtime"`
-	InstrumentationProfile string `json:"instrumentation_profile"`
-	DuplicatePolicy        string `json:"duplicate_policy"`
-	ObservabilityScope     string `json:"observability_scope"`
-	OTLPEndpoint           string `json:"otlp_endpoint,omitempty"`
-	SDKVersion             string `json:"sdk_version,omitempty"`
-	Environment            string `json:"environment,omitempty"`
+	TargetRuntime          string            `json:"target_runtime"`
+	InstrumentationProfile string            `json:"instrumentation_profile"`
+	DuplicatePolicy        string            `json:"duplicate_policy"`
+	ObservabilityScope     string            `json:"observability_scope"`
+	OTLPEndpoint           string            `json:"otlp_endpoint,omitempty"`
+	OTLPProtocol           string            `json:"otlp_protocol,omitempty"`
+	OTLPHeaders            map[string]string `json:"otlp_headers,omitempty"`
+	OTLPTracesEndpoint     string            `json:"otlp_traces_endpoint,omitempty"`
+	OTLPMetricsEndpoint    string            `json:"otlp_metrics_endpoint,omitempty"`
+	OTLPLogsEndpoint       string            `json:"otlp_logs_endpoint,omitempty"`
+	SDKVersion             string            `json:"sdk_version,omitempty"`
+	Environment            string            `json:"environment,omitempty"`
 }
 
 type ActionResult struct {

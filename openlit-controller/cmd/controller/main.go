@@ -264,6 +264,39 @@ func doPoll(
 				pr.pollInterval = time.Duration(seconds) * time.Second
 			}
 		}
+
+		if exportRaw, ok := resp.Config["export"]; ok {
+			if exportMap, ok := exportRaw.(map[string]interface{}); ok {
+				newCfg := eng.GetExportConfig()
+				if v, ok := exportMap["otlp_endpoint"].(string); ok && v != "" {
+					newCfg.OTLPEndpoint = v
+				}
+				if v, ok := exportMap["otlp_protocol"].(string); ok && v != "" {
+					newCfg.OTLPProtocol = v
+				}
+				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok && v != "" {
+					newCfg.OTLPTracesEndpoint = v
+				}
+				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok && v != "" {
+					newCfg.OTLPMetricsEndpoint = v
+				}
+				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok && v != "" {
+					newCfg.OTLPLogsEndpoint = v
+				}
+				if headersRaw, ok := exportMap["otlp_headers"]; ok {
+					if headersMap, ok := headersRaw.(map[string]interface{}); ok {
+						headers := make(map[string]string, len(headersMap))
+						for k, v := range headersMap {
+							if sv, ok := v.(string); ok {
+								headers[k] = sv
+							}
+						}
+						newCfg.OTLPHeaders = headers
+					}
+				}
+				eng.UpdateExportConfig(newCfg)
+			}
+		}
 	}
 
 	return pr

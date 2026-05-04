@@ -307,6 +307,21 @@ func buildDockerContainerCreatePayload(
 		envValues = upsertEnvString(envValues, "OTEL_SERVICE_NAME", svc.ServiceName)
 		envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
 		envValues = upsertEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
+		if payload.OTLPProtocol != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_PROTOCOL", payload.OTLPProtocol)
+		}
+		if payload.OTLPTracesEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", payload.OTLPTracesEndpoint)
+		}
+		if payload.OTLPMetricsEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", payload.OTLPMetricsEndpoint)
+		}
+		if payload.OTLPLogsEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", payload.OTLPLogsEndpoint)
+		}
+		if len(payload.OTLPHeaders) > 0 {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_HEADERS", formatOTLPHeaders(payload.OTLPHeaders))
+		}
 		envValues = upsertEnvString(
 			envValues,
 			"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -321,6 +336,11 @@ func buildDockerContainerCreatePayload(
 	} else {
 		envValues = removeEnvString(envValues, "OPENLIT_CONTROLLER_MODE")
 		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_PROTOCOL")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_HEADERS")
 		envValues = removeEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT")
 		envValues = removeEnvString(envValues, "OPENLIT_DISABLED_INSTRUMENTORS")
 		envValues = rewritePythonPathWithoutManagedSDK(envValues)
@@ -389,12 +409,22 @@ func (e *Engine) enablePythonSDKLinux(
 	}
 
 	env := readEnviron(e.procRoot, svc.PID)
+	sdPayload := systemdOTLPPayload{
+		OTLPEndpoint:        payload.OTLPEndpoint,
+		OTLPProtocol:        payload.OTLPProtocol,
+		OTLPTracesEndpoint:  payload.OTLPTracesEndpoint,
+		OTLPMetricsEndpoint: payload.OTLPMetricsEndpoint,
+		OTLPLogsEndpoint:    payload.OTLPLogsEndpoint,
+		Environment:         payload.Environment,
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		sdPayload.OTLPHeaders = formatOTLPHeaders(payload.OTLPHeaders)
+	}
 	dropIn := buildSystemdDropInContent(
 		unit,
 		sdkRoot,
 		svc.ServiceName,
-		payload.OTLPEndpoint,
-		payload.Environment,
+		sdPayload,
 		strings.Join(controllerManagedDisabledInstrumentors, ","),
 		env["PYTHONPATH"],
 		nextHash,
@@ -775,6 +805,21 @@ func (e *Engine) enablePythonSDKBareProcess(
 		"OTEL_EXPORTER_OTLP_ENDPOINT":    payload.OTLPEndpoint,
 		"OTEL_DEPLOYMENT_ENVIRONMENT":    payload.Environment,
 		"OPENLIT_DISABLED_INSTRUMENTORS": strings.Join(controllerManagedDisabledInstrumentors, ","),
+	}
+	if payload.OTLPProtocol != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_PROTOCOL"] = payload.OTLPProtocol
+	}
+	if payload.OTLPTracesEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = payload.OTLPTracesEndpoint
+	}
+	if payload.OTLPMetricsEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = payload.OTLPMetricsEndpoint
+	}
+	if payload.OTLPLogsEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] = payload.OTLPLogsEndpoint
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		envOverrides["OTEL_EXPORTER_OTLP_HEADERS"] = formatOTLPHeaders(payload.OTLPHeaders)
 	}
 
 	newPID, err := restartProcessWithEnv(e.procRoot, svc.PID, envOverrides)
