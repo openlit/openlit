@@ -1,6 +1,7 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.4.1
+    network_mode: "host"
     container_name: clickhouse
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
@@ -24,10 +25,11 @@ services:
 
   openlit:
     image: ghcr.io/openlit/openlit:latest
+    network_mode: "host"
     container_name: openlit
     environment:
       TELEMETRY_ENABLED: "true"
-      INIT_DB_HOST: clickhouse
+      INIT_DB_HOST: localhost
       INIT_DB_PORT: 8123
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}

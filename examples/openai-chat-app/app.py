@@ -2,6 +2,10 @@ import os
 import time
 import openai
 
+import openlit
+
+openlit.init(otlp_endpoint="http://localhost:4318")
+
 client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 print("OpenAI test app starting -- making calls every 45s")
