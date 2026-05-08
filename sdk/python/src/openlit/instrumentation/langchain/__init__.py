@@ -519,7 +519,6 @@ def _create_callback_handler_class(
         is_langgraph_wrapper_active,
         set_framework_llm_active,
         reset_framework_llm_active,
-        get_server_address_for_provider,
     )
     from openlit.semcov import SemanticConvention
 
@@ -678,9 +677,7 @@ def _create_callback_handler_class(
                 span.set_attribute(
                     SemanticConvention.SERVER_ADDRESS, holder.server_address
                 )
-                span.set_attribute(
-                    SemanticConvention.SERVER_PORT, holder.server_port
-                )
+                span.set_attribute(SemanticConvention.SERVER_PORT, holder.server_port)
 
         def _extract_from_generations(
             self,
@@ -1123,9 +1120,7 @@ def _create_callback_handler_class(
                 self.spans[run_id].prompts = prompts if prompts else []
                 self.spans[run_id].provider = provider
 
-                self._resolve_and_set_server(
-                    run_id, span, provider, serialized, kwargs
-                )
+                self._resolve_and_set_server(run_id, span, provider, serialized, kwargs)
 
                 if prompts:
                     prompt_str = truncate_content("\n".join(prompts))
@@ -1192,9 +1187,7 @@ def _create_callback_handler_class(
                 self.spans[run_id].model_parameters = model_params
                 self.spans[run_id].provider = provider
 
-                self._resolve_and_set_server(
-                    run_id, span, provider, serialized, kwargs
-                )
+                self._resolve_and_set_server(run_id, span, provider, serialized, kwargs)
 
                 # Always calculate prompt content for token estimation
                 if messages:

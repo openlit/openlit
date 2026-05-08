@@ -145,10 +145,12 @@ def apply_controller_mode_defaults(controller_mode, disabled_instrumentors):
     if controller_mode != "agent_observability":
         return normalized_disabled
 
-    merged = list(dict.fromkeys(
-        normalized_disabled
-        + normalize_instrumentor_names(CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS)
-    ))
+    merged = list(
+        dict.fromkeys(
+            normalized_disabled
+            + normalize_instrumentor_names(CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS)
+        )
+    )
     logger.info(
         "Controller-managed agent observability mode enabled; default duplicate-prone instrumentors will be disabled"
     )
