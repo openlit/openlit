@@ -175,13 +175,41 @@ export default function ChatPanel({
 
 				const decoder = new TextDecoder();
 				let fullText = "";
+				let buffer = "";
 
 				while (true) {
 					const { done, value } = await reader.read();
 					if (done) break;
-					const chunk = decoder.decode(value, { stream: true });
-					fullText += chunk;
-					updateLastMessage(fullText);
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = lines.pop() || "";
+					for (const line of lines) {
+						if (!line.trim()) continue;
+						try {
+							const event = JSON.parse(line);
+							if (event.type === "step") {
+								if (event.status === "active") {
+									updateLastMessage(`_${event.label}..._`);
+								}
+								continue;
+							}
+							if (event.type === "delta") {
+								fullText += event.text || "";
+								updateLastMessage(fullText);
+								continue;
+							}
+							if (event.type === "error") {
+								throw new Error(event.error || getMessage().CHAT_SOMETHING_WENT_WRONG);
+							}
+						} catch (parseError: any) {
+							if (parseError instanceof SyntaxError) {
+								fullText += line;
+								updateLastMessage(fullText);
+							} else {
+								throw parseError;
+							}
+						}
+					}
 				}
 
 				// After stream completes, refresh this conversation from server.

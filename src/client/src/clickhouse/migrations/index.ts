@@ -18,11 +18,15 @@ import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl
 import CreateControllerDesiredStatesTableMigration from "./create-controller-desired-states-migration";
 import GeneralizeControllerDesiredStatesMigration from "./generalize-controller-desired-states-migration";
 import CreateChatMigration from "./create-chat-migration";
+import AddChatConversationTypeMigration from "./add-chat-conversation-type-migration";
 import CreateProvidersMigration from "./create-providers-migration";
 import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
 import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
+import AddTraceAnalysisSpanIndexMigration from "./add-trace-analysis-span-index-migration";
+import CreateTraceAnalysisMigration from "./create-trace-analysis-migration";
+import AddTraceAnalysisWorstSeverityMigration from "./add-trace-analysis-worst-severity-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -61,4 +65,8 @@ export default async function migrations(databaseConfigId?: string) {
 	]);
 
 	await EncryptVaultValuesMigration(databaseConfigId);
+	await AddChatConversationTypeMigration(databaseConfigId);
+	await AddTraceAnalysisSpanIndexMigration(databaseConfigId);
+	await CreateTraceAnalysisMigration(databaseConfigId);
+	await AddTraceAnalysisWorstSeverityMigration(databaseConfigId);
 }

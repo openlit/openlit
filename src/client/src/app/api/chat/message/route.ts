@@ -30,20 +30,45 @@ export async function POST(request: NextRequest) {
 	const dbConfigId = (dbConfig as any)?.id || "";
 
 	try {
-		const { responseText } = await streamChatMessage({
-			conversationId,
-			content,
-			provider: config.provider,
-			apiKey: config.apiKey,
-			model: config.model,
-			userId: user.id,
-			dbConfigId,
+		const encoder = new TextEncoder();
+		const stream = new ReadableStream<Uint8Array>({
+			async start(controller) {
+				const send = (event: Record<string, unknown>) =>
+					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+				try {
+					send({ type: "step", status: "complete", label: "Loaded conversation context" });
+					send({ type: "step", status: "active", label: "Otter is generating a response" });
+					const { responseText } = await streamChatMessage({
+						conversationId,
+						content,
+						provider: config.provider,
+						apiKey: config.apiKey,
+						model: config.model,
+						userId: user.id,
+						dbConfigId,
+					});
+					send({ type: "step", status: "complete", label: "Otter is generating a response" });
+					send({
+						type: "delta",
+						text:
+							responseText ||
+							"**Error:** No response received. Please check your Chat Settings.",
+					});
+					send({ type: "done" });
+				} catch (e: any) {
+					send({ type: "error", error: formatStreamError(e) });
+				} finally {
+					controller.close();
+				}
+			},
 		});
 
-		return new Response(
-			responseText || "**Error:** No response received. Please check your Chat Settings.",
-			{ headers: { "Content-Type": "text/plain; charset=utf-8" } }
-		);
+		return new Response(stream, {
+			headers: {
+				"Content-Type": "application/x-ndjson; charset=utf-8",
+				"Cache-Control": "no-cache, no-transform",
+			},
+		});
 	} catch (e: any) {
 		const errorMsg = formatStreamError(e);
 		return new Response(`**Error:** ${errorMsg}`, {

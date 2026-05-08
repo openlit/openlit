@@ -12,8 +12,9 @@ import TimelineView from "./components/timeline-view";
 import NodeGraph from "./components/node-graph";
 import TreeNode from "./components/tree-node";
 import ChatView from "./components/chat-view";
+import TraceImprovementView from "./components/trace-improvement-view";
 
-type ViewMode = "tree" | "timeline" | "graph" | "chat";
+type ViewMode = "tree" | "timeline" | "graph" | "chat" | "improve";
 
 function sumCostRecursive(span: TraceHeirarchySpan): number {
 	const cost = span.Cost != null && span.Cost > 0 ? span.Cost : 0;
@@ -26,6 +27,7 @@ const DEFAULT_WIDTH = 46;
 const VIEW_TABS: { mode: ViewMode; label: string }[] = [
 	{ mode: "tree", label: "Tree" },
 	{ mode: "chat", label: "Chat" },
+	{ mode: "improve", label: "Improve" },
 	{ mode: "timeline", label: "Timeline" },
 	{ mode: "graph", label: "Graph" },
 ];
@@ -42,6 +44,12 @@ export default function HeirarchyDisplay() {
 			setAccordionValue("debug");
 		}
 	}, [isLoading]);
+
+	useEffect(() => {
+		if ((request as any)?.defaultHierarchyView === "improve") {
+			setViewMode("improve");
+		}
+	}, [request?.spanId, (request as any)?.defaultHierarchyView]);
 
 	const typedData =
 		(data as { record: TraceHeirarchySpan; err?: string }) || {};
@@ -135,6 +143,11 @@ export default function HeirarchyDisplay() {
 								{viewMode === "chat" && (
 									<div className="overflow-auto h-full">
 										<ChatView record={record} />
+									</div>
+								)}
+								{viewMode === "improve" && spanId && (
+									<div className="overflow-auto h-full">
+										<TraceImprovementView spanId={spanId} />
 									</div>
 								)}
 								{viewMode === "timeline" && (

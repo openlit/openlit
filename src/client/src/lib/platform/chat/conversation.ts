@@ -4,10 +4,13 @@ import {
 	OPENLIT_CHAT_MESSAGE_TABLE,
 } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
+import { randomUUID } from "crypto";
 
 export interface Conversation {
 	id: string;
 	title: string;
+	conversationType?: "chat" | "ai_improvement" | "trace_analysis";
+	meta?: string;
 	totalPromptTokens: number;
 	totalCompletionTokens: number;
 	totalCost: number;
@@ -41,6 +44,8 @@ export async function getConversations(
 	const query = `
 		SELECT
 			id, title,
+			conversation_type AS conversationType,
+			meta,
 			total_prompt_tokens AS totalPromptTokens,
 			total_completion_tokens AS totalCompletionTokens,
 			total_cost AS totalCost,
@@ -49,6 +54,7 @@ export async function getConversations(
 			created_at AS createdAt,
 			updated_at AS updatedAt
 		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
+		WHERE conversation_type = 'chat'
 		ORDER BY updated_at DESC
 		LIMIT 50
 	`;
@@ -71,6 +77,8 @@ export async function getConversationWithMessages(
 	const convQuery = `
 		SELECT
 			id, title,
+			conversation_type AS conversationType,
+			meta,
 			total_prompt_tokens AS totalPromptTokens,
 			total_completion_tokens AS totalCompletionTokens,
 			total_cost AS totalCost,
@@ -79,7 +87,7 @@ export async function getConversationWithMessages(
 			created_at AS createdAt,
 			updated_at AS updatedAt
 		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
-		WHERE id = '${safeId}'
+		WHERE id = '${safeId}' AND conversation_type = 'chat'
 		LIMIT 1
 	`;
 
@@ -140,18 +148,38 @@ export async function createConversation(
 	title: string,
 	provider: string,
 	model: string,
+	options?: {
+		conversationType?: "chat" | "ai_improvement" | "trace_analysis";
+		meta?: Record<string, unknown>;
+		rootSpanId?: string;
+		selectedSpanId?: string;
+	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
 	const safeTitle = Sanitizer.sanitizeValue(title || "");
 	const safeProvider = Sanitizer.sanitizeValue(provider);
 	const safeModel = Sanitizer.sanitizeValue(model);
+	const safeConversationType = Sanitizer.sanitizeValue(
+		options?.conversationType || "chat"
+	);
+	const meta = JSON.stringify(options?.meta || {});
+	const conversationId = randomUUID();
 
-	const { err, data } = await dataCollector(
+	const { err } = await dataCollector(
 		{
 			table: OPENLIT_CHAT_CONVERSATION_TABLE,
 			values: [
 				{
+					id: conversationId,
 					title: safeTitle,
+					conversation_type: safeConversationType,
+					meta,
+					root_span_id: options?.rootSpanId
+						? Sanitizer.sanitizeValue(options.rootSpanId)
+						: "",
+					selected_span_id: options?.selectedSpanId
+						? Sanitizer.sanitizeValue(options.selectedSpanId)
+						: "",
 					provider: safeProvider,
 					model: safeModel,
 				},
@@ -165,21 +193,68 @@ export async function createConversation(
 		return { err };
 	}
 
-	// Get the created conversation ID
-	const { data: latestData, err: latestErr } = await dataCollector(
-		{
-			query: `SELECT id FROM ${OPENLIT_CHAT_CONVERSATION_TABLE} ORDER BY created_at DESC LIMIT 1`,
-		},
+	return { data: conversationId };
+}
+
+export async function getImprovementConversationByHierarchySpanIds(
+	rootSpanId: string,
+	_spanIds: string[],
+	databaseConfigId?: string
+): Promise<{ data?: { conversation: Conversation; messages: ChatMessage[] }; err?: unknown }> {
+	const safeRootSpanId = Sanitizer.sanitizeValue(rootSpanId);
+
+	// New rows have root_span_id set explicitly (indexed).
+	// Legacy rows have root_span_id = '' and store the id in meta JSON instead.
+	const convQuery = `
+		SELECT
+			id, title,
+			conversation_type AS conversationType,
+			meta,
+			total_prompt_tokens AS totalPromptTokens,
+			total_completion_tokens AS totalCompletionTokens,
+			total_cost AS totalCost,
+			total_messages AS totalMessages,
+			provider, model,
+			created_at AS createdAt,
+			updated_at AS updatedAt
+		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
+		WHERE conversation_type IN ('trace_analysis', 'ai_improvement')
+		  AND (
+		    root_span_id = '${safeRootSpanId}'
+		    OR (root_span_id = '' AND JSONExtractString(meta, 'trace_hierarchy_root_span_id') = '${safeRootSpanId}')
+		  )
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`;
+
+	const { data: convData, err: convErr } = await dataCollector(
+		{ query: convQuery },
 		"query",
 		databaseConfigId
 	);
 
-	if (latestErr) {
-		return { err: latestErr };
+	if (convErr) return { err: convErr };
+
+	const conversations = convData as Conversation[];
+	if (!conversations || conversations.length === 0) {
+		return { data: undefined };
 	}
 
-	const records = latestData as { id: string }[];
-	return { data: records?.[0]?.id };
+	const conversation = conversations[0];
+	const { data: messages, err: msgErr } = await getConversationMessages(
+		conversation.id,
+		50,
+		databaseConfigId
+	);
+
+	if (msgErr) return { err: msgErr };
+
+	return {
+		data: {
+			conversation,
+			messages: messages || [],
+		},
+	};
 }
 
 export async function deleteConversation(
@@ -237,11 +312,13 @@ export async function addMessage(
 	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
-	const { err, data } = await dataCollector(
+	const messageId = randomUUID();
+	const { err } = await dataCollector(
 		{
 			table: OPENLIT_CHAT_MESSAGE_TABLE,
 			values: [
 				{
+					id: messageId,
 					conversation_id: conversationId,
 					role,
 					content,
@@ -262,17 +339,7 @@ export async function addMessage(
 		return { err };
 	}
 
-	// Return the message ID
-	const { data: latestData } = await dataCollector(
-		{
-			query: `SELECT id FROM ${OPENLIT_CHAT_MESSAGE_TABLE} WHERE conversation_id = '${Sanitizer.sanitizeValue(conversationId)}' ORDER BY created_at DESC LIMIT 1`,
-		},
-		"query",
-		databaseConfigId
-	);
-
-	const records = latestData as { id: string }[];
-	return { data: records?.[0]?.id };
+	return { data: messageId };
 }
 
 export async function updateMessage(
@@ -369,6 +436,7 @@ export async function getConversationMessages(
 			conversation_id AS conversationId,
 			role, content,
 			sql_query AS sqlQuery,
+			query_result AS queryResult,
 			prompt_tokens AS promptTokens,
 			completion_tokens AS completionTokens,
 			cost,
