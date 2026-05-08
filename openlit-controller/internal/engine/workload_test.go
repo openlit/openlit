@@ -233,7 +233,7 @@ func TestDerivePatternUsesTargetPIDForDockerAndLinux(t *testing.T) {
 
 func TestBuildInstrumentConfigEnablesOnlyDetectedProviders(t *testing.T) {
 	cfg := BuildInstrumentConfig(
-		"http://localhost:4318",
+		ExportConfig{OTLPEndpoint: "http://localhost:4318"},
 		nil,
 		map[string]bool{
 			"openai":  true,
