@@ -40,6 +40,8 @@ export default class SemanticConvention {
   static GEN_AI_TOKEN_TYPE_REASONING = 'reasoning';
   static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
   static GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = 'gen_ai.client.operation.time_to_first_chunk';
+  /** OTel standard span attribute for TTFT */
+  static GEN_AI_RESPONSE_TIME_TO_FIRST_CHUNK = 'gen_ai.response.time_to_first_chunk';
   static GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = 'gen_ai.client.operation.time_per_output_chunk';
   static GEN_AI_CLIENT_TOKEN_USAGE = 'gen_ai.client.token.usage';
   static GEN_AI_SERVER_REQUEST_DURATION = 'gen_ai.server.request.duration';
@@ -77,6 +79,8 @@ export default class SemanticConvention {
 
   // GenAI Request (extended / OpenLIT)
   static GEN_AI_REQUEST_IS_STREAM = 'gen_ai.request.is_stream';
+  /** OTel standard: gen_ai.request.stream (replaces gen_ai.request.is_stream) */
+  static GEN_AI_REQUEST_STREAM = 'gen_ai.request.stream';
   static GEN_AI_REQUEST_USER = 'gen_ai.request.user';
   static GEN_AI_REQUEST_EMBEDDING_DIMENSION = 'gen_ai.request.embedding_dimension';
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
@@ -226,6 +230,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = 'claude_agent_sdk';
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
+  static GEN_AI_SYSTEM_CURSOR = 'cursor';
 
   static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
 

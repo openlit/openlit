@@ -151,6 +151,7 @@ const PROVIDER_DEFAULT_ENDPOINTS: Record<string, [string, number]> = {
   deepseek: ['api.deepseek.com', 443],
   x_ai: ['api.x.ai', 443],
   huggingface: ['api-inference.huggingface.co', 443],
+  cursor: ['api2.cursor.sh', 443],
 };
 
 export function getServerAddressForProvider(provider: string): [string, number] {
