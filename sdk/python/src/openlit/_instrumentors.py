@@ -49,6 +49,8 @@ MODULE_NAME_MAP = {
     "firecrawl": "firecrawl",
     "letta": "letta_client",
     "together": "together",
+    "pydo": "pydo",
+    "gradient": "gradient",
     "openai-agents": "agents",
     "pydantic_ai": "pydantic_ai",
     "sarvam": "sarvamai",
@@ -93,6 +95,9 @@ INSTRUMENTOR_ALIASES = {
     "agent_framework": "agent-framework",
     "psycopg_pool": "psycopg-pool",
     "http": "httpx",
+    "digitalocean": "pydo",
+    "digital_ocean": "pydo",
+    "do_gradient": "gradient",
 }
 
 
@@ -165,6 +170,8 @@ INSTRUMENTOR_MAP = {
     "firecrawl": "openlit.instrumentation.firecrawl.FireCrawlInstrumentor",
     "letta": "openlit.instrumentation.letta.LettaInstrumentor",
     "together": "openlit.instrumentation.together.TogetherInstrumentor",
+    "pydo": "openlit.instrumentation.pydo.PydoInstrumentor",
+    "gradient": "openlit.instrumentation.gradient.GradientInstrumentor",
     "openai-agents": "openlit.instrumentation.openai_agents.OpenAIAgentsInstrumentor",
     "pydantic_ai": "openlit.instrumentation.pydantic_ai.PydanticAIInstrumentor",
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
