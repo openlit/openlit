@@ -52,14 +52,14 @@ const CURSOR_STATUS_TO_FINISH_REASON: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 class AgentCreationRegistry {
-  private _contexts = new Map<string, SpanContext>();
+  private _contexts = new WeakMap<object, SpanContext>();
 
-  register(agentId: string, spanContext: SpanContext): void {
-    this._contexts.set(agentId, spanContext);
+  register(agent: object, spanContext: SpanContext): void {
+    this._contexts.set(agent, spanContext);
   }
 
-  get(agentId: string): SpanContext | undefined {
-    return this._contexts.get(agentId);
+  get(agent: object): SpanContext | undefined {
+    return this._contexts.get(agent);
   }
 }
 
@@ -425,7 +425,7 @@ function wrapSend(
     const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT} ${displayName}`;
     const requestModel = modelId || resolveModelId(options) || 'unknown';
 
-    const creationSpanCtx = agentRegistry.get(agentId);
+    const creationSpanCtx = agentRegistry.get(this);
     const links: Link[] = [];
     if (creationSpanCtx) {
       links.push({ context: creationSpanCtx });
@@ -737,8 +737,8 @@ export function patchAgentCreate(tracer: Tracer): (originalCreate: any) => any {
         const agentId = agent.agentId;
         if (agentId) {
           span.setAttribute(SemanticConvention.GEN_AI_AGENT_ID, agentId);
-          agentRegistry.register(agentId, span.spanContext());
         }
+        agentRegistry.register(agent, span.spanContext());
 
         const resolvedModel = agent.model?.id || modelId;
         if (resolvedModel) span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, resolvedModel);
