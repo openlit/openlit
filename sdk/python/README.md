@@ -60,6 +60,8 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Assembly AI](https://docs.openlit.io/latest/integrations/assemblyai)             |                                                                          |                                                |               |
 | [✅ Together](https://docs.openlit.io/latest/integrations/together)                  |                                                                          |                                                |               |
 | [✅ DeepSeek](https://docs.openlit.io/latest/integrations/deepseek)                                                                     |                                                                          |                                                |               |
+| [✅ DigitalOcean (pydo)](https://docs.openlit.io/latest/sdk/integrations/digitalocean)                                                  |                                                                          |                                                |               |
+| [✅ DigitalOcean Gradient](https://docs.openlit.io/latest/sdk/integrations/digitalocean-gradient)                                       |                                                                          |                                                |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)

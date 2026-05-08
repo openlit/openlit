@@ -352,6 +352,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_DIGITALOCEAN = "digitalocean"
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
     GEN_AI_SYSTEM_SARVAM = "sarvam"
@@ -405,7 +406,7 @@ class SemanticConvention:
     )
 
     # GenAI Request Attributes (Extra)
-    GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
+    GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.stream"
     GEN_AI_REQUEST_USER = "gen_ai.request.user"
     GEN_AI_REQUEST_EMBEDDING_DIMENSION = "gen_ai.request.embedding_dimension"
     GEN_AI_REQUEST_TOOL_CHOICE = "gen_ai.request.tool_choice"
