@@ -12,7 +12,6 @@ from openlit.__helpers import (
     is_framework_llm_active,
     record_completion_metrics,
     response_as_dict,
-    set_server_address_and_port,
 )
 from openlit.instrumentation.gradient.utils import (
     _new_scope,
@@ -81,6 +80,8 @@ def _resolve_endpoint(instance, kind, default_host):
 
 def _make_traced_stream(chunk_processor, final_processor):
     class TracedSyncStream:
+        """Wraps a Gradient sync Stream so chunks are observed and the span closes on completion."""
+
         def __init__(
             self, wrapped, span, body, server_address, server_port, finalize_kwargs
         ):
@@ -145,7 +146,9 @@ def _make_traced_stream(chunk_processor, final_processor):
                 return
             self._finalized = True
             try:
-                with trace_api.use_span(self._span, end_on_exit=True):
+                with trace_api.use_span(  # pylint: disable=not-context-manager
+                    self._span, end_on_exit=True
+                ):
                     final_processor(self, **self._finalize_kwargs)
             except Exception as exc:
                 handle_exception(self._span, exc)
@@ -229,7 +232,9 @@ def _build_wrapper(
 
                 if not hasattr(result, "__next__") and not hasattr(result, "__iter__"):
                     try:
-                        with trace_api.use_span(span, end_on_exit=True):
+                        with trace_api.use_span(  # pylint: disable=not-context-manager
+                            span, end_on_exit=True
+                        ):
                             return process_response(
                                 response=result,
                                 body=body,

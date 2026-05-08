@@ -931,6 +931,7 @@ def process_streaming_chat_response(
     operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
     api_type="chat",
 ):
+    """Finalize a streaming chat (or responses) span by delegating to common_chat_logic."""
     common_chat_logic(
         scope,
         pricing_info,

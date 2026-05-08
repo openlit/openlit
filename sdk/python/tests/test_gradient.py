@@ -61,6 +61,7 @@ def _benign_or_raise(exc):
 
 
 def test_sync_gradient_chat():
+    """Sync non-streaming chat completion."""
     try:
         resp = sync_client.chat.completions.create(
             model="llama3.3-70b-instruct",
@@ -74,6 +75,7 @@ def test_sync_gradient_chat():
 
 
 def test_sync_gradient_chat_stream():
+    """Sync streaming chat completion."""
     try:
         stream = sync_client.chat.completions.create(
             model="llama3.3-70b-instruct",
@@ -89,6 +91,7 @@ def test_sync_gradient_chat_stream():
 
 @pytest.mark.asyncio
 async def test_async_gradient_chat():
+    """Async non-streaming chat completion."""
     if async_client is None:
         pytest.skip("AsyncGradient unavailable")
     try:

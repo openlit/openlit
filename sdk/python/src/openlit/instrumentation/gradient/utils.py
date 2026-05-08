@@ -110,6 +110,7 @@ def _build_tool_definitions(tools):
 
 
 def format_content(messages):
+    """Flatten messages to a single string for token estimation fallback."""
     if not messages:
         return ""
     formatted = []
@@ -139,6 +140,7 @@ def format_content(messages):
 
 
 def build_input_messages(messages):
+    """Convert request messages into the OTel `gen_ai.input.messages` schema."""
     if not messages:
         return []
     out = []
@@ -204,6 +206,7 @@ def build_input_messages(messages):
 def build_output_messages(
     response_text, finish_reason, tool_calls=None, reasoning=None
 ):
+    """Build the OTel `gen_ai.output.messages` array from accumulated response state."""
     parts = []
     try:
         if reasoning:
@@ -264,6 +267,7 @@ def emit_inference_event(
     server_port=None,
     **extra,
 ):
+    """Emit the `gen_ai.client.inference.operation.details` event."""
     if not event_provider:
         return
     try:
@@ -440,6 +444,7 @@ def common_chat_logic(
     api_type=None,
     event_provider=None,
 ):
+    """Set span attributes, emit event, record metrics for chat-style operations."""
     scope._end_time = time.time()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
@@ -696,6 +701,7 @@ def process_chat_response(
     version,
     event_provider=None,
 ):
+    """Non-streaming chat completion processor."""
     response_dict = response_as_dict(response)
     scope = _new_scope(
         body, span, start_time, server_address, server_port, response_dict
@@ -745,6 +751,7 @@ def process_streaming_chat_response(
     operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
     api_type="chat",
 ):
+    """Finalize a streaming chat (or responses) span by delegating to common_chat_logic."""
     common_chat_logic(
         scope,
         pricing_info,
@@ -777,6 +784,7 @@ def process_responses_response(
     version,
     event_provider=None,
 ):
+    """Non-streaming Responses-API processor (OpenAI Responses surface)."""
     response_dict = response_as_dict(response)
     scope = _new_scope(
         body, span, start_time, server_address, server_port, response_dict

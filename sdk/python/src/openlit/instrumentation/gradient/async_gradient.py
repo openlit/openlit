@@ -12,7 +12,6 @@ from openlit.__helpers import (
     is_framework_llm_active,
     record_completion_metrics,
     response_as_dict,
-    set_server_address_and_port,
 )
 from openlit.instrumentation.gradient.gradient import _resolve_endpoint
 from openlit.instrumentation.gradient.utils import (
@@ -43,6 +42,8 @@ def _agent_id_from_host(host):
 
 def _make_traced_async_stream(chunk_processor, final_processor):
     class TracedAsyncStream:
+        """Wraps a Gradient AsyncStream so chunks are observed and the span closes on completion."""
+
         def __init__(
             self, wrapped, span, body, server_address, server_port, finalize_kwargs
         ):
@@ -90,7 +91,7 @@ def _make_traced_async_stream(chunk_processor, final_processor):
                 if hasattr(self.__wrapped__, "__anext__"):
                     self._aiter = self.__wrapped__
                 else:
-                    self._aiter = self.__wrapped__.__aiter__()
+                    self._aiter = aiter(self.__wrapped__)
             return self._aiter
 
         async def __anext__(self):
@@ -107,7 +108,9 @@ def _make_traced_async_stream(chunk_processor, final_processor):
                 return
             self._finalized = True
             try:
-                with trace_api.use_span(self._span, end_on_exit=True):
+                with trace_api.use_span(  # pylint: disable=not-context-manager
+                    self._span, end_on_exit=True
+                ):
                     final_processor(self, **self._finalize_kwargs)
             except Exception as exc:
                 handle_exception(self._span, exc)
@@ -194,7 +197,9 @@ def _build_async_wrapper(
                     result, "__aiter__"
                 ):
                     try:
-                        with trace_api.use_span(span, end_on_exit=True):
+                        with trace_api.use_span(  # pylint: disable=not-context-manager
+                            span, end_on_exit=True
+                        ):
                             return process_response(
                                 response=result,
                                 body=body,
@@ -366,6 +371,8 @@ def async_image_generate(
     disable_metrics,
     event_provider=None,
 ):
+    """Async wrapper factory for AsyncImagesResource.generate."""
+
     async def wrapper(wrapped, instance, args, kwargs):
         if is_framework_llm_active():
             return await wrapped(*args, **kwargs)
@@ -417,6 +424,8 @@ def async_retrieve_documents(
     disable_metrics,
     event_provider=None,
 ):
+    """Async wrapper factory for AsyncRetrieveResource.documents."""
+
     async def wrapper(wrapped, instance, args, kwargs):
         if is_framework_llm_active():
             return await wrapped(*args, **kwargs)
