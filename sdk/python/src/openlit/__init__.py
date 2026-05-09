@@ -173,10 +173,11 @@ def init(
     collect_gpu_stats=False,
     collect_system_metrics=False,
     capture_db_parameters=False,
-    evals_logs_export=True,
     max_content_length=None,
     custom_span_attributes=None,
     custom_metrics_attributes=None,
+    openlit_api_key=None,
+    openlit_url=None,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -214,6 +215,10 @@ def init(
                                           recording. Useful for grouping metrics by custom tags
                                           (e.g., client ID, team, project). Values must be valid
                                           OTel attribute types. Optional.
+        openlit_api_key (str): API key for OpenLIT server (used by openlit.eval() and
+                               openlit.get_prompt()). Falls back to OPENLIT_API_KEY env var.
+        openlit_url (str): URL of the OpenLIT server (used by openlit.eval() and
+                           openlit.get_prompt()). Falls back to OPENLIT_URL env var.
     """
     disabled_instrumentors = normalize_instrumentor_names(disabled_instrumentors)
     logger.info("Starting openLIT initialization...")
@@ -272,16 +277,23 @@ def init(
             collect_system_metrics = env_config["collect_system_metrics"]
         if capture_db_parameters is False and "capture_db_parameters" in env_config:
             capture_db_parameters = env_config["capture_db_parameters"]
-        if evals_logs_export is True and "evals_logs_export" in env_config:
-            evals_logs_export = env_config["evals_logs_export"]
         if max_content_length is None and "max_content_length" in env_config:
             max_content_length = env_config["max_content_length"]
         if custom_span_attributes is None and "custom_span_attributes" in env_config:
             custom_span_attributes = env_config["custom_span_attributes"]
+        if openlit_api_key is None and "openlit_api_key" in env_config:
+            openlit_api_key = env_config["openlit_api_key"]
+        if openlit_url is None and "openlit_url" in env_config:
+            openlit_url = env_config["openlit_url"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
         pass
+
+    if openlit_api_key is None:
+        openlit_api_key = os.getenv("OPENLIT_API_KEY")
+    if openlit_url is None:
+        openlit_url = os.getenv("OPENLIT_URL")
 
     disabled_instrumentors = apply_controller_mode_defaults(
         controller_mode,
@@ -380,10 +392,11 @@ def init(
             fetch_pricing_info(pricing_json),
             disable_events,
             capture_db_parameters,
-            evals_logs_export,
             max_content_length,
             custom_span_attributes,
             custom_metrics_attributes,
+            openlit_api_key=openlit_api_key,
+            openlit_url=openlit_url,
         )
 
         # Create instrumentor instances dynamically
@@ -616,6 +629,85 @@ def evaluate_rule(
     except requests.RequestException as error:
         logger.error("Error evaluating rule: '%s'", error)
         return None
+
+
+def eval(  # pylint: disable=redefined-builtin
+    prompt,
+    response,
+    contexts=None,
+    eval_types=None,
+    attributes=None,
+    threshold_score=None,
+    store_results=None,
+    run_id=None,
+    metadata=None,
+    openlit_api_key=None,
+    openlit_url=None,
+    print_results=True,
+):
+    """
+    Run offline evaluation against the OpenLIT server.
+    Uses the same evaluation engine, rules, and contexts as online/auto evals.
+    """
+    from openlit.evals.offline import run_eval
+
+    return run_eval(
+        prompt=prompt,
+        response=response,
+        contexts=contexts,
+        eval_types=eval_types,
+        attributes=attributes,
+        threshold_score=threshold_score,
+        store_results=store_results,
+        run_id=run_id,
+        metadata=metadata,
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+        print_results=print_results,
+    )
+
+
+def eval_batch(
+    dataset,
+    eval_types=None,
+    attributes=None,
+    threshold_score=None,
+    store_results=None,
+    run_id=None,
+    max_concurrent=5,
+    openlit_api_key=None,
+    openlit_url=None,
+    print_results=True,
+):
+    """
+    Run offline evaluation on a batch of prompt/response pairs.
+    """
+    from openlit.evals.offline import run_eval_batch
+
+    return run_eval_batch(
+        dataset=dataset,
+        eval_types=eval_types,
+        attributes=attributes,
+        threshold_score=threshold_score,
+        store_results=store_results,
+        run_id=run_id,
+        max_concurrent=max_concurrent,
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+        print_results=print_results,
+    )
+
+
+def get_eval_types(openlit_api_key=None, openlit_url=None):
+    """
+    Fetch available evaluation types from the OpenLIT server.
+    """
+    from openlit.evals.offline import fetch_eval_types
+
+    return fetch_eval_types(
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+    )
 
 
 def log_agent_invocation(source, target, system=None):

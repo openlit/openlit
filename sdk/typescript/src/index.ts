@@ -9,7 +9,7 @@ import BaseOpenlit from './features/base';
 import OpenlitConfig from './config';
 import OpenLitHelper from './helpers';
 import { usingAttributes, injectAdditionalAttributes } from './helpers';
-import { Hallucination, Bias, Toxicity, All } from './evals';
+import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
 import { PromptInjection } from './guard/prompt-injection';
@@ -17,14 +17,6 @@ import { SensitiveTopic } from './guard/sensitive-topic';
 import { TopicRestriction } from './guard/topic-restriction';
 import { All as GuardAll } from './guard/all';
 import { parseBoolEnv } from './otel/utils';
-
-const evals = {
-  Hallucination: (options: ConstructorParameters<typeof Hallucination>[0]) =>
-    new Hallucination(options),
-  Bias: (options: ConstructorParameters<typeof Bias>[0]) => new Bias(options),
-  Toxicity: (options: ConstructorParameters<typeof Toxicity>[0]) => new Toxicity(options),
-  All: (options: ConstructorParameters<typeof All>[0]) => new All(options),
-};
 
 const guard = {
   PromptInjection: (options: ConstructorParameters<typeof PromptInjection>[0]) => new PromptInjection(options),
@@ -89,6 +81,9 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     disableEvents = envDisableEvents ?? false;
   }
 
+  const openlitApiKey = o.openlitApiKey ?? process.env.OPENLIT_API_KEY ?? undefined;
+  const openlitUrl = o.openlitUrl ?? process.env.OPENLIT_URL ?? undefined;
+
   return {
     environment,
     applicationName,
@@ -104,19 +99,22 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     pricingJson: o.pricingJson,
     maxContentLength: o.maxContentLength ?? null,
     customSpanAttributes: o.customSpanAttributes ?? null,
+    openlitApiKey,
+    openlitUrl,
   };
 }
 
 class Openlit extends BaseOpenlit {
   static resource: ReturnType<typeof resourceFromAttributes>;
   static options: ResolvedOptions;
-  static evals = evals;
   static guard = guard;
+
+  static eval = runEval;
+  static evalBatch = runEvalBatch;
+  static getEvalTypes = fetchEvalTypes;
 
   static init(options?: OpenlitOptions) {
     try {
-      // Enable OTel diagnostic logging so exporter errors (connection refused,
-      // 404, timeouts) are surfaced to the user — matches Python SDK behavior.
       diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
       const resolved = resolveOptions(options);
@@ -149,7 +147,9 @@ class Openlit extends BaseOpenlit {
         });
       }
 
-      // Fetch pricing info once and cache — matches Python SDK behavior.
+      OpenlitConfig.openlitApiKey = resolved.openlitApiKey;
+      OpenlitConfig.openlitUrl = resolved.openlitUrl;
+
       OpenLitHelper.fetchPricingInfo(resolved.pricingJson).then(
         (info) => { OpenlitConfig.pricingInfo = info; },
         () => { OpenlitConfig.pricingInfo = {}; }
@@ -161,7 +161,6 @@ class Openlit extends BaseOpenlit {
 }
 
 const openlit = Openlit as typeof Openlit & {
-  evals: typeof evals;
   guard: typeof guard;
   usingAttributes: typeof usingAttributes;
   injectAdditionalAttributes: typeof injectAdditionalAttributes;

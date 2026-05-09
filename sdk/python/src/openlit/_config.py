@@ -47,10 +47,11 @@ class OpenlitConfig:
         cls.disable_metrics = False
         cls.disable_events = False
         cls.capture_db_parameters = False
-        cls.evals_logs_export = True
         cls.max_content_length = None  # None = no truncation
         cls.custom_span_attributes = {}
         cls.custom_metrics_attributes = {}
+        cls.openlit_api_key = None
+        cls.openlit_url = None
 
     @classmethod
     def update_config(
@@ -66,10 +67,11 @@ class OpenlitConfig:
         pricing_info,
         disable_events=False,
         capture_db_parameters=False,
-        evals_logs_export=True,
         max_content_length=None,
         custom_span_attributes=None,
         custom_metrics_attributes=None,
+        openlit_api_key=None,
+        openlit_url=None,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -86,7 +88,6 @@ class OpenlitConfig:
             pricing_info (dict): Already-resolved pricing information dict.
             disable_events (bool): Flag to disable OTel Logger event emission.
             capture_db_parameters (bool): Capture database query parameters (security risk).
-            evals_logs_export (bool): Emit evaluation results as OTEL Log Records instead of OTEL Events.
             max_content_length: Maximum character length for captured content (None = no limit).
             custom_span_attributes (dict): Custom key-value attributes applied to every span.
             custom_metrics_attributes (dict): Custom key-value attributes applied to every metric.
@@ -102,7 +103,8 @@ class OpenlitConfig:
         cls.disable_metrics = disable_metrics
         cls.disable_events = disable_events
         cls.capture_db_parameters = capture_db_parameters
-        cls.evals_logs_export = evals_logs_export
         cls.max_content_length = max_content_length
         cls.custom_span_attributes = custom_span_attributes or {}
         cls.custom_metrics_attributes = custom_metrics_attributes or {}
+        cls.openlit_api_key = openlit_api_key
+        cls.openlit_url = openlit_url

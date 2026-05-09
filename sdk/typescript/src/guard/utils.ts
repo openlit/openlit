@@ -76,3 +76,11 @@ export function applyThresholdScore(result: GuardResult, threshold: number): Gua
   }
   return result;
 }
+
+export function formatPrompt(systemPrompt: string, input: { prompt?: string; contexts?: string[]; text: string }): string {
+  let prompt = systemPrompt;
+  if (input.prompt) prompt += `\nPrompt: ${input.prompt}`;
+  if (input.contexts) prompt += `\nContexts: ${input.contexts.join(' | ')}`;
+  if (input.text) prompt += `\nText: ${input.text}`;
+  return prompt;
+}

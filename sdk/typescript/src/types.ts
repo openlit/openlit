@@ -25,6 +25,8 @@ export interface OpenlitConfigInterface {
   disableEvents?: boolean;
   maxContentLength?: number | null;
   customSpanAttributes?: Record<string, string> | null;
+  openlitApiKey?: string;
+  openlitUrl?: string;
 }
 
 /**
@@ -58,7 +60,8 @@ export type OpenlitOptions = {
   pricingJson?: string | PricingObject;
   maxContentLength?: number | null;
   customSpanAttributes?: Record<string, string> | null;
-
+  openlitApiKey?: string;
+  openlitUrl?: string;
 };
 
 /**
@@ -79,6 +82,8 @@ export interface ResolvedOptions {
   pricingJson?: string | PricingObject;
   maxContentLength?: number | null;
   customSpanAttributes?: Record<string, string> | null;
+  openlitApiKey?: string;
+  openlitUrl?: string;
 }
 
 export type SetupTracerOptions = ResolvedOptions & {
