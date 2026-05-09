@@ -21,7 +21,9 @@ function resolveUrl(explicit?: string): string {
     'Missing OpenLIT URL. Provide via openlitUrl parameter, ' +
     'openlit.init({ openlitUrl }), or set the OPENLIT_URL env var.'
   );
-  return url.replace(/\/+$/, '');
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
 }
 
 function resolveAttributes(explicit?: Record<string, string | number | boolean>): Record<string, string | number | boolean> {

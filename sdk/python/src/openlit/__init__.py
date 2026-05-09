@@ -631,7 +631,7 @@ def evaluate_rule(
         return None
 
 
-def eval(
+def eval(  # pylint: disable=redefined-builtin
     prompt,
     response,
     contexts=None,

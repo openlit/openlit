@@ -22,6 +22,8 @@ def _c(code: str, text: str) -> str:
 
 
 class OfflineEvaluation(BaseModel):
+    """A single evaluation result for one eval type."""
+
     type: str = ""
     score: float = 0.0
     verdict: str = ""
@@ -30,6 +32,8 @@ class OfflineEvaluation(BaseModel):
 
 
 class ContextInfo(BaseModel):
+    """Context matching information from the rule engine."""
+
     rule_matched: bool = False
     matching_rule_ids: List[str] = Field(default_factory=list)
     context_entity_ids: List[str] = Field(default_factory=list)
@@ -37,6 +41,8 @@ class ContextInfo(BaseModel):
 
 
 class OfflineEvalResult(BaseModel):
+    """Result of a single offline evaluation containing all eval scores."""
+
     success: bool = False
     evaluations: List[OfflineEvaluation] = Field(default_factory=list)
     context_applied: Optional[ContextInfo] = None
@@ -45,15 +51,18 @@ class OfflineEvalResult(BaseModel):
 
     @property
     def passed(self) -> bool:
+        """True if the evaluation succeeded and no eval type returned 'yes'."""
         if not self.success:
             return False
         return all(e.verdict.lower() != "yes" for e in self.evaluations)
 
     @property
     def failed_evals(self) -> List[OfflineEvaluation]:
+        """Evaluations that returned a 'yes' verdict (i.e. detected an issue)."""
         return [e for e in self.evaluations if e.verdict.lower() == "yes"]
 
     def summary(self) -> str:
+        """Formatted terminal summary of the evaluation result."""
         lines: List[str] = []
         if not self.success:
             lines.append(
@@ -97,6 +106,8 @@ class OfflineEvalResult(BaseModel):
 
 
 class EvalType(BaseModel):
+    """An evaluation type configured in the OpenLIT dashboard."""
+
     id: str
     label: str = ""
     description: str = ""
@@ -105,20 +116,25 @@ class EvalType(BaseModel):
 
 
 class BatchEvalResult(BaseModel):
+    """Aggregated result of evaluating a batch of prompt/response pairs."""
+
     results: List[OfflineEvalResult] = Field(default_factory=list)
     run_id: Optional[str] = None
 
     @property
     def all_passed(self) -> bool:
+        """True if the batch is non-empty and every item passed."""
         return bool(self.results) and all(r.passed for r in self.results)
 
     @property
     def pass_rate(self) -> float:
+        """Fraction of items that passed (0.0 for empty batches)."""
         if not self.results:
             return 0.0
         return sum(1 for r in self.results if r.passed) / len(self.results)
 
     def aggregate_summary(self) -> str:
+        """Formatted terminal summary of the batch evaluation."""
         lines: List[str] = []
         total = len(self.results)
         passed = sum(1 for r in self.results if r.passed)

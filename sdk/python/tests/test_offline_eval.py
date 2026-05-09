@@ -9,9 +9,9 @@ import requests
 
 def test_eval_is_importable():
     """openlit.eval is importable and callable."""
-    from openlit import eval
+    from openlit import eval as openlit_eval  # pylint: disable=redefined-builtin
 
-    assert callable(eval)
+    assert callable(openlit_eval)
 
 
 def test_eval_batch_is_importable():
@@ -49,12 +49,14 @@ def test_offline_types_importable():
 
 
 def test_resolve_api_key_explicit():
+    """Explicit API key is returned as-is."""
     from openlit.evals.offline import _resolve_api_key
 
     assert _resolve_api_key("my-key") == "my-key"
 
 
 def test_resolve_api_key_from_env():
+    """API key falls back to OPENLIT_API_KEY env var."""
     from openlit.evals.offline import _resolve_api_key
 
     with patch.dict(os.environ, {"OPENLIT_API_KEY": "env-key"}):
@@ -62,6 +64,7 @@ def test_resolve_api_key_from_env():
 
 
 def test_resolve_api_key_missing():
+    """Missing API key raises ValueError."""
     from openlit.evals.offline import _resolve_api_key
     from openlit._config import OpenlitConfig
 
@@ -74,12 +77,14 @@ def test_resolve_api_key_missing():
 
 
 def test_resolve_url_explicit():
+    """Explicit URL with trailing slash is stripped."""
     from openlit.evals.offline import _resolve_url
 
     assert _resolve_url("http://localhost:3000/") == "http://localhost:3000"
 
 
 def test_resolve_url_from_env():
+    """URL falls back to OPENLIT_URL env var."""
     from openlit.evals.offline import _resolve_url
 
     with patch.dict(os.environ, {"OPENLIT_URL": "http://env-url:3000"}):
@@ -87,6 +92,7 @@ def test_resolve_url_from_env():
 
 
 def test_resolve_attributes_otel_env():
+    """Attributes are resolved from OTEL env vars."""
     from openlit.evals.offline import _resolve_attributes
 
     with patch.dict(
@@ -103,6 +109,7 @@ def test_resolve_attributes_otel_env():
 
 
 def test_resolve_attributes_explicit_overrides():
+    """Explicit attributes override env vars."""
     from openlit.evals.offline import _resolve_attributes
 
     with patch.dict(os.environ, {"OTEL_SERVICE_NAME": "env-service"}):
@@ -111,11 +118,12 @@ def test_resolve_attributes_explicit_overrides():
 
 
 def test_resolve_attributes_config_overrides_otel():
+    """OpenlitConfig values override OTEL env vars."""
     from openlit.evals.offline import _resolve_attributes
     from openlit._config import OpenlitConfig
 
-    original_app = OpenlitConfig.application_name
-    original_env = OpenlitConfig.environment
+    original_app = getattr(OpenlitConfig, "application_name", "default")
+    original_env = getattr(OpenlitConfig, "environment", "default")
     try:
         OpenlitConfig.application_name = "config-app"
         OpenlitConfig.environment = "staging"
@@ -133,6 +141,7 @@ def test_resolve_attributes_config_overrides_otel():
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_success(mock_post):
+    """Successful eval returns parsed result with evaluations."""
     from openlit.evals.offline import run_eval
 
     mock_response = MagicMock()
@@ -180,6 +189,7 @@ def test_run_eval_success(mock_post):
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_auth_failure(mock_post):
+    """401 response returns authentication failure error."""
     from openlit.evals.offline import run_eval
 
     mock_response = MagicMock()
@@ -195,11 +205,13 @@ def test_run_eval_auth_failure(mock_post):
     )
 
     assert result.success is False
-    assert "Authentication failed" in result.error
+    assert result.error is not None
+    assert "Authentication failed" in str(result.error)
 
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_failed_verdict(mock_post):
+    """Evaluation with 'yes' verdict is marked as failed."""
     from openlit.evals.offline import run_eval
 
     mock_response = MagicMock()
@@ -239,6 +251,7 @@ def test_run_eval_failed_verdict(mock_post):
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_batch(mock_post):
+    """Batch evaluation processes all items and returns aggregate results."""
     from openlit.evals.offline import run_eval_batch
 
     mock_response = MagicMock()
@@ -282,6 +295,7 @@ def test_run_eval_batch(mock_post):
 
 @patch("openlit.evals.offline.requests.get")
 def test_fetch_eval_types(mock_get):
+    """Fetch eval types returns parsed EvalType list."""
     from openlit.evals.offline import fetch_eval_types
 
     mock_response = MagicMock()
@@ -324,6 +338,7 @@ def test_fetch_eval_types(mock_get):
 
 
 def test_summary_output():
+    """Summary of a passing result contains PASSED and eval type."""
     from openlit.evals.offline_types import OfflineEvalResult, OfflineEvaluation
 
     result = OfflineEvalResult(
@@ -344,6 +359,7 @@ def test_summary_output():
 
 
 def test_summary_failed():
+    """Summary of a failing result contains FAILED."""
     from openlit.evals.offline_types import OfflineEvalResult, OfflineEvaluation
 
     result = OfflineEvalResult(
@@ -363,6 +379,7 @@ def test_summary_failed():
 
 
 def test_summary_error():
+    """Summary of an error result contains the error message."""
     from openlit.evals.offline_types import OfflineEvalResult
 
     result = OfflineEvalResult(success=False, error="something broke")
@@ -371,6 +388,7 @@ def test_summary_error():
 
 
 def test_batch_aggregate_summary():
+    """Batch aggregate summary shows pass/fail counts and run ID."""
     from openlit.evals.offline_types import (
         BatchEvalResult,
         OfflineEvalResult,
@@ -404,6 +422,7 @@ def test_batch_aggregate_summary():
 
 
 def test_empty_batch_all_passed_is_false():
+    """Empty batch returns all_passed=False and pass_rate=0.0."""
     from openlit.evals.offline_types import BatchEvalResult
 
     batch = BatchEvalResult(results=[], run_id="empty")
@@ -412,6 +431,7 @@ def test_empty_batch_all_passed_is_false():
 
 
 def test_batch_validates_empty_dataset():
+    """Empty dataset raises ValueError."""
     from openlit.evals.offline import run_eval_batch
 
     with pytest.raises(ValueError, match="non-empty"):
@@ -423,6 +443,7 @@ def test_batch_validates_empty_dataset():
 
 
 def test_batch_validates_missing_prompt():
+    """Dataset item missing 'prompt' raises ValueError."""
     from openlit.evals.offline import run_eval_batch
 
     with pytest.raises(ValueError, match="dataset\\[0\\].*prompt"):
@@ -434,6 +455,7 @@ def test_batch_validates_missing_prompt():
 
 
 def test_batch_validates_missing_response():
+    """Dataset item missing 'response' raises ValueError."""
     from openlit.evals.offline import run_eval_batch
 
     with pytest.raises(ValueError, match="dataset\\[0\\].*response"):
@@ -446,6 +468,7 @@ def test_batch_validates_missing_response():
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_non_json_error(mock_post):
+    """Non-JSON error response is handled gracefully."""
     from openlit.evals.offline import run_eval
 
     mock_response = MagicMock()
@@ -463,11 +486,13 @@ def test_run_eval_non_json_error(mock_post):
     )
 
     assert result.success is False
-    assert "non-JSON" in result.error
+    assert result.error is not None
+    assert "non-JSON" in str(result.error)
 
 
 @patch("openlit.evals.offline.requests.post")
 def test_run_eval_429_retries(mock_post):
+    """429 response triggers a retry and succeeds on second attempt."""
     from openlit.evals.offline import run_eval
 
     rate_limit_resp = MagicMock()
@@ -506,6 +531,7 @@ def test_run_eval_429_retries(mock_post):
 
 
 def test_fetch_eval_types_auth_failure():
+    """401 on fetch_eval_types raises ValueError."""
     from openlit.evals.offline import fetch_eval_types
 
     with patch("openlit.evals.offline.requests.get") as mock_get:
@@ -521,6 +547,7 @@ def test_fetch_eval_types_auth_failure():
 
 
 def test_fetch_eval_types_connection_error():
+    """Connection error on fetch_eval_types raises ConnectionError."""
     from openlit.evals.offline import fetch_eval_types
 
     with patch("openlit.evals.offline.requests.get") as mock_get:

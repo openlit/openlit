@@ -81,11 +81,11 @@ export async function POST(request: Request) {
 			body.metadata &&
 			typeof body.metadata === "object" &&
 			!Array.isArray(body.metadata)
-				? Object.fromEntries(
+				? (Object.fromEntries(
 						Object.entries(body.metadata)
-							.filter(([, v]) => typeof v === "string")
+							.filter((entry): entry is [string, string] => typeof entry[1] === "string")
 							.slice(0, 20)
-					)
+					) as Record<string, string>)
 				: undefined,
 		attributes:
 			body.attributes &&
