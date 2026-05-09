@@ -61,10 +61,6 @@ These options apply to database instrumentations like PostgreSQL (psycopg3):
 
 Configure how evaluation results are exported:
 
-| Parameter | CLI Argument | Environment Variable | Description | Default | Required |
-|-----------|--------------|---------------------|-------------|---------|----------|
-| `evals_logs_export` | `--evals_logs_export` | `OPENLIT_EVALS_LOGS_EXPORT` | Emit evaluation results as OTel Log Records instead of OTel Events. Useful for backends like Grafana Loki that handle logs better than events. | `True` | No |
-
 <Warning>
 **Security Notice**: Enabling `capture_db_parameters` records query parameters (the values passed to `$1`, `$2`, etc.) in your traces using the OTel per-key format (`db.query.parameter.<key>`). This may expose sensitive data like passwords, API keys, or personal information. Only enable in development environments or when you're certain parameters don't contain sensitive data.
 </Warning>

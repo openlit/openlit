@@ -1,7 +1,6 @@
 import { BaseGuard } from './base';
 import { GuardConfig, GuardResult } from './types';
-import { customRuleDetection, toGuardResult, applyThresholdScore, guardMetrics, guardMetricAttributes } from './utils';
-import { formatPrompt } from '../evals/utils';
+import { customRuleDetection, toGuardResult, applyThresholdScore, guardMetrics, guardMetricAttributes, formatPrompt } from './utils';
 import { parseLlmResponse } from '../llm';
 
 export class TopicRestriction extends BaseGuard {
