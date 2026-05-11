@@ -20,7 +20,7 @@ class AlwaysDenyGuard extends Guard {
     super({ action: 'deny' });
   }
 
-  evaluate(text: string): GuardResult {
+  evaluate(_text: string): GuardResult {
     return makeGuardResult({
       action: GuardAction.DENY,
       score: 1.0,
