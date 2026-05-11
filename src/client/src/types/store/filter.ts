@@ -23,7 +23,13 @@ export interface FilterType {
 	filterReady?: boolean;
 }
 
-export type CustomFilterAttributeType = "SpanAttributes" | "ResourceAttributes" | "Field";
+export type CustomFilterAttributeType =
+	| "SpanAttributes"
+	| "ResourceAttributes"
+	| "LogAttributes"
+	| "ScopeAttributes"
+	| "Attributes"
+	| "Field";
 
 export type CustomFilter = {
 	attributeType: CustomFilterAttributeType;
@@ -40,12 +46,19 @@ export interface FilterConfig {
 	applicationNames: string[];
 	spanNames: string[];
 	environments: string[];
+	services: string[];
+	severities: string[];
+	metricNames: string[];
+	metricTypes: string[];
 	customFilters?: CustomFilter[];
 }
 
 export type AttributeKeys = {
 	spanAttributeKeys: string[];
 	resourceAttributeKeys: string[];
+	logAttributeKeys?: string[];
+	scopeAttributeKeys?: string[];
+	metricAttributeKeys?: string[];
 };
 
 export type FilterStore = {
@@ -53,6 +66,6 @@ export type FilterStore = {
 	config?: FilterConfig;
 	attributeKeys?: AttributeKeys;
 	updateFilter: (key: string, value: any, extraParams?: any) => void;
-	updateConfig: (config: FilterConfig) => void;
+	updateConfig: (config?: FilterConfig) => void;
 	updateAttributeKeys: (keys: AttributeKeys) => void;
 };

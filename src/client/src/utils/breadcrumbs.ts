@@ -119,6 +119,33 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => "Requests",
 		getBreadcrumbs: () => [],
 	},
+
+	// Observability
+	{
+		regex: /^\/observability$/,
+		getTitle: () => "Observability",
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/observability\/traces\/[^/]+$/,
+		getTitle: () => "Trace Details",
+		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=traces" }],
+	},
+	{
+		regex: /^\/observability\/exceptions\/[^/]+$/,
+		getTitle: () => "Exception Details",
+		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=exceptions" }],
+	},
+	{
+		regex: /^\/observability\/logs\/[^/]+$/,
+		getTitle: () => "Log Details",
+		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=logs" }],
+	},
+	{
+		regex: /^\/observability\/metrics\/[^/]+$/,
+		getTitle: () => "Metric Details",
+		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=metrics" }],
+	},
 	
 	// Exceptions
 	{

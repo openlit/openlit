@@ -5,17 +5,14 @@ import {
 	BookText,
 	CircleDollarSign,
 	Component,
+	Activity,
 	Home,
 	Key,
 	LayoutDashboard,
-	MessageSquare,
 	MonitorCog,
 	MonitorPlay,
-	Radar,
 	SettingsIcon,
-	ShieldAlert,
 	SlidersHorizontal,
-	TextQuote
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
@@ -57,16 +54,10 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
 		title: "Monitoring",
 		type: "section",
-		children: [{
-			icon: <TextQuote className={ICON_CLASSES} />,
-			text: "Requests",
-			link: "/requests",
-			type: "action",
-		},
-		{
-			icon: <ShieldAlert className={ICON_CLASSES} />,
-			text: "Exceptions",
-			link: "/exceptions",
+	children: [{
+			icon: <Activity className={ICON_CLASSES} />,
+			text: "Observability",
+			link: "/observability",
 			type: "action",
 		},
 		// {

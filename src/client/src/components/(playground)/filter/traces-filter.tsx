@@ -154,6 +154,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("spanNames");
 	params.delete("envs");
 	params.delete("maxCost");
+	params.delete("services");
+	params.delete("severities");
+	params.delete("metricNames");
+	params.delete("metricTypes");
 	// remove all existing cf entries
 	params.delete("cf");
 
@@ -164,6 +168,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	if (config.spanNames?.length) params.set("spanNames", config.spanNames.join(","));
 	if (config.environments?.length) params.set("envs", config.environments.join(","));
 	if (config.maxCost) params.set("maxCost", String(config.maxCost));
+	if (config.services?.length) params.set("services", config.services.join(","));
+	if (config.severities?.length) params.set("severities", config.severities.join(","));
+	if (config.metricNames?.length) params.set("metricNames", config.metricNames.join(","));
+	if (config.metricTypes?.length) params.set("metricTypes", config.metricTypes.join(","));
 	config.customFilters?.forEach(({ attributeType, key, value }) => {
 		if (key && value) {
 			params.append("cf", [attributeType, key, value].join(CF_SEP));
@@ -187,6 +195,14 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 	if (envs) config.environments = envs.split(",").filter(Boolean);
 	const maxCost = params.get("maxCost");
 	if (maxCost) config.maxCost = parseFloat(maxCost);
+	const services = params.get("services");
+	if (services) config.services = services.split(",").filter(Boolean);
+	const severities = params.get("severities");
+	if (severities) config.severities = severities.split(",").filter(Boolean);
+	const metricNames = params.get("metricNames");
+	if (metricNames) config.metricNames = metricNames.split(",").filter(Boolean);
+	const metricTypes = params.get("metricTypes");
+	if (metricTypes) config.metricTypes = metricTypes.split(",").filter(Boolean);
 	const cfValues = params.getAll("cf");
 	if (cfValues.length) {
 		config.customFilters = cfValues.map((raw) => {
@@ -215,10 +231,16 @@ const DynamicFilters = ({
 	isVisibleFilters,
 	filter,
 	areFiltersApplied,
+	configUrl,
+	attributeKeysUrl,
+	customAttributeTypes,
 }: {
 	isVisibleFilters: boolean;
 	filter: FilterType;
 	areFiltersApplied: boolean;
+	configUrl: string;
+	attributeKeysUrl: string;
+	customAttributeTypes: CustomFilterAttributeType[];
 }) => {
 	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
@@ -260,6 +282,10 @@ const DynamicFilters = ({
 			case "applicationNames":
 			case "spanNames":
 			case "environments":
+			case "services":
+			case "severities":
+			case "metricNames":
+			case "metricTypes":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -283,7 +309,7 @@ const DynamicFilters = ({
 	const addCustomFilter = () => {
 		setCustomFilters((prev) => [
 			...prev,
-			{ attributeType: "SpanAttributes", key: "", value: "" },
+			{ attributeType: customAttributeTypes[0] ?? "Field", key: "", value: "" },
 		]);
 	};
 
@@ -314,7 +340,7 @@ const DynamicFilters = ({
 		fireRequest({
 			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
-			url: "/api/metrics/request/config",
+			url: configUrl,
 			successCb: (resp) => {
 				updateConfig(resp.data?.[0]);
 			},
@@ -325,7 +351,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [configUrl]);
 
 	// Fetch filter config when time window changes or config is cleared after a range change.
 	useEffect(() => {
@@ -344,12 +370,15 @@ const DynamicFilters = ({
 		fireAttrKeysRequest({
 			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
-			url: "/api/metrics/request/attribute-keys",
+			url: attributeKeysUrl,
 			successCb: (resp) => {
 				if (resp?.spanAttributeKeys !== undefined) {
 					updateAttributeKeys({
 						spanAttributeKeys: resp.spanAttributeKeys,
 						resourceAttributeKeys: resp.resourceAttributeKeys,
+						logAttributeKeys: resp.logAttributeKeys,
+						scopeAttributeKeys: resp.scopeAttributeKeys,
+						metricAttributeKeys: resp.metricAttributeKeys,
 					} as AttributeKeys);
 				}
 			},
@@ -358,7 +387,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [attributeKeysUrl]);
 
 	// Fetch attribute keys whenever the time window changes.
 	// Use leaf primitives as deps – lodash merge mutates timeLimit in-place
@@ -389,6 +418,40 @@ const DynamicFilters = ({
 		setCustomFilters([]);
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 		updateFilter("selectedConfig", {}, { clearFilter: true });
+	};
+
+	const getAttributeOptions = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return attributeKeys?.spanAttributeKeys ?? [];
+			case "ResourceAttributes":
+				return attributeKeys?.resourceAttributeKeys ?? [];
+			case "LogAttributes":
+				return attributeKeys?.logAttributeKeys ?? [];
+			case "ScopeAttributes":
+				return attributeKeys?.scopeAttributeKeys ?? [];
+			case "Attributes":
+				return attributeKeys?.metricAttributeKeys ?? [];
+			default:
+				return [];
+		}
+	};
+
+	const getAttributeTypeLabel = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return "Span Attributes";
+			case "ResourceAttributes":
+				return "Resource Attributes";
+			case "LogAttributes":
+				return "Log Attributes";
+			case "ScopeAttributes":
+				return "Scope Attributes";
+			case "Attributes":
+				return "Metric Attributes";
+			case "Field":
+				return "Field";
+		}
 	};
 
 	return (
@@ -484,6 +547,58 @@ const DynamicFilters = ({
 							clearItem={clearFilter}
 						/>
 					) : null}
+					{filterConfig?.services?.length ? (
+						<ComboDropdown
+							options={filterConfig.services.map((service) => ({
+								label: service,
+								value: service,
+							}))}
+							title="Services"
+							type="services"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.services}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.severities?.length ? (
+						<ComboDropdown
+							options={filterConfig.severities.map((severity) => ({
+								label: severity,
+								value: severity,
+							}))}
+							title="Severities"
+							type="severities"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.severities}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricNames?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricNames.map((metricName) => ({
+								label: metricName,
+								value: metricName,
+							}))}
+							title="Metric Names"
+							type="metricNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricTypes?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricTypes.map((metricType) => ({
+								label: metricType,
+								value: metricType,
+							}))}
+							title="Metric Types"
+							type="metricTypes"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricTypes}
+							clearItem={clearFilter}
+						/>
+					) : null}
 				</div>
 				<div className="flex shrink-0 gap-3">
 					{areFiltersApplied && (
@@ -534,9 +649,11 @@ const DynamicFilters = ({
 									}
 									className="h-7 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
 								>
-									<option value="SpanAttributes">Span Attributes</option>
-									<option value="ResourceAttributes">Resource Attributes</option>
-									<option value="Field">Field</option>
+									{customAttributeTypes.map((attributeType) => (
+										<option key={attributeType} value={attributeType}>
+											{getAttributeTypeLabel(attributeType)}
+										</option>
+									))}
 								</select>
 
 								{cf.attributeType === "Field" ? (
@@ -553,9 +670,7 @@ const DynamicFilters = ({
 										value={cf.key}
 										onChange={(val) => updateCustomFilter(index, "key", val)}
 										options={
-											cf.attributeType === "SpanAttributes"
-												? (attributeKeys?.spanAttributeKeys ?? [])
-												: (attributeKeys?.resourceAttributeKeys ?? [])
+											getAttributeOptions(cf.attributeType)
 										}
 										placeholder="e.g. gen_ai.system"
 									/>
@@ -658,9 +773,11 @@ function InlineSuggest({
 function GroupByDropdown({
 	groupBy,
 	onChangeGroupBy,
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
 }: {
 	groupBy?: string;
 	onChangeGroupBy: (key: string | undefined) => void;
+	customAttributeTypes?: CustomFilterAttributeType[];
 }) {
 	const attributeKeys = useRootStore(getAttributeKeys);
 	const [open, setOpen] = useState(false);
@@ -690,8 +807,14 @@ function GroupByDropdown({
 	const customOptions =
 		customAttrType === "SpanAttributes"
 			? (attributeKeys?.spanAttributeKeys ?? [])
-			: customAttrType === "ResourceAttributes"
+		: customAttrType === "ResourceAttributes"
 			? (attributeKeys?.resourceAttributeKeys ?? [])
+		: customAttrType === "LogAttributes"
+			? (attributeKeys?.logAttributeKeys ?? [])
+		: customAttrType === "ScopeAttributes"
+			? (attributeKeys?.scopeAttributeKeys ?? [])
+		: customAttrType === "Attributes"
+			? (attributeKeys?.metricAttributeKeys ?? [])
 			: [];
 
 	const applyCustom = () => {
@@ -755,9 +878,21 @@ function GroupByDropdown({
 							}}
 							className="h-7 w-full rounded-md border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
 						>
-							<option value="SpanAttributes">Span Attributes</option>
-							<option value="ResourceAttributes">Resource Attributes</option>
-							<option value="Field">Field</option>
+							{customAttributeTypes.map((attributeType) => (
+								<option key={attributeType} value={attributeType}>
+									{attributeType === "SpanAttributes"
+										? "Span Attributes"
+										: attributeType === "ResourceAttributes"
+										? "Resource Attributes"
+										: attributeType === "LogAttributes"
+										? "Log Attributes"
+										: attributeType === "ScopeAttributes"
+										? "Scope Attributes"
+										: attributeType === "Attributes"
+										? "Metric Attributes"
+										: "Field"}
+								</option>
+							))}
 						</select>
 						<InlineSuggest
 							value={customKey}
@@ -785,7 +920,7 @@ function GroupByDropdown({
 const FILTER_STORAGE_KEY = "openlit_filter_v1";
 
 // Params that indicate a meaningful filter is present in the URL
-const FILTER_PARAM_KEYS = ["tr", "ts", "te", "limit", "models", "providers", "traceTypes", "appNames", "spanNames", "envs", "maxCost", "cf", "gb", "gbv"];
+const FILTER_PARAM_KEYS = ["tr", "ts", "te", "limit", "offset", "models", "providers", "traceTypes", "appNames", "spanNames", "envs", "maxCost", "services", "severities", "metricNames", "metricTypes", "cf", "gb", "gbv"];
 
 type PersistedFilter = {
 	timeLimitType: string;
@@ -890,6 +1025,11 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 				const parsed = parseInt(limitParam, 10);
 				if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
 			}
+			const offsetParam = params.get("offset");
+			if (offsetParam) {
+				const parsed = parseInt(offsetParam, 10);
+				if (!isNaN(parsed) && parsed >= 0) updateFilter("offset", parsed);
+			}
 			const config = paramsToConfig(params);
 			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
 			const gb = params.get("gb");
@@ -929,6 +1069,7 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 
 		// Page size
 		params.set("limit", String(filter.limit));
+		params.set("offset", String(filter.offset));
 
 		// Selected config
 		configToParams(filter.selectedConfig, params);
@@ -950,7 +1091,7 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 		// Persist to localStorage so other pages (and refreshes) pick up these filters
 		saveFilterToStorage(filter);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.selectedConfig, filter.groupBy, filter.groupValue]);
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.offset, filter.selectedConfig, filter.groupBy, filter.groupValue]);
 }
 
 // ─── TracesFilter (exported) ──────────────────────────────────────────────────
@@ -961,12 +1102,18 @@ export default function TracesFilter({
 	includeOnlySorting,
 	pageName,
 	columns,
+	configUrl = "/api/metrics/request/config",
+	attributeKeysUrl = "/api/metrics/request/attribute-keys",
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
 	includeOnlySorting?: string[];
 	pageName: PAGE;
 	columns: Columns<any, any>;
+	configUrl?: string;
+	attributeKeysUrl?: string;
+	customAttributeTypes?: CustomFilterAttributeType[];
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
@@ -1061,6 +1208,7 @@ export default function TracesFilter({
 					<GroupByDropdown
 						groupBy={filter.groupBy}
 						onChangeGroupBy={onChangeGroupBy}
+						customAttributeTypes={customAttributeTypes}
 					/>
 				)}
 				{supportDynamicFilters && (
@@ -1091,6 +1239,9 @@ export default function TracesFilter({
 					isVisibleFilters={isVisibleFilters}
 					filter={filter}
 					areFiltersApplied={areFiltersApplied}
+					configUrl={configUrl}
+					attributeKeysUrl={attributeKeysUrl}
+					customAttributeTypes={customAttributeTypes}
 				/>
 			)}
 		</div>

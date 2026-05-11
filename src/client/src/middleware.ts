@@ -17,6 +17,8 @@ export const config = {
 		"/register",
 		"/getting-started",
 		"/dashboard",
+		"/observability",
+		"/observability/:path*",
 		"/requests",
 		"/openground",
 		"/exceptions",
