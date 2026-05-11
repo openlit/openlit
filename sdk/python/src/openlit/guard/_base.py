@@ -8,7 +8,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -17,11 +17,15 @@ from typing import Callable, List, Optional
 
 
 class GuardPhase(str, Enum):
+    """Phase in which a guard runs relative to the LLM call."""
+
     PREFLIGHT = "preflight"
     POSTFLIGHT = "postflight"
 
 
 class GuardAction(str, Enum):
+    """Action a guard takes when a violation is detected."""
+
     ALLOW = "allow"
     DENY = "deny"
     REDACT = "redact"
@@ -55,6 +59,7 @@ class GuardResult:
     latency_ms: float = 0.0
 
     def to_dict(self) -> dict:
+        """Return the result as a flat dict of OTel-friendly attribute keys."""
         return {
             "guard.name": self.guard_name,
             "guard.action": self.action.value,
@@ -75,6 +80,7 @@ class PipelineResult:
 
     @property
     def explanation(self) -> str:
+        """Concatenated explanations from every non-empty per-guard result."""
         parts = [r.explanation for r in self.results if r.explanation]
         return "; ".join(parts)
 
@@ -139,9 +145,11 @@ class Guard(ABC):
 
     @property
     def action(self) -> GuardAction:
+        """The configured action this guard applies on a violation."""
         return self._action
 
     def supports_phase(self, phase: GuardPhase) -> bool:
+        """Return True if this guard runs in the given pipeline phase."""
         return phase in self.phases
 
     def run(self, text: str, phase: GuardPhase) -> GuardResult:
@@ -173,4 +181,3 @@ class Guard(ABC):
         Implementations should return ``GuardResult(action=self._action, ...)``
         when a violation is detected, or ``GuardResult()`` for a clean pass.
         """
-        ...

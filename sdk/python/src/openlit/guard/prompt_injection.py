@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Callable, List, Optional, Tuple
 
-from openlit.guard._base import Guard, GuardAction, GuardPhase, GuardResult
+from openlit.guard._base import Guard, GuardPhase, GuardResult
 
 # (label, pattern, weight)  -- weight contributes to the aggregated score.
 _INJECTION_PATTERNS: List[Tuple[str, re.Pattern, float]] = []
@@ -39,7 +39,12 @@ _p("jailbreak-keyword", r"jailbreak(?:ed|ing)?", 0.8)
 # ---- System prompt extraction ----
 _p(
     "system-prompt-leak",
-    r"(?:show|reveal|display|print|output|repeat|tell\s+me)\s+(?:your|the|me\s+your)\s*(?:system|initial|original|hidden)\s+(?:prompt|instructions|message)",
+    (
+        r"(?:show|reveal|display|print|output|repeat|tell\s+me)"
+        r"\s+(?:your|the|me\s+your)"
+        r"\s*(?:system|initial|original|hidden)"
+        r"\s+(?:prompt|instructions|message)"
+    ),
     0.85,
 )
 _p(
@@ -56,7 +61,10 @@ _p(
 # ---- Role impersonation ----
 _p(
     "role-play",
-    r"(?:you\s+are\s+now|act\s+as|pretend\s+(?:to\s+be|you\s+are)|roleplay\s+as)\s+(?:a\s+)?(?:hacker|evil|malicious|unrestricted|unfiltered)",
+    (
+        r"(?:you\s+are\s+now|act\s+as|pretend\s+(?:to\s+be|you\s+are)|roleplay\s+as)"
+        r"\s+(?:a\s+)?(?:hacker|evil|malicious|unrestricted|unfiltered)"
+    ),
     0.85,
 )
 _p("developer-mode", r"(?:developer|debug|admin|god|sudo|root)\s+mode", 0.7)
@@ -109,8 +117,7 @@ class PromptInjection(Guard):
         for label, pattern, weight in _INJECTION_PATTERNS:
             if pattern.search(text):
                 matched_labels.append(label)
-                if weight > max_weight:
-                    max_weight = weight
+                max_weight = max(max_weight, weight)
 
         score = max_weight
 

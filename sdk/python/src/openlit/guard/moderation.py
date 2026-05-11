@@ -7,7 +7,7 @@ Uses local keyword/regex patterns.  Phases: preflight + postflight.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from openlit.guard._base import Guard, GuardPhase, GuardResult
 

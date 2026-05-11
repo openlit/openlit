@@ -200,6 +200,7 @@ def init(
     custom_metrics_attributes=None,
     openlit_api_key=None,
     openlit_url=None,
+    *,
     guards=None,
     guard_fail_open=True,
 ):

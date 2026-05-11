@@ -11,7 +11,6 @@ from typing import Callable, List, Optional, Set
 
 from openlit.guard._base import (
     Guard,
-    GuardAction,
     GuardConfigError,
     GuardPhase,
     GuardResult,

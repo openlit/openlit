@@ -32,7 +32,7 @@ class Custom(Guard):
         self,
         action: str = "deny",
         pattern: Optional[str] = None,
-        callable: Optional[Callable[[str], GuardResult]] = None,
+        callable: Optional[Callable[[str], GuardResult]] = None,  # pylint: disable=redefined-builtin
         phases: Optional[List[str]] = None,
         **kwargs,
     ):

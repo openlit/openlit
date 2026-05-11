@@ -39,9 +39,11 @@ class Pipeline:
 
     @property
     def guards(self) -> List[Guard]:
+        """Return a shallow copy of the configured guards in pipeline order."""
         return list(self._guards)
 
     def evaluate(self, text: str, phase: str = "preflight") -> PipelineResult:
+        """Run every guard that supports ``phase`` and aggregate the results."""
         guard_phase = GuardPhase(phase)
         results: List[GuardResult] = []
         current_text = text

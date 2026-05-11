@@ -2,7 +2,7 @@
 
 import pytest
 
-from openlit.guard._base import GuardAction, GuardDeniedError
+from openlit.guard._base import GuardDeniedError
 from openlit.guard._integration import (
     _extract_openai_input,
     _extract_anthropic_input,
@@ -16,7 +16,10 @@ from openlit.guard.prompt_injection import PromptInjection
 
 
 class TestExtractors:
+    """Input/output extractors normalize provider-specific kwargs."""
+
     def test_openai_input_from_messages(self):
+        """The OpenAI extractor concatenates ``messages`` content."""
         kwargs = {
             "messages": [
                 {"role": "system", "content": "You are helpful."},
@@ -28,15 +31,18 @@ class TestExtractors:
         assert "Hello!" in text
 
     def test_openai_input_from_string_input(self):
+        """A plain ``input`` string is returned as-is."""
         kwargs = {"input": "Just a string"}
         text = _extract_openai_input(kwargs)
         assert text == "Just a string"
 
     def test_openai_input_empty(self):
+        """An empty kwargs dict yields an empty string."""
         text = _extract_openai_input({})
         assert text == ""
 
     def test_anthropic_input_from_messages(self):
+        """The Anthropic extractor reads plain-string ``messages`` content."""
         kwargs = {
             "messages": [
                 {"role": "user", "content": "Tell me a joke"},
@@ -46,6 +52,7 @@ class TestExtractors:
         assert "Tell me a joke" in text
 
     def test_anthropic_input_content_blocks(self):
+        """The Anthropic extractor unpacks list-style content blocks."""
         kwargs = {
             "messages": [
                 {
@@ -60,18 +67,23 @@ class TestExtractors:
         assert "Hello from block" in text
 
     def test_generic_input_messages(self):
+        """The generic extractor falls back to ``messages``."""
         kwargs = {"messages": [{"content": "hi"}]}
         text = _extract_generic_input(kwargs)
         assert "hi" in text
 
     def test_generic_input_prompt_string(self):
+        """The generic extractor uses ``prompt`` when no ``messages`` exist."""
         kwargs = {"prompt": "Generate something"}
         text = _extract_generic_input(kwargs)
         assert text == "Generate something"
 
 
 class TestPreflightIntegration:
+    """``_apply_preflight`` runs guards on extracted input kwargs."""
+
     def test_preflight_deny(self):
+        """A denying guard raises ``GuardDeniedError``."""
         pipeline = Pipeline(
             guards=[PromptInjection(action="deny")],
             fail_open=True,
@@ -85,6 +97,7 @@ class TestPreflightIntegration:
             _apply_preflight(pipeline, kwargs, _extract_openai_input)
 
     def test_preflight_redact(self):
+        """A redacting guard rewrites the last user message in-place."""
         pipeline = Pipeline(
             guards=[PII(action="redact")],
             fail_open=True,
@@ -94,12 +107,13 @@ class TestPreflightIntegration:
                 {"role": "user", "content": "My email is test@example.com"},
             ]
         }
-        new_kwargs, result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
         last_msg = new_kwargs["messages"][-1]
         assert "[REDACTED:" in last_msg["content"]
         assert "test@example.com" not in last_msg["content"]
 
     def test_preflight_allow_passes_through(self):
+        """Clean input leaves kwargs unmodified."""
         pipeline = Pipeline(
             guards=[PII(action="deny")],
             fail_open=True,
@@ -109,25 +123,30 @@ class TestPreflightIntegration:
                 {"role": "user", "content": "Hello world"},
             ]
         }
-        new_kwargs, result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
         assert new_kwargs == kwargs
 
     def test_preflight_empty_text_skipped(self):
+        """Empty extracted text short-circuits the pipeline."""
         pipeline = Pipeline(
             guards=[PII(action="deny")],
             fail_open=True,
         )
-        new_kwargs, result = _apply_preflight(pipeline, {}, _extract_openai_input)
+        _new_kwargs, result = _apply_preflight(pipeline, {}, _extract_openai_input)
         assert result is None
 
 
 class TestPostflightIntegration:
+    """``_apply_postflight`` runs guards on extracted response text."""
+
     def test_postflight_deny(self):
+        """A denying guard on the response raises ``GuardDeniedError``."""
         pipeline = Pipeline(
             guards=[PII(action="deny")],
             fail_open=True,
         )
 
+        # pylint: disable=too-few-public-methods,missing-class-docstring
         class FakeResponse:
             class Choice:
                 class Message:
@@ -140,11 +159,13 @@ class TestPostflightIntegration:
             _apply_postflight(pipeline, FakeResponse(), _extract_openai_output)
 
     def test_postflight_clean_passes(self):
+        """A clean response yields a non-None result without raising."""
         pipeline = Pipeline(
             guards=[PII(action="deny")],
             fail_open=True,
         )
 
+        # pylint: disable=too-few-public-methods,missing-class-docstring
         class FakeResponse:
             class Choice:
                 class Message:

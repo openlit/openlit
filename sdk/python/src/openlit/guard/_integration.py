@@ -33,7 +33,6 @@ from openlit.guard._base import (
     Guard,
     GuardAction,
     GuardDeniedError,
-    GuardPhase,
     PipelineResult,
 )
 from openlit.guard._pipeline import Pipeline
