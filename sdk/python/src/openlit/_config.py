@@ -52,6 +52,7 @@ class OpenlitConfig:
         cls.custom_metrics_attributes = {}
         cls.openlit_api_key = None
         cls.openlit_url = None
+        cls.guard_pipeline = None
 
     @classmethod
     def update_config(

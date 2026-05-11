@@ -45,6 +45,28 @@ from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
 
+# Re-export guard classes at top level for clean API:
+#   openlit.PII(action="redact")  instead of  openlit.guard.PII(action="redact")
+from openlit.guard import (  # noqa: F401 — public re-exports
+    PII,
+    PromptInjection,
+    SensitiveTopic,
+    TopicRestriction,
+    Moderation,
+    Schema,
+    Custom,
+    Pipeline,
+    Guard,
+    GuardAction,
+    GuardPhase,
+    GuardResult,
+    PipelineResult,
+    GuardError,
+    GuardDeniedError,
+    GuardTimeoutError,
+    GuardConfigError,
+)
+
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
@@ -178,6 +200,9 @@ def init(
     custom_metrics_attributes=None,
     openlit_api_key=None,
     openlit_url=None,
+    *,
+    guards=None,
+    guard_fail_open=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -219,6 +244,10 @@ def init(
                                openlit.get_prompt()). Falls back to OPENLIT_API_KEY env var.
         openlit_url (str): URL of the OpenLIT server (used by openlit.eval() and
                            openlit.get_prompt()). Falls back to OPENLIT_URL env var.
+        guards (list): List of Guard instances (e.g. ``[openlit.PII(action="redact")]``)
+                       that automatically run on every LLM call.  Optional.
+        guard_fail_open (bool): If True (default), guard errors resolve to allow.
+                                Set to False for strict environments.
     """
     disabled_instrumentors = normalize_instrumentor_names(disabled_instrumentors)
     logger.info("Starting openLIT initialization...")
@@ -341,7 +370,6 @@ def init(
 
         if not tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
-            return
 
         # Setup events based on the provided or default configuration.
         event_provider = setup_events(
@@ -405,6 +433,15 @@ def init(
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
             instrument_if_available(name, instrumentor, config, disabled_instrumentors)
+
+        # Set up auto-guards if configured (second wrapt pass over provider methods)
+        if guards:
+            try:
+                from openlit.guard._integration import setup_auto_guards
+
+                setup_auto_guards(guards, fail_open=guard_fail_open)
+            except Exception as e:
+                logger.error("Failed to set up auto-guards: %s", e)
 
         # Handle GPU instrumentation separately (only if GPU is found)
         if not disable_metrics and collect_gpu_stats:
