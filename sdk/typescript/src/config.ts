@@ -1,4 +1,5 @@
 import { OpenlitConfigInterface, PricingObject } from './types';
+import type { Pipeline } from './guard/pipeline';
 
 export default class OpenlitConfig {
   static environment: OpenlitConfigInterface['environment'];
@@ -16,6 +17,7 @@ export default class OpenlitConfig {
   static customSpanAttributes?: Record<string, string> | null;
   static openlitApiKey?: string;
   static openlitUrl?: string;
+  static guardPipeline?: Pipeline;
 
   static updateConfig({
     environment = 'default',

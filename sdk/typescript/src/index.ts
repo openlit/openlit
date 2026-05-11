@@ -12,18 +12,26 @@ import { usingAttributes, injectAdditionalAttributes } from './helpers';
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
+import { parseBoolEnv } from './otel/utils';
+import { setupAutoGuards } from './guard/integration';
+import { PII } from './guard/pii';
 import { PromptInjection } from './guard/prompt-injection';
+import { Moderation } from './guard/moderation';
 import { SensitiveTopic } from './guard/sensitive-topic';
 import { TopicRestriction } from './guard/topic-restriction';
-import { All as GuardAll } from './guard/all';
-import { parseBoolEnv } from './otel/utils';
-
-const guard = {
-  PromptInjection: (options: ConstructorParameters<typeof PromptInjection>[0]) => new PromptInjection(options),
-  SensitiveTopic: (options: ConstructorParameters<typeof SensitiveTopic>[0]) => new SensitiveTopic(options),
-  TopicRestriction: (options: ConstructorParameters<typeof TopicRestriction>[0]) => new TopicRestriction(options),
-  All: (options: ConstructorParameters<typeof GuardAll>[0]) => new GuardAll(options),
-};
+import { Schema } from './guard/schema';
+import { Custom } from './guard/custom';
+import { Pipeline } from './guard/pipeline';
+import {
+  Guard,
+  GuardAction,
+  GuardPhase,
+  GuardError,
+  GuardDeniedError,
+  GuardTimeoutError,
+  GuardConfigError,
+  PipelineResult,
+} from './guard/base';
 
 /**
  * Resolve OpenlitOptions into a single ResolvedOptions object.
@@ -101,13 +109,30 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     customSpanAttributes: o.customSpanAttributes ?? null,
     openlitApiKey,
     openlitUrl,
+    guards: o.guards,
+    guardFailOpen: o.guardFailOpen ?? true,
   };
 }
 
 class Openlit extends BaseOpenlit {
   static resource: ReturnType<typeof resourceFromAttributes>;
   static options: ResolvedOptions;
-  static guard = guard;
+
+  // Top-level guard class exports
+  static PII = PII;
+  static PromptInjection = PromptInjection;
+  static Moderation = Moderation;
+  static SensitiveTopic = SensitiveTopic;
+  static TopicRestriction = TopicRestriction;
+  static Schema = Schema;
+  static Custom = Custom;
+  static Pipeline = Pipeline;
+  static GuardAction = GuardAction;
+  static GuardPhase = GuardPhase;
+  static GuardError = GuardError;
+  static GuardDeniedError = GuardDeniedError;
+  static GuardTimeoutError = GuardTimeoutError;
+  static GuardConfigError = GuardConfigError;
 
   static eval = runEval;
   static evalBatch = runEvalBatch;
@@ -154,14 +179,17 @@ class Openlit extends BaseOpenlit {
         (info) => { OpenlitConfig.pricingInfo = info; },
         () => { OpenlitConfig.pricingInfo = {}; }
       );
+
+      if (resolved.guards && resolved.guards.length > 0) {
+        setupAutoGuards(resolved.guards, resolved.guardFailOpen);
+      }
     } catch (e) {
-      console.log('Connection time out', e);
+      console.error('OpenLIT initialization failed:', e);
     }
   }
 }
 
 const openlit = Openlit as typeof Openlit & {
-  guard: typeof guard;
   usingAttributes: typeof usingAttributes;
   injectAdditionalAttributes: typeof injectAdditionalAttributes;
 };
@@ -172,3 +200,24 @@ const openlit = Openlit as typeof Openlit & {
 export default openlit;
 export { Openlit, usingAttributes, injectAdditionalAttributes };
 export type { OpenlitOptions } from './types';
+
+// Guard re-exports for named imports: import { PII, Pipeline } from 'openlit'
+export {
+  PII,
+  PromptInjection,
+  Moderation,
+  SensitiveTopic,
+  TopicRestriction,
+  Schema,
+  Custom,
+  Pipeline,
+  Guard,
+  GuardAction,
+  GuardPhase,
+  GuardError,
+  GuardDeniedError,
+  GuardTimeoutError,
+  GuardConfigError,
+  PipelineResult,
+};
+export type { GuardResult } from './guard/base';

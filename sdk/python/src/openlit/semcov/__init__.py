@@ -1041,6 +1041,14 @@ class SemanticConvention:
     GUARD_VALIDATOR = "guard.validator"
     GUARD_EXPLANATION = "guard.explanation"
 
+    # Guard events (new guard system)
+    GUARD_EVALUATION_EVENT = "guard.evaluation"
+    GUARD_NAME = "guard.name"
+    GUARD_PHASE = "guard.phase"
+    GUARD_ACTION = "guard.action"
+    GUARD_LATENCY_MS = "guard.latency_ms"
+    GUARD_DENIED = "guard.denied"
+
     # GenAI Evaluation Event (OTel Semantic Convention)
     # Per OpenTelemetry semantic conventions for generative AI
     # https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-events.md#event-gen_aievaluationresult
