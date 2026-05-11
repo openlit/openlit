@@ -22,19 +22,43 @@ def _p(label: str, pattern: str, weight: float = 0.5) -> None:
 
 
 # ---- Instruction override ----
-_p("instruction-override", r"ignore\s+(?:all\s+)?(?:previous|above|prior)\s+(?:instructions|prompts|rules)", 0.9)
-_p("instruction-override-2", r"disregard\s+(?:all\s+)?(?:previous|above|prior)\s+(?:instructions|context)", 0.9)
+_p(
+    "instruction-override",
+    r"ignore\s+(?:all\s+)?(?:previous|above|prior)\s+(?:instructions|prompts|rules)",
+    0.9,
+)
+_p(
+    "instruction-override-2",
+    r"disregard\s+(?:all\s+)?(?:previous|above|prior)\s+(?:instructions|context)",
+    0.9,
+)
 _p("new-instructions", r"(?:new|updated|revised)\s+instructions\s*:", 0.7)
 _p("do-anything-now", r"(?:DAN|do\s+anything\s+now)\s+mode", 0.95)
 _p("jailbreak-keyword", r"jailbreak(?:ed|ing)?", 0.8)
 
 # ---- System prompt extraction ----
-_p("system-prompt-leak", r"(?:show|reveal|display|print|output|repeat|tell\s+me)\s+(?:your|the|me\s+your)\s*(?:system|initial|original|hidden)\s+(?:prompt|instructions|message)", 0.85)
-_p("system-prompt-leak-2", r"what\s+(?:are|were)\s+your\s+(?:system|initial|original)\s+(?:instructions|prompt)", 0.8)
-_p("system-prompt-leak-3", r"(?:show|reveal|display|print|output|repeat)\s+(?:me\s+)?your\s+(?:system\s+)?prompt", 0.8)
+_p(
+    "system-prompt-leak",
+    r"(?:show|reveal|display|print|output|repeat|tell\s+me)\s+(?:your|the|me\s+your)\s*(?:system|initial|original|hidden)\s+(?:prompt|instructions|message)",
+    0.85,
+)
+_p(
+    "system-prompt-leak-2",
+    r"what\s+(?:are|were)\s+your\s+(?:system|initial|original)\s+(?:instructions|prompt)",
+    0.8,
+)
+_p(
+    "system-prompt-leak-3",
+    r"(?:show|reveal|display|print|output|repeat)\s+(?:me\s+)?your\s+(?:system\s+)?prompt",
+    0.8,
+)
 
 # ---- Role impersonation ----
-_p("role-play", r"(?:you\s+are\s+now|act\s+as|pretend\s+(?:to\s+be|you\s+are)|roleplay\s+as)\s+(?:a\s+)?(?:hacker|evil|malicious|unrestricted|unfiltered)", 0.85)
+_p(
+    "role-play",
+    r"(?:you\s+are\s+now|act\s+as|pretend\s+(?:to\s+be|you\s+are)|roleplay\s+as)\s+(?:a\s+)?(?:hacker|evil|malicious|unrestricted|unfiltered)",
+    0.85,
+)
 _p("developer-mode", r"(?:developer|debug|admin|god|sudo|root)\s+mode", 0.7)
 
 # ---- Encoding bypass ----
@@ -42,7 +66,11 @@ _p("base64-injection", r"(?:decode|base64|eval)\s*\(", 0.6)
 _p("markdown-injection", r"\[.*?\]\((?:javascript|data):", 0.8)
 
 # ---- Delimiter abuse ----
-_p("delimiter-abuse", r"={5,}|<\|(?:im_start|system|endoftext)\|>|###\s*(?:system|instruction)", 0.7)
+_p(
+    "delimiter-abuse",
+    r"={5,}|<\|(?:im_start|system|endoftext)\|>|###\s*(?:system|instruction)",
+    0.7,
+)
 
 
 class PromptInjection(Guard):
@@ -90,7 +118,9 @@ class PromptInjection(Guard):
             score = self._classifier(text)
 
         if score >= self._threshold:
-            classification = ", ".join(matched_labels) if matched_labels else "classifier"
+            classification = (
+                ", ".join(matched_labels) if matched_labels else "classifier"
+            )
             return GuardResult(
                 action=self._action,
                 score=round(score, 3),

@@ -31,7 +31,10 @@ _p("github-token", r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,}")
 _p("github-fine-grained", r"github_pat_[A-Za-z0-9_]{22,}")
 _p("stripe-key", r"(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,}")
 _p("slack-token", r"xox[bpoas]-[A-Za-z0-9-]{10,}")
-_p("slack-webhook", r"https://hooks\.slack\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]+")
+_p(
+    "slack-webhook",
+    r"https://hooks\.slack\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]+",
+)
 _p("twilio-api-key", r"SK[0-9a-fA-F]{32}")
 _p("sendgrid-api-key", r"SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}")
 _p("mailgun-api-key", r"key-[0-9a-zA-Z]{32}")
@@ -42,8 +45,14 @@ _p("heroku-api-key", r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 _p("email", r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}")
 _p("phone-us", r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}(?!\d)")
 _p("ssn", r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
-_p("credit-card", r"(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?!\d)")
-_p("ipv4", r"(?<!\d)(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)){3}(?!\d)")
+_p(
+    "credit-card",
+    r"(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?!\d)",
+)
+_p(
+    "ipv4",
+    r"(?<!\d)(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)){3}(?!\d)",
+)
 
 # ---- Secrets / credentials ----
 _p("bearer-token", r"Bearer\s+[A-Za-z0-9_\-.~+/]+=*", re.IGNORECASE)
@@ -101,7 +110,11 @@ class PII(Guard):
             sorted_matches = sorted(matches, key=lambda x: x[1].start(), reverse=True)
             result_text = text
             for label, m in sorted_matches:
-                result_text = result_text[: m.start()] + f"[REDACTED:{label}]" + result_text[m.end() :]
+                result_text = (
+                    result_text[: m.start()]
+                    + f"[REDACTED:{label}]"
+                    + result_text[m.end() :]
+                )
             transformed = result_text
 
         return GuardResult(

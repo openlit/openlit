@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional, Set
 
-from openlit.guard._base import Guard, GuardAction, GuardConfigError, GuardPhase, GuardResult
+from openlit.guard._base import (
+    Guard,
+    GuardAction,
+    GuardConfigError,
+    GuardPhase,
+    GuardResult,
+)
 
 
 class TopicRestriction(Guard):
@@ -48,8 +54,12 @@ class TopicRestriction(Guard):
             raise GuardConfigError("Provide either 'allowed' or 'denied' topic list")
 
         self._classifier = classifier
-        self._allowed: Optional[Set[str]] = {t.lower() for t in allowed} if allowed else None
-        self._denied: Optional[Set[str]] = {t.lower() for t in denied} if denied else None
+        self._allowed: Optional[Set[str]] = (
+            {t.lower() for t in allowed} if allowed else None
+        )
+        self._denied: Optional[Set[str]] = (
+            {t.lower() for t in denied} if denied else None
+        )
 
     def evaluate(self, text: str) -> GuardResult:
         topic = self._classifier(text).lower().strip()

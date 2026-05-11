@@ -39,7 +39,9 @@ class Custom(Guard):
         super().__init__(action=action, **kwargs)
 
         if pattern is None and callable is None:
-            raise GuardConfigError("Custom guard needs at least 'pattern' or 'callable'")
+            raise GuardConfigError(
+                "Custom guard needs at least 'pattern' or 'callable'"
+            )
 
         self._pattern: Optional[re.Pattern] = re.compile(pattern) if pattern else None
         self._callable = callable

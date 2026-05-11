@@ -15,9 +15,25 @@ from openlit.guard._base import Guard, GuardPhase, GuardResult
 # exhaustive -- users can extend via ``custom_words``.  Each word is
 # matched as a whole word (\\b boundary) case-insensitively.
 _BUILTIN_WORDS: List[str] = [
-    "fuck", "shit", "ass", "bitch", "damn", "bastard", "crap",
-    "dick", "piss", "cock", "cunt", "slut", "whore",
-    "nigger", "nigga", "faggot", "retard", "kike", "spic",
+    "fuck",
+    "shit",
+    "ass",
+    "bitch",
+    "damn",
+    "bastard",
+    "crap",
+    "dick",
+    "piss",
+    "cock",
+    "cunt",
+    "slut",
+    "whore",
+    "nigger",
+    "nigga",
+    "faggot",
+    "retard",
+    "kike",
+    "spic",
 ]
 
 _TOXICITY_PATTERNS: List[re.Pattern] = [

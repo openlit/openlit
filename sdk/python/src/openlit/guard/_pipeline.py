@@ -71,7 +71,10 @@ class Pipeline:
             if _ACTION_SEVERITY[result.action] > _ACTION_SEVERITY[worst_action]:
                 worst_action = result.action
 
-            if result.action == GuardAction.REDACT and result.transformed_text is not None:
+            if (
+                result.action == GuardAction.REDACT
+                and result.transformed_text is not None
+            ):
                 current_text = result.transformed_text
 
             if result.action == GuardAction.DENY:
@@ -98,13 +101,16 @@ class Pipeline:
             if metrics and not getattr(OpenlitConfig, "disable_metrics", False):
                 counter = metrics.get("guard_requests")
                 if counter is not None:
-                    counter.add(1, {
-                        "guard.name": result.guard_name,
-                        "guard.action": result.action.value,
-                        "guard.score": result.score,
-                        "guard.classification": result.classification,
-                        "guard.phase": phase,
-                    })
+                    counter.add(
+                        1,
+                        {
+                            "guard.name": result.guard_name,
+                            "guard.action": result.action.value,
+                            "guard.score": result.score,
+                            "guard.classification": result.classification,
+                            "guard.phase": phase,
+                        },
+                    )
         except Exception:
             pass
 

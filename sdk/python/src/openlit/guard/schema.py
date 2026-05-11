@@ -13,7 +13,9 @@ from typing import Any, Dict, Optional
 from openlit.guard._base import Guard, GuardPhase, GuardResult
 
 
-def _validate_json_schema(data: Any, schema: Dict[str, Any], path: str = "") -> Optional[str]:
+def _validate_json_schema(
+    data: Any, schema: Dict[str, Any], path: str = ""
+) -> Optional[str]:
     """Minimal recursive JSON schema validator (type, required, properties)."""
     schema_type = schema.get("type")
     if schema_type:
@@ -28,7 +30,9 @@ def _validate_json_schema(data: Any, schema: Dict[str, Any], path: str = "") -> 
         }
         expected = type_map.get(schema_type)
         if expected and not isinstance(data, expected):
-            return f"Expected {schema_type} at {path or 'root'}, got {type(data).__name__}"
+            return (
+                f"Expected {schema_type} at {path or 'root'}, got {type(data).__name__}"
+            )
 
     if schema_type == "object" and isinstance(data, dict):
         for field_name in schema.get("required", []):
@@ -38,7 +42,9 @@ def _validate_json_schema(data: Any, schema: Dict[str, Any], path: str = "") -> 
         properties = schema.get("properties", {})
         for prop_name, prop_schema in properties.items():
             if prop_name in data:
-                err = _validate_json_schema(data[prop_name], prop_schema, f"{path}.{prop_name}")
+                err = _validate_json_schema(
+                    data[prop_name], prop_schema, f"{path}.{prop_name}"
+                )
                 if err:
                     return err
 

@@ -17,22 +17,40 @@ from openlit.guard._base import Guard, GuardPhase, GuardResult
 # that indicate the topic is present.
 _DEFAULT_CATEGORIES: Dict[str, List[re.Pattern]] = {
     "violence": [
-        re.compile(r"\b(?:kill|murder|assault|attack|weapon|bomb|shoot|stab|torture|terrorism|massacre|genocide)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:kill|murder|assault|attack|weapon|bomb|shoot|stab|torture|terrorism|massacre|genocide)\b",
+            re.IGNORECASE,
+        ),
     ],
     "politics": [
-        re.compile(r"\b(?:democrat|republican|election\s+fraud|political\s+party|vote\s+rigging|coup|insurrection)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:democrat|republican|election\s+fraud|political\s+party|vote\s+rigging|coup|insurrection)\b",
+            re.IGNORECASE,
+        ),
     ],
     "substance_use": [
-        re.compile(r"\b(?:cocaine|heroin|methamphetamine|fentanyl|drug\s+(?:deal|traffick)|overdose|illegal\s+drugs)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:cocaine|heroin|methamphetamine|fentanyl|drug\s+(?:deal|traffick)|overdose|illegal\s+drugs)\b",
+            re.IGNORECASE,
+        ),
     ],
     "mental_health": [
-        re.compile(r"\b(?:suicid(?:e|al)|self[- ]harm|eating\s+disorder|anorexia|bulimia)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:suicid(?:e|al)|self[- ]harm|eating\s+disorder|anorexia|bulimia)\b",
+            re.IGNORECASE,
+        ),
     ],
     "discrimination": [
-        re.compile(r"\b(?:racial\s+slur|white\s+supremac|ethnic\s+cleansing|hate\s+(?:speech|crime))\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:racial\s+slur|white\s+supremac|ethnic\s+cleansing|hate\s+(?:speech|crime))\b",
+            re.IGNORECASE,
+        ),
     ],
     "adult_content": [
-        re.compile(r"\b(?:pornograph|explicit\s+sexual|nude\s+images|sex\s+trafficking)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(?:pornograph|explicit\s+sexual|nude\s+images|sex\s+trafficking)\b",
+            re.IGNORECASE,
+        ),
     ],
 }
 

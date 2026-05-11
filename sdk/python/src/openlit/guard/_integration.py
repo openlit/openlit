@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 # Provider-specific text extractors
 # ---------------------------------------------------------------------------
 
+
 def _extract_openai_input(kwargs: Dict[str, Any]) -> str:
     messages = kwargs.get("messages") or kwargs.get("input") or []
     if isinstance(messages, str):
@@ -174,33 +175,114 @@ Extractor = Callable[..., str]
 
 GUARDED_METHODS: List[Tuple[str, str, Extractor, Extractor]] = [
     # OpenAI
-    ("openai.resources.chat.completions", "Completions.create", _extract_openai_input, _extract_openai_output),
-    ("openai.resources.chat.completions", "AsyncCompletions.create", _extract_openai_input, _extract_openai_output),
-    ("openai.resources.chat.completions", "Completions.parse", _extract_openai_input, _extract_openai_output),
-    ("openai.resources.chat.completions", "AsyncCompletions.parse", _extract_openai_input, _extract_openai_output),
-    ("openai.resources.responses.responses", "Responses.create", _extract_openai_input, _extract_openai_output),
-    ("openai.resources.responses.responses", "AsyncResponses.create", _extract_openai_input, _extract_openai_output),
+    (
+        "openai.resources.chat.completions",
+        "Completions.create",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
+    (
+        "openai.resources.chat.completions",
+        "AsyncCompletions.create",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
+    (
+        "openai.resources.chat.completions",
+        "Completions.parse",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
+    (
+        "openai.resources.chat.completions",
+        "AsyncCompletions.parse",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
+    (
+        "openai.resources.responses.responses",
+        "Responses.create",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
+    (
+        "openai.resources.responses.responses",
+        "AsyncResponses.create",
+        _extract_openai_input,
+        _extract_openai_output,
+    ),
     # Anthropic
-    ("anthropic.resources.messages", "Messages.create", _extract_anthropic_input, _extract_anthropic_output),
-    ("anthropic.resources.messages", "AsyncMessages.create", _extract_anthropic_input, _extract_anthropic_output),
+    (
+        "anthropic.resources.messages",
+        "Messages.create",
+        _extract_anthropic_input,
+        _extract_anthropic_output,
+    ),
+    (
+        "anthropic.resources.messages",
+        "AsyncMessages.create",
+        _extract_anthropic_input,
+        _extract_anthropic_output,
+    ),
     # Groq
-    ("groq.resources.chat.completions", "Completions.create", _extract_generic_input, _extract_generic_output),
-    ("groq.resources.chat.completions", "AsyncCompletions.create", _extract_generic_input, _extract_generic_output),
+    (
+        "groq.resources.chat.completions",
+        "Completions.create",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
+    (
+        "groq.resources.chat.completions",
+        "AsyncCompletions.create",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
     # Mistral
-    ("mistralai.chat", "Chat.complete", _extract_generic_input, _extract_generic_output),
-    ("mistralai.chat", "Chat.complete_async", _extract_generic_input, _extract_generic_output),
+    (
+        "mistralai.chat",
+        "Chat.complete",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
+    (
+        "mistralai.chat",
+        "Chat.complete_async",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
     # Cohere
-    ("cohere.client_v2", "ClientV2.chat", _extract_generic_input, _extract_generic_output),
-    ("cohere.client_v2", "AsyncClientV2.chat", _extract_generic_input, _extract_generic_output),
+    (
+        "cohere.client_v2",
+        "ClientV2.chat",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
+    (
+        "cohere.client_v2",
+        "AsyncClientV2.chat",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
     # Together
-    ("together.resources.chat.completions", "Completions.create", _extract_generic_input, _extract_generic_output),
-    ("together.resources.chat.completions", "AsyncCompletions.create", _extract_generic_input, _extract_generic_output),
+    (
+        "together.resources.chat.completions",
+        "Completions.create",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
+    (
+        "together.resources.chat.completions",
+        "AsyncCompletions.create",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
 ]
 
 
 # ---------------------------------------------------------------------------
 # Guard wrapper factories
 # ---------------------------------------------------------------------------
+
 
 def _apply_preflight(
     pipeline: Pipeline,
@@ -282,6 +364,7 @@ def _make_sync_guard_wrapper(
         response = wrapped(*args, **kwargs)
         response = _apply_postflight(pipeline, response, extract_output)
         return response
+
     return _guard_wrapper
 
 
@@ -295,12 +378,14 @@ def _make_async_guard_wrapper(
         response = await wrapped(*args, **kwargs)
         response = _apply_postflight(pipeline, response, extract_output)
         return response
+
     return _async_guard_wrapper
 
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def setup_auto_guards(
     guards: List[Guard],
@@ -314,6 +399,7 @@ def setup_auto_guards(
     pipeline = Pipeline(guards=guards, fail_open=fail_open)
 
     from openlit._config import OpenlitConfig
+
     OpenlitConfig.guard_pipeline = pipeline
 
     wrapped_count = 0

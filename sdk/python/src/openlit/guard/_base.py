@@ -15,6 +15,7 @@ from typing import Callable, List, Optional
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class GuardPhase(str, Enum):
     PREFLIGHT = "preflight"
     POSTFLIGHT = "postflight"
@@ -39,6 +40,7 @@ _ACTION_SEVERITY = {
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class GuardResult:
@@ -81,6 +83,7 @@ class PipelineResult:
 # Errors
 # ---------------------------------------------------------------------------
 
+
 class GuardError(Exception):
     """Base error for all guard-related failures."""
 
@@ -108,6 +111,7 @@ class GuardConfigError(GuardError):
 # ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
+
 
 class Guard(ABC):
     """
