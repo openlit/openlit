@@ -26,6 +26,8 @@ from openlit.__helpers import (
     get_env_variable,
     set_agent_name,
     reset_agent_name,
+    set_agent_version,
+    reset_agent_version,
     set_custom_attributes,
     reset_custom_attributes,
     record_agent_invocation,
@@ -798,6 +800,28 @@ def agent_context(name):
         yield
     finally:
         reset_agent_name(token)
+
+
+@contextmanager
+def agent_version_context(version):
+    """
+    Context manager that sets the current agent version label.
+
+    LLM calls inside this context will have their chat span / inference event
+    tagged with ``gen_ai.agent.version=<version>`` so the server-side
+    materializer can group traces by the caller-supplied label in addition to
+    the auto-computed ``openlit.agent.version_hash`` fingerprint.
+
+    Usage::
+
+        with openlit.agent_version_context("v3"):
+            client.chat.completions.create(...)
+    """
+    token = set_agent_version(version)
+    try:
+        yield
+    finally:
+        reset_agent_version(token)
 
 
 class using_attributes(ContextDecorator):

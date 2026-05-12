@@ -1,4 +1,4 @@
-function parseDateString(dateString: string) {
+export function parseDateString(dateString: string) {
 	if (!dateString) return null;
 
 	const normalizedDate = dateString.includes("T")

@@ -140,15 +140,6 @@ export interface EnvironmentFeatureConfig {
 	updated_at: string;
 }
 
-export interface PromptConfig {
-	templates: Array<{ name: string; content: string; version: number }>;
-}
-
-export interface EnvConfig {
-	variables: Record<string, string>;
-	secrets_masked?: boolean;
-}
-
 export type PythonSDKActionRuntime = "python";
 export type PythonSDKInstrumentationProfile = "controller_managed";
 export type PythonSDKDuplicatePolicy =

@@ -12,6 +12,7 @@ import {
 import { OPERATION_TYPE } from "@/types/platform";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
+export const OTEL_LOGS_TABLE_NAME = "otel_logs";
 export const OTEL_GPUS_TABLE_NAME = "otel_metrics_gauge";
 
 export type TimeLimit = {

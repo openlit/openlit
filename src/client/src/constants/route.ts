@@ -13,7 +13,11 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN = [
 	"/api/evaluation/offline/",
 ];
 
-export const CRON_JOB_ROUTES = ["/api/evaluation/auto", "/api/pricing/auto"];
+export const CRON_JOB_ROUTES = [
+	"/api/evaluation/auto",
+	"/api/pricing/auto",
+	"/api/agents/materialize",
+];
 
 // Non-API routes that are accessible without completing onboarding
 export const ONBOARDING_WHITELIST_ROUTES = ["/onboarding"];

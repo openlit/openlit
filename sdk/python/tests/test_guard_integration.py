@@ -151,10 +151,13 @@ class TestPostflightIntegration:
             class Choice:
                 class Message:
                     content = "Here's the API key: sk-proj-abcdefghijklmnopqrstuvwxyz"
+
                 message = Message()
+
             choices = [Choice()]
 
         from openlit.guard._integration import _extract_openai_output
+
         with pytest.raises(GuardDeniedError):
             _apply_postflight(pipeline, FakeResponse(), _extract_openai_output)
 
@@ -170,9 +173,12 @@ class TestPostflightIntegration:
             class Choice:
                 class Message:
                     content = "The weather is nice today"
+
                 message = Message()
+
             choices = [Choice()]
 
         from openlit.guard._integration import _extract_openai_output
+
         result = _apply_postflight(pipeline, FakeResponse(), _extract_openai_output)
         assert result is not None

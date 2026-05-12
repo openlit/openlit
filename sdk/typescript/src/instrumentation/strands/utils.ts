@@ -124,15 +124,16 @@ function convertStrandsContentToParts(content: any): any[] {
  * Handles both legacy named events (gen_ai.user.message, gen_ai.choice, etc.)
  * and the gen_ai.client.inference.operation.details event convention.
  *
- * Returns [inputMessages, outputMessages, systemInstructions].
+ * Returns [inputMessages, outputMessages, systemInstructions, toolDefinitions].
  */
 export function extractContentFromEvents(
   span: any,
   operation: string
-): [any[], any[], string | null] {
+): [any[], any[], string | null, string | null] {
   const inputMsgs: any[] = [];
   const outputMsgs: any[] = [];
   let systemInstructions: string | null = null;
+  let toolDefinitions: string | null = null;
 
   for (const event of span.events || []) {
     const ea = event.attributes || {};
@@ -150,6 +151,9 @@ export function extractContentFromEvents(
       }
       if (ea[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS]) {
         systemInstructions = String(ea[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS]);
+      }
+      if (ea[SemanticConvention.GEN_AI_TOOL_DEFINITIONS]) {
+        toolDefinitions = String(ea[SemanticConvention.GEN_AI_TOOL_DEFINITIONS]);
       }
       continue;
     }
@@ -204,7 +208,7 @@ export function extractContentFromEvents(
     }
   }
 
-  return [inputMsgs, outputMsgs, systemInstructions];
+  return [inputMsgs, outputMsgs, systemInstructions, toolDefinitions];
 }
 
 // -------------------------------------------------------------------------
@@ -319,6 +323,14 @@ export function emitStrandsInferenceEvent(
     }
     if (extra.systemInstructions) {
       eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = extra.systemInstructions;
+    }
+    if (extra.toolDefinitions) {
+      eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = extra.toolDefinitions;
+    }
+    if (extra.versionExtras && typeof extra.versionExtras === 'object') {
+      for (const [k, v] of Object.entries(extra.versionExtras)) {
+        if (typeof v === 'string' && v) eventAttrs[k] = v;
+      }
     }
 
     if (OpenlitConfig.captureMessageContent) {

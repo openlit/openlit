@@ -1,6 +1,10 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
+import OpenLitHelper, {
+  isFrameworkLlmActive,
+  getFrameworkParentContext,
+  getCurrentAgentVersion,
+} from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -21,6 +25,54 @@ class MistralWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_MISTRAL;
   static serverAddress = 'api.mistral.ai';
   static serverPort = 443;
+
+  /**
+   * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+   * (user override, if set) on the span and return the same attributes so
+   * the caller can merge them into the inference event extras.
+   */
+  static _stampAgentVersion(
+    span: Span,
+    args: {
+      systemInstructionsJson?: string;
+      toolDefinitionsJson?: string;
+      primaryModel?: string;
+      temperature?: number | null;
+      top_p?: number | null;
+      max_tokens?: number | null;
+    }
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: args.systemInstructionsJson ?? null,
+        toolDefinitions: args.toolDefinitionsJson ?? null,
+        primaryModel: args.primaryModel ?? null,
+        runtimeConfig: {
+          temperature: args.temperature ?? null,
+          top_p: args.top_p ?? null,
+          max_tokens: args.max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_MISTRAL],
+      });
+      if (versionHash) {
+        out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Hash computation must never fail the wrapped call.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+    return out;
+  }
 
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'mistral.chat.completions';
@@ -279,6 +331,7 @@ class MistralWrapper extends BaseWrapper {
       top_p,
       user,
       stream = false,
+      tools: _tools,
     } = args[0];
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
@@ -379,6 +432,21 @@ class MistralWrapper extends BaseWrapper {
 
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(_tools);
+    // Compute system_instructions and version hash regardless of
+    // captureContent so versions still group correctly when content
+    // capture is disabled.
+    const systemInstructionsJson = OpenLitHelper.buildSystemInstructionsFromMessages(
+      messages || []
+    );
+    const versionExtras = MistralWrapper._stampAgentVersion(span, {
+      systemInstructionsJson,
+      toolDefinitionsJson,
+      primaryModel: responseModel || requestModel,
+      temperature,
+      top_p,
+      max_tokens,
+    });
     if (captureContent) {
       const toolCalls = result.choices[0].message.tool_calls;
       outputMessagesJson = OpenLitHelper.buildOutputMessages(
@@ -388,6 +456,12 @@ class MistralWrapper extends BaseWrapper {
       );
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
       inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
+      if (systemInstructionsJson) {
+        span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+      }
+    }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
     }
 
     if (!OpenlitConfig.disableEvents) {
@@ -402,11 +476,14 @@ class MistralWrapper extends BaseWrapper {
         [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+        ...versionExtras,
       };
       if (captureContent) {
         if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
         if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+        if (systemInstructionsJson) eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
       }
+      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 

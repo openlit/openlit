@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type {
-	ControllerService,
 	ControllerInstance,
 } from "@/types/controller";
+import type { UnifiedAgent } from "@/types/agents";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -18,24 +18,33 @@ import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import { ProviderIcon } from "@/components/svg/providers";
 import getMessage from "@/constants/messages";
+import {
+	getObservabilityView,
+	type Feature,
+} from "@/lib/platform/agents/observability-view";
+import { useRootStore } from "@/store";
+import {
+	getClearAgentIntent,
+	getSetAgentIntent,
+	useAgentIntent,
+} from "@/selectors/agents-instrumentation";
 
 interface ServiceTableProps {
-	services: ControllerService[];
+	services: UnifiedAgent[];
 	instances: ControllerInstance[];
 	onRefresh: () => void;
 	isFetched: boolean;
 	isLoading: boolean;
-	statusFilter: string[];
+	/** Status + provider filtering happens server-side now; only the
+	 * system filter (kubernetes / docker / linux) remains client-side
+	 * because it depends on the controller-instance mode join. */
 	systemFilter: string[];
-	providerFilter: string[];
 }
 
-interface EnrichedService extends ControllerService {
+interface EnrichedAgent extends UnifiedAgent {
 	mode: "linux" | "docker" | "kubernetes" | "standalone";
-	agentStatus: "enabled" | "disabled" | "unsupported" | "manual";
-	agentSource: string;
-	agentTransitioning: boolean;
-	agentTransitionDirection: "enabling" | "disabling" | null;
+	/** True when the row is backed only by the SDK (no controller actions possible). */
+	isSdkOnly: boolean;
 }
 
 type ServiceColumnKey =
@@ -46,30 +55,44 @@ type ServiceColumnKey =
 	| "agentObservability"
 	| "lastSeen";
 
+function StaticDash() {
+	return <span className="text-xs text-stone-400 dark:text-stone-500">—</span>;
+}
+
+function directionLabel(direction: "enabling" | "disabling" | null): string {
+	return direction === "disabling"
+		? getMessage().AGENTS_SERVICE_ACTION_DISABLING
+		: getMessage().AGENTS_SERVICE_ACTION_ENABLING;
+}
+
 function AIObservabilityCell({
 	service,
 	onRefresh,
 }: {
-	service: EnrichedService;
+	service: EnrichedAgent;
 	onRefresh: () => void;
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
-	const isInstrumented =
-		service.instrumentation_status === "instrumented" ||
-		service.desired_instrumentation_status === "instrumented";
-	const pendingAction = service.pending_action || undefined;
-	const isPending =
-		(service.pending_action_status === "pending" ||
-			service.pending_action_status === "acknowledged") &&
-		(pendingAction === "instrument" || pendingAction === "uninstrument");
+	const setIntent = useRootStore(getSetAgentIntent);
+	const clearIntent = useRootStore(getClearAgentIntent);
+	const intent = useAgentIntent(service.agent_key, "llm");
+	const controllerServiceId = service.controller_service_id;
+
+	if (!controllerServiceId) {
+		return <StaticDash />;
+	}
+
+	const view = getObservabilityView(service, "llm", intent);
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (isPending) return;
-		const action = isInstrumented ? "uninstrument" : "instrument";
+		if (view.transitioning) return;
+		const enabling = !view.enabled;
+		const action = enabling ? "instrument" : "uninstrument";
+		setIntent(service.agent_key, "llm", enabling ? "enabling" : "disabling");
 		await fireRequest({
 			requestType: "POST",
-			url: `/api/controller/catalog/${service.id}/${action}`,
+			url: `/api/controller/catalog/${controllerServiceId}/${action}`,
 			successCb: () => {
 				toast.success(
 					getMessage().AGENTS_SERVICE_QUEUED_ACTION(action, service.service_name)
@@ -77,19 +100,35 @@ function AIObservabilityCell({
 				onRefresh();
 			},
 			failureCb: (err: any) => {
+				clearIntent(service.agent_key, "llm");
 				toast.error(getMessage().AGENTS_SERVICE_FAILED(err));
 			},
 		});
 	};
 
-	if (isPending) {
+	if (view.transitioning) {
 		return (
 			<button
 				disabled
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{pendingAction === "uninstrument" ? getMessage().AGENTS_SERVICE_ACTION_DISABLING : getMessage().AGENTS_SERVICE_ACTION_ENABLING}
+				{directionLabel(view.direction)}
+			</button>
+		);
+	}
+
+	if (!view.enabled) {
+		return (
+			<button
+				onClick={handleAction}
+				disabled={isLoading}
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors disabled:opacity-50"
+			>
+				{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+				{isLoading
+					? getMessage().AGENTS_SERVICE_ACTION_WORKING
+					: getMessage().AGENTS_SERVICE_ACTION_ENABLE}
 			</button>
 		);
 	}
@@ -98,14 +137,12 @@ function AIObservabilityCell({
 		<button
 			onClick={handleAction}
 			disabled={isLoading}
-			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
-				isInstrumented
-					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
-			}`}
+			className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
 		>
 			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-			{isLoading ? getMessage().AGENTS_SERVICE_ACTION_WORKING : isInstrumented ? getMessage().AGENTS_SERVICE_ACTION_DISABLE : getMessage().AGENTS_SERVICE_ACTION_ENABLE}
+			{isLoading
+				? getMessage().AGENTS_SERVICE_ACTION_WORKING
+				: getMessage().AGENTS_SERVICE_ACTION_DISABLE}
 		</button>
 	);
 }
@@ -114,32 +151,37 @@ function AgentObservabilityCell({
 	service,
 	onRefresh,
 }: {
-	service: EnrichedService;
+	service: EnrichedAgent;
 	onRefresh: () => void;
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
-	const { agentStatus, agentTransitioning, agentTransitionDirection } = service;
-	const pendingAction = service.pending_action || undefined;
-	const isPending =
-		(service.pending_action_status === "pending" ||
-			service.pending_action_status === "acknowledged") &&
-		(pendingAction === "enable_python_sdk" ||
-			pendingAction === "disable_python_sdk");
-	const showTransitioning = isPending || agentTransitioning;
+	const setIntent = useRootStore(getSetAgentIntent);
+	const clearIntent = useRootStore(getClearAgentIntent);
+	const intent = useAgentIntent(service.agent_key, "agent");
+	const controllerServiceId = service.controller_service_id;
 
-	if (agentStatus === "unsupported") {
-		return (
-			<span className="text-xs text-stone-400 dark:text-stone-500">—</span>
-		);
+	if (!controllerServiceId) {
+		return <StaticDash />;
 	}
+
+	const view = getObservabilityView(service, "agent", intent);
+	// `manual` is a special-case state — the SDK was wired up by hand rather
+	// than via the controller, so we still want to offer a Disable button but
+	// flag the row visually. `view.isManual` is the canonical semantic read.
+	const isManual = view.isManual;
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (showTransitioning) return;
-		const enabling = agentStatus !== "enabled" && agentStatus !== "manual";
+		if (view.transitioning) return;
+		const enabling = !view.enabled && !isManual;
+		setIntent(
+			service.agent_key,
+			"agent",
+			enabling ? "enabling" : "disabling"
+		);
 		await fireRequest({
 			requestType: enabling ? "POST" : "DELETE",
-			url: `/api/controller/catalog/${service.id}/agent-instrument`,
+			url: `/api/controller/catalog/${controllerServiceId}/agent-instrument`,
 			successCb: () => {
 				toast.success(
 					enabling
@@ -149,31 +191,25 @@ function AgentObservabilityCell({
 				onRefresh();
 			},
 			failureCb: (err: any) => {
+				clearIntent(service.agent_key, "agent");
 				toast.error(getMessage().AGENTS_SERVICE_FAILED(err));
 			},
 		});
 	};
 
-	if (showTransitioning) {
-		const transitionLabel = isPending
-			? pendingAction === "enable_python_sdk"
-				? getMessage().AGENTS_SERVICE_ACTION_ENABLING
-				: getMessage().AGENTS_SERVICE_ACTION_DISABLING
-			: agentTransitionDirection === "enabling"
-				? getMessage().AGENTS_SERVICE_ACTION_ENABLING
-				: getMessage().AGENTS_SERVICE_ACTION_DISABLING;
+	if (view.transitioning) {
 		return (
 			<button
 				disabled
 				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 opacity-80"
 			>
 				<Loader2 className="w-3 h-3 animate-spin" />
-				{transitionLabel}
+				{directionLabel(view.direction)}
 			</button>
 		);
 	}
 
-	if (agentStatus === "manual") {
+	if (isManual) {
 		return (
 			<div className="flex items-center gap-2">
 				<span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
@@ -185,9 +221,26 @@ function AgentObservabilityCell({
 					className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
 				>
 					{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-					{isLoading ? getMessage().AGENTS_SERVICE_ACTION_ELLIPSIS : getMessage().AGENTS_SERVICE_ACTION_DISABLE}
+					{isLoading
+						? getMessage().AGENTS_SERVICE_ACTION_ELLIPSIS
+						: getMessage().AGENTS_SERVICE_ACTION_DISABLE}
 				</button>
 			</div>
+		);
+	}
+
+	if (!view.enabled) {
+		return (
+			<button
+				onClick={handleAction}
+				disabled={isLoading}
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors disabled:opacity-50"
+			>
+				{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+				{isLoading
+					? getMessage().AGENTS_SERVICE_ACTION_WORKING
+					: getMessage().AGENTS_SERVICE_ACTION_ENABLE}
+			</button>
 		);
 	}
 
@@ -195,29 +248,23 @@ function AgentObservabilityCell({
 		<button
 			onClick={handleAction}
 			disabled={isLoading}
-			className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
-				agentStatus === "enabled"
-					? "border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-					: "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200"
-			}`}
+			className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
 		>
 			{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
 			{isLoading
 				? getMessage().AGENTS_SERVICE_ACTION_WORKING
-				: agentStatus === "enabled"
-					? getMessage().AGENTS_SERVICE_ACTION_DISABLE
-					: getMessage().AGENTS_SERVICE_ACTION_ENABLE}
+				: getMessage().AGENTS_SERVICE_ACTION_DISABLE}
 		</button>
 	);
 }
 
-const columns: Columns<ServiceColumnKey, EnrichedService> = {
+const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	service: {
 		header: () => getMessage().AGENTS_COLUMN_SERVICE,
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2 overflow-hidden">
 				<Link
-					href={`/agents/${row.id}`}
+					href={`/agents/${row.agent_key}`}
 					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
 					onClick={(e) => e.stopPropagation()}
 				>
@@ -228,9 +275,9 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 						{row.cluster_id}
 					</span>
 				)}
-				{row.mode !== "kubernetes" && row.pid > 0 && (
-					<span className="text-xs text-stone-400 flex-shrink-0">
-						{getMessage().AGENTS_SERVICE_PID_PREFIX} {row.pid}
+				{row.environment && row.environment !== "default" && (
+					<span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-400 border border-stone-200 dark:border-stone-700 flex-shrink-0">
+						{row.environment}
 					</span>
 				)}
 			</div>
@@ -240,6 +287,9 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 	system: {
 		header: () => getMessage().AGENTS_COLUMN_SYSTEM,
 		cell: ({ row }) => {
+			if (row.isSdkOnly) {
+				return <span className="text-xs text-stone-400 dark:text-stone-500">—</span>;
+			}
 			const title =
 				row.mode === "kubernetes"
 					? getMessage().AGENTS_SYSTEM_KUBERNETES
@@ -266,13 +316,10 @@ const columns: Columns<ServiceColumnKey, EnrichedService> = {
 		header: () => getMessage().AGENTS_COLUMN_PROVIDERS,
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2">
-				{row.llm_providers && row.llm_providers.length > 0 ? (
-					row.llm_providers.map((p) => (
+				{row.providers && row.providers.length > 0 ? (
+					row.providers.map((p) => (
 						<span key={p} title={p}>
-							<ProviderIcon
-								provider={p}
-								className="w-5 h-5"
-							/>
+							<ProviderIcon provider={p} className="w-5 h-5" />
 						</span>
 					))
 				) : (
@@ -324,9 +371,7 @@ export default function ServiceTable({
 	onRefresh,
 	isFetched,
 	isLoading,
-	statusFilter,
 	systemFilter,
-	providerFilter,
 }: ServiceTableProps) {
 	const router = useRouter();
 	const instanceMap = useMemo(() => {
@@ -337,74 +382,36 @@ export default function ServiceTable({
 		return map;
 	}, [instances]);
 
-	const enriched: EnrichedService[] = useMemo(() => {
+	const enriched: EnrichedAgent[] = useMemo(() => {
 		return services.map((svc) => {
-			const inst = instanceMap.get(svc.controller_instance_id);
-			const attrs = svc.resource_attributes || {};
-		const isPython =
-			(attrs["process.runtime.name"] || "").toLowerCase() === "python";
-			const agentStatusRaw =
-				attrs["openlit.agent_observability.status"] || "";
-			const agentSource =
-				attrs["openlit.agent_observability.source"] || "";
-
-		let agentStatus: "enabled" | "disabled" | "unsupported" | "manual" =
-			"disabled";
-			if (!isPython) {
-				agentStatus = "unsupported";
-			} else if (
-				agentStatusRaw === "enabled" ||
-				svc.desired_agent_status === "enabled"
-			) {
-				agentStatus = "enabled";
-			} else if (agentStatusRaw === "manual") {
-				agentStatus = "manual";
-			}
-
-			const actualNormalized = agentStatusRaw === "enabled" ? "enabled" : "disabled";
-			const desiredNormalized = svc.desired_agent_status === "enabled" ? "enabled" : "disabled";
-			const agentTransitioning = isPython && actualNormalized !== desiredNormalized;
-			let agentTransitionDirection: "enabling" | "disabling" | null = null;
-			if (agentTransitioning) {
-				agentTransitionDirection = desiredNormalized === "enabled" ? "enabling" : "disabling";
-			}
-
+			const inst = svc.controller_instance_id
+				? instanceMap.get(svc.controller_instance_id)
+				: undefined;
 			return {
 				...svc,
 				mode: inst?.mode || "linux",
-				agentStatus,
-				agentSource,
-				agentTransitioning,
-				agentTransitionDirection,
+				isSdkOnly: svc.source === "sdk",
 			};
 		});
 	}, [services, instanceMap]);
 
+	// statusFilter and providerFilter are pushed to /api/agents server-side,
+	// so the rows we receive are already narrowed. Only systemFilter remains
+	// client-side because it depends on the controller-instance join (mode)
+	// which is not stored on openlit_agents_summary.
 	const filtered = useMemo(() => {
+		if (systemFilter.length === 0) return enriched;
 		return enriched.filter((svc) => {
-			if (
-				statusFilter.length > 0 &&
-				!statusFilter.includes(svc.instrumentation_status)
-			)
+			return systemFilter.some((sf) => {
+				if (svc.isSdkOnly) return false;
+				if (sf === "kubernetes") return svc.mode === "kubernetes";
+				if (sf === "docker")
+					return svc.mode === "docker" || svc.mode === "standalone";
+				if (sf === "linux") return svc.mode === "linux";
 				return false;
-			if (
-				providerFilter.length > 0 &&
-				!(svc.llm_providers || []).some((p) => providerFilter.includes(p))
-			)
-				return false;
-			if (systemFilter.length > 0) {
-				const sysMatch = systemFilter.some((sf) => {
-					if (sf === "kubernetes") return svc.mode === "kubernetes";
-					if (sf === "docker")
-						return svc.mode === "docker" || svc.mode === "standalone";
-					if (sf === "linux") return svc.mode === "linux";
-					return false;
-				});
-				if (!sysMatch) return false;
-			}
-			return true;
+			});
 		});
-	}, [enriched, statusFilter, providerFilter, systemFilter]);
+	}, [enriched, systemFilter]);
 
 	return (
 		<DataTable
@@ -414,7 +421,11 @@ export default function ServiceTable({
 			isLoading={isLoading}
 			visibilityColumns={VISIBILITY_COLUMNS}
 			extraFunctions={{ onRefresh }}
-			onClick={(row) => router.push(`/agents/${row.id}`)}
+			onClick={(row) => router.push(`/agents/${row.agent_key}`)}
 		/>
 	);
 }
+
+// Re-export `Feature` so other internal modules can import it without
+// chasing through observability-view. Keeps the surface area small.
+export type { Feature };

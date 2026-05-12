@@ -390,11 +390,6 @@ func (e *Engine) applyAgentStateLocked(
 	} else {
 		delete(svc.ResourceAttributes, "openlit.observability.reason")
 	}
-	if svc.DesiredAgentObservabilityStatus != "" {
-		svc.ResourceAttributes["openlit.agent_observability.desired_status"] = svc.DesiredAgentObservabilityStatus
-	} else {
-		delete(svc.ResourceAttributes, "openlit.agent_observability.desired_status")
-	}
 }
 
 func (e *Engine) enablePythonSDKKubernetes(
@@ -451,6 +446,15 @@ func (e *Engine) enablePythonSDKKubernetes(
 		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
 		return err
 	}
+	// Flip in-memory state so the next heartbeat carries 'enabled'. See
+	// the matching comment in enablePythonSDKDocker for context.
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK injected via %s/%s patch (workload %s)", workloadKind, workloadName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -486,6 +490,13 @@ func (e *Engine) disablePythonSDKKubernetes(svc *openlit.ServiceState) error {
 		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
 		return err
 	}
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via %s/%s patch (workload %s)", workloadKind, workloadName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -622,6 +633,13 @@ func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload open
 		return fmt.Errorf("recreating naked pod %s/%s with SDK: %w", namespace, podName, err)
 	}
 
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK injected via naked pod %s/%s recreate (workload %s)", namespace, podName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -709,6 +727,13 @@ func (e *Engine) disablePythonSDKNakedPod(svc *openlit.ServiceState) error {
 		return fmt.Errorf("recreating naked pod %s/%s without SDK: %w", namespace, podName, err)
 	}
 
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via naked pod %s/%s recreate (workload %s)", namespace, podName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -949,6 +974,9 @@ func applyPythonSDKContainerSettings(
 	env = upsertEnvValue(env, "OTEL_SERVICE_NAME", svc.ServiceName)
 	env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
 	env = upsertEnvValue(env, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
+	if svc.WorkloadKey != "" {
+		env = mergeOtelResourceAttrInK8sEnv(env, "service.workload.key", svc.WorkloadKey)
+	}
 	if payload.OTLPProtocol != "" {
 		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_PROTOCOL", payload.OTLPProtocol)
 	}
@@ -999,6 +1027,7 @@ func removePythonSDKContainerSettings(container map[string]any) {
 	} {
 		env = removeEnvValue(env, key)
 	}
+	env = removeOtelResourceAttrFromK8sEnv(env, "service.workload.key")
 	env = removePrefixedEnvValue(env, "PYTHONPATH", k8sManagedPythonPath())
 	env = removePrefixedEnvValue(env, "PYTHONPATH", openlitInstrumentationMountPath)
 	container["env"] = objectSliceToAny(env)
@@ -1165,6 +1194,46 @@ func upsertEnvValue(env []map[string]any, key, value string) []map[string]any {
 		}
 	}
 	return append(env, map[string]any{"name": key, "value": value})
+}
+
+// mergeOtelResourceAttrInK8sEnv merges a key=value into the
+// OTEL_RESOURCE_ATTRIBUTES entry of a K8s container env list. If the env var
+// is already set on the container we preserve its other pairs and just
+// replace/append the requested key.
+func mergeOtelResourceAttrInK8sEnv(env []map[string]any, key, value string) []map[string]any {
+	for index, item := range env {
+		if item["name"] != "OTEL_RESOURCE_ATTRIBUTES" {
+			continue
+		}
+		existing, _ := item["value"].(string)
+		env[index]["value"] = mergeResourceAttrValue(existing, key, value)
+		delete(env[index], "valueFrom")
+		return env
+	}
+	return append(env, map[string]any{
+		"name":  "OTEL_RESOURCE_ATTRIBUTES",
+		"value": mergeResourceAttrValue("", key, value),
+	})
+}
+
+// removeOtelResourceAttrFromK8sEnv removes a single key from
+// OTEL_RESOURCE_ATTRIBUTES. The env var itself is removed only when it would
+// otherwise become empty (so we don't leave a stray controller-injected
+// attribute behind when the user wasn't using OTEL_RESOURCE_ATTRIBUTES).
+func removeOtelResourceAttrFromK8sEnv(env []map[string]any, key string) []map[string]any {
+	for index, item := range env {
+		if item["name"] != "OTEL_RESOURCE_ATTRIBUTES" {
+			continue
+		}
+		existing, _ := item["value"].(string)
+		filtered := removeResourceAttrKey(existing, key)
+		if filtered == "" {
+			return removeEnvValue(env, "OTEL_RESOURCE_ATTRIBUTES")
+		}
+		env[index]["value"] = filtered
+		return env
+	}
+	return env
 }
 
 func removeEnvValue(env []map[string]any, key string) []map[string]any {

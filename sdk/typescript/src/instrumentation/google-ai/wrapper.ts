@@ -1,6 +1,10 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
+import OpenLitHelper, {
+  isFrameworkLlmActive,
+  getFrameworkParentContext,
+  getCurrentAgentVersion,
+} from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
@@ -21,6 +25,54 @@ class GoogleAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO;
   static serverAddress = 'generativelanguage.googleapis.com';
   static serverPort = 443;
+
+  /**
+   * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+   * (user override, if set) on the span and return the same attributes so
+   * the caller can merge them into the inference event extras.
+   */
+  static _stampAgentVersion(
+    span: Span,
+    args: {
+      systemInstructionsJson?: string;
+      toolDefinitionsJson?: string;
+      primaryModel?: string;
+      temperature?: number | null;
+      top_p?: number | null;
+      max_tokens?: number | null;
+    }
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: args.systemInstructionsJson ?? null,
+        toolDefinitions: args.toolDefinitionsJson ?? null,
+        primaryModel: args.primaryModel ?? null,
+        runtimeConfig: {
+          temperature: args.temperature ?? null,
+          top_p: args.top_p ?? null,
+          max_tokens: args.max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO],
+      });
+      if (versionHash) {
+        out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Hash computation must never fail the wrapped call.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+    return out;
+  }
 
   static _patchGenerateContent(tracer: Tracer): any {
     const genAIEndpoint = 'google.generativeai.models.generate_content';
@@ -250,6 +302,8 @@ class GoogleAIWrapper extends BaseWrapper {
       stopSequences,
       frequencyPenalty,
       presencePenalty,
+      systemInstruction,
+      tools: _tools,
     } = config;
 
     // Request param attributes — only set when explicitly provided (matches Python)
@@ -366,6 +420,48 @@ class GoogleAIWrapper extends BaseWrapper {
     // Content attributes (gated by captureMessageContent)
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(
+      Array.isArray(_tools)
+        ? _tools.flatMap((tool: any) =>
+            Array.isArray(tool?.functionDeclarations) ? tool.functionDeclarations : tool
+          )
+        : _tools
+    );
+
+    // Compute system_instructions JSON regardless of captureContent so the
+    // version hash still groups correctly when content capture is disabled.
+    let systemInstructionsJson: string | undefined;
+    if (systemInstruction) {
+      let systemText = '';
+      if (typeof systemInstruction === 'string') {
+        systemText = systemInstruction;
+      } else if (Array.isArray(systemInstruction)) {
+        systemText = systemInstruction
+          .map((part: any) => (typeof part === 'string' ? part : (part?.text || '')))
+          .filter(Boolean)
+          .join('\n');
+      } else if (Array.isArray(systemInstruction.parts)) {
+        systemText = systemInstruction.parts
+          .map((part: any) => part?.text || '')
+          .filter(Boolean)
+          .join('\n');
+      } else if (typeof systemInstruction.text === 'string') {
+        systemText = systemInstruction.text;
+      }
+      if (systemText) {
+        systemInstructionsJson = JSON.stringify([{ type: 'text', content: systemText }]);
+      }
+    }
+
+    const versionExtras = GoogleAIWrapper._stampAgentVersion(span, {
+      systemInstructionsJson,
+      toolDefinitionsJson,
+      primaryModel: responseModel || requestModel,
+      temperature: temperature ?? null,
+      top_p: topP ?? null,
+      max_tokens: maxOutputTokens ?? null,
+    });
+
     if (captureContent) {
       const contents = args[0]?.contents || args[0];
       let messages: any[] = [];
@@ -395,6 +491,13 @@ class GoogleAIWrapper extends BaseWrapper {
         toolCallsForOutput
       );
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+
+      if (systemInstructionsJson) {
+        span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+      }
+    }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
     }
 
     // Emit inference event (independent of captureMessageContent, per rule)
@@ -408,6 +511,7 @@ class GoogleAIWrapper extends BaseWrapper {
         [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+        ...versionExtras,
       };
       if (responseId) {
         eventAttrs[SemanticConvention.GEN_AI_RESPONSE_ID] = responseId;
@@ -418,7 +522,9 @@ class GoogleAIWrapper extends BaseWrapper {
       if (captureContent) {
         if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
         if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+        if (systemInstructionsJson) eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
       }
+      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
