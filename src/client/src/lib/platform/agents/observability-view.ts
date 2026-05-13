@@ -29,8 +29,26 @@
 
 import type { UnifiedAgent } from "@/types/agents";
 
-export type Feature = "llm" | "agent";
-export type Direction = "enabling" | "disabling";
+export type Feature = "llm" | "agent" | "lifecycle";
+/**
+ * Direction of the in-flight transition.
+ *
+ * For `llm` and `agent` features: only `enabling` / `disabling` apply.
+ * For `lifecycle`:
+ *   - `starting`  — Play queued while the workload is stopped.
+ *   - `stopping`  — Stop queued while the workload is running.
+ *   - `restarting` — Restart queued; the workload will return to `running`.
+ *     We expose `restarting` as a distinct direction (rather than reusing
+ *     `enabling`) because the UI renders a different spinner glyph and a
+ *     different toast for Restart, and the optimistic-intent store wants to
+ *     match by exact action.
+ */
+export type Direction =
+	| "enabling"
+	| "disabling"
+	| "starting"
+	| "stopping"
+	| "restarting";
 
 export interface OptimisticIntent {
 	feature: Feature;
@@ -82,11 +100,21 @@ const AGENT_ACTIONS = new Set<string>([
 	"enable_python_sdk",
 	"disable_python_sdk",
 ]);
+const LIFECYCLE_ACTIONS = new Set<string>([
+	"start_workload",
+	"stop_workload",
+	"restart_workload",
+]);
 
 function isFeatureAction(feature: Feature, action: string): boolean {
-	return feature === "llm"
-		? LLM_ACTIONS.has(action)
-		: AGENT_ACTIONS.has(action);
+	switch (feature) {
+		case "llm":
+			return LLM_ACTIONS.has(action);
+		case "agent":
+			return AGENT_ACTIONS.has(action);
+		case "lifecycle":
+			return LIFECYCLE_ACTIONS.has(action);
+	}
 }
 
 function actionDirection(action: string): Direction | null {
@@ -97,6 +125,12 @@ function actionDirection(action: string): Direction | null {
 		case "uninstrument":
 		case "disable_python_sdk":
 			return "disabling";
+		case "start_workload":
+			return "starting";
+		case "stop_workload":
+			return "stopping";
+		case "restart_workload":
+			return "restarting";
 		default:
 			return null;
 	}
@@ -133,6 +167,24 @@ function agentDesiredEnabled(agent: UnifiedAgent): boolean {
 	return agent.desired_agent_status === "enabled";
 }
 
+function lifecycleActualEnabled(agent: UnifiedAgent): boolean {
+	// "Enabled" for lifecycle means "the workload is up". `restarting`
+	// counts as enabled because the workload will be back in seconds and
+	// we don't want the Stop button to disappear during the bounce.
+	return (
+		agent.lifecycle_status === "running" ||
+		agent.lifecycle_status === "restarting"
+	);
+}
+
+function lifecycleDesiredEnabled(agent: UnifiedAgent): boolean {
+	// Default to running when the desired-state is unknown. Most rows
+	// start out without an explicit lifecycle desired state -- only Stop
+	// writes one. Treating unknown as `running` matches the user's
+	// expectation that an undiscovered workload is "on" by default.
+	return agent.desired_lifecycle_status !== "stopped";
+}
+
 function buildPodSummary(agent: UnifiedAgent): PodSummary | null {
 	const total = agent.pods_total ?? 0;
 	if (total === 0) return null;
@@ -143,16 +195,36 @@ function buildPodSummary(agent: UnifiedAgent): PodSummary | null {
 	};
 }
 
+function featureActualEnabled(feature: Feature, agent: UnifiedAgent): boolean {
+	switch (feature) {
+		case "llm":
+			return llmActualEnabled(agent);
+		case "agent":
+			return agentActualEnabled(agent);
+		case "lifecycle":
+			return lifecycleActualEnabled(agent);
+	}
+}
+
+function featureDesiredEnabled(feature: Feature, agent: UnifiedAgent): boolean {
+	switch (feature) {
+		case "llm":
+			return llmDesiredEnabled(agent);
+		case "agent":
+			return agentDesiredEnabled(agent);
+		case "lifecycle":
+			return lifecycleDesiredEnabled(agent);
+	}
+}
+
 export function getObservabilityView(
 	agent: UnifiedAgent,
 	feature: Feature,
 	intent: OptimisticIntent | null,
 	now: number = Date.now()
 ): ObservabilityView {
-	const actualEnabled =
-		feature === "llm" ? llmActualEnabled(agent) : agentActualEnabled(agent);
-	const desiredEnabled =
-		feature === "llm" ? llmDesiredEnabled(agent) : agentDesiredEnabled(agent);
+	const actualEnabled = featureActualEnabled(feature, agent);
+	const desiredEnabled = featureDesiredEnabled(feature, agent);
 	const podSummary = buildPodSummary(agent);
 	const isManual = feature === "agent" && isManualAgentObservability(agent);
 
@@ -160,8 +232,15 @@ export function getObservabilityView(
 	// expires or the server's pending_action confirms it (in which case we
 	// fall through to the pending_action branch which is also a spinner).
 	if (intent && intent.feature === feature && intent.expiresAt > now) {
+		// For lifecycle: starting/restarting are conceptually "enabled"
+		// (workload will be up); stopping is "disabled" (workload will
+		// be down).
+		const optimisticEnabled =
+			intent.direction === "enabling" ||
+			intent.direction === "starting" ||
+			intent.direction === "restarting";
 		return {
-			enabled: intent.direction === "enabling",
+			enabled: optimisticEnabled,
 			transitioning: true,
 			direction: intent.direction,
 			podSummary,
@@ -180,10 +259,14 @@ export function getObservabilityView(
 
 	if (hasServerPending) {
 		const direction = actionDirection(pendingActionRaw);
+		const willEnable =
+			direction === "enabling" ||
+			direction === "starting" ||
+			direction === "restarting";
 		return {
 			// Spinner button needs a stable "what it'll be next" so the label
 			// doesn't flicker between optimistic and pending_action phases.
-			enabled: direction === "enabling",
+			enabled: willEnable,
 			transitioning: true,
 			direction,
 			podSummary,
@@ -194,16 +277,44 @@ export function getObservabilityView(
 
 	// (3) Desired state diverges from actual — usually the brief window
 	// between the API write and the first action row, or a controller retry
-	// loop. Pure controller-source rows only. SDK / both rows always have
+	// loop. Pure controller-source rows only for `llm`/`agent`; lifecycle
+	// rows always go through controller-managed actions so the SDK-backed
+	// short-circuit does not apply. SDK / both rows always have
 	// `desired_*='none'` (the controller never wrote a desired state, the
 	// SDK self-enrolled by emitting traces) which would otherwise pin them
 	// permanently in "disabling..." — that's the regression bug.
 	const isSdkBacked = agent.source === "sdk" || agent.source === "both";
-	if (!isSdkBacked && desiredEnabled !== actualEnabled) {
+	const skipForSdk = isSdkBacked && feature !== "lifecycle";
+	if (!skipForSdk && desiredEnabled !== actualEnabled) {
+		let direction: Direction;
+		if (feature === "lifecycle") {
+			direction = desiredEnabled ? "starting" : "stopping";
+		} else {
+			direction = desiredEnabled ? "enabling" : "disabling";
+		}
 		return {
 			enabled: actualEnabled,
 			transitioning: true,
-			direction: desiredEnabled ? "enabling" : "disabling",
+			direction,
+			podSummary,
+			isManual,
+			source: "desired_mismatch",
+		};
+	}
+
+	// (3b) Lifecycle-specific in-flight signal. The controller stamps
+	// `openlit.lifecycle.status = "restarting"` on the in-memory service
+	// for the heartbeat immediately following a Restart. Both
+	// optimistic intent and pending_action will have already covered
+	// the user-initiated case, but a second browser tab that loads
+	// after the click would otherwise miss the spinner entirely.
+	// Treating actual=='restarting' as transitioning here is the
+	// failsafe that keeps the icon set consistent across tabs.
+	if (feature === "lifecycle" && agent.lifecycle_status === "restarting") {
+		return {
+			enabled: true,
+			transitioning: true,
+			direction: "restarting",
 			podSummary,
 			isManual,
 			source: "desired_mismatch",

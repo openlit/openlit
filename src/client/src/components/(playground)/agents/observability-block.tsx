@@ -26,13 +26,33 @@ interface ObservabilityBlockProps {
 	enabled: boolean;
 	/** True when an action is in flight (controller-side or optimistic). */
 	pending?: boolean;
-	pendingDirection?: "enabling" | "disabling" | null;
+	// Direction is widened to the full Direction union (which includes
+	// lifecycle's starting/stopping/restarting) even though this block
+	// only ever renders for llm/agent, because the upstream
+	// observability-view now returns the widened type. The renderer
+	// below only branches on enabling/disabling so the lifecycle
+	// variants are inert here.
+	pendingDirection?:
+		| "enabling"
+		| "disabling"
+		| "starting"
+		| "stopping"
+		| "restarting"
+		| null;
 	/** Multi-pod rollup so we can show `Pods: ack/total` while a fan-out is
 	 * propagating. `null` for SDK-only rows or single-pod workloads. */
 	podSummary?: PodSummary | null;
 	/** Triggered after a successful action so the parent can refresh. */
 	onChange?: () => void;
 	serviceName: string;
+	/**
+	 * If set, the toggle renders as a disabled button with this text as
+	 * the tooltip. Used to gate observability changes on lifecycle
+	 * state (e.g. the agent is stopped or transitioning) — we don't
+	 * want to queue an instrument action against a workload that has
+	 * no live process for the controller to attach to.
+	 */
+	blockReason?: string | null;
 }
 
 function kindLabel(kind: ObservabilityKind) {
@@ -57,6 +77,7 @@ export default function ObservabilityBlock({
 	podSummary,
 	onChange,
 	serviceName,
+	blockReason,
 }: ObservabilityBlockProps) {
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const setIntent = useRootStore(getSetAgentIntent);
@@ -141,6 +162,18 @@ export default function ObservabilityBlock({
 						{pendingDirection === "disabling"
 							? getMessage().AGENTS_SERVICE_ACTION_DISABLING
 							: getMessage().AGENTS_SERVICE_ACTION_ENABLING}
+					</button>
+				) : blockReason ? (
+					<button
+						type="button"
+						disabled
+						title={blockReason}
+						aria-label={blockReason}
+						className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 bg-stone-50 dark:bg-stone-900 cursor-not-allowed"
+					>
+						{enabled
+							? getMessage().AGENTS_SERVICE_ACTION_DISABLE
+							: getMessage().AGENTS_SERVICE_ACTION_ENABLE}
 					</button>
 				) : (
 					<button

@@ -26,6 +26,7 @@ import { getObservabilityView } from "@/lib/platform/agents/observability-view";
 import AgentHeader from "@/components/(playground)/agents/agent-header";
 import AgentScopeProvider from "@/components/(playground)/agents/agent-scope-provider";
 import AgentOverviewTab from "@/components/(playground)/agents/agent-overview-tab";
+import LifecycleActions from "@/components/(playground)/agents/lifecycle-actions";
 import VersionTimeline, {
 	VersionChooser,
 } from "@/components/(playground)/agents/version-timeline";
@@ -186,16 +187,18 @@ export default function AgentDetailPage() {
 	// fetch while the table advances within seconds.
 	const llmIntent = useAgentIntent(agentKey, "llm");
 	const agentIntent = useAgentIntent(agentKey, "agent");
+	const lifecycleIntent = useAgentIntent(agentKey, "lifecycle");
 	const detailTransitioning = useMemo(() => {
 		if (!agent) return false;
 		if (
 			getObservabilityView(agent, "llm", llmIntent).transitioning ||
-			getObservabilityView(agent, "agent", agentIntent).transitioning
+			getObservabilityView(agent, "agent", agentIntent).transitioning ||
+			getObservabilityView(agent, "lifecycle", lifecycleIntent).transitioning
 		) {
 			return true;
 		}
 		return false;
-	}, [agent, llmIntent, agentIntent]);
+	}, [agent, llmIntent, agentIntent, lifecycleIntent]);
 
 	const detailPollInFlightRef = useRef(false);
 
@@ -349,12 +352,19 @@ export default function AgentDetailPage() {
 					agent={agent}
 					onRefresh={fetchAgent}
 					rightSlot={
-						<VersionChooser
-							versions={versions}
-							selectedHash={urlVersionHash}
-							onSelectVersion={handleSelectVersion}
-							onOpenAllVersions={() => setVersionsOpen(true)}
-						/>
+						<div className="flex items-center gap-2">
+							<LifecycleActions
+								agent={agent}
+								onRefresh={fetchAgent}
+								variant="header"
+							/>
+							<VersionChooser
+								versions={versions}
+								selectedHash={urlVersionHash}
+								onSelectVersion={handleSelectVersion}
+								onOpenAllVersions={() => setVersionsOpen(true)}
+							/>
+						</div>
 					}
 				/>
 

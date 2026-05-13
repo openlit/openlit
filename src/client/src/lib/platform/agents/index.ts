@@ -62,6 +62,8 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 		desired_instrumentation_status: (String(row.desired_instrumentation_status || "none") as UnifiedAgent["desired_instrumentation_status"]),
 		agent_observability_status: agentObsStatus,
 		desired_agent_status: (String(row.desired_agent_status || "none") as UnifiedAgent["desired_agent_status"]),
+		lifecycle_status: (String(row.lifecycle_status || "unknown") as UnifiedAgent["lifecycle_status"]),
+		desired_lifecycle_status: (String(row.desired_lifecycle_status || "unknown") as UnifiedAgent["desired_lifecycle_status"]),
 		pending_action: pendingAction ? pendingAction : null,
 		pending_action_status: pendingActionStatus
 			? (pendingActionStatus as UnifiedAgent["pending_action_status"])
@@ -93,7 +95,12 @@ WITH pod_set AS (
 		argMax(service_name, last_seen) AS service_name,
 		uniqExact(controller_instance_id) AS pods_total,
 		groupArrayDistinct(controller_instance_id) AS instance_ids,
-		argMax(resource_attributes['openlit.agent_observability.status'], last_seen) AS agent_observability_status
+		argMax(resource_attributes['openlit.agent_observability.status'], last_seen) AS agent_observability_status,
+		-- Mirrors the agent_observability rollup. The controller stamps
+		-- resource_attributes['openlit.lifecycle.status'] on every
+		-- heartbeat after a Play / Stop / Restart so the UI sees the
+		-- actual state of the workload, not just the desired state.
+		argMax(resource_attributes['openlit.lifecycle.status'], last_seen) AS lifecycle_status
 	FROM ${CONTROLLER_SERVICES_TABLE}
 	FINAL
 	WHERE last_seen >= now() - INTERVAL 5 MINUTE
@@ -118,6 +125,21 @@ desired_agent AS (
 	FROM ${CONTROLLER_DESIRED_STATES_V2_TABLE}
 	FINAL
 	WHERE feature = 'agent'
+	GROUP BY workload_key, cluster_id
+),
+desired_lifecycle AS (
+	-- A row here means the user has explicitly Played or Stopped the
+	-- workload. It is also the source of truth for the snapshot blob
+	-- (config column) used to bring K8s naked pods and Linux bare
+	-- processes back up after Stop.
+	SELECT
+		workload_key,
+		cluster_id,
+		argMax(desired_status, updated_at) AS desired_status,
+		argMax(config, updated_at) AS config
+	FROM ${CONTROLLER_DESIRED_STATES_V2_TABLE}
+	FINAL
+	WHERE feature = 'lifecycle'
 	GROUP BY workload_key, cluster_id
 ),
 pod_action_latest AS (
@@ -187,6 +209,24 @@ const SELECT_COLUMNS = `
 	-- not yet aged out of the materializer's 30-min lookback window).
 	coalesce(pod_set.agent_observability_status, if(s.source = 'sdk', 'enabled', '')) AS agent_observability_status,
 	if(desired_agent.desired_status != '', desired_agent.desired_status, 'none') AS desired_agent_status,
+	-- Lifecycle:
+	--   - For SDK-only rows there is nothing to lifecycle-manage; render
+	--     'unknown' so the UI hides the buttons (the LifecycleCell also
+	--     guards on source != 'sdk').
+	--   - When pod_set has a value, that is the most authoritative
+	--     reading (it came from the latest heartbeat).
+	--   - When pod_set is empty AND the user has stopped the workload,
+	--     trust the desired_status='stopped' as the actual state -- the
+	--     heartbeat went silent because the workload is down. This is
+	--     what keeps the row visible as "Stopped" in the UI.
+	if(s.source = 'sdk' AND pod_set.lifecycle_status = '',
+		'unknown',
+		if(pod_set.lifecycle_status != '',
+			pod_set.lifecycle_status,
+			if(desired_lifecycle.desired_status = 'stopped', 'stopped', 'running')
+		)
+	) AS lifecycle_status,
+	if(desired_lifecycle.desired_status != '', desired_lifecycle.desired_status, 'unknown') AS desired_lifecycle_status,
 	if(pod_actions.pending_action != '', pod_actions.pending_action, '') AS pending_action,
 	if(pod_actions.pending_action_status != '', pod_actions.pending_action_status, '') AS pending_action_status,
 	s.first_seen AS first_seen,
@@ -220,6 +260,9 @@ const ROLLUP_JOINS = `
 	LEFT JOIN desired_agent
 		ON desired_agent.workload_key = s.workload_key
 		AND desired_agent.cluster_id = s.cluster_id
+	LEFT JOIN desired_lifecycle
+		ON desired_lifecycle.workload_key = s.workload_key
+		AND desired_lifecycle.cluster_id = s.cluster_id
 	LEFT JOIN pod_actions
 		ON pod_actions.service_key = s.workload_key
 `;
@@ -269,12 +312,21 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	// off so we always include the most recent materialized rows, even if the
 	// browser captured `end` slightly before the materializer wrote the row.
 	// Custom ranges still send both bounds.
+	//
+	// Stopped-workload exception: a workload the user has Stopped no longer
+	// emits heartbeats, so `s.last_seen` ages out fast. We special-case it
+	// by OR-ing in any row whose lifecycle desired-state is 'stopped' --
+	// those stay visible until the 90-day desired-states TTL collapses the
+	// row organically. Without this OR, clicking Stop would feel like the
+	// workload disappeared from the dashboard, which is exactly the bug
+	// the lifecycle UNION in the materializer is meant to prevent.
+	const stoppedRowClause = `desired_lifecycle.desired_status = 'stopped'`;
 	if (params.timeStart) {
 		where.push(
-			`s.last_seen >= parseDateTimeBestEffort('${escape(params.timeStart)}')`
+			`(s.last_seen >= parseDateTimeBestEffort('${escape(params.timeStart)}') OR ${stoppedRowClause})`
 		);
 	} else {
-		where.push(`s.last_seen >= now() - INTERVAL 30 DAY`);
+		where.push(`(s.last_seen >= now() - INTERVAL 30 DAY OR ${stoppedRowClause})`);
 	}
 	if (params.timeEnd) {
 		where.push(

@@ -202,7 +202,17 @@ export default function AgentsPage() {
 				"agent",
 				null
 			).transitioning;
-			if (podsPending > 0 || llmTransitioning || agentTransitioning) {
+			const lifecycleTransitioning = getObservabilityView(
+				service,
+				"lifecycle",
+				null
+			).transitioning;
+			if (
+				podsPending > 0 ||
+				llmTransitioning ||
+				agentTransitioning ||
+				lifecycleTransitioning
+			) {
 				keys.add(service.agent_key);
 			}
 		}
@@ -270,7 +280,14 @@ export default function AgentsPage() {
 					if (!intent) continue;
 					const serverView = getObservabilityView(agent, feature, null);
 					if (serverView.transitioning) continue;
-					const intentTargetEnabled = intent.direction === "enabling";
+					// For lifecycle, `restarting` collapses back to `running`
+					// once the controller is done. We treat it like `starting`
+					// for convergence purposes -- the workload is up, so the
+					// intent has resolved.
+					const intentTargetEnabled =
+						intent.direction === "enabling" ||
+						intent.direction === "starting" ||
+						intent.direction === "restarting";
 					if (serverView.enabled === intentTargetEnabled) {
 						clearIntent(agentKey, feature);
 					}

@@ -58,6 +58,26 @@ export interface UnifiedAgent {
 	desired_instrumentation_status: "none" | "instrumented";
 	agent_observability_status: "enabled" | "disabled" | "manual" | "";
 	desired_agent_status: "none" | "enabled";
+	/**
+	 * Current lifecycle state of the workload, rolled up from
+	 * `resource_attributes['openlit.lifecycle.status']` on
+	 * `openlit_controller_services` plus the matching
+	 * `feature='lifecycle'` row in `openlit_controller_desired_states_v2`.
+	 *
+	 * - `running`: the controller's heartbeat reports the workload as up.
+	 * - `stopped`: the user clicked Stop and the workload is scaled down.
+	 *   The row is still surfaced because the controller's desired-state
+	 *   table holds `desired_status='stopped'` indefinitely (up to the
+	 *   90-day TTL) so the agent does not disappear from the list.
+	 * - `restarting`: a Restart action is in flight.
+	 * - `unknown`: SDK-only agents or rows the controller hasn't reported on.
+	 */
+	lifecycle_status: "running" | "stopped" | "restarting" | "unknown";
+	/**
+	 * Mirrors `agent_observability` desired-state shape so the UI can compare
+	 * actual vs desired and render transition states identically.
+	 */
+	desired_lifecycle_status: "running" | "stopped" | "unknown";
 	pending_action: string | null;
 	pending_action_status: "pending" | "acknowledged" | null;
 
