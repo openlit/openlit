@@ -15,6 +15,9 @@ const (
 	ActionUninstrument     = "uninstrument"
 	ActionEnablePythonSDK  = "enable_python_sdk"
 	ActionDisablePythonSDK = "disable_python_sdk"
+	ActionStartWorkload    = "start_workload"
+	ActionStopWorkload     = "stop_workload"
+	ActionRestartWorkload  = "restart_workload"
 )
 
 // PollRequest is sent by the controller to OpenLIT on each poll cycle.
@@ -66,6 +69,13 @@ type ActionResult struct {
 	ActionID string `json:"action_id"`
 	Status   string `json:"status"`
 	Error    string `json:"error,omitempty"`
+	// Snapshot carries action-specific state back to the dashboard. For
+	// stop_workload it holds a JSON blob describing how to recreate the
+	// workload later (pod spec for K8s naked pods, exe+args+cwd+env subset
+	// for bare Linux processes). The dashboard persists this into the
+	// matching openlit_controller_desired_states_v2.config row so a later
+	// start_workload action can hand it back to the controller.
+	Snapshot string `json:"snapshot,omitempty"`
 }
 
 type DiscoveredService struct {
@@ -83,8 +93,12 @@ type DiscoveredService struct {
 	AgentObservabilitySource string            `json:"agent_observability_source,omitempty"`
 	ObservabilityConflict    string            `json:"observability_conflict,omitempty"`
 	ObservabilityReason      string            `json:"observability_reason,omitempty"`
-	FirstSeen                string            `json:"first_seen,omitempty"`
-	ResourceAttributes       map[string]string `json:"resource_attributes,omitempty"`
+	// LifecycleStatus is the controller's last-known lifecycle state for the
+	// workload ("running"/"stopped"/"restarting"). Echoed via
+	// resource_attributes["openlit.lifecycle.status"] for the dashboard rollup.
+	LifecycleStatus string            `json:"lifecycle_status,omitempty"`
+	FirstSeen          string            `json:"first_seen,omitempty"`
+	ResourceAttributes map[string]string `json:"resource_attributes,omitempty"`
 }
 
 type ServiceState struct {
@@ -101,6 +115,7 @@ type ServiceState struct {
 	AgentObservabilitySource        string            `json:"agent_observability_source,omitempty"`
 	ObservabilityConflict           string            `json:"observability_conflict,omitempty"`
 	ObservabilityReason             string            `json:"observability_reason,omitempty"`
+	LifecycleStatus                 string            `json:"lifecycle_status,omitempty"`
 	FirstSeen                       time.Time         `json:"first_seen"`
 	LastSeen                        time.Time         `json:"last_seen"`
 	PID                             int               `json:"pid,omitempty"`

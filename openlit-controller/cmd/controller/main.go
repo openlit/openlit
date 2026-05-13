@@ -223,6 +223,7 @@ func doPoll(
 			AgentObservabilitySource: svc.AgentObservabilitySource,
 			ObservabilityConflict:    svc.ObservabilityConflict,
 			ObservabilityReason:      svc.ObservabilityReason,
+			LifecycleStatus:          svc.LifecycleStatus,
 			FirstSeen:                svc.FirstSeen.UTC().Format("2006-01-02 15:04:05"),
 			ResourceAttributes:       svc.ResourceAttributes,
 		})
@@ -304,6 +305,7 @@ func doPoll(
 
 func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap.Logger) openlit.ActionResult {
 	var execErr error
+	var snapshot string
 
 	switch action.ActionType {
 	case openlit.ActionInstrument:
@@ -324,6 +326,16 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 			break
 		}
 		execErr = eng.DisablePythonSDK(action.ServiceKey, payload)
+	case openlit.ActionStartWorkload:
+		execErr = eng.StartWorkload(action.ServiceKey, action.Payload)
+	case openlit.ActionStopWorkload:
+		// StopWorkload returns a snapshot blob that lets the dashboard
+		// persist enough state to bring the workload back later. For
+		// modes where the workload object survives Stop (K8s controlled,
+		// Docker, systemd) the snapshot is empty.
+		snapshot, execErr = eng.StopWorkload(action.ServiceKey, action.Payload)
+	case openlit.ActionRestartWorkload:
+		execErr = eng.RestartWorkload(action.ServiceKey, action.Payload)
 	default:
 		logger.Warn("unknown action type", zap.String("type", action.ActionType))
 		return openlit.ActionResult{
@@ -354,6 +366,7 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 	return openlit.ActionResult{
 		ActionID: action.ID,
 		Status:   "completed",
+		Snapshot: snapshot,
 	}
 }
 

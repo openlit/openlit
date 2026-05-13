@@ -685,6 +685,47 @@ export async function markActionsAcknowledged(
 	);
 }
 
+/**
+ * Look up a batch of actions by ID for a given controller instance.
+ * Used by the poll route to inspect action_type / service_key for
+ * lifecycle Stop actions whose results carry a snapshot blob that
+ * needs persisting into desired_states_v2.config. Returning the
+ * created_at lets callers preserve ordering when sorting fanned-out
+ * fan-in actions.
+ */
+export async function getActionsByIds(
+	actionIds: string[],
+	instanceId: string,
+	dbConfigId?: string
+): Promise<{
+	err?: unknown;
+	data?: Array<{
+		id: string;
+		action_type: ActionType;
+		service_key: string;
+	}>;
+}> {
+	if (actionIds.length === 0) return { data: [] };
+	const escaped = actionIds
+		.map((id) => `'${escapeClickHouse(id)}'`)
+		.join(", ");
+	const query = `
+		SELECT id, action_type, service_key
+		FROM ${CONTROLLER_ACTIONS_TABLE}
+		FINAL
+		WHERE instance_id = '${escapeClickHouse(instanceId)}'
+		  AND id IN (${escaped})
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: Array<{
+			id: string;
+			action_type: ActionType;
+			service_key: string;
+		}>;
+	}>;
+}
+
 export async function completeAction(
 	actionId: string,
 	instanceId: string,

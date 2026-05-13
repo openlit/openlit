@@ -9,7 +9,10 @@
  */
 
 import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
-import { CONTROLLER_SERVICES_TABLE } from "@/lib/platform/controller/table-details";
+import {
+	CONTROLLER_DESIRED_STATES_V2_TABLE,
+	CONTROLLER_SERVICES_TABLE,
+} from "@/lib/platform/controller/table-details";
 import type { AgentSource } from "@/types/agents";
 import { computeAgentKey, invalidateAgent } from "./index";
 import { invalidatePrefix } from "./cache";
@@ -140,8 +143,16 @@ async function discoverAgents(
 		last_seen: string;
 	}>) || [];
 
+	// The materializer needs to keep stopped workloads in agents_summary
+	// even after their last heartbeat aged out of the 24h window. We do
+	// that by UNION-ing the active heartbeat rows with the
+	// lifetime-latest row for any workload whose lifecycle desired
+	// state is 'stopped'. Without this, a workload that has been
+	// stopped for >24h would silently disappear from the UI -- the
+	// agents-list query reads agents_summary, and agents_summary only
+	// keeps rows the materializer rewrites.
 	const ctrlQuery = `
-		WITH latest AS (
+		WITH active AS (
 			SELECT
 				argMax(s.id, s.last_seen) AS id,
 				argMax(s.controller_instance_id, s.last_seen) AS controller_instance_id,
@@ -157,6 +168,46 @@ async function discoverAgents(
 			WHERE s.last_seen >= now() - INTERVAL 24 HOUR
 				${clusterPredicate}
 			GROUP BY concat(s.cluster_id, ':', s.service_name)
+		),
+		stopped_keys AS (
+			SELECT workload_key, cluster_id
+			FROM ${CONTROLLER_DESIRED_STATES_V2_TABLE} FINAL
+			WHERE feature = 'lifecycle' AND desired_status = 'stopped'
+				AND workload_key != ''
+				${clusterPredicate}
+		),
+		stopped AS (
+			-- Lifetime lookup (no time bound) so stopped agents stay
+			-- materialized regardless of how long they have been down.
+			-- We bound the size by stopped_keys (small) and exclude
+			-- anything already covered by the active CTE to avoid
+			-- double-materializing the same workload. The dedup key is
+			-- the same (cluster_id, service_name) tuple the active CTE
+			-- groups by -- service_name alone would collide across
+			-- clusters (e.g. "checkout" running in cluster-prod while
+			-- stopped in cluster-staging).
+			SELECT
+				argMax(s.id, s.last_seen) AS id,
+				argMax(s.controller_instance_id, s.last_seen) AS controller_instance_id,
+				argMax(s.cluster_id, s.last_seen) AS cluster_id,
+				argMax(s.service_name, s.last_seen) AS service_name,
+				argMax(s.workload_key, s.last_seen) AS workload_key,
+				argMax(s.instrumentation_status, s.last_seen) AS instrumentation_status,
+				argMax(s.resource_attributes, s.last_seen) AS resource_attributes,
+				argMax(s.llm_providers, s.last_seen) AS llm_providers,
+				min(s.first_seen) AS first_seen,
+				max(s.last_seen) AS last_seen
+			FROM ${CONTROLLER_SERVICES_TABLE} s FINAL
+			WHERE (s.workload_key, s.cluster_id) IN (SELECT workload_key, cluster_id FROM stopped_keys)
+				AND s.workload_key != ''
+				${clusterPredicate}
+			GROUP BY concat(s.cluster_id, ':', s.service_name)
+			HAVING (cluster_id, service_name) NOT IN (SELECT cluster_id, service_name FROM active)
+		),
+		latest AS (
+			SELECT * FROM active
+			UNION ALL
+			SELECT * FROM stopped
 		)
 		SELECT
 			latest.id AS id,

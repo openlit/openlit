@@ -92,6 +92,7 @@ export default async function CreateControllerMigration(
 			updated_at DateTime DEFAULT now()
 		) ENGINE = ReplacingMergeTree(updated_at)
 		ORDER BY (workload_key, cluster_id, feature)
+		TTL updated_at + INTERVAL 90 DAY
 		SETTINGS index_granularity = 8192
 		`,
 		`

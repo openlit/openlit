@@ -121,6 +121,9 @@ export const KNOWN_ACTIONS = {
 	REMOVE_PROMPTS: "remove_prompts",
 	PUSH_ENVS: "push_envs",
 	REMOVE_ENVS: "remove_envs",
+	START_WORKLOAD: "start_workload",
+	STOP_WORKLOAD: "stop_workload",
+	RESTART_WORKLOAD: "restart_workload",
 } as const;
 
 export interface FeatureDesiredState {

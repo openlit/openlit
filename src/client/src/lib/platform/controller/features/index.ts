@@ -11,5 +11,6 @@ export type {
 
 import "./instrumentation";
 import "./agent";
+import "./lifecycle";
 import "./prompts";
 import "./envs";

@@ -416,6 +416,43 @@ export const AGENTS_SDK_SOURCE_NOTE = "Source: SDK";
 export const AGENTS_LOAD_MORE = "Load more";
 export const AGENTS_LOAD_MORE_LOADING = "Loading...";
 
+// Agents - Lifecycle (Play / Stop / Restart for controller-managed workloads)
+export const AGENTS_COLUMN_ACTIONS = "Actions";
+export const AGENTS_LIFECYCLE_PLAY = "Play";
+export const AGENTS_LIFECYCLE_STOP = "Stop";
+export const AGENTS_LIFECYCLE_RESTART = "Restart";
+export const AGENTS_LIFECYCLE_STARTING = "Starting...";
+export const AGENTS_LIFECYCLE_STOPPING = "Stopping...";
+export const AGENTS_LIFECYCLE_RESTARTING = "Restarting...";
+export const AGENTS_LIFECYCLE_STATUS_RUNNING = "Running";
+export const AGENTS_LIFECYCLE_STATUS_STOPPED = "Stopped";
+export const AGENTS_LIFECYCLE_STATUS_RESTARTING = "Restarting";
+export const AGENTS_LIFECYCLE_STATUS_UNKNOWN = "Unknown";
+export const AGENTS_LIFECYCLE_TOOLTIP_PLAY = "Start the agent (scale up / start container / re-launch process)";
+export const AGENTS_LIFECYCLE_TOOLTIP_STOP = "Stop the agent (scale to 0 / stop container / SIGTERM)";
+export const AGENTS_LIFECYCLE_TOOLTIP_RESTART = "Restart the agent (rolling restart / restart container / SIGTERM + relaunch)";
+export const AGENTS_LIFECYCLE_TOOLTIP_DISABLED_SDK = "Lifecycle controls are available only for controller-managed agents.";
+export const AGENTS_LIFECYCLE_TOOLTIP_DISABLED_CAPABILITY = "The controller managing this agent does not advertise lifecycle support yet.";
+export const AGENTS_LIFECYCLE_TOOLTIP_PLAY_NO_SNAPSHOT = "No saved snapshot to restore. The controller cannot bring this agent back up without state captured at Stop time.";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_TITLE = "Stop agent?";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_DESCRIPTION = (serviceName: string) =>
+	`This will scale down or terminate the agent "${serviceName}". Telemetry will stop until you Play it again.`;
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_CONFIRM = "Stop agent";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_CANCEL = "Cancel";
+export const AGENTS_LIFECYCLE_QUEUED_PLAY = (serviceName: string) =>
+	`Starting ${serviceName}...`;
+export const AGENTS_LIFECYCLE_QUEUED_STOP = (serviceName: string) =>
+	`Stopping ${serviceName}...`;
+export const AGENTS_LIFECYCLE_QUEUED_RESTART = (serviceName: string) =>
+	`Restarting ${serviceName}...`;
+export const AGENTS_LIFECYCLE_FAILED = (err: string) => `Lifecycle action failed: ${err}`;
+export const AGENTS_OBSERVABILITY_DISABLED_NOT_RUNNING =
+	"Start the agent to change observability — toggling LLM / Agent observability is only possible while the agent is running.";
+export const AGENTS_OBSERVABILITY_DISABLED_TRANSITIONING =
+	"Observability changes are blocked while the agent is starting, stopping, or restarting.";
+export const AGENTS_LIFECYCLE_DISABLED_OBSERVABILITY_TRANSITIONING =
+	"Lifecycle changes are blocked while LLM or Agent observability is being applied to this agent.";
+
 // Agents - Detail Tabs
 export const AGENTS_TAB_ANALYTICS = "Analytics";
 export const AGENTS_TAB_CONVERSATIONS = "Conversations";
@@ -535,8 +572,8 @@ export const AGENTS_MANUAL_SETUP_REQUIRED = "Manual setup required";
 export const AGENTS_CONTAINERIZED_WARNING = "This process runs inside a container. Mount the Docker socket or use a Docker/Kubernetes-mode controller for Agent Observability.";
 export const AGENTS_NAKED_POD_WARNING = "This is a naked pod (no Deployment, DaemonSet, or StatefulSet). Enabling or disabling Agent Observability will restart the pod.";
 export const AGENTS_NAKED_POD_CONFIRM = "This pod has no Deployment or DaemonSet. Enabling Agent Observability will restart the pod. Continue?";
-export const AGENTS_AGENT_DEPLOY_QUEUED = "Agent observability is being deployed. The workload will be updated automatically.";
-export const AGENTS_AGENT_REMOVE_QUEUED = "Agent observability removal queued. The workload will be updated automatically.";
+export const AGENTS_AGENT_DEPLOY_QUEUED = "Agent observability is being deployed. The agent will be updated automatically.";
+export const AGENTS_AGENT_REMOVE_QUEUED = "Agent observability removal queued. The agent will be updated automatically.";
 export const AGENTS_QUEUED_ACTION = (action: string) => `Queued ${action}`;
 export const AGENTS_PENDING_INSTRUMENTING = "Instrumenting";
 export const AGENTS_PENDING_UNINSTRUMENTING = "Uninstrumenting";

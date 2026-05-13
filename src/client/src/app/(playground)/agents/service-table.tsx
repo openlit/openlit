@@ -28,6 +28,7 @@ import {
 	getSetAgentIntent,
 	useAgentIntent,
 } from "@/selectors/agents-instrumentation";
+import LifecycleActions from "@/components/(playground)/agents/lifecycle-actions";
 
 interface ServiceTableProps {
 	services: UnifiedAgent[];
@@ -51,6 +52,7 @@ type ServiceColumnKey =
 	| "service"
 	| "system"
 	| "providers"
+	| "lifecycle"
 	| "aiObservability"
 	| "agentObservability"
 	| "lastSeen";
@@ -59,10 +61,64 @@ function StaticDash() {
 	return <span className="text-xs text-stone-400 dark:text-stone-500">—</span>;
 }
 
-function directionLabel(direction: "enabling" | "disabling" | null): string {
-	return direction === "disabling"
-		? getMessage().AGENTS_SERVICE_ACTION_DISABLING
-		: getMessage().AGENTS_SERVICE_ACTION_ENABLING;
+/**
+ * Returns a tooltip string describing *why* observability changes
+ * should be blocked for this agent, or `null` when the agent is in a
+ * state where toggling LLM / Agent observability is safe.
+ *
+ * We gate on the lifecycle observability-view so the same precedence
+ * (optimistic intent → pending action → desired mismatch → steady)
+ * decides what counts as "running" — that way clicking Stop in one
+ * row instantly disables its o11y toggles via the optimistic intent,
+ * without waiting for the controller round-trip.
+ *
+ * Controllers can mutate processes only while they exist: Docker /
+ * Linux modes literally have nothing to attach to once the workload
+ * is stopped, and a K8s instrument racing a Stop can leave a
+ * half-applied state. Gating closes that race entirely.
+ */
+function useObservabilityBlock(service: EnrichedAgent): string | null {
+	const lifecycleIntent = useAgentIntent(service.agent_key, "lifecycle");
+	if (service.source === "sdk" || !service.controller_service_id) {
+		return null;
+	}
+	const lifecycleView = getObservabilityView(
+		service,
+		"lifecycle",
+		lifecycleIntent
+	);
+	if (lifecycleView.transitioning) {
+		return getMessage().AGENTS_OBSERVABILITY_DISABLED_TRANSITIONING;
+	}
+	if (!lifecycleView.enabled) {
+		return getMessage().AGENTS_OBSERVABILITY_DISABLED_NOT_RUNNING;
+	}
+	return null;
+}
+
+function directionLabel(
+	direction:
+		| "enabling"
+		| "disabling"
+		| "starting"
+		| "stopping"
+		| "restarting"
+		| null
+): string {
+	switch (direction) {
+		case "disabling":
+			return getMessage().AGENTS_SERVICE_ACTION_DISABLING;
+		case "enabling":
+			return getMessage().AGENTS_SERVICE_ACTION_ENABLING;
+		case "starting":
+			return getMessage().AGENTS_LIFECYCLE_STARTING;
+		case "stopping":
+			return getMessage().AGENTS_LIFECYCLE_STOPPING;
+		case "restarting":
+			return getMessage().AGENTS_LIFECYCLE_RESTARTING;
+		default:
+			return getMessage().AGENTS_SERVICE_ACTION_WORKING;
+	}
 }
 
 function AIObservabilityCell({
@@ -76,6 +132,7 @@ function AIObservabilityCell({
 	const setIntent = useRootStore(getSetAgentIntent);
 	const clearIntent = useRootStore(getClearAgentIntent);
 	const intent = useAgentIntent(service.agent_key, "llm");
+	const blockReason = useObservabilityBlock(service);
 	const controllerServiceId = service.controller_service_id;
 
 	if (!controllerServiceId) {
@@ -83,6 +140,28 @@ function AIObservabilityCell({
 	}
 
 	const view = getObservabilityView(service, "llm", intent);
+
+	// Stopped or transitioning lifecycle → render a disabled button that
+	// still reflects current state, with a tooltip explaining why it is
+	// inert. We keep the Enable/Disable label honest so a user who comes
+	// back later understands what *will* happen once the agent is back.
+	if (blockReason && !view.transitioning) {
+		const label = view.enabled
+			? getMessage().AGENTS_SERVICE_ACTION_DISABLE
+			: getMessage().AGENTS_SERVICE_ACTION_ENABLE;
+		return (
+			<button
+				type="button"
+				disabled
+				title={blockReason}
+				aria-label={blockReason}
+				onClick={(e) => e.stopPropagation()}
+				className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 bg-stone-50 dark:bg-stone-900 cursor-not-allowed"
+			>
+				{label}
+			</button>
+		);
+	}
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -158,6 +237,7 @@ function AgentObservabilityCell({
 	const setIntent = useRootStore(getSetAgentIntent);
 	const clearIntent = useRootStore(getClearAgentIntent);
 	const intent = useAgentIntent(service.agent_key, "agent");
+	const blockReason = useObservabilityBlock(service);
 	const controllerServiceId = service.controller_service_id;
 
 	if (!controllerServiceId) {
@@ -169,6 +249,36 @@ function AgentObservabilityCell({
 	// than via the controller, so we still want to offer a Disable button but
 	// flag the row visually. `view.isManual` is the canonical semantic read.
 	const isManual = view.isManual;
+
+	// Lifecycle gating: same logic as the LLM cell, but we still want to
+	// surface the `manual` badge so users can see the SDK status; we just
+	// disable the Disable button until the agent is running.
+	if (blockReason && !view.transitioning) {
+		const label = isManual
+			? getMessage().AGENTS_SERVICE_ACTION_DISABLE
+			: view.enabled
+				? getMessage().AGENTS_SERVICE_ACTION_DISABLE
+				: getMessage().AGENTS_SERVICE_ACTION_ENABLE;
+		return (
+			<div className="flex items-center gap-2">
+				{isManual && (
+					<span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+						{getMessage().AGENTS_SERVICE_MANUAL_BADGE}
+					</span>
+				)}
+				<button
+					type="button"
+					disabled
+					title={blockReason}
+					aria-label={blockReason}
+					onClick={(e) => e.stopPropagation()}
+					className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 bg-stone-50 dark:bg-stone-900 cursor-not-allowed"
+				>
+					{label}
+				</button>
+			</div>
+		);
+	}
 
 	const handleAction = async (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -258,6 +368,35 @@ function AgentObservabilityCell({
 	);
 }
 
+/**
+ * ActionsCell — Docker-Desktop-style action cluster pinned to the
+ * right of the row. SDK-only agents (no controller managing them)
+ * render an em-dash so the right edge stays visually clean instead of
+ * showing nothing at all; controller-managed rows render the full
+ * Play / Stop / Restart pill from LifecycleActions.
+ */
+function ActionsCell({
+	service,
+	onRefresh,
+}: {
+	service: EnrichedAgent;
+	onRefresh: () => void;
+}) {
+	return (
+		<div className="flex justify-end">
+			{service.source === "sdk" || !service.controller_service_id ? (
+				<StaticDash />
+			) : (
+				<LifecycleActions
+					agent={service}
+					onRefresh={onRefresh}
+					variant="row"
+				/>
+			)}
+		</div>
+	);
+}
+
 const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	service: {
 		header: () => getMessage().AGENTS_COLUMN_SERVICE,
@@ -336,6 +475,20 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 			</span>
 		),
 	},
+	lifecycle: {
+		header: () => (
+			<div className="flex justify-end">
+				{getMessage().AGENTS_COLUMN_ACTIONS}
+			</div>
+		),
+		cell: ({ row, extraFunctions }) => (
+			<ActionsCell
+				service={row}
+				onRefresh={extraFunctions.onRefresh}
+			/>
+		),
+		enableHiding: false,
+	},
 	aiObservability: {
 		header: () => getMessage().AGENTS_COLUMN_LLM_OBSERVABILITY,
 		cell: ({ row, extraFunctions }) => (
@@ -356,6 +509,10 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	},
 };
 
+// Column display order is driven by this record's key order (see
+// DataTable). `lifecycle` is intentionally last so the action pill
+// pins to the right of the row, matching Docker Desktop's container
+// list layout.
 const VISIBILITY_COLUMNS: Record<ServiceColumnKey, boolean> = {
 	service: true,
 	system: true,
@@ -363,6 +520,7 @@ const VISIBILITY_COLUMNS: Record<ServiceColumnKey, boolean> = {
 	lastSeen: true,
 	aiObservability: true,
 	agentObservability: true,
+	lifecycle: true,
 };
 
 export default function ServiceTable({
