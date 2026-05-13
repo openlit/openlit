@@ -9,6 +9,8 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
     calculate_ttft,
     calculate_tbt,
     common_span_attributes,
@@ -363,6 +365,8 @@ def emit_inference_event(
                 ] = value
             elif key == "error_type":
                 attributes[SemanticConvention.ERROR_TYPE] = value
+            elif key == "system_instructions":
+                attributes[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = value
             else:
                 attributes[key] = value
 
@@ -736,17 +740,42 @@ def common_chat_logic(
             scope._ttft,
         )
 
-    # Content / event capture
+    # Compute system instructions + tool definitions unconditionally so the
+    # agent version hash is stable across content-capture toggles.
+    system_instr = build_system_instructions_from_messages(body.get("messages", []))
+    tool_defs = _build_tool_definitions(body.get("tools"))
+
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=getattr(scope, "_response_model", None) or request_model,
+        runtime_config={
+            "temperature": body.get("temperature"),
+            "top_p": body.get("top_p"),
+            "max_tokens": max_tokens,
+            "provider": SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
+    input_msgs = build_input_messages(body.get("messages", []))
+    output_msgs = build_output_messages(
+        scope._llmresponse,
+        scope._finish_reason,
+        tool_calls=scope._tools,
+        reasoning=getattr(scope, "_reasoning_text", "") or None,
+    )
+
     if capture_message_content:
-        input_msgs = build_input_messages(body.get("messages", []))
-        output_msgs = build_output_messages(
-            scope._llmresponse,
-            scope._finish_reason,
-            tool_calls=scope._tools,
-            reasoning=getattr(scope, "_reasoning_text", "") or None,
-        )
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-        tool_defs = _build_tool_definitions(body.get("tools"))
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
         if tool_defs:
             try:
                 scope._span.set_attribute(
@@ -755,40 +784,47 @@ def common_chat_logic(
                 )
             except (TypeError, ValueError):
                 pass
-        emit_inference_event(
-            event_provider=event_provider,
-            operation_name=operation_name,
-            request_model=request_model,
-            response_model=getattr(scope, "_response_model", request_model)
+
+    # Emit inference event independently of content capture.
+    if event_provider:
+        emit_kwargs = {
+            "event_provider": event_provider,
+            "operation_name": operation_name,
+            "request_model": request_model,
+            "response_model": getattr(scope, "_response_model", request_model)
             or request_model,
-            input_messages=input_msgs,
-            output_messages=output_msgs,
-            tool_definitions=_build_tool_definitions(body.get("tools")),
-            server_address=scope._server_address,
-            server_port=scope._server_port,
-            response_id=getattr(scope, "_response_id", None),
-            finish_reasons=[
+            "input_messages": input_msgs if capture_message_content else [],
+            "output_messages": output_msgs if capture_message_content else [],
+            "tool_definitions": tool_defs,
+            "server_address": scope._server_address,
+            "server_port": scope._server_port,
+            "response_id": getattr(scope, "_response_id", None),
+            "finish_reasons": [
                 _FINISH_REASON_MAP.get(
                     scope._finish_reason, scope._finish_reason or "stop"
                 )
             ],
-            output_type=output_type,
-            temperature=body.get("temperature"),
-            max_tokens=max_tokens,
-            top_p=body.get("top_p"),
-            frequency_penalty=body.get("frequency_penalty"),
-            presence_penalty=body.get("presence_penalty"),
-            stop_sequences=stop_sequences or None,
-            seed=body.get("seed"),
-            input_tokens=scope._input_tokens,
-            output_tokens=scope._output_tokens,
-            cache_read_input_tokens=getattr(scope, "_cache_read_input_tokens", 0)
+            "output_type": output_type,
+            "temperature": body.get("temperature"),
+            "max_tokens": max_tokens,
+            "top_p": body.get("top_p"),
+            "frequency_penalty": body.get("frequency_penalty"),
+            "presence_penalty": body.get("presence_penalty"),
+            "stop_sequences": stop_sequences or None,
+            "seed": body.get("seed"),
+            "input_tokens": scope._input_tokens,
+            "output_tokens": scope._output_tokens,
+            "cache_read_input_tokens": getattr(scope, "_cache_read_input_tokens", 0)
             or None,
-            cache_creation_input_tokens=getattr(
+            "cache_creation_input_tokens": getattr(
                 scope, "_cache_creation_input_tokens", 0
             )
             or None,
-        )
+            **version_extras,
+        }
+        if capture_message_content and system_instr:
+            emit_kwargs["system_instructions"] = system_instr
+        emit_inference_event(**emit_kwargs)
 
     scope._span.set_status(Status(StatusCode.OK))
 

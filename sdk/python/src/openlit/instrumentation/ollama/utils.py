@@ -9,6 +9,8 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -399,56 +401,79 @@ def common_chat_logic(
             scope._cache_creation_input_tokens,
         )
 
-    # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
-    if capture_message_content:
-        input_msgs = build_input_messages(
-            json_body.get("messages", scope._kwargs.get("messages", []))
-        )
-        output_msgs = build_output_messages(
-            scope._llmresponse, scope._finish_reason, scope._tools
-        )
-        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+    # Compute fingerprint inputs unconditionally so the agent version hash
+    # is stable across content-capture toggles.
+    chat_messages = json_body.get("messages", scope._kwargs.get("messages", []))
+    system_instr = build_system_instructions_from_messages(chat_messages)
+    tool_defs = build_tool_definitions(
+        json_body.get("tools", scope._kwargs.get("tools"))
+    )
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=getattr(scope, "_response_model", None) or request_model,
+        runtime_config={
+            "temperature": options.get("temperature"),
+            "top_p": options.get("top_p"),
+            "max_tokens": options.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_OLLAMA],
+    )
 
-        # Emit inference event
-        if event_provider:
-            try:
-                tool_defs = build_tool_definitions(
-                    json_body.get("tools", scope._kwargs.get("tools"))
-                )
-                extra = {
-                    "response_id": getattr(scope, "_response_id", None),
-                    "finish_reasons": [scope._finish_reason],
-                    "output_type": "text"
-                    if isinstance(scope._llmresponse, str)
-                    else "json",
-                    "temperature": options.get("temperature"),
-                    "max_tokens": options.get("max_tokens"),
-                    "top_p": options.get("top_p"),
-                    "top_k": options.get("top_k"),
-                    "repeat_penalty": options.get("repeat_penalty"),
-                    "input_tokens": scope._input_tokens,
-                    "output_tokens": scope._output_tokens,
-                    "cache_read_input_tokens": getattr(
-                        scope, "_cache_read_input_tokens", 0
-                    ),
-                    "cache_creation_input_tokens": getattr(
-                        scope, "_cache_creation_input_tokens", 0
-                    ),
-                }
-                emit_inference_event(
-                    event_provider=event_provider,
-                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                    request_model=request_model,
-                    response_model=getattr(scope, "_response_model", request_model),
-                    input_messages=input_msgs,
-                    output_messages=output_msgs,
-                    tool_definitions=tool_defs,
-                    server_address=scope._server_address,
-                    server_port=scope._server_port,
-                    **extra,
-                )
-            except Exception as e:
-                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+    input_msgs = build_input_messages(chat_messages)
+    output_msgs = build_output_messages(
+        scope._llmresponse, scope._finish_reason, scope._tools
+    )
+
+    if capture_message_content:
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
+
+    if event_provider:
+        try:
+            extra = {
+                "response_id": getattr(scope, "_response_id", None),
+                "finish_reasons": [scope._finish_reason],
+                "output_type": "text"
+                if isinstance(scope._llmresponse, str)
+                else "json",
+                "temperature": options.get("temperature"),
+                "max_tokens": options.get("max_tokens"),
+                "top_p": options.get("top_p"),
+                "top_k": options.get("top_k"),
+                "repeat_penalty": options.get("repeat_penalty"),
+                "input_tokens": scope._input_tokens,
+                "output_tokens": scope._output_tokens,
+                "cache_read_input_tokens": getattr(
+                    scope, "_cache_read_input_tokens", 0
+                ),
+                "cache_creation_input_tokens": getattr(
+                    scope, "_cache_creation_input_tokens", 0
+                ),
+                **version_extras,
+            }
+            if capture_message_content and system_instr:
+                extra["system_instructions"] = system_instr
+            emit_inference_event(
+                event_provider=event_provider,
+                operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                request_model=request_model,
+                response_model=getattr(scope, "_response_model", request_model),
+                input_messages=input_msgs if capture_message_content else [],
+                output_messages=output_msgs if capture_message_content else [],
+                tool_definitions=tool_defs,
+                server_address=scope._server_address,
+                server_port=scope._server_port,
+                **extra,
+            )
+        except Exception as e:
+            logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 

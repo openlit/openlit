@@ -1,14 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { RefreshCw, Plus } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
+import {
+	getAgentIntents,
+	getClearAgentIntent,
+	getPruneExpiredAgentIntents,
+} from "@/selectors/agents-instrumentation";
+import type { Feature } from "@/types/store/agents-instrumentation";
+import { getObservabilityView } from "@/lib/platform/agents/observability-view";
 import { getPingStatus } from "@/selectors/database-config";
 import { TIME_RANGE_TYPE } from "@/store/filter";
-import type { ControllerInstance, ControllerService } from "@/types/controller";
+import type { ControllerInstance } from "@/types/controller";
+import type { UnifiedAgent } from "@/types/agents";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -32,8 +40,10 @@ export default function AgentsPage() {
 	const initialTab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
 	const [showSetupModal, setShowSetupModal] = useState(false);
-	const [serviceRows, setServiceRows] = useState<ControllerService[]>([]);
+	const [serviceRows, setServiceRows] = useState<UnifiedAgent[]>([]);
 	const [controllerRows, setControllerRows] = useState<ControllerInstance[]>([]);
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 	const [systemFilter, setSystemFilter] = useState<string[]>([]);
 	const [providerFilter, setProviderFilter] = useState<string[]>([]);
@@ -61,19 +71,58 @@ export default function AgentsPage() {
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const pingStatus = useRootStore(getPingStatus);
+	const agentIntents = useRootStore(getAgentIntents);
+	const clearIntent = useRootStore(getClearAgentIntent);
+	const pruneExpiredIntents = useRootStore(getPruneExpiredAgentIntents);
 
 	const {
 		fireRequest: fetchInstances,
-		data: instances,
 		isFetched: instancesFetched,
 		isLoading: instancesLoading,
 	} = useFetchWrapper<ControllerInstance[]>();
-	const {
-		fireRequest: fetchServices,
-		data: services,
-		isFetched: servicesFetched,
-		isLoading: servicesLoading,
-	} = useFetchWrapper<ControllerService[]>();
+	const [servicesLoading, setServicesLoading] = useState(false);
+	const [servicesFetched, setServicesFetched] = useState(false);
+
+	const fetchAgents = useCallback(
+		async (cursor: string | null) => {
+			const params = new URLSearchParams();
+			if (filter.timeLimit.start)
+				params.set("start", new Date(filter.timeLimit.start).toISOString());
+			// Only pin an upper bound for explicit custom ranges. For relative
+			// ranges (24H/7D/1M/3M), the server uses "now" implicitly, which
+			// avoids hiding freshly materialized rows whose `last_seen` is just
+			// past the captured page-load `end`.
+			if (
+				filter.timeLimit.type === TIME_RANGE_TYPE.CUSTOM &&
+				filter.timeLimit.end
+			) {
+				params.set("end", new Date(filter.timeLimit.end).toISOString());
+			}
+			if (cursor) params.set("cursor", cursor);
+			if (providerFilter.length > 0) {
+				params.set("providers", providerFilter.join(","));
+			}
+			if (statusFilter.length > 0) {
+				params.set("statuses", statusFilter.join(","));
+			}
+			const res = await fetch(`/api/agents?${params.toString()}`);
+			if (!res.ok) {
+				const txt = await res.text().catch(() => "");
+				throw new Error(txt || `HTTP ${res.status}`);
+			}
+			return (await res.json()) as {
+				data: UnifiedAgent[];
+				nextCursor: string | null;
+			};
+		},
+		[
+			filter.timeLimit.start,
+			filter.timeLimit.end,
+			filter.timeLimit.type,
+			providerFilter,
+			statusFilter,
+		]
+	);
 
 	const refresh = useCallback(() => {
 		setRefreshError(null);
@@ -86,19 +135,28 @@ export default function AgentsPage() {
 			},
 			failureCb: (err: any) => setRefreshError(String(err)),
 		});
-		fetchServices({
-			requestType: "GET",
-			url: "/api/controller/catalog",
-			responseDataKey: "data",
-			successCb: (data) => {
-				setServiceRows(data || []);
-			},
-			failureCb: (err: any) => setRefreshError(String(err)),
-		});
-	}, [
-		fetchInstances,
-		fetchServices,
-	]);
+		setServicesLoading(true);
+		fetchAgents(null)
+			.then((payload) => {
+				setServiceRows(payload.data || []);
+				setNextCursor(payload.nextCursor || null);
+				setServicesFetched(true);
+			})
+			.catch((err: unknown) => setRefreshError(String(err)))
+			.finally(() => setServicesLoading(false));
+	}, [fetchInstances, fetchAgents]);
+
+	const loadMore = useCallback(() => {
+		if (!nextCursor || isLoadingMore) return;
+		setIsLoadingMore(true);
+		fetchAgents(nextCursor)
+			.then((payload) => {
+				setServiceRows((prev) => [...prev, ...((payload.data as UnifiedAgent[]) || [])]);
+				setNextCursor(payload.nextCursor || null);
+			})
+			.catch((err: unknown) => setRefreshError(String(err)))
+			.finally(() => setIsLoadingMore(false));
+	}, [fetchAgents, isLoadingMore, nextCursor]);
 
 	useEffect(() => {
 		if (
@@ -107,7 +165,13 @@ export default function AgentsPage() {
 			pingStatus === "success"
 		)
 			refresh();
-	}, [filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
+	}, [
+		filter.timeLimit.start,
+		filter.timeLimit.end,
+		pingStatus,
+		providerFilter,
+		statusFilter,
+	]);
 
 	useEffect(() => {
 		if (!pathname.startsWith("/agents")) return;
@@ -116,28 +180,155 @@ export default function AgentsPage() {
 		updateFilter("timeLimit.type", filter.timeLimit.type);
 	}, [pathname, filter.timeLimit.type, updateFilter]);
 
-	useEffect(() => {
-		const hasActiveWork = serviceRows.some((service) => {
-			if (
-				service.pending_action_status === "pending" ||
-				service.pending_action_status === "acknowledged"
-			)
-				return true;
-			const attrs = service.resource_attributes || {};
-			const actualAgent = attrs["openlit.agent_observability.status"] || "";
-			const desiredAgent = service.desired_agent_status || "none";
-			if (desiredAgent === "enabled" && actualAgent !== "enabled") return true;
-			if (desiredAgent === "none" && actualAgent === "enabled") return true;
-			return false;
-		});
-		if (!hasActiveWork) return;
+	// Computes the agent_keys that currently have controller-managed work in
+	// flight. Single source of truth = the same `getObservabilityView` the
+	// UI uses, so the polling cadence and the rendered spinner state can
+	// never disagree. We treat an agent as "pending" when *any* of:
+	//   - it has an unexpired optimistic intent in the Zustand store,
+	//   - the controller has at least one pod pending acknowledgement, or
+	//   - the LLM or Agent observability view resolves to `transitioning`.
+	const pendingKeys = useMemo(() => {
+		const keys = new Set<string>();
+		for (const service of serviceRows) {
+			if (service.source === "sdk") continue;
+			const podsPending = service.pods_pending ?? 0;
+			const llmTransitioning = getObservabilityView(
+				service,
+				"llm",
+				null
+			).transitioning;
+			const agentTransitioning = getObservabilityView(
+				service,
+				"agent",
+				null
+			).transitioning;
+			if (podsPending > 0 || llmTransitioning || agentTransitioning) {
+				keys.add(service.agent_key);
+			}
+		}
+		for (const agentKey of Object.keys(agentIntents)) {
+			if (Object.keys(agentIntents[agentKey] || {}).length > 0) {
+				keys.add(agentKey);
+			}
+		}
+		return Array.from(keys);
+	}, [serviceRows, agentIntents]);
 
-		const interval = window.setInterval(() => {
+	// Dedupe in-flight polling work so a slow ClickHouse query can't stack
+	// retries on top of each other and flood the API. Ref-based so the guard
+	// survives across setTimeout boundaries without re-running the effect.
+	const pollInFlightRef = useRef(false);
+
+	// Targeted refresh: fetch only the rows currently in pending/transitioning
+	// state instead of re-fetching the whole list every tick. Falls back to
+	// the full list refresh if too many rows are pending (then it's cheaper
+	// to do one list query than N row queries).
+	const refreshPendingRows = useCallback(async () => {
+		if (pendingKeys.length === 0) return;
+		if (pendingKeys.length > 25) {
 			refresh();
-		}, 2500);
+			return;
+		}
+		try {
+			const updates = await Promise.all(
+				pendingKeys.map((key) =>
+					fetch(`/api/agents/${encodeURIComponent(key)}`)
+						.then((res) => (res.ok ? res.json() : null))
+						.catch(() => null)
+				)
+			);
+			const updatedByKey = new Map<string, UnifiedAgent>();
+			for (const payload of updates) {
+				const agent = (payload as { data?: UnifiedAgent } | null)?.data;
+				if (agent && agent.agent_key) updatedByKey.set(agent.agent_key, agent);
+			}
+			if (updatedByKey.size === 0) return;
+			setServiceRows((prev) =>
+				prev.map((row) => updatedByKey.get(row.agent_key) || row)
+			);
+			// Reconcile optimistic intents on convergence only. We keep the
+			// optimistic spinner up until the controller actually reports the
+			// state we intended -- i.e. server-truth resolves to a non-
+			// transitioning view whose `enabled` matches the intent direction.
+			//
+			// Why "convergence-only" instead of also clearing on "no pending
+			// action": once a controller action moves to `completed`/`failed`
+			// it drops out of pod_action_latest (HAVING status IN
+			// ('pending','acknowledged')), so `pending_action` empties the
+			// moment the controller is done -- BEFORE the new
+			// `agent_observability_status` heartbeat arrives. The old "no
+			// pending action -> clear" branch would snap the spinner back to
+			// the previous state in that gap; with multi-pod fleets and 60s
+			// controller polls this gap can be tens of seconds long. The 5
+			// minute optimistic TTL (see agents-instrumentation store) is the
+			// only time-based safety net.
+			Array.from(updatedByKey.entries()).forEach(([agentKey, agent]) => {
+				const intentsForAgent = agentIntents[agentKey];
+				if (!intentsForAgent) return;
+				for (const feature of Object.keys(intentsForAgent) as Feature[]) {
+					const intent = intentsForAgent[feature];
+					if (!intent) continue;
+					const serverView = getObservabilityView(agent, feature, null);
+					if (serverView.transitioning) continue;
+					const intentTargetEnabled = intent.direction === "enabling";
+					if (serverView.enabled === intentTargetEnabled) {
+						clearIntent(agentKey, feature);
+					}
+				}
+			});
+		} catch (err) {
+			setRefreshError(String(err));
+		}
+	}, [pendingKeys, refresh, agentIntents, clearIntent]);
 
-		return () => window.clearInterval(interval);
-	}, [serviceRows, refresh]);
+	// Exponential backoff polling: while controller actions are in flight,
+	// poll at 2.5s → 5s → 10s → 30s (cap), and reset to 2.5s on every state
+	// change. When nothing is pending, fall back to a 30s baseline refresh
+	// of the full list so newly materialized agents still appear without a
+	// manual click.
+	useEffect(() => {
+		let cancelled = false;
+		let timer: number | null = null;
+		const baseDelay = 2500;
+		const maxDelay = 30_000;
+		let nextDelay = pendingKeys.length > 0 ? baseDelay : maxDelay;
+
+		const tick = async () => {
+			if (cancelled) return;
+			// Drop any optimistic intents older than their TTL each tick.
+			// Cheap (in-memory map walk) and avoids leaking spinner state
+			// when the API call never came back.
+			pruneExpiredIntents();
+			if (!pollInFlightRef.current) {
+				pollInFlightRef.current = true;
+				try {
+					if (pendingKeys.length > 0) {
+						await refreshPendingRows();
+					} else {
+						refresh();
+					}
+				} finally {
+					pollInFlightRef.current = false;
+				}
+			}
+			if (cancelled) return;
+			// Exponential backoff only matters while there is pending work to
+			// observe; the baseline (non-pending) cadence is a flat maxDelay.
+			if (pendingKeys.length > 0) {
+				nextDelay = Math.min(nextDelay * 2, maxDelay);
+			} else {
+				nextDelay = maxDelay;
+			}
+			timer = window.setTimeout(tick, nextDelay);
+		};
+
+		timer = window.setTimeout(tick, nextDelay);
+
+		return () => {
+			cancelled = true;
+			if (timer !== null) window.clearTimeout(timer);
+		};
+	}, [pendingKeys, refresh, refreshPendingRows, pruneExpiredIntents]);
 
 	const isLoading = instancesLoading || servicesLoading;
 	const hasControllers = controllerRows.length > 0;
@@ -146,10 +337,11 @@ export default function AgentsPage() {
 		(c) => (c.computed_status || c.status) !== "inactive"
 	);
 	const staleCount = controllerRows.length - activeControllers.length;
-	const totalControllers = controllerRows.length;
 	const totalServices = serviceRows.length;
 	const instrumentedServices = serviceRows.filter(
 		(s) =>
+			s.source === "sdk" ||
+			s.source === "both" ||
 			s.instrumentation_status === "instrumented" ||
 			s.desired_agent_status === "enabled"
 	).length;
@@ -157,7 +349,7 @@ export default function AgentsPage() {
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
 		for (const svc of serviceRows) {
-			for (const p of svc.llm_providers || []) set.add(p);
+			for (const p of svc.providers || []) set.add(p);
 		}
 		return Array.from(set).sort();
 	}, [serviceRows]);
@@ -246,7 +438,7 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{hasControllers && (
+					{(hasControllers || serviceRows.length > 0) && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_STATUS}
 							options={[
@@ -257,6 +449,10 @@ export default function AgentsPage() {
 								{
 									value: "instrumented",
 									label: getMessage().AGENTS_FILTER_STATUS_INSTRUMENTED,
+								},
+								{
+									value: "sdk",
+									label: getMessage().AGENTS_FILTER_STATUS_SDK,
 								},
 							]}
 							selectedValues={statusFilter}
@@ -283,7 +479,7 @@ export default function AgentsPage() {
 				</div>
 			)}
 
-			{!hasControllers && !isLoading ? (
+			{!hasControllers && serviceRows.length === 0 && !isLoading ? (
 				<NoController />
 			) : (
 				<>
@@ -366,16 +562,30 @@ export default function AgentsPage() {
 
 					{/* Content */}
 					{activeTab === "services" && (
-						<ServiceTable
-							services={serviceRows}
-							instances={controllerRows}
-							onRefresh={refresh}
-							isFetched={servicesFetched && instancesFetched}
-							isLoading={isLoading}
-							statusFilter={statusFilter}
-							systemFilter={systemFilter}
-							providerFilter={providerFilter}
-						/>
+						<>
+							<ServiceTable
+								services={serviceRows}
+								instances={controllerRows}
+								onRefresh={refresh}
+								isFetched={servicesFetched && instancesFetched}
+								isLoading={isLoading}
+								systemFilter={systemFilter}
+							/>
+							{nextCursor && (
+								<div className="flex justify-center pt-2">
+									<button
+										onClick={loadMore}
+										disabled={isLoadingMore}
+										className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+									>
+										{isLoadingMore && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+										{isLoadingMore
+											? getMessage().AGENTS_LOAD_MORE_LOADING
+											: getMessage().AGENTS_LOAD_MORE}
+									</button>
+								</div>
+							)}
+						</>
 					)}
 
 					{activeTab === "controllers" && (

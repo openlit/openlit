@@ -800,6 +800,13 @@ type PersistedFilter = {
 
 function saveFilterToStorage(filter: FilterType) {
 	try {
+		// Strip ephemeral scope fields — `serviceNames` is the lock set by
+		// AgentScopeProvider on the agent-detail page; persisting it would leak
+		// the scope into unrelated pages (e.g. /requests would silently filter
+		// to the last-viewed agent's service).
+		const { serviceNames: _omitServiceNames, ...persistableConfig } =
+			filter.selectedConfig || {};
+		void _omitServiceNames;
 		const toSave: PersistedFilter = {
 			timeLimitType: filter.timeLimit.type,
 			timeLimitStart: filter.timeLimit.start
@@ -809,7 +816,7 @@ function saveFilterToStorage(filter: FilterType) {
 				? new Date(filter.timeLimit.end).toISOString()
 				: undefined,
 			limit: filter.limit,
-			selectedConfig: filter.selectedConfig,
+			selectedConfig: persistableConfig,
 			sorting: filter.sorting,
 			groupBy: filter.groupBy,
 			groupValue: filter.groupValue,
@@ -843,7 +850,12 @@ function applyStoredFilter(
 	}
 	if (saved.limit) updateFilter("limit", saved.limit);
 	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
-		updateFilter("selectedConfig", saved.selectedConfig);
+		// Strip ephemeral scope fields defensively — older saves may still
+		// contain serviceNames from before the strip-on-save fix.
+		const { serviceNames: _omit, ...persistableConfig } =
+			saved.selectedConfig as Partial<FilterConfig>;
+		void _omit;
+		updateFilter("selectedConfig", persistableConfig);
 	}
 	if (saved.sorting?.type) updateFilter("sorting", saved.sorting);
 	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);

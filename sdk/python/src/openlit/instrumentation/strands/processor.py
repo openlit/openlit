@@ -27,6 +27,7 @@ from opentelemetry.trace.status import StatusCode
 
 from openlit.__helpers import (
     _apply_custom_span_attributes,
+    apply_agent_version_attributes,
     get_chat_model_cost,
     set_framework_llm_active,
     reset_framework_llm_active,
@@ -389,7 +390,7 @@ class StrandsSpanProcessor(SpanProcessor):
                 enrichments[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
         # Finish reasons from output events
-        _, output_msgs, _ = extract_content_from_events(span, "chat")
+        _, output_msgs, _, _ = extract_content_from_events(span, "chat")
         if output_msgs:
             finish_reasons = [
                 m.get("finish_reason")
@@ -417,6 +418,37 @@ class StrandsSpanProcessor(SpanProcessor):
                 model_name, self._pricing_info, input_tokens, output_tokens
             )
             enrichments[SemanticConvention.GEN_AI_USAGE_COST] = cost
+
+        # Stamp openlit.agent.version_hash so the agent detail page can
+        # filter Strands traces by version without falling back to the
+        # time-window heuristic. Build the same payload the canonical
+        # fingerprint expects (system instructions + tool defs + model +
+        # runtime config), all of which we already have on the span or its
+        # events. Wrapped in try/except because span attributes are mutated
+        # via the private MappingProxy here and any throw would lose the
+        # broader enrichment work.
+        try:
+            _, _, system_instr, tool_defs = extract_content_from_events(span, "chat")
+            runtime_cfg = {
+                "temperature": attrs.get(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE),
+                "top_p": attrs.get(SemanticConvention.GEN_AI_REQUEST_TOP_P),
+                "max_tokens": attrs.get(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS),
+                "provider": provider or SemanticConvention.GEN_AI_SYSTEM_STRANDS,
+            }
+            version_attrs = apply_agent_version_attributes(
+                None,  # span is read-only here; we apply via _set_attrs below
+                system_instructions=system_instr,
+                tool_definitions=tool_defs,
+                primary_model=model_name or None,
+                runtime_config=runtime_cfg,
+                providers=[provider] if provider else None,
+            )
+            for k, v in version_attrs.items():
+                enrichments[k] = v
+        except Exception:
+            logger.debug(
+                "Failed to stamp agent version on Strands chat span", exc_info=True
+            )
 
         if enrichments:
             self._set_attrs(span, enrichments)
@@ -516,11 +548,13 @@ class StrandsSpanProcessor(SpanProcessor):
     def _extract_and_set_content(self, span, operation):
         """Extract messages from span events and set as span attributes."""
         try:
-            input_msgs, output_msgs, system_instr = extract_content_from_events(
-                span, operation
+            input_msgs, output_msgs, system_instr, tool_defs = (
+                extract_content_from_events(span, operation)
             )
 
             additions = {}
+            if tool_defs and operation != "execute_tool":
+                additions[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = tool_defs
 
             if operation == "execute_tool":
                 # For tool spans: map to tool-specific attributes
@@ -572,9 +606,11 @@ class StrandsSpanProcessor(SpanProcessor):
     def _emit_chat_inference_event(self, span, attrs, server_address, server_port):
         """Emit ``gen_ai.client.inference.operation.details`` for chat spans."""
         try:
-            input_msgs, output_msgs, system_instr = extract_content_from_events(
-                span, "chat"
+            input_msgs, output_msgs, system_instr, tool_defs = (
+                extract_content_from_events(span, "chat")
             )
+            if tool_defs is None:
+                tool_defs = attrs.get(SemanticConvention.GEN_AI_TOOL_DEFINITIONS)
 
             extra = {}
 
@@ -604,6 +640,9 @@ class StrandsSpanProcessor(SpanProcessor):
 
             if system_instr:
                 extra["system_instructions"] = system_instr
+
+            if tool_defs:
+                extra["tool_definitions"] = tool_defs
 
             # Finish reason from output messages
             if output_msgs:

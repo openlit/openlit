@@ -1,6 +1,10 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
+import OpenLitHelper, {
+  isFrameworkLlmActive,
+  getFrameworkParentContext,
+  getCurrentAgentVersion,
+} from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
@@ -21,6 +25,54 @@ class ReplicateWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_REPLICATE;
   static serverAddress = 'api.replicate.com';
   static serverPort = 443;
+
+  /**
+   * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+   * (user override, if set) on the span and return the same attributes so
+   * the caller can merge them into the inference event extras.
+   */
+  static _stampAgentVersion(
+    span: Span,
+    args: {
+      systemInstructionsJson?: string;
+      toolDefinitionsJson?: string;
+      primaryModel?: string;
+      temperature?: number | null;
+      top_p?: number | null;
+      max_tokens?: number | null;
+    }
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: args.systemInstructionsJson ?? null,
+        toolDefinitions: args.toolDefinitionsJson ?? null,
+        primaryModel: args.primaryModel ?? null,
+        runtimeConfig: {
+          temperature: args.temperature ?? null,
+          top_p: args.top_p ?? null,
+          max_tokens: args.max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_REPLICATE,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_REPLICATE],
+      });
+      if (versionHash) {
+        out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Hash computation must never fail the wrapped call.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+    return out;
+  }
 
   static _patchRun(tracer: Tracer): any {
     const genAIEndpoint = 'replicate.run';
@@ -116,13 +168,39 @@ class ReplicateWrapper extends BaseWrapper {
 
       let inputMessagesJson: string | undefined;
       let outputMessagesJson: string | undefined;
+      // Replicate language models commonly accept a `system_prompt` input.
+      const systemPrompt: string =
+        typeof input.system_prompt === 'string' ? input.system_prompt :
+        typeof input.system === 'string' ? input.system : '';
+      // Compute system_instructions JSON regardless of captureContent so the
+      // version hash stays consistent across runs even when content capture
+      // is disabled.
+      const systemInstructionsJson: string | undefined = systemPrompt
+        ? JSON.stringify([{ type: 'text', content: systemPrompt }])
+        : undefined;
       if (captureContent) {
         const messages = prompt ? [{ role: 'user', content: prompt }] : [];
         inputMessagesJson = OpenLitHelper.buildInputMessages(messages);
         span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, inputMessagesJson);
         outputMessagesJson = OpenLitHelper.buildOutputMessages(outputText, 'stop');
         span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+        if (systemInstructionsJson) {
+          span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+        }
       }
+
+      const versionExtras = ReplicateWrapper._stampAgentVersion(span, {
+        systemInstructionsJson,
+        primaryModel: requestModel,
+        temperature: typeof input.temperature === 'number' ? input.temperature : null,
+        top_p: typeof input.top_p === 'number' ? input.top_p : null,
+        max_tokens:
+          typeof input.max_tokens === 'number'
+            ? input.max_tokens
+            : typeof input.max_new_tokens === 'number'
+              ? input.max_new_tokens
+              : null,
+      });
 
       if (!OpenlitConfig.disableEvents) {
         const eventAttrs: Attributes = {
@@ -135,10 +213,12 @@ class ReplicateWrapper extends BaseWrapper {
           [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
           [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: promptTokens,
           [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: completionTokens,
+          ...versionExtras,
         };
         if (captureContent) {
           if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
           if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+          if (systemInstructionsJson) eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
         }
         OpenLitHelper.emitInferenceEvent(span, eventAttrs);
       }

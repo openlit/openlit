@@ -8,7 +8,14 @@ import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './const
 import BaseOpenlit from './features/base';
 import OpenlitConfig from './config';
 import OpenLitHelper from './helpers';
-import { usingAttributes, injectAdditionalAttributes } from './helpers';
+import {
+  usingAttributes,
+  injectAdditionalAttributes,
+  setAgentVersion,
+  resetAgentVersion,
+  runWithAgentVersion,
+  getCurrentAgentVersion,
+} from './helpers';
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
@@ -137,6 +144,26 @@ class Openlit extends BaseOpenlit {
   static eval = runEval;
   static evalBatch = runEvalBatch;
   static getEvalTypes = fetchEvalTypes;
+
+  /**
+   * Public API: stamp every subsequent chat span / inference event in the
+   * current async scope with a user-supplied agent version label
+   * (`gen_ai.agent.version`). Useful when you want versions to follow a
+   * release tag, git SHA, or business-meaningful name instead of the SDK's
+   * auto-computed fingerprint.
+   *
+   * For a one-shot block, prefer `OpenLit.withAgentVersion(label, fn)`.
+   */
+  static setAgentVersion = setAgentVersion;
+  /**
+   * Clear the agent version label set by `setAgentVersion`. Always call this
+   * in a `finally` block when you use `setAgentVersion` directly, otherwise
+   * the label will persist on subsequent requests handled by the same
+   * worker. Prefer `withAgentVersion(label, fn)` for scoped usage.
+   */
+  static resetAgentVersion = resetAgentVersion;
+  static withAgentVersion = runWithAgentVersion;
+  static getAgentVersion = getCurrentAgentVersion;
 
   static init(options?: OpenlitOptions) {
     try {

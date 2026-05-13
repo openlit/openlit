@@ -369,9 +369,9 @@ export const AGENTS_SYSTEM_KUBERNETES = "Kubernetes";
 export const AGENTS_SYSTEM_DOCKER = "Docker";
 export const AGENTS_SYSTEM_LINUX = "Linux";
 export const AGENTS_STAT_CONTROLLERS = "Active Controllers";
-export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Services";
-export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Services";
-export const AGENTS_TAB_SERVICES = "Services";
+export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Agents";
+export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Agents";
+export const AGENTS_TAB_SERVICES = "Agents";
 export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 
@@ -398,17 +398,98 @@ export const AGENTS_SERVICE_QUEUED_ACTION = (action: string, serviceName: string
 export const AGENTS_SERVICE_FAILED = (err: string) => `Failed: ${err}`;
 export const AGENTS_AGENT_ENABLING_FOR = (serviceName: string) => `Enabling Agent Observability for ${serviceName}`;
 export const AGENTS_AGENT_DISABLING_FOR = (serviceName: string) => `Disabling Agent Observability for ${serviceName}`;
-export const AGENTS_COLUMN_SERVICE = "Service";
+export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
+	`Pods: ${ack}/${total} acknowledged`;
+export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
 export const AGENTS_COLUMN_LAST_SEEN = "Last Seen";
 export const AGENTS_COLUMN_LLM_OBSERVABILITY = "LLM Observability";
 export const AGENTS_COLUMN_AGENT_OBSERVABILITY = "Agent Observability";
+export const AGENTS_COLUMN_SOURCE = "Source";
+export const AGENTS_SOURCE_CONTROLLER = "Controller";
+export const AGENTS_SOURCE_SDK = "SDK";
+export const AGENTS_SOURCE_BOTH = "Controller + SDK";
+export const AGENTS_FILTER_STATUS_SDK = "SDK-instrumented";
+export const AGENTS_SDK_ENABLED_VIA = "Enabled (via SDK)";
+export const AGENTS_SDK_SOURCE_NOTE = "Source: SDK";
+export const AGENTS_LOAD_MORE = "Load more";
+export const AGENTS_LOAD_MORE_LOADING = "Loading...";
+
+// Agents - Detail Tabs
+export const AGENTS_TAB_ANALYTICS = "Analytics";
+export const AGENTS_TAB_CONVERSATIONS = "Conversations";
+export const AGENTS_TAB_DEFINITION = "Definition";
+
+// Agents - Redesigned detail page tabs (6-tab shell)
+export const AGENTS_TAB_OVERVIEW = "Overview";
+export const AGENTS_TAB_DASHBOARD = "Dashboard";
+export const AGENTS_TAB_MONITORING = "Monitoring";
+export const AGENTS_TAB_CONFIGURATION = "Configuration";
+export const AGENTS_TAB_CONFIGURATION_NEEDS_INSTRUMENTATION =
+	"Instrumentation required — no data received";
+export const AGENTS_TAB_TOOLS = "Tools";
+export const AGENTS_TAB_PROMPTS = "Prompts";
+
+// Agents - Version Timeline (bar chart + chooser)
+export const AGENTS_VERSION_TIMELINE_TITLE = "Version Timeline";
+export const AGENTS_VERSION_TIMELINE_EMPTY = "No traffic in the selected window yet.";
+export const AGENTS_VERSION_TIMELINE_ALL_VERSIONS = "All versions";
+export const AGENTS_VERSION_RECENT_LABEL = "Recent versions";
+export const AGENTS_VERSION_TIMELINE_REQ_COUNT = (count: number) =>
+	`${count.toLocaleString()} ${count === 1 ? "request" : "requests"}`;
+export const AGENTS_DAG_TITLE = "Call Graph";
+export const AGENTS_DAG_EMPTY = "No spans captured yet for this version.";
+export const AGENTS_DAG_SAMPLED_NOTE = (sampled: number, total: number) =>
+	`Aggregated from ${sampled.toLocaleString()} of ${total.toLocaleString()} traces.`;
+export const AGENTS_CONFIGURATION_DESCRIPTION =
+	"Controls for instrumenting this agent and toggling the controller agent observability flag.";
+
+// Agents - Definition / Versions
+export const AGENTS_DEFINITION_SYSTEM_PROMPT = "System Prompt";
+export const AGENTS_DEFINITION_TOOLS = "Tools";
+export const AGENTS_DEFINITION_NO_SYSTEM_PROMPT = "No system prompt captured yet. The agent has not emitted gen_ai.system_instructions.";
+export const AGENTS_DEFINITION_NO_TOOLS = "No tools captured yet. The agent has not emitted gen_ai.tool.definitions or gen_ai.tool.name.";
+export const AGENTS_DEFINITION_COPY = "Copy";
+export const AGENTS_DEFINITION_COPIED = "Copied";
+export const AGENTS_DEFINITION_SHOW_DIFF = "Show diff vs previous version";
+export const AGENTS_DEFINITION_HIDE_DIFF = "Hide diff";
+export const AGENTS_DEFINITION_SCHEMA = "Schema";
+export const AGENTS_DEFINITION_SCHEMA_NOT_CAPTURED =
+	"This tool was reported by name only — its parameter schema was not captured by the instrumentation.";
+export const AGENTS_DEFINITION_VIEW_RAW = "View raw";
+export const AGENTS_DEFINITION_VIEW_FORMATTED = "View formatted";
+export const AGENTS_VERSION_CURRENT = "Current";
+export const AGENTS_VERSION_NUMBER_PREFIX = "v";
+export const AGENTS_VERSION_SELECTOR_LABEL = "Version";
+export const AGENTS_VERSION_DRAWER_TITLE = "Version History";
+export const AGENTS_VERSION_FIRST_SEEN = "First seen";
+export const AGENTS_VERSION_LAST_SEEN = "Last seen";
+export const AGENTS_VERSION_REQUESTS = "Requests";
+export const AGENTS_VERSION_FINGERPRINT = "Fingerprint";
+export const AGENTS_VERSION_NO_HISTORY = "No version history yet.";
+
+// Agents - Detail Metadata
+export const AGENTS_METADATA_PRIMARY_MODEL = "Primary Model";
+export const AGENTS_METADATA_MODELS = "Models";
+export const AGENTS_METADATA_TOOLS = "Tools";
+export const AGENTS_METADATA_AGE = "Age";
+export const AGENTS_METADATA_LAST_SEEN = "Last Seen";
+export const AGENTS_METADATA_REQUESTS_24H = "Requests (24h)";
+export const AGENTS_REFRESH = "Refresh";
+export const AGENTS_REFRESHING = "Refreshing...";
+export const AGENTS_LAST_UPDATED = (seconds: number) => `Updated ${seconds}s ago`;
+export const AGENTS_LAST_UPDATED_NEVER = "Not yet materialized";
+export const AGENTS_SOURCE_SDK_LABEL = "SDK-instrumented (status reported by the agent)";
+
+// Agents - Detail Scope
+export const AGENTS_SCOPED_TO_SERVICE = (serviceName: string) =>
+	`Scoped to service "${serviceName}"`;
 
 // Agents - Controller Table
 export const AGENTS_COLUMN_CONTROLLER = "Controller";
 export const AGENTS_COLUMN_METADATA = "Metadata";
-export const AGENTS_COLUMN_SERVICES = "Services";
+export const AGENTS_COLUMN_SERVICES = "Agents";
 export const AGENTS_COLUMN_STATUS = "Status";
 export const AGENTS_SERVICES_DISCOVERED_COUNT = (discovered: number) => `${discovered} discovered`;
 export const AGENTS_SERVICES_INSTRUMENTED_COUNT = (instrumented: number) => ` / ${instrumented} instrumented`;
@@ -420,6 +501,11 @@ export const AGENTS_METADATA_POD_LABEL = "pod:";
 export const AGENTS_SERVICE_DETAIL_DEFAULT_TITLE = "Service Detail";
 export const AGENTS_BACK_TO_HUB = "Back to Hub";
 export const AGENTS_LOADING_SERVICE_DETAILS = "Loading service details...";
+export const AGENTS_LOADING_DASHBOARD = "Loading dashboard...";
+export const AGENTS_LOADING_REQUESTS = "Loading requests...";
+export const AGENTS_LOADING_CONFIGURATION = "Loading configuration...";
+export const AGENTS_LOADING_VERSIONS = "Loading…";
+export const AGENTS_LOAD_MORE_VERSIONS = "Load more versions";
 export const AGENTS_STATUS_INSTRUMENTED = "Instrumented";
 export const AGENTS_STATUS_DISCOVERED = "Discovered";
 export const AGENTS_STAT_PROVIDERS = "Providers";
@@ -482,7 +568,7 @@ export const AGENTS_WORKING_SUFFIX = (label: string) => `${label}...`;
 export const AGENTS_CONTROLLER_DEFAULT_TITLE = "Controller";
 export const AGENTS_LOADING_CONTROLLER = "Loading controller...";
 export const AGENTS_LAST_HEARTBEAT_PREFIX = "Last heartbeat ";
-export const AGENTS_STAT_SERVICES_DISCOVERED = "Services Discovered";
+export const AGENTS_STAT_SERVICES_DISCOVERED = "Agents Discovered";
 export const AGENTS_STAT_INSTRUMENTED = "Instrumented";
 export const AGENTS_CONFIG_SAVED = "Configuration saved. Controller will pick it up on next poll.";
 export const AGENTS_CONFIG_SAVE_FAILED = (err: string) => `Failed to save config: ${err}`;

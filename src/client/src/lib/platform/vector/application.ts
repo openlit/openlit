@@ -14,7 +14,7 @@ export async function getResultGenerationByApplication(params: MetricParams) {
 			...params,
 			notEmpty: [{ key: key }],
 			operationType: "vectordb",
-		})}
+		}, true)}
 		GROUP BY applicationName`;
 
 	return dataCollector({ query });
