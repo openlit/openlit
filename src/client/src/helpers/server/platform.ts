@@ -8,7 +8,7 @@ import {
 } from "date-fns";
 import { getTraceMappingKeyFullPath } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
-import { buildVersionWhereClause } from "@/lib/platform/agents/version-filter";
+import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");

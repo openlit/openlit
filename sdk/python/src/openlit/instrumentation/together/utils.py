@@ -2,6 +2,7 @@
 Together AI OpenTelemetry instrumentation utility functions
 """
 
+import json
 import time
 
 from opentelemetry.sdk.resources import (
@@ -24,8 +25,6 @@ from openlit.__helpers import (
     record_completion_metrics,
 )
 from openlit.semcov import SemanticConvention
-
-import json
 
 
 def format_content(messages):

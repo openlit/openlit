@@ -67,13 +67,20 @@ describe('filterStoreSlice actions', () => {
       expect(store.getState().filter.details.offset).toBe(25);
     });
 
-    it('updates timeLimit.type, resets selectedConfig and config', () => {
+    it('updates timeLimit.type, preserves selectedConfig, resets config', () => {
+      // A `timeLimit.type` change invalidates the *available options* cache
+      // (`config`) but must NOT wipe the user's chosen `selectedConfig`. The
+      // old behavior raced with `AgentScopeProvider`'s scope lock on the
+      // agent-detail page and was bad UX (model/provider filter
+      // disappearing when switching 24H -> 7D). Only an explicit
+      // `clearFilter: true` extraParam wipes `selectedConfig` (covered by a
+      // separate test below). See `store/filter.ts` for the rationale.
       store.getState().filter.updateConfig({ models: ['gpt-4'] });
       store.getState().filter.updateFilter('selectedConfig', { models: ['gpt-4'] });
       store.getState().filter.updateFilter('timeLimit.type', '7D');
       const { details, config } = store.getState().filter;
       expect(details.timeLimit.type).toBe('7D');
-      expect(details.selectedConfig).toEqual({});
+      expect(details.selectedConfig).toEqual({ models: ['gpt-4'] });
       expect(config).toBeUndefined();
     });
 

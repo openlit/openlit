@@ -1,3 +1,4 @@
+# pylint: disable=missing-function-docstring
 """Provider-coverage matrix test for ``openlit.agent.version_hash``.
 
 Every Python LLM provider instrumentation MUST stamp the agent version hash
@@ -18,7 +19,6 @@ it is checked alongside ``utils.py`` for that provider.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest

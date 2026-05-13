@@ -1,3 +1,4 @@
+# pylint: disable=missing-function-docstring, missing-class-docstring, too-few-public-methods
 """
 Unit tests for the shared GenAI helpers added to `openlit.__helpers`:
 

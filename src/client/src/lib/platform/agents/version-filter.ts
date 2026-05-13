@@ -25,16 +25,17 @@ import { swr, POLICY_VERSIONS } from "./cache";
 import { agentsLogger } from "./logger";
 import { getVersion } from "./snapshot";
 import { getAgent } from "./index";
+// Re-export the pure SQL builder so existing callers that import it from
+// `./version-filter` keep working. The actual implementation lives in
+// `version-where.ts` (zero side-effect imports) so leaf consumers don't
+// have to drag in the DB / next-auth chain. See the comment in
+// `version-where.ts` for the full rationale.
+export { buildVersionWhereClause } from "./version-where";
 
 function escape(value: string): string {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
-/**
- * ClickHouse DateTime values round-trip best with second precision. Some
- * agent-version rows come back with `.SSS` from upstream serialisation; strip
- * them so we don't blow up `parseDateTimeBestEffort`.
- */
 function toClickHouseDateTime(value: string | Date): string {
 	if (typeof value === "string") {
 		const m = value.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
@@ -44,32 +45,6 @@ function toClickHouseDateTime(value: string | Date): string {
 	return Number.isNaN(d.getTime())
 		? new Date().toISOString().slice(0, 19).replace("T", " ")
 		: d.toISOString().slice(0, 19).replace("T", " ");
-}
-
-/**
- * Build the SQL fragment that scopes a query to a single agent version.
- * Returns the empty string when no version is provided so the caller can
- * concatenate unconditionally.
- *
- * Hybrid logic:
- * - Match `openlit.agent.version_hash` directly when the version has any
- *   stamped spans (the cheap, exact case).
- * - Always OR in the time window so spans missing the attribute still match
- *   (covers historical traces from older SDK versions / non-instrumented
- *   processes).
- */
-export function buildVersionWhereClause(
-	filter: VersionFilter | undefined | null
-): string {
-	if (!filter || !filter.versionHash) return "";
-	const first = toClickHouseDateTime(filter.firstSeen);
-	const last = toClickHouseDateTime(filter.lastSeen);
-	const window = `Timestamp BETWEEN parseDateTimeBestEffort('${first}') AND parseDateTimeBestEffort('${last}')`;
-	if (filter.hasAttributeSpans) {
-		const hash = escape(filter.versionHash);
-		return `(SpanAttributes['openlit.agent.version_hash'] = '${hash}' OR (SpanAttributes['openlit.agent.version_hash'] = '' AND ${window}))`;
-	}
-	return `(${window})`;
 }
 
 interface AttributeProbeParams {
