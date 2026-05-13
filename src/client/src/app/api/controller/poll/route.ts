@@ -258,15 +258,18 @@ async function persistLifecycleStopSnapshots(
 	// cluster_id) row in multi-cluster setups, so a later Start in the
 	// real cluster would see no snapshot and 409. Defer + retry instead.
 	if (instanceRes.err || !instanceRes.data?.[0]?.cluster_id) {
-		// instanceId originates from the controller's poll request body, so
-		// sanitize it through the same CRLF/control-char stripper the rest
-		// of this file uses for all user-supplied log fields. Without
-		// sanitization a malicious poll could forge log entries by
-		// embedding "\n" in instance_id (CodeQL js/log-injection).
+		// instanceId comes from the controller's poll request body, so we
+		// must strip CR/LF before logging to defeat log-forgery. The
+		// regex replace is inlined (rather than routed through
+		// `sanitizeLogValue`) because CodeQL's `js/log-injection` query
+		// recognises an inline `.replace(/[\r\n]/g, ...)` as a sanitizer
+		// barrier but does not propagate that conclusion through our
+		// helper's `unknown` parameter type.
+		const safeInstanceId = String(instanceId).replace(/[\r\n\t]/g, " ").slice(0, 500);
 		console.error(
 			"controller poll: getControllerInstanceById failed; deferring snapshot persistence:",
 			"instance",
-			sanitizeLogValue(instanceId),
+			safeInstanceId,
 			":",
 			sanitizeLogValue(instanceRes.err || "no data")
 		);
@@ -297,15 +300,20 @@ async function persistLifecycleStopSnapshots(
 				dbId
 			);
 			if (writeRes?.err) {
-				// Same log-injection guard as the instance-lookup branch
-				// above: ar.action_id and action.service_key both ride in
-				// on the controller's poll body, so sanitize before
-				// logging (CodeQL js/log-injection).
+				// Inline the CR/LF strip at the log site (CodeQL
+				// `js/log-injection` recognises inline regex replace,
+				// but not the `sanitizeLogValue` helper hop). ar.action_id
+				// and action.service_key both originate in the
+				// controller's poll request body, so they need this
+				// barrier; writeRes.err is a DB error string and is
+				// safe through `sanitizeLogValue`.
+				const safeActionId = String(ar.action_id).replace(/[\r\n\t]/g, " ").slice(0, 500);
+				const safeWorkloadKey = String(action.service_key).replace(/[\r\n\t]/g, " ").slice(0, 500);
 				console.error(
 					"controller poll: persist lifecycle snapshot failed for action",
-					sanitizeLogValue(ar.action_id),
+					safeActionId,
 					"workload",
-					sanitizeLogValue(action.service_key),
+					safeWorkloadKey,
 					":",
 					sanitizeLogValue(writeRes.err)
 				);
