@@ -329,10 +329,15 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 	case openlit.ActionStartWorkload:
 		execErr = eng.StartWorkload(action.ServiceKey, action.Payload)
 	case openlit.ActionStopWorkload:
-		// StopWorkload returns a snapshot blob that lets the dashboard
-		// persist enough state to bring the workload back later. For
-		// modes where the workload object survives Stop (K8s controlled,
-		// Docker, systemd) the snapshot is empty.
+		// StopWorkload returns a snapshot blob the dashboard persists
+		// into desired_states_v2.config so a later Start can hand it
+		// back. For K8s controlled workloads the blob carries just
+		// (kind, ns, name, container_name); for K8s naked pods it
+		// carries the full gzipped pod spec; for Linux bare processes
+		// it carries (exe_path, argv, cwd, env-allowlist). Docker and
+		// Linux systemd modes return "" because the durable identifier
+		// (container name, unit name) is already encoded in
+		// workload_key and the runtime preserves the object across Stop.
 		snapshot, execErr = eng.StopWorkload(action.ServiceKey, action.Payload)
 	case openlit.ActionRestartWorkload:
 		execErr = eng.RestartWorkload(action.ServiceKey, action.Payload)

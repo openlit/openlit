@@ -550,7 +550,6 @@ export const AGENTS_STAT_PID = "PID";
 export const AGENTS_STAT_RUNTIME = "Runtime";
 export const AGENTS_STAT_FIRST_SEEN = "First Seen";
 export const AGENTS_STAT_RUNTIME_UNKNOWN = "Unknown";
-export const AGENTS_MODEL_PROVIDERS = "Model Providers";
 export const AGENTS_RESOURCE_ATTRIBUTES = "Resource Attributes";
 export const AGENTS_CONTROLS = "Controls";
 export const AGENTS_LLM_OBSERVABILITY_LABEL = "LLM Observability";

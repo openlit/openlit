@@ -64,8 +64,27 @@ type lifecycleBareProcessSnapshot struct {
 // serialize it this way because real-world pod specs can be 5-15KB; the
 // desired-states config column is plain String and gets piped through
 // ClickHouse JSONEachRow, so keeping it compact + ASCII-safe matters.
+//
+// `Controlled` is set for Deployment/StatefulSet/DaemonSet workloads so
+// startK8s can re-derive the kind/namespace/name needed to scale back
+// up even when the controller's in-memory service cache has been
+// pruned (>30 min after Stop, or controller restart). Without it, a
+// long-stopped controlled workload becomes unrecoverable from the UI.
+//
+// Exactly one of `Controlled` or `GzippedPodB64` is populated per
+// snapshot: controlled workloads do not carry pod specs because Start
+// simply patches the existing Deployment back up, and naked pods do
+// not carry a Controlled struct because there is no parent object.
 type lifecycleK8sPodSnapshot struct {
-	GzippedPodB64 string `json:"gzipped_pod_b64"`
+	GzippedPodB64 string                          `json:"gzipped_pod_b64,omitempty"`
+	Controlled    *lifecycleK8sControlledSnapshot `json:"controlled,omitempty"`
+}
+
+type lifecycleK8sControlledSnapshot struct {
+	Kind          string `json:"kind"`
+	Namespace     string `json:"namespace"`
+	Name          string `json:"name"`
+	ContainerName string `json:"container_name,omitempty"`
 }
 
 // envAllowlistPrefixes captures the env vars Stop/Start should preserve
@@ -185,40 +204,96 @@ func (e *Engine) stopK8s(svc *openlit.ServiceState) (string, error) {
 		zap.String("kind", workloadKind),
 		zap.String("name", workloadName),
 	)
-	return "", nil
+	// Persist a small identifier blob so a later Start can re-derive
+	// (kind, ns, name) without depending on the controller's in-memory
+	// cache — which gets pruned after 30 min, or wiped entirely on
+	// controller restart.
+	snap := lifecycleK8sPodSnapshot{
+		Controlled: &lifecycleK8sControlledSnapshot{
+			Kind:          workloadKind,
+			Namespace:     namespace,
+			Name:          workloadName,
+			ContainerName: svc.ResourceAttributes["container.name"],
+		},
+	}
+	out, err := json.Marshal(snap)
+	if err != nil {
+		// The scale already happened; losing the snapshot just degrades
+		// recovery, it doesn't undo Stop. Return success so the action
+		// completes and the UI reflects the stopped state.
+		e.logger.Warn("k8s controlled snapshot marshal failed",
+			zap.String("workload_key", svc.WorkloadKey),
+			zap.Error(err),
+		)
+		return "", nil
+	}
+	return string(out), nil
 }
 
 func (e *Engine) startK8s(workloadKey string, svc *openlit.ServiceState, payload string) error {
 	if e.container == nil || e.container.k8sClient == nil {
 		return fmt.Errorf("kubernetes client unavailable for lifecycle start")
 	}
-	if svc != nil && (svc.ResourceAttributes["k8s.workload.kind"] != "" && svc.ResourceAttributes["k8s.workload.kind"] != "Pod") {
-		// Controlled workload: read saved replica count and scale back.
-		namespace := svc.ResourceAttributes["k8s.namespace.name"]
-		workloadKind := svc.ResourceAttributes["k8s.workload.kind"]
-		workloadName := svc.DeploymentName
-		saved, err := e.container.k8sClient.readSavedReplicas(
-			namespace, workloadKind, workloadName, K8sSavedReplicasAnnotation,
-		)
-		if err != nil {
-			return err
+
+	// Dispatch order:
+	//   1. If the payload carries a parsed snapshot, trust it. This is
+	//      the durable source of truth — it survives controller cache
+	//      eviction and controller restarts.
+	//   2. Else fall back to the in-memory svc (fresh Stop→Play within
+	//      the prune window).
+	//   3. Else (no payload, no svc) we're out of options — fail
+	//      explicitly so the user sees a clear error.
+	if payload != "" && payload != "{}" {
+		var parsed lifecycleK8sPodSnapshot
+		if err := json.Unmarshal([]byte(payload), &parsed); err == nil {
+			if parsed.Controlled != nil {
+				return e.startK8sControlledFromSnapshot(workloadKey, parsed.Controlled)
+			}
+			if parsed.GzippedPodB64 != "" {
+				return e.startK8sNakedPod(workloadKey, svc, payload)
+			}
 		}
-		if err := e.container.k8sClient.atomicScaleWithAnnotation(
-			namespace, workloadKind, workloadName, saved, K8sSavedReplicasAnnotation,
-		); err != nil {
-			return err
-		}
-		e.setLifecycleState(workloadKey, LifecycleStatusRunning)
-		e.logger.Info("k8s workload scaled back up",
-			zap.String("workload_key", workloadKey),
-			zap.String("kind", workloadKind),
-			zap.String("name", workloadName),
-			zap.Int("replicas", saved),
-		)
-		return nil
 	}
+
+	if svc != nil && (svc.ResourceAttributes["k8s.workload.kind"] != "" && svc.ResourceAttributes["k8s.workload.kind"] != "Pod") {
+		return e.startK8sControlledFromSnapshot(workloadKey, &lifecycleK8sControlledSnapshot{
+			Kind:      svc.ResourceAttributes["k8s.workload.kind"],
+			Namespace: svc.ResourceAttributes["k8s.namespace.name"],
+			Name:      svc.DeploymentName,
+		})
+	}
+
 	// Naked pod path. svc may be nil here (the pod was deleted on Stop).
 	return e.startK8sNakedPod(workloadKey, svc, payload)
+}
+
+// startK8sControlledFromSnapshot scales a Deployment/STS/DS workload
+// back up using the saved-replicas annotation, given just its
+// (kind, namespace, name). Works whether or not the controller has
+// the workload in its in-memory cache.
+func (e *Engine) startK8sControlledFromSnapshot(workloadKey string, snap *lifecycleK8sControlledSnapshot) error {
+	if snap == nil || snap.Kind == "" || snap.Namespace == "" || snap.Name == "" {
+		return fmt.Errorf("controlled snapshot missing kind/namespace/name (workload %s)", workloadKey)
+	}
+	saved, err := e.container.k8sClient.readSavedReplicas(
+		snap.Namespace, snap.Kind, snap.Name, K8sSavedReplicasAnnotation,
+	)
+	if err != nil {
+		return err
+	}
+	if err := e.container.k8sClient.atomicScaleWithAnnotation(
+		snap.Namespace, snap.Kind, snap.Name, saved, K8sSavedReplicasAnnotation,
+	); err != nil {
+		return err
+	}
+	e.setLifecycleState(workloadKey, LifecycleStatusRunning)
+	e.logger.Info("k8s workload scaled back up",
+		zap.String("workload_key", workloadKey),
+		zap.String("kind", snap.Kind),
+		zap.String("name", snap.Name),
+		zap.Int("replicas", saved),
+	)
+	return nil
 }
 
 func (e *Engine) restartK8s(svc *openlit.ServiceState) error {

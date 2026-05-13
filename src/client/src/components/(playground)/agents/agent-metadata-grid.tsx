@@ -1,6 +1,5 @@
 "use client";
 
-import { ProviderIcon } from "@/components/svg/providers";
 import { formatBrowserDateTime, parseDateString } from "@/utils/date";
 import getMessage from "@/constants/messages";
 import type { UnifiedAgent } from "@/types/agents";
@@ -59,23 +58,6 @@ export default function AgentMetadataGrid({ agent }: AgentMetadataGridProps) {
 				label={getMessage().AGENTS_METADATA_LAST_SEEN}
 				value={formatBrowserDateTime(agent.last_seen)}
 			/>
-			{agent.providers.length > 0 && (
-				<MetadataCard
-					label={getMessage().AGENTS_MODEL_PROVIDERS}
-					value={
-						<div className="flex flex-wrap items-center gap-1.5">
-							{agent.providers.map((p) => (
-								<span key={p} className="flex items-center gap-1 text-xs">
-									<ProviderIcon provider={p} className="w-3.5 h-3.5" />
-									<span className="capitalize text-stone-700 dark:text-stone-200">
-										{p}
-									</span>
-								</span>
-							))}
-						</div>
-					}
-				/>
-			)}
 		</div>
 	);
 }
