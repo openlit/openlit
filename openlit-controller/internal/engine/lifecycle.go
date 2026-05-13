@@ -606,7 +606,34 @@ func (e *Engine) restartBareProcess(svc *openlit.ServiceState) error {
 // the new process detaches from the controller (otherwise it would die when
 // the controller exits) but use os/exec rather than fork directly because the
 // controller runs single-threaded in this code path.
+//
+// Trust model for the dynamic argv: the snapshot is captured at Stop
+// time from /proc/<pid>/cmdline (trusted, locally read) and travels
+// through the dashboard's ClickHouse `desired_states_v2.config`
+// column. The argv is therefore only as trustworthy as ClickHouse
+// write access. Two mitigations:
+//
+//  1. The controller already runs as a privileged process that can
+//     execute container ops, pip installs, kubectl apply, etc. — so a
+//     ClickHouse-write attacker has equivalent paths to RCE via the
+//     existing action queue. This call site does not widen the blast
+//     radius beyond the controller's existing trust boundary.
+//  2. We still validate the argv defensively below to fail closed on
+//     obviously-bogus payloads (empty argv, NUL bytes, empty argv[0])
+//     rather than blindly forwarding to execve.
+//
+// Crucially, `exec.Command` does NOT spawn a shell — Go's os/exec
+// invokes execve(2) directly with the argv slice, so shell
+// metacharacters in any argv element are not interpreted.
 func launchBareProcess(snap lifecycleBareProcessSnapshot) error {
+	if err := validateBareProcessArgs(snap.Args); err != nil {
+		return err
+	}
+	// nolint:gosec // G204: argv is taken from a controller-captured
+	// snapshot of /proc/<pid>/cmdline; see the trust-model comment
+	// above for why a dynamic argv here is acceptable. execve is
+	// shell-free, and validateBareProcessArgs rejects malformed
+	// payloads.
 	cmd := exec.Command(snap.Args[0], snap.Args[1:]...)
 	cmd.Dir = snap.Cwd
 	envSlice := make([]string, 0, len(snap.Env))
@@ -621,6 +648,36 @@ func launchBareProcess(snap lifecycleBareProcessSnapshot) error {
 		return fmt.Errorf("start bare process: %w", err)
 	}
 	go func() { _ = cmd.Wait() }()
+	return nil
+}
+
+// validateBareProcessArgs guards the launchBareProcess execve call
+// against obviously-malformed payloads. The rules are deliberately
+// minimal — we are not trying to defend against an attacker who
+// already has ClickHouse write access (see the trust-model comment on
+// launchBareProcess), only against:
+//
+//   - empty argv (would panic on Args[0])
+//   - empty / NUL-containing argv[0] (execve rejects NULs and they
+//     have caused surprising path-resolution behavior historically)
+//   - NUL bytes anywhere in argv (same reasoning)
+//
+// We intentionally do NOT reject relative argv[0]: the original
+// process may legitimately have been launched as `./my-script` and
+// changing that on restart would break workload_key identity (which
+// folds argv into its fingerprint).
+func validateBareProcessArgs(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("bare process snapshot has empty argv")
+	}
+	if args[0] == "" {
+		return fmt.Errorf("bare process snapshot has empty argv[0]")
+	}
+	for i, a := range args {
+		if strings.ContainsRune(a, 0) {
+			return fmt.Errorf("bare process snapshot argv[%d] contains NUL byte", i)
+		}
+	}
 	return nil
 }
 

@@ -79,6 +79,55 @@ func TestLifecycleK8sSnapshot_NakedPodJSON(t *testing.T) {
 	}
 }
 
+func TestValidateBareProcessArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{
+			name: "happy path: absolute path",
+			args: []string{"/usr/bin/python3", "myapp.py"},
+		},
+		{
+			name: "happy path: PATH-resolved binary",
+			args: []string{"python3", "-m", "myapp"},
+		},
+		{
+			name: "happy path: relative argv[0]",
+			args: []string{"./run.sh", "--flag"},
+		},
+		{
+			name:    "empty argv",
+			args:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "empty argv[0]",
+			args:    []string{"", "myapp.py"},
+			wantErr: true,
+		},
+		{
+			name:    "NUL in argv[0]",
+			args:    []string{"python\x003", "myapp.py"},
+			wantErr: true,
+		},
+		{
+			name:    "NUL in middle argv",
+			args:    []string{"python3", "my\x00app.py"},
+			wantErr: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateBareProcessArgs(tc.args)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("validateBareProcessArgs(%v): err=%v, wantErr=%v", tc.args, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestLifecycleK8sSnapshot_DispatchDiscriminator(t *testing.T) {
 	// Mirrors the dispatch in startK8s: a controlled blob is detected
 	// by parsed.Controlled != nil, a naked pod blob by

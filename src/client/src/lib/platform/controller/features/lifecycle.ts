@@ -207,13 +207,19 @@ const lifecycleHandler: FeatureHandler = {
 			}
 
 			if (operation === "start") {
-				// Pull the snapshot stashed by the previous Stop so the
-				// controller has everything it needs to recreate naked
-				// pods / re-exec bare processes. For K8s controlled
-				// workloads, Docker, and systemd the snapshot is "{}"
-				// and the controller relies on the saved-replicas
-				// annotation / surviving container / surviving unit
-				// instead.
+				// Pull the snapshot stashed by the previous Stop. What
+				// the snapshot contains depends on the mode:
+				//   - K8s naked pod: full gzipped pod spec (recreated
+				//     by the controller).
+				//   - Linux bare process: exe + argv + cwd + env
+				//     allowlist (re-execed).
+				//   - K8s controlled (Deployment/STS/DS): small
+				//     {kind, ns, name, container_name} identifier that
+				//     lets startK8s scale back up even when the
+				//     controller's in-memory svc cache has been pruned.
+				//   - Docker, systemd: "{}" — runtime preserves the
+				//     object across Stop (container ID / unit file),
+				//     no replay data needed.
 				const desiredRes = await getFeatureDesiredStates(
 					[workloadKey],
 					clusterId,
@@ -231,11 +237,20 @@ const lifecycleHandler: FeatureHandler = {
 				// Play on a workload that the controller never stopped),
 				// fail closed -- the controller would otherwise error
 				// when trying to recreate the pod or re-exec the process.
-				const requiresSnapshot =
-					ctx.mode === "linux" ||
-					(ctx.mode === "kubernetes" &&
-						(ctx.service.resource_attributes?.["k8s.workload.kind"] === "" ||
-							ctx.service.resource_attributes?.["k8s.workload.kind"] === "Pod"));
+				//
+				// Systemd carve-out: Linux *systemd* units do NOT need a
+				// snapshot because the unit file still exists on disk
+				// and `systemctl start <unit>` is sufficient. Only Linux
+				// *bare* processes (no `systemd.unit` resource attr)
+				// need the captured exe+argv+cwd+env to re-exec.
+				const k8sKind = ctx.service.resource_attributes?.["k8s.workload.kind"];
+				const isLinuxBare =
+					ctx.mode === "linux" &&
+					!ctx.service.resource_attributes?.["systemd.unit"];
+				const isK8sNakedPod =
+					ctx.mode === "kubernetes" &&
+					(k8sKind === "" || k8sKind === "Pod" || k8sKind === undefined);
+				const requiresSnapshot = isLinuxBare || isK8sNakedPod;
 				if (requiresSnapshot && (!snapshot || snapshot === "{}")) {
 					return Response.json(
 						{

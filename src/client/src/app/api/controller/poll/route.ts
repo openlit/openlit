@@ -252,7 +252,23 @@ async function persistLifecycleStopSnapshots(
 		for (const ar of candidates) failed.add(ar.action_id as string);
 		return failed;
 	}
-	const clusterId = instanceRes.data?.[0]?.cluster_id || "default";
+	// Symmetric: an instance lookup failure must defer the same way the
+	// actions lookup does. Falling back to cluster_id="default" would
+	// silently write the snapshot into the wrong (workload_key,
+	// cluster_id) row in multi-cluster setups, so a later Start in the
+	// real cluster would see no snapshot and 409. Defer + retry instead.
+	if (instanceRes.err || !instanceRes.data?.[0]?.cluster_id) {
+		console.error(
+			"controller poll: getControllerInstanceById failed; deferring snapshot persistence:",
+			"instance",
+			instanceId,
+			":",
+			sanitizeLogValue(instanceRes.err || "no data")
+		);
+		for (const ar of candidates) failed.add(ar.action_id as string);
+		return failed;
+	}
+	const clusterId = instanceRes.data[0].cluster_id;
 	const actionById = new Map(
 		actionsRes.data.map((a) => [a.id, a] as const)
 	);
