@@ -1168,3 +1168,58 @@ export const CHAT_ERROR_PREFIX = "Error:";
 export const CHAT_SOMETHING_WENT_WRONG = "Something went wrong. Please try again.";
 export const CHAT_FAILED_TO_GET_RESPONSE = "Failed to get response";
 export const CHAT_NO_RESPONSE_STREAM = "No response stream";
+export const CHAT_OTTER_USAGE = "Otter usage";
+export const CHAT_OTTER_USAGE_DESCRIPTION =
+	"Token and cost attribution by feature, provider, model, and date.";
+export const CHAT_OTTER_USAGE_LOAD_FAILED = "Failed to load Otter usage";
+export const CHAT_OTTER_USAGE_EMPTY_TITLE = "No Otter usage recorded yet";
+export const CHAT_OTTER_USAGE_EMPTY_DESCRIPTION =
+	"Run a chat or AI analysis to see provider, model, token, and cost attribution here.";
+export const CHAT_OTTER_USAGE_TOTAL_TOKENS = "Total tokens";
+export const CHAT_OTTER_USAGE_TOTAL_COST = "Total cost";
+export const CHAT_OTTER_USAGE_PROMPT_COMPLETION = "Prompt / completion";
+export const CHAT_OTTER_USAGE_ACTIONS = "Otter actions";
+export const CHAT_OTTER_USAGE_CONVERSATIONS = "Chat conversations";
+export const CHAT_OTTER_USAGE_MESSAGES = "Chat messages";
+export const CHAT_OTTER_USAGE_AVG_TOKENS_PER_CHAT = "Avg tokens / chat";
+export const CHAT_OTTER_USAGE_AVG_COST_PER_CHAT = "Avg cost / chat";
+export const CHAT_OTTER_USAGE_PROVIDER_MODEL_SPEND = "Provider and model spend";
+export const CHAT_OTTER_USAGE_WHERE_USED = "Where Otter was used";
+export const CHAT_OTTER_USAGE_TYPE_CHAT = "Chat";
+export const CHAT_OTTER_USAGE_TYPE_TRACE_ANALYSIS = "Trace analysis";
+export const CHAT_OTTER_USAGE_TYPE_SPAN_ANALYSIS = "Span analysis";
+export const CHAT_OTTER_USAGE_UNKNOWN = "unknown";
+export const CHAT_OTTER_USAGE_TOKENS = (tokens: number | string) =>
+	`${tokens} tokens`;
+export const CHAT_OTTER_USAGE_ACTION_COUNT = (count: number | string) =>
+	`${count} actions`;
+export const CHAT_REFRESH = "Refresh";
+
+// Trace AI analysis
+export const TRACE_AI_IMPROVEMENT_TITLE = "AI Improvement";
+export const TRACE_AI_IMPROVEMENT_DESCRIPTION =
+	"Trace hierarchy analysis stored separately from normal Otter chat";
+export const TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION =
+	"Analyzes this individual span — prompt, output, cost, latency, tools, and context";
+export const TRACE_AI_DETAILS = "Details";
+export const TRACE_AI_SUGGESTED_FIX = "Suggested fix";
+export const TRACE_AI_TRY_IN_CHAT = "Try in Chat";
+export const TRACE_AI_CHAT_PROMPT_COPIED = "Chat prompt copied";
+export const TRACE_AI_CHAT_PROMPT_INTRO =
+	"I need help exploring this improvement opportunity found in my LLM trace:";
+export const TRACE_AI_CHAT_PROMPT_SPANS = "**Spans**:";
+export const TRACE_AI_CHAT_PROMPT_ISSUE = "**Issue**:";
+export const TRACE_AI_CHAT_PROMPT_DETAILS = "**Details**:";
+export const TRACE_AI_CHAT_PROMPT_SUGGESTED_FIX = "**Suggested fix**:";
+export const TRACE_AI_IMPROVEMENT_FLOW = "Improvement Flow";
+export const TRACE_AI_ANALYSIS_RUNNING = "Analysis is running.";
+export const TRACE_AI_ANALYZE = "Analyze";
+export const TRACE_AI_RERUN = "Rerun";
+export const TRACE_AI_ANALYZE_TRACE = "Analyze Trace";
+export const TRACE_AI_TAB_TITLE = "AI Analysis";
+export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
+export const TRACE_AI_EMPTY_DESCRIPTION =
+	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";
+export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
+	`${tokens} tokens saved`;
+export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;

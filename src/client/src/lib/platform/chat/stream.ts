@@ -233,7 +233,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	if (!responseText && streamError) {
 		const errorMsg = formatStreamError(streamError);
 		responseText = `**Error:** ${errorMsg}`;
-		await addMessage({ conversationId, role: "assistant", content: responseText });
+		await addMessage({ conversationId, role: "assistant", content: responseText, provider, model });
 	}
 
 	// Execute SQL blocks in the response and append results BEFORE returning to client
@@ -251,6 +251,8 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 			promptTokens: finishStats.promptTokens,
 			completionTokens: finishStats.completionTokens,
 			cost: finishStats.cost,
+			provider,
+			model,
 		});
 	}
 

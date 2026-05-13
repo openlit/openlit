@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
 export interface Conversation {
 	id: string;
 	title: string;
-	conversationType?: "chat" | "ai_improvement" | "trace_analysis";
+	conversationType?: "chat";
 	meta?: string;
 	totalPromptTokens: number;
 	totalCompletionTokens: number;
@@ -32,6 +32,8 @@ export interface ChatMessage {
 	promptTokens: number;
 	completionTokens: number;
 	cost: number;
+	provider?: string;
+	model?: string;
 	queryRowsRead: number;
 	queryExecutionTimeMs: number;
 	queryBytesRead: number;
@@ -117,6 +119,8 @@ export async function getConversationWithMessages(
 			prompt_tokens AS promptTokens,
 			completion_tokens AS completionTokens,
 			cost,
+			provider,
+			model,
 			query_rows_read AS queryRowsRead,
 			query_execution_time_ms AS queryExecutionTimeMs,
 			query_bytes_read AS queryBytesRead,
@@ -149,19 +153,13 @@ export async function createConversation(
 	provider: string,
 	model: string,
 	options?: {
-		conversationType?: "chat" | "ai_improvement" | "trace_analysis";
 		meta?: Record<string, unknown>;
-		rootSpanId?: string;
-		selectedSpanId?: string;
 	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
 	const safeTitle = Sanitizer.sanitizeValue(title || "");
 	const safeProvider = Sanitizer.sanitizeValue(provider);
 	const safeModel = Sanitizer.sanitizeValue(model);
-	const safeConversationType = Sanitizer.sanitizeValue(
-		options?.conversationType || "chat"
-	);
 	const meta = JSON.stringify(options?.meta || {});
 	const conversationId = randomUUID();
 
@@ -172,14 +170,8 @@ export async function createConversation(
 				{
 					id: conversationId,
 					title: safeTitle,
-					conversation_type: safeConversationType,
+					conversation_type: "chat",
 					meta,
-					root_span_id: options?.rootSpanId
-						? Sanitizer.sanitizeValue(options.rootSpanId)
-						: "",
-					selected_span_id: options?.selectedSpanId
-						? Sanitizer.sanitizeValue(options.selectedSpanId)
-						: "",
 					provider: safeProvider,
 					model: safeModel,
 				},
@@ -194,67 +186,6 @@ export async function createConversation(
 	}
 
 	return { data: conversationId };
-}
-
-export async function getImprovementConversationByHierarchySpanIds(
-	rootSpanId: string,
-	_spanIds: string[],
-	databaseConfigId?: string
-): Promise<{ data?: { conversation: Conversation; messages: ChatMessage[] }; err?: unknown }> {
-	const safeRootSpanId = Sanitizer.sanitizeValue(rootSpanId);
-
-	// New rows have root_span_id set explicitly (indexed).
-	// Legacy rows have root_span_id = '' and store the id in meta JSON instead.
-	const convQuery = `
-		SELECT
-			id, title,
-			conversation_type AS conversationType,
-			meta,
-			total_prompt_tokens AS totalPromptTokens,
-			total_completion_tokens AS totalCompletionTokens,
-			total_cost AS totalCost,
-			total_messages AS totalMessages,
-			provider, model,
-			created_at AS createdAt,
-			updated_at AS updatedAt
-		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
-		WHERE conversation_type IN ('trace_analysis', 'ai_improvement')
-		  AND (
-		    root_span_id = '${safeRootSpanId}'
-		    OR (root_span_id = '' AND JSONExtractString(meta, 'trace_hierarchy_root_span_id') = '${safeRootSpanId}')
-		  )
-		ORDER BY updated_at DESC
-		LIMIT 1
-	`;
-
-	const { data: convData, err: convErr } = await dataCollector(
-		{ query: convQuery },
-		"query",
-		databaseConfigId
-	);
-
-	if (convErr) return { err: convErr };
-
-	const conversations = convData as Conversation[];
-	if (!conversations || conversations.length === 0) {
-		return { data: undefined };
-	}
-
-	const conversation = conversations[0];
-	const { data: messages, err: msgErr } = await getConversationMessages(
-		conversation.id,
-		50,
-		databaseConfigId
-	);
-
-	if (msgErr) return { err: msgErr };
-
-	return {
-		data: {
-			conversation,
-			messages: messages || [],
-		},
-	};
 }
 
 export async function deleteConversation(
@@ -299,6 +230,8 @@ export async function addMessage(
 		promptTokens,
 		completionTokens,
 		cost,
+		provider,
+		model,
 	}: {
 		conversationId: string;
 		role: "user" | "assistant";
@@ -309,6 +242,8 @@ export async function addMessage(
 		promptTokens?: number;
 		completionTokens?: number;
 		cost?: number;
+		provider?: string;
+		model?: string;
 	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
@@ -328,6 +263,8 @@ export async function addMessage(
 					prompt_tokens: promptTokens || 0,
 					completion_tokens: completionTokens || 0,
 					cost: cost || 0,
+					provider: provider ? Sanitizer.sanitizeValue(provider) : "",
+					model: model ? Sanitizer.sanitizeValue(model) : "",
 				},
 			],
 		},
@@ -440,6 +377,8 @@ export async function getConversationMessages(
 			prompt_tokens AS promptTokens,
 			completion_tokens AS completionTokens,
 			cost,
+			provider,
+			model,
 			created_at AS createdAt
 		FROM ${OPENLIT_CHAT_MESSAGE_TABLE}
 		WHERE conversation_id = '${safeId}'

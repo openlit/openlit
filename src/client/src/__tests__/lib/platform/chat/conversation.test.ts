@@ -19,7 +19,6 @@ import {
   updateMessage,
   updateConversation,
   getConversationMessages,
-  getImprovementConversationByHierarchySpanIds,
 } from '@/lib/platform/chat/conversation';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -277,52 +276,6 @@ describe('updateConversation', () => {
     await updateConversation('c1', { incrementMessages: true });
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('total_messages = total_messages + 1');
-  });
-});
-
-describe('getImprovementConversationByHierarchySpanIds', () => {
-  it('uses root_span_id index for new conversations', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [{ id: 'c1', conversationType: 'trace_analysis', provider: 'openai', model: 'gpt-4' }] })
-      .mockResolvedValueOnce({ data: [] }); // messages
-
-    const { data } = await getImprovementConversationByHierarchySpanIds('root-span-1', []);
-    expect(data).toBeDefined();
-    const convQuery = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
-    expect(convQuery).toContain("root_span_id = 'root-span-1'");
-    expect(convQuery).toContain("conversation_type IN ('trace_analysis', 'ai_improvement')");
-  });
-
-  it('includes legacy meta fallback for old rows', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
-
-    await getImprovementConversationByHierarchySpanIds('root-span-1', []);
-    const convQuery = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
-    expect(convQuery).toContain("JSONExtractString(meta, 'trace_hierarchy_root_span_id')");
-  });
-
-  it('returns undefined data when no conversation exists', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
-    const { data } = await getImprovementConversationByHierarchySpanIds('missing', []);
-    expect(data).toBeUndefined();
-  });
-
-  it('returns error on DB failure', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ err: 'db error' });
-    const { err } = await getImprovementConversationByHierarchySpanIds('root-1', []);
-    expect(err).toBe('db error');
-  });
-
-  it('fetches messages for found conversation', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [{ id: 'c1', conversationType: 'trace_analysis', provider: 'openai', model: 'gpt-4' }] })
-      .mockResolvedValueOnce({ data: [{ id: 'm1', role: 'assistant', content: 'done' }] });
-
-    const { data } = await getImprovementConversationByHierarchySpanIds('root-1', []);
-    expect(data?.messages).toHaveLength(1);
-    expect(data?.messages[0].id).toBe('m1');
   });
 });
 

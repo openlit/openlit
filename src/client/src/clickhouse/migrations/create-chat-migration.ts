@@ -64,6 +64,8 @@ export default async function CreateChatMigration(
 			prompt_tokens UInt64 DEFAULT 0,
 			completion_tokens UInt64 DEFAULT 0,
 			cost Float64 DEFAULT 0,
+			provider String DEFAULT '',
+			model String DEFAULT '',
 			query_rows_read UInt64 DEFAULT 0,
 			query_execution_time_ms UInt64 DEFAULT 0,
 			query_bytes_read UInt64 DEFAULT 0,

@@ -1,9 +1,6 @@
 jest.mock("ai", () => ({ streamText: jest.fn() }));
 jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
-jest.mock("@/lib/platform/chat/conversation", () => ({
-	getImprovementConversationByHierarchySpanIds: jest.fn(),
-}));
 jest.mock("@/lib/platform/request", () => ({ getHeirarchyViaSpanId: jest.fn() }));
 jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));
 jest.mock("@/lib/platform/chat/table-details", () => ({

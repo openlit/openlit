@@ -1,12 +1,10 @@
 import { Columns } from "@/components/data-table/columns";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { TraceMapping } from "@/constants/traces";
 import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
-import { CalendarDays, Sparkles } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 
-type RequestColumnKey = TraceMappingKeyType | "actions";
+type RequestColumnKey = TraceMappingKeyType;
 
 export const columns: Columns<RequestColumnKey, TransformedTraceRow> = {
 	id: {
@@ -134,58 +132,5 @@ export const columns: Columns<RequestColumnKey, TransformedTraceRow> = {
 			);
 		},
 		enableHiding: true,
-	},
-	actions: {
-		header: () => "",
-		cell: ({ row, extraFunctions }) => {
-			const severity = extraFunctions?.getAnalysisStatus?.(row.spanId) || "";
-			const isSelected = extraFunctions?.isCompareSelected?.(row.spanId) || false;
-
-			const dotColor =
-				severity === "critical"
-					? "bg-red-500"
-					: severity === "major"
-						? "bg-orange-400"
-						: severity === "minor"
-							? "bg-yellow-400"
-							: severity === "info"
-								? "bg-blue-400"
-								: severity === "none"
-									? "bg-green-400"
-									: "";
-
-			return (
-				<div className="flex items-center gap-1.5">
-					{severity && (
-						<span
-							className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`}
-							title={`Analysis: ${severity}`}
-						/>
-					)}
-					<Button
-						size="xs"
-						variant="ghost"
-						className="gap-1.5"
-						onClick={(event) => {
-							event.stopPropagation();
-							extraFunctions?.analyzeWithCopilot?.(row);
-						}}
-					>
-						<Sparkles className="h-3.5 w-3.5" />
-						Analyze
-					</Button>
-					{extraFunctions?.toggleCompare && (
-						<Checkbox
-							checked={isSelected}
-							onClick={(event) => event.stopPropagation()}
-							onCheckedChange={() => extraFunctions.toggleCompare!(row.spanId)}
-							aria-label="Select for comparison"
-							className="h-3.5 w-3.5"
-						/>
-					)}
-				</div>
-			);
-		},
-		enableHiding: false,
 	},
 };

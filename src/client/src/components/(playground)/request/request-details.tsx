@@ -32,6 +32,7 @@ import ExtraTabs from "./components/extra-tabs";
 import ResourceAttributesTab from "./components/resource-attributes-tab";
 import SpanAttributesTab from "./components/span-attributes-tab";
 import { AttrRow } from "./components/attributes-tab";
+import TraceAiAnalysisPanel from "./components/trace-ai-analysis-panel";
 
 // Root-level TraceRow scalar fields that are already shown elsewhere in the UI and
 // should NOT be duplicated as info pills.
@@ -202,6 +203,7 @@ function LoadingSkeleton() {
 }
 
 export default function RequestDetails() {
+	const m = getMessage();
 	const [isOpen, setIsOpen] = useState(false);
 	const [request, updateRequest] = useRequest();
 	const { currentIndex, items, total, offset, navigatePrev, navigateNext } = useRequestNavigation();
@@ -281,6 +283,7 @@ export default function RequestDetails() {
 		? getExtraTabsContentTypes(normalizedItem)
 		: [];
 	const tabKeys: string[] = [...extraTabs];
+	const hasAIAnalysis = !!normalizedItem?.spanId;
 	const reducedData = rawRecord
 		? objectEntries(rawRecord || {}).reduce(
 				(
@@ -508,8 +511,16 @@ export default function RequestDetails() {
 							)}
 						</div>
 
-						<Tabs className="" defaultValue={"SpanAttributes"}>
-							<TabsList className="h-auto flex overflow-auto justify-start w-full rounded-none pt-2 bg-transparent dark:bg-transparent px-0">
+						<Tabs className="flex min-h-[420px] flex-1 flex-col" defaultValue={"SpanAttributes"}>
+							<TabsList className="h-auto flex overflow-auto justify-start w-full rounded-none pt-2 bg-transparent dark:bg-transparent px-0 shrink-0">
+								{hasAIAnalysis && (
+									<TabsTrigger
+										value="AI Analysis"
+										className="data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:text-primary dark:data-[state=active]:text-primary data-[state=active]:border-primary dark:data-[state=active]:border-primary border-b border-transparent data-[state=active]:shadow-none rounded-none px-4"
+									>
+										{m.TRACE_AI_TAB_TITLE}
+									</TabsTrigger>
+								)}
 								{tabKeys.map((key) => {
 									return (
 										<TabsTrigger
@@ -522,6 +533,15 @@ export default function RequestDetails() {
 									);
 								})}
 							</TabsList>
+							{hasAIAnalysis && normalizedItem?.spanId && (
+								<TabsContent value="AI Analysis" className="mt-0 min-h-0 flex-1 p-0 data-[state=active]:flex">
+									<TraceAiAnalysisPanel
+										spanId={normalizedItem.spanId}
+										scope="span"
+										description={m.TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION}
+									/>
+								</TabsContent>
+							)}
 							{extraTabs.map((tab) => {
 								return (
 									<TabsContent value={tab.toString()} key={tab.toString()}>

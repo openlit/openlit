@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Search, Settings } from "lucide-react";
+import { BarChart3, Plus, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import getMessage from "@/constants/messages";
@@ -19,9 +19,11 @@ interface Conversation {
 interface ConversationListProps {
 	conversations: Conversation[];
 	activeId: string | null;
+	isUsageActive?: boolean;
 	onSelect: (id: string) => void;
 	onDelete: (id: string) => void;
 	onNew: () => void;
+	onUsage: () => void;
 	isLoading: boolean;
 }
 
@@ -57,9 +59,11 @@ function groupByDate(conversations: Conversation[]) {
 export default function ConversationList({
 	conversations,
 	activeId,
+	isUsageActive,
 	onSelect,
 	onDelete,
 	onNew,
+	onUsage,
 	isLoading,
 }: ConversationListProps) {
 	const [search, setSearch] = useState("");
@@ -96,6 +100,19 @@ export default function ConversationList({
 						<Settings className="h-4 w-4" />
 					</Button>
 				</div>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={onUsage}
+					className={`w-full justify-start gap-2 ${
+						isUsageActive
+							? "bg-stone-200 text-stone-900 dark:bg-stone-800 dark:text-stone-100"
+							: "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+					}`}
+				>
+					<BarChart3 className="h-4 w-4" />
+					{m.CHAT_OTTER_USAGE}
+				</Button>
 				<div className="relative">
 					<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 dark:text-stone-500" />
 					<Input

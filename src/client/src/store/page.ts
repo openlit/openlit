@@ -14,7 +14,6 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			requestDuration: true,
 			spanName: true,
 			serviceName: true,
-			actions: true,
 		},
 	},
 	exception: {

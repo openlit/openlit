@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
 	CheckCircle2,
@@ -32,6 +32,7 @@ import {
 	emptyTraceAnalysis,
 } from "@/types/trace-analysis";
 import { useRequest } from "../request-context";
+import getMessage from "@/constants/messages";
 
 type TraceAnalysisRunResponse = {
 	id: string;
@@ -133,13 +134,68 @@ function parseAnalysisMessage(content?: string): TraceAnalysis | null {
 	try {
 		const parsed = JSON.parse(content);
 		if (!parsed || typeof parsed !== "object") return null;
-		return {
-			...emptyTraceAnalysis(parsed.trace_id || ""),
-			...parsed,
-		};
+		return normalizeTraceAnalysis(parsed);
 	} catch {
 		return null;
 	}
+}
+
+function normalizeFinding(finding: any, index: number): TraceAnalysisFinding {
+	const severity = ["info", "minor", "major", "critical"].includes(finding?.severity)
+		? finding.severity
+		: "info";
+	return {
+		id: String(finding?.id || `finding-${index}`),
+		severity,
+		summary: String(finding?.summary || "Untitled finding").slice(0, 140),
+		detail: String(finding?.detail || finding?.description || ""),
+		span_refs: Array.isArray(finding?.span_refs)
+			? finding.span_refs.map(String)
+			: Array.isArray(finding?.spanRefs)
+				? finding.spanRefs.map(String)
+				: [],
+		...(finding?.suggested_fix ? { suggested_fix: String(finding.suggested_fix) } : {}),
+		...(Array.isArray(finding?.suggested_fix_patches)
+			? { suggested_fix_patches: finding.suggested_fix_patches }
+			: {}),
+		...(finding?.estimated_savings && typeof finding.estimated_savings === "object"
+			? { estimated_savings: finding.estimated_savings }
+			: {}),
+	};
+}
+
+function normalizeFindings(value: unknown): TraceAnalysisFinding[] {
+	if (!Array.isArray(value)) return [];
+	return value
+		.filter((finding) => finding && typeof finding === "object")
+		.map(normalizeFinding);
+}
+
+function normalizeTraceAnalysis(value: any): TraceAnalysis {
+	const base = emptyTraceAnalysis(String(value?.trace_id || value?.traceId || ""));
+	const totals = value?.totals && typeof value.totals === "object" ? value.totals : {};
+	const normalized: TraceAnalysis = {
+		...base,
+		...value,
+		trace_id: String(value?.trace_id || value?.traceId || base.trace_id),
+		summary: String(value?.summary || ""),
+		totals: {
+			span_count: Number(totals.span_count || totals.spanCount || 0),
+			total_tokens: Number(totals.total_tokens || totals.totalTokens || 0),
+			total_cost_usd: Number(totals.total_cost_usd || totals.totalCostUsd || 0),
+			duration_ms: Number(totals.duration_ms || totals.durationMs || 0),
+		},
+	};
+
+	for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
+		normalized[dimension] = normalizeFindings(value?.[dimension]);
+	}
+
+	return normalized;
+}
+
+function getDimensionFindings(analysis: TraceAnalysis | null | undefined, dimension: TraceAnalysisDimension) {
+	return Array.isArray(analysis?.[dimension]) ? analysis[dimension] : [];
 }
 
 function severityClass(severity: string) {
@@ -151,10 +207,10 @@ function severityClass(severity: string) {
 
 function computeTrend(current: TraceAnalysis, previous: TraceAnalysis) {
 	const currentIds = new Set(
-		TRACE_ANALYSIS_DIMENSIONS.flatMap((d) => current[d].map((f) => f.id))
+		TRACE_ANALYSIS_DIMENSIONS.flatMap((d) => getDimensionFindings(current, d).map((f) => f.id))
 	);
 	const previousIds = new Set(
-		TRACE_ANALYSIS_DIMENSIONS.flatMap((d) => previous[d].map((f) => f.id))
+		TRACE_ANALYSIS_DIMENSIONS.flatMap((d) => getDimensionFindings(previous, d).map((f) => f.id))
 	);
 	return {
 		newFindings: Array.from(currentIds).filter((id) => !previousIds.has(id)).length,
@@ -244,43 +300,39 @@ function DiffView({ patches }: { patches: FixPatch[] }) {
 function FindingCard({
 	finding,
 	onSpanClick,
-	onApplyFix,
+	onTryInChat,
 }: {
 	finding: TraceAnalysisFinding;
 	onSpanClick: (spanId: string) => void;
-	onApplyFix: (finding: TraceAnalysisFinding) => void;
+	onTryInChat: (finding: TraceAnalysisFinding) => void;
 }) {
+	const m = getMessage();
 	const [showDiff, setShowDiff] = useState(false);
 	const hasPatches =
 		Array.isArray(finding.suggested_fix_patches) && finding.suggested_fix_patches.length > 0;
 	const gist = finding.detail.split(/(?<=[.!?])\s+/)[0] || finding.detail;
+	const footerMetrics = [
+		finding.estimated_savings?.tokens
+			? m.TRACE_AI_TOKENS_SAVED(finding.estimated_savings.tokens.toLocaleString())
+			: "",
+		finding.estimated_savings?.usd
+			? m.TRACE_AI_USD_SAVED(finding.estimated_savings.usd.toFixed(4))
+			: "",
+	].filter(Boolean);
 	return (
-		<div className="rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60">
-			<div className="flex flex-wrap items-start justify-between gap-2">
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-2">
-						<span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${severityClass(finding.severity)}`}>
-							{finding.severity}
-						</span>
-						<div className="truncate text-sm font-semibold text-stone-900 dark:text-stone-100">
-							{finding.summary}
-						</div>
-					</div>
+		<div className="rounded-md border border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-950">
+			<div className="min-w-0 space-y-1">
+				<div className="text-sm font-semibold leading-snug text-stone-900 dark:text-stone-100">
+					{finding.summary}
 				</div>
-				{finding.estimated_savings && (
-					<Badge variant="outline" className="border-stone-200 text-stone-600 dark:border-stone-700 dark:text-stone-300">
-						{finding.estimated_savings.tokens ? `${finding.estimated_savings.tokens} tokens` : ""}
-						{finding.estimated_savings.usd ? ` $${finding.estimated_savings.usd.toFixed(4)}` : ""}
-					</Badge>
-				)}
-			</div>
-			<div className="mt-2 text-sm leading-relaxed text-stone-700 dark:text-stone-300 line-clamp-2">
-				{gist}
+				<div className="text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+					{gist}
+				</div>
 			</div>
 			<Accordion type="single" collapsible className="mt-2">
 				<AccordionItem value="detail" className="border-0">
 					<AccordionTrigger className="py-1 text-xs font-medium text-stone-500 hover:no-underline dark:text-stone-400">
-						Details
+						{m.TRACE_AI_DETAILS}
 					</AccordionTrigger>
 					<AccordionContent className="pb-0">
 						<MarkdownText content={finding.detail} />
@@ -288,7 +340,7 @@ function FindingCard({
 							<div className="mt-2 rounded bg-white p-2 dark:bg-stone-950">
 								<div className="mb-1 flex items-center justify-between gap-2">
 									<span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
-										Suggested fix
+										{m.TRACE_AI_SUGGESTED_FIX}
 									</span>
 									<div className="flex items-center gap-1">
 										{hasPatches && (
@@ -310,11 +362,11 @@ function FindingCard({
 											</button>
 										)}
 										<button
-											onClick={() => onApplyFix(finding)}
+											onClick={() => onTryInChat(finding)}
 											className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
 										>
 											<MessageSquarePlus className="h-3 w-3" />
-											Try in Chat
+											{m.TRACE_AI_TRY_IN_CHAT}
 										</button>
 									</div>
 								</div>
@@ -327,22 +379,49 @@ function FindingCard({
 					</AccordionContent>
 				</AccordionItem>
 			</Accordion>
-			<div className="mt-2 flex flex-wrap gap-1.5">
-				{finding.span_refs.map((spanId) => (
-					<button
-						key={spanId}
-						onClick={() => onSpanClick(spanId)}
-						className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
-					>
-						{spanId}
-					</button>
-				))}
+			<div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 pt-2 dark:border-stone-800">
+				<div className="flex flex-wrap items-center gap-1.5">
+					<span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${severityClass(finding.severity)}`}>
+						{finding.severity}
+					</span>
+					{footerMetrics.map((metric) => (
+						<Badge
+							key={metric}
+							variant="outline"
+							className="border-stone-200 text-[11px] text-stone-600 dark:border-stone-700 dark:text-stone-300"
+						>
+							{metric}
+						</Badge>
+					))}
+				</div>
+				<div className="flex flex-wrap justify-end gap-1.5">
+					{finding.span_refs.map((spanId) => (
+						<button
+							key={spanId}
+							onClick={() => onSpanClick(spanId)}
+							className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+						>
+							{spanId}
+						</button>
+					))}
+				</div>
 			</div>
 		</div>
 	);
 }
 
-export default function TraceImprovementView({ spanId }: { spanId: string }) {
+export default function TraceImprovementView({
+	spanId,
+	scope = "trace",
+	title,
+	description,
+}: {
+	spanId: string;
+	scope?: "trace" | "span";
+	title?: string;
+	description?: string;
+}) {
+	const m = getMessage();
 	const router = useRouter();
 	const [, updateRequest] = useRequest();
 	const [analysis, setAnalysis] = useState<ImprovementResponse | null>(null);
@@ -351,6 +430,10 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isFetched, setIsFetched] = useState(false);
 	const [steps, setSteps] = useState<ImprovementStep[]>([]);
+	const requestKeyRef = useRef(`${scope}:${spanId}`);
+
+	const getRequestKey = (targetSpanId = spanId, targetScope = scope) =>
+		`${targetScope}:${targetSpanId}`;
 
 	const upsertStep = (step: ImprovementStep) => {
 		setSteps((prev) => {
@@ -362,27 +445,41 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 		});
 	};
 
-	const fetchAnalysis = async () => {
+	const fetchAnalysis = async (
+		targetSpanId = spanId,
+		targetScope = scope,
+		requestKey = getRequestKey(targetSpanId, targetScope)
+	) => {
 		try {
 			setIsLoading(true);
-			const res = await fetch(`/api/chat/improvement/${spanId}`);
+			const scopeParam = targetScope === "span" ? "?scope=span" : "";
+			const res = await fetch(`/api/chat/improvement/${targetSpanId}${scopeParam}`);
 			if (!res.ok) {
 				const err = await res.json();
 				throw new Error(typeof err === "string" ? err : "Failed to load AI improvement analysis");
 			}
 			const result = await res.json();
+			if (requestKeyRef.current !== requestKey) return;
 			setAnalysis(result);
 		} catch (err: any) {
+			if (requestKeyRef.current !== requestKey) return;
 			toast.error(err?.message || "Failed to load AI improvement analysis", {
 					id: "trace-improvement",
 				});
 		} finally {
-			setIsLoading(false);
-			setIsFetched(true);
+			if (requestKeyRef.current === requestKey) {
+				setIsLoading(false);
+				setIsFetched(true);
+			}
 		}
 	};
 
-	const handleStreamEvent = (event: any) => {
+	const handleStreamEvent = (event: any, requestKey = getRequestKey()) => {
+		if (requestKeyRef.current !== requestKey) return;
+		if (event.type === "debug") {
+			console.log(`[trace-analysis] ${event.stage}`, event.payload);
+			return;
+		}
 		if (event.type === "step") {
 			upsertStep({
 				label: event.label,
@@ -399,7 +496,7 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 				const next = current || emptyTraceAnalysis("");
 				return {
 					...next,
-					[event.dimension]: event.findings || [],
+					[event.dimension]: normalizeFindings(event.findings),
 				};
 			});
 			return;
@@ -419,16 +516,19 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 	};
 
 	const runAnalysis = async () => {
+		const requestKey = getRequestKey();
+		requestKeyRef.current = requestKey;
 		setIsLoading(true);
 		setStreamedAnalysis(emptyTraceAnalysis(""));
 		setSelectedRunId("streaming");
 		setSteps([]);
 
 		const abortController = new AbortController();
-		const timeoutId = setTimeout(() => abortController.abort(), 30_000);
+		const timeoutId = setTimeout(() => abortController.abort(), 120_000);
 
 		try {
-			const res = await fetch(`/api/chat/improvement/${spanId}`, {
+			const scopeParam = scope === "span" ? "?scope=span" : "";
+			const res = await fetch(`/api/chat/improvement/${spanId}${scopeParam}`, {
 				method: "POST",
 				signal: abortController.signal,
 			});
@@ -449,14 +549,15 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 				buffer = lines.pop() || "";
 				for (const line of lines) {
 					if (!line.trim()) continue;
-					handleStreamEvent(JSON.parse(line));
+					handleStreamEvent(JSON.parse(line), requestKey);
 				}
 			}
 
 			if (buffer.trim()) {
-				handleStreamEvent(JSON.parse(buffer));
+				handleStreamEvent(JSON.parse(buffer), requestKey);
 			}
 		} catch (err: any) {
+			if (requestKeyRef.current !== requestKey) return;
 			if (err?.name === "AbortError") {
 				toast.error("Analysis timed out. Please try again.", {
 					id: "trace-improvement",
@@ -469,15 +570,24 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 			}
 		} finally {
 			clearTimeout(timeoutId);
-			setIsLoading(false);
-			setIsFetched(true);
+			if (requestKeyRef.current === requestKey) {
+				setIsLoading(false);
+				setIsFetched(true);
+			}
 		}
 	};
 
 	useEffect(() => {
-		if (spanId) fetchAnalysis();
+		const requestKey = getRequestKey(spanId, scope);
+		requestKeyRef.current = requestKey;
+		setAnalysis(null);
+		setStreamedAnalysis(null);
+		setSelectedRunId(null);
+		setIsFetched(false);
+		setSteps([]);
+		if (spanId) fetchAnalysis(spanId, scope, requestKey);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [spanId]);
+	}, [spanId, scope]);
 
 	const persistedRuns = useMemo<AnalysisRun[]>(() => {
 		const runs = analysis?.data?.runs || [];
@@ -522,38 +632,39 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 	);
 
 	const parsedAnalysis = selectedRun?.analysis || null;
+	const parsedTotals = parsedAnalysis?.totals || emptyTraceAnalysis("").totals;
 
 	const onSpanClick = (targetSpanId: string) => {
 		updateRequest({ spanId: targetSpanId });
 	};
 
-	const onApplyFix = (finding: TraceAnalysisFinding) => {
+	const onTryInChat = (finding: TraceAnalysisFinding) => {
 		const message = [
-			"I need help implementing this fix found in my LLM trace:",
+			m.TRACE_AI_CHAT_PROMPT_INTRO,
 			"",
-			`**Spans**: ${finding.span_refs.join(", ")}`,
-			`**Issue**: ${finding.summary}`,
-			`**Details**: ${finding.detail}`,
+			`${m.TRACE_AI_CHAT_PROMPT_SPANS} ${finding.span_refs.join(", ")}`,
+			`${m.TRACE_AI_CHAT_PROMPT_ISSUE} ${finding.summary}`,
+			`${m.TRACE_AI_CHAT_PROMPT_DETAILS} ${finding.detail}`,
 			"",
-			"**Suggested fix**:",
+			m.TRACE_AI_CHAT_PROMPT_SUGGESTED_FIX,
 			finding.suggested_fix || "",
 		].join("\n");
 		navigator.clipboard.writeText(message).catch(() => {});
-		toast.success("Fix copied — paste it into Chat", { id: "apply-fix" });
+		toast.success(m.TRACE_AI_CHAT_PROMPT_COPIED, { id: "try-in-chat" });
 		router.push("/chat");
 	};
 
 	return (
-		<div className="flex h-full flex-col bg-white dark:bg-stone-950">
+		<div className="flex h-full flex-col bg-white dark:bg-stone-950 w-full">
 			<div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-800 dark:bg-stone-900">
 				<div className="flex min-w-0 items-center gap-2">
 					<Sparkles className="h-4 w-4 shrink-0 text-primary" />
 					<div className="min-w-0">
 						<div className="truncate text-sm font-semibold text-stone-900 dark:text-stone-100">
-							AI Improvement
+							{title || m.TRACE_AI_IMPROVEMENT_TITLE}
 						</div>
 						<div className="truncate text-xs text-stone-500 dark:text-stone-400">
-							Trace hierarchy analysis stored separately from normal Otter chat
+							{description || m.TRACE_AI_IMPROVEMENT_DESCRIPTION}
 						</div>
 					</div>
 				</div>
@@ -565,7 +676,7 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 					className="shrink-0 gap-1.5"
 				>
 					<RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-					{persistedRuns.length > 0 ? "Rerun" : "Analyze"}
+					{persistedRuns.length > 0 ? m.TRACE_AI_RERUN : m.TRACE_AI_ANALYZE}
 				</Button>
 			</div>
 
@@ -573,7 +684,7 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 				{steps.length > 0 && (
 					<div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60">
 						<div className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-							Improvement Flow
+							{m.TRACE_AI_IMPROVEMENT_FLOW}
 						</div>
 						<div className="space-y-2">
 							{steps.map((step) => (
@@ -662,13 +773,13 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 									<span className="font-mono text-stone-700 dark:text-stone-300">
 										{parsedAnalysis.trace_id || "Trace analysis"}
 									</span>
-									<span>{parsedAnalysis.totals.span_count} spans</span>
-									<span>{parsedAnalysis.totals.total_tokens} tokens</span>
-									<span>${parsedAnalysis.totals.total_cost_usd.toFixed(6)}</span>
-									<span>{parsedAnalysis.totals.duration_ms.toFixed(0)}ms</span>
+									<span>{parsedTotals.span_count} spans</span>
+									<span>{parsedTotals.total_tokens} tokens</span>
+									<span>${parsedTotals.total_cost_usd.toFixed(6)}</span>
+									<span>{parsedTotals.duration_ms.toFixed(0)}ms</span>
 								</div>
 								<p className="mt-2 text-sm leading-relaxed text-stone-800 dark:text-stone-100">
-									{parsedAnalysis.summary || "Analysis is running."}
+									{parsedAnalysis.summary || m.TRACE_AI_ANALYSIS_RUNNING}
 								</p>
 							</div>
 
@@ -682,14 +793,14 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 										>
 											{TRACE_ANALYSIS_DIMENSION_LABELS[dimension]}
 											<span className="ml-1 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-												{parsedAnalysis[dimension].length}
+												{getDimensionFindings(parsedAnalysis, dimension).length}
 											</span>
 										</TabsTrigger>
 									))}
 								</TabsList>
 								{TRACE_ANALYSIS_DIMENSIONS.map((dimension: TraceAnalysisDimension) => (
 									<TabsContent key={dimension} value={dimension} className="mt-3 space-y-2">
-										{parsedAnalysis[dimension].length === 0 ? (
+										{getDimensionFindings(parsedAnalysis, dimension).length === 0 ? (
 											<div className="rounded-md border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-900/60">
 												<div className="text-sm font-semibold text-stone-800 dark:text-stone-100">
 													{EMPTY_DIMENSION_COPY[dimension].summary}
@@ -697,7 +808,7 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 												<Accordion type="single" collapsible className="mt-2">
 													<AccordionItem value="detail" className="border-0">
 														<AccordionTrigger className="py-1 text-xs font-medium text-stone-500 hover:no-underline dark:text-stone-400">
-															Details
+															{m.TRACE_AI_DETAILS}
 														</AccordionTrigger>
 														<AccordionContent className="pb-0 text-sm text-stone-600 dark:text-stone-300">
 															{EMPTY_DIMENSION_COPY[dimension].detail}
@@ -706,12 +817,12 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 												</Accordion>
 											</div>
 										) : (
-											parsedAnalysis[dimension].map((finding) => (
+											getDimensionFindings(parsedAnalysis, dimension).map((finding) => (
 												<FindingCard
 													key={finding.id}
 													finding={finding}
 													onSpanClick={onSpanClick}
-													onApplyFix={onApplyFix}
+													onTryInChat={onTryInChat}
 												/>
 											))
 										)}
@@ -741,17 +852,16 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 							)}
 					</>
 				) : (
-					<div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 text-center">
+					<div className="flex min-h-full flex-col items-center justify-center gap-3 text-center">
 						<div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
 							<Sparkles className="h-5 w-5 text-primary" />
 						</div>
 						<div>
 							<div className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-								No analysis yet
+								{m.TRACE_AI_EMPTY_TITLE}
 							</div>
 							<div className="mt-1 max-w-[320px] text-xs leading-5 text-stone-500 dark:text-stone-400">
-								Run an AI improvement analysis to review prompts, responses, cost,
-								tokens, latency, and hierarchy-level failure patterns.
+								{m.TRACE_AI_EMPTY_DESCRIPTION}
 							</div>
 						</div>
 						<Button
@@ -765,7 +875,7 @@ export default function TraceImprovementView({ spanId }: { spanId: string }) {
 							) : (
 								<Circle className="h-3.5 w-3.5" />
 							)}
-							Analyze Trace
+							{m.TRACE_AI_ANALYZE_TRACE}
 						</Button>
 					</div>
 				)}
