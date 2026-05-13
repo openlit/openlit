@@ -258,10 +258,15 @@ async function persistLifecycleStopSnapshots(
 	// cluster_id) row in multi-cluster setups, so a later Start in the
 	// real cluster would see no snapshot and 409. Defer + retry instead.
 	if (instanceRes.err || !instanceRes.data?.[0]?.cluster_id) {
+		// instanceId originates from the controller's poll request body, so
+		// sanitize it through the same CRLF/control-char stripper the rest
+		// of this file uses for all user-supplied log fields. Without
+		// sanitization a malicious poll could forge log entries by
+		// embedding "\n" in instance_id (CodeQL js/log-injection).
 		console.error(
 			"controller poll: getControllerInstanceById failed; deferring snapshot persistence:",
 			"instance",
-			instanceId,
+			sanitizeLogValue(instanceId),
 			":",
 			sanitizeLogValue(instanceRes.err || "no data")
 		);
@@ -292,11 +297,15 @@ async function persistLifecycleStopSnapshots(
 				dbId
 			);
 			if (writeRes?.err) {
+				// Same log-injection guard as the instance-lookup branch
+				// above: ar.action_id and action.service_key both ride in
+				// on the controller's poll body, so sanitize before
+				// logging (CodeQL js/log-injection).
 				console.error(
 					"controller poll: persist lifecycle snapshot failed for action",
-					ar.action_id,
+					sanitizeLogValue(ar.action_id),
 					"workload",
-					action.service_key,
+					sanitizeLogValue(action.service_key),
 					":",
 					sanitizeLogValue(writeRes.err)
 				);
