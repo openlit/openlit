@@ -456,14 +456,14 @@ export default function TraceImprovementView({
 			const res = await fetch(`/api/chat/improvement/${targetSpanId}${scopeParam}`);
 			if (!res.ok) {
 				const err = await res.json();
-				throw new Error(typeof err === "string" ? err : "Failed to load AI improvement analysis");
+				throw new Error(typeof err === "string" ? err : m.TRACE_AI_LOAD_FAILED);
 			}
 			const result = await res.json();
 			if (requestKeyRef.current !== requestKey) return;
 			setAnalysis(result);
 		} catch (err: any) {
 			if (requestKeyRef.current !== requestKey) return;
-			toast.error(err?.message || "Failed to load AI improvement analysis", {
+			toast.error(err?.message || m.TRACE_AI_LOAD_FAILED, {
 					id: "trace-improvement",
 				});
 		} finally {
@@ -511,7 +511,7 @@ export default function TraceImprovementView({
 			return;
 		}
 		if (event.type === "error") {
-			throw new Error(event.error || "Failed to run AI improvement analysis");
+			throw new Error(event.error || m.TRACE_AI_RUN_FAILED);
 		}
 	};
 
@@ -534,7 +534,7 @@ export default function TraceImprovementView({
 			});
 			if (!res.ok || !res.body) {
 				const err = await res.json();
-				throw new Error(typeof err === "string" ? err : "Failed to run AI improvement analysis");
+				throw new Error(typeof err === "string" ? err : m.TRACE_AI_RUN_FAILED);
 			}
 
 			const reader = res.body.getReader();
@@ -559,12 +559,12 @@ export default function TraceImprovementView({
 		} catch (err: any) {
 			if (requestKeyRef.current !== requestKey) return;
 			if (err?.name === "AbortError") {
-				toast.error("Analysis timed out. Please try again.", {
+				toast.error(m.TRACE_AI_TIMEOUT, {
 					id: "trace-improvement",
 				});
 				setSelectedRunId(null);
 			} else {
-				toast.error(err?.message || "Failed to run AI improvement analysis", {
+				toast.error(err?.message || m.TRACE_AI_RUN_FAILED, {
 					id: "trace-improvement",
 				});
 			}
@@ -597,7 +597,7 @@ export default function TraceImprovementView({
 				if (!parsed) return null;
 				return {
 					id: run.id,
-					label: `Run ${run.runNumber}`,
+					label: m.TRACE_AI_RUN_LABEL(run.runNumber),
 					createdAt: run.createdAt,
 					promptTokens: run.promptTokens,
 					completionTokens: run.completionTokens,
@@ -613,7 +613,7 @@ export default function TraceImprovementView({
 		if (isLoading && streamedAnalysis) {
 			all.push({
 				id: "streaming",
-				label: "Running",
+				label: m.TRACE_AI_RUNNING_LABEL,
 				analysis: streamedAnalysis,
 			});
 		}
@@ -743,25 +743,25 @@ export default function TraceImprovementView({
 								const trend = computeTrend(parsedAnalysis!, prevRun.analysis);
 								return (
 									<div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs dark:border-stone-800 dark:bg-stone-900/60">
-										<span className="font-medium text-stone-500 dark:text-stone-400">vs previous run:</span>
+										<span className="font-medium text-stone-500 dark:text-stone-400">{m.TRACE_AI_TREND_VS_PREVIOUS}</span>
 										{trend.newFindings > 0 && (
 											<span className="flex items-center gap-1 text-red-600 dark:text-red-400">
 												<TrendingUp className="h-3 w-3" />
-												{trend.newFindings} new
+												{m.TRACE_AI_TREND_NEW(trend.newFindings)}
 											</span>
 										)}
 										{trend.resolvedFindings > 0 && (
 											<span className="flex items-center gap-1 text-green-600 dark:text-green-400">
 												<TrendingDown className="h-3 w-3" />
-												{trend.resolvedFindings} resolved
+												{m.TRACE_AI_TREND_RESOLVED(trend.resolvedFindings)}
 											</span>
 										)}
 										{trend.newFindings === 0 && trend.resolvedFindings === 0 && (
-											<span className="text-stone-400">no finding changes</span>
+											<span className="text-stone-400">{m.TRACE_AI_TREND_NO_CHANGES}</span>
 										)}
 										{trend.costDelta !== 0 && (
 											<span className={trend.costDelta > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}>
-												cost {trend.costDelta > 0 ? "+" : ""}${trend.costDelta.toFixed(6)}
+												{m.TRACE_AI_TREND_COST(`${trend.costDelta > 0 ? "+" : ""}$${trend.costDelta.toFixed(6)}`)}
 											</span>
 										)}
 									</div>
@@ -771,12 +771,12 @@ export default function TraceImprovementView({
 							<div className="rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60">
 								<div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 dark:text-stone-400">
 									<span className="font-mono text-stone-700 dark:text-stone-300">
-										{parsedAnalysis.trace_id || "Trace analysis"}
+										{parsedAnalysis.trace_id || m.TRACE_AI_FALLBACK_TRACE_LABEL}
 									</span>
-									<span>{parsedTotals.span_count} spans</span>
-									<span>{parsedTotals.total_tokens} tokens</span>
+									<span>{m.TRACE_AI_SPAN_COUNT(parsedTotals.span_count)}</span>
+									<span>{m.TRACE_AI_TOKEN_COUNT(parsedTotals.total_tokens)}</span>
 									<span>${parsedTotals.total_cost_usd.toFixed(6)}</span>
-									<span>{parsedTotals.duration_ms.toFixed(0)}ms</span>
+									<span>{m.TRACE_AI_DURATION_MS(parsedTotals.duration_ms.toFixed(0))}</span>
 								</div>
 								<p className="mt-2 text-sm leading-relaxed text-stone-800 dark:text-stone-100">
 									{parsedAnalysis.summary || m.TRACE_AI_ANALYSIS_RUNNING}
@@ -839,7 +839,7 @@ export default function TraceImprovementView({
 											<Database className="h-3 w-3" />
 											{selectedRun.promptTokens +
 												(selectedRun.completionTokens || 0)}{" "}
-											tokens
+											{m.CHAT_TOKENS}
 										</span>
 									) : null}
 									{selectedRun.cost ? (

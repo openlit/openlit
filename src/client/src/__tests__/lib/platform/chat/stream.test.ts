@@ -223,10 +223,14 @@ describe('streamChatMessage', () => {
     expect(result.streamError).toBeNull();
     expect(result.responseText).toContain('```query-result');
     expect(result.responseText).toContain('"one":1');
-    expect(dataCollector).toHaveBeenCalledWith({
-      query: 'SELECT 1',
-      enable_readonly: true,
-    });
+    expect(dataCollector).toHaveBeenCalledWith(
+      {
+        query: 'SELECT 1',
+        enable_readonly: true,
+      },
+      'query',
+      'db1'
+    );
     expect(updateConversation).toHaveBeenCalledWith('c1', {
       addPromptTokens: 100,
       addCompletionTokens: 20,
@@ -240,6 +244,8 @@ describe('streamChatMessage', () => {
       promptTokens: 100,
       completionTokens: 20,
       cost: 0.0006,
+      provider: 'openai',
+      model: 'gpt-4o',
     });
   });
 
@@ -264,7 +270,47 @@ describe('streamChatMessage', () => {
       conversationId: 'c1',
       role: 'assistant',
       content: expect.stringContaining('Invalid API key'),
+      provider: 'openai',
+      model: 'gpt-4o',
     });
+  });
+
+  it('emits stream deltas and progress steps to callbacks', async () => {
+    const onDelta = jest.fn();
+    const onStep = jest.fn();
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: 'Hello',
+        usage: { inputTokens: 2, outputTokens: 3 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          { type: 'text-delta', delta: 'Hel' },
+          { type: 'text-delta', delta: 'lo' },
+          { type: 'tool-call', toolName: 'list_rules' },
+          { type: 'tool-result', toolName: 'list_rules', result: { success: true, message: 'Rules listed' } },
+        ]),
+      };
+    });
+
+    await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Hello',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+      onDelta,
+      onStep,
+    });
+
+    expect(onDelta).toHaveBeenCalledWith('Hel');
+    expect(onDelta).toHaveBeenCalledWith('lo');
+    expect(onStep).toHaveBeenCalledWith('Saving user message', 'active');
+    expect(onStep).toHaveBeenCalledWith('Using list_rules', 'active');
+    expect(onStep).toHaveBeenCalledWith('Using list_rules', 'complete');
   });
 
   it('uses tool-result fallback content when no text deltas are streamed', async () => {

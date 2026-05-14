@@ -1217,6 +1217,21 @@ export const TRACE_AI_ANALYZE = "Analyze";
 export const TRACE_AI_RERUN = "Rerun";
 export const TRACE_AI_ANALYZE_TRACE = "Analyze Trace";
 export const TRACE_AI_TAB_TITLE = "AI Analysis";
+export const TRACE_AI_LOAD_FAILED = "Failed to load AI improvement analysis";
+export const TRACE_AI_RUN_FAILED = "Failed to run AI improvement analysis";
+export const TRACE_AI_TIMEOUT = "Analysis timed out. Please try again.";
+export const TRACE_AI_FALLBACK_TRACE_LABEL = "Trace analysis";
+export const TRACE_AI_RUN_LABEL = (runNumber: number | string) => `Run ${runNumber}`;
+export const TRACE_AI_RUNNING_LABEL = "Running";
+export const TRACE_AI_TREND_VS_PREVIOUS = "vs previous run:";
+export const TRACE_AI_TREND_NEW = (count: number | string) => `${count} new`;
+export const TRACE_AI_TREND_RESOLVED = (count: number | string) =>
+	`${count} resolved`;
+export const TRACE_AI_TREND_NO_CHANGES = "no finding changes";
+export const TRACE_AI_TREND_COST = (delta: number | string) => `cost ${delta}`;
+export const TRACE_AI_SPAN_COUNT = (count: number | string) => `${count} spans`;
+export const TRACE_AI_TOKEN_COUNT = (count: number | string) => `${count} tokens`;
+export const TRACE_AI_DURATION_MS = (duration: number | string) => `${duration}ms`;
 export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
 export const TRACE_AI_EMPTY_DESCRIPTION =
 	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";

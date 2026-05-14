@@ -3,6 +3,10 @@ jest.mock("ai", () => ({
 	jsonSchema: jest.fn((schema) => schema),
 }));
 
+import { TextDecoder, TextEncoder } from "util";
+
+Object.assign(global, { TextDecoder, TextEncoder });
+
 jest.mock("@/lib/platform/rule-engine", () => ({
 	createRule: jest.fn(),
 	updateRule: jest.fn(),
@@ -87,6 +91,29 @@ import {
 	getCustomModels,
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
+import { dataCollector } from "@/lib/platform/common";
+import {
+	getTraceImprovement,
+	streamTraceImprovementAnalysis,
+} from "@/lib/platform/chat/improvement";
+
+function ndjsonResponse(payload: string) {
+	const encoder = new TextEncoder();
+	return {
+		body: {
+			getReader: () => {
+				let read = false;
+				return {
+					read: async () => {
+						if (read) return { done: true };
+						read = true;
+						return { done: false, value: encoder.encode(payload) };
+					},
+				};
+			},
+		},
+	} as any;
+}
 
 describe("getChatTools", () => {
 	beforeEach(() => {
@@ -470,5 +497,121 @@ describe("getChatTools", () => {
 				display_name: "Model",
 			})
 		).resolves.toEqual({ success: false, error: "model failed" });
+	});
+
+	it("gets existing trace analysis without rerunning", async () => {
+		(getTraceImprovement as jest.Mock).mockResolvedValue({
+			data: {
+				rootSpanId: "span-root",
+				runs: [
+					{
+						id: "run-1",
+						rootSpanId: "span-root",
+						selectedSpanId: "span-root",
+						runNumber: 1,
+						analysisJson: JSON.stringify({
+							trace_id: "trace-1",
+							summary: "Trace looks healthy",
+							strengths: [],
+							improvements: [],
+							wrong_turns: [],
+							cost: [],
+							token_efficiency: [],
+							path_analysis: [],
+							totals: {},
+						}),
+						summary: "Trace looks healthy",
+						modelProvider: "openai",
+						modelName: "gpt-4o",
+						promptTokens: 10,
+						completionTokens: 4,
+						cost: 0.001,
+						worstSeverity: "info",
+						createdAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
+			},
+		});
+		const tools = getChatTools("user-1", "db-1");
+
+		const result = await tools.analyze_trace.execute({
+			span_id: "span-root",
+			scope: "trace",
+		});
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				success: true,
+				existing: true,
+				message: "Existing trace analysis found",
+			})
+		);
+		expect(result.details).toContain("```trace-refs");
+		expect(streamTraceImprovementAnalysis).not.toHaveBeenCalled();
+	});
+
+	it("analyzes traces by span attribute and returns trace refs", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({
+			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+			err: null,
+		});
+		(getTraceImprovement as jest.Mock).mockResolvedValue({
+			data: { rootSpanId: "span-abc", runs: [] },
+		});
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValue({
+			response: ndjsonResponse(
+				`${JSON.stringify({
+					type: "done",
+					data: {
+						rootSpanId: "span-abc",
+						runs: [
+							{
+								id: "run-1",
+								rootSpanId: "span-abc",
+								selectedSpanId: "span-abc",
+								runNumber: 1,
+								analysisJson: JSON.stringify({
+									trace_id: "trace-abc",
+									summary: "Session trace analyzed",
+									strengths: [],
+									improvements: [],
+									wrong_turns: [],
+									cost: [],
+									token_efficiency: [],
+									path_analysis: [],
+									totals: {},
+								}),
+								summary: "Session trace analyzed",
+								modelProvider: "openai",
+								modelName: "gpt-4o",
+								promptTokens: 8,
+								completionTokens: 2,
+								cost: 0.001,
+								worstSeverity: "info",
+								createdAt: "2026-01-01T00:00:00.000Z",
+							},
+						],
+					},
+				})}\n`
+			),
+		});
+		const tools = getChatTools("user-1", "db-1");
+
+		const result = await tools.analyze_traces_by_attribute.execute({
+			attribute_key: "session.id",
+			attribute_value: "session-1",
+		});
+
+		expect(dataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
+				enable_readonly: true,
+			}),
+			"query",
+			"db-1"
+		);
+		expect(result.success).toBe(true);
+		expect(result.details).toContain("```trace-refs");
+		expect(result.matchedTraceCount).toBe(1);
 	});
 });
