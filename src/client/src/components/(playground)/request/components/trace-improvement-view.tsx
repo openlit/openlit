@@ -379,7 +379,7 @@ function FindingCard({
 					</AccordionContent>
 				</AccordionItem>
 			</Accordion>
-			<div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 pt-2 dark:border-stone-800">
+			<div className="mt-3 flex flex-col justify-between gap-2 border-t border-stone-200 pt-2 dark:border-stone-800">
 				<div className="flex flex-wrap items-center gap-1.5">
 					<span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${severityClass(finding.severity)}`}>
 						{finding.severity}
@@ -394,7 +394,7 @@ function FindingCard({
 						</Badge>
 					))}
 				</div>
-				<div className="flex flex-wrap justify-end gap-1.5">
+				<div className="flex flex-wrap gap-1.5">
 					{finding.span_refs.map((spanId) => (
 						<button
 							key={spanId}
@@ -784,7 +784,7 @@ export default function TraceImprovementView({
 							</div>
 
 							<Tabs defaultValue="strengths" className="w-full">
-								<TabsList className="h-auto flex w-full justify-start overflow-auto rounded-none bg-transparent p-0 dark:bg-transparent">
+								<TabsList className="h-auto flex w-full justify-start overflow-auto rounded-none bg-transparent p-0 dark:bg-transparent shrink-0 openlit-scrollbar">
 									{TRACE_ANALYSIS_DIMENSIONS.map((dimension) => (
 										<TabsTrigger
 											key={dimension}

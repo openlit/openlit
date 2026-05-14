@@ -105,6 +105,8 @@ export interface StreamChatParams {
 	model: string;
 	userId: string;
 	dbConfigId: string;
+	onDelta?: (text: string) => void;
+	onStep?: (label: string, status?: "active" | "complete" | "error", detail?: string) => void;
 }
 
 export interface StreamChatResult {
@@ -121,19 +123,25 @@ export interface StreamChatResult {
  * - Handling tool call fallback text
  */
 export async function streamChatMessage(params: StreamChatParams): Promise<StreamChatResult> {
-	const { conversationId, content, provider, apiKey, model, userId, dbConfigId } = params;
+	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, onDelta, onStep } = params;
 
 	// Save user message
+	onStep?.("Saving user message", "active");
 	await addMessage({ conversationId, role: "user", content });
+	onStep?.("Saving user message", "complete");
 
 	// Build messages
+	onStep?.("Loading conversation context", "active");
 	const messages = await buildConversationMessages(conversationId, content);
+	onStep?.("Loading conversation context", "complete", `${messages.length} messages loaded`);
 
 	// Create model instance
+	onStep?.("Preparing model and tools", "active", `${provider} / ${model}`);
 	const modelInstance = getModelInstance(provider, apiKey, model);
 
 	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
 	const tools = getChatTools(userId, dbConfigId);
+	onStep?.("Preparing model and tools", "complete", `${Object.keys(tools).length} tools available`);
 
 	let streamError: any = null;
 
@@ -202,17 +210,28 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	});
 
 	// Consume the stream
+	onStep?.("Generating response", "active");
 	const fullStream = result.fullStream;
 	const parts: string[] = [];
 	let hasText = false;
 	const toolResultMessages: string[] = [];
 
 	for await (const part of fullStream) {
-		if (part.type === "text-delta" && (part as any).text) {
+		const textDelta =
+			part.type === "text-delta"
+				? ((part as any).text ?? (part as any).delta ?? "")
+				: "";
+		if (textDelta) {
 			hasText = true;
-			parts.push((part as any).text);
+			parts.push(textDelta);
+			onDelta?.(textDelta);
+		} else if (part.type === "tool-call" || part.type === "tool-input-start") {
+			onStep?.(`Using ${(part as any).toolName || "tool"}`, "active");
+		} else if (part.type === "tool-input-delta") {
+			onStep?.(`Preparing ${(part as any).toolName || "tool"} input`, "active");
 		} else if (part.type === "tool-result") {
 			const r = (part as any).result;
+			onStep?.(`Using ${(part as any).toolName || "tool"}`, r?.success === false ? "error" : "complete");
 			if (r?.success) {
 				let msg = `**${r.message}**`;
 				if (r.details) msg += `\n\n${r.details}`;
@@ -224,25 +243,36 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	}
 
 	if (!hasText && toolResultMessages.length > 0) {
-		parts.push(toolResultMessages.join("\n\n"));
+		const fallbackText = toolResultMessages.join("\n\n");
+		parts.push(fallbackText);
+		onDelta?.(fallbackText);
 	}
 
 	let responseText = parts.join("");
+	onStep?.("Generating response", "complete");
 
 	// Handle API errors
 	if (!responseText && streamError) {
 		const errorMsg = formatStreamError(streamError);
 		responseText = `**Error:** ${errorMsg}`;
+		onDelta?.(responseText);
 		await addMessage({ conversationId, role: "assistant", content: responseText, provider, model });
 	}
 
 	// Execute SQL blocks in the response and append results BEFORE returning to client
 	if (responseText && !responseText.startsWith("**Error:**")) {
-		responseText = await executeSQLBlocksInResponse(responseText);
+		onStep?.("Executing generated SQL", "active");
+		const streamedText = responseText;
+		responseText = await executeSQLBlocksInResponse(responseText, dbConfigId);
+		onStep?.("Executing generated SQL", "complete");
+		if (responseText.startsWith(streamedText) && responseText.length > streamedText.length) {
+			onDelta?.(responseText.slice(streamedText.length));
+		}
 
 		// Wait for onFinish to complete so we have token/cost stats
 		await Promise.race([finishPromise, new Promise((r) => setTimeout(r, 5000))]);
 
+		onStep?.("Saving assistant response", "active");
 		// Save the enriched message with query results AND token/cost stats
 		await addMessage({
 			conversationId,
@@ -254,6 +284,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 			provider,
 			model,
 		});
+		onStep?.("Saving assistant response", "complete");
 	}
 
 	return { responseText, streamError };
@@ -262,7 +293,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 /**
  * Find SQL code blocks in a response, execute them, and append query-result blocks.
  */
-async function executeSQLBlocksInResponse(text: string): Promise<string> {
+async function executeSQLBlocksInResponse(text: string, dbConfigId?: string): Promise<string> {
 	const sqlBlocks = extractSQLFromResponse(text);
 	if (sqlBlocks.length === 0) return text;
 
@@ -274,7 +305,7 @@ async function executeSQLBlocksInResponse(text: string): Promise<string> {
 				const { data: queryData, err: queryErr } = await dataCollector({
 					query: validation.query,
 					enable_readonly: true,
-				});
+				}, "query", dbConfigId);
 				if (!queryErr && queryData) {
 					const resultJson = JSON.stringify(queryData);
 					const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

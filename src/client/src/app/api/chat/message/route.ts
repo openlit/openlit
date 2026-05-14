@@ -36,8 +36,6 @@ export async function POST(request: NextRequest) {
 				const send = (event: Record<string, unknown>) =>
 					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
 				try {
-					send({ type: "step", status: "complete", label: "Loaded conversation context" });
-					send({ type: "step", status: "active", label: "Otter is generating a response" });
 					const { responseText } = await streamChatMessage({
 						conversationId,
 						content,
@@ -46,14 +44,16 @@ export async function POST(request: NextRequest) {
 						model: config.model,
 						userId: user.id,
 						dbConfigId,
+						onDelta: (text) => send({ type: "delta", text }),
+						onStep: (label, status = "active", detail) =>
+							send({ type: "step", status, label, detail }),
 					});
-					send({ type: "step", status: "complete", label: "Otter is generating a response" });
-					send({
-						type: "delta",
-						text:
-							responseText ||
-							"**Error:** No response received. Please check your Chat Settings.",
-					});
+					if (!responseText) {
+						send({
+							type: "delta",
+							text: "**Error:** No response received. Please check your Chat Settings.",
+						});
+					}
 					send({ type: "done" });
 				} catch (e: any) {
 					send({ type: "error", error: formatStreamError(e) });

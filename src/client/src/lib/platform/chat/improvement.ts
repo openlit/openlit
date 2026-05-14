@@ -1617,8 +1617,12 @@ export async function streamTraceImprovementAnalysis(
 					});
 
 					for await (const part of result.fullStream) {
-						if (part.type === "text-delta" && (part as any).text) {
-							dimensionText += (part as any).text as string;
+						const textDelta =
+							part.type === "text-delta"
+								? ((part as any).text ?? (part as any).delta ?? "")
+								: "";
+						if (textDelta) {
+							dimensionText += textDelta;
 						}
 					}
 

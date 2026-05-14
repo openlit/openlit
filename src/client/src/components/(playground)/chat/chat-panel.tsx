@@ -32,6 +32,7 @@ export default function ChatPanel({
 		setMessages,
 		addMessage,
 		updateLastMessage,
+		updateLastMessageStep,
 		setIsStreaming,
 		updateConversation,
 	} = useRootStore(getChatActions);
@@ -152,7 +153,7 @@ export default function ChatPanel({
 			setIsStreaming(true);
 
 			// Add empty assistant message for streaming
-			addMessage({ role: "assistant", content: "", createdAt: new Date().toISOString() });
+			addMessage({ role: "assistant", content: "", steps: [], createdAt: new Date().toISOString() });
 
 			try {
 				const controller = new AbortController();
@@ -188,9 +189,11 @@ export default function ChatPanel({
 						try {
 							const event = JSON.parse(line);
 							if (event.type === "step") {
-								if (event.status === "active") {
-									updateLastMessage(`_${event.label}..._`);
-								}
+								updateLastMessageStep({
+									label: event.label,
+									status: event.status || "active",
+									detail: event.detail,
+								});
 								continue;
 							}
 							if (event.type === "delta") {
@@ -244,7 +247,7 @@ export default function ChatPanel({
 				abortControllerRef.current = null;
 			}
 		},
-		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, setMessages, setIsStreaming, setInputValue, refreshConversation]
+		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, updateLastMessageStep, setMessages, setIsStreaming, setInputValue, refreshConversation]
 	);
 
 	const handleExecuteQuery = useCallback(

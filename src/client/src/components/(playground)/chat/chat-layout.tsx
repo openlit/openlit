@@ -7,6 +7,7 @@ import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
 import OtterUsageView from "./otter-usage-view";
+import RequestDetails from "@/components/(playground)/request/request-details";
 import { useRootStore } from "@/store";
 import {
 	getChatConversations,
@@ -216,6 +217,7 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 					/>
 				)}
 			</div>
+			<RequestDetails />
 		</Card>
 	);
 }

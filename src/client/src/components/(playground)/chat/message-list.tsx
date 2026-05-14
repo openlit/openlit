@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { memo, useRef, useEffect, useCallback } from "react";
 import MessageBubble from "./message-bubble";
 
 interface Message {
 	id?: string;
 	role: "user" | "assistant";
 	content: string;
+	steps?: Array<{ label: string; status: "active" | "complete" | "error"; detail?: string }>;
 	promptTokens?: number;
 	completionTokens?: number;
 	cost?: number;
@@ -24,7 +25,7 @@ interface MessageListProps {
 	) => Promise<{ data?: any[]; stats?: any; err?: string }>;
 }
 
-export default function MessageList({
+function MessageList({
 	messages,
 	isStreaming,
 	onExecuteQuery,
@@ -67,6 +68,7 @@ export default function MessageList({
 							key={msg.id || `msg-${i}`}
 							role={msg.role}
 							content={msg.content}
+							steps={msg.steps}
 							promptTokens={msg.promptTokens}
 							completionTokens={msg.completionTokens}
 							cost={msg.cost}
@@ -83,3 +85,5 @@ export default function MessageList({
 		</div>
 	);
 }
+
+export default memo(MessageList);

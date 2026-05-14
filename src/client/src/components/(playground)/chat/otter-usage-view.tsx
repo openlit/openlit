@@ -67,6 +67,29 @@ function formatCost(value: number) {
 	return `$${Number(value || 0).toFixed(6)}`;
 }
 
+function parseUsageDate(value?: string) {
+	if (!value) return null;
+	const normalized = value.includes("T") ? value : value.replace(" ", "T");
+	const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized);
+	const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+	return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatLocalDateTime(value?: string) {
+	const date = parseUsageDate(value);
+	if (!date) return "";
+	return new Intl.DateTimeFormat("en-US", {
+		year: "numeric",
+		month: "short",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: true,
+		timeZoneName: "short",
+	}).format(date);
+}
+
 function typeLabel(type: UsageItem["usageType"], m: ReturnType<typeof getMessage>) {
 	if (type === "span_analysis") return m.CHAT_OTTER_USAGE_TYPE_SPAN_ANALYSIS;
 	if (type === "trace_analysis") return m.CHAT_OTTER_USAGE_TYPE_TRACE_ANALYSIS;
@@ -336,7 +359,7 @@ export default function OtterUsageView() {
 										<div className="text-sm font-medium text-stone-900 dark:text-stone-100">
 											{formatCost(item.cost)}
 											<div className="text-xs font-normal text-stone-500 dark:text-stone-400">
-												{new Date(item.updatedAt || item.createdAt).toLocaleString()}
+												{formatLocalDateTime(item.updatedAt || item.createdAt)}
 											</div>
 										</div>
 									</div>

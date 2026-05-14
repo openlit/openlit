@@ -35,6 +35,8 @@ import {
 	TraceAnalysisRun,
 } from "./improvement";
 import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
+import { dataCollector } from "../common";
+import Sanitizer from "@/utils/sanitizer";
 
 type OtterTraceAnalysisScope = "trace" | "span";
 
@@ -58,6 +60,7 @@ function summarizeTraceAnalysisRun(run: TraceAnalysisRun) {
 	return {
 		runId: run.id,
 		runNumber: run.runNumber,
+		traceId: analysis.trace_id || analysis.traceId || "",
 		rootSpanId: run.rootSpanId,
 		selectedSpanId: run.selectedSpanId,
 		analysisType: run.analysisType,
@@ -72,6 +75,42 @@ function summarizeTraceAnalysisRun(run: TraceAnalysisRun) {
 		worstSeverity: run.worstSeverity,
 		createdAt: run.createdAt,
 	};
+}
+
+function traceRefsBlock(
+	refs: Array<{ type: "trace" | "span"; id?: string; spanId?: string; label?: string }>
+) {
+	const normalized = refs
+		.filter((ref) => ref.id)
+		.map((ref) => ({
+			type: ref.type,
+			id: ref.id,
+			...(ref.spanId ? { spanId: ref.spanId } : {}),
+			...(ref.label ? { label: ref.label } : {}),
+		}));
+	if (!normalized.length) return "";
+	return `\n\n\`\`\`trace-refs\n${JSON.stringify(normalized, null, 2)}\n\`\`\``;
+}
+
+function traceAnalysisDetails(analysis: ReturnType<typeof summarizeTraceAnalysisRun>) {
+	const refs = [
+		analysis.traceId
+			? {
+				type: "trace" as const,
+				id: analysis.traceId,
+				spanId: analysis.rootSpanId,
+				label: `trace:${String(analysis.traceId).slice(0, 10)}`,
+			}
+			: null,
+		analysis.selectedSpanId
+			? {
+				type: "span" as const,
+				id: analysis.selectedSpanId,
+				label: `span:${String(analysis.selectedSpanId).slice(0, 8)}`,
+			}
+			: null,
+	].filter(Boolean) as Array<{ type: "trace" | "span"; id: string; spanId?: string; label: string }>;
+	return `${analysis.summary || "Analysis is available."}${traceRefsBlock(refs)}`;
 }
 
 async function readTraceAnalysisStream(response: Response) {
@@ -125,6 +164,7 @@ async function runTraceAnalysisTool(
 				existing: true,
 				message: scope === "span" ? "Existing span analysis found" : "Existing trace analysis found",
 				analysis: summarizeTraceAnalysisRun(latest),
+				details: traceAnalysisDetails(summarizeTraceAnalysisRun(latest)),
 			};
 		}
 	}
@@ -145,6 +185,7 @@ async function runTraceAnalysisTool(
 		existing: false,
 		message: scope === "span" ? "Span analysis completed" : "Trace hierarchy analysis completed",
 		analysis: summarizeTraceAnalysisRun(latest),
+		details: traceAnalysisDetails(summarizeTraceAnalysisRun(latest)),
 	};
 }
 
@@ -846,6 +887,102 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					};
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to run batch trace analysis" };
+				}
+			},
+		}),
+
+		analyze_traces_by_attribute: tool<any, any>({
+			description: "Find traces by a SpanAttributes key/value pair, then run or retrieve Otter trace analysis for the matched trace hierarchies. Use this for requests like analyzing traces with session.id, user.id, conversation.id, tenant, environment, or any custom span attribute.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					attribute_key: { type: "string", description: "SpanAttributes key, for example session.id or user.id." },
+					attribute_value: { type: "string", description: "Exact SpanAttributes value to match." },
+					limit: { type: "number", description: "Maximum trace hierarchies to analyze. Default 3, maximum 5." },
+					rerun: { type: "boolean", description: "Set true only when the user explicitly asks for new analysis runs." },
+				},
+				required: ["attribute_key", "attribute_value"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const attributeKey = Sanitizer.sanitizeValue(String(params.attribute_key || "").trim());
+					const attributeValue = Sanitizer.sanitizeValue(String(params.attribute_value || "").trim());
+					const limit = Math.max(1, Math.min(Number(params.limit) || 3, 5));
+					if (!attributeKey || !attributeValue) {
+						return { success: false, error: "Attribute key and value are required" };
+					}
+
+					const query = `
+						SELECT
+							TraceId AS traceId,
+							any(SpanId) AS spanId,
+							count() AS spanCount,
+							max(Timestamp) AS lastSeen
+						FROM otel_traces
+						WHERE SpanAttributes['${attributeKey}'] = '${attributeValue}'
+						GROUP BY TraceId
+						ORDER BY lastSeen DESC
+						LIMIT ${limit}
+					`;
+					const { data, err } = await dataCollector(
+						{ query, enable_readonly: true },
+						"query",
+						databaseConfigId
+					);
+					if (err) return { success: false, error: String(err) };
+					const matches = ((data as any[]) || []).filter((row) => row.spanId);
+					if (!matches.length) {
+						return {
+							success: false,
+							error: `No traces found where SpanAttributes['${attributeKey}'] matches the provided value`,
+						};
+					}
+
+					const results = [];
+					for (const match of matches) {
+						results.push({
+							traceId: match.traceId,
+							spanId: match.spanId,
+							spanCount: Number(match.spanCount) || 0,
+							analysis: await runTraceAnalysisTool(
+								match.spanId,
+								"trace",
+								Boolean(params.rerun),
+								databaseConfigId
+							),
+						});
+					}
+
+					return {
+						success: results.every((result) => result.analysis.success),
+						message: "Trace attribute analysis completed",
+						details: results
+							.map((result) => {
+								const summary = result.analysis?.analysis?.summary || result.analysis?.error || "";
+								return `Trace ${result.traceId} / span ${result.spanId}: ${summary}`;
+							})
+							.join("\n") +
+							traceRefsBlock(
+								results.flatMap((result) => [
+									{
+										type: "trace" as const,
+										id: String(result.traceId || ""),
+										spanId: String(result.spanId || ""),
+										label: `trace:${String(result.traceId || "").slice(0, 10)}`,
+									},
+									{
+										type: "span" as const,
+										id: String(result.spanId || ""),
+										label: `span:${String(result.spanId || "").slice(0, 8)}`,
+									},
+								])
+							),
+						attributeKey,
+						matchedTraceCount: matches.length,
+						results,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to analyze traces by attribute" };
 				}
 			},
 		}),

@@ -45,6 +45,22 @@ jest.mock("@/lib/platform/providers/models-service", () => ({
 	getCustomModels: jest.fn(),
 }));
 
+jest.mock("@/lib/platform/chat/improvement", () => ({
+	getTraceImprovement: jest.fn(),
+	streamTraceImprovementAnalysis: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/common", () => ({
+	dataCollector: jest.fn(),
+}));
+
+jest.mock("@/utils/sanitizer", () => ({
+	__esModule: true,
+	default: {
+		sanitizeValue: jest.fn((value: string) => value),
+	},
+}));
+
 import { getChatTools } from "@/lib/platform/chat/tools";
 import {
 	addRuleEntity,
@@ -89,6 +105,10 @@ describe("getChatTools", () => {
 				"create_vault_secret",
 				"create_custom_model",
 				"list_custom_models",
+				"analyze_trace",
+				"get_trace_analysis",
+				"analyze_trace_batch",
+				"analyze_traces_by_attribute",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
