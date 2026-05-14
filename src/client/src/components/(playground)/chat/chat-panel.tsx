@@ -111,19 +111,38 @@ export default function ChatPanel({
 						updateConversation(convId, updates);
 					}
 					if (res.data?.messages?.length > 0) {
-						setMessages(
-							res.data.messages.map((m: any) => ({
+						const activeConversationId = useRootStore.getState().chat.activeConversationId;
+						if (activeConversationId !== convId) return;
+
+						const currentMessages = useRootStore.getState().chat.messages;
+						const currentLastAssistant = [...currentMessages]
+							.reverse()
+							.find((message) => message.role === "assistant" && message.steps?.length);
+						const mappedMessages = res.data.messages.map((m: any) => ({
 								id: m.id,
 								role: m.role,
 								content: m.content,
+								steps: [],
 								promptTokens: Number(m.promptTokens) || 0,
 								completionTokens: Number(m.completionTokens) || 0,
 								cost: Number(m.cost) || 0,
 								queryRowsRead: Number(m.queryRowsRead) || 0,
 								queryExecutionTimeMs: Number(m.queryExecutionTimeMs) || 0,
 								createdAt: m.createdAt,
-							}))
-						);
+							}));
+						if (currentLastAssistant?.steps?.length) {
+							const lastAssistantIndex = mappedMessages
+								.map((message: any, index: number) => ({ message, index }))
+								.reverse()
+								.find(({ message }: any) => message.role === "assistant")?.index;
+							if (typeof lastAssistantIndex === "number") {
+								mappedMessages[lastAssistantIndex] = {
+									...mappedMessages[lastAssistantIndex],
+									steps: currentLastAssistant.steps,
+								};
+							}
+						}
+						setMessages(mappedMessages);
 					}
 				})
 				.catch(() => {});

@@ -15,6 +15,7 @@ export const getChatActions = (state: RootStore) => ({
 	setMessages: state.chat.setMessages,
 	updateLastMessage: state.chat.updateLastMessage,
 	updateLastMessageStep: state.chat.updateLastMessageStep,
+	clearLastMessageSteps: state.chat.clearLastMessageSteps,
 	addMessage: state.chat.addMessage,
 	setHasConfig: state.chat.setHasConfig,
 	setConfigInfo: state.chat.setConfigInfo,

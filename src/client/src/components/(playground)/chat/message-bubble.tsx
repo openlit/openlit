@@ -150,29 +150,43 @@ function ChatStepTimeline({
 	if (!steps.length) return null;
 
 	return (
-		<div className="mb-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-800 dark:bg-stone-900/60">
-			<div className="space-y-2">
+		<div className="mb-3 max-w-xl">
+			<div className="relative space-y-1.5 pl-7">
+				<div className="absolute left-[9px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/50 via-stone-300 to-transparent dark:via-stone-700" />
 				{steps.map((step, index) => {
 					const isActive = step.status === "active";
 					const isError = step.status === "error";
 					const Icon = isActive ? Loader2 : isError ? Circle : CheckCircle2;
 					return (
-						<div key={`${step.label}-${index}`} className="flex gap-2 text-xs">
-							<Icon
-								className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+						<div
+							key={`${step.label}-${index}`}
+							className={`relative flex gap-2 rounded-md py-1.5 pr-2 text-xs transition-colors ${
+								isActive ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : ""
+							}`}
+						>
+							<span
+								className={`absolute -left-7 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border ${
 									isActive
-										? "animate-spin text-blue-600 dark:text-blue-400"
+										? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_4px_rgba(243,108,6,0.08)]"
 										: isError
-											? "text-red-600 dark:text-red-400"
-											: "text-green-600 dark:text-green-400"
+											? "border-red-300 bg-red-50 text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-400"
+											: "border-stone-200 bg-white text-green-600 dark:border-stone-800 dark:bg-stone-950 dark:text-green-400"
 								}`}
-							/>
+							>
+								<Icon className={`h-3 w-3 ${isActive ? "animate-spin" : ""}`} />
+							</span>
 							<div className="min-w-0">
-								<div className="font-medium text-stone-800 dark:text-stone-100">
+								<div
+									className={`font-medium ${
+										isActive
+											? "text-stone-900 dark:text-stone-100"
+											: "text-stone-600 dark:text-stone-300"
+									}`}
+								>
 									{step.label}
 								</div>
 								{step.detail ? (
-									<div className="truncate text-stone-500 dark:text-stone-400">
+									<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
 										{step.detail}
 									</div>
 								) : null}

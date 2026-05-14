@@ -46,6 +46,15 @@ export const chatStoreSlice: ChatStore = lens((setStore, getStore) => ({
 		setStore({ messages });
 	},
 
+	clearLastMessageSteps: () => {
+		const messages = [...getStore().messages];
+		const lastIdx = messages.length - 1;
+		if (lastIdx >= 0 && messages[lastIdx].role === "assistant") {
+			messages[lastIdx] = { ...messages[lastIdx], steps: [] };
+			setStore({ messages });
+		}
+	},
+
 	addMessage: (message) =>
 		setStore({ messages: [...getStore().messages, message] }),
 

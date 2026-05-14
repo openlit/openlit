@@ -51,6 +51,7 @@ export type ChatStore = {
 	setMessages: (messages: ChatMessage[]) => void;
 	updateLastMessage: (content: string) => void;
 	updateLastMessageStep: (step: ChatMessageStep) => void;
+	clearLastMessageSteps: () => void;
 	addMessage: (message: ChatMessage) => void;
 	setHasConfig: (hasConfig: boolean) => void;
 	setConfigInfo: (info: ChatConfigInfo | null) => void;
