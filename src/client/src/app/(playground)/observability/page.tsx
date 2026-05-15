@@ -32,18 +32,28 @@ export default function ObservabilityPage() {
 	};
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
-			<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 min-h-0 grow">
-				<aside className="flex flex-col gap-2 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-2 overflow-auto">
-					<div className="px-2 py-1.5">
-						<p className="text-xs uppercase tracking-wide text-stone-400 dark:text-stone-500">
-							Observability
+		<div className="flex h-full w-full flex-col gap-4 overflow-hidden">
+			<section className="rounded-md border border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-950">
+				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+					<div className="min-w-0">
+						<div className="flex items-center gap-2">
+							<span className={`rounded-md border p-2 ${activeConfig.tone}`}>
+								<ActiveIcon className="h-4 w-4" />
+							</span>
+							<div>
+								<p className="text-xs uppercase tracking-wide text-stone-500 dark:text-stone-400">
+									Observability
+								</p>
+								<h1 className="text-xl font-semibold text-stone-950 dark:text-stone-50">
+									{activeConfig.label}
+								</h1>
+							</div>
+						</div>
+						<p className="mt-2 max-w-3xl text-sm text-stone-500 dark:text-stone-400">
+							{activeConfig.shortLabel}. Explore signals, switch context quickly, and keep filters shared across the view.
 						</p>
-						<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-							Signal Explorer
-						</h1>
 					</div>
-					<div className="grid gap-2">
+					<div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
 						{OBSERVABILITY_SIGNALS.map((signal) => {
 							const Icon = signal.icon;
 							const isActive = signal.key === activeConfig.key;
@@ -51,41 +61,23 @@ export default function ObservabilityPage() {
 								<button
 									key={signal.key}
 									onClick={() => onTabChange(signal.key)}
-									className={`group flex items-start gap-3 rounded-md border p-3 text-left transition-colors ${
+									className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
 										isActive
 											? signal.tone
-											: "border-transparent bg-stone-50 text-stone-600 hover:border-stone-200 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-stone-800 dark:hover:bg-stone-800"
+											: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
 									}`}
 								>
-									<span className={`rounded-md border p-2 ${isActive ? "border-current bg-white/70 dark:bg-stone-950/50" : "border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950"}`}>
-										<Icon className="h-4 w-4" />
-									</span>
-									<span className="min-w-0">
-										<span className="block text-sm font-semibold text-stone-900 dark:text-stone-100">
-											{signal.label}
-										</span>
-										<span className="mt-0.5 block truncate text-xs text-stone-500 dark:text-stone-400">
-											{signal.shortLabel}
-										</span>
-									</span>
+									<Icon className="h-4 w-4" />
+									<span className="font-medium">{signal.label}</span>
 								</button>
 							);
 						})}
 					</div>
-					<div className={`mt-auto rounded-md border p-3 ${activeConfig.tone}`}>
-						<p className="text-xs uppercase tracking-wide opacity-80">
-							Current View
-						</p>
-						<div className="mt-1 flex items-center gap-2">
-							<ActiveIcon className="h-4 w-4" />
-							<span className="text-sm font-semibold">{activeConfig.summary}</span>
-						</div>
-					</div>
-				</aside>
-				<section className="flex min-w-0 flex-col rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-4">
-					<ObservabilitySignalList config={activeConfig} />
-				</section>
-			</div>
+				</div>
+			</section>
+			<section className="min-h-0 flex-1 overflow-auto rounded-md border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+				<ObservabilitySignalList key={activeConfig.key} config={activeConfig} />
+			</section>
 		</div>
 	);
 }

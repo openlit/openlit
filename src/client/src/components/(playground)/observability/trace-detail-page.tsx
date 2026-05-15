@@ -10,7 +10,7 @@ import { normalizeTrace } from "@/helpers/client/trace";
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
 import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
-import { ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, Fingerprint, Server, Sparkles, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, Hash, Server, Zap } from "lucide-react";
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
@@ -94,12 +94,16 @@ function filterFromSource(from: string | null, offsetOverride?: number): FilterT
 	};
 }
 
-export default function TraceDetailPage({
+export function TraceDetailView({
 	spanId,
 	type,
+	variant = "page",
+	onSpanChange,
 }: {
 	spanId: string;
 	type: "traces" | "exceptions";
+	variant?: "page" | "sheet";
+	onSpanChange?: (spanId: string) => void;
 }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -137,9 +141,12 @@ export default function TraceDetailPage({
 			setSelectedSpanId(nextSpanId);
 			const source = fromRef.current;
 			const qs = source ? `?from=${encodeURIComponent(source)}` : "";
-			router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
+			if (variant === "page") {
+				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
+			}
+			onSpanChange?.(nextSpanId);
 		},
-		[router]
+		[onSpanChange, router, variant]
 	);
 
 	const selectSpanInCurrentTrace = useCallback((nextSpanId: string) => {
@@ -189,12 +196,11 @@ export default function TraceDetailPage({
 			description: selectedSpanId,
 			breadcrumbs: [
 				{ title: "Observability", href: resultsHref },
-				{ title: signalLabel, href: resultsHref },
 			],
 		}),
-		[breadcrumbTitle, resultsHref, selectedSpanId, signalLabel]
+		[breadcrumbTitle, resultsHref, selectedSpanId]
 	);
-	useCustomBreadcrumbs(customHeader, [selectedSpanId, resultsHref, signalLabel]);
+	useCustomBreadcrumbs(customHeader, [selectedSpanId, resultsHref], variant === "page");
 	const listRows = useMemo(
 		() => (((listData as any)?.records || []).map(normalizeTrace)),
 		[listData]
@@ -225,23 +231,10 @@ export default function TraceDetailPage({
 	return (
 		<DetailShell
 			title={title}
-			subtitle={`${signalLabel.slice(0, -1)} / ${selectedSpanId}`}
+			subtitle={trace ? `${trace.serviceName || "unknown service"} / ${trace.applicationName || "unknown app"}` : selectedSpanId}
 			headerMeta={
 				trace ? (
-					<div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
-						<div className={`rounded-md border px-3 py-2 ${
-							type === "exceptions"
-								? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
-								: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300"
-						}`}>
-							<div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide">
-								<Sparkles className="h-3.5 w-3.5" />
-								{signalLabel.slice(0, -1)}
-							</div>
-							<div className="mt-1 truncate text-sm font-semibold">
-								{trace.spanName || selectedSpanId}
-							</div>
-						</div>
+					<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 						<Stat icon={<Clock className="h-3.5 w-3.5" />} label="Duration" value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
 						<Stat icon={<Zap className="h-3.5 w-3.5" />} label="Tokens" value={trace.totalTokens} />
 						<Stat icon={<DollarSign className="h-3.5 w-3.5" />} label="Cost" value={trace.cost ? `$${trace.cost}` : undefined} />
@@ -275,55 +268,12 @@ export default function TraceDetailPage({
 		>
 			{trace && (
 				<>
-					<div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-						<div className="rounded-md border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 p-4">
-							<div className="flex flex-wrap items-start gap-3">
-								<div className={`rounded-md border p-3 ${
-									type === "exceptions"
-										? "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
-										: "border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-400"
-								}`}>
-									<Fingerprint className="h-5 w-5" />
-								</div>
-								<div className="min-w-0 grow">
-									<p className="text-xs uppercase tracking-wide text-stone-400 dark:text-stone-500">
-										Selected Span
-									</p>
-									<h2 className="truncate text-xl font-semibold text-stone-900 dark:text-stone-100">
-										{trace.spanName}
-									</h2>
-									<p className="mt-1 truncate font-mono text-xs text-stone-500 dark:text-stone-400">
-										{trace.id} / {trace.spanId}
-									</p>
-								</div>
-							</div>
-							<div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2">
-								<Stat icon={<DollarSign className="h-3.5 w-3.5" />} label="Cost" value={trace.cost ? `$${trace.cost}` : undefined} />
-								<Stat icon={<Zap className="h-3.5 w-3.5" />} label="Tokens" value={trace.totalTokens} />
-								<Stat icon={<Clock className="h-3.5 w-3.5" />} label="Duration" value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
-								<Stat icon={<Cpu className="h-3.5 w-3.5" />} label="Model" value={trace.model} />
-							</div>
-						</div>
-						<div className="rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-4">
-							<div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
-								<Server className="h-4 w-4" />
-								<span className="text-xs font-medium uppercase tracking-wide">Runtime Context</span>
-							</div>
-							<div className="mt-3 space-y-3 text-sm">
-								<div>
-									<p className="text-xs text-stone-400">Service</p>
-									<p className="truncate font-medium text-stone-900 dark:text-stone-100">{trace.serviceName || "-"}</p>
-								</div>
-								<div>
-									<p className="text-xs text-stone-400">Application</p>
-									<p className="truncate font-medium text-stone-900 dark:text-stone-100">{trace.applicationName || "-"}</p>
-								</div>
-								<div>
-									<p className="text-xs text-stone-400">System</p>
-									<p className="truncate font-medium text-stone-900 dark:text-stone-100">{trace.system || "-"}</p>
-								</div>
-							</div>
-						</div>
+					<div className="grid grid-cols-1 gap-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/50 md:grid-cols-2 xl:grid-cols-5">
+						<Stat icon={<Hash className="h-3.5 w-3.5" />} label="Trace ID" value={trace.id} />
+						<Stat icon={<Hash className="h-3.5 w-3.5" />} label="Span ID" value={trace.spanId} />
+						<Stat icon={<Server className="h-3.5 w-3.5" />} label="Service" value={trace.serviceName} />
+						<Stat icon={<Server className="h-3.5 w-3.5" />} label="Application" value={trace.applicationName} />
+						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label="System" value={trace.system} />
 					</div>
 					<SpanHierarchyExplorer
 						hierarchySpanId={hierarchySpanIdRef.current}
@@ -343,4 +293,14 @@ export default function TraceDetailPage({
 			)}
 		</DetailShell>
 	);
+}
+
+export default function TraceDetailPage({
+	spanId,
+	type,
+}: {
+	spanId: string;
+	type: "traces" | "exceptions";
+}) {
+	return <TraceDetailView spanId={spanId} type={type} variant="page" />;
 }

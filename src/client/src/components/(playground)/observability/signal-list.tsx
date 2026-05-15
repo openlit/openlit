@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import DataTable from "@/components/data-table/table";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import GroupBreadcrumb from "@/components/(playground)/request/group-breadcrumb";
 import GroupedTable, {
@@ -14,11 +13,12 @@ import {
 	getUpdateConfig,
 	getUpdateFilter,
 } from "@/selectors/filter";
-import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { ObservabilitySignalConfig } from "./registry";
+import SignalSummary from "./signal-summary";
+import SignalRecords from "./signal-records";
 
 export default function ObservabilitySignalList({
 	config,
@@ -30,10 +30,12 @@ export default function ObservabilitySignalList({
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
 	const pingStatus = useRootStore(getPingStatus);
-	const visibilityColumns = useRootStore((state) =>
-		getVisibilityColumnsOfPage(state, config.visibilityPage)
-	);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const {
+		data: summaryData,
+		fireRequest: fireSummaryRequest,
+		isLoading: isSummaryLoading,
+	} = useFetchWrapper();
 
 	useEffect(() => {
 		updateConfig(undefined);
@@ -72,6 +74,14 @@ export default function ObservabilitySignalList({
 		});
 	}, [config.key, config.listUrl, effectiveFilter, fireRequest]);
 
+	const fetchSummary = useCallback(() => {
+		fireSummaryRequest({
+			body: JSON.stringify(effectiveFilter),
+			requestType: "POST",
+			url: config.summaryUrl,
+		});
+	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest]);
+
 	useEffect(() => {
 		if (
 			effectiveFilter.filterReady &&
@@ -81,6 +91,7 @@ export default function ObservabilitySignalList({
 			showFlatList
 		) {
 			fetchData();
+			fetchSummary();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [effectiveFilter, pingStatus, showFlatList]);
@@ -125,14 +136,20 @@ export default function ObservabilitySignalList({
 					apiUrl={config.groupedUrl}
 				/>
 			) : (
-				<DataTable
-					columns={config.columns}
-					data={rows}
-					isFetched={isFetched || pingStatus !== "pending"}
-					isLoading={isLoading || pingStatus === "pending"}
-					visibilityColumns={visibilityColumns}
-					onClick={openDetail}
-				/>
+				<div className="flex min-h-0 flex-col gap-4">
+					<SignalSummary
+						config={config}
+						data={summaryData as any}
+						isLoading={isSummaryLoading || pingStatus === "pending"}
+					/>
+					<SignalRecords
+						config={config}
+						rows={rows}
+						isFetched={isFetched || pingStatus !== "pending"}
+						isLoading={isLoading || pingStatus === "pending"}
+						onOpen={openDetail}
+					/>
+				</div>
 			)}
 		</>
 	);

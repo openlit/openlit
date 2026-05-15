@@ -23,6 +23,7 @@ export type ObservabilitySignalConfig = {
 	summary: string;
 	icon: LucideIcon;
 	listUrl: string;
+	summaryUrl: string;
 	configUrl: string;
 	attributeKeysUrl: string;
 	columns: Columns<any, any>;
@@ -46,6 +47,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: "Span flow",
 		icon: Activity,
 		listUrl: "/api/metrics/request",
+		summaryUrl: "/api/observability/summary/traces",
 		configUrl: "/api/metrics/request/config",
 		attributeKeysUrl: "/api/metrics/request/attribute-keys",
 		columns: traceColumns,
@@ -67,6 +69,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: "Failure path",
 		icon: ShieldAlert,
 		listUrl: "/api/metrics/exception",
+		summaryUrl: "/api/observability/summary/exceptions",
 		configUrl: "/api/metrics/request/config",
 		attributeKeysUrl: "/api/metrics/request/attribute-keys",
 		columns: exceptionColumns,
@@ -89,6 +92,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: "Signal shape",
 		icon: BarChart3,
 		listUrl: "/api/observability/metrics",
+		summaryUrl: "/api/observability/summary/metrics",
 		configUrl: "/api/observability/metrics/config",
 		attributeKeysUrl: "/api/observability/metrics/attribute-keys",
 		columns: metricColumns,
@@ -118,6 +122,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: "Event stream",
 		icon: FileText,
 		listUrl: "/api/observability/logs",
+		summaryUrl: "/api/observability/summary/logs",
 		configUrl: "/api/observability/logs/config",
 		attributeKeysUrl: "/api/observability/logs/attribute-keys",
 		columns: logColumns,

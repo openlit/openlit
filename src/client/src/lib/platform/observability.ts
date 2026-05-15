@@ -1,6 +1,7 @@
 import {
 	MetricParams,
 	OTEL_LOGS_TABLE_NAME,
+	OTEL_TRACES_TABLE_NAME,
 	OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME,
 	OTEL_METRICS_GAUGE_TABLE_NAME,
 	OTEL_METRICS_HISTOGRAM_TABLE_NAME,
@@ -8,10 +9,14 @@ import {
 	OTEL_METRICS_SUM_TABLE_NAME,
 	dataCollector,
 } from "./common";
-import { dateTruncGroupingLogic } from "@/helpers/server/platform";
+import {
+	dateTruncGroupingLogic,
+	getFilterWhereCondition,
+} from "@/helpers/server/platform";
 import { CustomFilterAttributeType } from "@/types/store/filter";
 
 type FilterTable = "logs" | "metrics";
+type SummarySignal = "traces" | "exceptions" | "logs" | "metrics";
 
 const METRIC_TABLES = [
 	{ table: OTEL_METRICS_GAUGE_TABLE_NAME, type: "gauge", valueExpr: "Value" },
@@ -49,6 +54,23 @@ const METRIC_FIELD_GROUP_BY = new Set([
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function getSummaryBucket(params: MetricParams) {
+	const start = new Date(params.timeLimit.start as Date | string);
+	const end = new Date(params.timeLimit.end as Date | string);
+	const days = Math.max(1, (end.getTime() - start.getTime()) / 86400000);
+
+	if (days <= 2) return "hour";
+	if (days <= 45) return "day";
+	if (days <= 370) return "week";
+	return "month";
+}
+
+function bucketLabelFormat(bucket: string) {
+	if (bucket === "hour") return "%m/%d %H:00";
+	if (bucket === "month") return "%Y/%m";
+	return "%Y/%m/%d";
 }
 
 function inList(values: string[]) {
@@ -99,7 +121,8 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 		where.push(`ServiceName IN (${inList(selected.services)})`);
 	}
 	if (table === "logs" && selected.severities?.length) {
-		where.push(`SeverityText IN (${inList(selected.severities)})`);
+		const severities = selected.severities.map((severity: string) => severity.toLowerCase());
+		where.push(`lower(SeverityText) IN (${inList(severities)})`);
 	}
 	if (table === "metrics") {
 		if (selected.metricNames?.length) {
@@ -122,6 +145,13 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 				if (expr) where.push(expr);
 			}
 		);
+	}
+
+	if (table === "logs" && selected.traceIds?.length) {
+		where.push(`TraceId IN (${inList(selected.traceIds)})`);
+	}
+	if (table === "logs" && selected.spanIds?.length) {
+		where.push(`SpanId IN (${inList(selected.spanIds)})`);
 	}
 
 	return where.length ? where.join(" AND ") : "1 = 1";
@@ -199,18 +229,7 @@ export async function getLogs(params: MetricParams) {
 	const query = `
 		SELECT
 			cityHash64(toString(Timestamp), TraceId, SpanId, SeverityText, Body) AS rowId,
-			Timestamp,
-			TraceId,
-			SpanId,
-			SeverityText,
-			SeverityNumber,
-			ServiceName,
-			Body,
-			ResourceAttributes,
-			ScopeName,
-			ScopeVersion,
-			ScopeAttributes,
-			LogAttributes
+			*
 		FROM ${OTEL_LOGS_TABLE_NAME}
 		WHERE ${where}
 		ORDER BY ${orderBy}
@@ -222,6 +241,74 @@ export async function getLogs(params: MetricParams) {
 		err,
 		records: data,
 		total: (countData as any[])?.[0]?.total || 0,
+	};
+}
+
+export async function getSignalSummary(
+	params: MetricParams,
+	signal: SummarySignal
+) {
+	const bucket = getSummaryBucket(params);
+	const labelFormat = bucketLabelFormat(bucket);
+	let query = "";
+
+	if (signal === "traces" || signal === "exceptions") {
+		const traceParams: MetricParams = {
+			...params,
+			...(signal === "exceptions"
+				? { statusCode: ["STATUS_CODE_ERROR", "Error"] }
+				: {}),
+		};
+		const where = getFilterWhereCondition(traceParams, true);
+		query = `
+			SELECT
+				formatDateTime(DATE_TRUNC('${bucket}', Timestamp), '${labelFormat}') AS label,
+				CAST(COUNT(*) AS INTEGER) AS count,
+				CAST(avg(Duration) * 1e-9 AS FLOAT) AS avgDuration,
+				CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS cost,
+				CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS tokens
+			FROM ${OTEL_TRACES_TABLE_NAME}
+			WHERE ${where}
+			GROUP BY label
+			ORDER BY min(Timestamp)
+		`;
+	} else if (signal === "logs") {
+		const where = buildWhere(params, "logs");
+		query = `
+			SELECT
+				formatDateTime(DATE_TRUNC('${bucket}', Timestamp), '${labelFormat}') AS label,
+				CAST(COUNT(*) AS INTEGER) AS count,
+				CAST(countIf(SeverityText IN ('ERROR', 'Error', 'error', 'FATAL', 'Fatal', 'fatal')) AS INTEGER) AS errors,
+				CAST(uniqExact(ServiceName) AS INTEGER) AS services
+			FROM ${OTEL_LOGS_TABLE_NAME}
+			WHERE ${where}
+			GROUP BY label
+			ORDER BY min(Timestamp)
+		`;
+	} else {
+		const union = metricUnionSelect(params, "ServiceName, MetricName, TimeUnix");
+		query = `
+			SELECT
+				formatDateTime(DATE_TRUNC('${bucket}', TimeUnix), '${labelFormat}') AS label,
+				CAST(COUNT(*) AS INTEGER) AS count,
+				CAST(uniqExact(MetricName) AS INTEGER) AS metrics,
+				CAST(uniqExact(ServiceName) AS INTEGER) AS services
+			FROM (${union})
+			GROUP BY label
+			ORDER BY min(TimeUnix)
+		`;
+	}
+
+	const { data, err } = await dataCollector({ query });
+	const buckets = (data as any[]) || [];
+	const total = buckets.reduce((sum, row) => sum + Number(row.count || 0), 0);
+
+	return {
+		err,
+		bucket,
+		buckets,
+		total,
+		peak: buckets.reduce((max, row) => Math.max(max, Number(row.count || 0)), 0),
 	};
 }
 
