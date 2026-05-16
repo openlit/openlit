@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import GroupBreadcrumb from "@/components/(playground)/request/group-breadcrumb";
 import GroupedTable, {
@@ -13,23 +13,44 @@ import {
 	getUpdateConfig,
 	getUpdateFilter,
 } from "@/selectors/filter";
+import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { ObservabilitySignalConfig } from "./registry";
 import SignalSummary from "./signal-summary";
 import SignalRecords from "./signal-records";
+import { TraceDetailView } from "./trace-detail-page";
+import { MetricDetailView } from "./metric-detail-page";
+import { LogDetailView } from "./log-detail-page";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Maximize2, X } from "lucide-react";
+import getMessage from "@/constants/messages";
+import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
+
+const DETAIL_SHEET_CONTENT_CLASS =
+	"right-2 top-2 bottom-2 flex h-auto w-[92vw] max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-2xl focus-visible:outline-none sm:max-w-none lg:w-[55vw]";
 
 export default function ObservabilitySignalList({
 	config,
 }: {
 	config: ObservabilitySignalConfig;
 }) {
+	const m = getMessage();
 	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
 	const pingStatus = useRootStore(getPingStatus);
+	const visibilityColumns = useRootStore((state) =>
+		getVisibilityColumnsOfPage(state, config.visibilityPage)
+	);
+	const [previewSpanId, setPreviewSpanId] = useState<string | null>(null);
+	const skipSelectedHydrationRef = useRef(false);
+	const selectedParam = searchParams.get("selected");
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const {
 		data: summaryData,
@@ -38,9 +59,7 @@ export default function ObservabilitySignalList({
 	} = useFetchWrapper();
 
 	useEffect(() => {
-		updateConfig(undefined);
-		updateFilter("groupBy", null);
-		updateFilter("selectedConfig", {}, { clearFilter: true });
+		prepareObservabilitySignalChange(updateConfig, updateFilter);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [config.key]);
 
@@ -67,12 +86,12 @@ export default function ObservabilitySignalList({
 			requestType: "POST",
 			url: config.listUrl,
 			failureCb: (err?: string) => {
-				toast.error(err || "Cannot connect to server!", {
+				toast.error(err || m.OBSERVABILITY_NO_SERVER_CONNECTION, {
 					id: `observability-${config.key}`,
 				});
 			},
 		});
-	}, [config.key, config.listUrl, effectiveFilter, fireRequest]);
+	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION]);
 
 	const fetchSummary = useCallback(() => {
 		fireSummaryRequest({
@@ -87,11 +106,10 @@ export default function ObservabilitySignalList({
 			effectiveFilter.filterReady &&
 			effectiveFilter.timeLimit.start &&
 			effectiveFilter.timeLimit.end &&
-			pingStatus === "success" &&
-			showFlatList
+			pingStatus === "success"
 		) {
-			fetchData();
 			fetchSummary();
+			if (showFlatList) fetchData();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [effectiveFilter, pingStatus, showFlatList]);
@@ -101,15 +119,137 @@ export default function ObservabilitySignalList({
 		return config.normalize ? records.map(config.normalize) : records;
 	}, [config, data]);
 	const total = (data as any)?.total || 0;
+	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
+	const isMetricSignal = config.key === "metrics";
+	const isLogSignal = config.key === "logs";
+
+	const setSelectedInUrl = useCallback(
+		(id: string | null) => {
+			const params = new URLSearchParams(searchParams.toString());
+			if (id) {
+				params.set("selected", id);
+			} else {
+				params.delete("selected");
+			}
+			const query = params.toString();
+			router.replace(`${pathname}${query ? `?${query}` : ""}`, {
+				scroll: false,
+			});
+		},
+		[pathname, router, searchParams]
+	);
+
+	const closePreview = useCallback(() => {
+		skipSelectedHydrationRef.current = true;
+		setPreviewSpanId(null);
+		setSelectedInUrl(null);
+	}, [setSelectedInUrl]);
+
+	useEffect(() => {
+		if (!selectedParam) {
+			skipSelectedHydrationRef.current = false;
+			setPreviewSpanId(null);
+			return;
+		}
+		if (isTraceSignal && !previewSpanId && !skipSelectedHydrationRef.current) {
+			setPreviewSpanId(selectedParam);
+			return;
+		}
+		if (!isTraceSignal) setPreviewSpanId(null);
+	}, [isTraceSignal, previewSpanId, selectedParam]);
+
+	const selectedMetricRow = useMemo(() => {
+		if (!isMetricSignal || !selectedParam) return null;
+		return (
+			rows.find((row: any) => config.getRowId(row) === selectedParam) || null
+		);
+	}, [config, isMetricSignal, rows, selectedParam]);
+
+	const selectedLogRow = useMemo(() => {
+		if (!isLogSignal || !selectedParam) return null;
+		return (
+			rows.find((row: any) => config.getRowId(row) === selectedParam) || null
+		);
+	}, [config, isLogSignal, rows, selectedParam]);
 
 	const openDetail = (row: any) => {
 		if (isLoading) return;
+		if (isTraceSignal) {
+			skipSelectedHydrationRef.current = false;
+			setPreviewSpanId(row.spanId);
+			setSelectedInUrl(row.spanId);
+			return;
+		}
+		if (isMetricSignal) {
+			setSelectedInUrl(config.getRowId(row));
+			return;
+		}
+		if (isLogSignal) {
+			setSelectedInUrl(config.getRowId(row));
+			return;
+		}
 		const from = `${window.location.pathname}${window.location.search}`;
 		router.push(config.getDetailHref(row, from));
 	};
 
+	const previewHref = useMemo(() => {
+		const activeSpanId = selectedParam || previewSpanId;
+		if (!activeSpanId) return "";
+		const from =
+			typeof window !== "undefined"
+				? `${window.location.pathname}${window.location.search}`
+				: "/observability";
+		const prefix =
+			config.key === "exceptions"
+				? "/observability/exceptions"
+				: "/observability/traces";
+		return `${prefix}/${activeSpanId}?from=${encodeURIComponent(from)}`;
+	}, [config.key, previewSpanId, selectedParam]);
+
+	const metricPreviewHref = useMemo(() => {
+		if (!selectedMetricRow) return "";
+		const from =
+			typeof window !== "undefined"
+				? `${window.location.pathname}${window.location.search}`
+				: "/observability?tab=metrics";
+		return config.getDetailHref(selectedMetricRow, from);
+	}, [config, selectedMetricRow]);
+
+	const logPreviewHref = useMemo(() => {
+		if (!selectedLogRow) return "";
+		const from =
+			typeof window !== "undefined"
+				? `${window.location.pathname}${window.location.search}`
+				: "/observability?tab=logs";
+		return config.getDetailHref(selectedLogRow, from);
+	}, [config, selectedLogRow]);
+
+	const updateTraceSelection = useCallback(
+		(spanId: string) => {
+			skipSelectedHydrationRef.current = false;
+			setPreviewSpanId(spanId);
+			setSelectedInUrl(spanId);
+		},
+		[setSelectedInUrl]
+	);
+
+	const updateActiveTraceSelection = useCallback(
+		(spanId: string) => {
+			setSelectedInUrl(spanId);
+		},
+		[setSelectedInUrl]
+	);
+
 	return (
 		<>
+			<div className="mb-3">
+				<SignalSummary
+					key={`summary-${config.key}`}
+					config={config}
+					data={summaryData as any}
+					isLoading={isSummaryLoading || pingStatus === "pending"}
+				/>
+			</div>
 			<TracesFilter
 				total={showFlatList ? total : undefined}
 				supportDynamicFilters
@@ -119,6 +259,9 @@ export default function ObservabilitySignalList({
 				configUrl={config.configUrl}
 				attributeKeysUrl={config.attributeKeysUrl}
 				customAttributeTypes={config.customAttributeTypes}
+				filterStorageScope={config.key}
+				showGroupBy={!!config.supportGrouping}
+				showVisibilityColumns
 			/>
 
 			{config.supportGrouping && filter.groupBy && (
@@ -137,20 +280,163 @@ export default function ObservabilitySignalList({
 				/>
 			) : (
 				<div className="flex min-h-0 flex-col gap-4">
-					<SignalSummary
-						config={config}
-						data={summaryData as any}
-						isLoading={isSummaryLoading || pingStatus === "pending"}
-					/>
 					<SignalRecords
+						key={`records-${config.key}`}
 						config={config}
 						rows={rows}
+						visibilityColumns={visibilityColumns}
 						isFetched={isFetched || pingStatus !== "pending"}
 						isLoading={isLoading || pingStatus === "pending"}
 						onOpen={openDetail}
+						selectedId={selectedParam}
 					/>
 				</div>
 			)}
+			<Sheet
+				modal={false}
+				open={isTraceSignal && !!previewSpanId}
+				onOpenChange={(open) => !open && closePreview()}
+			>
+				<SheetContent
+					side="right"
+					className={DETAIL_SHEET_CONTENT_CLASS}
+					displayOverlay={false}
+					displayClose={false}
+				>
+					<div className="min-h-0 flex-1 overflow-hidden">
+						{previewSpanId && (
+							<TraceDetailView
+								spanId={previewSpanId}
+								type={config.key === "exceptions" ? "exceptions" : "traces"}
+								variant="sheet"
+								onSpanChange={updateTraceSelection}
+								onActiveSpanChange={updateActiveTraceSelection}
+								navigationRows={rows}
+								navigationOffset={filter.offset}
+								navigationTotal={total}
+								extraActions={
+									<>
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 gap-1.5"
+											onClick={() => router.push(previewHref)}
+											disabled={!previewHref}
+										>
+											<Maximize2 className="h-3.5 w-3.5" />
+											{m.OBSERVABILITY_FULL_SCREEN}
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+											onClick={closePreview}
+											title={m.OBSERVABILITY_CLOSE}
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</>
+								}
+							/>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
+			<Sheet
+				modal={false}
+				open={isMetricSignal && !!selectedMetricRow}
+				onOpenChange={(open) => !open && closePreview()}
+			>
+				<SheetContent
+					side="right"
+					className={DETAIL_SHEET_CONTENT_CLASS}
+					displayOverlay={false}
+					displayClose={false}
+				>
+					<div className="min-h-0 flex-1 overflow-hidden">
+						{selectedMetricRow && (
+							<MetricDetailView
+								name={selectedMetricRow.metricName}
+								metricType={selectedMetricRow.metricType}
+								serviceName={selectedMetricRow.serviceName}
+								variant="sheet"
+								extraActions={
+									<div className="flex items-center gap-2">
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 gap-1.5"
+											onClick={() => router.push(metricPreviewHref)}
+											disabled={!metricPreviewHref}
+										>
+											<Maximize2 className="h-3.5 w-3.5" />
+											{m.OBSERVABILITY_FULL_SCREEN}
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+											onClick={closePreview}
+											title={m.OBSERVABILITY_CLOSE}
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+								}
+							/>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
+			<Sheet
+				modal={false}
+				open={isLogSignal && !!selectedLogRow}
+				onOpenChange={(open) => !open && closePreview()}
+			>
+				<SheetContent
+					side="right"
+					className={DETAIL_SHEET_CONTENT_CLASS}
+					displayOverlay={false}
+					displayClose={false}
+				>
+					<div className="min-h-0 flex-1 overflow-hidden">
+						{selectedLogRow && (
+							<LogDetailView
+								id={config.getRowId(selectedLogRow)}
+								from={
+									typeof window !== "undefined"
+										? `${window.location.pathname}${window.location.search}`
+										: "/observability?tab=logs"
+								}
+								variant="sheet"
+								extraActions={
+									<div className="flex items-center gap-2">
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 gap-1.5"
+											onClick={() => router.push(logPreviewHref)}
+											disabled={!logPreviewHref}
+										>
+											<Maximize2 className="h-3.5 w-3.5" />
+											{m.OBSERVABILITY_FULL_SCREEN}
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+											onClick={closePreview}
+											title={m.OBSERVABILITY_CLOSE}
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+								}
+							/>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
 		</>
 	);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Activity, Database, Server } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -9,6 +9,7 @@ import { useRootStore } from "@/store";
 import DetailShell from "./detail-shell";
 import AttributeGrid from "./attribute-grid";
 import { Button } from "@/components/ui/button";
+import getMessage from "@/constants/messages";
 
 function SummaryItem({
 	icon,
@@ -32,12 +33,23 @@ function SummaryItem({
 	);
 }
 
-export default function MetricDetailPage({ name }: { name: string }) {
+export function MetricDetailView({
+	name,
+	metricType,
+	serviceName,
+	from,
+	variant = "page",
+	extraActions,
+}: {
+	name: string;
+	metricType?: string;
+	serviceName?: string;
+	from?: string | null;
+	variant?: "page" | "sheet";
+	extraActions?: ReactNode;
+}) {
+	const m = getMessage();
 	const router = useRouter();
-	const searchParams = useSearchParams();
-	const from = searchParams.get("from");
-	const metricType = searchParams.get("metricType") || undefined;
-	const serviceName = searchParams.get("serviceName") || undefined;
 	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest } = useFetchWrapper();
 
@@ -61,7 +73,7 @@ export default function MetricDetailPage({ name }: { name: string }) {
 	const points = ((data as any)?.points || []) as any[];
 	const latest = points[0];
 	const latestValue = latest?.metric_value;
-	const unit = latest?.MetricUnit || "value";
+	const unit = latest?.MetricUnit || m.OBSERVABILITY_VALUE;
 	const pointCount = points.length;
 	const lastSeen = latest?.TimeUnix;
 
@@ -72,23 +84,25 @@ export default function MetricDetailPage({ name }: { name: string }) {
 	return (
 		<DetailShell
 			title={name}
-			subtitle={`${metricType || "metric"} / ${serviceName || "all services"}`}
-			actions={
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={goBack}
-					className="h-8 gap-1.5"
-				>
-					<ArrowLeft className="h-3.5 w-3.5" />
-					Back
-				</Button>
+			leadingActions={
+				variant === "page" ? (
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={goBack}
+						className="h-8 gap-1.5 px-2"
+					>
+						<ArrowLeft className="h-3.5 w-3.5" />
+						{m.OBSERVABILITY_BACK}
+					</Button>
+				) : undefined
 			}
+			actions={extraActions}
 			headerMeta={
 				<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 					<SummaryItem
 						icon={<Activity className="h-3.5 w-3.5" />}
-						label="Latest"
+						label={m.OBSERVABILITY_LATEST}
 						value={
 							typeof latestValue === "number"
 								? latestValue.toLocaleString(undefined, { maximumFractionDigits: 4 })
@@ -97,26 +111,39 @@ export default function MetricDetailPage({ name }: { name: string }) {
 					/>
 					<SummaryItem
 						icon={<Database className="h-3.5 w-3.5" />}
-						label="Unit"
+						label={m.OBSERVABILITY_UNIT}
 						value={unit}
 					/>
 					<SummaryItem
 						icon={<Database className="h-3.5 w-3.5" />}
-						label="Loaded Points"
+						label={m.OBSERVABILITY_LOADED_POINTS}
 						value={pointCount.toLocaleString()}
 					/>
 					<SummaryItem
 						icon={<Server className="h-3.5 w-3.5" />}
-						label="Last Seen"
+						label={m.OBSERVABILITY_LAST_SEEN}
 						value={lastSeen}
 					/>
 				</div>
 			}
 		>
-			<AttributeGrid title="Latest Metric Attributes" data={latest?.Attributes} />
-			<AttributeGrid title="Latest Resource Attributes" data={latest?.ResourceAttributes} />
-			<AttributeGrid title="Latest Scope Attributes" data={latest?.ScopeAttributes} />
-			<AttributeGrid title="Latest Metric Point" data={latest} />
+			<AttributeGrid title={m.OBSERVABILITY_LATEST_METRIC_ATTRIBUTES} data={latest?.Attributes} />
+			<AttributeGrid title={m.OBSERVABILITY_LATEST_RESOURCE_ATTRIBUTES} data={latest?.ResourceAttributes} />
+			<AttributeGrid title={m.OBSERVABILITY_LATEST_SCOPE_ATTRIBUTES} data={latest?.ScopeAttributes} />
+			<AttributeGrid title={m.OBSERVABILITY_LATEST_METRIC_POINT} data={latest} />
 		</DetailShell>
+	);
+}
+
+export default function MetricDetailPage({ name }: { name: string }) {
+	const searchParams = useSearchParams();
+
+	return (
+		<MetricDetailView
+			name={name}
+			metricType={searchParams.get("metricType") || undefined}
+			serviceName={searchParams.get("serviceName") || undefined}
+			from={searchParams.get("from")}
+		/>
 	);
 }

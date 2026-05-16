@@ -19,14 +19,15 @@ type FilterTable = "logs" | "metrics";
 type SummarySignal = "traces" | "exceptions" | "logs" | "metrics";
 
 const METRIC_TABLES = [
-	{ table: OTEL_METRICS_GAUGE_TABLE_NAME, type: "gauge", valueExpr: "Value" },
-	{ table: OTEL_METRICS_SUM_TABLE_NAME, type: "sum", valueExpr: "Value" },
-	{ table: OTEL_METRICS_HISTOGRAM_TABLE_NAME, type: "histogram", valueExpr: "Sum" },
-	{ table: OTEL_METRICS_SUMMARY_TABLE_NAME, type: "summary", valueExpr: "Sum" },
+	{ table: OTEL_METRICS_GAUGE_TABLE_NAME, type: "gauge", valueExpr: "Value", countExpr: "1" },
+	{ table: OTEL_METRICS_SUM_TABLE_NAME, type: "sum", valueExpr: "Value", countExpr: "1" },
+	{ table: OTEL_METRICS_HISTOGRAM_TABLE_NAME, type: "histogram", valueExpr: "Sum", countExpr: "Count" },
+	{ table: OTEL_METRICS_SUMMARY_TABLE_NAME, type: "summary", valueExpr: "Sum", countExpr: "Count" },
 	{
 		table: OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME,
 		type: "exponential_histogram",
 		valueExpr: "Sum",
+		countExpr: "Count",
 	},
 ];
 
@@ -164,10 +165,11 @@ function metricUnionSelect(params: MetricParams, selectSql: string) {
 		? METRIC_TABLES.filter(({ type }) => selectedTypes.includes(type))
 		: METRIC_TABLES;
 	return tables.map(
-		({ table, type, valueExpr }) => `
+		({ table, type, valueExpr, countExpr }) => `
 			SELECT
 				'${type}' AS metric_type,
 				${valueExpr} AS metric_value,
+				${countExpr} AS metric_sample_count,
 				${selectSql}
 			FROM ${table}
 			WHERE ${where}
@@ -391,8 +393,12 @@ export async function getMetrics(params: MetricParams) {
 			ServiceName AS serviceName,
 			anyLast(MetricDescription) AS metricDescription,
 			anyLast(MetricUnit) AS metricUnit,
-			CAST(anyLast(metric_value) AS FLOAT) AS latestValue,
+			CAST(argMax(metric_value, TimeUnix) AS FLOAT) AS latestValue,
+			CAST(avg(metric_value) AS FLOAT) AS avgValue,
+			CAST(min(metric_value) AS FLOAT) AS minValue,
+			CAST(max(metric_value) AS FLOAT) AS maxValue,
 			CAST(COUNT(*) AS INTEGER) AS pointCount,
+			CAST(SUM(metric_sample_count) AS INTEGER) AS observationCount,
 			max(TimeUnix) AS lastSeen
 		FROM (${union})
 		GROUP BY MetricName, metric_type, ServiceName

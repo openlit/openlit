@@ -6,12 +6,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import DetailShell from "./detail-shell";
 import AttributeGrid from "./attribute-grid";
-import { normalizeTrace } from "@/helpers/client/trace";
+import { getExtraTabsContentTypes, normalizeTrace } from "@/helpers/client/trace";
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
 import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
-import { ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, Hash, Server, Zap } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, Hash, Server, Zap } from "lucide-react";
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
+import { Button } from "@/components/ui/button";
+import getMessage from "@/constants/messages";
+import Evaluations from "@/components/(playground)/request/components/evaluations";
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
 	return (
@@ -99,12 +102,23 @@ export function TraceDetailView({
 	type,
 	variant = "page",
 	onSpanChange,
+	onActiveSpanChange,
+	extraActions,
+	navigationRows,
+	navigationOffset,
+	navigationTotal,
 }: {
 	spanId: string;
 	type: "traces" | "exceptions";
 	variant?: "page" | "sheet";
 	onSpanChange?: (spanId: string) => void;
+	onActiveSpanChange?: (spanId: string) => void;
+	extraActions?: ReactNode;
+	navigationRows?: any[];
+	navigationOffset?: number;
+	navigationTotal?: number;
 }) {
+	const m = getMessage();
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const from = searchParams.get("from");
@@ -131,6 +145,12 @@ export function TraceDetailView({
 	}, [fireRequest, selectedSpanId]);
 
 	useEffect(() => {
+		hierarchySpanIdRef.current = spanId;
+		setSelectedSpanId(spanId);
+		setActiveListSpanId(spanId);
+	}, [spanId]);
+
+	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
 
@@ -149,9 +169,13 @@ export function TraceDetailView({
 		[onSpanChange, router, variant]
 	);
 
-	const selectSpanInCurrentTrace = useCallback((nextSpanId: string) => {
-		setSelectedSpanId(nextSpanId);
-	}, []);
+	const selectSpanInCurrentTrace = useCallback(
+		(nextSpanId: string) => {
+			setSelectedSpanId(nextSpanId);
+			onActiveSpanChange?.(nextSpanId);
+		},
+		[onActiveSpanChange]
+	);
 
 	const fetchList = useCallback(
 		(offset: number, direction?: -1 | 1) => {
@@ -184,111 +208,137 @@ export function TraceDetailView({
 
 	const raw = (data as any)?.record;
 	const trace = raw ? normalizeTrace(raw) : null;
-	const title = trace?.spanName || (isLoading ? "Loading trace..." : selectedSpanId);
-	const signalLabel = type === "exceptions" ? "Exceptions" : "Traces";
+	const hasEvaluationPanel = trace
+		? getExtraTabsContentTypes(trace).includes("Evaluation")
+		: false;
+	const title = trace?.spanName || (isLoading ? m.OBSERVABILITY_TRACE_LOADING : selectedSpanId);
 	const resultsHref =
 		from || `/observability?tab=${type === "exceptions" ? "exceptions" : "traces"}`;
-	const breadcrumbTitle = trace?.spanName || (isLoading ? "Loading..." : "Trace Details");
+	const breadcrumbTitle = trace?.spanName || (isLoading ? m.OBSERVABILITY_LOADING : m.OBSERVABILITY_TRACE_DETAILS);
 
 	const customHeader = useMemo(
 		() => ({
 			title: breadcrumbTitle,
 			description: selectedSpanId,
 			breadcrumbs: [
-				{ title: "Observability", href: resultsHref },
+				{ title: m.OBSERVABILITY_TITLE, href: resultsHref },
 			],
 		}),
-		[breadcrumbTitle, resultsHref, selectedSpanId]
+		[breadcrumbTitle, m.OBSERVABILITY_TITLE, resultsHref, selectedSpanId]
 	);
 	useCustomBreadcrumbs(customHeader, [selectedSpanId, resultsHref], variant === "page");
 	const listRows = useMemo(
 		() => (((listData as any)?.records || []).map(normalizeTrace)),
 		[listData]
 	);
-	const total = (listData as any)?.total || 0;
-	const currentIndex = listRows.findIndex((row: any) => row.spanId === activeListSpanId);
-	const canPrev = currentIndex > 0 || listOffset > 0;
+	const effectiveListRows = navigationRows?.length ? navigationRows : listRows;
+	const effectiveListOffset = navigationOffset ?? listOffset;
+	const total = navigationTotal ?? (listData as any)?.total ?? 0;
+	const currentIndex = effectiveListRows.findIndex((row: any) => row.spanId === activeListSpanId);
+	const canPrev = currentIndex > 0 || effectiveListOffset > 0;
 	const canNext =
 		currentIndex >= 0 &&
-		(currentIndex < listRows.length - 1 || listOffset + listRows.length < total);
+		(currentIndex < effectiveListRows.length - 1 || effectiveListOffset + effectiveListRows.length < total);
 
 	const selectPrev = () => {
 		if (currentIndex > 0) {
-			navigateToListSpan(listRows[currentIndex - 1].spanId);
-		} else if (listOffset > 0) {
-			fetchList(Math.max(0, listOffset - filterFromSource(fromRef.current).limit), -1);
+			navigateToListSpan(effectiveListRows[currentIndex - 1].spanId);
+		} else if (effectiveListOffset > 0) {
+			fetchList(Math.max(0, effectiveListOffset - filterFromSource(fromRef.current).limit), -1);
 		}
 	};
 
 	const selectNext = () => {
-		if (currentIndex >= 0 && currentIndex < listRows.length - 1) {
-			navigateToListSpan(listRows[currentIndex + 1].spanId);
-		} else if (listOffset + listRows.length < total) {
-			fetchList(listOffset + filterFromSource(fromRef.current).limit, 1);
+		if (currentIndex >= 0 && currentIndex < effectiveListRows.length - 1) {
+			navigateToListSpan(effectiveListRows[currentIndex + 1].spanId);
+		} else if (effectiveListOffset + effectiveListRows.length < total) {
+			fetchList(effectiveListOffset + filterFromSource(fromRef.current).limit, 1);
 		}
+	};
+
+	const goBack = () => {
+		router.push(resultsHref);
 	};
 
 	return (
 		<DetailShell
 			title={title}
-			subtitle={trace ? `${trace.serviceName || "unknown service"} / ${trace.applicationName || "unknown app"}` : selectedSpanId}
+			leadingActions={
+				variant === "page" ? (
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={goBack}
+						className="h-8 gap-1.5 px-2"
+					>
+						<ArrowLeft className="h-3.5 w-3.5" />
+						{m.OBSERVABILITY_BACK}
+					</Button>
+				) : undefined
+			}
 			headerMeta={
 				trace ? (
 					<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-						<Stat icon={<Clock className="h-3.5 w-3.5" />} label="Duration" value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
-						<Stat icon={<Zap className="h-3.5 w-3.5" />} label="Tokens" value={trace.totalTokens} />
-						<Stat icon={<DollarSign className="h-3.5 w-3.5" />} label="Cost" value={trace.cost ? `$${trace.cost}` : undefined} />
-						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label="Model" value={trace.model || trace.serviceName} />
+						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
+						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={trace.totalTokens} />
+						<Stat icon={<DollarSign className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_COST} value={trace.cost ? `$${trace.cost}` : undefined} />
+						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_MODEL} value={trace.model || trace.serviceName} />
 					</div>
 				) : undefined
 			}
 			actions={
-				<div className="flex items-center gap-1 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-0.5">
-					<button
-						onClick={selectPrev}
-						disabled={!canPrev || isListLoading}
-						className="rounded p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-30 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
-						title="Previous span"
-					>
-						<ChevronLeft className="h-4 w-4" />
-					</button>
-					<span className="min-w-[4.5rem] px-1 text-center text-xs tabular-nums text-stone-500 dark:text-stone-400">
-						{currentIndex >= 0 ? `${listOffset + currentIndex + 1} / ${total || listRows.length}` : "-"}
-					</span>
-					<button
-						onClick={selectNext}
-						disabled={!canNext || isListLoading}
-						className="rounded p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-30 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
-						title="Next span"
-					>
-						<ChevronRight className="h-4 w-4" />
-					</button>
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<div className="flex items-center gap-1 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-0.5">
+						<button
+							onClick={selectPrev}
+							disabled={!canPrev || isListLoading}
+							className="rounded p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-30 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+							title={m.OBSERVABILITY_PREVIOUS_SPAN}
+						>
+							<ChevronLeft className="h-4 w-4" />
+						</button>
+						<span className="min-w-[4.5rem] px-1 text-center text-xs tabular-nums text-stone-500 dark:text-stone-400">
+							{currentIndex >= 0 ? `${effectiveListOffset + currentIndex + 1} / ${total || effectiveListRows.length}` : "-"}
+						</span>
+						<button
+							onClick={selectNext}
+							disabled={!canNext || isListLoading}
+							className="rounded p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-30 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+							title={m.OBSERVABILITY_NEXT_SPAN}
+						>
+							<ChevronRight className="h-4 w-4" />
+						</button>
+					</div>
+					{extraActions}
 				</div>
 			}
 		>
 			{trace && (
 				<>
 					<div className="grid grid-cols-1 gap-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/50 md:grid-cols-2 xl:grid-cols-5">
-						<Stat icon={<Hash className="h-3.5 w-3.5" />} label="Trace ID" value={trace.id} />
-						<Stat icon={<Hash className="h-3.5 w-3.5" />} label="Span ID" value={trace.spanId} />
-						<Stat icon={<Server className="h-3.5 w-3.5" />} label="Service" value={trace.serviceName} />
-						<Stat icon={<Server className="h-3.5 w-3.5" />} label="Application" value={trace.applicationName} />
-						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label="System" value={trace.system} />
+						<Stat icon={<Hash className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
+						<Stat icon={<Hash className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
+						<Stat icon={<Server className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
+						<Stat icon={<Server className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_APPLICATION} value={trace.applicationName} />
+						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SYSTEM} value={trace.system} />
 					</div>
 					<SpanHierarchyExplorer
 						hierarchySpanId={hierarchySpanIdRef.current}
 						selectedSpanId={selectedSpanId}
 						onSelectSpan={selectSpanInCurrentTrace}
 					/>
+					{hasEvaluationPanel && trace && (
+						<Evaluations trace={trace} surface="observability" />
+					)}
 					<AttributeGrid
-						title="Span Attributes"
+						title={m.OBSERVABILITY_SPAN_ATTRIBUTES}
 						data={raw?.SpanAttributes}
 					/>
 					<AttributeGrid
-						title="Resource Attributes"
+						title={m.OBSERVABILITY_RESOURCE_ATTRIBUTES}
 						data={raw?.ResourceAttributes}
 					/>
-					<AttributeGrid title="Raw Record" data={raw} />
+					<AttributeGrid title={m.OBSERVABILITY_RAW_RECORD} data={raw} />
 				</>
 			)}
 		</DetailShell>

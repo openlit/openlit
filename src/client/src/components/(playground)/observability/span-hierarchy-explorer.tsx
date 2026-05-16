@@ -13,14 +13,15 @@ import TreeNode from "@/components/(playground)/request/components/tree-node";
 import TimelineView from "@/components/(playground)/request/components/timeline-view";
 import NodeGraph from "@/components/(playground)/request/components/node-graph";
 import ChatView from "@/components/(playground)/request/components/chat-view";
+import getMessage from "@/constants/messages";
 
 type ViewMode = "tree" | "chat" | "timeline" | "graph";
 
-const VIEW_MODES: { key: ViewMode; label: string; icon: ReactNode }[] = [
-	{ key: "tree", label: "Tree", icon: <GitBranch className="h-3.5 w-3.5" /> },
-	{ key: "chat", label: "Chat", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
-	{ key: "timeline", label: "Timeline", icon: <BarChart3 className="h-3.5 w-3.5" /> },
-	{ key: "graph", label: "Graph", icon: <Network className="h-3.5 w-3.5" /> },
+const VIEW_MODES: { key: ViewMode; labelKey: "OBSERVABILITY_TREE" | "OBSERVABILITY_CHAT" | "OBSERVABILITY_TIMELINE" | "OBSERVABILITY_GRAPH"; icon: ReactNode }[] = [
+	{ key: "tree", labelKey: "OBSERVABILITY_TREE", icon: <GitBranch className="h-3.5 w-3.5" /> },
+	{ key: "chat", labelKey: "OBSERVABILITY_CHAT", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
+	{ key: "timeline", labelKey: "OBSERVABILITY_TIMELINE", icon: <BarChart3 className="h-3.5 w-3.5" /> },
+	{ key: "graph", labelKey: "OBSERVABILITY_GRAPH", icon: <Network className="h-3.5 w-3.5" /> },
 ];
 
 function sumCostRecursive(span: TraceHeirarchySpan): number {
@@ -69,6 +70,7 @@ function SpanHierarchyExplorerInner({
 	selectedSpanId: string;
 	onSelectSpan?: (spanId: string) => void;
 }) {
+	const m = getMessage();
 	const [, updateRequest] = useRequest();
 	const [viewMode, setViewMode] = useState<ViewMode>("tree");
 	const { data, fireRequest, isLoading } = useFetchWrapper();
@@ -101,12 +103,14 @@ function SpanHierarchyExplorerInner({
 			<div className="flex flex-wrap items-center gap-2 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 px-3 py-2">
 				<div className="mr-auto min-w-0">
 					<h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-						Span Hierarchy
+						{m.OBSERVABILITY_SPAN_HIERARCHY}
 					</h2>
 					<p className="text-xs text-stone-500 dark:text-stone-400">
 						{isLoading
-							? "Loading spans"
-							: `${spanCount.toLocaleString()} spans${aggregateCost > 0 ? ` / $${aggregateCost.toFixed(8)}` : ""}`}
+							? m.OBSERVABILITY_LOADING_SPANS
+							: aggregateCost > 0
+								? m.OBSERVABILITY_SPAN_COUNT_WITH_COST(spanCount.toLocaleString(), aggregateCost.toFixed(8))
+								: m.OBSERVABILITY_SPAN_COUNT(spanCount.toLocaleString())}
 					</p>
 				</div>
 				<div className="flex rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-0.5">
@@ -121,7 +125,7 @@ function SpanHierarchyExplorerInner({
 							}`}
 						>
 							{mode.icon}
-							{mode.label}
+							{m[mode.labelKey]}
 						</button>
 					))}
 				</div>
@@ -138,7 +142,7 @@ function SpanHierarchyExplorerInner({
 				</div>
 			) : !record || typedData.err ? (
 				<div className="px-3 py-8 text-sm text-stone-400">
-					Span hierarchy is not available for this span.
+					{m.OBSERVABILITY_HIERARCHY_UNAVAILABLE}
 				</div>
 			) : (
 				<div className={`${viewMode === "graph" ? "h-[520px] overflow-hidden overscroll-contain" : "max-h-[520px] overflow-auto"} bg-stone-50/60 dark:bg-stone-950`}>

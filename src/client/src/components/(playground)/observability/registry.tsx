@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { CustomFilterAttributeType } from "@/types/store/filter";
 import { PAGE } from "@/types/store/page";
+import getMessage from "@/constants/messages";
+
+const m = getMessage();
 
 export type ObservabilitySignal = "traces" | "exceptions" | "metrics" | "logs";
 
@@ -41,10 +44,10 @@ export type ObservabilitySignalConfig = {
 export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 	{
 		key: "traces",
-		label: "Traces",
-		shortLabel: "Latency, cost, tokens",
+		label: m.OBSERVABILITY_TRACES,
+		shortLabel: m.OBSERVABILITY_TRACE_SHORT_LABEL,
 		tone: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-900",
-		summary: "Span flow",
+		summary: m.OBSERVABILITY_TRACE_SUMMARY,
 		icon: Activity,
 		listUrl: "/api/metrics/request",
 		summaryUrl: "/api/observability/summary/traces",
@@ -63,10 +66,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 	},
 	{
 		key: "exceptions",
-		label: "Exceptions",
-		shortLabel: "Failures and error spans",
+		label: m.OBSERVABILITY_EXCEPTIONS,
+		shortLabel: m.OBSERVABILITY_EXCEPTION_SHORT_LABEL,
 		tone: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900",
-		summary: "Failure path",
+		summary: m.OBSERVABILITY_EXCEPTION_SUMMARY,
 		icon: ShieldAlert,
 		listUrl: "/api/metrics/exception",
 		summaryUrl: "/api/observability/summary/exceptions",
@@ -86,10 +89,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 	},
 	{
 		key: "metrics",
-		label: "Metrics",
-		shortLabel: "Gauges, sums, histograms",
+		label: m.OBSERVABILITY_METRICS,
+		shortLabel: m.OBSERVABILITY_METRIC_SHORT_LABEL,
 		tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
-		summary: "Signal shape",
+		summary: m.OBSERVABILITY_METRIC_SUMMARY,
 		icon: BarChart3,
 		listUrl: "/api/observability/metrics",
 		summaryUrl: "/api/observability/summary/metrics",
@@ -116,10 +119,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 	},
 	{
 		key: "logs",
-		label: "Logs",
-		shortLabel: "Events and correlated context",
+		label: m.OBSERVABILITY_LOGS,
+		shortLabel: m.OBSERVABILITY_LOG_SHORT_LABEL,
 		tone: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900",
-		summary: "Event stream",
+		summary: m.OBSERVABILITY_LOG_SUMMARY,
 		icon: FileText,
 		listUrl: "/api/observability/logs",
 		summaryUrl: "/api/observability/summary/logs",

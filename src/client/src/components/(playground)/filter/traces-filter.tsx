@@ -38,6 +38,13 @@ import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
 import { useRouter, usePathname } from "next/navigation";
+import getMessage from "@/constants/messages";
+import {
+	FILTER_PARAM_KEYS,
+	getFilterStorageKey,
+} from "@/helpers/client/filter-persistence";
+
+const m = getMessage();
 
 // ─── Combobox (text input + inline dropdown, portal-rendered to escape overflow) ───
 
@@ -440,17 +447,17 @@ const DynamicFilters = ({
 	const getAttributeTypeLabel = (attributeType: CustomFilterAttributeType) => {
 		switch (attributeType) {
 			case "SpanAttributes":
-				return "Span Attributes";
+				return m.OBSERVABILITY_SPAN_ATTRIBUTES;
 			case "ResourceAttributes":
-				return "Resource Attributes";
+				return m.OBSERVABILITY_RESOURCE_ATTRIBUTES;
 			case "LogAttributes":
-				return "Log Attributes";
+				return m.OBSERVABILITY_LOG_ATTRIBUTES;
 			case "ScopeAttributes":
-				return "Scope Attributes";
+				return m.OBSERVABILITY_SCOPE_ATTRIBUTES;
 			case "Attributes":
-				return "Metric Attributes";
+				return m.OBSERVABILITY_METRIC_ATTRIBUTES;
 			case "Field":
-				return "Field";
+				return m.OBSERVABILITY_FIELD;
 		}
 	};
 
@@ -469,7 +476,7 @@ const DynamicFilters = ({
 								label: p,
 								value: p,
 							}))}
-							title="Types"
+							title={m.OBSERVABILITY_TYPES}
 							type="traceTypes"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.traceTypes}
@@ -479,7 +486,7 @@ const DynamicFilters = ({
 					{filterConfig?.models?.length ? (
 						<ComboDropdown
 							options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
-							title="Models"
+							title={m.OBSERVABILITY_MODELS}
 							type="models"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.models}
@@ -492,7 +499,7 @@ const DynamicFilters = ({
 								label: p,
 								value: p,
 							}))}
-							title="Providers"
+							title={m.OBSERVABILITY_PROVIDERS}
 							type="providers"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.providers}
@@ -501,7 +508,7 @@ const DynamicFilters = ({
 					) : null}
 					{filterConfig?.maxCost ? (
 						<SlideWithValue
-							label="Max Cost"
+							label={m.OBSERVABILITY_MAX_COST}
 							value={selectedFilterValues.maxCost || 0}
 							maxValue={filterConfig.maxCost}
 							onChange={updateSelectedValues}
@@ -514,7 +521,7 @@ const DynamicFilters = ({
 								label: a,
 								value: a,
 							}))}
-							title="Application Names"
+							title={m.OBSERVABILITY_APPLICATION_NAMES}
 							type="applicationNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.applicationNames}
@@ -527,7 +534,7 @@ const DynamicFilters = ({
 								label: s,
 								value: s,
 							}))}
-							title="Span Names"
+							title={m.OBSERVABILITY_SPAN_NAMES}
 							type="spanNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.spanNames}
@@ -540,7 +547,7 @@ const DynamicFilters = ({
 								label: e,
 								value: e,
 							}))}
-							title="Environments"
+							title={m.OBSERVABILITY_ENVIRONMENTS}
 							type="environments"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.environments}
@@ -553,7 +560,7 @@ const DynamicFilters = ({
 								label: service,
 								value: service,
 							}))}
-							title="Services"
+							title={m.OBSERVABILITY_SERVICES}
 							type="services"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.services}
@@ -566,7 +573,7 @@ const DynamicFilters = ({
 								label: severity,
 								value: severity,
 							}))}
-							title="Severities"
+							title={m.OBSERVABILITY_SEVERITIES}
 							type="severities"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.severities}
@@ -579,7 +586,7 @@ const DynamicFilters = ({
 								label: metricName,
 								value: metricName,
 							}))}
-							title="Metric Names"
+							title={m.OBSERVABILITY_METRIC_NAMES}
 							type="metricNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.metricNames}
@@ -592,7 +599,7 @@ const DynamicFilters = ({
 								label: metricType,
 								value: metricType,
 							}))}
-							title="Metric Types"
+							title={m.OBSERVABILITY_METRIC_TYPES}
 							type="metricTypes"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.metricTypes}
@@ -635,7 +642,7 @@ const DynamicFilters = ({
 						onClick={addCustomFilter}
 					>
 						<Plus className="w-3 h-3" />
-						Add
+						{m.OBSERVABILITY_ADD}
 					</Button>
 				</div>
 				{customFilters.length > 0 && (
@@ -658,7 +665,7 @@ const DynamicFilters = ({
 
 								{cf.attributeType === "Field" ? (
 									<Input
-										placeholder="e.g. SpanName"
+										placeholder={m.OBSERVABILITY_SPAN_NAME_EXAMPLE}
 										value={cf.key}
 										onChange={(e) =>
 											updateCustomFilter(index, "key", e.target.value)
@@ -672,12 +679,12 @@ const DynamicFilters = ({
 										options={
 											getAttributeOptions(cf.attributeType)
 										}
-										placeholder="e.g. gen_ai.system"
+										placeholder={m.OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE}
 									/>
 								)}
 
 								<Input
-									placeholder="Value"
+									placeholder={m.OBSERVABILITY_VALUE}
 									value={cf.value}
 									onChange={(e) =>
 										updateCustomFilter(index, "value", e.target.value)
@@ -704,10 +711,10 @@ const DynamicFilters = ({
 // ─── GroupBy selector ─────────────────────────────────────────────────────────
 
 const GROUP_BY_OPTIONS: { key: string; label: string }[] = [
-	{ key: "model", label: "Model" },
-	{ key: "provider", label: "Provider" },
-	{ key: "spanName", label: "Span Name" },
-	{ key: "applicationName", label: "Application" },
+	{ key: "model", label: m.OBSERVABILITY_MODEL },
+	{ key: "provider", label: m.OBSERVABILITY_PROVIDERS },
+	{ key: "spanName", label: m.OBSERVABILITY_SPAN_NAMES },
+	{ key: "applicationName", label: m.OBSERVABILITY_APPLICATION },
 ];
 
 const PREDEFINED_GROUP_BY_KEYS = new Set<string>(GROUP_BY_OPTIONS.map((o) => o.key));
@@ -778,6 +785,7 @@ function GroupByDropdown({
 	groupBy?: string;
 	onChangeGroupBy: (key: string | undefined) => void;
 	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
 }) {
 	const attributeKeys = useRootStore(getAttributeKeys);
 	const [open, setOpen] = useState(false);
@@ -881,16 +889,16 @@ function GroupByDropdown({
 							{customAttributeTypes.map((attributeType) => (
 								<option key={attributeType} value={attributeType}>
 									{attributeType === "SpanAttributes"
-										? "Span Attributes"
+										? m.OBSERVABILITY_SPAN_ATTRIBUTES
 										: attributeType === "ResourceAttributes"
-										? "Resource Attributes"
+										? m.OBSERVABILITY_RESOURCE_ATTRIBUTES
 										: attributeType === "LogAttributes"
-										? "Log Attributes"
+										? m.OBSERVABILITY_LOG_ATTRIBUTES
 										: attributeType === "ScopeAttributes"
-										? "Scope Attributes"
+										? m.OBSERVABILITY_SCOPE_ATTRIBUTES
 										: attributeType === "Attributes"
-										? "Metric Attributes"
-										: "Field"}
+										? m.OBSERVABILITY_METRIC_ATTRIBUTES
+										: m.OBSERVABILITY_FIELD}
 								</option>
 							))}
 						</select>
@@ -917,11 +925,6 @@ function GroupByDropdown({
 
 // ─── Local storage persistence ────────────────────────────────────────────────
 
-const FILTER_STORAGE_KEY = "openlit_filter_v1";
-
-// Params that indicate a meaningful filter is present in the URL
-const FILTER_PARAM_KEYS = ["tr", "ts", "te", "limit", "offset", "models", "providers", "traceTypes", "appNames", "spanNames", "envs", "maxCost", "services", "severities", "metricNames", "metricTypes", "cf", "gb", "gbv"];
-
 type PersistedFilter = {
 	timeLimitType: string;
 	timeLimitStart?: string;
@@ -933,7 +936,7 @@ type PersistedFilter = {
 	groupValue?: string;
 };
 
-function saveFilterToStorage(filter: FilterType) {
+function saveFilterToStorage(filter: FilterType, storageKey: string) {
 	try {
 		const toSave: PersistedFilter = {
 			timeLimitType: filter.timeLimit.type,
@@ -949,13 +952,13 @@ function saveFilterToStorage(filter: FilterType) {
 			groupBy: filter.groupBy,
 			groupValue: filter.groupValue,
 		};
-		localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(toSave));
+		localStorage.setItem(storageKey, JSON.stringify(toSave));
 	} catch {}
 }
 
-function loadFilterFromStorage(): PersistedFilter | null {
+function loadFilterFromStorage(storageKey: string): PersistedFilter | null {
 	try {
-		const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+		const raw = localStorage.getItem(storageKey);
 		return raw ? (JSON.parse(raw) as PersistedFilter) : null;
 	} catch {
 		return null;
@@ -989,9 +992,14 @@ function applyStoredFilter(
 
 const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
 
-function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value: any, extraParams?: any) => void) {
+function useFilterUrlSync(
+	filter: FilterType,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	storageScope?: string
+) {
 	const router = useRouter();
 	const pathname = usePathname();
+	const storageKey = getFilterStorageKey(storageScope);
 	// Tracks whether the initial URL read has been applied to the store
 	const initializedFromUrl = useRef(false);
 
@@ -1038,7 +1046,7 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 			if (gbv) updateFilter("groupValue", gbv);
 		} else {
 			// ── Fall back to localStorage ─────────────────────────────────────
-			const saved = loadFilterFromStorage();
+			const saved = loadFilterFromStorage(storageKey);
 			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
 		}
 
@@ -1089,9 +1097,9 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 		}
 
 		// Persist to localStorage so other pages (and refreshes) pick up these filters
-		saveFilterToStorage(filter);
+		saveFilterToStorage(filter, storageKey);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.offset, filter.selectedConfig, filter.groupBy, filter.groupValue]);
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.offset, filter.selectedConfig, filter.groupBy, filter.groupValue, storageKey]);
 }
 
 // ─── TracesFilter (exported) ──────────────────────────────────────────────────
@@ -1099,15 +1107,20 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 export default function TracesFilter({
 	total,
 	supportDynamicFilters = false,
+	showGroupBy = true,
+	showVisibilityColumns = true,
 	includeOnlySorting,
 	pageName,
 	columns,
 	configUrl = "/api/metrics/request/config",
 	attributeKeysUrl = "/api/metrics/request/attribute-keys",
 	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
+	filterStorageScope,
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
+	showGroupBy?: boolean;
+	showVisibilityColumns?: boolean;
 	includeOnlySorting?: string[];
 	pageName: PAGE;
 	columns: Columns<any, any>;
@@ -1129,21 +1142,21 @@ export default function TracesFilter({
 
 		const clipboard = navigator.clipboard;
 		if (!clipboard?.writeText) {
-			toast.error("Copy to clipboard is not supported in this browser");
+			toast.error(m.OBSERVABILITY_COPY_UNSUPPORTED);
 			return;
 		}
 
 		clipboard
 			.writeText(window.location.href)
 			.then(() => {
-				toast.success("Link copied to clipboard");
+				toast.success(m.OBSERVABILITY_LINK_COPIED);
 			})
 			.catch(() => {
-				toast.error("Could not copy link");
+				toast.error(m.OBSERVABILITY_LINK_COPY_FAILED);
 			});
 	};
 
-	useFilterUrlSync(filter, updateFilter);
+	useFilterUrlSync(filter, updateFilter, filterStorageScope || pageName);
 
 	const onClickPageAction = (dir: -1 | 1) => {
 		updateFilter("offset", filter.offset + dir * filter.limit);
@@ -1197,14 +1210,16 @@ export default function TracesFilter({
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
-				<VisibilityColumns columns={columns} pageName={pageName} />
+				{showVisibilityColumns && (
+					<VisibilityColumns columns={columns} pageName={pageName} />
+				)}
 				{!!total && total > 0 && (
 					<Sorting
 						sorting={filter.sorting}
 						includeOnlySorting={includeOnlySorting}
 					/>
 				)}
-				{supportDynamicFilters && (
+				{supportDynamicFilters && showGroupBy && (
 					<GroupByDropdown
 						groupBy={filter.groupBy}
 						onChangeGroupBy={onChangeGroupBy}
@@ -1227,7 +1242,7 @@ export default function TracesFilter({
 				<Button
 					variant="outline"
 					size="default"
-					title="Copy shareable link"
+					title={m.OBSERVABILITY_COPY_SHARE_LINK}
 					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
 					onClick={onShareLink}
 				>
