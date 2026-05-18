@@ -30,6 +30,8 @@ export const config = {
 		"/fleet-hub",
 		"/agents",
 		"/agents/:path*",
+		"/coding-agents",
+		"/coding-agents/:path*",
 		"/onboarding",
 		"/chat",
 		"/chat/:path*"

@@ -3,6 +3,7 @@ import {
 	BookKey,
 	BookOpen,
 	BookText,
+	Bot,
 	CircleDollarSign,
 	Component,
 	Home,
@@ -75,6 +76,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		// 	link: "/agents",
 		// 	type: "action",
 		// },
+		{
+			icon: <Bot className={ICON_CLASSES} />,
+			text: "Coding Agents",
+			link: "/coding-agents",
+			type: "action",
+		},
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",

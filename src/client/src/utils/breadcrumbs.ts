@@ -265,6 +265,13 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 
+	// Coding Agents
+	{
+		regex: /^\/coding-agents$/,
+		getTitle: () => "Coding Agents",
+		getBreadcrumbs: () => [],
+	},
+
 	// Fleet Hub
 	{
 		regex: /^\/fleet-hub\/[^/]+$/,
