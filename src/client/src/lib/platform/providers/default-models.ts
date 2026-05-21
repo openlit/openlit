@@ -135,6 +135,22 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 			topP: { min: 0, max: 1, step: 0.01, default: 0.9, description: "Nucleus sampling threshold" },
 		},
 	},
+	{
+		providerId: "astraflow", displayName: "Astraflow", description: "Astraflow by UCloud — OpenAI-compatible platform supporting 200+ models (global endpoint)", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 16000, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
+	{
+		providerId: "astraflow_cn", displayName: "Astraflow (China)", description: "Astraflow by UCloud — OpenAI-compatible platform supporting 200+ models (China endpoint)", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 16000, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
 ];
 
 export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
@@ -556,6 +572,74 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			inputPricePerMToken: 0.3,
 			outputPricePerMToken: 1.0,
 			capabilities: ["streaming"],
+		},
+	],
+	astraflow: [
+		{
+			id: "deepseek-v3",
+			displayName: "DeepSeek V3",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["streaming"],
+		},
+		{
+			id: "gpt-4o",
+			displayName: "GPT-4o",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "claude-3-5-sonnet-20241022",
+			displayName: "Claude 3.5 Sonnet",
+			contextWindow: 200000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "gemini-2.0-flash",
+			displayName: "Gemini 2.0 Flash",
+			contextWindow: 1000000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+	],
+	astraflow_cn: [
+		{
+			id: "deepseek-v3",
+			displayName: "DeepSeek V3",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["streaming"],
+		},
+		{
+			id: "gpt-4o",
+			displayName: "GPT-4o",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "claude-3-5-sonnet-20241022",
+			displayName: "Claude 3.5 Sonnet",
+			contextWindow: 200000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "gemini-2.0-flash",
+			displayName: "Gemini 2.0 Flash",
+			contextWindow: 1000000,
+			inputPricePerMToken: 0.0,
+			outputPricePerMToken: 0.0,
+			capabilities: ["function-calling", "vision", "streaming"],
 		},
 	],
 };

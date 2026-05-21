@@ -74,6 +74,14 @@ export class AISdkAdapter {
 			baseURL: 'https://openai-proxy.replicate.com/v1',
 			apiKey
 		}),
+		astraflow: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api-us-ca.umodelverse.ai/v1',
+			apiKey
+		}),
+		astraflow_cn: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.modelverse.cn/v1',
+			apiKey
+		}),
 	};
 
 	/**
@@ -85,7 +93,8 @@ export class AISdkAdapter {
 		const validProviders = [
 			'openai', 'anthropic', 'google', 'mistral', 'cohere',
 			'groq', 'perplexity', 'azure', 'together', 'fireworks',
-			'deepseek', 'xai', 'huggingface', 'replicate'
+			'deepseek', 'xai', 'huggingface', 'replicate',
+			'astraflow', 'astraflow_cn'
 		];
 		
 		// Check against allowlist first
@@ -192,7 +201,8 @@ export class AISdkAdapter {
 		return [
 			'openai', 'anthropic', 'google', 'mistral', 'cohere',
 			'groq', 'perplexity', 'azure', 'together', 'fireworks',
-			'deepseek', 'xai', 'huggingface', 'replicate'
+			'deepseek', 'xai', 'huggingface', 'replicate',
+			'astraflow', 'astraflow_cn'
 		];
 	}
 
