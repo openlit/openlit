@@ -1,6 +1,13 @@
 import { type LucideIcon } from "lucide-react";
 
 export type TraceKeyType = "string" | "integer" | "float" | "round" | "date";
+export type TraceMappingPathType =
+	| string
+	| string[]
+	| {
+			path: string | string[];
+			prefix?: string | string[] | null;
+	  };
 
 export type TraceMappingKeyType =
 	| "time"
@@ -103,6 +110,7 @@ export type TraceMappingValueType = {
 	label: string;
 	type: TraceKeyType;
 	path: string | string[];
+	paths?: TraceMappingPathType[];
 	prefix?: string | string[];
 	isRoot?: boolean;
 	offset?: number;

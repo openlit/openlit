@@ -41,7 +41,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	},
 	{
 		icon: <Otter className={ICON_CLASSES} />,
-		text: "Otter Chat",
+		text: "Otter",
 		link: "/chat",
 		type: "action",
 	},
