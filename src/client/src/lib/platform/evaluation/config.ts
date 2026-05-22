@@ -300,3 +300,38 @@ export async function getEvaluationConfigById(
 		evaluationTypes,
 	};
 }
+
+export async function getEvaluationConfigByDbConfigId(
+	databaseConfigId: string,
+	excludeVaultValue: boolean = true
+): Promise<EvaluationConfigWithSecret & { evaluationTypes?: EvaluationTypeWithPrompt[] }> {
+	const [, config] = await asaw(
+		prisma.evaluationConfigs.findFirst({
+			where: { databaseConfigId },
+		})
+	);
+
+	const updatedConfig = config as EvaluationConfig;
+	throwIfError(!updatedConfig?.id, getMessage().EVALUATION_CONFIG_NOT_FOUND);
+
+	const { data } = await getSecretById(
+		updatedConfig.vaultId,
+		databaseConfigId,
+		excludeVaultValue
+	);
+
+	const updatedSecretData = (data as Secret[])?.[0] || {};
+	throwIfError(
+		!updatedSecretData?.id,
+		getMessage().EVALUATION_VAULT_SECRET_NOT_FOUND
+	);
+
+	const meta = jsonParse((updatedConfig as any).meta || "{}") as Record<string, any>;
+	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta);
+
+	return {
+		...updatedConfig,
+		secret: updatedSecretData,
+		evaluationTypes,
+	};
+}

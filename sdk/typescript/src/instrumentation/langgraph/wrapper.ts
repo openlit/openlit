@@ -321,7 +321,6 @@ export default class LangGraphWrapper {
             setGraphAttributes(span, nodes, edges);
 
             if (nodes.length > 0) {
-              span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, JSON.stringify(nodes));
               span.setAttribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, `Agent with nodes: ${nodes.join(', ')}`);
             } else {
               span.setAttribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, 'LangGraph agent');

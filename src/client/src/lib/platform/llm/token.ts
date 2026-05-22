@@ -43,7 +43,7 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 			AVG(toInt32OrZero(${keyPath})) AS total_tokens
 			${params.type === "total" ? `, '${params.timeLimit.start}' as start_date` : ""}
 			FROM ${OTEL_TRACES_TABLE_NAME}
-			WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" })}`;
+			WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}`;
 
 	if (params.type === "total") {
 		const previousWhereParams = getFilterPreviousParams(currentWhereParams);
@@ -95,7 +95,7 @@ export async function getTokensPerTime(params: MetricParams) {
 			...params,
 			notOrEmpty: filterPaths,
 			operationType: "llm",
-		})}
+		}, true)}
 		GROUP BY request_time
 		ORDER BY request_time`;
 

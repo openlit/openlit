@@ -52,6 +52,19 @@ export async function register() {
 			// Don't throw - allow server to start even if cron restore fails
 		}
 
+		try {
+			// Install the agents materializer cron (writes openlit_agents_summary +
+			// openlit_agent_versions in the background so UI reads stay fast).
+			const { restoreAgentsMaterializeCron } = await import(
+				"@/lib/platform/agents/config"
+			);
+			console.log("🔄 Installing agents materialize cron...");
+			await restoreAgentsMaterializeCron(apiURL);
+			console.log("✅ Agents materialize cron installed");
+		} catch (error) {
+			console.error("❌ Error installing agents materialize cron:", error);
+		}
+
 		console.log("✨ Server initialization complete");
 	}
 }

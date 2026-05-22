@@ -21,6 +21,10 @@ import CreateProviderMetadataMigration from "./create-provider-metadata-migratio
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
 import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
+import CreateAgentsSummaryMigration from "./create-agents-summary-migration";
+import CreateAgentVersionsMigration from "./create-agent-versions-migration";
+import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
+import OptimizeAgentTablesStorageMigration from "./optimize-agent-tables-storage-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -35,6 +39,8 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateRuleEngineMigration(databaseConfigId),
 		CreateControllerMigration(databaseConfigId),
 		CreateChatMigration(databaseConfigId),
+		CreateAgentsSummaryMigration(databaseConfigId),
+		CreateAgentVersionsMigration(databaseConfigId),
 	]);
 
 	// Group 2: Controller schema modifications (must be sequential --
@@ -57,4 +63,9 @@ export default async function migrations(databaseConfigId?: string) {
 	]);
 
 	await EncryptVaultValuesMigration(databaseConfigId);
+
+	// Group 4: Agent table optimisations (sequential -- must run after the
+	// agents-summary + agent-versions CREATEs).
+	await AddAgentsSummarySkipIndexesMigration(databaseConfigId);
+	await OptimizeAgentTablesStorageMigration(databaseConfigId);
 }

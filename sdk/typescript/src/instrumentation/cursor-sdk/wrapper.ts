@@ -31,6 +31,7 @@ import OpenLitHelper, {
   getServerAddressForProvider,
   setFrameworkLlmActive,
   resetFrameworkLlmActive,
+  getCurrentAgentVersion,
 } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 import Metrics from '../../otel/metrics';
@@ -51,15 +52,21 @@ const CURSOR_STATUS_TO_FINISH_REASON: Record<string, string> = {
 // Agent creation registry -- links invoke_agent back to create_agent
 // ---------------------------------------------------------------------------
 
-class AgentCreationRegistry {
-  private _contexts = new WeakMap<object, SpanContext>();
+interface AgentCreationInfo {
+  spanContext: SpanContext;
+  /** Raw `options` passed to `Agent.create()` — used to surface system_instructions and tool definitions on invoke_agent spans. */
+  options?: any;
+}
 
-  register(agent: object, spanContext: SpanContext): void {
-    this._contexts.set(agent, spanContext);
+class AgentCreationRegistry {
+  private _entries = new WeakMap<object, AgentCreationInfo>();
+
+  register(agent: object, spanContext: SpanContext, options?: any): void {
+    this._entries.set(agent, { spanContext, options });
   }
 
-  get(agent: object): SpanContext | undefined {
-    return this._contexts.get(agent);
+  get(agent: object): AgentCreationInfo | undefined {
+    return this._entries.get(agent);
   }
 }
 
@@ -95,6 +102,54 @@ function resolveModelId(options: any): string | null {
   if (typeof model === 'string') return model;
   if (typeof model === 'object' && model.id) return String(model.id);
   return null;
+}
+
+/**
+ * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+ * (user override, if set) on the span and return the same attributes so
+ * the caller can merge them into the inference event extras.
+ */
+function stampAgentVersion(
+  span: Span,
+  args: {
+    systemInstructionsJson?: string;
+    toolDefinitionsJson?: string;
+    primaryModel?: string;
+    temperature?: number | null;
+    top_p?: number | null;
+    max_tokens?: number | null;
+  }
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const versionHash = OpenLitHelper.computeAgentVersionHash({
+      systemInstructions: args.systemInstructionsJson ?? null,
+      toolDefinitions: args.toolDefinitionsJson ?? null,
+      primaryModel: args.primaryModel ?? null,
+      runtimeConfig: {
+        temperature: args.temperature ?? null,
+        top_p: args.top_p ?? null,
+        max_tokens: args.max_tokens ?? null,
+        provider: SemanticConvention.GEN_AI_SYSTEM_CURSOR,
+      },
+      providers: [SemanticConvention.GEN_AI_SYSTEM_CURSOR],
+    });
+    if (versionHash) {
+      out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+      span.setAttribute(
+        SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+        versionHash
+      );
+    }
+  } catch {
+    // Hash computation must never fail the wrapped call.
+  }
+  const versionLabel = getCurrentAgentVersion();
+  if (versionLabel) {
+    out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+    span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+  }
+  return out;
 }
 
 function setCommonSpanAttributes(span: Span): void {
@@ -190,7 +245,10 @@ interface StreamState {
   thinkingText: string;
   toolCalls: Array<{ name: string; callId: string; args?: unknown; result?: unknown }>;
   resolvedModel: string | null;
-  toolDefinitions: string[] | null;
+  /** Raw tool definitions surfaced via the `system` stream event (or via Agent.create options). */
+  toolDefinitions: any[] | null;
+  /** System instructions surfaced via the `system` stream event (or via Agent.create options). */
+  systemInstructions: string | null;
   runId: string | null;
   firstContentTimeMs: number | null;
 }
@@ -213,7 +271,17 @@ function processStreamEvent(
         if (modelId) state.resolvedModel = String(modelId);
       }
       if (Array.isArray(event.tools) && event.tools.length > 0) {
-        state.toolDefinitions = event.tools.map(String);
+        // Preserve full tool schemas (name/description/parameters) when the
+        // SDK provides them; fall back to name-only entries for older
+        // versions that emit strings.
+        state.toolDefinitions = event.tools.map((tool: any) =>
+          typeof tool === 'string' ? { name: tool } : tool,
+        );
+      }
+      if (typeof event.instructions === 'string' && event.instructions) {
+        state.systemInstructions = event.instructions;
+      } else if (typeof event.systemPrompt === 'string' && event.systemPrompt) {
+        state.systemInstructions = event.systemPrompt;
       }
       break;
     }
@@ -330,6 +398,9 @@ function emitInvokeAgentEvent(
   outputTokens: number,
   inputMessagesJson: string | null,
   outputMessagesJson: string | null,
+  systemInstructionsJson: string | null,
+  toolDefinitionsJson: string | null,
+  versionExtras?: Record<string, string>,
 ): void {
   if (OpenlitConfig.disableEvents) return;
 
@@ -353,6 +424,15 @@ function emitInvokeAgentEvent(
     }
     if (outputMessagesJson != null) {
       attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+    }
+    if (systemInstructionsJson != null) {
+      attributes[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
+    }
+    if (toolDefinitionsJson != null) {
+      attributes[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
+    }
+    if (versionExtras) {
+      Object.assign(attributes, versionExtras);
     }
 
     OpenLitHelper.emitInferenceEvent(span, attributes);
@@ -425,7 +505,8 @@ function wrapSend(
     const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT} ${displayName}`;
     const requestModel = modelId || resolveModelId(options) || 'unknown';
 
-    const creationSpanCtx = agentRegistry.get(this);
+    const creationInfo = agentRegistry.get(this);
+    const creationSpanCtx = creationInfo?.spanContext;
     const links: Link[] = [];
     if (creationSpanCtx) {
       links.push({ context: creationSpanCtx });
@@ -474,9 +555,24 @@ function wrapSend(
       toolCalls: [],
       resolvedModel: null,
       toolDefinitions: null,
+      systemInstructions: null,
       runId: null,
       firstContentTimeMs: null,
     };
+
+    // Seed system_instructions and tool_definitions from `Agent.create` options
+    // so they're available before the system stream event arrives.
+    const createOptions = creationInfo?.options;
+    if (createOptions) {
+      const seedInstructions =
+        (typeof createOptions.instructions === 'string' && createOptions.instructions) ||
+        (typeof createOptions.systemPrompt === 'string' && createOptions.systemPrompt) ||
+        null;
+      if (seedInstructions) streamState.systemInstructions = seedInstructions;
+      if (Array.isArray(createOptions.tools) && createOptions.tools.length > 0) {
+        streamState.toolDefinitions = createOptions.tools.slice();
+      }
+    }
 
     const userOnDelta = options?.onDelta;
     const mergedOptions = { ...options };
@@ -588,9 +684,30 @@ function createRunProxy(
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_TIME_TO_FIRST_CHUNK, ttft);
     }
 
-    if (streamState.toolDefinitions && streamState.toolDefinitions.length > 0) {
-      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, JSON.stringify(streamState.toolDefinitions));
+    const toolDefinitionsJson = streamState.toolDefinitions
+      ? OpenLitHelper.buildToolDefinitions(streamState.toolDefinitions)
+      : undefined;
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
     }
+
+    // Compute system_instructions JSON regardless of captureContent so
+    // versions still group correctly when content capture is disabled.
+    const systemInstructionsJson = streamState.systemInstructions
+      ? JSON.stringify([{ type: 'text', content: streamState.systemInstructions }])
+      : undefined;
+    if (captureContent && systemInstructionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+    }
+
+    const versionExtras = stampAgentVersion(span, {
+      systemInstructionsJson,
+      toolDefinitionsJson,
+      primaryModel: responseModel || requestModel,
+      temperature: null,
+      top_p: null,
+      max_tokens: null,
+    });
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
     const effectiveModel = responseModel || requestModel;
@@ -624,6 +741,8 @@ function createRunProxy(
     emitInvokeAgentEvent(
       span, agentId, requestModel, responseModel, finishReason,
       usage.inputTokens, usage.outputTokens, inputMessagesJson, outputMessagesJson,
+      systemInstructionsJson ?? null, toolDefinitionsJson ?? null,
+      versionExtras,
     );
 
     recordInvokeAgentMetrics(
@@ -729,6 +848,23 @@ export function patchAgentCreate(tracer: Tracer): (originalCreate: any) => any {
       if (agentName) span.setAttribute(SemanticConvention.GEN_AI_AGENT_NAME, agentName);
       if (modelId) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, modelId);
 
+      const captureContent = OpenlitConfig.captureMessageContent ?? true;
+      const instructionsText: string | null =
+        (options && typeof options.instructions === 'string' && options.instructions) ||
+        (options && typeof options.systemPrompt === 'string' && options.systemPrompt) ||
+        null;
+      if (captureContent && instructionsText) {
+        span.setAttribute(
+          SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+          JSON.stringify([{ type: 'text', content: instructionsText }]),
+        );
+      }
+      const optionTools = Array.isArray(options?.tools) ? options.tools : undefined;
+      const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(optionTools);
+      if (toolDefinitionsJson) {
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
+      }
+
       applyCustomSpanAttributes(span);
 
       try {
@@ -738,7 +874,7 @@ export function patchAgentCreate(tracer: Tracer): (originalCreate: any) => any {
         if (agentId) {
           span.setAttribute(SemanticConvention.GEN_AI_AGENT_ID, agentId);
         }
-        agentRegistry.register(agent, span.spanContext());
+        agentRegistry.register(agent, span.spanContext(), options);
 
         const resolvedModel = agent.model?.id || modelId;
         if (resolvedModel) span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, resolvedModel);

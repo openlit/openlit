@@ -67,7 +67,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
 			${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" })}
+		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" }, true)}
 		GROUP BY
 			request_time
 		ORDER BY
@@ -83,7 +83,7 @@ export async function getTotalRequests(params: MetricParams) {
 			COUNT(*) AS total_requests,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition(parameters)}	
+		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
 
 	const previousWhereParams = getFilterPreviousParams(params);
@@ -114,7 +114,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			AVG(${keyPath}) AS average_duration,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(parameters)} AND isFinite(${keyPath})
+		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;
 
 	const currentWhereParams = params;
@@ -184,13 +184,15 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
-			"environment"
-		)}'])) AS environments`
+		// OTel-standard environment is `ResourceAttributes['deployment.environment']`.
+		// The legacy `getTraceMappingKeyFullPath("environment")` returns a
+		// dotted SpanAttributes path that, wrapped in `ResourceAttributes[...]`,
+		// resolves to a non-existent key and silently yields no values.
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
-			WHERE ${getFilterWhereCondition(params)}`;
+			WHERE ${getFilterWhereCondition(params, true)}`;
 
 	return dataCollector({ query });
 }
@@ -318,7 +320,7 @@ export async function getAttributeKeys(params: MetricParams) {
 	const spanKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(params)}
+		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
 	`;
@@ -326,7 +328,7 @@ export async function getAttributeKeys(params: MetricParams) {
 	const resourceKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(params)}
+		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
 	`;

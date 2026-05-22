@@ -4,13 +4,15 @@ This module has functions to calculate model costs based on tokens and to fetch 
 """
 
 import asyncio
+import hashlib
 import inspect
 import os
 import json
 import logging
+from collections import OrderedDict
 from contextvars import ContextVar
 from urllib.parse import urlparse
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import math
 import requests
 from opentelemetry.sdk.resources import (
@@ -29,6 +31,16 @@ from openlit._config import OpenlitConfig
 # with gen_ai.agent.name without requiring changes to every LLM instrumentor.
 _current_agent_name: ContextVar[Optional[str]] = ContextVar(
     "openlit_agent_name", default=None
+)
+
+# ContextVar for a user-supplied agent version label. When set via
+# openlit.set_agent_version(), provider wrappers will write the label to
+# `gen_ai.agent.version` on every chat span / inference event so that the
+# server-side materializer can group traces by the user's preferred label
+# instead of (or in addition to) the auto-computed
+# `openlit.agent.version_hash` fingerprint.
+_current_agent_version: ContextVar[Optional[str]] = ContextVar(
+    "openlit_agent_version", default=None
 )
 
 # When True, a framework instrumentor (LangChain, LiteLLM, etc.) owns the LLM
@@ -895,6 +907,30 @@ def get_agent_name() -> Optional[str]:
     return _current_agent_name.get()
 
 
+def set_agent_version(version: Optional[str]):
+    """Set the current agent version label in context.
+
+    When set, provider wrappers will stamp the value on
+    ``gen_ai.agent.version`` for every chat span and inference event so the
+    server-side materializer can group traces by the user's preferred label
+    in addition to the auto-computed ``openlit.agent.version_hash``.
+
+    Returns a token that must be passed to :func:`reset_agent_version` when
+    done (typically in a ``finally`` block).
+    """
+    return _current_agent_version.set(version)
+
+
+def reset_agent_version(token):
+    """Reset the agent version label context to its previous value."""
+    _current_agent_version.reset(token)
+
+
+def get_agent_version() -> Optional[str]:
+    """Get the current agent version label from context, or None."""
+    return _current_agent_version.get()
+
+
 def set_custom_attributes(attrs: Dict[str, Any]):
     """Set custom span attributes in context. Returns a token for reset."""
     return _custom_span_attributes.set(attrs)
@@ -1142,6 +1178,378 @@ def format_system_instructions(text):
     if isinstance(text, (list, tuple)):
         text = " ".join(str(item) for item in text)
     return json.dumps([{"type": "text", "content": truncate_content(str(text))}])
+
+
+def build_system_instructions_from_messages(messages):
+    """
+    Extract system message(s) from chat messages for ``gen_ai.system_instructions``.
+
+    Accepts the common chat-completions schema (``[{"role": "system", "content": ...}, ...]``)
+    using either dict or object access, with string or list-of-parts content.
+
+    Returns a list of ``{"type": "text", "content": "..."}`` items per the OTel
+    GenAI content schema, or ``None`` when no system message is present.
+    """
+    if not messages:
+        return None
+    instructions: List[Dict[str, str]] = []
+    try:
+        for msg in messages:
+            role = (
+                msg.get("role", "")
+                if isinstance(msg, dict)
+                else getattr(msg, "role", "")
+            )
+            if role != "system":
+                continue
+            content = (
+                msg.get("content", "")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", "")
+            )
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        text = part.get("text", "")
+                        if text:
+                            instructions.append({"type": "text", "content": str(text)})
+                    elif isinstance(part, str) and part:
+                        instructions.append({"type": "text", "content": part})
+            elif content:
+                instructions.append({"type": "text", "content": str(content)})
+    except Exception as e:
+        logger.warning("Failed to build system instructions: %s", e, exc_info=True)
+        return None
+    return instructions if instructions else None
+
+
+def build_tool_definitions(tools):
+    """
+    Extract tool/function definitions from a chat request's ``tools`` parameter.
+
+    Supports both the OpenAI-style schema (``{"type": "function", "function": {...}}``)
+    and the flat schema (``{"name": ..., "description": ..., "parameters": ...}``)
+    using either dict or object access. Returns a list of
+    ``{"type": "function", "name": str, "description": str, "parameters": dict}``
+    items, or ``None`` when no usable tools are present.
+    """
+    if not tools:
+        return None
+
+    def _extract(tool):
+        if isinstance(tool, dict):
+            ttype = tool.get("type")
+            if ttype == "function" and isinstance(tool.get("function"), dict):
+                func = tool["function"]
+                return {
+                    "type": "function",
+                    "name": func.get("name", ""),
+                    "description": func.get("description", ""),
+                    "parameters": func.get("parameters", {}) or {},
+                }
+            if "name" in tool or "parameters" in tool or "input_schema" in tool:
+                return {
+                    "type": "function",
+                    "name": tool.get("name", ""),
+                    "description": tool.get("description", ""),
+                    "parameters": tool.get("parameters")
+                    or tool.get("input_schema")
+                    or {},
+                }
+            return None
+
+        ttype = getattr(tool, "type", None)
+        if ttype == "function":
+            func = getattr(tool, "function", None)
+            if func is not None:
+                return {
+                    "type": "function",
+                    "name": getattr(func, "name", "")
+                    or (func.get("name", "") if isinstance(func, dict) else ""),
+                    "description": getattr(func, "description", "")
+                    or (func.get("description", "") if isinstance(func, dict) else ""),
+                    "parameters": getattr(func, "parameters", None)
+                    or (func.get("parameters", {}) if isinstance(func, dict) else {})
+                    or {},
+                }
+        if getattr(tool, "name", None) is not None:
+            return {
+                "type": "function",
+                "name": getattr(tool, "name", "") or "",
+                "description": getattr(tool, "description", "") or "",
+                "parameters": getattr(tool, "parameters", None)
+                or getattr(tool, "input_schema", None)
+                or {},
+            }
+        return None
+
+    try:
+        definitions: List[Dict[str, Any]] = []
+        for tool in tools:
+            try:
+                extracted = _extract(tool)
+                if extracted and extracted.get("name"):
+                    definitions.append(extracted)
+            except Exception as e:
+                logger.warning(
+                    "Failed to process tool definition: %s", e, exc_info=True
+                )
+                continue
+        return definitions if definitions else None
+    except Exception as e:
+        logger.warning("Failed to build tool definitions: %s", e, exc_info=True)
+        return None
+
+
+def _normalize_agent_whitespace(value: str) -> str:
+    """Collapse whitespace runs; mirrors server `normalizeWhitespace`."""
+    if not value:
+        return ""
+    return " ".join(str(value).split())
+
+
+def _canonical_for_hash(value: Any) -> Any:
+    """Recursively sort dict keys so JSON output is order-independent."""
+    if isinstance(value, dict):
+        return {k: _canonical_for_hash(value[k]) for k in sorted(value.keys())}
+    if isinstance(value, list):
+        return [_canonical_for_hash(v) for v in value]
+    return value
+
+
+def _round_to_3(value: Any) -> Union[int, float, None]:
+    """Round to 3 decimals; integer-valued floats become ints to match JS."""
+    if value is None:
+        return None
+    try:
+        fv = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(fv):
+        return None
+    rounded = round(fv * 1000) / 1000
+    return int(rounded) if rounded == int(rounded) else rounded
+
+
+def _coerce_max_tokens(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_system_prompt_for_hash(system_instructions: Any) -> str:
+    """Convert system instructions to the same string the SDK emits.
+
+    Accepts the raw attribute string (already JSON), a list of
+    ``{"type": "text", "content": ...}`` parts, or a plain string.
+    """
+    if system_instructions is None:
+        return ""
+    if isinstance(system_instructions, str):
+        return system_instructions
+    if isinstance(system_instructions, list):
+        try:
+            # Use compact separators to match JavaScript's `JSON.stringify` —
+            # the TS SDK's `computeAgentVersionHash` runs the list through
+            # `JSON.stringify` (no whitespace), so Python must do the same or
+            # the SDKs disagree on the digest for the same agent definition.
+            return json.dumps(
+                system_instructions,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+        except (TypeError, ValueError):
+            return ""
+    return str(system_instructions)
+
+
+_VERSION_HASH_CACHE: "OrderedDict[Tuple[str, str, str, str, Tuple[str, ...]], str]" = (
+    OrderedDict()
+)
+_VERSION_HASH_CACHE_MAX = 256
+
+
+def _agent_version_cache_key(
+    system_instructions: Any,
+    tool_definitions: Any,
+    primary_model: Optional[str],
+    runtime_config: Optional[Dict[str, Any]],
+    providers: Optional[List[str]],
+) -> Optional[Tuple[str, str, str, str, Tuple[str, ...]]]:
+    """Build a cheap, hashable key for the hot path memoization.
+
+    Uses ``repr`` of unhashable inputs rather than full canonical
+    serialization (the latter is the expensive bit we're trying to skip).
+    Returns ``None`` if any input is wildly nonstandard (e.g. raises during
+    ``repr``); the caller then computes the hash without caching.
+    """
+    try:
+        si_key = (
+            system_instructions
+            if isinstance(system_instructions, (str, type(None)))
+            else repr(system_instructions)
+        )
+        td_key = (
+            tool_definitions
+            if isinstance(tool_definitions, (str, type(None)))
+            else repr(tool_definitions)
+        )
+        rc_key = repr(runtime_config) if runtime_config else ""
+        prov_key = tuple(sorted(p for p in (providers or []) if p))
+        return (si_key or "", td_key or "", primary_model or "", rc_key, prov_key)
+    except Exception:
+        return None
+
+
+def compute_agent_version_hash(
+    system_instructions: Any,
+    tool_definitions: Any,
+    primary_model: Optional[str],
+    runtime_config: Optional[Dict[str, Any]] = None,
+    providers: Optional[List[str]] = None,
+) -> str:
+    """Compute the canonical agent-version fingerprint.
+
+    Mirrors ``fingerprint()`` in
+    ``src/client/src/lib/platform/agents/snapshot.ts`` so that the SDK can
+    stamp ``openlit.agent.version_hash`` on every span and the server-side
+    materializer ends up with the same hash for the same definition.
+
+    The fingerprint covers the bits that meaningfully change agent behavior:
+    system prompt, tool set (name + schema), primary model and runtime
+    config (temperature / top_p / max_tokens / provider).
+
+    **Memoization**: chat-span finalizers call this on every LLM request and
+    the inputs are typically stable references for a given agent. A small
+    process-local LRU avoids re-running canonical serialization +
+    SHA1 on every hot-path call. The cache is bounded at
+    ``_VERSION_HASH_CACHE_MAX`` so it can't grow unbounded in tools that
+    rotate through many agent definitions (load-test rigs, multiagent
+    systems with per-request configs, etc.).
+    """
+    cache_key = _agent_version_cache_key(
+        system_instructions, tool_definitions, primary_model, runtime_config, providers
+    )
+    if cache_key is not None:
+        cached = _VERSION_HASH_CACHE.get(cache_key)
+        if cached is not None:
+            # Move-to-end for LRU recency; race-tolerant under the GIL.
+            try:
+                _VERSION_HASH_CACHE.move_to_end(cache_key)
+            except Exception:
+                pass
+            return cached
+
+    rc = runtime_config or {}
+    providers_sorted = sorted(p for p in (providers or []) if p)
+
+    tools: List[Dict[str, Any]] = []
+    if tool_definitions:
+        for tool in tool_definitions:
+            if not isinstance(tool, dict):
+                continue
+            name = tool.get("name") or ""
+            if not name:
+                continue
+            schema = tool.get("parameters")
+            if schema is None:
+                schema = tool.get("input_schema")
+            if schema is None:
+                schema = tool.get("schema")
+            tools.append({"n": name, "s": _canonical_for_hash(schema)})
+        tools.sort(key=lambda t: t["n"])
+
+    payload = _canonical_for_hash(
+        {
+            "sp": _normalize_agent_whitespace(
+                _coerce_system_prompt_for_hash(system_instructions)
+            ),
+            "tools": tools,
+            "model": primary_model or "",
+            "cfg": {
+                "temperature": _round_to_3(rc.get("temperature")),
+                "top_p": _round_to_3(rc.get("top_p")),
+                "max_tokens": _coerce_max_tokens(rc.get("max_tokens")),
+                "provider": rc.get("provider")
+                or (providers_sorted[0] if providers_sorted else ""),
+            },
+        }
+    )
+
+    encoded = json.dumps(
+        payload, separators=(",", ":"), ensure_ascii=False, sort_keys=True
+    )
+    result = hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:16]
+
+    if cache_key is not None:
+        _VERSION_HASH_CACHE[cache_key] = result
+        if len(_VERSION_HASH_CACHE) > _VERSION_HASH_CACHE_MAX:
+            try:
+                _VERSION_HASH_CACHE.popitem(last=False)
+            except Exception:
+                pass
+    return result
+
+
+def apply_agent_version_attributes(
+    span,
+    *,
+    system_instructions: Any = None,
+    tool_definitions: Any = None,
+    primary_model: Optional[str] = None,
+    runtime_config: Optional[Dict[str, Any]] = None,
+    providers: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Stamp ``openlit.agent.version_hash`` (auto) and ``gen_ai.agent.version``
+    (user-supplied, if any) on the span; return the same attributes as a dict
+    so the caller can merge them into the inference event extras.
+
+    The hash is computed from the canonical fingerprint (system prompt + tool
+    set + primary model + sampling config) so the SDK and the server-side
+    materializer agree on a single value per agent definition.
+    """
+    out: Dict[str, Any] = {}
+    try:
+        version_hash = compute_agent_version_hash(
+            system_instructions=system_instructions,
+            tool_definitions=tool_definitions,
+            primary_model=primary_model,
+            runtime_config=runtime_config,
+            providers=providers,
+        )
+        if version_hash:
+            out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = version_hash
+            if span is not None:
+                try:
+                    span.set_attribute(
+                        SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+                        version_hash,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Failed to set openlit.agent.version_hash on span: %s",
+                        e,
+                    )
+    except Exception as e:
+        logger.debug("Failed to compute agent version hash: %s", e)
+
+    try:
+        version_label = _current_agent_version.get()
+    except LookupError:
+        version_label = None
+    if version_label:
+        out[SemanticConvention.GEN_AI_AGENT_VERSION] = version_label
+        if span is not None:
+            try:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_VERSION, version_label
+                )
+            except Exception as e:
+                logger.debug("Failed to set gen_ai.agent.version on span: %s", e)
+    return out
 
 
 def format_input_message(role, content):

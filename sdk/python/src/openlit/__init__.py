@@ -26,6 +26,8 @@ from openlit.__helpers import (
     get_env_variable,
     set_agent_name,
     reset_agent_name,
+    set_agent_version,
+    reset_agent_version,
     set_custom_attributes,
     reset_custom_attributes,
     record_agent_invocation,
@@ -44,6 +46,28 @@ from openlit.instrumentation.gpu import GPUInstrumentor
 # Import guards and evals
 import openlit.guard
 import openlit.evals
+
+# Re-export guard classes at top level for clean API:
+#   openlit.PII(action="redact")  instead of  openlit.guard.PII(action="redact")
+from openlit.guard import (  # noqa: F401 — public re-exports
+    PII,
+    PromptInjection,
+    SensitiveTopic,
+    TopicRestriction,
+    Moderation,
+    Schema,
+    Custom,
+    Pipeline,
+    Guard,
+    GuardAction,
+    GuardPhase,
+    GuardResult,
+    PipelineResult,
+    GuardError,
+    GuardDeniedError,
+    GuardTimeoutError,
+    GuardConfigError,
+)
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -173,10 +197,14 @@ def init(
     collect_gpu_stats=False,
     collect_system_metrics=False,
     capture_db_parameters=False,
-    evals_logs_export=True,
     max_content_length=None,
     custom_span_attributes=None,
     custom_metrics_attributes=None,
+    openlit_api_key=None,
+    openlit_url=None,
+    *,
+    guards=None,
+    guard_fail_open=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -214,6 +242,14 @@ def init(
                                           recording. Useful for grouping metrics by custom tags
                                           (e.g., client ID, team, project). Values must be valid
                                           OTel attribute types. Optional.
+        openlit_api_key (str): API key for OpenLIT server (used by openlit.eval() and
+                               openlit.get_prompt()). Falls back to OPENLIT_API_KEY env var.
+        openlit_url (str): URL of the OpenLIT server (used by openlit.eval() and
+                           openlit.get_prompt()). Falls back to OPENLIT_URL env var.
+        guards (list): List of Guard instances (e.g. ``[openlit.PII(action="redact")]``)
+                       that automatically run on every LLM call.  Optional.
+        guard_fail_open (bool): If True (default), guard errors resolve to allow.
+                                Set to False for strict environments.
     """
     disabled_instrumentors = normalize_instrumentor_names(disabled_instrumentors)
     logger.info("Starting openLIT initialization...")
@@ -272,16 +308,23 @@ def init(
             collect_system_metrics = env_config["collect_system_metrics"]
         if capture_db_parameters is False and "capture_db_parameters" in env_config:
             capture_db_parameters = env_config["capture_db_parameters"]
-        if evals_logs_export is True and "evals_logs_export" in env_config:
-            evals_logs_export = env_config["evals_logs_export"]
         if max_content_length is None and "max_content_length" in env_config:
             max_content_length = env_config["max_content_length"]
         if custom_span_attributes is None and "custom_span_attributes" in env_config:
             custom_span_attributes = env_config["custom_span_attributes"]
+        if openlit_api_key is None and "openlit_api_key" in env_config:
+            openlit_api_key = env_config["openlit_api_key"]
+        if openlit_url is None and "openlit_url" in env_config:
+            openlit_url = env_config["openlit_url"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
         pass
+
+    if openlit_api_key is None:
+        openlit_api_key = os.getenv("OPENLIT_API_KEY")
+    if openlit_url is None:
+        openlit_url = os.getenv("OPENLIT_URL")
 
     disabled_instrumentors = apply_controller_mode_defaults(
         controller_mode,
@@ -329,7 +372,6 @@ def init(
 
         if not tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
-            return
 
         # Setup events based on the provided or default configuration.
         event_provider = setup_events(
@@ -380,10 +422,11 @@ def init(
             fetch_pricing_info(pricing_json),
             disable_events,
             capture_db_parameters,
-            evals_logs_export,
             max_content_length,
             custom_span_attributes,
             custom_metrics_attributes,
+            openlit_api_key=openlit_api_key,
+            openlit_url=openlit_url,
         )
 
         # Create instrumentor instances dynamically
@@ -392,6 +435,15 @@ def init(
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
             instrument_if_available(name, instrumentor, config, disabled_instrumentors)
+
+        # Set up auto-guards if configured (second wrapt pass over provider methods)
+        if guards:
+            try:
+                from openlit.guard._integration import setup_auto_guards
+
+                setup_auto_guards(guards, fail_open=guard_fail_open)
+            except Exception as e:
+                logger.error("Failed to set up auto-guards: %s", e)
 
         # Handle GPU instrumentation separately (only if GPU is found)
         if not disable_metrics and collect_gpu_stats:
@@ -618,6 +670,85 @@ def evaluate_rule(
         return None
 
 
+def eval(  # pylint: disable=redefined-builtin
+    prompt,
+    response,
+    contexts=None,
+    eval_types=None,
+    attributes=None,
+    threshold_score=None,
+    store_results=None,
+    run_id=None,
+    metadata=None,
+    openlit_api_key=None,
+    openlit_url=None,
+    print_results=True,
+):
+    """
+    Run offline evaluation against the OpenLIT server.
+    Uses the same evaluation engine, rules, and contexts as online/auto evals.
+    """
+    from openlit.evals.offline import run_eval
+
+    return run_eval(
+        prompt=prompt,
+        response=response,
+        contexts=contexts,
+        eval_types=eval_types,
+        attributes=attributes,
+        threshold_score=threshold_score,
+        store_results=store_results,
+        run_id=run_id,
+        metadata=metadata,
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+        print_results=print_results,
+    )
+
+
+def eval_batch(
+    dataset,
+    eval_types=None,
+    attributes=None,
+    threshold_score=None,
+    store_results=None,
+    run_id=None,
+    max_concurrent=5,
+    openlit_api_key=None,
+    openlit_url=None,
+    print_results=True,
+):
+    """
+    Run offline evaluation on a batch of prompt/response pairs.
+    """
+    from openlit.evals.offline import run_eval_batch
+
+    return run_eval_batch(
+        dataset=dataset,
+        eval_types=eval_types,
+        attributes=attributes,
+        threshold_score=threshold_score,
+        store_results=store_results,
+        run_id=run_id,
+        max_concurrent=max_concurrent,
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+        print_results=print_results,
+    )
+
+
+def get_eval_types(openlit_api_key=None, openlit_url=None):
+    """
+    Fetch available evaluation types from the OpenLIT server.
+    """
+    from openlit.evals.offline import fetch_eval_types
+
+    return fetch_eval_types(
+        openlit_api_key=openlit_api_key,
+        openlit_url=openlit_url,
+    )
+
+
 def log_agent_invocation(source, target, system=None):
     """
     Record that one agent invoked another.
@@ -669,6 +800,28 @@ def agent_context(name):
         yield
     finally:
         reset_agent_name(token)
+
+
+@contextmanager
+def agent_version_context(version):
+    """
+    Context manager that sets the current agent version label.
+
+    LLM calls inside this context will have their chat span / inference event
+    tagged with ``gen_ai.agent.version=<version>`` so the server-side
+    materializer can group traces by the caller-supplied label in addition to
+    the auto-computed ``openlit.agent.version_hash`` fingerprint.
+
+    Usage::
+
+        with openlit.agent_version_context("v3"):
+            client.chat.completions.create(...)
+    """
+    token = set_agent_version(version)
+    try:
+        yield
+    finally:
+        reset_agent_version(token)
 
 
 class using_attributes(ContextDecorator):
