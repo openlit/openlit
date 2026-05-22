@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 import GroupBreadcrumb from "@/components/(playground)/request/group-breadcrumb";
@@ -28,9 +28,46 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Maximize2, X } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
+import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 
 const DETAIL_SHEET_CONTENT_CLASS =
-	"right-2 top-2 bottom-2 flex h-auto w-[92vw] max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-2xl focus-visible:outline-none sm:max-w-none lg:w-[55vw]";
+	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
+
+function ResizableDetailSheet({
+	children,
+}: {
+	children: ReactNode;
+}) {
+	const [maxWidth, setMaxWidth] = useState(1200);
+	const [defaultWidth, setDefaultWidth] = useState(760);
+
+	useEffect(() => {
+		const updateBounds = () => {
+			const viewportWidth = window.innerWidth;
+			const nextMaxWidth = Math.max(420, viewportWidth - 32);
+			setMaxWidth(nextMaxWidth);
+			setDefaultWidth(Math.min(Math.max(viewportWidth * 0.68, 860), nextMaxWidth));
+		};
+		updateBounds();
+		window.addEventListener("resize", updateBounds);
+		return () => window.removeEventListener("resize", updateBounds);
+	}, []);
+
+	return (
+		<ResizeablePanel
+			defaultWidth={defaultWidth}
+			minWidth={420}
+			maxWidth={maxWidth}
+			handlePosition="left"
+			className="h-full max-w-[calc(100vw-1rem)] rounded-md bg-white shadow-2xl dark:bg-stone-950"
+			handleClassName="opacity-100 border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900"
+		>
+			<div className="flex h-full min-h-0 flex-col overflow-hidden">
+				{children}
+			</div>
+		</ResizeablePanel>
+	);
+}
 
 export default function ObservabilitySignalList({
 	config,
@@ -198,11 +235,11 @@ export default function ObservabilitySignalList({
 		const from =
 			typeof window !== "undefined"
 				? `${window.location.pathname}${window.location.search}`
-				: "/observability";
+				: "/telemetry";
 		const prefix =
 			config.key === "exceptions"
-				? "/observability/exceptions"
-				: "/observability/traces";
+				? "/telemetry/exceptions"
+				: "/telemetry/traces";
 		return `${prefix}/${activeSpanId}?from=${encodeURIComponent(from)}`;
 	}, [config.key, previewSpanId, selectedParam]);
 
@@ -211,7 +248,7 @@ export default function ObservabilitySignalList({
 		const from =
 			typeof window !== "undefined"
 				? `${window.location.pathname}${window.location.search}`
-				: "/observability?tab=metrics";
+				: "/telemetry?tab=metrics";
 		return config.getDetailHref(selectedMetricRow, from);
 	}, [config, selectedMetricRow]);
 
@@ -220,7 +257,7 @@ export default function ObservabilitySignalList({
 		const from =
 			typeof window !== "undefined"
 				? `${window.location.pathname}${window.location.search}`
-				: "/observability?tab=logs";
+				: "/telemetry?tab=logs";
 		return config.getDetailHref(selectedLogRow, from);
 	}, [config, selectedLogRow]);
 
@@ -303,43 +340,45 @@ export default function ObservabilitySignalList({
 					displayOverlay={false}
 					displayClose={false}
 				>
-					<div className="min-h-0 flex-1 overflow-hidden">
-						{previewSpanId && (
-							<TraceDetailView
-								spanId={previewSpanId}
-								type={config.key === "exceptions" ? "exceptions" : "traces"}
-								variant="sheet"
-								onSpanChange={updateTraceSelection}
-								onActiveSpanChange={updateActiveTraceSelection}
-								navigationRows={rows}
-								navigationOffset={filter.offset}
-								navigationTotal={total}
-								extraActions={
-									<>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 gap-1.5"
-											onClick={() => router.push(previewHref)}
-											disabled={!previewHref}
-										>
-											<Maximize2 className="h-3.5 w-3.5" />
-											{m.OBSERVABILITY_FULL_SCREEN}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
-											onClick={closePreview}
-											title={m.OBSERVABILITY_CLOSE}
-										>
-											<X className="h-4 w-4" />
-										</Button>
-									</>
-								}
-							/>
-						)}
-					</div>
+					<ResizableDetailSheet>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							{previewSpanId && (
+								<TraceDetailView
+									spanId={previewSpanId}
+									type={config.key === "exceptions" ? "exceptions" : "traces"}
+									variant="sheet"
+									onSpanChange={updateTraceSelection}
+									onActiveSpanChange={updateActiveTraceSelection}
+									navigationRows={rows}
+									navigationOffset={filter.offset}
+									navigationTotal={total}
+									extraActions={
+										<>
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 gap-1.5"
+												onClick={() => router.push(previewHref)}
+												disabled={!previewHref}
+											>
+												<Maximize2 className="h-3.5 w-3.5" />
+												{m.OBSERVABILITY_FULL_SCREEN}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+												onClick={closePreview}
+												title={m.OBSERVABILITY_CLOSE}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</>
+									}
+								/>
+							)}
+						</div>
+					</ResizableDetailSheet>
 				</SheetContent>
 			</Sheet>
 			<Sheet
@@ -353,39 +392,41 @@ export default function ObservabilitySignalList({
 					displayOverlay={false}
 					displayClose={false}
 				>
-					<div className="min-h-0 flex-1 overflow-hidden">
-						{selectedMetricRow && (
-							<MetricDetailView
-								name={selectedMetricRow.metricName}
-								metricType={selectedMetricRow.metricType}
-								serviceName={selectedMetricRow.serviceName}
-								variant="sheet"
-								extraActions={
-									<div className="flex items-center gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 gap-1.5"
-											onClick={() => router.push(metricPreviewHref)}
-											disabled={!metricPreviewHref}
-										>
-											<Maximize2 className="h-3.5 w-3.5" />
-											{m.OBSERVABILITY_FULL_SCREEN}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
-											onClick={closePreview}
-											title={m.OBSERVABILITY_CLOSE}
-										>
-											<X className="h-4 w-4" />
-										</Button>
-									</div>
-								}
-							/>
-						)}
-					</div>
+					<ResizableDetailSheet>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							{selectedMetricRow && (
+								<MetricDetailView
+									name={selectedMetricRow.metricName}
+									metricType={selectedMetricRow.metricType}
+									serviceName={selectedMetricRow.serviceName}
+									variant="sheet"
+									extraActions={
+										<div className="flex items-center gap-2">
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 gap-1.5"
+												onClick={() => router.push(metricPreviewHref)}
+												disabled={!metricPreviewHref}
+											>
+												<Maximize2 className="h-3.5 w-3.5" />
+												{m.OBSERVABILITY_FULL_SCREEN}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+												onClick={closePreview}
+												title={m.OBSERVABILITY_CLOSE}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</div>
+									}
+								/>
+							)}
+						</div>
+					</ResizableDetailSheet>
 				</SheetContent>
 			</Sheet>
 			<Sheet
@@ -399,42 +440,44 @@ export default function ObservabilitySignalList({
 					displayOverlay={false}
 					displayClose={false}
 				>
-					<div className="min-h-0 flex-1 overflow-hidden">
-						{selectedLogRow && (
-							<LogDetailView
-								id={config.getRowId(selectedLogRow)}
-								from={
-									typeof window !== "undefined"
-										? `${window.location.pathname}${window.location.search}`
-										: "/observability?tab=logs"
-								}
-								variant="sheet"
-								extraActions={
-									<div className="flex items-center gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 gap-1.5"
-											onClick={() => router.push(logPreviewHref)}
-											disabled={!logPreviewHref}
-										>
-											<Maximize2 className="h-3.5 w-3.5" />
-											{m.OBSERVABILITY_FULL_SCREEN}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
-											onClick={closePreview}
-											title={m.OBSERVABILITY_CLOSE}
-										>
-											<X className="h-4 w-4" />
-										</Button>
-									</div>
-								}
-							/>
-						)}
-					</div>
+					<ResizableDetailSheet>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							{selectedLogRow && (
+								<LogDetailView
+									id={config.getRowId(selectedLogRow)}
+									from={
+										typeof window !== "undefined"
+											? `${window.location.pathname}${window.location.search}`
+											: "/telemetry?tab=logs"
+									}
+									variant="sheet"
+									extraActions={
+										<div className="flex items-center gap-2">
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 gap-1.5"
+												onClick={() => router.push(logPreviewHref)}
+												disabled={!logPreviewHref}
+											>
+												<Maximize2 className="h-3.5 w-3.5" />
+												{m.OBSERVABILITY_FULL_SCREEN}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 w-7 p-0 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+												onClick={closePreview}
+												title={m.OBSERVABILITY_CLOSE}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</div>
+									}
+								/>
+							)}
+						</div>
+					</ResizableDetailSheet>
 				</SheetContent>
 			</Sheet>
 		</>

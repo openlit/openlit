@@ -27,7 +27,7 @@ const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
 		return `${inactiveClasses}${commonClasses}`;
 
 	if(item.link) {
-		if (["/home", "/dashboard", "/observability", "/requests", "/exceptions", "/prompt-hub", "/vault", "/openground", "/settings"].includes(item.link)) {
+		if (["/home", "/dashboard", "/telemetry", "/requests", "/exceptions", "/prompt-hub", "/vault", "/openground", "/settings"].includes(item.link)) {
 			return pathname.startsWith(item.link) ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		}
 
@@ -50,11 +50,11 @@ const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
 		case "/dashboard":
 			return pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboards") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/requests":
-			return pathname.startsWith("/requests") || pathname.startsWith("/observability") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
+			return pathname.startsWith("/requests") || pathname.startsWith("/telemetry") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/exceptions":
-			return pathname.startsWith("/exceptions") || pathname.startsWith("/observability") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
-		case "/observability":
-			return pathname.startsWith("/observability") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
+			return pathname.startsWith("/exceptions") || pathname.startsWith("/telemetry") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
+		case "/telemetry":
+			return pathname.startsWith("/telemetry") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/prompt-hub":
 			return pathname.startsWith("/prompt-hub") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/vault":

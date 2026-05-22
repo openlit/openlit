@@ -56,8 +56,8 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		type: "section",
 	children: [{
 			icon: <Activity className={ICON_CLASSES} />,
-			text: "Observability",
-			link: "/observability",
+			text: "Telemetry",
+			link: "/telemetry",
 			type: "action",
 		},
 		// {

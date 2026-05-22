@@ -50,7 +50,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: m.OBSERVABILITY_TRACE_SUMMARY,
 		icon: Activity,
 		listUrl: "/api/metrics/request",
-		summaryUrl: "/api/observability/summary/traces",
+		summaryUrl: "/api/telemetry/summary/traces",
 		configUrl: "/api/metrics/request/config",
 		attributeKeysUrl: "/api/metrics/request/attribute-keys",
 		columns: traceColumns,
@@ -62,7 +62,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		normalize: normalizeTrace,
 		getRowId: (row) => row.spanId,
 		getDetailHref: (row, from) =>
-			`/observability/traces/${row.spanId}?from=${encodeURIComponent(from)}`,
+			`/telemetry/traces/${row.spanId}?from=${encodeURIComponent(from)}`,
 	},
 	{
 		key: "exceptions",
@@ -72,7 +72,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: m.OBSERVABILITY_EXCEPTION_SUMMARY,
 		icon: ShieldAlert,
 		listUrl: "/api/metrics/exception",
-		summaryUrl: "/api/observability/summary/exceptions",
+		summaryUrl: "/api/telemetry/summary/exceptions",
 		configUrl: "/api/metrics/request/config",
 		attributeKeysUrl: "/api/metrics/request/attribute-keys",
 		columns: exceptionColumns,
@@ -85,7 +85,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		normalize: normalizeTrace,
 		getRowId: (row) => row.spanId,
 		getDetailHref: (row, from) =>
-			`/observability/exceptions/${row.spanId}?from=${encodeURIComponent(from)}`,
+			`/telemetry/exceptions/${row.spanId}?from=${encodeURIComponent(from)}`,
 	},
 	{
 		key: "metrics",
@@ -94,10 +94,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
 		summary: m.OBSERVABILITY_METRIC_SUMMARY,
 		icon: BarChart3,
-		listUrl: "/api/observability/metrics",
-		summaryUrl: "/api/observability/summary/metrics",
-		configUrl: "/api/observability/metrics/config",
-		attributeKeysUrl: "/api/observability/metrics/attribute-keys",
+		listUrl: "/api/telemetry/metrics",
+		summaryUrl: "/api/telemetry/summary/metrics",
+		configUrl: "/api/telemetry/metrics/config",
+		attributeKeysUrl: "/api/telemetry/metrics/attribute-keys",
 		columns: metricColumns,
 		pageName: "observabilityMetrics",
 		visibilityPage: "observabilityMetrics",
@@ -114,7 +114,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 				metricType: row.metricType || "",
 				serviceName: row.serviceName || "",
 			});
-			return `/observability/metrics/${encodeURIComponent(row.metricName)}?${query.toString()}`;
+			return `/telemetry/metrics/${encodeURIComponent(row.metricName)}?${query.toString()}`;
 		},
 	},
 	{
@@ -124,10 +124,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		tone: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900",
 		summary: m.OBSERVABILITY_LOG_SUMMARY,
 		icon: FileText,
-		listUrl: "/api/observability/logs",
-		summaryUrl: "/api/observability/summary/logs",
-		configUrl: "/api/observability/logs/config",
-		attributeKeysUrl: "/api/observability/logs/attribute-keys",
+		listUrl: "/api/telemetry/logs",
+		summaryUrl: "/api/telemetry/summary/logs",
+		configUrl: "/api/telemetry/logs/config",
+		attributeKeysUrl: "/api/telemetry/logs/attribute-keys",
 		columns: logColumns,
 		pageName: "observabilityLogs",
 		visibilityPage: "observabilityLogs",
@@ -140,7 +140,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		],
 		getRowId: (row) => String(row.rowId),
 		getDetailHref: (row, from) =>
-			`/observability/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
+			`/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
 	},
 ];
 

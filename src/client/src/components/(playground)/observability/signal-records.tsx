@@ -259,59 +259,75 @@ function MetricRecord({
 		<button
 			type="button"
 			onClick={() => onOpen(row)}
-			className={`rounded-md border p-3 text-left transition ${
+			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950/30 dark:ring-emerald-900"
 					: "border-stone-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/60 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20"
 			}`}
 		>
-			<div className="flex items-start justify-between gap-3">
+			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
-					<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
-						{show("metricName") ? row.metricName : m.OBSERVABILITY_METRIC}
-					</h3>
-					<div className="mt-1 flex flex-wrap gap-1.5">
+					<div className="flex min-w-0 items-center gap-2">
+						<span className="h-2 w-2 rounded-full bg-emerald-500" />
+						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
+							{show("metricName") ? row.metricName : m.OBSERVABILITY_METRIC}
+						</h3>
+					</div>
+					<div className="mt-1 flex flex-wrap items-center gap-1.5">
 						{show("metricType") && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
 							{row.metricType}
 						</span>}
 						{show("serviceName") && <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300">
 							{row.serviceName || "all services"}
 						</span>}
+						{show("lastSeen") && <span className="text-xs text-stone-500 dark:text-stone-400">{formatDate(row.lastSeen)}</span>}
 					</div>
 				</div>
-				<BarChart3 className="h-4 w-4 shrink-0 text-emerald-500" />
+				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
+					{show("latestValue") && (
+						<MiniMeta
+							icon={<BarChart3 className="h-3.5 w-3.5" />}
+							label="latest"
+							value={`${Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"} ${unit}`}
+						/>
+					)}
+					{show("pointCount") && (
+						<MiniMeta
+							icon={<Info className="h-3.5 w-3.5" />}
+							label="points"
+							value={row.pointCount?.toLocaleString?.() || row.pointCount || 0}
+						/>
+					)}
+					<MiniMeta
+						icon={<BarChart3 className="h-3.5 w-3.5" />}
+						label="avg"
+						value={Number.isFinite(avgValue) ? avgValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}
+					/>
+					<MiniMeta
+						icon={<BarChart3 className="h-3.5 w-3.5" />}
+						label="range"
+						value={`${Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "-"} - ${Number.isFinite(maxValue) ? maxValue.toLocaleString(undefined, { maximumFractionDigits: 3 }) : "-"}`}
+					/>
+					{observationCount > row.pointCount && (
+						<MiniMeta
+							icon={<Info className="h-3.5 w-3.5" />}
+							label="obs"
+							value={observationCount.toLocaleString()}
+						/>
+					)}
+				</div>
 			</div>
-			<div className="mt-4">
-				<div className="flex items-end justify-between gap-2">
-					<div className="min-w-0">
-						<div className="text-[11px] uppercase tracking-wide text-stone-400 dark:text-stone-500">
-							Latest
-						</div>
-						{show("latestValue") && <span className="text-xl font-semibold tabular-nums text-stone-950 dark:text-stone-50">
-							{Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}
-						</span>}
-					</div>
-					{show("metricUnit") && <span className="text-xs text-stone-500 dark:text-stone-400">
-						{unit}
-					</span>}
-				</div>
-				<div className="mt-2 h-2 rounded-full bg-stone-100 dark:bg-stone-900">
+			<div className="mt-3">
+				<div className="h-1.5 rounded-full bg-stone-100 dark:bg-stone-900">
 					<div className="h-full rounded-full bg-emerald-500" style={{ width }} />
 				</div>
-				<div className="mt-3 grid grid-cols-2 gap-1.5 text-xs text-stone-500 dark:text-stone-400">
-					{show("pointCount") && <span className="inline-flex items-center gap-1">
-						<Info className="h-3.5 w-3.5" />
-						{row.pointCount?.toLocaleString?.() || row.pointCount || 0} points
-					</span>}
-					{observationCount > row.pointCount && <span>{observationCount.toLocaleString()} observations</span>}
-					<span>avg {Number.isFinite(avgValue) ? avgValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
-					<span>min {Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
-					<span>max {Number.isFinite(maxValue) ? maxValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
+				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-400 dark:text-stone-500">
+					<span>latest compared to max in this window</span>
+					<div className="flex gap-2">
+						<span>min {Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
+						<span>max {Number.isFinite(maxValue) ? maxValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
+					</div>
 				</div>
-				{show("lastSeen") && <div className="mt-2 text-xs text-stone-500 dark:text-stone-400">{formatDate(row.lastSeen)}</div>}
-				<p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">
-					Range is calculated from this metric&apos;s values in the selected time window.
-				</p>
 			</div>
 		</button>
 	);
@@ -357,7 +373,7 @@ export default function SignalRecords({
 
 	if (config.key === "metrics") {
 		return (
-			<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+			<div className="grid gap-2">
 				{rows.map((row) => (
 					<MetricRecord
 						key={config.getRowId(row)}

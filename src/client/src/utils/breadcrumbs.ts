@@ -120,31 +120,31 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [],
 	},
 
-	// Observability
+	// Telemetry
 	{
-		regex: /^\/observability$/,
-		getTitle: () => "Observability",
+		regex: /^\/telemetry$/,
+		getTitle: () => "Telemetry",
 		getBreadcrumbs: () => [],
 	},
 	{
-		regex: /^\/observability\/traces\/[^/]+$/,
+		regex: /^\/telemetry\/traces\/[^/]+$/,
 		getTitle: () => "Trace Details",
-		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=traces" }],
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=traces" }],
 	},
 	{
-		regex: /^\/observability\/exceptions\/[^/]+$/,
+		regex: /^\/telemetry\/exceptions\/[^/]+$/,
 		getTitle: () => "Exception Details",
-		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=exceptions" }],
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=exceptions" }],
 	},
 	{
-		regex: /^\/observability\/logs\/[^/]+$/,
+		regex: /^\/telemetry\/logs\/[^/]+$/,
 		getTitle: () => "Log Details",
-		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=logs" }],
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=logs" }],
 	},
 	{
-		regex: /^\/observability\/metrics\/[^/]+$/,
+		regex: /^\/telemetry\/metrics\/[^/]+$/,
 		getTitle: () => "Metric Details",
-		getBreadcrumbs: () => [{ title: "Observability", href: "/observability?tab=metrics" }],
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=metrics" }],
 	},
 	
 	// Exceptions

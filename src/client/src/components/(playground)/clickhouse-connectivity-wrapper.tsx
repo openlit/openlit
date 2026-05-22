@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "../common/loader";
 
-const ALLOWED_CONNECTIVITY_ALERT = /^\/home$|^\/dashboard$|^\/observability(?:\/.*)?$|^\/requests$|^\/exceptions$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^\/prompt-hub$|^\/vault$|^\/dashboards/;
+const ALLOWED_CONNECTIVITY_ALERT = /^\/home$|^\/dashboard$|^\/telemetry(?:\/.*)?$|^\/observability(?:\/.*)?$|^\/requests$|^\/exceptions$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^\/prompt-hub$|^\/vault$|^\/dashboards/;
 
 export default function ClickhouseConnectivityWrapper({ children }: { children: React.ReactNode }) {
 	const pingDetails = useRootStore(getPingDetails);

@@ -1127,6 +1127,7 @@ export default function TracesFilter({
 	configUrl?: string;
 	attributeKeysUrl?: string;
 	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);

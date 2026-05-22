@@ -17,6 +17,8 @@ export const config = {
 		"/register",
 		"/getting-started",
 		"/dashboard",
+		"/telemetry",
+		"/telemetry/:path*",
 		"/observability",
 		"/observability/:path*",
 		"/requests",

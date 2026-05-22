@@ -125,7 +125,7 @@ export const TRACE_NOT_FOUND = "Trace not found!";
 export const TRACE_FETCHING_ERROR = "Error fetching trace!";
 
 // Observability
-export const OBSERVABILITY_TITLE = "Observability";
+export const OBSERVABILITY_TITLE = "Telemetry";
 export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
 export const OBSERVABILITY_LOADING = "Loading...";
 export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";

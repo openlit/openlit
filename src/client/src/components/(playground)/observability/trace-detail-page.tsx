@@ -5,26 +5,129 @@ import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import DetailShell from "./detail-shell";
-import AttributeGrid from "./attribute-grid";
 import { getExtraTabsContentTypes, normalizeTrace } from "@/helpers/client/trace";
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
 import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, Hash, Server, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, RefreshCw, Zap } from "lucide-react";
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
+import DetailObjectTabs, { buildObjectTabs } from "./detail-object-tabs";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
 	return (
-		<div className="rounded-md bg-stone-100 dark:bg-stone-900 px-3 py-2">
-			<div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+		<div className="rounded-md bg-stone-100 px-2.5 py-1.5 dark:bg-stone-900">
+			<div className="flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400">
 				{icon}
 				{label}
 			</div>
-			<div className="mt-1 truncate text-sm font-semibold text-stone-900 dark:text-stone-100">
+			<div className="mt-0.5 truncate text-xs font-semibold text-stone-900 dark:text-stone-100">
 				{value || "-"}
+			</div>
+		</div>
+	);
+}
+
+function CostStat({
+	costValue,
+	spanId,
+	hasModel,
+	onRecalculated,
+}: {
+	costValue?: string;
+	spanId?: string;
+	hasModel: boolean;
+	onRecalculated: () => void;
+}) {
+	const m = getMessage();
+	const hasCost = !!costValue && costValue !== "-";
+	const canRecalculate = hasModel && !!spanId;
+	const { fireRequest, isLoading } = useFetchWrapper<{
+		success: boolean;
+		err?: string;
+		data?: { spanId: string; cost: number };
+	}>();
+
+	const handleRecalculate = (event: React.MouseEvent) => {
+		event.stopPropagation();
+		if (!spanId || isLoading) return;
+		fireRequest({
+			requestType: "POST",
+			url: `/api/pricing/${spanId}`,
+			successCb: (response) => {
+				if (response?.success) {
+					toast.success(
+						`${m.RECALCULATE_COST_SUCCESS}: $${(response.data?.cost ?? 0).toFixed(10)}`,
+						{ id: "pricing-update" }
+					);
+					onRecalculated();
+				} else {
+					toast.error(response?.err || m.RECALCULATE_COST_FAILURE, {
+						id: "pricing-update",
+					});
+				}
+			},
+			failureCb: (err?: string) => {
+				toast.error(err || m.RECALCULATE_COST_REQUEST_FAILED, {
+					id: "pricing-update",
+				});
+			},
+		});
+	};
+
+	return (
+		<div className="rounded-md bg-stone-100 px-2.5 py-1.5 dark:bg-stone-900">
+			<div className="flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400">
+				<DollarSign className="h-3.5 w-3.5" />
+				{m.OBSERVABILITY_COST}
+				{canRecalculate && (
+					<TooltipProvider delayDuration={200}>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									onClick={handleRecalculate}
+									disabled={isLoading}
+									className="relative ml-auto rounded p-0.5 transition-colors hover:bg-stone-200 disabled:opacity-50 dark:hover:bg-stone-700"
+								>
+									<RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+									{!hasCost && !isLoading && (
+										<span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-ping rounded-full bg-primary" />
+									)}
+								</button>
+							</TooltipTrigger>
+							<TooltipContent side="bottom" className="max-w-[220px] text-xs">
+								{m.RECALCULATE_COST_TITLE}
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
+			</div>
+			<div className="mt-0.5 truncate text-xs font-semibold text-stone-900 dark:text-stone-100">
+				{costValue || "-"}
+			</div>
+		</div>
+	);
+}
+
+function MetaPill({ label, value }: { label: string; value?: string }) {
+	if (!value) return null;
+	return (
+		<div className="min-w-0 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-800 dark:bg-stone-950">
+			<div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
+				{label}
+			</div>
+			<div className="max-w-72 truncate font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100" title={value}>
+				{value}
 			</div>
 		</div>
 	);
@@ -129,7 +232,7 @@ export function TraceDetailView({
 	const fromRef = useRef(from);
 	const listUrlRef = useRef(type === "exceptions" ? "/api/metrics/exception" : "/api/metrics/request");
 	const detailBasePathRef = useRef(
-		type === "exceptions" ? "/observability/exceptions" : "/observability/traces"
+		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
 	const { data, fireRequest, isLoading } = useFetchWrapper();
 	const {
@@ -208,12 +311,31 @@ export function TraceDetailView({
 
 	const raw = (data as any)?.record;
 	const trace = raw ? normalizeTrace(raw) : null;
+	const resourceAttributes = raw?.ResourceAttributes || {};
+	const serviceNamespace = resourceAttributes["service.namespace"];
+	const deploymentEnvironment =
+		resourceAttributes["deployment.environment"] ||
+		(trace as any)?.environment ||
+		(trace as any)?.deploymentType;
+	const statusValue =
+		raw?.StatusMessage || raw?.StatusCode
+			? [raw?.StatusCode, raw?.StatusMessage].filter(Boolean).join(" / ")
+			: undefined;
 	const hasEvaluationPanel = trace
 		? getExtraTabsContentTypes(trace).includes("Evaluation")
 		: false;
+	const detailTabs = useMemo(
+		() => buildObjectTabs(raw, {
+			labelOverrides: {
+				SpanAttributes: "Span Attributes",
+				ResourceAttributes: "Resource Attributes",
+			},
+		}),
+		[raw]
+	);
 	const title = trace?.spanName || (isLoading ? m.OBSERVABILITY_TRACE_LOADING : selectedSpanId);
 	const resultsHref =
-		from || `/observability?tab=${type === "exceptions" ? "exceptions" : "traces"}`;
+		from || `/telemetry?tab=${type === "exceptions" ? "exceptions" : "traces"}`;
 	const breadcrumbTitle = trace?.spanName || (isLoading ? m.OBSERVABILITY_LOADING : m.OBSERVABILITY_TRACE_DETAILS);
 
 	const customHeader = useMemo(
@@ -263,25 +385,34 @@ export function TraceDetailView({
 	return (
 		<DetailShell
 			title={title}
+			compact
 			leadingActions={
 				variant === "page" ? (
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={goBack}
-						className="h-8 gap-1.5 px-2"
+						className="h-8 w-8 p-0"
+						title={m.OBSERVABILITY_BACK}
 					>
 						<ArrowLeft className="h-3.5 w-3.5" />
-						{m.OBSERVABILITY_BACK}
 					</Button>
 				) : undefined
 			}
 			headerMeta={
 				trace ? (
-					<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+					<div className="grid grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-5">
+						{statusValue && (
+							<Stat icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Status" value={statusValue} />
+						)}
 						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
 						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={trace.totalTokens} />
-						<Stat icon={<DollarSign className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_COST} value={trace.cost ? `$${trace.cost}` : undefined} />
+						<CostStat
+							costValue={trace.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined}
+							spanId={trace.spanId}
+							hasModel={!!trace.model}
+							onRecalculated={fetchData}
+						/>
 						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_MODEL} value={trace.model || trace.serviceName} />
 					</div>
 				) : undefined
@@ -315,30 +446,67 @@ export function TraceDetailView({
 		>
 			{trace && (
 				<>
-					<div className="grid grid-cols-1 gap-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/50 md:grid-cols-2 xl:grid-cols-5">
-						<Stat icon={<Hash className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
-						<Stat icon={<Hash className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
-						<Stat icon={<Server className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
-						<Stat icon={<Server className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_APPLICATION} value={trace.applicationName} />
-						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SYSTEM} value={trace.system} />
+					<div className="flex flex-wrap gap-1.5">
+						<MetaPill label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
+						<MetaPill label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
+						<MetaPill label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
+						<MetaPill label="Service Namespace" value={serviceNamespace} />
+						<MetaPill label="Deployment Environment" value={deploymentEnvironment} />
 					</div>
-					<SpanHierarchyExplorer
-						hierarchySpanId={hierarchySpanIdRef.current}
-						selectedSpanId={selectedSpanId}
-						onSelectSpan={selectSpanInCurrentTrace}
-					/>
-					{hasEvaluationPanel && trace && (
-						<Evaluations trace={trace} surface="observability" />
-					)}
-					<AttributeGrid
-						title={m.OBSERVABILITY_SPAN_ATTRIBUTES}
-						data={raw?.SpanAttributes}
-					/>
-					<AttributeGrid
-						title={m.OBSERVABILITY_RESOURCE_ATTRIBUTES}
-						data={raw?.ResourceAttributes}
-					/>
-					<AttributeGrid title={m.OBSERVABILITY_RAW_RECORD} data={raw} />
+					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
+						<ResizablePanelGroup direction="horizontal" className="h-full">
+							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
+								<div className="h-full min-h-0 p-2">
+									<SpanHierarchyExplorer
+										hierarchySpanId={hierarchySpanIdRef.current}
+										selectedSpanId={selectedSpanId}
+										onSelectSpan={selectSpanInCurrentTrace}
+										fill
+									/>
+								</div>
+							</ResizablePanel>
+							<ResizableHandle withHandle />
+							<ResizablePanel defaultSize={52} minSize={32}>
+								<div className="h-full min-h-0 overflow-auto p-2">
+									<DetailObjectTabs
+										tabs={detailTabs}
+										extraTabs={
+											hasEvaluationPanel && trace
+												? [
+														{
+															id: "evaluations",
+															label: "Evaluations",
+															content: <Evaluations trace={trace} surface="observability" />,
+														},
+												  ]
+												: undefined
+										}
+									/>
+								</div>
+							</ResizablePanel>
+						</ResizablePanelGroup>
+					</div>
+					<div className="grid gap-3 lg:hidden">
+						<SpanHierarchyExplorer
+							hierarchySpanId={hierarchySpanIdRef.current}
+							selectedSpanId={selectedSpanId}
+							onSelectSpan={selectSpanInCurrentTrace}
+						/>
+						<DetailObjectTabs
+							tabs={detailTabs}
+							extraTabs={
+								hasEvaluationPanel && trace
+									? [
+											{
+												id: "evaluations",
+												label: "Evaluations",
+												content: <Evaluations trace={trace} surface="observability" />,
+											},
+									  ]
+									: undefined
+							}
+						/>
+					</div>
 				</>
 			)}
 		</DetailShell>
