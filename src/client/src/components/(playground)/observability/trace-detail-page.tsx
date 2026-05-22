@@ -200,6 +200,13 @@ function filterFromSource(from: string | null, offsetOverride?: number): FilterT
 	};
 }
 
+function sourceWithOffset(from: string | null, offset: number) {
+	if (!from || typeof window === "undefined") return from;
+	const url = new URL(from, window.location.origin);
+	url.searchParams.set("offset", String(offset));
+	return `${url.pathname}${url.search}`;
+}
+
 export function TraceDetailView({
 	spanId,
 	type,
@@ -210,6 +217,8 @@ export function TraceDetailView({
 	navigationRows,
 	navigationOffset,
 	navigationTotal,
+	navigationFilter,
+	onNavigationPageChange,
 }: {
 	spanId: string;
 	type: "traces" | "exceptions";
@@ -220,6 +229,8 @@ export function TraceDetailView({
 	navigationRows?: any[];
 	navigationOffset?: number;
 	navigationTotal?: number;
+	navigationFilter?: FilterType;
+	onNavigationPageChange?: (offset: number) => void;
 }) {
 	const m = getMessage();
 	const router = useRouter();
@@ -229,6 +240,11 @@ export function TraceDetailView({
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
 	const hierarchySpanIdRef = useRef(spanId);
 	const [listOffset, setListOffset] = useState(() => filterFromSource(from).offset);
+	const [navigationPageOverride, setNavigationPageOverride] = useState<{
+		rows: any[];
+		offset: number;
+		total?: number;
+	} | null>(null);
 	const fromRef = useRef(from);
 	const listUrlRef = useRef(type === "exceptions" ? "/api/metrics/exception" : "/api/metrics/request");
 	const detailBasePathRef = useRef(
@@ -251,6 +267,11 @@ export function TraceDetailView({
 		hierarchySpanIdRef.current = spanId;
 		setSelectedSpanId(spanId);
 		setActiveListSpanId(spanId);
+		setNavigationPageOverride((currentPage) =>
+			currentPage?.rows.some((row: any) => row.spanId === spanId)
+				? currentPage
+				: null
+		);
 	}, [spanId]);
 
 	useEffect(() => {
@@ -282,8 +303,13 @@ export function TraceDetailView({
 
 	const fetchList = useCallback(
 		(offset: number, direction?: -1 | 1) => {
+			const listFilter = fromRef.current
+				? filterFromSource(fromRef.current, offset)
+				: navigationFilter
+					? { ...navigationFilter, offset }
+					: filterFromSource(fromRef.current, offset);
 			fireListRequest({
-				body: JSON.stringify(filterFromSource(fromRef.current, offset)),
+				body: JSON.stringify(listFilter),
 				requestType: "POST",
 				url: listUrlRef.current,
 				successCb: (response) => {
@@ -292,13 +318,21 @@ export function TraceDetailView({
 					const target =
 						direction === 1 ? records[0] : records[records.length - 1];
 					if (target?.spanId) {
+						const nextSource = sourceWithOffset(fromRef.current, offset);
+						fromRef.current = nextSource;
 						setListOffset(offset);
+						setNavigationPageOverride({
+							rows: records,
+							offset,
+							total: (response as any)?.total,
+						});
+						onNavigationPageChange?.(offset);
 						navigateToListSpan(target.spanId);
 					}
 				},
 			});
 		},
-		[fireListRequest, navigateToListSpan]
+		[fireListRequest, navigateToListSpan, navigationFilter, onNavigationPageChange]
 	);
 
 	useEffect(() => {
@@ -353,10 +387,26 @@ export function TraceDetailView({
 		() => (((listData as any)?.records || []).map(normalizeTrace)),
 		[listData]
 	);
-	const effectiveListRows = navigationRows?.length ? navigationRows : listRows;
-	const effectiveListOffset = navigationOffset ?? listOffset;
-	const total = navigationTotal ?? (listData as any)?.total ?? 0;
+	const effectiveListRows = navigationPageOverride?.rows?.length
+		? navigationRows?.some((row: any) => row.spanId === activeListSpanId)
+			? navigationRows
+			: navigationPageOverride.rows
+		: navigationRows?.length
+			? navigationRows
+			: listRows;
+	const effectiveListOffset =
+		navigationPageOverride?.rows?.length &&
+		!navigationRows?.some((row: any) => row.spanId === activeListSpanId)
+			? navigationPageOverride.offset
+			: navigationOffset ?? listOffset;
+	const total =
+		navigationPageOverride?.rows?.length &&
+		!navigationRows?.some((row: any) => row.spanId === activeListSpanId)
+			? navigationPageOverride.total ?? navigationTotal ?? (listData as any)?.total ?? 0
+			: navigationTotal ?? (listData as any)?.total ?? 0;
 	const currentIndex = effectiveListRows.findIndex((row: any) => row.spanId === activeListSpanId);
+	const navigationLimit =
+		navigationFilter?.limit ?? filterFromSource(fromRef.current).limit;
 	const canPrev = currentIndex > 0 || effectiveListOffset > 0;
 	const canNext =
 		currentIndex >= 0 &&
@@ -366,7 +416,7 @@ export function TraceDetailView({
 		if (currentIndex > 0) {
 			navigateToListSpan(effectiveListRows[currentIndex - 1].spanId);
 		} else if (effectiveListOffset > 0) {
-			fetchList(Math.max(0, effectiveListOffset - filterFromSource(fromRef.current).limit), -1);
+			fetchList(Math.max(0, effectiveListOffset - navigationLimit), -1);
 		}
 	};
 
@@ -374,7 +424,7 @@ export function TraceDetailView({
 		if (currentIndex >= 0 && currentIndex < effectiveListRows.length - 1) {
 			navigateToListSpan(effectiveListRows[currentIndex + 1].spanId);
 		} else if (effectiveListOffset + effectiveListRows.length < total) {
-			fetchList(effectiveListOffset + filterFromSource(fromRef.current).limit, 1);
+			fetchList(effectiveListOffset + navigationLimit, 1);
 		}
 	};
 

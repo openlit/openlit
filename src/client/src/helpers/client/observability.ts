@@ -15,5 +15,4 @@ export function prepareObservabilitySignalChange(
 	updateConfig(undefined);
 	updateFilter("groupBy", null);
 	updateFilter("groupValue", null);
-	updateFilter("selectedConfig", {}, { clearFilter: true });
 }

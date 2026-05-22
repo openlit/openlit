@@ -277,6 +277,13 @@ export default function ObservabilitySignalList({
 		[setSelectedInUrl]
 	);
 
+	const updateTraceNavigationPage = useCallback(
+		(offset: number) => {
+			updateFilter("offset", offset);
+		},
+		[updateFilter]
+	);
+
 	return (
 		<>
 			<div className="mb-3">
@@ -349,9 +356,11 @@ export default function ObservabilitySignalList({
 									variant="sheet"
 									onSpanChange={updateTraceSelection}
 									onActiveSpanChange={updateActiveTraceSelection}
+									onNavigationPageChange={updateTraceNavigationPage}
 									navigationRows={rows}
 									navigationOffset={filter.offset}
 									navigationTotal={total}
+									navigationFilter={effectiveFilter}
 									extraActions={
 										<>
 											<Button
