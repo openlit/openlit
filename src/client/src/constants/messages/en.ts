@@ -1,5 +1,7 @@
 export const DATABASE_CONFIG_NOT_FOUND = "No database config present!";
 export const UNAUTHORIZED_USER = "Unauthorized user!";
+export const FORBIDDEN_ACTION = "You do not have permission to perform this action.";
+export const NO_ORGANISATION_SELECTED = "No active organisation. Switch organisations to continue.";
 export const MALFORMED_INPUTS = "Malformed input! Please check the docs";
 export const OPERATION_FAILED = "Operation failed!";
 
@@ -371,8 +373,9 @@ export const AGENTS_SYSTEM_LINUX = "Linux";
 export const AGENTS_STAT_CONTROLLERS = "Active Controllers";
 export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Agents";
 export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Agents";
-export const AGENTS_TAB_SERVICES = "Agents";
+export const AGENTS_TAB_SERVICES = "Applications";
 export const AGENTS_TAB_CONTROLLERS = "Controllers";
+export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 
 // Agents - No Controller
@@ -403,6 +406,31 @@ export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
 export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
+export const AGENTS_CODING_SESSIONS_24H_LABEL = "Sessions in last 24h";
+export const AGENTS_CODING_USERS_24H_LABEL = "Active users in last 24h";
+export const AGENTS_CODING_COST_24H_LABEL = "Cost in last 24h (USD)";
+export const AGENTS_CODING_COLUMN_VENDOR = "Vendor";
+export const AGENTS_CODING_COLUMN_SESSIONS = "Sessions (24h)";
+export const AGENTS_CODING_COLUMN_USERS = "Users (24h)";
+export const AGENTS_CODING_COLUMN_COST = "Cost (24h)";
+export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_EMPTY_BODY =
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or Copilot CLI session. The first hook event will surface the agent here within a minute.";
+export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
+export const AGENTS_CODING_OVERVIEW_VENDOR_LABEL = "Vendor";
+export const AGENTS_CODING_OVERVIEW_SESSIONS_LABEL = "Sessions (24h)";
+export const AGENTS_CODING_OVERVIEW_USERS_LABEL = "Active users (24h)";
+export const AGENTS_CODING_OVERVIEW_COST_LABEL = "Cost (24h)";
+export const AGENTS_CODING_OVERVIEW_CLIENT_LABEL = "Client info";
+export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the last 24 hours.";
+export const AGENTS_CODING_DASHBOARD_NOT_SEEDED =
+	"Dashboard not yet available. Restart the openlit container to run the latest seed migrations.";
+export const AGENTS_CODING_DASHBOARD_BLURB =
+	"Open the dedicated dashboard for end-to-end charts (sessions, cost, tools, users, classification, governance).";
+export const AGENTS_CODING_DASHBOARD_OPEN = "Open full dashboard";
+export const AGENTS_CODING_SESSION_DETAIL_TITLE = "Session detail";
+export const AGENTS_CODING_SESSION_DETAIL_EMPTY =
+	"No turns, tool calls, or edits captured yet for this session. The agent may still be running, or content capture may be set to metadata-only.";
 export const AGENTS_COLUMN_LAST_SEEN = "Last Seen";
 export const AGENTS_COLUMN_LLM_OBSERVABILITY = "LLM Observability";
 export const AGENTS_COLUMN_AGENT_OBSERVABILITY = "Agent Observability";

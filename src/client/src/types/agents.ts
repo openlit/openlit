@@ -5,7 +5,29 @@
  * controller can act on the row.
  */
 
-export type AgentSource = "controller" | "sdk" | "both";
+/**
+ * Where this agent originated from:
+ *  - `controller`  — discovered by the OpenLit controller (Docker/K8s/systemd).
+ *  - `sdk`         — instrumented via openlit-sdk in user code.
+ *  - `both`        — discovered AND instrumented (`controller` + `sdk` rolled up).
+ *  - `coding`      — AI coding-agent client (Claude Code, Cursor, Codex,
+ *                    Copilot CLI, …) sending telemetry through the openlit
+ *                    CLI's hook subcommand. Distinguished here because the
+ *                    detail page renders a different set of tabs and the
+ *                    list page shows a vendor logo + label.
+ */
+export type AgentSource = "controller" | "sdk" | "both" | "coding";
+
+/**
+ * Vendor identifier for `source === "coding"` rows. Mirrors
+ * `coding_agent.client` / `gen_ai.agent.name` from sdk/go/semconv.
+ */
+export type CodingAgentVendor =
+	| "claude-code"
+	| "cursor"
+	| "codex"
+	| "copilot"
+	| "windsurf";
 
 export type AgentInstrumentationStatus = "discovered" | "instrumented";
 
@@ -95,6 +117,22 @@ export interface UnifiedAgent {
 	pods_total: number;
 	pods_pending: number;
 	pods_acknowledged: number;
+
+	/**
+	 * Coding-agent vendor identifier. Set iff `source === "coding"`. Used by
+	 * the list page to render the vendor logo and by the detail page to
+	 * branch into the coding-agent tab set.
+	 */
+	coding_agent_vendor?: CodingAgentVendor;
+
+	/**
+	 * Per-coding-agent rollups (last 24h, materialized server-side). All
+	 * fields default to 0 for non-coding rows so dashboard widgets can
+	 * filter on `source = 'coding'` without conditionalizing every read.
+	 */
+	coding_session_count_24h?: number;
+	coding_cost_usd_24h?: number;
+	coding_active_users_24h?: number;
 }
 
 export interface AgentListCursor {
@@ -159,4 +197,5 @@ export interface AgentListFilters {
 	environments?: string[];
 	providers?: string[];
 	statuses?: Array<"discovered" | "instrumented" | "sdk">;
+	codingVendors?: CodingAgentVendor[];
 }

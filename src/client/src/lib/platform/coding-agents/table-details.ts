@@ -1,0 +1,88 @@
+/**
+ * Coding-agent ClickHouse table/column references.
+ *
+ * Coding-agent telemetry rides the existing `otel_traces` pipeline. We
+ * keep dedicated constants here (rather than scatter literal strings
+ * across queries) so renames or schema bumps stay localized.
+ */
+
+export const OTEL_TRACES_TABLE = "otel_traces";
+
+/**
+ * Span names emitted by the openlit CLI normalizer (mirrors
+ * sdk/go/semconv/coding_agent.go::CodingAgentSpan*). Dashboards and
+ * APIs filter on these so they never accidentally pull in non-coding
+ * gen_ai traffic.
+ */
+export const CODING_AGENT_SPAN_SESSION = "coding_agent.session";
+export const CODING_AGENT_SPAN_TOOL_CALL = "coding_agent.tool.call";
+export const CODING_AGENT_SPAN_EDIT_DECISION = "coding_agent.edit.decision";
+export const CODING_AGENT_SPAN_SUBAGENT = "coding_agent.subagent";
+export const CODING_AGENT_SPAN_LLM_TURN = "coding_agent.llm.turn";
+
+/** All coding-agent span names in a single tuple — handy for `IN (...)` clauses. */
+export const CODING_AGENT_SPAN_NAMES = [
+	CODING_AGENT_SPAN_SESSION,
+	CODING_AGENT_SPAN_TOOL_CALL,
+	CODING_AGENT_SPAN_EDIT_DECISION,
+	CODING_AGENT_SPAN_SUBAGENT,
+	CODING_AGENT_SPAN_LLM_TURN,
+] as const;
+
+/**
+ * Frequently-read attribute keys. These align 1:1 with constants in
+ * `sdk/go/semconv/coding_agent.go` so the wire-format is the only
+ * source of truth. Update in lockstep when bumping the schema.
+ */
+export const CODING_AGENT_ATTR = {
+	sessionId: "coding_agent.session.id",
+	client: "coding_agent.client",
+	clientVersion: "coding_agent.client.version",
+	sessionOutcome: "coding_agent.session.outcome",
+	sessionDurationMs: "coding_agent.session.duration_ms",
+	sessionToolCallCount: "coding_agent.session.tool_call_count",
+	sessionCostUsd: "coding_agent.session.cost_usd",
+	userClassification: "coding_agent.user.classification",
+	userClassificationReason: "coding_agent.user.classification.reason",
+	policyPermissionMode: "coding_agent.policy.permission_mode",
+	contentCaptureMode: "coding_agent.content_capture_mode",
+	editDecision: "coding_agent.edit.decision",
+	editDecisionSource: "coding_agent.edit.decision.source",
+	editLinesAdded: "coding_agent.edit.lines.added",
+	editLinesRemoved: "coding_agent.edit.lines.removed",
+	editLanguage: "coding_agent.edit.language",
+	mcpServerName: "coding_agent.mcp.server.name",
+	mcpScope: "coding_agent.mcp.scope",
+	mcpTransport: "coding_agent.mcp.transport",
+	vcsDirty: "coding_agent.vcs.dirty",
+	hookEvent: "coding_agent.hook.event",
+} as const;
+
+/** OTel `gen_ai.*` keys we read on coding-agent spans. */
+export const GEN_AI_ATTR = {
+	agentName: "gen_ai.agent.name",
+	userName: "gen_ai.user.name",
+	requestModel: "gen_ai.request.model",
+	usageCost: "gen_ai.usage.cost",
+	usageInputTokens: "gen_ai.usage.input_tokens",
+	usageOutputTokens: "gen_ai.usage.output_tokens",
+	conversationId: "gen_ai.conversation.id",
+	toolName: "gen_ai.tool.name",
+} as const;
+
+/** OTel `vcs.*` keys we read on coding-agent spans. */
+export const VCS_ATTR = {
+	repoUrl: "vcs.repository.url.full",
+	headRevision: "vcs.ref.head.revision",
+	headRef: "vcs.ref.head.name",
+} as const;
+
+/**
+ * Cohort floor used by aggregate-only views (top users, classification
+ * boards). Below this threshold, we suppress per-user breakdowns to
+ * protect individual contributors' privacy on small teams.
+ *
+ * Tunable per-org once we ship policy controls; v1 ships a single
+ * conservative default.
+ */
+export const COHORT_K_FLOOR = 5;

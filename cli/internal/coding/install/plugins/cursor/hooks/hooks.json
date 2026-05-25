@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=sessionStart",
+        "timeout": 5000
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=sessionEnd",
+        "timeout": 5000
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=beforeSubmitPrompt",
+        "timeout": 5000
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=afterAgentResponse",
+        "timeout": 5000
+      }
+    ],
+    "afterAgentThought": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=afterAgentThought",
+        "timeout": 5000
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=preToolUse",
+        "timeout": 5000
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=postToolUse",
+        "timeout": 5000
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=postToolUseFailure",
+        "timeout": 5000
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=subagentStart",
+        "timeout": 5000
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=subagentStop",
+        "timeout": 5000
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=beforeShellExecution",
+        "timeout": 5000
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=afterShellExecution",
+        "timeout": 5000
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=beforeMCPExecution",
+        "timeout": 5000
+      }
+    ],
+    "afterMCPExecution": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=afterMCPExecution",
+        "timeout": 5000
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=beforeReadFile",
+        "timeout": 5000
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=afterFileEdit",
+        "timeout": 5000
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=preCompact",
+        "timeout": 5000
+      }
+    ],
+    "stop": [
+      {
+        "command": "${PLUGIN_DIR}/scripts/run.sh --event=stop",
+        "timeout": 5000
+      }
+    ]
+  }
+}

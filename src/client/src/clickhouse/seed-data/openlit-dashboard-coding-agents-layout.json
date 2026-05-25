@@ -1,0 +1,263 @@
+{
+  "id": "8f4d7b2e-6a91-4c52-9b3a-1e6c8f3d4a5b",
+  "title": "Coding Agents",
+  "description": "Coding-agent observability across vendors (Claude Code, Cursor, Codex, Copilot CLI). Sessions, cost, tools, users, classification, and governance — sourced live from otel_traces emitted by the openlit CLI hook.",
+  "parentId": null,
+  "isMainDashboard": false,
+  "isPinned": true,
+  "createdAt": "2026-05-25 11:00:00",
+  "updatedAt": "2026-05-25 11:00:00",
+  "widgets": {
+    "9a1f1c20-3b27-4f88-9d51-1aaa11111111": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa11111111",
+      "title": "Total sessions",
+      "description": "Distinct coding-agent sessions in the selected window.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.total_sessions",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    CAST(uniqIf(SpanAttributes['coding_agent.session.id'],\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    ) AS INTEGER) AS total_sessions,\n\n    CAST(uniqIf(SpanAttributes['coding_agent.session.id'],\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    ) AS INTEGER) AS total_sessions_previous,\n\n    round(\n        if(uniqIf(SpanAttributes['coding_agent.session.id'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND notEmpty(SpanAttributes['coding_agent.session.id'])) = 0,\n           uniqIf(SpanAttributes['coding_agent.session.id'],\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND notEmpty(SpanAttributes['coding_agent.session.id'])) * 100.0,\n           (uniqIf(SpanAttributes['coding_agent.session.id'],\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND notEmpty(SpanAttributes['coding_agent.session.id'])) -\n            uniqIf(SpanAttributes['coding_agent.session.id'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND notEmpty(SpanAttributes['coding_agent.session.id']))) * 100.0\n           / uniqIf(SpanAttributes['coding_agent.session.id'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND notEmpty(SpanAttributes['coding_agent.session.id']))\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE\n    SpanName IN ('coding_agent.session', 'coding_agent.tool.call', 'coding_agent.edit.decision')\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa11111112": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa11111112",
+      "title": "Active users",
+      "description": "Distinct users (gen_ai.user.name) who started a coding-agent session.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.active_users",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    CAST(uniqIf(SpanAttributes['gen_ai.user.name'],\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND SpanName = 'coding_agent.session'\n        AND notEmpty(SpanAttributes['gen_ai.user.name'])\n    ) AS INTEGER) AS active_users,\n\n    CAST(uniqIf(SpanAttributes['gen_ai.user.name'],\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        AND SpanName = 'coding_agent.session'\n        AND notEmpty(SpanAttributes['gen_ai.user.name'])\n    ) AS INTEGER) AS active_users_previous,\n\n    round(\n        if(uniqIf(SpanAttributes['gen_ai.user.name'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName = 'coding_agent.session'\n               AND notEmpty(SpanAttributes['gen_ai.user.name'])) = 0,\n           uniqIf(SpanAttributes['gen_ai.user.name'],\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND SpanName = 'coding_agent.session'\n               AND notEmpty(SpanAttributes['gen_ai.user.name'])) * 100.0,\n           (uniqIf(SpanAttributes['gen_ai.user.name'],\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND SpanName = 'coding_agent.session'\n               AND notEmpty(SpanAttributes['gen_ai.user.name'])) -\n            uniqIf(SpanAttributes['gen_ai.user.name'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName = 'coding_agent.session'\n               AND notEmpty(SpanAttributes['gen_ai.user.name']))) * 100.0\n           / uniqIf(SpanAttributes['gen_ai.user.name'],\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName = 'coding_agent.session'\n               AND notEmpty(SpanAttributes['gen_ai.user.name']))\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa11111113": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa11111113",
+      "title": "Total cost (USD)",
+      "description": "Realized cost from gen_ai.usage.cost emitted on coding-agent sessions.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.total_cost",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#F36C06",
+        "prefix": "$"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    round(sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')\n    ), 4) AS total_cost,\n\n    round(sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n        Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')\n    ), 4) AS total_cost_previous,\n\n    round(\n        if(sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')) = 0,\n           sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')) * 100.0,\n           (sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n               Timestamp >= start_time AND Timestamp <= end_time\n               AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')) -\n            sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn'))) * 100.0\n           / sumIf(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),\n               Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n               AND SpanName IN ('coding_agent.session', 'coding_agent.llm.turn'))\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE\n    SpanName IN ('coding_agent.session', 'coding_agent.llm.turn')\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa11111114": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa11111114",
+      "title": "Total tool calls",
+      "description": "Distinct tool invocations across all coding-agent sessions.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.total_tools",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time\n\nSELECT\n    CAST(countIf(\n        SpanName = 'coding_agent.tool.call'\n        AND Timestamp >= start_time AND Timestamp <= end_time\n    ) AS INTEGER) AS total_tools,\n\n    CAST(countIf(\n        SpanName = 'coding_agent.tool.call'\n        AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n    ) AS INTEGER) AS total_tools_previous,\n\n    round(\n        if(countIf(SpanName = 'coding_agent.tool.call'\n               AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time) = 0,\n           countIf(SpanName = 'coding_agent.tool.call'\n               AND Timestamp >= start_time AND Timestamp <= end_time) * 100.0,\n           (countIf(SpanName = 'coding_agent.tool.call'\n               AND Timestamp >= start_time AND Timestamp <= end_time) -\n            countIf(SpanName = 'coding_agent.tool.call'\n               AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time)) * 100.0\n           / countIf(SpanName = 'coding_agent.tool.call'\n               AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time)\n        ), 4\n    ) AS rate\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.tool.call'\n    AND Timestamp >= prev_start_time AND Timestamp <= end_time\n"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa22222221": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa22222221",
+      "title": "Sessions over time",
+      "description": "Distinct coding-agent sessions bucketed across the window.",
+      "type": "AREA_CHART",
+      "properties": {
+        "xAxis": "request_time",
+        "yAxes": [
+          {
+            "key": "sessions",
+            "color": "#F36C06"
+          }
+        ]
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(\n        years_diff >= 1, 'month',\n        days_diff <= 1, 'hour',\n        'day'\n    ) AS date_granularity\n\nSELECT\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions,\n    formatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY request_time\nORDER BY request_time"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa22222222": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa22222222",
+      "title": "Sessions by vendor",
+      "description": "Distribution of sessions across coding-agent vendors.",
+      "type": "PIE_CHART",
+      "properties": {
+        "labelPath": "vendor",
+        "valuePath": "sessions",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(\n        nullIf(SpanAttributes['coding_agent.client'], ''),\n        SpanAttributes['gen_ai.agent.name']\n    ) AS vendor,\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY vendor\nORDER BY sessions DESC"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa33333331": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa33333331",
+      "title": "Top tools",
+      "description": "Top tools invoked across coding-agent sessions.",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "tool",
+        "yAxis": "calls",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    SpanAttributes['gen_ai.tool.name'] AS tool,\n    CAST(COUNT(*) AS INTEGER) AS calls\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.tool.call'\n    AND notEmpty(SpanAttributes['gen_ai.tool.name'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY tool\nORDER BY calls DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa33333332": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa33333332",
+      "title": "Top users",
+      "description": "Top users by session count.",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "user",
+        "yAxis": "sessions",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    SpanAttributes['gen_ai.user.name'] AS user,\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['gen_ai.user.name'])\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY user\nORDER BY sessions DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa33333333": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa33333333",
+      "title": "Top repositories",
+      "description": "Repositories where coding-agent sessions started (vcs.repository.url.full).",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "repo",
+        "yAxis": "sessions",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    SpanAttributes['vcs.repository.url.full'] AS repo,\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['vcs.repository.url.full'])\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY repo\nORDER BY sessions DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa44444441": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa44444441",
+      "title": "Personal vs work classification",
+      "description": "Sessions broken down by coding_agent.user.classification (personal | work | disputed | unknown).",
+      "type": "PIE_CHART",
+      "properties": {
+        "labelPath": "classification",
+        "valuePath": "sessions",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(nullIf(SpanAttributes['coding_agent.user.classification'], ''), 'unknown') AS classification,\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY classification\nORDER BY sessions DESC"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa44444442": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa44444442",
+      "title": "Top models",
+      "description": "Top LLM models behind coding-agent activity.",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "model",
+        "yAxis": "calls",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    SpanAttributes['gen_ai.request.model'] AS model,\n    CAST(COUNT(*) AS INTEGER) AS calls\nFROM otel_traces\nWHERE\n    SpanName IN ('coding_agent.session', 'coding_agent.tool.call', 'coding_agent.llm.turn')\n    AND notEmpty(SpanAttributes['gen_ai.request.model'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY model\nORDER BY calls DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa55555551": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa55555551",
+      "title": "Session outcomes",
+      "description": "Distribution of session outcomes — merged, committed, abandoned, cancelled.",
+      "type": "PIE_CHART",
+      "properties": {
+        "labelPath": "outcome",
+        "valuePath": "sessions",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(nullIf(SpanAttributes['coding_agent.session.outcome'], ''), 'unknown') AS outcome,\n    CAST(uniq(SpanAttributes['coding_agent.session.id']) AS INTEGER) AS sessions\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.session'\n    AND notEmpty(SpanAttributes['coding_agent.session.id'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY outcome\nORDER BY sessions DESC"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa55555552": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa55555552",
+      "title": "Edit decisions",
+      "description": "Auto-applied vs user-reviewed edits — gauge user trust in the agent.",
+      "type": "PIE_CHART",
+      "properties": {
+        "labelPath": "decision",
+        "valuePath": "edits",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(nullIf(SpanAttributes['coding_agent.edit.decision'], ''), 'unknown') AS decision,\n    CAST(COUNT(*) AS INTEGER) AS edits\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.edit.decision'\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY decision\nORDER BY edits DESC"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa55555553": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa55555553",
+      "title": "MCP servers in use",
+      "description": "Top MCP servers attached to coding-agent runs (governance signal).",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "server",
+        "yAxis": "invocations",
+        "color": "#F36C06"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    SpanAttributes['coding_agent.mcp.server.name'] AS server,\n    CAST(COUNT(*) AS INTEGER) AS invocations\nFROM otel_traces\nWHERE\n    notEmpty(SpanAttributes['coding_agent.mcp.server.name'])\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY server\nORDER BY invocations DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-25 11:00:00",
+      "updatedAt": "2026-05-25 11:00:00"
+    }
+  },
+  "layouts": {
+    "lg": [
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa11111111", "x": 0, "y": 0, "w": 1, "h": 1 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa11111112", "x": 1, "y": 0, "w": 1, "h": 1 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa11111113", "x": 2, "y": 0, "w": 1, "h": 1 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa11111114", "x": 3, "y": 0, "w": 1, "h": 1 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa22222221", "x": 0, "y": 1, "w": 3, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa22222222", "x": 3, "y": 1, "w": 1, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa33333331", "x": 0, "y": 3, "w": 2, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa33333332", "x": 2, "y": 3, "w": 2, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa33333333", "x": 0, "y": 5, "w": 2, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa44444441", "x": 2, "y": 5, "w": 1, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa44444442", "x": 3, "y": 5, "w": 1, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa55555551", "x": 0, "y": 7, "w": 1, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa55555552", "x": 1, "y": 7, "w": 1, "h": 2 },
+      { "i": "9a1f1c20-3b27-4f88-9d51-1aaa55555553", "x": 2, "y": 7, "w": 2, "h": 2 }
+    ]
+  }
+}

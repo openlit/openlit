@@ -13,7 +13,7 @@ import {
 	CONTROLLER_DESIRED_STATES_V2_TABLE,
 	CONTROLLER_SERVICES_TABLE,
 } from "@/lib/platform/controller/table-details";
-import type { AgentSource } from "@/types/agents";
+import type { AgentSource, CodingAgentVendor } from "@/types/agents";
 import { computeAgentKey, invalidateAgent } from "./index";
 import { invalidatePrefix } from "./cache";
 import { agentsLogger } from "./logger";
@@ -73,6 +73,12 @@ interface DiscoveredAgent {
 	// table render provider logos for controller-discovered workloads
 	// before any GenAI trace has arrived. Empty for SDK-only rows.
 	controller_llm_providers: string[];
+	// Coding-agent specific rollups, populated by discoverCodingAgents()
+	// only on rows where source === 'coding'. All zero/empty for other rows.
+	coding_agent_vendor?: CodingAgentVendor;
+	coding_session_count_24h?: number;
+	coding_cost_usd_24h?: number;
+	coding_active_users_24h?: number;
 }
 
 const SDK_DISCOVERY_LOOKBACK_MINUTES = 30;
@@ -345,6 +351,101 @@ async function discoverAgents(
 	return Array.from(merged.values());
 }
 
+/**
+ * Coding-agent discovery — separate pass so it stays decoupled from the
+ * SDK/controller path. We group raw spans by `coding_agent.client` (mirror
+ * of `gen_ai.agent.name`) and emit one summary row per vendor under the
+ * synthetic cluster id `coding`. Per-user / per-session detail lives in
+ * the dedicated coding-agent dashboards.
+ *
+ * Why one row per vendor (not per session, repo, or user): the /agents
+ * page is a fleet view. A workspace running 50 Claude Code sessions a
+ * day shouldn't crowd the page out with 50 rows; it should show one
+ * "Claude Code" row whose detail page drills into sessions/users/cost.
+ */
+async function discoverCodingAgents(
+	dbConfigId?: string
+): Promise<DiscoveredAgent[]> {
+	const query = `
+		SELECT
+			coalesce(
+				nullIf(SpanAttributes['coding_agent.client'], ''),
+				nullIf(SpanAttributes['gen_ai.agent.name'], '')
+			) AS vendor,
+			argMax(SpanAttributes['coding_agent.client.version'], Timestamp) AS client_version,
+			min(Timestamp) AS first_seen,
+			max(Timestamp) AS last_seen,
+			uniqExact(SpanAttributes['coding_agent.session.id']) AS session_count_24h,
+			sum(
+				toFloat64OrZero(SpanAttributes['coding_agent.session.cost_usd'])
+			) AS cost_usd_24h,
+			uniqExact(
+				if(
+					SpanAttributes['user.id'] != '',
+					SpanAttributes['user.id'],
+					SpanAttributes['gen_ai.request.user']
+				)
+			) AS active_users_24h
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE Timestamp >= now() - INTERVAL 24 HOUR
+			AND SpanAttributes['coding_agent.session.id'] != ''
+			AND coalesce(
+				nullIf(SpanAttributes['coding_agent.client'], ''),
+				nullIf(SpanAttributes['gen_ai.agent.name'], '')
+			) != ''
+		GROUP BY vendor
+		HAVING vendor IS NOT NULL
+	`;
+
+	const res = await dataCollector({ query }, "query", dbConfigId);
+	if (res.err) {
+		agentsLogger.error("materializer_coding_discovery_failed", {
+			err: res.err,
+		});
+		return [];
+	}
+	const rows = (res.data as Array<{
+		vendor: string;
+		client_version: string;
+		first_seen: string;
+		last_seen: string;
+		session_count_24h: number;
+		cost_usd_24h: number;
+		active_users_24h: number;
+	}>) || [];
+
+	return rows
+		.filter((row) => row.vendor)
+		.map((row) => {
+			const vendor = row.vendor as CodingAgentVendor;
+			const cluster = "coding";
+			const env = "default";
+			// Per-vendor stable agent key. The detail page derives the
+			// vendor from `service_name` since cluster is fixed.
+			const agentKey = computeAgentKey(cluster, env, vendor);
+			return {
+				agent_key: agentKey,
+				service_name: vendor,
+				environment: env,
+				cluster_id: cluster,
+				workload_key: "",
+				source: "coding" as AgentSource,
+				controller_service_id: "",
+				controller_instance_id: "",
+				sdk_version: row.client_version || "",
+				sdk_language: "",
+				first_seen: row.first_seen,
+				last_seen: row.last_seen,
+				instrumentation_status: "instrumented",
+				controller_llm_providers: [],
+				coding_agent_vendor: vendor,
+				coding_session_count_24h: Number(row.session_count_24h || 0),
+				coding_cost_usd_24h: Number(row.cost_usd_24h || 0),
+				coding_active_users_24h: Number(row.active_users_24h || 0),
+			};
+		});
+}
+
 function earliest(a: string, b: string): string {
 	if (!a) return b;
 	if (!b) return a;
@@ -386,7 +487,21 @@ async function fetchRequestCounts(
 	dbConfigId?: string
 ): Promise<Map<string, number>> {
 	if (!agents.length) return new Map();
-	const serviceNames = Array.from(new Set(agents.map((a) => a.service_name)));
+
+	// Split coding agents from the rest. Their request_count is the
+	// total number of spans observed under the vendor in the last 24h
+	// (rolled up at discovery time as `session_count_24h`); the
+	// classic per-service ServiceName query won't match because coding
+	// agent spans come in under whatever service_name the host
+	// pipeline reports, not the vendor identifier.
+	const map = new Map<string, number>();
+	const traditional = agents.filter((a) => a.source !== "coding");
+	for (const coding of agents.filter((a) => a.source === "coding")) {
+		map.set(coding.agent_key, coding.coding_session_count_24h || 0);
+	}
+	if (!traditional.length) return map;
+
+	const serviceNames = Array.from(new Set(traditional.map((a) => a.service_name)));
 	const namesList = serviceNames.map((n) => `'${escape(n)}'`).join(", ");
 	const query = `
 		SELECT
@@ -404,7 +519,7 @@ async function fetchRequestCounts(
 		agentsLogger.error("materializer_request_count_failed", {
 			err: res.err,
 		});
-		return new Map();
+		return map;
 	}
 	const rows = (res.data as Array<{
 		service_name: string;
@@ -412,7 +527,6 @@ async function fetchRequestCounts(
 		cluster_id: string;
 		request_count_24h: number;
 	}>) || [];
-	const map = new Map<string, number>();
 	for (const r of rows) {
 		const key = computeAgentKey(
 			r.cluster_id || "default",
@@ -454,6 +568,12 @@ interface SummaryUpsertRow {
 	first_seen: string;
 	last_seen: string;
 	updated_at: string;
+	// Populated only on coding-agent rows. Kept inline (not a separate
+	// table) so the existing SELECTs already get them for free.
+	coding_agent_vendor: string;
+	coding_session_count_24h: number;
+	coding_cost_usd_24h: number;
+	coding_active_users_24h: number;
 }
 
 function toClickHouseTimestamp(value: string | Date | number | undefined): string {
@@ -518,10 +638,17 @@ export async function materializeAgents(
 		}
 	} else if (agentKeyFilter) {
 		const all = await discoverAgents(dbConfigId);
-		const match = all.find((a) => a.agent_key === agentKeyFilter);
+		const codingAll = await discoverCodingAgents(dbConfigId);
+		const match =
+			all.find((a) => a.agent_key === agentKeyFilter) ||
+			codingAll.find((a) => a.agent_key === agentKeyFilter);
 		discovered = match ? [match] : [];
 	} else {
-		discovered = await discoverAgents(dbConfigId);
+		const [traditional, coding] = await Promise.all([
+			discoverAgents(dbConfigId),
+			discoverCodingAgents(dbConfigId),
+		]);
+		discovered = [...traditional, ...coding];
 	}
 
 	if (!discovered.length) {
@@ -565,13 +692,20 @@ export async function materializeAgents(
 
 	for (const agent of discovered) {
 		try {
-			const snapshot = await deriveSnapshot({
-				serviceName: agent.service_name,
-				environment: agent.environment,
-				clusterId: agent.cluster_id,
-				lookbackMinutes,
-				dbConfigId,
-			});
+			// Coding agents don't have a versioned system prompt
+			// (their "version" is the vendor's CLI version) so we
+			// skip snapshot derivation entirely. Saves one round-trip
+			// per coding row per tick and avoids polluting
+			// agent_versions with rows that have no system_prompt.
+			const snapshot = agent.source === "coding"
+				? null
+				: await deriveSnapshot({
+					serviceName: agent.service_name,
+					environment: agent.environment,
+					clusterId: agent.cluster_id,
+					lookbackMinutes,
+					dbConfigId,
+				});
 
 			let versionHash = "";
 			let versionNumber = 0;
@@ -648,6 +782,10 @@ export async function materializeAgents(
 				first_seen: toClickHouseTimestamp(agent.first_seen),
 				last_seen: toClickHouseTimestamp(agent.last_seen),
 				updated_at: toClickHouseTimestamp(new Date()),
+				coding_agent_vendor: agent.coding_agent_vendor || "",
+				coding_session_count_24h: agent.coding_session_count_24h || 0,
+				coding_cost_usd_24h: agent.coding_cost_usd_24h || 0,
+				coding_active_users_24h: agent.coding_active_users_24h || 0,
 			});
 			processed += 1;
 		} catch (err) {

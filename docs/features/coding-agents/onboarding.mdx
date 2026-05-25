@@ -1,0 +1,191 @@
+---
+title: "Coding Agents — Onboarding"
+sidebarTitle: "Coding Agents Onboarding"
+description: "Send Claude Code, Cursor, Codex, and GitHub Copilot CLI telemetry into OpenLit in under a minute."
+---
+
+OpenLit ships first-class observability for AI coding agents. The
+`openlit` CLI ingests events from each vendor's hook system, normalizes
+them onto OpenTelemetry's `gen_ai.*` and OpenLit's `coding_agent.*`
+semantic conventions, and ships them to your existing OpenLit
+collector. The `/agents` page detects them automatically — no
+controller, no SDK, no code change in your repos.
+
+<Note>
+You only need an OpenLit instance and the `openlit` CLI on each
+developer's machine. The CLI talks **only** to your OpenLit endpoint.
+There is no managed cloud for coding-agent telemetry.
+</Note>
+
+## Prerequisites
+
+- A running OpenLit instance — see
+  [Installation](/latest/openlit/installation) if you don't have one.
+- An OpenLit API key (Settings → API Keys).
+- The OTLP endpoint of your OpenLit collector (defaults to
+  `http://localhost:4318` for local installs).
+
+## 1. Install the CLI
+
+Pick whichever path matches your OS / preferences. All three install
+the same `openlit` binary.
+
+<CodeGroup>
+```bash curl
+curl -fsSL https://openlit.io/install.sh | sh
+```
+
+```bash homebrew
+brew install openlit/openlit/openlit
+```
+
+```bash docker
+docker run --rm -it ghcr.io/openlit/openlit-cli:latest --help
+```
+</CodeGroup>
+
+The script installs to `~/.openlit/bin/openlit`. Add the directory to
+your PATH (the installer prints the exact line).
+
+## 2. Configure once
+
+Either run `openlit configure` and answer the prompts, or set the env
+vars directly. Both write to `~/.config/openlit/config.env`.
+
+```bash
+openlit configure \
+  --endpoint https://openlit.example.com:4318 \
+  --api-key  $OPENLIT_API_KEY
+```
+
+Equivalent environment variables (precedence: flags > env > config file):
+
+| Variable | Purpose |
+|---|---|
+| `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP endpoint of your collector |
+| `OPENLIT_API_KEY`       | Authenticates the OTLP exporter |
+| `OPENLIT_USER_NAME`     | Optional override for `gen_ai.user.name` |
+| `OPENLIT_CONTENT_CAPTURE_MODE` | `metadata_only` \| `no_tool_content` \| `full` |
+| `OPENLIT_REDACT_AGGRESSIVE` | `1` enables tier-2 secret scrubbing |
+
+Standard `OTEL_EXPORTER_OTLP_*` variables are honoured as fallbacks
+so existing OTel users can reuse their setup.
+
+<Tip>
+`OPENLIT_CONTENT_CAPTURE_MODE` defaults to `metadata_only`. Set it to
+`full` only after reviewing the redaction rules — coding-agent
+sessions can include source code, diffs, and tool inputs.
+</Tip>
+
+## 3. Wire each vendor
+
+`openlit coding install` writes the right hook config for the agent
+you pass and is fully idempotent. You can also point at the
+[plugin marketplace](https://github.com/openlit/openlit/tree/main/plugins)
+and let the agent pull the manifest itself, or invoke the agent
+through `openlit coding launch` which auto-installs and execs.
+
+<Tabs>
+<Tab title="Claude Code">
+
+```bash
+# One-time install
+openlit coding install --vendor=claude-code
+
+# Or run Claude Code through the launcher (auto-installs)
+openlit coding launch claude-code
+```
+
+Manifest path: `~/.claude/plugins/openlit/`. Hooks invoked:
+`SessionStart`, `PreToolUse`, `Stop`, `SessionEnd`. Claude Code's
+transcript JSONL is tailed for token usage.
+
+</Tab>
+<Tab title="Cursor">
+
+```bash
+openlit coding install --vendor=cursor
+```
+
+Manifest path: `~/.cursor/plugins/openlit/`. All eight Cursor hook
+events are wired through a wrapper script
+(`scripts/run.sh`) that resolves the `openlit` binary on PATH and
+forwards the event payload.
+
+</Tab>
+<Tab title="Codex">
+
+```bash
+openlit coding install --vendor=codex
+```
+
+Manifest path: `~/.codex/plugins/openlit/`. Hooks wired:
+`SessionStart`, `UserPromptSubmit`, `PostToolUse`, `Stop`. The CLI
+also tails `~/.codex/sessions/*/rollout.jsonl` to pick up token
+counts that Codex emits asynchronously.
+
+</Tab>
+<Tab title="GitHub Copilot CLI">
+
+```bash
+openlit coding install --vendor=copilot
+```
+
+Manifest path: `~/.copilot/plugins/openlit/`. All ten Copilot CLI
+hooks are wired and the `~/.copilot/session-state/events.jsonl`
+file is tailed for usage events.
+
+</Tab>
+</Tabs>
+
+## 4. Verify
+
+Run any short coding-agent session, then refresh `/agents` in your
+OpenLit UI. You should see a new row labelled with the vendor and a
+"Coding" badge. Click in for the dedicated Overview / Sessions /
+Dashboard tabs.
+
+## What gets captured
+
+| Surface | What you get out of the box |
+|---|---|
+| `/agents` row | Per-vendor row with sessions/24h, active users/24h, cost/24h |
+| Overview tab | Stat tiles + client/version metadata |
+| Sessions tab | Last 24h of `coding_agent.session.id` rows w/ outcome, cost, classification |
+| Dashboard tab | Seeded "Coding Agents" board (vendor breakdown, top tools, top users, top repos, classification, MCP servers, edit decisions) |
+| Custom dashboards | Same data — query `otel_traces WHERE SpanName IN ('coding_agent.session', …)` |
+
+## Privacy & governance
+
+- **Tier-1 redaction** runs on every export and scrubs API keys,
+  tokens, and known secret patterns without breaking JSON structure.
+- **Tier-2 redaction** (`OPENLIT_REDACT_AGGRESSIVE=1`) additionally
+  drops freeform tool inputs likely to contain prose with PII.
+- **Personal vs Work classification** is stamped at hook time using
+  the org's API-key and repo-origin allowlists (configured in OpenLit
+  Settings). Users can dispute the classification from the Sessions
+  tab; admins resolve disputes from the Governance board.
+- **k=5 cohort floor**: viewer-tier accounts cannot see per-user
+  attribution below five sessions. Admins can.
+
+## Troubleshooting
+
+- **No row on /agents** — check `~/.openlit/cli.log` (or `journalctl
+  --user -t openlit`) for export errors. The CLI fails open: a hook
+  error never blocks your coding agent.
+- **Hooks ran but no spans** — confirm `openlit configure --show`
+  reports the right endpoint. The CLI never reads `~/.zshrc`; if you
+  set OPENLIT_* in your shell rc, source it before launching the agent.
+- **"Database config not found" on /agents** — your OpenLit
+  installation hasn't run the latest migrations. Restart the
+  `openlit` container or run the migration manually
+  (`pnpm --filter client run migrate`).
+
+## What's next
+
+- The CLI reserves subcommands for `prompts`, `traces`, and `eval`;
+  these will light up in subsequent releases without breaking the
+  coding-agent integration.
+- The v2 GitHub App will join coding-agent sessions to commits, PRs,
+  and incidents — survival rate, rework rate, and incident rate
+  charts will populate automatically once the App is installed.

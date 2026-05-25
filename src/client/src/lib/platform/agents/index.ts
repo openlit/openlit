@@ -75,6 +75,11 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 		pods_total: Number(row.pods_total || 0),
 		pods_pending: Number(row.pods_pending || 0),
 		pods_acknowledged: Number(row.pods_acknowledged || 0),
+		coding_agent_vendor:
+			(String(row.coding_agent_vendor || "") || undefined) as UnifiedAgent["coding_agent_vendor"],
+		coding_session_count_24h: Number(row.coding_session_count_24h || 0),
+		coding_cost_usd_24h: Number(row.coding_cost_usd_24h || 0),
+		coding_active_users_24h: Number(row.coding_active_users_24h || 0),
 	};
 }
 
@@ -235,7 +240,14 @@ const SELECT_COLUMNS = `
 	s.last_materialized_at AS last_materialized_at,
 	coalesce(pod_set.pods_total, 0) AS pods_total,
 	coalesce(pod_actions.pods_pending, 0) AS pods_pending,
-	coalesce(pod_actions.pods_acknowledged, 0) AS pods_acknowledged
+	coalesce(pod_actions.pods_acknowledged, 0) AS pods_acknowledged,
+	-- Coding-agent rollups. Only populated when source = 'coding'; always
+	-- 0/empty for other rows. Returned unconditionally so the front-end
+	-- can render uniformly without an if-coding branch on every cell.
+	s.coding_agent_vendor AS coding_agent_vendor,
+	s.coding_session_count_24h AS coding_session_count_24h,
+	s.coding_cost_usd_24h AS coding_cost_usd_24h,
+	s.coding_active_users_24h AS coding_active_users_24h
 `;
 
 /**

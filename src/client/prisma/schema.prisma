@@ -77,17 +77,43 @@ model VerificationRequest {
 
 // Organisation
 model Organisation {
-  id              String                    @id @default(cuid())
-  name            String
-  slug            String                    @unique
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  createdByUserId String                    @map("created_by_user_id")
-  members         OrganisationUser[]
-  invitedUsers    OrganisationInvitedUser[]
-  databaseConfigs DatabaseConfig[]
+  id                   String                    @id @default(cuid())
+  name                 String
+  slug                 String                    @unique
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  createdByUserId      String                    @map("created_by_user_id")
+  members              OrganisationUser[]
+  invitedUsers         OrganisationInvitedUser[]
+  databaseConfigs      DatabaseConfig[]
+  githubInstallations  GitHubInstallation[]
 
   @@map("organisations")
+}
+
+/// GitHub App installation belonging to an Organisation.
+///
+/// Defined in v1 so the Prisma schema is ready when the v2 GitHub App
+/// integration ships. v1 never writes to this table; the API routes
+/// under /api/coding-agents/integrations/github/* return 501. v2 will
+/// flip those routes on and start populating rows.
+model GitHubInstallation {
+  id              String       @id @default(cuid())
+  organisationId  String       @map("organisation_id")
+  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  installationId  String       @unique @map("installation_id")
+  accountLogin    String       @map("account_login")
+  accountType     String       @map("account_type")
+  accountId       String       @map("account_id")
+  repositorySelection String   @default("all") @map("repository_selection")
+  status          String       @default("active")
+  installedById   String       @map("installed_by_user_id")
+  installedAt     DateTime     @default(now()) @map("installed_at")
+  uninstalledAt   DateTime?    @map("uninstalled_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@map("github_installations")
 }
 
 model OrganisationUser {

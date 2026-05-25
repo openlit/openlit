@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "openlit coding hook --vendor=codex --event=SessionStart",
+        "timeout_ms": 5000
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "command": "openlit coding hook --vendor=codex --event=UserPromptSubmit",
+        "timeout_ms": 5000
+      }
+    ],
+    "PostToolUse": [
+      {
+        "command": "openlit coding hook --vendor=codex --event=PostToolUse",
+        "timeout_ms": 5000
+      }
+    ],
+    "Stop": [
+      {
+        "command": "openlit coding hook --vendor=codex --event=Stop",
+        "timeout_ms": 5000
+      }
+    ]
+  }
+}

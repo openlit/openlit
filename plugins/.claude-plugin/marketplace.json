@@ -1,0 +1,33 @@
+{
+  "name": "openlit",
+  "displayName": "OpenLit",
+  "description": "OpenLit telemetry for AI coding agents (Claude Code, Cursor, Codex, Copilot CLI).",
+  "homepage": "https://openlit.io",
+  "repository": "https://github.com/openlit/openlit",
+  "plugins": [
+    {
+      "name": "openlit-cc",
+      "displayName": "OpenLit (Claude Code)",
+      "description": "OpenTelemetry-native session, tool, and edit-decision capture for Claude Code.",
+      "path": "../claude-code"
+    },
+    {
+      "name": "openlit-cursor",
+      "displayName": "OpenLit (Cursor)",
+      "description": "OpenTelemetry-native session, tool, and edit-decision capture for Cursor.",
+      "path": "../cursor"
+    },
+    {
+      "name": "openlit-codex",
+      "displayName": "OpenLit (Codex)",
+      "description": "OpenTelemetry-native session, tool, and edit-decision capture for Codex.",
+      "path": "../codex"
+    },
+    {
+      "name": "openlit-copilot",
+      "displayName": "OpenLit (Copilot CLI)",
+      "description": "OpenTelemetry-native session, tool, and edit-decision capture for GitHub Copilot CLI.",
+      "path": "../copilot"
+    }
+  ]
+}

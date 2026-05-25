@@ -1,0 +1,283 @@
+// Coding Agent semantic conventions.
+//
+// These attributes extend OTel GenAI conventions for first-class observability
+// of AI coding assistants (Claude Code, Cursor, Codex, GitHub Copilot CLI, etc.).
+// They are namespaced under `coding_agent.*` so they coexist cleanly with
+// OTel's standard `gen_ai.*`, `vcs.*`, and `server.*` semconvs.
+//
+// Reuse OTel's existing attributes wherever sensible:
+//   - gen_ai.conversation.id  → session linkage
+//   - gen_ai.agent.name       → vendor identifier (e.g. "claude-code")
+//   - gen_ai.tool.name        → invoked tool
+//   - gen_ai.usage.*          → token/cost rollups
+//   - vcs.repository.url.full → repo URL  (OTel vcs semconv)
+//   - vcs.ref.head.revision   → commit SHA (OTel vcs semconv)
+//   - vcs.ref.head.name       → branch    (OTel vcs semconv)
+//
+// Anything OTel doesn't define lives here.
+
+package semconv
+
+// Vendor identifiers (used as `gen_ai.agent.name` value).
+const (
+	CodingAgentVendorClaudeCode = "claude-code"
+	CodingAgentVendorCursor     = "cursor"
+	CodingAgentVendorCodex      = "codex"
+	CodingAgentVendorCopilot    = "copilot"
+	CodingAgentVendorWindsurf   = "windsurf"
+)
+
+// Session structure attributes.
+const (
+	// CodingAgentSessionID identifies a single coding-agent session.
+	// Used as the join key across all spans/events emitted for that session.
+	CodingAgentSessionID = "coding_agent.session.id"
+	// CodingAgentClient is the vendor identifier; mirror of gen_ai.agent.name.
+	// Carried separately so dashboard widgets can filter without
+	// pulling in the full gen_ai.* attribute set.
+	CodingAgentClient = "coding_agent.client"
+	// CodingAgentClientVersion is the vendor's client version.
+	CodingAgentClientVersion = "coding_agent.client.version"
+	// CodingAgentSessionOutcome captures how the session ended.
+	// One of: merged | committed | abandoned_no_change | abandoned_with_change | cancelled.
+	CodingAgentSessionOutcome = "coding_agent.session.outcome"
+	// CodingAgentSessionDurationMs is wall-clock duration in milliseconds.
+	CodingAgentSessionDurationMs = "coding_agent.session.duration_ms"
+	// CodingAgentSessionToolCallCount totals tool invocations during the session.
+	CodingAgentSessionToolCallCount = "coding_agent.session.tool_call_count"
+	// CodingAgentSessionSubagentCount totals child/subagent spawns.
+	CodingAgentSessionSubagentCount = "coding_agent.session.subagent_count"
+	// CodingAgentSessionCostUSD is the realized USD cost.
+	CodingAgentSessionCostUSD = "coding_agent.session.cost_usd"
+)
+
+// Session outcome values.
+const (
+	CodingAgentSessionOutcomeMerged              = "merged"
+	CodingAgentSessionOutcomeCommitted           = "committed"
+	CodingAgentSessionOutcomeAbandonedNoChange   = "abandoned_no_change"
+	CodingAgentSessionOutcomeAbandonedWithChange = "abandoned_with_change"
+	CodingAgentSessionOutcomeCancelled           = "cancelled"
+)
+
+// Subagent linkage attributes.
+const (
+	// CodingAgentAgentID is a stable id for this agent instance within the
+	// session (root or subagent). Use parent_id to walk the tree.
+	CodingAgentAgentID = "coding_agent.agent.id"
+	// CodingAgentAgentParentID points at the spawning agent's id.
+	CodingAgentAgentParentID = "coding_agent.agent.parent_id"
+	// CodingAgentAgentType is one of: main | subagent | task_tool.
+	CodingAgentAgentType = "coding_agent.agent.type"
+	// CodingAgentSubagentType is the vendor-specific subagent kind
+	// (e.g. Claude Code's named subagents, Codex spawn types).
+	CodingAgentSubagentType = "coding_agent.subagent.type"
+	// CodingAgentLinkageConfidence reports how reliable the parent_id
+	// linkage is for this vendor: high | medium | low.
+	// Codex/Copilot subagent linkage is often medium because parent is
+	// inferred via process metadata rather than carried by the protocol.
+	CodingAgentLinkageConfidence = "coding_agent.linkage_confidence"
+)
+
+const (
+	CodingAgentAgentTypeMain     = "main"
+	CodingAgentAgentTypeSubagent = "subagent"
+	CodingAgentAgentTypeTaskTool = "task_tool"
+
+	CodingAgentLinkageConfidenceHigh   = "high"
+	CodingAgentLinkageConfidenceMedium = "medium"
+	CodingAgentLinkageConfidenceLow    = "low"
+)
+
+// Edit decision attributes — captured per file/edit so dashboards can
+// distinguish auto-applied agent edits from user-reviewed ones.
+// OTel has no standard for this; this is the major gap we fill.
+const (
+	// CodingAgentEditDecision is one of: accept | reject | modify | auto_accepted.
+	CodingAgentEditDecision = "coding_agent.edit.decision"
+	// CodingAgentEditDecisionSource is the trigger:
+	// user_interactive | user_permanent_rule | hook | config | policy.
+	CodingAgentEditDecisionSource = "coding_agent.edit.decision.source"
+	// CodingAgentEditLinesAdded is the count of added lines.
+	CodingAgentEditLinesAdded = "coding_agent.edit.lines.added"
+	// CodingAgentEditLinesRemoved is the count of removed lines.
+	CodingAgentEditLinesRemoved = "coding_agent.edit.lines.removed"
+	// CodingAgentEditLanguage is the detected programming language.
+	CodingAgentEditLanguage = "coding_agent.edit.language"
+	// CodingAgentEditToolName is the tool that produced the edit
+	// (e.g. "Edit", "Write", "Apply Patch").
+	CodingAgentEditToolName = "coding_agent.edit.tool.name"
+)
+
+const (
+	CodingAgentEditDecisionAccept       = "accept"
+	CodingAgentEditDecisionReject       = "reject"
+	CodingAgentEditDecisionModify       = "modify"
+	CodingAgentEditDecisionAutoAccepted = "auto_accepted"
+
+	CodingAgentEditDecisionSourceUserInteractive    = "user_interactive"
+	CodingAgentEditDecisionSourceUserPermanentRule  = "user_permanent_rule"
+	CodingAgentEditDecisionSourceHook               = "hook"
+	CodingAgentEditDecisionSourceConfig             = "config"
+	CodingAgentEditDecisionSourcePolicy             = "policy"
+)
+
+// Tool causality attributes — link tool invocations back to the model
+// turn that triggered them. OTel typed span links (PR #3575) will replace
+// these once they ship; until then, this is the explicit join key.
+const (
+	// CodingAgentToolTriggeringLLMRequestID is the LLM response id
+	// whose tool_calls produced this invocation.
+	CodingAgentToolTriggeringLLMRequestID = "coding_agent.tool.triggering_llm_request_id"
+	// CodingAgentToolIteration is the loop index for retried/iterated tools.
+	CodingAgentToolIteration = "coding_agent.tool.iteration"
+	// CodingAgentToolGroupID groups tools fired in the same model turn.
+	CodingAgentToolGroupID = "coding_agent.tool.group.id"
+	// CodingAgentToolGroupType describes the group's intent
+	// (e.g. "file_edit", "search", "bash").
+	CodingAgentToolGroupType = "coding_agent.tool.group.type"
+)
+
+// MCP server attribution.
+const (
+	// CodingAgentMCPServerName is the MCP server identifier.
+	CodingAgentMCPServerName = "coding_agent.mcp.server.name"
+	// CodingAgentMCPScope is one of: user | project | local | enterprise.
+	CodingAgentMCPScope = "coding_agent.mcp.scope"
+	// CodingAgentMCPTransport is one of: stdio | sse | streamable_http.
+	CodingAgentMCPTransport = "coding_agent.mcp.transport"
+	// CodingAgentMCPSource is one of: builtin | plugin | marketplace.
+	CodingAgentMCPSource = "coding_agent.mcp.source"
+)
+
+const (
+	CodingAgentMCPScopeUser       = "user"
+	CodingAgentMCPScopeProject    = "project"
+	CodingAgentMCPScopeLocal      = "local"
+	CodingAgentMCPScopeEnterprise = "enterprise"
+
+	CodingAgentMCPTransportStdio          = "stdio"
+	CodingAgentMCPTransportSSE            = "sse"
+	CodingAgentMCPTransportStreamableHTTP = "streamable_http"
+
+	CodingAgentMCPSourceBuiltin     = "builtin"
+	CodingAgentMCPSourcePlugin      = "plugin"
+	CodingAgentMCPSourceMarketplace = "marketplace"
+)
+
+// VCS bridging — stamped at hook-time by every adapter so the v2 GitHub
+// App can join coding-agent activity to commits/PRs/incidents without
+// reshaping data. Use OTel vcs.* attributes for the values that have
+// standard equivalents (see Reuse note at top of file).
+const (
+	// CodingAgentVCSDirty indicates the working tree has uncommitted changes
+	// when the agent started. Boolean serialized as "true"/"false".
+	CodingAgentVCSDirty = "coding_agent.vcs.dirty"
+	// CodingAgentVCSLineAttributionAuthor is one of: ai | human | mixed.
+	// Populated by the v2 AI-authorship detector.
+	CodingAgentVCSLineAttributionAuthor = "coding_agent.vcs.line_attribution.author"
+	// CodingAgentVCSLineAttributionSessionID points back to the session
+	// that authored the line (v2).
+	CodingAgentVCSLineAttributionSessionID = "coding_agent.vcs.line_attribution.session_id"
+	// CodingAgentVCSLineAttributionConfidence is one of: high | medium | low.
+	CodingAgentVCSLineAttributionConfidence = "coding_agent.vcs.line_attribution.confidence"
+	// CodingAgentVCSLineAttributionSignal is the strongest signal used:
+	// trailer | bot_identity | time_window | content_hash | heuristic.
+	CodingAgentVCSLineAttributionSignal = "coding_agent.vcs.line_attribution.signal"
+)
+
+const (
+	CodingAgentVCSAuthorAI    = "ai"
+	CodingAgentVCSAuthorHuman = "human"
+	CodingAgentVCSAuthorMixed = "mixed"
+
+	CodingAgentVCSSignalTrailer     = "trailer"
+	CodingAgentVCSSignalBotIdentity = "bot_identity"
+	CodingAgentVCSSignalTimeWindow  = "time_window"
+	CodingAgentVCSSignalContentHash = "content_hash"
+	CodingAgentVCSSignalHeuristic   = "heuristic"
+)
+
+// Identity & policy attributes.
+const (
+	// CodingAgentUserClassification is one of: personal | work | disputed | unknown.
+	// Stamped at hook-time using API-key allowlist + repo-origin allowlist.
+	CodingAgentUserClassification = "coding_agent.user.classification"
+	// CodingAgentUserClassificationReason explains the classification
+	// (e.g. "api_key_allowlist", "repo_origin_match", "no_signal").
+	CodingAgentUserClassificationReason = "coding_agent.user.classification.reason"
+	// CodingAgentPolicyPermissionMode captures how permissive the run is
+	// (e.g. "interactive", "auto_accept", "dangerously_skip_permissions").
+	CodingAgentPolicyPermissionMode = "coding_agent.policy.permission_mode"
+	// CodingAgentContentCaptureMode is the active capture posture:
+	// metadata_only | no_tool_content | full.
+	CodingAgentContentCaptureMode = "coding_agent.content_capture_mode"
+)
+
+const (
+	CodingAgentUserClassificationPersonal  = "personal"
+	CodingAgentUserClassificationWork      = "work"
+	CodingAgentUserClassificationDisputed  = "disputed"
+	CodingAgentUserClassificationUnknown   = "unknown"
+
+	CodingAgentContentCaptureMetadataOnly  = "metadata_only"
+	CodingAgentContentCaptureNoToolContent = "no_tool_content"
+	CodingAgentContentCaptureFull          = "full"
+)
+
+// Loop detection.
+const (
+	// CodingAgentLoopDetected is true when an in-session loop is detected.
+	CodingAgentLoopDetected = "coding_agent.loop.detected"
+	// CodingAgentLoopPattern names the pattern (e.g. "edit_revert_edit",
+	// "tool_retry").
+	CodingAgentLoopPattern = "coding_agent.loop.pattern"
+)
+
+// Hook plumbing — these are reserved attributes the CLI stamps on every
+// hook invocation so we can debug and version the wire format.
+const (
+	// CodingAgentHookEvent names the originating hook event (e.g. "PreToolUse").
+	CodingAgentHookEvent = "coding_agent.hook.event"
+	// CodingAgentHookCLIVersion identifies the openlit CLI version.
+	CodingAgentHookCLIVersion = "coding_agent.hook.cli.version"
+	// CodingAgentHookSchemaVersion is the wire-format schema version.
+	// Bump when a breaking change is necessary; receivers read this to
+	// stay forward-compatible with the latest CLIs.
+	CodingAgentHookSchemaVersion = "coding_agent.hook.schema.version"
+)
+
+// Span names emitted by the CLI normalizer. Keep these as constants so
+// dashboard SQL can match against a small, stable set.
+const (
+	CodingAgentSpanSession      = "coding_agent.session"
+	CodingAgentSpanToolCall     = "coding_agent.tool.call"
+	CodingAgentSpanEditDecision = "coding_agent.edit.decision"
+	CodingAgentSpanSubagent     = "coding_agent.subagent"
+	CodingAgentSpanLLMTurn      = "coding_agent.llm.turn"
+)
+
+// Event names — emitted as span events for high-cardinality moments
+// where a separate span would be overkill.
+const (
+	CodingAgentEventSessionStart    = "coding_agent.session.start"
+	CodingAgentEventSessionEnd      = "coding_agent.session.end"
+	CodingAgentEventEditDecision    = "coding_agent.edit.decision"
+	CodingAgentEventLoopDetected    = "coding_agent.loop.detected"
+	CodingAgentEventSubagentSpawned = "coding_agent.subagent.spawned"
+	CodingAgentEventSubagentDone    = "coding_agent.subagent.completed"
+	CodingAgentEventMCPInvoked      = "coding_agent.mcp.tool.invoked"
+)
+
+// Metric names — additions on top of gen_ai.* metrics.
+const (
+	CodingAgentMetricSessionDuration  = "coding_agent.session.duration"
+	CodingAgentMetricSessionCostUSD   = "coding_agent.session.cost_usd"
+	CodingAgentMetricSessionToolCalls = "coding_agent.session.tool_call_count"
+	CodingAgentMetricSessionSubagents = "coding_agent.session.subagent_count"
+	CodingAgentMetricToolDuration     = "coding_agent.tool.duration"
+	CodingAgentMetricEditDecisions    = "coding_agent.edit.decision.count"
+)
+
+// Schema version of the coding_agent.* wire format. Bump on breaking changes.
+const CodingAgentSchemaVersion = "1"

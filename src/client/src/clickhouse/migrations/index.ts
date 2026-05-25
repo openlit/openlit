@@ -25,6 +25,9 @@ import CreateAgentsSummaryMigration from "./create-agents-summary-migration";
 import CreateAgentVersionsMigration from "./create-agent-versions-migration";
 import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
 import OptimizeAgentTablesStorageMigration from "./optimize-agent-tables-storage-migration";
+import AddCodingAgentSummaryFieldsMigration from "./add-coding-agent-summary-fields-migration";
+import CreateVcsMigration from "./create-vcs-migration";
+import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -68,4 +71,12 @@ export default async function migrations(databaseConfigId?: string) {
 	// agents-summary + agent-versions CREATEs).
 	await AddAgentsSummarySkipIndexesMigration(databaseConfigId);
 	await OptimizeAgentTablesStorageMigration(databaseConfigId);
+
+	// Group 5: Coding-agent extensions (sequential — must run after
+	// agents_summary exists; safe to parallel within itself).
+	await Promise.all([
+		AddCodingAgentSummaryFieldsMigration(databaseConfigId),
+		CreateVcsMigration(databaseConfigId),
+		CreateCodingAgentsAuditMigration(databaseConfigId),
+	]);
 }

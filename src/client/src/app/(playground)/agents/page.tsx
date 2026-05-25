@@ -31,13 +31,20 @@ import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
 import ServiceTable from "./service-table";
 import ControllerTable from "./controller-table";
+import CodingAgentsTable from "./coding-agents-table";
 
-type Tab = "services" | "controllers";
+type Tab = "services" | "controllers" | "coding";
+
+function coerceTab(value: string | null): Tab {
+	if (value === "controllers") return "controllers";
+	if (value === "coding") return "coding";
+	return "services";
+}
 
 export default function AgentsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const initialTab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
+	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
 	const [showSetupModal, setShowSetupModal] = useState(false);
 	const [serviceRows, setServiceRows] = useState<UnifiedAgent[]>([]);
@@ -63,9 +70,20 @@ export default function AgentsPage() {
 	}, [router]);
 
 	useEffect(() => {
-		const tab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
-		setActiveTabState(tab);
+		setActiveTabState(coerceTab(searchParams.get("tab")));
 	}, [searchParams]);
+
+	// Auto-redirect to the Coding Agents tab when it's the only place
+	// with data. Without this, a user with no controllers and no SDK
+	// rows lands on an empty Applications tab and has to discover the
+	// "Coding Agents" tab themselves — a bad first-run experience for
+	// anyone who installed the host plugins before the controller.
+	// Only fires:
+	//   - when the URL didn't pin a tab (so we don't fight the user's
+	//     navigation),
+	//   - while the apps view is empty AND the coding view has rows,
+	//   - exactly once after data first lands.
+	const didAutoRouteRef = useRef(false);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -84,7 +102,7 @@ export default function AgentsPage() {
 	const [servicesFetched, setServicesFetched] = useState(false);
 
 	const fetchAgents = useCallback(
-		async (cursor: string | null) => {
+		async (cursor: string | null, source?: "coding") => {
 			const params = new URLSearchParams();
 			if (filter.timeLimit.start)
 				params.set("start", new Date(filter.timeLimit.start).toISOString());
@@ -105,6 +123,13 @@ export default function AgentsPage() {
 			if (statusFilter.length > 0) {
 				params.set("statuses", statusFilter.join(","));
 			}
+			// `source=coding` is required to fetch coding-agent rows;
+			// without it the API returns only Apps rows. This split is
+			// what keeps coding rows from ever appearing in the Apps
+			// tab, even for one render frame.
+			if (source) {
+				params.set("source", source);
+			}
 			const res = await fetch(`/api/agents?${params.toString()}`);
 			if (!res.ok) {
 				const txt = await res.text().catch(() => "");
@@ -124,6 +149,8 @@ export default function AgentsPage() {
 		]
 	);
 
+	const [codingRowsState, setCodingRowsState] = useState<UnifiedAgent[]>([]);
+
 	const refresh = useCallback(() => {
 		setRefreshError(null);
 		fetchInstances({
@@ -136,13 +163,26 @@ export default function AgentsPage() {
 			failureCb: (err: any) => setRefreshError(String(err)),
 		});
 		setServicesLoading(true);
-		fetchAgents(null)
-			.then((payload) => {
-				setServiceRows(payload.data || []);
-				setNextCursor(payload.nextCursor || null);
+		// Two parallel reads: Apps (default — server excludes coding)
+		// and Coding Agents (?source=coding). Settling them
+		// independently keeps a slow coding-rollup query from blocking
+		// the Apps tab from rendering, and vice versa.
+		Promise.allSettled([
+			fetchAgents(null),
+			fetchAgents(null, "coding"),
+		])
+			.then(([apps, coding]) => {
+				if (apps.status === "fulfilled") {
+					setServiceRows(apps.value.data || []);
+					setNextCursor(apps.value.nextCursor || null);
+				} else {
+					setRefreshError(String(apps.reason));
+				}
+				if (coding.status === "fulfilled") {
+					setCodingRowsState(coding.value.data || []);
+				}
 				setServicesFetched(true);
 			})
-			.catch((err: unknown) => setRefreshError(String(err)))
 			.finally(() => setServicesLoading(false));
 	}, [fetchInstances, fetchAgents]);
 
@@ -350,12 +390,55 @@ export default function AgentsPage() {
 	const isLoading = instancesLoading || servicesLoading;
 	const hasControllers = controllerRows.length > 0;
 
+	// Coding-agent rows live on a dedicated tab and a dedicated fetch
+	// (`?source=coding`). The Apps tab gets the default fetch which
+	// the server filters to controller/sdk/both. We still defensively
+	// strip any coding row that somehow ends up in `serviceRows`
+	// (e.g. an older browser tab whose API filter regressed) by
+	// double-checking both `source` and the synthetic `coding` cluster
+	// id we stamp at materialization time.
+	// Coding-only first-run redirect. We wait for `servicesFetched` so
+	// we don't bounce the tab on the first paint before either fetch
+	// has resolved. Once data lands and the only signal is coding
+	// telemetry, switch the user to that tab and pin it via
+	// `setActiveTab` (which also writes ?tab=coding into the URL so a
+	// browser refresh stays put).
+	useEffect(() => {
+		if (didAutoRouteRef.current) return;
+		if (!servicesFetched) return;
+		if (searchParams.get("tab")) return;
+		const onlyCoding =
+			!hasControllers &&
+			serviceRows.length === 0 &&
+			codingRowsState.length > 0;
+		if (onlyCoding) {
+			didAutoRouteRef.current = true;
+			setActiveTab("coding");
+		}
+	}, [
+		servicesFetched,
+		hasControllers,
+		serviceRows.length,
+		codingRowsState.length,
+		searchParams,
+		setActiveTab,
+	]);
+
+	const applicationRows = useMemo(
+		() =>
+			serviceRows.filter(
+				(s) => s.source !== "coding" && s.cluster_id !== "coding"
+			),
+		[serviceRows]
+	);
+	const codingRows = codingRowsState;
+
 	const activeControllers = controllerRows.filter(
 		(c) => (c.computed_status || c.status) !== "inactive"
 	);
 	const staleCount = controllerRows.length - activeControllers.length;
-	const totalServices = serviceRows.length;
-	const instrumentedServices = serviceRows.filter(
+	const totalServices = applicationRows.length;
+	const instrumentedServices = applicationRows.filter(
 		(s) =>
 			s.source === "sdk" ||
 			s.source === "both" ||
@@ -455,7 +538,7 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{(hasControllers || serviceRows.length > 0) && (
+					{(hasControllers || serviceRows.length > 0 || codingRowsState.length > 0) && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_STATUS}
 							options={[
@@ -496,7 +579,19 @@ export default function AgentsPage() {
 				</div>
 			)}
 
-			{!hasControllers && serviceRows.length === 0 && !isLoading ? (
+			{/*
+			 * Empty-state gate. Coding-agent rows live in `codingRowsState`
+			 * (fetched separately via ?source=coding) so they would NOT
+			 * count toward `serviceRows.length`. Without checking them
+			 * here, a user whose only telemetry is coding-agent activity
+			 * would land on "No controllers detected" — exactly the bug
+			 * Ishan hit. Adding `codingRowsState.length` keeps the
+			 * Coding Agents tab reachable for coding-only users.
+			 */}
+			{!hasControllers &&
+			serviceRows.length === 0 &&
+			codingRowsState.length === 0 &&
+			!isLoading ? (
 				<NoController />
 			) : (
 				<>
@@ -548,6 +643,7 @@ export default function AgentsPage() {
 							[
 								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
 								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
+								{ id: "coding", label: getMessage().AGENTS_TAB_CODING, count: codingRows.length },
 							] as const
 						).map((tab) => (
 							<button
@@ -555,13 +651,24 @@ export default function AgentsPage() {
 								onClick={() => {
 									setActiveTab(tab.id);
 								}}
-								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 inline-flex items-center gap-1.5 ${
 									activeTab === tab.id
 										? "border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100"
 										: "border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300"
 								}`}
 							>
 								{tab.label}
+								{"count" in tab && tab.count > 0 ? (
+									<span
+										className={`text-[10px] leading-none px-1.5 py-0.5 rounded-full font-medium ${
+											activeTab === tab.id
+												? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+												: "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"
+										}`}
+									>
+										{tab.count}
+									</span>
+								) : null}
 							</button>
 						))}
 						{activeTab === "controllers" && (
@@ -581,7 +688,7 @@ export default function AgentsPage() {
 					{activeTab === "services" && (
 						<>
 							<ServiceTable
-								services={serviceRows}
+								services={applicationRows}
 								instances={controllerRows}
 								onRefresh={refresh}
 								isFetched={servicesFetched && instancesFetched}
@@ -610,6 +717,14 @@ export default function AgentsPage() {
 							instances={controllerRows}
 							isFetched={instancesFetched}
 							isLoading={instancesLoading}
+						/>
+					)}
+
+					{activeTab === "coding" && (
+						<CodingAgentsTable
+							services={codingRows}
+							isFetched={servicesFetched}
+							isLoading={isLoading}
 						/>
 					)}
 				</>
