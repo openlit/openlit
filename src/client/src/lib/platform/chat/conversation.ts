@@ -40,6 +40,59 @@ export interface ChatMessage {
 	createdAt: string;
 }
 
+function toStringValue(value: unknown): string {
+	if (value === null || value === undefined) return "";
+	return String(value);
+}
+
+function toNumberValue(value: unknown): number {
+	if (typeof value === "bigint") return Number(value);
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+}
+
+function normalizeConversationRow(row: any): Conversation {
+	return {
+		id: toStringValue(row?.id),
+		title: toStringValue(row?.title),
+		conversationType: (toStringValue(row?.conversationType) || "chat") as "chat",
+		meta: toStringValue(row?.meta),
+		totalPromptTokens: toNumberValue(row?.totalPromptTokens),
+		totalCompletionTokens: toNumberValue(row?.totalCompletionTokens),
+		totalCost: toNumberValue(row?.totalCost),
+		totalMessages: toNumberValue(row?.totalMessages),
+		provider: toStringValue(row?.provider),
+		model: toStringValue(row?.model),
+		createdAt: toStringValue(row?.createdAt),
+		updatedAt: toStringValue(row?.updatedAt),
+	};
+}
+
+function normalizeMessageRow(row: any): ChatMessage {
+	return {
+		id: toStringValue(row?.id),
+		conversationId: toStringValue(row?.conversationId),
+		role: toStringValue(row?.role) === "assistant" ? "assistant" : "user",
+		content: toStringValue(row?.content),
+		sqlQuery: toStringValue(row?.sqlQuery),
+		queryResult: toStringValue(row?.queryResult),
+		widgetType: toStringValue(row?.widgetType),
+		promptTokens: toNumberValue(row?.promptTokens),
+		completionTokens: toNumberValue(row?.completionTokens),
+		cost: toNumberValue(row?.cost),
+		provider: toStringValue(row?.provider),
+		model: toStringValue(row?.model),
+		queryRowsRead: toNumberValue(row?.queryRowsRead),
+		queryExecutionTimeMs: toNumberValue(row?.queryExecutionTimeMs),
+		queryBytesRead: toNumberValue(row?.queryBytesRead),
+		createdAt: toStringValue(row?.createdAt),
+	};
+}
+
 export async function getConversations(
 	databaseConfigId?: string
 ): Promise<{ data?: Conversation[]; err?: unknown }> {
@@ -67,7 +120,7 @@ export async function getConversations(
 		return { err };
 	}
 
-	return { data: (data as Conversation[]) || [] };
+	return { data: ((data as Conversation[]) || []).map(normalizeConversationRow) };
 }
 
 export async function getConversationWithMessages(
@@ -142,8 +195,8 @@ export async function getConversationWithMessages(
 
 	return {
 		data: {
-			conversation: conversations[0],
-			messages: (msgData as ChatMessage[]) || [],
+			conversation: normalizeConversationRow(conversations[0]),
+			messages: ((msgData as ChatMessage[]) || []).map(normalizeMessageRow),
 		},
 	};
 }
@@ -392,5 +445,5 @@ export async function getConversationMessages(
 		return { err };
 	}
 
-	return { data: (data as ChatMessage[]) || [] };
+	return { data: ((data as ChatMessage[]) || []).map(normalizeMessageRow) };
 }

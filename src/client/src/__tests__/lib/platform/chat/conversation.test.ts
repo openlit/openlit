@@ -59,15 +59,48 @@ describe('getConversations', () => {
 describe('getConversationWithMessages', () => {
   it('returns a conversation with ordered messages', async () => {
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [{ id: 'c1', title: 'Chat' }] })
-      .mockResolvedValueOnce({ data: [{ id: 'm1', role: 'user', content: 'Hi' }] });
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'c1',
+            title: 'Chat',
+            totalPromptTokens: '10',
+            totalMessages: BigInt(2),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'm1',
+            conversationId: 'c1',
+            role: 'user',
+            content: 'Hi',
+            promptTokens: BigInt(4),
+          },
+        ],
+      });
 
     const { data } = await getConversationWithMessages('c1', 'db-1');
 
-    expect(data).toEqual({
-      conversation: { id: 'c1', title: 'Chat' },
-      messages: [{ id: 'm1', role: 'user', content: 'Hi' }],
-    });
+    expect(data?.conversation).toEqual(
+      expect.objectContaining({
+        id: 'c1',
+        title: 'Chat',
+        totalPromptTokens: 10,
+        totalMessages: 2,
+      })
+    );
+    expect(data?.messages[0]).toEqual(
+      expect.objectContaining({
+        id: 'm1',
+        conversationId: 'c1',
+        role: 'user',
+        content: 'Hi',
+        promptTokens: 4,
+      })
+    );
+    expect(() => JSON.stringify(data)).not.toThrow();
     expect(dataCollector).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ query: expect.stringContaining("WHERE id = 'c1'") }),

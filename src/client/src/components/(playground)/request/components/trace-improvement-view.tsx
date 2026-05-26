@@ -71,6 +71,101 @@ type AnalysisRun = {
 	analysis: TraceAnalysis;
 };
 
+function AnalysisStepTimeline({ steps }: { steps: ImprovementStep[] }) {
+	return (
+		<div className="relative space-y-1.5 pl-7">
+			<div className="absolute bottom-2 left-[9px] top-2 w-px bg-gradient-to-b from-primary/50 via-stone-300 to-transparent dark:via-stone-700" />
+			{steps.map((step, index) => {
+				const isActive = step.status === "active";
+				const Icon = isActive ? Loader2 : CheckCircle2;
+				return (
+					<div
+						key={`${step.label}-${index}`}
+						className={`relative flex gap-2 rounded-md py-1.5 pr-2 text-xs transition-colors ${
+							isActive ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : ""
+						}`}
+					>
+						<span
+							className={`absolute -left-7 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border ${
+								isActive
+									? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_4px_rgba(243,108,6,0.08)]"
+									: "border-stone-200 bg-white text-green-600 dark:border-stone-800 dark:bg-stone-950 dark:text-green-400"
+							}`}
+						>
+							<Icon className={`h-3 w-3 ${isActive ? "animate-spin" : ""}`} />
+						</span>
+						<div className="min-w-0">
+							<div
+								className={`font-medium ${
+									isActive
+										? "text-stone-900 dark:text-stone-100"
+										: "text-stone-600 dark:text-stone-300"
+								}`}
+							>
+								{step.label}
+							</div>
+							{step.detail ? (
+								<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+									{step.detail}
+								</div>
+							) : null}
+						</div>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+function AnalysisProgress({
+	steps,
+	isLoading,
+	title,
+}: {
+	steps: ImprovementStep[];
+	isLoading: boolean;
+	title: string;
+}) {
+	if (!steps.length) return null;
+	const completedCount = steps.filter((step) => step.status === "complete").length;
+	const content = <AnalysisStepTimeline steps={steps} />;
+
+	if (isLoading) {
+		return (
+			<div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60">
+				<div className="mb-2 flex items-center justify-between gap-2">
+					<div className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+						{title}
+					</div>
+					<div className="text-[11px] text-stone-400 dark:text-stone-500">
+						{completedCount}/{steps.length}
+					</div>
+				</div>
+				{content}
+			</div>
+		);
+	}
+
+	return (
+		<Accordion type="single" collapsible className="mt-2">
+			<AccordionItem
+				value="progress"
+				className="rounded-md border border-stone-200 bg-stone-50 px-3 dark:border-stone-800 dark:bg-stone-900/60"
+			>
+				<AccordionTrigger className="py-2 text-xs font-semibold uppercase tracking-wide text-stone-500 hover:no-underline dark:text-stone-400">
+					<span>{title}</span>
+					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-400 dark:text-stone-500">
+						{completedCount}/{steps.length}
+					</span>
+				</AccordionTrigger>
+				<AccordionContent className="pb-3">
+					{content}
+				</AccordionContent>
+			</AccordionItem>
+		</Accordion>
+	);
+}
+
 const EMPTY_DIMENSION_COPY: Record<TraceAnalysisDimension, { summary: string; detail: string }> = {
 	strengths: {
 		summary: "No explicit strengths were identified in this run.",
@@ -681,34 +776,11 @@ export default function TraceImprovementView({
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-auto bg-white px-4 py-2 dark:bg-stone-950">
-				{steps.length > 0 && (
-					<div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60">
-						<div className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-							{m.TRACE_AI_IMPROVEMENT_FLOW}
-						</div>
-						<div className="space-y-2">
-							{steps.map((step) => (
-								<div key={step.label} className="flex gap-2 text-xs">
-									{step.status === "complete" ? (
-										<CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" />
-									) : (
-										<Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-blue-600 dark:text-blue-400" />
-									)}
-									<div className="min-w-0">
-										<div className="font-medium text-stone-800 dark:text-stone-100">
-											{step.label}
-										</div>
-										{step.detail && (
-											<div className="truncate text-stone-500 dark:text-stone-400">
-												{step.detail}
-											</div>
-										)}
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-				)}
+				<AnalysisProgress
+					steps={steps}
+					isLoading={isLoading}
+					title={m.TRACE_AI_IMPROVEMENT_FLOW}
+				/>
 
 				{parsedAnalysis ? (
 					<>

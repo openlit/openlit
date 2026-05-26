@@ -1247,6 +1247,72 @@ ${JSON.stringify(spanForDimension(summary, dimension), null, 2)}
 Return strict JSON: {"summary": string, "findings": Finding[]}.`;
 }
 
+function buildDimensionGraderSystemPrompt(dimension: TraceAnalysisDimension) {
+	return `You are the quality grader for one dimension of an OpenTelemetry trace analysis.
+
+Dimension: ${dimension}
+Dimension goal: ${DIMENSION_GUIDANCE[dimension]}
+
+Your job is to improve the first-pass analysis, not to produce a separate critique.
+
+Rules:
+- Output strict JSON only.
+- Return an object with exactly this shape: {"summary":"one concise sentence","findings":Finding[]}
+- Finding schema: ${TRACE_ANALYSIS_SCHEMA.match(/type Finding = \{[\s\S]*?\};/)?.[0] || "Finding[]"}
+- Remove findings that are generic, duplicate, weakly supported, or outside this dimension.
+- Improve severity, summaries, details, span_refs, suggested_fix, and estimated_savings when the evidence supports it.
+- Add missing high-confidence findings only when directly supported by the provided metrics or trace tree.
+- Every finding must cite span IDs in span_refs.
+- Do not invent telemetry, token counts, costs, tools, prompts, or failures.
+- If there are no concrete supported findings, return {"summary":"No concrete findings for this dimension.","findings":[]}.`;
+}
+
+function buildDimensionGraderUserPrompt({
+	spanId,
+	dimension,
+	summary,
+	metrics,
+	ruleContext,
+	firstPass,
+}: {
+	spanId: string;
+	dimension: TraceAnalysisDimension;
+	summary: ImprovementSpanSummary;
+	metrics: TraceAnalysisMetrics;
+	ruleContext: TraceRuleContext;
+	firstPass: { summary: string; findings: TraceAnalysisFinding[] };
+}) {
+	return `Grade and refine the first-pass "${dimension}" analysis.
+
+Source span id: ${spanId}
+
+First-pass analysis:
+\`\`\`json
+${JSON.stringify(firstPass, null, 2)}
+\`\`\`
+
+Focused deterministic metrics:
+\`\`\`json
+${JSON.stringify(metricsForDimension(metrics, dimension), null, 2)}
+\`\`\`
+
+Rule-engine context:
+\`\`\`json
+${JSON.stringify({
+	matchingRuleIds: ruleContext.matchingRuleIds,
+	contextEntityIds: ruleContext.contextEntityIds,
+	contextContents: ruleContext.contextContents.map((content) => truncateMiddle(content, 350)),
+}, null, 2)}
+\`\`\`
+
+Focused trace tree:
+\`\`\`json
+${JSON.stringify(spanForDimension(summary, dimension), null, 2)}
+\`\`\`
+
+Return the improved final JSON only: {"summary": string, "findings": Finding[]}.`;
+}
+
 function estimateCost(promptTokens: number, completionTokens: number) {
 	return (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
 }
@@ -1354,6 +1420,65 @@ function parseDimensionAnalysis(
 			}],
 		};
 	}
+}
+
+type DimensionGenerationStats = {
+	promptTokens: number;
+	completionTokens: number;
+	cost: number;
+};
+
+async function streamJsonText({
+	model,
+	system,
+	prompt,
+	maxOutputTokens,
+	onUsage,
+}: {
+	model: Parameters<typeof streamText>[0]["model"];
+	system: string;
+	prompt: string;
+	maxOutputTokens: number;
+	onUsage: (stats: DimensionGenerationStats) => void;
+}) {
+	let text = "";
+	let finishResolve: () => void;
+	const finishPromise = new Promise<void>((resolve) => {
+		finishResolve = resolve;
+	});
+
+	const result = streamText({
+		model,
+		system,
+		prompt,
+		maxOutputTokens,
+		temperature: 0,
+		onFinish: ({ usage }) => {
+			const promptTokens = usage?.inputTokens ?? 0;
+			const completionTokens = usage?.outputTokens ?? 0;
+			onUsage({
+				promptTokens,
+				completionTokens,
+				cost: estimateCost(promptTokens, completionTokens),
+			});
+			finishResolve!();
+		},
+	});
+
+	for await (const part of result.fullStream) {
+		const textDelta =
+			part.type === "text-delta"
+				? ((part as any).text ?? (part as any).delta ?? "")
+				: "";
+		if (textDelta) text += textDelta;
+	}
+
+	await Promise.race([
+		finishPromise,
+		new Promise((resolve) => setTimeout(resolve, 5000)),
+	]);
+
+	return text;
 }
 
 function buildAggregatedSummary(dimensionSummaries: Partial<Record<TraceAnalysisDimension, string>>, analysis: TraceAnalysis) {
@@ -1511,6 +1636,13 @@ export async function streamTraceImprovementAnalysis(
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {
 			let finishStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
+			const addFinishStats = (stats: DimensionGenerationStats) => {
+				finishStats = {
+					promptTokens: finishStats.promptTokens + stats.promptTokens,
+					completionTokens: finishStats.completionTokens + stats.completionTokens,
+					cost: finishStats.cost + stats.cost,
+				};
+			};
 
 			try {
 				const traceId =
@@ -1565,7 +1697,7 @@ export async function streamTraceImprovementAnalysis(
 				analysis.totals = calculateTotals(analysisRoot);
 				const dimensionSummaries: Partial<Record<TraceAnalysisDimension, string>> = {};
 
-				for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
+				await Promise.all(TRACE_ANALYSIS_DIMENSIONS.map(async (dimension) => {
 					createStreamEvent(controller, encoder, {
 						type: "step",
 						status: "active",
@@ -1582,13 +1714,7 @@ export async function streamTraceImprovementAnalysis(
 
 					let dimensionText = "";
 					let dimensionStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
-					let finishResolve: () => void;
-					const finishPromise = new Promise<void>((resolve) => {
-						finishResolve = resolve;
-					});
-
-					const result = streamText({
-						model: modelInstance,
+					dimensionText = await streamJsonText({
 						system: buildDimensionSystemPrompt(dimension),
 						prompt: buildDimensionUserPrompt({
 							spanId,
@@ -1598,46 +1724,18 @@ export async function streamTraceImprovementAnalysis(
 							ruleContext,
 						}),
 						maxOutputTokens: 900,
-						temperature: 0,
-						onFinish: ({ usage }) => {
-							const promptTokens = usage?.inputTokens ?? 0;
-							const completionTokens = usage?.outputTokens ?? 0;
-							dimensionStats = {
-								promptTokens,
-								completionTokens,
-								cost: estimateCost(promptTokens, completionTokens),
-							};
-							finishStats = {
-								promptTokens: finishStats.promptTokens + promptTokens,
-								completionTokens: finishStats.completionTokens + completionTokens,
-								cost: finishStats.cost + dimensionStats.cost,
-							};
-							finishResolve!();
+						model: modelInstance,
+						onUsage: (stats) => {
+							dimensionStats = stats;
+							addFinishStats(stats);
 						},
 					});
-
-					for await (const part of result.fullStream) {
-						const textDelta =
-							part.type === "text-delta"
-								? ((part as any).text ?? (part as any).delta ?? "")
-								: "";
-						if (textDelta) {
-							dimensionText += textDelta;
-						}
-					}
-
-					await Promise.race([
-						finishPromise,
-						new Promise((resolve) => setTimeout(resolve, 5000)),
-					]);
 
 					const dimensionAnalysis = parseDimensionAnalysis(
 						dimensionText,
 						dimension,
 						analysisRoot
 					);
-					analysis[dimension] = dimensionAnalysis.findings;
-					dimensionSummaries[dimension] = dimensionAnalysis.summary;
 
 					logTraceAnalysis("dimension_finished", {
 						spanId,
@@ -1646,7 +1744,7 @@ export async function streamTraceImprovementAnalysis(
 						runNumber,
 						dimension,
 						responseChars: dimensionText.length,
-						findingCount: analysis[dimension].length,
+						findingCount: dimensionAnalysis.findings.length,
 						promptTokens: dimensionStats.promptTokens,
 						completionTokens: dimensionStats.completionTokens,
 						cost: dimensionStats.cost,
@@ -1657,11 +1755,95 @@ export async function streamTraceImprovementAnalysis(
 						rootSpanId,
 						runNumber,
 						dimension,
-						findingCount: analysis[dimension].length,
+						findingCount: dimensionAnalysis.findings.length,
 						promptTokens: dimensionStats.promptTokens,
 						completionTokens: dimensionStats.completionTokens,
 						cost: dimensionStats.cost,
 						summaryPreview: previewValue(dimensionAnalysis.summary, 180),
+					});
+					createStreamEvent(controller, encoder, {
+						type: "step",
+						status: "active",
+						label: `Grading ${DIMENSION_LABELS[dimension]}`,
+						detail: "Checking evidence, removing weak findings, and tightening recommendations",
+					});
+
+					let gradedAnalysis = dimensionAnalysis;
+					let graderText = "";
+					let graderStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
+					try {
+						graderText = await streamJsonText({
+							model: modelInstance,
+							system: buildDimensionGraderSystemPrompt(dimension),
+							prompt: buildDimensionGraderUserPrompt({
+								spanId,
+								dimension,
+								summary,
+								metrics,
+								ruleContext,
+								firstPass: dimensionAnalysis,
+							}),
+							maxOutputTokens: 1000,
+							onUsage: (stats) => {
+								graderStats = stats;
+								addFinishStats(stats);
+							},
+						});
+						gradedAnalysis = parseDimensionAnalysis(
+							graderText,
+							dimension,
+							analysisRoot
+						);
+						if (gradedAnalysis.summary === "This dimension could not be parsed.") {
+							logTraceAnalysisError("dimension_grader_parse_failed_fallback", "Using first-pass analysis", {
+								spanId,
+								scope,
+								rootSpanId,
+								runNumber,
+								dimension,
+								rawChars: graderText.length,
+								rawPreview: previewValue(graderText, 300),
+							});
+							gradedAnalysis = dimensionAnalysis;
+						}
+					} catch (error) {
+						logTraceAnalysisError("dimension_grader_failed", error, {
+							spanId,
+							scope,
+							rootSpanId,
+							runNumber,
+							dimension,
+						});
+					}
+
+					analysis[dimension] = gradedAnalysis.findings;
+					dimensionSummaries[dimension] = gradedAnalysis.summary;
+
+					logTraceAnalysis("dimension_graded", {
+						spanId,
+						scope,
+						rootSpanId,
+						runNumber,
+						dimension,
+						responseChars: graderText.length,
+						firstPassFindingCount: dimensionAnalysis.findings.length,
+						finalFindingCount: analysis[dimension].length,
+						promptTokens: graderStats.promptTokens,
+						completionTokens: graderStats.completionTokens,
+						cost: graderStats.cost,
+						summaryPreview: previewValue(gradedAnalysis.summary, 180),
+					});
+					createDebugEvent(controller, encoder, "dimension_graded", {
+						spanId,
+						rootSpanId,
+						runNumber,
+						dimension,
+						firstPassFindingCount: dimensionAnalysis.findings.length,
+						finalFindingCount: analysis[dimension].length,
+						promptTokens: graderStats.promptTokens,
+						completionTokens: graderStats.completionTokens,
+						cost: graderStats.cost,
+						summaryPreview: previewValue(gradedAnalysis.summary, 180),
 					});
 					createStreamEvent(controller, encoder, {
 						type: "dimension",
@@ -1671,9 +1853,14 @@ export async function streamTraceImprovementAnalysis(
 					createStreamEvent(controller, encoder, {
 						type: "step",
 						status: "complete",
+						label: `Grading ${DIMENSION_LABELS[dimension]}`,
+					});
+					createStreamEvent(controller, encoder, {
+						type: "step",
+						status: "complete",
 						label: `Analyzing ${DIMENSION_LABELS[dimension]}`,
 					});
-				}
+				}));
 
 				analysis.summary = buildAggregatedSummary(dimensionSummaries, analysis);
 				const dimensionCounts = Object.fromEntries(
