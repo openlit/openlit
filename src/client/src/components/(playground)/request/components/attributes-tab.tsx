@@ -102,13 +102,14 @@ function safeStringify(val: unknown): string {
 
 export function AttrRow({ label, value, mono = false, className = "" }: { label: string; value: unknown; mono?: boolean; className?: string }) {
 	const displayValue = safeStringify(value);
+	const valueWrapping = mono ? "break-all" : "break-words";
 	return (
 		<div className={`flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors ${className}`}>
 			<span className="w-44 shrink-0 text-xs text-stone-500 dark:text-stone-400 pt-px leading-relaxed break-all">
 				{label}
 			</span>
 			<span
-				className={`text-xs text-stone-800 dark:text-stone-200 whitespace-pre-wrap break-words leading-relaxed min-w-0 ${
+				className={`text-xs text-stone-800 dark:text-stone-200 whitespace-pre-wrap ${valueWrapping} leading-relaxed min-w-0 ${
 					mono ? "font-mono" : ""
 				}`}
 			>

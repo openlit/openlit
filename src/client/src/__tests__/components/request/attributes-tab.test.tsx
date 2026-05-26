@@ -9,7 +9,17 @@ describe('AttrRow', () => {
 
     expect(value.textContent).toBe('first line\nsecond line');
     expect(value).toHaveClass('whitespace-pre-wrap');
-    expect(value).toHaveClass('break-words');
+    expect(value).toHaveClass('break-all');
     expect(value).toHaveClass('font-mono');
+  });
+
+  it('keeps word wrapping readable for non-mono text', () => {
+    render(<AttrRow label="Summary" value="first line\nsecond line" />);
+
+    const value = screen.getByText(/first line/);
+
+    expect(value).toHaveClass('whitespace-pre-wrap');
+    expect(value).toHaveClass('break-words');
+    expect(value).not.toHaveClass('font-mono');
   });
 });
