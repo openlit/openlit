@@ -108,7 +108,7 @@ export function AttrRow({ label, value, mono = false, className = "" }: { label:
 				{label}
 			</span>
 			<span
-				className={`text-xs text-stone-800 dark:text-stone-200 break-all leading-relaxed min-w-0 ${
+				className={`text-xs text-stone-800 dark:text-stone-200 whitespace-pre-wrap break-words leading-relaxed min-w-0 ${
 					mono ? "font-mono" : ""
 				}`}
 			>

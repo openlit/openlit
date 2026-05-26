@@ -587,4 +587,26 @@ describe('extractTextFromMessages (via normalizeTrace)', () => {
     const result = normalizeTrace(trace);
     expect(result.response).toBe('My response');
   });
+
+  it('preserves multiline prompt text from message content', () => {
+    const messages = JSON.stringify([
+      {
+        role: 'user',
+        parts: [
+          {
+            type: 'text',
+            content: 'First line\nSecond line\n\nFinal paragraph',
+          },
+        ],
+      },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+
+    const result = normalizeTrace(trace);
+
+    expect(result.prompt).toBe('First line\nSecond line\n\nFinal paragraph');
+  });
 });
