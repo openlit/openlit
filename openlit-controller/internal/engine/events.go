@@ -326,7 +326,4 @@ func augmentServiceAttrsFromState(svc *openlit.ServiceState) {
 	if svc.ObservabilityReason != "" {
 		svc.ResourceAttributes["openlit.observability.reason"] = svc.ObservabilityReason
 	}
-	if svc.DesiredAgentObservabilityStatus != "" {
-		svc.ResourceAttributes["openlit.agent_observability.desired_status"] = svc.DesiredAgentObservabilityStatus
-	}
 }

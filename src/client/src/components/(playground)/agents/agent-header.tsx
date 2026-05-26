@@ -1,0 +1,75 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import getMessage from "@/constants/messages";
+import type { UnifiedAgent } from "@/types/agents";
+
+interface AgentHeaderProps {
+	agent: UnifiedAgent;
+	onRefresh: () => void;
+	rightSlot?: React.ReactNode;
+}
+
+export default function AgentHeader({
+	agent,
+	onRefresh,
+	rightSlot,
+}: AgentHeaderProps) {
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const handleRefresh = useCallback(async () => {
+		setIsRefreshing(true);
+		try {
+			const res = await fetch(`/api/agents/${agent.agent_key}/refresh`, {
+				method: "POST",
+			});
+			if (res.status === 429) {
+				toast.message("Refresh cooling down — try again in a few seconds.");
+			} else if (!res.ok) {
+				toast.error(`Refresh failed: HTTP ${res.status}`);
+			} else {
+				onRefresh();
+			}
+		} catch (e) {
+			toast.error(`Refresh failed: ${String(e)}`);
+		} finally {
+			setIsRefreshing(false);
+		}
+	}, [agent.agent_key, onRefresh]);
+
+	return (
+		<div className="space-y-2">
+			<div className="flex items-center justify-between gap-3">
+				<Link
+					href="/agents"
+					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+				>
+					<ArrowLeft className="w-4 h-4" />
+					{getMessage().AGENTS_BACK_TO_HUB}
+				</Link>
+				<button
+					onClick={handleRefresh}
+					disabled={isRefreshing}
+					className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50"
+				>
+					<RefreshCw
+						className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
+					/>
+					{isRefreshing
+						? getMessage().AGENTS_REFRESHING
+						: getMessage().AGENTS_REFRESH}
+				</button>
+			</div>
+
+			<div className="flex items-center justify-between gap-3 flex-wrap">
+				<h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+					{agent.service_name}
+				</h1>
+				{rightSlot && <div className="shrink-0">{rightSlot}</div>}
+			</div>
+		</div>
+	);
+}

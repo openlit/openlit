@@ -10,6 +10,9 @@ from opentelemetry.trace import Status, StatusCode
 
 from openlit._config import OpenlitConfig
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
+    build_tool_definitions,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -416,15 +419,47 @@ def common_chat_logic(
             scope._cache_creation_input_tokens,
         )
 
-    # Span Attributes for Content
+    # Compute system instructions + tool definitions unconditionally so the
+    # agent version hash is stable across content-capture toggles.
+    system_instr = build_system_instructions_from_messages(
+        scope._kwargs.get("messages", [])
+    )
+    tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=getattr(scope, "_response_model", None) or request_model,
+        runtime_config={
+            "temperature": scope._kwargs.get("temperature"),
+            "top_p": scope._kwargs.get("top_p"),
+            "max_tokens": scope._kwargs.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_SARVAM],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
     input_msgs = build_input_messages(scope._kwargs.get("messages", []))
     output_msgs = build_output_messages(
         scope._llmresponse,
         getattr(scope, "_finish_reason", None),
         getattr(scope, "_tools", None),
     )
-    _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-    if capture_message_content and event_provider:
+
+    # Span Attributes for Content
+    if capture_message_content:
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
+
+    # Emit inference event independently of content capture.
+    if event_provider:
         extra = {
             "response_id": getattr(scope, "_response_id", None),
             "finish_reasons": [finish_reason],
@@ -443,14 +478,18 @@ def common_chat_logic(
             "cache_creation_input_tokens": getattr(
                 scope, "_cache_creation_input_tokens", 0
             ),
+            **version_extras,
         }
+        if capture_message_content and system_instr:
+            extra["system_instructions"] = system_instr
         emit_inference_event(
             event_provider,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
             request_model,
             getattr(scope, "_response_model", request_model),
-            input_messages=input_msgs,
-            output_messages=output_msgs,
+            input_messages=input_msgs if capture_message_content else [],
+            output_messages=output_msgs if capture_message_content else [],
+            tool_definitions=tool_defs,
             server_address=scope._server_address,
             server_port=scope._server_port,
             **extra,

@@ -220,6 +220,8 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/multion"><b>MultiOn</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/replicate"><b>Replicate</b></a><br/><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/digitalocean"><b>DigitalOcean (pydo)</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/digitalocean-gradient"><b>DigitalOcean Gradient</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 

@@ -3,6 +3,8 @@ import {
 	CONTROLLER_INSTANCES_TABLE,
 	CONTROLLER_CONFIG_TABLE,
 	CONTROLLER_ACTIONS_TABLE,
+	CONTROLLER_DESIRED_STATES_V2_TABLE,
+	CONTROLLER_ENV_CONFIGS_TABLE,
 } from "@/lib/platform/controller/table-details";
 import migrationHelper from "./migration-helper";
 
@@ -79,6 +81,30 @@ export default async function CreateControllerMigration(
 			updated_at DateTime DEFAULT now()
 		) ENGINE = ReplacingMergeTree(updated_at)
 		ORDER BY (instance_id, id);
+		`,
+		`
+		CREATE TABLE IF NOT EXISTS ${CONTROLLER_DESIRED_STATES_V2_TABLE} (
+			workload_key String,
+			cluster_id String DEFAULT 'default',
+			feature LowCardinality(String),
+			desired_status LowCardinality(String) DEFAULT 'none',
+			config String DEFAULT '{}',
+			updated_at DateTime DEFAULT now()
+		) ENGINE = ReplacingMergeTree(updated_at)
+		ORDER BY (workload_key, cluster_id, feature)
+		TTL updated_at + INTERVAL 90 DAY
+		SETTINGS index_granularity = 8192
+		`,
+		`
+		CREATE TABLE IF NOT EXISTS ${CONTROLLER_ENV_CONFIGS_TABLE} (
+			environment String DEFAULT 'default',
+			cluster_id String DEFAULT 'default',
+			feature LowCardinality(String),
+			config String DEFAULT '{}',
+			updated_at DateTime DEFAULT now()
+		) ENGINE = ReplacingMergeTree(updated_at)
+		ORDER BY (environment, cluster_id, feature)
+		SETTINGS index_granularity = 8192
 		`,
 	];
 

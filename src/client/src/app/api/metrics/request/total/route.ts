@@ -14,6 +14,7 @@ export async function POST(request: Request) {
 	const params: MetricParams = {
 		timeLimit,
 		operationType,
+		selectedConfig: formData.selectedConfig,
 	};
 
 	const validationParam = validateMetricsRequest(

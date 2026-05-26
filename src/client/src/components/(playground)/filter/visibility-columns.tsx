@@ -31,6 +31,7 @@ export default function VisibilityColumns({
 	const onVisibilityChange = (key: string, value: boolean) => {
 		updateFilter(pageName, `visibilityColumns.${key}`, value);
 	};
+	const isVisible = (key: string) => visibilityColumns[key] ?? true;
 
 	return (
 		<DropdownMenu>
@@ -49,7 +50,7 @@ export default function VisibilityColumns({
 						onClick={() =>
 							onVisibilityChange(
 								key,
-								!visibilityColumns[key]
+								!isVisible(key)
 							)
 						}
 						disabled={!value?.enableHiding}
@@ -57,7 +58,7 @@ export default function VisibilityColumns({
 					>
 						<Checkbox
 							checked={
-								visibilityColumns[key]
+								isVisible(key)
 							}
 						/>
 						{convertKeyToLabel(key)}

@@ -46,6 +46,7 @@ export default class Metrics {
   >;
   static genaiCost: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
   static dbRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static guardRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
 
   static initializeMetrics() {
     this.genaiClientUsageTokens = this.meter.createHistogram(
@@ -128,6 +129,10 @@ export default class Metrics {
     });
     this.dbRequests = this.meter.createCounter(SemanticConvention.DB_REQUESTS, {
       description: 'Number of requests to VectorDBs.',
+      unit: '1',
+    });
+    this.guardRequests = this.meter.createCounter(SemanticConvention.GUARD_REQUESTS_COUNTER, {
+      description: 'Number of guard evaluations.',
       unit: '1',
     });
   }

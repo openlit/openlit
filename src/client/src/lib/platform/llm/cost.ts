@@ -15,7 +15,7 @@ export async function getTotalCost(params: MetricParams) {
 			sum(toFloat64OrZero(${keyPath})) AS total_usage_cost,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" })}
+		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}
 	`;
 
 	const query = `
@@ -48,7 +48,7 @@ export async function getAverageCost(params: MetricParams) {
 			avg(toFloat64OrZero(${keyPath})) AS average_usage_cost,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" })}
+		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}
 	`;
 
 	const query = `
@@ -83,16 +83,16 @@ export async function getCostByApplication(params: MetricParams) {
 			...params,
 			notEmpty: [{ key: keyPathApplicationName }, { key: keyPathCost }],
 			operationType: "llm",
-		})}
+		}, true)}
 		GROUP BY applicationName;`;
 
 	return dataCollector({ query });
 }
 
 export async function getCostByEnvironment(params: MetricParams) {
-	const keyPathEnvironment = `ResourceAttributes['${getTraceMappingKeyFullPath(
-		"environment"
-	)}']`;
+	// See `helpers/server/platform.ts` — environment lives at
+	// `ResourceAttributes['deployment.environment']` (OTel standard).
+	const keyPathEnvironment = `ResourceAttributes['deployment.environment']`;
 	const keyPathCost = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
 	const query = `SELECT 
 			DISTINCT ${keyPathEnvironment} as environment, 
@@ -102,7 +102,7 @@ export async function getCostByEnvironment(params: MetricParams) {
 			...params,
 			notEmpty: [{ key: keyPathEnvironment }, { key: keyPathCost }],
 			operationType: "llm",
-		})}
+		}, true)}
 		GROUP BY environment`;
 
 	return dataCollector({ query });

@@ -35,9 +35,13 @@ export const EVALUATION_CONFIG_NOT_SET =
 	"Evaluation config not set! Please set the config first to run evaluations.";
 export const EVALUATION_CONFIG_SET = "Setup Evaluation!";
 export const EVALUATION_NOT_RUN_YET =
-	"Evaluation not run yet! Please run the evaluation to get results.";
+	"AI Evaluation has not run yet! Please run the evaluation to get results.";
 export const EVALUATION_RUN = "Run Evaluation";
 export const EVALUATION_RUN_AGAIN = "Run Evaluation Again";
+export const EVALUATION_RUN_COUNT = (count: number) =>
+	`${count} run${count !== 1 ? "s" : ""}`;
+export const EVALUATION_RUNS = "Runs";
+export const EVALUATION_RESULTS = "Evaluations";
 export const EVALUATION_DATA_LOADING = "Loading evaluation data...";
 export const EVALUATION_CREATED = "Evaluation created successfully!";
 export const EVALUATION_UPDATED = "Evaluation updated successfully!";
@@ -46,6 +50,19 @@ export const EVALUATION_CONFIG_INVALID = "Invalid evaluation config!";
 export const EVALUATION_CONFIG_UPDATING_FAILED =
 	"Evaluation config updation failed!";
 export const EVALUATION_RUN_FAILURE = "Evaluation run failed!";
+export const EVALUATION_FEEDBACK_SAVE_FAILURE = "Failed to save feedback";
+export const EVALUATION_CLASSIFICATION = "Classification";
+export const EVALUATION_EXPLANATION = "Explanation";
+export const EVALUATION_VERDICT = "Verdict";
+export const EVALUATION_RULE_ENGINE_DETAILS = "Rule Engine & Run Details";
+export const EVALUATION_SOURCE = "Source";
+export const EVALUATION_SOURCE_MANUAL = "Manual";
+export const EVALUATION_SOURCE_AUTO = "Auto";
+export const EVALUATION_ENGINE = "Engine";
+export const EVALUATION_RULES_APPLIED = "Rules applied";
+export const EVALUATION_CONTEXT = "Context";
+export const EVALUATION_CONTEXT_APPLIED = "Applied from context entities";
+export const EVALUATION_NO_RESULTS = "No evaluations";
 
 // Evaluation Settings page
 export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
@@ -93,7 +110,7 @@ export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
 
 // Manual feedback
-export const EVALUATION_MANUAL_FEEDBACK = "Manual Feedback";
+export const EVALUATION_MANUAL_FEEDBACK = "Feedback";
 export const EVALUATION_MANUAL_FEEDBACK_DESCRIPTION =
 	"Add your feedback on this response";
 export const EVALUATION_FEEDBACK_POSITIVE = "Good";
@@ -106,6 +123,113 @@ export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
 export const TRACE_FETCHING_ERROR = "Error fetching trace!";
+
+// Observability
+export const OBSERVABILITY_TITLE = "Telemetry";
+export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
+export const OBSERVABILITY_LOADING = "Loading...";
+export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";
+export const OBSERVABILITY_TRACES = "Traces";
+export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
+export const OBSERVABILITY_METRICS = "Metrics";
+export const OBSERVABILITY_LOGS = "Logs";
+export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
+export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
+export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
+export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
+export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
+export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
+export const OBSERVABILITY_BACK = "Back";
+export const OBSERVABILITY_DURATION = "Duration";
+export const OBSERVABILITY_TOKENS = "Tokens";
+export const OBSERVABILITY_COST = "Cost";
+export const OBSERVABILITY_MODEL = "Model";
+export const OBSERVABILITY_TRACE_ID = "Trace ID";
+export const OBSERVABILITY_SPAN_ID = "Span ID";
+export const OBSERVABILITY_SERVICE = "Service";
+export const OBSERVABILITY_APPLICATION = "Application";
+export const OBSERVABILITY_SYSTEM = "System";
+export const OBSERVABILITY_UNKNOWN_SERVICE = "unknown service";
+export const OBSERVABILITY_UNKNOWN_APP = "unknown app";
+export const OBSERVABILITY_PREVIOUS_SPAN = "Previous span";
+export const OBSERVABILITY_NEXT_SPAN = "Next span";
+export const OBSERVABILITY_SPAN_ATTRIBUTES = "Span Attributes";
+export const OBSERVABILITY_RESOURCE_ATTRIBUTES = "Resource Attributes";
+export const OBSERVABILITY_SCOPE_ATTRIBUTES = "Scope Attributes";
+export const OBSERVABILITY_LOG_ATTRIBUTES = "Log Attributes";
+export const OBSERVABILITY_METRIC_ATTRIBUTES = "Metric Attributes";
+export const OBSERVABILITY_RAW_RECORD = "Raw Record";
+export const OBSERVABILITY_RAW_LOG = "Raw Log";
+export const OBSERVABILITY_FIELD = "Field";
+export const OBSERVABILITY_VALUE = "Value";
+export const OBSERVABILITY_TYPES = "Types";
+export const OBSERVABILITY_MODELS = "Models";
+export const OBSERVABILITY_PROVIDERS = "Providers";
+export const OBSERVABILITY_MAX_COST = "Max Cost";
+export const OBSERVABILITY_APPLICATION_NAMES = "Application Names";
+export const OBSERVABILITY_SPAN_NAMES = "Span Names";
+export const OBSERVABILITY_ENVIRONMENTS = "Environments";
+export const OBSERVABILITY_SERVICES = "Services";
+export const OBSERVABILITY_SEVERITIES = "Severities";
+export const OBSERVABILITY_METRIC_NAMES = "Metric Names";
+export const OBSERVABILITY_METRIC_TYPES = "Metric Types";
+export const OBSERVABILITY_COPY_UNSUPPORTED =
+	"Copy to clipboard is not supported in this browser";
+export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
+export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
+export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const OBSERVABILITY_TIME = "Time";
+export const OBSERVABILITY_SEVERITY = "Severity";
+export const OBSERVABILITY_BODY = "Body";
+export const OBSERVABILITY_METRIC = "Metric";
+export const OBSERVABILITY_TYPE = "Type";
+export const OBSERVABILITY_UNIT = "Unit";
+export const OBSERVABILITY_LATEST = "Latest";
+export const OBSERVABILITY_POINTS = "Points";
+export const OBSERVABILITY_LAST_SEEN = "Last Seen";
+export const OBSERVABILITY_LOG_ENTRY = "Log entry";
+export const OBSERVABILITY_LATEST_METRIC_ATTRIBUTES =
+	"Latest Metric Attributes";
+export const OBSERVABILITY_LATEST_RESOURCE_ATTRIBUTES =
+	"Latest Resource Attributes";
+export const OBSERVABILITY_LATEST_SCOPE_ATTRIBUTES = "Latest Scope Attributes";
+export const OBSERVABILITY_LATEST_METRIC_POINT = "Latest Metric Point";
+export const OBSERVABILITY_LOADED_POINTS = "Loaded Points";
+export const OBSERVABILITY_CLOSE = "Close";
+export const OBSERVABILITY_FIELDS = "Fields";
+export const OBSERVABILITY_LOG_ATTRS = "Log Attrs";
+export const OBSERVABILITY_RESOURCE = "Resource";
+export const OBSERVABILITY_SCOPE = "Scope";
+export const OBSERVABILITY_RAW = "Raw";
+export const OBSERVABILITY_AUTO = "Auto";
+export const OBSERVABILITY_METRIC_POINTS = "Metric points";
+export const OBSERVABILITY_LOG_EVENTS = "Log events";
+export const OBSERVABILITY_SPANS = "Spans";
+export const OBSERVABILITY_TOTAL = "Total";
+export const OBSERVABILITY_PEAK = "Peak";
+export const OBSERVABILITY_SPAN_HIERARCHY = "Span Hierarchy";
+export const OBSERVABILITY_LOADING_SPANS = "Loading spans";
+export const OBSERVABILITY_SPAN_COUNT = (count: string) => `${count} spans`;
+export const OBSERVABILITY_SPAN_COUNT_WITH_COST = (count: string, cost: string) =>
+	`${count} spans / $${cost}`;
+export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
+	"Span hierarchy is not available for this span.";
+export const OBSERVABILITY_TREE = "Tree";
+export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_TIMELINE = "Timeline";
+export const OBSERVABILITY_GRAPH = "Graph";
+export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
+export const OBSERVABILITY_ADD = "Add";
+export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
+export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
+export const OBSERVABILITY_FULL_SCREEN = "Full screen";
+export const OBSERVABILITY_EVALUATION_PANEL = "Evaluation";
+export const OBSERVABILITY_ROW = "row";
+export const OBSERVABILITY_TRACE = "trace";
+export const OBSERVABILITY_SPAN = "span";
+export const OBSERVABILITY_SCOPE_META = "scope";
 
 // Cron
 export const CRON_RECURRING_TIME_INVALID =
@@ -369,9 +493,9 @@ export const AGENTS_SYSTEM_KUBERNETES = "Kubernetes";
 export const AGENTS_SYSTEM_DOCKER = "Docker";
 export const AGENTS_SYSTEM_LINUX = "Linux";
 export const AGENTS_STAT_CONTROLLERS = "Active Controllers";
-export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Services";
-export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Services";
-export const AGENTS_TAB_SERVICES = "Services";
+export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Agents";
+export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Agents";
+export const AGENTS_TAB_SERVICES = "Agents";
 export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 
@@ -398,17 +522,135 @@ export const AGENTS_SERVICE_QUEUED_ACTION = (action: string, serviceName: string
 export const AGENTS_SERVICE_FAILED = (err: string) => `Failed: ${err}`;
 export const AGENTS_AGENT_ENABLING_FOR = (serviceName: string) => `Enabling Agent Observability for ${serviceName}`;
 export const AGENTS_AGENT_DISABLING_FOR = (serviceName: string) => `Disabling Agent Observability for ${serviceName}`;
-export const AGENTS_COLUMN_SERVICE = "Service";
+export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
+	`Pods: ${ack}/${total} acknowledged`;
+export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
 export const AGENTS_COLUMN_LAST_SEEN = "Last Seen";
 export const AGENTS_COLUMN_LLM_OBSERVABILITY = "LLM Observability";
 export const AGENTS_COLUMN_AGENT_OBSERVABILITY = "Agent Observability";
+export const AGENTS_COLUMN_SOURCE = "Source";
+export const AGENTS_SOURCE_CONTROLLER = "Controller";
+export const AGENTS_SOURCE_SDK = "SDK";
+export const AGENTS_SOURCE_BOTH = "Controller + SDK";
+export const AGENTS_FILTER_STATUS_SDK = "SDK-instrumented";
+export const AGENTS_SDK_ENABLED_VIA = "Enabled (via SDK)";
+export const AGENTS_SDK_SOURCE_NOTE = "Source: SDK";
+export const AGENTS_LOAD_MORE = "Load more";
+export const AGENTS_LOAD_MORE_LOADING = "Loading...";
+
+// Agents - Lifecycle (Play / Stop / Restart for controller-managed workloads)
+export const AGENTS_COLUMN_ACTIONS = "Actions";
+export const AGENTS_LIFECYCLE_PLAY = "Play";
+export const AGENTS_LIFECYCLE_STOP = "Stop";
+export const AGENTS_LIFECYCLE_RESTART = "Restart";
+export const AGENTS_LIFECYCLE_STARTING = "Starting...";
+export const AGENTS_LIFECYCLE_STOPPING = "Stopping...";
+export const AGENTS_LIFECYCLE_RESTARTING = "Restarting...";
+export const AGENTS_LIFECYCLE_STATUS_RUNNING = "Running";
+export const AGENTS_LIFECYCLE_STATUS_STOPPED = "Stopped";
+export const AGENTS_LIFECYCLE_STATUS_RESTARTING = "Restarting";
+export const AGENTS_LIFECYCLE_STATUS_UNKNOWN = "Unknown";
+export const AGENTS_LIFECYCLE_TOOLTIP_PLAY = "Start the agent (scale up / start container / re-launch process)";
+export const AGENTS_LIFECYCLE_TOOLTIP_STOP = "Stop the agent (scale to 0 / stop container / SIGTERM)";
+export const AGENTS_LIFECYCLE_TOOLTIP_RESTART = "Restart the agent (rolling restart / restart container / SIGTERM + relaunch)";
+export const AGENTS_LIFECYCLE_TOOLTIP_DISABLED_SDK = "Lifecycle controls are available only for controller-managed agents.";
+export const AGENTS_LIFECYCLE_TOOLTIP_DISABLED_CAPABILITY = "The controller managing this agent does not advertise lifecycle support yet.";
+export const AGENTS_LIFECYCLE_TOOLTIP_PLAY_NO_SNAPSHOT = "No saved snapshot to restore. The controller cannot bring this agent back up without state captured at Stop time.";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_TITLE = "Stop agent?";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_DESCRIPTION = (serviceName: string) =>
+	`This will scale down or terminate the agent "${serviceName}". Telemetry will stop until you Play it again.`;
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_CONFIRM = "Stop agent";
+export const AGENTS_LIFECYCLE_CONFIRM_STOP_CANCEL = "Cancel";
+export const AGENTS_LIFECYCLE_QUEUED_PLAY = (serviceName: string) =>
+	`Starting ${serviceName}...`;
+export const AGENTS_LIFECYCLE_QUEUED_STOP = (serviceName: string) =>
+	`Stopping ${serviceName}...`;
+export const AGENTS_LIFECYCLE_QUEUED_RESTART = (serviceName: string) =>
+	`Restarting ${serviceName}...`;
+export const AGENTS_LIFECYCLE_FAILED = (err: string) => `Lifecycle action failed: ${err}`;
+export const AGENTS_OBSERVABILITY_DISABLED_NOT_RUNNING =
+	"Start the agent to change observability — toggling LLM / Agent observability is only possible while the agent is running.";
+export const AGENTS_OBSERVABILITY_DISABLED_TRANSITIONING =
+	"Observability changes are blocked while the agent is starting, stopping, or restarting.";
+export const AGENTS_LIFECYCLE_DISABLED_OBSERVABILITY_TRANSITIONING =
+	"Lifecycle changes are blocked while LLM or Agent observability is being applied to this agent.";
+
+// Agents - Detail Tabs
+export const AGENTS_TAB_ANALYTICS = "Analytics";
+export const AGENTS_TAB_CONVERSATIONS = "Conversations";
+export const AGENTS_TAB_DEFINITION = "Definition";
+
+// Agents - Redesigned detail page tabs (6-tab shell)
+export const AGENTS_TAB_OVERVIEW = "Overview";
+export const AGENTS_TAB_DASHBOARD = "Dashboard";
+export const AGENTS_TAB_MONITORING = "Monitoring";
+export const AGENTS_TAB_CONFIGURATION = "Configuration";
+export const AGENTS_TAB_CONFIGURATION_NEEDS_INSTRUMENTATION =
+	"Instrumentation required — no data received";
+export const AGENTS_TAB_TOOLS = "Tools";
+export const AGENTS_TAB_PROMPTS = "Prompts";
+
+// Agents - Version Timeline (bar chart + chooser)
+export const AGENTS_VERSION_TIMELINE_TITLE = "Version Timeline";
+export const AGENTS_VERSION_TIMELINE_EMPTY = "No traffic in the selected window yet.";
+export const AGENTS_VERSION_TIMELINE_ALL_VERSIONS = "All versions";
+export const AGENTS_VERSION_RECENT_LABEL = "Recent versions";
+export const AGENTS_VERSION_TIMELINE_REQ_COUNT = (count: number) =>
+	`${count.toLocaleString()} ${count === 1 ? "request" : "requests"}`;
+export const AGENTS_DAG_TITLE = "Call Graph";
+export const AGENTS_DAG_EMPTY = "No spans captured yet for this version.";
+export const AGENTS_DAG_SAMPLED_NOTE = (sampled: number, total: number) =>
+	`Aggregated from ${sampled.toLocaleString()} of ${total.toLocaleString()} traces.`;
+export const AGENTS_CONFIGURATION_DESCRIPTION =
+	"Controls for instrumenting this agent and toggling the controller agent observability flag.";
+
+// Agents - Definition / Versions
+export const AGENTS_DEFINITION_SYSTEM_PROMPT = "System Prompt";
+export const AGENTS_DEFINITION_TOOLS = "Tools";
+export const AGENTS_DEFINITION_NO_SYSTEM_PROMPT = "No system prompt captured yet. The agent has not emitted gen_ai.system_instructions.";
+export const AGENTS_DEFINITION_NO_TOOLS = "No tools captured yet. The agent has not emitted gen_ai.tool.definitions or gen_ai.tool.name.";
+export const AGENTS_DEFINITION_COPY = "Copy";
+export const AGENTS_DEFINITION_COPIED = "Copied";
+export const AGENTS_DEFINITION_SHOW_DIFF = "Show diff vs previous version";
+export const AGENTS_DEFINITION_HIDE_DIFF = "Hide diff";
+export const AGENTS_DEFINITION_SCHEMA = "Schema";
+export const AGENTS_DEFINITION_SCHEMA_NOT_CAPTURED =
+	"This tool was reported by name only — its parameter schema was not captured by the instrumentation.";
+export const AGENTS_DEFINITION_VIEW_RAW = "View raw";
+export const AGENTS_DEFINITION_VIEW_FORMATTED = "View formatted";
+export const AGENTS_VERSION_CURRENT = "Current";
+export const AGENTS_VERSION_NUMBER_PREFIX = "v";
+export const AGENTS_VERSION_SELECTOR_LABEL = "Version";
+export const AGENTS_VERSION_DRAWER_TITLE = "Version History";
+export const AGENTS_VERSION_FIRST_SEEN = "First seen";
+export const AGENTS_VERSION_LAST_SEEN = "Last seen";
+export const AGENTS_VERSION_REQUESTS = "Requests";
+export const AGENTS_VERSION_FINGERPRINT = "Fingerprint";
+export const AGENTS_VERSION_NO_HISTORY = "No version history yet.";
+
+// Agents - Detail Metadata
+export const AGENTS_METADATA_PRIMARY_MODEL = "Primary Model";
+export const AGENTS_METADATA_MODELS = "Models";
+export const AGENTS_METADATA_TOOLS = "Tools";
+export const AGENTS_METADATA_AGE = "Age";
+export const AGENTS_METADATA_LAST_SEEN = "Last Seen";
+export const AGENTS_METADATA_REQUESTS_24H = "Requests (24h)";
+export const AGENTS_REFRESH = "Refresh";
+export const AGENTS_REFRESHING = "Refreshing...";
+export const AGENTS_LAST_UPDATED = (seconds: number) => `Updated ${seconds}s ago`;
+export const AGENTS_LAST_UPDATED_NEVER = "Not yet materialized";
+export const AGENTS_SOURCE_SDK_LABEL = "SDK-instrumented (status reported by the agent)";
+
+// Agents - Detail Scope
+export const AGENTS_SCOPED_TO_SERVICE = (serviceName: string) =>
+	`Scoped to service "${serviceName}"`;
 
 // Agents - Controller Table
 export const AGENTS_COLUMN_CONTROLLER = "Controller";
 export const AGENTS_COLUMN_METADATA = "Metadata";
-export const AGENTS_COLUMN_SERVICES = "Services";
+export const AGENTS_COLUMN_SERVICES = "Agents";
 export const AGENTS_COLUMN_STATUS = "Status";
 export const AGENTS_SERVICES_DISCOVERED_COUNT = (discovered: number) => `${discovered} discovered`;
 export const AGENTS_SERVICES_INSTRUMENTED_COUNT = (instrumented: number) => ` / ${instrumented} instrumented`;
@@ -420,6 +662,11 @@ export const AGENTS_METADATA_POD_LABEL = "pod:";
 export const AGENTS_SERVICE_DETAIL_DEFAULT_TITLE = "Service Detail";
 export const AGENTS_BACK_TO_HUB = "Back to Hub";
 export const AGENTS_LOADING_SERVICE_DETAILS = "Loading service details...";
+export const AGENTS_LOADING_DASHBOARD = "Loading dashboard...";
+export const AGENTS_LOADING_REQUESTS = "Loading requests...";
+export const AGENTS_LOADING_CONFIGURATION = "Loading configuration...";
+export const AGENTS_LOADING_VERSIONS = "Loading…";
+export const AGENTS_LOAD_MORE_VERSIONS = "Load more versions";
 export const AGENTS_STATUS_INSTRUMENTED = "Instrumented";
 export const AGENTS_STATUS_DISCOVERED = "Discovered";
 export const AGENTS_STAT_PROVIDERS = "Providers";
@@ -427,7 +674,6 @@ export const AGENTS_STAT_PID = "PID";
 export const AGENTS_STAT_RUNTIME = "Runtime";
 export const AGENTS_STAT_FIRST_SEEN = "First Seen";
 export const AGENTS_STAT_RUNTIME_UNKNOWN = "Unknown";
-export const AGENTS_MODEL_PROVIDERS = "Model Providers";
 export const AGENTS_RESOURCE_ATTRIBUTES = "Resource Attributes";
 export const AGENTS_CONTROLS = "Controls";
 export const AGENTS_LLM_OBSERVABILITY_LABEL = "LLM Observability";
@@ -449,8 +695,8 @@ export const AGENTS_MANUAL_SETUP_REQUIRED = "Manual setup required";
 export const AGENTS_CONTAINERIZED_WARNING = "This process runs inside a container. Mount the Docker socket or use a Docker/Kubernetes-mode controller for Agent Observability.";
 export const AGENTS_NAKED_POD_WARNING = "This is a naked pod (no Deployment, DaemonSet, or StatefulSet). Enabling or disabling Agent Observability will restart the pod.";
 export const AGENTS_NAKED_POD_CONFIRM = "This pod has no Deployment or DaemonSet. Enabling Agent Observability will restart the pod. Continue?";
-export const AGENTS_AGENT_DEPLOY_QUEUED = "Agent observability is being deployed. The workload will be updated automatically.";
-export const AGENTS_AGENT_REMOVE_QUEUED = "Agent observability removal queued. The workload will be updated automatically.";
+export const AGENTS_AGENT_DEPLOY_QUEUED = "Agent observability is being deployed. The agent will be updated automatically.";
+export const AGENTS_AGENT_REMOVE_QUEUED = "Agent observability removal queued. The agent will be updated automatically.";
 export const AGENTS_QUEUED_ACTION = (action: string) => `Queued ${action}`;
 export const AGENTS_PENDING_INSTRUMENTING = "Instrumenting";
 export const AGENTS_PENDING_UNINSTRUMENTING = "Uninstrumenting";
@@ -482,7 +728,7 @@ export const AGENTS_WORKING_SUFFIX = (label: string) => `${label}...`;
 export const AGENTS_CONTROLLER_DEFAULT_TITLE = "Controller";
 export const AGENTS_LOADING_CONTROLLER = "Loading controller...";
 export const AGENTS_LAST_HEARTBEAT_PREFIX = "Last heartbeat ";
-export const AGENTS_STAT_SERVICES_DISCOVERED = "Services Discovered";
+export const AGENTS_STAT_SERVICES_DISCOVERED = "Agents Discovered";
 export const AGENTS_STAT_INSTRUMENTED = "Instrumented";
 export const AGENTS_CONFIG_SAVED = "Configuration saved. Controller will pick it up on next poll.";
 export const AGENTS_CONFIG_SAVE_FAILED = (err: string) => `Failed to save config: ${err}`;

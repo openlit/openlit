@@ -1,540 +1,427 @@
 ---
 title: 'Evaluations'
-description: 'Evaluate your model responses for Hallucination, Bias, and Toxicity'
+description: 'Evaluate your LLM responses for hallucination, bias, toxicity, and more — using the same evals for dev and prod'
 ---
 
 ## Overview
 
-The OpenLIT SDK provides tools to evaluate AI-generated text, ensuring it aligns with desired standards and identifying issues like hallucinations, bias, and toxicity. We offer four main evaluation modules:
+The OpenLIT SDK provides server-side evaluations via `openlit.eval()` (Python) and `openlit.eval()` (JS/TS). Evaluations use the same engine, rules, contexts, and custom eval types configured in the OpenLIT dashboard — working identically for development (offline) and production (online) stages.
 
 <CardGroup cols={2}>
-  <Card title="All Evaluations" href="#all-evaluations">
-    Detects and evaluates all text risks including bias, toxicity, and hallucination.
+  <Card title="Quick Start" href="#quick-start">
+    Run your first offline evaluation in 3 lines of code.
   </Card>
-  <Card title="Hallucination" href="#hallucination-detection">
-    Detects factual inaccuracies and contradictions in text.
+  <Card title="Batch Evaluation" href="#batch-evaluation">
+    Evaluate multiple prompt/response pairs concurrently.
   </Card>
-  <Card title="Toxicity" href="#toxicity-detection">
-    Detects and flags harmful or offensive language.
-  </Card>
-  <Card title="Bias" href="#bias-detection">
-    Detects and addresses prejudiced or biased language.
+  <Card title="Attributes & Rules" href="#automatic-attribute-resolution">
+    Auto-resolve OTel attributes for context-aware evaluations.
   </Card>
 </CardGroup>
 
-## Export configuration
+---
 
-By default, evaluation results are emitted as **OTel Log Records**. If your backend supports OTel Events natively, you can switch to event-based export:
+## Offline Evaluations
 
+Offline evaluations run on the OpenLIT server using the same evaluation engine as online/auto evaluations. The SDK sends your prompt and response to the server, which runs LLM-as-judge evaluation and returns structured results.
+
+### Prerequisites
+
+1. A running OpenLIT instance with evaluation configured in the dashboard.
+2. An OpenLIT API key (create one in the dashboard under **Settings > API Keys**).
+
+### Quick Start
+
+<Tabs>
+<Tab title="Python">
 ```python
 import openlit
 
-# Use OTel Events instead of Log Records
-openlit.init(evals_logs_export=False)
+# Option 1: Configure once via init()
+openlit.init(
+    openlit_url="http://localhost:3000",
+    openlit_api_key="openlit-xxxxx",
+)
+
+# Run evaluation
+result = openlit.eval(
+    prompt="What is the capital of France?",
+    response="The capital of France is Lyon.",
+    contexts=["Paris is the capital and largest city of France."],
+)
+
+# Use in assertions
+assert result.passed, f"Evaluation failed: {result.failed_evals}"
 ```
 
-| Parameter | Environment Variable | Description | Default |
-|-----------|---------------------|-------------|---------|
-| `evals_logs_export` | `OPENLIT_EVALS_LOGS_EXPORT` | Emit evaluation results as OTel Log Records instead of OTel Events | `True` |
-
-<Info>Both modes carry the same keys and value types — the only difference is the transport (event attributes vs JSON in the log body).</Info>
-
-## Evaluations
-
-### Hallucination Detection
-
-Evaluates text for inaccuracies compared to the given context or factual information, identifying instances where the generated content diverges from the truth.
-
-#### Usage
-
-Use LLM-based detection with providers like OpenAI or Anthropic:
-
 ```python
-import openlit
-
-# Optionally, set your API key as an environment variable
-import os
-os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
-
-# Initialize the hallucination detector
-hallucination_detector = openlit.evals.Hallucination(provider="openai")
-
-# Measure hallucination in text
-result = hallucination_detector.measure(
-    prompt="Discuss Einstein's achievements",
-    contexts=["Einstein discovered the photoelectric effect."],
-    text="Einstein won the Nobel Prize in 1969 for the theory of relativity."
+# Option 2: Pass credentials directly (overrides init/env vars)
+result = openlit.eval(
+    prompt="Explain quantum computing",
+    response="Quantum computers use qubits...",
+    openlit_url="http://localhost:3000",
+    openlit_api_key="openlit-xxxxx",
 )
 ```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isPassed, getFailedEvals } from 'openlit';
 
-#### Supported Providers and LLMs
-<AccordionGroup>
-  <Accordion title="OpenAI">
-    GPT-4o, GPT-4o mini
-  </Accordion>
+// Option 1: Configure once via init()
+openlit.init({
+  openlitUrl: 'http://localhost:3000',
+  openlitApiKey: 'openlit-xxxxx',
+});
 
-  <Accordion title="Anthropic">
-    Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-  </Accordion>
-</AccordionGroup>
+// Run evaluation
+const result = await openlit.eval({
+  prompt: 'What is the capital of France?',
+  response: 'The capital of France is Lyon.',
+  contexts: ['Paris is the capital and largest city of France.'],
+});
 
-#### Parameters
-<AccordionGroup>
-<Accordion title="`openlit.evals.Hallucination()` Class Parameters">
-
-These parameters are used to set up the `Hallucination` class:
-
-| Name                | Description                                                                                       | Default Value | Example Value           |
-|---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The name of the LLM provider, either `"openai"` or `"anthropic"`.                                 | `"openai"`    | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
-| `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
-| `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
-| `custom_categories` | Additional categories for detection (optional).                                                   | `None`        | `{"custom_category": "Custom description"}` |
-| `threshold_score`   | Score above which a verdict is "yes" (indicating hallucination).                                  | `0.5`         | `0.7`                   |
-| `collect_metrics`   | Enable metrics collection.                                                                        | `False`       | `True`                  |
-
-</Accordion>
-
-<Accordion title="`measure` Method Parameters">
-
-These parameters are passed when you call the `measure` method to analyze a specific text:
-
-| Name      | Description                                                  | Example Value                                              |
-|-----------|--------------------------------------------------------------|------------------------------------------------------------|
-| `prompt`  | The prompt provided by the user.                             | `"Discuss Einstein's achievements"`                        |
-| `contexts`| A list of context sentences relevant to the task.            | `["Einstein discovered the photoelectric effect."]`        |
-| `text`    | The text to analyze for hallucination.                       | `"Einstein won the Nobel Prize in 1969 for the theory of relativity."` |
-
-</Accordion>
-</AccordionGroup>
-
-#### Classification Categories
-
-<Accordion title="Categories">
-
-| Category               | Definition                                                                                                     |
-|------------------------|----------------------------------------------------------------------------------------------------------------|
-| `factual_inaccuracy`   | Incorrect facts, e.g., Context: ["Paris is the capital of France."]; Text: "Lyon is the capital."              |
-| `nonsensical_response` | Irrelevant info, e.g., Context: ["Discussing music trends."]; Text: "Golf uses clubs on grass."               |
-| `gibberish`            | Nonsensical text, e.g., Context: ["Discuss advanced algorithms."]; Text: "asdas asdhasudqoiwjopakcea."       |
-| `contradiction`        | Conflicting info, e.g., Context: ["Einstein was born in 1879."]; Text: "Einstein was born in 1875 and 1879." |
-
-</Accordion>
-
-#### How it Works
-<Accordion title="Explanation">
-1. **Input Gathering**: Collects prompt, contexts, and text to be analyzed.
-
-2. **Prompt Creation**: Constructs a system prompt using the specified context and categories.
-
-3. **LLM Evaluation**: Utilizes the LLM to evaluate the alignment of the text with provided contexts and detect hallucinations.
-
-4. **JSON Output**: Provides results with a score, evaluation ("hallucination"), classification, explanation, and verdict ("yes" or "no").
-</Accordion>
-
-#### JSON Output:
-<Accordion title="Output">
-The JSON object returned includes:
-
-```json
-{
-  "score": "float",
-  "evaluation": "hallucination",
-  "classification": "CATEGORY_OF_HALLUCINATION or none",
-  "explanation": "Very short one-sentence reason",
-  "verdict": "yes or no"
-}
+// Use in assertions
+console.log(result.success);       // true
+console.log(isPassed(result));     // false — hallucination detected
+console.log(getFailedEvals(result)); // [{ type: 'hallucination', ... }]
 ```
 
-- **Score**: Represents the level of hallucination detected.
-- **Evaluation**: Specifies the type of evaluation conducted ("hallucination").
-- **Classification**: Indicates the detected type of hallucination or "none" if none found.
-- **Explanation**: Provides a brief reason for the classification.
-- **Verdict**: "yes" if detected (score above threshold), "no" otherwise.
+```typescript
+// Option 2: Pass credentials directly (overrides init/env vars)
+const result = await openlit.eval({
+  prompt: 'Explain quantum computing',
+  response: 'Quantum computers use qubits...',
+  openlitUrl: 'http://localhost:3000',
+  openlitApiKey: 'openlit-xxxxx',
+});
+```
+</Tab>
+</Tabs>
 
-</Accordion>
+You can also configure via environment variables:
 
+```bash
+export OPENLIT_URL="http://localhost:3000"
+export OPENLIT_API_KEY="openlit-xxxxx"
+```
 
-### Bias Detection
+### `openlit.eval()` / `openlit.eval({})` Parameters
 
-Identifies and evaluates instances of bias in text generated by AI models. This module leverages Language Model (LLM) analysis to ensure fair and unbiased outputs.
+<Tabs>
+<Tab title="Python">
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `prompt` | `str` | The user prompt sent to the LLM. **Required.** | — |
+| `response` | `str` | The LLM's response to evaluate. **Required.** | — |
+| `contexts` | `list[str]` | Ground truth context for the evaluation. | `None` |
+| `eval_types` | `list[str]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `None` |
+| `attributes` | `dict` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `None` |
+| `threshold_score` | `float` | Score threshold for verdict determination. | `0.5` |
+| `store_results` | `bool` | Whether to store results in the OpenLIT database. | `True` |
+| `run_id` | `str` | Identifier to group related evaluations. | `None` |
+| `metadata` | `dict` | Custom key-value metadata to attach to results. | `None` |
+| `openlit_api_key` | `str` | API key (overrides `init()` and env var). | `None` |
+| `openlit_url` | `str` | Server URL (overrides `init()` and env var). | `None` |
+| `print_results` | `bool` | Print formatted summary to terminal. | `True` |
+</Tab>
+<Tab title="TypeScript / JavaScript">
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `prompt` | `string` | The user prompt sent to the LLM. **Required.** | — |
+| `response` | `string` | The LLM's response to evaluate. **Required.** | — |
+| `contexts` | `string[]` | Ground truth context for the evaluation. | `undefined` |
+| `evalTypes` | `string[]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `undefined` |
+| `attributes` | `Record<string, string \| number \| boolean>` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `undefined` |
+| `thresholdScore` | `number` | Score threshold for verdict determination. | `0.5` |
+| `storeResults` | `boolean` | Whether to store results in the OpenLIT database. | `true` |
+| `runId` | `string` | Identifier to group related evaluations. | `undefined` |
+| `metadata` | `Record<string, string>` | Custom key-value metadata to attach to results. | `undefined` |
+| `openlitApiKey` | `string` | API key (overrides `init()` and env var). | `undefined` |
+| `openlitUrl` | `string` | Server URL (overrides `init()` and env var). | `undefined` |
+| `printResults` | `boolean` | Print formatted summary to terminal. | `true` |
+</Tab>
+</Tabs>
 
-#### Usage
+### Result Object
 
-Use LLM-based detection with providers like OpenAI or Anthropic:
+`openlit.eval()` returns an `OfflineEvalResult` with these properties:
 
+| Property | Type | Description |
+|----------|------|-------------|
+| `success` | `bool` | Whether the evaluation completed without errors. |
+| `passed` | `bool` | `True` if no evaluation types returned a "yes" verdict. |
+| `evaluations` | `list[OfflineEvaluation]` | Individual evaluation results per type. |
+| `failed_evals` | `list[OfflineEvaluation]` | Evaluations that returned a "yes" verdict. |
+| `context_applied` | `ContextInfo` | Information about rule-matched context. |
+| `metadata` | `dict` | Model, run ID, token usage, and cost metadata. |
+| `error` | `str` | Error message if `success` is `False`. |
+
+Each `OfflineEvaluation` contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `str` | The evaluation type (e.g. "hallucination"). |
+| `score` | `float` | The evaluation score (0.0 to 1.0). |
+| `verdict` | `str` | "yes" if detected, "no" otherwise. |
+| `classification` | `str` | Category of the detection or "none". |
+| `explanation` | `str` | Brief explanation of the evaluation result. |
+
+### Selecting Evaluation Types
+
+Run specific evaluation types instead of all enabled ones:
+
+<Tabs>
+<Tab title="Python">
+```python
+result = openlit.eval(
+    prompt="Discuss workplace equality",
+    response="Older workers can't learn new tech.",
+    eval_types=["bias", "toxicity"],
+)
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+const result = await openlit.eval({
+  prompt: 'Discuss workplace equality',
+  response: "Older workers can't learn new tech.",
+  evalTypes: ['bias', 'toxicity'],
+});
+```
+</Tab>
+</Tabs>
+
+### Discover Available Types
+
+<Tabs>
+<Tab title="Python">
+```python
+types = openlit.get_eval_types()
+for t in types:
+    print(f"{t.id}: {t.label} (custom={t.is_custom}, enabled={t.enabled})")
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+const types = await openlit.getEvalTypes();
+for (const t of types) {
+  console.log(`${t.id}: ${t.label} (custom=${t.isCustom}, enabled=${t.enabled})`);
+}
+```
+</Tab>
+</Tabs>
+
+### Batch Evaluation
+
+Evaluate multiple prompt/response pairs concurrently:
+
+<Tabs>
+<Tab title="Python">
+```python
+dataset = [
+    {
+        "prompt": "What is 2+2?",
+        "response": "2+2 equals 4.",
+        "contexts": ["Basic arithmetic."],
+    },
+    {
+        "prompt": "Who wrote Hamlet?",
+        "response": "Hamlet was written by Charles Dickens.",
+    },
+    {
+        "prompt": "Describe gravity",
+        "response": "Gravity is the force of attraction between masses.",
+        "eval_types": ["hallucination"],
+    },
+]
+
+batch_result = openlit.eval_batch(
+    dataset=dataset,
+    eval_types=["hallucination", "toxicity"],
+    max_concurrent=5,
+)
+
+print(f"Pass rate: {batch_result.pass_rate:.0%}")
+assert batch_result.all_passed
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isAllPassed, getPassRate } from 'openlit';
+
+const batchResult = await openlit.evalBatch({
+  dataset: [
+    {
+      prompt: 'What is 2+2?',
+      response: '2+2 equals 4.',
+      contexts: ['Basic arithmetic.'],
+    },
+    {
+      prompt: 'Who wrote Hamlet?',
+      response: 'Hamlet was written by Charles Dickens.',
+    },
+    {
+      prompt: 'Describe gravity',
+      response: 'Gravity is the force of attraction between masses.',
+      evalTypes: ['hallucination'],
+    },
+  ],
+  evalTypes: ['hallucination', 'toxicity'],
+  maxConcurrent: 5,
+});
+
+console.log(`Pass rate: ${(getPassRate(batchResult) * 100).toFixed(0)}%`);
+console.log(`All passed: ${isAllPassed(batchResult)}`);
+```
+</Tab>
+</Tabs>
+
+#### `openlit.eval_batch()` Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `dataset` | `list[dict]` | List of items with `prompt` and `response` keys. **Required.** | — |
+| `eval_types` | `list[str]` | Default eval types (can be overridden per item). | `None` |
+| `attributes` | `dict` | Default attributes (can be overridden per item). | `None` |
+| `threshold_score` | `float` | Default threshold score. | `0.5` |
+| `store_results` | `bool` | Store all results in the database. | `True` |
+| `run_id` | `str` | Group all batch evaluations under this ID. Auto-generated if omitted. | `None` |
+| `max_concurrent` | `int` | Maximum number of concurrent evaluations. | `5` |
+| `print_results` | `bool` | Print aggregate summary to terminal. | `True` |
+
+### Automatic Attribute Resolution
+
+The SDK automatically resolves trace attributes for rule engine matching, enabling context-aware evaluations without extra configuration. The resolution order (last wins):
+
+1. `OTEL_RESOURCE_ATTRIBUTES` environment variable
+2. `OTEL_SERVICE_NAME` environment variable
+3. `OPENLIT_ENVIRONMENT` / `OTEL_DEPLOYMENT_ENVIRONMENT` environment variable
+4. `openlit.init()` configuration (`application_name`, `environment`)
+5. Explicit `attributes` parameter (highest priority)
+
+<Tabs>
+<Tab title="Python">
 ```python
 import openlit
 
-# Optionally, set your API key as an environment variable
-import os
-os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
+# These are auto-detected for rule matching:
+openlit.init(
+    application_name="my-chatbot",
+    environment="staging",
+)
 
-# Initialize the bias detector
-bias_detector = openlit.evals.BiasDetector(provider="openai")
+# Rules configured in the dashboard for service.name="my-chatbot"
+# and deployment.environment="staging" will automatically match.
+result = openlit.eval(
+    prompt="Hello",
+    response="Hi there!",
+)
 
-# Measure bias in text
-result = bias_detector.measure(
-    prompt="Discuss workplace equality.",
-    contexts=["Everyone should have equal opportunity regardless of background."],
-    text="Older employees tend to struggle with new technology."
+# Override auto-resolved attributes:
+result = openlit.eval(
+    prompt="Hello",
+    response="Hi there!",
+    attributes={
+        "service.name": "different-service",
+        "custom.tag": "experiment-v2",
+    },
 )
 ```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit from 'openlit';
 
-#### Supported Providers and LLMs
-<AccordionGroup>
-  <Accordion title="OpenAI">
-    GPT-4o, GPT-4o mini
-  </Accordion>
+// These are auto-detected for rule matching:
+openlit.init({
+  applicationName: 'my-chatbot',
+  environment: 'staging',
+});
 
-  <Accordion title="Anthropic">
-    Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-  </Accordion>
-</AccordionGroup>
+// Rules configured in the dashboard for service.name="my-chatbot"
+// and deployment.environment="staging" will automatically match.
+const result = await openlit.eval({
+  prompt: 'Hello',
+  response: 'Hi there!',
+});
 
-#### Parameters
-<AccordionGroup>
-<Accordion title="`openlit.evals.BiasDetector()` Class Parameters">
-
-These parameters are used to set up the `BiasDetector` class:
-
-| Name                | Description                                                                                       | Default Value | Example Value           |
-|---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The name of the LLM provider, either `"openai"` or `"anthropic"`.                                 | `"openai"`    | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
-| `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
-| `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
-| `custom_categories` | Additional categories for detection (optional).                                                   | `None`        | `{"custom_category": "Custom description"}` |
-| `threshold_score`   | Score above which a verdict is "yes" (indicating bias).                                           | `0.5`         | `0.6`                   |
-| `collect_metrics`   | Enable metrics collection.                                                                        | `False`       | `True`                  |
-
-</Accordion>
-
-<Accordion title="`measure` Method Parameters">
-
-These parameters are passed when you call the `measure` method to analyze a specific text:
-
-| Name      | Description                                               | Example Value                                         |
-|-----------|-----------------------------------------------------------|-------------------------------------------------------|
-| `prompt`  | The prompt provided by the user.                          | `"Discuss workplace equality."`                       |
-| `contexts`| A list of context sentences relevant to the task.         | `["Everyone should have equal opportunity regardless of background."]` |
-| `text`    | The text to analyze for bias.                             | `"Older employees tend to struggle with new technology."` |
-
-</Accordion>
-</AccordionGroup>
-
-#### Classification Categories
-
-<Accordion title="Categories">
-
-| Category                   | Definition                                                                                               |
-|----------------------------|----------------------------------------------------------------------------------------------------------|
-| `sexual_orientation`       | Biases or assumptions about an individual's sexual preferences.                                          |
-| `age`                      | Biases related to the age of an individual.                                                              |
-| `disability`               | Biases or stereotypes concerning individuals with disabilities.                                          |
-| `physical_appearance`      | Biases based on the physical look of an individual.                                                      |
-| `religion`                 | Biases or prejudices connected to a person's religious beliefs.                                          |
-| `pregnancy_status`         | Biases towards individuals who are pregnant or have children.                                            |
-| `marital_status`           | Biases related to whether someone is single, married, divorced, etc.                                     |
-| `nationality / location`   | Biases associated with an individual's country or place of origin.                                       |
-| `gender`                   | Biases related to an individual's gender.                                                                |
-| `ethnicity`                | Assumptions or stereotypes based on racial or ethnic background.                                         |
-| `socioeconomic_status`     | Biases regarding an individual's economic and social position.                                           |
-
-</Accordion>
-
-#### How it Works
-<Accordion title="Explanation">
-1. **Input Gathering**: Collects prompt, contexts, and text to be analyzed.
-
-2. **Prompt Creation**: Constructs a system prompt using the specified context and categories.
-
-3. **LLM Evaluation**: Utilizes the LLM to evaluate the text for any bias present against provided contexts.
-
-4. **JSON Output**: Provides results with a score, evaluation ("bias_detection"), classification, explanation, and verdict ("yes" or "no").
-</Accordion>
-
-#### JSON Output:
-<Accordion title="Output">
-The JSON object returned includes:
-
-```json
-{
-  "score": "float",
-  "evaluation": "bias_detection",
-  "classification": "CATEGORY_OF_BIAS or none",
-  "explanation": "Very short one-sentence reason",
-  "verdict": "yes or no"
-}
+// Override auto-resolved attributes:
+const result2 = await openlit.eval({
+  prompt: 'Hello',
+  response: 'Hi there!',
+  attributes: {
+    'service.name': 'different-service',
+    'custom.tag': 'experiment-v2',
+  },
+});
 ```
+</Tab>
+</Tabs>
 
-- **Score**: Represents the level of bias detected.
-- **Evaluation**: Specifies the type of evaluation conducted ("bias_detection").
-- **Classification**: Indicates the detected type of bias or "none" if none found.
-- **Explanation**: Provides a brief reason for the classification.
-- **Verdict**: "yes" if bias detected (score above threshold), "no" otherwise.
+### CI/CD Integration
 
-</Accordion>
+Use offline evaluations in your test suite or CI pipeline:
 
-### Toxicity Detection
-
-Evaluates AI-generated text for harmful or offensive language, ensuring interactions are respectful and appropriate. This module uses Language Model (LLM) analysis to detect and address toxic content.
-
-#### Usage
-
-Use LLM-based detection with providers like OpenAI or Anthropic:
-
+<Tabs>
+<Tab title="Python">
 ```python
 import openlit
+import pytest
 
-# Optionally, set your API key as an environment variable
-import os
-os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
+def test_no_hallucination():
+    result = openlit.eval(
+        prompt="What year did WW2 end?",
+        response="World War 2 ended in 1945.",
+        eval_types=["hallucination"],
+        print_results=False,
+    )
+    assert result.passed, f"Hallucination detected: {result.failed_evals}"
 
-# Initialize the toxicity detector
-toxicity_detector = openlit.evals.ToxicityDetector(provider="openai")
-
-# Measure toxicity in text
-result = toxicity_detector.measure(
-    prompt="Engage in a respectful discussion about global events.",
-    contexts=["Conversations should remain civil and informative."],
-    text="Your opinion is absurd, and only an idiot would think that."
-)
+def test_batch_quality():
+    dataset = load_test_cases()  # your test data
+    result = openlit.eval_batch(
+        dataset=dataset,
+        print_results=False,
+    )
+    assert result.pass_rate >= 0.95, f"Pass rate too low: {result.pass_rate:.0%}"
 ```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isPassed, getFailedEvals, isAllPassed, getPassRate } from 'openlit';
+import { describe, test, expect } from 'vitest'; // or jest
 
-#### Supported Providers and LLMs
-<AccordionGroup>
-  <Accordion title="OpenAI">
-    GPT-4o, GPT-4o mini
-  </Accordion>
+describe('LLM quality', () => {
+  test('no hallucination', async () => {
+    const result = await openlit.eval({
+      prompt: 'What year did WW2 end?',
+      response: 'World War 2 ended in 1945.',
+      evalTypes: ['hallucination'],
+      printResults: false,
+    });
+    expect(isPassed(result)).toBe(true);
+  });
 
-  <Accordion title="Anthropic">
-    Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-  </Accordion>
-</AccordionGroup>
-
-#### Parameters
-<AccordionGroup>
-<Accordion title="`openlit.evals.ToxicityDetector()` Class Parameters">
-
-These parameters are used to set up the `ToxicityDetector` class:
-
-| Name                | Description                                                                                       | Default Value | Example Value           |
-|---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The name of the LLM provider, either `"openai"` or `"anthropic"`.                                 | `"openai"`    | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
-| `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
-| `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
-| `custom_categories` | Additional categories for detection (optional).                                                   | `None`        | `{"custom_category": "Custom description"}` |
-| `threshold_score`   | Score above which a verdict is "yes" (indicating toxicity).                                       | `0.5`         | `0.6`                   |
-| `collect_metrics`   | Enable metrics collection.                                                                        | `False`       | `True`                  |
-
-</Accordion>
-
-<Accordion title="`measure` Method Parameters">
-
-These parameters are passed when you call the `measure` method to analyze a specific text:
-
-| Name      | Description                                               | Example Value                                      |
-|-----------|-----------------------------------------------------------|----------------------------------------------------|
-| `prompt`  | The prompt provided by the user.                          | `"Engage in a respectful discussion about global events."` |
-| `contexts`| A list of context sentences relevant to the task.         | `["Conversations should remain civil and informative."]`   |
-| `text`    | The text to analyze for toxicity.                         | `"Your opinion is absurd, and only an idiot would think that."` |
-
-</Accordion>
-</AccordionGroup>
-
-#### Classification Categories
-
-<Accordion title="Categories">
-
-| Category           | Definition                                                                                             |
-|--------------------|--------------------------------------------------------------------------------------------------------|
-| `threat`           | Language that threatens harm or danger to others, e.g., "You'll regret saying things like that."      |
-| `dismissive`       | Dismissive or belittling language, e.g., "Your opinion is worthless."                                 |
-| `hate`             | Hateful or intensely negative language, e.g., "Only an idiot would think this."                      |
-| `mockery`          | Mocking or sarcastic tone, e.g., "Brilliant observation! Did it take you all day to come up with that?"|
-| `personal_attack`  | Language attacking a person's character or abilities, e.g., "You're clueless."                        |
-
-</Accordion>
-
-#### How it Works
-<Accordion title="Explanation">
-1. **Input Gathering**: Collects prompt, contexts, and text to be analyzed.
-
-2. **Prompt Creation**: Constructs a system prompt using the specified context and categories.
-
-3. **LLM Evaluation**: Utilizes the LLM to evaluate the text for any toxic language present against provided contexts.
-
-4. **JSON Output**: Provides results with a score, evaluation ("toxicity_detection"), classification, explanation, and verdict ("yes" or "no").
-</Accordion>
-
-#### JSON Output:
-<Accordion title="Output">
-The JSON object returned includes:
-
-```json
-{
-  "score": "float",
-  "evaluation": "toxicity_detection",
-  "classification": "CATEGORY_OF_TOXICITY or none",
-  "explanation": "Very short one-sentence reason",
-  "verdict": "yes or no"
-}
+  test('batch quality', async () => {
+    const result = await openlit.evalBatch({
+      dataset: loadTestCases(),
+      printResults: false,
+    });
+    expect(getPassRate(result)).toBeGreaterThanOrEqual(0.95);
+  });
+});
 ```
+</Tab>
+</Tabs>
 
-- **Score**: Represents the level of toxicity detected.
-- **Evaluation**: Specifies the type of evaluation conducted ("toxicity_detection").
-- **Classification**: Indicates the detected type of toxicity or "none" if none found.
-- **Explanation**: Provides a brief reason for the classification.
-- **Verdict**: "yes" if toxicity detected (score above threshold), "no" otherwise.
+### Configuration Precedence
 
-</Accordion>
+For `openlit_api_key` and `openlit_url`, the resolution order is:
 
-### All Evaluations
-
-Combines the capabilities of bias, toxicity, and hallucination detection to provide a comprehensive analysis of AI-generated text. This module ensures that interactions are accurate, respectful, and free from bias.
-
-#### Usage
-
-Use LLM-based detection with providers like OpenAI or Anthropic:
-
-```python
-import openlit
-
-# Optionally, set your API key as an environment variable
-import os
-os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>"
-
-# Initialize the all evaluations detector
-all_evals_detector = openlit.evals.All(provider="openai")
-
-# Measure issues in text
-result = all_evals_detector.measure(
-    prompt="Discuss the achievements of scientists.",
-    contexts=["Einstein discovered the photoelectric effect, contributing to quantum physics."],
-    text="Einstein won the Nobel Prize in 1969 for discovering black holes."
-)
-```
-
-#### Supported Providers and LLMs
-<AccordionGroup>
-  <Accordion title="OpenAI">
-    GPT-4o, GPT-4o mini
-  </Accordion>
-
-  <Accordion title="Anthropic">
-    Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-  </Accordion>
-</AccordionGroup>
-
-#### Parameters
-<AccordionGroup>
-<Accordion title="`openlit.evals.All()` Class Parameters">
-
-These parameters are used to set up the `All` class:
-
-| Name                | Description                                                                                       | Default Value | Example Value           |
-|---------------------|---------------------------------------------------------------------------------------------------|---------------|-------------------------|
-| `provider`          | The name of the LLM provider, either `"openai"` or `"anthropic"`.                                 | `"openai"`    | `"openai"`              |
-| `api_key`           | API key for LLM authentication, set via `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables. | `None`        | `os.getenv("OPENAI_API_KEY")` |
-| `model`             | Specific model to use with the LLM provider (optional).                                           | `None`        | `"gpt-4o"`              |
-| `base_url`          | Base URL for the LLM API (optional).                                                              | `None`        | `"https://api.openai.com/v1"` |
-| `custom_categories` | Additional categories for detection (optional).                                                   | `None`        | `{"custom_category": "Custom description"}` |
-| `threshold_score`   | Score above which a verdict is "yes" (indicating an issue).                                       | `0.5`         | `0.6`                   |
-| `collect_metrics`   | Enable metrics collection.                                                                        | `False`       | `True`                  |
-
-</Accordion>
-
-<Accordion title="`measure` Method Parameters">
-
-These parameters are passed when you call the `measure` method to analyze a specific text:
-
-| Name      | Description                                                | Example Value                                         |
-|-----------|------------------------------------------------------------|-------------------------------------------------------|
-| `prompt`  | The prompt provided by the user.                           | `"Discuss the achievements of scientists."`           |
-| `contexts`| A list of context sentences relevant to the task.          | `["Einstein discovered the photoelectric effect."]`   |
-| `text`    | The text to analyze for bias, toxicity, or hallucination.  | `"Einstein won the Nobel Prize in 1969 for discovering black holes."` |
-
-</Accordion>
-</AccordionGroup>
-
-#### Classification Categories
-
-<Accordion title="Bias Categories">
-
-| Category                   | Definition                                                                                               |
-|----------------------------|----------------------------------------------------------------------------------------------------------|
-| `sexual_orientation`       | Involves biases or assumptions about an individual's sexual preferences.                                 |
-| `age`                      | Biases related to the age of an individual.                                                              |
-| `disability`               | Biases or stereotypes concerning individuals with disabilities.                                          |
-| `physical_appearance`      | Biases based on the physical look of an individual.                                                      |
-| `religion`                 | Biases or prejudices connected to a person's religious beliefs.                                          |
-| `pregnancy_status`         | Biases towards individuals who are pregnant or have children.                                            |
-| `marital_status`           | Biases related to whether someone is single, married, divorced, etc.                                     |
-| `nationality / location`   | Biases associated with an individual's country or place of origin.                                       |
-| `gender`                   | Biases related to an individual's gender.                                                                |
-| `ethnicity`                | Assumptions or stereotypes based on racial or ethnic background.                                         |
-| `socioeconomic_status`     | Biases regarding an individual's economic and social position.                                           |
-
-</Accordion>
-
-<Accordion title="Toxicity Categories">
-
-| Category           | Definition                                                                                             |
-|--------------------|--------------------------------------------------------------------------------------------------------|
-| `threat`           | Language that threatens harm or danger to others.                                                     |
-| `dismissive`       | Dismissive or belittling language.                                                                     |
-| `hate`             | Hateful or intensely negative language.                                                                |
-| `mockery`          | Mocking or sarcastic tone.                                                                             |
-| `personal_attack`  | Language attacking a person's character or abilities.                                                  |
-
-</Accordion>
-
-<Accordion title="Hallucination Categories">
-
-| Category               | Definition                                                                                                     |
-|------------------------|----------------------------------------------------------------------------------------------------------------|
-| `factual_inaccuracy`   | Incorrect facts.                                                                                               |
-| `nonsensical_response` | Irrelevant info.                                                                                              |
-| `gibberish`            | Nonsensical text.                                                                                             |
-| `contradiction`        | Conflicting info.                                                                                             |
-
-</Accordion>
-
-#### How it Works
-<Accordion title="Explanation">
-1. **Input Gathering**: Collects prompt, contexts, and text to be analyzed.
-
-2. **Prompt Creation**: Constructs a system prompt encompassing bias, toxicity, and hallucination categories.
-
-3. **LLM Evaluation**: Utilizes the LLM to evaluate for any presence of bias, toxicity, or hallucination against provided contexts.
-
-4. **JSON Output**: Provides results with a score, evaluation (highest risk type), classification, explanation, and verdict ("yes" or "no").
-</Accordion>
-
-#### JSON Output:
-<Accordion title="Output">
-The JSON object returned includes:
-
-```json
-{
-  "score": "float",
-  "evaluation": "evaluation_type",
-  "classification": "CATEGORY or none",
-  "explanation": "Very short one-sentence reason",
-  "verdict": "yes or no"
-}
-```
-
-- **Score**: Represents the level of detected issue.
-- **Evaluation**: Indicates the type of evaluation conducted (bias, toxicity, or hallucination).
-- **Classification**: Indicates the detected type or "none" if none found.
-- **Explanation**: Provides a brief reason for the classification.
-- **Verdict**: "yes" if detected (score above threshold), "no" otherwise.
-
-</Accordion>
+1. Explicit function parameter (highest priority)
+2. `openlit.init()` configuration
+3. `OPENLIT_API_KEY` / `OPENLIT_URL` environment variables
 
 ---
 

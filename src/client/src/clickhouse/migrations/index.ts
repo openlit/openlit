@@ -12,10 +12,8 @@ import AddControllerResourceAttrsMigration from "./add-controller-resource-attrs
 import AddControllerWorkloadKeyMigration from "./add-controller-workload-key-migration";
 import AddControllerSDKActionsMigration from "./add-controller-sdk-actions-migration";
 import AddControllerTTLMigration from "./add-controller-ttl-migration";
-import AddControllerDesiredStateMigration from "./add-controller-desired-state-migration";
 import AddControllerClusterIdMigration from "./add-controller-cluster-id-migration";
 import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
-import CreateControllerDesiredStatesTableMigration from "./create-controller-desired-states-migration";
 import GeneralizeControllerDesiredStatesMigration from "./generalize-controller-desired-states-migration";
 import CreateChatMigration from "./create-chat-migration";
 import AddChatConversationTypeMigration from "./add-chat-conversation-type-migration";
@@ -26,6 +24,10 @@ import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables
 import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
 import CreateTraceAnalysisMigration from "./create-trace-analysis-migration";
+import CreateAgentsSummaryMigration from "./create-agents-summary-migration";
+import CreateAgentVersionsMigration from "./create-agent-versions-migration";
+import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
+import OptimizeAgentTablesStorageMigration from "./optimize-agent-tables-storage-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -40,6 +42,8 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateRuleEngineMigration(databaseConfigId),
 		CreateControllerMigration(databaseConfigId),
 		CreateChatMigration(databaseConfigId),
+		CreateAgentsSummaryMigration(databaseConfigId),
+		CreateAgentVersionsMigration(databaseConfigId),
 	]);
 
 	// Group 2: Controller schema modifications (must be sequential --
@@ -49,10 +53,8 @@ export default async function migrations(databaseConfigId?: string) {
 	await AddControllerWorkloadKeyMigration(databaseConfigId);
 	await AddControllerSDKActionsMigration(databaseConfigId);
 	await AddControllerTTLMigration(databaseConfigId);
-	await AddControllerDesiredStateMigration(databaseConfigId);
 	await AddControllerClusterIdMigration(databaseConfigId);
 	await UpdateControllerActionsTTLMigration(databaseConfigId);
-	await CreateControllerDesiredStatesTableMigration(databaseConfigId);
 	await GeneralizeControllerDesiredStatesMigration(databaseConfigId);
 	await AddControllerSkippingIndexesMigration(databaseConfigId);
 
@@ -67,4 +69,9 @@ export default async function migrations(databaseConfigId?: string) {
 	await AddChatConversationTypeMigration(databaseConfigId);
 	await AddChatMessageModelAttributionMigration(databaseConfigId);
 	await CreateTraceAnalysisMigration(databaseConfigId);
+
+	// Group 4: Agent table optimisations (sequential -- must run after the
+	// agents-summary + agent-versions CREATEs).
+	await AddAgentsSummarySkipIndexesMigration(databaseConfigId);
+	await OptimizeAgentTablesStorageMigration(databaseConfigId);
 }
