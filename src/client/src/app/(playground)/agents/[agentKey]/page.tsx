@@ -45,7 +45,7 @@ const LLMDashboard = dynamic(
 	}
 );
 const RequestsPage = dynamic(
-	() => import("@/app/(playground)/requests/page"),
+	() => import("@/components/(playground)/agents/agent-monitoring-tab"),
 	{
 		loading: () => <TabLoading label={getMessage().AGENTS_LOADING_REQUESTS} />,
 		ssr: false,

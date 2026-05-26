@@ -269,13 +269,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	});
 
 	if (traceIdErr || !Array.isArray(traceIdData) || traceIdData.length === 0) {
-		console.error(`[heirarchy] Failed to find TraceId for spanId=${spanId}:`, traceIdErr);
 		return { err: "Span not found", record: {} };
 	}
 
 	const traceId = traceIdData[0].TraceId;
 	if (!traceId) {
-		console.error(`[heirarchy] TraceId is empty for spanId=${spanId}. Row:`, traceIdData[0]);
 		return { err: "TraceId not found for span", record: {} };
 	}
 
@@ -300,7 +298,6 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	});
 
 	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
-		console.error(`[heirarchy] Failed to fetch spans for traceId=${traceId}:`, allSpansErr);
 		return { err: "Failed to fetch trace spans", record: {} };
 	}
 
@@ -308,7 +305,6 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	const heirarchy = buildHierarchy(allSpans as any[]);
 
 	if (!heirarchy) {
-		console.error(`[heirarchy] buildHierarchy returned null for traceId=${traceId}, ${allSpans.length} spans`);
 		return { err: "Error building hierarchy", record: {} };
 	}
 

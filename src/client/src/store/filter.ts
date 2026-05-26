@@ -163,7 +163,7 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			config: resetConfig ? undefined : getStore().config,
 		});
 	},
-	updateConfig: (config: FilterConfig) => {
+	updateConfig: (config?: FilterConfig) => {
 		setStore({ config });
 	},
 	updateAttributeKeys: (attributeKeys: AttributeKeys) => {
