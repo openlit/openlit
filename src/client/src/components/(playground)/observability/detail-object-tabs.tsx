@@ -130,6 +130,7 @@ export function buildObjectTabs(
 export default function DetailObjectTabs({
 	tabs,
 	extraTabs,
+	extraTabsPlacement = "after",
 }: {
 	tabs: DetailObjectTab[];
 	extraTabs?: Array<{
@@ -137,11 +138,17 @@ export default function DetailObjectTabs({
 		label: string;
 		content: ReactNode;
 	}>;
+	extraTabsPlacement?: "before" | "after";
 }) {
-	const allTabs = [
-		...tabs.map((tab) => ({ ...tab, type: "object" as const })),
-		...(extraTabs || []).map((tab) => ({ ...tab, type: "custom" as const })),
-	];
+	const objectTabs = tabs.map((tab) => ({ ...tab, type: "object" as const }));
+	const customTabs = (extraTabs || []).map((tab) => ({
+		...tab,
+		type: "custom" as const,
+	}));
+	const allTabs =
+		extraTabsPlacement === "before"
+			? [...customTabs, ...objectTabs]
+			: [...objectTabs, ...customTabs];
 	if (!allTabs.length) return null;
 
 	return (

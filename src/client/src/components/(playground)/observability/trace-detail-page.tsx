@@ -14,6 +14,8 @@ import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
+import { RequestProvider } from "@/components/(playground)/request/request-context";
+import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
 import DetailObjectTabs, { buildObjectTabs } from "./detail-object-tabs";
 import {
 	ResizableHandle,
@@ -358,6 +360,33 @@ export function TraceDetailView({
 	const hasEvaluationPanel = trace
 		? getExtraTabsContentTypes(trace).includes("Evaluation")
 		: false;
+	const analysisTab = selectedSpanId
+		? {
+				id: "ai-analysis",
+				label: m.TRACE_AI_TAB_TITLE,
+				content: (
+					<RequestProvider syncUrl={false}>
+						<TraceAiAnalysisPanel
+							spanId={selectedSpanId}
+							scope="span"
+							description={m.TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION}
+						/>
+					</RequestProvider>
+				),
+		  }
+		: null;
+	const extraDetailTabs = [
+		...(analysisTab ? [analysisTab] : []),
+		...(hasEvaluationPanel && trace
+			? [
+					{
+						id: "evaluations",
+						label: "Evaluations",
+						content: <Evaluations trace={trace} surface="observability" />,
+					},
+			  ]
+			: []),
+	];
 	const detailTabs = useMemo(
 		() => buildObjectTabs(raw, {
 			labelOverrides: {
@@ -520,17 +549,8 @@ export function TraceDetailView({
 								<div className="h-full min-h-0 overflow-auto p-2">
 									<DetailObjectTabs
 										tabs={detailTabs}
-										extraTabs={
-											hasEvaluationPanel && trace
-												? [
-														{
-															id: "evaluations",
-															label: "Evaluations",
-															content: <Evaluations trace={trace} surface="observability" />,
-														},
-												  ]
-												: undefined
-										}
+										extraTabs={extraDetailTabs}
+										extraTabsPlacement="before"
 									/>
 								</div>
 							</ResizablePanel>
@@ -544,17 +564,8 @@ export function TraceDetailView({
 						/>
 						<DetailObjectTabs
 							tabs={detailTabs}
-							extraTabs={
-								hasEvaluationPanel && trace
-									? [
-											{
-												id: "evaluations",
-												label: "Evaluations",
-												content: <Evaluations trace={trace} surface="observability" />,
-											},
-									  ]
-									: undefined
-							}
+							extraTabs={extraDetailTabs}
+							extraTabsPlacement="before"
 						/>
 					</div>
 				</>

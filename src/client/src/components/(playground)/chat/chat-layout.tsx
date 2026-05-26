@@ -7,6 +7,7 @@ import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
 import OtterUsageView from "./otter-usage-view";
+import ChatSettingsForm from "./chat-settings-form";
 import RequestDetails from "@/components/(playground)/request/request-details";
 import { useRootStore } from "@/store";
 import {
@@ -23,7 +24,7 @@ import { toast } from "sonner";
 
 interface ChatLayoutProps {
 	initialConversationId: string | null;
-	initialView?: "chat" | "usage";
+	initialView?: "chat" | "usage" | "settings";
 }
 
 export default function ChatLayout({ initialConversationId, initialView = "chat" }: ChatLayoutProps) {
@@ -127,6 +128,10 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 		router.push("/chat/usage");
 	}, [router]);
 
+	const navigateToSettings = useCallback(() => {
+		router.push("/chat/settings");
+	}, [router]);
+
 	const handleNewConversation = useCallback(async (): Promise<string | null> => {
 		try {
 			const res = await fetch("/api/chat/conversation", {
@@ -197,10 +202,12 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 					conversations={conversations}
 					activeId={activeId}
 					isUsageActive={initialView === "usage"}
+					isSettingsActive={initialView === "settings"}
 					onSelect={handleSelectConversation}
 					onDelete={handleDeleteConversation}
 					onNew={handleNewChat}
 					onUsage={navigateToUsage}
+					onSettings={navigateToSettings}
 					isLoading={loadingConversations}
 				/>
 			</ResizeablePanel>
@@ -208,6 +215,8 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
 				{initialView === "usage" ? (
 					<OtterUsageView />
+				) : initialView === "settings" ? (
+					<ChatSettingsForm />
 				) : (
 					<ChatPanel
 						conversationId={activeId}

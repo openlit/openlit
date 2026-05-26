@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import getMessage from "@/constants/messages";
 import ConversationItem from "./conversation-item";
-import { useRouter } from "next/navigation";
 
 interface Conversation {
 	id: string;
@@ -20,10 +19,12 @@ interface ConversationListProps {
 	conversations: Conversation[];
 	activeId: string | null;
 	isUsageActive?: boolean;
+	isSettingsActive?: boolean;
 	onSelect: (id: string) => void;
 	onDelete: (id: string) => void;
 	onNew: () => void;
 	onUsage: () => void;
+	onSettings: () => void;
 	isLoading: boolean;
 }
 
@@ -60,15 +61,16 @@ export default function ConversationList({
 	conversations,
 	activeId,
 	isUsageActive,
+	isSettingsActive,
 	onSelect,
 	onDelete,
 	onNew,
 	onUsage,
+	onSettings,
 	isLoading,
 }: ConversationListProps) {
 	const [search, setSearch] = useState("");
 	const m = getMessage();
-	const router = useRouter();
 
 	const filtered = useMemo(() => {
 		if (!search.trim()) return conversations;
@@ -94,8 +96,12 @@ export default function ConversationList({
 					<Button
 						variant="outline"
 						size="icon"
-						className="h-8 w-8 shrink-0 border-stone-200 dark:border-stone-700"
-						onClick={() => router.push("/chat/settings")}
+						className={`h-8 w-8 shrink-0 border-stone-200 dark:border-stone-700 ${
+							isSettingsActive
+								? "bg-stone-200 text-stone-900 dark:bg-stone-800 dark:text-stone-100"
+								: ""
+						}`}
+						onClick={onSettings}
 					>
 						<Settings className="h-4 w-4" />
 					</Button>
