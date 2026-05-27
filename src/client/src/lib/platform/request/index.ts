@@ -288,7 +288,16 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
 			Timestamp,
 			StatusCode,
-			SpanAttributes
+			StatusMessage,
+			ServiceName,
+			SpanKind,
+			TraceState,
+			ScopeName,
+			ScopeVersion,
+			SpanAttributes,
+			ResourceAttributes,
+			Events,
+			Links
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
 		ORDER BY Timestamp ASC`;

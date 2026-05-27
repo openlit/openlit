@@ -10,7 +10,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, Info } from "lucide-react";
+import { Loader2, CheckCircle, Info, Settings } from "lucide-react";
 import {
 	Tooltip,
 	TooltipContent,
@@ -137,48 +137,58 @@ export default function ChatSettingsForm() {
 	const selectedVaultName = vaultSecrets.find((s: any) => s.id === vaultId)?.key;
 
 	return (
-		<div className="max-w-lg space-y-6">
-			{/* Current config indicator */}
-			{hasExistingConfig && (
-				<div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-					<CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-					<div className="flex-1">
-						<div className="flex items-center gap-2">
-							<p className="text-sm font-medium text-green-800 dark:text-green-200">
-								{m.CONFIGURED}
-							</p>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Info className="h-3.5 w-3.5 text-green-600 dark:text-green-400 cursor-help" />
-								</TooltipTrigger>
-								<TooltipContent side="right" className="max-w-xs text-xs space-y-1.5 p-3">
-									<p className="font-medium">Chat Configuration</p>
-									<p><span className="text-stone-400">Provider:</span> {selectedProviderName || provider}</p>
-									<p><span className="text-stone-400">Model:</span> {selectedModelName || model}</p>
-									<p><span className="text-stone-400">API Key:</span> {selectedVaultName || "configured"}</p>
-									{selectedModelObj && (
-										<>
-											<hr className="border-stone-200 dark:border-stone-700" />
-											<p className="font-medium">Pricing (per message)</p>
-											<p><span className="text-stone-400">Input:</span> ${selectedModelObj.inputPricePerMToken}/M tokens</p>
-											<p><span className="text-stone-400">Output:</span> ${selectedModelObj.outputPricePerMToken}/M tokens</p>
-											<p><span className="text-stone-400">Context:</span> {selectedModelObj.contextWindow?.toLocaleString()} tokens</p>
-											<hr className="border-stone-200 dark:border-stone-700" />
-											<p className="font-medium">Cost calculation</p>
-											<p className="text-stone-400">cost = (input_tokens / 1M) × input_price + (output_tokens / 1M) × output_price</p>
-										</>
-									)}
-								</TooltipContent>
-							</Tooltip>
-						</div>
-						<p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-							{selectedProviderName} / {selectedModelName || model} / {selectedVaultName || vaultId}
-						</p>
+		<div className="flex h-full flex-col bg-white dark:bg-stone-950">
+			<div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+				<div className="min-w-0">
+					<div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
+						<Settings className="h-4 w-4 text-primary" />
+						{m.CHAT_SETTINGS_TITLE}
+					</div>
+					<div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
+						{m.CHAT_SETTINGS_DESCRIPTION}
 					</div>
 				</div>
-			)}
+				{hasExistingConfig && (
+					<div className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-800 dark:bg-stone-950">
+						<CheckCircle className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+						<div className="min-w-0">
+							<div className="text-[11px] font-medium leading-4 text-stone-900 dark:text-stone-100">
+								{m.CONFIGURED}
+							</div>
+							<div className="max-w-[260px] truncate text-[10px] leading-3 text-stone-500 dark:text-stone-400">
+								{selectedProviderName || provider} / {selectedModelName || model} / {selectedVaultName || vaultId}
+							</div>
+						</div>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Info className="h-3 w-3 shrink-0 cursor-help text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" />
+							</TooltipTrigger>
+							<TooltipContent side="bottom" className="max-w-xs space-y-1.5 p-3 text-xs">
+								<p className="font-medium">{m.CHAT_SETTINGS_CONFIG_TOOLTIP_TITLE}</p>
+								<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_PROVIDER}:</span> {selectedProviderName || provider}</p>
+								<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_MODEL}:</span> {selectedModelName || model}</p>
+								<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_API_KEY}:</span> {selectedVaultName || m.CHAT_SETTINGS_CONFIG_API_KEY_CONFIGURED}</p>
+								{selectedModelObj && (
+									<>
+										<hr className="border-stone-200 dark:border-stone-700" />
+										<p className="font-medium">{m.CHAT_SETTINGS_CONFIG_PRICING}</p>
+										<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_INPUT}:</span> ${selectedModelObj.inputPricePerMToken}/M {m.CHAT_TOKENS}</p>
+										<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_OUTPUT}:</span> ${selectedModelObj.outputPricePerMToken}/M {m.CHAT_TOKENS}</p>
+										<p><span className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_CONTEXT}:</span> {selectedModelObj.contextWindow?.toLocaleString()} {m.CHAT_TOKENS}</p>
+										<hr className="border-stone-200 dark:border-stone-700" />
+										<p className="font-medium">{m.CHAT_SETTINGS_CONFIG_COST_CALCULATION}</p>
+										<p className="text-stone-400">{m.CHAT_SETTINGS_CONFIG_COST_FORMULA}</p>
+									</>
+								)}
+							</TooltipContent>
+						</Tooltip>
+					</div>
+				)}
+			</div>
 
-			<div className="space-y-2">
+			<div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+				<div className="max-w-lg space-y-6">
+					<div className="space-y-2">
 				<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 					{m.CHAT_SETTINGS_PROVIDER_LABEL}
 				</label>
@@ -255,7 +265,9 @@ export default function ChatSettingsForm() {
 						{m.FEATURE_VAULT}
 					</a>{" "}
 					{m.CHAT_SETTINGS_API_KEY_HINT_SUFFIX}
-					{" or "}
+					{" "}
+					{m.CHAT_SETTINGS_OR}
+					{" "}
 					<SecretForm
 						successCallback={() => {
 							// Reload vault secrets after creation
@@ -290,6 +302,8 @@ export default function ChatSettingsForm() {
 				{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
 				{hasExistingConfig ? m.OPENGROUND_UPDATE_CONFIGURATION : m.CHAT_SETTINGS_SAVE}
 			</Button>
+				</div>
+			</div>
 		</div>
 	);
 }

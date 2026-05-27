@@ -6,6 +6,9 @@ import { Card } from "@/components/ui/card";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
+import OtterUsageView from "./otter-usage-view";
+import ChatSettingsForm from "./chat-settings-form";
+import RequestDetails from "@/components/(playground)/request/request-details";
 import { useRootStore } from "@/store";
 import {
 	getChatConversations,
@@ -21,9 +24,10 @@ import { toast } from "sonner";
 
 interface ChatLayoutProps {
 	initialConversationId: string | null;
+	initialView?: "chat" | "usage" | "settings";
 }
 
-export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
+export default function ChatLayout({ initialConversationId, initialView = "chat" }: ChatLayoutProps) {
 	const m = getMessage();
 	const router = useRouter();
 
@@ -120,6 +124,14 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 		[router]
 	);
 
+	const navigateToUsage = useCallback(() => {
+		router.push("/chat/usage");
+	}, [router]);
+
+	const navigateToSettings = useCallback(() => {
+		router.push("/chat/settings");
+	}, [router]);
+
 	const handleNewConversation = useCallback(async (): Promise<string | null> => {
 		try {
 			const res = await fetch("/api/chat/conversation", {
@@ -178,7 +190,7 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 	}, [navigateTo]);
 
 	return (
-		<Card className="flex h-full w-full overflow-hidden border-stone-200 dark:border-stone-800">
+		<Card className="flex h-full w-full overflow-hidden border border-stone-200 dark:border-stone-800">
 			<ResizeablePanel
 				defaultWidth={280}
 				minWidth={220}
@@ -189,21 +201,32 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 				<ConversationList
 					conversations={conversations}
 					activeId={activeId}
+					isUsageActive={initialView === "usage"}
+					isSettingsActive={initialView === "settings"}
 					onSelect={handleSelectConversation}
 					onDelete={handleDeleteConversation}
 					onNew={handleNewChat}
+					onUsage={navigateToUsage}
+					onSettings={navigateToSettings}
 					isLoading={loadingConversations}
 				/>
 			</ResizeablePanel>
 
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
-				<ChatPanel
-					conversationId={activeId}
-					hasConfig={hasConfig && !loadingConfig}
-					configInfo={configInfo}
-					onNewConversation={handleNewConversation}
-				/>
+				{initialView === "usage" ? (
+					<OtterUsageView />
+				) : initialView === "settings" ? (
+					<ChatSettingsForm />
+				) : (
+					<ChatPanel
+						conversationId={activeId}
+						hasConfig={hasConfig && !loadingConfig}
+						configInfo={configInfo}
+						onNewConversation={handleNewConversation}
+					/>
+				)}
 			</div>
+			<RequestDetails />
 		</Card>
 	);
 }

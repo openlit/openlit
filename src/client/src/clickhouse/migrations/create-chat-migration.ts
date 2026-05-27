@@ -32,6 +32,8 @@ export default async function CreateChatMigration(
 		CREATE TABLE IF NOT EXISTS ${CHAT_CONVERSATION_TABLE} (
 			id UUID DEFAULT generateUUIDv4(),
 			title String DEFAULT '',
+			conversation_type String DEFAULT 'chat',
+			meta String DEFAULT '{}',
 			total_prompt_tokens UInt64 DEFAULT 0,
 			total_completion_tokens UInt64 DEFAULT 0,
 			total_cost Float64 DEFAULT 0,
@@ -42,6 +44,7 @@ export default async function CreateChatMigration(
 			updated_at DateTime DEFAULT now(),
 
 			INDEX title_index (title) TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 1,
+			INDEX conversation_type_index (conversation_type) TYPE bloom_filter GRANULARITY 1,
 			INDEX created_at_index (created_at) TYPE minmax GRANULARITY 1,
 			INDEX updated_at_index (updated_at) TYPE minmax GRANULARITY 1,
 
@@ -61,6 +64,8 @@ export default async function CreateChatMigration(
 			prompt_tokens UInt64 DEFAULT 0,
 			completion_tokens UInt64 DEFAULT 0,
 			cost Float64 DEFAULT 0,
+			provider String DEFAULT '',
+			model String DEFAULT '',
 			query_rows_read UInt64 DEFAULT 0,
 			query_execution_time_ms UInt64 DEFAULT 0,
 			query_bytes_read UInt64 DEFAULT 0,

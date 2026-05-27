@@ -32,6 +32,7 @@ export default function ChatPanel({
 		setMessages,
 		addMessage,
 		updateLastMessage,
+		updateLastMessageStep,
 		setIsStreaming,
 		updateConversation,
 	} = useRootStore(getChatActions);
@@ -110,19 +111,38 @@ export default function ChatPanel({
 						updateConversation(convId, updates);
 					}
 					if (res.data?.messages?.length > 0) {
-						setMessages(
-							res.data.messages.map((m: any) => ({
+						const activeConversationId = useRootStore.getState().chat.activeConversationId;
+						if (activeConversationId !== convId) return;
+
+						const currentMessages = useRootStore.getState().chat.messages;
+						const currentLastAssistant = [...currentMessages]
+							.reverse()
+							.find((message) => message.role === "assistant" && message.steps?.length);
+						const mappedMessages = res.data.messages.map((m: any) => ({
 								id: m.id,
 								role: m.role,
 								content: m.content,
+								steps: [],
 								promptTokens: Number(m.promptTokens) || 0,
 								completionTokens: Number(m.completionTokens) || 0,
 								cost: Number(m.cost) || 0,
 								queryRowsRead: Number(m.queryRowsRead) || 0,
 								queryExecutionTimeMs: Number(m.queryExecutionTimeMs) || 0,
 								createdAt: m.createdAt,
-							}))
-						);
+							}));
+						if (currentLastAssistant?.steps?.length) {
+							const lastAssistantIndex = mappedMessages
+								.map((message: any, index: number) => ({ message, index }))
+								.reverse()
+								.find(({ message }: any) => message.role === "assistant")?.index;
+							if (typeof lastAssistantIndex === "number") {
+								mappedMessages[lastAssistantIndex] = {
+									...mappedMessages[lastAssistantIndex],
+									steps: currentLastAssistant.steps,
+								};
+							}
+						}
+						setMessages(mappedMessages);
 					}
 				})
 				.catch(() => {});
@@ -152,7 +172,7 @@ export default function ChatPanel({
 			setIsStreaming(true);
 
 			// Add empty assistant message for streaming
-			addMessage({ role: "assistant", content: "", createdAt: new Date().toISOString() });
+			addMessage({ role: "assistant", content: "", steps: [], createdAt: new Date().toISOString() });
 
 			try {
 				const controller = new AbortController();
@@ -175,13 +195,43 @@ export default function ChatPanel({
 
 				const decoder = new TextDecoder();
 				let fullText = "";
+				let buffer = "";
 
 				while (true) {
 					const { done, value } = await reader.read();
 					if (done) break;
-					const chunk = decoder.decode(value, { stream: true });
-					fullText += chunk;
-					updateLastMessage(fullText);
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = lines.pop() || "";
+					for (const line of lines) {
+						if (!line.trim()) continue;
+						try {
+							const event = JSON.parse(line);
+							if (event.type === "step") {
+								updateLastMessageStep({
+									label: event.label,
+									status: event.status || "active",
+									detail: event.detail,
+								});
+								continue;
+							}
+							if (event.type === "delta") {
+								fullText += event.text || "";
+								updateLastMessage(fullText);
+								continue;
+							}
+							if (event.type === "error") {
+								throw new Error(event.error || getMessage().CHAT_SOMETHING_WENT_WRONG);
+							}
+						} catch (parseError: any) {
+							if (parseError instanceof SyntaxError) {
+								fullText += line;
+								updateLastMessage(fullText);
+							} else {
+								throw parseError;
+							}
+						}
+					}
 				}
 
 				// After stream completes, refresh this conversation from server.
@@ -216,7 +266,7 @@ export default function ChatPanel({
 				abortControllerRef.current = null;
 			}
 		},
-		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, setMessages, setIsStreaming, setInputValue, refreshConversation]
+		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, updateLastMessageStep, setMessages, setIsStreaming, setInputValue, refreshConversation]
 	);
 
 	const handleExecuteQuery = useCallback(

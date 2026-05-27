@@ -84,6 +84,45 @@ describe("chatStoreSlice", () => {
 		]);
 	});
 
+	it("adds, updates, and clears progress steps on the last assistant message", () => {
+		store.getState().chat.addMessage(message("user", "question"));
+		store.getState().chat.updateLastMessageStep({
+			label: "Ignored",
+			status: "active",
+		});
+		expect(store.getState().chat.messages[0].steps).toBeUndefined();
+
+		store.getState().chat.addMessage(message("assistant", ""));
+		store.getState().chat.updateLastMessageStep({
+			label: "Loading context",
+			status: "active",
+			detail: "2 messages loaded",
+		});
+		store.getState().chat.updateLastMessageStep({
+			label: "Loading context",
+			status: "complete",
+		});
+		store.getState().chat.updateLastMessageStep({
+			label: "Generating response",
+			status: "active",
+		});
+
+		expect(store.getState().chat.messages[1].steps).toEqual([
+			{
+				label: "Loading context",
+				status: "complete",
+				detail: "2 messages loaded",
+			},
+			{
+				label: "Generating response",
+				status: "active",
+			},
+		]);
+
+		store.getState().chat.clearLastMessageSteps();
+		expect(store.getState().chat.messages[1].steps).toEqual([]);
+	});
+
 	it("adds, updates, and removes conversations", () => {
 		store.getState().chat.setConversations([
 			conversation("c1", { title: "Old" }),

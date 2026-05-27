@@ -10,6 +10,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
 - **Prompt Management**: Create, edit, and track different versions of your prompts.
 - **Versioning**: Supports major, minor, and patch updates for clear version management.
 - **Dynamic Variables**: Use `{{variableName}}` placeholders that are dynamically replaced at runtime.
+- **AI Prompt Improvement**: Use Otter to review a prompt, suggest targeted edits, and accept or decline changes directly in the editor.
 - **Statistics**: View download stats and version history directly in the UI.
 
 
@@ -29,6 +30,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       1. Click on **Create new** button to create a new prompt
       2. In the prompt editor, add the prompt name, Meta Properties and use placeholders like `{{variableName}}` to represent dynamic data that will be substituted when the prompt is compiled.
       3. Specify major, minor, or patch updates for versioning as you create or modify prompts.
+      4. Click the Otter action next to the prompt editor to review and improve the prompt before saving.
     <Frame>
       <img src="/images/docs-prompt-hub-create.png" />
     </Frame>
@@ -156,6 +158,46 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
     </Steps>
   </Step>
 </Steps>
+
+## AI prompt improvement
+
+Prompt Hub includes an inline Otter assistant for prompt review. It helps you improve prompt wording while keeping control over what is saved.
+
+Use prompt improvement when you want to:
+
+- Remove redundant wording and make the prompt more concise.
+- Make instructions easier to scan and follow.
+- Preserve variables such as `{{userInput}}` or `{{context}}` exactly.
+- Clarify output format, constraints, and success criteria.
+- Reduce ambiguity without changing the prompt's original intent.
+
+### How it works
+
+1. Open a prompt in create or edit mode.
+2. Click the Otter action next to the prompt editor.
+3. Review the default improvement dimensions, remove any that are not relevant, or add your own.
+4. Run the prompt analysis.
+5. Review inline suggestions in the editor.
+6. Accept or decline each suggestion.
+7. Save the prompt or create a new version when you are ready.
+
+Suggestions are local to the editor until you accept them and save the prompt. On the new prompt screen, prior improvement runs are not attached to the prompt history until the prompt itself is saved.
+
+<Note>
+  Otter usage for prompt improvement is tracked in Otter usage reports, but review-only prompt improvement does not create normal chat conversation history.
+</Note>
+
+### Improve prompts from Otter chat
+
+You can also ask Otter to review an existing Prompt Hub prompt by name or ID:
+
+```
+"Can you help me improve prompt with prompt name music_recommend?"
+"Review prompt customer_summary for clarity and concision"
+"Suggest better output-format instructions for prompt_id <uuid>"
+```
+
+For review-only requests, Otter loads the prompt and suggests improvements without updating the saved version. It only saves changes when you explicitly ask it to save, apply, update, publish, or create a new version.
 
 ---
 

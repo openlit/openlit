@@ -3,6 +3,10 @@ jest.mock("ai", () => ({
 	jsonSchema: jest.fn((schema) => schema),
 }));
 
+import { TextDecoder, TextEncoder } from "util";
+
+Object.assign(global, { TextDecoder, TextEncoder });
+
 jest.mock("@/lib/platform/rule-engine", () => ({
 	createRule: jest.fn(),
 	updateRule: jest.fn(),
@@ -24,6 +28,8 @@ jest.mock("@/lib/platform/context", () => ({
 
 jest.mock("@/lib/platform/prompt", () => ({
 	createPrompt: jest.fn(),
+	getPromptByName: jest.fn(),
+	getPromptDetails: jest.fn(),
 	getPrompts: jest.fn(),
 	deletePrompt: jest.fn(),
 }));
@@ -45,6 +51,22 @@ jest.mock("@/lib/platform/providers/models-service", () => ({
 	getCustomModels: jest.fn(),
 }));
 
+jest.mock("@/lib/platform/chat/improvement", () => ({
+	getTraceImprovement: jest.fn(),
+	streamTraceImprovementAnalysis: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/common", () => ({
+	dataCollector: jest.fn(),
+}));
+
+jest.mock("@/utils/sanitizer", () => ({
+	__esModule: true,
+	default: {
+		sanitizeValue: jest.fn((value: string) => value),
+	},
+}));
+
 import { getChatTools } from "@/lib/platform/chat/tools";
 import {
 	addRuleEntity,
@@ -62,7 +84,7 @@ import {
 	getContexts,
 	updateContext,
 } from "@/lib/platform/context";
-import { createPrompt, deletePrompt, getPrompts } from "@/lib/platform/prompt";
+import { createPrompt, deletePrompt, getPromptByName, getPromptDetails, getPrompts } from "@/lib/platform/prompt";
 import { upsertPromptVersion } from "@/lib/platform/prompt/version";
 import { deleteSecret, getSecrets, upsertSecret } from "@/lib/platform/vault";
 import {
@@ -71,6 +93,29 @@ import {
 	getCustomModels,
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
+import { dataCollector } from "@/lib/platform/common";
+import {
+	getTraceImprovement,
+	streamTraceImprovementAnalysis,
+} from "@/lib/platform/chat/improvement";
+
+function ndjsonResponse(payload: string) {
+	const encoder = new TextEncoder();
+	return {
+		body: {
+			getReader: () => {
+				let read = false;
+				return {
+					read: async () => {
+						if (read) return { done: true };
+						read = true;
+						return { done: false, value: encoder.encode(payload) };
+					},
+				};
+			},
+		},
+	} as any;
+}
 
 describe("getChatTools", () => {
 	beforeEach(() => {
@@ -86,9 +131,14 @@ describe("getChatTools", () => {
 				"list_rules",
 				"create_context",
 				"create_prompt",
+				"get_prompt",
 				"create_vault_secret",
 				"create_custom_model",
 				"list_custom_models",
+				"analyze_trace",
+				"get_trace_analysis",
+				"analyze_trace_batch",
+				"analyze_traces_by_attribute",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -305,6 +355,19 @@ describe("getChatTools", () => {
 		(createPrompt as jest.Mock).mockResolvedValue({
 			data: { promptId: "prompt-1" },
 		});
+		(getPromptByName as jest.Mock).mockResolvedValue({ id: "prompt-1" });
+		(getPromptDetails as jest.Mock).mockResolvedValue({
+			data: [{
+				promptId: "prompt-1",
+				versionId: "version-1",
+				name: "music_recommend",
+				version: "1.0.0",
+				status: "PUBLISHED",
+				tags: ["music"],
+				prompt: "Recommend music for {{mood}}",
+			}],
+			err: null,
+		});
 		(upsertPromptVersion as jest.Mock).mockResolvedValue(undefined);
 		(deletePrompt as jest.Mock).mockResolvedValue([null]);
 		(getPrompts as jest.Mock).mockResolvedValue({
@@ -326,6 +389,20 @@ describe("getChatTools", () => {
 			expect.objectContaining({
 				success: true,
 				message: "Prompt version updated",
+			})
+		);
+		await expect(
+			tools.get_prompt.execute({ name: "music_recommend" })
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				message: "Prompt loaded",
+				prompt: expect.objectContaining({
+					id: "prompt-1",
+					name: "music_recommend",
+					content: "Recommend music for {{mood}}",
+				}),
+				details: expect.stringContaining("Recommend music for {{mood}}"),
 			})
 		);
 		await expect(tools.delete_prompt.execute({ id: "prompt-1" })).resolves.toEqual({
@@ -351,6 +428,51 @@ describe("getChatTools", () => {
 				metaProperties: {},
 			})
 		);
+		expect(getPromptByName).toHaveBeenCalledWith({ name: "music_recommend" });
+		expect(getPromptDetails).toHaveBeenCalledWith("prompt-1", undefined);
+	});
+
+	it("returns get_prompt validation and lookup errors without mutating prompts", async () => {
+		const tools = getChatTools("user-1", "db-1");
+
+		await expect(tools.get_prompt.execute({})).resolves.toEqual({
+			success: false,
+			error: "Prompt name or prompt ID is required",
+		});
+
+		(getPromptByName as jest.Mock).mockResolvedValueOnce(null);
+		await expect(
+			tools.get_prompt.execute({ name: "missing_prompt" })
+		).resolves.toEqual({
+			success: false,
+			error: 'Prompt "missing_prompt" was not found',
+		});
+
+		(getPromptDetails as jest.Mock).mockResolvedValueOnce({ err: "details failed" });
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "details failed",
+		});
+
+		(getPromptDetails as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "Prompt was not found",
+		});
+
+		(getPromptDetails as jest.Mock).mockRejectedValueOnce(new Error("load failed"));
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "load failed",
+		});
+
+		expect(upsertPromptVersion).not.toHaveBeenCalled();
 	});
 
 	it("executes vault update, delete, and list tools", async () => {
@@ -450,5 +572,121 @@ describe("getChatTools", () => {
 				display_name: "Model",
 			})
 		).resolves.toEqual({ success: false, error: "model failed" });
+	});
+
+	it("gets existing trace analysis without rerunning", async () => {
+		(getTraceImprovement as jest.Mock).mockResolvedValue({
+			data: {
+				rootSpanId: "span-root",
+				runs: [
+					{
+						id: "run-1",
+						rootSpanId: "span-root",
+						selectedSpanId: "span-root",
+						runNumber: 1,
+						analysisJson: JSON.stringify({
+							trace_id: "trace-1",
+							summary: "Trace looks healthy",
+							strengths: [],
+							improvements: [],
+							wrong_turns: [],
+							cost: [],
+							token_efficiency: [],
+							path_analysis: [],
+							totals: {},
+						}),
+						summary: "Trace looks healthy",
+						modelProvider: "openai",
+						modelName: "gpt-4o",
+						promptTokens: 10,
+						completionTokens: 4,
+						cost: 0.001,
+						worstSeverity: "info",
+						createdAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
+			},
+		});
+		const tools = getChatTools("user-1", "db-1");
+
+		const result = await tools.analyze_trace.execute({
+			span_id: "span-root",
+			scope: "trace",
+		});
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				success: true,
+				existing: true,
+				message: "Existing trace analysis found",
+			})
+		);
+		expect(result.details).toContain("```trace-refs");
+		expect(streamTraceImprovementAnalysis).not.toHaveBeenCalled();
+	});
+
+	it("analyzes traces by span attribute and returns trace refs", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({
+			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+			err: null,
+		});
+		(getTraceImprovement as jest.Mock).mockResolvedValue({
+			data: { rootSpanId: "span-abc", runs: [] },
+		});
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValue({
+			response: ndjsonResponse(
+				`${JSON.stringify({
+					type: "done",
+					data: {
+						rootSpanId: "span-abc",
+						runs: [
+							{
+								id: "run-1",
+								rootSpanId: "span-abc",
+								selectedSpanId: "span-abc",
+								runNumber: 1,
+								analysisJson: JSON.stringify({
+									trace_id: "trace-abc",
+									summary: "Session trace analyzed",
+									strengths: [],
+									improvements: [],
+									wrong_turns: [],
+									cost: [],
+									token_efficiency: [],
+									path_analysis: [],
+									totals: {},
+								}),
+								summary: "Session trace analyzed",
+								modelProvider: "openai",
+								modelName: "gpt-4o",
+								promptTokens: 8,
+								completionTokens: 2,
+								cost: 0.001,
+								worstSeverity: "info",
+								createdAt: "2026-01-01T00:00:00.000Z",
+							},
+						],
+					},
+				})}\n`
+			),
+		});
+		const tools = getChatTools("user-1", "db-1");
+
+		const result = await tools.analyze_traces_by_attribute.execute({
+			attribute_key: "session.id",
+			attribute_value: "session-1",
+		});
+
+		expect(dataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
+				enable_readonly: true,
+			}),
+			"query",
+			"db-1"
+		);
+		expect(result.success).toBe(true);
+		expect(result.details).toContain("```trace-refs");
+		expect(result.matchedTraceCount).toBe(1);
 	});
 });

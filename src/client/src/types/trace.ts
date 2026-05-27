@@ -153,12 +153,31 @@ export interface TraceRow {
 	}[];
 }
 export interface TraceHeirarchySpan {
+	TraceId?: string;
 	SpanId: string;
+	ParentSpanId?: string;
 	SpanName: string;
 	Duration: number;
 	Timestamp?: string;
 	StatusCode?: string;
+	StatusMessage?: string;
+	ServiceName?: string;
+	SpanKind?: SPAN_KIND_TYPE;
+	ScopeName?: string;
+	ScopeVersion?: string;
 	Cost?: number;
 	SpanAttributes?: Record<string, string | number>;
+	ResourceAttributes?: Record<string, string | number>;
+	Events?: {
+		Timestamp?: Date | string;
+		Name?: string;
+		Attributes?: Record<string, string | number>;
+	}[];
+	Links?: {
+		TraceId?: string;
+		SpanId?: string;
+		TraceState?: string;
+		Attributes?: Record<string, string | number>;
+	}[];
 	children?: TraceHeirarchySpan[];
 }

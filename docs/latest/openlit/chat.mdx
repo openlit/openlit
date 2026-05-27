@@ -16,6 +16,8 @@ Otter is always just a click away via the floating chat button (bottom-right cor
 ## Key Features
 
 - **Natural Language Queries**: Ask questions about your traces, metrics, costs, and tokens — the AI converts them to ClickHouse SQL and executes them
+- **Trace and Span Analysis**: Run structured AI analysis on a full trace hierarchy or an individual span, with findings grouped by performance, reliability, cost, token efficiency, and execution path
+- **Prompt Improvement**: Ask Otter to review an existing Prompt Hub prompt and suggest improvements without automatically saving changes
 - **Resource Management**: Create and manage rules, contexts, prompts, vault secrets, and custom models through conversation
 - **Dashboard Generation**: Describe the dashboard you want and get a complete importable layout with working queries
 - **SQL Execution**: Generated queries run automatically with results displayed inline as tables and charts
@@ -81,6 +83,55 @@ Click **Save as Widget** on any query result to:
 2. Select a dashboard to add it to
 3. The query is automatically converted to use dynamic time filters (`{{filter.timeLimit.start/end}}`)
 
+## AI Analysis for Traces and Spans
+
+Otter can analyze telemetry directly from chat or from the trace detail view. Use this when you want a structured explanation of what happened in a trace, why a span is slow or expensive, or which part of an agent path should be improved.
+
+### What Otter Reviews
+
+Trace and span analysis evaluates:
+
+- **Performance**: slow spans, blocking operations, duration hotspots, and inefficient execution paths.
+- **Reliability**: failed spans, exception signals, retry patterns, and unstable downstream calls.
+- **Cost**: model usage, high-cost spans, token usage, and estimated spend.
+- **Token efficiency**: input/output token balance, cache usage, repeated context, and response verbosity.
+- **Prompt and model behavior**: prompt structure, model selection, and output quality signals.
+- **Telemetry quality**: missing span attributes, weak resource metadata, and incomplete trace context.
+- **Actionability**: each analysis section is reviewed by a grader pass to make recommendations clearer and more useful.
+
+### How to Run It
+
+You can ask Otter questions like:
+
+```
+"Analyze this trace and explain the cost drivers"
+"Review span <span_id> and suggest improvements"
+"Find token waste in traces for session.id dc7b1ba1-..."
+"Analyze the slowest trace from the last hour"
+```
+
+When a trace or span is referenced from a telemetry view, Otter opens the same analysis experience with the relevant context already selected. Existing analysis runs are reused unless you explicitly ask for a fresh run.
+
+### Output
+
+The response streams progress while each analysis dimension runs, then collapses into a completed analysis summary. Findings include the affected spans, severity, supporting evidence, and suggested fixes.
+
+## Prompt Improvement from Chat
+
+Otter can review Prompt Hub prompts by name or ID. For review-only requests, it loads the prompt and suggests changes without mutating the saved prompt.
+
+Example prompts:
+
+```
+"Can you help me improve prompt with prompt name music_recommend?"
+"Review prompt customer_summary and make it more concise"
+"Suggest safer output-format instructions for prompt_id <uuid>"
+```
+
+<Note>
+  Otter only updates a Prompt Hub version when you explicitly ask it to save, apply, update, publish, or create a new version.
+</Note>
+
 ## Resource Management
 
 The chat can create and manage platform resources through natural language. All operations execute immediately.
@@ -91,7 +142,7 @@ The chat can create and manage platform resources through natural language. All 
 |----------|-----------|
 | **Rules** | Create, update, delete, list, get details, link/unlink entities |
 | **Contexts** | Create, update, delete, list |
-| **Prompts** | Create, update version, delete, list |
+| **Prompts** | Create, read, improve, update version, delete, list |
 | **Vault Secrets** | Create, update, delete, list |
 | **Custom Models** | Create, update, delete, list |
 

@@ -1,11 +1,14 @@
 "use client";
 
-import ChatSettingsForm from "@/components/(playground)/chat/chat-settings-form";
+import ChatLayout from "@/components/(playground)/chat/chat-layout";
+import { RequestProvider } from "@/components/(playground)/request/request-context";
 
 export default function ChatSettingsPage() {
 	return (
-		<div className="flex flex-col w-full h-full overflow-y-auto p-6">
-			<ChatSettingsForm />
-		</div>
+		<RequestProvider>
+			<div className="flex flex-col w-full h-full overflow-hidden">
+				<ChatLayout initialConversationId={null} initialView="settings" />
+			</div>
+		</RequestProvider>
 	);
 }

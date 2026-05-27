@@ -12,12 +12,19 @@ export interface ChatMessage {
 	id?: string;
 	role: "user" | "assistant";
 	content: string;
+	steps?: ChatMessageStep[];
 	promptTokens?: number;
 	completionTokens?: number;
 	cost?: number;
 	queryRowsRead?: number;
 	queryExecutionTimeMs?: number;
 	createdAt?: string;
+}
+
+export interface ChatMessageStep {
+	label: string;
+	status: "active" | "complete" | "error";
+	detail?: string;
 }
 
 export interface ChatConfigInfo {
@@ -43,6 +50,8 @@ export type ChatStore = {
 	setActiveConversationId: (id: string | null) => void;
 	setMessages: (messages: ChatMessage[]) => void;
 	updateLastMessage: (content: string) => void;
+	updateLastMessageStep: (step: ChatMessageStep) => void;
+	clearLastMessageSteps: () => void;
 	addMessage: (message: ChatMessage) => void;
 	setHasConfig: (hasConfig: boolean) => void;
 	setConfigInfo: (info: ChatConfigInfo | null) => void;
