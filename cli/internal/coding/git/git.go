@@ -13,9 +13,19 @@ package git
 import (
 	"context"
 	"errors"
+	"net/url"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// perSubcommandBudget bounds how long any single `git` invocation can
+// take. The original hook deadline (a couple of seconds, see the
+// caller) is shared across roughly 4 git calls per Snapshot, so a
+// hung clone or a flaky filesystem can swallow the entire budget and
+// starve the actual span emission. 500ms is more than enough for a
+// healthy local repo and short enough that a hung call fails fast.
+const perSubcommandBudget = 500 * time.Millisecond
 
 // Context is the VCS snapshot captured at hook time. All fields are
 // best-effort — empty values mean "not in a repo" or "git not on PATH".
@@ -53,7 +63,7 @@ func Snapshot(ctx context.Context, dir string) Context {
 		out.Branch = "" // detached HEAD
 	}
 
-	out.RepoURL = remoteURL(ctx, dir)
+	out.RepoURL = NormalizeRepoURL(remoteURL(ctx, dir))
 
 	// `git status --porcelain` is empty iff the worktree is clean.
 	if status := run(ctx, dir, "status", "--porcelain"); strings.TrimSpace(status) != "" {
@@ -85,11 +95,16 @@ func remoteURL(ctx context.Context, dir string) string {
 // stdout trimmed of trailing whitespace. Errors and non-zero exits map
 // to the empty string — git's stderr is intentionally ignored because
 // we never want to surface "fatal: not a git repository" to the user.
+//
+// Each invocation is wrapped in its own perSubcommandBudget so a
+// single hung call can't starve the surrounding hook deadline.
 func run(ctx context.Context, dir string, args ...string) string {
 	if ctx.Err() != nil {
 		return ""
 	}
-	cmd := exec.CommandContext(ctx, "git", args...)
+	subCtx, cancel := context.WithTimeout(ctx, perSubcommandBudget)
+	defer cancel()
+	cmd := exec.CommandContext(subCtx, "git", args...)
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -105,4 +120,38 @@ func run(ctx context.Context, dir string, args ...string) string {
 		return ""
 	}
 	return strings.TrimRight(string(out), "\n\r")
+}
+
+// NormalizeRepoURL coerces remote URLs to the canonical https form so
+// dashboards group sessions from `git@github.com:org/repo.git`,
+// `https://github.com/org/repo.git`, and `ssh://git@github.com/org/repo`
+// into the same VCS bucket. Returns the input untouched when it
+// doesn't look like a recognisable git URL.
+//
+// F10: this is the single source of truth — adapters call into here
+// rather than rolling their own normalisation.
+func NormalizeRepoURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	// scp-style (`git@host:path`) — convert to https.
+	if !strings.Contains(raw, "://") && strings.Contains(raw, "@") && strings.Contains(raw, ":") {
+		at := strings.IndexByte(raw, '@')
+		colon := strings.IndexByte(raw[at+1:], ':')
+		if colon > 0 {
+			host := raw[at+1 : at+1+colon]
+			path := raw[at+1+colon+1:]
+			raw = "https://" + host + "/" + path
+		}
+	}
+	// Strip trailing .git so https://github.com/o/r and the same with
+	// .git produce identical keys.
+	if u, err := url.Parse(raw); err == nil && u.Scheme != "" {
+		u.Scheme = "https"
+		u.User = nil
+		u.Path = strings.TrimSuffix(u.Path, ".git")
+		return u.String()
+	}
+	return raw
 }

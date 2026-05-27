@@ -17,13 +17,8 @@
  * moment the materializer runs.
  */
 
-import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
-	BarChart3,
-	Bot,
-	Cpu,
-	DollarSign,
 	LayoutGrid,
 	List,
 	Loader2,
@@ -35,12 +30,6 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@/components/ui/tabs";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
 import getMessage from "@/constants/messages";
 import type { UnifiedAgent } from "@/types/agents";
 
@@ -61,14 +50,13 @@ const CodingDashboardTab = dynamic(
 		ssr: false,
 	}
 );
-
-const VENDOR_LABELS: Record<string, string> = {
-	"claude-code": "Claude Code",
-	cursor: "Cursor",
-	codex: "Codex",
-	copilot: "GitHub Copilot CLI",
-	windsurf: "Windsurf",
-};
+const CodingUsersTab = dynamic(
+	() => import("./coding-users-tab"),
+	{
+		loading: () => <TabLoading label={getMessage().AGENTS_LOADING_REQUESTS} />,
+		ssr: false,
+	}
+);
 
 interface CodingAgentDetailProps {
 	agent: UnifiedAgent;
@@ -81,14 +69,10 @@ export default function CodingAgentDetail({
 	tab,
 	onTabChange,
 }: CodingAgentDetailProps) {
-	const vendorLabel = useMemo(
-		() =>
-			VENDOR_LABELS[agent.coding_agent_vendor || ""] ||
-			agent.service_name ||
-			"Coding agent",
-		[agent.coding_agent_vendor, agent.service_name]
-	);
-
+	// Overview is just the embedded "Coding Agents" board. The earlier
+	// StatTile cluster + Client info card duplicated values that
+	// already live on the board (cost, sessions, users) so we removed
+	// them; the dashboard widgets + the page header carry that data.
 	return (
 		<Tabs value={tab} onValueChange={onTabChange} className="w-full">
 			<TabsList className="h-auto rounded-none border-b border-stone-200 dark:border-stone-800 bg-transparent p-0 w-full justify-start gap-1">
@@ -103,92 +87,24 @@ export default function CodingAgentDetail({
 					label={getMessage().AGENTS_CODING_TAB_SESSIONS}
 				/>
 				<UnderlineTab
-					value="dashboard"
-					icon={<BarChart3 className="w-3.5 h-3.5" />}
-					label={getMessage().AGENTS_TAB_DASHBOARD}
+					value="users"
+					icon={<Users className="w-3.5 h-3.5" />}
+					label={getMessage().AGENTS_CODING_USERS_SHORT_LABEL}
 				/>
 			</TabsList>
 
 			<TabsContent value="overview" className="mt-4">
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-					<StatTile
-						icon={<Bot className="w-4 h-4" />}
-						label={getMessage().AGENTS_CODING_OVERVIEW_VENDOR_LABEL}
-						value={vendorLabel}
-					/>
-					<StatTile
-						icon={<List className="w-4 h-4" />}
-						label={getMessage().AGENTS_CODING_OVERVIEW_SESSIONS_LABEL}
-						value={(agent.coding_session_count_24h ?? 0).toLocaleString()}
-					/>
-					<StatTile
-						icon={<Users className="w-4 h-4" />}
-						label={getMessage().AGENTS_CODING_OVERVIEW_USERS_LABEL}
-						value={(agent.coding_active_users_24h ?? 0).toLocaleString()}
-					/>
-					<StatTile
-						icon={<DollarSign className="w-4 h-4" />}
-						label={getMessage().AGENTS_CODING_OVERVIEW_COST_LABEL}
-						value={`$${(agent.coding_cost_usd_24h ?? 0).toFixed(2)}`}
-					/>
-				</div>
-
-				<Card className="mt-4">
-					<CardHeader>
-						<CardTitle className="text-sm font-medium flex items-center gap-2">
-							<Cpu className="w-4 h-4" />
-							{getMessage().AGENTS_CODING_OVERVIEW_CLIENT_LABEL}
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="text-sm text-stone-600 dark:text-stone-400">
-						<dl className="grid grid-cols-2 gap-y-2">
-							<dt className="text-stone-500">Vendor</dt>
-							<dd>{agent.coding_agent_vendor || "—"}</dd>
-							<dt className="text-stone-500">Latest CLI version</dt>
-							<dd>{agent.sdk_version || "—"}</dd>
-							<dt className="text-stone-500">First seen</dt>
-							<dd>{formatDate(agent.first_seen)}</dd>
-							<dt className="text-stone-500">Last seen</dt>
-							<dd>{formatDate(agent.last_seen)}</dd>
-						</dl>
-					</CardContent>
-				</Card>
+				<CodingDashboardTab agent={agent} />
 			</TabsContent>
 
 			<TabsContent value="sessions" className="mt-4">
 				<CodingSessionsTab agent={agent} />
 			</TabsContent>
 
-			<TabsContent value="dashboard" className="mt-4">
-				<CodingDashboardTab agent={agent} />
+			<TabsContent value="users" className="mt-4">
+				<CodingUsersTab agent={agent} />
 			</TabsContent>
 		</Tabs>
-	);
-}
-
-function StatTile({
-	icon,
-	label,
-	value,
-}: {
-	icon: React.ReactNode;
-	label: string;
-	value: string;
-}) {
-	return (
-		<Card>
-			<CardHeader className="flex flex-row items-center justify-between pb-2">
-				<CardTitle className="text-xs font-medium text-stone-500 dark:text-stone-400">
-					{label}
-				</CardTitle>
-				<span className="text-stone-400">{icon}</span>
-			</CardHeader>
-			<CardContent>
-				<div className="text-xl font-semibold text-stone-900 dark:text-stone-100 truncate">
-					{value}
-				</div>
-			</CardContent>
-		</Card>
 	);
 }
 
@@ -219,11 +135,4 @@ function TabLoading({ label }: { label: string }) {
 			{label}
 		</div>
 	);
-}
-
-function formatDate(input: string): string {
-	if (!input) return "—";
-	const d = new Date(input);
-	if (Number.isNaN(d.getTime())) return input;
-	return d.toLocaleString();
 }

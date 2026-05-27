@@ -70,7 +70,25 @@ func handle(ctx context.Context, in normalize.Input) error {
 			},
 		})
 	case "preToolUse":
-		return in.Emit.EmitToolCall(buildToolCall(in, p))
+		// B5: previously emitted a full tool.call span on BOTH pre
+		// and post, which doubled the span count and made every
+		// tool's duration histogram skewed (the pre span had
+		// startedAt == endedAt == now). Emit a lightweight request
+		// event on pre; the canonical tool.call span lands on
+		// postToolUse where we have the real timings + result.
+		attrs := map[string]any{
+			"coding_agent.client": in.Vendor,
+			"gen_ai.tool.name":    p.ToolName,
+		}
+		if in.ContentCapture == "full" && len(p.ToolArgs) > 0 {
+			attrs["gen_ai.tool.call.arguments"] = string(p.ToolArgs)
+		}
+		return in.Emit.EmitEvent(normalize.EventEmission{
+			SessionID: p.SessionID,
+			Name:      "coding_agent.tool.requested",
+			At:        time.Now(),
+			Attrs:     attrs,
+		})
 	case "postToolUse":
 		return in.Emit.EmitToolCall(buildToolCall(in, p))
 	case "edit":

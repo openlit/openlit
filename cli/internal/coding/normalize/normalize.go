@@ -40,9 +40,11 @@ type Input struct {
 	// Payload is the entire stdin body from the host plugin.
 	Payload []byte
 
-	// ContentCapture is one of "metadata_only" | "no_tool_content" |
-	// "full". Adapters MUST honor this when constructing event/span
-	// attributes that would otherwise contain prompt or tool-arg bodies.
+	// ContentCapture is one of "minimal" | "metadata_only" | "full".
+	// Adapters MUST honor this when constructing event/span
+	// attributes that would otherwise contain prompt or tool-arg
+	// bodies. See Phase C of the coding-agents plan for the full
+	// per-mode attribute matrix.
 	ContentCapture string
 
 	// Emit is the OTLP-bound emitter the adapter writes to.
@@ -64,7 +66,7 @@ type Emitter interface {
 	// EmitLLMTurn emits a coding-agent LLM-turn span — one per
 	// model-generation pair (prompt → response). Captures the prompt
 	// and (optional) response text plus token usage when available.
-	// This is the "generation" concept from Sigil/OTel GenAI.
+	// This is the "generation" concept from OTel GenAI.
 	EmitLLMTurn(LLMTurn) error
 	// EmitSubagent emits a coding-agent subagent span representing one
 	// child agent's lifecycle. Carries the subagent type, parent linkage,
@@ -115,6 +117,12 @@ type Session struct {
 	// Permission posture.
 	PermissionMode string
 
+	// CWD is the working directory the agent is operating in
+	// (Cursor's `cwd` / `workspace_roots[0]`). Surfaced on the
+	// session span so the trace-detail header can show "Working
+	// folder" alongside the repo URL.
+	CWD string
+
 	// Free-form vendor extras for the future. Adapters use this for
 	// vendor-specific signals we don't (yet) want in the canonical
 	// schema. Keys MUST already be namespaced (e.g.
@@ -164,6 +172,12 @@ type ToolCall struct {
 	Args string
 	// Result body — only populated when ContentCapture == "full".
 	Result string
+
+	// AgentMessage is the assistant's running narration when the
+	// agent calls a tool (Cursor's `agent_message`). Useful for
+	// drilling into "why did the agent run this tool" — only
+	// populated under full capture.
+	AgentMessage string
 }
 
 // EditDecision captures one user/agent edit outcome. Vendors that emit a
@@ -210,8 +224,26 @@ type LLMTurn struct {
 
 	// Prompt and Response are captured ONLY when ContentCapture == "full".
 	// Both arrive truncated to a sane upper bound at the otlp layer.
+	// They hold the user's verbatim prompt and the assistant's text
+	// reply respectively. The emitter wraps them into OTel-canonical
+	// `gen_ai.{input,output}.messages` envelopes
+	// (https://github.com/open-telemetry/semantic-conventions-genai
+	// → docs/gen-ai/gen-ai-spans.md) at attribute-emission time, so
+	// adapters never deal with the JSON shape directly.
 	Prompt   string
 	Response string
+	// InputToolResults are tool_result entries (Anthropic-shaped)
+	// that triggered THIS assistant turn. The emitter renders them
+	// as a `tool` role message with `tool_call_response` parts in
+	// `gen_ai.input.messages`, ahead of any text prompt.
+	InputToolResults []ToolResultPart
+	// OutputToolCalls are tool_use entries the assistant produced
+	// in THIS turn. The emitter renders them as `tool_call` parts
+	// inside the assistant message in `gen_ai.output.messages`. The
+	// per-call detail (args / result) still lives on the matching
+	// `coding_agent.tool.call` spans — these entries are just the
+	// in-message references.
+	OutputToolCalls []ToolCallPart
 	// ThoughtText is the assistant's reasoning/thinking block, when
 	// the vendor exposes it (e.g. Cursor afterAgentThought). Captured
 	// separately so dashboards can hide it by default.
@@ -223,10 +255,22 @@ type LLMTurn struct {
 	// captured regardless of ContentCapture.
 	AttachmentPaths []string
 
-	InputTokens  int64
-	OutputTokens int64
-	TotalTokens  int64
-	CostUSD      float64
+	InputTokens         int64
+	OutputTokens        int64
+	TotalTokens         int64
+	CostUSD             float64
+	// CacheReadTokens / CacheCreationTokens are the OTel-standard
+	// gen_ai cache fields. Anthropic exposes them on every response;
+	// OpenAI doesn't yet. Zero means "vendor didn't tell us" — never
+	// "actually zero".
+	CacheReadTokens     int64
+	CacheCreationTokens int64
+
+	// FinishReasons holds the OTel-standard
+	// `gen_ai.response.finish_reasons` array. We accept multiple
+	// because some vendors send `["tool_use","stop"]` when a tool
+	// call followed by stop happens in the same turn.
+	FinishReasons []string
 
 	// AssistantMessageOnly is true when the LLM turn is only the
 	// "after" half (afterAgentResponse) without a paired prompt — the
@@ -236,6 +280,28 @@ type LLMTurn struct {
 
 	// PermissionMode + UserEmail / UserID from the hook payload.
 	UserEmail string
+
+	// Extras carries per-turn high-signal tags that don't have a
+	// dedicated normalized field yet. Common keys cover generation
+	// metadata (`git.branch`, `cwd`, `claude_code.entrypoint`,
+	// `claude_code.subagent`). Stamped as `string` span attributes by
+	// the emitter — adapters MUST namespace their keys.
+	Extras map[string]string
+}
+
+// ToolCallPart and ToolResultPart are the in-message references used to
+// build OTel-canonical `gen_ai.{input,output}.messages`. Adapters fill
+// these on LLMTurn so the emitter can serialise once, centrally.
+type ToolCallPart struct {
+	ID        string
+	Name      string
+	Arguments string // raw JSON string, may be empty
+}
+
+type ToolResultPart struct {
+	ID      string
+	Result  string
+	IsError bool
 }
 
 // Subagent captures one subagent (Task tool) lifecycle. start and stop

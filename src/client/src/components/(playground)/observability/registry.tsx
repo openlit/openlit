@@ -1,22 +1,36 @@
 import { Columns } from "@/components/data-table/columns";
 import { columns as traceColumns } from "@/components/(playground)/request/columns";
 import { columns as exceptionColumns } from "@/components/(playground)/exceptions/columns";
-import { logColumns, metricColumns } from "./columns";
+import {
+	codingUsersColumns,
+	logColumns,
+	metricColumns,
+	sessionsColumns,
+} from "./columns";
 import { normalizeTrace } from "@/helpers/client/trace";
 import {
 	Activity,
 	BarChart3,
+	Bot,
 	FileText,
 	ShieldAlert,
+	Users,
 	type LucideIcon,
 } from "lucide-react";
 import { CustomFilterAttributeType } from "@/types/store/filter";
 import { PAGE } from "@/types/store/page";
+import type { SortOption } from "@/components/(playground)/filter/sorting";
 import getMessage from "@/constants/messages";
 
 const m = getMessage();
 
-export type ObservabilitySignal = "traces" | "exceptions" | "metrics" | "logs";
+export type ObservabilitySignal =
+	| "traces"
+	| "exceptions"
+	| "metrics"
+	| "logs"
+	| "sessions"
+	| "coding_users";
 
 export type ObservabilitySignalConfig = {
 	key: ObservabilitySignal;
@@ -35,6 +49,12 @@ export type ObservabilitySignalConfig = {
 	supportGrouping?: boolean;
 	groupedUrl?: string;
 	includeOnlySorting?: string[];
+	// Aggregation-level sort options (e.g. "cost", "tokens",
+	// "sessions"). When set, the API route is responsible for
+	// translating `filter.sorting.type` into the right ClickHouse
+	// column. We use this for sessions + coding_users where the
+	// rows aren't a 1-to-1 mapping of OTel attributes.
+	customSortOptions?: SortOption[];
 	customAttributeTypes: CustomFilterAttributeType[];
 	normalize?: (row: any) => any;
 	getRowId: (row: any) => string;
@@ -141,6 +161,79 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		getRowId: (row) => String(row.rowId),
 		getDetailHref: (row, from) =>
 			`/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
+	},
+	{
+		// Coding-agent sessions live alongside the other signals so a
+		// caller can drop `<ObservabilitySignalList config={getSignalConfig("sessions")} />`
+		// onto any page (e.g. the agent detail page or the per-user
+		// page) and inherit summary/list/sheet/full-screen for free.
+		key: "sessions",
+		label: m.AGENTS_CODING_SESSIONS_LABEL,
+		shortLabel: m.AGENTS_CODING_SESSIONS_SHORT_LABEL,
+		tone: "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-900",
+		summary: m.AGENTS_CODING_SESSIONS_SUMMARY,
+		icon: Bot,
+		listUrl: "/api/coding-agents/sessions",
+		summaryUrl: "/api/coding-agents/sessions/summary",
+		// We reuse the trace request config endpoints for the dynamic
+		// filter UI (span attribute / resource attribute keys); the
+		// underlying server query for sessions still scopes by
+		// `coding_agent.session.id` so unrelated traces never leak in.
+		configUrl: "/api/metrics/request/config",
+		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		columns: sessionsColumns,
+		pageName: "codingAgentSessions",
+		visibilityPage: "codingAgentSessions",
+		customSortOptions: [
+			{ key: "latest", label: "Latest" },
+			{ key: "duration", label: "Duration" },
+			{ key: "cost", label: "Cost" },
+			{ key: "tokens", label: "Tokens" },
+			{ key: "tool_calls", label: "Tool calls" },
+		],
+		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
+		getRowId: (row) => row.session_id,
+		// Detail href resolves to the trace-detail page at the
+		// session-root SpanId. Phase 2 makes this SpanId stable
+		// (deterministic from the session id), so deep-linking and
+		// reload-after-refresh both work.
+		getDetailHref: (row, from) =>
+			`/telemetry/traces/${row.session_root_span_id || row.session_id}?from=${encodeURIComponent(from)}`,
+	},
+	{
+		// Coding-agent users directory — same orchestration as
+		// `sessions` but the row click navigates to the per-user page
+		// instead of opening a sheet (the per-user page is rich enough
+		// to warrant a full route).
+		key: "coding_users",
+		label: m.AGENTS_CODING_USERS_LABEL,
+		shortLabel: m.AGENTS_CODING_USERS_SHORT_LABEL,
+		tone: "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-900",
+		summary: m.AGENTS_CODING_USERS_SUMMARY,
+		icon: Users,
+		listUrl: "/api/coding-agents/users",
+		summaryUrl: "/api/coding-agents/users/summary",
+		// User directory shares the same dynamic-filter shape as the
+		// sessions page (vendor / user / classification live on
+		// otel_traces span attributes) so we can reuse the existing
+		// metrics/request config endpoints.
+		configUrl: "/api/metrics/request/config",
+		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		columns: codingUsersColumns,
+		pageName: "codingAgentSessions",
+		visibilityPage: "codingAgentSessions",
+		customSortOptions: [
+			{ key: "last_seen", label: "Last seen" },
+			{ key: "sessions", label: "Sessions" },
+			{ key: "tool_calls", label: "Tool calls" },
+			{ key: "cost", label: "Cost" },
+			{ key: "tokens", label: "Tokens" },
+			{ key: "work", label: "Work classified" },
+		],
+		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
+		getRowId: (row) => row.user || "low_cohort",
+		getDetailHref: (row, from) =>
+			`/coding-agents/users/${encodeURIComponent(row.user)}?from=${encodeURIComponent(from)}`,
 	},
 ];
 

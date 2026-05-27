@@ -4,82 +4,198 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/openlit/openlit/cli/internal/coding/classify"
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
+	"github.com/openlit/openlit/cli/internal/coding/pricing"
+	"github.com/openlit/openlit/cli/internal/coding/sessionstate"
+	"github.com/openlit/openlit/sdk/go/semconv"
 )
 
-// codexPayload covers the fields Codex's hook protocol exposes. Codex
-// sends a JSON envelope on stdin per event.
+// codexPayload mirrors the JSON envelope OpenAI Codex sends to a hook
+// command. Field naming follows the protocol as documented at
+// https://developers.openai.com/codex/hooks. Unknown fields are
+// ignored so Codex can add keys without breaking installs.
 type codexPayload struct {
-	Event       string          `json:"event"`        // SessionStart | UserPromptSubmit | PostToolUse | Stop
-	SessionID   string          `json:"session_id"`
-	Cwd         string          `json:"cwd"`
-	ToolName    string          `json:"tool_name"`
-	ToolArgs    json.RawMessage `json:"tool_args"`
-	Permission  string          `json:"approval_mode"` // matches Codex's --approval-mode flag
-	UserID      string          `json:"user_id"`
+	HookEventName        string          `json:"hook_event_name"`
+	SessionID            string          `json:"session_id"`
+	TurnID               string          `json:"turn_id"`
+	TranscriptPath       string          `json:"transcript_path"`
+	Cwd                  string          `json:"cwd"`
+	Model                string          `json:"model"`
+	Source               string          `json:"source"`
+	Prompt               string          `json:"prompt"`
+	ToolName             string          `json:"tool_name"`
+	ToolUseID            string          `json:"tool_use_id"`
+	ToolInput            json.RawMessage `json:"tool_input"`
+	ToolResponse         json.RawMessage `json:"tool_response"`
+	ToolOutput           json.RawMessage `json:"tool_output"`
+	ToolDurationMs       *float64        `json:"tool_duration_ms"`
+	DurationMs           *float64        `json:"duration_ms"`
+	Status               string          `json:"status"`
+	Error                json.RawMessage `json:"error"`
+	Timestamp            string          `json:"timestamp"`
+	StopHookActive       bool            `json:"stop_hook_active"`
+	LastAssistantMessage *string         `json:"last_assistant_message"`
+
+	// ApprovalMode mirrors Codex's `--approval-mode` (`untrusted`,
+	// `on-failure`, `on-request`, `never`). Codex doesn't always
+	// stamp it, but when it does we treat it as the OTel-canonical
+	// `coding_agent.policy.permission_mode`. Older builds called the
+	// field `approval_mode`; we accept both.
+	ApprovalMode    string `json:"approval_mode"`
+	PermissionMode  string `json:"permission_mode"`
 }
 
+// handle is the per-invocation entry point invoked by `openlit coding hook`.
 func handle(ctx context.Context, in normalize.Input) error {
 	var p codexPayload
 	if err := json.Unmarshal(in.Payload, &p); err != nil {
 		return nil
 	}
+
 	event := in.Event
 	if event == "" {
-		event = p.Event
+		event = p.HookEventName
 	}
 
-	vcs := git.Snapshot(ctx, p.Cwd)
-	// See cursor/handle.go for the rationale — v1 has no API-key
-	// allowlist surface, so we flag the key signal as unknown.
+	cwd := strings.TrimSpace(p.Cwd)
+	if cwd == "" {
+		if wd, err := os.Getwd(); err == nil {
+			cwd = wd
+		}
+	}
+	vcs := git.Snapshot(ctx, cwd)
 	cls := classify.Classify(classify.Inputs{
+		// v1: same posture as the Cursor / Claude Code adapters —
+		// no API-key allowlist is wired up at the CLI surface, so
+		// we let the classifier lean on the repo signal alone.
 		APIKeyAllowlistKnown: false,
 		APIKeyOnAllowlist:    false,
 		RepoURL:              vcs.RepoURL,
 		RepoAllowlist:        classify.SplitAllowlist(os.Getenv("OPENLIT_CODING_REPO_ALLOWLIST")),
 	})
 
+	permissionMode := nonEmpty(p.PermissionMode, p.ApprovalMode)
+
+	// Surface subagent linkage as soon as we have it. Codex's
+	// transcript carries this in the `session_meta` record, which is
+	// at or near the top of the rollout JSONL.
+	primeSubagentLink(p)
+
 	switch event {
 	case "SessionStart":
-		return in.Emit.EmitSession(buildSession(in, p, vcs, cls, "started", time.Time{}))
-	case "Stop":
-		// Tail the day's rollout JSONL for token totals before
-		// emitting the closing span.
-		s := buildSession(in, p, vcs, cls, "ended", time.Now())
-		if r := tailRollout(p.SessionID); r.total > 0 {
-			s.InputTokens = r.input
-			s.OutputTokens = r.output
-			s.TotalTokens = r.total
-		}
-		return in.Emit.EmitSession(s)
+		return in.Emit.EmitSession(buildSession(in, p, vcs, cls, permissionMode, cwd, "started", time.Time{}))
+
 	case "UserPromptSubmit":
+		stampTurnFragment(p, in.ContentCapture, func(f *sessionstate.CodexTurnFragment) {
+			if in.ContentCapture == semconv.CodingAgentContentCaptureFull && p.Prompt != "" {
+				f.Prompt = p.Prompt
+			}
+			if f.StartedAt.IsZero() {
+				f.StartedAt = parseEventTime(p.Timestamp)
+			}
+		})
+		// Cheap event so the chat timeline can show "user submitted
+		// a prompt" even before Stop fires. The full LLM-turn span
+		// is emitted at Stop.
 		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: p.SessionID,
 			Name:      "coding_agent.user_prompt.submit",
-			At:        time.Now(),
+			At:        parseEventTime(p.Timestamp),
 			Attrs: map[string]any{
-				"coding_agent.client": in.Vendor,
+				"coding_agent.client":    in.Vendor,
+				"coding_agent.turn.id":   p.TurnID,
+				"code.cwd":               cwd,
+				"gen_ai.request.model":   p.Model,
 			},
 		})
-	case "PostToolUse":
-		t := normalize.ToolCall{
+
+	case "PreToolUse":
+		// Pre-event only. The authoritative tool span fires at
+		// PostToolUse to avoid double-counting.
+		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: p.SessionID,
-			ToolName:  p.ToolName,
-			Vendor:    in.Vendor,
-			StartedAt: time.Now(),
-			EndedAt:   time.Now(),
-		}
-		if in.ContentCapture == "full" && len(p.ToolArgs) > 0 {
-			t.Args = string(p.ToolArgs)
-		}
-		return in.Emit.EmitToolCall(t)
+			Name:      "coding_agent.tool.requested",
+			At:        parseEventTime(p.Timestamp),
+			Attrs: map[string]any{
+				"coding_agent.client":  in.Vendor,
+				"coding_agent.turn.id": p.TurnID,
+				"gen_ai.tool.name":     p.ToolName,
+				"gen_ai.tool.call.id":  p.ToolUseID,
+				"code.cwd":             cwd,
+				"gen_ai.request.model": p.Model,
+			},
+		})
+
+	case "PostToolUse":
+		t := buildToolCall(in, p, cwd)
+		_ = in.Emit.EmitToolCall(t)
+		// Cache the call on the turn fragment so the Stop event can
+		// render it as a `tool_call` / `tool_call_response` part in
+		// `gen_ai.input.messages` + `gen_ai.output.messages`.
+		stampTurnFragment(p, in.ContentCapture, func(f *sessionstate.CodexTurnFragment) {
+			rec := sessionstate.CodexToolRecord{
+				ToolName:    p.ToolName,
+				ToolUseID:   p.ToolUseID,
+				Status:      normalizeStatus(p),
+				Cwd:         cwd,
+				CompletedAt: p.Timestamp,
+				DurationMs:  durationMsOr(p.ToolDurationMs, p.DurationMs),
+			}
+			if rec.Status == "error" {
+				rec.ErrorMessage = errorMessage(p.Error)
+			}
+			if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+				if len(p.ToolInput) > 0 {
+					rec.ToolInput = string(p.ToolInput)
+				}
+				resp := p.ToolResponse
+				if len(resp) == 0 {
+					resp = p.ToolOutput
+				}
+				if len(resp) > 0 {
+					rec.ToolResponse = string(resp)
+				}
+			}
+			f.Tools = append(f.Tools, rec)
+		})
+		return nil
+
+	case "Stop":
+		// Stop closes one turn. Drain the turn fragment, tail the
+		// transcript for authoritative token usage, and emit one
+		// `coding_agent.llm.turn` span — the canonical
+		// "generation" record per OTel GenAI.
+		emitTurnOnStop(in, p, cwd, permissionMode)
+		// Low-cost loop event so the Sessions tab can count turns
+		// without scanning the LLM-turn span every time.
+		//
+		// We stamp `coding_agent.session.outcome = "completed"`
+		// here because Codex has NO `SessionEnd` event — the rollout
+		// just ends when the user closes the Codex CLI. Without this
+		// stamp every Codex session would show "running" forever in
+		// the Sessions list. The sessions rollup picks the latest
+		// non-empty outcome via `argMaxIf`, so if a future Codex
+		// build adds a richer terminal signal we can drop a later
+		// stamp from a different event and it will win automatically.
+		return in.Emit.EmitEvent(normalize.EventEmission{
+			SessionID: p.SessionID,
+			Name:      "coding_agent.session.loop.stop",
+			At:        parseEventTime(p.Timestamp),
+			Attrs: map[string]any{
+				"coding_agent.client":            in.Vendor,
+				"coding_agent.hook.event":        event,
+				"coding_agent.turn.id":           p.TurnID,
+				"coding_agent.session.loop.kind": "assistant_turn_end",
+				"coding_agent.session.outcome":   semconv.CodingAgentSessionOutcomeCompleted,
+				"codex.stop_hook_active":         p.StopHookActive,
+			},
+		})
+
 	default:
 		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: p.SessionID,
@@ -93,22 +209,27 @@ func handle(ctx context.Context, in normalize.Input) error {
 	}
 }
 
+// buildSession produces the canonical `coding_agent.session` span. We
+// emit it on SessionStart. Codex doesn't have a `SessionEnd` event;
+// the per-turn `coding_agent.llm.turn` spans accumulate naturally
+// and the session row in the UI rolls them up.
 func buildSession(
 	in normalize.Input,
 	p codexPayload,
 	vcs git.Context,
 	cls classify.Classification,
-	kind string,
+	permissionMode, cwd, kind string,
 	endedAt time.Time,
 ) normalize.Session {
 	s := normalize.Session{
 		SessionID:            p.SessionID,
 		ConversationID:       p.SessionID,
 		Vendor:               in.Vendor,
-		StartedAt:            time.Now(),
+		Model:                p.Model,
+		StartedAt:            parseEventTime(p.Timestamp),
 		EndedAt:              endedAt,
-		PermissionMode:       p.Permission,
-		UserID:               p.UserID,
+		PermissionMode:       permissionMode,
+		CWD:                  cwd,
 		RepoURL:              vcs.RepoURL,
 		HeadSHA:              vcs.HeadSHA,
 		BranchName:           vcs.Branch,
@@ -116,84 +237,588 @@ func buildSession(
 		UserClassification:   cls.Value,
 		ClassificationReason: cls.Reason,
 		Extras: map[string]string{
-			"coding_agent.hook.event":   p.Event,
+			"coding_agent.hook.event":   p.HookEventName,
 			"codex.session.lifecycle":   kind,
 		},
+	}
+	if p.TranscriptPath != "" {
+		s.Extras["coding_agent.session.transcript_path"] = p.TranscriptPath
+	}
+	if p.Source != "" {
+		s.Extras["codex.session.source"] = p.Source
+	}
+	// Carry the subagent-link metadata (if any) onto the session
+	// span — the UI uses it to fold this row under the parent chat.
+	if st := sessionstate.Load(p.SessionID, "codex"); st != nil && st.CodexSubagent != nil {
+		s.Extras["coding_agent.agent.parent_id"] = st.CodexSubagent.ParentSessionID
+		s.Extras["coding_agent.subagent.type"] = "task"
+		if st.CodexSubagent.AgentRole != "" {
+			s.Extras["codex.agent.role"] = st.CodexSubagent.AgentRole
+		}
+		if st.CodexSubagent.AgentNickname != "" {
+			s.Extras["codex.agent.nickname"] = st.CodexSubagent.AgentNickname
+		}
 	}
 	return s
 }
 
-// rolloutTotals is the result of tailing ~/.codex/sessions/<date>/rollout-*.jsonl.
-type rolloutTotals struct {
-	input, output, total int64
+// buildToolCall produces a `coding_agent.tool.call` span for one
+// PostToolUse event. We mirror the Cursor adapter: name/id/cwd are
+// always stamped, bodies (args / result) only land in full capture.
+func buildToolCall(in normalize.Input, p codexPayload, cwd string) normalize.ToolCall {
+	durMs := durationMsOr(p.ToolDurationMs, p.DurationMs)
+	now := parseEventTime(p.Timestamp)
+	if now.IsZero() {
+		now = time.Now()
+	}
+	t := normalize.ToolCall{
+		SessionID:  p.SessionID,
+		ToolName:   p.ToolName,
+		ToolUseID:  p.ToolUseID,
+		Vendor:     in.Vendor,
+		Model:      p.Model,
+		WorkingDir: cwd,
+		StartedAt:  now.Add(-time.Duration(durMs) * time.Millisecond),
+		EndedAt:    now,
+	}
+	if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+		if len(p.ToolInput) > 0 {
+			t.Args = string(p.ToolInput)
+		}
+		resp := p.ToolResponse
+		if len(resp) == 0 {
+			resp = p.ToolOutput
+		}
+		if len(resp) > 0 {
+			t.Result = string(resp)
+		}
+	}
+	// Shell / apply_patch are the most common codex tools — expose
+	// the command head so dashboards can render "ran: ls" without
+	// having to parse JSON.
+	if cmd := commandFromToolInput(p.ToolName, p.ToolInput, in.ContentCapture); cmd != "" {
+		t.Command = cmd
+	}
+	if normalizeStatus(p) == "error" {
+		t.Errored = true
+		t.ErrorMsg = errorMessage(p.Error)
+	}
+	return t
 }
 
-// tailRollout walks today's Codex session rollout files looking for
-// the most recent rollout-*.jsonl whose first line contains the given
-// session id. It then sums the usage records.
+// emitTurnOnStop builds and emits one `coding_agent.llm.turn` span
+// from the cached turn fragment + a transcript-derived token snapshot.
+// This is the OTel-canonical "generation" record: a single LLM call
+// with input messages, output messages, tool refs, tokens, and cost.
 //
-// We deliberately use today's tree only — the Stop event fires within
-// the same calendar day as the session start, and walking older trees
-// would slow the hook for no benefit.
-func tailRollout(sessionID string) rolloutTotals {
-	if sessionID == "" {
-		return rolloutTotals{}
+// The shape of `gen_ai.input.messages` and `gen_ai.output.messages` is
+// produced centrally in `cli/internal/otlp/attrs.go` from the typed
+// fields we set here (Prompt, Response, InputToolResults,
+// OutputToolCalls). Adapters never serialise that JSON themselves —
+// keeping the OTel GenAI spec-compliance check in one place.
+func emitTurnOnStop(in normalize.Input, p codexPayload, cwd, permissionMode string) {
+	st := sessionstate.Load(p.SessionID, "codex")
+	if st == nil {
+		st = &sessionstate.State{}
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return rolloutTotals{}
+	frag := loadTurnFragment(st, p.TurnID)
+	if frag == nil {
+		frag = &sessionstate.CodexTurnFragment{TurnID: p.TurnID}
 	}
-	day := time.Now().UTC().Format("2006/01/02")
-	dir := filepath.Join(home, ".codex", "sessions", day)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return rolloutTotals{}
+	if p.Model != "" {
+		frag.Model = p.Model
 	}
-	// Sort entries by mtime desc so we hit the most recent first.
-	sort.Slice(entries, func(i, j int) bool {
-		ii, _ := entries[i].Info()
-		jj, _ := entries[j].Info()
-		return ii.ModTime().After(jj.ModTime())
-	})
+	if p.Source != "" {
+		frag.Source = p.Source
+	}
+	frag.StopHookActive = p.StopHookActive
+	if in.ContentCapture == semconv.CodingAgentContentCaptureFull &&
+		p.LastAssistantMessage != nil && *p.LastAssistantMessage != "" {
+		frag.LastAssistantMessage = *p.LastAssistantMessage
+	}
 
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasPrefix(e.Name(), "rollout-") || !strings.HasSuffix(e.Name(), ".jsonl") {
-			continue
-		}
-		path := filepath.Join(dir, e.Name())
-		body, readErr := os.ReadFile(path) //nolint:gosec // path under ~/.codex
-		if readErr != nil {
-			continue
-		}
-		// First line of the rollout has the session metadata.
-		lines := strings.Split(string(body), "\n")
-		if len(lines) == 0 || !strings.Contains(lines[0], sessionID) {
-			continue
-		}
-		var totals rolloutTotals
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			var rec struct {
-				Type    string `json:"type"`
-				Payload struct {
-					Usage struct {
-						InputTokens  int64 `json:"input_tokens"`
-						OutputTokens int64 `json:"output_tokens"`
-						TotalTokens  int64 `json:"total_tokens"`
-					} `json:"usage"`
-				} `json:"payload"`
-			}
-			if err := json.Unmarshal([]byte(line), &rec); err != nil {
-				continue
-			}
-			totals.input += rec.Payload.Usage.InputTokens
-			totals.output += rec.Payload.Usage.OutputTokens
-		}
-		totals.total = totals.input + totals.output
-		return totals
+	completedAt := parseEventTime(p.Timestamp)
+	if completedAt.IsZero() {
+		completedAt = time.Now()
 	}
-	return rolloutTotals{}
+	startedAt := frag.StartedAt
+	if startedAt.IsZero() {
+		startedAt = completedAt
+	}
+
+	turn := normalize.LLMTurn{
+		SessionID:      p.SessionID,
+		ConversationID: p.SessionID,
+		GenerationID:   p.TurnID,
+		Vendor:         in.Vendor,
+		Model:          frag.Model,
+		StartedAt:      startedAt,
+		EndedAt:        completedAt,
+	}
+
+	// Token usage: prefer the transcript-derived per-turn delta —
+	// subtract the pre-model baseline from the final cumulative.
+	transcriptPath := strings.TrimSpace(p.TranscriptPath)
+	if transcriptPath == "" {
+		// Fallback: scan ~/.codex/sessions for a rollout whose
+		// first line contains our session id. We look at today +
+		// yesterday so wrapped-midnight sessions still attribute
+		// usage.
+		transcriptPath = findRolloutForSession(p.SessionID)
+	}
+	if snap, ok := readTokenUsageForTurn(transcriptPath, p.TurnID); ok {
+		turn.InputTokens = snap.TurnUsage.InputTokens
+		turn.OutputTokens = snap.TurnUsage.OutputTokens
+		turn.TotalTokens = snap.TurnUsage.TotalTokens
+		if turn.TotalTokens == 0 {
+			turn.TotalTokens = turn.InputTokens + turn.OutputTokens
+		}
+		turn.CacheReadTokens = snap.TurnUsage.CachedInputTokens
+		if rate := pricing.Lookup(turn.Model); turn.Model != "" {
+			turn.CostUSD = rate.Cost(turn.InputTokens, turn.OutputTokens, turn.CacheReadTokens)
+		}
+		if snap.TurnUsage.ReasoningOutputTokens > 0 {
+			if turn.Extras == nil {
+				turn.Extras = map[string]string{}
+			}
+			turn.Extras["coding_agent.llm.reasoning.tokens"] = formatInt(snap.TurnUsage.ReasoningOutputTokens)
+		}
+	}
+
+	turn.FinishReasons = []string{"stop"}
+	// Codex doesn't expose the cumulative input separately from
+	// cached input; surface the model context window when we have it
+	// so dashboards can show "headroom" pills.
+	if turn.Extras == nil {
+		turn.Extras = map[string]string{}
+	}
+	if frag.Source != "" {
+		turn.Extras["codex.source"] = frag.Source
+	}
+	if cwd != "" {
+		turn.Extras["code.cwd"] = cwd
+	}
+	if permissionMode != "" {
+		turn.Extras["coding_agent.policy.permission_mode"] = permissionMode
+	}
+	if frag.StopHookActive {
+		turn.Extras["codex.stop_hook_active"] = "true"
+	}
+	if st.CodexSubagent != nil && st.CodexSubagent.ParentSessionID != "" {
+		turn.Extras["coding_agent.agent.parent_id"] = st.CodexSubagent.ParentSessionID
+		turn.Extras["coding_agent.subagent.type"] = "task"
+	}
+	if len(turn.Extras) == 0 {
+		turn.Extras = nil
+	}
+
+	if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+		if s := strings.TrimSpace(frag.Prompt); s != "" {
+			turn.Prompt = s
+		}
+		if s := strings.TrimSpace(frag.LastAssistantMessage); s != "" {
+			turn.Response = s
+		}
+		if len(frag.Tools) > 0 {
+			turn.OutputToolCalls = make([]normalize.ToolCallPart, 0, len(frag.Tools))
+			turn.InputToolResults = make([]normalize.ToolResultPart, 0, len(frag.Tools))
+			for _, tool := range frag.Tools {
+				turn.OutputToolCalls = append(turn.OutputToolCalls, normalize.ToolCallPart{
+					ID:        tool.ToolUseID,
+					Name:      tool.ToolName,
+					Arguments: tool.ToolInput,
+				})
+				turn.InputToolResults = append(turn.InputToolResults, normalize.ToolResultPart{
+					ID:      tool.ToolUseID,
+					Result:  tool.ToolResponse,
+					IsError: tool.Status == "error",
+				})
+			}
+		}
+	}
+
+	_ = in.Emit.EmitLLMTurn(turn)
+
+	// Drain the turn fragment — it's served its purpose. We keep the
+	// session state itself so the next turn (still in this session)
+	// finds the cached subagent link and identity.
+	clearTurnFragment(st, p.TurnID)
+	sessionstate.Save(p.SessionID, "codex", st)
+}
+
+// stampTurnFragment loads or creates the turn fragment for `p.TurnID`,
+// applies the caller's mutation, then persists. We bound CodexTurns to
+// 16 entries so a marathon session doesn't grow the on-disk cache
+// unboundedly. The Stop event drains its own fragment.
+func stampTurnFragment(p codexPayload, capture string, mutate func(*sessionstate.CodexTurnFragment)) {
+	if p.SessionID == "" || p.TurnID == "" {
+		return
+	}
+	_ = capture // reserved — gated content has already been filtered at the call site
+	st := sessionstate.Load(p.SessionID, "codex")
+	if st == nil {
+		st = &sessionstate.State{}
+	}
+	if st.CodexTurns == nil {
+		st.CodexTurns = map[string]*sessionstate.CodexTurnFragment{}
+	}
+	f, ok := st.CodexTurns[p.TurnID]
+	if !ok {
+		f = &sessionstate.CodexTurnFragment{TurnID: p.TurnID, StartedAt: parseEventTime(p.Timestamp)}
+		st.CodexTurns[p.TurnID] = f
+	}
+	if f.Model == "" && p.Model != "" {
+		f.Model = p.Model
+	}
+	if f.Source == "" && p.Source != "" {
+		f.Source = p.Source
+	}
+	mutate(f)
+	pruneTurnFragments(st)
+	sessionstate.Save(p.SessionID, "codex", st)
+}
+
+// pruneTurnFragments keeps the per-session map at 16 entries. We pick
+// the oldest by StartedAt; ties on the zero value drop arbitrarily,
+// which is safe because every fragment is independently drainable on
+// its own Stop event.
+func pruneTurnFragments(st *sessionstate.State) {
+	const cap = 16
+	if len(st.CodexTurns) <= cap {
+		return
+	}
+	type ageKey struct {
+		key string
+		t   time.Time
+	}
+	ages := make([]ageKey, 0, len(st.CodexTurns))
+	for k, v := range st.CodexTurns {
+		ages = append(ages, ageKey{key: k, t: v.StartedAt})
+	}
+	// stable enough — sort ascending so the oldest sort to the front
+	for i := 1; i < len(ages); i++ {
+		for j := i; j > 0 && ages[j-1].t.After(ages[j].t); j-- {
+			ages[j-1], ages[j] = ages[j], ages[j-1]
+		}
+	}
+	for i := 0; i < len(ages)-cap; i++ {
+		delete(st.CodexTurns, ages[i].key)
+	}
+}
+
+func loadTurnFragment(st *sessionstate.State, turnID string) *sessionstate.CodexTurnFragment {
+	if st == nil || st.CodexTurns == nil {
+		return nil
+	}
+	return st.CodexTurns[turnID]
+}
+
+func clearTurnFragment(st *sessionstate.State, turnID string) {
+	if st == nil || st.CodexTurns == nil {
+		return
+	}
+	delete(st.CodexTurns, turnID)
+	if len(st.CodexTurns) == 0 {
+		st.CodexTurns = nil
+	}
+}
+
+// primeSubagentLink reads the transcript's `session_meta` block once
+// per session and caches the parent linkage. Cheap because we only
+// scan to the first matching line; idempotent because subsequent calls
+// return early when the cache is already populated.
+func primeSubagentLink(p codexPayload) {
+	if p.SessionID == "" {
+		return
+	}
+	st := sessionstate.Load(p.SessionID, "codex")
+	if st == nil {
+		st = &sessionstate.State{}
+	}
+	if st.CodexSubagent != nil {
+		return
+	}
+	path := strings.TrimSpace(p.TranscriptPath)
+	if path == "" {
+		path = findRolloutForSession(p.SessionID)
+	}
+	if path == "" {
+		return
+	}
+	meta, ok := readSessionMeta(path)
+	if !ok || meta.ThreadSource != "subagent" || meta.ParentSessionID == "" {
+		return
+	}
+	st.CodexSubagent = &sessionstate.CodexSubagentLink{
+		ParentSessionID: meta.ParentSessionID,
+		AgentRole:       meta.AgentRole,
+		AgentNickname:   meta.AgentNickname,
+		AgentDepth:      meta.AgentDepth,
+	}
+	sessionstate.Save(p.SessionID, "codex", st)
+}
+
+// normalizeStatus maps Codex's PostToolUse `status` / `error` /
+// response-shape signals onto our `completed` / `error` enum.
+func normalizeStatus(p codexPayload) string {
+	if s := canonicalStatus(p.Status); s != "" {
+		return s
+	}
+	if hasErrorEvidence(p.Error) {
+		return "error"
+	}
+	resp := p.ToolResponse
+	if len(resp) == 0 {
+		resp = p.ToolOutput
+	}
+	if s := statusFromToolResponse(resp); s != "" {
+		return s
+	}
+	return ""
+}
+
+func canonicalStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "error", "failed", "failure":
+		return "error"
+	case "completed", "complete", "success", "succeeded", "ok":
+		return "completed"
+	}
+	return ""
+}
+
+func hasErrorEvidence(raw json.RawMessage) bool {
+	if len(raw) == 0 || string(raw) == "null" {
+		return false
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return true
+	}
+	return !emptyJSONValue(v)
+}
+
+func statusFromToolResponse(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return ""
+	}
+	return statusFromValue(v)
+}
+
+func statusFromValue(v any) string {
+	switch x := v.(type) {
+	case map[string]any:
+		for _, key := range []string{"status", "state"} {
+			if s := canonicalStatus(stringField(x, key)); s != "" {
+				return s
+			}
+		}
+		for _, key := range []string{"is_error", "isError"} {
+			if b, ok := boolField(x, key); ok {
+				if b {
+					return "error"
+				}
+				return "completed"
+			}
+		}
+		if b, ok := boolField(x, "success"); ok {
+			if b {
+				return "completed"
+			}
+			return "error"
+		}
+		for _, key := range []string{"exit_code", "exitCode"} {
+			if code, ok := numberField(x, key); ok {
+				if code == 0 {
+					return "completed"
+				}
+				return "error"
+			}
+		}
+	case string:
+		return canonicalStatus(x)
+	}
+	return ""
+}
+
+func emptyJSONValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case bool:
+		return !x
+	case string:
+		return strings.TrimSpace(x) == ""
+	case float64:
+		return x == 0
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
+}
+
+func stringField(m map[string]any, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func boolField(m map[string]any, key string) (bool, bool) {
+	v, ok := m[key]
+	if !ok {
+		return false, false
+	}
+	b, ok := v.(bool)
+	return b, ok
+}
+
+func numberField(m map[string]any, key string) (float64, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case int:
+		return float64(n), true
+	}
+	return 0, false
+}
+
+func errorMessage(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var obj struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &obj); err == nil && obj.Message != "" {
+		return obj.Message
+	}
+	return string(raw)
+}
+
+// commandFromToolInput peeks at Codex's `tool_input` to pull the
+// canonical command string for shell / apply_patch tools. In metadata
+// or minimal mode we keep only the binary head so the trace-detail
+// "Shell" pill still works without leaking flags. Full mode returns
+// the entire command.
+func commandFromToolInput(toolName string, raw json.RawMessage, capture string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	pickStr := func(keys ...string) string {
+		for _, k := range keys {
+			v, ok := m[k]
+			if !ok {
+				continue
+			}
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil && s != "" {
+				return s
+			}
+		}
+		return ""
+	}
+	cmd := ""
+	switch strings.ToLower(toolName) {
+	case "shell", "bash", "local_shell", "local-shell":
+		cmd = pickStr("command", "cmd", "shell")
+		if cmd == "" {
+			// some shells ship an array — fall back to joining
+			if arr, ok := m["command"]; ok {
+				var parts []string
+				if err := json.Unmarshal(arr, &parts); err == nil {
+					cmd = strings.Join(parts, " ")
+				}
+			}
+		}
+	case "apply_patch", "apply-patch":
+		// apply_patch carries a diff — surface the first hunk header
+		// so dashboards can show "edited <file>" without leaking the
+		// patch body.
+		if patch := pickStr("input", "patch"); patch != "" {
+			for _, line := range strings.Split(patch, "\n") {
+				if strings.HasPrefix(line, "*** ") {
+					return strings.TrimSpace(line)
+				}
+			}
+		}
+	}
+	if cmd == "" {
+		return ""
+	}
+	cmd = strings.TrimSpace(cmd)
+	if capture == semconv.CodingAgentContentCaptureFull {
+		return cmd
+	}
+	if i := strings.IndexAny(cmd, " \t"); i > 0 {
+		return cmd[:i]
+	}
+	return cmd
+}
+
+func parseEventTime(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Now()
+	}
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t
+	}
+	return time.Now()
+}
+
+func durationMsOr(primary, secondary *float64) int64 {
+	if primary != nil && *primary > 0 {
+		return int64(*primary)
+	}
+	if secondary != nil && *secondary > 0 {
+		return int64(*secondary)
+	}
+	return 0
+}
+
+func nonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+func formatInt(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	// avoid pulling in strconv for one call site
+	return jsonNumberString(n)
+}
+
+// jsonNumberString stringifies an int64 by marshalling through
+// encoding/json — cheap and avoids a strconv import for the one
+// numeric tag we render today.
+func jsonNumberString(n int64) string {
+	b, _ := json.Marshal(n)
+	return string(b)
 }

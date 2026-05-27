@@ -1,0 +1,23 @@
+{
+  "name": "openlit",
+  "interface": {
+    "displayName": "OpenLit",
+    "shortDescription": "OpenTelemetry-native session, tool, and turn capture for Codex.",
+    "developerName": "OpenLit",
+    "websiteURL": "https://openlit.io"
+  },
+  "plugins": [
+    {
+      "name": "openlit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/openlit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Engineering"
+    }
+  ]
+}

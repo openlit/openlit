@@ -202,8 +202,16 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 
 	const lastRunTime = await getLastRunCronLogByCronId(payload.cronId);
 
-	// Only LLM-type spans with tokens recorded
+	// Only LLM-type spans with tokens recorded. Crucially, we skip
+	// any span that already carries a `gen_ai.usage.cost` from the
+	// instrumentation/hook. Vendor-emitted cost is authoritative
+	// (Cursor / Codex / Claude Code stamp the provider's actual
+	// billed price, which may differ from list pricing for enterprise
+	// tiers); recomputing would silently overwrite that with our
+	// pricing-table estimate. This makes auto-pricing a true *backfill*
+	// path — it only writes when nothing was captured at ingest.
 	const typeKeyPath = `SpanAttributes['${TYPE_KEY}']`;
+	const costKeyPath = `SpanAttributes['${COST_KEY}']`;
 	const operationList = SUPPORTED_EVALUATION_OPERATIONS.map(
 		(op) => `'${op}'`
 	).join(", ");
@@ -212,6 +220,7 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 		SELECT SpanId, Timestamp, SpanAttributes
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${typeKeyPath} IN (${operationList})
+			AND (${costKeyPath} = '' OR toFloat64OrZero(${costKeyPath}) = 0)
 		${
 			lastRunTime
 				? `AND Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`

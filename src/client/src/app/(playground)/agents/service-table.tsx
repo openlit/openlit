@@ -403,7 +403,7 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2 overflow-hidden">
 				<Link
-					href={`/agents/${row.agent_key}`}
+					href={`/agents/${row.agent_key}?from=services`}
 					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
 					onClick={(e) => e.stopPropagation()}
 				>
@@ -570,7 +570,9 @@ export default function ServiceTable({
 			isLoading={isLoading}
 			visibilityColumns={VISIBILITY_COLUMNS}
 			extraFunctions={{ onRefresh }}
-			onClick={(row) => router.push(`/agents/${row.agent_key}`)}
+			onClick={(row) =>
+				router.push(`/agents/${row.agent_key}?from=services`)
+			}
 		/>
 	);
 }

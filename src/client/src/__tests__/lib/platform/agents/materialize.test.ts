@@ -67,14 +67,21 @@ function captureInsertedRows(): RecordedInsert[] {
 function queueDiscovery(
 	sdkRows: Array<Record<string, unknown>>,
 	ctrlRows: Array<Record<string, unknown>>,
-	requestCountRows: Array<Record<string, unknown>> = []
+	requestCountRows: Array<Record<string, unknown>> = [],
+	codingRows: Array<Record<string, unknown>> = []
 ) {
+	// `materializeAgents` fires `Promise.all([discoverAgents(),
+	// discoverCodingAgents()])`. Inside `discoverAgents` two queries run
+	// sequentially (SDK then controller); `discoverCodingAgents` fires
+	// one. The microtask order under `Promise.all` is therefore:
+	//   1) SDK discovery (kicked off first inside discoverAgents)
+	//   2) Coding-agent discovery (kicked off by the second Promise.all entry)
+	//   3) Controller discovery (resumes after SDK resolves)
+	//   4) Request-count rollup (after both discovery functions resolve)
 	mockedDC
-		// 1: SDK discovery query
 		.mockResolvedValueOnce({ data: sdkRows } as any)
-		// 2: Controller discovery query
+		.mockResolvedValueOnce({ data: codingRows } as any)
 		.mockResolvedValueOnce({ data: ctrlRows } as any)
-		// 3: Request-count query
 		.mockResolvedValueOnce({ data: requestCountRows } as any);
 }
 
@@ -350,10 +357,16 @@ describe("materializeAgents — workload_key dedup", () => {
 
 		await materializeAgents();
 
-		// SDK discovery is queries[0]; controller discovery is queries[1].
+		// Discovery now fires three concurrent queries (SDK, coding-agent,
+		// controller) so positional indexing is unstable. Find the
+		// controller query by its distinctive
+		// `openlit_controller_services` source table.
 		expect(queries.length).toBeGreaterThanOrEqual(2);
-		const ctrlQuery = queries[1];
-		expect(ctrlQuery).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
-		expect(ctrlQuery).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
+		const ctrlQuery = queries.find((q) =>
+			q.includes("openlit_controller_services")
+		);
+		expect(ctrlQuery).toBeDefined();
+		expect(ctrlQuery!).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
+		expect(ctrlQuery!).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
 	});
 });

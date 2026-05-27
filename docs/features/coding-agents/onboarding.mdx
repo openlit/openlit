@@ -64,17 +64,19 @@ Equivalent environment variables (precedence: flags > env > config file):
 |---|---|
 | `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP endpoint of your collector |
 | `OPENLIT_API_KEY`       | Authenticates the OTLP exporter |
-| `OPENLIT_USER_NAME`     | Optional override for `gen_ai.user.name` |
-| `OPENLIT_CONTENT_CAPTURE_MODE` | `metadata_only` \| `no_tool_content` \| `full` |
+| `OPENLIT_USER`          | Optional override for `gen_ai.user.name` (email or login) |
+| `OPENLIT_CODING_CONTENT_CAPTURE` | `minimal` \| `metadata_only` \| `full` |
 | `OPENLIT_REDACT_AGGRESSIVE` | `1` enables tier-2 secret scrubbing |
 
 Standard `OTEL_EXPORTER_OTLP_*` variables are honoured as fallbacks
 so existing OTel users can reuse their setup.
 
 <Tip>
-`OPENLIT_CONTENT_CAPTURE_MODE` defaults to `metadata_only`. Set it to
-`full` only after reviewing the redaction rules — coding-agent
-sessions can include source code, diffs, and tool inputs.
+`OPENLIT_CODING_CONTENT_CAPTURE` defaults to `metadata_only`. Set it
+to `full` only after reviewing the redaction rules — coding-agent
+sessions can include source code, diffs, and tool inputs. Use
+`minimal` if you only need cost + activity dashboards and not the
+per-event timeline.
 </Tip>
 
 ## 3. Wire each vendor
@@ -96,9 +98,40 @@ openlit coding install --vendor=claude-code
 openlit coding launch claude-code
 ```
 
-Manifest path: `~/.claude/plugins/openlit/`. Hooks invoked:
-`SessionStart`, `PreToolUse`, `Stop`, `SessionEnd`. Claude Code's
-transcript JSONL is tailed for token usage.
+Manifest path: `~/.claude/plugins/openlit-cc/`. Hooks wired:
+`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+`Stop`, `SubagentStop`, `SessionEnd`. Claude Code's transcript JSONL
+(`transcript_path` in the hook payload) is tailed on `SessionStart`
+for early model attribution and on `SessionEnd` for authoritative
+token usage and cost.
+
+**Optional: Claude Code's native OpenTelemetry exporter.** If you'd
+rather not install the plugin, or you want a second signal source
+for cross-checking, you can point Claude Code's built-in OTel
+exporter at your OpenLit collector instead. Both paths can run side
+by side — OpenLit dedupes per `session.id` (Claude Code's authoritative
+cost / tokens from the native path win, while the hook path provides
+the repository / working folder context that Claude Code itself
+can't see).
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+export OTEL_EXPORTER_OTLP_ENDPOINT=$OPENLIT_OTLP_ENDPOINT
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $OPENLIT_API_KEY"
+# Optional: also enable traces (beta — gives per-tool / per-LLM-turn spans)
+export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
+export OTEL_TRACES_EXPORTER=otlp
+```
+
+See [Claude Code's monitoring docs](https://code.claude.com/docs/en/monitoring-usage)
+for the full environment-variable surface (managed settings, dynamic
+headers, cardinality controls, content-capture gates). When both
+paths are active OpenLit folds them into one chat thread; see the
+"Dual-path coalesce" section of the [architecture guide](./architecture)
+for the details.
 
 </Tab>
 <Tab title="Cursor">
@@ -107,10 +140,11 @@ transcript JSONL is tailed for token usage.
 openlit coding install --vendor=cursor
 ```
 
-Manifest path: `~/.cursor/plugins/openlit/`. All eight Cursor hook
-events are wired through a wrapper script
-(`scripts/run.sh`) that resolves the `openlit` binary on PATH and
-forwards the event payload.
+Manifest path: `~/.cursor/plugins/openlit/`. All Cursor hook events
+(sessionStart/End, prompt/response/thought, tool + shell + MCP
+phases, subagent lifecycle, file edits, preCompact) are wired
+through a wrapper script (`scripts/run.sh`) that resolves the
+`openlit` binary on PATH and forwards the event payload.
 
 </Tab>
 <Tab title="Codex">
@@ -120,9 +154,38 @@ openlit coding install --vendor=codex
 ```
 
 Manifest path: `~/.codex/plugins/openlit/`. Hooks wired:
-`SessionStart`, `UserPromptSubmit`, `PostToolUse`, `Stop`. The CLI
-also tails `~/.codex/sessions/*/rollout.jsonl` to pick up token
-counts that Codex emits asynchronously.
+`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+`Stop`. Codex scopes every hook to a `turn_id` so we emit one
+`coding_agent.llm.turn` span per turn (built on `Stop`), with the
+prompt, last-assistant message, and the per-tool calls produced
+during that turn folded into the OTel-canonical
+`gen_ai.input.messages` / `gen_ai.output.messages` envelopes.
+
+The CLI tails `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` on
+`Stop` to compute the per-turn token delta (input, output, cached,
+reasoning) from Codex's running `token_count` events, so cost
+rollups in OpenLit reflect the same per-turn deltas Codex itself
+records.
+
+Subagent linkage is read from the transcript's `session_meta`
+record at `SessionStart`; child turns inherit
+`coding_agent.agent.parent_id` automatically so the UI folds them
+under the spawning chat. Codex doesn't expose a `SessionEnd` event,
+so the session row updates incrementally as each `Stop` lands.
+
+If `codex features list` doesn't already enable `codex_hooks` on
+your build, add this to `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+
+[plugins."openlit"]
+enabled = true
+```
+
+Older Codex builds use `hooks = true` and `plugin_hooks = true`
+instead of `codex_hooks`.
 
 </Tab>
 <Tab title="GitHub Copilot CLI">
@@ -163,8 +226,9 @@ Dashboard tabs.
   drops freeform tool inputs likely to contain prose with PII.
 - **Personal vs Work classification** is stamped at hook time using
   the org's API-key and repo-origin allowlists (configured in OpenLit
-  Settings). Users can dispute the classification from the Sessions
-  tab; admins resolve disputes from the Governance board.
+  Settings). Disputes can be filed via
+  `POST /api/coding-agents/classification/dispute`; surfacing a
+  dispute button on the Sessions tab is planned for the next release.
 - **k=5 cohort floor**: viewer-tier accounts cannot see per-user
   attribution below five sessions. Admins can.
 

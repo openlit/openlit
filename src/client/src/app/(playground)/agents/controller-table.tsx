@@ -169,7 +169,7 @@ export default function ControllerTable({
 	const router = useRouter();
 
 	const handleClick = (row: ControllerInstance) => {
-		router.push(`/agents/controller/${row.instance_id}`);
+		router.push(`/agents/controller/${row.instance_id}?from=controllers`);
 	};
 
 	return (

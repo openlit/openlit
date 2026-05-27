@@ -62,6 +62,17 @@ function SelectionBridge({
 	return null;
 }
 
+function isCodingAgentTree(span?: TraceHeirarchySpan): boolean {
+	if (!span) return false;
+	if (span.SpanName?.startsWith("coding_agent.")) return true;
+	if (Array.isArray(span.children)) {
+		for (const child of span.children) {
+			if (isCodingAgentTree(child)) return true;
+		}
+	}
+	return false;
+}
+
 function SpanHierarchyExplorerInner({
 	hierarchySpanId,
 	selectedSpanId,
@@ -76,6 +87,10 @@ function SpanHierarchyExplorerInner({
 	const m = getMessage();
 	const [, updateRequest] = useRequest();
 	const [viewMode, setViewMode] = useState<ViewMode>("tree");
+	// User-driven view-mode changes win over the auto-default. We track
+	// whether the user has explicitly picked a view so we don't keep
+	// snapping back to "chat" every time the trace data refreshes.
+	const userPickedViewRef = useRef(false);
 	const { data, fireRequest, isLoading } = useFetchWrapper();
 
 	useEffect(() => {
@@ -96,6 +111,16 @@ function SpanHierarchyExplorerInner({
 		[record]
 	);
 	const spanCount = useMemo(() => countSpans(record), [record]);
+	const isCodingAgent = useMemo(() => isCodingAgentTree(record), [record]);
+
+	// Coding-agent traces default to the Chat view because that's the
+	// surface that renders the conversational signal (prompts, thinking,
+	// tools, edits, subagents). Plain LLM traces stay on the Tree view.
+	useEffect(() => {
+		if (isCodingAgent && !userPickedViewRef.current) {
+			setViewMode("chat");
+		}
+	}, [isCodingAgent]);
 
 	return (
 		<section
@@ -114,7 +139,10 @@ function SpanHierarchyExplorerInner({
 					{VIEW_MODES.map((mode) => (
 						<button
 							key={mode.key}
-							onClick={() => setViewMode(mode.key)}
+							onClick={() => {
+								userPickedViewRef.current = true;
+								setViewMode(mode.key);
+							}}
 							className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition-colors ${
 								viewMode === mode.key
 									? "bg-primary text-white"

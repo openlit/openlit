@@ -49,13 +49,43 @@ function escape(value: string): string {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// Wire-format sort keys for the Sessions tab. Mapped to ClickHouse
+// columns via SESSIONS_SORT_COLUMNS below; `latest` is the default
+// and matches the historic ORDER BY started_at DESC behaviour.
+export type CodingSessionsSortBy =
+	| "latest"
+	| "duration"
+	| "cost"
+	| "tokens"
+	| "tool_calls";
+
+const SESSIONS_SORT_COLUMNS: Record<CodingSessionsSortBy, string> = {
+	latest: "started_at",
+	duration: "duration_ms",
+	cost: "cost_usd",
+	tokens: "total_tokens",
+	tool_calls: "tool_call_count",
+};
+
 export interface ListSessionsOptions {
 	limit?: number;
 	cursor?: string | null;
 	vendor?: string | null;
+	user?: string | null;
 	classification?: CodingAgentClassification | null;
 	since?: Date | null;
 	until?: Date | null;
+	// `offset` is the alternative pagination model used by the new
+	// telemetry signal-list (it sends `offset/limit` rather than the
+	// cursor convention). When set, `cursor` is ignored.
+	offset?: number;
+	// When `withTotal` is true the helper runs an extra count(*) query
+	// so the caller can render a total badge on the table.
+	withTotal?: boolean;
+	// Sort surface for the Sessions tab toolbar. Keys map to columns
+	// of the `sessions_raw` CTE — see `SESSIONS_SORT_COLUMNS`.
+	sortBy?: CodingSessionsSortBy;
+	sortDir?: "asc" | "desc";
 }
 
 export interface CodingAgentSessionRow {
@@ -72,6 +102,45 @@ export interface CodingAgentSessionRow {
 	classification_reason: string;
 	repo_url: string;
 	repo_dirty: boolean;
+	// Branch name (`vcs.ref.head.name`). Lets the session row show
+	// "openlit/openlit @ feature/x" without opening the trace detail.
+	branch: string;
+	// Top model used in the session (most-recent gen_ai.request.model
+	// across the session's spans). Empty when no LLM/tool span carried
+	// a model attribute.
+	model: string;
+	// Aggregate token totals — sumed across LLM-turn spans. Most CLI
+	// adapters set both halves; Cursor only emits output tokens for
+	// some events so input may be 0 when the upstream payload didn't
+	// include it.
+	input_tokens: number;
+	output_tokens: number;
+	total_tokens: number;
+	// `trace_id` is the OTel TraceId every span in this session shares.
+	// The CLI derives it deterministically from (session_id, vendor)
+	// so all spans for the same (chat, vendor) pair land in the same
+	// trace across separate hook processes.
+	trace_id: string;
+	// `session_root_span_id` is the SpanId we open in TraceDetailView.
+	// The CLI stamps a deterministic SpanId on the `coding_agent.session`
+	// root span; this column prefers that span and falls back to the
+	// chronologically-first child if no root span was emitted yet.
+	session_root_span_id: string;
+	// Human-readable session label derived from the first user prompt
+	// (truncated). When no prompt is captured (capture mode is
+	// metadata-only) this is empty and the row falls back to vendor +
+	// short session id.
+	chat_title: string;
+	// Latest permission mode (Cursor's composer_mode: agent / ask /
+	// plan; Claude Code: default / plan / acceptEdits / etc.). The
+	// value is the most recent observed across the session, so a
+	// row's mode chip reflects what the agent is currently set to.
+	permission_mode: string;
+	// Working folder (cwd) the agent is operating in. Surfaced as a
+	// short trailing path (`/openlit/src`) on the row and as a full
+	// pill on the trace-detail header.
+	working_dir: string;
+	working_dir_label: string;
 }
 
 export interface CodingAgentLLMTurnRow {
@@ -140,6 +209,13 @@ export interface CodingAgentSessionDetail extends CodingAgentSessionRow {
 	tool_calls: CodingAgentToolCallRow[];
 	edits: CodingAgentEditRow[];
 	subagents: CodingAgentSubagentRow[];
+
+	// E6: when one of the auxiliary panel queries fails (e.g. tools
+	// list, edits, subagents) we still return the rest of the
+	// session. The UI uses this list to surface a warning banner for
+	// the panel(s) that didn't load instead of silently showing an
+	// empty section that looks like "no data".
+	partial_errors?: string[];
 }
 
 /**
@@ -155,15 +231,109 @@ export interface CodingAgentSessionDetail extends CodingAgentSessionRow {
  * attribute when present, otherwise count `coding_agent.tool.call`
  * spans.
  */
-const SESSION_BASE_COLUMNS = `
-	SpanAttributes['${CODING_AGENT_ATTR.sessionId}']                    AS session_id,
+// User identity. The CLI hook subcommand resolves the canonical
+// email-shaped identity BEFORE booting the OTel SDK (Cursor's
+// `user_email`, Claude Code's `~/.claude.json#oauthAccount.emailAddress`,
+// Codex's `~/.codex/auth.json` JWT, or `git config user.email`) and
+// stamps it as `gen_ai.user.name` on every emitted span. We also
+// accept Claude Code's native `user.email` resource attribute (set
+// when `CLAUDE_CODE_ENABLE_TELEMETRY=1`) for users who haven't
+// installed the openlit plugin.
+//
+// We deliberately do NOT fall through to `service.name` here — that
+// would surface an agent identifier ("claude-code") in the user
+// column when identity resolution misses, which produced confusing
+// "claude-code" user rows in the hub.
+const USER_EXPR = `
+	coalesce(
+		nullIf(any(SpanAttributes['${GEN_AI_ATTR.userName}']), ''),
+		nullIf(any(ResourceAttributes['${GEN_AI_ATTR.userName}']), ''),
+		nullIf(any(ResourceAttributes['user.email']), ''),
+		nullIf(any(SpanAttributes['user.email']), ''),
+		'unknown'
+	)
+`;
+
+// Per-span vendor expression: resolves a SINGLE span to its agent
+// identity. Used in the GROUP BY so a chat id that legitimately
+// hosts spans from two vendors (e.g. Claude Code launched inside a
+// Cursor terminal — both hooks fire under the host's chat id) folds
+// into TWO rows, one per vendor, instead of one collapsed row whose
+// "winning" vendor depends on which side emitted more spans. The
+// user-facing contract is "cursor chat in cursor sessions, claude
+// code chats in claude code sessions no matter the terminal".
+//
+// Order:
+//   1. SpanAttributes['coding_agent.client'] — the per-span stamp
+//      adapters set on every emitted span (canonical).
+//   2. ResourceAttributes['gen_ai.agent.name'] — SDK-style stamp.
+//   3. ResourceAttributes['service.name'] — Claude Code's native OTel
+//      exporter sets this to "claude-code"; recognise it so users
+//      who only enable `CLAUDE_CODE_ENABLE_TELEMETRY=1` (no openlit
+//      plugin installed) still show up in the hub.
+const PER_SPAN_VENDOR_EXPR = `
 	coalesce(
 		nullIf(SpanAttributes['${CODING_AGENT_ATTR.client}'], ''),
-		SpanAttributes['${GEN_AI_ATTR.agentName}']
-	)                                                                  AS vendor,
-	SpanAttributes['${GEN_AI_ATTR.userName}']                          AS user,
-	formatDateTime(min(Timestamp), '%Y-%m-%dT%H:%M:%SZ')               AS started_at,
-	formatDateTime(max(Timestamp), '%Y-%m-%dT%H:%M:%SZ')               AS ended_at,
+		nullIf(ResourceAttributes['${GEN_AI_ATTR.agentName}'], ''),
+		nullIf(ResourceAttributes['service.name'], ''),
+		'unknown'
+	)
+`;
+// VENDOR_EXPR resolves the AGGREGATED vendor for a session group
+// after the GROUP BY (chat_id, per_span_vendor) split. Inside the
+// group every span has the same vendor by construction, so any()
+// is enough — we keep the coalesce only as defence-in-depth against
+// a single malformed span in the bucket.
+const VENDOR_EXPR = `
+	coalesce(
+		nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.client}']), ''),
+		nullIf(any(ResourceAttributes['${GEN_AI_ATTR.agentName}']), ''),
+		nullIf(any(ResourceAttributes['service.name']), ''),
+		'unknown'
+	)
+`;
+
+// E1 deferral note: a coding_agent_sessions ReplacingMergeTree
+// materialized view would speed up the Sessions list at ~1M+ spans
+// per day, but in beta we don't have that volume yet and the GROUP BY
+// over `otel_traces` is fast enough (sub-second on the dev set). When
+// we ship the MV, change `OTEL_TRACES_TABLE` to point at it and rely
+// on the chat-id rollup already in SESSION_BASE_COLUMNS.
+
+// CHAT_ID_EXPR resolves a span to its chat-thread identifier:
+//   1. If a parent_id resource attribute is set, this span is from a
+//      subagent and we fold it under the parent's chat. The CLI stamps
+//      `coding_agent.agent.parent_id` as a resource attribute on every
+//      hook process that knows it's running inside a subagent (Cursor
+//      reports `parent_conversation_id` on subagent payloads).
+//   2. Otherwise the span belongs to its own chat thread, keyed by
+//      `coding_agent.session.id`.
+//   3. Claude Code's native OTel exporter (when
+//      `CLAUDE_CODE_ENABLE_TELEMETRY=1`) puts its identifier under
+//      `session.id` directly. We fall through to it so native-only
+//      installs still get a stable chat row.
+// Used in tandem with PER_SPAN_VENDOR_EXPR as the (chat_id, vendor)
+// rollup key: two vendors firing under the same chat id (Claude Code
+// launched inside a Cursor terminal) fold into TWO rows so each
+// agent's chat shows up under its own vendor regardless of which
+// editor hosted it.
+const CHAT_ID_EXPR = `
+	coalesce(
+		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
+		nullIf(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
+		nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+		nullIf(SpanAttributes['session.id'], ''),
+		nullIf(ResourceAttributes['session.id'], '')
+	)
+`;
+
+const SESSION_BASE_COLUMNS = `
+	${CHAT_ID_EXPR}                                                    AS session_id,
+	${VENDOR_EXPR}                                                     AS vendor,
+	${USER_EXPR}                                                       AS user,
+	formatDateTime(min(Timestamp), '%Y-%m-%dT%H:%i:%SZ')               AS started_at,
+	formatDateTime(max(Timestamp), '%Y-%m-%dT%H:%i:%SZ')               AS ended_at,
 	greatest(
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
 		toInt64(toUnixTimestamp64Milli(max(Timestamp)) - toUnixTimestamp64Milli(min(Timestamp)))
@@ -176,11 +346,123 @@ const SESSION_BASE_COLUMNS = `
 		toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
 		sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
 	)                                                                  AS cost_usd,
-	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.sessionOutcome}']), ''), 'unknown') AS outcome,
+	-- Outcome: pick the LATEST non-empty value, not just any(). Stop
+	-- events on Claude Code and Codex stamp "completed" once per turn,
+	-- and SessionEnd (when it fires on CC) stamps the terminal verdict
+	-- like "abandoned_with_change" / "cancelled". We want the terminal
+	-- verdict to win — that only happens if we sort by Timestamp. With
+	-- plain any() the row could permanently latch onto an early
+	-- "completed" even after the user cancelled.
+	coalesce(
+		nullIf(
+			argMaxIf(
+				SpanAttributes['${CODING_AGENT_ATTR.sessionOutcome}'],
+				Timestamp,
+				notEmpty(SpanAttributes['${CODING_AGENT_ATTR.sessionOutcome}'])
+			),
+			''
+		),
+		'unknown'
+	) AS outcome,
 	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
 	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}']), ''), 'no_signal') AS classification_reason,
-	any(SpanAttributes['${VCS_ATTR.repoUrl}'])                         AS repo_url,
-	if(any(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}']) = 'true', 1, 0) AS repo_dirty
+	-- VCS metadata. Span-level attrs win when present (the session
+	-- root has them); otherwise we fall through to the resource attrs
+	-- the CLI now stamps on every span in the same process so child
+	-- spans (llm.turn / tool.call) still surface the repo + branch.
+	coalesce(
+		nullIf(any(SpanAttributes['${VCS_ATTR.repoUrl}']), ''),
+		nullIf(any(ResourceAttributes['${VCS_ATTR.repoUrl}']), '')
+	)                                                                  AS repo_url,
+	coalesce(
+		nullIf(any(SpanAttributes['${VCS_ATTR.headRef}']), ''),
+		nullIf(any(ResourceAttributes['${VCS_ATTR.headRef}']), '')
+	)                                                                  AS branch,
+	if(any(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}']) = 'true', 1, 0) AS repo_dirty,
+	-- Latest model used by the session (argMax keeps the most recent
+	-- non-empty value across all child spans).
+	argMaxIf(
+		SpanAttributes['${GEN_AI_ATTR.requestModel}'],
+		Timestamp,
+		notEmpty(SpanAttributes['${GEN_AI_ATTR.requestModel}'])
+	)                                                                  AS model,
+	-- Token totals summed over LLM-turn spans (where they live).
+	toInt64(sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']))) AS input_tokens,
+	toInt64(sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))) AS output_tokens,
+	toInt64(
+		sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])) +
+		sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))
+	)                                                                  AS total_tokens,
+	-- TraceId for the session. The CLI derives it deterministically
+	-- from (session_id, vendor) so every span in the same (chat,
+	-- vendor) group shares one TraceId — any() picks the same value
+	-- across the group. We still prefer the session-root span's
+	-- TraceId explicitly so reads stay deterministic if a future
+	-- regression breaks the deterministic derivation for child spans.
+	coalesce(
+		nullIf(anyIf(TraceId, SpanName = '${CODING_AGENT_SPAN_SESSION}'), ''),
+		argMax(TraceId, Timestamp)
+	)                                                                  AS trace_id,
+	-- SpanId we open in TraceDetailView. Prefer the explicit
+	-- session-root span when present; otherwise fall back to the
+	-- chronologically-first child span so the detail page is always
+	-- reachable, even when sessionEnd never fired.
+	coalesce(
+		nullIf(anyIf(SpanId, SpanName = '${CODING_AGENT_SPAN_SESSION}'), ''),
+		argMin(SpanId, Timestamp)
+	)                                                                  AS session_root_span_id,
+	-- F8: chat_title used to derive a title from the first user
+	-- prompt, but the preview turned out to look bad in the row
+	-- caption (truncated mid-sentence, raw markdown) and the row
+	-- already shows vendor + short session id which is enough. We
+	-- still emit the column as an empty string so the downstream
+	-- type and column renderer don't change shape — the renderer
+	-- falls through to "<vendor> session" automatically.
+	''                                                                 AS chat_title,
+	-- Latest permission mode seen in the session (composer_mode for
+	-- Cursor, permission_mode for Claude Code). argMaxIf keeps the
+	-- most recent non-empty value across all child spans, so a
+	-- mid-session toggle is reflected on the row immediately.
+	-- Fall through to the resource attribute the CLI stamps for
+	-- short-lived hook invocations where the session-root span isn't
+	-- in this batch.
+	coalesce(
+		nullIf(
+			argMaxIf(
+				SpanAttributes['${CODING_AGENT_ATTR.policyPermissionMode}'],
+				Timestamp,
+				notEmpty(SpanAttributes['${CODING_AGENT_ATTR.policyPermissionMode}'])
+			),
+			''
+		),
+		nullIf(any(ResourceAttributes['${CODING_AGENT_ATTR.policyPermissionMode}']), ''),
+		''
+	)                                                                  AS permission_mode,
+	-- Working folder. The session-root span carries it directly; we
+	-- fall through to any tool-call span's code.cwd and finally to
+	-- the resource attribute the CLI stamps on every span in the
+	-- same process so child spans expose it too. The label is just
+	-- the trailing 2 path segments so the row stays compact.
+	coalesce(
+		nullIf(anyIf(SpanAttributes['code.cwd'], SpanName = '${CODING_AGENT_SPAN_SESSION}'), ''),
+		nullIf(anyIf(SpanAttributes['code.cwd'], notEmpty(SpanAttributes['code.cwd'])), ''),
+		nullIf(any(ResourceAttributes['code.cwd']), ''),
+		''
+	)                                                                  AS working_dir,
+	arrayStringConcat(
+		arraySlice(
+			arrayFilter(s -> s != '', splitByChar('/',
+				coalesce(
+					nullIf(anyIf(SpanAttributes['code.cwd'], SpanName = '${CODING_AGENT_SPAN_SESSION}'), ''),
+					nullIf(anyIf(SpanAttributes['code.cwd'], notEmpty(SpanAttributes['code.cwd'])), ''),
+					nullIf(any(ResourceAttributes['code.cwd']), ''),
+					''
+				)
+			)),
+			-2
+		),
+		'/'
+	)                                                                  AS working_dir_label
 `;
 
 /**
@@ -194,7 +476,25 @@ const SESSION_BASE_COLUMNS = `
  *   - Span name in CODING_AGENT_SPAN_NAMES so unrelated traces don't
  *     leak in.
  */
-function whereScope(opts?: { since?: Date | null; until?: Date | null }) {
+// whereScope is the canonical WHERE block for every coding-agents
+// read query. Org isolation today happens at the ClickHouse layer
+// (one DB per org, picked by `dataCollector`), so we don't emit an
+// `organization.id = ...` filter here unless the CLI has started
+// stamping the resource attribute AND the deployment has opted
+// into the extra filter via `OPENLIT_REQUIRE_ORG_FILTER=1`.
+//
+// E5 placeholder: passing `auth` lets callers stamp the extra
+// filter the day the CLI ships the resource attribute, without
+// another query rewrite. The `requireOrgFilter` gate keeps the
+// behaviour identical for existing self-host deployments where the
+// CLI hasn't been upgraded yet (those would otherwise return zero
+// rows for sessions emitted before the CLI started stamping).
+const ORG_ID_RESOURCE_ATTR = "openlit.organization.id";
+function whereScope(opts?: {
+	since?: Date | null;
+	until?: Date | null;
+	auth?: CodingAgentAuth | null;
+}) {
 	const since = opts?.since
 		? `AND Timestamp >= parseDateTimeBestEffort('${escape(opts.since.toISOString())}')`
 		: "";
@@ -202,17 +502,33 @@ function whereScope(opts?: { since?: Date | null; until?: Date | null }) {
 		? `AND Timestamp <= parseDateTimeBestEffort('${escape(opts.until.toISOString())}')`
 		: "";
 
+	const requireOrgFilter =
+		process.env.OPENLIT_REQUIRE_ORG_FILTER === "1" ||
+		process.env.OPENLIT_REQUIRE_ORG_FILTER === "true";
+	const orgId = opts?.auth?.organizationId;
+	const orgScope =
+		requireOrgFilter && orgId
+			? `AND coalesce(
+					nullIf(ResourceAttributes['${ORG_ID_RESOURCE_ATTR}'], ''),
+					nullIf(SpanAttributes['${ORG_ID_RESOURCE_ATTR}'], ''),
+					''
+				) = '${escape(orgId)}'`
+			: "";
+
 	return `
 		WHERE SpanName IN (${CODING_AGENT_SPAN_NAMES.map((n) => `'${n}'`).join(", ")})
 		AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'])
 		${since}
 		${until}
+		${orgScope}
 	`;
 }
 
 /**
  * List recent coding-agent sessions for the active org/database.
  * Cursor is the started_at timestamp of the last row (descending paging).
+ * Pass `offset` instead of `cursor` to get classic pagination (the new
+ * `<ObservabilitySignalList>` uses offset/limit).
  */
 export async function listSessions(
 	auth: CodingAgentAuth,
@@ -220,52 +536,120 @@ export async function listSessions(
 ): Promise<{
 	rows: CodingAgentSessionRow[];
 	nextCursor: string | null;
+	total: number | null;
 }> {
 	const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
-	const cursorClause = opts.cursor
-		? `HAVING started_at < '${escape(opts.cursor)}'`
+	const offset = Math.max(opts.offset ?? 0, 0);
+	const useOffset = typeof opts.offset === "number";
+	const cursorClause = !useOffset && opts.cursor
+		? `WHERE started_at < '${escape(opts.cursor)}'`
 		: "";
-	const vendorClause = opts.vendor
-		? `AND coalesce(nullIf(SpanAttributes['${CODING_AGENT_ATTR.client}'], ''), SpanAttributes['${GEN_AI_ATTR.agentName}']) = '${escape(opts.vendor)}'`
-		: "";
-	const classificationClause = opts.classification
-		? `AND coalesce(nullIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], ''), 'unknown') = '${escape(opts.classification)}'`
+	// Filters are applied AFTER aggregation so the coalesced
+	// vendor/user values are filtered correctly (the same coalesce
+	// chain that produces the row is what we filter on). This avoids
+	// the previous bug where filtering on user='alice' rejected rows
+	// where alice's identity only lived on `user.email` or fell
+	// through to the `service.name` fallback.
+	const havingClauses: string[] = [];
+	if (opts.vendor) {
+		havingClauses.push(`vendor = '${escape(opts.vendor)}'`);
+	}
+	if (opts.user) {
+		havingClauses.push(`user = '${escape(opts.user)}'`);
+	}
+	if (opts.classification) {
+		havingClauses.push(`classification = '${escape(opts.classification)}'`);
+	}
+	const havingClause = havingClauses.length
+		? `HAVING ${havingClauses.join(" AND ")}`
 		: "";
 
-	const query = `
+	// Cursor pagination presumes a stable order on `started_at` —
+	// we only honor a custom sort when callers use offset pagination.
+	const sortBy: CodingSessionsSortBy = useOffset
+		? opts.sortBy || "latest"
+		: "latest";
+	const sortDir = opts.sortDir === "asc" ? "ASC" : "DESC";
+	const orderColumn = SESSIONS_SORT_COLUMNS[sortBy] || "started_at";
+	const orderClause = `ORDER BY ${orderColumn} ${sortDir}, started_at DESC`;
+
+	const sessionsRawCte = `
 		WITH sessions_raw AS (
 			SELECT
 				${SESSION_BASE_COLUMNS}
 			FROM ${OTEL_TRACES_TABLE}
-			${whereScope({ since: opts.since ?? null, until: opts.until ?? null })}
-			${vendorClause}
-			${classificationClause}
-			GROUP BY
-				SpanAttributes['${CODING_AGENT_ATTR.sessionId}'],
-				SpanAttributes['${CODING_AGENT_ATTR.client}'],
-				SpanAttributes['${GEN_AI_ATTR.agentName}'],
-				SpanAttributes['${GEN_AI_ATTR.userName}']
+			${whereScope({
+				since: opts.since ?? null,
+				until: opts.until ?? null,
+				auth,
+			})}
+			GROUP BY ${CHAT_ID_EXPR}, ${PER_SPAN_VENDOR_EXPR}
+			${havingClause}
 		)
-		SELECT *
-		FROM sessions_raw
-		${cursorClause}
-		ORDER BY started_at DESC
-		LIMIT ${limit + 1}
 	`;
 
-	const { data, err } = await dataCollector({ query });
+	const dataQuery = useOffset
+		? `
+			${sessionsRawCte}
+			SELECT *
+			FROM sessions_raw
+			${cursorClause}
+			${orderClause}
+			LIMIT ${limit}
+			OFFSET ${offset}
+		`
+		: `
+			${sessionsRawCte}
+			SELECT *
+			FROM sessions_raw
+			${cursorClause}
+			ORDER BY started_at DESC
+			LIMIT ${limit + 1}
+		`;
+
+	const dataPromise = dataCollector({ query: dataQuery });
+	const totalPromise = opts.withTotal
+		? dataCollector({
+			query: `
+				${sessionsRawCte}
+				SELECT toInt64(count()) AS total FROM sessions_raw
+			`,
+		})
+		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
+
+	const [{ data, err }, { data: totalData }] = await Promise.all([
+		dataPromise,
+		totalPromise,
+	]);
 	if (err) throw err;
 	const rawRows = (data || []) as CodingAgentSessionRow[];
 
-	const sliced = rawRows.slice(0, limit);
-	const nextCursor =
-		rawRows.length > limit ? sliced[sliced.length - 1]?.started_at || null : null;
+	let sliced: CodingAgentSessionRow[];
+	let nextCursor: string | null;
+	if (useOffset) {
+		sliced = rawRows;
+		nextCursor = null;
+	} else {
+		sliced = rawRows.slice(0, limit);
+		nextCursor =
+			rawRows.length > limit
+				? sliced[sliced.length - 1]?.started_at || null
+				: null;
+	}
 
-	const projected = await applyCohortFloor(auth, sliced);
+	const projected = await applyCohortFloor(auth, sliced, {
+		since: opts.since ?? null,
+		until: opts.until ?? null,
+	});
+	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
+	const total = opts.withTotal
+		? Number(totalRow[0]?.total ?? 0)
+		: null;
 
 	return {
 		rows: projected,
 		nextCursor,
+		total,
 	};
 }
 
@@ -277,22 +661,23 @@ export async function getSession(
 
 	const sid = escape(sessionId);
 
+	// Chat-id scope: the row we're loading may be a parent chat whose
+	// subagents pushed spans into different `session_id`s. We match on
+	// CHAT_ID_EXPR (= coalesce(parent_id, session_id)) so spans from
+	// every session belonging to this chat thread land in the rollup.
+	const chatScope = `(${CHAT_ID_EXPR}) = '${sid}'`;
+
 	const baseQuery = `
 		SELECT
 			${SESSION_BASE_COLUMNS},
-			any(SpanAttributes['${GEN_AI_ATTR.requestModel}'])                AS model,
 			any(SpanAttributes['${VCS_ATTR.headRef}'])                        AS branch,
 			any(SpanAttributes['${VCS_ATTR.headRevision}'])                   AS commit_sha,
 			coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.policyPermissionMode}']), ''), 'unknown') AS policy_permission_mode,
 			coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.contentCaptureMode}']), ''), 'unknown') AS content_capture_mode
 		FROM ${OTEL_TRACES_TABLE}
-		${whereScope()}
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
-		GROUP BY
-			SpanAttributes['${CODING_AGENT_ATTR.sessionId}'],
-			SpanAttributes['${CODING_AGENT_ATTR.client}'],
-			SpanAttributes['${GEN_AI_ATTR.agentName}'],
-			SpanAttributes['${GEN_AI_ATTR.userName}']
+		${whereScope({ auth })}
+		AND ${chatScope}
+		GROUP BY ${CHAT_ID_EXPR}
 		LIMIT 1
 	`;
 
@@ -302,7 +687,7 @@ export async function getSession(
 			CAST(count() AS INTEGER) AS calls
 		FROM ${OTEL_TRACES_TABLE}
 		WHERE SpanName = '${escape("coding_agent.tool.call")}'
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		AND ${chatScope}
 		AND notEmpty(SpanAttributes['${GEN_AI_ATTR.toolName}'])
 		GROUP BY tool_name
 		ORDER BY calls DESC
@@ -314,7 +699,7 @@ export async function getSession(
 			SpanAttributes['${CODING_AGENT_ATTR.mcpServerName}'] AS server_name,
 			CAST(count() AS INTEGER) AS calls
 		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		WHERE ${chatScope}
 		AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.mcpServerName}'])
 		GROUP BY server_name
 		ORDER BY calls DESC
@@ -339,7 +724,7 @@ export async function getSession(
 			SpanAttributes['coding_agent.llm.turn.attachment.paths']    AS attachment_paths_raw
 		FROM ${OTEL_TRACES_TABLE}
 		WHERE SpanName = '${CODING_AGENT_SPAN_LLM_TURN}'
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		AND ${chatScope}
 		ORDER BY Timestamp ASC
 		LIMIT 500
 	`;
@@ -361,7 +746,7 @@ export async function getSession(
 			if(SpanAttributes['coding_agent.tool.sandboxed'] = 'true', 1, 0) AS sandboxed
 		FROM ${OTEL_TRACES_TABLE}
 		WHERE SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		AND ${chatScope}
 		ORDER BY Timestamp ASC
 		LIMIT 500
 	`;
@@ -378,7 +763,7 @@ export async function getSession(
 			SpanAttributes['${CODING_AGENT_ATTR.editLanguage}']         AS language
 		FROM ${OTEL_TRACES_TABLE}
 		WHERE SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		AND ${chatScope}
 		ORDER BY Timestamp ASC
 		LIMIT 500
 	`;
@@ -396,19 +781,19 @@ export async function getSession(
 			SpanAttributes['coding_agent.subagent.modified_files']      AS modified_files_raw
 		FROM ${OTEL_TRACES_TABLE}
 		WHERE SpanName = '${CODING_AGENT_SPAN_SUBAGENT}'
-		AND SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+		AND ${chatScope}
 		ORDER BY Timestamp ASC
 		LIMIT 100
 	`;
 
 	const [
 		{ data: baseData, err: baseErr },
-		{ data: toolsData },
-		{ data: mcpData },
-		{ data: turnsData },
-		{ data: toolCallsData },
-		{ data: editsData },
-		{ data: subagentsData },
+		{ data: toolsData, err: toolsErr },
+		{ data: mcpData, err: mcpErr },
+		{ data: turnsData, err: turnsErr },
+		{ data: toolCallsData, err: toolCallsErr },
+		{ data: editsData, err: editsErr },
+		{ data: subagentsData, err: subagentsErr },
 	] = await Promise.all([
 		dataCollector({ query: baseQuery }),
 		dataCollector({ query: toolsQuery }),
@@ -419,10 +804,30 @@ export async function getSession(
 		dataCollector({ query: subagentsQuery }),
 	]);
 
+	// E6: only the base query is required — without it the detail
+	// page has no row to render. Auxiliary queries each get a slot
+	// in `partial_errors` so the UI can flag the broken panel
+	// instead of misleading the user with an empty section.
 	if (baseErr) throw baseErr;
+
+	const partialErrors: string[] = [];
+	const recordPartial = (panel: string, err: unknown) => {
+		if (!err) return;
+		const msg =
+			err instanceof Error ? err.message : typeof err === "string" ? err : "unknown";
+		// Keep the panel name in the message so the UI can render
+		// "Couldn't load <panel>" and we don't need a separate field.
+		console.error(`coding_agent.session_detail.partial_failed: ${panel}`, err);
+		partialErrors.push(`${panel}: ${msg}`);
+	};
+	recordPartial("tools", toolsErr);
+	recordPartial("mcp_servers", mcpErr);
+	recordPartial("turns", turnsErr);
+	recordPartial("tool_calls", toolCallsErr);
+	recordPartial("edits", editsErr);
+	recordPartial("subagents", subagentsErr);
 	const rows = (baseData || []) as Array<
 		CodingAgentSessionRow & {
-			model: string;
 			branch: string;
 			commit_sha: string;
 			policy_permission_mode: string;
@@ -435,6 +840,14 @@ export async function getSession(
 	const projected = await applyCohortFloor(auth, [detail]);
 	const safe = projected[0];
 	if (!safe) return null;
+
+	// When the viewer would have been masked by cohort floor at the
+	// list level (`user === 'low_cohort'`), strip body text from
+	// turns/tool calls too. Without this an attacker could click into
+	// a low-cohort row from a chart and see the user's prompts —
+	// defeating the privacy guarantee the list enforces.
+	const masked = safe.user === "low_cohort" && auth.role !== "admin";
+	const scrubBody = (s: string): string => (masked ? "" : s);
 
 	return {
 		...safe,
@@ -449,6 +862,9 @@ export async function getSession(
 			CodingAgentLLMTurnRow & { attachment_paths_raw?: string }
 		>).map((t) => ({
 			...t,
+			prompt: scrubBody(t.prompt || ""),
+			response: scrubBody(t.response || ""),
+			thought: scrubBody(t.thought || ""),
 			attachment_paths: parseStringSlice(t.attachment_paths_raw),
 		})),
 		tool_calls: ((toolCallsData || []) as Array<
@@ -458,6 +874,9 @@ export async function getSession(
 			}
 		>).map((t) => ({
 			...t,
+			args: scrubBody(t.args || ""),
+			result: scrubBody(t.result || ""),
+			command: scrubBody(t.command || ""),
 			errored: Boolean(Number(t.errored)),
 			sandboxed: Boolean(Number(t.sandboxed)),
 		})),
@@ -468,6 +887,7 @@ export async function getSession(
 			...s,
 			modified_files: parseStringSlice(s.modified_files_raw),
 		})),
+		partial_errors: partialErrors.length ? partialErrors : undefined,
 	};
 }
 
@@ -499,35 +919,408 @@ function parseStringSlice(raw: string | undefined | null): string[] {
 		.filter(Boolean);
 }
 
+export interface CodingUserDigest {
+	user: string;
+	first_seen: string;
+	last_seen: string;
+	session_count: number;
+	tool_call_count: number;
+	cost_usd: number;
+	classification_work: number;
+	classification_personal: number;
+	classification_unknown: number;
+	classification_disputed: number;
+	top_vendors: Array<{ vendor: string; sessions: number }>;
+}
+
+export interface CodingUserRow {
+	user: string;
+	last_seen: string;
+	session_count: number;
+	tool_call_count: number;
+	cost_usd: number;
+	// Sum of input + output gen_ai tokens across the user's sessions.
+	// Used by the directory's "tokens" sort and surfaced as a token
+	// chip on the row.
+	total_tokens: number;
+	top_vendor: string;
+	classification_work: number;
+	classification_personal: number;
+}
+
+/**
+ * Sort modes the Users directory exposes. The wire format matches
+ * what `<CodingUsersTab>` sends in `runFilters.sortBy`.
+ */
+export type CodingUsersSortBy =
+	| "last_seen"
+	| "sessions"
+	| "tool_calls"
+	| "cost"
+	| "tokens"
+	| "work";
+
+interface UserDigestOptions {
+	since?: Date | null;
+	until?: Date | null;
+}
+
+/**
+ * Build a single user's roll-up suitable for the per-user page header.
+ * Respects the cohort floor — when the requested user has fewer than
+ * COHORT_K_FLOOR sessions and the caller is not an admin, we return
+ * `null` so the route can render a 404. We deliberately do NOT mask
+ * the user as "low_cohort" here because the caller already knows the
+ * exact user id; rendering a digest for it would defeat the floor.
+ */
+export async function getCodingUserDigest(
+	auth: CodingAgentAuth,
+	userName: string,
+	opts: UserDigestOptions = {}
+): Promise<CodingUserDigest | null> {
+	if (!userName) return null;
+	const safeUser = escape(userName);
+
+	// Match the row by the same coalesced user expression the
+	// projector uses, so we find users keyed by the request-user or
+	// service-name fallback in addition to the canonical user.name.
+	// We do this by aggregating once per session, computing the user
+	// using USER_EXPR, then keeping rows where it matches.
+	const sessionsCte = `
+		WITH per_session AS (
+			SELECT
+				SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] AS sid,
+				${USER_EXPR} AS user,
+				min(Timestamp) AS first_seen,
+				max(Timestamp) AS last_seen,
+				countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
+				-- Canonical per-session cost (greatest of the
+				-- authoritative session-end total and the sum of
+				-- per-turn estimates). Matches listSessions,
+				-- listCodingUsers, and the agents-hub materializer.
+				greatest(
+					toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
+					sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
+				) AS cost,
+				coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
+				${VENDOR_EXPR} AS vendor
+			FROM ${OTEL_TRACES_TABLE}
+			${whereScope({
+				since: opts.since ?? null,
+				until: opts.until ?? null,
+				auth,
+			})}
+			GROUP BY sid, ${PER_SPAN_VENDOR_EXPR}
+		)
+	`;
+
+	const digestQuery = `
+		${sessionsCte}
+		SELECT
+			'${safeUser}' AS user,
+			formatDateTime(min(first_seen), '%Y-%m-%dT%H:%i:%SZ') AS first_seen,
+			formatDateTime(max(last_seen), '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
+			toInt64(count())                                 AS session_count,
+			toInt64(sum(tool_calls))                         AS tool_call_count,
+			round(sumOrNull(cost), 4)                        AS cost_usd,
+			toInt64(countIf(classification = 'work'))        AS classification_work,
+			toInt64(countIf(classification = 'personal'))    AS classification_personal,
+			toInt64(countIf(classification = 'disputed'))    AS classification_disputed,
+			toInt64(countIf(classification = 'unknown'))     AS classification_unknown
+		FROM per_session
+		WHERE user = '${safeUser}'
+	`;
+
+	const vendorsQuery = `
+		${sessionsCte}
+		SELECT vendor, toInt64(count()) AS sessions
+		FROM per_session
+		WHERE user = '${safeUser}'
+		GROUP BY vendor
+		HAVING vendor != '' AND vendor != 'unknown'
+		ORDER BY sessions DESC
+		LIMIT 5
+	`;
+
+	const [{ data: digestData, err: digestErr }, { data: vendorsData }] =
+		await Promise.all([
+			dataCollector({ query: digestQuery }),
+			dataCollector({ query: vendorsQuery }),
+		]);
+	if (digestErr) throw digestErr;
+	const digestRow = (digestData as CodingUserDigest[] | undefined)?.[0];
+	if (!digestRow || !Number(digestRow.session_count)) return null;
+
+	const sessionCount = Number(digestRow.session_count || 0);
+	if (auth.role !== "admin" && sessionCount < COHORT_K_FLOOR) {
+		// Privacy floor — don't reveal a profile for a user who barely
+		// shows up. Treated as "not found" by the route.
+		return null;
+	}
+
+	return {
+		...digestRow,
+		session_count: sessionCount,
+		tool_call_count: Number(digestRow.tool_call_count || 0),
+		cost_usd: Number(digestRow.cost_usd || 0),
+		classification_work: Number(digestRow.classification_work || 0),
+		classification_personal: Number(digestRow.classification_personal || 0),
+		classification_unknown: Number(digestRow.classification_unknown || 0),
+		classification_disputed: Number(digestRow.classification_disputed || 0),
+		top_vendors: ((vendorsData as Array<{ vendor: string; sessions: number | string }>) || []).map(
+			(row) => ({
+				vendor: row.vendor,
+				sessions: Number(row.sessions || 0),
+			})
+		),
+	};
+}
+
+/**
+ * Org-wide list of coding-agent users. The directory tab uses this; we
+ * apply the same cohort floor — users below COHORT_K_FLOOR are
+ * collapsed into a single `low_cohort` row when the viewer isn't admin
+ * (matches the behavior of the sessions list).
+ */
+export interface ListCodingUsersOptions {
+	limit?: number;
+	offset?: number;
+	since?: Date | null;
+	until?: Date | null;
+	vendor?: string | null;
+	withTotal?: boolean;
+	sortBy?: CodingUsersSortBy;
+	sortDir?: "asc" | "desc";
+}
+
+// Maps the user-facing `sortBy` enum to the column expression in the
+// `users_raw` CTE. Centralised so it stays in lock-step with the
+// SELECT clause.
+const USERS_SORT_COLUMNS: Record<CodingUsersSortBy, string> = {
+	last_seen: "last_seen",
+	sessions: "session_count",
+	tool_calls: "tool_call_count",
+	cost: "cost_usd",
+	tokens: "total_tokens",
+	work: "classification_work",
+};
+
+export async function listCodingUsers(
+	auth: CodingAgentAuth,
+	opts: ListCodingUsersOptions = {}
+): Promise<{ rows: CodingUserRow[]; total: number | null }> {
+	const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+	const offset = Math.max(opts.offset ?? 0, 0);
+	const vendorClause = opts.vendor
+		? `AND vendor = '${escape(opts.vendor)}'`
+		: "";
+
+	const sortBy: CodingUsersSortBy = opts.sortBy || "last_seen";
+	const sortDir = opts.sortDir === "asc" ? "ASC" : "DESC";
+	const orderColumn = USERS_SORT_COLUMNS[sortBy] || "last_seen";
+	// Always tie-break by last_seen so "0 sessions" rows don't shuffle
+	// arbitrarily between requests.
+	const orderClause = `ORDER BY ${orderColumn} ${sortDir}, last_seen DESC`;
+
+	// Cohort floor applied IN SQL for non-admins. Previously this ran
+	// after LIMIT/OFFSET in JS, which meant low-volume users could
+	// land on page 1 then collapse into `low_cohort` after, skewing
+	// totals + pagination. Doing it inside the CTE keeps the page,
+	// total, and sort order consistent for the viewer.
+	const isAdmin = auth.role === "admin";
+	const cohortProjectExpr = isAdmin
+		? "user"
+		: `if(session_count < ${COHORT_K_FLOOR} AND user NOT IN ('unknown', ''), 'low_cohort', user)`;
+
+	// Two-stage CTE: compute one row per chat thread with the coalesced
+	// user/vendor identity, then aggregate by user. We bucket by
+	// chat_id (= parent_id when this is a subagent, else session_id)
+	// so a parent + N subagents counts as ONE session for the user,
+	// matching what the Sessions list shows them.
+	// Implementation note: ClickHouse inlines `WITH ... AS` CTEs and
+	// then bans aggregate-inside-aggregate (`max(formatDateTime(max(...)))`,
+	// `argMax(top_vendor, max(last_ts))`). We dodge this by:
+	//   1. Carrying the raw `max(Timestamp)` through as a plain
+	//      DateTime column (`*_last_ts`) and only formatting at the
+	//      outermost SELECT.
+	//   2. Aliasing each layer's aggregates with distinct names so the
+	//      inliner can't collapse them into nested aggregates.
+	//   3. Using subqueries instead of `WITH` so the plan stays
+	//      explicit even on older ClickHouse versions that inline
+	//      aggressively.
+	// The cohort collapse stays in SQL so it applies *before* LIMIT —
+	// otherwise low-volume users could land on page 1 then disappear
+	// after JS masking, breaking pagination.
+	const baseSubquery = `
+		FROM (
+			SELECT
+				${cohortProjectExpr} AS user,
+				max(per_user_last_ts) AS user_last_ts,
+				toInt64(sum(per_user_session_count)) AS session_count,
+				toInt64(sum(per_user_tool_calls)) AS tool_call_count,
+				round(sumOrNull(per_user_cost), 4) AS cost_usd,
+				toInt64(sum(per_user_tokens)) AS total_tokens,
+				argMax(per_user_top_vendor, per_user_last_ts) AS top_vendor,
+				toInt64(sum(per_user_class_work)) AS classification_work,
+				toInt64(sum(per_user_class_personal)) AS classification_personal
+			FROM (
+				SELECT
+					user AS user,
+					max(session_last_ts) AS per_user_last_ts,
+					toInt64(count()) AS per_user_session_count,
+					toInt64(sum(tool_calls)) AS per_user_tool_calls,
+					round(sumOrNull(cost), 4) AS per_user_cost,
+					toInt64(sumOrNull(tokens)) AS per_user_tokens,
+					argMax(vendor, session_last_ts) AS per_user_top_vendor,
+					toInt64(countIf(classification = 'work')) AS per_user_class_work,
+					toInt64(countIf(classification = 'personal')) AS per_user_class_personal
+				FROM (
+					SELECT
+						${CHAT_ID_EXPR} AS sid,
+						${USER_EXPR} AS user,
+						${VENDOR_EXPR} AS vendor,
+						max(Timestamp) AS session_last_ts,
+						countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
+						-- Canonical per-session cost: same formula
+						-- the Sessions list and the agents-hub
+						-- materializer use. Without the greatest()
+						-- the Users tab would silently lag behind
+						-- the authoritative session-end total (which
+						-- only lands on the session-root span at
+						-- SessionEnd) and the per-turn estimates
+						-- (gen_ai.usage.cost) would not agree with
+						-- what the Sessions list shows for the same
+						-- user.
+						greatest(
+							toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
+							sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
+						) AS cost,
+						sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])) +
+							sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))
+							AS tokens,
+						coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification
+					FROM ${OTEL_TRACES_TABLE}
+					${whereScope({
+						since: opts.since ?? null,
+						until: opts.until ?? null,
+						auth,
+					})}
+					GROUP BY sid, ${PER_SPAN_VENDOR_EXPR}
+				) per_session
+				WHERE user != ''
+					${vendorClause}
+				GROUP BY user
+				HAVING user != ''
+			) per_user
+			GROUP BY 1
+		) users_raw
+	`;
+
+	// users_raw exposes user_last_ts as a raw DateTime; format here so
+	// the ORDER BY can still sort on the raw column without triggering
+	// nested aggregates in the planner.
+	const dataQuery = `
+		SELECT
+			user,
+			formatDateTime(user_last_ts, '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
+			session_count,
+			tool_call_count,
+			cost_usd,
+			total_tokens,
+			top_vendor,
+			classification_work,
+			classification_personal
+		${baseSubquery}
+		${orderClause.replace(/last_seen/g, "user_last_ts")}
+		LIMIT ${limit}
+		OFFSET ${offset}
+	`;
+
+	const totalPromise = opts.withTotal
+		? dataCollector({
+			query: `SELECT toInt64(count()) AS total ${baseSubquery}`,
+		})
+		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
+
+	const [{ data, err }, { data: totalData }] = await Promise.all([
+		dataCollector({ query: dataQuery }),
+		totalPromise,
+	]);
+	if (err) throw err;
+
+	// Cohort floor is applied in SQL above; we just normalize types.
+	const rows = ((data as CodingUserRow[]) || []).map((row) => ({
+		...row,
+		session_count: Number(row.session_count || 0),
+		tool_call_count: Number(row.tool_call_count || 0),
+		cost_usd: Number(row.cost_usd || 0),
+		total_tokens: Number(row.total_tokens || 0),
+		classification_work: Number(row.classification_work || 0),
+		classification_personal: Number(row.classification_personal || 0),
+	}));
+
+	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
+	const total = opts.withTotal ? Number(totalRow[0]?.total ?? 0) : null;
+
+	return { rows, total };
+}
+
 /**
  * Replace `user` with the literal "low_cohort" when the user shows up
  * fewer than COHORT_K_FLOOR times in the working window AND the
  * caller is not an admin. Admin can always see the raw value (the
- * audit log captures the access). The window is "all data the
- * tenant has", which is conservative — a user who's been around for
- * months is fine even if they're inactive this quarter.
+ * audit log captures the access).
+ *
+ * Phase B3: the cohort window is bounded to the same `since`/`until`
+ * the caller asked about (default: 24h). Previously this scanned all
+ * of `otel_traces` which was both a privacy hazard (users active a
+ * month ago could be re-identified by a recent session) and a scale
+ * cost (full-table scan per list page).
  *
  * For v1 we run a single rollup count query once per call rather
  * than per-row to keep latency down.
  */
 async function applyCohortFloor<T extends { user: string }>(
 	auth: CodingAgentAuth,
-	rows: T[]
+	rows: T[],
+	opts: { since?: Date | null; until?: Date | null } = {}
 ): Promise<T[]> {
 	if (auth.role === "admin" || rows.length === 0) return rows;
 
-	const distinctUsers = Array.from(new Set(rows.map((r) => r.user).filter(Boolean)));
+	// Distinct user values to look up. We also exclude the
+	// "unknown" sentinel — it's already a privacy bucket; suppressing
+	// it further would just hide all rows for orgs whose CLI is
+	// pre-user-emit. Admin still sees raw rows above.
+	const distinctUsers = Array.from(
+		new Set(
+			rows
+				.map((r) => r.user)
+				.filter((u) => Boolean(u) && u !== "unknown" && u !== "low_cohort")
+		)
+	);
 	if (distinctUsers.length === 0) return rows;
 
 	const inList = distinctUsers.map((u) => `'${escape(u)}'`).join(", ");
+	// We count chat threads, not raw spans, using the SAME chat-id
+	// rollup the projector uses (parent_id → session_id). A user with
+	// 4 small subagents under 1 parent counts as 1 session, matching
+	// what the UI shows them.
 	const query = `
-		SELECT
-			SpanAttributes['${GEN_AI_ATTR.userName}'] AS user,
-			CAST(uniq(SpanAttributes['${CODING_AGENT_ATTR.sessionId}']) AS INTEGER) AS sessions
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_SESSION}'
-		AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'])
-		AND SpanAttributes['${GEN_AI_ATTR.userName}'] IN (${inList})
+		WITH per_session AS (
+			SELECT
+				${USER_EXPR} AS user,
+				${CHAT_ID_EXPR} AS sid
+			FROM ${OTEL_TRACES_TABLE}
+			${whereScope({
+				since: opts.since ?? null,
+				until: opts.until ?? null,
+				auth,
+			})}
+			GROUP BY sid, ${PER_SPAN_VENDOR_EXPR}
+		)
+		SELECT user, CAST(count() AS INTEGER) AS sessions
+		FROM per_session
+		WHERE user IN (${inList})
 		GROUP BY user
 	`;
 	const { data, err } = await dataCollector({ query });
@@ -538,7 +1331,7 @@ async function applyCohortFloor<T extends { user: string }>(
 	}
 
 	return rows.map((r) => {
-		if (!r.user) return r;
+		if (!r.user || r.user === "unknown" || r.user === "low_cohort") return r;
 		const c = counts.get(r.user) ?? 0;
 		if (c < COHORT_K_FLOOR) {
 			return { ...r, user: "low_cohort" } as T;
@@ -560,11 +1353,153 @@ async function applyCohortFloor<T extends { user: string }>(
  * fail, audit succeed — is rejected up front by throwing the dispute
  * error before we attempt the audit row.
  */
+// E4 hardening constants. Numbers are intentionally generous for
+// beta — the goal is to block trivial scripted abuse without
+// throttling legitimate UI activity. Tune downward if we observe
+// abuse in production.
+const DISPUTE_RATE_LIMIT_WINDOW_MIN = 60;
+const DISPUTE_RATE_LIMIT_MAX_PER_WINDOW = 20;
+
+export class DisputeError extends Error {
+	readonly code: "not_found" | "duplicate" | "rate_limited";
+	readonly status: number;
+	constructor(
+		code: DisputeError["code"],
+		status: number,
+		message: string
+	) {
+		super(message);
+		this.code = code;
+		this.status = status;
+	}
+}
+
+// sessionExists checks whether the chat-id rolled-up
+// session is actually visible. Org scoping is enforced by
+// `dataCollector` picking the per-org ClickHouse database (see
+// `whereScope` for the explanation), so we don't need to wrap the
+// org id in the SQL. We do still constrain to coding-agent span
+// names so a request can't probe arbitrary trace ids.
+async function disputeSessionExists(
+	_auth: CodingAgentAuth,
+	sessionId: string
+): Promise<boolean> {
+	const sid = escape(sessionId);
+	const query = `
+		SELECT 1 AS hit
+		FROM ${OTEL_TRACES_TABLE}
+		WHERE SpanName IN (${CODING_AGENT_SPAN_NAMES.map((n) => `'${n}'`).join(", ")})
+			AND Timestamp >= now() - INTERVAL 90 DAY
+			AND (
+				SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] = '${sid}'
+				OR ${CHAT_ID_EXPR.trim()} = '${sid}'
+			)
+		LIMIT 1
+	`;
+	const { data, err } = await dataCollector({ query });
+	if (err) {
+		// Treat lookup failure as "not present" — better to reject a
+		// dispute than to accept one that points at a non-existent
+		// session and leave the audit log polluted.
+		console.error("coding_agent.dispute.session_lookup_failed", err);
+		return false;
+	}
+	return Array.isArray(data) && data.length > 0;
+}
+
+// disputeAlreadyExists guards against duplicate open disputes from
+// the same user on the same session. We allow resubmission once a
+// previous dispute has been resolved (the admin reviewed and either
+// accepted or rejected it) so users can re-dispute after a policy
+// change, but not while one is still open.
+async function disputeAlreadyExists(
+	auth: CodingAgentAuth,
+	sessionId: string
+): Promise<boolean> {
+	const orgId = escape(auth.organizationId);
+	const userId = escape(auth.userId);
+	const sid = escape(sessionId);
+	const query = `
+		SELECT 1 AS hit
+		FROM ${CODING_AGENT_DISPUTES_TABLE}
+		WHERE organization_id = '${orgId}'
+			AND user_id = '${userId}'
+			AND session_id = '${sid}'
+			AND status = 'open'
+		LIMIT 1
+	`;
+	const { data, err } = await dataCollector({ query });
+	if (err) {
+		console.error("coding_agent.dispute.dedupe_lookup_failed", err);
+		return false;
+	}
+	return Array.isArray(data) && data.length > 0;
+}
+
+// disputeRateLimitExceeded asks ClickHouse rather than holding
+// in-memory state because the API runs on multiple Next.js workers
+// and an in-memory counter would be per-worker. The audit log is
+// the right place to count from — it's already append-only and
+// indexed on (organization_id, created_at).
+async function disputeRateLimitExceeded(
+	auth: CodingAgentAuth
+): Promise<boolean> {
+	const orgId = escape(auth.organizationId);
+	const userId = escape(auth.userId);
+	const query = `
+		SELECT count() AS n
+		FROM ${CODING_AGENT_AUDIT_LOG_TABLE}
+		WHERE organization_id = '${orgId}'
+			AND user_id = '${userId}'
+			AND action = 'coding_agent.classification.dispute'
+			AND created_at >= now() - INTERVAL ${DISPUTE_RATE_LIMIT_WINDOW_MIN} MINUTE
+	`;
+	const { data, err } = await dataCollector({ query });
+	if (err) {
+		console.error("coding_agent.dispute.rate_limit_lookup_failed", err);
+		return false;
+	}
+	const rows = data as Array<{ n?: number | string }> | undefined;
+	const n = Number(rows?.[0]?.n ?? 0);
+	return n >= DISPUTE_RATE_LIMIT_MAX_PER_WINDOW;
+}
+
 export async function submitClassificationDispute(
 	auth: CodingAgentAuth,
 	input: CodingAgentClassificationDispute
 ): Promise<{ id: string }> {
-	const id = randomUUID();
+	// Order matters: existence first (cheap rejection of probes),
+	// dedupe next (prevents flooding the table), rate limit last
+	// (most expensive query, only run if the request is otherwise
+	// valid).
+	const exists = await disputeSessionExists(auth, input.sessionId);
+	if (!exists) {
+		throw new DisputeError(
+			"not_found",
+			404,
+			"Session does not exist or is outside your access scope"
+		);
+	}
+
+	const duplicate = await disputeAlreadyExists(auth, input.sessionId);
+	if (duplicate) {
+		throw new DisputeError(
+			"duplicate",
+			409,
+			"An open dispute already exists for this session"
+		);
+	}
+
+	const limited = await disputeRateLimitExceeded(auth);
+	if (limited) {
+		throw new DisputeError(
+			"rate_limited",
+			429,
+			`Too many disputes in the last ${DISPUTE_RATE_LIMIT_WINDOW_MIN} minutes`
+		);
+	}
+
+	const id = crypto.randomUUID();
 
 	const { err: disputeErr } = await dataCollector(
 		{
@@ -627,15 +1562,3 @@ export async function writeAuditLog(
 	}
 }
 
-function randomUUID(): string {
-	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-		return crypto.randomUUID();
-	}
-	// Fallback for older Node runtimes — not security-sensitive: this
-	// is only the dispute row's id, ClickHouse will dedupe on it.
-	return `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (c) => {
-		const r = Math.floor(Math.random() * 16);
-		const v = c === "x" ? r : (r & 0x3) | 0x8;
-		return v.toString(16);
-	});
-}

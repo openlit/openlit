@@ -96,8 +96,56 @@ async function discoverAgents(
 	// workload_key comes from ResourceAttributes['service.workload.key'] which
 	// the controller injects via OTEL_RESOURCE_ATTRIBUTES on managed processes;
 	// SDK-only services emit it empty.
+	// Coding-agent CLI spans are deliberately kept out of SDK discovery.
+	// Three independent barriers exist; the first one a future change
+	// breaks, the others catch it. They are listed in order of how
+	// structurally robust they are:
+	//
+	//   1. Distro marker (PRIMARY). The CLI stamps
+	//      telemetry.distro.name = 'openlit-cli' on every span as a
+	//      resource attribute (see cli/internal/otlp/exporter.go). This
+	//      identifies the entire emitting distribution -- there is
+	//      nothing per-event about it; if even one span has it, every
+	//      span from that process has it. A service_name that ever
+	//      sets this distro inside the window is excluded entirely
+	//      from SDK discovery via the cli_services anti-join below.
+	//   2. coding_agent.session.id per-span filter (LEGACY backstop).
+	//      Kept so historical data emitted before the distro marker
+	//      shipped doesn't suddenly start showing up here. Remove
+	//      this once the retention window has rolled past the distro
+	//      cutover.
+	//   3. The ReplacingMergeTree dedup on agent_key -- anything that
+	//      slipped past both filters above would still end up
+	//      fighting with the coding row, and we'd see the agent flip
+	//      layout on every materialize tick. The user-visible symptom
+	//      is "the SDK Overview tabs render on my Cursor agent"; the
+	//      original bug was that only barrier #2 existed and any race
+	//      or regression in the per-span stamp leaked a phantom SDK
+	//      row. The structural fix is #1.
 	const sdkQuery = `
-		WITH sdk_seen AS (
+		WITH
+			-- Any service_name that emitted a CLI span (any distro =
+			-- 'openlit-cli') inside the lookback window. This is the
+			-- positive identifier that *this process* is a coding-agent
+			-- hook, not a regular openlit-go SDK service. We exclude
+			-- the entire (service, env, cluster) tuple even if some
+			-- spans within it happen to lack coding_agent.session.id
+			-- (e.g. a CLI startup span emitted before the first hook
+			-- event, or any future leak).
+			cli_services AS (
+				SELECT DISTINCT
+					ServiceName AS service_name,
+					if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default') AS environment,
+					if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id
+				FROM ${OTEL_TRACES_TABLE_NAME}
+				WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
+					AND (
+						ResourceAttributes['telemetry.distro.name'] = 'openlit-cli'
+						OR ResourceAttributes['coding_agent.session.id'] != ''
+						OR SpanAttributes['coding_agent.session.id'] != ''
+					)
+			),
+			sdk_seen AS (
 			SELECT
 				ServiceName AS service_name,
 				if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default') AS environment,
@@ -118,6 +166,17 @@ async function discoverAgents(
 				-- spans get discovered as a phantom SDK row that the workload_key dedup
 				-- cannot merge with the controller row (their workload_key is empty).
 				AND ResourceAttributes['telemetry.distro.name'] != 'opentelemetry-ebpf-instrumentation'
+				-- Barrier #1: positive distro-name exclusion.
+				AND ResourceAttributes['telemetry.distro.name'] != 'openlit-cli'
+				-- Barrier #2: legacy per-span fallback for data emitted before
+				-- the distro marker shipped. Remove after the retention window
+				-- has rolled past.
+				AND ResourceAttributes['coding_agent.session.id'] = ''
+				AND SpanAttributes['coding_agent.session.id'] = ''
+				-- Barrier #1 reinforced: even if individual spans don't have
+				-- the distro marker, the service_name as a whole must not be
+				-- one that ever emitted a CLI span in this window.
+				AND (ServiceName, if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default'), if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default')) NOT IN (SELECT service_name, environment, cluster_id FROM cli_services)
 			GROUP BY service_name, environment, cluster_id
 		)
 		SELECT
@@ -363,38 +422,192 @@ async function discoverAgents(
  * day shouldn't crowd the page out with 50 rows; it should show one
  * "Claude Code" row whose detail page drills into sessions/users/cost.
  */
-async function discoverCodingAgents(
+/**
+ * Optional window override. When omitted (the materializer's
+ * canonical call site) the query falls back to a fixed last-24h
+ * window — what the agents-hub card has always shown.
+ *
+ * When the caller passes a window (the live recompute path used by
+ * `listAgents` when the user picks a non-default top-right time
+ * filter), we honour those bounds instead. This is what makes the
+ * hub's Sessions / Users / Cost numbers stay in sync with the
+ * Sessions / Users / Dashboard tabs once the user changes the time
+ * range.
+ */
+export interface CodingAgentDiscoveryWindow {
+	timeStart?: string;
+	timeEnd?: string;
+}
+
+function escapeTimestamp(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function buildCodingWindowClause(
+	window: CodingAgentDiscoveryWindow | undefined
+): string {
+	const start = window?.timeStart;
+	const end = window?.timeEnd;
+	if (!start && !end) {
+		return "Timestamp >= now() - INTERVAL 24 HOUR";
+	}
+	const clauses: string[] = [];
+	if (start) {
+		clauses.push(
+			`Timestamp >= parseDateTimeBestEffort('${escapeTimestamp(start)}')`
+		);
+	}
+	if (end) {
+		clauses.push(
+			`Timestamp <= parseDateTimeBestEffort('${escapeTimestamp(end)}')`
+		);
+	}
+	if (clauses.length === 0) {
+		// Caller passed an empty window — fall back to the 24h default
+		// rather than dropping the time predicate entirely (which would
+		// scan the whole table and silently inflate the rollup).
+		return "Timestamp >= now() - INTERVAL 24 HOUR";
+	}
+	return clauses.join(" AND ");
+}
+
+/**
+ * Live recompute of the hub-card Coding Agents rollup over an
+ * arbitrary time window. Used by `listAgents` when the user's
+ * top-right time filter is something other than the materializer's
+ * fixed 24h. We deliberately call into the same query path as the
+ * materializer (one row per vendor, `greatest(session.cost_usd,
+ * sum(turn.cost))` per chat) so the hub numbers can never disagree
+ * with the Sessions / Users / Dashboard tabs for the same window.
+ */
+export async function recomputeCodingAgentsForWindow(
+	window: CodingAgentDiscoveryWindow,
 	dbConfigId?: string
 ): Promise<DiscoveredAgent[]> {
+	return discoverCodingAgents(dbConfigId, window);
+}
+
+async function discoverCodingAgents(
+	dbConfigId?: string,
+	window?: CodingAgentDiscoveryWindow
+): Promise<DiscoveredAgent[]> {
+	// Cost rollup notes:
+	//   * `coding_agent.session.cost_usd` is only stamped on the
+	//     session-root span at sessionEnd. Active / still-running
+	//     sessions don't have it yet, so summing on it alone makes the
+	//     hub show $0.00 even when LLM-turn spans show real cost.
+	//   * `gen_ai.usage.cost` lives on per-turn LLM spans (Cursor
+	//     estimates from text length × static pricing; Claude Code
+	//     uses authoritative provider numbers).
+	//
+	// We sum both per session and `greatest()` them — exactly how the
+	// per-session list does it — so an authoritative session-end total
+	// wins when present and a turn-by-turn estimate keeps the row
+	// non-zero in the meantime. Active-user rollup also moves to
+	// `gen_ai.user.name` (which the CLI stamps as a resource attr) so
+	// it stops returning 0 when the per-span `user.id` isn't set.
+	// Materialize over CHAT_ID (= coalesce(parent_id, session_id)) so
+	// the hub stats agree with the Sessions list:
+	//   - 1 parent chat + N subagents = 1 session in both views
+	//   - cost is summed across all spans of the chat (the parent's
+	//     authoritative `coding_agent.session.cost_usd` still wins
+	//     when present, via greatest())
+	//   - active_users stores the *raw* distinct-user count. The
+	//     COHORT_K_FLOOR mask used to live here, but it ran before
+	//     auth context was even resolved, so a single-developer OSS
+	//     install would always read 0. The hub already requires org
+	//     membership; the deeper /coding-agents views apply the floor
+	//     to per-user breakdowns where it's actually a privacy boundary.
+	// Implementation note: the natural shape here is a nested rollup
+	// (per_session → per_chat → per_vendor). We tried that — but
+	// ClickHouse aggressively inlines subqueries, which made
+	// `argMax(client_version, last_seen)` collapse to
+	// `argMax(argMax(...), max(Timestamp))` and fail with
+	// `ILLEGAL_AGGREGATION`. The same inlining bites WITH-style CTEs.
+	// So we collapse to one pass: chat_id is a per-row expression
+	// (coalesce of parent_id and session_id, both raw map lookups),
+	// so we can GROUP BY (vendor, chat_id) directly. session-level
+	// aggregation isn't needed because each (chat_id, session_id)
+	// shares the same vendor, and cost is summed across all spans of
+	// the chat anyway.
+	// The chat_id rollup MUST mirror queries.ts CHAT_ID_EXPR so the hub
+	// row counts agree with the Sessions list. New vendors should fold
+	// into the per-row coalesce here, NOT introduce a second discovery
+	// pass. Claude Code's native exporter sets `session.id` (plain,
+	// without the `coding_agent.` prefix); we fall through to it so a
+	// CLAUDE_CODE_ENABLE_TELEMETRY=1-only install (no openlit plugin)
+	// still appears in the hub.
+	// Per-span vendor expression: lets us GROUP BY (chat_id, vendor)
+	// so a chat id legitimately hosting spans from two vendors (Claude
+	// Code launched inside a Cursor terminal — both hooks fire under
+	// the host's chat id) yields TWO hub rows, one per vendor. Without
+	// this split the per-vendor user/cost counts inherit whichever
+	// vendor's spans happened to dominate the chat id and the user
+	// sees Cursor traffic counted against the Claude Code agent (or
+	// vice versa). The expression must mirror queries.ts PER_SPAN_VENDOR_EXPR.
+	const perSpanVendor = `
+		coalesce(
+			nullIf(SpanAttributes['coding_agent.client'], ''),
+			nullIf(ResourceAttributes['gen_ai.agent.name'], ''),
+			nullIf(ResourceAttributes['service.name'], '')
+		)
+	`;
 	const query = `
 		SELECT
-			coalesce(
-				nullIf(SpanAttributes['coding_agent.client'], ''),
-				nullIf(SpanAttributes['gen_ai.agent.name'], '')
-			) AS vendor,
-			argMax(SpanAttributes['coding_agent.client.version'], Timestamp) AS client_version,
-			min(Timestamp) AS first_seen,
-			max(Timestamp) AS last_seen,
-			uniqExact(SpanAttributes['coding_agent.session.id']) AS session_count_24h,
-			sum(
-				toFloat64OrZero(SpanAttributes['coding_agent.session.cost_usd'])
-			) AS cost_usd_24h,
-			uniqExact(
-				if(
-					SpanAttributes['user.id'] != '',
-					SpanAttributes['user.id'],
-					SpanAttributes['gen_ai.request.user']
+			vendor,
+			argMax(client_version, chat_last_seen) AS client_version,
+			min(chat_first_seen) AS first_seen,
+			max(chat_last_seen) AS last_seen,
+			uniqExact(chat_id) AS session_count_24h,
+			sum(chat_cost) AS cost_usd_24h,
+			uniqExactIf(user_id, user_id != '') AS active_users_24h
+		FROM (
+			SELECT
+				${perSpanVendor} AS vendor,
+				coalesce(
+					nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),
+					nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),
+					nullIf(SpanAttributes['coding_agent.session.id'], ''),
+					nullIf(ResourceAttributes['coding_agent.session.id'], ''),
+					nullIf(SpanAttributes['session.id'], ''),
+					nullIf(ResourceAttributes['session.id'], '')
+				) AS chat_id,
+				-- session-end cost wins when present, otherwise sum of
+				-- per-turn cost estimates. Both are stamped on chat-level
+				-- spans (root and per LLM turn).
+				greatest(
+					toFloat64OrZero(any(SpanAttributes['coding_agent.session.cost_usd'])),
+					sumOrNull(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']))
+				) AS chat_cost,
+				coalesce(
+					nullIf(any(SpanAttributes['gen_ai.user.name']), ''),
+					nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),
+					nullIf(any(ResourceAttributes['user.email']), ''),
+					nullIf(any(SpanAttributes['user.email']), ''),
+					''
+				) AS user_id,
+				min(Timestamp) AS chat_first_seen,
+				max(Timestamp) AS chat_last_seen,
+				argMax(SpanAttributes['coding_agent.client.version'], Timestamp) AS client_version
+			FROM ${OTEL_TRACES_TABLE_NAME}
+			WHERE ${buildCodingWindowClause(window)}
+				AND (
+					SpanAttributes['coding_agent.session.id'] != ''
+					OR ResourceAttributes['coding_agent.session.id'] != ''
+					-- Native Claude Code OTel: signed by service.name and
+					-- a plain session.id attribute. Without this branch a
+					-- CLAUDE_CODE_ENABLE_TELEMETRY=1-only install would
+					-- never reach the hub.
+					OR (
+						ResourceAttributes['service.name'] = 'claude-code'
+						AND (SpanAttributes['session.id'] != '' OR ResourceAttributes['session.id'] != '')
+					)
 				)
-			) AS active_users_24h
-		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE Timestamp >= now() - INTERVAL 24 HOUR
-			AND SpanAttributes['coding_agent.session.id'] != ''
-			AND coalesce(
-				nullIf(SpanAttributes['coding_agent.client'], ''),
-				nullIf(SpanAttributes['gen_ai.agent.name'], '')
-			) != ''
+			GROUP BY chat_id, ${perSpanVendor}
+			HAVING vendor != ''
+		) per_chat
 		GROUP BY vendor
-		HAVING vendor IS NOT NULL
+		HAVING vendor != ''
 	`;
 
 	const res = await dataCollector({ query }, "query", dbConfigId);
@@ -611,30 +824,38 @@ export async function materializeAgents(
 		const env = scope.environment || "default";
 		const cluster = scope.clusterId || "default";
 		const key = computeAgentKey(cluster, env, scope.serviceName);
-		const all = await discoverAgents(dbConfigId, scope.clusterId);
-		const match = all.find((a) => a.agent_key === key);
+		// Look for the agent in BOTH discovery pipelines, not just the SDK
+		// one. The detail page's "Refresh" button calls
+		// /api/agents/[agentKey]/refresh which passes the saved scope of
+		// the agent it was viewing — for a coding agent that's
+		// (service=cursor, cluster=coding). Only checking discoverAgents
+		// here meant the SDK pipeline would (correctly) report no match,
+		// the code would fall through to the SDK placeholder branch below,
+		// and we'd insert a phantom `source='sdk'` row into
+		// openlit_agents_summary that overwrites the legitimate
+		// `source='coding'` row on the next FINAL read. The UI then
+		// renders the SDK Overview/Dashboard/Monitoring layout for what
+		// is in fact a coding agent. See coding-agents-hook.mdc §10.
+		const [sdkAll, codingAll] = await Promise.all([
+			discoverAgents(dbConfigId, scope.clusterId),
+			discoverCodingAgents(dbConfigId),
+		]);
+		const match =
+			sdkAll.find((a) => a.agent_key === key) ||
+			codingAll.find((a) => a.agent_key === key);
 		if (match) {
 			discovered = [match];
 		} else {
-			// Manufacture a placeholder SDK row so we can still derive a snapshot.
-			discovered = [
-				{
-					agent_key: key,
-					service_name: scope.serviceName,
-					environment: env,
-					cluster_id: cluster,
-					workload_key: "",
-					source: "sdk",
-					controller_service_id: "",
-					controller_instance_id: "",
-					sdk_version: "",
-					sdk_language: "",
-					first_seen: new Date().toISOString(),
-					last_seen: new Date().toISOString(),
-					instrumentation_status: "instrumented",
-					controller_llm_providers: [],
-				},
-			];
+			// Refuse to manufacture a placeholder. The historical intent
+			// was "still derive a snapshot when a forced materialize
+			// arrives before any spans" — but in practice the API only
+			// reaches this branch for refresh calls on agents that
+			// already exist, and the placeholder's `source='sdk'`
+			// silently clobbered legitimate coding rows. If a refresh
+			// hits before any spans arrive, the caller will simply see
+			// an unchanged snapshot until the next cron tick discovers
+			// the spans — which is what the operator expects.
+			discovered = [];
 		}
 	} else if (agentKeyFilter) {
 		const all = await discoverAgents(dbConfigId);
@@ -799,6 +1020,61 @@ export async function materializeAgents(
 	}
 
 	if (summaryRows.length) {
+		// Safety net for the SDK-clobbers-coding bug. Before we INSERT,
+		// check whether any of the rows we are about to write would
+		// overwrite an existing `source='coding'` row with a non-coding
+		// source under the same agent_key. The ReplacingMergeTree dedup
+		// is by agent_key alone, so a stray `source='sdk'` write wins on
+		// the next FINAL read and the detail page flips layout. If we
+		// detect this, drop the offending rows and log loudly — the
+		// upstream code path is the bug, but we refuse to corrupt state
+		// regardless. See coding-agents-hook.mdc §10 for the structural
+		// fix chain.
+		const nonCodingKeys = summaryRows
+			.filter((r) => r.source !== "coding")
+			.map((r) => r.agent_key);
+		if (nonCodingKeys.length > 0) {
+			const escaped = nonCodingKeys
+				.map((k) => `'${k.replace(/'/g, "''")}'`)
+				.join(", ");
+			const conflictRes = await dataCollector(
+				{
+					query: `
+						SELECT agent_key
+						FROM ${AGENTS_SUMMARY_TABLE} FINAL
+						WHERE agent_key IN (${escaped}) AND source = 'coding'
+					`,
+				},
+				"query",
+				dbConfigId
+			);
+			if (!conflictRes.err && Array.isArray(conflictRes.data)) {
+				const codingKeys = new Set(
+					(conflictRes.data as Array<{ agent_key: string }>).map(
+						(r) => r.agent_key
+					)
+				);
+				if (codingKeys.size > 0) {
+					const before = summaryRows.length;
+					const filtered = summaryRows.filter(
+						(r) => r.source === "coding" || !codingKeys.has(r.agent_key)
+					);
+					if (filtered.length !== before) {
+						agentsLogger.error("materializer_blocked_coding_clobber", {
+							droppedRowCount: before - filtered.length,
+							agentKeys: Array.from(codingKeys),
+						});
+						summaryRows.length = 0;
+						summaryRows.push(...filtered);
+					}
+				}
+			}
+		}
+
+		if (!summaryRows.length) {
+			return { processed, newVersions, errors };
+		}
+
 		const res = await dataCollector(
 			{ table: AGENTS_SUMMARY_TABLE, values: summaryRows },
 			"insert",

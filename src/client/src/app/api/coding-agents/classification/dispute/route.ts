@@ -16,6 +16,7 @@ import {
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
 import {
+	DisputeError,
 	submitClassificationDispute,
 	writeAuditLog,
 } from "@/lib/platform/coding-agents/queries";
@@ -66,6 +67,17 @@ export async function POST(request: Request) {
 		);
 		return Response.json({ data: result }, { status: 202 });
 	} catch (err) {
+		// E4: surface validation-grade errors with their intended
+		// HTTP status (404 not_found, 409 duplicate, 429
+		// rate_limited). Anything else stays a 500.
+		if (err instanceof DisputeError) {
+			await writeAuditLog(auth, {
+				action: `coding_agent.classification.dispute.rejected_${err.code}`,
+				subject: body?.sessionId || "",
+				payload: err.message,
+			});
+			return Response.json({ error: err.message }, { status: err.status });
+		}
 		console.error("coding_agent.classification.dispute.failed", err);
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}

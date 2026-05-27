@@ -35,6 +35,11 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 	}
 	srcDir := "plugins/" + vendor
 
+	openlitBin, binErr := resolveOpenlitBin()
+	if binErr != nil {
+		return nil, fmt.Errorf("locate openlit binary: %w (install openlit and ensure it is on PATH)", binErr)
+	}
+
 	var written []string
 	walkErr := fs.WalkDir(pluginsFS, srcDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -53,6 +58,7 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 		if readErr != nil {
 			return readErr
 		}
+		body = patchManifestBytes(rel, body, openlitBin)
 		if mkErr := os.MkdirAll(filepath.Dir(target), 0o755); mkErr != nil {
 			return mkErr
 		}
@@ -71,6 +77,19 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 		}
 		return nil, walkErr
 	}
+
+	if !dryRun && vendor == "claude-code" {
+		if err := enableClaudeCodePlugin(); err != nil {
+			fmt.Fprintf(os.Stderr, "openlit install: could not register Claude Code plugin via `claude` CLI: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openlit install: hooks were still written to %s — in Claude Code run: /plugin marketplace add <openlit-repo>/plugins then /plugin install openlit-cc@openlit\n", dest)
+		}
+	}
+	if !dryRun && vendor == "codex" {
+		if err := enableCodexPlugin(dest); err != nil {
+			fmt.Fprintf(os.Stderr, "openlit install: could not register Codex plugin via `codex` CLI: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openlit install: marketplace was written to %s — in Codex run: codex plugin marketplace add %s then codex plugin add openlit@openlit, then open /hooks inside Codex and trust each hook\n", dest, dest)
+		}
+	}
 	return written, nil
 }
 
@@ -79,11 +98,17 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 //
 //   Claude Code → ~/.claude/plugins/openlit-cc/
 //   Cursor      → ~/.cursor/plugins/openlit/
-//   Codex       → ~/.codex/plugins/openlit/
+//   Codex       → ~/.local/share/openlit/codex-marketplace/  (a local
+//                 marketplace registered via `codex plugin marketplace add`)
 //   Copilot CLI → ~/.copilot/plugins/openlit/
 //
-// These paths are documented for each vendor and don't conflict with any
-// builtin/marketplace-installed plugin layouts.
+// For Codex specifically: dropping files under `~/.codex/plugins/<name>/`
+// is NOT how Codex's plugin loader discovers plugins. The loader scans
+// configured marketplaces (`codex plugin marketplace list`) and only
+// installs plugins by name via `codex plugin add <plugin>@<marketplace>`.
+// We therefore materialize a self-contained marketplace tree at a
+// stable location and register it via the `codex` CLI in
+// enableCodexPlugin() (see install_patch.go).
 func vendorDestRoot(vendor string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -95,7 +120,7 @@ func vendorDestRoot(vendor string) (string, error) {
 	case "cursor":
 		return filepath.Join(home, ".cursor", "plugins", "openlit"), nil
 	case "codex":
-		return filepath.Join(home, ".codex", "plugins", "openlit"), nil
+		return filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"), nil
 	case "copilot":
 		return filepath.Join(home, ".copilot", "plugins", "openlit"), nil
 	default:

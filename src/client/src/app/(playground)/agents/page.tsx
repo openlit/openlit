@@ -29,6 +29,7 @@ import ComboDropdown from "@/components/(playground)/filter/combo-dropdown";
 import Filter from "@/components/(playground)/filter";
 import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
+import NoCodingAgents from "./no-coding-agents";
 import ServiceTable from "./service-table";
 import ControllerTable from "./controller-table";
 import CodingAgentsTable from "./coding-agents-table";
@@ -580,20 +581,21 @@ export default function AgentsPage() {
 			)}
 
 			{/*
-			 * Empty-state gate. Coding-agent rows live in `codingRowsState`
-			 * (fetched separately via ?source=coding) so they would NOT
-			 * count toward `serviceRows.length`. Without checking them
-			 * here, a user whose only telemetry is coding-agent activity
-			 * would land on "No controllers detected" — exactly the bug
-			 * Ishan hit. Adding `codingRowsState.length` keeps the
-			 * Coding Agents tab reachable for coding-only users.
+			 * Empty state is now per-tab. Previously a hub-wide
+			 * `NoController` swallowed the entire viewport when every
+			 * source was empty, which forced a user with only coding
+			 * telemetry to discover the Coding Agents tab via the
+			 * auto-route effect. The new model:
+			 *   - Applications tab → NoController (the original
+			 *     install-the-controller flow) when 0 application rows.
+			 *   - Coding Agents tab → NoCodingAgents (vendor picker
+			 *     with `openlit coding install --vendor=<v>` snippets).
+			 *   - Controllers tab → NoController when 0 controllers.
+			 * The stat cards / tab bar always render so the user can
+			 * switch tabs and see the right onboarding for whatever
+			 * they're actually trying to do.
 			 */}
-			{!hasControllers &&
-			serviceRows.length === 0 &&
-			codingRowsState.length === 0 &&
-			!isLoading ? (
-				<NoController />
-			) : (
+			{(
 				<>
 					{/* Stat cards */}
 					<div className="grid grid-cols-3 gap-4">
@@ -637,13 +639,21 @@ export default function AgentsPage() {
 						</button>
 					</div>
 
-					{/* Tab switcher */}
+					{/* Tab switcher. Ordering reflects expected
+					    usage frequency: most teams will spend most
+					    of their time on Applications and Coding
+					    Agents; Controllers is a setup-time tab. We
+					    drop the count badge from Coding Agents
+					    intentionally — the tab name carries the
+					    affordance and the row count is already on
+					    the table itself; the badge was creating
+					    visual noise on the most-clicked tab. */}
 					<div className="flex items-center border-b border-stone-200 dark:border-stone-700">
 						{(
 							[
 								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
+								{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
 								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
-								{ id: "coding", label: getMessage().AGENTS_TAB_CODING, count: codingRows.length },
 							] as const
 						).map((tab) => (
 							<button
@@ -658,17 +668,6 @@ export default function AgentsPage() {
 								}`}
 							>
 								{tab.label}
-								{"count" in tab && tab.count > 0 ? (
-									<span
-										className={`text-[10px] leading-none px-1.5 py-0.5 rounded-full font-medium ${
-											activeTab === tab.id
-												? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
-												: "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"
-										}`}
-									>
-										{tab.count}
-									</span>
-								) : null}
 							</button>
 						))}
 						{activeTab === "controllers" && (
@@ -684,48 +683,76 @@ export default function AgentsPage() {
 						)}
 					</div>
 
-					{/* Content */}
+					{/* Content. Each tab owns its own empty state so
+					    the install instructions match the tab — a
+					    user landing on Coding Agents shouldn't see
+					    a Kubernetes/Docker controller picker, and
+					    vice versa. */}
 					{activeTab === "services" && (
 						<>
-							<ServiceTable
-								services={applicationRows}
-								instances={controllerRows}
-								onRefresh={refresh}
-								isFetched={servicesFetched && instancesFetched}
-								isLoading={isLoading}
-								systemFilter={systemFilter}
-							/>
-							{nextCursor && (
-								<div className="flex justify-center pt-2">
-									<button
-										onClick={loadMore}
-										disabled={isLoadingMore}
-										className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
-									>
-										{isLoadingMore && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-										{isLoadingMore
-											? getMessage().AGENTS_LOAD_MORE_LOADING
-											: getMessage().AGENTS_LOAD_MORE}
-									</button>
-								</div>
+							{servicesFetched &&
+							!isLoading &&
+							applicationRows.length === 0 ? (
+								<NoController />
+							) : (
+								<>
+									<ServiceTable
+										services={applicationRows}
+										instances={controllerRows}
+										onRefresh={refresh}
+										isFetched={servicesFetched && instancesFetched}
+										isLoading={isLoading}
+										systemFilter={systemFilter}
+									/>
+									{nextCursor && (
+										<div className="flex justify-center pt-2">
+											<button
+												onClick={loadMore}
+												disabled={isLoadingMore}
+												className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+											>
+												{isLoadingMore && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+												{isLoadingMore
+													? getMessage().AGENTS_LOAD_MORE_LOADING
+													: getMessage().AGENTS_LOAD_MORE}
+											</button>
+										</div>
+									)}
+								</>
 							)}
 						</>
 					)}
 
 					{activeTab === "controllers" && (
-						<ControllerTable
-							instances={controllerRows}
-							isFetched={instancesFetched}
-							isLoading={instancesLoading}
-						/>
+						<>
+							{instancesFetched &&
+							!instancesLoading &&
+							controllerRows.length === 0 ? (
+								<NoController />
+							) : (
+								<ControllerTable
+									instances={controllerRows}
+									isFetched={instancesFetched}
+									isLoading={instancesLoading}
+								/>
+							)}
+						</>
 					)}
 
 					{activeTab === "coding" && (
-						<CodingAgentsTable
-							services={codingRows}
-							isFetched={servicesFetched}
-							isLoading={isLoading}
-						/>
+						<>
+							{servicesFetched &&
+							!isLoading &&
+							codingRows.length === 0 ? (
+								<NoCodingAgents />
+							) : (
+								<CodingAgentsTable
+									services={codingRows}
+									isFetched={servicesFetched}
+									isLoading={isLoading}
+								/>
+							)}
+						</>
 					)}
 				</>
 			)}

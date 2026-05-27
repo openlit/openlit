@@ -53,6 +53,11 @@ const (
 
 // Session outcome values.
 const (
+	// CodingAgentSessionOutcomeCompleted — the agent reported a
+	// successful end of the session (Cursor's reason="completed",
+	// Claude Code's "stop", etc). The user may or may not have
+	// merged anything; we stay agnostic on downstream VCS state.
+	CodingAgentSessionOutcomeCompleted           = "completed"
 	CodingAgentSessionOutcomeMerged              = "merged"
 	CodingAgentSessionOutcomeCommitted           = "committed"
 	CodingAgentSessionOutcomeAbandonedNoChange   = "abandoned_no_change"
@@ -210,19 +215,30 @@ const (
 	// (e.g. "interactive", "auto_accept", "dangerously_skip_permissions").
 	CodingAgentPolicyPermissionMode = "coding_agent.policy.permission_mode"
 	// CodingAgentContentCaptureMode is the active capture posture:
-	// metadata_only | no_tool_content | full.
+	// minimal | metadata_only | full. See `cli/internal/otlp/attrs.go`
+	// for the per-mode attribute matrix.
 	CodingAgentContentCaptureMode = "coding_agent.content_capture_mode"
 )
 
 const (
-	CodingAgentUserClassificationPersonal  = "personal"
-	CodingAgentUserClassificationWork      = "work"
-	CodingAgentUserClassificationDisputed  = "disputed"
-	CodingAgentUserClassificationUnknown   = "unknown"
+	CodingAgentUserClassificationPersonal = "personal"
+	CodingAgentUserClassificationWork     = "work"
+	CodingAgentUserClassificationDisputed = "disputed"
+	CodingAgentUserClassificationUnknown  = "unknown"
 
-	CodingAgentContentCaptureMetadataOnly  = "metadata_only"
-	CodingAgentContentCaptureNoToolContent = "no_tool_content"
-	CodingAgentContentCaptureFull          = "full"
+	// CodingAgentContentCaptureMinimal — only session bookends and
+	// rolled-up counters. No per-event spans. Cheapest tier; for
+	// enterprises that want budget visibility without per-prompt
+	// content. See Phase C of the coding-agents plan.
+	CodingAgentContentCaptureMinimal = "minimal"
+	// CodingAgentContentCaptureMetadataOnly — per-event spans with
+	// counts/timings/cost/repo but redacted bodies (no prompts, no
+	// tool args, no shell flags). Recommended default.
+	CodingAgentContentCaptureMetadataOnly = "metadata_only"
+	// CodingAgentContentCaptureFull — everything metadata mode has
+	// plus prompts, responses, thoughts, tool args, tool results.
+	// Tier-2 PII redaction still runs. For trust+safety reviews.
+	CodingAgentContentCaptureFull = "full"
 )
 
 // Loop detection.

@@ -2,6 +2,8 @@ package openlit
 
 import (
 	"time"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // Config holds the configuration for OpenLIT SDK initialization
@@ -70,6 +72,27 @@ type Config struct {
 	// DetailedTracing enables detailed component-level tracing.
 	// Default: false
 	DetailedTracing bool
+
+	// IDGenerator overrides the default OTel ID generator. Use this when
+	// callers need deterministic trace/span IDs (e.g. the openlit CLI's
+	// coding-agent hook deriving a stable TraceId from a session id so
+	// every span emitted across separate hook invocations lands in the
+	// same trace). When nil, OTel's random generator is used.
+	IDGenerator sdktrace.IDGenerator
+
+	// Sampler overrides the default head sampler. When nil, the SDK
+	// uses AlwaysSample — every span emitted reaches the collector.
+	// Callers wanting a head-sampling strategy (e.g. drop noisy
+	// `coding_agent.tool.requested` events) can pass a
+	// ParentBasedSampler or a custom span-name aware sampler here.
+	// See cli/internal/otlp/sampler.go for an example.
+	Sampler sdktrace.Sampler
+
+	// ExtraResourceAttributes are merged into the OTel Resource set on
+	// every span/metric this SDK emits. Callers use this to attach
+	// stable identity (e.g. `gen_ai.user.name`, `host.name`) once at
+	// startup rather than tagging each span individually.
+	ExtraResourceAttributes map[string]string
 }
 
 // ModelPricing represents pricing information for a model

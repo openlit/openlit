@@ -217,7 +217,7 @@ export const CodingAgentUserClassificationReason = "coding_agent.user.classifica
 export const CodingAgentPolicyPermissionMode = "coding_agent.policy.permission_mode";
 
 // CodingAgentContentCaptureMode is the active capture posture:
-// metadata_only | no_tool_content | full.
+// minimal | metadata_only | full.
 export const CodingAgentContentCaptureMode = "coding_agent.content_capture_mode";
 
 export const CodingAgentUserClassificationPersonal = "personal";
@@ -228,9 +228,9 @@ export const CodingAgentUserClassificationDisputed = "disputed";
 
 export const CodingAgentUserClassificationUnknown = "unknown";
 
-export const CodingAgentContentCaptureMetadataOnly = "metadata_only";
+export const CodingAgentContentCaptureMinimal = "minimal";
 
-export const CodingAgentContentCaptureNoToolContent = "no_tool_content";
+export const CodingAgentContentCaptureMetadataOnly = "metadata_only";
 
 export const CodingAgentContentCaptureFull = "full";
 

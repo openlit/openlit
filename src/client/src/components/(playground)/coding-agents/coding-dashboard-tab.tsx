@@ -19,7 +19,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, HelpCircle, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowUpRight, HelpCircle, Loader2, X } from "lucide-react";
 import Dashboard from "@/components/(playground)/manage-dashboard/board-creator";
 import {
 	Popover,
@@ -40,6 +41,21 @@ const CODING_AGENTS_DASHBOARD_TITLE = "Coding Agents";
 
 interface CodingDashboardTabProps {
 	agent: UnifiedAgent;
+	/**
+	 * Pre-applied user filter — set by the per-user page so the same
+	 * board renders pinned to one developer. URL `?user=` still wins
+	 * (set by Top-users widget click) so the filter cascades smoothly.
+	 */
+	pinnedUser?: string | null;
+	/**
+	 * Override vendor scoping. The per-vendor detail page pins to
+	 * `agent.coding_agent_vendor` so the dashboard never aggregates
+	 * across vendors (which would make the Total Cost widget here
+	 * disagree with the agents-hub card and the Sessions/Users
+	 * tabs). The per-user page leaves it `null` so the user's
+	 * cross-vendor view stays intact.
+	 */
+	pinnedVendor?: string | null;
 }
 
 interface BoardSummary {
@@ -47,10 +63,28 @@ interface BoardSummary {
 	title: string;
 }
 
-export default function CodingDashboardTab({ agent: _agent }: CodingDashboardTabProps) {
+export default function CodingDashboardTab({
+	agent,
+	pinnedUser = null,
+	pinnedVendor: pinnedVendorProp,
+}: CodingDashboardTabProps) {
+	// Default to the agent's vendor when no explicit override was
+	// passed — the per-user page sends `pinnedVendor={null}` to opt
+	// out, while the per-vendor detail page just inherits via the
+	// agent prop.
+	const pinnedVendor =
+		pinnedVendorProp === null
+			? null
+			: pinnedVendorProp ?? agent.coding_agent_vendor ?? null;
 	const { fireRequest } = useFetchWrapper();
 	const { fireRequest: fireRunQuery } = useFetchWrapper();
 	const { details: filter } = useFilters();
+	const searchParams = useSearchParams();
+	// URL `?user=` overrides the pinned prop so the Top-users widget
+	// link can route the same board into a per-user view without a
+	// page navigation. Falls back to the pinned prop (used by the
+	// dedicated `/coding-agents/users/[userId]` page).
+	const activeUser = searchParams?.get("user") || pinnedUser || null;
 	const [boardId, setBoardId] = useState<string | null>(null);
 	const [config, setConfig] = useState<DashboardConfig | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -100,8 +134,28 @@ export default function CodingDashboardTab({ agent: _agent }: CodingDashboardTab
 	}, [fireRequest]);
 
 	const runFilters = useMemo(() => {
-		return getFilterParamsForDashboard({ ...filter });
-	}, [filter]);
+		const base = getFilterParamsForDashboard({ ...filter });
+		// Inject the active-user filter as a top-level key on the
+		// filter envelope so widget SQL templates can reference it via
+		// `{{filter.user}}` (or pull it from the bag in custom
+		// renderers). We keep it nullable rather than empty-string so
+		// "no user filter" stays distinguishable from "explicitly empty
+		// user".
+		//
+		// `filter.vendor` is the same shape: when set (per-vendor
+		// detail page) the seed widgets gate their WHERE clauses on
+		// `coding_agent.client = '{{filter.vendor}}'`. When unset
+		// (per-user page) the widgets aggregate cross-vendor.
+		const next: Record<string, unknown> = { ...base };
+		if (pinnedVendor) {
+			next.vendor = pinnedVendor;
+		}
+		if (activeUser) {
+			next.user = activeUser;
+			next.codingAgentUser = activeUser;
+		}
+		return next;
+	}, [filter, activeUser, pinnedVendor]);
 
 	const runQuery = async (
 		widgetId: string,
@@ -155,10 +209,25 @@ export default function CodingDashboardTab({ agent: _agent }: CodingDashboardTab
 
 	if (!config) return null;
 
+	const showUserPill =
+		!!activeUser && searchParams?.get("user") === activeUser;
+
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between gap-2">
-				<ClassificationHelpPopover />
+				<div className="flex items-center gap-3">
+					<ClassificationHelpPopover />
+					{showUserPill && (
+						<Link
+							href={typeof window !== "undefined" ? window.location.pathname : "."}
+							className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40"
+							title="Clear user filter"
+						>
+							<span className="font-mono">@{activeUser}</span>
+							<X className="h-3 w-3" />
+						</Link>
+					)}
+				</div>
 				{boardId && (
 					<Link
 						href={`/d/${boardId}`}
@@ -260,8 +329,9 @@ function ClassificationHelpPopover() {
 						</ul>
 					</div>
 					<p className="text-stone-500 dark:text-stone-500 text-[11px]">
-						Disagree with a row? Use the &ldquo;Dispute&rdquo; button
-						in the Sessions tab — disputes survive future
+						Disagree with a classification? File a dispute via the
+						platform API — surfacing it from the Sessions tab is
+						planned for the next release. Disputes survive future
 						re-classifications.
 					</p>
 				</div>

@@ -76,6 +76,23 @@ func run(cmd *cobra.Command, vendor string, dryRun bool) error {
 		for _, p := range written {
 			fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", p)
 		}
+		if !dryRun {
+			// Post-install hint: Codex is the only vendor whose
+			// hooks require explicit user trust on first run. Per
+			// Codex's security model the user has to open `/hooks`
+			// inside the TUI and review each plugin's hook entries
+			// once — otherwise the registered hooks stay listed
+			// but inactive, and nothing reaches OpenLit. Surfacing
+			// this here is the difference between "I installed and
+			// see no data" (bad) and a clean first session.
+			if v == "codex" {
+				fmt.Fprintln(cmd.OutOrStdout(), "")
+				fmt.Fprintln(cmd.OutOrStdout(), "Next steps for Codex:")
+				fmt.Fprintln(cmd.OutOrStdout(), "  1. Restart Codex (or run `codex` in a new shell).")
+				fmt.Fprintln(cmd.OutOrStdout(), "  2. Inside Codex, run `/hooks` and trust each `openlit@openlit` entry.")
+				fmt.Fprintln(cmd.OutOrStdout(), "  3. Start a session — your turns will appear in OpenLit's Coding Agents tab.")
+			}
+		}
 	}
 	return nil
 }

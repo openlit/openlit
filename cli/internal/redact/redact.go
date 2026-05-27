@@ -101,8 +101,8 @@ func StringFull(s string) string {
 
 // ForCapture returns the appropriate redactor for the given capture mode.
 //
-//   - "metadata_only" or "no_tool_content"  → tier 1 only
-//   - "full"                                 → tier 1 + tier 2
+//   - "minimal" / "metadata_only"  → tier 1 redaction
+//   - "full"                        → tier 1 + tier 2
 //
 // Unknown modes default to the safer tier 1 only — never weaker.
 func ForCapture(mode string) func(string) string {

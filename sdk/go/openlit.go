@@ -184,6 +184,23 @@ func newResource(cfg Config) (*resource.Resource, error) {
 		))
 	}
 
+	// Caller-supplied extras (e.g. `gen_ai.user.name`, `host.name`)
+	// attach once at SDK init and then ride along on every span. Empty
+	// keys/values are skipped so a missing field doesn't pollute the
+	// resource map.
+	if len(cfg.ExtraResourceAttributes) > 0 {
+		extras := make([]attribute.KeyValue, 0, len(cfg.ExtraResourceAttributes))
+		for k, v := range cfg.ExtraResourceAttributes {
+			if k == "" || v == "" {
+				continue
+			}
+			extras = append(extras, attribute.String(k, v))
+		}
+		if len(extras) > 0 {
+			attrs = append(attrs, resource.WithAttributes(extras...))
+		}
+	}
+
 	return resource.New(
 		context.Background(),
 		append(attrs, resource.WithTelemetrySDK())...,
@@ -215,11 +232,23 @@ func newTracerProvider(res *resource.Resource, cfg Config) (*trace.TracerProvide
 		spanProcessor = trace.NewBatchSpanProcessor(exporter)
 	}
 
-	tp := trace.NewTracerProvider(
+	sampler := cfg.Sampler
+	if sampler == nil {
+		// Default beta posture: keep every span. Production
+		// callers should set Config.Sampler to a head sampler
+		// matching their volume budget. See D8 in the
+		// coding-agents plan.
+		sampler = trace.AlwaysSample()
+	}
+	tpOpts := []trace.TracerProviderOption{
 		trace.WithResource(res),
 		trace.WithSpanProcessor(spanProcessor),
-		trace.WithSampler(trace.AlwaysSample()),
-	)
+		trace.WithSampler(sampler),
+	}
+	if cfg.IDGenerator != nil {
+		tpOpts = append(tpOpts, trace.WithIDGenerator(cfg.IDGenerator))
+	}
+	tp := trace.NewTracerProvider(tpOpts...)
 
 	return tp, nil
 }

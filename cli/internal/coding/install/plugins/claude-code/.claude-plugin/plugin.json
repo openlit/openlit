@@ -1,6 +1,5 @@
 {
   "name": "openlit-cc",
-  "displayName": "OpenLit",
   "version": "0.1.0",
   "description": "OpenLit telemetry for Claude Code: sessions, tool calls, edit decisions, and cost rollups.",
   "author": {

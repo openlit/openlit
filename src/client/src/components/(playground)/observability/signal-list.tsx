@@ -71,8 +71,22 @@ function ResizableDetailSheet({
 
 export default function ObservabilitySignalList({
 	config,
+	runFilters,
+	toolbarExtraControls,
 }: {
 	config: ObservabilitySignalConfig;
+	// runFilters is a per-render filter slice that callers pin onto the
+	// list/summary requests (e.g. an agent-scoped sessions tab pins
+	// `vendor`, the per-user page pins `user`). We forward them as-is
+	// inside the POST body so the route handler picks them up without
+	// the global filter store needing to know about coding-agent
+	// concepts.
+	runFilters?: Record<string, unknown>;
+	// `toolbarExtraControls` are rendered immediately to the LEFT of
+	// the filter (`SlidersHorizontal`) button. Coding-agent tabs use
+	// this to inject a per-user picker into the same toolbar without
+	// the inline filter bar above the table.
+	toolbarExtraControls?: ReactNode;
 }) {
 	const m = getMessage();
 	const router = useRouter();
@@ -101,18 +115,33 @@ export default function ObservabilitySignalList({
 	}, [config.key]);
 
 	const effectiveFilter = useMemo(() => {
-		if (filter.groupBy && filter.groupValue) {
-			return {
-				...filter,
-				selectedConfig: buildGroupValueFilter(
-					filter.groupBy,
-					filter.groupValue,
-					filter.selectedConfig
-				),
-			};
+		const base =
+			filter.groupBy && filter.groupValue
+				? {
+						...filter,
+						selectedConfig: buildGroupValueFilter(
+							filter.groupBy,
+							filter.groupValue,
+							filter.selectedConfig
+						),
+					}
+				: filter;
+		// Pin caller-supplied filters under a stable key so route
+		// handlers (and the cache key implicitly via JSON body) pick
+		// them up. Stripping nullish entries keeps the cache key stable
+		// when a caller toggles a filter on/off.
+		if (runFilters && Object.keys(runFilters).length > 0) {
+			const cleaned = Object.fromEntries(
+				Object.entries(runFilters).filter(
+					([, value]) => value !== undefined && value !== null && value !== ""
+				)
+			);
+			if (Object.keys(cleaned).length > 0) {
+				return { ...base, runFilters: cleaned };
+			}
 		}
-		return filter;
-	}, [filter]);
+		return base;
+	}, [filter, runFilters]);
 
 	const showFlatList =
 		!config.supportGrouping || !filter.groupBy || !!filter.groupValue;
@@ -159,6 +188,11 @@ export default function ObservabilitySignalList({
 	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
 	const isMetricSignal = config.key === "metrics";
 	const isLogSignal = config.key === "logs";
+	// Coding-agent sessions render through the same TraceDetailView used
+	// for trace/exception signals — Phase 2 of the coding-agents work
+	// makes the session-root SpanId stable, so opening that SpanId in
+	// the trace detail sheet shows the full session as one trace tree.
+	const isSessionSignal = config.key === "sessions";
 
 	const setSelectedInUrl = useCallback(
 		(id: string | null) => {
@@ -188,12 +222,16 @@ export default function ObservabilitySignalList({
 			setPreviewSpanId(null);
 			return;
 		}
-		if (isTraceSignal && !previewSpanId && !skipSelectedHydrationRef.current) {
+		if (
+			(isTraceSignal || isSessionSignal) &&
+			!previewSpanId &&
+			!skipSelectedHydrationRef.current
+		) {
 			setPreviewSpanId(selectedParam);
 			return;
 		}
-		if (!isTraceSignal) setPreviewSpanId(null);
-	}, [isTraceSignal, previewSpanId, selectedParam]);
+		if (!isTraceSignal && !isSessionSignal) setPreviewSpanId(null);
+	}, [isTraceSignal, isSessionSignal, previewSpanId, selectedParam]);
 
 	const selectedMetricRow = useMemo(() => {
 		if (!isMetricSignal || !selectedParam) return null;
@@ -215,6 +253,22 @@ export default function ObservabilitySignalList({
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(row.spanId);
 			setSelectedInUrl(row.spanId);
+			return;
+		}
+		if (isSessionSignal) {
+			// TraceDetailView opens on a SpanId. Prefer the explicit
+			// session-root SpanId (post-Phase-2 the CLI derives this
+			// deterministically from the session id); fall back to the
+			// chronologically-first child span; final fallback is the
+			// session id itself, which the trace detail page handles
+			// gracefully by surfacing an empty trace state.
+			const safe = row && typeof row === "object" ? row : {};
+			const targetSpanId =
+				safe.session_root_span_id || safe.session_id || safe.trace_id || "";
+			if (!targetSpanId) return;
+			skipSelectedHydrationRef.current = false;
+			setPreviewSpanId(targetSpanId);
+			setSelectedInUrl(targetSpanId);
 			return;
 		}
 		if (isMetricSignal) {
@@ -298,6 +352,7 @@ export default function ObservabilitySignalList({
 				total={showFlatList ? total : undefined}
 				supportDynamicFilters
 				includeOnlySorting={config.includeOnlySorting}
+				customSortOptions={config.customSortOptions}
 				pageName={config.pageName}
 				columns={config.columns}
 				configUrl={config.configUrl}
@@ -306,6 +361,7 @@ export default function ObservabilitySignalList({
 				filterStorageScope={config.key}
 				showGroupBy={!!config.supportGrouping}
 				showVisibilityColumns
+				extraControls={toolbarExtraControls}
 			/>
 
 			{config.supportGrouping && filter.groupBy && (
@@ -338,7 +394,7 @@ export default function ObservabilitySignalList({
 			)}
 			<Sheet
 				modal={false}
-				open={isTraceSignal && !!previewSpanId}
+				open={(isTraceSignal || isSessionSignal) && !!previewSpanId}
 				onOpenChange={(open) => !open && closePreview()}
 			>
 				<SheetContent

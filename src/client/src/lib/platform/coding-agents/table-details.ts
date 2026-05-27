@@ -56,6 +56,15 @@ export const CODING_AGENT_ATTR = {
 	mcpTransport: "coding_agent.mcp.transport",
 	vcsDirty: "coding_agent.vcs.dirty",
 	hookEvent: "coding_agent.hook.event",
+	// Subagent linkage. CLI stamps `coding_agent.agent.parent_id` as a
+	// resource attribute on every hook process that knows it's running
+	// inside a subagent (Cursor exposes `parent_conversation_id` on
+	// subagent payloads). The UI uses it as the chat-thread rollup key
+	// so subagents fold under their parent row instead of polluting
+	// the Sessions list.
+	agentId: "coding_agent.agent.id",
+	agentParentId: "coding_agent.agent.parent_id",
+	sessionIsSubagent: "coding_agent.session.is_subagent",
 } as const;
 
 /** OTel `gen_ai.*` keys we read on coding-agent spans. */

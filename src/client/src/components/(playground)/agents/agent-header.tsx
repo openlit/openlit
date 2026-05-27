@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
@@ -13,12 +14,36 @@ interface AgentHeaderProps {
 	rightSlot?: React.ReactNode;
 }
 
+// Map a `?from=<tab>` source the table click stamped on the
+// drill-in URL back into the agents-hub tab query the user expects
+// to land on. We default to `services` (Applications) for
+// unrecognised values so legacy links don't break, and to `coding`
+// for coding-sourced agents — that way a deep link to a Claude
+// Code session detail still routes back to the right tab even if
+// `from` is missing.
+function buildBackHref(
+	from: string | null,
+	agentSource: UnifiedAgent["source"] | undefined
+) {
+	const ALLOWED = new Set(["services", "controllers", "coding"]);
+	let tab = from && ALLOWED.has(from) ? from : null;
+	if (!tab) {
+		tab = agentSource === "coding" ? "coding" : "services";
+	}
+	return tab === "services" ? "/agents" : `/agents?tab=${tab}`;
+}
+
 export default function AgentHeader({
 	agent,
 	onRefresh,
 	rightSlot,
 }: AgentHeaderProps) {
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const searchParams = useSearchParams();
+	const backHref = useMemo(
+		() => buildBackHref(searchParams?.get("from") || null, agent.source),
+		[searchParams, agent.source]
+	);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -44,7 +69,7 @@ export default function AgentHeader({
 		<div className="space-y-2">
 			<div className="flex items-center justify-between gap-3">
 				<Link
-					href="/agents"
+					href={backHref}
 					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
 				>
 					<ArrowLeft className="w-4 h-4" />

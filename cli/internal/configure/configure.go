@@ -51,7 +51,7 @@ flags always take precedence over the file at runtime.`,
 	cmd.Flags().StringVar(&apiKey, "api-key", "", "API key sent as `Authorization: Bearer <key>`")
 	cmd.Flags().StringVar(&environment, "environment", "", "Deployment environment (e.g. production, staging)")
 	cmd.Flags().StringVar(&appName, "application-name", "", "Application name (default: openlit-cli)")
-	cmd.Flags().StringVar(&capture, "content-capture", "", "Coding-agent content capture mode: metadata_only | no_tool_content | full")
+	cmd.Flags().StringVar(&capture, "content-capture", "", "Coding-agent content capture mode: minimal | metadata_only | full")
 	cmd.Flags().BoolVar(&show, "show", false, "Print effective resolved configuration without writing anything")
 
 	return cmd
@@ -73,9 +73,9 @@ func runWrite(cmd *cobra.Command, endpoint, apiKey, env, app, capture string) er
 	}
 	if capture != "" {
 		switch capture {
-		case "metadata_only", "no_tool_content", "full":
+		case "minimal", "metadata_only", "full":
 		default:
-			return fmt.Errorf("invalid --content-capture %q (allowed: metadata_only, no_tool_content, full)", capture)
+			return fmt.Errorf("invalid --content-capture %q (allowed: minimal, metadata_only, full)", capture)
 		}
 		updates["OPENLIT_CODING_CONTENT_CAPTURE"] = capture
 	}

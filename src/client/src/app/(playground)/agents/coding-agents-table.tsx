@@ -3,9 +3,14 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Bot } from "lucide-react";
 import type { CodingAgentVendor, UnifiedAgent } from "@/types/agents";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
+import {
+	CodingAgentVendorIcon,
+	hasCodingAgentVendorIcon,
+} from "@/components/svg/coding-agents";
 import { formatBrowserDateTime } from "@/utils/date";
 import getMessage from "@/constants/messages";
 
@@ -38,15 +43,27 @@ type CodingColumnKey =
 const columns: Columns<CodingColumnKey, UnifiedAgent> = {
 	vendor: {
 		header: () => getMessage().AGENTS_CODING_COLUMN_VENDOR,
-		cell: ({ row }) => (
-			<Link
-				href={`/agents/${row.agent_key}`}
-				className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
-				onClick={(e) => e.stopPropagation()}
-			>
-				{vendorLabel(row.coding_agent_vendor)}
-			</Link>
-		),
+		cell: ({ row }) => {
+			const vendor = row.coding_agent_vendor;
+			const hasIcon = hasCodingAgentVendorIcon(vendor);
+			return (
+				<Link
+					href={`/agents/${row.agent_key}?from=coding`}
+					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate flex items-center gap-2"
+					onClick={(e) => e.stopPropagation()}
+				>
+					{hasIcon ? (
+						<CodingAgentVendorIcon
+							vendor={vendor}
+							className="h-4 w-4 shrink-0"
+						/>
+					) : (
+						<Bot className="h-4 w-4 shrink-0 text-stone-500" />
+					)}
+					<span className="truncate">{vendorLabel(vendor)}</span>
+				</Link>
+			);
+		},
 		enableHiding: false,
 	},
 	sessions: {
@@ -129,7 +146,9 @@ export default function CodingAgentsTable({
 			isLoading={isLoading}
 			visibilityColumns={VISIBILITY_COLUMNS}
 			extraFunctions={{}}
-			onClick={(row) => router.push(`/agents/${row.agent_key}`)}
+			onClick={(row) =>
+				router.push(`/agents/${row.agent_key}?from=coding`)
+			}
 		/>
 	);
 }

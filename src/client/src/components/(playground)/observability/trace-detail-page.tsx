@@ -21,6 +21,10 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	CodingAgentVendorIcon,
+	hasCodingAgentVendorIcon,
+} from "@/components/svg/coding-agents";
 import { toast } from "sonner";
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
@@ -119,15 +123,27 @@ function CostStat({
 	);
 }
 
-function MetaPill({ label, value }: { label: string; value?: string }) {
+function MetaPill({
+	label,
+	value,
+	icon,
+}: {
+	label: string;
+	value?: string;
+	icon?: ReactNode;
+}) {
 	if (!value) return null;
 	return (
 		<div className="min-w-0 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-800 dark:bg-stone-950">
 			<div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 				{label}
 			</div>
-			<div className="max-w-72 truncate font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100" title={value}>
-				{value}
+			<div
+				className="flex max-w-72 items-center gap-1.5 truncate font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100"
+				title={value}
+			>
+				{icon ? <span className="shrink-0">{icon}</span> : null}
+				<span className="truncate">{value}</span>
 			</div>
 		</div>
 	);
@@ -346,6 +362,7 @@ export function TraceDetailView({
 	const raw = (data as any)?.record;
 	const trace = raw ? normalizeTrace(raw) : null;
 	const resourceAttributes = raw?.ResourceAttributes || {};
+	const spanAttributes = raw?.SpanAttributes || {};
 	const serviceNamespace = resourceAttributes["service.namespace"];
 	const deploymentEnvironment =
 		resourceAttributes["deployment.environment"] ||
@@ -355,6 +372,53 @@ export function TraceDetailView({
 		raw?.StatusMessage || raw?.StatusCode
 			? [raw?.StatusCode, raw?.StatusMessage].filter(Boolean).join(" / ")
 			: undefined;
+	// Coding-agent extras: repo URL/branch, vendor, classification — surfaced
+	// as MetaPills below the header so the session detail keeps the same
+	// signal users had on the dedicated session sheet.
+	//
+	// All of these fields live ONLY on the session-root span when the
+	// CLI emits them (working folder, repo, branch, mode, outcome,
+	// classification). When a developer clicks on a child span — an
+	// llm.turn or a tool.call — the SpanAttributes don't carry them.
+	// We fall through to ResourceAttributes (which the CLI also stamps
+	// per process so every span in the same process invocation has
+	// them) so the header pills stay populated regardless of which
+	// span the developer drills into.
+	const ca = (k: string) =>
+		(spanAttributes[k] as string) || (resourceAttributes[k] as string) || "";
+	const codingAgentVendor = (ca("coding_agent.client") ||
+		ca("gen_ai.agent.name") ||
+		"") as string;
+	const repoUrl = ca("vcs.repository.url.full");
+	const repoLabel = repoUrl
+		? repoUrl.replace(/^https?:\/\//, "").replace(/\.git$/, "")
+		: "";
+	const branchName = ca("vcs.ref.head.name");
+	const codingAgentUser = (spanAttributes["gen_ai.user.name"] ||
+		resourceAttributes["gen_ai.user.name"] ||
+		"") as string;
+	const rawOutcome = ca("coding_agent.session.outcome");
+	// "unknown" is what the CLI stamps when a session ends without a
+	// definitive reason (e.g. the user closed the editor before
+	// sessionEnd fired). It carries no information for the operator,
+	// so render an empty pill rather than a confusing "unknown" chip.
+	const sessionOutcome = rawOutcome && rawOutcome !== "unknown" ? rawOutcome : "";
+	const rawClassification = ca("coding_agent.user.classification");
+	const userClassification =
+		rawClassification && rawClassification !== "unknown" ? rawClassification : "";
+	// Working folder ("cwd") — the host process directory where the
+	// agent was invoked. Useful when a developer has multiple repos
+	// open at once and the repo URL alone doesn't disambiguate.
+	const workingDir = ca("code.cwd");
+	const workingDirLabel = workingDir
+		? workingDir.split("/").filter(Boolean).slice(-2).join("/") || workingDir
+		: "";
+	// Permission mode (Cursor's composer_mode / Claude Code's permission mode).
+	// We surface the LATEST recorded value so the chat view header
+	// reflects what the agent is currently set to even if the user
+	// flipped modes mid-session.
+	const permissionMode = ca("coding_agent.policy.permission_mode");
+	const terminalType = (resourceAttributes["terminal.type"] || "") as string;
 	const hasEvaluationPanel = trace
 		? getExtraTabsContentTypes(trace).includes("Evaluation")
 		: false;
@@ -502,6 +566,26 @@ export function TraceDetailView({
 						<MetaPill label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
 						<MetaPill label="Service Namespace" value={serviceNamespace} />
 						<MetaPill label="Deployment Environment" value={deploymentEnvironment} />
+						<MetaPill
+							label="Coding Agent"
+							value={codingAgentVendor}
+							icon={
+								hasCodingAgentVendorIcon(codingAgentVendor) ? (
+									<CodingAgentVendorIcon
+										vendor={codingAgentVendor}
+										className="h-3.5 w-3.5"
+									/>
+								) : null
+							}
+						/>
+						<MetaPill label="User" value={codingAgentUser} />
+						<MetaPill label="Working Folder" value={workingDirLabel} />
+						<MetaPill label="Repository" value={repoLabel} />
+						<MetaPill label="Branch" value={branchName} />
+						<MetaPill label="Mode" value={permissionMode} />
+						<MetaPill label="Terminal" value={terminalType} />
+						<MetaPill label="Outcome" value={sessionOutcome} />
+						<MetaPill label="Classification" value={userClassification} />
 					</div>
 					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">

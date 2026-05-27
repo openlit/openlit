@@ -39,9 +39,12 @@ type Resolved struct {
 	Environment     string
 	ApplicationName string
 
-	// CodingContentCapture is one of "metadata_only", "no_tool_content",
+	// CodingContentCapture is one of "minimal", "metadata_only",
 	// "full". Default is metadata_only — the CLI never writes prompt
 	// or tool-arg bodies as span attributes unless explicitly opted in.
+	// "minimal" emits only session bookends + counters, no per-event
+	// spans; "full" includes prompt/response/tool-arg bodies (still
+	// scrubbed for secrets).
 	CodingContentCapture string
 
 	// Source records where each value came from for `openlit configure

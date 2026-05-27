@@ -71,22 +71,44 @@ type entry struct {
 // edits. Order matters — first-match wins, so put more-specific
 // patterns ahead of broader ones.
 //
-// References:
+// References (verified May 2026):
 //   - Anthropic: https://www.anthropic.com/pricing#anthropic-api
 //   - OpenAI:    https://openai.com/api/pricing/
 //   - Google:    https://ai.google.dev/pricing
+//
+// IMPORTANT: the order below is load-bearing. We've been bitten more
+// than once by a generic `claude-opus-4` pattern eating the new $5/$25
+// Opus 4.5+ pricing. ALWAYS list versioned variants before the family
+// prefix.
 var table = []entry{
 	// --- Anthropic Claude family -----------------------------------
+	// Opus 4.5+ dropped to $5/$25 in 2025-10 (down from the original
+	// Opus 4 / 4.1 launch price of $15/$75). We special-case the
+	// later versions so Cursor's `claude-opus-4-7-thinking-*` SKUs and
+	// the bare `claude-opus-4-5` / `4-6` / `4-7` ids price correctly.
 	{
-		match: []string{"claude-opus-4", "claude-4-opus"},
+		match: []string{"claude-opus-4-5", "claude-opus-4-6", "claude-opus-4-7"},
+		rate:  Rate{InputPer1M: 5.00, OutputPer1M: 25.00, CachedInputPer1M: 0.50},
+	},
+	{
+		// Legacy Opus 4 / 4.1: still on the $15/$75 list price.
+		match: []string{"claude-opus-4-0", "claude-opus-4-1", "claude-4-opus"},
 		rate:  Rate{InputPer1M: 15.00, OutputPer1M: 75.00, CachedInputPer1M: 1.50},
 	},
 	{
-		match: []string{"claude-sonnet-4", "claude-4-sonnet", "claude-4.5-sonnet", "claude-sonnet-4-5"},
+		// Generic "claude-opus-4" / "claude-4-opus" with no version
+		// suffix. We bias toward the modern rate because new SDKs and
+		// Cursor builds default to the latest Opus, and undercharging is
+		// preferable to a 3x overcharge.
+		match: []string{"claude-opus-4"},
+		rate:  Rate{InputPer1M: 5.00, OutputPer1M: 25.00, CachedInputPer1M: 0.50},
+	},
+	{
+		match: []string{"claude-sonnet-4", "claude-4-sonnet", "claude-4.5-sonnet"},
 		rate:  Rate{InputPer1M: 3.00, OutputPer1M: 15.00, CachedInputPer1M: 0.30},
 	},
 	{
-		match: []string{"claude-haiku-4", "claude-4-haiku", "claude-haiku-4-5"},
+		match: []string{"claude-haiku-4", "claude-4-haiku"},
 		rate:  Rate{InputPer1M: 1.00, OutputPer1M: 5.00, CachedInputPer1M: 0.10},
 	},
 	{
@@ -102,21 +124,91 @@ var table = []entry{
 		rate:  Rate{InputPer1M: 3.00, OutputPer1M: 15.00, CachedInputPer1M: 0.30},
 	},
 	{
+		match: []string{"claude-3-haiku"},
+		rate:  Rate{InputPer1M: 0.25, OutputPer1M: 1.25, CachedInputPer1M: 0.03},
+	},
+	{
+		match: []string{"claude-3-sonnet"},
+		rate:  Rate{InputPer1M: 3.00, OutputPer1M: 15.00, CachedInputPer1M: 0.30},
+	},
+	{
 		match: []string{"claude-3-opus", "claude-3.0-opus"},
 		rate:  Rate{InputPer1M: 15.00, OutputPer1M: 75.00, CachedInputPer1M: 1.50},
 	},
 	// --- OpenAI ----------------------------------------------------
+	// GPT-5.x ladder. Versions matter: 5.0 / 5.1 share $1.25/$10, 5.2 /
+	// 5.3 jump to $1.75/$14, 5.4 base sits at $2.50/$15 (the surprise
+	// price hike), 5.5 jumps again to $5/$30. Mini and nano variants
+	// price separately, so they go first.
+	{
+		match: []string{"gpt-5.5-pro", "gpt-5-5-pro"},
+		rate:  Rate{InputPer1M: 30.00, OutputPer1M: 180.00},
+	},
 	{
 		match: []string{"gpt-5.5", "gpt-5-5"},
-		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
+		rate:  Rate{InputPer1M: 5.00, OutputPer1M: 30.00, CachedInputPer1M: 0.50},
+	},
+	{
+		match: []string{"gpt-5.4-pro", "gpt-5-4-pro"},
+		rate:  Rate{InputPer1M: 30.00, OutputPer1M: 180.00},
+	},
+	{
+		match: []string{"gpt-5.4-nano", "gpt-5-4-nano"},
+		rate:  Rate{InputPer1M: 0.20, OutputPer1M: 1.25, CachedInputPer1M: 0.02},
+	},
+	{
+		match: []string{"gpt-5.4-mini", "gpt-5-4-mini"},
+		rate:  Rate{InputPer1M: 0.75, OutputPer1M: 4.50, CachedInputPer1M: 0.075},
+	},
+	{
+		match: []string{"gpt-5.4", "gpt-5-4"},
+		rate:  Rate{InputPer1M: 2.50, OutputPer1M: 15.00, CachedInputPer1M: 0.25},
 	},
 	{
 		match: []string{"gpt-5.3-codex", "codex-5.3", "gpt-5-3-codex"},
+		rate:  Rate{InputPer1M: 1.75, OutputPer1M: 14.00, CachedInputPer1M: 0.175},
+	},
+	{
+		match: []string{"gpt-5.2-codex", "gpt-5-2-codex"},
+		rate:  Rate{InputPer1M: 1.75, OutputPer1M: 14.00, CachedInputPer1M: 0.175},
+	},
+	{
+		match: []string{"gpt-5.2", "gpt-5-2"},
+		rate:  Rate{InputPer1M: 1.75, OutputPer1M: 14.00, CachedInputPer1M: 0.175},
+	},
+	{
+		match: []string{"gpt-5.1-codex-max", "gpt-5-1-codex-max"},
 		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
 	},
 	{
-		match: []string{"gpt-5", "o5"},
-		rate:  Rate{InputPer1M: 2.50, OutputPer1M: 10.00, CachedInputPer1M: 0.25},
+		match: []string{"gpt-5.1-codex", "gpt-5-1-codex"},
+		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
+	},
+	{
+		match: []string{"gpt-5.1", "gpt-5-1"},
+		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
+	},
+	{
+		match: []string{"gpt-5-pro"},
+		rate:  Rate{InputPer1M: 15.00, OutputPer1M: 120.00},
+	},
+	{
+		match: []string{"gpt-5-nano"},
+		rate:  Rate{InputPer1M: 0.05, OutputPer1M: 0.40, CachedInputPer1M: 0.005},
+	},
+	{
+		match: []string{"gpt-5-mini"},
+		rate:  Rate{InputPer1M: 0.25, OutputPer1M: 2.00, CachedInputPer1M: 0.025},
+	},
+	{
+		match: []string{"gpt-5-codex"},
+		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
+	},
+	{
+		// Bare "gpt-5" or "gpt-5-..." (after the more-specific patterns
+		// above have already caught the named variants).
+		match: []string{"gpt-5"},
+		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedInputPer1M: 0.125},
 	},
 	{
 		match: []string{"gpt-4o", "gpt-4-o"},
@@ -139,17 +231,41 @@ var table = []entry{
 		rate:  Rate{InputPer1M: 1.10, OutputPer1M: 4.40},
 	},
 	{
+		match: []string{"o3"},
+		rate:  Rate{InputPer1M: 2.00, OutputPer1M: 8.00},
+	},
+	{
 		match: []string{"o4-mini"},
 		rate:  Rate{InputPer1M: 1.10, OutputPer1M: 4.40},
 	},
 	// --- Google Gemini ---------------------------------------------
 	{
+		match: []string{"gemini-3.1-pro", "gemini-3-1-pro"},
+		rate:  Rate{InputPer1M: 2.00, OutputPer1M: 12.00},
+	},
+	{
+		match: []string{"gemini-3.1-flash-lite", "gemini-3-1-flash-lite"},
+		rate:  Rate{InputPer1M: 0.25, OutputPer1M: 1.50},
+	},
+	{
+		match: []string{"gemini-3-flash"},
+		rate:  Rate{InputPer1M: 0.50, OutputPer1M: 3.00},
+	},
+	{
 		match: []string{"gemini-2.5-pro", "gemini-2-5-pro"},
 		rate:  Rate{InputPer1M: 1.25, OutputPer1M: 10.00},
 	},
 	{
+		match: []string{"gemini-2.5-flash-lite", "gemini-2-5-flash-lite"},
+		rate:  Rate{InputPer1M: 0.10, OutputPer1M: 0.40},
+	},
+	{
 		match: []string{"gemini-2.5-flash", "gemini-2-5-flash"},
 		rate:  Rate{InputPer1M: 0.30, OutputPer1M: 2.50},
+	},
+	{
+		match: []string{"gemini-2.0-flash", "gemini-2-0-flash"},
+		rate:  Rate{InputPer1M: 0.10, OutputPer1M: 0.40},
 	},
 	{
 		match: []string{"gemini-1.5-pro", "gemini-1-5-pro"},

@@ -56,6 +56,25 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			status: true,
 		}
 	},
+	codingAgentSessions: {
+		visibilityColumns: {
+			session: true,
+			user: true,
+			started: true,
+			duration: true,
+			model: true,
+			tools: true,
+			tokens: true,
+			cost: true,
+			outcome: true,
+			classification: true,
+			// `coding_users` table reuses the same page store
+			sessions: true,
+			topVendor: true,
+			mix: true,
+			lastSeen: true,
+		},
+	},
 	header: {
 		title: "",
 		breadcrumbs: [],

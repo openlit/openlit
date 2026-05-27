@@ -3,6 +3,7 @@ import {
 	importBoardLayout,
 	isBoardTableEmpty,
 } from "@/lib/platform/manage-dashboard/board";
+import { updateWidget } from "@/lib/platform/manage-dashboard/widget";
 import llmDashboard from "../seed-data/openlit-dashboard-LLM-dashboard-layout.json";
 import vectorDbDashboard from "../seed-data/openlit-dashboard-Vector-DB-layout.json";
 import gpuDashboard from "../seed-data/openlit-dashboard-GPU-dashboard-layout.json";
@@ -69,6 +70,22 @@ export default async function CreateCustomDashboardsSeed(
 
 		if (exists) {
 			skippedCount++;
+			// Existing seeds get a per-widget SQL sync. We update only
+			// the `config` field (which holds the SQL `query` for each
+			// widget) so layout / title / properties the user might
+			// have nudged stay intact. Widget IDs are stable in the
+			// seed JSON which makes this a safe by-id upsert. Without
+			// this step, fixes to the seed SQL (e.g. the canonical
+			// per-session cost formula in the Total Cost widget) would
+			// only land for brand-new installs, never for stacks that
+			// already had the board.
+			try {
+				await syncWidgetSqlFromSeed(entry.layout);
+			} catch (e: any) {
+				failures.push(
+					`${entry.seedTitle} sync: thrown ${e?.message || String(e)}`
+				);
+			}
 			continue;
 		}
 
@@ -107,4 +124,33 @@ export default async function CreateCustomDashboardsSeed(
 	console.log(
 		`********* Seeding Dashboards Completed (seeded ${seededCount}, skipped ${skippedCount}) *********`
 	);
+}
+
+/**
+ * Rewrite widget SQL from the seed JSON onto already-seeded widgets,
+ * matched by widget id. Only the `config` field is touched, which
+ * holds the SQL `query` (and any rendering knobs the widget needs to
+ * execute its query). User-editable surfaces — title, description,
+ * properties (color / value paths) — are left alone so a workspace
+ * that re-themed a widget doesn't get reset on the next boot.
+ *
+ * Why we do this without a version bump: shipping a fix to the
+ * canonical cost formula needs to take effect everywhere the
+ * dashboard widgets read it (Total Cost stat card today; any future
+ * per-vendor / per-user widgets the same way). The widget IDs in
+ * the seed JSON are stable UUIDs, so by-id targeting is safe — and
+ * gives us a one-line escape hatch for any "the seed got wrong"
+ * fixes. The cost is a few extra UPDATEs on each boot, which is
+ * cheap (4 widgets × 1 UPDATE each).
+ */
+async function syncWidgetSqlFromSeed(layout: any): Promise<void> {
+	const widgets = (layout?.widgets || {}) as Record<string, any>;
+	for (const id of Object.keys(widgets)) {
+		const seed = widgets[id];
+		if (!seed?.config) continue;
+		await updateWidget({
+			id,
+			config: seed.config,
+		} as any);
+	}
 }

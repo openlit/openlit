@@ -5,10 +5,43 @@
 // function (a no-op-friendly closure from internal/redact). Numeric and
 // boolean attributes go through unscrubbed since they can't carry
 // secrets in any meaningful way.
+//
+// Capture-mode matrix (Phase C):
+//
+//	+-----------------------------+---------+-----------+----------+
+//	| attribute family            | minimal | metadata  |  full    |
+//	+-----------------------------+---------+-----------+----------+
+//	| session-root timings/cost   | ✓       | ✓         | ✓        |
+//	| session-root identity (user)| ✓       | ✓         | ✓        |
+//	| coding_agent.session.id +   | ✓       | ✓         | ✓        |
+//	|   gen_ai.conversation.id    |         |           |          |
+//	| repo url / branch / commit  | ✓       | ✓         | ✓        |
+//	| per-event spans             |   ─     | ✓         | ✓        |
+//	| tool.name + duration + cost |   ─     | ✓         | ✓        |
+//	| tool.command (first token)  |   ─     | ✓ (head)  | ✓ (full) |
+//	| tool args / tool result     |   ─     |   ─       | ✓        |
+//	| llm.turn timings + tokens   |   ─     | ✓         | ✓        |
+//	| llm.turn prompt / response  |   ─     |   ─       | ✓        |
+//	| llm.turn.thought text       |   ─     |   ─       | ✓        |
+//	| coding_agent.content_capture| ✓       | ✓         | ✓        |
+//	|   resource attribute        |         |           |          |
+//	+-----------------------------+---------+-----------+----------+
+//
+// The matrix is enforced by:
+//   - exporter.go's Emit* methods: in minimal mode, EmitToolCall /
+//     EmitLLMTurn / EmitSubagent / EmitEditDecision / EmitEvent become
+//     no-ops at the span level and instead bump a counter on the
+//     sessionstate cache; the final EmitSession reads the counters
+//     onto the session-root span (see C3).
+//   - setToolCallAttrs / setLLMTurnAttrs / setSubagentAttrs accept the
+//     mode and gate body attributes through `bodyAllowed`.
 
 package otlp
 
 import (
+	"encoding/json"
+	"strings"
+
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/sdk/go/semconv"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,6 +52,52 @@ import (
 // to internal/redact.ForCapture's return type but redeclared locally so
 // this file doesn't depend on the redact package.
 type scrubFn func(string) string
+
+// bodyAllowed returns true when the active capture mode permits
+// prompt / response / tool-argument bodies on a span. Centralised
+// here so a future mode (e.g. "redacted_full") only needs to update
+// this single switch.
+func bodyAllowed(mode string) bool {
+	return mode == semconv.CodingAgentContentCaptureFull
+}
+
+// perEventSpansAllowed returns true when the active capture mode
+// permits emitting per-event spans (tool.call, llm.turn, subagent,
+// edit.decision, and events). Minimal mode collapses these into
+// rolled-up counters on the session-root span.
+func perEventSpansAllowed(mode string) bool {
+	return mode != semconv.CodingAgentContentCaptureMinimal
+}
+
+// inferProvider returns the OTel-standard `gen_ai.system` value based
+// on the model name and (as a last resort) the vendor. We deliberately
+// only handle the model families our adapters report; everything else
+// gets the empty string so dashboards know not to render a misleading
+// system value. Extend as we add more agents.
+func inferProvider(model, vendor string) string {
+	m := strings.ToLower(model)
+	switch {
+	case strings.HasPrefix(m, "claude"), strings.HasPrefix(m, "anthropic/"):
+		return "anthropic"
+	case strings.HasPrefix(m, "gpt"), strings.HasPrefix(m, "o1"),
+		strings.HasPrefix(m, "o3"), strings.HasPrefix(m, "o4"),
+		strings.HasPrefix(m, "openai/"):
+		return "openai"
+	case strings.HasPrefix(m, "gemini"), strings.HasPrefix(m, "google/"):
+		return "google"
+	case strings.HasPrefix(m, "grok"):
+		return "xai"
+	case strings.HasPrefix(m, "deepseek"):
+		return "deepseek"
+	}
+	switch strings.ToLower(vendor) {
+	case "claude-code", "claudecode", "cc":
+		return "anthropic"
+	case "codex":
+		return "openai"
+	}
+	return ""
+}
 
 func setSessionAttrs(span trace.Span, s normalize.Session, scrub scrubFn) {
 	span.SetAttributes(
@@ -86,13 +165,14 @@ func setSessionAttrs(span trace.Span, s normalize.Session, scrub scrubFn) {
 	setStr(span, semconv.CodingAgentUserClassification, s.UserClassification, scrub)
 	setStr(span, semconv.CodingAgentUserClassificationReason, s.ClassificationReason, scrub)
 	setStr(span, semconv.CodingAgentPolicyPermissionMode, s.PermissionMode, scrub)
+	setStr(span, "code.cwd", s.CWD, scrub)
 
 	for k, v := range s.Extras {
 		setStr(span, k, v, scrub)
 	}
 }
 
-func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn) {
+func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn, capture string) {
 	span.SetAttributes(attribute.String(semconv.CodingAgentHookSchemaVersion, semconv.CodingAgentSchemaVersion))
 	setStr(span, semconv.CodingAgentSessionID, t.SessionID, scrub)
 	setStr(span, semconv.CodingAgentAgentID, t.AgentID, scrub)
@@ -114,7 +194,15 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn) {
 		setStr(span, "code.cwd", t.WorkingDir, scrub)
 	}
 	if t.Command != "" {
-		setStr(span, "coding_agent.tool.command", truncate(t.Command, 4096), scrub)
+		// In metadata / minimal modes the adapter has already
+		// trimmed `Command` to the binary head via
+		// commandForMode (cursor/handle.go). Re-apply truncation
+		// at full mode only.
+		if bodyAllowed(capture) {
+			setStr(span, "coding_agent.tool.command", truncate(t.Command, 4096), scrub)
+		} else {
+			setStr(span, "coding_agent.tool.command", truncate(t.Command, 256), scrub)
+		}
 	}
 
 	setStr(span, semconv.CodingAgentMCPServerName, t.MCPServerName, scrub)
@@ -130,11 +218,19 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn) {
 			span.SetAttributes(attribute.Bool("coding_agent.tool.interrupted", true))
 		}
 	}
-	if t.Args != "" {
+	// Bodies are gated through bodyAllowed so adapters can't
+	// accidentally leak args/result when capture is metadata/minimal.
+	// Adapters call captureIfFull themselves too, but this is the
+	// last-line defence so a future adapter that forgets the helper
+	// still can't push prompts onto the wire in metadata mode.
+	if t.Args != "" && bodyAllowed(capture) {
 		setStr(span, semconv.GenAIToolCallArguments, truncate(t.Args, 8192), scrub)
 	}
-	if t.Result != "" {
+	if t.Result != "" && bodyAllowed(capture) {
 		setStr(span, "gen_ai.tool.call.result", truncate(t.Result, 8192), scrub)
+	}
+	if t.AgentMessage != "" && bodyAllowed(capture) {
+		setStr(span, "coding_agent.tool.agent_message", truncate(t.AgentMessage, 4096), scrub)
 	}
 	if dur := t.EndedAt.Sub(t.StartedAt); dur > 0 {
 		span.SetAttributes(attribute.Int64("coding_agent.tool.duration_ms", dur.Milliseconds()))
@@ -156,12 +252,33 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 	if t.Vendor != "" {
 		setStr(span, "gen_ai.agent.name", t.Vendor, scrub)
 	}
+	// D5: GenAI semconv parity. Every llm.turn span should declare:
+	//   gen_ai.operation.name — the OTel-standard verb for "this was
+	//     a chat completion". Other valid values are "text_completion",
+	//     "embeddings"; coding agents always run chat.
+	//   gen_ai.system — the model provider (anthropic/openai/google).
+	//     Falls back to vendor when we don't know better.
+	// Without these two attrs the GenAI dashboards in the
+	// OpenTelemetry catalogue can't render this span.
+	setStr(span, "gen_ai.operation.name", "chat", scrub)
+	if sys := inferProvider(t.Model, t.Vendor); sys != "" {
+		setStr(span, semconv.GenAISystem, sys, scrub)
+	}
 	if t.Model != "" {
 		setStr(span, semconv.GenAIRequestModel, t.Model, scrub)
 		setStr(span, semconv.GenAIResponseModel, t.Model, scrub)
 	}
 	if t.GenerationID != "" {
 		setStr(span, "gen_ai.response.id", t.GenerationID, scrub)
+	}
+	if len(t.FinishReasons) > 0 {
+		span.SetAttributes(attribute.StringSlice("gen_ai.response.finish_reasons", t.FinishReasons))
+	}
+	if t.CacheReadTokens > 0 {
+		span.SetAttributes(attribute.Int64("gen_ai.usage.cache.read_input_tokens", t.CacheReadTokens))
+	}
+	if t.CacheCreationTokens > 0 {
+		span.SetAttributes(attribute.Int64("gen_ai.usage.cache.creation_input_tokens", t.CacheCreationTokens))
 	}
 	if t.UserEmail != "" {
 		setStr(span, "user.email", t.UserEmail, scrub)
@@ -191,17 +308,112 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 		span.SetAttributes(attribute.StringSlice("coding_agent.llm.turn.attachment.paths", t.AttachmentPaths))
 		span.SetAttributes(attribute.Int("coding_agent.llm.turn.attachment.count", len(t.AttachmentPaths)))
 	}
+	for k, v := range t.Extras {
+		setStr(span, k, v, scrub)
+	}
 
-	// Prompt / response / thought bodies cross the wire only when the
-	// operator opted into full capture. The redact tier-2 layer in
-	// internal/redact already runs on every string under that mode.
-	if capture == semconv.CodingAgentContentCaptureFull {
-		setStr(span, semconv.GenAIInputMessages, truncate(t.Prompt, 16_000), scrub)
-		setStr(span, semconv.GenAIOutputMessages, truncate(t.Response, 16_000), scrub)
+	// Prompt / response / thought bodies cross the wire only when
+	// `bodyAllowed(capture)` is true (i.e. full mode). The redact
+	// tier-2 layer in internal/redact already runs on every string
+	// in this mode. We serialise everything into OTel-canonical
+	// `gen_ai.{input,output}.messages` envelopes here — adapters
+	// pass us plain strings + structured tool refs, never JSON.
+	if bodyAllowed(capture) {
+		if in := buildInputMessagesJSON(t); in != "" {
+			setStr(span, semconv.GenAIInputMessages, truncate(in, 16_000), scrub)
+		}
+		if out := buildOutputMessagesJSON(t); out != "" {
+			setStr(span, semconv.GenAIOutputMessages, truncate(out, 16_000), scrub)
+		}
 		if t.ThoughtText != "" {
 			setStr(span, "coding_agent.llm.thought.text", truncate(t.ThoughtText, 8_000), scrub)
 		}
 	}
+}
+
+// buildInputMessagesJSON produces the JSON value for
+// `gen_ai.input.messages` per the OTel GenAI semantic conventions
+// (https://github.com/open-telemetry/semantic-conventions-genai →
+// docs/gen-ai/gen-ai-spans.md). Each message has `role` + `parts`;
+// each text part uses `{"type":"text","content":"..."}`; tool-call
+// responses use `{"type":"tool_call_response","id":...,"result":...}`.
+//
+// Returns "" when there is nothing to record so adapters don't stamp
+// an empty `[]`.
+func buildInputMessagesJSON(t normalize.LLMTurn) string {
+	type part map[string]any
+	type message map[string]any
+	var msgs []message
+
+	if len(t.InputToolResults) > 0 {
+		parts := make([]part, 0, len(t.InputToolResults))
+		for _, r := range t.InputToolResults {
+			p := part{"type": "tool_call_response", "id": r.ID, "result": r.Result}
+			if r.IsError {
+				p["is_error"] = true
+			}
+			parts = append(parts, p)
+		}
+		msgs = append(msgs, message{"role": "tool", "parts": parts})
+	}
+	if s := strings.TrimSpace(t.Prompt); s != "" {
+		msgs = append(msgs, message{
+			"role":  "user",
+			"parts": []part{{"type": "text", "content": t.Prompt}},
+		})
+	}
+	if len(msgs) == 0 {
+		return ""
+	}
+	body, err := json.Marshal(msgs)
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// buildOutputMessagesJSON produces the OTel-canonical JSON for
+// `gen_ai.output.messages`. The output is a single assistant message
+// with text + tool_call parts and a `finish_reason` at the message
+// level (per the spec example, line 79 of docs/gen-ai/gen-ai-spans.md).
+func buildOutputMessagesJSON(t normalize.LLMTurn) string {
+	type part map[string]any
+	type message map[string]any
+
+	parts := make([]part, 0, 1+len(t.OutputToolCalls))
+	if s := strings.TrimSpace(t.Response); s != "" {
+		parts = append(parts, part{"type": "text", "content": t.Response})
+	}
+	for _, c := range t.OutputToolCalls {
+		entry := part{"type": "tool_call", "id": c.ID, "name": c.Name}
+		if c.Arguments != "" {
+			// Embed structured arguments when they're valid JSON;
+			// fall back to a raw string field otherwise so we never
+			// corrupt the envelope.
+			var v any
+			if err := json.Unmarshal([]byte(c.Arguments), &v); err == nil {
+				entry["arguments"] = v
+			} else {
+				entry["arguments"] = c.Arguments
+			}
+		}
+		parts = append(parts, entry)
+	}
+	if len(parts) == 0 && len(t.FinishReasons) == 0 {
+		return ""
+	}
+	msg := message{
+		"role":  "assistant",
+		"parts": parts,
+	}
+	if len(t.FinishReasons) > 0 {
+		msg["finish_reason"] = t.FinishReasons[0]
+	}
+	body, err := json.Marshal([]message{msg})
+	if err != nil {
+		return ""
+	}
+	return string(body)
 }
 
 func setSubagentAttrs(span trace.Span, s normalize.Subagent, scrub scrubFn) {

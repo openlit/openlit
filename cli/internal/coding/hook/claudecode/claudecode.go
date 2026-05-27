@@ -1,10 +1,20 @@
 // Package claudecode implements the Claude Code hook adapter.
 //
-// Claude Code invokes the hook by name (SessionStart, PreToolUse, etc.)
-// with a JSON payload on stdin. We additionally tail the per-session
-// transcript file for full token usage on Stop.
+// Claude Code invokes the hook by name (SessionStart, UserPromptSubmit,
+// PreToolUse, PostToolUse, Stop, SubagentStop, SessionEnd) with a JSON
+// payload on stdin. We additionally tail the per-session transcript
+// file (`transcript_path` in the payload) for authoritative token
+// usage and cost on SessionEnd, and for an early model attribution on
+// SessionStart.
 //
-// Full implementation lands with the cli-hook-cc todo.
+// Claude Code also exposes its own OTel exporter via
+// `CLAUDE_CODE_ENABLE_TELEMETRY=1`. When the user has both paths on,
+// the query layer dedupes per `session.id` (see
+// `.cursor/rules/coding-agents-convention.mdc` §5). This adapter is
+// responsible for the hook path only; it stamps
+// `coding_agent.signal_source = "hook"` (via the resource attribute
+// set in `cli/internal/otlp/exporter.go`) so the dual-path coalesce
+// can tell them apart.
 package claudecode
 
 import (

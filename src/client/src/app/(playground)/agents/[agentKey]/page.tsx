@@ -91,7 +91,11 @@ type AgentDetailTab =
 	| "monitoring"
 	| "definition"
 	| "configuration"
-	| "sessions";
+	| "sessions"
+	// Coding-agent-only tab (`UnifiedAgent.source === "coding"`). Was
+	// missing from VALID_TABS, so clicks on the Users tab fell back to
+	// "overview" via `coerceTab`.
+	| "users";
 
 const VALID_TABS: AgentDetailTab[] = [
 	"overview",
@@ -100,6 +104,7 @@ const VALID_TABS: AgentDetailTab[] = [
 	"definition",
 	"configuration",
 	"sessions",
+	"users",
 ];
 
 function coerceTab(value: string | null): AgentDetailTab {
@@ -326,11 +331,21 @@ export default function AgentDetailPage() {
 	}
 
 	if (error || !agent) {
+		// Even on a 404 we honor `?from=<tab>` so a failed deep-link
+		// from the Coding Agents tab still routes back to Coding
+		// Agents rather than tossing the user back to Applications.
+		const fromParam = searchParams.get("from");
+		const backHref =
+			fromParam === "coding"
+				? "/agents?tab=coding"
+				: fromParam === "controllers"
+					? "/agents?tab=controllers"
+					: "/agents";
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 text-sm gap-3">
 				<div>{error || "Agent not found"}</div>
 				<button
-					onClick={() => router.push("/agents")}
+					onClick={() => router.push(backHref)}
 					className="text-stone-700 dark:text-stone-200 underline"
 				>
 					{getMessage().AGENTS_BACK_TO_HUB}
