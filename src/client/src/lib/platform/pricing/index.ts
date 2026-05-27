@@ -2,7 +2,10 @@ import getMessage from "@/constants/messages";
 import { getCurrentUser } from "@/lib/session";
 import { throwIfError } from "@/utils/error";
 import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
-import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
+import {
+	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
+} from "@/helpers/server/trace";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { getDBConfigById } from "@/lib/db-config";
 import { getRequestViaSpanId } from "@/lib/platform/request";
@@ -17,9 +20,11 @@ import asaw from "@/utils/asaw";
 const COST_KEY = getTraceMappingKeyFullPath("cost") as string; // gen_ai.usage.cost
 const MODEL_KEY = getTraceMappingKeyFullPath("model") as string; // gen_ai.request.model
 const PROVIDER_KEY = getTraceMappingKeyFullPath("provider") as string; // gen_ai.system
-const PROMPT_TOKENS_KEY = getTraceMappingKeyFullPath("promptTokens") as string; // gen_ai.usage.input_tokens
-const COMPLETION_TOKENS_KEY = getTraceMappingKeyFullPath("completionTokens") as string; // gen_ai.usage.output_tokens
 const TYPE_KEY = getTraceMappingKeyFullPath("type") as string; // gen_ai.operation.name
+const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths("promptTokens") as string[];
+const COMPLETION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"completionTokens"
+) as string[];
 
 interface TraceRow {
 	SpanId: string;
@@ -29,6 +34,24 @@ interface TraceRow {
 
 function getAttr(trace: TraceRow, key: string): string {
 	return (trace.SpanAttributes || {})[key] ?? "";
+}
+
+function getNumericAttr(trace: TraceRow, keys: string[]): number {
+	const attributes = trace.SpanAttributes || {};
+
+	for (const key of keys) {
+		const value = attributes[key];
+		if (value === undefined || value === null || value === "") {
+			continue;
+		}
+
+		const numericValue = Number(value);
+		if (Number.isFinite(numericValue)) {
+			return numericValue;
+		}
+	}
+
+	return 0;
 }
 
 /**
@@ -42,11 +65,8 @@ async function computeCostForTrace(
 ): Promise<{ cost: number | null; reason?: string }> {
 	const provider = getAttr(trace, PROVIDER_KEY);
 	const model = getAttr(trace, MODEL_KEY);
-	const promptTokens = Number(getAttr(trace, PROMPT_TOKENS_KEY)) || 0;
-	const completionTokens = Number(getAttr(trace, COMPLETION_TOKENS_KEY)) || 0;
-
-	const allKeys = Object.keys(trace.SpanAttributes || {});
-	const genAiKeys = allKeys.filter((k) => k.startsWith("gen_ai"));
+	const promptTokens = getNumericAttr(trace, PROMPT_TOKENS_KEYS);
+	const completionTokens = getNumericAttr(trace, COMPLETION_TOKENS_KEYS);
 
 	if (!provider || !model) {
 		const reason = `Missing ${!provider ? "provider" : ""}${
