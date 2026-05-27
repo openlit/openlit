@@ -8,7 +8,7 @@ import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
 import OtterUsageView from "./otter-usage-view";
 import ChatSettingsForm from "./chat-settings-form";
-import RequestDetails from "@/components/(playground)/request/request-details";
+import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
 import { useRootStore } from "@/store";
 import {
 	getChatConversations,
@@ -226,7 +226,7 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 					/>
 				)}
 			</div>
-			<RequestDetails />
+			<TraceDetailRequestSheet />
 		</Card>
 	);
 }

@@ -44,7 +44,7 @@ Format:
 
 Rules:
 - Include only verified trace/span IDs returned by SQL or trace-analysis tools.
-- For trace references, include \`spanId\` when available so the request detail sheet can open directly.
+- For trace references, include \`spanId\` when available so the telemetry detail sheet can open directly.
 - Do not put UUIDs, rule IDs, model IDs, conversation IDs, session IDs, or any other entity IDs in \`\`\`trace-refs.
 
 ## Entity Links
