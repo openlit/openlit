@@ -344,6 +344,43 @@ describe('streamChatMessage', () => {
     expect(result.responseText).toContain('Key: API_KEY');
   });
 
+  it('uses tool-result error fallback content when a tool fails without text deltas', async () => {
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 4, outputTokens: 2 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          {
+            type: 'tool-result',
+            toolName: 'get_prompt',
+            result: { success: false, error: 'Prompt "missing" was not found' },
+          },
+        ]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Improve missing prompt',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toBe('**Error:** Prompt "missing" was not found');
+    expect(addMessage).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('Prompt "missing" was not found'),
+      })
+    );
+  });
+
   it('uses onFinish tool summaries when tool-result parts are not streamed', async () => {
     const onDelta = jest.fn();
     (streamText as jest.Mock).mockImplementation(({ onFinish }) => {

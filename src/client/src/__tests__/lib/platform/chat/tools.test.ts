@@ -432,6 +432,49 @@ describe("getChatTools", () => {
 		expect(getPromptDetails).toHaveBeenCalledWith("prompt-1", undefined);
 	});
 
+	it("returns get_prompt validation and lookup errors without mutating prompts", async () => {
+		const tools = getChatTools("user-1", "db-1");
+
+		await expect(tools.get_prompt.execute({})).resolves.toEqual({
+			success: false,
+			error: "Prompt name or prompt ID is required",
+		});
+
+		(getPromptByName as jest.Mock).mockResolvedValueOnce(null);
+		await expect(
+			tools.get_prompt.execute({ name: "missing_prompt" })
+		).resolves.toEqual({
+			success: false,
+			error: 'Prompt "missing_prompt" was not found',
+		});
+
+		(getPromptDetails as jest.Mock).mockResolvedValueOnce({ err: "details failed" });
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "details failed",
+		});
+
+		(getPromptDetails as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "Prompt was not found",
+		});
+
+		(getPromptDetails as jest.Mock).mockRejectedValueOnce(new Error("load failed"));
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "load failed",
+		});
+
+		expect(upsertPromptVersion).not.toHaveBeenCalled();
+	});
+
 	it("executes vault update, delete, and list tools", async () => {
 		(upsertSecret as jest.Mock).mockResolvedValue(undefined);
 		(deleteSecret as jest.Mock).mockResolvedValue([null]);
