@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.12.0/.schema/devbox.schema.json",
+  "packages": [
+    "go",
+    "nodejs_20",
+    "docker",
+    "docker-compose",
+    "golangci-lint",
+    "git"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to the OpenLit devbox environment!'",
+      "echo 'Available commands:'",
+      "echo '  devbox run build-client    - Build Next.js client'",
+      "echo '  devbox run build-server    - Build Go opamp-server'",
+      "echo '  devbox run start           - Start Docker services'",
+      "echo '  devbox run stop            - Stop Docker services'",
+      "echo '  devbox run test            - Run Go tests'"
+    ],
+    "scripts": {
+      "build-client": [
+        "cd src/client && npm install && npx prisma generate && npm run build"
+      ],
+      "build-server": [
+        "cd src/opamp-server && go build -o opamp-server ."
+      ],
+      "build-controller": [
+        "cd openlit-controller && go build -o openlit-controller ."
+      ],
+      "build-gpu-collector": [
+        "cd opentelemetry-gpu-collector && go build -o opentelemetry-gpu-collector ."
+      ],
+      "start": [
+        "docker-compose up -d"
+      ],
+      "stop": [
+        "docker-compose stop"
+      ],
+      "test": [
+        "cd src/opamp-server && go test ./...",
+        "cd openlit-controller && go test ./...",
+        "cd opentelemetry-gpu-collector && go test ./...",
+        "cd sdk/go && go test ./..."
+      ],
+      "dev-client": [
+        "cd src/client && npm run dev"
+      ]
+    }
+  }
+}
