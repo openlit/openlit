@@ -2,6 +2,7 @@ jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));
 jest.mock("@/lib/platform/chat/table-details", () => ({
 	OPENLIT_CHAT_CONVERSATION_TABLE: "openlit_chat_conversation",
 	OPENLIT_CHAT_MESSAGE_TABLE: "openlit_chat_message",
+	OPENLIT_OTTER_RUNS_TABLE: "openlit_otter_runs",
 	OPENLIT_TRACE_ANALYSIS_TABLE: "openlit_trace_analysis",
 }));
 
@@ -54,19 +55,41 @@ describe("getOtterUsage", () => {
 					cost: 0.005,
 					createdAt: "2026-01-01T00:02:00Z",
 				}],
+			})
+			.mockResolvedValueOnce({
+				data: [{
+					id: "prompt-run-1",
+					targetType: "unsaved_prompt",
+					targetId: "",
+					summary: "",
+					modelProvider: "openai",
+					modelName: "gpt-4o",
+					promptTokens: 30,
+					completionTokens: 20,
+					cost: 0.002,
+					createdAt: "2026-01-01T00:03:00Z",
+				}],
 			});
 
 		const { data } = await getOtterUsage("db-1");
 
-		expect(data!.items).toHaveLength(2);
+		expect(data!.items).toHaveLength(3);
 		expect(data!.items[0]).toMatchObject({
+			usageType: "prompt_improvement",
+			location: "New Prompt Hub improvement",
+			summary: "New prompt improvement run",
+			provider: "openai",
+			model: "gpt-4o",
+			referenceId: "prompt-run-1",
+		});
+		expect(data!.items[1]).toMatchObject({
 			usageType: "trace_analysis",
 			location: "Trace hierarchy AI analysis",
 			provider: "anthropic",
 			model: "claude-sonnet",
 			referenceId: "root-1",
 		});
-		expect(data!.items[1]).toMatchObject({
+		expect(data!.items[2]).toMatchObject({
 			usageType: "chat",
 			location: "Otter chat",
 			summary: "Revenue dashboard",
@@ -75,11 +98,11 @@ describe("getOtterUsage", () => {
 			referenceId: "conversation-1",
 		});
 		expect(data!.totals).toEqual({
-			promptTokens: 300,
-			completionTokens: 125,
-			totalTokens: 425,
-			cost: 0.006,
-			runCount: 2,
+			promptTokens: 330,
+			completionTokens: 145,
+			totalTokens: 475,
+			cost: 0.008,
+			runCount: 3,
 		});
 		expect(data!.chatMetrics).toEqual({
 			totalConversations: 4,
@@ -100,12 +123,19 @@ describe("getOtterUsage", () => {
 			}),
 			expect.objectContaining({
 				provider: "openai",
+				model: "gpt-4o",
+				totalTokens: 50,
+				cost: 0.002,
+			}),
+			expect.objectContaining({
+				provider: "openai",
 				model: "gpt-4o-mini",
 				totalTokens: 150,
 				cost: 0.001,
 			}),
 		]);
 		expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), "query", "db-1");
+		expect((dataCollector as jest.Mock).mock.calls[3][0].query).toContain("openlit_otter_runs");
 	});
 
 	it("returns usage from the available source when the other query fails", async () => {
@@ -127,7 +157,8 @@ describe("getOtterUsage", () => {
 					cost: 0.001,
 					createdAt: "2026-01-01T00:02:00Z",
 				}],
-			});
+			})
+			.mockResolvedValueOnce({ err: "missing otter runs table" });
 
 		const { data } = await getOtterUsage();
 
@@ -141,6 +172,7 @@ describe("getOtterUsage", () => {
 
 	it("adds the selected date range to usage queries", async () => {
 		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [] })
 			.mockResolvedValueOnce({ data: [] })
 			.mockResolvedValueOnce({ data: [] })
 			.mockResolvedValueOnce({ data: [] });

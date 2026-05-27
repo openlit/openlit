@@ -24,6 +24,7 @@ import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables
 import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
 import CreateTraceAnalysisMigration from "./create-trace-analysis-migration";
+import CreateOtterRunsMigration from "./create-otter-runs-migration";
 import CreateAgentsSummaryMigration from "./create-agents-summary-migration";
 import CreateAgentVersionsMigration from "./create-agent-versions-migration";
 import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
@@ -69,6 +70,7 @@ export default async function migrations(databaseConfigId?: string) {
 	await AddChatConversationTypeMigration(databaseConfigId);
 	await AddChatMessageModelAttributionMigration(databaseConfigId);
 	await CreateTraceAnalysisMigration(databaseConfigId);
+	await CreateOtterRunsMigration(databaseConfigId);
 
 	// Group 4: Agent table optimisations (sequential -- must run after the
 	// agents-summary + agent-versions CREATEs).

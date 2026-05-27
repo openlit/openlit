@@ -1,13 +1,17 @@
+import getMessage from "@/constants/messages";
 import { dataCollector } from "../common";
 import {
 	OPENLIT_CHAT_CONVERSATION_TABLE,
 	OPENLIT_CHAT_MESSAGE_TABLE,
+	OPENLIT_OTTER_RUNS_TABLE,
 	OPENLIT_TRACE_ANALYSIS_TABLE,
 } from "./table-details";
 
+const m = getMessage();
+
 export type OtterUsageItem = {
 	id: string;
-	usageType: "chat" | "trace_analysis" | "span_analysis";
+	usageType: "chat" | "trace_analysis" | "span_analysis" | "prompt_improvement";
 	location: string;
 	summary: string;
 	provider: string;
@@ -119,6 +123,37 @@ function mapAnalysisUsageRows(rows: any[]): OtterUsageItem[] {
 	});
 }
 
+function mapOtterRunRows(rows: any[]): OtterUsageItem[] {
+	return rows.map((row) => {
+		const promptTokens = asNumber(row.promptTokens);
+		const completionTokens = asNumber(row.completionTokens);
+		const targetType = asString(row.targetType);
+		return {
+			id: asString(row.id),
+			usageType: "prompt_improvement",
+			location:
+				targetType === "unsaved_prompt"
+					? m.CHAT_OTTER_USAGE_LOCATION_PROMPT_NEW
+					: m.CHAT_OTTER_USAGE_LOCATION_PROMPT_EDIT,
+			summary:
+				asString(row.summary) ||
+				(targetType === "unsaved_prompt"
+					? m.CHAT_OTTER_USAGE_PROMPT_NEW_RUN
+					: m.CHAT_OTTER_USAGE_PROMPT_EDIT_RUN),
+			provider: asString(row.modelProvider),
+			model: asString(row.modelName),
+			promptTokens,
+			completionTokens,
+			totalTokens: promptTokens + completionTokens,
+			cost: asNumber(row.cost),
+			runCount: 1,
+			referenceId: asString(row.targetId) || asString(row.id),
+			createdAt: asString(row.createdAt),
+			updatedAt: asString(row.createdAt),
+		};
+	});
+}
+
 function summarizeByProviderModel(items: OtterUsageItem[]) {
 	const byKey = new Map<string, OtterUsageProviderSummary>();
 
@@ -218,10 +253,32 @@ export async function getOtterUsage(
 		LIMIT 100
 	`;
 
-	const [chatMetricsResult, chatResult, analysisResult] = await Promise.allSettled([
+	const otterRunsQuery = `
+		SELECT
+			id,
+			run_type AS runType,
+			target_type AS targetType,
+			target_id AS targetId,
+			summary,
+			model_provider AS modelProvider,
+			model_name AS modelName,
+			prompt_tokens AS promptTokens,
+			completion_tokens AS completionTokens,
+			cost,
+			created_at AS createdAt
+		FROM ${OPENLIT_OTTER_RUNS_TABLE}
+		WHERE run_type IN ('prompt_improvement')
+			AND (prompt_tokens > 0 OR completion_tokens > 0 OR cost > 0)
+			${timeWhere}
+		ORDER BY created_at DESC
+		LIMIT 100
+	`;
+
+	const [chatMetricsResult, chatResult, analysisResult, otterRunsResult] = await Promise.allSettled([
 		dataCollector({ query: chatConversationMetricsQuery }, "query", databaseConfigId),
 		dataCollector({ query: chatQuery }, "query", databaseConfigId),
 		dataCollector({ query: analysisQuery }, "query", databaseConfigId),
+		dataCollector({ query: otterRunsQuery }, "query", databaseConfigId),
 	]);
 
 	const chatMetricsRow =
@@ -236,10 +293,15 @@ export async function getOtterUsage(
 		analysisResult.status === "fulfilled" && !analysisResult.value.err
 			? (analysisResult.value.data as any[]) || []
 			: [];
+	const otterRunRows =
+		otterRunsResult.status === "fulfilled" && !otterRunsResult.value.err
+			? (otterRunsResult.value.data as any[]) || []
+			: [];
 
 	const items = [
 		...mapChatUsageRows(chatRows),
 		...mapAnalysisUsageRows(analysisRows),
+		...mapOtterRunRows(otterRunRows),
 	].sort((a, b) => {
 		const aTime = new Date(a.updatedAt || a.createdAt).getTime();
 		const bTime = new Date(b.updatedAt || b.createdAt).getTime();

@@ -12,7 +12,7 @@ import getMessage from "@/constants/messages";
 
 type UsageItem = {
 	id: string;
-	usageType: "chat" | "trace_analysis" | "span_analysis";
+	usageType: "chat" | "trace_analysis" | "span_analysis" | "prompt_improvement";
 	location: string;
 	summary: string;
 	provider: string;
@@ -91,12 +91,14 @@ function formatLocalDateTime(value?: string) {
 }
 
 function typeLabel(type: UsageItem["usageType"], m: ReturnType<typeof getMessage>) {
+	if (type === "prompt_improvement") return m.CHAT_OTTER_USAGE_TYPE_PROMPT_IMPROVEMENT;
 	if (type === "span_analysis") return m.CHAT_OTTER_USAGE_TYPE_SPAN_ANALYSIS;
 	if (type === "trace_analysis") return m.CHAT_OTTER_USAGE_TYPE_TRACE_ANALYSIS;
 	return m.CHAT_OTTER_USAGE_TYPE_CHAT;
 }
 
 function typeClass(type: UsageItem["usageType"]) {
+	if (type === "prompt_improvement") return "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300";
 	if (type === "span_analysis") return "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300";
 	if (type === "trace_analysis") return "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300";
 	return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300";
