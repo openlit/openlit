@@ -28,6 +28,8 @@ jest.mock("@/lib/platform/context", () => ({
 
 jest.mock("@/lib/platform/prompt", () => ({
 	createPrompt: jest.fn(),
+	getPromptByName: jest.fn(),
+	getPromptDetails: jest.fn(),
 	getPrompts: jest.fn(),
 	deletePrompt: jest.fn(),
 }));
@@ -82,7 +84,7 @@ import {
 	getContexts,
 	updateContext,
 } from "@/lib/platform/context";
-import { createPrompt, deletePrompt, getPrompts } from "@/lib/platform/prompt";
+import { createPrompt, deletePrompt, getPromptByName, getPromptDetails, getPrompts } from "@/lib/platform/prompt";
 import { upsertPromptVersion } from "@/lib/platform/prompt/version";
 import { deleteSecret, getSecrets, upsertSecret } from "@/lib/platform/vault";
 import {
@@ -129,6 +131,7 @@ describe("getChatTools", () => {
 				"list_rules",
 				"create_context",
 				"create_prompt",
+				"get_prompt",
 				"create_vault_secret",
 				"create_custom_model",
 				"list_custom_models",
@@ -352,6 +355,19 @@ describe("getChatTools", () => {
 		(createPrompt as jest.Mock).mockResolvedValue({
 			data: { promptId: "prompt-1" },
 		});
+		(getPromptByName as jest.Mock).mockResolvedValue({ id: "prompt-1" });
+		(getPromptDetails as jest.Mock).mockResolvedValue({
+			data: [{
+				promptId: "prompt-1",
+				versionId: "version-1",
+				name: "music_recommend",
+				version: "1.0.0",
+				status: "PUBLISHED",
+				tags: ["music"],
+				prompt: "Recommend music for {{mood}}",
+			}],
+			err: null,
+		});
 		(upsertPromptVersion as jest.Mock).mockResolvedValue(undefined);
 		(deletePrompt as jest.Mock).mockResolvedValue([null]);
 		(getPrompts as jest.Mock).mockResolvedValue({
@@ -373,6 +389,20 @@ describe("getChatTools", () => {
 			expect.objectContaining({
 				success: true,
 				message: "Prompt version updated",
+			})
+		);
+		await expect(
+			tools.get_prompt.execute({ name: "music_recommend" })
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				message: "Prompt loaded",
+				prompt: expect.objectContaining({
+					id: "prompt-1",
+					name: "music_recommend",
+					content: "Recommend music for {{mood}}",
+				}),
+				details: expect.stringContaining("Recommend music for {{mood}}"),
 			})
 		);
 		await expect(tools.delete_prompt.execute({ id: "prompt-1" })).resolves.toEqual({
@@ -398,6 +428,8 @@ describe("getChatTools", () => {
 				metaProperties: {},
 			})
 		);
+		expect(getPromptByName).toHaveBeenCalledWith({ name: "music_recommend" });
+		expect(getPromptDetails).toHaveBeenCalledWith("prompt-1", undefined);
 	});
 
 	it("executes vault update, delete, and list tools", async () => {

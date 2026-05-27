@@ -144,6 +144,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	onStep?.("Preparing model and tools", "complete", `${Object.keys(tools).length} tools available`);
 
 	let streamError: any = null;
+	let finishText = "";
 
 	// Shared usage stats — written by onFinish, read after stream consumption
 	let finishStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
@@ -155,7 +156,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 		system: getChatSystemPrompt(),
 		messages,
 		tools,
-		stopWhen: stepCountIs(3),
+		stopWhen: stepCountIs(6),
 		onError: ({ error }) => {
 			streamError = error;
 		},
@@ -187,6 +188,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 				}
 				if (summaries.length > 0) finalText = summaries.join("\n\n");
 			}
+			finishText = finalText || "";
 
 			// Update conversation stats
 			await updateConversation(conversationId, {
@@ -227,8 +229,6 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 			onDelta?.(textDelta);
 		} else if (part.type === "tool-call" || part.type === "tool-input-start") {
 			onStep?.(`Using ${(part as any).toolName || "tool"}`, "active");
-		} else if (part.type === "tool-input-delta") {
-			onStep?.(`Preparing ${(part as any).toolName || "tool"} input`, "active");
 		} else if (part.type === "tool-result") {
 			const r = (part as any).result;
 			onStep?.(`Using ${(part as any).toolName || "tool"}`, r?.success === false ? "error" : "complete");
@@ -246,6 +246,14 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 		const fallbackText = toolResultMessages.join("\n\n");
 		parts.push(fallbackText);
 		onDelta?.(fallbackText);
+	}
+
+	if (!hasText && parts.length === 0 && !streamError) {
+		await Promise.race([finishPromise, new Promise((r) => setTimeout(r, 5000))]);
+		if (finishText) {
+			parts.push(finishText);
+			onDelta?.(finishText);
+		}
 	}
 
 	let responseText = parts.join("");

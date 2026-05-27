@@ -18,6 +18,8 @@ import {
 } from "../context";
 import {
 	createPrompt,
+	getPromptByName,
+	getPromptDetails,
 	getPrompts,
 	deletePrompt,
 } from "../prompt";
@@ -530,7 +532,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 		}),
 
 		update_prompt_version: tool<any, any>({
-			description: "Update an existing prompt version or create a new version of an existing prompt.",
+			description: "Update/save/apply changes to an existing prompt version, or create a new version of an existing prompt. Use this only when the user explicitly asks to save, update, apply, publish, or create a version. Do not use it for review-only requests such as 'help me improve this prompt'.",
 			inputSchema: jsonSchema({
 				type: "object" as const,
 				properties: {
@@ -557,6 +559,57 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					return { success: true, message: params.version_id ? "Prompt version updated" : "New prompt version created", details: `Prompt: ${params.prompt_id} | Version: ${params.version || "latest"}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to update prompt" };
+				}
+			},
+		}),
+
+		get_prompt: tool<any, any>({
+			description: "Read a Prompt Hub prompt by exact prompt name or prompt ID, including the current prompt content. Use this for review-only prompt improvement requests before suggesting changes. This tool does not modify prompts.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					name: { type: "string", description: "Exact prompt name, for example music_recommend" },
+					prompt_id: { type: "string", description: "Prompt ID (UUID)" },
+					version: { type: "string", description: "Optional version string, for example 1.0.0" },
+				},
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					let promptId = params.prompt_id;
+					if (!promptId && params.name) {
+						const prompt = await getPromptByName({ name: params.name });
+						promptId = prompt?.id;
+					}
+					if (!promptId) {
+						return {
+							success: false,
+							error: params.name
+								? `Prompt "${params.name}" was not found`
+								: "Prompt name or prompt ID is required",
+						};
+					}
+
+					const { data, err } = await getPromptDetails(promptId, params.version ? { version: params.version } : undefined);
+					if (err) return { success: false, error: String(err) };
+					const prompt = (data as any[])?.[0];
+					if (!prompt) return { success: false, error: "Prompt was not found" };
+
+					return {
+						success: true,
+						message: "Prompt loaded",
+						prompt: {
+							id: prompt.promptId,
+							versionId: prompt.versionId,
+							name: prompt.name,
+							version: prompt.version,
+							status: prompt.status,
+							tags: prompt.tags,
+							content: prompt.prompt,
+						},
+						details: `Name: "${prompt.name}" | Version: ${prompt.version || "unknown"} | Status: ${prompt.status || "unknown"}\n\n${prompt.prompt || ""}`,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to load prompt" };
 				}
 			},
 		}),
