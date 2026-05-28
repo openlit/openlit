@@ -23,9 +23,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import {
 	Card,
 	CardContent,
@@ -287,23 +286,28 @@ export default function CodingAgentUserPage() {
 	return (
 		<div className="flex flex-col w-full h-full gap-5 overflow-y-auto p-1 pb-8">
 			<div className="space-y-2">
-				{/* Back button: square, icon-only, sized like the other
-				    icon buttons on the agents hub. Target is the
-				    Users tab the user clicked through from — we read
-				    it off `?from=` (signal-list stamps the full
-				    originating pathname+search there) and fall back
-				    to the global Coding Agents tab when the user
-				    landed via a deep link without that context. */}
-				<Link
-					href={backHref}
-					aria-label={getMessage().AGENTS_BACK_TO_HUB}
+				{/* Back button + email styled to match the trace
+				    full-view header (see trace-detail-page.tsx).
+				    Button is the standard `outline`/`sm` 32×32
+				    square; the email below it is plain mono text
+				    with no leading icon. Target is the Users tab
+				    the user clicked through from — we read it off
+				    `?from=` (signal-list stamps the full
+				    originating pathname+search there) and fall
+				    back to the global Coding Agents tab when the
+				    user landed via a deep link without that
+				    context. */}
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => router.push(backHref)}
+					className="h-8 w-8 p-0"
 					title={getMessage().AGENTS_BACK_TO_HUB}
-					className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+					aria-label={getMessage().AGENTS_BACK_TO_HUB}
 				>
-					<ArrowLeft className="w-4 h-4" />
-				</Link>
-				<h1 className="text-sm font-medium text-stone-900 dark:text-stone-100 inline-flex items-center gap-1.5 font-mono">
-					<Users className="w-4 h-4 text-violet-500" />
+					<ArrowLeft className="h-3.5 w-3.5" />
+				</Button>
+				<h1 className="text-sm font-medium text-stone-900 dark:text-stone-100 font-mono">
 					{digest.user}
 				</h1>
 			</div>
