@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import { Card } from "@/components/ui/card";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
@@ -20,6 +21,7 @@ import {
 	getChatActions,
 } from "@/selectors/chat";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
 
 interface ChatLayoutProps {
@@ -30,6 +32,7 @@ interface ChatLayoutProps {
 export default function ChatLayout({ initialConversationId, initialView = "chat" }: ChatLayoutProps) {
 	const m = getMessage();
 	const router = useRouter();
+	const posthog = usePostHog();
 
 	const conversations = useRootStore(getChatConversations);
 	const activeId = useRootStore(getChatActiveId);
@@ -112,6 +115,16 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 		fetchConversations();
 		fetchConfig();
 	}, [fetchConversations, fetchConfig]);
+
+	useEffect(() => {
+		const event =
+			initialView === "usage"
+				? CLIENT_EVENTS.OTTER_USAGE_PAGE_VISITED
+				: initialView === "settings"
+					? CLIENT_EVENTS.OTTER_SETTINGS_PAGE_VISITED
+					: CLIENT_EVENTS.OTTER_CHAT_PAGE_VISITED;
+		posthog?.capture(event);
+	}, [initialView, posthog]);
 
 	const navigateTo = useCallback(
 		(id: string | null) => {

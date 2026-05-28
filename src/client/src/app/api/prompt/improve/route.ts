@@ -1,9 +1,11 @@
 import { generateText } from "ai";
+import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
 import { getModelInstance } from "@/lib/platform/chat/stream";
+import PostHogServer from "@/lib/posthog";
 import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
 
@@ -62,8 +64,14 @@ function estimateCost(promptTokens: number, completionTokens: number) {
 }
 
 export async function POST(request: Request) {
+	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_FAILURE,
+			startTimestamp,
+			properties: { reason: "unauthorized" },
+		});
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
@@ -75,12 +83,22 @@ export async function POST(request: Request) {
 		: DEFAULT_CRITERIA;
 
 	if (!prompt.trim()) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_FAILURE,
+			startTimestamp,
+			properties: { reason: "missing_prompt" },
+		});
 		return Response.json({ err: m.PROMPT_HUB_CONTENT_REQUIRED }, { status: 400 });
 	}
 
 	const databaseConfigId = await getDatabaseConfigId();
 	const { data: config, err } = await getChatConfigWithApiKey(databaseConfigId);
 	if (err || !config) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_FAILURE,
+			startTimestamp,
+			properties: { reason: "missing_config", promptId: promptId || undefined },
+		});
 		return Response.json(
 			{ err: err || m.PROMPT_OTTER_CONFIG_NOT_FOUND },
 			{ status: 400 }
@@ -157,6 +175,21 @@ ${prompt}`,
 			databaseConfigId
 		);
 
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_SUCCESS,
+			startTimestamp,
+			properties: {
+				promptId: promptId || undefined,
+				provider: config.provider,
+				model: config.model,
+				criteriaCount: criteria.length,
+				suggestionCount: suggestions.length,
+				promptTokens: usageStats.promptTokens,
+				completionTokens: usageStats.completionTokens,
+				cost: usageStats.cost,
+			},
+		});
+
 		return Response.json({
 			data: {
 				suggestions,
@@ -167,6 +200,14 @@ ${prompt}`,
 			},
 		});
 	} catch (error: any) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_FAILURE,
+			startTimestamp,
+			properties: {
+				promptId: promptId || undefined,
+				error: error?.message || m.PROMPT_OTTER_ANALYSIS_FAILED,
+			},
+		});
 		return Response.json(
 			{ err: error?.message || m.PROMPT_OTTER_ANALYSIS_FAILED },
 			{ status: 400 }

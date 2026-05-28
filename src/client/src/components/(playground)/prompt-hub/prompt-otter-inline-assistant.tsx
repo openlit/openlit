@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 const m = getMessage();
 
@@ -60,6 +62,7 @@ export default function PromptOtterInlineAssistant({
 	promptId?: string;
 	persistState?: boolean;
 }) {
+	const posthog = usePostHog();
 	const [isOpen, setIsOpen] = useState(false);
 	const [criteria, setCriteria] = useState<string[]>(DEFAULT_CRITERIA);
 	const [continuation, setContinuation] = useState("");
@@ -155,12 +158,22 @@ export default function PromptOtterInlineAssistant({
 			if (nextSuggestions.length === 0) {
 				toast.info(m.PROMPT_OTTER_NO_SUGGESTIONS);
 			}
+			posthog?.capture(CLIENT_EVENTS.PROMPT_IMPROVEMENT_RUN_SUCCESS, {
+				promptId: promptId || undefined,
+				criteriaCount: effectiveCriteria.length,
+				suggestionCount: nextSuggestions.length,
+			});
 		} catch (error: any) {
+			posthog?.capture(CLIENT_EVENTS.PROMPT_IMPROVEMENT_RUN_FAILURE, {
+				promptId: promptId || undefined,
+				criteriaCount: effectiveCriteria.length,
+				error: error?.message || m.PROMPT_OTTER_ANALYSIS_FAILED,
+			});
 			toast.error(error?.message || m.PROMPT_OTTER_ANALYSIS_FAILED);
 		} finally {
 			setIsRunning(false);
 		}
-	}, [continuation, criteria, prompt, promptId]);
+	}, [continuation, criteria, m, posthog, prompt, promptId]);
 
 	const acceptSuggestion = useCallback(
 		(suggestion: LocalChange) => {
@@ -178,8 +191,12 @@ export default function PromptOtterInlineAssistant({
 				)
 			);
 			setExpandedSuggestions((prev) => ({ ...prev, [suggestion.id]: false }));
+			posthog?.capture(CLIENT_EVENTS.PROMPT_IMPROVEMENT_SUGGESTION_ACCEPTED, {
+				promptId: promptId || undefined,
+				dimension: suggestion.dimension,
+			});
 		},
-		[onApplyPrompt, prompt]
+		[onApplyPrompt, posthog, prompt, promptId]
 	);
 
 	const declineSuggestion = useCallback((suggestion: LocalChange) => {
@@ -191,7 +208,11 @@ export default function PromptOtterInlineAssistant({
 			)
 		);
 		setExpandedSuggestions((prev) => ({ ...prev, [suggestion.id]: false }));
-	}, []);
+		posthog?.capture(CLIENT_EVENTS.PROMPT_IMPROVEMENT_SUGGESTION_DECLINED, {
+			promptId: promptId || undefined,
+			dimension: suggestion.dimension,
+		});
+	}, [posthog, promptId]);
 
 	return (
 		<div className="min-w-0 shrink-0 rounded-md border border-stone-200 bg-stone-50/80 dark:border-stone-800 dark:bg-stone-900/40">
