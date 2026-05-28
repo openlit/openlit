@@ -110,7 +110,7 @@ try {
     Write-OpenLit "      or use the absolute path below:"
     Write-OpenLit ""
     Write-OpenLit "  & `"$target`" configure --endpoint <url> --api-key <key>"
-    Write-OpenLit "  & `"$target`" coding install --vendor=cursor   # or claude-code / codex / copilot"
+    Write-OpenLit "  & `"$target`" coding install --vendor=cursor   # or claude-code / codex"
 }
 finally {
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue

@@ -5,8 +5,8 @@ const MIGRATION_ID = "add-coding-agent-summary-fields";
 
 /**
  * Extends openlit_agents_summary so AI-coding-agent rows (Claude Code,
- * Cursor, Codex, Copilot CLI) can co-exist with the existing
- * controller/sdk rows on the /agents page:
+ * Cursor, Codex) can co-exist with the existing controller/sdk
+ * rows on the /agents page:
  *
  *   1. ALTER source enum to include 'coding'.
  *   2. ADD coding_agent_vendor       — pinned vendor identifier.

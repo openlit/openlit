@@ -80,12 +80,11 @@ func TestVendorsFromArg(t *testing.T) {
 		in   string
 		want []string
 	}{
-		{"all", []string{"claude-code", "cursor", "codex", "copilot"}},
+		{"all", []string{"claude-code", "cursor", "codex"}},
 		{"cc", []string{"claude-code"}},
 		{"claude-code", []string{"claude-code"}},
 		{"cursor", []string{"cursor"}},
 		{"codex", []string{"codex"}},
-		{"copilot", []string{"copilot"}},
 	}
 	for _, tc := range cases {
 		got, err := vendorsFromArg(tc.in)

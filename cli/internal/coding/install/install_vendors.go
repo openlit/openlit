@@ -102,7 +102,6 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 //   Claude Code → ~/.claude/plugins/openlit-cc/
 //   Codex       → ~/.local/share/openlit/codex-marketplace/  (a local
 //                 marketplace registered via `codex plugin marketplace add`)
-//   Copilot CLI → ~/.copilot/plugins/openlit/
 //
 // Cursor is intentionally absent: it installs by merging into
 // ~/.cursor/hooks.json (user scope), not by writing a plugin tree.
@@ -125,8 +124,6 @@ func vendorDestRoot(vendor string) (string, error) {
 		return filepath.Join(home, ".claude", "plugins", "openlit-cc"), nil
 	case "codex":
 		return filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"), nil
-	case "copilot":
-		return filepath.Join(home, ".copilot", "plugins", "openlit"), nil
 	default:
 		return "", fmt.Errorf("unknown vendor %q", vendor)
 	}

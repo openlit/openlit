@@ -104,12 +104,3 @@ export async function requireCodingAgentAuth(): Promise<CodingAgentAuth> {
 		rawRole: isCreator && membership.role === "member" ? "owner" : membership.role,
 	};
 }
-
-export function assertAdmin(auth: CodingAgentAuth): void {
-	if (auth.role !== "admin") {
-		throw new CodingAgentUnauthorizedError(
-			getMessage().FORBIDDEN_ACTION ||
-				"This action requires an organisation admin or owner."
-		);
-	}
-}

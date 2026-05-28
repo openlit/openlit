@@ -10,8 +10,6 @@ export const CodingAgentVendorCursor = "cursor";
 
 export const CodingAgentVendorCodex = "codex";
 
-export const CodingAgentVendorCopilot = "copilot";
-
 export const CodingAgentVendorWindsurf = "windsurf";
 
 // CodingAgentSessionID identifies a single coding-agent session.
@@ -101,7 +99,7 @@ export const CodingAgentSubagentType = "coding_agent.subagent.type";
 
 // CodingAgentLinkageConfidence reports how reliable the parent_id
 // linkage is for this vendor: high | medium | low.
-// Codex/Copilot subagent linkage is often medium because parent is
+// Codex subagent linkage is often medium because parent is
 // inferred via process metadata rather than carried by the protocol.
 export const CodingAgentLinkageConfidence = "coding_agent.linkage_confidence";
 

@@ -10,9 +10,9 @@
  *  - `controller`  — discovered by the OpenLit controller (Docker/K8s/systemd).
  *  - `sdk`         — instrumented via openlit-sdk in user code.
  *  - `both`        — discovered AND instrumented (`controller` + `sdk` rolled up).
- *  - `coding`      — AI coding-agent client (Claude Code, Cursor, Codex,
- *                    Copilot CLI, …) sending telemetry through the openlit
- *                    CLI's hook subcommand. Distinguished here because the
+ *  - `coding`      — AI coding-agent client (Claude Code, Cursor, Codex, …)
+ *                    sending telemetry through the openlit CLI's hook
+ *                    subcommand. Distinguished here because the
  *                    detail page renders a different set of tabs and the
  *                    list page shows a vendor logo + label.
  */
@@ -26,7 +26,6 @@ export type CodingAgentVendor =
 	| "claude-code"
 	| "cursor"
 	| "codex"
-	| "copilot"
 	| "windsurf";
 
 export type AgentInstrumentationStatus = "discovered" | "instrumented";

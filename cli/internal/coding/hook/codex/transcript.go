@@ -258,47 +258,31 @@ func scanCodexLines(path string, visit func(raw []byte) (bool, error)) error {
 	return scanner.Err()
 }
 
-// parseSessionMeta tolerates both the modern transcript layout
-// (top-level `parent_session_id`) and the legacy one
-// (`source.subagent.thread_spawn.parent_thread_id`). Returns ok=true
-// only when at least one identifying field is non-empty.
+// parseSessionMeta reads the session_meta envelope on a Codex
+// transcript header. Only the current top-level layout is supported —
+// older Codex builds shipped the fields under
+// source.subagent.thread_spawn.*, which we no longer maintain.
+// Returns ok=true only when at least one identifying field is
+// non-empty.
 func parseSessionMeta(raw json.RawMessage) (sessionMeta, bool) {
 	var p struct {
 		ID              string `json:"id"`
 		ThreadSource    string `json:"thread_source"`
 		ParentSessionID string `json:"parent_session_id"`
-		ParentThreadID  string `json:"parent_thread_id"`
 		AgentRole       string `json:"agent_role"`
 		AgentNickname   string `json:"agent_nickname"`
 		AgentDepth      int    `json:"agent_depth"`
-		Depth           int    `json:"depth"`
-		Source          struct {
-			Subagent struct {
-				ThreadSpawn struct {
-					ParentThreadID string `json:"parent_thread_id"`
-					Depth          int    `json:"depth"`
-					AgentNickname  string `json:"agent_nickname"`
-					AgentRole      string `json:"agent_role"`
-				} `json:"thread_spawn"`
-			} `json:"subagent"`
-		} `json:"source"`
 	}
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return sessionMeta{}, false
 	}
 	meta := sessionMeta{
-		SessionID:    p.ID,
-		ThreadSource: p.ThreadSource,
-		ParentSessionID: firstNonEmpty(
-			p.ParentSessionID,
-			p.ParentThreadID,
-			p.Source.Subagent.ThreadSpawn.ParentThreadID,
-		),
-		AgentRole:     firstNonEmpty(p.AgentRole, p.Source.Subagent.ThreadSpawn.AgentRole),
-		AgentNickname: firstNonEmpty(p.AgentNickname, p.Source.Subagent.ThreadSpawn.AgentNickname),
-		AgentDepth: firstNonZero(
-			p.AgentDepth, p.Depth, p.Source.Subagent.ThreadSpawn.Depth,
-		),
+		SessionID:       p.ID,
+		ThreadSource:    p.ThreadSource,
+		ParentSessionID: p.ParentSessionID,
+		AgentRole:       p.AgentRole,
+		AgentNickname:   p.AgentNickname,
+		AgentDepth:      p.AgentDepth,
 	}
 	if meta.ThreadSource == "" && meta.ParentSessionID != "" {
 		meta.ThreadSource = "subagent"
@@ -472,22 +456,4 @@ func rolloutFirstLineHasSession(path, sessionID string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func firstNonZero(values ...int) int {
-	for _, v := range values {
-		if v != 0 {
-			return v
-		}
-	}
-	return 0
 }

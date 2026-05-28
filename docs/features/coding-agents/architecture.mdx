@@ -9,7 +9,7 @@ Cursor telemetry into OpenLit, the
 [Onboarding](/latest/features/coding-agents/onboarding) page is what you
 want. Read on if you're:
 
-- Adding a new vendor adapter (Claude Code, Codex, Copilot CLI, Windsurf, …).
+- Adding a new vendor adapter (Claude Code, Codex, Windsurf, …).
 - Touching the rollup / materializer that powers the `/agents` and
   `/coding-agents` views.
 - Debugging missing rows, empty pills, or doubled sessions.
@@ -295,7 +295,7 @@ implementations. Each one models a different vendor shape:
   events. The adapter accumulates a per-turn fragment in
   sessionstate and drains it on `Stop`.
 
-To add another vendor (Copilot CLI / Windsurf / OpenCode / …):
+To add another vendor (Windsurf / OpenCode / …):
 
 1. **Read the convention rule** — `.cursor/rules/coding-agents-convention.mdc`.
    It defines the strict attribute matrix every adapter must follow.
@@ -317,7 +317,7 @@ To add another vendor (Copilot CLI / Windsurf / OpenCode / …):
    exposes a per-session log file. Never read an unbounded file in a
    hook process.
 6. **Stamp `gen_ai.system`** correctly: `anthropic` for Claude Code,
-   `openai` for Codex / Copilot, `google` for Gemini-backed agents.
+   `openai` for Codex, `google` for Gemini-backed agents.
    Use the `inferProvider(model, vendor)` helper.
 7. **Honor capture modes** — drop bodies in `minimal` and
    `metadata_only`. The `bodyAllowed(mode)` and `setStr(..., scrub)`

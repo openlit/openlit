@@ -28,7 +28,6 @@ Example:
   openlit coding launch claude
   openlit coding launch cursor -- --debug
   openlit coding launch codex
-  openlit coding launch copilot
 
 The agent's binary must be on PATH. The plugin manifest is installed
 idempotently — running 'launch' twice is a no-op the second time.`,
@@ -89,10 +88,8 @@ func agentBinary(agent string) (string, error) {
 		return "cursor", nil
 	case "codex":
 		return "codex", nil
-	case "copilot":
-		return "copilot", nil
 	default:
-		return "", fmt.Errorf("unknown agent %q (allowed: claude, cursor, codex, copilot)", agent)
+		return "", fmt.Errorf("unknown agent %q (allowed: claude, cursor, codex)", agent)
 	}
 }
 

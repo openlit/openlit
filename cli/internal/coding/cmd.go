@@ -2,10 +2,10 @@
 //
 // v1 ships the following children:
 //
-//	openlit coding hook      --vendor=cc|cursor|codex|copilot --event=...
+//	openlit coding hook      --vendor=cc|cursor|codex --event=...
 //	openlit coding install   --vendor=all|<single>
 //	openlit coding uninstall --vendor=all|<single> [--purge]
-//	openlit coding launch    <claude|cursor|codex|copilot>
+//	openlit coding launch    <claude|cursor|codex>
 //
 // All children share the resolved config from internal/config and the
 // OTLP exporter from internal/otlp. The hook subcommand is the hot path
@@ -25,11 +25,11 @@ import (
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "coding",
-		Short: "Coding-agent observability (Claude Code, Cursor, Codex, Copilot)",
+		Short: "Coding-agent observability (Claude Code, Cursor, Codex)",
 		Long: `Send telemetry from AI coding agents into OpenLit.
 
 Three install paths land at the same plugin manifests under plugins/:
-  A) openlit coding launch <claude|cursor|codex|copilot>     # one-liner
+  A) openlit coding launch <claude|cursor|codex>             # one-liner
   B) openlit coding install --vendor=all                     # write manifests, no agent TUI
   C) From inside the agent: /plugin marketplace add openlit/openlit, then install.
 

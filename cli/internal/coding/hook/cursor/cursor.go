@@ -3,9 +3,7 @@
 // Cursor exposes 8 hook events; payloads are JSON on stdin. Cursor has
 // no transcript file we can tail, so we rely entirely on the hooks +
 // any LLM activity also flowing through OTel from the agent's own
-// instrumentation (where available).
-//
-// Full implementation lands with the cli-hook-cursor todo.
+// instrumentation (where available). Adapter logic lives in handle.go.
 package cursor
 
 import (

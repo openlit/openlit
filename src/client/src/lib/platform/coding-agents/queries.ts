@@ -128,11 +128,6 @@ export interface CodingAgentSessionRow {
 	// root span; this column prefers that span and falls back to the
 	// chronologically-first child if no root span was emitted yet.
 	session_root_span_id: string;
-	// Human-readable session label derived from the first user prompt
-	// (truncated). When no prompt is captured (capture mode is
-	// metadata-only) this is empty and the row falls back to vendor +
-	// short session id.
-	chat_title: string;
 	// Latest permission mode (Cursor's composer_mode: agent / ask /
 	// plan; Claude Code: default / plan / acceptEdits / etc.). The
 	// value is the most recent observed across the session, so a
@@ -160,105 +155,6 @@ export interface CodingAgentSessionRow {
 	acceptance_pct: number;
 	commit_count: number;
 	pr_count: number;
-}
-
-export interface CodingAgentLLMTurnRow {
-	timestamp: string;
-	kind: string; // "user_prompt" | "assistant_only" | "thought"
-	model: string;
-	prompt: string;
-	response: string;
-	thought: string;
-	input_tokens: number;
-	output_tokens: number;
-	cost_usd: number;
-	attachment_paths: string[];
-}
-
-export interface CodingAgentToolCallRow {
-	timestamp: string;
-	tool_name: string;
-	tool_use_id: string;
-	mcp_server_name: string;
-	command: string;
-	working_dir: string;
-	args: string;
-	result: string;
-	duration_ms: number;
-	errored: boolean;
-	error_msg: string;
-	failure_type: string;
-	sandboxed: boolean;
-}
-
-export interface CodingAgentEditRow {
-	timestamp: string;
-	file_path: string;
-	decision: string;
-	source: string;
-	tool_name: string;
-	lines_added: number;
-	lines_removed: number;
-	language: string;
-}
-
-export interface CodingAgentSubagentRow {
-	timestamp: string;
-	subagent_type: string;
-	task: string;
-	summary: string;
-	status: string;
-	duration_ms: number;
-	message_count: number;
-	tool_call_count: number;
-	modified_files: string[];
-}
-
-export interface CodingAgentGitCommitRow {
-	timestamp: string;
-	sha: string;
-	message: string;
-	tool: string;
-	working_dir: string;
-}
-
-export interface CodingAgentGitPRRow {
-	timestamp: string;
-	url: string;
-	number: number;
-	title: string;
-	tool: string;
-	working_dir: string;
-}
-
-export interface CodingAgentSessionDetail extends CodingAgentSessionRow {
-	model: string;
-	branch: string;
-	commit_sha: string;
-	policy_permission_mode: string;
-	content_capture_mode: string;
-	tools: { tool_name: string; calls: number }[];
-	mcp_servers: { server_name: string; calls: number }[];
-
-	// Drill-down detail used by the session-detail sheet.
-	turns: CodingAgentLLMTurnRow[];
-	tool_calls: CodingAgentToolCallRow[];
-	edits: CodingAgentEditRow[];
-	subagents: CodingAgentSubagentRow[];
-	// Per-session git artifacts. Each row is one
-	// `coding_agent.git.commit` / `coding_agent.git.pull_request`
-	// span. The session-detail sheet renders them as a small
-	// "Code impact" panel; the row counters above already encode
-	// "how many", these arrays carry the SHAs / URLs for drill-in.
-	commits: CodingAgentGitCommitRow[];
-	prs: CodingAgentGitPRRow[];
-
-	// E6: when one of the auxiliary panel queries fails (e.g. tools
-	// list, edits, subagents) we still return the rest of the
-	// session. The UI uses this list to surface a warning banner for
-	// the panel(s) that didn't load instead of silently showing an
-	// empty section that looks like "no data".
-	partial_errors?: string[];
 }
 
 /**
@@ -343,18 +239,27 @@ const VENDOR_EXPR = `
 // we ship the MV, change `OTEL_TRACES_TABLE` to point at it and rely
 // on the chat-id rollup already in SESSION_BASE_COLUMNS.
 
-// CHAT_ID_EXPR resolves a span to its chat-thread identifier:
+// CHAT_ID_EXPR resolves a span to its chat-thread identifier. We try
+// the fields in order of stability so one chat-thread = one chat row,
+// even when the vendor exposes multiple ids per event:
 //   1. If a parent_id resource attribute is set, this span is from a
 //      subagent and we fold it under the parent's chat. The CLI stamps
 //      `coding_agent.agent.parent_id` as a resource attribute on every
 //      hook process that knows it's running inside a subagent (Cursor
 //      reports `parent_conversation_id` on subagent payloads).
-//   2. Otherwise the span belongs to its own chat thread, keyed by
-//      `coding_agent.session.id`.
-//   3. Claude Code's native OTel exporter (when
-//      `CLAUDE_CODE_ENABLE_TELEMETRY=1`) puts its identifier under
-//      `session.id` directly. We fall through to it so native-only
-//      installs still get a stable chat row.
+//   2. `gen_ai.conversation.id` — the chat-thread id, stamped by the
+//      CLI from Cursor's `conversation_id`. Stable across plan-mode
+//      toggles and Cursor process restarts within one chat. We prefer
+//      it over `coding_agent.session.id` because Cursor's session_id
+//      can be absent on some events (forcing a fallback to
+//      conversation_id mid-chat) which would otherwise split one chat
+//      across multiple chat-id values.
+//   3. `coding_agent.session.id` — fallback when no conversation id is
+//      stamped (Claude Code / Codex, where session_id IS the chat).
+//   4. `session.id` — Claude Code's native OTel exporter (when
+//      `CLAUDE_CODE_ENABLE_TELEMETRY=1`) puts its identifier here
+//      directly. We fall through to it so native-only installs still
+//      get a stable chat row.
 // Used in tandem with PER_SPAN_VENDOR_EXPR as the (chat_id, vendor)
 // rollup key: two vendors firing under the same chat id (Claude Code
 // launched inside a Cursor terminal) fold into TWO rows so each
@@ -364,6 +269,8 @@ const CHAT_ID_EXPR = `
 	coalesce(
 		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
 		nullIf(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
+		nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+		nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
 		nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
 		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
 		nullIf(SpanAttributes['session.id'], ''),
@@ -454,14 +361,6 @@ const SESSION_BASE_COLUMNS = `
 		nullIf(anyIf(SpanId, SpanName = '${CODING_AGENT_SPAN_SESSION}'), ''),
 		argMin(SpanId, Timestamp)
 	)                                                                  AS session_root_span_id,
-	-- F8: chat_title used to derive a title from the first user
-	-- prompt, but the preview turned out to look bad in the row
-	-- caption (truncated mid-sentence, raw markdown) and the row
-	-- already shows vendor + short session id which is enough. We
-	-- still emit the column as an empty string so the downstream
-	-- type and column renderer don't change shape — the renderer
-	-- falls through to "<vendor> session" automatically.
-	''                                                                 AS chat_title,
 	-- Latest permission mode seen in the session (composer_mode for
 	-- Cursor, permission_mode for Claude Code). argMaxIf keeps the
 	-- most recent non-empty value across all child spans, so a
@@ -833,6 +732,15 @@ export interface CodingSessionDigest {
 	acceptance_pct: number;
 }
 
+// SESSION_DIGEST_LOOKBACK_DAYS bounds how far back the per-session
+// digest will scan `otel_traces`. Without it, every trace-detail
+// page load triggered a full-history scan for a single session_id —
+// fine on a fresh install, expensive once retention grows. 90 days
+// matches the dispute-existence lookup window and is comfortably
+// longer than the default ClickHouse retention most OSS installs
+// run with.
+const SESSION_DIGEST_LOOKBACK_DAYS = 90;
+
 export async function getCodingSessionDigest(
 	auth: CodingAgentAuth,
 	sessionId: string,
@@ -841,6 +749,7 @@ export async function getCodingSessionDigest(
 
 	const sid = escape(sessionId);
 	const chatScope = `(${CHAT_ID_EXPR}) = '${sid}'`;
+	const lookbackClause = `AND Timestamp >= now() - INTERVAL ${SESSION_DIGEST_LOOKBACK_DAYS} DAY`;
 	// We reuse the same greatest(rollup-attr, per-edit-sum) dual-source
 	// pattern as `SESSION_BASE_COLUMNS` so this digest can never
 	// disagree with the Sessions list or the full session detail
@@ -848,9 +757,15 @@ export async function getCodingSessionDigest(
 	// back to the per-edit-span sums, completed Cursor/Claude Code
 	// sessions use the session-rollup attribute. See the long
 	// comment at line ~509 for the rationale.
+	//
+	// We also project the session owner via USER_EXPR so we can run
+	// the cohort-floor check below without a second user-resolution
+	// query. The route comment promised privacy enforcement; this
+	// makes it actually true.
 	const query = `
 		SELECT
 			${CHAT_ID_EXPR} AS session_id,
+			${USER_EXPR} AS user,
 			greatest(
 				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 				toInt64(sumIf(
@@ -905,6 +820,7 @@ export async function getCodingSessionDigest(
 			) AS pr_count
 		FROM ${OTEL_TRACES_TABLE}
 		${whereScope({ auth })}
+		${lookbackClause}
 		AND ${chatScope}
 		GROUP BY ${CHAT_ID_EXPR}
 		LIMIT 1
@@ -914,6 +830,29 @@ export async function getCodingSessionDigest(
 	if (err) throw err;
 	const row = (data as Array<Record<string, unknown>> | undefined)?.[0];
 	if (!row) return null;
+
+	// Cohort floor enforcement. For non-admin viewers, we suppress
+	// the digest if the session's owner has fewer than
+	// COHORT_K_FLOOR sessions in the same lookback window — the
+	// same rule getCodingUserDigest applies on the per-user page,
+	// extended to the per-session pills so a known session_id
+	// doesn't become a side channel for low-volume users' metrics.
+	// Sessions where we couldn't resolve a user fall through
+	// (nothing identifying to protect).
+	if (auth.role !== "admin") {
+		const ownerRaw = row.user;
+		const owner = typeof ownerRaw === "string" ? ownerRaw : "";
+		if (owner && owner !== "unknown") {
+			const cohortCount = await countUserSessionsForCohort(
+				auth,
+				owner,
+				SESSION_DIGEST_LOOKBACK_DAYS,
+			);
+			if (cohortCount < COHORT_K_FLOOR) {
+				return null;
+			}
+		}
+	}
 
 	const accepts = Number(row.edit_accept_count || 0);
 	const rejects = Number(row.edit_reject_count || 0);
@@ -934,319 +873,39 @@ export async function getCodingSessionDigest(
 	};
 }
 
-export async function getSession(
+// countUserSessionsForCohort returns the number of distinct
+// coding-agent sessions a user owned in the trailing `windowDays`.
+// Used solely to gate getCodingSessionDigest behind COHORT_K_FLOOR
+// for non-admin viewers. Kept intentionally narrow — same expression
+// chain as USER_EXPR / CHAT_ID_EXPR so it agrees with what the rest
+// of the platform considers "the same user / the same session".
+async function countUserSessionsForCohort(
 	auth: CodingAgentAuth,
-	sessionId: string
-): Promise<CodingAgentSessionDetail | null> {
-	if (!sessionId) return null;
-
-	const sid = escape(sessionId);
-
-	// Chat-id scope: the row we're loading may be a parent chat whose
-	// subagents pushed spans into different `session_id`s. We match on
-	// CHAT_ID_EXPR (= coalesce(parent_id, session_id)) so spans from
-	// every session belonging to this chat thread land in the rollup.
-	const chatScope = `(${CHAT_ID_EXPR}) = '${sid}'`;
-
-	const baseQuery = `
-		SELECT
-			${SESSION_BASE_COLUMNS},
-			any(SpanAttributes['${VCS_ATTR.headRef}'])                        AS branch,
-			any(SpanAttributes['${VCS_ATTR.headRevision}'])                   AS commit_sha,
-			coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.policyPermissionMode}']), ''), 'unknown') AS policy_permission_mode,
-			coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.contentCaptureMode}']), ''), 'unknown') AS content_capture_mode
-		FROM ${OTEL_TRACES_TABLE}
-		${whereScope({ auth })}
-		AND ${chatScope}
-		GROUP BY ${CHAT_ID_EXPR}
-		LIMIT 1
+	userName: string,
+	windowDays: number,
+): Promise<number> {
+	const safeUser = escape(userName);
+	const lookback = `AND Timestamp >= now() - INTERVAL ${windowDays} DAY`;
+	const query = `
+		SELECT toInt64(count()) AS sessions
+		FROM (
+			SELECT ${CHAT_ID_EXPR} AS sid
+			FROM ${OTEL_TRACES_TABLE}
+			${whereScope({ auth })}
+			${lookback}
+			GROUP BY ${CHAT_ID_EXPR}, ${PER_SPAN_VENDOR_EXPR}
+			HAVING ${USER_EXPR} = '${safeUser}'
+		)
 	`;
-
-	const toolsQuery = `
-		SELECT
-			SpanAttributes['${GEN_AI_ATTR.toolName}'] AS tool_name,
-			CAST(count() AS INTEGER) AS calls
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${escape("coding_agent.tool.call")}'
-		AND ${chatScope}
-		AND notEmpty(SpanAttributes['${GEN_AI_ATTR.toolName}'])
-		GROUP BY tool_name
-		ORDER BY calls DESC
-		LIMIT 50
-	`;
-
-	const mcpQuery = `
-		SELECT
-			SpanAttributes['${CODING_AGENT_ATTR.mcpServerName}'] AS server_name,
-			CAST(count() AS INTEGER) AS calls
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE ${chatScope}
-		AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.mcpServerName}'])
-		GROUP BY server_name
-		ORDER BY calls DESC
-		LIMIT 25
-	`;
-
-	// LLM turns (prompts/responses/thoughts) ordered by time so the
-	// detail sheet can render them as a transcript. We pull body text
-	// only when content capture was full — fall back to empty strings
-	// otherwise (the redact tier already scrubbed at hook time).
-	const turnsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			coalesce(nullIf(SpanAttributes['coding_agent.llm.turn.kind'], ''), 'user_prompt') AS kind,
-			SpanAttributes['${GEN_AI_ATTR.requestModel}']               AS model,
-			coalesce(SpanAttributes['gen_ai.input.messages'], SpanAttributes['gen_ai.prompt'], '') AS prompt,
-			coalesce(SpanAttributes['gen_ai.output.messages'], SpanAttributes['gen_ai.completion'], '') AS response,
-			SpanAttributes['coding_agent.llm.thought.text']             AS thought,
-			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])  AS input_tokens,
-			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']) AS output_tokens,
-			toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}'])      AS cost_usd,
-			SpanAttributes['coding_agent.llm.turn.attachment.paths']    AS attachment_paths_raw
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_LLM_TURN}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 500
-	`;
-
-	const toolCallsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			coalesce(nullIf(SpanAttributes['${GEN_AI_ATTR.toolName}'], ''), 'unknown') AS tool_name,
-			SpanAttributes['gen_ai.tool.call.id']                       AS tool_use_id,
-			SpanAttributes['${CODING_AGENT_ATTR.mcpServerName}']        AS mcp_server_name,
-			SpanAttributes['coding_agent.tool.command']                 AS command,
-			SpanAttributes['code.cwd']                                  AS working_dir,
-			SpanAttributes['gen_ai.tool.call.arguments']                AS args,
-			SpanAttributes['gen_ai.tool.call.result']                   AS result,
-			toInt64OrZero(SpanAttributes['coding_agent.tool.duration_ms']) AS duration_ms,
-			if(notEmpty(SpanAttributes['error.type']), 1, 0)            AS errored,
-			SpanAttributes['exception.message']                         AS error_msg,
-			SpanAttributes['error.type']                                AS failure_type,
-			if(SpanAttributes['coding_agent.tool.sandboxed'] = 'true', 1, 0) AS sandboxed
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 500
-	`;
-
-	const editsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			SpanAttributes['code.file.path']                            AS file_path,
-			SpanAttributes['${CODING_AGENT_ATTR.editDecision}']         AS decision,
-			SpanAttributes['${CODING_AGENT_ATTR.editDecisionSource}']   AS source,
-			SpanAttributes['coding_agent.edit.tool.name']               AS tool_name,
-			toInt32OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}'])   AS lines_added,
-			toInt32OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']) AS lines_removed,
-			SpanAttributes['${CODING_AGENT_ATTR.editLanguage}']         AS language
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 500
-	`;
-
-	const subagentsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			SpanAttributes['coding_agent.subagent.type']                AS subagent_type,
-			SpanAttributes['coding_agent.subagent.task']                AS task,
-			SpanAttributes['coding_agent.subagent.summary']             AS summary,
-			coalesce(nullIf(SpanAttributes['coding_agent.subagent.status'], ''), 'unknown') AS status,
-			toInt64OrZero(SpanAttributes['coding_agent.subagent.duration_ms']) AS duration_ms,
-			toInt32OrZero(SpanAttributes['coding_agent.subagent.message_count']) AS message_count,
-			toInt32OrZero(SpanAttributes['coding_agent.subagent.tool_call_count']) AS tool_call_count,
-			SpanAttributes['coding_agent.subagent.modified_files']      AS modified_files_raw
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_SUBAGENT}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 100
-	`;
-
-	// Agent-attributed git commits + PRs. Both pull one row per
-	// matching span; the session-rollup attribute on the session-root
-	// span is the canonical count and is already folded into the
-	// session row via SESSION_BASE_COLUMNS. These detail queries are
-	// for the per-session drill-in panel.
-	const commitsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			SpanAttributes['${CODING_AGENT_ATTR.gitCommitSha}']         AS sha,
-			SpanAttributes['${CODING_AGENT_ATTR.gitCommitMessage}']     AS message,
-			SpanAttributes['${GEN_AI_ATTR.toolName}']                   AS tool,
-			SpanAttributes['code.cwd']                                  AS working_dir
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 200
-	`;
-
-	const prsQuery = `
-		SELECT
-			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
-			SpanAttributes['${CODING_AGENT_ATTR.gitPrUrl}']             AS url,
-			toInt32OrZero(SpanAttributes['${CODING_AGENT_ATTR.gitPrNumber}']) AS number,
-			SpanAttributes['${CODING_AGENT_ATTR.gitPrTitle}']           AS title,
-			SpanAttributes['${GEN_AI_ATTR.toolName}']                   AS tool,
-			SpanAttributes['code.cwd']                                  AS working_dir
-		FROM ${OTEL_TRACES_TABLE}
-		WHERE SpanName = '${CODING_AGENT_SPAN_GIT_PR}'
-		AND ${chatScope}
-		ORDER BY Timestamp ASC
-		LIMIT 100
-	`;
-
-	const [
-		{ data: baseData, err: baseErr },
-		{ data: toolsData, err: toolsErr },
-		{ data: mcpData, err: mcpErr },
-		{ data: turnsData, err: turnsErr },
-		{ data: toolCallsData, err: toolCallsErr },
-		{ data: editsData, err: editsErr },
-		{ data: subagentsData, err: subagentsErr },
-		{ data: commitsData, err: commitsErr },
-		{ data: prsData, err: prsErr },
-	] = await Promise.all([
-		dataCollector({ query: baseQuery }),
-		dataCollector({ query: toolsQuery }),
-		dataCollector({ query: mcpQuery }),
-		dataCollector({ query: turnsQuery }),
-		dataCollector({ query: toolCallsQuery }),
-		dataCollector({ query: editsQuery }),
-		dataCollector({ query: subagentsQuery }),
-		dataCollector({ query: commitsQuery }),
-		dataCollector({ query: prsQuery }),
-	]);
-
-	// E6: only the base query is required — without it the detail
-	// page has no row to render. Auxiliary queries each get a slot
-	// in `partial_errors` so the UI can flag the broken panel
-	// instead of misleading the user with an empty section.
-	if (baseErr) throw baseErr;
-
-	const partialErrors: string[] = [];
-	const recordPartial = (panel: string, err: unknown) => {
-		if (!err) return;
-		const msg =
-			err instanceof Error ? err.message : typeof err === "string" ? err : "unknown";
-		// Keep the panel name in the message so the UI can render
-		// "Couldn't load <panel>" and we don't need a separate field.
-		console.error(`coding_agent.session_detail.partial_failed: ${panel}`, err);
-		partialErrors.push(`${panel}: ${msg}`);
-	};
-	recordPartial("tools", toolsErr);
-	recordPartial("mcp_servers", mcpErr);
-	recordPartial("turns", turnsErr);
-	recordPartial("tool_calls", toolCallsErr);
-	recordPartial("edits", editsErr);
-	recordPartial("subagents", subagentsErr);
-	recordPartial("commits", commitsErr);
-	recordPartial("prs", prsErr);
-	const rows = (baseData || []) as Array<
-		CodingAgentSessionRow & {
-			branch: string;
-			commit_sha: string;
-			policy_permission_mode: string;
-			content_capture_mode: string;
-		}
-	>;
-	if (!rows.length) return null;
-	const detail = rows[0]!;
-
-	const projected = await applyCohortFloor(auth, [detail]);
-	const safe = projected[0];
-	if (!safe) return null;
-
-	// When the viewer would have been masked by cohort floor at the
-	// list level (`user === 'low_cohort'`), strip body text from
-	// turns/tool calls too. Without this an attacker could click into
-	// a low-cohort row from a chart and see the user's prompts —
-	// defeating the privacy guarantee the list enforces.
-	const masked = safe.user === "low_cohort" && auth.role !== "admin";
-	const scrubBody = (s: string): string => (masked ? "" : s);
-
-	return {
-		...safe,
-		model: detail.model || "",
-		branch: detail.branch || "",
-		commit_sha: detail.commit_sha || "",
-		policy_permission_mode: detail.policy_permission_mode || "unknown",
-		content_capture_mode: detail.content_capture_mode || "unknown",
-		tools: (toolsData || []) as { tool_name: string; calls: number }[],
-		mcp_servers: (mcpData || []) as { server_name: string; calls: number }[],
-		turns: ((turnsData || []) as Array<
-			CodingAgentLLMTurnRow & { attachment_paths_raw?: string }
-		>).map((t) => ({
-			...t,
-			prompt: scrubBody(t.prompt || ""),
-			response: scrubBody(t.response || ""),
-			thought: scrubBody(t.thought || ""),
-			attachment_paths: parseStringSlice(t.attachment_paths_raw),
-		})),
-		tool_calls: ((toolCallsData || []) as Array<
-			Omit<CodingAgentToolCallRow, "errored" | "sandboxed"> & {
-				errored: number | boolean;
-				sandboxed: number | boolean;
-			}
-		>).map((t) => ({
-			...t,
-			args: scrubBody(t.args || ""),
-			result: scrubBody(t.result || ""),
-			command: scrubBody(t.command || ""),
-			errored: Boolean(Number(t.errored)),
-			sandboxed: Boolean(Number(t.sandboxed)),
-		})),
-		edits: (editsData || []) as CodingAgentEditRow[],
-		subagents: ((subagentsData || []) as Array<
-			CodingAgentSubagentRow & { modified_files_raw?: string }
-		>).map((s) => ({
-			...s,
-			modified_files: parseStringSlice(s.modified_files_raw),
-		})),
-		commits: ((commitsData || []) as CodingAgentGitCommitRow[]).map((c) => ({
-			...c,
-			message: scrubBody(c.message || ""),
-		})),
-		prs: ((prsData || []) as CodingAgentGitPRRow[]).map((p) => ({
-			...p,
-			number: Number(p.number || 0),
-			title: scrubBody(p.title || ""),
-		})),
-		partial_errors: partialErrors.length ? partialErrors : undefined,
-	};
-}
-
-/**
- * ClickHouse stores OTel StringSlice attributes as a stringified Array
- * literal (e.g. `['/foo','/bar']`). Parse defensively — empty strings
- * and malformed values map to empty arrays.
- */
-function parseStringSlice(raw: string | undefined | null): string[] {
-	if (!raw) return [];
-	const trimmed = raw.trim();
-	if (!trimmed || trimmed === "[]") return [];
-	// ClickHouse uses single quotes for array elements; coerce to JSON
-	// double quotes before parsing. We're lenient because the field
-	// occasionally lands as a comma-separated string when the writer
-	// emits it as a CSV.
-	if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-		try {
-			const json = trimmed.replace(/'/g, '"');
-			const parsed = JSON.parse(json);
-			if (Array.isArray(parsed)) return parsed.map(String);
-		} catch {
-			// fall through
-		}
+	const { data, err } = await dataCollector({ query });
+	if (err) {
+		// On error, fail closed: treat as below-floor for safety.
+		// A spurious 404 is preferable to leaking the digest.
+		console.error("coding_agent.session.cohort_lookup_failed", err);
+		return 0;
 	}
-	return trimmed
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
+	const rows = data as Array<{ sessions?: number | string }> | undefined;
+	return Number(rows?.[0]?.sessions ?? 0);
 }
 
 export interface CodingUserDigest {
@@ -1337,8 +996,12 @@ export async function getCodingUserDigest(
 	// Match the row by the same coalesced user expression the
 	// projector uses, so we find users keyed by the request-user or
 	// service-name fallback in addition to the canonical user.name.
-	// We do this by aggregating once per session, computing the user
-	// using USER_EXPR, then keeping rows where it matches.
+	// We do this by aggregating once per chat (= parent_id ?? session_id),
+	// computing the user using USER_EXPR, then keeping rows where it
+	// matches. Grouping by CHAT_ID_EXPR rather than raw session_id is
+	// what listSessions / listCodingUsers / the dashboard widgets do,
+	// so the per-user header card agrees with all of them — previously
+	// subagent spawns inflated this digest's session_count vs the list.
 	//
 	// IMPORTANT: we materialize the per-session aggregation as a
 	// subquery, NOT a `WITH per_session AS (...)` CTE. ClickHouse's
@@ -1355,7 +1018,7 @@ export async function getCodingUserDigest(
 	const sessionsSubquery = `
 		(
 			SELECT
-				SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] AS sid,
+				${CHAT_ID_EXPR} AS sid,
 				${USER_EXPR} AS user,
 				min(Timestamp) AS first_seen,
 				max(Timestamp) AS last_seen,
@@ -1433,7 +1096,7 @@ export async function getCodingUserDigest(
 				until: opts.until ?? null,
 				auth,
 			})}
-			GROUP BY sid, ${PER_SPAN_VENDOR_EXPR}
+			GROUP BY ${CHAT_ID_EXPR}, ${PER_SPAN_VENDOR_EXPR}
 		)
 	`;
 

@@ -158,18 +158,10 @@ func handle(ctx context.Context, in normalize.Input) error {
 	case "PostToolUse":
 		return emitToolCall(in, p, vcs, cls)
 	case "SubagentStop":
-		subagentType := p.SubagentType
-		if subagentType == "" {
-			// Claude Code's SubagentStop predates the dedicated
-			// `subagent_type` field; older releases ship just the
-			// stop signal. Default to the canonical "task" label
-			// matching the Anthropic SDK so the UI's filter works.
-			subagentType = "task"
-		}
 		return in.Emit.EmitSubagent(normalize.Subagent{
 			SessionID:    p.SessionID,
 			SubagentID:   p.TaskID,
-			SubagentType: subagentType,
+			SubagentType: p.SubagentType,
 			Vendor:       in.Vendor,
 			Status:       "completed",
 			StartedAt:    time.Now(),
@@ -346,8 +338,7 @@ func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, 
 	// Per-turn tags — surface the high-signal transcript fields
 	// adapters used to drop. We namespace them under `claude_code.*`
 	// so the same `coding_agent.llm.turn` schema can host them
-	// alongside Cursor / Codex / Copilot turns without
-	// colliding.
+	// alongside Cursor / Codex turns without colliding.
 	turn.Extras = map[string]string{}
 	if v := strings.TrimSpace(t.line.Version); v != "" {
 		turn.Extras["claude_code.client.version"] = v
@@ -380,7 +371,7 @@ func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, 
 		// builds the OTel-canonical `gen_ai.{input,output}.messages`
 		// envelopes from these — adapters never construct that JSON
 		// themselves, so the shape is guaranteed identical across
-		// Cursor, Claude Code, Codex, and Copilot.
+		// Cursor, Claude Code, and Codex.
 		text, thinking, toolCalls := splitAssistantContent(t.msg.Content)
 		turn.Response = text
 		turn.ThoughtText = thinking
@@ -419,14 +410,8 @@ func splitAssistantContent(blocks []assistantContentBlock) (text, think string, 
 				textParts = append(textParts, b.Text)
 			}
 		case "thinking":
-			// Claude transcripts store the body in `thinking`. Some
-			// older builds wrote it under `text` — accept both.
-			body := b.Thinking
-			if body == "" {
-				body = b.Text
-			}
-			if strings.TrimSpace(body) != "" {
-				thoughtParts = append(thoughtParts, body)
+			if strings.TrimSpace(b.Thinking) != "" {
+				thoughtParts = append(thoughtParts, b.Thinking)
 			}
 		case "tool_use":
 			calls = append(calls, normalize.ToolCallPart{

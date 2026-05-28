@@ -28,7 +28,6 @@ import (
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/hook/claudecode"
 	"github.com/openlit/openlit/cli/internal/coding/hook/codex"
-	"github.com/openlit/openlit/cli/internal/coding/hook/copilot"
 	"github.com/openlit/openlit/cli/internal/coding/hook/cursor"
 	"github.com/openlit/openlit/cli/internal/coding/identity"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
@@ -70,7 +69,7 @@ never blocks a developer's prompt.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor: cc | claude-code | cursor | codex | copilot")
+	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor: cc | claude-code | cursor | codex")
 	cmd.Flags().StringVar(&event, "event", "", "Hook event name (vendor-specific; e.g. SessionStart, PreToolUse)")
 	_ = cmd.MarkFlagRequired("vendor")
 
@@ -278,7 +277,7 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	}
 
 	// Default service.name to the vendor identifier ("cursor",
-	// "claude-code", "codex", "copilot") so the trace-detail header's
+	// "claude-code", "codex") so the trace-detail header's
 	// SERVICE pill matches Claude Code's monitoring convention and
 	// the per-vendor materializer can group by service.name. The
 	// user-set OPENLIT_APPLICATION_NAME (file or env) still wins;
@@ -423,8 +422,6 @@ func pickAdapter(vendor string) (normalize.Adapter, error) {
 		return cursor.New(), nil
 	case "codex":
 		return codex.New(), nil
-	case "copilot":
-		return copilot.New(), nil
 	case "":
 		return nil, errors.New("--vendor is required")
 	default:

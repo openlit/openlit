@@ -18,14 +18,14 @@ mkdir -p "${DEST}"
 
 # Wipe the per-vendor subtrees only — the README.md at the root of DEST
 # is hand-maintained and shouldn't be clobbered.
-for vendor in claude-code cursor codex copilot; do
+for vendor in claude-code cursor codex; do
   rm -rf "${DEST}/${vendor}"
 done
 # Drop the marketplace folder too if it exists (only used by Claude Code's
 # /plugin marketplace add path; not embedded in the binary).
 rm -rf "${DEST}/.claude-plugin"
 
-for vendor in claude-code cursor codex copilot; do
+for vendor in claude-code cursor codex; do
   if [ -d "${SRC}/${vendor}" ]; then
     cp -R "${SRC}/${vendor}" "${DEST}/${vendor}"
   fi

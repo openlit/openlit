@@ -6,7 +6,7 @@
 //
 // Why we need it
 // --------------
-// Each Cursor / Claude Code / Codex / Copilot hook fires its own
+// Each Cursor / Claude Code / Codex hook fires its own
 // `openlit coding hook` process. Without coordination every emitted
 // span would generate its own random TraceId — the otel_traces table
 // would have one trace per emit, correlated only by the

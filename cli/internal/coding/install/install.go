@@ -1,7 +1,7 @@
 // Package install implements `openlit coding install --vendor=...`.
 //
 // Writes per-vendor host plugin manifests to the user's home directory
-// so the agent (Claude Code, Cursor, Codex, Copilot) finds them on next
+// so the agent (Claude Code, Cursor, Codex) finds them on next
 // launch. The manifest payloads themselves live under cli/internal/coding/install/plugins/
 // and are embedded into the binary at build time, so a single statically-
 // linked CLI carries everything.
@@ -32,8 +32,7 @@ Vendors:
   claude-code   Plugin under ~/.claude/plugins/openlit-cc/ + 'claude plugin install'
   cursor        Hook entries merged into ~/.cursor/hooks.json (user scope)
   codex         Marketplace + 'codex plugin add openlit@openlit'
-  copilot       Plugin under ~/.copilot/plugins/openlit/
-  all           shorthand for all four
+  all           shorthand for all three
 
 The 'openlit' binary itself must be on PATH. Install via Homebrew, the
 prebuilt binaries on GitHub Releases, the curl|sh installer, or
@@ -45,7 +44,7 @@ prebuilt binaries on GitHub Releases, the curl|sh installer, or
 		},
 	}
 
-	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor (claude-code | cursor | codex | copilot | all)")
+	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor (claude-code | cursor | codex | all)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be written without modifying any files")
 	_ = cmd.MarkFlagRequired("vendor")
 
@@ -101,15 +100,13 @@ func run(cmd *cobra.Command, vendor string, dryRun bool) error {
 func vendorsFromArg(arg string) ([]string, error) {
 	switch arg {
 	case "all":
-		return []string{"claude-code", "cursor", "codex", "copilot"}, nil
+		return []string{"claude-code", "cursor", "codex"}, nil
 	case "claude-code", "cc":
 		return []string{"claude-code"}, nil
 	case "cursor":
 		return []string{"cursor"}, nil
 	case "codex":
 		return []string{"codex"}, nil
-	case "copilot":
-		return []string{"copilot"}, nil
 	default:
 		return nil, fmt.Errorf("unknown --vendor %q", arg)
 	}

@@ -511,13 +511,9 @@ export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the insta
 // can run when prompts / responses are missing from a coding-agent
 // trace (i.e. the CLI is in metadata_only or minimal mode). Tracks the
 // OPENLIT_CODING_CONTENT_CAPTURE flag used by the CLI.
-export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Prompts and tool I/O are hidden";
-export const CODING_AGENT_CONTENT_CAPTURE_NOTE_BODY =
-	"This span's CLI was in metadata_only mode, so prompt bodies, agent replies, and tool args were stripped before export. Run the command below in any shell and resend a prompt — the CLI picks the new mode up on the next hook invocation.";
+export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND =
 	"openlit configure --content-capture full";
-export const CODING_AGENT_CONTENT_CAPTURE_NOTE_FOOTNOTE =
-	"Modes: minimal (no per-event spans) · metadata_only (this span) · full (default — includes prompts, replies, tool I/O, all secret-scrubbed). Override with OPENLIT_CODING_CONTENT_CAPTURE.";
 
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
@@ -551,7 +547,6 @@ export const AGENTS_COLUMN_PROVIDERS = "Providers";
 // suffix (no "24h"). The underlying data is always evaluated
 // against the global filter picker's selected time range — fixed-24h
 // language would be misleading once the user picks 7D / 1M / CUSTOM.
-export const AGENTS_CODING_SESSIONS_WINDOW_LABEL = "Sessions";
 export const AGENTS_CODING_USERS_WINDOW_LABEL = "Active users";
 export const AGENTS_CODING_COST_WINDOW_LABEL = "Cost (USD)";
 export const AGENTS_CODING_COLUMN_VENDOR = "Vendor";
@@ -564,13 +559,8 @@ export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
 export const AGENTS_CODING_COLUMN_PRS = "PRs";
 export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
 export const AGENTS_CODING_EMPTY_BODY =
-	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or Copilot CLI session. The first hook event will surface the agent here within a minute.";
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
 export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
-export const AGENTS_CODING_OVERVIEW_VENDOR_LABEL = "Vendor";
-export const AGENTS_CODING_OVERVIEW_SESSIONS_LABEL = "Sessions";
-export const AGENTS_CODING_OVERVIEW_USERS_LABEL = "Active users";
-export const AGENTS_CODING_OVERVIEW_COST_LABEL = "Cost";
-export const AGENTS_CODING_OVERVIEW_CLIENT_LABEL = "Client info";
 export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
 export const AGENTS_CODING_SESSIONS_SESSION = "Session";
 export const AGENTS_CODING_SESSIONS_USER = "User";
@@ -586,7 +576,7 @@ export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
 export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
 export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
 export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
-export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex, Copilot).";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
 export const AGENTS_CODING_USERS_LABEL = "Coding users";
 export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
 export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";
@@ -596,12 +586,7 @@ export const AGENTS_CODING_USERS_COMMITS = "Commits";
 export const AGENTS_CODING_USERS_PRS = "PRs";
 export const AGENTS_CODING_DASHBOARD_NOT_SEEDED =
 	"Dashboard not yet available. Restart the openlit container to run the latest seed migrations.";
-export const AGENTS_CODING_DASHBOARD_BLURB =
-	"Open the dedicated dashboard for end-to-end charts (sessions, cost, tools, users, classification, governance).";
 export const AGENTS_CODING_DASHBOARD_OPEN = "Open full dashboard";
-export const AGENTS_CODING_SESSION_DETAIL_TITLE = "Session detail";
-export const AGENTS_CODING_SESSION_DETAIL_EMPTY =
-	"No turns, tool calls, or edits captured yet for this session. The agent may still be running, or content capture may be set to metadata-only.";
 export const AGENTS_COLUMN_LAST_SEEN = "Last Seen";
 export const AGENTS_COLUMN_LLM_OBSERVABILITY = "LLM Observability";
 export const AGENTS_COLUMN_AGENT_OBSERVABILITY = "Agent Observability";

@@ -153,11 +153,20 @@ func handle(ctx context.Context, in normalize.Input) error {
 		RepoAllowlist:        classify.SplitAllowlist(os.Getenv("OPENLIT_CODING_REPO_ALLOWLIST")),
 	})
 
-	// Cursor's `session_id` is sometimes absent; fall back to
-	// conversation_id which is stable across the same composer thread.
-	sessionID := p.SessionID
+	// Chat-thread key. Cursor exposes two ids:
+	//   - conversation_id: the composer / chat-thread id, stable for
+	//     the life of the chat (survives Cursor restarts, plan-mode
+	//     toggles, subagent spawns inside the same thread).
+	//   - session_id: a per-process / per-invocation id that can be
+	//     absent on some events and is not guaranteed stable across
+	//     the lifetime of one chat.
+	// We use conversation_id as the primary key so every span fired
+	// by one chat (including subagents the chat spawns) folds into
+	// one chat row. session_id is the fallback when conversation_id
+	// is missing (early-lifecycle events on older Cursor builds).
+	sessionID := p.ConversationID
 	if sessionID == "" {
-		sessionID = p.ConversationID
+		sessionID = p.SessionID
 	}
 
 	// Mode + model transition events are now emitted centrally in

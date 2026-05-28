@@ -25,7 +25,6 @@ export type CodingAgentSessionRowView = {
 	total_tokens: number;
 	trace_id: string;
 	session_root_span_id: string;
-	chat_title: string;
 	permission_mode: string;
 	working_dir: string;
 	working_dir_label: string;
@@ -249,14 +248,13 @@ export const sessionsColumns: Columns<string, CodingAgentSessionRowView> = {
 		header: () => m.AGENTS_CODING_SESSIONS_SESSION,
 		cell: ({ row }) => {
 			const title =
-				row.chat_title ||
-				(row.vendor && row.session_id
+				row.vendor && row.session_id
 					? `${row.vendor} session`
-					: "untitled session");
+					: "untitled session";
 			const shortId = row.session_id ? row.session_id.slice(0, 8) : "—";
 			return (
 				<div className="min-w-0">
-					<div className="truncate text-xs font-medium text-stone-900 dark:text-stone-100" title={row.chat_title || row.session_id}>
+					<div className="truncate text-xs font-medium text-stone-900 dark:text-stone-100" title={row.session_id}>
 						{title}
 					</div>
 					<div

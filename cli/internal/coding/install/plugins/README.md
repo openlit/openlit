@@ -10,7 +10,6 @@ Per-vendor manifests:
 - `claude-code/` — Claude Code's `.claude-plugin/` + hooks.json
 - `cursor/` — Cursor's `.cursor-plugin/` + hooks.json + scripts/run.sh
 - `codex/` — Codex's `.codex-plugin/` + hooks/hooks.json
-- `copilot/` — Copilot CLI's `plugin.json` + `hooks.json`
 
 The build mirror is performed by the project root Makefile / CI (see
 `scripts/sync-plugins.sh`). Local development can also run

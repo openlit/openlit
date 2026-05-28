@@ -268,7 +268,7 @@ var safeFilenameRe = regexp.MustCompile(`[^A-Za-z0-9_.-]`)
 //
 // We deliberately partition the cache by vendor as well as session id
 // because Claude Code launched inside Cursor inherits Cursor's
-// CURSOR_SESSION_ID (and similar env-leakage cases on Codex / Copilot).
+// CURSOR_SESSION_ID (and similar env-leakage cases on Codex).
 // Without per-vendor partitioning, the first hook to write the cache
 // poisons every other vendor's reads — symptoms include:
 //

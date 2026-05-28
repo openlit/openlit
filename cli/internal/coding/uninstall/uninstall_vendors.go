@@ -139,8 +139,6 @@ func vendorDestRoot(vendor string) (string, error) {
 		return filepath.Join(home, ".claude", "plugins", "openlit-cc"), nil
 	case "codex":
 		return filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"), nil
-	case "copilot":
-		return filepath.Join(home, ".copilot", "plugins", "openlit"), nil
 	default:
 		return "", fmt.Errorf("unknown vendor %q", vendor)
 	}

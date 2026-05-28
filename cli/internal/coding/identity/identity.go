@@ -8,7 +8,6 @@
 //   - Claude Code stores it in ~/.claude.json (`oauthAccount.emailAddress`).
 //   - Codex     authenticates via OAuth and stores the email inside the
 //                JWT under tokens.id_token (we don't decode JWTs in v1).
-//   - Copilot   not yet surfaced.
 //
 // Without a per-vendor authoritative source we end up with two rows for
 // the same human: one labeled with the OAuth email (when OPENLIT_USER
@@ -39,7 +38,7 @@ import (
 // reading the vendor's local OAuth/config file. Returns "" when the
 // file is missing, malformed, or doesn't carry an email. The vendor
 // argument is the canonical vendor id ("claude-code", "codex",
-// "cursor", "copilot"); unknown vendors return "".
+// "cursor"); unknown vendors return "".
 func ResolveForVendor(vendor string) string {
 	switch vendor {
 	case "claude-code", "cc", "claudecode":

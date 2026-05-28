@@ -196,9 +196,9 @@ func resolveTerminalType() string {
 	if os.Getenv("VSCODE_PID") != "" || os.Getenv("VSCODE_INJECTION") != "" {
 		return "vscode"
 	}
-	// Codex CLI / Copilot CLI agents — these run in a real terminal,
-	// so we still fall through to TERM_PROGRAM below when their
-	// markers aren't present. We don't stamp the agent itself as the
+	// Codex CLI agents — these run in a real terminal, so we still
+	// fall through to TERM_PROGRAM below when its marker isn't
+	// present. We don't stamp the agent itself as the
 	// terminal.
 	// JetBrains IDEs set TERMINAL_EMULATOR=JetBrains-JediTerm.
 	if strings.Contains(strings.ToLower(os.Getenv("TERMINAL_EMULATOR")), "jetbrains") {
@@ -338,7 +338,7 @@ type Emitter struct {
 	cfg    *config.Resolved
 
 	// vendor is the canonical vendor identifier ("cursor",
-	// "claude-code", "codex", "copilot") for the agent that fired
+	// "claude-code", "codex") for the agent that fired
 	// this hook. Mixed into the deterministic TraceID/SpanID so
 	// nested agents (e.g. Claude Code launched inside a Cursor
 	// terminal) get distinct traces even when the host's session id
@@ -366,7 +366,7 @@ var initOnce sync.Mutex
 // process exits.
 //
 // `vendor` is the canonical agent identifier ("cursor", "claude-code",
-// "codex", "copilot"). It's mixed into the deterministic TraceID so
+// "codex"). It's mixed into the deterministic TraceID so
 // nested agents (Claude Code inside Cursor's terminal) get distinct
 // traces.
 //

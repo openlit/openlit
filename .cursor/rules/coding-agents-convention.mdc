@@ -22,7 +22,7 @@ Everything OpenLit reads or rolls up speaks one of two namespaces:
 **Hard rules:**
 
 1. Adapters MUST stamp `coding_agent.session.id` on every span. No exceptions.
-2. Adapters MUST stamp `coding_agent.client` (vendor identifier) on every span. Allowed values: `cursor`, `claude-code`, `codex`, `copilot`, `windsurf`. Add new values to `sdk/go/semconv/coding_agent.go` AND `src/client/src/types/agents.ts` AND re-run `go generate`.
+2. Adapters MUST stamp `coding_agent.client` (vendor identifier) on every span. Allowed values: `cursor`, `claude-code`, `codex`, `windsurf`. Add new values to `sdk/go/semconv/coding_agent.go` AND `src/client/src/types/agents.ts` AND re-run `go generate`.
 3. `gen_ai.system` MUST be the LLM provider, not the agent vendor: `anthropic`, `openai`, `google`, `xai`, `mistral`. Use the `inferProvider(model, vendor)` helper.
 4. Numeric attributes are emitted as numbers, NEVER as strings. Tokens are `int64`. Cost is `float64` in USD. Duration is `int64` in milliseconds.
 5. Timestamps are RFC3339-with-nanos when stamped as strings, or the OTel span's intrinsic start/end when stamped as span time. NEVER unix seconds, never milliseconds-since-epoch.

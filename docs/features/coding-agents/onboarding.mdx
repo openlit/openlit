@@ -1,7 +1,7 @@
 ---
 title: "Coding Agents — Onboarding"
 sidebarTitle: "Coding Agents Onboarding"
-description: "Send Claude Code, Cursor, Codex, and GitHub Copilot CLI telemetry into OpenLit in under a minute."
+description: "Send Claude Code, Cursor, and Codex telemetry into OpenLit in under a minute."
 ---
 
 OpenLit ships first-class observability for AI coding agents. The
@@ -218,17 +218,6 @@ Older Codex builds use `hooks = true` and `plugin_hooks = true`
 instead of `codex_hooks`.
 
 </Tab>
-<Tab title="GitHub Copilot CLI">
-
-```bash
-openlit coding install --vendor=copilot
-```
-
-Manifest path: `~/.copilot/plugins/openlit/`. All ten Copilot CLI
-hooks are wired and the `~/.copilot/session-state/events.jsonl`
-file is tailed for usage events.
-
-</Tab>
 </Tabs>
 
 ## 4. Verify
@@ -287,7 +276,6 @@ What each flag removes:
 | `~/.local/share/openlit/claude-marketplace/` | ✓ (when `<v>` is `claude-code` or `all`) | — |
 | openlit entries in `~/.cursor/hooks.json` (other tools' entries preserved; file deleted if it ends up empty) | ✓ (when `<v>` is `cursor` or `all`) | — |
 | `~/.local/share/openlit/codex-marketplace/` | ✓ (when `<v>` is `codex` or `all`) | — |
-| `~/.copilot/plugins/openlit/` | ✓ (when `<v>` is `copilot` or `all`) | — |
 | `claude plugin uninstall openlit-cc@openlit` | ✓ best-effort | — |
 | `codex plugin remove openlit@openlit` + `codex plugin marketplace remove openlit` | ✓ best-effort | — |
 | `~/.config/openlit/` (your `configure` output) | — | ✓ |

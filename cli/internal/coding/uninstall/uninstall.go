@@ -37,8 +37,7 @@ Vendors:
   claude-code   ~/.claude/plugins/openlit-cc/        + 'claude plugin uninstall'
   cursor        strips openlit entries from ~/.cursor/hooks.json (preserves other tools')
   codex         ~/.local/share/openlit/codex-marketplace/ + 'codex plugin remove'
-  copilot       ~/.copilot/plugins/openlit/          (directory only)
-  all           shorthand for all four
+  all           shorthand for all three
 
 Use --purge to also remove the shared OpenLit config (~/.config/openlit)
 and the session-state cache. Leave it off if you plan to re-install
@@ -54,7 +53,7 @@ installer, or 'go install').`,
 		},
 	}
 
-	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor (claude-code | cursor | codex | copilot | all)")
+	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor (claude-code | cursor | codex | all)")
 	cmd.Flags().BoolVar(&purge, "purge", false, "Also remove ~/.config/openlit and the session-state cache")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be removed without modifying any files")
 	_ = cmd.MarkFlagRequired("vendor")
@@ -121,15 +120,13 @@ func run(cmd *cobra.Command, vendor string, purge, dryRun bool) error {
 func vendorsFromArg(arg string) ([]string, error) {
 	switch arg {
 	case "all":
-		return []string{"claude-code", "cursor", "codex", "copilot"}, nil
+		return []string{"claude-code", "cursor", "codex"}, nil
 	case "claude-code", "cc":
 		return []string{"claude-code"}, nil
 	case "cursor":
 		return []string{"cursor"}, nil
 	case "codex":
 		return []string{"codex"}, nil
-	case "copilot":
-		return []string{"copilot"}, nil
 	default:
 		return nil, fmt.Errorf("unknown --vendor %q", arg)
 	}

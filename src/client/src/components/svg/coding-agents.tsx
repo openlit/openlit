@@ -134,7 +134,6 @@ const CODING_AGENT_VENDOR_LABELS: Record<string, string> = {
 	cursor: "Cursor",
 	"claude-code": "Claude Code",
 	codex: "Codex",
-	copilot: "Copilot CLI",
 	windsurf: "Windsurf",
 };
 

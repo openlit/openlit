@@ -1,5 +1,5 @@
 ---
-description: Authoring or modifying a coding-agent hook adapter (Cursor, Claude Code, Codex, Copilot, Windsurf, generic). Covers payload probing, session-state caching, OTel attribute emission, head sampling, capture modes, and the ClickHouse query patterns that consume them. Read before adding a new vendor or changing what we stamp on coding-agent spans.
+description: Authoring or modifying a coding-agent hook adapter (Cursor, Claude Code, Codex, Windsurf, generic). Covers payload probing, session-state caching, OTel attribute emission, head sampling, capture modes, and the ClickHouse query patterns that consume them. Read before adding a new vendor or changing what we stamp on coding-agent spans.
 globs: cli/internal/coding/**/*.go,sdk/go/semconv/coding_agent.go,src/client/src/lib/platform/coding-agents/**/*.ts,src/client/src/lib/platform/agents/materialize.ts,plugins/**/hooks.json
 alwaysApply: false
 ---

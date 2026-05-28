@@ -27,10 +27,10 @@ import {
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
 
-// Surfaces inline guidance when a coding-agent span lands without
-// prompt / response / tool-body content (i.e. the CLI is in
-// metadata_only or minimal mode). The component owns its own
-// copy-to-clipboard interaction so the parent stays declarative.
+// Compact inline notice when a coding-agent span was recorded with a
+// non-`full` content-capture mode (CLI flag OPENLIT_CODING_CONTENT_CAPTURE).
+// We surface the one command that flips it on; everything else (modes,
+// scope, scrubbing guarantees) lives in the docs to keep this terse.
 function ContentCaptureNote() {
 	const m = getMessage();
 	const command = m.CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND;
@@ -46,35 +46,21 @@ function ContentCaptureNote() {
 		}
 	}, [command]);
 	return (
-		<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-			<div className="flex items-start gap-2">
-				<Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-				<div className="min-w-0 flex-1">
-					<div className="font-medium">
-						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE}
-					</div>
-					<div className="mt-0.5 leading-snug">
-						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_BODY}
-					</div>
-					<div className="mt-1.5 flex flex-wrap items-center gap-2">
-						<code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-							{command}
-						</code>
-						<button
-							type="button"
-							onClick={onCopy}
-							className="inline-flex items-center gap-1 rounded border border-amber-300 px-1.5 py-0.5 text-[11px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40"
-							aria-label="Copy command"
-						>
-							<Copy className="h-3 w-3" />
-							Copy
-						</button>
-					</div>
-					<div className="mt-1 text-[11px] text-amber-700 dark:text-amber-300/80">
-						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_FOOTNOTE}
-					</div>
-				</div>
-			</div>
+		<div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+			<Info className="h-3 w-3 shrink-0" />
+			<span className="font-medium">{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE}</span>
+			<code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+				{command}
+			</code>
+			<button
+				type="button"
+				onClick={onCopy}
+				className="inline-flex items-center gap-1 rounded border border-amber-300 px-1 py-0.5 text-[10px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40"
+				aria-label="Copy command"
+			>
+				<Copy className="h-2.5 w-2.5" />
+				Copy
+			</button>
 		</div>
 	);
 }
@@ -578,41 +564,20 @@ export function TraceDetailView({
 
 	// Content-capture banner gating.
 	//
-	// We only show the "prompts are hidden" hint on spans where content
-	// is *expected* (LLM turns, tool / shell / MCP calls, file edits).
-	// Session bookend spans (session, session.model.changed,
-	// session.loop.stop, …) legitimately carry no prompt body, so a
-	// note there would be misleading. If any content-bearing attribute
-	// is non-empty we trust the CLI is already in full mode and hide
-	// the note. Detection is per-span: a single trace can mix captured
-	// and metadata-only spans if the user flipped the flag mid-session.
-	const spanName = trace?.spanName ?? "";
-	const spanLikelyHoldsContent =
-		spanName === "coding_agent.llm.turn" ||
-		spanName.startsWith("coding_agent.tool.") ||
-		spanName.startsWith("coding_agent.shell.") ||
-		spanName.startsWith("coding_agent.mcp.") ||
-		spanName.startsWith("coding_agent.edit.") ||
-		spanName === "coding_agent.git.commit" ||
-		spanName === "coding_agent.git.pull_request";
-	const contentProbeKeys = [
-		"gen_ai.input.messages",
-		"gen_ai.output.messages",
-		"gen_ai.prompt",
-		"gen_ai.completion",
-		"coding_agent.tool.command",
-		"coding_agent.tool.input",
-		"coding_agent.tool.args",
-		"coding_agent.tool.result",
-		"coding_agent.tool.output",
-		"coding_agent.session.agent.message",
-	];
-	const hasCapturedContent = contentProbeKeys.some((k) => {
-		const v = ca(k);
-		return typeof v === "string" && v.trim().length > 0;
-	});
+	// We show the "content capture is off" hint only when the span's
+	// own `coding_agent.content_capture_mode` resource attribute (which
+	// the CLI stamps from cfg.CodingContentCapture on every span) is
+	// explicitly something other than "full". That's the authoritative
+	// signal — much more reliable than the previous heuristic of
+	// "no content-bearing attribute is populated", which produced
+	// false positives on spans where the vendor legitimately emits
+	// empty bodies (e.g. a Grep tool call whose tool_input was empty)
+	// even though the CLI is in full mode.
+	const captureModeRaw = ca("coding_agent.content_capture_mode");
+	const captureMode =
+		typeof captureModeRaw === "string" ? captureModeRaw.trim().toLowerCase() : "";
 	const showContentCaptureNote =
-		isCodingAgentTrace && spanLikelyHoldsContent && !hasCapturedContent;
+		isCodingAgentTrace && captureMode !== "" && captureMode !== "full";
 
 	const hasEvaluationPanel = trace
 		? getExtraTabsContentTypes(trace).includes("Evaluation")
@@ -765,19 +730,29 @@ export function TraceDetailView({
 								<MetaPill label="Deployment Environment" value={deploymentEnvironment} />
 							</>
 						)}
-						<MetaPill
-							label="Coding Agent"
-							value={codingAgentVendor}
-							icon={
-								hasCodingAgentVendorIcon(codingAgentVendor) ? (
-									<CodingAgentVendorIcon
-										vendor={codingAgentVendor}
-										className="h-3.5 w-3.5"
-									/>
-								) : null
-							}
-						/>
-						<MetaPill label="User" value={codingAgentUser} />
+						{isCodingAgentTrace && (
+							<>
+								<MetaPill
+									label="Coding Agent"
+									value={codingAgentVendor}
+									icon={
+										hasCodingAgentVendorIcon(codingAgentVendor) ? (
+											<CodingAgentVendorIcon
+												vendor={codingAgentVendor}
+												className="h-3.5 w-3.5"
+											/>
+										) : null
+									}
+								/>
+								{/* User pill only renders for coding-agent
+								    traces; on non-coding spans `gen_ai.user.name`
+								    is usually empty and the pill became
+								    blank noise. */}
+								{codingAgentUser ? (
+									<MetaPill label="User" value={codingAgentUser} />
+								) : null}
+							</>
+						)}
 						<MetaPill label="Working Folder" value={workingDirLabel} />
 						<MetaPill label="Repository" value={repoLabel} />
 						<MetaPill label="Branch" value={branchName} />

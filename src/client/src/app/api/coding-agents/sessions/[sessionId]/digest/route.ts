@@ -10,10 +10,13 @@
  * `chat_id` (= parent ?? session_id) so the same totals appear for
  * every span in the same chat thread.
  *
- * Kept narrow on purpose — the full `getSession` join (turns, tool
+ * Kept narrow on purpose — the full session join (turns, tool
  * calls, MCP, edit decisions) is overkill when the pill row only
- * needs the seven counters. Gated through `requireCodingAgentAuth`
- * so the cohort-floor privacy guarantee still applies.
+ * needs the seven counters. Gated through `requireCodingAgentAuth`,
+ * and `getCodingSessionDigest` enforces the same COHORT_K_FLOOR
+ * floor as the per-user page for non-admin viewers — a known
+ * session_id should not become a side channel for low-volume
+ * users' aggregate metrics.
  */
 
 import {

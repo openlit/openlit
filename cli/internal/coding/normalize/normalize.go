@@ -210,7 +210,7 @@ type ToolCall struct {
 }
 
 // EditDecision captures one user/agent edit outcome. Vendors that emit a
-// PostEdit hook (Claude Code, Codex, Copilot) call EmitEditDecision once
+// PostEdit hook (Claude Code, Codex) call EmitEditDecision once
 // per modified file.
 type EditDecision struct {
 	SessionID    string

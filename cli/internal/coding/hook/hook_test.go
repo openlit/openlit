@@ -23,7 +23,6 @@ func TestIsClaudeCodeVendor(t *testing.T) {
 		{"claudecode", true},
 		{"cursor", false},
 		{"codex", false},
-		{"copilot", false},
 		{"", false},
 		{"cc-cursor", false},
 	}

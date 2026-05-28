@@ -136,10 +136,10 @@ func handle(ctx context.Context, in normalize.Input) error {
 		t := buildToolCall(in, p, cwd)
 		_ = in.Emit.EmitToolCall(t)
 		// Detect agent-attributed git commits / PR creations from
-		// shell-style tools. Codex emits `shell`, `local_shell`, and
-		// (older builds) `bash`. We only attribute when the tool
-		// completed successfully — a failed git invocation does NOT
-		// count toward the commit / PR rollups.
+		// shell-style tools. Codex emits `shell` and `local_shell`.
+		// We only attribute when the tool completed successfully —
+		// a failed git invocation does NOT count toward the commit
+		// / PR rollups.
 		if normalizeStatus(p) != "error" {
 			emitGitArtifactsCodex(in, p, cwd)
 		}
@@ -763,7 +763,7 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 	}
 	cmd := ""
 	switch strings.ToLower(toolName) {
-	case "shell", "bash", "local_shell", "local-shell":
+	case "shell", "local_shell", "local-shell":
 		cmd = pickStr("command", "cmd", "shell")
 		if cmd == "" {
 			// some shells ship an array — fall back to joining
@@ -800,14 +800,8 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 }
 
 // isApplyPatchTool reports whether the tool name is Codex's edit tool.
-// Codex has shipped both `apply_patch` (current) and `apply-patch`
-// (older builds) so we accept both.
 func isApplyPatchTool(name string) bool {
-	switch strings.ToLower(name) {
-	case "apply_patch", "apply-patch":
-		return true
-	}
-	return false
+	return strings.ToLower(name) == "apply_patch"
 }
 
 // emitApplyPatchEditDecisions parses Codex's apply_patch input into
@@ -931,7 +925,7 @@ func emitGitArtifactsCodex(in normalize.Input, p codexPayload, cwd string) {
 
 func isShellTool(name string) bool {
 	switch strings.ToLower(name) {
-	case "shell", "local_shell", "local-shell", "bash":
+	case "shell", "local_shell", "local-shell":
 		return true
 	}
 	return false
