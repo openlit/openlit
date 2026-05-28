@@ -15,20 +15,24 @@ import (
 // recordingEmitter is a normalize.Emitter implementation that captures
 // every call so tests can assert on the order + content of emissions.
 type recordingEmitter struct {
-	sessions     []normalize.Session
-	toolCalls    []normalize.ToolCall
+	sessions      []normalize.Session
+	toolCalls     []normalize.ToolCall
 	editDecisions []normalize.EditDecision
-	llmTurns     []normalize.LLMTurn
-	subagents    []normalize.Subagent
-	events       []normalize.EventEmission
+	llmTurns      []normalize.LLMTurn
+	subagents     []normalize.Subagent
+	events        []normalize.EventEmission
+	gitCommits    []normalize.GitCommit
+	gitPRs        []normalize.GitPullRequest
 }
 
-func (e *recordingEmitter) EmitSession(s normalize.Session) error      { e.sessions = append(e.sessions, s); return nil }
-func (e *recordingEmitter) EmitToolCall(t normalize.ToolCall) error    { e.toolCalls = append(e.toolCalls, t); return nil }
+func (e *recordingEmitter) EmitSession(s normalize.Session) error           { e.sessions = append(e.sessions, s); return nil }
+func (e *recordingEmitter) EmitToolCall(t normalize.ToolCall) error         { e.toolCalls = append(e.toolCalls, t); return nil }
 func (e *recordingEmitter) EmitEditDecision(d normalize.EditDecision) error { e.editDecisions = append(e.editDecisions, d); return nil }
-func (e *recordingEmitter) EmitLLMTurn(t normalize.LLMTurn) error      { e.llmTurns = append(e.llmTurns, t); return nil }
-func (e *recordingEmitter) EmitSubagent(s normalize.Subagent) error    { e.subagents = append(e.subagents, s); return nil }
-func (e *recordingEmitter) EmitEvent(ev normalize.EventEmission) error { e.events = append(e.events, ev); return nil }
+func (e *recordingEmitter) EmitLLMTurn(t normalize.LLMTurn) error           { e.llmTurns = append(e.llmTurns, t); return nil }
+func (e *recordingEmitter) EmitSubagent(s normalize.Subagent) error         { e.subagents = append(e.subagents, s); return nil }
+func (e *recordingEmitter) EmitEvent(ev normalize.EventEmission) error      { e.events = append(e.events, ev); return nil }
+func (e *recordingEmitter) EmitGitCommit(c normalize.GitCommit) error       { e.gitCommits = append(e.gitCommits, c); return nil }
+func (e *recordingEmitter) EmitGitPullRequest(p normalize.GitPullRequest) error { e.gitPRs = append(e.gitPRs, p); return nil }
 
 // withIsolatedCache redirects sessionstate's on-disk cache to a tmp
 // dir so tests don't leak state between runs.
@@ -107,12 +111,18 @@ func TestCodexEndToEndOneTurn(t *testing.T) {
 		t.Fatalf("Stop: %v", err)
 	}
 
-	// Sessions: SessionStart → 1
-	if len(em.sessions) != 1 {
-		t.Fatalf("expected 1 session, got %d", len(em.sessions))
+	// Sessions: SessionStart → 1, Stop → 1 (Codex has no SessionEnd
+	// event, so we re-emit the session-root span on every Stop with
+	// outcome=completed). The deterministic span IDs in the otlp
+	// emitter dedupe these into a single `otel_traces` row.
+	if len(em.sessions) != 2 {
+		t.Fatalf("expected 2 sessions (start + stop), got %d", len(em.sessions))
 	}
 	if em.sessions[0].Vendor != "codex" {
 		t.Errorf("session vendor: got %q, want codex", em.sessions[0].Vendor)
+	}
+	if em.sessions[1].Outcome == "" {
+		t.Errorf("stop session outcome empty; expected `completed`")
 	}
 	// Tool calls: PostToolUse → 1
 	if len(em.toolCalls) != 1 {

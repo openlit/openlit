@@ -19,6 +19,8 @@ export const CODING_AGENT_SPAN_TOOL_CALL = "coding_agent.tool.call";
 export const CODING_AGENT_SPAN_EDIT_DECISION = "coding_agent.edit.decision";
 export const CODING_AGENT_SPAN_SUBAGENT = "coding_agent.subagent";
 export const CODING_AGENT_SPAN_LLM_TURN = "coding_agent.llm.turn";
+export const CODING_AGENT_SPAN_GIT_COMMIT = "coding_agent.git.commit";
+export const CODING_AGENT_SPAN_GIT_PR = "coding_agent.git.pull_request";
 
 /** All coding-agent span names in a single tuple — handy for `IN (...)` clauses. */
 export const CODING_AGENT_SPAN_NAMES = [
@@ -27,6 +29,8 @@ export const CODING_AGENT_SPAN_NAMES = [
 	CODING_AGENT_SPAN_EDIT_DECISION,
 	CODING_AGENT_SPAN_SUBAGENT,
 	CODING_AGENT_SPAN_LLM_TURN,
+	CODING_AGENT_SPAN_GIT_COMMIT,
+	CODING_AGENT_SPAN_GIT_PR,
 ] as const;
 
 /**
@@ -51,6 +55,28 @@ export const CODING_AGENT_ATTR = {
 	editLinesAdded: "coding_agent.edit.lines.added",
 	editLinesRemoved: "coding_agent.edit.lines.removed",
 	editLanguage: "coding_agent.edit.language",
+	editToolName: "coding_agent.edit.tool.name",
+	// Per-session code-change rollups. Stamped on the
+	// `coding_agent.session` root span at SessionEnd by the otlp
+	// emitter — these are the dashboard's primary source of truth
+	// for "what did this session change". The query layer falls
+	// back to summing the per-edit-decision spans when the session
+	// is still in progress (Codex; in-flight Cursor / CC sessions
+	// that haven't fired SessionEnd yet).
+	sessionLinesAdded: "coding_agent.session.lines.added",
+	sessionLinesRemoved: "coding_agent.session.lines.removed",
+	sessionLinesAccepted: "coding_agent.session.lines.accepted",
+	sessionLinesRejected: "coding_agent.session.lines.rejected",
+	sessionEditAcceptCount: "coding_agent.session.edit.accept_count",
+	sessionEditRejectCount: "coding_agent.session.edit.reject_count",
+	sessionCommitCount: "coding_agent.session.commit_count",
+	sessionPrCount: "coding_agent.session.pr_count",
+	// Git commit / pull-request span attributes.
+	gitCommitSha: "coding_agent.git.commit.sha",
+	gitCommitMessage: "coding_agent.git.commit.message",
+	gitPrUrl: "coding_agent.git.pull_request.url",
+	gitPrNumber: "coding_agent.git.pull_request.number",
+	gitPrTitle: "coding_agent.git.pull_request.title",
 	mcpServerName: "coding_agent.mcp.server.name",
 	mcpScope: "coding_agent.mcp.scope",
 	mcpTransport: "coding_agent.mcp.transport",

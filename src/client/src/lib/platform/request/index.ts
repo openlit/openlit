@@ -142,6 +142,18 @@ export async function getAverageRequestDuration(params: MetricParams) {
 export async function getRequestsConfig(params: MetricParams) {
 	const select: string[] = [];
 
+	// Provider filter source list. Folds three attribute namespaces
+	// into one flat set so the "Provider" dropdown in the filter bar
+	// can act as a universal traffic-shaper:
+	//   • gen_ai.system   — LLM provider on regular GenAI spans
+	//   • db.system       — vector-DB provider on retrieval spans
+	//   • coding_agent.client — coding-agent vendor (cursor / codex /
+	//     claude_code) on every span we emit from the CLI hook. We
+	//     surface it here (rather than building a separate "Vendor"
+	//     filter) so operators can untick e.g. "cursor" to hide all
+	//     of that vendor's telemetry from any view — the user asked
+	//     for vendor visibility without a new control. The WHERE
+	//     side of this fold lives in helpers/server/platform.ts.
 	select.push(
 		`arrayConcat(
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
@@ -149,7 +161,8 @@ export async function getRequestsConfig(params: MetricParams) {
 		)}'])),
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
 			"system"
-		)}']))
+		)}'])),
+			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['coding_agent.client']))
 		) AS providers`
 	);
 

@@ -6,7 +6,7 @@
   "isMainDashboard": false,
   "isPinned": true,
   "createdAt": "2026-05-25 11:00:00",
-  "updatedAt": "2026-05-28 03:35:00",
+  "updatedAt": "2026-05-28 11:00:00",
   "widgets": {
     "9a1f1c20-3b27-4f88-9d51-1aaa11111111": {
       "id": "9a1f1c20-3b27-4f88-9d51-1aaa11111111",
@@ -240,6 +240,131 @@
       },
       "createdAt": "2026-05-25 11:00:00",
       "updatedAt": "2026-05-28 03:35:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666661": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666661",
+      "title": "Lines of code (accepted)",
+      "description": "Lines of code accepted across coding-agent sessions in the selected window. Uses the same greatest(session-rollup-attr, per-edit-decision-sum) pattern as the Sessions list so the dashboard agrees with the per-row totals.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.lines_accepted",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#10b981"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time,\n    per_chat_now AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.accepted'])),\n                toInt64(sumIf(\n                    toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),\n                    SpanName = 'coding_agent.edit.decision'\n                        AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')\n                ))\n            ) AS lines_accepted\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= start_time AND Timestamp <= end_time\n        GROUP BY chat_id, vendor\n    ),\n    per_chat_prev AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.accepted'])),\n                toInt64(sumIf(\n                    toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),\n                    SpanName = 'coding_agent.edit.decision'\n                        AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')\n                ))\n            ) AS lines_accepted\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        GROUP BY chat_id, vendor\n    ),\n    totals AS (\n        SELECT\n            (SELECT toInt64(sumOrNull(lines_accepted)) FROM per_chat_now WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS now_total,\n            (SELECT toInt64(sumOrNull(lines_accepted)) FROM per_chat_prev WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS prev_total\n    )\n\nSELECT\n    CAST(coalesce(now_total, 0) AS INTEGER) AS lines_accepted,\n    CAST(coalesce(prev_total, 0) AS INTEGER) AS lines_accepted_previous,\n    if(coalesce(prev_total, 0) > 0, round((coalesce(now_total, 0) - coalesce(prev_total, 0)) * 100.0 / coalesce(prev_total, 0), 1), NULL) AS rate\nFROM totals\n"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666662": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666662",
+      "title": "Acceptance %",
+      "description": "Percentage of edit decisions accepted (accept + auto_accepted) vs rejected. Computed from coding_agent.edit.decision spans, denominator is total accept + reject decisions (same shape as the Sessions list).",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.acceptance_pct",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#10b981",
+        "suffix": "%"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time,\n    -- We deliberately count individual edit-decision spans here\n    -- rather than reading the session-rollup attribute. The rollup\n    -- attribute only lands on the session-root span at\n    -- SessionEnd; Codex never emits one, and live in-flight\n    -- sessions skip it too. Counting per-event spans keeps the\n    -- acceptance % live as soon as the first edit happens.\n    now_edits AS (\n        SELECT\n            countIf(SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')) AS accepts,\n            countIf(SpanAttributes['coding_agent.edit.decision'] = 'reject') AS rejects\n        FROM otel_traces\n        WHERE\n            SpanName = 'coding_agent.edit.decision'\n            AND Timestamp >= start_time AND Timestamp <= end_time\n            {{#filter.vendor}}AND coalesce(nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], '')) = '{{filter.vendor}}'{{/filter.vendor}}\n            {{#filter.user}}AND coalesce(\n                nullIf(SpanAttributes['gen_ai.user.name'], ''),\n                nullIf(ResourceAttributes['gen_ai.user.name'], ''),\n                nullIf(ResourceAttributes['service.name'], ''),\n                'unknown'\n            ) = '{{filter.user}}'{{/filter.user}}\n    ),\n    prev_edits AS (\n        SELECT\n            countIf(SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')) AS accepts,\n            countIf(SpanAttributes['coding_agent.edit.decision'] = 'reject') AS rejects\n        FROM otel_traces\n        WHERE\n            SpanName = 'coding_agent.edit.decision'\n            AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n            {{#filter.vendor}}AND coalesce(nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], '')) = '{{filter.vendor}}'{{/filter.vendor}}\n            {{#filter.user}}AND coalesce(\n                nullIf(SpanAttributes['gen_ai.user.name'], ''),\n                nullIf(ResourceAttributes['gen_ai.user.name'], ''),\n                nullIf(ResourceAttributes['service.name'], ''),\n                'unknown'\n            ) = '{{filter.user}}'{{/filter.user}}\n    ),\n    totals AS (\n        SELECT\n            if((now_edits.accepts + now_edits.rejects) > 0,\n                round(now_edits.accepts * 100.0 / (now_edits.accepts + now_edits.rejects), 1),\n                NULL) AS now_total,\n            if((prev_edits.accepts + prev_edits.rejects) > 0,\n                round(prev_edits.accepts * 100.0 / (prev_edits.accepts + prev_edits.rejects), 1),\n                NULL) AS prev_total\n        FROM now_edits, prev_edits\n    )\n\nSELECT\n    coalesce(now_total, 0) AS acceptance_pct,\n    coalesce(prev_total, 0) AS acceptance_pct_previous,\n    if(coalesce(prev_total, 0) > 0, round((coalesce(now_total, 0) - coalesce(prev_total, 0)) * 100.0 / coalesce(prev_total, 0), 1), NULL) AS rate\nFROM totals\n"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666663": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666663",
+      "title": "Commits",
+      "description": "Total git commits authored inside coding-agent sessions (detected from the Bash / shell / local_shell tools across vendors). Uses greatest(session-rollup-attr, count of coding_agent.git.commit spans) so Codex / in-flight sessions still register.",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.commits",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#6366f1"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time,\n    per_chat_now AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.commit_count'])),\n                toInt64(countIf(SpanName = 'coding_agent.git.commit'))\n            ) AS commits\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= start_time AND Timestamp <= end_time\n        GROUP BY chat_id, vendor\n    ),\n    per_chat_prev AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.commit_count'])),\n                toInt64(countIf(SpanName = 'coding_agent.git.commit'))\n            ) AS commits\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        GROUP BY chat_id, vendor\n    ),\n    totals AS (\n        SELECT\n            (SELECT toInt64(sumOrNull(commits)) FROM per_chat_now WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS now_total,\n            (SELECT toInt64(sumOrNull(commits)) FROM per_chat_prev WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS prev_total\n    )\n\nSELECT\n    CAST(coalesce(now_total, 0) AS INTEGER) AS commits,\n    CAST(coalesce(prev_total, 0) AS INTEGER) AS commits_previous,\n    if(coalesce(prev_total, 0) > 0, round((coalesce(now_total, 0) - coalesce(prev_total, 0)) * 100.0 / coalesce(prev_total, 0), 1), NULL) AS rate\nFROM totals\n"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666664": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666664",
+      "title": "Pull requests",
+      "description": "GitHub PRs created via gh pr inside coding-agent sessions (parsed out of Bash / shell hooks). Uses greatest(session-rollup-attr, count of coding_agent.git.pull_request spans).",
+      "type": "STAT_CARD",
+      "properties": {
+        "value": "0.prs",
+        "trend": "0.rate",
+        "trendSuffix": "%",
+        "color": "#6366f1"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    (end_time - start_time) AS duration,\n    (start_time - duration) AS prev_start_time,\n    (end_time - duration) AS prev_end_time,\n    per_chat_now AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.pr_count'])),\n                toInt64(countIf(SpanName = 'coding_agent.git.pull_request'))\n            ) AS prs\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= start_time AND Timestamp <= end_time\n        GROUP BY chat_id, vendor\n    ),\n    per_chat_prev AS (\n        SELECT\n            coalesce(\n                nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),\n                nullIf(SpanAttributes['coding_agent.session.id'], ''),\n                nullIf(ResourceAttributes['coding_agent.session.id'], '')\n            ) AS chat_id,\n            coalesce( nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(SpanAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], ''), 'unknown' ) AS vendor,\n            coalesce(\n                nullIf(any(SpanAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),\n                nullIf(any(ResourceAttributes['service.name']), ''),\n                'unknown'\n            ) AS user,\n            greatest(\n                toInt64OrZero(any(SpanAttributes['coding_agent.session.pr_count'])),\n                toInt64(countIf(SpanName = 'coding_agent.git.pull_request'))\n            ) AS prs\n        FROM otel_traces\n        WHERE (\n            notEmpty(SpanAttributes['coding_agent.session.id'])\n            OR (ResourceAttributes['service.name'] = 'claude-code'\n                AND (notEmpty(SpanAttributes['session.id']) OR notEmpty(ResourceAttributes['session.id'])))\n        )\n          AND Timestamp >= prev_start_time AND Timestamp <= prev_end_time\n        GROUP BY chat_id, vendor\n    ),\n    totals AS (\n        SELECT\n            (SELECT toInt64(sumOrNull(prs)) FROM per_chat_now WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS now_total,\n            (SELECT toInt64(sumOrNull(prs)) FROM per_chat_prev WHERE 1=1{{#filter.vendor}} AND vendor = '{{filter.vendor}}'{{/filter.vendor}}{{#filter.user}} AND user = '{{filter.user}}'{{/filter.user}}) AS prev_total\n    )\n\nSELECT\n    CAST(coalesce(now_total, 0) AS INTEGER) AS prs,\n    CAST(coalesce(prev_total, 0) AS INTEGER) AS prs_previous,\n    if(coalesce(prev_total, 0) > 0, round((coalesce(now_total, 0) - coalesce(prev_total, 0)) * 100.0 / coalesce(prev_total, 0), 1), NULL) AS rate\nFROM totals\n"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666665": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666665",
+      "title": "Lines over time",
+      "description": "Lines accepted vs rejected bucketed across the window. Reads coding_agent.edit.decision spans directly so the time series stays live for in-flight Codex sessions (which never emit a SessionEnd rollup).",
+      "type": "AREA_CHART",
+      "properties": {
+        "xAxis": "request_time",
+        "yAxes": [
+          {
+            "key": "accepted",
+            "color": "#10b981"
+          },
+          {
+            "key": "rejected",
+            "color": "#ef4444"
+          }
+        ]
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(\n        years_diff >= 1, 'month',\n        days_diff <= 1, 'hour',\n        'day'\n    ) AS date_granularity\n\nSELECT\n    CAST(sumIf(\n        toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),\n        SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')\n    ) AS INTEGER) AS accepted,\n    CAST(sumIf(\n        toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),\n        SpanAttributes['coding_agent.edit.decision'] = 'reject'\n    ) AS INTEGER) AS rejected,\n    formatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.edit.decision'\n    AND Timestamp >= start_time AND Timestamp <= end_time\n    {{#filter.vendor}}AND coalesce(nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], '')) = '{{filter.vendor}}'{{/filter.vendor}}\n    {{#filter.user}}AND coalesce(\n        nullIf(SpanAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['service.name'], ''),\n        'unknown'\n    ) = '{{filter.user}}'{{/filter.user}}\nGROUP BY request_time\nORDER BY request_time"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666666": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666666",
+      "title": "Top users by accepted lines",
+      "description": "Who is shipping with help from the agent. Lines accepted per user across the window, vendor-scoped when filter.vendor is set.",
+      "type": "BAR_CHART",
+      "properties": {
+        "xAxis": "user",
+        "yAxis": "lines",
+        "color": "#10b981"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(\n        nullIf(SpanAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['service.name'], ''),\n        'unknown'\n    ) AS user,\n    CAST(sumIf(\n        toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),\n        SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')\n    ) AS INTEGER) AS lines\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.edit.decision'\n    AND Timestamp >= start_time AND Timestamp <= end_time\n    {{#filter.vendor}}AND coalesce(nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], '')) = '{{filter.vendor}}'{{/filter.vendor}}\nGROUP BY user\nHAVING lines > 0\nORDER BY lines DESC\nLIMIT 10"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
+    },
+    "9a1f1c20-3b27-4f88-9d51-1aaa66666667": {
+      "id": "9a1f1c20-3b27-4f88-9d51-1aaa66666667",
+      "title": "Acceptance breakdown",
+      "description": "Distribution of edit decisions (accept / auto_accepted / reject) across the window. Highlights when the agent is being auto-trusted vs human-reviewed.",
+      "type": "PIE_CHART",
+      "properties": {
+        "labelPath": "decision",
+        "valuePath": "edits",
+        "color": "#10b981"
+      },
+      "config": {
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    coalesce(nullIf(SpanAttributes['coding_agent.edit.decision'], ''), 'unknown') AS decision,\n    CAST(COUNT(*) AS INTEGER) AS edits\nFROM otel_traces\nWHERE\n    SpanName = 'coding_agent.edit.decision'\n    AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted', 'reject')\n    AND Timestamp >= start_time AND Timestamp <= end_time\n    {{#filter.vendor}}AND coalesce(nullIf(SpanAttributes['coding_agent.client'], ''), nullIf(ResourceAttributes['gen_ai.agent.name'], ''), nullIf(ResourceAttributes['service.name'], '')) = '{{filter.vendor}}'{{/filter.vendor}}\n    {{#filter.user}}AND coalesce(\n        nullIf(SpanAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['gen_ai.user.name'], ''),\n        nullIf(ResourceAttributes['service.name'], ''),\n        'unknown'\n    ) = '{{filter.user}}'{{/filter.user}}\nGROUP BY decision\nORDER BY edits DESC"
+      },
+      "createdAt": "2026-05-28 11:00:00",
+      "updatedAt": "2026-05-28 11:00:00"
     }
   },
   "layouts": {
@@ -340,6 +465,55 @@
         "x": 2,
         "y": 7,
         "w": 2,
+        "h": 2
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666661",
+        "x": 0,
+        "y": 9,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666662",
+        "x": 1,
+        "y": 9,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666663",
+        "x": 2,
+        "y": 9,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666664",
+        "x": 3,
+        "y": 9,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666665",
+        "x": 0,
+        "y": 10,
+        "w": 2,
+        "h": 2
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666666",
+        "x": 2,
+        "y": 10,
+        "w": 1,
+        "h": 2
+      },
+      {
+        "i": "9a1f1c20-3b27-4f88-9d51-1aaa66666667",
+        "x": 3,
+        "y": 10,
+        "w": 1,
         "h": 2
       }
     ]

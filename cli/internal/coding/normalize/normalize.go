@@ -77,6 +77,16 @@ type Emitter interface {
 	// or tool span name. Used for high-cardinality moments where a
 	// dedicated span would be overkill (e.g. loop detected).
 	EmitEvent(EventEmission) error
+	// EmitGitCommit emits a single `coding_agent.git.commit` span
+	// representing one agent-attributed git commit. The emitter is
+	// expected to also bump the `coding_agent.commit.count` metric
+	// counter.
+	EmitGitCommit(GitCommit) error
+	// EmitGitPullRequest emits a single `coding_agent.git.pull_request`
+	// span representing one agent-attributed PR / MR create or push.
+	// The emitter is expected to also bump the
+	// `coding_agent.pull_request.count` metric counter.
+	EmitGitPullRequest(GitPullRequest) error
 }
 
 // Session is the canonical "this agent ran" span. Adapters populate as
@@ -102,6 +112,25 @@ type Session struct {
 	InputTokens    int64
 	OutputTokens   int64
 	TotalTokens    int64
+
+	// Code-change rollups stamped on the session-root span at
+	// SessionEnd (or as the session progresses for vendors like Codex
+	// that have no SessionEnd hook). All four line counts are absolute
+	// totals across the session, not deltas. Accept / reject counters
+	// reflect explicit user decisions where the vendor exposes them
+	// (Claude Code Pre+Post pair), and the auto-applied policy
+	// decisions on Cursor / Codex (both bump accept).
+	LinesAdded       int
+	LinesRemoved     int
+	LinesAccepted    int
+	LinesRejected    int
+	EditAcceptCount  int
+	EditRejectCount  int
+	// Agent-attributed git activity. Detected via the agent's
+	// Bash / shell tool invocations only — a developer manually
+	// running `git commit` outside the agent's tool does NOT count.
+	CommitCount int
+	PRCount     int
 
 	// VCS fields, populated by cli/internal/coding/git/.
 	RepoURL    string
@@ -344,4 +373,45 @@ type EventEmission struct {
 	Name      string
 	At        time.Time
 	Attrs     map[string]any
+}
+
+// GitCommit captures one agent-attributed git commit, detected by the
+// vendor adapter parsing a `git commit` invocation in the agent's
+// Bash / shell tool stream. Vendors that surface the resulting SHA
+// (via the tool's stdout) fill SHA; vendors that don't leave it empty
+// and the emitter falls back to the at-emit time.
+//
+// Message is captured only under `full` content capture.
+type GitCommit struct {
+	SessionID string
+	Vendor    string
+	UserID    string
+	Tool      string // "Bash" | "shell" | "local_shell"
+
+	SHA     string
+	Message string
+
+	WorkingDir string
+	At         time.Time
+}
+
+// GitPullRequest captures one agent-attributed PR / MR creation,
+// detected by the vendor adapter parsing a `gh pr create`, GitLab
+// equivalent, or push-with-PR-URL invocation in the agent's
+// Bash / shell tool stream.
+//
+// Number / Title are best-effort — only populated when the underlying
+// tool stdout carried them. URL is the canonical join key.
+type GitPullRequest struct {
+	SessionID string
+	Vendor    string
+	UserID    string
+	Tool      string
+
+	URL    string
+	Number int
+	Title  string
+
+	WorkingDir string
+	At         time.Time
 }

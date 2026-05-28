@@ -37,10 +37,19 @@ jobs:
           check-latest: true
       - name: Resolve version
         id: ver
+        # Single source of truth: prefer workflow_dispatch's `tag` input
+        # (stripping any leading `cli-` so the user can pass either
+        # `cli-1.2.0` or `1.2.0`), otherwise derive from GITHUB_REF for
+        # the tag-push trigger. Previously this step wrote two
+        # VERSION= lines to $GITHUB_OUTPUT on dispatch — the first
+        # came from GITHUB_REF (which is `refs/heads/main` on dispatch
+        # runs, not a tag), and was silently masked by the second
+        # write thanks to GitHub Actions' "last write wins" semantics
+        # on duplicate output keys. Harmless today, but a footgun
+        # waiting for someone to consume the first line.
         run: |
           if [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/cli-}" >> $GITHUB_OUTPUT
-            echo "VERSION=${{ github.event.inputs.tag }}" | sed 's/cli-//' >> $GITHUB_OUTPUT
+            echo "VERSION=$(echo '${{ github.event.inputs.tag }}' | sed 's/^cli-//')" >> $GITHUB_OUTPUT
           else
             echo "VERSION=${GITHUB_REF#refs/tags/cli-}" >> $GITHUB_OUTPUT
           fi

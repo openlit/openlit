@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/openlit/openlit/cli/internal/coding/classify"
+	"github.com/openlit/openlit/cli/internal/coding/detect"
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/cli/internal/coding/pricing"
+	"github.com/openlit/openlit/cli/internal/coding/sessionstate"
 	"github.com/openlit/openlit/sdk/go/semconv"
 )
 
@@ -309,6 +311,13 @@ func handle(ctx context.Context, in normalize.Input) error {
 		})
 
 	case "afterShellExecution":
+		// Detect agent-attributed git commits + PR creations from the
+		// shell tool's command body. We always inspect the verbatim
+		// command (regardless of content-capture mode) because the
+		// detection is structural — the helpers only carry SHAs /
+		// URLs onto the emitted spans, and ExtractCommitMessage /
+		// ExtractPRTitle are gated on `full` capture by the emitter.
+		emitGitArtifacts(in, p, sessionID)
 		return in.Emit.EmitToolCall(normalize.ToolCall{
 			SessionID:  sessionID,
 			ToolName:   "shell",
@@ -365,7 +374,12 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// per-file edits. Cursor gives us old/new strings, no
 		// permission_mode, so we infer auto_accepted (Cursor edits
 		// are always auto-applied; the user reviews after the fact).
+		//
+		// We also accumulate the per-session LOC + edit counters in
+		// sessionstate so sessionEnd can stamp the totals on the
+		// root span without re-reading every per-edit span.
 		linesAdded, linesRemoved := totalLines(p.Edits)
+		sessionstate.BumpCodeCounters(sessionID, in.Vendor, linesAdded, linesRemoved, linesAdded, 0, 1, 0)
 		return in.Emit.EmitEditDecision(normalize.EditDecision{
 			SessionID:    sessionID,
 			Decision:     semconv.CodingAgentEditDecisionAutoAccepted,
@@ -650,14 +664,62 @@ func serverNameFromMCPInput(raw json.RawMessage) string {
 }
 
 // totalLines counts roughly how many lines were added/removed across an
-// edits[] array. Cursor doesn't provide pre-computed counts, so we
-// approximate by counting newlines in old/new strings.
+// edits[] array. Cursor doesn't provide pre-computed counts, so we run
+// detect.CountInlineDiff over every entry's `old_string` / `new_string`
+// pair. CountInlineDiff handles the empty / one-sided cases correctly
+// (insertions and deletions); the older newline-count heuristic was
+// reporting `0 lines added` whenever the new content fit on a single
+// line, which is the common edit pattern for in-place rewrites.
 func totalLines(edits []cursorEdit) (added, removed int) {
 	for _, e := range edits {
-		added += strings.Count(e.NewString, "\n")
-		removed += strings.Count(e.OldString, "\n")
+		a, r := detect.CountInlineDiff(e.OldString, e.NewString)
+		added += a
+		removed += r
 	}
 	return added, removed
+}
+
+// emitGitArtifacts inspects a Cursor `afterShellExecution` payload and
+// emits a GitCommit / GitPullRequest span (and bumps the matching
+// session-state counter) when the command was a `git commit` / PR
+// creation. We DO NOT gate on content-capture mode because the
+// detection helpers only carry safe scalars (SHA, URL, number) — the
+// body-bearing fields (message, title) are gated downstream in the
+// emitter.
+func emitGitArtifacts(in normalize.Input, p cursorPayload, sessionID string) {
+	if p.Command == "" {
+		return
+	}
+	now := time.Now()
+	if detect.IsGitCommit(p.Command) {
+		sha := detect.ExtractCommitSHA(p.Output)
+		_ = in.Emit.EmitGitCommit(normalize.GitCommit{
+			SessionID:  sessionID,
+			Vendor:     in.Vendor,
+			UserID:     p.UserEmail,
+			Tool:       "shell",
+			SHA:        sha,
+			Message:    captureIfFull(in.ContentCapture, detect.ExtractCommitMessage(p.Command)),
+			WorkingDir: p.CWD,
+			At:         now,
+		})
+		sessionstate.BumpCommitCount(sessionID, in.Vendor)
+	}
+	if detect.IsPullRequest(p.Command) {
+		url, num := detect.ExtractPRURLAndNumber(p.Output)
+		_ = in.Emit.EmitGitPullRequest(normalize.GitPullRequest{
+			SessionID:  sessionID,
+			Vendor:     in.Vendor,
+			UserID:     p.UserEmail,
+			Tool:       "shell",
+			URL:        url,
+			Number:     num,
+			Title:      captureIfFull(in.ContentCapture, detect.ExtractPRTitle(p.Command)),
+			WorkingDir: p.CWD,
+			At:         now,
+		})
+		sessionstate.BumpPRCount(sessionID, in.Vendor)
+	}
 }
 
 func captureIfFull(mode, s string) string {

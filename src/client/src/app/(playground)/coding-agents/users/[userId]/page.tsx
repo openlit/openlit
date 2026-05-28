@@ -21,10 +21,10 @@
  * "not enough activity yet" empty state).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, ShieldCheck, Users } from "lucide-react";
 import {
 	Card,
@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
 import type { UnifiedAgent } from "@/types/agents";
 import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
+import { useFilters } from "@/selectors/filter";
 
 // The dashboard pulls in a heavy widget runtime; lazy-load it so the
 // header breadcrumb paints immediately.
@@ -67,6 +68,17 @@ interface UserDigest {
 	classification_unknown: number;
 	classification_disputed: number;
 	top_vendors: Array<{ vendor: string; sessions: number }>;
+	// Code-impact rollups returned by getCodingUserDigest. Mirrors
+	// CodingUserDigest from the platform queries module.
+	lines_added: number;
+	lines_removed: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	edit_accept_count: number;
+	edit_reject_count: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 }
 
 export default function CodingAgentUserPage() {
@@ -76,14 +88,54 @@ export default function CodingAgentUserPage() {
 	// 14 and 15 conventions without a cast.
 	const params = useParams<{ userId: string | string[] }>();
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const userId = decodeURIComponent(
 		Array.isArray(params?.userId)
 			? params.userId[0] || ""
 			: params?.userId || ""
 	);
+	// The signal-list row-click handler stamps the originating
+	// pathname+search on `?from=`, so a click from the per-vendor
+	// detail page's Users tab gives us e.g.
+	// `/agents/<key>?tab=users`. We send the user back there if
+	// present; otherwise fall back to the global Coding Agents tab.
+	// The value is already URL-encoded by `getDetailHref`, so we
+	// decode once before passing to `<Link href>` (Next will
+	// re-encode safely).
+	const fromParam = searchParams?.get("from") || "";
+	const decodedFrom = fromParam ? decodeURIComponent(fromParam) : "";
+	const backHref = decodedFrom || "/agents?tab=coding";
+	// Pull the originating agent_key out of the `from` URL so we can
+	// scope the embedded dashboard to whichever vendor's Users tab
+	// the operator clicked through from. Shape: `/agents/<key>?…`.
+	// We don't try to reverse computeAgentKey — it's hashed and
+	// opaque — we resolve key → vendor via the agent API instead.
+	const originAgentKey = useMemo(() => {
+		if (!decodedFrom) return "";
+		const match = decodedFrom.match(/^\/agents\/([^/?#]+)/);
+		return match ? decodeURIComponent(match[1]) : "";
+	}, [decodedFrom]);
+
 	const [digest, setDigest] = useState<UserDigest | null>(null);
+	const [originVendor, setOriginVendor] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// All coding-agent surfaces in OpenLit follow the global time
+	// range from the filter picker — there is no fixed 24h fallback
+	// on this page. We forward `since`/`until` to the digest API so
+	// the Code Impact stat row above the dashboard moves in lockstep
+	// with the widgets in `<CodingDashboardTab>` (which already reads
+	// from the same store via `useFilters`).
+	const { details: filter } = useFilters();
+	const sinceISO = useMemo(
+		() => filter.timeLimit?.start?.toISOString() ?? "",
+		[filter.timeLimit?.start]
+	);
+	const untilISO = useMemo(
+		() => filter.timeLimit?.end?.toISOString() ?? "",
+		[filter.timeLimit?.end]
+	);
 
 	// F6: register the page in the global breadcrumb trail so the
 	// shell's breadcrumbs read "Coding agents → <user>" instead of
@@ -103,9 +155,13 @@ export default function CodingAgentUserPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await fetch(
-					`/api/coding-agents/users/${encodeURIComponent(userId)}`
-				);
+				const qs = new URLSearchParams();
+				if (sinceISO) qs.set("since", sinceISO);
+				if (untilISO) qs.set("until", untilISO);
+				const url = `/api/coding-agents/users/${encodeURIComponent(userId)}${
+					qs.toString() ? `?${qs.toString()}` : ""
+				}`;
+				const res = await fetch(url);
 				if (cancelled) return;
 				if (res.status === 404) {
 					setError("not_found");
@@ -127,7 +183,42 @@ export default function CodingAgentUserPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [userId]);
+	}, [userId, sinceISO, untilISO]);
+
+	// Resolve the origin agent_key into the vendor we should scope
+	// the dashboard to. We deliberately do this on a separate fetch
+	// (not piggybacked on the digest) because the digest is keyed by
+	// user, not vendor — only the originating page knows which
+	// coding tool's Users tab the operator was viewing. A failed
+	// lookup just falls back to the cross-vendor view, which is
+	// what the page did before this scoping was added.
+	useEffect(() => {
+		if (!originAgentKey) {
+			setOriginVendor(null);
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(
+					`/api/agents/${encodeURIComponent(originAgentKey)}`,
+				);
+				if (!res.ok) return;
+				const body = (await res.json()) as {
+					data?: { coding_agent_vendor?: string };
+				};
+				if (cancelled) return;
+				const vendor = body?.data?.coding_agent_vendor;
+				if (vendor) setOriginVendor(vendor);
+			} catch {
+				// Best-effort. The dashboard renders cross-vendor when
+				// we can't resolve the originating vendor.
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [originAgentKey]);
 
 	// The dashboard component requires a UnifiedAgent shape but only
 	// uses `coding_agent_vendor` from it — we synthesize the minimum
@@ -196,15 +287,23 @@ export default function CodingAgentUserPage() {
 	return (
 		<div className="flex flex-col w-full h-full gap-5 overflow-y-auto p-1 pb-8">
 			<div className="space-y-2">
+				{/* Back button: square, icon-only, sized like the other
+				    icon buttons on the agents hub. Target is the
+				    Users tab the user clicked through from — we read
+				    it off `?from=` (signal-list stamps the full
+				    originating pathname+search there) and fall back
+				    to the global Coding Agents tab when the user
+				    landed via a deep link without that context. */}
 				<Link
-					href="/agents?tab=coding"
-					className="inline-flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+					href={backHref}
+					aria-label={getMessage().AGENTS_BACK_TO_HUB}
+					title={getMessage().AGENTS_BACK_TO_HUB}
+					className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
 				>
 					<ArrowLeft className="w-4 h-4" />
-					{getMessage().AGENTS_BACK_TO_HUB}
 				</Link>
-				<h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 inline-flex items-center gap-2 font-mono">
-					<Users className="w-6 h-6 text-violet-500" />
+				<h1 className="text-sm font-medium text-stone-900 dark:text-stone-100 inline-flex items-center gap-1.5 font-mono">
+					<Users className="w-4 h-4 text-violet-500" />
 					{digest.user}
 				</h1>
 			</div>
@@ -212,12 +311,14 @@ export default function CodingAgentUserPage() {
 			<CodingDashboardTab
 				agent={stubAgent}
 				pinnedUser={digest.user}
-				/* The per-user page intentionally renders across all
-				   vendors the user has touched — passing
-				   `pinnedVendor={null}` tells the dashboard tab to
-				   skip the auto-pinned vendor scoping that the
-				   per-vendor detail page applies. */
-				pinnedVendor={null}
+				/* Scope to the vendor whose Users tab the operator
+				   clicked through from (recovered above by parsing
+				   `?from=` and resolving the agent_key → vendor).
+				   If the page was opened via a deep link with no
+				   `from` context — or the agent lookup failed — we
+				   pass `null` to keep the legacy cross-vendor view
+				   instead of pinning to an arbitrary one. */
+				pinnedVendor={originVendor}
 			/>
 		</div>
 	);

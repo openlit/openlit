@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -95,6 +96,17 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	if err != nil {
 		logErrorf("hook stdin read: %v", err)
 		return nil
+	}
+
+	// Optional debug tee. When OPENLIT_DEBUG_PAYLOAD_DIR is set we
+	// append the raw inbound payload (with a header line) to
+	// <dir>/<vendor>-<event>.jsonl. Off by default; exists for
+	// "why isn't my prompt landing?" triage where the only way to
+	// know what the vendor sent is to inspect the byte stream they
+	// piped to stdin. Kept here rather than behind a flag because
+	// it has zero cost when the env var is unset.
+	if debugDir := strings.TrimSpace(os.Getenv("OPENLIT_DEBUG_PAYLOAD_DIR")); debugDir != "" {
+		_ = teePayload(debugDir, vendor, event, payload)
 	}
 
 	// Host-mismatch guard.
@@ -477,6 +489,30 @@ func isRealClaudeCodeInvocation() bool {
 // to it from a hook can corrupt the session.
 func logErrorf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "openlit hook: "+format+"\n", args...)
+}
+
+// teePayload appends `payload` (and a small header line) to a
+// per-(vendor,event) jsonl file under dir. Used purely for "what is
+// the vendor actually sending us?" triage when content fields appear
+// to be missing on the resulting spans. Errors are swallowed: this
+// is debug code, never on the hot path. The header doubles as a
+// jsonl pre-line so readers can ignore non-JSON lines easily.
+func teePayload(dir, vendor, event string, payload []byte) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	name := fmt.Sprintf("%s-%s.jsonl", vendor, event)
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "--- %s vendor=%s event=%s bytes=%d ---\n", time.Now().UTC().Format(time.RFC3339Nano), vendor, event, len(payload))
+	_, _ = f.Write(payload)
+	if len(payload) == 0 || payload[len(payload)-1] != '\n' {
+		_, _ = f.Write([]byte("\n"))
+	}
+	return nil
 }
 
 // peekedContext is the vendor-agnostic slice of facts we extract from a

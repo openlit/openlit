@@ -45,6 +45,12 @@ import (
 // present. We DO NOT clear the counters from disk — sessionEnd may
 // run multiple times across retry, and the GC routine in sessionstate
 // handles eventual cleanup.
+//
+// Split into two functions because the LOC / edit / commit / PR
+// counters are bumped regardless of capture mode (a Cursor user on
+// metadata capture still wants to see their LOC numbers); the
+// tool-call / token / cost counters only need draining in minimal
+// mode where their per-event spans were suppressed.
 func drainCounters(s normalize.Session, vendor string) normalize.Session {
 	if s.SessionID == "" {
 		return s
@@ -70,6 +76,46 @@ func drainCounters(s normalize.Session, vendor string) normalize.Session {
 	}
 	if s.TotalTokens == 0 {
 		s.TotalTokens = s.InputTokens + s.OutputTokens
+	}
+	return s
+}
+
+// drainCodeCounters folds the cached LOC / edit / commit / PR
+// counters onto the session struct, regardless of capture mode.
+// Called from every EmitSession invocation so the session-root span
+// carries the up-to-the-event totals even when the operator runs in
+// `metadata_only` or `full` capture.
+func drainCodeCounters(s normalize.Session, vendor string) normalize.Session {
+	if s.SessionID == "" {
+		return s
+	}
+	st := sessionstate.Load(s.SessionID, vendor)
+	if st == nil {
+		return s
+	}
+	if s.LinesAdded == 0 && st.LinesAdded > 0 {
+		s.LinesAdded = st.LinesAdded
+	}
+	if s.LinesRemoved == 0 && st.LinesRemoved > 0 {
+		s.LinesRemoved = st.LinesRemoved
+	}
+	if s.LinesAccepted == 0 && st.LinesAccepted > 0 {
+		s.LinesAccepted = st.LinesAccepted
+	}
+	if s.LinesRejected == 0 && st.LinesRejected > 0 {
+		s.LinesRejected = st.LinesRejected
+	}
+	if s.EditAcceptCount == 0 && st.EditAcceptCount > 0 {
+		s.EditAcceptCount = st.EditAcceptCount
+	}
+	if s.EditRejectCount == 0 && st.EditRejectCount > 0 {
+		s.EditRejectCount = st.EditRejectCount
+	}
+	if s.CommitCount == 0 && st.CommitCount > 0 {
+		s.CommitCount = st.CommitCount
+	}
+	if s.PRCount == 0 && st.PRCount > 0 {
+		s.PRCount = st.PRCount
 	}
 	return s
 }
@@ -431,8 +477,17 @@ func NewEmitter(_ context.Context, cfg *config.Resolved, vendor string, extraAtt
 		// Pricing fetch is irrelevant for the hook path; disabling it
 		// avoids a network call per invocation.
 		DisablePricingFetch: true,
-		// Hook calls don't need metric pipelines for v1.
-		DisableMetrics: true,
+		// Metrics ARE enabled — the coding-agent counters
+		// (`coding_agent.lines_of_code.count`,
+		// `coding_agent.code_edit_tool.decision`,
+		// `coding_agent.commit.count`, `coding_agent.pull_request.count`)
+		// always emit, regardless of content-capture mode, so backends
+		// that consume metrics (Prometheus / Mimir / Grafana cloud)
+		// see the same numbers traces backends see. Cost of the
+		// metrics pipeline is negligible on the short-lived hook
+		// process; the openlit-go SDK already wires up a delta
+		// exporter on the same OTLP endpoint as traces.
+		DisableMetrics: false,
 		// All coding-agent spans for a given session share a
 		// deterministic TraceID (and the session-root span gets a
 		// deterministic SpanID) so PR #1200's TraceDetailView resolves
@@ -551,6 +606,11 @@ func (e *Emitter) EmitSession(s normalize.Session) error {
 	if !perEventSpansAllowed(e.cfg.CodingContentCapture) {
 		s = drainCounters(s, e.vendor)
 	}
+	// LOC / edit / commit / PR rollups are stamped on the session-root
+	// span regardless of capture mode — they are scalar telemetry, not
+	// user content, and the Sessions list's "Lines / Accept %" columns
+	// rely on them being present in every mode.
+	s = drainCodeCounters(s, e.vendor)
 
 	startedAt := s.StartedAt
 	if startedAt.IsZero() {
@@ -613,12 +673,19 @@ func (e *Emitter) EmitToolCall(t normalize.ToolCall) error {
 
 // EmitEditDecision produces an edit-decision span. We use a span (not an
 // event) so dashboards can drill into individual edits with their own
-// timeline rendering. Minimal mode drops the span entirely (cost +
-// activity dashboards don't need per-edit drilldowns).
+// timeline rendering. Minimal mode drops the SPAN entirely (cost +
+// activity dashboards don't need per-edit drilldowns), but the
+// matching metric counters still emit so dashboards keep working.
 func (e *Emitter) EmitEditDecision(d normalize.EditDecision) error {
 	if e == nil || e.tracer == nil {
 		return errors.New("nil emitter")
 	}
+	// Always emit the metrics — even in minimal mode the dashboards
+	// rely on the per-decision counter, and the user-tag carries the
+	// session row through the user roll-ups.
+	user := resolveLocalUser()
+	recordEditDecision(d.Vendor, user, d.Decision, d.Tool, d.Language)
+	recordLines(d.Vendor, user, d.Decision, d.LinesAdded, d.LinesRemoved)
 	if !perEventSpansAllowed(e.cfg.CodingContentCapture) {
 		return nil
 	}
@@ -750,5 +817,56 @@ func (e *Emitter) EmitEvent(ev normalize.EventEmission) error {
 	for k, v := range ev.Attrs {
 		setAnyAttr(span, k, v, e.scrub)
 	}
+	return nil
+}
+
+// EmitGitCommit produces a `coding_agent.git.commit` span representing
+// one agent-attributed git commit and bumps the matching metric
+// counter. The session-state CommitCount is bumped by the adapter
+// before this call so the rollup is durable even if span emission
+// fails. Unlike per-tool spans, commit / PR spans are NOT suppressed
+// in minimal mode — they are far rarer than tool calls and the
+// dashboards rely on having a span row per commit for trace drilldown.
+func (e *Emitter) EmitGitCommit(c normalize.GitCommit) error {
+	if e == nil || e.tracer == nil {
+		return errors.New("nil emitter")
+	}
+	at := c.At
+	if at.IsZero() {
+		at = time.Now()
+	}
+	_, span := e.tracer.Start(
+		sessionTraceContext(context.Background(), c.SessionID, e.vendor),
+		semconv.CodingAgentSpanGitCommit,
+		trace.WithTimestamp(at),
+		trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End(trace.WithTimestamp(at))
+	setGitCommitAttrs(span, c, e.scrub, e.cfg.CodingContentCapture)
+	recordCommit(c.Vendor, c.UserID)
+	return nil
+}
+
+// EmitGitPullRequest produces a `coding_agent.git.pull_request` span
+// representing one agent-attributed PR / MR create and bumps the
+// matching metric counter. See EmitGitCommit for the minimal-mode
+// rationale.
+func (e *Emitter) EmitGitPullRequest(p normalize.GitPullRequest) error {
+	if e == nil || e.tracer == nil {
+		return errors.New("nil emitter")
+	}
+	at := p.At
+	if at.IsZero() {
+		at = time.Now()
+	}
+	_, span := e.tracer.Start(
+		sessionTraceContext(context.Background(), p.SessionID, e.vendor),
+		semconv.CodingAgentSpanGitPullRequest,
+		trace.WithTimestamp(at),
+		trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End(trace.WithTimestamp(at))
+	setGitPullRequestAttrs(span, p, e.scrub, e.cfg.CodingContentCapture)
+	recordPullRequest(p.Vendor, p.UserID)
 	return nil
 }

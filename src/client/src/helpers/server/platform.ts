@@ -197,16 +197,22 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.providers?.length) {
+				// Mirror of the provider DISTINCT fold in
+				// lib/platform/request/index.ts: the dropdown shows
+				// values from gen_ai.system + db.system +
+				// coding_agent.client, so the WHERE check must
+				// match across the same three attributes — otherwise
+				// unticking e.g. "cursor" would have no effect on
+				// the rendered rows.
+				const providerList = filter.selectedConfig.providers
+					.map((provider) => `'${provider}'`)
+					.join(", ");
 				whereArray.push(
 					`(SpanAttributes['${getTraceMappingKeyFullPath(
 						"system"
-					)}'] IN (${filter.selectedConfig.providers
-						.map((provider) => `'${provider}'`)
-						.join(", ")}) OR SpanAttributes['${getTraceMappingKeyFullPath(
+					)}'] IN (${providerList}) OR SpanAttributes['${getTraceMappingKeyFullPath(
 						"provider"
-					)}'] IN (${filter.selectedConfig.providers
-						.map((provider) => `'${provider}'`)
-						.join(", ")}))`
+					)}'] IN (${providerList}) OR SpanAttributes['coding_agent.client'] IN (${providerList}))`
 				);
 			}
 

@@ -40,11 +40,20 @@ type Resolved struct {
 	ApplicationName string
 
 	// CodingContentCapture is one of "minimal", "metadata_only",
-	// "full". Default is metadata_only — the CLI never writes prompt
-	// or tool-arg bodies as span attributes unless explicitly opted in.
-	// "minimal" emits only session bookends + counters, no per-event
-	// spans; "full" includes prompt/response/tool-arg bodies (still
-	// scrubbed for secrets).
+	// "full". Default is "full" — onboarding feedback was that the
+	// default-on metadata-only mode left users staring at empty
+	// trace detail panes and (correctly) assuming the integration
+	// was broken. The trade-off is that prompt + tool-arg + tool-
+	// result bodies land in your collector verbatim, after tier-1
+	// secret scrubbing. Switch back to "metadata_only" (or
+	// "minimal", which drops per-event spans entirely) when rolling
+	// this out across a team where prompts may carry confidential
+	// material.
+	//
+	// "minimal" emits only session bookends + counters, no
+	// per-event spans; "metadata_only" emits per-event spans
+	// without prompt / tool-arg bodies; "full" includes everything
+	// (still secret-scrubbed).
 	CodingContentCapture string
 
 	// Source records where each value came from for `openlit configure
@@ -73,7 +82,14 @@ func builtinDefaults() Defaults {
 		OTLPEndpoint:         "http://127.0.0.1:4318",
 		Environment:          "default",
 		ApplicationName:      "openlit-cli",
-		CodingContentCapture: "metadata_only",
+		// "full" is the onboarding default: the trace detail view
+		// is unhelpful without prompt + response bodies, and a
+		// missing-content surprise sours first-run UX. Operators
+		// rolling this out at scale can override back to
+		// "metadata_only" via `openlit configure --content-capture`
+		// (or OPENLIT_CODING_CONTENT_CAPTURE). The trace detail UI
+		// also surfaces the toggle inline.
+		CodingContentCapture: "full",
 	}
 }
 

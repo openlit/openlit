@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/openlit/openlit/cli/internal/coding/classify"
+	"github.com/openlit/openlit/cli/internal/coding/detect"
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/cli/internal/coding/pricing"
@@ -84,6 +85,13 @@ func handle(ctx context.Context, in normalize.Input) error {
 	case "SessionStart":
 		return emitSession(in, p, vcs, cls, "started", time.Time{})
 	case "UserPromptSubmit":
+		// Drain any leftover pending edits as rejections — Claude
+		// Code skipped the matching PostToolUse, which most often
+		// means the user denied the edit at the diff-review prompt
+		// and the assistant moved on. This is the same heuristic
+		// Anthropic's own monitoring docs describe under
+		// `claude_code.code_edit_tool.decision = reject`.
+		drainRejectedPendingEdits(in, p.SessionID)
 		return emitUserPrompt(in, p)
 	case "Stop":
 		// Stop fires after every assistant turn — many times per
@@ -114,10 +122,25 @@ func handle(ctx context.Context, in normalize.Input) error {
 			},
 		})
 	case "SessionEnd":
+		// Drain any leftover pending edits as rejections — see the
+		// UserPromptSubmit branch for the rationale. Doing this both
+		// places ensures we attribute rejections whether the session
+		// ended gracefully or via a fresh user prompt.
+		drainRejectedPendingEdits(in, p.SessionID)
 		// Authoritative session-close. Emit the full session span
 		// with token rollups, realized cost, and outcome.
 		return emitSession(in, p, vcs, cls, "ended", time.Now())
 	case "PreToolUse":
+		// Stash the proposed edit for the rejection heuristic when
+		// the tool is an edit tool. PostToolUse will either resolve
+		// it as an accept (and remove the entry) or UserPromptSubmit /
+		// SessionEnd will drain it as a reject. Bash invocations are
+		// passed through to the standard compact event below; git
+		// commit / PR detection happens at PostToolUse where we have
+		// the tool's stdout.
+		if isEditTool(p.ToolName) {
+			stashPendingEdit(in, p)
+		}
 		// Pre-event only; the full tool span is emitted at PostToolUse
 		// time so we don't double-count. Still log a compact event so
 		// dashboards can show the in-flight tool list.
@@ -535,23 +558,32 @@ func emitToolCall(in normalize.Input, p claudePayload, vcs git.Context, cls clas
 	if p.ToolName == "Bash" {
 		if cmd := stringFieldFromInput(p.ToolInput, "command"); cmd != "" {
 			t.Command = cmd
+			// Detect agent-attributed git commits / PR creations. The
+			// Bash tool's stdout is available on `tool_response`; we
+			// pass it to the detect helpers so the SHA / URL stamped
+			// on the resulting GitCommit / GitPullRequest spans are
+			// authoritative.
+			emitGitArtifactsClaude(in, p, cmd)
 		}
 	}
 
-	// Edit-decision shorthand: Claude Code's PostToolUse for Edit/Write/
-	// MultiEdit fires after the user accepts or auto-accept handles the
-	// patch. We treat permission_mode as the source-of-decision signal.
-	// `claude_code.tool_decision` events on the native path carry the
-	// authoritative decision source — when both arrive we let the query
-	// layer prefer the native one.
+	// Edit-decision: PostToolUse fired, so we resolve any PreToolUse
+	// pending entry as an accept. When permission_mode is one of the
+	// auto-accept modes the decision is `auto_accepted` rather than
+	// `accept` so the dashboards can split user-driven vs policy-
+	// driven accepts. Bumps both the session-state edit counters
+	// and the OTel metrics counters (via the emitter), so the
+	// session-root span carries the totals and Prometheus / Mimir
+	// see the deltas in lock-step with the trace.
 	if isEditTool(p.ToolName) {
+		pending := sessionstate.TakePendingEdit(p.SessionID, in.Vendor, p.ToolUseID)
 		decision := semconv.CodingAgentEditDecisionAccept
 		source := semconv.CodingAgentEditDecisionSourceUserInteractive
 		if p.PermissionMode == "auto_accept" || p.PermissionMode == "bypassPermissions" || p.PermissionMode == "acceptEdits" {
 			decision = semconv.CodingAgentEditDecisionAutoAccepted
 			source = semconv.CodingAgentEditDecisionSourcePolicy
 		}
-		_ = in.Emit.EmitEditDecision(normalize.EditDecision{
+		ed := normalize.EditDecision{
 			SessionID: p.SessionID,
 			Decision:  decision,
 			Source:    source,
@@ -559,7 +591,17 @@ func emitToolCall(in normalize.Input, p claudePayload, vcs git.Context, cls clas
 			Vendor:    in.Vendor,
 			At:        time.Now(),
 			FilePath:  stringFieldFromInput(p.ToolInput, "file_path"),
-		})
+		}
+		if pending != nil {
+			ed.LinesAdded = pending.LinesAdded
+			ed.LinesRemoved = pending.LinesRemoved
+			ed.Language = pending.Language
+			if ed.FilePath == "" {
+				ed.FilePath = pending.FilePath
+			}
+		}
+		_ = in.Emit.EmitEditDecision(ed)
+		sessionstate.BumpCodeCounters(p.SessionID, in.Vendor, ed.LinesAdded, ed.LinesRemoved, ed.LinesAdded, 0, 1, 0)
 	}
 
 	if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
@@ -571,6 +613,228 @@ func emitToolCall(in normalize.Input, p claudePayload, vcs git.Context, cls clas
 		}
 	}
 	return in.Emit.EmitToolCall(t)
+}
+
+// stashPendingEdit caches the proposed edit body from a PreToolUse
+// hook so PostToolUse can resolve it as an accept (or
+// UserPromptSubmit / SessionEnd can drain it as a reject). Inspects
+// the tool name to choose the right line-count strategy:
+//
+//   - Edit: `old_string` → `new_string` (use detect.CountInlineDiff)
+//   - Write: `content` is the new body, treat as insertion-only
+//   - MultiEdit: iterate the `edits[]` array of {old,new} pairs
+//   - NotebookEdit: same as Edit semantically — `new_source` may be
+//     present in lieu of `new_string`.
+func stashPendingEdit(in normalize.Input, p claudePayload) {
+	if p.ToolUseID == "" {
+		return
+	}
+	filePath := stringFieldFromInput(p.ToolInput, "file_path")
+	var added, removed int
+	switch p.ToolName {
+	case "Edit", "NotebookEdit":
+		oldStr := stringFieldFromInput(p.ToolInput, "old_string")
+		newStr := stringFieldFromInput(p.ToolInput, "new_string")
+		if newStr == "" {
+			newStr = stringFieldFromInput(p.ToolInput, "new_source")
+		}
+		added, removed = detect.CountInlineDiff(oldStr, newStr)
+	case "Write":
+		body := stringFieldFromInput(p.ToolInput, "content")
+		added, _ = detect.CountInlineDiff("", body)
+	case "MultiEdit":
+		added, removed = countMultiEditLines(p.ToolInput)
+	}
+	sessionstate.AddPendingEdit(p.SessionID, in.Vendor, p.ToolUseID, &sessionstate.PendingEdit{
+		ToolName:     p.ToolName,
+		FilePath:     filePath,
+		LinesAdded:   added,
+		LinesRemoved: removed,
+		Language:     guessLanguage(filePath),
+	})
+}
+
+// drainRejectedPendingEdits emits one EditDecision per leftover
+// pending edit, marked as `reject`. Called from UserPromptSubmit /
+// SessionEnd. The function is a no-op when there are no pending
+// entries (the common case for completed-turn sessions).
+func drainRejectedPendingEdits(in normalize.Input, sessionID string) {
+	leftover := sessionstate.DrainPendingEdits(sessionID, in.Vendor)
+	if len(leftover) == 0 {
+		return
+	}
+	for _, e := range leftover {
+		if e == nil {
+			continue
+		}
+		_ = in.Emit.EmitEditDecision(normalize.EditDecision{
+			SessionID:    sessionID,
+			Decision:     semconv.CodingAgentEditDecisionReject,
+			Source:       semconv.CodingAgentEditDecisionSourceUserInteractive,
+			Tool:         e.ToolName,
+			Language:     e.Language,
+			LinesAdded:   e.LinesAdded,
+			LinesRemoved: e.LinesRemoved,
+			FilePath:     e.FilePath,
+			Vendor:       in.Vendor,
+			At:           time.Now(),
+		})
+		sessionstate.BumpCodeCounters(sessionID, in.Vendor, 0, 0, 0, e.LinesAdded, 0, 1)
+	}
+}
+
+// countMultiEditLines parses Claude Code's MultiEdit `tool_input` —
+// `{ "file_path": "...", "edits": [{"old_string":..., "new_string":...}] }`
+// — and totals lines-added/removed across every entry.
+func countMultiEditLines(raw json.RawMessage) (added, removed int) {
+	if len(raw) == 0 {
+		return 0, 0
+	}
+	var m struct {
+		Edits []struct {
+			OldString string `json:"old_string"`
+			NewString string `json:"new_string"`
+		} `json:"edits"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0, 0
+	}
+	for _, e := range m.Edits {
+		a, r := detect.CountInlineDiff(e.OldString, e.NewString)
+		added += a
+		removed += r
+	}
+	return added, removed
+}
+
+// guessLanguage maps the file extension onto a language tag for the
+// edit-decision metric. Returns "" when we don't recognise the
+// extension so the dashboard can group those into "other".
+func guessLanguage(filePath string) string {
+	if filePath == "" {
+		return ""
+	}
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".go":
+		return "go"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".js", ".jsx", ".mjs", ".cjs":
+		return "javascript"
+	case ".py":
+		return "python"
+	case ".rs":
+		return "rust"
+	case ".java":
+		return "java"
+	case ".kt", ".kts":
+		return "kotlin"
+	case ".swift":
+		return "swift"
+	case ".rb":
+		return "ruby"
+	case ".php":
+		return "php"
+	case ".c":
+		return "c"
+	case ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx":
+		return "cpp"
+	case ".h":
+		return "c"
+	case ".cs":
+		return "csharp"
+	case ".sh", ".bash", ".zsh":
+		return "shell"
+	case ".md", ".markdown":
+		return "markdown"
+	case ".json":
+		return "json"
+	case ".yml", ".yaml":
+		return "yaml"
+	case ".sql":
+		return "sql"
+	case ".css", ".scss", ".sass":
+		return "css"
+	case ".html", ".htm":
+		return "html"
+	}
+	return ""
+}
+
+// emitGitArtifactsClaude inspects a Bash tool's command + stdout for
+// git commit / PR create patterns and emits the matching spans + bumps
+// the session-state counters. The tool response is pulled from
+// `tool_response.stdout` when the field is a string; Anthropic also
+// surfaces compound objects here so we fall back to the raw blob when
+// stdout isn't extractable.
+func emitGitArtifactsClaude(in normalize.Input, p claudePayload, cmd string) {
+	if cmd == "" {
+		return
+	}
+	stdout := bashStdout(p.ToolResponse)
+	now := time.Now()
+	if detect.IsGitCommit(cmd) {
+		sha := detect.ExtractCommitSHA(stdout)
+		message := ""
+		if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+			message = detect.ExtractCommitMessage(cmd)
+		}
+		_ = in.Emit.EmitGitCommit(normalize.GitCommit{
+			SessionID:  p.SessionID,
+			Vendor:     in.Vendor,
+			Tool:       "Bash",
+			SHA:        sha,
+			Message:    message,
+			WorkingDir: p.CWD,
+			At:         now,
+		})
+		sessionstate.BumpCommitCount(p.SessionID, in.Vendor)
+	}
+	if detect.IsPullRequest(cmd) {
+		url, num := detect.ExtractPRURLAndNumber(stdout)
+		title := ""
+		if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+			title = detect.ExtractPRTitle(cmd)
+		}
+		_ = in.Emit.EmitGitPullRequest(normalize.GitPullRequest{
+			SessionID:  p.SessionID,
+			Vendor:     in.Vendor,
+			Tool:       "Bash",
+			URL:        url,
+			Number:     num,
+			Title:      title,
+			WorkingDir: p.CWD,
+			At:         now,
+		})
+		sessionstate.BumpPRCount(p.SessionID, in.Vendor)
+	}
+}
+
+// bashStdout extracts the Bash tool's stdout from Claude Code's
+// `tool_response` blob. The blob is sometimes a plain string and
+// sometimes `{"stdout":"...","stderr":"...","exit_code":0}` — we
+// handle both. Returns "" when neither shape applies so the detect
+// helpers fall through to the cheaper command-only path.
+func bashStdout(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var m struct {
+		Stdout string `json:"stdout"`
+		Output string `json:"output"`
+	}
+	if err := json.Unmarshal(raw, &m); err == nil {
+		if m.Stdout != "" {
+			return m.Stdout
+		}
+		return m.Output
+	}
+	return ""
 }
 
 // hostFromEntrypoint maps Anthropic's per-line `entrypoint` value to

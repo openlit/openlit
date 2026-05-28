@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openlit/openlit/cli/internal/coding/classify"
+	"github.com/openlit/openlit/cli/internal/coding/detect"
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/cli/internal/coding/pricing"
@@ -134,6 +135,24 @@ func handle(ctx context.Context, in normalize.Input) error {
 	case "PostToolUse":
 		t := buildToolCall(in, p, cwd)
 		_ = in.Emit.EmitToolCall(t)
+		// Detect agent-attributed git commits / PR creations from
+		// shell-style tools. Codex emits `shell`, `local_shell`, and
+		// (older builds) `bash`. We only attribute when the tool
+		// completed successfully — a failed git invocation does NOT
+		// count toward the commit / PR rollups.
+		if normalizeStatus(p) != "error" {
+			emitGitArtifactsCodex(in, p, cwd)
+		}
+		// apply_patch is Codex's edit tool. Parse the patch body
+		// into per-file LinesAdded / LinesRemoved counts and emit
+		// one EditDecision per file. The decision is `auto_accepted`
+		// because Codex applies patches without an interactive
+		// review step (the diff is shown but the apply is the
+		// default action) — matches today's auto_accept behavior on
+		// Cursor's afterFileEdit.
+		if isApplyPatchTool(p.ToolName) && normalizeStatus(p) != "error" {
+			emitApplyPatchEditDecisions(in, p, cwd)
+		}
 		// Cache the call on the turn fragment so the Stop event can
 		// render it as a `tool_call` / `tool_call_response` part in
 		// `gen_ai.input.messages` + `gen_ai.output.messages`.
@@ -171,17 +190,21 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// `coding_agent.llm.turn` span — the canonical
 		// "generation" record per OTel GenAI.
 		emitTurnOnStop(in, p, cwd, permissionMode)
+		// Codex has NO `SessionEnd` event — the rollout just ends
+		// when the user closes the Codex CLI. Re-emit the session-
+		// root span on every Stop with `outcome=completed` so the
+		// session row in the UI lights up with the up-to-the-turn
+		// rollups. The exporter's `drainCodeCounters` reads the
+		// session-state LOC / commit / PR counters from disk and
+		// stamps them on the span, so each Stop refreshes those
+		// numbers. The deterministic SpanID guarantees this writes
+		// to the same `otel_traces` row instead of creating a
+		// duplicate.
+		s := buildSession(in, p, vcs, cls, permissionMode, cwd, "ended", parseEventTime(p.Timestamp))
+		s.Outcome = semconv.CodingAgentSessionOutcomeCompleted
+		_ = in.Emit.EmitSession(s)
 		// Low-cost loop event so the Sessions tab can count turns
 		// without scanning the LLM-turn span every time.
-		//
-		// We stamp `coding_agent.session.outcome = "completed"`
-		// here because Codex has NO `SessionEnd` event — the rollout
-		// just ends when the user closes the Codex CLI. Without this
-		// stamp every Codex session would show "running" forever in
-		// the Sessions list. The sessions rollup picks the latest
-		// non-empty outcome via `argMaxIf`, so if a future Codex
-		// build adds a richer terminal signal we can drop a later
-		// stamp from a different event and it will win automatically.
 		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: p.SessionID,
 			Name:      "coding_agent.session.loop.stop",
@@ -774,6 +797,252 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 		return cmd[:i]
 	}
 	return cmd
+}
+
+// isApplyPatchTool reports whether the tool name is Codex's edit tool.
+// Codex has shipped both `apply_patch` (current) and `apply-patch`
+// (older builds) so we accept both.
+func isApplyPatchTool(name string) bool {
+	switch strings.ToLower(name) {
+	case "apply_patch", "apply-patch":
+		return true
+	}
+	return false
+}
+
+// emitApplyPatchEditDecisions parses Codex's apply_patch input into
+// per-file unified-diff line counts and emits one EditDecision span
+// per file. The session-state LOC / accept counters are bumped at the
+// same time so the session-root span (re-emitted on Stop) carries the
+// running rollups.
+func emitApplyPatchEditDecisions(in normalize.Input, p codexPayload, cwd string) {
+	patch := applyPatchBody(p.ToolInput)
+	if patch == "" {
+		return
+	}
+	counts := detect.CountPatchLines(patch)
+	if len(counts) == 0 {
+		return
+	}
+	now := parseEventTime(p.Timestamp)
+	if now.IsZero() {
+		now = time.Now()
+	}
+	var totalAdded, totalRemoved int
+	for _, c := range counts {
+		_ = in.Emit.EmitEditDecision(normalize.EditDecision{
+			SessionID:    p.SessionID,
+			Decision:     semconv.CodingAgentEditDecisionAutoAccepted,
+			Source:       semconv.CodingAgentEditDecisionSourcePolicy,
+			Tool:         "apply_patch",
+			Language:     guessLanguageCodex(c.FilePath),
+			LinesAdded:   c.LinesAdded,
+			LinesRemoved: c.LinesRemoved,
+			FilePath:     c.FilePath,
+			Vendor:       in.Vendor,
+			At:           now,
+		})
+		totalAdded += c.LinesAdded
+		totalRemoved += c.LinesRemoved
+	}
+	if totalAdded > 0 || totalRemoved > 0 {
+		sessionstate.BumpCodeCounters(p.SessionID, in.Vendor, totalAdded, totalRemoved, totalAdded, 0, len(counts), 0)
+	}
+	_ = cwd
+}
+
+// applyPatchBody extracts the patch text from Codex's apply_patch
+// tool_input. Tries `input`, `patch`, and `diff` field names — Codex
+// has shipped each in different rollout versions.
+func applyPatchBody(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	for _, k := range []string{"input", "patch", "diff"} {
+		v, ok := m[k]
+		if !ok || len(v) == 0 {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(v, &s); err == nil && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// emitGitArtifactsCodex inspects Codex's shell-style tool input/output
+// and emits GitCommit / GitPullRequest spans + bumps the counters when
+// the command matched. Codex packs the shell tool's command in
+// `tool_input.command` (string OR array of strings) and the stdout in
+// `tool_response` / `tool_output`.
+func emitGitArtifactsCodex(in normalize.Input, p codexPayload, cwd string) {
+	if !isShellTool(p.ToolName) {
+		return
+	}
+	cmd := shellCommand(p.ToolInput)
+	if cmd == "" {
+		return
+	}
+	stdout := shellStdout(p.ToolResponse, p.ToolOutput)
+	now := parseEventTime(p.Timestamp)
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if detect.IsGitCommit(cmd) {
+		message := ""
+		if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+			message = detect.ExtractCommitMessage(cmd)
+		}
+		_ = in.Emit.EmitGitCommit(normalize.GitCommit{
+			SessionID:  p.SessionID,
+			Vendor:     in.Vendor,
+			Tool:       p.ToolName,
+			SHA:        detect.ExtractCommitSHA(stdout),
+			Message:    message,
+			WorkingDir: cwd,
+			At:         now,
+		})
+		sessionstate.BumpCommitCount(p.SessionID, in.Vendor)
+	}
+	if detect.IsPullRequest(cmd) {
+		url, num := detect.ExtractPRURLAndNumber(stdout)
+		title := ""
+		if in.ContentCapture == semconv.CodingAgentContentCaptureFull {
+			title = detect.ExtractPRTitle(cmd)
+		}
+		_ = in.Emit.EmitGitPullRequest(normalize.GitPullRequest{
+			SessionID:  p.SessionID,
+			Vendor:     in.Vendor,
+			Tool:       p.ToolName,
+			URL:        url,
+			Number:     num,
+			Title:      title,
+			WorkingDir: cwd,
+			At:         now,
+		})
+		sessionstate.BumpPRCount(p.SessionID, in.Vendor)
+	}
+}
+
+func isShellTool(name string) bool {
+	switch strings.ToLower(name) {
+	case "shell", "local_shell", "local-shell", "bash":
+		return true
+	}
+	return false
+}
+
+// shellCommand pulls the command string from Codex's shell tool
+// input. The field is sometimes a plain string, sometimes an array.
+func shellCommand(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	for _, k := range []string{"command", "cmd", "shell"} {
+		v, ok := m[k]
+		if !ok || len(v) == 0 {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(v, &s); err == nil && s != "" {
+			return s
+		}
+		var arr []string
+		if err := json.Unmarshal(v, &arr); err == nil && len(arr) > 0 {
+			return strings.Join(arr, " ")
+		}
+	}
+	return ""
+}
+
+// shellStdout extracts a string stdout body from Codex's tool
+// response. Tries `tool_response` first (newer rollouts) then
+// `tool_output`. Both have shipped as either a plain string or
+// `{"output":"..."}` / `{"stdout":"..."}`.
+func shellStdout(resp, out json.RawMessage) string {
+	for _, raw := range []json.RawMessage{resp, out} {
+		if len(raw) == 0 {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil && s != "" {
+			return s
+		}
+		var m struct {
+			Output string `json:"output"`
+			Stdout string `json:"stdout"`
+		}
+		if err := json.Unmarshal(raw, &m); err == nil {
+			if m.Output != "" {
+				return m.Output
+			}
+			if m.Stdout != "" {
+				return m.Stdout
+			}
+		}
+	}
+	return ""
+}
+
+// guessLanguageCodex maps a file extension onto a language tag for
+// the edit-decision metric. Returns "" when the extension isn't
+// recognised so dashboards can group those into "other".
+func guessLanguageCodex(filePath string) string {
+	if filePath == "" {
+		return ""
+	}
+	idx := strings.LastIndex(filePath, ".")
+	if idx < 0 || idx == len(filePath)-1 {
+		return ""
+	}
+	switch strings.ToLower(filePath[idx:]) {
+	case ".go":
+		return "go"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".js", ".jsx", ".mjs", ".cjs":
+		return "javascript"
+	case ".py":
+		return "python"
+	case ".rs":
+		return "rust"
+	case ".java":
+		return "java"
+	case ".rb":
+		return "ruby"
+	case ".php":
+		return "php"
+	case ".c", ".h":
+		return "c"
+	case ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx":
+		return "cpp"
+	case ".cs":
+		return "csharp"
+	case ".sh", ".bash", ".zsh":
+		return "shell"
+	case ".md", ".markdown":
+		return "markdown"
+	case ".json":
+		return "json"
+	case ".yml", ".yaml":
+		return "yaml"
+	case ".sql":
+		return "sql"
+	case ".html", ".htm":
+		return "html"
+	case ".css", ".scss", ".sass":
+		return "css"
+	}
+	return ""
 }
 
 func parseEventTime(raw string) time.Time {

@@ -29,10 +29,10 @@ func NewCmd() *cobra.Command {
 telemetry through 'openlit coding hook'.
 
 Vendors:
-  claude-code   Claude Code's hooks + plugin manifest
-  cursor        Cursor's hooks + run.sh PATH-probe wrapper
-  codex         Codex's hooks
-  copilot       Copilot CLI's hooks
+  claude-code   Plugin under ~/.claude/plugins/openlit-cc/ + 'claude plugin install'
+  cursor        Hook entries merged into ~/.cursor/hooks.json (user scope)
+  codex         Marketplace + 'codex plugin add openlit@openlit'
+  copilot       Plugin under ~/.copilot/plugins/openlit/
   all           shorthand for all four
 
 The 'openlit' binary itself must be on PATH. Install via Homebrew, the

@@ -29,6 +29,18 @@ export type CodingAgentSessionRowView = {
 	permission_mode: string;
 	working_dir: string;
 	working_dir_label: string;
+	// Per-session code-change rollups. Mirrors CodingAgentSessionRow
+	// from queries.ts. `acceptance_pct` is computed server-side from
+	// accept / (accept + reject) so the cell renders directly.
+	lines_added: number;
+	lines_removed: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	edit_accept_count: number;
+	edit_reject_count: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 };
 
 export type CodingAgentUserRowView = {
@@ -41,6 +53,15 @@ export type CodingAgentUserRowView = {
 	top_vendor: string;
 	classification_work: number;
 	classification_personal: number;
+	// Per-user code-impact rollups. Same dual-source shape the
+	// per-session list uses; precomputed `acceptance_pct` is over
+	// edit decisions, NOT lines.
+	lines_added: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 };
 
 export type LogRow = {
@@ -296,6 +317,70 @@ export const sessionsColumns: Columns<string, CodingAgentSessionRowView> = {
 		),
 		enableHiding: true,
 	},
+	// Code-impact: shows added / removed (with rejected lines as
+	// tooltip) so a reviewer can scan the Sessions list and spot
+	// outliers without opening each session.
+	code: {
+		header: () => m.AGENTS_CODING_SESSIONS_CODE,
+		cell: ({ row }) => {
+			const added = row.lines_added ?? 0;
+			const removed = row.lines_removed ?? 0;
+			const accepted = row.lines_accepted ?? 0;
+			const rejected = row.lines_rejected ?? 0;
+			const tooltip = `+${added} added · −${removed} removed · ${accepted} accepted · ${rejected} rejected`;
+			if (!added && !removed) {
+				return <span className="text-stone-400">—</span>;
+			}
+			return (
+				<span className="text-xs tabular-nums" title={tooltip}>
+					<span className="text-emerald-600 dark:text-emerald-400">
+						+{added.toLocaleString()}
+					</span>
+					<span className="mx-1 text-stone-400">/</span>
+					<span className="text-rose-600 dark:text-rose-400">
+						−{removed.toLocaleString()}
+					</span>
+				</span>
+			);
+		},
+		enableHiding: true,
+	},
+	acceptance: {
+		header: () => m.AGENTS_CODING_SESSIONS_ACCEPTANCE,
+		cell: ({ row }) => {
+			const accepts = row.edit_accept_count ?? 0;
+			const rejects = row.edit_reject_count ?? 0;
+			const total = accepts + rejects;
+			if (!total) return <span className="text-stone-400">—</span>;
+			return (
+				<span
+					className="text-xs tabular-nums"
+					title={`${accepts} accepted · ${rejects} rejected of ${total} decisions`}
+				>
+					{Math.round(row.acceptance_pct ?? 0)}%
+				</span>
+			);
+		},
+		enableHiding: true,
+	},
+	commits: {
+		header: () => m.AGENTS_CODING_SESSIONS_COMMITS,
+		cell: ({ row }) => (
+			<span className="tabular-nums">
+				{(row.commit_count ?? 0).toLocaleString()}
+			</span>
+		),
+		enableHiding: true,
+	},
+	prs: {
+		header: () => m.AGENTS_CODING_SESSIONS_PRS,
+		cell: ({ row }) => (
+			<span className="tabular-nums">
+				{(row.pr_count ?? 0).toLocaleString()}
+			</span>
+		),
+		enableHiding: true,
+	},
 	tokens: {
 		header: () => "Tokens",
 		cell: ({ row }) => {
@@ -391,6 +476,55 @@ export const codingUsersColumns: Columns<string, CodingAgentUserRowView> = {
 		cell: ({ row }) => (
 			<span className="tabular-nums">
 				{(row.total_tokens ?? 0).toLocaleString()}
+			</span>
+		),
+		enableHiding: true,
+	},
+	lines: {
+		header: () => m.AGENTS_CODING_USERS_LINES,
+		cell: ({ row }) => {
+			const added = row.lines_added ?? 0;
+			if (!added) return <span className="text-stone-400">—</span>;
+			return (
+				<span
+					className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400"
+					title={`${row.lines_accepted ?? 0} accepted · ${row.lines_rejected ?? 0} rejected`}
+				>
+					+{added.toLocaleString()}
+				</span>
+			);
+		},
+		enableHiding: true,
+	},
+	acceptance: {
+		header: () => m.AGENTS_CODING_USERS_ACCEPTANCE,
+		cell: ({ row }) => {
+			const accepts = row.acceptance_pct ?? 0;
+			if (!row.lines_accepted && !row.lines_rejected) {
+				return <span className="text-stone-400">—</span>;
+			}
+			return (
+				<span className="text-xs tabular-nums">
+					{Math.round(accepts)}%
+				</span>
+			);
+		},
+		enableHiding: true,
+	},
+	commits: {
+		header: () => m.AGENTS_CODING_USERS_COMMITS,
+		cell: ({ row }) => (
+			<span className="tabular-nums">
+				{(row.commit_count ?? 0).toLocaleString()}
+			</span>
+		),
+		enableHiding: true,
+	},
+	prs: {
+		header: () => m.AGENTS_CODING_USERS_PRS,
+		cell: ({ row }) => (
+			<span className="tabular-nums">
+				{(row.pr_count ?? 0).toLocaleString()}
 			</span>
 		),
 		enableHiding: true,

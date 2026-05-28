@@ -29,6 +29,8 @@ import {
 import {
 	CODING_AGENT_ATTR,
 	CODING_AGENT_SPAN_EDIT_DECISION,
+	CODING_AGENT_SPAN_GIT_COMMIT,
+	CODING_AGENT_SPAN_GIT_PR,
 	CODING_AGENT_SPAN_LLM_TURN,
 	CODING_AGENT_SPAN_NAMES,
 	CODING_AGENT_SPAN_SESSION,
@@ -141,6 +143,23 @@ export interface CodingAgentSessionRow {
 	// pill on the trace-detail header.
 	working_dir: string;
 	working_dir_label: string;
+	// Per-session code-change rollups. The query prefers the
+	// session-rollup attribute (stamped on the session-root span at
+	// SessionEnd) and falls back to summing the per-edit-decision
+	// spans when the session is still in progress / never fired
+	// SessionEnd (Codex; long-running CC sessions that closed
+	// without /exit). `acceptance_pct` is computed at query time
+	// from accepted / (accepted + rejected); 0 when both are zero
+	// so the row renders "—" instead of NaN.
+	lines_added: number;
+	lines_removed: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	edit_accept_count: number;
+	edit_reject_count: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 }
 
 export interface CodingAgentLLMTurnRow {
@@ -195,6 +214,23 @@ export interface CodingAgentSubagentRow {
 	modified_files: string[];
 }
 
+export interface CodingAgentGitCommitRow {
+	timestamp: string;
+	sha: string;
+	message: string;
+	tool: string;
+	working_dir: string;
+}
+
+export interface CodingAgentGitPRRow {
+	timestamp: string;
+	url: string;
+	number: number;
+	title: string;
+	tool: string;
+	working_dir: string;
+}
+
 export interface CodingAgentSessionDetail extends CodingAgentSessionRow {
 	model: string;
 	branch: string;
@@ -209,6 +245,13 @@ export interface CodingAgentSessionDetail extends CodingAgentSessionRow {
 	tool_calls: CodingAgentToolCallRow[];
 	edits: CodingAgentEditRow[];
 	subagents: CodingAgentSubagentRow[];
+	// Per-session git artifacts. Each row is one
+	// `coding_agent.git.commit` / `coding_agent.git.pull_request`
+	// span. The session-detail sheet renders them as a small
+	// "Code impact" panel; the row counters above already encode
+	// "how many", these arrays carry the SHAs / URLs for drill-in.
+	commits: CodingAgentGitCommitRow[];
+	prs: CodingAgentGitPRRow[];
 
 	// E6: when one of the auxiliary panel queries fails (e.g. tools
 	// list, edits, subagents) we still return the rest of the
@@ -462,7 +505,115 @@ const SESSION_BASE_COLUMNS = `
 			-2
 		),
 		'/'
-	)                                                                  AS working_dir_label
+	)                                                                  AS working_dir_label,
+	-- Per-session code-change rollups. Each pair takes the greater
+	-- of the session-rollup attribute (stamped on the session-root
+	-- span at SessionEnd) and the sum of per-edit-decision span
+	-- attrs. The fallback handles two cases:
+	--   1. Codex sessions, which have no SessionEnd hook — the
+	--      session-root span never gets the rollup, so we sum the
+	--      per-edit spans instead.
+	--   2. In-flight Claude Code / Cursor sessions that haven't
+	--      fired SessionEnd yet (the UI is allowed to show partial
+	--      data during a live session).
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+		toInt64(sumIf(
+			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+		))
+	)                                                                  AS lines_added,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+		toInt64(sumIf(
+			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+		))
+	)                                                                  AS lines_removed,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+		toInt64(sumIf(
+			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+		))
+	)                                                                  AS lines_accepted,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+		toInt64(sumIf(
+			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+		))
+	)                                                                  AS lines_rejected,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+		toInt64(countIf(
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+		))
+	)                                                                  AS edit_accept_count,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+		toInt64(countIf(
+			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+		))
+	)                                                                  AS edit_reject_count,
+	-- acceptance_pct is computed downstream of the greatest()
+	-- pairs above so it stays consistent with the displayed
+	-- accept / reject totals (otherwise a SessionEnd that
+	-- under-counted vs the per-edit sum would skew the %).
+	if(
+		(greatest(
+			toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+			toInt64(countIf(
+				SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+					AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+			))
+		) + greatest(
+			toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+			toInt64(countIf(
+				SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+					AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+			))
+		)) = 0,
+		toFloat64(0),
+		round(
+			toFloat64(greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				toInt64(countIf(
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+				))
+			)) * 100 /
+			toFloat64(greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				toInt64(countIf(
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+				))
+			) + greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+				toInt64(countIf(
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+				))
+			)),
+			2
+		)
+	)                                                                  AS acceptance_pct,
+	-- Commit / PR rollups. Same dual-source pattern: prefer the
+	-- session-rollup attribute, fall back to counting the
+	-- per-commit / per-PR spans.
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
+	)                                                                  AS commit_count,
+	greatest(
+		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
+	)                                                                  AS pr_count
 `;
 
 /**
@@ -653,6 +804,136 @@ export async function listSessions(
 	};
 }
 
+/**
+ * Lightweight per-session rollup. Returns just the code-impact
+ * counters the trace-detail header pills need (lines added/removed,
+ * commits, edit accept/reject totals, PRs, acceptance pct), without
+ * fetching the heavy turn/tool/MCP joins `getSession` does.
+ *
+ * Why this exists separately: the trace-detail page renders for
+ * EVERY span the operator clicks on, including child spans like
+ * `coding_agent.llm.turn` and `coding_agent.tool.call`. Those child
+ * spans don't carry the session-level rollup attributes (the CLI
+ * stamps them on the session-root span at SessionEnd only), so the
+ * pills used to render empty on anything but the root. This helper
+ * lets the UI ask "what are this session's totals?" by session_id
+ * with a single tiny query so the pills stay populated regardless
+ * of which span the developer is looking at.
+ */
+export interface CodingSessionDigest {
+	session_id: string;
+	lines_added: number;
+	lines_removed: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	edit_accept_count: number;
+	edit_reject_count: number;
+	commit_count: number;
+	pr_count: number;
+	acceptance_pct: number;
+}
+
+export async function getCodingSessionDigest(
+	auth: CodingAgentAuth,
+	sessionId: string,
+): Promise<CodingSessionDigest | null> {
+	if (!sessionId) return null;
+
+	const sid = escape(sessionId);
+	const chatScope = `(${CHAT_ID_EXPR}) = '${sid}'`;
+	// We reuse the same greatest(rollup-attr, per-edit-sum) dual-source
+	// pattern as `SESSION_BASE_COLUMNS` so this digest can never
+	// disagree with the Sessions list or the full session detail
+	// view — Codex (no SessionEnd hook) and in-flight sessions fall
+	// back to the per-edit-span sums, completed Cursor/Claude Code
+	// sessions use the session-rollup attribute. See the long
+	// comment at line ~509 for the rationale.
+	const query = `
+		SELECT
+			${CHAT_ID_EXPR} AS session_id,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+				toInt64(sumIf(
+					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				))
+			) AS lines_added,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+				toInt64(sumIf(
+					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+				))
+			) AS lines_removed,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+				toInt64(sumIf(
+					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+				))
+			) AS lines_accepted,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+				toInt64(sumIf(
+					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+				))
+			) AS lines_rejected,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				toInt64(countIf(
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+				))
+			) AS edit_accept_count,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+				toInt64(countIf(
+					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+				))
+			) AS edit_reject_count,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+				toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
+			) AS commit_count,
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+				toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
+			) AS pr_count
+		FROM ${OTEL_TRACES_TABLE}
+		${whereScope({ auth })}
+		AND ${chatScope}
+		GROUP BY ${CHAT_ID_EXPR}
+		LIMIT 1
+	`;
+
+	const { data, err } = await dataCollector({ query });
+	if (err) throw err;
+	const row = (data as Array<Record<string, unknown>> | undefined)?.[0];
+	if (!row) return null;
+
+	const accepts = Number(row.edit_accept_count || 0);
+	const rejects = Number(row.edit_reject_count || 0);
+	const decisions = accepts + rejects;
+	return {
+		session_id: String(row.session_id || sessionId),
+		lines_added: Number(row.lines_added || 0),
+		lines_removed: Number(row.lines_removed || 0),
+		lines_accepted: Number(row.lines_accepted || 0),
+		lines_rejected: Number(row.lines_rejected || 0),
+		edit_accept_count: accepts,
+		edit_reject_count: rejects,
+		commit_count: Number(row.commit_count || 0),
+		pr_count: Number(row.pr_count || 0),
+		acceptance_pct: decisions
+			? Math.round((accepts * 10000) / decisions) / 100
+			: 0,
+	};
+}
+
 export async function getSession(
 	auth: CodingAgentAuth,
 	sessionId: string
@@ -786,6 +1067,40 @@ export async function getSession(
 		LIMIT 100
 	`;
 
+	// Agent-attributed git commits + PRs. Both pull one row per
+	// matching span; the session-rollup attribute on the session-root
+	// span is the canonical count and is already folded into the
+	// session row via SESSION_BASE_COLUMNS. These detail queries are
+	// for the per-session drill-in panel.
+	const commitsQuery = `
+		SELECT
+			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
+			SpanAttributes['${CODING_AGENT_ATTR.gitCommitSha}']         AS sha,
+			SpanAttributes['${CODING_AGENT_ATTR.gitCommitMessage}']     AS message,
+			SpanAttributes['${GEN_AI_ATTR.toolName}']                   AS tool,
+			SpanAttributes['code.cwd']                                  AS working_dir
+		FROM ${OTEL_TRACES_TABLE}
+		WHERE SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'
+		AND ${chatScope}
+		ORDER BY Timestamp ASC
+		LIMIT 200
+	`;
+
+	const prsQuery = `
+		SELECT
+			formatDateTime(Timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')          AS timestamp,
+			SpanAttributes['${CODING_AGENT_ATTR.gitPrUrl}']             AS url,
+			toInt32OrZero(SpanAttributes['${CODING_AGENT_ATTR.gitPrNumber}']) AS number,
+			SpanAttributes['${CODING_AGENT_ATTR.gitPrTitle}']           AS title,
+			SpanAttributes['${GEN_AI_ATTR.toolName}']                   AS tool,
+			SpanAttributes['code.cwd']                                  AS working_dir
+		FROM ${OTEL_TRACES_TABLE}
+		WHERE SpanName = '${CODING_AGENT_SPAN_GIT_PR}'
+		AND ${chatScope}
+		ORDER BY Timestamp ASC
+		LIMIT 100
+	`;
+
 	const [
 		{ data: baseData, err: baseErr },
 		{ data: toolsData, err: toolsErr },
@@ -794,6 +1109,8 @@ export async function getSession(
 		{ data: toolCallsData, err: toolCallsErr },
 		{ data: editsData, err: editsErr },
 		{ data: subagentsData, err: subagentsErr },
+		{ data: commitsData, err: commitsErr },
+		{ data: prsData, err: prsErr },
 	] = await Promise.all([
 		dataCollector({ query: baseQuery }),
 		dataCollector({ query: toolsQuery }),
@@ -802,6 +1119,8 @@ export async function getSession(
 		dataCollector({ query: toolCallsQuery }),
 		dataCollector({ query: editsQuery }),
 		dataCollector({ query: subagentsQuery }),
+		dataCollector({ query: commitsQuery }),
+		dataCollector({ query: prsQuery }),
 	]);
 
 	// E6: only the base query is required — without it the detail
@@ -826,6 +1145,8 @@ export async function getSession(
 	recordPartial("tool_calls", toolCallsErr);
 	recordPartial("edits", editsErr);
 	recordPartial("subagents", subagentsErr);
+	recordPartial("commits", commitsErr);
+	recordPartial("prs", prsErr);
 	const rows = (baseData || []) as Array<
 		CodingAgentSessionRow & {
 			branch: string;
@@ -887,6 +1208,15 @@ export async function getSession(
 			...s,
 			modified_files: parseStringSlice(s.modified_files_raw),
 		})),
+		commits: ((commitsData || []) as CodingAgentGitCommitRow[]).map((c) => ({
+			...c,
+			message: scrubBody(c.message || ""),
+		})),
+		prs: ((prsData || []) as CodingAgentGitPRRow[]).map((p) => ({
+			...p,
+			number: Number(p.number || 0),
+			title: scrubBody(p.title || ""),
+		})),
 		partial_errors: partialErrors.length ? partialErrors : undefined,
 	};
 }
@@ -931,6 +1261,19 @@ export interface CodingUserDigest {
 	classification_unknown: number;
 	classification_disputed: number;
 	top_vendors: Array<{ vendor: string; sessions: number }>;
+	// Per-user code-change rollups, summed across the user's
+	// sessions in the working window. `acceptance_pct` is computed
+	// at digest time from accepted / (accepted + rejected); 0 when
+	// both are zero so the dashboard renders "—" instead of NaN.
+	lines_added: number;
+	lines_removed: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	edit_accept_count: number;
+	edit_reject_count: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 }
 
 export interface CodingUserRow {
@@ -946,6 +1289,16 @@ export interface CodingUserRow {
 	top_vendor: string;
 	classification_work: number;
 	classification_personal: number;
+	// Per-user code-change rollups. Same `greatest(rollup, sum)`
+	// dual-source pattern used in the Sessions list — the digest
+	// only diverges in that it sums across all of the user's
+	// sessions instead of one.
+	lines_added: number;
+	lines_accepted: number;
+	lines_rejected: number;
+	acceptance_pct: number;
+	commit_count: number;
+	pr_count: number;
 }
 
 /**
@@ -986,8 +1339,21 @@ export async function getCodingUserDigest(
 	// service-name fallback in addition to the canonical user.name.
 	// We do this by aggregating once per session, computing the user
 	// using USER_EXPR, then keeping rows where it matches.
-	const sessionsCte = `
-		WITH per_session AS (
+	//
+	// IMPORTANT: we materialize the per-session aggregation as a
+	// subquery, NOT a `WITH per_session AS (...)` CTE. ClickHouse's
+	// CTE inliner aggressively collapses `WITH ... AS` into the outer
+	// SELECT, which then exposes the inner aggregates (greatest(any(),
+	// countIf()) and friends) as direct arguments of the outer
+	// sumOrNull / countIf / argMax calls. The planner correctly
+	// rejects that as "aggregate inside aggregate". The sibling
+	// `listCodingUsers` function ran into the same trap — see the
+	// extended comment at the top of `baseSubquery` for the full
+	// playbook. Wrapping the inner SELECT in a subquery keeps the
+	// plan opaque and lets the outer aggregates run against
+	// pre-materialised columns.
+	const sessionsSubquery = `
+		(
 			SELECT
 				SpanAttributes['${CODING_AGENT_ATTR.sessionId}'] AS sid,
 				${USER_EXPR} AS user,
@@ -1002,6 +1368,63 @@ export async function getCodingUserDigest(
 					toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
 					sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
 				) AS cost,
+				-- Per-session code-change rollups. The same
+				-- greatest(rollup-attr, per-edit-sum) dual-source
+				-- pattern the Sessions list uses; see the
+				-- SESSION_BASE_COLUMNS comment for the full
+				-- rationale (Codex / in-flight sessions).
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+					))
+				) AS lines_added,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+					))
+				) AS lines_removed,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+					))
+				) AS lines_accepted,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+					))
+				) AS lines_rejected,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+					toInt64(countIf(
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+					))
+				) AS edit_accept_count,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+					toInt64(countIf(
+						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+					))
+				) AS edit_reject_count,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
+				) AS commit_count,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
+				) AS pr_count,
 				coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
 				${VENDOR_EXPR} AS vendor
 			FROM ${OTEL_TRACES_TABLE}
@@ -1014,27 +1437,75 @@ export async function getCodingUserDigest(
 		)
 	`;
 
+	// Two-stage aggregation. The inner SELECT does ALL the aggregate
+	// work and the outer SELECT only does scalar arithmetic on its
+	// columns. Why split it: ClickHouse 24.x resolves a bare
+	// `edit_accept_count` inside the outer SELECT to the aliased
+	// expression `sumOrNull(edit_accept_count) AS edit_accept_count`
+	// if the alias was declared on the same row (default
+	// `prefer_column_name_to_alias=0`). That turns
+	// `if(... sumOrNull(edit_accept_count) ...)` into
+	// `if(... sumOrNull(sumOrNull(edit_accept_count)) ...)`, which
+	// the planner correctly rejects as a nested aggregate. Putting
+	// the aggregates one layer down dodges the alias shadowing
+	// entirely and keeps the outer SELECT pure scalar.
 	const digestQuery = `
-		${sessionsCte}
 		SELECT
-			'${safeUser}' AS user,
-			formatDateTime(min(first_seen), '%Y-%m-%dT%H:%i:%SZ') AS first_seen,
-			formatDateTime(max(last_seen), '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
-			toInt64(count())                                 AS session_count,
-			toInt64(sum(tool_calls))                         AS tool_call_count,
-			round(sumOrNull(cost), 4)                        AS cost_usd,
-			toInt64(countIf(classification = 'work'))        AS classification_work,
-			toInt64(countIf(classification = 'personal'))    AS classification_personal,
-			toInt64(countIf(classification = 'disputed'))    AS classification_disputed,
-			toInt64(countIf(classification = 'unknown'))     AS classification_unknown
-		FROM per_session
-		WHERE user = '${safeUser}'
+			user,
+			first_seen,
+			last_seen,
+			session_count,
+			tool_call_count,
+			cost_usd,
+			classification_work,
+			classification_personal,
+			classification_disputed,
+			classification_unknown,
+			lines_added,
+			lines_removed,
+			lines_accepted,
+			lines_rejected,
+			edit_accept_count,
+			edit_reject_count,
+			commit_count,
+			pr_count,
+			if(
+				(edit_accept_count + edit_reject_count) = 0,
+				toFloat64(0),
+				round(
+					toFloat64(edit_accept_count) * 100 /
+					toFloat64(edit_accept_count + edit_reject_count),
+					2
+				)
+			) AS acceptance_pct
+		FROM (
+			SELECT
+				'${safeUser}' AS user,
+				formatDateTime(min(first_seen), '%Y-%m-%dT%H:%i:%SZ') AS first_seen,
+				formatDateTime(max(last_seen), '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
+				toInt64(count())                                 AS session_count,
+				toInt64(sum(tool_calls))                         AS tool_call_count,
+				round(sumOrNull(cost), 4)                        AS cost_usd,
+				toInt64(countIf(classification = 'work'))        AS classification_work,
+				toInt64(countIf(classification = 'personal'))    AS classification_personal,
+				toInt64(countIf(classification = 'disputed'))    AS classification_disputed,
+				toInt64(countIf(classification = 'unknown'))     AS classification_unknown,
+				toInt64(sumOrNull(lines_added))                  AS lines_added,
+				toInt64(sumOrNull(lines_removed))                AS lines_removed,
+				toInt64(sumOrNull(lines_accepted))               AS lines_accepted,
+				toInt64(sumOrNull(lines_rejected))               AS lines_rejected,
+				toInt64(sumOrNull(edit_accept_count))            AS edit_accept_count,
+				toInt64(sumOrNull(edit_reject_count))            AS edit_reject_count,
+				toInt64(sumOrNull(commit_count))                 AS commit_count,
+				toInt64(sumOrNull(pr_count))                     AS pr_count
+			FROM ${sessionsSubquery} AS per_session
+			WHERE user = '${safeUser}'
+		) totals
 	`;
 
 	const vendorsQuery = `
-		${sessionsCte}
 		SELECT vendor, toInt64(count()) AS sessions
-		FROM per_session
+		FROM ${sessionsSubquery} AS per_session
 		WHERE user = '${safeUser}'
 		GROUP BY vendor
 		HAVING vendor != '' AND vendor != 'unknown'
@@ -1067,6 +1538,15 @@ export async function getCodingUserDigest(
 		classification_personal: Number(digestRow.classification_personal || 0),
 		classification_unknown: Number(digestRow.classification_unknown || 0),
 		classification_disputed: Number(digestRow.classification_disputed || 0),
+		lines_added: Number(digestRow.lines_added || 0),
+		lines_removed: Number(digestRow.lines_removed || 0),
+		lines_accepted: Number(digestRow.lines_accepted || 0),
+		lines_rejected: Number(digestRow.lines_rejected || 0),
+		edit_accept_count: Number(digestRow.edit_accept_count || 0),
+		edit_reject_count: Number(digestRow.edit_reject_count || 0),
+		commit_count: Number(digestRow.commit_count || 0),
+		pr_count: Number(digestRow.pr_count || 0),
+		acceptance_pct: Number(digestRow.acceptance_pct || 0),
 		top_vendors: ((vendorsData as Array<{ vendor: string; sessions: number | string }>) || []).map(
 			(row) => ({
 				vendor: row.vendor,
@@ -1162,7 +1642,14 @@ export async function listCodingUsers(
 				toInt64(sum(per_user_tokens)) AS total_tokens,
 				argMax(per_user_top_vendor, per_user_last_ts) AS top_vendor,
 				toInt64(sum(per_user_class_work)) AS classification_work,
-				toInt64(sum(per_user_class_personal)) AS classification_personal
+				toInt64(sum(per_user_class_personal)) AS classification_personal,
+				toInt64(sum(per_user_lines_added)) AS lines_added,
+				toInt64(sum(per_user_lines_accepted)) AS lines_accepted,
+				toInt64(sum(per_user_lines_rejected)) AS lines_rejected,
+				toInt64(sum(per_user_edit_accept)) AS edit_accept_count,
+				toInt64(sum(per_user_edit_reject)) AS edit_reject_count,
+				toInt64(sum(per_user_commits)) AS commit_count,
+				toInt64(sum(per_user_prs)) AS pr_count
 			FROM (
 				SELECT
 					user AS user,
@@ -1173,7 +1660,14 @@ export async function listCodingUsers(
 					toInt64(sumOrNull(tokens)) AS per_user_tokens,
 					argMax(vendor, session_last_ts) AS per_user_top_vendor,
 					toInt64(countIf(classification = 'work')) AS per_user_class_work,
-					toInt64(countIf(classification = 'personal')) AS per_user_class_personal
+					toInt64(countIf(classification = 'personal')) AS per_user_class_personal,
+					toInt64(sumOrNull(lines_added)) AS per_user_lines_added,
+					toInt64(sumOrNull(lines_accepted)) AS per_user_lines_accepted,
+					toInt64(sumOrNull(lines_rejected)) AS per_user_lines_rejected,
+					toInt64(sumOrNull(edit_accept)) AS per_user_edit_accept,
+					toInt64(sumOrNull(edit_reject)) AS per_user_edit_reject,
+					toInt64(sumOrNull(commits)) AS per_user_commits,
+					toInt64(sumOrNull(prs)) AS per_user_prs
 				FROM (
 					SELECT
 						${CHAT_ID_EXPR} AS sid,
@@ -1198,6 +1692,56 @@ export async function listCodingUsers(
 						sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])) +
 							sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))
 							AS tokens,
+						-- Per-session code-change rollups (same
+						-- dual-source pattern as listSessions /
+						-- getCodingUserDigest). The user-list page
+						-- only renders summed metrics, so we don't
+						-- emit lines_removed here.
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+							toInt64(sumIf(
+								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+							))
+						) AS lines_added,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+							toInt64(sumIf(
+								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+							))
+						) AS lines_accepted,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+							toInt64(sumIf(
+								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
+								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+							))
+						) AS lines_rejected,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+							toInt64(countIf(
+								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
+							))
+						) AS edit_accept,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+							toInt64(countIf(
+								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
+									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
+							))
+						) AS edit_reject,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
+						) AS commits,
+						greatest(
+							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
+						) AS prs,
 						coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification
 					FROM ${OTEL_TRACES_TABLE}
 					${whereScope({
@@ -1229,7 +1773,17 @@ export async function listCodingUsers(
 			total_tokens,
 			top_vendor,
 			classification_work,
-			classification_personal
+			classification_personal,
+			lines_added,
+			lines_accepted,
+			lines_rejected,
+			commit_count,
+			pr_count,
+			if(
+				(edit_accept_count + edit_reject_count) = 0,
+				toFloat64(0),
+				round(toFloat64(edit_accept_count) * 100 / toFloat64(edit_accept_count + edit_reject_count), 2)
+			) AS acceptance_pct
 		${baseSubquery}
 		${orderClause.replace(/last_seen/g, "user_last_ts")}
 		LIMIT ${limit}
@@ -1257,6 +1811,12 @@ export async function listCodingUsers(
 		total_tokens: Number(row.total_tokens || 0),
 		classification_work: Number(row.classification_work || 0),
 		classification_personal: Number(row.classification_personal || 0),
+		lines_added: Number(row.lines_added || 0),
+		lines_accepted: Number(row.lines_accepted || 0),
+		lines_rejected: Number(row.lines_rejected || 0),
+		acceptance_pct: Number(row.acceptance_pct || 0),
+		commit_count: Number(row.commit_count || 0),
+		pr_count: Number(row.pr_count || 0),
 	}));
 
 	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];

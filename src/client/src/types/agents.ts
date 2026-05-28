@@ -133,6 +133,22 @@ export interface UnifiedAgent {
 	coding_session_count_24h?: number;
 	coding_cost_usd_24h?: number;
 	coding_active_users_24h?: number;
+	/**
+	 * Code-impact rollups (last 24h). `lines_*` are LOC sums across
+	 * accepted/rejected/total edits; `edit_*` are decision counts that
+	 * power the acceptance % derivation. `commit_count_24h` and
+	 * `pr_count_24h` come from detected `git commit` / `gh pr`
+	 * invocations parsed out of shell/Bash hooks. All default to 0
+	 * for non-coding rows.
+	 */
+	coding_lines_added_24h?: number;
+	coding_lines_removed_24h?: number;
+	coding_lines_accepted_24h?: number;
+	coding_lines_rejected_24h?: number;
+	coding_edit_accept_24h?: number;
+	coding_edit_reject_24h?: number;
+	coding_commit_count_24h?: number;
+	coding_pr_count_24h?: number;
 }
 
 export interface AgentListCursor {

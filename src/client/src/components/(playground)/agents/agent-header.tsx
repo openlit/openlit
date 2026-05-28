@@ -7,6 +7,11 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
 import type { UnifiedAgent } from "@/types/agents";
+import {
+	CodingAgentVendorIcon,
+	codingAgentVendorLabel,
+	hasCodingAgentVendorIcon,
+} from "@/components/svg/coding-agents";
 
 interface AgentHeaderProps {
 	agent: UnifiedAgent;
@@ -90,8 +95,25 @@ export default function AgentHeader({
 			</div>
 
 			<div className="flex items-center justify-between gap-3 flex-wrap">
-				<h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-					{agent.service_name}
+				{/* For coding-agent rows we render the vendor logo + the
+				    pretty vendor label (e.g. "Claude Code" instead of
+				    the raw `claude-code` service name). For services /
+				    controllers we keep the existing service_name
+				    rendering — no logo, no transformation. */}
+				<h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 inline-flex items-center gap-2">
+					{hasCodingAgentVendorIcon(agent.coding_agent_vendor) ? (
+						<>
+							<CodingAgentVendorIcon
+								vendor={agent.coding_agent_vendor}
+								className="h-7 w-7 shrink-0"
+							/>
+							<span>
+								{codingAgentVendorLabel(agent.coding_agent_vendor)}
+							</span>
+						</>
+					) : (
+						agent.service_name
+					)}
 				</h1>
 				{rightSlot && <div className="shrink-0">{rightSlot}</div>}
 			</div>

@@ -47,7 +47,9 @@ export default function AgentsPage() {
 	const router = useRouter();
 	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
-	const [showSetupModal, setShowSetupModal] = useState(false);
+	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
+		null
+	);
 	const [serviceRows, setServiceRows] = useState<UnifiedAgent[]>([]);
 	const [controllerRows, setControllerRows] = useState<ControllerInstance[]>([]);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -434,6 +436,12 @@ export default function AgentsPage() {
 	);
 	const codingRows = codingRowsState;
 
+	// Legacy controller / service stats. These power the top cards on
+	// the Applications and Controllers tabs — the original surface
+	// the hub was built around. Restored after a brief stint of
+	// "always show coding stats at the top" that turned out to be
+	// the wrong call: when a user is on Applications, they want the
+	// applications-side rollup at a glance, not coding metrics.
 	const activeControllers = controllerRows.filter(
 		(c) => (c.computed_status || c.status) !== "inactive"
 	);
@@ -446,6 +454,30 @@ export default function AgentsPage() {
 			s.instrumentation_status === "instrumented" ||
 			s.desired_agent_status === "enabled"
 	).length;
+
+	// Coding-agent rollups for the Coding Agents tab's top stat
+	// cards. We compute these from the same `codingRows` the table
+	// renders so the numbers can never disagree with the per-vendor
+	// breakdown a click away. One row per vendor, so
+	// `codingRows.length` is the unique-vendor count without needing
+	// a set. The users sum can over-count when a single human uses
+	// multiple vendors; the hint copy calls that out instead of
+	// pretending we have a dedup'd identity graph on the client (the
+	// platform-side directory does run a true distinct count, but
+	// that's a separate API hop we don't need for a stat glance).
+	const codingVendorsUsed = codingRows.filter(
+		(r) =>
+			(r.coding_session_count_24h ?? 0) > 0 ||
+			(r.coding_active_users_24h ?? 0) > 0
+	).length;
+	const codingTotalCost = codingRows.reduce(
+		(sum, r) => sum + (r.coding_cost_usd_24h ?? 0),
+		0
+	);
+	const codingTotalUsers = codingRows.reduce(
+		(sum, r) => sum + (r.coding_active_users_24h ?? 0),
+		0
+	);
 
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
@@ -463,7 +495,14 @@ export default function AgentsPage() {
 		return Array.from(set).sort();
 	}, [controllerRows]);
 
-	const handleStatClick = (stat: "controllers" | "discovered" | "instrumented") => {
+	// Per-stat click targets for the legacy (Applications /
+	// Controllers) stat row. Controllers cards routes to the
+	// controllers tab; the two service-side cards route to
+	// Applications and optionally apply the "instrumented" status
+	// filter so the table reflects what the user just clicked.
+	const handleLegacyStatClick = (
+		stat: "controllers" | "discovered" | "instrumented",
+	) => {
 		if (stat === "controllers") {
 			setActiveTab("controllers");
 		} else if (stat === "discovered") {
@@ -474,6 +513,11 @@ export default function AgentsPage() {
 			setStatusFilter(["instrumented"]);
 		}
 	};
+
+	// All three coding stat cards route to the same Coding Agents
+	// tab — there's no per-stat filter to apply because the table
+	// already shows the per-vendor breakdown.
+	const handleCodingStatClick = () => setActiveTab("coding");
 
 	const updateFilterValues = useCallback(
 		(type: string, value: string, operationType?: string) => {
@@ -597,47 +641,98 @@ export default function AgentsPage() {
 			 */}
 			{(
 				<>
-					{/* Stat cards */}
-					<div className="grid grid-cols-3 gap-4">
-						<button
-							onClick={() => handleStatClick("controllers")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{activeControllers.length}
-								{staleCount > 0 && (
-									<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
-										({staleCount} stale)
-									</span>
-								)}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_CONTROLLERS}
-							</div>
-						</button>
-						<button
-							onClick={() => handleStatClick("discovered")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{totalServices}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
-							</div>
-						</button>
-						<button
-							onClick={() => handleStatClick("instrumented")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{instrumentedServices}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
-							</div>
-						</button>
-					</div>
+					{/* Top-of-page stat cards. Tab-aware: the Coding
+					    Agents tab gets vendor/cost/user rollups
+					    derived from `codingRows`, every other tab
+					    keeps the legacy controller/service stats so
+					    the glance metric matches whatever the user
+					    is looking at below. Layout (grid-cols-3) is
+					    identical across both modes so the section
+					    height doesn't jump on tab switch. */}
+					{activeTab === "coding" ? (
+						/* Layout, padding, and typography match the
+						   legacy controller/service stat row exactly
+						   so the section doesn't visibly resize on
+						   tab switch — number + label only, no
+						   subtitle line. Order is Total Coding
+						   agents → Total users → Total cost. */
+						<div className="grid grid-cols-3 gap-4">
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{codingVendorsUsed}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_VENDORS}
+								</div>
+							</button>
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+									{codingTotalUsers.toLocaleString()}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_USERS}
+								</div>
+							</button>
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+									${codingTotalCost.toFixed(2)}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_COST}
+								</div>
+							</button>
+						</div>
+					) : (
+						<div className="grid grid-cols-3 gap-4">
+							<button
+								onClick={() => handleLegacyStatClick("controllers")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{activeControllers.length}
+									{staleCount > 0 && (
+										<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
+											({staleCount} stale)
+										</span>
+									)}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CONTROLLERS}
+								</div>
+							</button>
+							<button
+								onClick={() => handleLegacyStatClick("discovered")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{totalServices}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
+								</div>
+							</button>
+							<button
+								onClick={() => handleLegacyStatClick("instrumented")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{instrumentedServices}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
+								</div>
+							</button>
+						</div>
+					)}
 
 					{/* Tab switcher. Ordering reflects expected
 					    usage frequency: most teams will spend most
@@ -675,10 +770,21 @@ export default function AgentsPage() {
 								variant="outline"
 								size="default"
 								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setShowSetupModal(true)}
+								onClick={() => setSetupModal("controller")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
 								{getMessage().AGENTS_ADD_CONTROLLER}
+							</Button>
+						)}
+						{activeTab === "coding" && (
+							<Button
+								variant="outline"
+								size="default"
+								className="ml-auto text-xs h-auto py-1.5 px-3"
+								onClick={() => setSetupModal("coding")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CODING_AGENT}
 							</Button>
 						)}
 					</div>
@@ -757,15 +863,28 @@ export default function AgentsPage() {
 				</>
 			)}
 
-			<Dialog open={showSetupModal} onOpenChange={setShowSetupModal}>
+			<Dialog
+				open={setupModal !== null}
+				onOpenChange={(open) => !open && setSetupModal(null)}
+			>
 				<DialogContent className="max-w-2xl">
 					<DialogHeader>
-						<DialogTitle>{getMessage().AGENTS_ADD_CONTROLLER}</DialogTitle>
+						<DialogTitle>
+							{setupModal === "coding"
+								? getMessage().AGENTS_ADD_CODING_AGENT
+								: getMessage().AGENTS_ADD_CONTROLLER}
+						</DialogTitle>
 						<DialogDescription>
-							{getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
+							{setupModal === "coding"
+								? getMessage().AGENTS_NO_CODING_AGENTS_DESCRIPTION
+								: getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
 						</DialogDescription>
 					</DialogHeader>
-					<NoController inModal />
+					{setupModal === "coding" ? (
+						<NoCodingAgents compact />
+					) : (
+						<NoController inModal />
+					)}
 				</DialogContent>
 			</Dialog>
 		</div>

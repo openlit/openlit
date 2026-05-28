@@ -42,6 +42,38 @@ export const CodingAgentSessionSubagentCount = "coding_agent.session.subagent_co
 // CodingAgentSessionCostUSD is the realized USD cost.
 export const CodingAgentSessionCostUSD = "coding_agent.session.cost_usd";
 
+// Per-session code-change rollups stamped on the
+// `coding_agent.session` root span at SessionEnd. They aggregate
+// edit / accept / reject / line counts the adapter observed
+// across the session so dashboards don't have to fan out into
+// every `coding_agent.edit.decision` span.
+//
+// Mirrors Claude Code's native `claude_code.lines_of_code.count`
+// metric shape — when the operator ships both paths (hook + native
+// OTel exporter), the query layer coalesces.
+export const CodingAgentSessionLinesAdded = "coding_agent.session.lines.added";
+
+// Session structure attributes.
+export const CodingAgentSessionLinesRemoved = "coding_agent.session.lines.removed";
+
+export const CodingAgentSessionLinesAccepted = "coding_agent.session.lines.accepted";
+
+export const CodingAgentSessionLinesRejected = "coding_agent.session.lines.rejected";
+
+export const CodingAgentSessionEditAcceptCount = "coding_agent.session.edit.accept_count";
+
+export const CodingAgentSessionEditRejectCount = "coding_agent.session.edit.reject_count";
+
+export const CodingAgentSessionCommitCount = "coding_agent.session.commit_count";
+
+export const CodingAgentSessionPRCount = "coding_agent.session.pr_count";
+
+// CodingAgentSessionOutcomeCompleted — the agent reported a
+// successful end of the session (Cursor's reason="completed",
+// Claude Code's "stop", etc). The user may or may not have
+// merged anything; we stay agnostic on downstream VCS state.
+export const CodingAgentSessionOutcomeCompleted = "completed";
+
 // Session outcome values.
 export const CodingAgentSessionOutcomeMerged = "merged";
 
@@ -217,7 +249,8 @@ export const CodingAgentUserClassificationReason = "coding_agent.user.classifica
 export const CodingAgentPolicyPermissionMode = "coding_agent.policy.permission_mode";
 
 // CodingAgentContentCaptureMode is the active capture posture:
-// minimal | metadata_only | full.
+// minimal | metadata_only | full. See `cli/internal/otlp/attrs.go`
+// for the per-mode attribute matrix.
 export const CodingAgentContentCaptureMode = "coding_agent.content_capture_mode";
 
 export const CodingAgentUserClassificationPersonal = "personal";
@@ -228,10 +261,20 @@ export const CodingAgentUserClassificationDisputed = "disputed";
 
 export const CodingAgentUserClassificationUnknown = "unknown";
 
+// CodingAgentContentCaptureMinimal — only session bookends and
+// rolled-up counters. No per-event spans. Cheapest tier; for
+// enterprises that want budget visibility without per-prompt
+// content. See Phase C of the coding-agents plan.
 export const CodingAgentContentCaptureMinimal = "minimal";
 
+// CodingAgentContentCaptureMetadataOnly — per-event spans with
+// counts/timings/cost/repo but redacted bodies (no prompts, no
+// tool args, no shell flags). Recommended default.
 export const CodingAgentContentCaptureMetadataOnly = "metadata_only";
 
+// CodingAgentContentCaptureFull — everything metadata mode has
+// plus prompts, responses, thoughts, tool args, tool results.
+// Tier-2 PII redaction still runs. For trust+safety reviews.
 export const CodingAgentContentCaptureFull = "full";
 
 // CodingAgentLoopDetected is true when an in-session loop is detected.
@@ -264,6 +307,32 @@ export const CodingAgentSpanSubagent = "coding_agent.subagent";
 
 export const CodingAgentSpanLLMTurn = "coding_agent.llm.turn";
 
+// CodingAgentSpanGitCommit is emitted when the agent's Bash /
+// shell tool ran a `git commit` invocation. One span per detected
+// commit, child of the session-root trace.
+export const CodingAgentSpanGitCommit = "coding_agent.git.commit";
+
+// CodingAgentSpanGitPullRequest is emitted when the agent's
+// Bash / shell tool created a pull / merge request (`gh pr
+// create`, `git push -u origin <branch>` that produced a PR URL,
+// etc.).
+export const CodingAgentSpanGitPullRequest = "coding_agent.git.pull_request";
+
+// Git commit / pull-request attributes — attached to the matching
+// `coding_agent.git.commit` / `coding_agent.git.pull_request` span.
+// The body-bearing values (commit message, PR title) are stamped only
+// under `full` content capture; the SHA / URL / number are always
+// safe to stamp.
+export const CodingAgentGitCommitSHA = "coding_agent.git.commit.sha";
+
+export const CodingAgentGitCommitMessage = "coding_agent.git.commit.message";
+
+export const CodingAgentGitPRURL = "coding_agent.git.pull_request.url";
+
+export const CodingAgentGitPRNumber = "coding_agent.git.pull_request.number";
+
+export const CodingAgentGitPRTitle = "coding_agent.git.pull_request.title";
+
 // Event names — emitted as span events for high-cardinality moments
 // where a separate span would be overkill.
 export const CodingAgentEventSessionStart = "coding_agent.session.start";
@@ -281,6 +350,13 @@ export const CodingAgentEventSubagentDone = "coding_agent.subagent.completed";
 export const CodingAgentEventMCPInvoked = "coding_agent.mcp.tool.invoked";
 
 // Metric names — additions on top of gen_ai.* metrics.
+//
+// The `coding_agent.lines_of_code.count`, `coding_agent.code_edit_tool.decision`,
+// `coding_agent.commit.count`, and `coding_agent.pull_request.count`
+// counters mirror Claude Code's native exporter shape
+// (`claude_code.lines_of_code.count` …) under our canonical namespace.
+// They are emitted alongside the matching span so backends that consume
+// metrics (Prometheus / Mimir) see the same numbers traces backends do.
 export const CodingAgentMetricSessionDuration = "coding_agent.session.duration";
 
 export const CodingAgentMetricSessionCostUSD = "coding_agent.session.cost_usd";
@@ -292,6 +368,24 @@ export const CodingAgentMetricSessionSubagents = "coding_agent.session.subagent_
 export const CodingAgentMetricToolDuration = "coding_agent.tool.duration";
 
 export const CodingAgentMetricEditDecisions = "coding_agent.edit.decision.count";
+
+// CodingAgentMetricLinesOfCode is a counter of added / removed
+// lines tagged with `type=added|removed`, `decision`, `vendor`, `user`.
+export const CodingAgentMetricLinesOfCode = "coding_agent.lines_of_code.count";
+
+// CodingAgentMetricEditDecisionCnt is a counter of edit
+// decisions tagged with `decision`, `vendor`, `tool_name`,
+// `language`, `user`. Renamed under our namespace from
+// `claude_code.code_edit_tool.decision`.
+export const CodingAgentMetricEditDecisionCnt = "coding_agent.code_edit_tool.decision";
+
+// CodingAgentMetricCommit is a counter of agent-attributed
+// git commits tagged with `vendor`, `user`.
+export const CodingAgentMetricCommit = "coding_agent.commit.count";
+
+// CodingAgentMetricPullRequest is a counter of agent-attributed
+// pull / merge requests tagged with `vendor`, `user`.
+export const CodingAgentMetricPullRequest = "coding_agent.pull_request.count";
 
 // Schema version of the coding_agent.* wire format. Bump on breaking changes.
 export const CodingAgentSchemaVersion = "1";

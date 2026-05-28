@@ -244,6 +244,32 @@ that carries `coding_agent.session.id` AND `telemetry.sdk.name =
 as SDK rows. Native Claude Code spans use Claude Code's own SDK name
 (not `openlit`), so they too are excluded from SDK discovery.
 
+### Native Claude Code metric mapping
+
+Claude Code's native exporter emits a stable set of metrics under the
+`claude_code.*` namespace. The openlit CLI emits the same observable
+behavior under the canonical `coding_agent.*` namespace so a single
+OpenLit installation can ingest both streams interchangeably and any
+custom Grafana / Mimir dashboard the operator already has continues
+to work. The mapping:
+
+| Native Claude Code metric | Canonical openlit-CLI metric | Notes |
+|---|---|---|
+| `claude_code.session.count` | `coding_agent.session.count` | Counter; vendor-tagged via `coding_agent.client`. Native path is unitless; openlit-CLI counter is `{session}`. |
+| `claude_code.code_edit_tool.decision` | `coding_agent.edit.decision.count` | Counter, tags include `coding_agent.edit.decision` (`accept` / `auto_accepted` / `reject`) and `coding_agent.edit.source`. |
+| `claude_code.lines_of_code.count` | `coding_agent.lines_of_code.count` | Counter, tags include `coding_agent.edit.decision` so the same metric powers "lines added" and "lines accepted vs rejected" without two emitters. |
+| `claude_code.commit.count` | `coding_agent.commit.count` | Counter; the openlit-CLI adapters detect commits from Bash / shell / local_shell hooks and stamp the same canonical tags. |
+| `claude_code.pull_request.count` | `coding_agent.pull_request.count` | Counter; gated on `gh pr create / gh pr new` detection so it survives copy-pasted aliases. |
+| `claude_code.token.usage` | `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` | OpenLit follows the OTel GenAI semantic-conventions for token usage. Tags: `gen_ai.system`, `gen_ai.request.model`. |
+| `claude_code.cost.usage` | `gen_ai.usage.cost` | OTel GenAI semantic-conventions counter, USD. |
+| `claude_code.active_time.total` | (derived) | Active time is rolled up at query time as `duration_ms = ended_at - started_at` on the session-root span; we deliberately don't emit it as a separate counter because it is recoverable from the span timings. |
+
+All canonical counters are emitted via the openlit-go MeterProvider
+in `cli/internal/otlp/metrics.go` and pass through the same OTLP
+exporter as the spans, so a Prometheus / Mimir / Datadog backend
+attached to the OpenLit collector sees the same data as the trace
+backend.
+
 **Does coalesce-at-read scale?** Yes for current OpenLit volumes
 (under ~1M coding-agent spans per tenant per day). ClickHouse
 evaluates the per-row coalesce in a few milliseconds; the query

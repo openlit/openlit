@@ -6,8 +6,13 @@
  * breadcrumbs) as the SDK/controller detail page but swap the body for a
  * tab set that's relevant to a fleet of coding-agent users:
  *
- *   - Overview   — last-24h rollups (sessions, cost, active users, top
- *                  models / tools / repos).
+ *   - Overview   — rollups (sessions, cost, active users, top
+ *                  models / tools / repos) over the time window
+ *                  selected in the global filter picker — no fixed
+ *                  24h fallback. The Overview tab body is the
+ *                  embedded seeded dashboard; its widgets read
+ *                  `{{filter.timeLimit.*}}` so they move with the
+ *                  picker too.
  *   - Sessions   — recent sessions with drill-in to per-session detail.
  *   - Dashboard  — embedded seeded board for this vendor.
  *

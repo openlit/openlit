@@ -9,7 +9,7 @@ import { getExtraTabsContentTypes, normalizeTrace } from "@/helpers/client/trace
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
 import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Clock, Cpu, DollarSign, RefreshCw, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Clock, Copy, Cpu, DollarSign, Info, RefreshCw, Zap } from "lucide-react";
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
@@ -26,6 +26,58 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
+
+// Surfaces inline guidance when a coding-agent span lands without
+// prompt / response / tool-body content (i.e. the CLI is in
+// metadata_only or minimal mode). The component owns its own
+// copy-to-clipboard interaction so the parent stays declarative.
+function ContentCaptureNote() {
+	const m = getMessage();
+	const command = m.CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND;
+	const onCopy = useCallback(async () => {
+		try {
+			await navigator.clipboard.writeText(command);
+			toast.success("Copied to clipboard");
+		} catch {
+			// Clipboard API is gated behind a secure context. Fail
+			// silently rather than throwing — the command text is
+			// still selectable, and a noisy toast on every
+			// HTTP-served dev instance would be worse than a no-op.
+		}
+	}, [command]);
+	return (
+		<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+			<div className="flex items-start gap-2">
+				<Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+				<div className="min-w-0 flex-1">
+					<div className="font-medium">
+						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE}
+					</div>
+					<div className="mt-0.5 leading-snug">
+						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_BODY}
+					</div>
+					<div className="mt-1.5 flex flex-wrap items-center gap-2">
+						<code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+							{command}
+						</code>
+						<button
+							type="button"
+							onClick={onCopy}
+							className="inline-flex items-center gap-1 rounded border border-amber-300 px-1.5 py-0.5 text-[11px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40"
+							aria-label="Copy command"
+						>
+							<Copy className="h-3 w-3" />
+							Copy
+						</button>
+					</div>
+					<div className="mt-1 text-[11px] text-amber-700 dark:text-amber-300/80">
+						{m.CODING_AGENT_CONTENT_CAPTURE_NOTE_FOOTNOTE}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
 	return (
@@ -254,6 +306,24 @@ export function TraceDetailView({
 	const from = searchParams.get("from");
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
+	// Per-session code-impact rollups (lines added / removed,
+	// commits, edit accept/reject, PRs, acceptance %) fetched by
+	// session_id from the trace's coding-agent attributes. Used to
+	// keep the trace-detail header pills populated even when the
+	// operator clicks into a child span (llm.turn / edit.decision /
+	// tool.call) — those don't carry the rollup attrs directly.
+	// Shape mirrors `CodingSessionDigest` from the queries module.
+	const [sessionDigest, setSessionDigest] = useState<{
+		lines_added: number;
+		lines_removed: number;
+		lines_accepted: number;
+		lines_rejected: number;
+		edit_accept_count: number;
+		edit_reject_count: number;
+		commit_count: number;
+		pr_count: number;
+		acceptance_pct: number;
+	} | null>(null);
 	const hierarchySpanIdRef = useRef(spanId);
 	const [listOffset, setListOffset] = useState(() => filterFromSource(from).offset);
 	const [navigationPageOverride, setNavigationPageOverride] = useState<{
@@ -419,6 +489,131 @@ export function TraceDetailView({
 	// flipped modes mid-session.
 	const permissionMode = ca("coding_agent.policy.permission_mode");
 	const terminalType = (resourceAttributes["terminal.type"] || "") as string;
+	// Per-session code-impact rollups. The CLI stamps these on the
+	// session-root span at SessionEnd, so they're only populated on
+	// the root span itself; clicking a child span (llm.turn,
+	// edit.decision, tool.call) would leave the pills empty. We
+	// fold them up to every child span via a tiny digest endpoint
+	// keyed by `coding_agent.session.id`, falling back to the
+	// span-level attribute when the digest hasn't arrived yet (or
+	// can't be fetched). The digest itself reuses the same
+	// greatest(rollup-attr, per-edit-sum) dual-source pattern as
+	// SESSION_BASE_COLUMNS, so the numbers are guaranteed to match
+	// what the Sessions list and the per-session detail view show.
+	const isCodingAgentTrace = !!codingAgentVendor;
+	const codingSessionId = ca("coding_agent.session.id");
+
+	// Fold per-session code-impact rollups up to whichever span the
+	// operator is viewing. The session-root attributes (`session.lines.added`
+	// etc.) only land on SessionEnd; child spans (turns, edits, tool
+	// calls) don't carry them. The digest endpoint runs the same
+	// dual-source greatest() logic the Sessions list does so the
+	// totals can never disagree across surfaces. Best-effort: a
+	// failed lookup just leaves the pills auto-hidden via the
+	// empty-value guard below.
+	useEffect(() => {
+		if (!isCodingAgentTrace || !codingSessionId) {
+			setSessionDigest(null);
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(
+					`/api/coding-agents/sessions/${encodeURIComponent(codingSessionId)}/digest`,
+				);
+				if (!res.ok) return;
+				const body = (await res.json()) as { data?: typeof sessionDigest };
+				if (!cancelled && body?.data) setSessionDigest(body.data);
+			} catch {
+				// Best-effort — pills fall back to the span-level
+				// attributes (which are populated on the session-root span).
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [isCodingAgentTrace, codingSessionId]);
+
+	const linesAdded = ca("coding_agent.session.lines.added");
+	const linesRemoved = ca("coding_agent.session.lines.removed");
+	const linesAddedNum =
+		Number(linesAdded || 0) ||
+		Number(sessionDigest?.lines_added || 0);
+	const linesRemovedNum =
+		Number(linesRemoved || 0) ||
+		Number(sessionDigest?.lines_removed || 0);
+	// Split add/remove counts into their own pills so the header is
+	// scannable at a glance ("+128 added" / "-42 removed") rather
+	// than a packed slash-separated combo. We keep each pill empty
+	// when its underlying count is missing or zero so the row
+	// doesn't render a noisy `+0` / `-0` for sessions that didn't
+	// touch any code yet.
+	const linesAddedValue = linesAddedNum > 0
+		? `+${linesAddedNum.toLocaleString()}`
+		: "";
+	const linesRemovedValue = linesRemovedNum > 0
+		? `-${linesRemovedNum.toLocaleString()}`
+		: "";
+	const editAccepts =
+		Number(ca("coding_agent.session.edit.accept_count") || 0) ||
+		Number(sessionDigest?.edit_accept_count || 0);
+	const editRejects =
+		Number(ca("coding_agent.session.edit.reject_count") || 0) ||
+		Number(sessionDigest?.edit_reject_count || 0);
+	const editTotal = editAccepts + editRejects;
+	const acceptanceValue = editTotal > 0
+		? `${Math.round((editAccepts * 100) / editTotal)}%`
+		: "";
+	const commitCountNum =
+		Number(ca("coding_agent.session.commit_count") || 0) ||
+		Number(sessionDigest?.commit_count || 0);
+	const commitCountValue = commitCountNum > 0
+		? commitCountNum.toLocaleString()
+		: "";
+	const prCountNum =
+		Number(ca("coding_agent.session.pr_count") || 0) ||
+		Number(sessionDigest?.pr_count || 0);
+	const prCountValue = prCountNum > 0 ? prCountNum.toLocaleString() : "";
+
+	// Content-capture banner gating.
+	//
+	// We only show the "prompts are hidden" hint on spans where content
+	// is *expected* (LLM turns, tool / shell / MCP calls, file edits).
+	// Session bookend spans (session, session.model.changed,
+	// session.loop.stop, …) legitimately carry no prompt body, so a
+	// note there would be misleading. If any content-bearing attribute
+	// is non-empty we trust the CLI is already in full mode and hide
+	// the note. Detection is per-span: a single trace can mix captured
+	// and metadata-only spans if the user flipped the flag mid-session.
+	const spanName = trace?.spanName ?? "";
+	const spanLikelyHoldsContent =
+		spanName === "coding_agent.llm.turn" ||
+		spanName.startsWith("coding_agent.tool.") ||
+		spanName.startsWith("coding_agent.shell.") ||
+		spanName.startsWith("coding_agent.mcp.") ||
+		spanName.startsWith("coding_agent.edit.") ||
+		spanName === "coding_agent.git.commit" ||
+		spanName === "coding_agent.git.pull_request";
+	const contentProbeKeys = [
+		"gen_ai.input.messages",
+		"gen_ai.output.messages",
+		"gen_ai.prompt",
+		"gen_ai.completion",
+		"coding_agent.tool.command",
+		"coding_agent.tool.input",
+		"coding_agent.tool.args",
+		"coding_agent.tool.result",
+		"coding_agent.tool.output",
+		"coding_agent.session.agent.message",
+	];
+	const hasCapturedContent = contentProbeKeys.some((k) => {
+		const v = ca(k);
+		return typeof v === "string" && v.trim().length > 0;
+	});
+	const showContentCaptureNote =
+		isCodingAgentTrace && spanLikelyHoldsContent && !hasCapturedContent;
+
 	const hasEvaluationPanel = trace
 		? getExtraTabsContentTypes(trace).includes("Evaluation")
 		: false;
@@ -563,9 +758,13 @@ export function TraceDetailView({
 					<div className="flex flex-wrap gap-1.5">
 						<MetaPill label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
 						<MetaPill label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
-						<MetaPill label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
-						<MetaPill label="Service Namespace" value={serviceNamespace} />
-						<MetaPill label="Deployment Environment" value={deploymentEnvironment} />
+						{!isCodingAgentTrace && (
+							<>
+								<MetaPill label={m.OBSERVABILITY_SERVICE} value={trace.serviceName} />
+								<MetaPill label="Service Namespace" value={serviceNamespace} />
+								<MetaPill label="Deployment Environment" value={deploymentEnvironment} />
+							</>
+						)}
 						<MetaPill
 							label="Coding Agent"
 							value={codingAgentVendor}
@@ -582,11 +781,33 @@ export function TraceDetailView({
 						<MetaPill label="Working Folder" value={workingDirLabel} />
 						<MetaPill label="Repository" value={repoLabel} />
 						<MetaPill label="Branch" value={branchName} />
-						<MetaPill label="Mode" value={permissionMode} />
+						{!isCodingAgentTrace && (
+							<MetaPill label="Mode" value={permissionMode} />
+						)}
 						<MetaPill label="Terminal" value={terminalType} />
+						{isCodingAgentTrace && (
+							<>
+								{/* Code-impact pills, anchored next to
+								    Terminal so the row reads as one
+								    "what was done in this session"
+								    cluster. Order: Commits first
+								    (whether work shipped), then the
+								    add/remove split (volume), then
+								    Acceptance + PRs as supporting
+								    quality / shipping signals. */}
+								<MetaPill label="Commits" value={commitCountValue} />
+								<MetaPill label="Lines added" value={linesAddedValue} />
+								<MetaPill label="Lines deleted" value={linesRemovedValue} />
+								<MetaPill label="Acceptance" value={acceptanceValue} />
+								<MetaPill label="PRs" value={prCountValue} />
+							</>
+						)}
 						<MetaPill label="Outcome" value={sessionOutcome} />
 						<MetaPill label="Classification" value={userClassification} />
 					</div>
+					{showContentCaptureNote && (
+						<ContentCaptureNote />
+					)}
 					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
 							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>

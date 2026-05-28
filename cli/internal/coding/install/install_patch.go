@@ -11,8 +11,11 @@ import (
 
 // patchManifestBytes rewrites hook manifests so they do not depend on the
 // caller's PATH. GUI apps (VS Code, Cursor) often launch hook subprocesses
-// with a minimal PATH that omits ~/.local/bin.
-func patchManifestBytes(rel string, body []byte, openlitBin string) []byte {
+// with a minimal PATH that omits ~/.local/bin. Replacing the bare
+// `openlit` command with the absolute path of the binary that ran
+// `openlit coding install` removes that whole class of "hooks fire but
+// don't find the CLI" failures.
+func patchManifestBytes(_ string, body []byte, openlitBin string) []byte {
 	s := string(body)
 	if strings.Contains(s, "__OPENLIT_BIN__") {
 		s = strings.ReplaceAll(s, "__OPENLIT_BIN__", openlitBin)
@@ -20,10 +23,6 @@ func patchManifestBytes(rel string, body []byte, openlitBin string) []byte {
 	if strings.Contains(s, "openlit coding hook") {
 		quoted := shellQuote(openlitBin)
 		s = strings.ReplaceAll(s, "openlit coding hook", quoted+" coding hook")
-	}
-	if strings.HasSuffix(rel, "run.sh") && strings.Contains(s, "exec openlit coding hook") {
-		quoted := shellQuote(openlitBin)
-		s = strings.ReplaceAll(s, "exec openlit coding hook", "exec "+quoted+" coding hook")
 	}
 	return []byte(s)
 }
@@ -201,10 +200,6 @@ func extractEmbeddedDir(src, dest, openlitBin string) error {
 		if mkErr := os.MkdirAll(filepath.Dir(target), 0o755); mkErr != nil {
 			return mkErr
 		}
-		mode := fs.FileMode(0o644)
-		if strings.HasSuffix(rel, ".sh") {
-			mode = 0o755
-		}
-		return os.WriteFile(target, body, mode)
+		return os.WriteFile(target, body, 0o644)
 	})
 }

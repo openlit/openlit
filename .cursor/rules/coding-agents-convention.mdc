@@ -67,6 +67,14 @@ These keys MUST land on every adapter's spans. Where the value is unknown, leave
 | `coding_agent.session.cost_usd` | When known | `float64`, USD |
 | `coding_agent.session.tool_call_count` | ✅ | `int64` |
 | `coding_agent.session.subagent_count` | When subagents | `int64` |
+| `coding_agent.session.lines.added` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.added` across the session's edit-decision spans (any decision). |
+| `coding_agent.session.lines.removed` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.removed` across edit-decision spans. |
+| `coding_agent.session.lines.accepted` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.added` for edit-decision spans where `coding_agent.edit.decision IN ('accept', 'auto_accepted')`. |
+| `coding_agent.session.lines.rejected` | When edits captured | `int64`. Same shape as `lines.accepted` but for `decision = 'reject'`. |
+| `coding_agent.session.edit.accept_count` | When edits captured | `int64`. Count of edit-decision spans with decision = accept / auto_accepted. |
+| `coding_agent.session.edit.reject_count` | When edits captured | `int64`. Count of edit-decision spans with decision = reject. |
+| `coding_agent.session.commit_count` | When commits detected | `int64`. Count of `coding_agent.git.commit` spans the adapter emitted for this session. |
+| `coding_agent.session.pr_count` | When PRs detected | `int64`. Count of `coding_agent.git.pull_request` spans. |
 | `gen_ai.usage.input_tokens` | When known | `int64` |
 | `gen_ai.usage.output_tokens` | When known | `int64` |
 | `gen_ai.usage.total_tokens` | When known | `int64` |
@@ -77,6 +85,15 @@ These keys MUST land on every adapter's spans. Where the value is unknown, leave
 | `coding_agent.user.classification.reason` | ✅ | Human-readable reason |
 | `coding_agent.policy.permission_mode` | When set | Vendor permission mode |
 | `coding_agent.vcs.dirty` | When repo present | Boolean |
+
+The eight `coding_agent.session.{lines,edit,commit,pr}*` rollup
+attributes are an additive fast path — they let the per-session
+`listSessions` query render code-impact without scanning every
+`coding_agent.edit.decision` / `coding_agent.git.*` child span.
+For sessions where the rollup is missing (Codex never emits a
+`SessionEnd`; in-flight CC / Cursor sessions also lack the rollup),
+the query layer falls back to per-event aggregation with the
+`greatest(rollup, sum)` pattern documented in `queries.ts`.
 
 **LLM turn span** (`coding_agent.llm.turn`):
 
@@ -137,6 +154,31 @@ These keys MUST land on every adapter's spans. Where the value is unknown, leave
 | `coding_agent.subagent.type` | ✅ | Vendor's subagent type label |
 | `coding_agent.agent.parent_id` | ✅ | Parent chat id (also as resource attr) |
 | `gen_ai.tool.call.id` | When spawned by Task tool | Tool use id that spawned it |
+
+**Git commit span** (`coding_agent.git.commit`):
+
+Detected by parsing `git commit` invocations out of the Bash /
+shell / local_shell tool's command + stdout (see
+`cli/internal/coding/detect/detect.go`).
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.git.commit.sha` | When stdout has it | Hex SHA from `git commit` stdout. Gated by capture mode (stripped in `metadata_only`). |
+| `coding_agent.git.commit.message` | When command has it | First line of `-m '…'`. Gated. |
+| `coding_agent.tool.name` | ✅ | Originating tool — `Bash`, `local_shell`, `shell`. |
+| `coding_agent.tool.working_dir` | When known | Repo cwd. |
+
+**Git pull-request span** (`coding_agent.git.pull_request`):
+
+Detected by parsing `gh pr create` / `gh pr new` invocations.
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.git.pr.url` | When stdout has it | PR URL from `gh pr` stdout. Gated. |
+| `coding_agent.git.pr.number` | When URL has it | Numeric ID parsed out of the URL. |
+| `coding_agent.git.pr.title` | When command has it | `--title '…'`. Gated. |
+| `coding_agent.tool.name` | ✅ | Originating tool — `Bash`, `local_shell`, `shell`. |
+| `coding_agent.tool.working_dir` | When known | Repo cwd. |
 
 ## 3. Inbound mapping — Cursor → canonical
 

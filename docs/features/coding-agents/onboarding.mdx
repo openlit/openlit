@@ -27,16 +27,20 @@ There is no managed cloud for coding-agent telemetry.
 
 ## 1. Install the CLI
 
-Pick whichever path matches your OS / preferences. All three install
-the same `openlit` binary.
+Pick the path that matches your OS. All paths install the same
+`openlit` binary built by `cli-release.yml`.
 
 <CodeGroup>
-```bash curl
-curl -fsSL https://openlit.io/install.sh | sh
+```bash macOS
+brew install openlit/openlit/openlit
 ```
 
-```bash homebrew
-brew install openlit/openlit/openlit
+```bash Linux
+curl -fsSL https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.sh | sh
+```
+
+```powershell Windows
+iwr -useb https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.ps1 | iex
 ```
 
 ```bash docker
@@ -44,8 +48,13 @@ docker run --rm -it ghcr.io/openlit/openlit-cli:latest --help
 ```
 </CodeGroup>
 
-The script installs to `~/.openlit/bin/openlit`. Add the directory to
-your PATH (the installer prints the exact line).
+The Linux and Windows scripts install to `~/.openlit/bin/openlit` and
+`%USERPROFILE%\.openlit\bin\openlit.exe` respectively. The Linux
+script prints a PATH-add hint if the directory is not already on
+`$PATH`; the Windows script updates user-scope PATH automatically
+(open a new terminal to pick it up).
+
+If you prefer to build from source: `go install github.com/openlit/openlit/cli/cmd/openlit@latest`.
 
 ## 2. Configure once
 
@@ -65,18 +74,21 @@ Equivalent environment variables (precedence: flags > env > config file):
 | `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP endpoint of your collector |
 | `OPENLIT_API_KEY`       | Authenticates the OTLP exporter |
 | `OPENLIT_USER`          | Optional override for `gen_ai.user.name` (email or login) |
-| `OPENLIT_CODING_CONTENT_CAPTURE` | `minimal` \| `metadata_only` \| `full` |
+| `OPENLIT_CODING_CONTENT_CAPTURE` | `minimal` \| `metadata_only` \| `full` *(default: `full`)* |
 | `OPENLIT_REDACT_AGGRESSIVE` | `1` enables tier-2 secret scrubbing |
 
 Standard `OTEL_EXPORTER_OTLP_*` variables are honoured as fallbacks
 so existing OTel users can reuse their setup.
 
 <Tip>
-`OPENLIT_CODING_CONTENT_CAPTURE` defaults to `metadata_only`. Set it
-to `full` only after reviewing the redaction rules — coding-agent
-sessions can include source code, diffs, and tool inputs. Use
-`minimal` if you only need cost + activity dashboards and not the
-per-event timeline.
+`OPENLIT_CODING_CONTENT_CAPTURE` defaults to `full` so the trace
+detail view is useful on first use — prompt bodies, agent replies,
+and tool I/O are stamped onto every per-event span, scrubbed by the
+tier-1 secret redactor on the way out. Switch to `metadata_only`
+when rolling out across a team where prompts may carry confidential
+material (the trace-detail page will surface a note on every span
+explaining how). Use `minimal` if you only need cost + activity
+dashboards and not the per-event timeline.
 </Tip>
 
 ## 3. Wire each vendor
@@ -140,11 +152,29 @@ for the details.
 openlit coding install --vendor=cursor
 ```
 
-Manifest path: `~/.cursor/plugins/openlit/`. All Cursor hook events
-(sessionStart/End, prompt/response/thought, tool + shell + MCP
-phases, subagent lifecycle, file edits, preCompact) are wired
-through a wrapper script (`scripts/run.sh`) that resolves the
-`openlit` binary on PATH and forwards the event payload.
+Manifest path: `~/.cursor/hooks.json` (user scope — applies to every
+workspace you open in Cursor; works the same on macOS, Linux, and
+Windows). All Cursor hook events (sessionStart/End, prompt /
+response / thought, tool + shell + MCP phases, subagent lifecycle,
+file edits, preCompact) invoke
+`openlit coding hook --vendor=cursor --event=<name>` directly.
+At install time the `openlit` token in each `command` is rewritten
+to the absolute path of the CLI binary that ran
+`openlit coding install`, which sidesteps the minimal-PATH that
+GUI-launched Cursor windows inherit on macOS and Linux, and makes
+the same manifest work on Windows where there is no shell wrapper.
+
+<Note>
+We merge into `~/.cursor/hooks.json` (user scope) rather than drop
+a plugin tree elsewhere because Cursor only auto-discovers plugins
+that were registered through its in-app `/add-plugin` flow.
+User-scope hooks are the supported way to install agent-wide hooks
+without an in-app step, and re-running
+`openlit coding install --vendor=cursor` is idempotent: prior
+openlit entries are dropped before the new ones are appended, and
+any third-party entries you (or another tool) have added are left
+in place.
+</Note>
 
 </Tab>
 <Tab title="Codex">
@@ -212,11 +242,13 @@ Dashboard tabs.
 
 | Surface | What you get out of the box |
 |---|---|
-| `/agents` row | Per-vendor row with sessions/24h, active users/24h, cost/24h |
-| Overview tab | Stat tiles + client/version metadata |
-| Sessions tab | Last 24h of `coding_agent.session.id` rows w/ outcome, cost, classification |
-| Dashboard tab | Seeded "Coding Agents" board (vendor breakdown, top tools, top users, top repos, classification, MCP servers, edit decisions) |
-| Custom dashboards | Same data — query `otel_traces WHERE SpanName IN ('coding_agent.session', …)` |
+| `/agents` row | Per-vendor row with sessions, active users, cost, lines added/removed, acceptance %, commits and PRs — all evaluated over the time range selected in the global filter picker (the materialized rollups are overlaid with a live recompute for any custom window). |
+| Overview tab | The seeded "Coding Agents" dashboard, scoped to this vendor, honoring the picker. |
+| Sessions tab | `coding_agent.session.id` rows within the selected window — outcome, cost, classification, per-session lines (+/−), acceptance %, commits, PRs. |
+| Dashboard tab | Seeded board (vendor breakdown, top tools, top users, top repos, classification, MCP servers, edit decisions, lines accepted, acceptance %, commits, PRs, lines-over-time area, top users by accepted, acceptance breakdown pie). Every widget reads `{{filter.timeLimit.start}}` / `{{filter.timeLimit.end}}`. |
+| Per-user page | Code-impact stat row (lines added, lines accepted, acceptance %, commits, PRs) above the user-scoped dashboard. The stat row re-fetches when the picker changes, so the row and the widgets below it stay in lockstep. |
+| Custom dashboards | Same data — query `otel_traces WHERE SpanName IN ('coding_agent.session', 'coding_agent.edit.decision', 'coding_agent.git.commit', 'coding_agent.git.pull_request', …)` |
+| Metrics pipeline | `coding_agent.session.count`, `coding_agent.session.duration`, `coding_agent.tool.call.count`, `coding_agent.lines_of_code.count`, `coding_agent.edit.decision.count`, `coding_agent.commit.count`, `coding_agent.pull_request.count` counters emitted via the openlit-go MeterProvider |
 
 ## Privacy & governance
 
@@ -231,6 +263,44 @@ Dashboard tabs.
   dispute button on the Sessions tab is planned for the next release.
 - **k=5 cohort floor**: viewer-tier accounts cannot see per-user
   attribution below five sessions. Admins can.
+
+## Stop tracking / uninstall
+
+The inverse of `openlit coding install`. Removes the per-vendor host
+plugin manifests written by install, deregisters the plugin from the
+vendor's own CLI where applicable (Claude Code, Codex), and leaves
+your shared config alone by default so you can re-onboard without
+re-entering credentials.
+
+```bash
+openlit coding uninstall --vendor=cursor          # one vendor
+openlit coding uninstall --vendor=all             # every vendor at once
+openlit coding uninstall --vendor=all --purge     # also drop ~/.config/openlit + session-state cache
+openlit coding uninstall --vendor=cursor --dry-run  # preview without touching disk
+```
+
+What each flag removes:
+
+| Path | Removed by `--vendor=<v>` | Removed by `--purge` |
+|---|---|---|
+| `~/.claude/plugins/openlit-cc/` | ✓ (when `<v>` is `claude-code` or `all`) | — |
+| `~/.local/share/openlit/claude-marketplace/` | ✓ (when `<v>` is `claude-code` or `all`) | — |
+| openlit entries in `~/.cursor/hooks.json` (other tools' entries preserved; file deleted if it ends up empty) | ✓ (when `<v>` is `cursor` or `all`) | — |
+| `~/.local/share/openlit/codex-marketplace/` | ✓ (when `<v>` is `codex` or `all`) | — |
+| `~/.copilot/plugins/openlit/` | ✓ (when `<v>` is `copilot` or `all`) | — |
+| `claude plugin uninstall openlit-cc@openlit` | ✓ best-effort | — |
+| `codex plugin remove openlit@openlit` + `codex plugin marketplace remove openlit` | ✓ best-effort | — |
+| `~/.config/openlit/` (your `configure` output) | — | ✓ |
+| `<UserCacheDir>/openlit/sessions/` (session-state cache) | — | ✓ |
+
+The `openlit` binary itself is **not** touched. Uninstall it the way
+you installed it:
+
+```bash
+brew uninstall openlit                # Homebrew
+rm ~/.openlit/bin/openlit             # curl|sh installer
+rm $(go env GOPATH)/bin/openlit       # go install
+```
 
 ## Troubleshooting
 

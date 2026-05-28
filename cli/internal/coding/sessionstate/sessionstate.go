@@ -107,6 +107,32 @@ type State struct {
 	OutputTokens   int64   `json:"output_tokens,omitempty"`
 	CostUSD        float64 `json:"cost_usd,omitempty"`
 
+	// Per-session code-change rollups accumulated across hook
+	// invocations and stamped on the session-root span at
+	// SessionEnd. All four line totals are absolute (not deltas).
+	// Adapters bump these via the shared bumpCounters helper
+	// regardless of content-capture mode — line counts are not
+	// considered user content and are always safe to record.
+	LinesAdded      int `json:"lines_added,omitempty"`
+	LinesRemoved    int `json:"lines_removed,omitempty"`
+	LinesAccepted   int `json:"lines_accepted,omitempty"`
+	LinesRejected   int `json:"lines_rejected,omitempty"`
+	EditAcceptCount int `json:"edit_accept_count,omitempty"`
+	EditRejectCount int `json:"edit_reject_count,omitempty"`
+	CommitCount     int `json:"commit_count,omitempty"`
+	PRCount         int `json:"pr_count,omitempty"`
+
+	// PendingEdits is the rejection-heuristic backing store for
+	// vendors that emit a Pre+Post pair around their edit tool
+	// (Claude Code's PreToolUse / PostToolUse for Edit / Write /
+	// MultiEdit). Keyed by the vendor's tool-use id, value is the
+	// proposed change we'd attribute as rejected if the Post never
+	// fires for this turn. UserPromptSubmit / SessionEnd drain
+	// leftover entries as rejections; PostToolUse resolves them as
+	// accepts and removes the entry. Bounded to ~32 entries per
+	// session so a runaway agent can't grow the cache unbounded.
+	PendingEdits map[string]*PendingEdit `json:"pending_edits,omitempty"`
+
 	// TerminalType is the resolved IDE/terminal hosting the agent
 	// (e.g. `vscode`, `cursor`, `iterm`). Sourced from Claude Code's
 	// transcript `entrypoint` (most reliable) or env / process-tree
@@ -213,6 +239,29 @@ type CodexSubagentLink struct {
 	AgentDepth      int    `json:"agent_depth,omitempty"`
 }
 
+// PendingEdit is one row in the rejection-heuristic backing store —
+// see `State.PendingEdits`. Adapters stash a PendingEdit on the
+// vendor's pre-edit hook (Claude Code's PreToolUse) and either
+// resolve+remove it on the matching post-edit hook (PostToolUse,
+// accept path) or drain it as rejected when the next UserPromptSubmit
+// arrives without a paired PostToolUse (reject path).
+//
+// LinesAdded / LinesRemoved are inferred from the proposed change at
+// pre-time (Claude Code's `new_string` / `old_string` for Edit;
+// `content` for Write). Counts inevitably under-count when the
+// vendor's tool ultimately wrote a different range, but they're
+// directionally honest and the dominant pattern is "pre and post
+// agree on the change".
+type PendingEdit struct {
+	ToolUseID    string `json:"tool_use_id,omitempty"`
+	ToolName     string `json:"tool_name,omitempty"`
+	FilePath     string `json:"file_path,omitempty"`
+	LinesAdded   int    `json:"lines_added,omitempty"`
+	LinesRemoved int    `json:"lines_removed,omitempty"`
+	Language     string `json:"language,omitempty"`
+	At           int64  `json:"at,omitempty"` // unix epoch ms
+}
+
 var safeFilenameRe = regexp.MustCompile(`[^A-Za-z0-9_.-]`)
 
 // path returns the cache file for `sessionID` and `vendor`.
@@ -309,6 +358,153 @@ func Load(sessionID, vendor string) *State {
 		out = &s
 	})
 	return out
+}
+
+// pendingEditCap bounds how many in-flight pending edits a single
+// session can hold. Vendors that emit Pre+Post pairs (Claude Code's
+// Edit / Write / MultiEdit) typically have <=1 in-flight at a time;
+// the cap exists to defend against the pathological case where a hung
+// session never drains its pre-edits and the cache grows unbounded.
+const pendingEditCap = 32
+
+// AddPendingEdit stashes the proposed edit body under the vendor's
+// tool-use id. The function is best-effort and silently drops new
+// entries when the cap is hit so the cache cannot grow unbounded.
+// Counts as a no-op when the session id or tool-use id is empty.
+func AddPendingEdit(sessionID, vendor, toolUseID string, edit *PendingEdit) {
+	if sessionID == "" || vendor == "" || toolUseID == "" || edit == nil {
+		return
+	}
+	st := Load(sessionID, vendor)
+	if st == nil {
+		st = &State{}
+	}
+	if st.PendingEdits == nil {
+		st.PendingEdits = make(map[string]*PendingEdit, 4)
+	}
+	if _, exists := st.PendingEdits[toolUseID]; !exists && len(st.PendingEdits) >= pendingEditCap {
+		// Drop oldest by simple scan; the cap is only hit in the
+		// pathological case where Post never fires, so a linear
+		// scan is fine.
+		var oldestKey string
+		var oldestAt int64
+		for k, v := range st.PendingEdits {
+			if v == nil {
+				continue
+			}
+			if oldestKey == "" || v.At < oldestAt {
+				oldestKey = k
+				oldestAt = v.At
+			}
+		}
+		if oldestKey != "" {
+			delete(st.PendingEdits, oldestKey)
+		}
+	}
+	edit.ToolUseID = toolUseID
+	if edit.At == 0 {
+		edit.At = time.Now().UnixMilli()
+	}
+	st.PendingEdits[toolUseID] = edit
+	Save(sessionID, vendor, st)
+}
+
+// TakePendingEdit removes and returns the pending edit by tool-use id.
+// Returns nil when no entry exists. The caller is responsible for
+// emitting the resolved EditDecision span / bumping counters; this
+// function only owns the cache write.
+func TakePendingEdit(sessionID, vendor, toolUseID string) *PendingEdit {
+	if sessionID == "" || vendor == "" || toolUseID == "" {
+		return nil
+	}
+	st := Load(sessionID, vendor)
+	if st == nil || st.PendingEdits == nil {
+		return nil
+	}
+	got, ok := st.PendingEdits[toolUseID]
+	if !ok {
+		return nil
+	}
+	delete(st.PendingEdits, toolUseID)
+	Save(sessionID, vendor, st)
+	return got
+}
+
+// DrainPendingEdits removes and returns all currently-pending edits.
+// Called on UserPromptSubmit / SessionEnd to attribute lingering
+// Pre-without-Post entries as user rejections.
+func DrainPendingEdits(sessionID, vendor string) []*PendingEdit {
+	if sessionID == "" || vendor == "" {
+		return nil
+	}
+	st := Load(sessionID, vendor)
+	if st == nil || len(st.PendingEdits) == 0 {
+		return nil
+	}
+	out := make([]*PendingEdit, 0, len(st.PendingEdits))
+	for _, v := range st.PendingEdits {
+		if v != nil {
+			out = append(out, v)
+		}
+	}
+	st.PendingEdits = nil
+	Save(sessionID, vendor, st)
+	return out
+}
+
+// BumpCodeCounters accumulates code-change totals onto the cached
+// session state. Adapters call this from edit-tool hook handlers;
+// the otlp emitter reads the totals on sessionEnd and stamps them on
+// the session-root span. The function is a no-op when no deltas are
+// supplied so callers don't need to gate the call site.
+func BumpCodeCounters(sessionID, vendor string, linesAdded, linesRemoved, linesAccepted, linesRejected, editAccepts, editRejects int) {
+	if sessionID == "" || vendor == "" {
+		return
+	}
+	if linesAdded == 0 && linesRemoved == 0 && linesAccepted == 0 && linesRejected == 0 && editAccepts == 0 && editRejects == 0 {
+		return
+	}
+	st := Load(sessionID, vendor)
+	if st == nil {
+		st = &State{}
+	}
+	st.LinesAdded += linesAdded
+	st.LinesRemoved += linesRemoved
+	st.LinesAccepted += linesAccepted
+	st.LinesRejected += linesRejected
+	st.EditAcceptCount += editAccepts
+	st.EditRejectCount += editRejects
+	Save(sessionID, vendor, st)
+}
+
+// BumpCommitCount bumps the per-session commit counter. Called once
+// per agent-attributed `git commit` invocation detected by the
+// vendor adapter.
+func BumpCommitCount(sessionID, vendor string) {
+	if sessionID == "" || vendor == "" {
+		return
+	}
+	st := Load(sessionID, vendor)
+	if st == nil {
+		st = &State{}
+	}
+	st.CommitCount++
+	Save(sessionID, vendor, st)
+}
+
+// BumpPRCount bumps the per-session pull-request counter. Called once
+// per agent-attributed PR / MR creation detected by the vendor
+// adapter.
+func BumpPRCount(sessionID, vendor string) {
+	if sessionID == "" || vendor == "" {
+		return
+	}
+	st := Load(sessionID, vendor)
+	if st == nil {
+		st = &State{}
+	}
+	st.PRCount++
+	Save(sessionID, vendor, st)
 }
 
 // Save writes `s` to the cache file for the (sessionID, vendor) pair.

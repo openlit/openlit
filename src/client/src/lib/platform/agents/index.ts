@@ -81,6 +81,14 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 		coding_session_count_24h: Number(row.coding_session_count_24h || 0),
 		coding_cost_usd_24h: Number(row.coding_cost_usd_24h || 0),
 		coding_active_users_24h: Number(row.coding_active_users_24h || 0),
+		coding_lines_added_24h: Number(row.coding_lines_added_24h || 0),
+		coding_lines_removed_24h: Number(row.coding_lines_removed_24h || 0),
+		coding_lines_accepted_24h: Number(row.coding_lines_accepted_24h || 0),
+		coding_lines_rejected_24h: Number(row.coding_lines_rejected_24h || 0),
+		coding_edit_accept_24h: Number(row.coding_edit_accept_24h || 0),
+		coding_edit_reject_24h: Number(row.coding_edit_reject_24h || 0),
+		coding_commit_count_24h: Number(row.coding_commit_count_24h || 0),
+		coding_pr_count_24h: Number(row.coding_pr_count_24h || 0),
 	};
 }
 
@@ -248,7 +256,15 @@ const SELECT_COLUMNS = `
 	s.coding_agent_vendor AS coding_agent_vendor,
 	s.coding_session_count_24h AS coding_session_count_24h,
 	s.coding_cost_usd_24h AS coding_cost_usd_24h,
-	s.coding_active_users_24h AS coding_active_users_24h
+	s.coding_active_users_24h AS coding_active_users_24h,
+	s.coding_lines_added_24h AS coding_lines_added_24h,
+	s.coding_lines_removed_24h AS coding_lines_removed_24h,
+	s.coding_lines_accepted_24h AS coding_lines_accepted_24h,
+	s.coding_lines_rejected_24h AS coding_lines_rejected_24h,
+	s.coding_edit_accept_24h AS coding_edit_accept_24h,
+	s.coding_edit_reject_24h AS coding_edit_reject_24h,
+	s.coding_commit_count_24h AS coding_commit_count_24h,
+	s.coding_pr_count_24h AS coding_pr_count_24h
 `;
 
 /**
@@ -477,6 +493,14 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 					coding_session_count_24h: liveRow.coding_session_count_24h,
 					coding_active_users_24h: liveRow.coding_active_users_24h,
 					coding_cost_usd_24h: liveRow.coding_cost_usd_24h,
+					coding_lines_added_24h: liveRow.coding_lines_added_24h,
+					coding_lines_removed_24h: liveRow.coding_lines_removed_24h,
+					coding_lines_accepted_24h: liveRow.coding_lines_accepted_24h,
+					coding_lines_rejected_24h: liveRow.coding_lines_rejected_24h,
+					coding_edit_accept_24h: liveRow.coding_edit_accept_24h,
+					coding_edit_reject_24h: liveRow.coding_edit_reject_24h,
+					coding_commit_count_24h: liveRow.coding_commit_count_24h,
+					coding_pr_count_24h: liveRow.coding_pr_count_24h,
 					// `last_seen` from the live recompute reflects the
 					// most recent span inside the user's window; reuse
 					// it so the "Last seen" column doesn't show a

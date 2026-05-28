@@ -145,6 +145,36 @@ func setSessionAttrs(span trace.Span, s normalize.Session, scrub scrubFn) {
 		span.SetAttributes(attribute.Int64(semconv.GenAIUsageTotalTokens, s.TotalTokens))
 	}
 
+	// Code-change rollups — always stamped onto the session-root span
+	// regardless of content-capture mode. Line / accept / reject /
+	// commit / pr counts are scalar telemetry, not user content, so
+	// minimal mode keeps them; otherwise dashboards lose the most
+	// useful column on the Sessions list.
+	if s.LinesAdded > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionLinesAdded, s.LinesAdded))
+	}
+	if s.LinesRemoved > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionLinesRemoved, s.LinesRemoved))
+	}
+	if s.LinesAccepted > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionLinesAccepted, s.LinesAccepted))
+	}
+	if s.LinesRejected > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionLinesRejected, s.LinesRejected))
+	}
+	if s.EditAcceptCount > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionEditAcceptCount, s.EditAcceptCount))
+	}
+	if s.EditRejectCount > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionEditRejectCount, s.EditRejectCount))
+	}
+	if s.CommitCount > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionCommitCount, s.CommitCount))
+	}
+	if s.PRCount > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentSessionPRCount, s.PRCount))
+	}
+
 	// VCS bridging — use OTel-standard vcs.* keys for the values that
 	// have standard equivalents, plus our own coding_agent.vcs.dirty
 	// boolean for the v1 metric.
@@ -457,6 +487,53 @@ func setSubagentAttrs(span trace.Span, s normalize.Subagent, scrub scrubFn) {
 	if len(s.ModifiedFiles) > 0 {
 		span.SetAttributes(attribute.StringSlice("coding_agent.subagent.modified_files", s.ModifiedFiles))
 		span.SetAttributes(attribute.Int("coding_agent.subagent.modified_files.count", len(s.ModifiedFiles)))
+	}
+}
+
+// setGitCommitAttrs stamps the canonical attributes for a single
+// `coding_agent.git.commit` span. Message body is gated by content
+// capture; SHA + user + working dir are always safe.
+func setGitCommitAttrs(span trace.Span, c normalize.GitCommit, scrub scrubFn, capture string) {
+	span.SetAttributes(attribute.String(semconv.CodingAgentHookSchemaVersion, semconv.CodingAgentSchemaVersion))
+	setStr(span, semconv.CodingAgentSessionID, c.SessionID, scrub)
+	setStr(span, semconv.CodingAgentClient, c.Vendor, scrub)
+	if c.UserID != "" {
+		setStr(span, semconv.GenAIRequestUser, c.UserID, scrub)
+	}
+	if c.Tool != "" {
+		setStr(span, semconv.GenAIToolName, c.Tool, scrub)
+	}
+	setStr(span, semconv.CodingAgentGitCommitSHA, c.SHA, scrub)
+	if c.WorkingDir != "" {
+		setStr(span, "code.cwd", c.WorkingDir, scrub)
+	}
+	if c.Message != "" && bodyAllowed(capture) {
+		setStr(span, semconv.CodingAgentGitCommitMessage, truncate(c.Message, 4096), scrub)
+	}
+}
+
+// setGitPullRequestAttrs stamps the canonical attributes for a single
+// `coding_agent.git.pull_request` span. Title body is gated by
+// content capture; URL + number + user + working dir are always safe.
+func setGitPullRequestAttrs(span trace.Span, p normalize.GitPullRequest, scrub scrubFn, capture string) {
+	span.SetAttributes(attribute.String(semconv.CodingAgentHookSchemaVersion, semconv.CodingAgentSchemaVersion))
+	setStr(span, semconv.CodingAgentSessionID, p.SessionID, scrub)
+	setStr(span, semconv.CodingAgentClient, p.Vendor, scrub)
+	if p.UserID != "" {
+		setStr(span, semconv.GenAIRequestUser, p.UserID, scrub)
+	}
+	if p.Tool != "" {
+		setStr(span, semconv.GenAIToolName, p.Tool, scrub)
+	}
+	setStr(span, semconv.CodingAgentGitPRURL, p.URL, scrub)
+	if p.Number > 0 {
+		span.SetAttributes(attribute.Int(semconv.CodingAgentGitPRNumber, p.Number))
+	}
+	if p.WorkingDir != "" {
+		setStr(span, "code.cwd", p.WorkingDir, scrub)
+	}
+	if p.Title != "" && bodyAllowed(capture) {
+		setStr(span, semconv.CodingAgentGitPRTitle, truncate(p.Title, 2048), scrub)
 	}
 }
 

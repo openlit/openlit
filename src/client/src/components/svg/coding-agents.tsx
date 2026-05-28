@@ -122,6 +122,30 @@ export function hasCodingAgentVendorIcon(
 }
 
 /**
+ * Pretty display label for a coding-agent vendor id. The vendor ids
+ * we ship internally are kebab-case (`claude-code`) or lowercase
+ * (`cursor`, `codex`); call-sites that show a human-facing string
+ * should funnel through this helper so the spelling stays consistent
+ * across the hub table, the agent detail header, trace pills, and the
+ * onboarding tabs. New vendors only need a row here once their icon
+ * lands.
+ */
+const CODING_AGENT_VENDOR_LABELS: Record<string, string> = {
+	cursor: "Cursor",
+	"claude-code": "Claude Code",
+	codex: "Codex",
+	copilot: "Copilot CLI",
+	windsurf: "Windsurf",
+};
+
+export function codingAgentVendorLabel(
+	vendor: string | null | undefined,
+): string {
+	if (!vendor) return "Unknown";
+	return CODING_AGENT_VENDOR_LABELS[vendor.toLowerCase()] || vendor;
+}
+
+/**
  * Single dispatch point for "render the right logo for this coding-agent
  * vendor". Falls back to null when we don't have an icon yet (so the
  * caller can keep the text-only label). Add new vendors here when new

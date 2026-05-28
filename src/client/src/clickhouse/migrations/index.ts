@@ -26,6 +26,7 @@ import CreateAgentVersionsMigration from "./create-agent-versions-migration";
 import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
 import OptimizeAgentTablesStorageMigration from "./optimize-agent-tables-storage-migration";
 import AddCodingAgentSummaryFieldsMigration from "./add-coding-agent-summary-fields-migration";
+import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summary-fields-migration";
 import CreateVcsMigration from "./create-vcs-migration";
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 
@@ -79,4 +80,11 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateVcsMigration(databaseConfigId),
 		CreateCodingAgentsAuditMigration(databaseConfigId),
 	]);
+
+	// Group 6: LOC / commit / PR rollup columns. Must run after the
+	// initial coding-agent summary fields migration because both ALTER
+	// the same `openlit_agents_summary` table; ClickHouse serialises
+	// ALTERs on a single table anyway, but ordering the awaits keeps
+	// the dependency explicit.
+	await AddCodingAgentLOCSummaryFieldsMigration(databaseConfigId);
 }

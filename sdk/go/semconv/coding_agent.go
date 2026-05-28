@@ -49,6 +49,24 @@ const (
 	CodingAgentSessionSubagentCount = "coding_agent.session.subagent_count"
 	// CodingAgentSessionCostUSD is the realized USD cost.
 	CodingAgentSessionCostUSD = "coding_agent.session.cost_usd"
+
+	// Per-session code-change rollups stamped on the
+	// `coding_agent.session` root span at SessionEnd. They aggregate
+	// edit / accept / reject / line counts the adapter observed
+	// across the session so dashboards don't have to fan out into
+	// every `coding_agent.edit.decision` span.
+	//
+	// Mirrors Claude Code's native `claude_code.lines_of_code.count`
+	// metric shape — when the operator ships both paths (hook + native
+	// OTel exporter), the query layer coalesces.
+	CodingAgentSessionLinesAdded      = "coding_agent.session.lines.added"
+	CodingAgentSessionLinesRemoved    = "coding_agent.session.lines.removed"
+	CodingAgentSessionLinesAccepted   = "coding_agent.session.lines.accepted"
+	CodingAgentSessionLinesRejected   = "coding_agent.session.lines.rejected"
+	CodingAgentSessionEditAcceptCount = "coding_agent.session.edit.accept_count"
+	CodingAgentSessionEditRejectCount = "coding_agent.session.edit.reject_count"
+	CodingAgentSessionCommitCount     = "coding_agent.session.commit_count"
+	CodingAgentSessionPRCount         = "coding_agent.session.pr_count"
 )
 
 // Session outcome values.
@@ -266,11 +284,33 @@ const (
 // Span names emitted by the CLI normalizer. Keep these as constants so
 // dashboard SQL can match against a small, stable set.
 const (
-	CodingAgentSpanSession      = "coding_agent.session"
-	CodingAgentSpanToolCall     = "coding_agent.tool.call"
-	CodingAgentSpanEditDecision = "coding_agent.edit.decision"
-	CodingAgentSpanSubagent     = "coding_agent.subagent"
-	CodingAgentSpanLLMTurn      = "coding_agent.llm.turn"
+	CodingAgentSpanSession        = "coding_agent.session"
+	CodingAgentSpanToolCall       = "coding_agent.tool.call"
+	CodingAgentSpanEditDecision   = "coding_agent.edit.decision"
+	CodingAgentSpanSubagent       = "coding_agent.subagent"
+	CodingAgentSpanLLMTurn        = "coding_agent.llm.turn"
+	// CodingAgentSpanGitCommit is emitted when the agent's Bash /
+	// shell tool ran a `git commit` invocation. One span per detected
+	// commit, child of the session-root trace.
+	CodingAgentSpanGitCommit = "coding_agent.git.commit"
+	// CodingAgentSpanGitPullRequest is emitted when the agent's
+	// Bash / shell tool created a pull / merge request (`gh pr
+	// create`, `git push -u origin <branch>` that produced a PR URL,
+	// etc.).
+	CodingAgentSpanGitPullRequest = "coding_agent.git.pull_request"
+)
+
+// Git commit / pull-request attributes — attached to the matching
+// `coding_agent.git.commit` / `coding_agent.git.pull_request` span.
+// The body-bearing values (commit message, PR title) are stamped only
+// under `full` content capture; the SHA / URL / number are always
+// safe to stamp.
+const (
+	CodingAgentGitCommitSHA     = "coding_agent.git.commit.sha"
+	CodingAgentGitCommitMessage = "coding_agent.git.commit.message"
+	CodingAgentGitPRURL         = "coding_agent.git.pull_request.url"
+	CodingAgentGitPRNumber      = "coding_agent.git.pull_request.number"
+	CodingAgentGitPRTitle       = "coding_agent.git.pull_request.title"
 )
 
 // Event names — emitted as span events for high-cardinality moments
@@ -286,6 +326,13 @@ const (
 )
 
 // Metric names — additions on top of gen_ai.* metrics.
+//
+// The `coding_agent.lines_of_code.count`, `coding_agent.code_edit_tool.decision`,
+// `coding_agent.commit.count`, and `coding_agent.pull_request.count`
+// counters mirror Claude Code's native exporter shape
+// (`claude_code.lines_of_code.count` …) under our canonical namespace.
+// They are emitted alongside the matching span so backends that consume
+// metrics (Prometheus / Mimir) see the same numbers traces backends do.
 const (
 	CodingAgentMetricSessionDuration  = "coding_agent.session.duration"
 	CodingAgentMetricSessionCostUSD   = "coding_agent.session.cost_usd"
@@ -293,6 +340,20 @@ const (
 	CodingAgentMetricSessionSubagents = "coding_agent.session.subagent_count"
 	CodingAgentMetricToolDuration     = "coding_agent.tool.duration"
 	CodingAgentMetricEditDecisions    = "coding_agent.edit.decision.count"
+	// CodingAgentMetricLinesOfCode is a counter of added / removed
+	// lines tagged with `type=added|removed`, `decision`, `vendor`, `user`.
+	CodingAgentMetricLinesOfCode = "coding_agent.lines_of_code.count"
+	// CodingAgentMetricEditDecisionCnt is a counter of edit
+	// decisions tagged with `decision`, `vendor`, `tool_name`,
+	// `language`, `user`. Renamed under our namespace from
+	// `claude_code.code_edit_tool.decision`.
+	CodingAgentMetricEditDecisionCnt = "coding_agent.code_edit_tool.decision"
+	// CodingAgentMetricCommit is a counter of agent-attributed
+	// git commits tagged with `vendor`, `user`.
+	CodingAgentMetricCommit = "coding_agent.commit.count"
+	// CodingAgentMetricPullRequest is a counter of agent-attributed
+	// pull / merge requests tagged with `vendor`, `user`.
+	CodingAgentMetricPullRequest = "coding_agent.pull_request.count"
 )
 
 // Schema version of the coding_agent.* wire format. Bump on breaking changes.

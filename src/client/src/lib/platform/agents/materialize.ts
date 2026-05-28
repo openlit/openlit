@@ -79,6 +79,17 @@ interface DiscoveredAgent {
 	coding_session_count_24h?: number;
 	coding_cost_usd_24h?: number;
 	coding_active_users_24h?: number;
+	// Per-vendor code-change 24h rollups. Same `greatest(rollup,
+	// per-edit-sum)` pattern as queries.ts so the hub agrees with
+	// the per-session Sessions list.
+	coding_lines_added_24h?: number;
+	coding_lines_removed_24h?: number;
+	coding_lines_accepted_24h?: number;
+	coding_lines_rejected_24h?: number;
+	coding_edit_accept_24h?: number;
+	coding_edit_reject_24h?: number;
+	coding_commit_count_24h?: number;
+	coding_pr_count_24h?: number;
 }
 
 const SDK_DISCOVERY_LOOKBACK_MINUTES = 30;
@@ -560,7 +571,15 @@ async function discoverCodingAgents(
 			max(chat_last_seen) AS last_seen,
 			uniqExact(chat_id) AS session_count_24h,
 			sum(chat_cost) AS cost_usd_24h,
-			uniqExactIf(user_id, user_id != '') AS active_users_24h
+			uniqExactIf(user_id, user_id != '') AS active_users_24h,
+			sum(chat_lines_added) AS lines_added_24h,
+			sum(chat_lines_removed) AS lines_removed_24h,
+			sum(chat_lines_accepted) AS lines_accepted_24h,
+			sum(chat_lines_rejected) AS lines_rejected_24h,
+			sum(chat_edit_accept) AS edit_accept_24h,
+			sum(chat_edit_reject) AS edit_reject_24h,
+			sum(chat_commit_count) AS commit_count_24h,
+			sum(chat_pr_count) AS pr_count_24h
 		FROM (
 			SELECT
 				${perSpanVendor} AS vendor,
@@ -579,6 +598,64 @@ async function discoverCodingAgents(
 					toFloat64OrZero(any(SpanAttributes['coding_agent.session.cost_usd'])),
 					sumOrNull(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']))
 				) AS chat_cost,
+				-- Per-chat code-change rollups. The greatest(session-
+				-- rollup-attr, per-edit-decision-sum) pattern mirrors
+				-- queries.ts (and the materializer's cost expression)
+				-- so the hub agrees with the per-session list for
+				-- both Codex (no SessionEnd) and in-flight CC / Cursor
+				-- sessions.
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.added'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
+						SpanName = 'coding_agent.edit.decision'
+					))
+				) AS chat_lines_added,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.removed'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.removed']),
+						SpanName = 'coding_agent.edit.decision'
+					))
+				) AS chat_lines_removed,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.accepted'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
+						SpanName = 'coding_agent.edit.decision'
+							AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')
+					))
+				) AS chat_lines_accepted,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.rejected'])),
+					toInt64(sumIf(
+						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
+						SpanName = 'coding_agent.edit.decision'
+							AND SpanAttributes['coding_agent.edit.decision'] = 'reject'
+					))
+				) AS chat_lines_rejected,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.edit.accept_count'])),
+					toInt64(countIf(
+						SpanName = 'coding_agent.edit.decision'
+							AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')
+					))
+				) AS chat_edit_accept,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.edit.reject_count'])),
+					toInt64(countIf(
+						SpanName = 'coding_agent.edit.decision'
+							AND SpanAttributes['coding_agent.edit.decision'] = 'reject'
+					))
+				) AS chat_edit_reject,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.commit_count'])),
+					toInt64(countIf(SpanName = 'coding_agent.git.commit'))
+				) AS chat_commit_count,
+				greatest(
+					toInt64OrZero(any(SpanAttributes['coding_agent.session.pr_count'])),
+					toInt64(countIf(SpanName = 'coding_agent.git.pull_request'))
+				) AS chat_pr_count,
 				coalesce(
 					nullIf(any(SpanAttributes['gen_ai.user.name']), ''),
 					nullIf(any(ResourceAttributes['gen_ai.user.name']), ''),
@@ -625,6 +702,14 @@ async function discoverCodingAgents(
 		session_count_24h: number;
 		cost_usd_24h: number;
 		active_users_24h: number;
+		lines_added_24h: number;
+		lines_removed_24h: number;
+		lines_accepted_24h: number;
+		lines_rejected_24h: number;
+		edit_accept_24h: number;
+		edit_reject_24h: number;
+		commit_count_24h: number;
+		pr_count_24h: number;
 	}>) || [];
 
 	return rows
@@ -655,6 +740,14 @@ async function discoverCodingAgents(
 				coding_session_count_24h: Number(row.session_count_24h || 0),
 				coding_cost_usd_24h: Number(row.cost_usd_24h || 0),
 				coding_active_users_24h: Number(row.active_users_24h || 0),
+				coding_lines_added_24h: Number(row.lines_added_24h || 0),
+				coding_lines_removed_24h: Number(row.lines_removed_24h || 0),
+				coding_lines_accepted_24h: Number(row.lines_accepted_24h || 0),
+				coding_lines_rejected_24h: Number(row.lines_rejected_24h || 0),
+				coding_edit_accept_24h: Number(row.edit_accept_24h || 0),
+				coding_edit_reject_24h: Number(row.edit_reject_24h || 0),
+				coding_commit_count_24h: Number(row.commit_count_24h || 0),
+				coding_pr_count_24h: Number(row.pr_count_24h || 0),
 			};
 		});
 }
@@ -787,6 +880,14 @@ interface SummaryUpsertRow {
 	coding_session_count_24h: number;
 	coding_cost_usd_24h: number;
 	coding_active_users_24h: number;
+	coding_lines_added_24h: number;
+	coding_lines_removed_24h: number;
+	coding_lines_accepted_24h: number;
+	coding_lines_rejected_24h: number;
+	coding_edit_accept_24h: number;
+	coding_edit_reject_24h: number;
+	coding_commit_count_24h: number;
+	coding_pr_count_24h: number;
 }
 
 function toClickHouseTimestamp(value: string | Date | number | undefined): string {
@@ -1007,6 +1108,14 @@ export async function materializeAgents(
 				coding_session_count_24h: agent.coding_session_count_24h || 0,
 				coding_cost_usd_24h: agent.coding_cost_usd_24h || 0,
 				coding_active_users_24h: agent.coding_active_users_24h || 0,
+				coding_lines_added_24h: agent.coding_lines_added_24h || 0,
+				coding_lines_removed_24h: agent.coding_lines_removed_24h || 0,
+				coding_lines_accepted_24h: agent.coding_lines_accepted_24h || 0,
+				coding_lines_rejected_24h: agent.coding_lines_rejected_24h || 0,
+				coding_edit_accept_24h: agent.coding_edit_accept_24h || 0,
+				coding_edit_reject_24h: agent.coding_edit_reject_24h || 0,
+				coding_commit_count_24h: agent.coding_commit_count_24h || 0,
+				coding_pr_count_24h: agent.coding_pr_count_24h || 0,
 			});
 			processed += 1;
 		} catch (err) {

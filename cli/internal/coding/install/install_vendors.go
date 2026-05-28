@@ -29,6 +29,13 @@ var pluginsFS embed.FS
 // installVendor writes the manifest set for one vendor to the user's
 // home directory. Returns the absolute paths it touched.
 func installVendor(vendor string, dryRun bool) ([]string, error) {
+	// Cursor is special: its supported way to install agent-wide
+	// hooks is to merge into ~/.cursor/hooks.json (user scope), not
+	// to drop a plugin tree. See install_cursor.go for the why.
+	if vendor == "cursor" {
+		return installCursorHooks(dryRun)
+	}
+
 	dest, err := vendorDestRoot(vendor)
 	if err != nil {
 		return nil, err
@@ -62,11 +69,7 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 		if mkErr := os.MkdirAll(filepath.Dir(target), 0o755); mkErr != nil {
 			return mkErr
 		}
-		mode := fs.FileMode(0o644)
-		if strings.HasSuffix(rel, ".sh") {
-			mode = 0o755
-		}
-		return os.WriteFile(target, body, mode)
+		return os.WriteFile(target, body, 0o644)
 	})
 	if walkErr != nil {
 		// fs.ErrNotExist means we haven't authored manifests for this
@@ -97,10 +100,13 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 // manifests must land. We honor each vendor's own conventions:
 //
 //   Claude Code → ~/.claude/plugins/openlit-cc/
-//   Cursor      → ~/.cursor/plugins/openlit/
 //   Codex       → ~/.local/share/openlit/codex-marketplace/  (a local
 //                 marketplace registered via `codex plugin marketplace add`)
 //   Copilot CLI → ~/.copilot/plugins/openlit/
+//
+// Cursor is intentionally absent: it installs by merging into
+// ~/.cursor/hooks.json (user scope), not by writing a plugin tree.
+// See install_cursor.go for the rationale.
 //
 // For Codex specifically: dropping files under `~/.codex/plugins/<name>/`
 // is NOT how Codex's plugin loader discovers plugins. The loader scans
@@ -117,8 +123,6 @@ func vendorDestRoot(vendor string) (string, error) {
 	switch vendor {
 	case "claude-code":
 		return filepath.Join(home, ".claude", "plugins", "openlit-cc"), nil
-	case "cursor":
-		return filepath.Join(home, ".cursor", "plugins", "openlit"), nil
 	case "codex":
 		return filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"), nil
 	case "copilot":
