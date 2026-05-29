@@ -1,7 +1,14 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, duplicate-code, too-few-public-methods
 """Compatibility tests for LangChain instrumentation."""
 
+from uuid import uuid4
+
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
 
 try:
     from langchain_core.callbacks.manager import BaseCallbackManager
@@ -23,7 +30,9 @@ except ImportError:
     init_chat_model = None
 
 from openlit.instrumentation.langchain import _BaseCallbackManagerInitWrapper
+from openlit.instrumentation.langchain import _create_callback_handler_class
 from openlit.instrumentation.langchain.utils import build_input_messages
+from openlit.semcov import SemanticConvention
 
 
 pytestmark = pytest.mark.skipif(
@@ -83,3 +92,39 @@ class TestLangChainCompatibility:
     @pytest.mark.skipif(not LANGCHAIN_AVAILABLE, reason="langchain not installed")
     def test_langchain_chat_model_helper_import_is_available(self):
         assert callable(init_chat_model)
+
+    def test_chat_error_span_keeps_resolved_server_attributes(self):
+        exporter = InMemorySpanExporter()
+        tracer_provider = TracerProvider()
+        tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        handler_cls = _create_callback_handler_class(
+            tracer_provider.get_tracer("test"),
+            "test-version",
+            "test-env",
+            "test-app",
+            {},
+            False,
+            None,
+            True,
+        )
+        handler = handler_cls()
+        run_id = uuid4()
+
+        handler.on_chat_model_start(
+            {"id": ["langchain", "chat_models", "openai", "ChatOpenAI"]},
+            [[HumanMessage(content="hello")]],
+            run_id=run_id,
+            invocation_params={
+                "model_name": "gpt-4o-mini",
+                "openai_api_base": "http://localhost:11434/v1",
+            },
+        )
+        handler.on_llm_error(TimeoutError("Request timed out."), run_id=run_id)
+
+        spans = exporter.get_finished_spans()
+        assert len(spans) == 1
+        attrs = spans[0].attributes
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "gpt-4o-mini"
+        assert attrs[SemanticConvention.SERVER_ADDRESS] == "localhost"
+        assert attrs[SemanticConvention.SERVER_PORT] == 11434
+        assert attrs[SemanticConvention.ERROR_TYPE] == "TimeoutError"

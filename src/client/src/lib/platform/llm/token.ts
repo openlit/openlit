@@ -1,5 +1,5 @@
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
-import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
+import { getTraceMappingKeyFullPaths } from "@/helpers/server/trace";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -12,27 +12,30 @@ export type TokenParams = MetricParams & {
 	type: TOKEN_TYPE;
 };
 
+function getSpanAttributePaths(key: "totalTokens" | "promptTokens" | "completionTokens") {
+	return (getTraceMappingKeyFullPaths(key) as string[]).map(
+		(path) => `SpanAttributes['${path}']`
+	);
+}
+
+function getFirstNonEmptyPath(paths: string[]) {
+	return paths.reduce((expression, path) => `if(${expression} != '', ${expression}, ${path})`);
+}
+
 export async function getAverageTokensPerRequest(params: TokenParams) {
-	const primaryPath = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const tokenKey =
 		params.type === "total"
 			? "totalTokens"
 			: params.type === "prompt"
 			? "promptTokens"
-			: "completionTokens"
-	)}']`;
+			: "completionTokens";
+	const tokenPaths = getSpanAttributePaths(tokenKey);
+	const keyPath = getFirstNonEmptyPath(tokenPaths);
 
-	// Backward compatibility: fall back to new OTel convention attributes
-	const fallbackAttr =
-		params.type === "total"
-			? "gen_ai.client.token.usage"
-			: params.type === "prompt"
-			? "gen_ai.client.token.usage.input"
-			: "gen_ai.client.token.usage.output";
-	const fallbackPath = `SpanAttributes['${fallbackAttr}']`;
-
-	const keyPath = `if(${primaryPath} != '', ${primaryPath}, ${fallbackPath})`;
-
-	const currentWhereParams = { ...params, notOrEmpty: [{ key: primaryPath }, { key: fallbackPath }] };
+	const currentWhereParams = {
+		...params,
+		notOrEmpty: tokenPaths.map((key) => ({ key })),
+	};
 
 	let query;
 
@@ -70,26 +73,16 @@ export async function getTokensPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 
-	const primaryPaths = [
-		`SpanAttributes['${getTraceMappingKeyFullPath("totalTokens")}']`,
-		`SpanAttributes['${getTraceMappingKeyFullPath("promptTokens")}']`,
-		`SpanAttributes['${getTraceMappingKeyFullPath("completionTokens")}']`,
+	const tokenPaths = [
+		getSpanAttributePaths("totalTokens"),
+		getSpanAttributePaths("promptTokens"),
+		getSpanAttributePaths("completionTokens"),
 	];
 
-	// Backward compatibility: fall back to new OTel convention attributes
-	const fallbackPaths = [
-		`SpanAttributes['gen_ai.client.token.usage']`,
-		`SpanAttributes['gen_ai.client.token.usage.input']`,
-		`SpanAttributes['gen_ai.client.token.usage.output']`,
-	];
-
-	const coalesced = primaryPaths.map(
-		(p, i) => `if(${p} != '', ${p}, ${fallbackPaths[i]})`
-	);
+	const coalesced = tokenPaths.map((paths) => getFirstNonEmptyPath(paths));
 
 	const filterPaths: { key: string }[] = [
-		...primaryPaths.map((key) => ({ key })),
-		...fallbackPaths.map((key) => ({ key })),
+		...tokenPaths.flatMap((paths) => paths.map((key) => ({ key }))),
 	];
 
 	const query = `SELECT

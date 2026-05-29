@@ -55,7 +55,13 @@ function syncUrlParams(request: RequestProps) {
 	window.history.replaceState({}, "", url.toString());
 }
 
-export function RequestProvider({ children }: { children: ReactNode }) {
+export function RequestProvider({
+	children,
+	syncUrl = true,
+}: {
+	children: ReactNode;
+	syncUrl?: boolean;
+}) {
 	const [request, setRequest] = useState<RequestProps>(null);
 	const [items, setItemsState] = useState<TransformedTraceRow[]>([]);
 	const [total, setTotalState] = useState(0);
@@ -77,8 +83,8 @@ export function RequestProvider({ children }: { children: ReactNode }) {
 
 	const updateRequest = useCallback((value: RequestProps) => {
 		setRequest(value);
-		syncUrlParams(value);
-	}, []);
+		if (syncUrl) syncUrlParams(value);
+	}, [syncUrl]);
 
 	const setItems = useCallback((newItems: TransformedTraceRow[]) => {
 		setItemsState(newItems);
@@ -109,6 +115,7 @@ export function RequestProvider({ children }: { children: ReactNode }) {
 
 	// On mount, check URL for spanId to restore the open trace
 	useEffect(() => {
+		if (!syncUrl) return;
 		if (typeof window === "undefined") return;
 		const params = new URLSearchParams(window.location.search);
 		const spanId = params.get("spanId");
@@ -117,7 +124,7 @@ export function RequestProvider({ children }: { children: ReactNode }) {
 			// Create a minimal placeholder to trigger the detail sheet fetch
 			setRequest({ spanId, id: traceId || "" } as TransformedTraceRow);
 		}
-	}, []);
+	}, [syncUrl]);
 
 	const navigatePrev = useCallback(() => {
 		const idx = itemsRef.current.findIndex(
@@ -126,7 +133,7 @@ export function RequestProvider({ children }: { children: ReactNode }) {
 		if (idx > 0) {
 			const prev = itemsRef.current[idx - 1];
 			setRequest(prev);
-			syncUrlParams(prev);
+			if (syncUrl) syncUrlParams(prev);
 		} else if (idx === 0 && offsetRef.current > 0 && onPageChangeRef.current) {
 			// At first item of current page — trigger previous page
 			pendingNavDirection.current = -1;
@@ -141,7 +148,7 @@ export function RequestProvider({ children }: { children: ReactNode }) {
 		if (idx >= 0 && idx < itemsRef.current.length - 1) {
 			const next = itemsRef.current[idx + 1];
 			setRequest(next);
-			syncUrlParams(next);
+			if (syncUrl) syncUrlParams(next);
 		} else if (
 			idx === itemsRef.current.length - 1 &&
 			offsetRef.current + itemsRef.current.length < totalRef.current &&
