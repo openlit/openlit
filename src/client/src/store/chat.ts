@@ -30,6 +30,31 @@ export const chatStoreSlice: ChatStore = lens((setStore, getStore) => ({
 		}
 	},
 
+	updateLastMessageStep: (step) => {
+		const messages = [...getStore().messages];
+		const lastIdx = messages.length - 1;
+		if (lastIdx < 0 || messages[lastIdx].role !== "assistant") return;
+
+		const steps = [...(messages[lastIdx].steps || [])];
+		const existingIndex = steps.findIndex((item) => item.label === step.label);
+		if (existingIndex === -1) {
+			steps.push(step);
+		} else {
+			steps[existingIndex] = { ...steps[existingIndex], ...step };
+		}
+		messages[lastIdx] = { ...messages[lastIdx], steps };
+		setStore({ messages });
+	},
+
+	clearLastMessageSteps: () => {
+		const messages = [...getStore().messages];
+		const lastIdx = messages.length - 1;
+		if (lastIdx >= 0 && messages[lastIdx].role === "assistant") {
+			messages[lastIdx] = { ...messages[lastIdx], steps: [] };
+			setStore({ messages });
+		}
+	},
+
 	addMessage: (message) =>
 		setStore({ messages: [...getStore().messages, message] }),
 

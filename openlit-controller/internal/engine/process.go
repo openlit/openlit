@@ -327,22 +327,3 @@ func restartProcessWithEnv(procRoot string, pid int, envOverrides map[string]str
 	return restartProcess(procRoot, pid, existingEnv)
 }
 
-func restartProcessWithoutKeys(procRoot string, pid int, keysToRemove []string) (int, error) {
-	existingEnv := readEnviron(procRoot, pid)
-	if existingEnv == nil {
-		existingEnv = make(map[string]string)
-	}
-	cleaned := stripEnvOverrides(existingEnv, keysToRemove)
-	return restartProcess(procRoot, pid, cleaned)
-}
-
-func stripEnvOverrides(env map[string]string, keysToRemove []string) map[string]string {
-	cleaned := make(map[string]string, len(env))
-	for k, v := range env {
-		cleaned[k] = v
-	}
-	for _, key := range keysToRemove {
-		delete(cleaned, key)
-	}
-	return cleaned
-}

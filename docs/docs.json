@@ -257,6 +257,8 @@
                   "latest/sdk/integrations/elevenlabs",
                   "latest/sdk/integrations/ai21",
                   "latest/sdk/integrations/together",
+                  "latest/sdk/integrations/digitalocean",
+                  "latest/sdk/integrations/digitalocean-gradient",
                   "latest/sdk/integrations/assemblyai",
                   "latest/sdk/integrations/featherless",
                   "latest/sdk/integrations/reka",
@@ -355,7 +357,8 @@
                   "latest/sdk/destinations/siglens",
                   "latest/sdk/destinations/oodle",
                   "latest/sdk/destinations/langfuse",
-                  "latest/sdk/destinations/murnitur"
+                  "latest/sdk/destinations/murnitur",
+                  "latest/sdk/destinations/victoriametrics-stack"
                 ]
               }
             ]

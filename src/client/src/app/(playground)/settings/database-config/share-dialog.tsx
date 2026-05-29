@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { set } from "lodash";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { DatabaseConfigPermissions } from "@/constants/dbConfig";
+import { escapeEmailForDisplay } from "@/utils/string";
 
 const validateEmail = (email: string) => {
 	return String(email)
@@ -158,11 +159,11 @@ export default function ShareDialog({
 						{shareArray.map((shareObj, index) => (
 							<TableRow key={shareObj.email}>
 								<TableCell className="font-medium text-stone-500">
-									{shareObj.email}
+									{escapeEmailForDisplay(shareObj.email)}
 								</TableCell>
 								<TableCell className="text-center p-0">
 									<Checkbox
-										name={`${shareObj.email}.permission.canEdit`}
+										name={`share-${index}.permission.canEdit`}
 										checked={shareObj.permissions.canEdit}
 										onCheckedChange={(checked: boolean) =>
 											onChangePermission(
@@ -175,7 +176,7 @@ export default function ShareDialog({
 								</TableCell>
 								<TableCell className="text-center p-0">
 									<Checkbox
-										name={`${shareObj.email}.permission.canDelete`}
+										name={`share-${index}.permission.canDelete`}
 										checked={shareObj.permissions.canDelete}
 										onCheckedChange={(checked: boolean) =>
 											onChangePermission(
@@ -188,7 +189,7 @@ export default function ShareDialog({
 								</TableCell>
 								<TableCell className="text-center p-0">
 									<Checkbox
-										name={`${shareObj.email}.permission.canShare`}
+										name={`share-${index}.permission.canShare`}
 										checked={shareObj.permissions.canShare}
 										onCheckedChange={(checked: boolean) =>
 											onChangePermission(

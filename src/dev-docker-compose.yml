@@ -154,6 +154,24 @@ services:
       openlit:
         condition: service_healthy
 
+  # SDK-instrumented sample agent.
+  # Uses openlit.init() to auto-instrument an OpenAI client. An in-process
+  # OpenAI-compatible mock LLM lets the calls succeed without a real API key,
+  # so the agent shows up on the Agents page as source=SDK with full system
+  # prompt + tool definitions + runtime config.
+  openlit-sdk-agent-app:
+    build: ../examples/openlit-sdk-agent-app
+    container_name: demo-openlit-sdk-agent-app
+    profiles: [full]
+    environment:
+      OPENLIT_SERVICE_NAME: travel-assistant
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
+      REQUEST_INTERVAL_SECONDS: "20"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
 volumes:
   clickhouse-data:
   openlit-data:

@@ -1,7 +1,8 @@
 import { dataCollector } from "../common";
 import { OPENLIT_CHAT_CONFIG_TABLE } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
-import { getSecrets } from "../vault";
+import { getSecretById } from "../vault";
+import { isEncrypted } from "@/utils/crypto";
 
 export interface ChatConfig {
 	id?: string;
@@ -49,21 +50,28 @@ export async function getChatConfigWithApiKey(
 		return { err: err || "Chat configuration not found. Please configure your AI provider in Chat Settings." };
 	}
 
-	const { data: secrets, err: secretErr } = await getSecrets(
-		{ databaseConfigId },
-		{ selectValue: true }
+	const { data: secrets, err: secretErr } = await getSecretById(
+		config.vaultId,
+		databaseConfigId,
+		false,
+		{ logDecryptErrors: false }
 	);
 
 	if (secretErr || !secrets) {
 		return { err: secretErr || "Failed to retrieve vault secrets" };
 	}
 
-	const secret = (secrets as any[]).find(
-		(s: any) => s.id === config.vaultId
-	);
+	const secret = (secrets as any[])?.[0];
 
 	if (!secret?.value) {
 		return { err: "API key not found in vault. Please check your chat configuration." };
+	}
+
+	if (typeof secret.value === "string" && isEncrypted(secret.value)) {
+		return {
+			err:
+				"Unable to decrypt the configured Chat API key. Re-save the selected Vault secret or set the same OPENLIT_VAULT_ENCRYPTION_KEY/NEXTAUTH_SECRET that was used to encrypt it.",
+		};
 	}
 
 	return {

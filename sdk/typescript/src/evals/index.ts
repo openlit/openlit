@@ -1,8 +1,6 @@
-// Evals module for OpenLIT TypeScript SDK
-// Provides Hallucination, Bias, Toxicity, and All evaluators
-
-export { Hallucination } from './hallucination';
-export { Bias } from './bias';
-export { Toxicity } from './toxicity';
-export { All } from './all';
-export * from './types';
+export { runEval, runEvalBatch, fetchEvalTypes, formatSummary, formatBatchSummary } from './offline';
+export {
+  OfflineEvaluation, OfflineEvalResult, BatchEvalResult, EvalType, ContextInfo,
+  EvalOptions, EvalBatchOptions, EvalTypesOptions,
+  isPassed, getFailedEvals, isAllPassed, getPassRate,
+} from './types';

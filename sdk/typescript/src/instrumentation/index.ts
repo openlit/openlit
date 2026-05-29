@@ -26,6 +26,7 @@ import OpenAIAgentsInstrumentation from './openai-agents';
 import StrandsInstrumentation from './strands';
 import GoogleADKInstrumentation from './google-adk';
 import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
+import CursorSDKInstrumentation from './cursor-sdk';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -94,6 +95,7 @@ export default class Instrumentations {
     strands: new StrandsInstrumentation(),
     'google-adk': new GoogleADKInstrumentation(),
     'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
+    'cursor-sdk': new CursorSDKInstrumentation(),
   };
 
   static setup(

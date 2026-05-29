@@ -16,9 +16,9 @@ jobs:
   # ── 1. Unit tests ──────────────────────────────────────────────────────────
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
@@ -48,7 +48,7 @@ jobs:
   build-binaries:
     name: Build binaries (linux/${{ matrix.goarch }})
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -56,7 +56,7 @@ jobs:
           - goarch: arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v5
         with:
@@ -110,11 +110,11 @@ jobs:
   release:
     name: GitHub Release
     needs: build-binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -132,26 +132,24 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS.txt
 
-      - name: Create GitHub Release
+      - name: Upload release assets
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
-          name: "OpenLIT Controller ${{ steps.version.outputs.version }}"
           files: |
             dist/*
-          generate_release_notes: true
 
   # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
   docker:
     name: Docker
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
@@ -175,7 +173,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |

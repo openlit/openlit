@@ -82,6 +82,18 @@ func (e *Engine) enablePythonSDKDocker(
 		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", err.Error())
 		return err
 	}
+	// Flip in-memory state so the next heartbeat carries
+	// `openlit.agent_observability.status='enabled'` into
+	// openlit_controller_services. Without this the read-path rollup keeps
+	// showing the old 'disabled' status until the scanner re-detects the
+	// container, which can leave the UI stuck in "Enabling..." for minutes.
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK active via Docker container recreate (workload %s)", svc.WorkloadKey),
+	)
 	e.logger.Info("completed docker agent observability rollout",
 		zap.String("mode", "docker"),
 		zap.String("workload_key", svc.WorkloadKey),
@@ -134,6 +146,16 @@ func (e *Engine) disablePythonSDKDocker(svc *openlit.ServiceState) error {
 		return err
 	}
 	_ = e.container.dockerClient.removeVolume(volumeName)
+	// Flip in-memory state so the next heartbeat reflects the disable. See
+	// the matching comment in enablePythonSDKDocker for why this is needed
+	// even though applyObservedAgentObservability eventually catches up.
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via Docker container recreate (workload %s)", svc.WorkloadKey),
+	)
 	e.logger.Info("completed docker agent observability removal",
 		zap.String("mode", "docker"),
 		zap.String("workload_key", svc.WorkloadKey),
@@ -307,6 +329,24 @@ func buildDockerContainerCreatePayload(
 		envValues = upsertEnvString(envValues, "OTEL_SERVICE_NAME", svc.ServiceName)
 		envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
 		envValues = upsertEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
+		if svc.WorkloadKey != "" {
+			envValues = mergeOtelResourceAttrInEnvString(envValues, "service.workload.key", svc.WorkloadKey)
+		}
+		if payload.OTLPProtocol != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_PROTOCOL", payload.OTLPProtocol)
+		}
+		if payload.OTLPTracesEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", payload.OTLPTracesEndpoint)
+		}
+		if payload.OTLPMetricsEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", payload.OTLPMetricsEndpoint)
+		}
+		if payload.OTLPLogsEndpoint != "" {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", payload.OTLPLogsEndpoint)
+		}
+		if len(payload.OTLPHeaders) > 0 {
+			envValues = upsertEnvString(envValues, "OTEL_EXPORTER_OTLP_HEADERS", formatOTLPHeaders(payload.OTLPHeaders))
+		}
 		envValues = upsertEnvString(
 			envValues,
 			"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -321,8 +361,14 @@ func buildDockerContainerCreatePayload(
 	} else {
 		envValues = removeEnvString(envValues, "OPENLIT_CONTROLLER_MODE")
 		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_PROTOCOL")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+		envValues = removeEnvString(envValues, "OTEL_EXPORTER_OTLP_HEADERS")
 		envValues = removeEnvString(envValues, "OTEL_DEPLOYMENT_ENVIRONMENT")
 		envValues = removeEnvString(envValues, "OPENLIT_DISABLED_INSTRUMENTORS")
+		envValues = removeOtelResourceAttrFromEnvString(envValues, "service.workload.key")
 		envValues = rewritePythonPathWithoutManagedSDK(envValues)
 		labels := extractStringMap(createPayload["Labels"])
 		delete(labels, openlitManagedLabel)
@@ -389,12 +435,23 @@ func (e *Engine) enablePythonSDKLinux(
 	}
 
 	env := readEnviron(e.procRoot, svc.PID)
+	sdPayload := systemdOTLPPayload{
+		OTLPEndpoint:        payload.OTLPEndpoint,
+		OTLPProtocol:        payload.OTLPProtocol,
+		OTLPTracesEndpoint:  payload.OTLPTracesEndpoint,
+		OTLPMetricsEndpoint: payload.OTLPMetricsEndpoint,
+		OTLPLogsEndpoint:    payload.OTLPLogsEndpoint,
+		Environment:         payload.Environment,
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		sdPayload.OTLPHeaders = formatOTLPHeaders(payload.OTLPHeaders)
+	}
 	dropIn := buildSystemdDropInContent(
 		unit,
 		sdkRoot,
 		svc.ServiceName,
-		payload.OTLPEndpoint,
-		payload.Environment,
+		svc.WorkloadKey,
+		sdPayload,
 		strings.Join(controllerManagedDisabledInstrumentors, ","),
 		env["PYTHONPATH"],
 		nextHash,
@@ -422,6 +479,15 @@ func (e *Engine) enablePythonSDKLinux(
 		)
 		return err
 	}
+	// Flip in-memory state so the next heartbeat carries 'enabled'. See
+	// the matching comment in enablePythonSDKDocker for context.
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK active via systemd drop-in (unit %s)", unit),
+	)
 	e.logger.Info("completed linux agent observability rollout",
 		zap.String("mode", "linux"),
 		zap.String("workload_key", svc.WorkloadKey),
@@ -460,6 +526,13 @@ func (e *Engine) disablePythonSDKLinux(svc *openlit.ServiceState) error {
 	if err := runSystemctl("try-restart", unit); err != nil {
 		return err
 	}
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via systemd drop-in (unit %s)", unit),
+	)
 	e.logger.Info("completed linux agent observability removal",
 		zap.String("mode", "linux"),
 		zap.String("workload_key", svc.WorkloadKey),
@@ -573,6 +646,92 @@ func upsertEnvString(env []string, key, value string) []string {
 		}
 	}
 	return append(env, key+"="+value)
+}
+
+// mergeResourceAttrValue merges a single key=value into a comma-separated
+// OTEL_RESOURCE_ATTRIBUTES string (the OTel convention). If the key is already
+// present, its value is replaced; otherwise the pair is appended. Used so that
+// controller-injected attributes (e.g. service.workload.key) don't clobber
+// user-defined OTEL_RESOURCE_ATTRIBUTES already set on the workload.
+func mergeResourceAttrValue(existing, key, value string) string {
+	pair := key + "=" + value
+	if existing == "" {
+		return pair
+	}
+	parts := strings.Split(existing, ",")
+	out := make([]string, 0, len(parts)+1)
+	replaced := false
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			continue
+		}
+		if k, _, ok := strings.Cut(trimmed, "="); ok && k == key {
+			out = append(out, pair)
+			replaced = true
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	if !replaced {
+		out = append(out, pair)
+	}
+	return strings.Join(out, ",")
+}
+
+// mergeOtelResourceAttrInEnvString merges a key=value into the
+// OTEL_RESOURCE_ATTRIBUTES entry of a []string env list (the Docker /
+// linux-bare shape).
+func mergeOtelResourceAttrInEnvString(env []string, key, value string) []string {
+	for i, entry := range env {
+		k, v, ok := strings.Cut(entry, "=")
+		if ok && k == "OTEL_RESOURCE_ATTRIBUTES" {
+			env[i] = "OTEL_RESOURCE_ATTRIBUTES=" + mergeResourceAttrValue(v, key, value)
+			return env
+		}
+	}
+	return append(env, "OTEL_RESOURCE_ATTRIBUTES="+mergeResourceAttrValue("", key, value))
+}
+
+// removeResourceAttrKey strips a key from an OTEL_RESOURCE_ATTRIBUTES value,
+// returning the remaining comma-separated pairs (empty string when nothing
+// else is left).
+func removeResourceAttrKey(existing, key string) string {
+	if existing == "" {
+		return ""
+	}
+	parts := strings.Split(existing, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			continue
+		}
+		if k, _, ok := strings.Cut(trimmed, "="); ok && k == key {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return strings.Join(out, ",")
+}
+
+// removeOtelResourceAttrFromEnvString removes a single key from
+// OTEL_RESOURCE_ATTRIBUTES on a []string env list (Docker / linux-bare).
+// Drops the whole env var when the remaining list is empty.
+func removeOtelResourceAttrFromEnvString(env []string, key string) []string {
+	for i, entry := range env {
+		k, v, ok := strings.Cut(entry, "=")
+		if !ok || k != "OTEL_RESOURCE_ATTRIBUTES" {
+			continue
+		}
+		filtered := removeResourceAttrKey(v, key)
+		if filtered == "" {
+			return append(env[:i], env[i+1:]...)
+		}
+		env[i] = "OTEL_RESOURCE_ATTRIBUTES=" + filtered
+		return env
+	}
+	return env
 }
 
 func removeEnvString(env []string, key string) []string {
@@ -776,6 +935,31 @@ func (e *Engine) enablePythonSDKBareProcess(
 		"OTEL_DEPLOYMENT_ENVIRONMENT":    payload.Environment,
 		"OPENLIT_DISABLED_INSTRUMENTORS": strings.Join(controllerManagedDisabledInstrumentors, ","),
 	}
+	if svc.WorkloadKey != "" {
+		// Merge into any existing OTEL_RESOURCE_ATTRIBUTES on the workload so we
+		// don't clobber user-defined attributes during process restart.
+		existingResourceAttrs := readEnviron(e.procRoot, svc.PID)["OTEL_RESOURCE_ATTRIBUTES"]
+		envOverrides["OTEL_RESOURCE_ATTRIBUTES"] = mergeResourceAttrValue(
+			existingResourceAttrs,
+			"service.workload.key",
+			svc.WorkloadKey,
+		)
+	}
+	if payload.OTLPProtocol != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_PROTOCOL"] = payload.OTLPProtocol
+	}
+	if payload.OTLPTracesEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = payload.OTLPTracesEndpoint
+	}
+	if payload.OTLPMetricsEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = payload.OTLPMetricsEndpoint
+	}
+	if payload.OTLPLogsEndpoint != "" {
+		envOverrides["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] = payload.OTLPLogsEndpoint
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		envOverrides["OTEL_EXPORTER_OTLP_HEADERS"] = formatOTLPHeaders(payload.OTLPHeaders)
+	}
 
 	newPID, err := restartProcessWithEnv(e.procRoot, svc.PID, envOverrides)
 	if err != nil {
@@ -848,7 +1032,24 @@ func (e *Engine) disablePythonSDKBareProcess(
 		zap.String("sdk_root", sdkRoot),
 	)
 
-	newPID, err := restartProcessWithoutKeys(e.procRoot, svc.PID, openlitEnvKeysToStrip)
+	// Surgically strip controller-injected env: drop the openlit keys entirely,
+	// but only remove our `service.workload.key` from OTEL_RESOURCE_ATTRIBUTES
+	// so any user-defined resource attributes survive.
+	existingEnv := readEnviron(e.procRoot, svc.PID)
+	if existingEnv == nil {
+		existingEnv = make(map[string]string)
+	}
+	for _, k := range openlitEnvKeysToStrip {
+		delete(existingEnv, k)
+	}
+	if existing := existingEnv["OTEL_RESOURCE_ATTRIBUTES"]; existing != "" {
+		if filtered := removeResourceAttrKey(existing, "service.workload.key"); filtered == "" {
+			delete(existingEnv, "OTEL_RESOURCE_ATTRIBUTES")
+		} else {
+			existingEnv["OTEL_RESOURCE_ATTRIBUTES"] = filtered
+		}
+	}
+	newPID, err := restartProcess(e.procRoot, svc.PID, existingEnv)
 	if err != nil {
 		e.logger.Warn("bare process restart for disable failed",
 			zap.String("service", svc.ServiceName),

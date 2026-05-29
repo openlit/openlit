@@ -1,4 +1,8 @@
-export { getTraceMappingKeyFullPath } from "../client/trace";
+export {
+	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
+	getTraceMappingValue,
+} from "../client/trace";
 
 export const buildHierarchy = (data: any[]) => {
 	// Create a map for quick lookup of nodes by SpanId

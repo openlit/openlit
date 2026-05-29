@@ -429,6 +429,186 @@ func (c *k8sAPIClient) patchWorkload(namespace, kind, name string, patch map[str
 	return nil
 }
 
+// putWorkload performs an HTTP PUT against the workload resource with the
+// given full object. K8s uses the embedded `metadata.resourceVersion` for
+// optimistic concurrency: callers GET the object, mutate it, then PUT it
+// back; a 409 Conflict means someone else updated it first and the caller
+// should retry. Used by atomicScaleWithAnnotation and bumpRolloutAnnotation
+// to avoid blind merge-patch races when multiple DaemonSet controllers act
+// on the same workload at once.
+func (c *k8sAPIClient) putWorkload(namespace, kind, name string, workload map[string]any) (int, error) {
+	resource, err := k8sWorkloadResource(kind)
+	if err != nil {
+		return 0, err
+	}
+	body, err := json.Marshal(workload)
+	if err != nil {
+		return 0, fmt.Errorf("marshal workload: %w", err)
+	}
+	endpoint := fmt.Sprintf(
+		"%s/apis/apps/v1/namespaces/%s/%s/%s",
+		c.apiServer,
+		url.PathEscape(namespace),
+		resource,
+		url.PathEscape(name),
+	)
+	req, err := http.NewRequest(http.MethodPut, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		responseBody, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, fmt.Errorf("K8s workload put returned %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+	return resp.StatusCode, nil
+}
+
+// atomicScaleWithAnnotation scales a workload to the target replica count,
+// recording the prior count in an annotation in the same atomic update.
+// It uses a read-modify-update loop with resourceVersion-based optimistic
+// concurrency: on 409 Conflict (someone else patched the workload first),
+// it re-reads and retries up to 3 times. The operation is idempotent: if
+// the workload is already at the target replicas AND the annotation
+// matches the recorded value, it returns nil without making an API call.
+//
+// recordAnnotationKey/Value semantics:
+//   - Pass empty annotationKey to skip annotation handling entirely.
+//   - When scaling down (replicas==0) and the workload was previously >0,
+//     the prior replica count is recorded under recordAnnotationKey so
+//     scale-up can restore it.
+//   - When scaling up (replicas>0), the annotation is removed.
+func (c *k8sAPIClient) atomicScaleWithAnnotation(namespace, kind, name string, replicas int, recordAnnotationKey string) error {
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		workload, err := c.getWorkload(namespace, kind, name)
+		if err != nil {
+			return err
+		}
+		spec, _ := workload["spec"].(map[string]any)
+		if spec == nil {
+			return fmt.Errorf("workload %s/%s has no spec", kind, name)
+		}
+		current := readReplicas(spec)
+		meta, _ := workload["metadata"].(map[string]any)
+		annotations := copyStringMap(meta["annotations"])
+
+		alreadyAtTarget := current == replicas
+		annotationMatches := true
+		if recordAnnotationKey != "" {
+			if replicas == 0 {
+				_, present := annotations[recordAnnotationKey]
+				annotationMatches = current == 0 && present
+			} else {
+				_, present := annotations[recordAnnotationKey]
+				annotationMatches = !present
+			}
+		}
+		if alreadyAtTarget && annotationMatches {
+			return nil
+		}
+
+		spec["replicas"] = replicas
+		if recordAnnotationKey != "" {
+			if replicas == 0 && current > 0 {
+				annotations[recordAnnotationKey] = fmt.Sprintf("%d", current)
+			} else if replicas > 0 {
+				delete(annotations, recordAnnotationKey)
+			}
+		}
+		if meta == nil {
+			meta = map[string]any{}
+			workload["metadata"] = meta
+		}
+		meta["annotations"] = stringMapToAny(annotations)
+
+		status, err := c.putWorkload(namespace, kind, name, workload)
+		if err == nil {
+			return nil
+		}
+		if status == http.StatusConflict {
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("atomic scale conflict after %d retries", maxRetries)
+}
+
+// readSavedReplicas returns the value of the saved-replicas annotation on a
+// workload, falling back to 1 when missing or unparsable. Used to decide
+// what to scale back to on Start.
+func (c *k8sAPIClient) readSavedReplicas(namespace, kind, name, annotationKey string) (int, error) {
+	workload, err := c.getWorkload(namespace, kind, name)
+	if err != nil {
+		return 0, err
+	}
+	meta, _ := workload["metadata"].(map[string]any)
+	annotations := copyStringMap(meta["annotations"])
+	raw, ok := annotations[annotationKey]
+	if !ok {
+		return 1, nil
+	}
+	var saved int
+	_, scanErr := fmt.Sscanf(raw, "%d", &saved)
+	if scanErr != nil || saved < 1 {
+		return 1, nil
+	}
+	return saved, nil
+}
+
+// bumpRolloutAnnotation patches the workload pod template annotations to
+// trigger a rolling restart (same trick `kubectl rollout restart` uses).
+// Uses an atomic read-modify-update so multiple controllers racing on the
+// same workload do not lose each other's writes.
+func (c *k8sAPIClient) bumpRolloutAnnotation(namespace, kind, name, annotationKey, annotationValue string) error {
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		workload, err := c.getWorkload(namespace, kind, name)
+		if err != nil {
+			return err
+		}
+		template, err := getTemplate(workload)
+		if err != nil {
+			return err
+		}
+		tmplMeta := ensureMap(template, "metadata")
+		annotations := copyStringMap(tmplMeta["annotations"])
+		if existing, ok := annotations[annotationKey]; ok && existing == annotationValue {
+			return nil
+		}
+		annotations[annotationKey] = annotationValue
+		tmplMeta["annotations"] = stringMapToAny(annotations)
+
+		status, err := c.putWorkload(namespace, kind, name, workload)
+		if err == nil {
+			return nil
+		}
+		if status == http.StatusConflict {
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("rollout-restart conflict after %d retries", maxRetries)
+}
+
+func readReplicas(spec map[string]any) int {
+	if v, ok := spec["replicas"].(float64); ok {
+		return int(v)
+	}
+	if v, ok := spec["replicas"].(int); ok {
+		return v
+	}
+	return 0
+}
+
 func k8sWorkloadResource(kind string) (string, error) {
 	switch strings.ToLower(kind) {
 	case "deployment":
@@ -786,6 +966,23 @@ func (d *dockerAPIClient) stopContainer(containerID string, timeoutSeconds int) 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotModified {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("docker stop returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+// restartContainer issues a native Docker restart for the given container.
+// The container's name and ID are both preserved, so the controller's
+// workload_key (docker:<name>) remains stable across the restart.
+func (d *dockerAPIClient) restartContainer(containerID string, timeoutSeconds int) error {
+	endpoint := fmt.Sprintf("/containers/%s/restart?t=%d", containerID, timeoutSeconds)
+	resp, err := d.doRequest(http.MethodPost, endpoint, nil, "")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("docker restart returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return nil
 }

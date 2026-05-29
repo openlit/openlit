@@ -9,17 +9,22 @@ jest.mock('@/middleware/check-demo-account', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
+jest.mock('@/middleware/check-csrf', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
 
 import { chain } from '@/middleware/chain';
 import checkAuth from '@/middleware/check-auth';
 import checkDemoAccount from '@/middleware/check-demo-account';
+import checkCsrf from '@/middleware/check-csrf';
 
 // Re-import middleware module after mocks are registered
 import { middleware, config } from '@/middleware';
 
 describe('middleware', () => {
-  it('composes checkDemoAccount and checkAuth via chain', () => {
-    expect(chain).toHaveBeenCalledWith([checkDemoAccount, checkAuth]);
+  it('composes security and auth middleware via chain', () => {
+    expect(chain).toHaveBeenCalledWith([checkCsrf, checkDemoAccount, checkAuth]);
   });
 
   it('exports a middleware function', () => {

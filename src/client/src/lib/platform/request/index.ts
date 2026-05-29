@@ -32,16 +32,20 @@ const ALLOWED_FIELD_GROUP_BY = new Set([
 	"StatusMessage",
 ]);
 
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 export function getGroupByExpression(groupBy: string): string | null {
 	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
 	const sep = groupBy.indexOf(":");
 	if (sep === -1) {
-		const sanitized = groupBy.replace(/'/g, "''").trim();
+		const sanitized = escapeClickHouseString(groupBy).trim();
 		if (!sanitized) return null;
 		return `SpanAttributes['${sanitized}']`;
 	}
 	const attrType = groupBy.slice(0, sep);
-	const key = groupBy.slice(sep + 1).replace(/'/g, "''").trim();
+	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
 	if (!key) return null;
 	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
 	if (attrType === "Field") {
@@ -63,7 +67,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
 			${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" })}
+		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" }, true)}
 		GROUP BY
 			request_time
 		ORDER BY
@@ -79,7 +83,7 @@ export async function getTotalRequests(params: MetricParams) {
 			COUNT(*) AS total_requests,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition(parameters)}	
+		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
 
 	const previousWhereParams = getFilterPreviousParams(params);
@@ -110,7 +114,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			AVG(${keyPath}) AS average_duration,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(parameters)} AND isFinite(${keyPath})
+		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;
 
 	const currentWhereParams = params;
@@ -180,13 +184,15 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
-			"environment"
-		)}'])) AS environments`
+		// OTel-standard environment is `ResourceAttributes['deployment.environment']`.
+		// The legacy `getTraceMappingKeyFullPath("environment")` returns a
+		// dotted SpanAttributes path that, wrapped in `ResourceAttributes[...]`,
+		// resolves to a non-existent key and silently yields no values.
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
-			WHERE ${getFilterWhereCondition(params)}`;
+			WHERE ${getFilterWhereCondition(params, true)}`;
 
 	return dataCollector({ query });
 }
@@ -263,13 +269,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	});
 
 	if (traceIdErr || !Array.isArray(traceIdData) || traceIdData.length === 0) {
-		console.error(`[heirarchy] Failed to find TraceId for spanId=${spanId}:`, traceIdErr);
 		return { err: "Span not found", record: {} };
 	}
 
 	const traceId = traceIdData[0].TraceId;
 	if (!traceId) {
-		console.error(`[heirarchy] TraceId is empty for spanId=${spanId}. Row:`, traceIdData[0]);
 		return { err: "TraceId not found for span", record: {} };
 	}
 
@@ -284,7 +288,16 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
 			Timestamp,
 			StatusCode,
-			SpanAttributes
+			StatusMessage,
+			ServiceName,
+			SpanKind,
+			TraceState,
+			ScopeName,
+			ScopeVersion,
+			SpanAttributes,
+			ResourceAttributes,
+			Events,
+			Links
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
 		ORDER BY Timestamp ASC`;
@@ -294,7 +307,6 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	});
 
 	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
-		console.error(`[heirarchy] Failed to fetch spans for traceId=${traceId}:`, allSpansErr);
 		return { err: "Failed to fetch trace spans", record: {} };
 	}
 
@@ -302,7 +314,6 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	const heirarchy = buildHierarchy(allSpans as any[]);
 
 	if (!heirarchy) {
-		console.error(`[heirarchy] buildHierarchy returned null for traceId=${traceId}, ${allSpans.length} spans`);
 		return { err: "Error building hierarchy", record: {} };
 	}
 
@@ -318,7 +329,7 @@ export async function getAttributeKeys(params: MetricParams) {
 	const spanKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(params)}
+		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
 	`;
@@ -326,7 +337,7 @@ export async function getAttributeKeys(params: MetricParams) {
 	const resourceKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(params)}
+		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
 	`;

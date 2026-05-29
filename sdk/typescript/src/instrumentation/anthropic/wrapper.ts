@@ -1,6 +1,10 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
+import OpenLitHelper, {
+  isFrameworkLlmActive,
+  getFrameworkParentContext,
+  getCurrentAgentVersion,
+} from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
@@ -276,6 +280,7 @@ export default class AnthropicWrapper extends BaseWrapper {
       stop_sequences = null,
       stream = false,
       user,
+      tools: _tools,
     } = args[0];
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
@@ -375,6 +380,54 @@ export default class AnthropicWrapper extends BaseWrapper {
 
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
+    // Anthropic tool schema uses `input_schema` instead of `parameters`; the
+    // shared helper already handles both shapes.
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(_tools);
+    const systemInstructionsJson = (() => {
+      if (!system) return undefined;
+      if (typeof system === 'string') {
+        return JSON.stringify([{ type: 'text', content: system }]);
+      }
+      try {
+        return JSON.stringify(system);
+      } catch {
+        return undefined;
+      }
+    })();
+
+    // Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+    // (user override) regardless of content capture so versions still group
+    // correctly when capture_message_content=false.
+    const versionExtras: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: systemInstructionsJson ?? null,
+        toolDefinitions: toolDefinitionsJson ?? null,
+        primaryModel: responseModel || requestModel,
+        runtimeConfig: {
+          temperature: temperature ?? null,
+          top_p: top_p ?? null,
+          max_tokens: max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC],
+      });
+      if (versionHash) {
+        versionExtras[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Never fail the wrapped call on hash issues.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      versionExtras[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+
     if (captureContent) {
       const textContent = (result.content || [])
         .filter((b: any) => b.type === 'text')
@@ -396,6 +449,9 @@ export default class AnthropicWrapper extends BaseWrapper {
       const systemStr = typeof system === 'string' ? system : undefined;
       inputMessagesJson = OpenLitHelper.buildInputMessages(messages || [], systemStr);
     }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
+    }
 
     if (!OpenlitConfig.disableEvents) {
       const eventAttrs: Attributes = {
@@ -409,11 +465,13 @@ export default class AnthropicWrapper extends BaseWrapper {
         [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+        ...versionExtras,
       };
       if (captureContent) {
         if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
         if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
       }
+      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 

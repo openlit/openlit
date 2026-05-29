@@ -24,6 +24,7 @@ import OpenLitHelper, {
   applyCustomSpanAttributes,
   setFrameworkLlmActive,
   resetFrameworkLlmActive,
+  getCurrentAgentVersion,
 } from '../../helpers';
 import {
   extractContentFromEvents,
@@ -380,7 +381,7 @@ export class StrandsSpanProcessor implements SpanProcessor {
     }
 
     // Finish reasons from output events
-    const [, outputMsgs] = extractContentFromEvents(span, 'chat');
+    const [, outputMsgs] = extractContentFromEvents(span, 'chat') as any;
     if (outputMsgs && outputMsgs.length > 0) {
       const finishReasons = outputMsgs
         .filter((m: any) => typeof m === 'object' && m.finish_reason)
@@ -493,7 +494,7 @@ export class StrandsSpanProcessor implements SpanProcessor {
 
   private _extractAndSetContent(span: ReadableSpan, operation: string): void {
     try {
-      const [inputMsgs, outputMsgs, systemInstr] = extractContentFromEvents(span, operation);
+      const [inputMsgs, outputMsgs, systemInstr, toolDefs] = extractContentFromEvents(span, operation);
       const additions: Record<string, any> = {};
 
       if (operation === SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS) {
@@ -524,6 +525,9 @@ export class StrandsSpanProcessor implements SpanProcessor {
         if (systemInstr) {
           additions[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = truncateContent(String(systemInstr));
         }
+        if (toolDefs) {
+          additions[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = truncateContent(String(toolDefs));
+        }
       }
 
       if (Object.keys(additions).length > 0) {
@@ -545,7 +549,7 @@ export class StrandsSpanProcessor implements SpanProcessor {
     serverPort: number,
   ): void {
     try {
-      const [inputMsgs, outputMsgs, systemInstr] = extractContentFromEvents(span, 'chat');
+      const [inputMsgs, outputMsgs, systemInstr, toolDefs] = extractContentFromEvents(span, 'chat');
 
       const extra: Record<string, any> = {};
 
@@ -570,6 +574,15 @@ export class StrandsSpanProcessor implements SpanProcessor {
 
       if (systemInstr) extra.systemInstructions = systemInstr;
 
+      // Tool definitions: prefer the event-sourced value, otherwise fall back to
+      // whatever was already written to the span attribute (e.g. by native
+      // Strands instrumentation upstream).
+      const toolDefsAttr =
+        toolDefs ||
+        attrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] ||
+        attrs['gen_ai.tool.definitions'];
+      if (toolDefsAttr) extra.toolDefinitions = toolDefsAttr;
+
       if (outputMsgs.length > 0) {
         const finishReasons = outputMsgs
           .filter((m: any) => typeof m === 'object' && m.finish_reason)
@@ -580,9 +593,24 @@ export class StrandsSpanProcessor implements SpanProcessor {
       extra.inputMessages = inputMsgs;
       extra.outputMessages = outputMsgs;
 
+      // Stamp openlit.agent.version_hash + gen_ai.agent.version on the chat
+      // span and surface them on the inference event extras so versions stay
+      // attached even if the span attribute is dropped downstream.
+      const requestModel = String(attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] || '');
+      const responseModel = String(attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] || '');
+      extra.versionExtras = this._stampChatAgentVersion(span, attrs, {
+        primaryModel: responseModel || requestModel,
+        systemInstructionsJson: systemInstr ? String(systemInstr) : undefined,
+        toolDefinitionsJson: toolDefs
+          ? String(toolDefs)
+          : (attrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS]
+              ? String(attrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS])
+              : undefined),
+      });
+
       emitStrandsInferenceEvent(
         span,
-        String(attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] || ''),
+        requestModel,
         serverAddress,
         serverPort,
         extra,
@@ -590,5 +618,59 @@ export class StrandsSpanProcessor implements SpanProcessor {
     } catch {
       // ignore
     }
+  }
+
+  // -----------------------------------------------------------------
+  // Agent version stamping (Strands chat spans)
+  // -----------------------------------------------------------------
+
+  /**
+   * Compute and write `openlit.agent.version_hash` (auto) and
+   * `gen_ai.agent.version` (user override) onto a Strands chat span.
+   * Returns the same attributes for inclusion in the inference event.
+   */
+  private _stampChatAgentVersion(
+    span: ReadableSpan,
+    attrs: Record<string, any>,
+    args: {
+      systemInstructionsJson?: string;
+      toolDefinitionsJson?: string;
+      primaryModel?: string;
+    },
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    const additions: Record<string, string> = {};
+    try {
+      const temperature = attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE];
+      const topP = attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P];
+      const maxTokens = attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS];
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: args.systemInstructionsJson ?? null,
+        toolDefinitions: args.toolDefinitionsJson ?? null,
+        primaryModel: args.primaryModel ?? null,
+        runtimeConfig: {
+          temperature: typeof temperature === 'number' ? temperature : null,
+          top_p: typeof topP === 'number' ? topP : null,
+          max_tokens: typeof maxTokens === 'number' ? maxTokens : null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_STRANDS,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_STRANDS],
+      });
+      if (versionHash) {
+        out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        additions[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+      }
+    } catch {
+      // Hash computation must never fail the wrapped call.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      additions[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+    }
+    if (Object.keys(additions).length > 0) {
+      StrandsSpanProcessor._setAttrs(span, additions);
+    }
+    return out;
   }
 }

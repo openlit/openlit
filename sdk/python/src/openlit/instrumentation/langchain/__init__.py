@@ -449,6 +449,40 @@ def _resolve_conversation_id(metadata: Optional[Dict[str, Any]]) -> Optional[str
     return None
 
 
+_API_BASE_KEYS = (
+    "api_base",
+    "base_url",
+    "openai_api_base",
+    "openai_proxy",
+    "azure_endpoint",
+    "endpoint",
+    "host",
+)
+
+
+def _resolve_api_base(
+    serialized: Optional[Dict[str, Any]], kwargs: Dict[str, Any]
+) -> Optional[str]:
+    """Find an explicit API base URL from langchain callback inputs.
+
+    LangChain passes connection details inconsistently across providers and
+    versions: some put it in `invocation_params`, others only inside
+    `serialized["kwargs"]`. Check both, then a few common keys.
+    """
+    invocation_params = kwargs.get("invocation_params") or {}
+    for key in _API_BASE_KEYS:
+        val = invocation_params.get(key)
+        if val:
+            return str(val)
+
+    serialized_kwargs = (serialized or {}).get("kwargs") or {}
+    for key in _API_BASE_KEYS:
+        val = serialized_kwargs.get(key)
+        if val:
+            return str(val)
+    return None
+
+
 # =============================================================================
 # Callback Handler
 # =============================================================================
@@ -485,7 +519,6 @@ def _create_callback_handler_class(
         is_langgraph_wrapper_active,
         set_framework_llm_active,
         reset_framework_llm_active,
-        get_server_address_for_provider,
     )
     from openlit.semcov import SemanticConvention
 
@@ -604,6 +637,47 @@ def _create_callback_handler_class(
                 SemanticConvention.GEN_AI_APPLICATION_NAME, self._application_name
             )
             span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, self._version)
+
+        def _resolve_and_set_server(
+            self, run_id, span, provider, serialized, kwargs
+        ) -> None:
+            """Resolve server.address/port and set them on the span and holder.
+
+            Setting these on the span at start (rather than only at on_llm_end)
+            guarantees they are present on error spans too — see issue #1169.
+            """
+            from openlit.__helpers import get_server_address_for_provider
+
+            holder = self.spans[run_id]
+
+            api_base = _resolve_api_base(serialized, kwargs)
+            if api_base:
+                try:
+                    from urllib.parse import urlparse
+
+                    parsed = urlparse(api_base)
+                    if parsed.hostname:
+                        holder.server_address = parsed.hostname
+                        if parsed.port:
+                            holder.server_port = parsed.port
+                        elif parsed.scheme == "http":
+                            holder.server_port = 80
+                        else:
+                            holder.server_port = 443
+                except Exception:
+                    pass
+
+            if not holder.server_address:
+                default_host, default_port = get_server_address_for_provider(provider)
+                if default_host:
+                    holder.server_address = default_host
+                    holder.server_port = default_port
+
+            if holder.server_address:
+                span.set_attribute(
+                    SemanticConvention.SERVER_ADDRESS, holder.server_address
+                )
+                span.set_attribute(SemanticConvention.SERVER_PORT, holder.server_port)
 
         def _extract_from_generations(
             self,
@@ -1046,27 +1120,7 @@ def _create_callback_handler_class(
                 self.spans[run_id].prompts = prompts if prompts else []
                 self.spans[run_id].provider = provider
 
-                # Resolve server address from invocation_params or provider defaults
-                invocation_params = kwargs.get("invocation_params", {})
-                api_base = invocation_params.get("api_base") or invocation_params.get(
-                    "base_url"
-                )
-                if api_base:
-                    try:
-                        from urllib.parse import urlparse
-
-                        parsed = urlparse(api_base)
-                        self.spans[run_id].server_address = parsed.hostname or ""
-                        self.spans[run_id].server_port = parsed.port or 443
-                    except Exception:
-                        pass
-                if not self.spans[run_id].server_address:
-                    default_host, default_port = get_server_address_for_provider(
-                        provider
-                    )
-                    if default_host:
-                        self.spans[run_id].server_address = default_host
-                        self.spans[run_id].server_port = default_port
+                self._resolve_and_set_server(run_id, span, provider, serialized, kwargs)
 
                 if prompts:
                     prompt_str = truncate_content("\n".join(prompts))
@@ -1133,27 +1187,7 @@ def _create_callback_handler_class(
                 self.spans[run_id].model_parameters = model_params
                 self.spans[run_id].provider = provider
 
-                # Resolve server address from invocation_params or provider defaults
-                invocation_params = kwargs.get("invocation_params", {})
-                api_base = invocation_params.get("api_base") or invocation_params.get(
-                    "base_url"
-                )
-                if api_base:
-                    try:
-                        from urllib.parse import urlparse
-
-                        parsed = urlparse(api_base)
-                        self.spans[run_id].server_address = parsed.hostname or ""
-                        self.spans[run_id].server_port = parsed.port or 443
-                    except Exception:
-                        pass
-                if not self.spans[run_id].server_address:
-                    default_host, default_port = get_server_address_for_provider(
-                        provider
-                    )
-                    if default_host:
-                        self.spans[run_id].server_address = default_host
-                        self.spans[run_id].server_port = default_port
+                self._resolve_and_set_server(run_id, span, provider, serialized, kwargs)
 
                 # Always calculate prompt content for token estimation
                 if messages:
@@ -2476,9 +2510,9 @@ class LangChainInstrumentor(BaseInstrumentor):
 
         try:
             wrap_function_wrapper(
-                module="langchain_core.callbacks.manager",
-                name="BaseCallbackManager.__init__",
-                wrapper=_BaseCallbackManagerInitWrapper(handler_instance),
+                "langchain_core.callbacks.manager",
+                "BaseCallbackManager.__init__",
+                _BaseCallbackManagerInitWrapper(handler_instance),
             )
             logger.debug("Successfully wrapped BaseCallbackManager.__init__")
         except Exception as e:
@@ -2486,11 +2520,9 @@ class LangChainInstrumentor(BaseInstrumentor):
 
         try:
             wrap_function_wrapper(
-                module="langchain.agents",
-                name="create_agent",
-                wrapper=_wrap_create_agent(
-                    tracer, version, environment, application_name
-                ),
+                "langchain.agents",
+                "create_agent",
+                _wrap_create_agent(tracer, version, environment, application_name),
             )
             logger.debug("Successfully wrapped langchain.agents.create_agent")
         except Exception:
@@ -2509,9 +2541,9 @@ class LangChainInstrumentor(BaseInstrumentor):
         for method_name in ("embed_documents", "embed_query"):
             try:
                 wrap_function_wrapper(
-                    module="langchain_core.embeddings",
-                    name=f"Embeddings.{method_name}",
-                    wrapper=_wrap_embed(**embed_kwargs),
+                    "langchain_core.embeddings",
+                    f"Embeddings.{method_name}",
+                    _wrap_embed(**embed_kwargs),
                 )
                 logger.debug("Successfully wrapped Embeddings.%s", method_name)
             except Exception:
@@ -2520,9 +2552,9 @@ class LangChainInstrumentor(BaseInstrumentor):
         for method_name in ("aembed_documents", "aembed_query"):
             try:
                 wrap_function_wrapper(
-                    module="langchain_core.embeddings",
-                    name=f"Embeddings.{method_name}",
-                    wrapper=_wrap_embed_async(**embed_kwargs),
+                    "langchain_core.embeddings",
+                    f"Embeddings.{method_name}",
+                    _wrap_embed_async(**embed_kwargs),
                 )
                 logger.debug("Successfully wrapped Embeddings.%s", method_name)
             except Exception:

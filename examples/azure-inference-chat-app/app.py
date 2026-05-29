@@ -3,11 +3,15 @@ import time
 from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 
-endpoint = os.environ.get("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com")
+endpoint = os.environ.get(
+    "AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com"
+)
 api_key = os.environ["AZURE_INFERENCE_API_KEY"]
 model = os.environ.get("AZURE_INFERENCE_MODEL", "gpt-4o-mini")
 
-client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(api_key))
+client = ChatCompletionsClient(
+    endpoint=endpoint, credential=AzureKeyCredential(api_key)
+)
 
 print(f"Azure AI Inference test app starting -- calling {model} every 45s")
 i = 0

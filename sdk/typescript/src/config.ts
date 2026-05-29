@@ -1,4 +1,5 @@
 import { OpenlitConfigInterface, PricingObject } from './types';
+import type { Pipeline } from './guard/pipeline';
 
 export default class OpenlitConfig {
   static environment: OpenlitConfigInterface['environment'];
@@ -14,6 +15,9 @@ export default class OpenlitConfig {
   static disableEvents?: boolean;
   static maxContentLength?: number | null;
   static customSpanAttributes?: Record<string, string> | null;
+  static openlitApiKey?: string;
+  static openlitUrl?: string;
+  static guardPipeline?: Pipeline;
 
   static updateConfig({
     environment = 'default',
@@ -28,11 +32,15 @@ export default class OpenlitConfig {
     disableEvents = false,
     maxContentLength = null,
     customSpanAttributes = null,
+    openlitApiKey,
+    openlitUrl,
   }: Partial<OpenlitConfigInterface> & {
     disableMetrics?: boolean;
     disableEvents?: boolean;
     maxContentLength?: number | null;
     customSpanAttributes?: Record<string, string> | null;
+    openlitApiKey?: string;
+    openlitUrl?: string;
   }) {
     this.environment = environment;
     this.applicationName = applicationName;
@@ -46,5 +54,7 @@ export default class OpenlitConfig {
     this.disableEvents = disableEvents;
     this.maxContentLength = maxContentLength;
     this.customSpanAttributes = customSpanAttributes;
+    this.openlitApiKey = openlitApiKey;
+    this.openlitUrl = openlitUrl;
   }
 }

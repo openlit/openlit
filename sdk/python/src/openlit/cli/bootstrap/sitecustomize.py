@@ -41,7 +41,6 @@ except ImportError:
                 "OPENLIT_PRICING_JSON": "pricing_json",
                 "OPENLIT_CAPTURE_DB_PARAMETERS": "capture_db_parameters",
                 "OPENLIT_MAX_CONTENT_LENGTH": "max_content_length",
-                "OPENLIT_EVALS_LOGS_EXPORT": "evals_logs_export",
                 "OPENLIT_CUSTOM_SPAN_ATTRIBUTES": "custom_span_attributes",
             }
 
@@ -55,7 +54,6 @@ except ImportError:
                         "OPENLIT_DISABLE_EVENTS",
                         "OPENLIT_COLLECT_GPU_STATS",
                         "OPENLIT_CAPTURE_DB_PARAMETERS",
-                        "OPENLIT_EVALS_LOGS_EXPORT",
                     ]:
                         config[param_name] = env_value.lower() in ("true", "1", "yes")
                     # Handle CSV values
