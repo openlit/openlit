@@ -23,12 +23,15 @@ function getOwnerEmailCondition(user: { email?: string | null }, alias?: string)
 	return `${column} = '${escapeClickHouseString(user.email || "")}'`;
 }
 
-function decryptSecrets<T extends Record<string, any>>(secrets: T[]): T[] {
+function decryptSecrets<T extends Record<string, any>>(
+	secrets: T[],
+	{ logErrors = true }: { logErrors?: boolean } = {}
+): T[] {
 	return secrets.map((secret) => ({
 		...secret,
 		value:
 			typeof secret.value === "string"
-				? decryptValue(secret.value)
+				? decryptValue(secret.value, { logErrors })
 				: secret.value,
 	}));
 }
@@ -255,7 +258,8 @@ export async function getSecretsFromDatabaseId(
 export async function getSecretById(
 	id: string,
 	databaseConfigId?: string,
-	excludeVaultValue: boolean = true
+	excludeVaultValue: boolean = true,
+	{ logDecryptErrors = true }: { logDecryptErrors?: boolean } = {}
 ) {
 	const query = `SELECT * ${
 		!!excludeVaultValue ? "EXCEPT value" : ""
@@ -266,7 +270,9 @@ export async function getSecretById(
 	if (!excludeVaultValue && result.data && Array.isArray(result.data)) {
 		return {
 			...result,
-			data: decryptSecrets(result.data as any[]),
+			data: decryptSecrets(result.data as any[], {
+				logErrors: logDecryptErrors,
+			}),
 		};
 	}
 

@@ -3,6 +3,7 @@ import {
 	getControllerInstanceById,
 	getControllerIdsForWorkload,
 	getControllerConfig,
+	getFeatureDesiredStates,
 	queueAction,
 	updateFeatureDesiredState,
 } from "@/lib/platform/controller";
@@ -89,16 +90,30 @@ async function resolveAgentContext(
 	return { service, supportsPythonSDK, mode: instance?.mode || "linux" };
 }
 
-export function buildAgentStatusResponse(
+export async function buildAgentStatusResponse(
 	service: any,
 	supportsPythonSDK: boolean,
-	mode: string
+	mode: string,
+	dbConfigId?: string
 ) {
 	const attrs = service.resource_attributes || {};
 	const status = attrs["openlit.agent_observability.status"] || "disabled";
 	const source = attrs["openlit.agent_observability.source"] || "none";
-	const desiredStatus =
-		attrs["openlit.agent_observability.desired_status"] || "";
+	// Desired status no longer lives on the service's resource_attributes
+	// (the Go controller used to stamp it there as a UI hint). It now comes
+	// directly from openlit_controller_desired_states_v2 — single source of
+	// truth for both the read path and the rendered toggle.
+	let desiredStatus = "";
+	if (service.workload_key) {
+		const desiredRes = await getFeatureDesiredStates(
+			[service.workload_key],
+			service.cluster_id || "default",
+			[FEATURE],
+			dbConfigId
+		);
+		const row = desiredRes.data?.[0];
+		if (row?.desired_status) desiredStatus = row.desired_status;
+	}
 	let reason =
 		attrs["openlit.observability.reason"] ||
 		(service.language_runtime === "python"
@@ -177,10 +192,11 @@ const agentHandler: FeatureHandler = {
 
 			if (operation === "status") {
 				return Response.json(
-					buildAgentStatusResponse(
+					await buildAgentStatusResponse(
 						ctx.service,
 						ctx.supportsPythonSDK,
-						ctx.mode
+						ctx.mode,
+						dbConfigId
 					)
 				);
 			}

@@ -12,6 +12,7 @@ func TestBuildSystemdDropInContent(t *testing.T) {
 		"myapp.service",
 		"/var/lib/openlit/python-sdk/myapp",
 		"myapp",
+		"linux:systemd:myapp.service",
 		systemdOTLPPayload{
 			OTLPEndpoint: "http://otel:4318",
 			Environment:  "production",
@@ -33,6 +34,9 @@ func TestBuildSystemdDropInContent(t *testing.T) {
 	if !strings.Contains(content, "OTEL_SERVICE_NAME=myapp") {
 		t.Error("expected OTEL_SERVICE_NAME")
 	}
+	if !strings.Contains(content, "OTEL_RESOURCE_ATTRIBUTES=service.workload.key=linux:systemd:myapp.service") {
+		t.Error("expected OTEL_RESOURCE_ATTRIBUTES with service.workload.key")
+	}
 	if !strings.Contains(content, "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4318") {
 		t.Error("expected OTEL_EXPORTER_OTLP_ENDPOINT")
 	}
@@ -52,6 +56,7 @@ func TestBuildSystemdDropInContentNoPreviousPythonPath(t *testing.T) {
 		"myapp.service",
 		"/var/lib/openlit/python-sdk/myapp",
 		"myapp",
+		"",
 		systemdOTLPPayload{
 			OTLPEndpoint: "http://otel:4318",
 			Environment:  "default",
@@ -66,6 +71,9 @@ func TestBuildSystemdDropInContentNoPreviousPythonPath(t *testing.T) {
 		if strings.Contains(line, "PYTHONPATH=") && strings.HasSuffix(strings.TrimSpace(line), ":\"") {
 			t.Error("PYTHONPATH should not end with colon when no existing path")
 		}
+	}
+	if strings.Contains(content, "OTEL_RESOURCE_ATTRIBUTES") {
+		t.Error("OTEL_RESOURCE_ATTRIBUTES should be omitted when workloadKey is empty")
 	}
 }
 

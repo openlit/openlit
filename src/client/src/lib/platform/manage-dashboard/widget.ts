@@ -158,7 +158,7 @@ export function deleteWidget(id: string) {
 function validateQuery(query: string): { valid: boolean; error?: string } {
 	const trimmed = query.trim();
 
-	if (!/^SELECT\b/i.test(trimmed)) {
+	if (!/^(SELECT|WITH)\b/i.test(trimmed)) {
 		return { valid: false, error: "Only SELECT queries are allowed" };
 	}
 

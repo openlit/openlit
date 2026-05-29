@@ -607,86 +607,6 @@ export async function saveEnvironmentFeatureConfig(
 	);
 }
 
-/**
- * @deprecated Use feature handler reconciliation via getAllFeatureHandlers() instead.
- * Kept for backward compatibility with existing tests.
- */
-export async function getServicesToReconcile(
-	controllerInstanceId: string,
-	reportedServices: Array<{
-		workload_key: string;
-		instrumentation_status: string;
-		resource_attributes?: Record<string, string>;
-	}>,
-	clusterId: string,
-	dbConfigId?: string
-): Promise<{
-	instrumentKeys: string[];
-	uninstrumentKeys: string[];
-	enableAgentKeys: string[];
-	disableAgentKeys: string[];
-}> {
-	const result = {
-		instrumentKeys: [] as string[],
-		uninstrumentKeys: [] as string[],
-		enableAgentKeys: [] as string[],
-		disableAgentKeys: [] as string[],
-	};
-
-	const workloadKeys = reportedServices
-		.map((s) => s.workload_key)
-		.filter(Boolean);
-	if (workloadKeys.length === 0) return result;
-
-	const desiredRes = await getDesiredStatesForWorkloads(
-		workloadKeys,
-		clusterId,
-		dbConfigId
-	);
-	if (desiredRes.err || !desiredRes.data) return result;
-
-	const desiredMap = new Map(
-		desiredRes.data.map((d) => [d.workload_key, d])
-	);
-
-	for (const svc of reportedServices) {
-		const desired = desiredMap.get(svc.workload_key);
-		if (!desired) continue;
-
-		const agentStatus =
-			(svc as any).agent_observability_status ||
-			svc.resource_attributes?.["openlit.agent_observability.status"] ||
-			"disabled";
-
-		if (
-			desired.desired_instrumentation_status === "instrumented" &&
-			svc.instrumentation_status !== "instrumented"
-		) {
-			result.instrumentKeys.push(svc.workload_key);
-		}
-		if (
-			desired.desired_instrumentation_status === "none" &&
-			svc.instrumentation_status === "instrumented"
-		) {
-			result.uninstrumentKeys.push(svc.workload_key);
-		}
-		if (
-			desired.desired_agent_status === "enabled" &&
-			agentStatus !== "enabled"
-		) {
-			result.enableAgentKeys.push(svc.workload_key);
-		}
-		if (
-			desired.desired_agent_status === "none" &&
-			agentStatus === "enabled"
-		) {
-			result.disableAgentKeys.push(svc.workload_key);
-		}
-	}
-
-	return result;
-}
-
 // --- Action queue (pull-based: UI queues actions, controller polls for them) ---
 
 export async function queueAction(
@@ -763,6 +683,47 @@ export async function markActionsAcknowledged(
 		"insert",
 		dbConfigId
 	);
+}
+
+/**
+ * Look up a batch of actions by ID for a given controller instance.
+ * Used by the poll route to inspect action_type / service_key for
+ * lifecycle Stop actions whose results carry a snapshot blob that
+ * needs persisting into desired_states_v2.config. Returning the
+ * created_at lets callers preserve ordering when sorting fanned-out
+ * fan-in actions.
+ */
+export async function getActionsByIds(
+	actionIds: string[],
+	instanceId: string,
+	dbConfigId?: string
+): Promise<{
+	err?: unknown;
+	data?: Array<{
+		id: string;
+		action_type: ActionType;
+		service_key: string;
+	}>;
+}> {
+	if (actionIds.length === 0) return { data: [] };
+	const escaped = actionIds
+		.map((id) => `'${escapeClickHouse(id)}'`)
+		.join(", ");
+	const query = `
+		SELECT id, action_type, service_key
+		FROM ${CONTROLLER_ACTIONS_TABLE}
+		FINAL
+		WHERE instance_id = '${escapeClickHouse(instanceId)}'
+		  AND id IN (${escaped})
+	`;
+	return dataCollector({ query }, "query", dbConfigId) as Promise<{
+		err?: unknown;
+		data?: Array<{
+			id: string;
+			action_type: ActionType;
+			service_key: string;
+		}>;
+	}>;
 }
 
 export async function completeAction(

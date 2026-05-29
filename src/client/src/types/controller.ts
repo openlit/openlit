@@ -121,6 +121,9 @@ export const KNOWN_ACTIONS = {
 	REMOVE_PROMPTS: "remove_prompts",
 	PUSH_ENVS: "push_envs",
 	REMOVE_ENVS: "remove_envs",
+	START_WORKLOAD: "start_workload",
+	STOP_WORKLOAD: "stop_workload",
+	RESTART_WORKLOAD: "restart_workload",
 } as const;
 
 export interface FeatureDesiredState {
@@ -138,15 +141,6 @@ export interface EnvironmentFeatureConfig {
 	feature: string;
 	config: string;
 	updated_at: string;
-}
-
-export interface PromptConfig {
-	templates: Array<{ name: string; content: string; version: number }>;
-}
-
-export interface EnvConfig {
-	variables: Record<string, string>;
-	secrets_masked?: boolean;
 }
 
 export type PythonSDKActionRuntime = "python";

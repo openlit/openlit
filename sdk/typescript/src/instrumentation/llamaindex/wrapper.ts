@@ -10,7 +10,7 @@
 
 import { Tracer, SpanKind, context, trace, Span } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { runWithFrameworkLlm } from '../../helpers';
+import OpenLitHelper, { runWithFrameworkLlm, getCurrentAgentVersion } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
@@ -63,6 +63,54 @@ const OPERATION_MAP: Record<string, string> = {
 
 export default class LlamaIndexWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX;
+
+  /**
+   * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+   * (user override, if set) on the span and return the same attributes so
+   * the caller can merge them into the inference event extras.
+   */
+  static _stampAgentVersion(
+    span: Span,
+    args: {
+      systemInstructionsJson?: string;
+      toolDefinitionsJson?: string;
+      primaryModel?: string;
+      temperature?: number | null;
+      top_p?: number | null;
+      max_tokens?: number | null;
+    }
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: args.systemInstructionsJson ?? null,
+        toolDefinitions: args.toolDefinitionsJson ?? null,
+        primaryModel: args.primaryModel ?? null,
+        runtimeConfig: {
+          temperature: args.temperature ?? null,
+          top_p: args.top_p ?? null,
+          max_tokens: args.max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX],
+      });
+      if (versionHash) {
+        out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Hash computation must never fail the wrapped call.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+    return out;
+  }
 
   // ---------------------------------------------------------------------------
   // Helpers (mirrors Python set_server_address_and_port / model extraction)
@@ -293,6 +341,31 @@ export default class LlamaIndexWrapper {
 
     let inputMessagesJson = '';
     let outputMessagesJson = '';
+    const requestTools =
+      (mode === 'chat' && args[0] && !Array.isArray(args[0]) ? args[0]?.tools : undefined) ||
+      (args[0] && typeof args[0] === 'object' ? (args[0] as any).tools : undefined);
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(requestTools);
+
+    // Compute system_instructions JSON regardless of captureContent so the
+    // version hash still groups correctly when content capture is disabled.
+    let systemInstructionsJson: string | undefined;
+    if (mode === 'chat') {
+      const messages = args[0]?.messages || (Array.isArray(args[0]) ? args[0] : []);
+      const formatted = (Array.isArray(messages) ? messages : [messages]).map((m: any) => ({
+        role: m.role || 'user',
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || ''),
+      }));
+      systemInstructionsJson = OpenLitHelper.buildSystemInstructionsFromMessages(formatted);
+    }
+
+    const versionExtras = LlamaIndexWrapper._stampAgentVersion(span, {
+      systemInstructionsJson,
+      toolDefinitionsJson,
+      primaryModel: responseModel || requestModel,
+      temperature: null,
+      top_p: null,
+      max_tokens: null,
+    });
 
     if (OpenlitConfig.captureMessageContent) {
       if (mode === 'chat') {
@@ -312,6 +385,12 @@ export default class LlamaIndexWrapper {
       }
       span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, inputMessagesJson);
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+      if (systemInstructionsJson) {
+        span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+      }
+    }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
     }
 
     const eventAttrs: Record<string, any> = {
@@ -325,11 +404,14 @@ export default class LlamaIndexWrapper {
       [SemanticConvention.GEN_AI_OUTPUT_TYPE]: SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT,
       [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
       [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      ...versionExtras,
     };
     if (OpenlitConfig.captureMessageContent) {
       eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
       eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      if (systemInstructionsJson) eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
     }
+    if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
     OpenLitHelper.emitInferenceEvent(span, eventAttrs);
 
     BaseWrapper.recordMetrics(span, {

@@ -1,0 +1,51 @@
+---
+title: 'Monitor DigitalOcean Gradient using OpenTelemetry'
+sidebarTitle: 'DigitalOcean Gradient'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built on DigitalOcean's Gradient AI Platform via the [`gradient`](https://github.com/digitalocean/gradient-python) SDK. This includes tracking performance, token usage, costs, and how users interact with chat completions, the OpenAI-style Responses API, image generation, DigitalOcean Agents, and knowledge-base retrieval (RAG).
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with:
+- DigitalOcean `gradient` Python SDK `>= 3.0.0` (sync `Gradient` and async `AsyncGradient` clients)
+
+## Get started
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
+<Card
+    title="Zero-code observability with the OpenLIT Controller"
+    icon="tower-broadcast"
+    href="/latest/controller/overview"
+  >
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  </Card>

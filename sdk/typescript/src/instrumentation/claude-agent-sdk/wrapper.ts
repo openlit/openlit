@@ -26,6 +26,7 @@ import OpenLitHelper, {
   getServerAddressForProvider,
   setFrameworkLlmActive,
   resetFrameworkLlmActive,
+  getCurrentAgentVersion,
 } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 import Metrics from '../../otel/metrics';
@@ -83,6 +84,54 @@ function generateSpanName(endpoint: string, entityName?: string | null): string 
   const operation = OPERATION_MAP[endpoint] || SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT;
   if (entityName) return `${operation} ${entityName}`;
   return operation;
+}
+
+/**
+ * Stamp `openlit.agent.version_hash` (auto) and `gen_ai.agent.version`
+ * (user override, if set) on the span and return the same attributes so
+ * the caller can merge them into the inference event extras.
+ */
+function stampAgentVersion(
+  span: Span,
+  args: {
+    systemInstructionsJson?: string;
+    toolDefinitionsJson?: string;
+    primaryModel?: string;
+    temperature?: number | null;
+    top_p?: number | null;
+    max_tokens?: number | null;
+  }
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const versionHash = OpenLitHelper.computeAgentVersionHash({
+      systemInstructions: args.systemInstructionsJson ?? null,
+      toolDefinitions: args.toolDefinitionsJson ?? null,
+      primaryModel: args.primaryModel ?? null,
+      runtimeConfig: {
+        temperature: args.temperature ?? null,
+        top_p: args.top_p ?? null,
+        max_tokens: args.max_tokens ?? null,
+        provider: SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK,
+      },
+      providers: [SemanticConvention.GEN_AI_SYSTEM_CLAUDE_AGENT_SDK],
+    });
+    if (versionHash) {
+      out[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+      span.setAttribute(
+        SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+        versionHash
+      );
+    }
+  } catch {
+    // Hash computation must never fail the wrapped call.
+  }
+  const versionLabel = getCurrentAgentVersion();
+  if (versionLabel) {
+    out[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+    span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -417,6 +466,11 @@ interface ChatState {
   pendingEndMs?: number;
   pendingInput?: any[];
   lastBoundaryMs: number;
+  // Captured at query() time so each chat span can stamp the same
+  // `openlit.agent.version_hash` derived from the agent's system prompt and
+  // tool definitions.
+  systemInstructionsJson?: string;
+  toolDefinitionsJson?: string;
 }
 
 function hasLlmCallData(msg: any): boolean {
@@ -474,7 +528,14 @@ function flushPendingChat(
   const inputMessages = chatState.pendingInput;
   delete chatState.pendingInput;
 
-  setChatSpanAttributes(chatSpan, sdkMsg, captureContent, inputMessages);
+  setChatSpanAttributes(
+    chatSpan,
+    sdkMsg,
+    captureContent,
+    inputMessages,
+    chatState.systemInstructionsJson,
+    chatState.toolDefinitionsJson,
+  );
   chatSpan.end(new Date(endMs));
   chatState.lastBoundaryMs = endMs;
 }
@@ -488,6 +549,8 @@ function setChatSpanAttributes(
   sdkMsg: any,
   captureContent: boolean,
   inputMessages?: any[] | null,
+  systemInstructionsJson?: string,
+  toolDefinitionsJson?: string,
 ): void {
   try {
     const betaMessage = sdkMsg.message;
@@ -554,11 +617,23 @@ function setChatSpanAttributes(
       }
     }
 
+    const versionExtras = stampAgentVersion(span, {
+      systemInstructionsJson,
+      toolDefinitionsJson,
+      primaryModel: model ?? undefined,
+      temperature: null,
+      top_p: null,
+      max_tokens: null,
+    });
+
     applyCustomSpanAttributes(span);
     span.setStatus({ code: SpanStatusCode.OK });
 
     if (captureContent) {
-      emitChatInferenceEvent(span, model, messageId, sessionId, mappedReason, usageAttrs, inputMessages, outputMessages);
+      emitChatInferenceEvent(
+        span, model, messageId, sessionId, mappedReason, usageAttrs,
+        inputMessages, outputMessages, versionExtras,
+      );
     }
 
     if (!OpenlitConfig.disableMetrics) {
@@ -653,6 +728,7 @@ function emitChatInferenceEvent(
   usageAttrs: UsageAttrs,
   inputMessages?: any[] | null,
   outputMessages?: any[] | null,
+  versionExtras?: Record<string, string>,
 ): void {
   if (OpenlitConfig.disableEvents) return;
 
@@ -686,6 +762,10 @@ function emitChatInferenceEvent(
     }
     if (outputMessages != null) {
       attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessages;
+    }
+
+    if (versionExtras) {
+      Object.assign(attributes, versionExtras);
     }
 
     OpenLitHelper.emitInferenceEvent(span, attributes);
@@ -1000,6 +1080,24 @@ function setInitialSpanAttributes(
       }
     }
 
+    // gen_ai.tool.definitions — surface tool schemas declared on the agent's
+    // `options.tools`. Supports both the OpenAI/Anthropic-style array shape
+    // (handled directly by buildToolDefinitions) and the Claude Agent SDK's
+    // MCP-style object map of `{ name: { description, input_schema } }`.
+    const optionTools = options?.tools;
+    let normalizedTools: any = optionTools;
+    if (optionTools && !Array.isArray(optionTools) && typeof optionTools === 'object') {
+      normalizedTools = Object.entries(optionTools).map(([name, def]: [string, any]) => ({
+        name,
+        description: def?.description ?? '',
+        parameters: def?.parameters ?? def?.input_schema ?? def?.inputSchema ?? {},
+      }));
+    }
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(normalizedTools);
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
+    }
+
     applyCustomSpanAttributes(span);
   } catch { /* swallow */ }
 }
@@ -1086,6 +1184,28 @@ export function patchQuery(tracer: Tracer): (originalQuery: any) => any {
           parts: [{ type: 'text', content: truncateContent(prompt) }],
         }];
       }
+
+      // Capture system instructions and tool definitions once per query so
+      // each chat span can stamp the same `openlit.agent.version_hash`.
+      try {
+        const systemPrompt = options?.systemPrompt;
+        if (systemPrompt && typeof systemPrompt === 'string') {
+          chatState.systemInstructionsJson = JSON.stringify([
+            { type: 'text', content: systemPrompt },
+          ]);
+        }
+        const optionTools = options?.tools;
+        let normalizedTools: any = optionTools;
+        if (optionTools && !Array.isArray(optionTools) && typeof optionTools === 'object') {
+          normalizedTools = Object.entries(optionTools).map(([name, def]: [string, any]) => ({
+            name,
+            description: def?.description ?? '',
+            parameters: def?.parameters ?? def?.input_schema ?? def?.inputSchema ?? {},
+          }));
+        }
+        const toolDefs = OpenLitHelper.buildToolDefinitions(normalizedTools);
+        if (toolDefs) chatState.toolDefinitionsJson = toolDefs;
+      } catch { /* swallow */ }
 
       injectHooks(options, toolTracker, subagentTracker);
       setInitialSpanAttributes(span, options, prompt, captureContent);

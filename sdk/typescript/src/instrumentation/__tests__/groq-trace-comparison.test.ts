@@ -43,7 +43,31 @@ describe('Groq Cross-Language Trace Comparison', () => {
     (OpenLitHelper as any).createStreamProxy = jest.fn().mockImplementation((stream, _generator) => stream);
     (OpenLitHelper as any).buildInputMessages = jest.fn().mockReturnValue('[{"role":"user","parts":[{"type":"text","content":"Test"}]}]');
     (OpenLitHelper as any).buildOutputMessages = jest.fn().mockReturnValue('[{"role":"assistant","parts":[{"type":"text","content":"Response"}],"finish_reason":"stop"}]');
+    (OpenLitHelper as any).buildSystemInstructionsFromMessages = jest.fn().mockImplementation((messages: any[]) => {
+      const sys = (messages || []).find((m: any) => m?.role === 'system');
+      return sys ? JSON.stringify([{ type: 'text', content: String(sys.content) }]) : undefined;
+    });
+    (OpenLitHelper as any).buildToolDefinitions = jest.fn().mockImplementation((tools: any) => {
+      if (!Array.isArray(tools) || tools.length === 0) return undefined;
+      return JSON.stringify(
+        tools
+          .filter((t: any) => t?.function?.name || t?.name)
+          .map((t: any) => ({
+            type: 'function',
+            name: t.function?.name ?? t.name,
+            description: t.function?.description ?? t.description ?? '',
+            parameters: t.function?.parameters ?? t.parameters ?? {},
+          })),
+      );
+    });
     (OpenLitHelper as any).emitInferenceEvent = jest.fn();
+    // Stamp a deterministic agent version hash so the assertions below can
+    // pin the exact attribute value. The real helper would canonicalise the
+    // prompt + tools + model + runtime config — none of which matters for
+    // verifying the wrapper *plumbs* the result onto the span.
+    (OpenLitHelper as any).computeAgentVersionHash = jest
+      .fn()
+      .mockReturnValue('ts-test-version-hash');
 
     (BaseWrapper as any).recordMetrics = jest.fn();
     (BaseWrapper as any).setBaseSpanAttributes = jest.fn().mockImplementation((span, attrs) => {
@@ -117,6 +141,39 @@ describe('Groq Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_ADDRESS, 'api.groq.com');
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
+    });
+
+    it('stamps openlit.agent.version_hash on the chat span', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'Hash me' }],
+          model: 'llama-3.1-8b-instant',
+          stream: false,
+        },
+      ];
+
+      const mockResponse = {
+        id: 'hash-id',
+        created: Date.now(),
+        model: 'llama-3.1-8b-instant',
+        choices: [
+          { index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'ok' } },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      };
+
+      await GroqWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'groq.chat.completions',
+        response: mockResponse,
+        span: mockSpan,
+      });
+
+      expect((OpenLitHelper as any).computeAgentVersionHash).toHaveBeenCalled();
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+        'ts-test-version-hash',
+      );
     });
 
     it('should NOT set total_tokens or client.token.usage on span', async () => {
@@ -633,6 +690,134 @@ describe('Groq Cross-Language Trace Comparison', () => {
     it('should set correct server address and port', () => {
       expect(GroqWrapper.serverAddress).toBe('api.groq.com');
       expect(GroqWrapper.serverPort).toBe(443);
+    });
+  });
+
+  describe('GenAI semantic conventions: system_instructions + tool_definitions', () => {
+    const buildResponse = () => ({
+      id: 'sys-tools-test',
+      created: Date.now(),
+      model: 'llama-3.1-8b-instant',
+      choices: [
+        {
+          index: 0,
+          finish_reason: 'stop',
+          message: { role: 'assistant', content: 'ok' },
+        },
+      ],
+      usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+    });
+
+    it('writes gen_ai.system_instructions on the span and emitted event when a system message is present', async () => {
+      const mockArgs = [
+        {
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: 'hi' },
+          ],
+          model: 'llama-3.1-8b-instant',
+          stream: false,
+        },
+      ];
+
+      await GroqWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'groq.chat.completions',
+        response: buildResponse(),
+        span: mockSpan,
+      });
+
+      const expectedSysJson = JSON.stringify([
+        { type: 'text', content: 'You are a helpful assistant.' },
+      ]);
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+        expectedSysJson,
+      );
+
+      const emit = (OpenLitHelper as any).emitInferenceEvent as jest.Mock;
+      expect(emit).toHaveBeenCalled();
+      const eventAttrs = emit.mock.calls[0][1];
+      expect(eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS]).toBe(
+        expectedSysJson,
+      );
+    });
+
+    it('writes gen_ai.tool.definitions on the span and emitted event when tools are present', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'use a tool' }],
+          model: 'llama-3.1-8b-instant',
+          stream: false,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'get_weather',
+                description: 'Get current weather',
+                parameters: { type: 'object', properties: {} },
+              },
+            },
+          ],
+        },
+      ];
+
+      await GroqWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'groq.chat.completions',
+        response: buildResponse(),
+        span: mockSpan,
+      });
+
+      const expectedToolJson = JSON.stringify([
+        {
+          type: 'function',
+          name: 'get_weather',
+          description: 'Get current weather',
+          parameters: { type: 'object', properties: {} },
+        },
+      ]);
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_DEFINITIONS,
+        expectedToolJson,
+      );
+
+      const emit = (OpenLitHelper as any).emitInferenceEvent as jest.Mock;
+      expect(emit).toHaveBeenCalled();
+      const eventAttrs = emit.mock.calls[0][1];
+      expect(eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS]).toBe(
+        expectedToolJson,
+      );
+    });
+
+    it('omits both attributes when neither system messages nor tools are provided', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'hi' }],
+          model: 'llama-3.1-8b-instant',
+          stream: false,
+        },
+      ];
+
+      await GroqWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'groq.chat.completions',
+        response: buildResponse(),
+        span: mockSpan,
+      });
+
+      const setAttrKeys = (mockSpan.setAttribute as jest.Mock).mock.calls.map(
+        ([k]: [string]) => k,
+      );
+      expect(setAttrKeys).not.toContain(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS);
+      expect(setAttrKeys).not.toContain(SemanticConvention.GEN_AI_TOOL_DEFINITIONS);
+
+      const emit = (OpenLitHelper as any).emitInferenceEvent as jest.Mock;
+      const eventAttrs = emit.mock.calls[0][1];
+      expect(eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS]).toBeUndefined();
+      expect(eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS]).toBeUndefined();
     });
   });
 });

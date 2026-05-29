@@ -34,6 +34,13 @@ jest.mock('@/helpers/server/trace', () => ({
     };
     return map[key] || key;
   }),
+  getTraceMappingKeyFullPaths: jest.fn((key: string) => {
+    const map: Record<string, string[]> = {
+      promptTokens: ['gen_ai.usage.input_tokens', 'input_tokens', 'prompt_tokens'],
+      completionTokens: ['gen_ai.usage.output_tokens', 'output_tokens', 'completion_tokens'],
+    };
+    return map[key] || [key];
+  }),
 }));
 jest.mock('@/constants/traces', () => ({
   SUPPORTED_EVALUATION_OPERATIONS: ['chat'],
@@ -142,6 +149,66 @@ describe('setPricingForSpanId', () => {
       }),
       'exec',
       expect.any(String)
+    );
+  });
+
+  it('computes cost from direct input and output token attributes', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: {
+        SpanId: 'span-1',
+        Timestamp: '2026-01-01',
+        SpanAttributes: {
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-4o',
+          input_tokens: '300',
+          output_tokens: '400',
+        },
+      },
+    });
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(true);
+    expect(result.data!.cost).toBeCloseTo(
+      (300 / 1_000_000) * 2.5 + (400 / 1_000_000) * 10.0
+    );
+  });
+
+  it('keeps canonical gen_ai token attributes ahead of direct fallback keys', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: {
+        SpanId: 'span-1',
+        Timestamp: '2026-01-01',
+        SpanAttributes: {
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-4o',
+          'gen_ai.usage.input_tokens': '100',
+          'gen_ai.usage.output_tokens': '200',
+          input_tokens: '300',
+          output_tokens: '400',
+        },
+      },
+    });
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(true);
+    expect(result.data!.cost).toBeCloseTo(
+      (100 / 1_000_000) * 2.5 + (200 / 1_000_000) * 10.0
     );
   });
 
@@ -254,6 +321,49 @@ describe('autoUpdatePricing', () => {
         ],
       })
       // Second call: ALTER TABLE UPDATE
+      .mockResolvedValueOnce({ err: null });
+
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ totalUpdated: 1 }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('auto pricing supports direct token attributes', async () => {
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [
+          {
+            SpanId: 'span-1',
+            Timestamp: '2026-01-01',
+            SpanAttributes: {
+              'gen_ai.system': 'openai',
+              'gen_ai.request.model': 'gpt-4o',
+              input_tokens: '100',
+              output_tokens: '200',
+            },
+          },
+        ],
+      })
       .mockResolvedValueOnce({ err: null });
 
     (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({

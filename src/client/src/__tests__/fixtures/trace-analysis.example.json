@@ -1,0 +1,42 @@
+{
+  "trace_id": "trace_001",
+  "summary": "The trace completed successfully but used an oversized model for one child span. Tool routing was mostly direct.",
+  "strengths": [
+    {
+      "id": "strength_001",
+      "severity": "info",
+      "summary": "Root response completed successfully",
+      "detail": "The root LLM span completed without errors and produced a final response.",
+      "span_refs": ["span_001"]
+    }
+  ],
+  "improvements": [],
+  "wrong_turns": [
+    {
+      "id": "wrong_turn_001",
+      "severity": "minor",
+      "summary": "Search tool was retried with the same query",
+      "detail": "The second search repeated the same query and did not add useful context.",
+      "span_refs": ["span_002", "span_003"],
+      "suggested_fix": "Cache or deduplicate identical search calls inside the agent planner."
+    }
+  ],
+  "cost": [
+    {
+      "id": "cost_001",
+      "severity": "major",
+      "summary": "Expensive model used for summarization",
+      "detail": "The summarization subtask used a premium model despite simple extraction requirements.",
+      "span_refs": ["span_004"],
+      "estimated_savings": { "usd": 0.12 }
+    }
+  ],
+  "token_efficiency": [],
+  "path_analysis": [],
+  "totals": {
+    "span_count": 4,
+    "total_tokens": 12000,
+    "total_cost_usd": 0.18,
+    "duration_ms": 4200
+  }
+}

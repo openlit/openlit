@@ -65,6 +65,7 @@ func buildSystemdDropInContent(
 	unit string,
 	sdkRoot string,
 	serviceName string,
+	workloadKey string,
 	payload systemdOTLPPayload,
 	disabledInstrumentors string,
 	existingPythonPath string,
@@ -81,6 +82,12 @@ func buildSystemdDropInContent(
 	buf.WriteString(fmt.Sprintf("Environment=\"PYTHONPATH=%s\"\n", escapeSystemdValue(pythonPath)))
 	buf.WriteString("Environment=\"OPENLIT_CONTROLLER_MODE=agent_observability\"\n")
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_SERVICE_NAME=%s\"\n", escapeSystemdValue(serviceName)))
+	if workloadKey != "" {
+		buf.WriteString(fmt.Sprintf(
+			"Environment=\"OTEL_RESOURCE_ATTRIBUTES=service.workload.key=%s\"\n",
+			escapeSystemdValue(workloadKey),
+		))
+	}
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_ENDPOINT=%s\"\n", escapeSystemdValue(payload.OTLPEndpoint)))
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_DEPLOYMENT_ENVIRONMENT=%s\"\n", escapeSystemdValue(payload.Environment)))
 	if payload.OTLPProtocol != "" {

@@ -1,6 +1,10 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { isFrameworkLlmActive, getFrameworkParentContext } from '../../helpers';
+import OpenLitHelper, {
+  isFrameworkLlmActive,
+  getFrameworkParentContext,
+  getCurrentAgentVersion,
+} from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
@@ -391,6 +395,43 @@ class GroqWrapper extends BaseWrapper {
 
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(_tools);
+    // Always extract system_instructions so the version hash can be computed
+    // even when content capture is disabled.
+    const systemInstructionsJson = OpenLitHelper.buildSystemInstructionsFromMessages(
+      messages || []
+    );
+
+    const versionExtras: Record<string, string> = {};
+    try {
+      const versionHash = OpenLitHelper.computeAgentVersionHash({
+        systemInstructions: systemInstructionsJson ?? null,
+        toolDefinitions: toolDefinitionsJson ?? null,
+        primaryModel: responseModel || requestModel,
+        runtimeConfig: {
+          temperature: temperature ?? null,
+          top_p: top_p ?? null,
+          max_tokens: max_tokens ?? null,
+          provider: SemanticConvention.GEN_AI_SYSTEM_GROQ,
+        },
+        providers: [SemanticConvention.GEN_AI_SYSTEM_GROQ],
+      });
+      if (versionHash) {
+        versionExtras[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
+        span.setAttribute(
+          SemanticConvention.OPENLIT_AGENT_VERSION_HASH,
+          versionHash
+        );
+      }
+    } catch {
+      // Never fail the wrapped call on hash issues.
+    }
+    const versionLabel = getCurrentAgentVersion();
+    if (versionLabel) {
+      versionExtras[SemanticConvention.GEN_AI_AGENT_VERSION] = versionLabel;
+      span.setAttribute(SemanticConvention.GEN_AI_AGENT_VERSION, versionLabel);
+    }
+
     if (captureContent) {
       const toolCalls = result.choices[0].message.tool_calls;
       outputMessagesJson = OpenLitHelper.buildOutputMessages(
@@ -400,6 +441,12 @@ class GroqWrapper extends BaseWrapper {
       );
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
       inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
+      if (systemInstructionsJson) {
+        span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemInstructionsJson);
+      }
+    }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
     }
 
     if (!OpenlitConfig.disableEvents) {
@@ -414,11 +461,14 @@ class GroqWrapper extends BaseWrapper {
         [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+        ...versionExtras,
       };
       if (captureContent) {
         if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (systemInstructionsJson) eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
         if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
       }
+      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
