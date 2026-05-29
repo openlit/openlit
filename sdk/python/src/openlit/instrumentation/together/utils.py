@@ -2,6 +2,7 @@
 Together AI OpenTelemetry instrumentation utility functions
 """
 
+import json
 import time
 
 from opentelemetry.sdk.resources import (
@@ -12,6 +13,10 @@ from opentelemetry.sdk.resources import (
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
+    build_tool_definitions,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -112,6 +117,7 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    _apply_custom_span_attributes(scope._span)
 
 
 def record_common_metrics(
@@ -263,12 +269,37 @@ def common_chat_logic(
             str(scope._tools.get("function", "").get("arguments", "")),
         )
 
+    # Compute system instructions + tool definitions unconditionally so the
+    # agent version hash is stable across content-capture toggles.
+    system_instr = build_system_instructions_from_messages(
+        scope._kwargs.get("messages", [])
+    )
+    tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+    apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=scope._response_model or request_model,
+        runtime_config={
+            "temperature": scope._kwargs.get("temperature"),
+            "top_p": scope._kwargs.get("top_p"),
+            "max_tokens": scope._kwargs.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_TOGETHER,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_TOGETHER],
+    )
+
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
 
         # To be removed one the change to span_attributes (from span events) is complete
         scope._span.add_event(

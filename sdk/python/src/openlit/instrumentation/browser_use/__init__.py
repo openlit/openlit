@@ -8,6 +8,7 @@ import importlib.metadata
 from typing import Collection
 from wrapt import wrap_function_wrapper
 
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
 from openlit.semcov import SemanticConvention
@@ -29,7 +30,7 @@ class BrowserUseInstrumentor(BaseInstrumentor):
         """Instrument Browser-Use operations"""
 
         # Get configuration
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         pricing_info = kwargs.get("pricing_info", {})

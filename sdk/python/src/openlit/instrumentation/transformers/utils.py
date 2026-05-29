@@ -9,12 +9,16 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
     general_tokens,
     get_chat_model_cost,
     common_span_attributes,
     otel_event,
     record_completion_metrics,
+    truncate_message_content,
 )
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
@@ -138,6 +142,8 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
@@ -245,7 +251,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -351,49 +358,85 @@ def common_chat_logic(
             scope._cache_creation_input_tokens,
         )
 
+    # Compute system instructions unconditionally so the agent version hash
+    # is stable across content-capture toggles. Transformers pipelines expose
+    # text completions; system prompts only exist when the input is a
+    # chat-message list.
+    system_instr = (
+        build_system_instructions_from_messages(scope._prompt)
+        if isinstance(scope._prompt, list)
+        else None
+    )
+
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=None,
+        primary_model=request_model,
+        runtime_config={
+            "temperature": forward_params.get("temperature"),
+            "top_p": forward_params.get("top_p"),
+            "max_tokens": forward_params.get("max_length"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
+    input_msgs = build_input_messages(scope._prompt)
+    output_msgs = build_output_messages(
+        scope._completion, getattr(scope, "_finish_reason", "stop")
+    )
+
     # Span Attributes for Content
     if capture_message_content:
-        input_msgs = build_input_messages(scope._prompt)
-        output_msgs = build_output_messages(
-            scope._completion, getattr(scope, "_finish_reason", "stop")
-        )
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
 
-        if event_provider:
-            try:
-                extra = {
-                    "response_id": getattr(scope, "_response_id", ""),
-                    "finish_reasons": [getattr(scope, "_finish_reason", "stop")],
-                    "output_type": "text",
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "cache_read_input_tokens": getattr(
-                        scope, "_cache_read_input_tokens", 0
-                    ),
-                    "cache_creation_input_tokens": getattr(
-                        scope, "_cache_creation_input_tokens", 0
-                    ),
-                }
-                if forward_params.get("temperature") is not None:
-                    extra["temperature"] = forward_params["temperature"]
-                if forward_params.get("top_p") is not None:
-                    extra["top_p"] = forward_params["top_p"]
-                if forward_params.get("max_length") is not None:
-                    extra["max_tokens"] = forward_params["max_length"]
-                emit_inference_event(
-                    event_provider,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                    request_model,
-                    request_model,
-                    input_messages=input_msgs,
-                    output_messages=output_msgs,
-                    tool_definitions=None,
-                    server_address=scope._server_address,
-                    server_port=scope._server_port,
-                    **extra,
-                )
-            except Exception as e:
-                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+    # Emit inference event independently of content capture.
+    if event_provider:
+        try:
+            extra = {
+                "response_id": getattr(scope, "_response_id", ""),
+                "finish_reasons": [getattr(scope, "_finish_reason", "stop")],
+                "output_type": "text",
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_input_tokens": getattr(
+                    scope, "_cache_read_input_tokens", 0
+                ),
+                "cache_creation_input_tokens": getattr(
+                    scope, "_cache_creation_input_tokens", 0
+                ),
+                **version_extras,
+            }
+            if forward_params.get("temperature") is not None:
+                extra["temperature"] = forward_params["temperature"]
+            if forward_params.get("top_p") is not None:
+                extra["top_p"] = forward_params["top_p"]
+            if forward_params.get("max_length") is not None:
+                extra["max_tokens"] = forward_params["max_length"]
+            if capture_message_content and system_instr:
+                extra["system_instructions"] = system_instr
+            emit_inference_event(
+                event_provider,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                request_model,
+                request_model,
+                input_messages=input_msgs if capture_message_content else [],
+                output_messages=output_msgs if capture_message_content else [],
+                tool_definitions=None,
+                server_address=scope._server_address,
+                server_port=scope._server_port,
+                **extra,
+            )
+        except Exception as e:
+            logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     # Span status and metrics
     scope._span.set_status(Status(StatusCode.OK))

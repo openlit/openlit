@@ -1,0 +1,63 @@
+---
+title: 'Configuration'
+description: 'Environment variables reference for the OpenTelemetry GPU Collector'
+icon: 'sliders'
+---
+
+The collector is configured entirely via environment variables. All variables follow the standard [OpenTelemetry SDK configuration](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) spec where applicable.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(required)* | OTLP endpoint URL, e.g. `http://localhost:4318` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | | Auth headers in `key=val,key2=val2` format |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` or `http/protobuf` |
+| `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes in `key=val,key=val` format |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
+| `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA kernel tracing (Linux only) |
+
+## Common configurations
+
+### Minimal — send to a local OTel Collector
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+./opentelemetry-gpu-collector
+```
+
+### Production — with service name, environment, and auth header
+
+```bash
+OTEL_SERVICE_NAME=gpu-worker \
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=ml \
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.example.com:4317 \
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer\ my-token \
+OTEL_METRIC_EXPORT_INTERVAL=30000 \
+./opentelemetry-gpu-collector
+```
+
+### HTTP/protobuf instead of gRPC
+
+```bash
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+./opentelemetry-gpu-collector
+```
+
+### Enable eBPF CUDA tracing
+
+Requires `CAP_BPF` + `CAP_PERFMON` (or root) and NVIDIA CUDA runtime.
+
+```bash
+OTEL_GPU_EBPF_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+./opentelemetry-gpu-collector
+```
+
+## Notes
+
+- `OTEL_METRIC_EXPORT_INTERVAL` is in **milliseconds** per the OTel spec. For a 30-second interval, set `30000`.
+- `deployment.environment` is extracted from `OTEL_RESOURCE_ATTRIBUTES` and attached as a resource attribute. Any key-value pairs in `OTEL_RESOURCE_ATTRIBUTES` are also forwarded to the OTel SDK resource via `resource.WithFromEnv()`.
+- If `OTEL_EXPORTER_OTLP_ENDPOINT` is not set, the collector starts but no metrics are exported. Check the logs for a warning.

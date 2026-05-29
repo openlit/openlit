@@ -16,7 +16,14 @@ interface MetricsOverviewProps {
 }
 
 export default function MetricsOverview({ data }: MetricsOverviewProps) {
-	const successfulProviders = data.filter((p) => !p.error);
+	const successfulProviders = data.filter((p) => !p.error).map((p) => ({
+		...p,
+		cost: Number(p.cost) || 0,
+		promptTokens: Number(p.promptTokens) || 0,
+		completionTokens: Number(p.completionTokens) || 0,
+		totalTokens: Number(p.totalTokens) || 0,
+		responseTime: Number(p.responseTime) || 0,
+	}));
 	const totalProviders = data.length;
 	const successRate = Math.round((successfulProviders.length / totalProviders) * 100);
 

@@ -1,6 +1,6 @@
 ---
 title: "Overview"
-description: "Automated Eval scoring, hallucination detection, bias monitoring for LLMs apps"
+description: "Automated Eval scoring with 11 evaluation types — hallucination, bias, toxicity, safety, and more"
 ---
 
 OpenLIT provides automated evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
@@ -19,11 +19,37 @@ OpenLIT provides automated evaluation that helps you assess and monitor the qual
 
 Evaluation is crucial for improving the accuracy and robustness of language models, ultimately enhancing user experience and trust in your AI applications. Here are the key benefits:
 
-- **Quality & Safety Assurance**: Detect hallucinations, bias, toxicity, and ensure consistent, reliable AI outputs
+- **Quality & Safety Assurance**: Detect hallucinations, bias, toxicity, safety issues, and ensure consistent, reliable AI outputs
 - **Performance Monitoring**: Track model performance degradation and measure response quality across different scenarios
 - **Risk Mitigation**: Catch potential issues before they reach users and ensure compliance with safety standards
 - **Cost Optimization**: Monitor cost-effectiveness and ROI of different AI configurations and model choices
 - **Continuous Improvement**: Build data-driven insights for A/B testing, optimization, and iterative development
+
+## 11 built-in evaluation types
+
+OpenLIT includes 11 evaluation types out of the box. Each can be independently enabled, customized with custom prompts, and linked to Rule Engine rules for conditional evaluation.
+
+| Evaluation Type | Description | Default |
+|----------------|-------------|---------|
+| **Hallucination** | Detects factual inaccuracies, contradictions, and fabricated information | Enabled |
+| **Bias** | Monitors for discriminatory patterns across gender, ethnicity, age, religion | Enabled |
+| **Toxicity** | Screens for harmful, offensive, threatening, or hateful language | Enabled |
+| **Relevance** | Evaluates how well the response addresses the prompt | Disabled |
+| **Coherence** | Assesses logical flow and internal consistency | Disabled |
+| **Faithfulness** | Measures alignment with provided context or source material | Disabled |
+| **Safety** | Detects jailbreak attempts, prompt injection, and unsafe content generation | Disabled |
+| **Instruction Following** | Evaluates adherence to instructions, constraints, and formatting | Disabled |
+| **Completeness** | Assesses whether all parts of the query are fully addressed | Disabled |
+| **Conciseness** | Evaluates whether the response avoids unnecessary verbosity | Disabled |
+| **Sensitivity** | Detects PII leakage, credentials, and confidential data exposure | Disabled |
+
+<Info>
+**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context — not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
+</Info>
+
+### Custom evaluation types
+
+Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
 
 ## AI evaluation methods
 
@@ -34,15 +60,18 @@ OpenLIT provides automated LLM evaluation and testing capabilities for productio
 Zero-setup AI quality monitoring that automatically evaluates your LLM responses:
 
 - **Production Monitoring**: Auto-evaluate every LLM response for quality and safety issues
-- **Smart Scheduling**: Configure evaluation frequency and sampling for cost optimization
+- **Smart Scheduling**: Configure evaluation frequency with cron schedules for cost optimization
 - **Real-time Scoring**: Instant evaluation results visible in trace details and dashboards
+- **Rule Engine Integration**: Link evaluation types to rules for conditional evaluation based on trace attributes (model, provider, service, environment)
+- **Context-Aware**: Evaluations use context from the Rule Engine as ground truth for judging responses
 
-### Programmatic evaluations  
+### Programmatic evaluations
 
 Programmatic AI evaluation tools for custom testing workflows and development pipelines:
 
-- **Code Integration**: Call LLM evaluators directly in your application code
+- **Code Integration**: Call LLM evaluators directly in your application code via the SDK
 - **CI/CD Quality Gates**: Automated testing for model improvements and regression detection
+- **Rule Engine SDK**: Use `evaluate_rule()` to fetch matching contexts and evaluation configs at runtime
 
 ---
 
@@ -53,7 +82,7 @@ Programmatic AI evaluation tools for custom testing workflows and development pi
   <Card title="Programmatic evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
     Quick start guide for implementing custom evaluations in your code
   </Card>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine" icon='gears'>
+    Define conditional rules to provide context and control which evaluations run
   </Card>
 </CardGroup>

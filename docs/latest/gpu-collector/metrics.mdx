@@ -1,0 +1,106 @@
+---
+title: 'Metrics Reference'
+description: 'Complete list of all metrics exported by the OpenTelemetry GPU Collector'
+icon: 'table'
+---
+
+All metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
+
+## GPU Hardware Telemetry
+
+Collected for each detected GPU on Linux. Availability depends on vendor and GPU model.
+
+### Metrics
+
+| Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
+|---|---|---|---|:---:|:---:|:---:|
+| `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | — |
+| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | — |
+| `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | — |
+| `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | — |
+| `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | — |
+| `hw.gpu.temperature` | Gauge | `Cel` | Die or memory temperature | Yes | Yes | Yes |
+| `hw.gpu.fan_speed` | Gauge | `{rpm}` | Fan speed | Yes | Yes | Yes* |
+| `hw.gpu.power.draw` | Gauge | `W` | Current power draw | Yes | Yes | Yes |
+| `hw.gpu.power.limit` | Gauge | `W` | Power limit/cap | Yes | Yes | Yes |
+| `hw.gpu.energy.consumed` | Counter | `J` | Cumulative energy consumed | Yes | Yes | Yes |
+| `hw.gpu.clock.graphics` | Gauge | `MHz` | Graphics/SM clock frequency | Yes | Yes | Yes* |
+| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | — |
+| `hw.errors` | Counter | `{error}` | ECC and PCIe error count | Yes | — | — |
+
+\* Intel fan speed requires Linux kernel 6.16+. Intel graphics clock requires the Xe driver.
+
+### Attributes
+
+All GPU metrics carry these base attributes:
+
+| Attribute | Description | Example |
+|---|---|---|
+| `hw.id` | Unique device identifier (required by spec) | `GPU-a1b2c3d4-5678-...` |
+| `hw.name` | Product name | `NVIDIA A100-SXM4-80GB` |
+| `hw.vendor` | Vendor name | `nvidia`, `amd`, `intel` |
+| `gpu.index` | Zero-based device index | `0`, `1` |
+| `gpu.pci_address` | PCI bus address | `0000:01:00.0` |
+
+Additional per-metric attributes:
+
+| Metric | Attribute | Values |
+|---|---|---|
+| `hw.gpu.utilization` | `hw.gpu.task` | `general`, `encoder`, `decoder` |
+| `hw.gpu.temperature` | `sensor` | `die`, `memory` |
+| `hw.errors` | `error.type` | `corrected`, `uncorrected`, `pcie_replay` |
+| `hw.errors` | `hw.type` | `gpu` |
+
+---
+
+## System Metrics
+
+Collected on all platforms (Linux, macOS, Windows) via [gopsutil](https://github.com/shirou/gopsutil). Follows the [OTel semantic conventions for system metrics](https://opentelemetry.io/docs/specs/semconv/system/system-metrics/).
+
+| Metric | Type | Unit | Description | Attributes |
+|---|---|---|---|---|
+| `system.cpu.utilization` | Gauge | `1` | CPU utilization per logical core (0.0–1.0) | `cpu.logical_number` |
+| `system.cpu.logical.count` | UpDownCounter | `{cpu}` | Number of logical CPU cores | |
+| `system.memory.usage` | UpDownCounter | `By` | Memory bytes by state | `system.memory.state`={used,free,cached,buffers} |
+| `system.memory.utilization` | Gauge | `1` | Memory utilization (0.0–1.0) | |
+| `system.disk.io` | Counter | `By` | Disk I/O bytes | `system.device`, `disk.io.direction`={read,write} |
+| `system.disk.operations` | Counter | `{operation}` | Disk I/O operations | `system.device`, `disk.io.direction`={read,write} |
+| `system.filesystem.usage` | UpDownCounter | `By` | Filesystem space by state | `system.device`, `system.filesystem.mountpoint`, `system.filesystem.type`, `system.filesystem.state`={used,free} |
+| `system.filesystem.utilization` | Gauge | `1` | Filesystem utilization (0.0–1.0) | `system.device`, `system.filesystem.mountpoint`, `system.filesystem.type` |
+| `system.network.io` | Counter | `By` | Network I/O bytes | `network.interface.name`, `network.io.direction`={receive,transmit} |
+| `system.network.errors` | Counter | `{error}` | Network errors | `network.interface.name`, `network.io.direction`={receive,transmit} |
+
+<Note>
+`system.memory.state` values `cached` and `buffers` are only reported on Linux. Loopback interfaces (`lo`, `lo0`) are excluded from network metrics.
+</Note>
+
+---
+
+## Process Metrics
+
+Self-monitoring of the collector process. Follows the [OTel semantic conventions for process metrics](https://opentelemetry.io/docs/specs/semconv/system/process-metrics/).
+
+| Metric | Type | Unit | Description | Attributes |
+|---|---|---|---|---|
+| `process.cpu.time` | Counter | `s` | Cumulative CPU time | `cpu.mode`={user,system} |
+| `process.cpu.utilization` | Gauge | `1` | CPU utilization (0.0–1.0) | |
+| `process.memory.usage` | UpDownCounter | `By` | Resident memory (RSS) | |
+| `process.memory.virtual` | UpDownCounter | `By` | Virtual memory size | |
+| `process.thread.count` | UpDownCounter | `{thread}` | OS thread count | |
+| `process.unix.file_descriptor.count` | UpDownCounter | `{file_descriptor}` | Open file descriptors (Linux/macOS) | |
+| `process.runtime.go.goroutines` | Gauge | `{goroutine}` | Go goroutine count | |
+| `process.runtime.go.mem.heap_alloc` | Gauge | `By` | Go heap memory allocated | |
+
+---
+
+## eBPF CUDA Metrics (opt-in)
+
+Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires Linux, `CAP_BPF` + `CAP_PERFMON` (or root), and an NVIDIA CUDA runtime (`libcudart.so`). Attaches uprobes to `cudaLaunchKernel`, `cudaMalloc`, and `cudaMemcpy`.
+
+| Metric | Type | Unit | Description | Attributes |
+|---|---|---|---|---|
+| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `cuda.kernel.name` |
+| `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | `cuda.kernel.name` |
+| `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | `cuda.kernel.name` |
+| `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | |
+| `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpy call | `cuda.memcpy.kind`={HostToHost,HostToDevice,DeviceToHost,DeviceToDevice} |

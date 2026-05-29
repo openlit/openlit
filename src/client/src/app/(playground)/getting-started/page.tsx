@@ -1,8 +1,16 @@
 "use client";
+import { useEffect } from "react";
 import CodeBlock from "@/components/common/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function GettingStarted() {
+	const posthog = usePostHog();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.GETTING_STARTED_PAGE_VISITED);
+	}, []);
 	const code = [
 		{
 			key: "python",

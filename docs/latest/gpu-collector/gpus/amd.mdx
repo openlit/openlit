@@ -1,0 +1,105 @@
+---
+title: 'AMD GPUs'
+description: 'Monitor AMD GPU metrics via sysfs/hwmon using the OpenTelemetry GPU Collector'
+---
+
+The collector monitors AMD GPUs directly from the Linux kernel's sysfs and hwmon interfaces. No ROCm, no user-space libraries, and no additional drivers are needed beyond the standard AMDGPU kernel module.
+
+## Requirements
+
+- Linux with the `amdgpu` kernel driver
+- Kernel 5.x+ (sysfs/hwmon paths are stable from 5.x onwards)
+
+## Collected metrics
+
+| Metric | Description |
+|---|---|
+| `hw.gpu.utilization` | Compute utilization (0.0–1.0) |
+| `hw.gpu.memory.utilization` | Memory controller utilization (0.0–1.0) |
+| `hw.gpu.memory.limit` | Total VRAM (bytes) |
+| `hw.gpu.memory.usage` | Used VRAM (bytes) |
+| `hw.gpu.memory.free` | Free VRAM (bytes) |
+| `hw.gpu.temperature` | Die temperature (°C) |
+| `hw.gpu.fan_speed` | Fan speed (RPM) |
+| `hw.gpu.power.draw` | Current power draw (W) |
+| `hw.gpu.power.limit` | Power cap (W) |
+| `hw.gpu.energy.consumed` | Cumulative energy (J) |
+
+## Docker
+
+```bash
+docker run -d \
+  --name otel-gpu-collector \
+  --device /dev/kfd:/dev/kfd \
+  --device /dev/dri:/dev/dri \
+  -e OTEL_SERVICE_NAME=my-app \
+  -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 \
+  ghcr.io/openlit/otel-gpu-collector:latest
+```
+
+## Docker Compose
+
+```yaml
+services:
+  otel-gpu-collector:
+    image: ghcr.io/openlit/otel-gpu-collector:latest
+    environment:
+      OTEL_SERVICE_NAME: my-app
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    restart: always
+```
+
+## Kubernetes (DaemonSet)
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-gpu-collector
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: otel-gpu-collector
+  template:
+    metadata:
+      labels:
+        app: otel-gpu-collector
+    spec:
+      containers:
+        - name: collector
+          image: ghcr.io/openlit/otel-gpu-collector:latest
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: gpu-collector
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=production
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.monitoring.svc.cluster.local:4318
+          securityContext:
+            privileged: false
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Metrics reference" href="/latest/gpu-collector/metrics#gpu-hardware-telemetry" icon="table">
+    Full metrics list with types, units, and attributes
+  </Card>
+  <Card title="Configuration" href="/latest/gpu-collector/configuration" icon="sliders">
+    All environment variables and defaults
+  </Card>
+</CardGroup>

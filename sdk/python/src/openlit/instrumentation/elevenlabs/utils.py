@@ -13,7 +13,9 @@ from openlit.__helpers import (
     get_audio_model_cost,
     record_audio_metrics,
     otel_event,
+    truncate_message_content,
 )
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,8 @@ def build_output_messages(output_type="speech"):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
@@ -158,7 +162,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
 
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)

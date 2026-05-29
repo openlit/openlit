@@ -5,6 +5,9 @@ import { OpengroundStore } from "@/types/store/openground";
 import { PageStore } from "@/types/store/page";
 import { DashboardStore } from "./dashboards";
 import { OrganisationStore } from "./organisation";
+import { RuleEngineStore } from "./rule-engine";
+import { ChatStore } from "./chat";
+import { AgentInstrumentationStore } from "./agents-instrumentation";
 
 export type RootStore = {
 	user: UserStore;
@@ -14,4 +17,7 @@ export type RootStore = {
 	page: PageStore;
 	dashboards: DashboardStore;
 	organisation: OrganisationStore;
+	ruleEngine: RuleEngineStore;
+	chat: ChatStore;
+	agentsInstrumentation: AgentInstrumentationStore;
 };

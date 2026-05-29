@@ -1,11 +1,11 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Evaluations, Guardrails, Prompts, Vault, Playground, FleetHub
+#### Observability, Evaluations, Rule Engine, Guardrails, Prompts, Vault, Playground, FleetHub
 
 # Open Source Platform for AI Engineering
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |**
+**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Go SDK](https://github.com/openlit/openlit/tree/main/sdk/go) |**
 
 **❤️ [Sponsor this project](https://opencollective.com/openlit) ❤️** 
 
@@ -33,7 +33,11 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
-- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools.
+- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs (Python, TypeScript, Go) to send traces and metrics to your existing observability tools.
+
+- 🛡️ **11 Built-in Evaluation Types**: Automated LLM-as-a-Judge evaluation with hallucination, bias, toxicity, safety, instruction following, completeness, conciseness, sensitivity, relevance, coherence, and faithfulness detection. Context-aware evaluation that treats provided context as the source of truth.
+
+- ⚙️ **Rule Engine**: Define conditional rules with AND/OR logic to match runtime trace attributes and dynamically retrieve contexts, prompts, and evaluation configs. SDK support across Python, TypeScript, and Go.
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
@@ -173,7 +177,7 @@ Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring
 
 ## 📦 Supported Integrations
 
-OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector databases** with a single line of code. Each integration produces [OpenTelemetry-native](https://opentelemetry.io/) traces and metrics. Click any card to view the integration docs.
+OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector databases** with a single line of code. Each integration produces [OpenTelemetry-native](https://opentelemetry.io/) traces and metrics. Click any card to view the integration docs.
 
 <sub>
 <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="16"> Python SDK &nbsp;&nbsp;
@@ -197,14 +201,14 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/bedrock"><b>AWS Bedrock</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/azure-ai-inference"><b>Azure AI Inference</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/azure-ai-inference"><b>Azure AI Inference</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vertexai"><b>Vertex AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vllm"><b>vLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/reka"><b>Reka</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/litellm"><b>LiteLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/huggingface"><b>Hugging Face</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/huggingface"><b>Hugging Face</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/ai21"><b>AI21</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
@@ -215,6 +219,9 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/multion"><b>MultiOn</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/replicate"><b>Replicate</b></a><br/><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/digitalocean"><b>DigitalOcean (pydo)</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/digitalocean-gradient"><b>DigitalOcean Gradient</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 
@@ -228,7 +235,7 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/pydantic"><b>Pydantic AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/phidata"><b>Agno</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/agno"><b>Agno</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/browser-use"><b>Browser Use</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/haystack"><b>Haystack</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/letta"><b>Letta</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
@@ -241,8 +248,19 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/dynamiq"><b>Dynamiq</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai-agents"><b>OpenAI Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai-agents"><b>OpenAI Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/firecrawl"><b>Firecrawl</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/google-adk"><b>Google ADK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/langgraph"><b>LangGraph</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/smolagents"><b>Smolagents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/strands"><b>Strands Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/claude-agent-sdk"><b>Claude Agent SDK</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/agent-framework"><b>MS Agent Framework</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vercel-ai"><b>Vercel AI</b></a><br/><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 
@@ -251,9 +269,9 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 <table>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/pinecone"><b>Pinecone</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/chromadb"><b>ChromaDB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/qdrant"><b>Qdrant</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/milvus"><b>Milvus</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/chromadb"><b>ChromaDB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/qdrant"><b>Qdrant</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/milvus"><b>Milvus</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/astradb"><b>Astra DB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
@@ -267,6 +285,7 @@ OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector database
 <tr>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/elevenlabs"><b>ElevenLabs</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/assemblyai"><b>AssemblyAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/mcp"><b>MCP</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>
 </table>
 
@@ -329,3 +348,9 @@ OpenLIT is available under the [Apache-2.0 license](LICENSE).
     <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" height="80px" width="200px">
   </a>
 </p>
+
+## 💻 Contributors
+
+<a href="https://github.com/openlit/openlit/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit" />
+</a>

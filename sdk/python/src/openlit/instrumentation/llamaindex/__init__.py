@@ -4,9 +4,11 @@ OpenLIT LlamaIndex Instrumentation
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.llamaindex.llamaindex import general_wrap
 from openlit.instrumentation.llamaindex.async_llamaindex import async_general_wrap
 
@@ -23,12 +25,11 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("llama-index")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
 
         # === WORKFLOW OPERATIONS (Always enabled) - 17 operations ===
         workflow_operations = [
@@ -165,7 +166,7 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
             ),
         ]
 
-        # === COMPONENT OPERATIONS (Detailed tracing only) - 25 operations ===
+        # === COMPONENT OPERATIONS - 25 operations ===
         component_operations = [
             # Text Processing Components
             (
@@ -331,30 +332,26 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
             except Exception:
                 pass
 
-        # Wrap component operations (detailed tracing only)
-        if detailed_tracing:
-            for module, method, operation_type in component_operations:
-                try:
-                    wrap_function_wrapper(
-                        module,
-                        method,
-                        general_wrap(
-                            operation_type,
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                        ),
-                    )
-                except Exception:
-                    pass
-
-        # Total operations: 17 workflow + 13 async + (25 component if detailed) = 30 baseline, 55 with detailed tracing
-        # Beats OpenInference (~20 operations) by 175-275%
+        # Wrap component operations
+        for module, method, operation_type in component_operations:
+            try:
+                wrap_function_wrapper(
+                    module,
+                    method,
+                    general_wrap(
+                        operation_type,
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+            except Exception:
+                pass
 
     def _uninstrument(self, **kwargs):
         pass

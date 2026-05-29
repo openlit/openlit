@@ -1,0 +1,92 @@
+---
+title: 'Overview'
+description: 'OpenTelemetry-native GPU and host metrics collector for NVIDIA, AMD, and Intel GPUs'
+---
+
+The **OpenTelemetry GPU Collector** is a lightweight, single-binary metrics collector written in Go. It exports GPU hardware telemetry, host system metrics, and process metrics via OpenTelemetry (OTLP) — with no Python dependencies, no DCGM daemon, and no vendor-specific agents.
+
+It is fully configured via standard OpenTelemetry environment variables and follows the [OTel semantic conventions for hardware metrics](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/).
+
+## Goals
+
+* **OpenTelemetry-native** — uses standard `OTEL_*` env vars, exports via OTLP gRPC or HTTP to any OTel-compatible backend
+* **Cross-vendor GPU support** — NVIDIA (NVML), AMD (sysfs/hwmon), and Intel (i915/Xe sysfs) from a single binary
+* **OTel semantic conventions** — `hw.gpu.*` metric names, `hw.id` / `hw.name` / `hw.vendor` attributes per spec
+* **Zero dependencies** — no DCGM, no Python, no CUDA toolkit needed at runtime for hardware metrics
+* **Resilient** — continues exporting host metrics even when no GPUs are present; retries GPU discovery every 30s
+
+## What it collects
+
+<CardGroup cols={3}>
+  <Card title="GPU Hardware Telemetry" icon="microchip">
+    Utilization, memory, temperature, power draw, energy, clock speeds, ECC errors, PCIe errors — for NVIDIA, AMD, and Intel GPUs
+  </Card>
+  <Card title="Host System Metrics" icon="server">
+    CPU utilization, memory usage, disk I/O, filesystem usage, and network I/O — on Linux, macOS, and Windows
+  </Card>
+  <Card title="eBPF CUDA Tracing" icon="code">
+    Kernel launch counts, grid/block sizes, memory allocations, and memory copies — via uprobes on libcudart.so (opt-in, Linux only)
+  </Card>
+</CardGroup>
+
+## GPU vendor support
+
+| Vendor | Backend | Metrics available |
+|---|---|---|
+| **NVIDIA** | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — loads `libnvidia-ml.so` at runtime | Utilization, memory, temperature, power, energy, clocks, ECC errors, PCIe errors, fan speed |
+| **AMD** | sysfs + hwmon — zero external dependencies | Utilization, memory, temperature, power, energy, fan speed |
+| **Intel** | sysfs + hwmon + DRM (i915/Xe driver) | Temperature, power draw/limit, cumulative energy, graphics clock, fan speed (kernel 6.16+) |
+
+## Platform support
+
+| Feature | Linux | macOS | Windows |
+|---|:---:|:---:|:---:|
+| System metrics (CPU, memory, disk, network) | Yes | Yes | Yes |
+| Process metrics (CPU, memory, threads, FDs) | Yes | Yes | Yes |
+| GPU metrics (NVIDIA, AMD, Intel) | Yes | — | — |
+| eBPF CUDA tracing | Yes | — | — |
+
+## How it works
+
+```
+Host Metrics (all platforms via gopsutil)
+    +-- CPU utilization, memory, disk I/O, filesystem, network
+    +-- Process: self CPU, memory, threads, FDs, Go runtime
+
+GPU Metrics (Linux only)
+    +-- PCI Bus Scan (/sys/bus/pci/devices/)
+    |     +-- NVIDIA (0x10de) --> NVML backend
+    |     +-- AMD    (0x1002) --> sysfs/hwmon backend
+    |     +-- Intel  (0x8086) --> sysfs/hwmon + DRM backend
+    |
+    +-- [Optional: eBPF CUDA tracing via uprobes on libcudart.so]
+
+Export
+    +-- OTel SDK --> OTLP gRPC/HTTP --> your OTel collector / backend
+```
+
+<Steps>
+  <Step title="Scans PCI bus">
+    On startup, the collector scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` (VGA), `0x0302` (3D controller), and `0x0380` (display controller), identifying GPU vendor from the PCI vendor ID.
+  </Step>
+  <Step title="Initialises vendor backend">
+    Each detected GPU is handed to its vendor-specific backend. NVIDIA loads `libnvidia-ml.so` via NVML. AMD and Intel read directly from kernel sysfs/hwmon — no additional libraries needed.
+  </Step>
+  <Step title="Registers OTel instruments">
+    Observable gauge and counter instruments are registered with the OTel SDK meter. On each collection tick, the SDK calls back into the collector to read fresh values from each GPU.
+  </Step>
+  <Step title="Exports via OTLP">
+    Metrics are exported via OTLP to any compatible backend — OpenLIT, Grafana, Datadog, New Relic, or a standard OTel Collector.
+  </Step>
+</Steps>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/latest/gpu-collector/quickstart" icon="bolt">
+    Get the collector running in under 5 minutes with Docker
+  </Card>
+  <Card title="Configuration" href="/latest/gpu-collector/configuration" icon="sliders">
+    Full reference for all environment variables
+  </Card>
+</CardGroup>

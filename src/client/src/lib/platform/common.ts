@@ -12,7 +12,14 @@ import {
 import { OPERATION_TYPE } from "@/types/platform";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
+export const OTEL_LOGS_TABLE_NAME = "otel_logs";
 export const OTEL_GPUS_TABLE_NAME = "otel_metrics_gauge";
+export const OTEL_METRICS_GAUGE_TABLE_NAME = "otel_metrics_gauge";
+export const OTEL_METRICS_SUM_TABLE_NAME = "otel_metrics_sum";
+export const OTEL_METRICS_HISTOGRAM_TABLE_NAME = "otel_metrics_histogram";
+export const OTEL_METRICS_SUMMARY_TABLE_NAME = "otel_metrics_summary";
+export const OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME =
+	"otel_metrics_exponential_histogram";
 
 export type TimeLimit = {
 	start: Date | string;
@@ -53,6 +60,7 @@ export async function dataCollector(
 		table,
 		values,
 		enable_readonly = false,
+		clickhouse_settings,
 	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams & { enable_readonly?: boolean }>,
 	clientQueryType: "query" | "command" | "insert" | "exec" | "ping" = "query",
 	dbConfigId?: string
@@ -103,12 +111,16 @@ export async function dataCollector(
 			}
 		} else if (clientQueryType === "insert") {
 			if (!table || !values) return { err: "No table specified!" };
+			const insertParams: Record<string, unknown> = {
+				table,
+				values,
+				format,
+			};
+			if (clickhouse_settings) {
+				insertParams.clickhouse_settings = clickhouse_settings;
+			}
 			[respErr, result] = await asaw(
-				client.insert({
-					table,
-					values,
-					format,
-				})
+				client.insert(insertParams as any)
 			);
 
 			if (!respErr) {

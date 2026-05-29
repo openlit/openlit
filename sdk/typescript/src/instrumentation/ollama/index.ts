@@ -38,17 +38,49 @@ export default class OpenlitOllamaInstrumentation extends InstrumentationBase {
 
   protected _patch(moduleExports: any) {
     try {
-      if (isWrapped(moduleExports.Ollama.prototype.chat)) {
-        this._unwrap(moduleExports.Ollama.prototype, 'chat');
+      const proto = moduleExports.Ollama.prototype;
+
+      if (isWrapped(proto.chat)) {
+        this._unwrap(proto, 'chat');
+      }
+      this._wrap(proto, 'chat', OllamaWrapper._patchChat(this.tracer));
+
+      if (typeof proto.generate === 'function') {
+        if (isWrapped(proto.generate)) {
+          this._unwrap(proto, 'generate');
+        }
+        this._wrap(proto, 'generate', OllamaWrapper._patchGenerate(this.tracer));
       }
 
-      this._wrap(moduleExports.Ollama.prototype, 'chat', OllamaWrapper._patchChat(this.tracer));
+      if (typeof proto.embed === 'function') {
+        if (isWrapped(proto.embed)) {
+          this._unwrap(proto, 'embed');
+        }
+        this._wrap(proto, 'embed', OllamaWrapper._patchEmbeddings(this.tracer));
+      }
+
+      if (typeof proto.embeddings === 'function') {
+        if (isWrapped(proto.embeddings)) {
+          this._unwrap(proto, 'embeddings');
+        }
+        this._wrap(proto, 'embeddings', OllamaWrapper._patchEmbeddings(this.tracer));
+      }
     } catch (e) {
       console.error('Error in _patch method:', e);
     }
   }
 
   protected _unpatch(moduleExports: any) {
-    this._unwrap(moduleExports.Ollama.prototype, 'chat');
+    const proto = moduleExports.Ollama.prototype;
+    this._unwrap(proto, 'chat');
+    if (typeof proto.generate === 'function') {
+      this._unwrap(proto, 'generate');
+    }
+    if (typeof proto.embed === 'function') {
+      this._unwrap(proto, 'embed');
+    }
+    if (typeof proto.embeddings === 'function') {
+      this._unwrap(proto, 'embeddings');
+    }
   }
 }

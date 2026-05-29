@@ -5,6 +5,7 @@ Optimized Auto Instrumentation of mem0 Functions following OpenLIT Framework Gui
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
@@ -260,7 +261,7 @@ class Mem0Instrumentor(BaseInstrumentor):
         # Extract configuration
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info")
         capture_message_content = kwargs.get("capture_message_content")
 

@@ -9,6 +9,10 @@ export const getFilterConfig = (state: RootStore) => state.filter.config;
 
 export const getUpdateConfig = (state: RootStore) => state.filter.updateConfig;
 
+export const getAttributeKeys = (state: RootStore) => state.filter.attributeKeys;
+
+export const getUpdateAttributeKeys = (state: RootStore) => state.filter.updateAttributeKeys;
+
 export const useFilters = () => {
 	return useRootStore((state: RootStore) => state.filter);
 };

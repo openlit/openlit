@@ -21,7 +21,7 @@ export async function getTopModels(params: ModelMetricParams) {
 			...params,
 			notEmpty: [{ key: keyPath }],
 			operationType: "llm",
-		})}
+		}, true)}
 		GROUP BY
 			model
 		ORDER BY
@@ -54,7 +54,7 @@ export async function getModelsPerTime(params: MetricParams) {
 					...params,
 					notEmpty: [{ key: keyPath }],
 					operationType: "llm",
-				})}
+				}, true)}
 				GROUP BY
 					model, request_time
 				ORDER BY

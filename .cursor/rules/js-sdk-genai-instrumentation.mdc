@@ -1,0 +1,456 @@
+---
+description: Guide for aligning JS SDK GenAI provider instrumentations with OTel semantic conventions and the Python SDK reference implementation. Use when modifying or creating provider wrappers in sdk/typescript/src/instrumentation/.
+globs: sdk/typescript/src/instrumentation/**/*.ts
+alwaysApply: false
+---
+
+# JS SDK GenAI Instrumentation Guide
+
+This guide defines how every GenAI provider instrumentation in the JS SDK must be implemented. The Python SDK (`sdk/python/`) is the reference. Both SDKs must emit identical telemetry.
+
+## OTel Spec References
+
+- Spans: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-spans.md
+- Events: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-events.md
+- Metrics: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-metrics.md
+- OpenAI-specific: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/openai.md
+- Anthropic-specific: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/anthropic.md
+- aws-bedrock-specific: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/aws-bedrock.md
+- Azure-specific: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/azure-ai-inference.md
+
+---
+
+## CRITICAL: Zero Provider Dependencies
+
+The `openlit` npm package must **never** list LLM provider or AI framework packages in `dependencies`. Only `@opentelemetry/*` and `js-tiktoken` belong there. Provider packages go in `devDependencies` only (for compilation/tests).
+
+### Why
+`npm install openlit` must not pull in 20+ provider trees. The OTel `InstrumentationNodeModuleDefinition` hooks modules by **string name** at runtime -- no static import needed.
+
+### Rules
+- **No static imports** of provider packages in `index.ts` or `wrapper.ts`. Use `moduleExports: any`.
+- **Duck-type everything**: access `args[0]?.model`, `response.choices`, etc. -- never import provider types.
+- Files under `src/llm/` and `src/evals/llm/` that instantiate provider clients must use **dynamic `import()`** with try/catch and a clear "install it with npm install ..." error message.
+
+```typescript
+// BAD
+import OpenAI from 'openai';
+protected _patch(moduleExports: typeof OpenAI) { ... }
+
+// GOOD
+protected _patch(moduleExports: any) { ... }
+```
+
+---
+
+## 1. Span Structure
+
+### Span Name
+`{gen_ai.operation.name} {gen_ai.request.model}` (e.g. `chat gpt-4o-mini`, `embeddings text-embedding-3-small`).
+
+### Span Kind
+Always `SpanKind.CLIENT`.
+
+### Span Creation Attributes (set at creation time for sampling)
+These 5 attributes MUST be set at `tracer.startSpan()` time via the `attributes` option:
+
+```typescript
+{
+  [SemanticConvention.GEN_AI_OPERATION]: operationName,      // "chat", "embeddings", etc.
+  [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: aiSystem,  // "openai", "anthropic", etc.
+  [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+  [SemanticConvention.SERVER_ADDRESS]: serverAddress,
+  [SemanticConvention.SERVER_PORT]: serverPort,
+}
+```
+
+### Context Propagation
+Wrap the original method call inside `context.with(trace.setSpan(context.active(), span), ...)` so child spans (HTTP, undici) are properly parented.
+
+---
+
+## 2. Span Attributes (complete list, in order)
+
+### 2a. Required (OTel)
+| Attribute | Value | Notes |
+|-----------|-------|-------|
+| `gen_ai.operation.name` | `"chat"`, `"embeddings"`, `"text_completion"` | Set at span creation |
+| `gen_ai.provider.name` | `"openai"`, `"anthropic"`, `"cohere"`, etc. | Set at span creation |
+
+### 2b. Conditionally Required (OTel)
+| Attribute | Condition | Notes |
+|-----------|-----------|-------|
+| `error.type` | Only on error | `e.constructor.name \|\| '_OTHER'` |
+| `gen_ai.request.model` | If available | Set at span creation |
+| `gen_ai.request.seed` | Only if request includes a seed (`seed != null`) | Type: `int`. Do NOT default to 0 |
+| `gen_ai.request.choice.count` | Only if `n != 1` | |
+| `gen_ai.output.type` | If response format is known | `"text"` or `"json"` |
+| `server.address` / `server.port` | If available | Set at span creation |
+
+### 2c. Recommended (OTel)
+| Attribute | Condition | Notes |
+|-----------|-----------|-------|
+| `gen_ai.request.temperature` | Always | Default 1 if not set |
+| `gen_ai.request.top_p` | Always | Default 1 if not set |
+| `gen_ai.request.max_tokens` | Only if explicitly set (`!= null`) | Do NOT use -1 sentinel |
+| `gen_ai.request.frequency_penalty` | Only if non-zero | Do NOT include when 0 |
+| `gen_ai.request.presence_penalty` | Only if non-zero | Do NOT include when 0 |
+| `gen_ai.request.stop_sequences` | Only if set | Array of strings |
+| `gen_ai.request.is_stream` | Always | `true`/`false` |
+| `gen_ai.response.id` | After response | |
+| `gen_ai.response.model` | After response | |
+| `gen_ai.response.finish_reasons` | After response | Array: `["stop"]` |
+| `gen_ai.usage.input_tokens` | After response | |
+| `gen_ai.usage.output_tokens` | After response | |
+
+### 2d. OpenLIT Extension Attributes
+| Attribute | Notes |
+|-----------|-------|
+| `telemetry.sdk.name` | Always `"openlit"` |
+| `deployment.environment` | From `OpenlitConfig.environment` |
+| `service.name` | From `OpenlitConfig.applicationName` |
+| `gen_ai.sdk.version` | Package version |
+| `gen_ai.usage.cost` | Computed from pricing info |
+
+### 2e. Provider-Specific Attributes (example: OpenAI)
+| Attribute | Condition | Notes |
+|-----------|-----------|-------|
+| `openai.api.type` | Always | `"chat_completions"` or `"responses"` |
+| `openai.response.system_fingerprint` | If present | |
+| `openai.response.service_tier` | If present | |
+| `openai.request.service_tier` | Only if set and != `"auto"` | |
+
+### 2f. Opt-In (gated by `captureMessageContent`)
+| Attribute | Notes |
+|-----------|-------|
+| `gen_ai.input.messages` | JSON string, OTel message schema |
+| `gen_ai.output.messages` | JSON string, OTel message schema |
+| `gen_ai.system_instructions` | If system message present |
+
+### Key Rule: No Sentinel Values
+- Do NOT set attributes to sentinel values (`0`, `-1`, `""`, `null`).
+- Only set an attribute when the user explicitly provided the value or the API returned it.
+
+---
+
+## 3. Message Format (OTel Schema)
+
+### Input Messages
+```json
+[
+  {"role": "user", "parts": [{"type": "text", "content": "Hello"}]},
+  {"role": "assistant", "parts": [{"type": "tool_call", "id": "call_abc", "name": "fn", "arguments": {}}]},
+  {"role": "tool", "parts": [{"type": "tool_call_response", "id": "call_abc", "result": "..."}]}
+]
+```
+
+### Output Messages
+```json
+[{"role": "assistant", "parts": [{"type": "text", "content": "Hi"}], "finish_reason": "stop"}]
+```
+
+Use `OpenLitHelper.buildInputMessages()` and `OpenLitHelper.buildOutputMessages()`.
+
+---
+
+## 4. Events
+
+Events are OTel Log Records emitted via `LoggerProvider`, NOT span events.
+
+### Event Name
+`gen_ai.client.inference.operation.details`
+
+### Emission Pattern
+```typescript
+OpenLitHelper.emitInferenceEvent(span, {
+  [SemanticConvention.GEN_AI_OPERATION]: 'chat',
+  [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+  [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+  [SemanticConvention.SERVER_ADDRESS]: serverAddress,
+  [SemanticConvention.SERVER_PORT]: serverPort,
+  [SemanticConvention.GEN_AI_RESPONSE_ID]: responseId,
+  [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [finishReason],
+  [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
+  [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+  [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+  // Only when captureMessageContent:
+  [SemanticConvention.GEN_AI_INPUT_MESSAGES]: inputMessagesJson,
+  [SemanticConvention.GEN_AI_OUTPUT_MESSAGES]: outputMessagesJson,
+});
+```
+
+### Key Rules
+- Events are emitted INDEPENDENTLY of `captureMessageContent` (the event itself is always emitted; only the message content attributes within it are gated)
+- Context propagation: `emitInferenceEvent` passes `trace.setSpan(otelContext.active(), span)` to correlate the log record with its parent span
+
+---
+
+## 5. Error Handling
+
+### On the Span
+```typescript
+OpenLitHelper.handleException(span, e);
+// This sets: span.recordException(e), span.setStatus(ERROR), span.setAttribute('error.type', ...)
+```
+
+### On Metrics
+```typescript
+BaseWrapper.recordMetrics(span, {
+  ...metricParams,
+  errorType: e?.constructor?.name || '_OTHER',
+});
+```
+
+### Pattern
+```typescript
+.catch((e: any) => {
+  OpenLitHelper.handleException(span, e);
+  BaseWrapper.recordMetrics(span, {
+    genAIEndpoint,
+    model: requestModel,
+    aiSystem: ProviderWrapper.aiSystem,
+    serverAddress: ProviderWrapper.serverAddress,
+    serverPort: ProviderWrapper.serverPort,
+    errorType: e?.constructor?.name || '_OTHER',
+  });
+  span.end();
+  throw e;
+});
+```
+
+---
+
+## 6. Metrics
+
+### Instruments (8 histograms)
+
+| Metric Name | Unit | Buckets | When Recorded |
+|-------------|------|---------|---------------|
+| `gen_ai.client.token.usage` | `{token}` | [1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864] | Always (with `gen_ai.token.type`: `input`/`output`) |
+| `gen_ai.client.operation.duration` | `s` | [0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92] | Always |
+| `gen_ai.server.time_to_first_token` | `s` | [0.001, 0.005, 0.01, 0.02, 0.04, 0.06, 0.08, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0] | Streaming only, if ttft > 0 |
+| `gen_ai.server.time_per_output_token` | `s` | [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5] | Streaming only, if tbt > 0 |
+| `gen_ai.client.operation.time_to_first_chunk` | `s` | Same as operation.duration | Streaming only, if ttft > 0 |
+| `gen_ai.client.operation.time_per_output_chunk` | `s` | Same as operation.duration | Streaming only, if tbt > 0 |
+| `gen_ai.server.request.duration` | `s` | Same as operation.duration | Streaming only, computed from ttft + tbt |
+| `gen_ai.usage.cost` | `USD` | No explicit boundaries | Always (OpenLIT extension) |
+
+### Metric Attributes
+```typescript
+{
+  'telemetry.sdk.name': 'openlit',
+  'service.name': applicationName,
+  'deployment.environment': environment,
+  'gen_ai.provider.name': aiSystem,
+  'gen_ai.request.model': model,
+  'gen_ai.operation.name': operationName,  // if available
+  'gen_ai.response.model': responseModel,  // if available
+  'server.address': serverAddress,         // if available
+  'server.port': serverPort,               // if available
+  'error.type': errorType,                 // only on error
+  'gen_ai.token.type': 'input'|'output',   // only on token.usage
+}
+```
+
+All metrics go through `BaseWrapper.recordMetrics()`.
+
+---
+
+## 7. Wrapper Code Structure Template
+
+Every provider wrapper MUST follow this structure (see OpenAI wrapper as reference):
+
+```typescript
+class ProviderWrapper {
+  static aiSystem = 'provider_name';       // OTel well-known value
+  static serverAddress = 'api.provider.com';
+  static serverPort = 443;
+
+  static _patchChatCompletionCreate(tracer: Tracer): any {
+    const genAIEndpoint = 'provider.chat_completions';
+    return (originalMethod) => {
+      return async function(...args) {
+        const requestModel = args[0]?.model || 'default-model';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const span = tracer.startSpan(spanName, {
+          kind: SpanKind.CLIENT,
+          attributes: spanCreationAttrs(operationName, requestModel),
+        });
+        return context.with(trace.setSpan(context.active(), span), async () => {
+          return originalMethod.apply(this, args);
+        })
+        .then((response) => {
+          // 1. Set base attributes (via setBaseSpanAttributes)
+          // 2. Set request param attributes (conditionally)
+          // 3. Set response attributes
+          // 4. Set content attributes (gated by captureMessageContent)
+          // 5. Emit inference event (always)
+          // 6. Return metricParams for finally block
+        })
+        .catch((e) => {
+          // handleException + recordMetrics with errorType + span.end() + rethrow
+        });
+      };
+    };
+  }
+}
+```
+
+---
+
+## 8. Custom Span Attributes
+
+Custom attributes can be applied to all auto-instrumented spans and events at two levels, matching the Python SDK exactly. Metrics are **not** tagged with custom attributes (matches Python).
+
+### 8a. Global Custom Attributes (init-time)
+Set via `customSpanAttributes` in `openlit.init()`. Applied to every span and event (not metrics).
+
+```typescript
+openlit.init({
+  customSpanAttributes: { "team": "ml", "project": "chatbot" },
+});
+```
+
+Python equivalent:
+```python
+openlit.init(custom_span_attributes={"team": "ml", "project": "chatbot"})
+```
+
+### 8b. Context-Scoped Custom Attributes (per-call)
+Set via `usingAttributes()` or `injectAdditionalAttributes()`. Applied to spans and events created within the callback scope (not metrics). Context attributes override global attributes on key conflict.
+
+```typescript
+import openlit, { usingAttributes, injectAdditionalAttributes } from 'openlit';
+
+// Option 1: usingAttributes (like Python's context manager)
+await usingAttributes({"user.id": "u1", "experiment": "v2"}, async () => {
+  await client.chat.completions.create(...);
+});
+
+// Option 2: injectAdditionalAttributes (like Python's inject helper)
+const response = await injectAdditionalAttributes(
+  () => client.chat.completions.create(...),
+  {"user.id": "u123", "experiment": "v2"},
+);
+```
+
+Python equivalents:
+```python
+with openlit.using_attributes({"user.id": "u1"}):
+    client.chat.completions.create(...)
+
+response = openlit.inject_additional_attributes(
+    lambda: client.chat.completions.create(...),
+    {"user.id": "u123"},
+)
+```
+
+### Implementation Details
+- `applyCustomSpanAttributes(span)` is called inside `BaseWrapper.setBaseSpanAttributes()` — applies to every instrumented span automatically
+- `getMergedCustomAttributes()` is called inside `emitInferenceEvent()` — applies to every event automatically
+- Global attrs applied first, then context attrs (context overrides global on conflict)
+- Uses Node.js `AsyncLocalStorage` (equivalent of Python's `ContextVar`)
+- Both functions are exported from the main `openlit` module and as named exports
+
+---
+
+## 9. Pricing
+
+- Pricing JSON is fetched ONCE during `init()` and cached in `OpenlitConfig.pricingInfo`
+- Wrappers access it via `OpenlitConfig.pricingInfo || {}`
+- NEVER call `fetchPricingInfo` from within a wrapper
+
+---
+
+## 10. Configuration Parameters (must match Python SDK)
+
+| JS (camelCase) | Python (snake_case) | Default | Notes |
+|----------------|---------------------|---------|-------|
+| `environment` | `environment` | `"default"` | |
+| `applicationName` | `application_name` | `"default"` | |
+| `otlpEndpoint` | `otlp_endpoint` | `undefined` | |
+| `otlpHeaders` | `otlp_headers` | `undefined` | |
+| `disableBatch` | `disable_batch` | `false` | |
+| `captureMessageContent` | `capture_message_content` | `true` | |
+| `disabledInstrumentors` | `disabled_instrumentors` | `undefined` | |
+| `disableMetrics` | `disable_metrics` | `false` | |
+| `disableEvents` | `disable_events` | `false` | |
+| `pricingJson` | `pricing_json` | `undefined` | |
+| `maxContentLength` | `max_content_length` | `null` | |
+| `customSpanAttributes` | `custom_span_attributes` | `null` | |
+
+| JS API | Python API | Description |
+|--------|-----------|-------------|
+| `openlit.usingAttributes(attrs, fn)` | `openlit.using_attributes(attrs)` (context manager) | Context-scoped custom attrs |
+| `openlit.injectAdditionalAttributes(fn, attrs)` | `openlit.inject_additional_attributes(fn, attrs)` | Per-call custom attrs |
+
+---
+
+## 11. OTel Provider Setup (must match Python SDK)
+
+1. Check if an existing SDK provider is already registered globally
+2. If yes, reuse it
+3. If no (only NoopProvider found), create a new one with OpenLIT's resource and exporters
+4. Exporter selection: env var driven (`OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER`). Default: OTLP if endpoint configured, else Console
+5. Each provider (Tracer, Meter, Logger) has a `*_SET` flag to prevent re-initialization
+
+---
+
+## 12. Streaming Pattern
+
+1. Start span before calling the original method
+2. Wrap response in async generator that yields each chunk
+3. Track timestamps per chunk for TTFT/TBT calculation
+4. Merge tool call deltas across chunks
+5. Build aggregate `result` object from chunks
+6. After iteration completes: set attributes, emit event, record metrics
+7. TTFT = `(firstChunkTimestamp - startTime) / 1000` (seconds)
+8. TBT = average of inter-chunk durations (seconds)
+
+---
+
+## 13. Providers That Need Alignment (UPDATE existing)
+
+These JS SDK instrumentations already exist but need updating to match the OpenAI reference wrapper and the Python SDK:
+
+| Provider | JS Wrapper Path | Python Reference Path | OTel Spec |
+|----------|-----------------|----------------------|-----------|
+| Anthropic | `sdk/typescript/src/instrumentation/anthropic/` | `sdk/python/src/openlit/instrumentation/anthropic/` | [anthropic.md](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/anthropic.md) |
+| AWS Bedrock | `sdk/typescript/src/instrumentation/bedrock/` | `sdk/python/src/openlit/instrumentation/bedrock/` | [aws-bedrock.md](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/aws-bedrock.md) |
+| Cohere | `sdk/typescript/src/instrumentation/cohere/` | `sdk/python/src/openlit/instrumentation/cohere/` | Generic GenAI spans/events/metrics |
+| Mistral | `sdk/typescript/src/instrumentation/mistral/` | `sdk/python/src/openlit/instrumentation/mistral/` | Generic GenAI spans/events/metrics |
+| Ollama | `sdk/typescript/src/instrumentation/ollama/` | `sdk/python/src/openlit/instrumentation/ollama/` | Generic GenAI spans/events/metrics |
+| Vercel AI | `sdk/typescript/src/instrumentation/vercel-ai/` | N/A (JS-only) | Generic GenAI spans/events/metrics |
+| Google AI | `sdk/typescript/src/instrumentation/google-ai/` | `sdk/python/src/openlit/instrumentation/google_ai_studio/` | Generic GenAI spans/events/metrics |
+| Groq | `sdk/typescript/src/instrumentation/groq/` | `sdk/python/src/openlit/instrumentation/groq/` | Generic GenAI spans/events/metrics |
+| HuggingFace | `sdk/typescript/src/instrumentation/huggingface/` | N/A | Generic GenAI spans/events/metrics |
+| Together | `sdk/typescript/src/instrumentation/together/` | `sdk/python/src/openlit/instrumentation/together/` | Generic GenAI spans/events/metrics |
+| Replicate | `sdk/typescript/src/instrumentation/replicate/` | N/A | Generic GenAI spans/events/metrics |
+
+## 14. New Provider Instrumentation (CREATE from scratch)
+
+| Provider | JS Wrapper Path (to create) | Python Reference Path | OTel Spec |
+|----------|---------------------------|----------------------|-----------|
+| Azure AI Inference | `sdk/typescript/src/instrumentation/azure-ai-inference/` | `sdk/python/src/openlit/instrumentation/azure_ai_inference/` | [azure-ai-inference.md](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/azure-ai-inference.md) |
+
+---
+
+## 15. Checklist for Provider Alignment
+
+- [ ] Span name: `{operation} {model}`
+- [ ] Span kind: `CLIENT`
+- [ ] 5 attributes at span creation time
+- [ ] No sentinel values (no `0` for seed, no `-1` for max_tokens, no `0` for penalties)
+- [ ] `error.type` on error spans
+- [ ] Events emitted via LoggerProvider with span context correlation
+- [ ] Events emitted independently of `captureMessageContent`
+- [ ] Content attributes gated by `captureMessageContent`
+- [ ] All 8 metric histograms recorded via `BaseWrapper.recordMetrics()`
+- [ ] Metric `error.type` on error path
+- [ ] Pricing from `OpenlitConfig.pricingInfo` (no per-call fetch)
+- [ ] OTel message format for input/output messages
+- [ ] Tool calls captured (name, id, args)
+- [ ] Streaming: TTFT/TBT computed and recorded
+- [ ] Provider-specific attributes documented and implemented
+- [ ] Custom span attributes applied (global + context-scoped via `applyCustomSpanAttributes`)
+- [ ] Tests updated (no `gen_ai.client.token.usage` on span, use `OpenlitConfig.pricingInfo` mock not `updatePricingJson`)

@@ -9,6 +9,7 @@ from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
     get_chat_model_cost,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -168,10 +169,7 @@ def _set_letta_specific_attributes(span, kwargs, response, operation_type):
                 SemanticConvention.GEN_AI_AGENT_TYPE, response.agent_type
             )
         if hasattr(response, "system"):
-            # Truncate long system instructions
-            instructions = str(response.system)
-            if len(instructions) > 2000:
-                instructions = instructions[:2000] + "..."
+            instructions = truncate_content(response.system)
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_INSTRUCTIONS, instructions
             )

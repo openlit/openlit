@@ -58,7 +58,7 @@ class PineconeWrapper extends BaseWrapper {
             const matchCount = response?.matches?.length || 0;
             span.setAttribute(SemanticConvention.DB_N_RESULTS, matchCount);
 
-            if (OpenlitConfig.traceContent && params.vector) {
+            if (OpenlitConfig.captureMessageContent && params.vector) {
               span.setAttribute(SemanticConvention.DB_QUERY_TEXT, JSON.stringify(params.vector?.slice(0, 10)));
             }
 
@@ -103,7 +103,7 @@ class PineconeWrapper extends BaseWrapper {
               `${dbOperation} ${namespace} vectors_count=${records.length}`
             );
 
-            if (OpenlitConfig.traceContent && records.length > 0) {
+            if (OpenlitConfig.captureMessageContent && records.length > 0) {
               span.setAttribute(SemanticConvention.DB_QUERY_TEXT, JSON.stringify(records.map((r: any) => r.id)));
             }
 

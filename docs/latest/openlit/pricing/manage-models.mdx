@@ -1,0 +1,251 @@
+---
+title: 'Manage Models'
+description: 'View, edit, and add LLM models with per-model pricing across all providers'
+sidebarTitle: 'Manage Models'
+---
+
+Manage Models is an independent feature for managing LLM provider metadata and per-model pricing. It is used across OpenLIT — including Chat, Evaluations, OpenGround, and Pricing — to look up model details and compute costs.
+
+## Overview
+
+Every ClickHouse database connected to OpenLIT automatically gets a pre-populated set of **14 providers and 45+ models** with default pricing. All models are fully editable — you can update pricing, add new models, or delete ones you don't use.
+
+### Supported providers (out of the box)
+
+| Provider | Example Models |
+|----------|---------------|
+| OpenAI | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo |
+| Anthropic | Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Sonnet |
+| Google AI | Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 1.0 Pro |
+| Mistral AI | Mistral Large, Mistral Medium, Mistral Small |
+| Groq | Llama 3.3 70B, Llama 3.1 8B, Mixtral 8x7B |
+| Perplexity | Sonar Pro, Sonar, Sonar Reasoning |
+| Azure OpenAI | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo |
+| Cohere | Command R+, Command R, Command, Command Light |
+| Together AI | Llama 3.1 70B Turbo, Llama 3.1 8B Turbo, Mixtral 8x7B |
+| Fireworks AI | Llama 3.1 70B, Llama 3.1 8B, Mixtral 8x7B |
+| DeepSeek | DeepSeek Chat, DeepSeek Coder |
+| xAI | Grok Beta, Grok 2, Grok 3, Grok 3 Mini |
+| Hugging Face | Llama 3 70B, Mistral 7B, Gemma 2 9B |
+| Replicate | Llama 3 70B, Llama 3 8B, Mixtral 8x7B |
+
+## Managing providers
+
+Providers (e.g. OpenAI, Anthropic) are the top-level grouping for models. OpenLIT ships with 14 built-in providers, but you can add your own or edit any existing one.
+
+<Steps>
+  <Step title="Add a new provider">
+    Click the **Add Provider** button (`+` icon) in the header toolbar. Fill in:
+    - **Provider ID** — a lowercase slug (e.g. `my-llm`). As you type, special characters are automatically replaced with hyphens. This must match the value your SDK sends in `gen_ai.system`.
+    - **Display Name** — the label shown in the UI (e.g. "My LLM").
+    - **Description** — optional, shown in provider lists.
+    - **Requires API Key** — toggle on if the provider needs a Vault secret.
+  </Step>
+  <Step title="Edit an existing provider">
+    Hover over a provider name in the sidebar and click the pencil icon. You can change the display name, description, and vault requirement. The Provider ID cannot be changed after creation.
+  </Step>
+  <Step title="Delete a provider">
+    Use the `DELETE /api/openground/providers?provider=<id>` API endpoint. This removes the provider **and all its models**.
+  </Step>
+</Steps>
+
+## Managing models
+
+<Steps>
+  <Step title="Open Manage Models">
+    Navigate to **Manage Models** in the sidebar under the Configuration section.
+  </Step>
+  <Step title="Browse providers and models">
+    The left sidebar lists all providers. Click a provider to expand its models. Each model shows its context window and input price.
+    - **Default** badge — a model that was pre-populated by OpenLIT.
+    - **Custom** badge — a model you added manually.
+  </Step>
+  <Step title="Edit a model">
+    Click any model to open the editor panel on the right. You can change:
+    - **Display Name** — the human-readable name shown in dropdowns.
+    - **Model Type** — chat, embeddings, images, or audio.
+    - **Context Window** — the maximum token context length.
+    - **Input / Output Price per 1M Tokens** — used by the Pricing feature to compute costs.
+    - **Capabilities** — comma-separated list (e.g. `function-calling, vision, streaming`).
+  </Step>
+  <Step title="Add a new model">
+    Click the **+** button next to any provider header to add a new model. Fill in the Model ID (the identifier your SDK sends, e.g. `gpt-4o-2024-08-06`), display name, and pricing.
+  </Step>
+  <Step title="Delete a model">
+    Open a model in the editor and click the **Delete** button. Deleted models can be re-added at any time.
+  </Step>
+</Steps>
+
+## Export pricing JSON
+
+`GET /api/openground/models/export` returns all models in an SDK-compatible `pricing.json` format, grouped by model type.
+
+This is useful for feeding custom pricing into the OpenLIT Python or TypeScript SDKs when the default pricing data doesn't include your models.
+
+```json Example response
+{
+    "chat": {
+        "gpt-4o": {
+            "promptPrice": 0.0025,
+            "completionPrice": 0.01
+        },
+        "claude-3-5-sonnet-20240620": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        }
+    },
+    "embeddings": {
+        "text-embedding-3-small": 0.00002
+    }
+}
+```
+
+<Tip>
+Click the **Export Pricing** button in the top-right corner of the Manage Models page to download this file directly.
+</Tip>
+
+## Public SDK Pricing URL
+
+Each database config has a **public, unauthenticated** pricing URL that you can pass directly to the OpenLIT SDK. This lets your SDK load pricing from the same models you manage in the UI — no manual JSON files needed.
+
+The URL is shown in a bar below the header on the Manage Models page. Click **Copy** to copy it to your clipboard.
+
+<Tip>
+Click the **SDK Usage** button in the header to open a dialog with ready-to-paste code snippets for Python, TypeScript, and Go. Each snippet pre-fills the public URL and includes a copy button.
+</Tip>
+
+<CodeGroup>
+```python Python
+import openlit
+
+openlit.init(
+    otlp_endpoint="http://127.0.0.1:4318",
+    pricing_json="http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+)
+```
+
+```typescript TypeScript
+import openlit from "openlit";
+
+openlit.init({
+  otlpEndpoint: "http://127.0.0.1:4318",
+  pricingJson: "http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+});
+```
+
+```go Go
+package main
+
+import openlit "github.com/openlit/openlit/sdk/go"
+
+func main() {
+    openlit.Init(openlit.Config{
+        OtlpEndpoint: "http://127.0.0.1:4318",
+        PricingJson:  "http://your-openlit-host/api/pricing/export/<your-db-config-id>",
+    })
+}
+```
+</CodeGroup>
+
+**Endpoint:** `GET /api/pricing/export/{dbConfigId}`
+
+- No authentication required — safe to embed in application configs.
+- Returns the same SDK-compatible pricing JSON format as the export button.
+- Responses are cached for 5 minutes (`Cache-Control: public, max-age=300`).
+
+<Warning>
+The URL contains your database config ID. While the endpoint only returns pricing data (no secrets or traces), share it only with systems that should access your model pricing.
+</Warning>
+
+<Note>
+The SDK fetches this URL on startup. If you update a model's price in Manage Models, restart your app (or wait for the SDK's refresh interval) to pick up the new pricing.
+</Note>
+
+## Import providers and models
+
+You can bulk-import providers and models from a JSON file. This is useful for syncing across environments, sharing setups with teammates, or adding a custom provider with all its models in one step.
+
+<Steps>
+  <Step title="Open the import dialog">
+    Click the **Import Pricing JSON** button in the header of the Manage Models page.
+  </Step>
+  <Step title="Paste JSON">
+    Paste either the **structured format** or the **SDK pricing_json format**.
+
+    **Structured format with providers + models** (recommended):
+    ```json
+    {
+      "providers": [
+        {
+          "providerId": "my-provider",
+          "displayName": "My Provider",
+          "description": "Custom LLM provider"
+        }
+      ],
+      "models": [
+        {
+          "provider": "my-provider",
+          "model_id": "my-model-v1",
+          "displayName": "My Model v1",
+          "inputPricePerMToken": 2.5,
+          "outputPricePerMToken": 10
+        }
+      ]
+    }
+    ```
+
+    **Models only** (provider must already exist):
+    ```json
+    {
+      "models": [
+        {
+          "provider": "openai",
+          "model_id": "gpt-4o-2024-08-06",
+          "displayName": "GPT-4o (Aug 2024)",
+          "inputPricePerMToken": 2.5,
+          "outputPricePerMToken": 10
+        }
+      ]
+    }
+    ```
+
+    **SDK pricing_json format** (provider defaults to `"unknown"` — edit after import):
+    ```json
+    {
+      "chat": {
+        "gpt-4o": { "promptPrice": 0.0025, "completionPrice": 0.01 }
+      }
+    }
+    ```
+  </Step>
+  <Step title="Import">
+    Click **Import Pricing JSON**. Providers and models that already exist are automatically **skipped** — no duplicates are created. The response shows counts for both:
+    - `imported` / `skipped` — models
+    - `providersImported` / `providersSkipped` — providers
+  </Step>
+</Steps>
+
+**Endpoint:** `POST /api/openground/models/import` (authenticated)
+
+## API reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/openground/providers` | `GET` | List all providers with models |
+| `/api/openground/providers` | `POST` | Create a new provider |
+| `/api/openground/providers` | `PUT` | Update a provider's metadata |
+| `/api/openground/providers?provider=<id>` | `DELETE` | Delete a provider and all its models |
+| `/api/openground/models` | `GET` | List all models |
+| `/api/openground/models` | `POST` | Create or update a model |
+| `/api/openground/models` | `DELETE` | Delete a model |
+| `/api/openground/models/import` | `POST` | Bulk import providers + models from JSON |
+| `/api/openground/models/export` | `GET` | Export pricing as downloadable JSON |
+| `/api/pricing/export/{dbConfigId}` | `GET` | Public pricing URL for SDK (no auth) |
+
+## Architecture
+
+- **ClickHouse tables**: `openlit_provider_metadata` (provider definitions), `openlit_providers` (API key configs), and `openlit_provider_models` (all models with pricing).
+- **No `database_config_id` column** — each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default providers and models.
+- **Fully dynamic** — both providers and models are stored in ClickHouse and editable via the UI or API. No hardcoded provider list.
+- **Platform library**: `src/lib/platform/providers/` — `provider-registry.ts`, `models-service.ts`, `config.ts`, `default-models.ts`.
+- **Seeding**: `default-models.ts` contains the initial 14 providers and 45+ models used only by the migration for first-run seeding.

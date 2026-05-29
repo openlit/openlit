@@ -31,6 +31,7 @@ export interface OpengroundStats {
 export interface ModelMetadata {
 	id: string;
 	displayName: string;
+	modelType?: string;
 	contextWindow: number;
 	inputPricePerMToken: number; // Price per million tokens
 	outputPricePerMToken: number;
@@ -67,10 +68,13 @@ export interface CustomModel extends ModelMetadata {
 	provider?: string;
 }
 
+export type ModelType = "chat" | "embeddings" | "images" | "audio";
+
 export interface CustomModelInput {
 	provider: string;
 	model_id: string;
 	displayName: string;
+	modelType?: ModelType;
 	contextWindow?: number;
 	inputPricePerMToken?: number;
 	outputPricePerMToken?: number;

@@ -2,6 +2,7 @@ import { merge, set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
 import {
+	AttributeKeys,
 	FilterConfig,
 	FilterSorting,
 	FilterStore,
@@ -104,6 +105,13 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			case "limit":
 			case "selectedConfig":
 			case "sorting":
+			case "groupBy":
+				set(object, "offset", 0);
+				// Changing groupBy always resets the drilled-in groupValue so stale
+				// drill-down filters don't bleed into the new group selection.
+				set(object, "groupValue", null);
+				break;
+			case "groupValue":
 				set(object, "offset", 0);
 				break;
 			case "offset":
@@ -125,17 +133,40 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 		setStore({
 			details: {
 				...merge(getStore().details, object),
-				selectedConfig:
-					resetConfig || extraParams?.clearFilter
-						? {}
-						: object.selectedConfig
-						? object.selectedConfig
-						: getStore().details.selectedConfig,
+				// `clearFilter` is an explicit wipe from "Clear Filters". A
+				// `timeLimit.type` change (`resetConfig`) used to wipe
+				// `selectedConfig` too, but that:
+				//   - races with `AgentScopeProvider`'s re-assertion lock on
+				//     the agent-detail page (a fetch fires unscoped before
+				//     the lock can restore `serviceNames`, and ClickHouse
+				//     returns rows for every service);
+				//   - is bad general UX (a user's model/provider filter
+				//     disappearing when they switch 24H -> 7D).
+				// So only `clearFilter` wipes now. Range changes just
+				// invalidate the *available options* cache (`config` below)
+				// while the user's chosen filters survive.
+				selectedConfig: extraParams?.clearFilter
+					? {}
+					: object.selectedConfig
+					? // Merge instead of replace so fields managed out-of-band
+					  // — notably `serviceNames`, which AgentScopeProvider sets
+					  // for the agent-detail page — survive wholesale updates
+					  // from TracesFilter (URL/localStorage restore, "Apply"
+					  // button). Wholesale clears go through `clearFilter`
+					  // above; nothing else should drop sibling fields.
+					  {
+							...getStore().details.selectedConfig,
+							...object.selectedConfig,
+					  }
+					: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,
 		});
 	},
-	updateConfig: (config: FilterConfig) => {
+	updateConfig: (config?: FilterConfig) => {
 		setStore({ config });
+	},
+	updateAttributeKeys: (attributeKeys: AttributeKeys) => {
+		setStore({ attributeKeys });
 	},
 }));

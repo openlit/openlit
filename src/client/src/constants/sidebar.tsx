@@ -1,19 +1,23 @@
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	BookKey,
+	BookOpen,
 	BookText,
+	CircleDollarSign,
 	Component,
+	Activity,
 	Home,
 	Key,
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
-	ShieldAlert,
-	TextQuote
+	SettingsIcon,
+	SlidersHorizontal,
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import OrganisationSwitch from "@/components/(playground)/sidebar/organisation-switch";
+import Otter from "@/components/svg/otter";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
@@ -36,6 +40,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		type: "action",
 	},
 	{
+		icon: <Otter className={ICON_CLASSES} />,
+		text: "Otter",
+		link: "/chat",
+		type: "action",
+	},
+	{
 		icon: <LayoutDashboard className={ICON_CLASSES} />,
 		text: "Dashboards",
 		link: "/dashboards",
@@ -44,18 +54,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
 		title: "Monitoring",
 		type: "section",
-		children: [{
-			icon: <TextQuote className={ICON_CLASSES} />,
-			text: "Requests",
-			link: "/requests",
+	children: [{
+			icon: <Activity className={ICON_CLASSES} />,
+			text: "Telemetry",
+			link: "/telemetry",
 			type: "action",
 		},
-		{
-			icon: <ShieldAlert className={ICON_CLASSES} />,
-			text: "Exceptions",
-			link: "/exceptions",
-			type: "action",
-		},
+		// {
+		// 	icon: <Radar className={ICON_CLASSES} />,
+		// 	text: "Agents",
+		// 	link: "/agents",
+		// 	type: "action",
+		// },
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",
@@ -80,6 +90,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			type: "action",
 		},
 		{
+			icon: <BookOpen className={ICON_CLASSES} />,
+			text: "Contexts",
+			link: "/context",
+			type: "action",
+		},
+		{
+			icon: <SlidersHorizontal className={ICON_CLASSES} />,
+			text: "Rule Engine",
+			link: "/rule-engine",
+			type: "action",
+		},
+		{
 			icon: <MonitorPlay className={ICON_CLASSES} />,
 			text: "Openground",
 			link: "/openground",
@@ -97,8 +119,20 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		},
 		{
 			icon: <MonitorCog className={ICON_CLASSES} />,
-			text: "Evaluation Config",
-			link: "/settings/evaluation",
+			text: "Evaluations",
+			link: "/evaluations",
+			type: "action",
+		},
+		{
+			icon: <SettingsIcon className={ICON_CLASSES} />,
+			text: "Manage Models",
+			link: "/manage-models",
+			type: "action",
+		},
+		{
+			icon: <CircleDollarSign className={ICON_CLASSES} />,
+			text: "Pricing",
+			link: "/pricing",
 			type: "action",
 		},
 		]

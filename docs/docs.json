@@ -55,7 +55,8 @@
                 ]
               },
               "latest/openlit/configuration",
-              "latest/openlit/oauth"
+              "latest/openlit/oauth",
+              "latest/openlit/organisation"
             ]
           },
           {
@@ -64,7 +65,17 @@
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
               "latest/openlit/observability/error",
-              "latest/openlit/observability/fleet-hub"
+              "latest/openlit/observability/fleet-hub",
+              {
+                "group": "Agents",
+                "icon": "radar",
+                "pages": [
+                  "latest/controller/overview",
+                  "latest/controller/quickstart",
+                  "latest/controller/architecture",
+                  "latest/controller/configuration"
+                ]
+              }
             ]
           },
           {
@@ -123,10 +134,25 @@
             ]
           },
           {
+            "group": "Otter (AI Copilot)",
+            "pages": [
+              "latest/openlit/chat"
+            ]
+          },
+          {
+            "group": "Pricing & Models",
+            "pages": [
+              "latest/openlit/pricing/manage-models",
+              "latest/openlit/pricing/cost-recalculation"
+            ]
+          },
+          {
             "group": "Prompts and Experiments",
             "pages": [
               "latest/openlit/prompts-experiments/prompt-hub",
-              "latest/openlit/prompts-experiments/openground"
+              "latest/openlit/prompts-experiments/openground",
+              "latest/openlit/prompts-experiments/context",
+              "latest/openlit/prompts-experiments/rule-engine"
             ]
           },
           {
@@ -150,6 +176,12 @@
                     "group": "Vault",
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/vault/get"
+                    ]
+                  },
+                  {
+                    "group": "Rule Engine",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
                     ]
                   }
                 ]
@@ -190,7 +222,8 @@
               "latest/sdk/features/gpu",
               "latest/sdk/features/pricing",
               "latest/sdk/features/evaluations",
-              "latest/sdk/features/guardrails"
+              "latest/sdk/features/guardrails",
+              "latest/sdk/features/rule-engine"
             ]
           },
           {
@@ -224,13 +257,16 @@
                   "latest/sdk/integrations/elevenlabs",
                   "latest/sdk/integrations/ai21",
                   "latest/sdk/integrations/together",
+                  "latest/sdk/integrations/digitalocean",
+                  "latest/sdk/integrations/digitalocean-gradient",
                   "latest/sdk/integrations/assemblyai",
                   "latest/sdk/integrations/featherless",
                   "latest/sdk/integrations/reka",
                   "latest/sdk/integrations/krutrim",
                   "latest/sdk/integrations/titan-ml",
                   "latest/sdk/integrations/sarvam",
-                  "latest/sdk/integrations/premai"
+                  "latest/sdk/integrations/premai",
+                  "latest/sdk/integrations/replicate"
                 ]
               },
               {
@@ -268,15 +304,28 @@
                   "latest/sdk/integrations/firecrawl",
                   "latest/sdk/integrations/dynamiq",
                   "latest/sdk/integrations/controlflow",
-                  "latest/sdk/integrations/swarmzero"
+                  "latest/sdk/integrations/swarmzero",
+                  "latest/sdk/integrations/langgraph",
+                  "latest/sdk/integrations/strands",
+                  "latest/sdk/integrations/google-adk",
+                  "latest/sdk/integrations/claude-agent-sdk",
+                  "latest/sdk/integrations/vercel-ai"
+                ]
+              },
+              {
+                "group": "Security Tools",
+                "icon": "shield-halved",
+                "pages": [
+                  "latest/sdk/integrations/agent-governance-toolkit"
                 ]
               },
               {
                 "group": "GPUs",
-                "icon": "server",
+                "icon": "microchip",
                 "pages": [
-                  "latest/sdk/integrations/nvidia-gpu",
-                  "latest/sdk/integrations/amd-gpu"
+                  "latest/gpu-collector/gpus/nvidia",
+                  "latest/gpu-collector/gpus/amd",
+                  "latest/gpu-collector/gpus/intel"
                 ]
               }
             ]
@@ -308,7 +357,8 @@
                   "latest/sdk/destinations/siglens",
                   "latest/sdk/destinations/oodle",
                   "latest/sdk/destinations/langfuse",
-                  "latest/sdk/destinations/murnitur"
+                  "latest/sdk/destinations/murnitur",
+                  "latest/sdk/destinations/victoriametrics-stack"
                 ]
               }
             ]
@@ -316,70 +366,30 @@
         ]
       },
       {
-        "tab": "Kubernetes Operator",
+        "tab": "GPU Collector",
         "groups": [
           {
             "group": "Getting Started",
             "pages": [
-              "latest/operator/overview",
-              "latest/operator/quickstart",
-              "latest/operator/installation",
-              "latest/operator/architecture"
+              "latest/gpu-collector/overview",
+              "latest/gpu-collector/quickstart",
+              "latest/gpu-collector/installation"
             ]
           },
           {
-            "group": "Configuration",
+            "group": "Reference",
             "pages": [
-              "latest/operator/configuration/operator",
-              "latest/operator/configuration/autoinstrumentation"
+              "latest/gpu-collector/configuration",
+              "latest/gpu-collector/metrics"
             ]
           },
           {
-            "group": "Instrumentations",
+            "group": "GPU Vendors",
+            "icon": "microchip",
             "pages": [
-              "latest/operator/instrumentations/overview",
-              {
-                "group": "Python",
-                "icon": "python",
-                "pages": [
-                  "latest/operator/instrumentations/python/openlit",
-                  "latest/operator/instrumentations/python/openllmetry",
-                  "latest/operator/instrumentations/python/openinference",
-                  "latest/operator/instrumentations/python/custom"
-                ]
-              }
-            ]
-          },
-          {
-            "group": "Destinations",
-            "pages": [
-              "latest/operator/destinations/overview",
-              {
-                "group": "Supported Destinations",
-                "icon": "paper-plane",
-                "pages": [
-                  "latest/operator/destinations/openlit",
-                  "latest/operator/destinations/otelcol",
-                  "latest/operator/destinations/grafanacloud",
-                  "latest/operator/destinations/prometheus-tempo",
-                  "latest/operator/destinations/prometheus-jaeger",
-                  "latest/operator/destinations/datadog",
-                  "latest/operator/destinations/dash0",
-                  "latest/operator/destinations/signoz",
-                  "latest/operator/destinations/newrelic",
-                  "latest/operator/destinations/dynatrace",
-                  "latest/operator/destinations/elastic",
-                  "latest/operator/destinations/hyperdx",
-                  "latest/operator/destinations/oneuptime",
-                  "latest/operator/destinations/openobserve",
-                  "latest/operator/destinations/highlight",
-                  "latest/operator/destinations/middleware",
-                  "latest/operator/destinations/siglens",
-                  "latest/operator/destinations/oodle",
-                  "latest/operator/destinations/langfuse",
-                  "latest/operator/destinations/murnitur"
-                ]
-              }
+              "latest/gpu-collector/gpus/nvidia",
+              "latest/gpu-collector/gpus/amd",
+              "latest/gpu-collector/gpus/intel"
             ]
           }
         ]

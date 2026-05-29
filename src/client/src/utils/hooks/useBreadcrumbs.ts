@@ -52,13 +52,15 @@ export function useDynamicBreadcrumbs(
  */
 export function useCustomBreadcrumbs(
 	customHeader: PageHeader,
-	deps: React.DependencyList = []
+	deps: React.DependencyList = [],
+	enabled = true
 ) {
 	const { header, setHeader } = usePageHeader();
 
 	useEffect(() => {
+		if (!enabled) return;
 		setHeader(customHeader);
-	}, [setHeader, customHeader.title, customHeader.description, ...deps]);
+	}, [enabled, setHeader, customHeader.title, customHeader.description, customHeader.breadcrumbs, ...deps]);
 
 	return { header, setHeader };
 }

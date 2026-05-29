@@ -128,31 +128,6 @@ Learn how to use our `All` evaluator for comprehensive LLM output assessment, me
             const result = await evals.measure({ prompt, contexts, text });
             ```
           </Tab>
-          <Tab title="OpenLIT Operator">
-            For Kubernetes deployments - no pod modifications needed:
-            
-            ```yaml
-            # Apply OpenLIT Operator instrumentation
-            apiVersion: openlit.io/v1alpha1
-            kind: Instrumentation
-            metadata:
-              name: my-app-instrumentation
-            spec:
-              workload:
-                name: my-ai-app
-                namespace: production
-            ```
-            
-            Your application code remains unchanged:
-            ```python
-            import openlit
-            
-            # Operator handles instrumentation automatically
-            # Just enable metrics collection
-            evals = openlit.evals.All(collect_metrics=True)
-            result = evals.measure(prompt=prompt, contexts=contexts, text=text)
-            ```
-          </Tab>
         </Tabs>
         
         Metrics are sent to the same OpenTelemetry backend conifgured during instrumentation, check our [support destinations](/latest/sdk/destinations/overview) for configuration details.

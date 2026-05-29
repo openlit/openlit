@@ -4,12 +4,14 @@ import { TraceMapping } from "@/constants/traces";
 import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { CalendarDays } from "lucide-react";
 
-export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
+type RequestColumnKey = TraceMappingKeyType;
+
+export const columns: Columns<RequestColumnKey, TransformedTraceRow> = {
 	id: {
 		header: () => TraceMapping.id.label,
 		cell: ({ row }) => (
 			<div
-				className="rounded-md group-hover:text-stone-100 text-stone-700 dark:text-stone-300 block overflow-hidden text-ellipsis"
+				className="rounded-md text-stone-700 dark:text-stone-300 block overflow-hidden text-ellipsis"
 				title={row.id}
 			>
 				{row.id}

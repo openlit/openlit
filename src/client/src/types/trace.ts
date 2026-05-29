@@ -1,6 +1,13 @@
 import { type LucideIcon } from "lucide-react";
 
 export type TraceKeyType = "string" | "integer" | "float" | "round" | "date";
+export type TraceMappingPathType =
+	| string
+	| string[]
+	| {
+			path: string | string[];
+			prefix?: string | string[] | null;
+	  };
 
 export type TraceMappingKeyType =
 	| "time"
@@ -59,12 +66,51 @@ export type TraceMappingKeyType =
 	| "filter"
 	| "owner"
 	| "repo"
-	| "retrievalSource";
+	| "retrievalSource"
+	// Request sampling params
+	| "requestTopP"
+	| "requestTopK"
+	| "requestFrequencyPenalty"
+	| "requestPresencePenalty"
+	| "requestIsStream"
+	| "requestUser"
+	| "requestChoiceCount"
+	| "requestStopSequences"
+	| "requestToolChoice"
+	// Response attributes
+	| "responseId"
+	| "responseModel"
+	| "outputType"
+	// Tool calling
+	| "toolName"
+	| "toolCallId"
+	| "toolArgs"
+	// Token details
+	| "cacheReadTokens"
+	| "cacheCreationTokens"
+	| "reasoningTokens"
+	// Streaming latency
+	| "ttft"
+	| "tbt"
+	// Content
+	| "systemInstructions"
+	| "contentReasoning"
+	// OpenAI-specific
+	| "reasoningEffort"
+	| "openaiApiType"
+	| "openaiRequestServiceTier"
+	| "openaiResponseServiceTier"
+	| "openaiSystemFingerprint"
+	// DB (new OTel paths)
+	| "dbSystemName"
+	| "dbOperationName"
+	| "dbQueryText";
 
 export type TraceMappingValueType = {
 	label: string;
 	type: TraceKeyType;
 	path: string | string[];
+	paths?: TraceMappingPathType[];
 	prefix?: string | string[];
 	isRoot?: boolean;
 	offset?: number;
@@ -107,8 +153,31 @@ export interface TraceRow {
 	}[];
 }
 export interface TraceHeirarchySpan {
+	TraceId?: string;
 	SpanId: string;
+	ParentSpanId?: string;
 	SpanName: string;
 	Duration: number;
+	Timestamp?: string;
+	StatusCode?: string;
+	StatusMessage?: string;
+	ServiceName?: string;
+	SpanKind?: SPAN_KIND_TYPE;
+	ScopeName?: string;
+	ScopeVersion?: string;
+	Cost?: number;
+	SpanAttributes?: Record<string, string | number>;
+	ResourceAttributes?: Record<string, string | number>;
+	Events?: {
+		Timestamp?: Date | string;
+		Name?: string;
+		Attributes?: Record<string, string | number>;
+	}[];
+	Links?: {
+		TraceId?: string;
+		SpanId?: string;
+		TraceState?: string;
+		Attributes?: Record<string, string | number>;
+	}[];
 	children?: TraceHeirarchySpan[];
 }

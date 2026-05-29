@@ -9,6 +9,7 @@ import {
 import {
 	DEFAULT_LOGGED_IN_ROUTE,
 	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
+	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN,
 	CRON_JOB_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
 	ONBOARDING_WHITELIST_API_ROUTES,
@@ -30,7 +31,10 @@ export default function checkAuth(next: NextMiddleware) {
 				const token = await getToken({ req: request });
 				const isAuth = !!token;
 				const isAllowedRequestWithoutToken =
-					ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname);
+					ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname) ||
+					ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN.some((prefix) =>
+						pathname.startsWith(prefix)
+					);
 				const isCronJobRoute = CRON_JOB_ROUTES.includes(pathname);
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");

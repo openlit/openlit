@@ -1,54 +1,97 @@
 """
-OpenLIT CrewAI Instrumentation
+OpenLIT CrewAI Instrumentation — OTel GenAI semantic convention compliant.
+
+Targets CrewAI >= 1.10.0 (unified memory, Flow support).
+All module paths verified against the actual CrewAI SDK.
 """
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.crewai.crewai import general_wrap
 from openlit.instrumentation.crewai.async_crewai import async_general_wrap
 
-_instruments = ("crewai >= 0.80.0",)
+_instruments = ("crewai >= 1.10.0",)
 
-# === WORKFLOW OPERATIONS (Always enabled) - 8 operations ===
+# === ALWAYS-ON OPERATIONS ===
+# Each tuple: (module, method, operation_key, sync_type)
 WORKFLOW_OPERATIONS = [
-    # Crew Execution Operations
-    ("crewai.crew", "Crew.kickoff", "crew_kickoff"),
-    ("crewai.crew", "Crew.kickoff_async", "crew_kickoff_async"),
-    ("crewai.crew", "Crew.kickoff_for_each", "crew_kickoff_for_each"),
-    ("crewai.crew", "Crew.kickoff_for_each_async", "crew_kickoff_for_each_async"),
-    # High-level Agent and Task Operations
-    ("crewai.agent", "Agent.execute_task", "agent_execute_task"),
-    ("crewai.task", "Task.execute", "task_execute"),
-    ("crewai.task", "Task.execute_async", "task_execute_async"),
+    # Crew construction — create_agent spans
+    ("crewai.crew", "Crew.__init__", "crew_init", "sync"),
+    # Crew execution — invoke_workflow (OTel spec)
+    ("crewai.crew", "Crew.kickoff", "crew_kickoff", "sync"),
+    ("crewai.crew", "Crew.kickoff_async", "crew_kickoff_async", "async"),
+    ("crewai.crew", "Crew.kickoff_for_each", "crew_kickoff_for_each", "sync"),
+    (
+        "crewai.crew",
+        "Crew.kickoff_for_each_async",
+        "crew_kickoff_for_each_async",
+        "async",
+    ),
+    # Task execution — invoke_agent
+    ("crewai.task", "Task._execute_core", "task_execute_core", "sync"),
+    # Tool execution — execute_tool (corrected module path)
+    ("crewai.tools.base_tool", "BaseTool.run", "tool_run", "sync"),
+    # Flow execution — invoke_workflow
+    ("crewai.flow.flow", "Flow.kickoff", "flow_kickoff", "sync"),
+    ("crewai.flow.flow", "Flow.kickoff_async", "flow_kickoff_async", "async"),
 ]
 
-# === COMPONENT OPERATIONS (Detailed tracing only) - 12 operations ===
-COMPONENT_OPERATIONS = [
-    # Tool and Memory Operations
-    ("crewai.tools.base", "BaseTool.run", "tool_run"),
-    ("crewai.tools.base", "BaseTool._run", "tool_run_internal"),
-    ("crewai.memory.base", "BaseMemory.save", "memory_save"),
-    ("crewai.memory.base", "BaseMemory.search", "memory_search"),
-    # Process and Collaboration Operations
-    ("crewai.process", "Process.kickoff", "process_kickoff"),
-    ("crewai.agent", "Agent.delegate", "agent_delegate"),
-    ("crewai.agent", "Agent.ask_question", "agent_ask_question"),
-    ("crewai.task", "Task.callback", "task_callback"),
-    # Internal Task Management
-    # Instrument only the core task execution (remove the sync duplicate)
-    # Task Operations (keep only core execution)
-    ("crewai.task", "Task._execute_core", "task_execute_core"),
+# === DETAILED-TRACING OPERATIONS ===
+DETAILED_OPERATIONS = [
+    # Agent standalone kickoff — invoke_agent
+    ("crewai", "Agent.kickoff", "agent_kickoff", "sync"),
+    # Flow node execution — invoke_agent
+    ("crewai.flow.flow", "Flow._execute_method", "flow_execute_method", "sync"),
 ]
+
+
+class _ContextPropagatingDescriptor:  # pylint: disable=too-few-public-methods
+    """Propagate OTel context from the calling thread into CrewAI's
+    ThreadPoolExecutor so that child spans (tool, task) are properly
+    parented under the agent / workflow span.
+
+    ``Agent._execute_without_timeout`` is resolved via ``__get__`` in the
+    *main* thread (which holds the correct OTel context) before being
+    submitted to the thread pool.  The returned closure re-attaches that
+    context in the *worker* thread.
+    """
+
+    def __init__(self, original):
+        self._original = original
+        self._name = None
+
+    def __set_name__(self, owner, name):
+        self._name = name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        from opentelemetry import context as context_api
+
+        bound = self._original.__get__(obj, objtype)
+        ctx = context_api.get_current()
+
+        def _propagating_wrapper(*args, **kwargs):
+            token = context_api.attach(ctx)
+            try:
+                return bound(*args, **kwargs)
+            finally:
+                context_api.detach(token)
+
+        return _propagating_wrapper
 
 
 class CrewAIInstrumentor(BaseInstrumentor):
-    """
-    Modern instrumentor for CrewAI framework with comprehensive coverage.
-    Implements OpenLIT Framework Instrumentation Guide patterns.
-    """
+    """OTel GenAI semantic convention compliant instrumentor for CrewAI."""
+
+    def __init__(self):
+        super().__init__()
+        self._original_execute_without_timeout = None
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
@@ -57,81 +100,71 @@ class CrewAIInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("crewai")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
+        wrap_args = (
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
+        )
 
-        # === WORKFLOW OPERATIONS (Always enabled) ===
-        for module, method, operation_type in WORKFLOW_OPERATIONS:
+        # -- always-on operations --
+        for module, method, op_key, sync_type in WORKFLOW_OPERATIONS:
             try:
-                wrap_function_wrapper(
-                    module,
-                    method,
-                    general_wrap(
-                        operation_type,
-                        version,
-                        environment,
-                        application_name,
-                        tracer,
-                        pricing_info,
-                        capture_message_content,
-                        metrics,
-                        disable_metrics,
-                    ),
-                )
+                if sync_type == "async":
+                    wrapper = async_general_wrap(op_key, *wrap_args)
+                else:
+                    wrapper = general_wrap(op_key, *wrap_args)
+                wrap_function_wrapper(module, method, wrapper)
             except Exception:
-                # Graceful degradation for missing operations
                 pass
 
-        # === ASYNC WORKFLOW OPERATIONS ===
-        for module, method, operation_type in WORKFLOW_OPERATIONS:
-            if "async" in operation_type:
-                try:
-                    wrap_function_wrapper(
-                        module,
-                        method,
-                        async_general_wrap(
-                            operation_type,
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                        ),
-                    )
-                except Exception:
-                    pass
+        # -- detailed-tracing operations --
+        for module, method, op_key, sync_type in DETAILED_OPERATIONS:
+            try:
+                if sync_type == "async":
+                    wrapper = async_general_wrap(op_key, *wrap_args)
+                else:
+                    wrapper = general_wrap(op_key, *wrap_args)
+                wrap_function_wrapper(module, method, wrapper)
+            except Exception:
+                pass
 
-        # === COMPONENT OPERATIONS (Detailed tracing only) ===
-        if detailed_tracing:
-            for module, method, operation_type in COMPONENT_OPERATIONS:
-                try:
-                    wrap_function_wrapper(
-                        module,
-                        method,
-                        general_wrap(
-                            operation_type,
-                            version,
-                            environment,
-                            application_name,
-                            tracer,
-                            pricing_info,
-                            capture_message_content,
-                            metrics,
-                            disable_metrics,
-                        ),
-                    )
-                except Exception:
-                    pass
+        # -- thread context propagation --
+        self._install_context_propagation()
 
-        # Total operations: 8 workflow + 4 async + (12 component if detailed) = 12 baseline, 24 with detailed tracing
-        # Beats competitors (5-10 operations) by 140-380%
+    def _install_context_propagation(self):
+        """Replace ``Agent._execute_without_timeout`` with a descriptor that
+        propagates OTel context across CrewAI's thread-pool boundary."""
+        try:
+            import crewai.agent.core as _agent_core
+
+            original = getattr(_agent_core.Agent, "_execute_without_timeout", None)
+            if original is not None and not isinstance(
+                original, _ContextPropagatingDescriptor
+            ):
+                self._original_execute_without_timeout = original
+                _agent_core.Agent._execute_without_timeout = (
+                    _ContextPropagatingDescriptor(original)
+                )
+        except Exception:
+            pass
 
     def _uninstrument(self, **kwargs):
-        """Uninstrument CrewAI operations"""
+        """Best-effort restoration of the context-propagation descriptor."""
+        try:
+            import crewai.agent.core as _agent_core
+
+            original = getattr(self, "_original_execute_without_timeout", None)
+            if original is not None:
+                _agent_core.Agent._execute_without_timeout = original
+        except Exception:
+            pass

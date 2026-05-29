@@ -52,7 +52,7 @@ class QdrantWrapper extends BaseWrapper {
             const resultCount = Array.isArray(response) ? response.length : 0;
             span.setAttribute(SemanticConvention.DB_N_RESULTS, resultCount);
 
-            if (OpenlitConfig.traceContent && params.vector) {
+            if (OpenlitConfig.captureMessageContent && params.vector) {
               const vectorPreview = Array.isArray(params.vector)
                 ? JSON.stringify(params.vector.slice(0, 10))
                 : String(params.vector);

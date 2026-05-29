@@ -1,0 +1,127 @@
+diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
+index d7ccb12..7a73a13 100644
+--- a/pkg/appolly/app/request/span.go
++++ b/pkg/appolly/app/request/span.go
+@@ -97,13 +97,29 @@ const (
+ 	HTTPSubtypeGemini        = 8  // http + Google AI Studio (Gemini)
+ 	HTTPSubtypeJSONRPC       = 9  // http + JSON-RPC
+ 	HTTPSubtypeAWSBedrock    = 10 // http + AWS Bedrock
++	HTTPSubtypeCohere        = 11 // http + Cohere
++	HTTPSubtypeMistral       = 12 // http + Mistral (OpenAI-compatible)
++	HTTPSubtypeGroq          = 13 // http + Groq (OpenAI-compatible)
++	HTTPSubtypeDeepseek      = 14 // http + Deepseek (OpenAI-compatible)
++	HTTPSubtypeTogether      = 15 // http + Together (OpenAI-compatible)
++	HTTPSubtypeFireworks     = 16 // http + Fireworks (OpenAI-compatible)
++	HTTPSubtypeOllama        = 17 // http + Ollama
++	HTTPSubtypeAzureOpenAI   = 18 // http + Azure OpenAI (OpenAI-compatible)
+ )
+ 
+ func IsGenAISubtype(subtype int) bool {
+ 	return subtype == HTTPSubtypeOpenAI ||
+ 		subtype == HTTPSubtypeAnthropic ||
+ 		subtype == HTTPSubtypeGemini ||
+-		subtype == HTTPSubtypeAWSBedrock
++		subtype == HTTPSubtypeAWSBedrock ||
++		subtype == HTTPSubtypeCohere ||
++		subtype == HTTPSubtypeMistral ||
++		subtype == HTTPSubtypeGroq ||
++		subtype == HTTPSubtypeDeepseek ||
++		subtype == HTTPSubtypeTogether ||
++		subtype == HTTPSubtypeFireworks ||
++		subtype == HTTPSubtypeOllama ||
++		subtype == HTTPSubtypeAzureOpenAI
+ }
+ 
+ //nolint:cyclop
+@@ -253,6 +269,14 @@ type GenAI struct {
+ 	Anthropic *VendorAnthropic
+ 	Gemini    *VendorGemini
+ 	Bedrock   *VendorBedrock
++	Cohere    *VendorCohere
++}
++
++type VendorCohere struct {
++	Model        string `json:"model"`
++	InputTokens  int    `json:"input_tokens"`
++	OutputTokens int    `json:"output_tokens"`
++	Operation    string `json:"operation"`
+ }
+ 
+ type OpenAIUsage struct {
+@@ -1494,6 +1518,10 @@ func (s *Span) GenAIInputTokens() int {
+ 		return s.GenAI.Bedrock.Output.InputTokens
+ 	}
+ 
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.InputTokens
++	}
++
+ 	return 0
+ }
+ 
+@@ -1518,6 +1546,10 @@ func (s *Span) GenAIOutputTokens() int {
+ 		return s.GenAI.Bedrock.Output.OutputTokens
+ 	}
+ 
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.OutputTokens
++	}
++
+ 	return 0
+ }
+ 
+@@ -1537,6 +1569,9 @@ func (s *Span) GenAIOperationName() string {
+ 	if s.GenAI.Bedrock != nil {
+ 		return "invoke_model"
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Operation
++	}
+ 	return ""
+ }
+ 
+@@ -1556,6 +1591,25 @@ func (s *Span) GenAIProviderName() string {
+ 	if s.GenAI.Bedrock != nil {
+ 		return semconv.GenAIProviderNameAWSBedrock.Value.AsString()
+ 	}
++	if s.GenAI.Cohere != nil {
++		return "cohere"
++	}
++	switch s.SubType {
++	case HTTPSubtypeGroq:
++		return "groq"
++	case HTTPSubtypeDeepseek:
++		return "deepseek"
++	case HTTPSubtypeTogether:
++		return "together"
++	case HTTPSubtypeFireworks:
++		return "fireworks"
++	case HTTPSubtypeMistral:
++		return "mistral"
++	case HTTPSubtypeOllama:
++		return "ollama"
++	case HTTPSubtypeAzureOpenAI:
++		return "azure.openai"
++	}
+ 	return ""
+ }
+ 
+@@ -1575,6 +1629,9 @@ func (s *Span) GenAIRequestModel() string {
+ 	if s.GenAI.Bedrock != nil {
+ 		return s.GenAI.Bedrock.Model
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Model
++	}
+ 	return ""
+ }
+ 
+@@ -1597,5 +1654,8 @@ func (s *Span) GenAIResponseModel() string {
+ 	if s.GenAI.Bedrock != nil {
+ 		return s.GenAI.Bedrock.Model
+ 	}
++	if s.GenAI.Cohere != nil {
++		return s.GenAI.Cohere.Model
++	}
+ 	return ""
+ }

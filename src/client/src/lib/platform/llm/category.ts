@@ -12,7 +12,7 @@ export async function getResultGenerationByCategories(params: MetricParams) {
 		...params,
 		notEmpty: [{ key: keyPath }],
 		operationType: "llm",
-	})}
+	}, true)}
   GROUP BY category;`;
 
 	return dataCollector({ query });

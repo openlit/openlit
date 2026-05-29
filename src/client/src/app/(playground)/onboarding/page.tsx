@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +32,7 @@ import getMessage from "@/constants/messages";
 import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
 
 export default function OnboardingPage() {
+	const posthog = usePostHog();
 	const { update: updateSession } = useSession();
 	const messages = getMessage();
 	const [orgName, setOrgName] = useState("");
@@ -44,6 +47,7 @@ export default function OnboardingPage() {
 	const existingMemberships = organisationList?.filter((org) => !org.isCurrent) || [];
 
 	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.ONBOARDING_PAGE_VISITED);
 		// Fetch organisations and invitations on mount
 		fetchOrganisationList();
 		fetchPendingInvitations();

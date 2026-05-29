@@ -139,6 +139,12 @@ SUPERVISOR_PID=$!
 
 
 # Starting the OpenLIT UI Server
-export PORT=${DOCKER_PORT:-3000} 
-# Start the Next.js application
+export PORT=${DOCKER_PORT:-3000}
+export HOSTNAME="${HOSTNAME:-0.0.0.0}"
+# Docker sets HOSTNAME to the container ID, which makes Next.js bind only to
+# that address. Override to 0.0.0.0 so the server is reachable on all interfaces
+# (localhost, container name, etc.) unless explicitly configured otherwise.
+if echo "$HOSTNAME" | grep -qvE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$|^::$|^localhost$'; then
+  export HOSTNAME="0.0.0.0"
+fi
 exec node --max_old_space_size=512 /app/client/server.js

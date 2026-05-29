@@ -6,6 +6,11 @@ schedule
 pylint
 
 # Gen AI
+langchain-core>=0.1.20
+langchain>=0.3.15,<1.0.0; python_version < "3.10"
+langchain>=1.0.0,<2.0.0; python_version >= "3.10"
+langgraph>=0.0.1,<1.0.0; python_version < "3.10"
+langgraph>=1.0.0,<2.0.0; python_version >= "3.10"
 cohere
 openai
 anthropic
@@ -20,6 +25,7 @@ together
 transformers
 groq
 elevenlabs
+crewai>=1.10.0; python_version >= "3.10"
 agno
 
 # Vector DBs

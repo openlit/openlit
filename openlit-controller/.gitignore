@@ -1,0 +1,13 @@
+openlit-controller
+.obi-src/
+*.tar.gz
+dist/
+
+# libbpf headers copied by `make setup-bpf-headers` (vmlinux.h is committed)
+internal/scanner/bpf/bpf_helpers.h
+internal/scanner/bpf/bpf_helper_defs.h
+internal/scanner/bpf/bpf_tracing.h
+
+# bpf2go generated files (rebuilt by `make generate`)
+internal/scanner/*_bpfel.go
+internal/scanner/*_bpfel.o

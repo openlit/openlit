@@ -4,9 +4,11 @@ OpenLIT AstraDB Instrumentation
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.astra.astra import general_wrap
 from openlit.instrumentation.astra.async_astra import async_general_wrap
 
@@ -77,10 +79,10 @@ class AstraInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("astrapy")
         environment = kwargs.get("environment", "default")
         application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
+        tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
+        metrics = OpenlitConfig.metrics_dict
         disable_metrics = kwargs.get("disable_metrics")
 
         # Wrap sync operations

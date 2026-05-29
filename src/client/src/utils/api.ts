@@ -6,15 +6,17 @@ type GET_DATA = {
 };
 
 export async function getData({ body, method = "POST", url, data }: GET_DATA) {
+	const hasBody = !!(body || data);
 	const res = await fetch(url, {
 		body: body || (data ? JSON.stringify(data) : undefined),
 		method,
-		headers: data ? { "Content-Type": "application/json" } : undefined,
+		headers: hasBody ? { "Content-Type": "application/json" } : undefined,
 	});
 	if (!res.ok) {
-		// This will activate the closest `error.js` Error Boundary
 		const error = await res.json();
-		throw new Error(error);
+		throw new Error(
+			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+		);
 	}
 
 	return res.json();
@@ -33,7 +35,9 @@ export async function postData({ url, data }: POST_DATA) {
 	});
 	if (!res.ok) {
 		const error = await res.json();
-		throw new Error(error);
+		throw new Error(
+			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+		);
 	}
 
 	return res.json();
@@ -47,7 +51,9 @@ export async function deleteData({ url }: DELETE_DATA) {
 	const res = await fetch(url, { method: "DELETE" });
 	if (!res.ok) {
 		const error = await res.json();
-		throw new Error(error);
+		throw new Error(
+			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+		);
 	}
 
 	return res.json();

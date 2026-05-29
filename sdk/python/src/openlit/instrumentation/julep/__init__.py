@@ -3,9 +3,11 @@
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.julep.julep import wrap_julep
 
 from openlit.instrumentation.julep.async_julep import async_wrap_julep
@@ -24,8 +26,8 @@ class JulepInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")

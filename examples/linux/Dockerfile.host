@@ -1,0 +1,19 @@
+FROM openlit-controller:local AS controller
+
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates procps && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=controller /usr/local/bin/obi /usr/local/bin/obi
+COPY --from=controller /usr/local/bin/openlit-controller /usr/local/bin/openlit-controller
+
+COPY apps/ /apps/
+RUN pip install --no-cache-dir \
+    openai google-genai boto3 crewai 'crewai[tools]'
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

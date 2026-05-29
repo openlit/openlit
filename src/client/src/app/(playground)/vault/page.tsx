@@ -1,4 +1,6 @@
 "use client";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
@@ -57,6 +59,7 @@ const columns: Columns<string, Secret> = {
 }
 
 export default function Vault() {
+	const posthog = usePostHog();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<Secret[]>();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
 		useFetchWrapper();
@@ -94,6 +97,10 @@ export default function Vault() {
 		},
 		[fetchData]
 	);
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.VAULT_PAGE_VISITED);
+	}, []);
 
 	useEffect(() => {
 		if (pingStatus !== "pending") {

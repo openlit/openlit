@@ -4,9 +4,12 @@ Initializer of Auto Instrumentation of Ollama Functions
 
 from typing import Collection
 import importlib.metadata
+from opentelemetry import _logs
+from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.ollama.ollama import chat, embeddings, generate
 from openlit.instrumentation.ollama.async_ollama import (
     async_chat,
@@ -59,12 +62,12 @@ class OllamaInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
-        event_provider = kwargs.get("event_provider")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
         version = importlib.metadata.version("ollama")
 
         # Build wrapper factories for chat and embeddings

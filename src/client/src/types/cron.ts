@@ -14,6 +14,7 @@ export enum CronRunStatus {
 
 export enum CronType {
 	SPAN_EVALUATION = "SPAN_EVALUATION",
+	SPAN_PRICING = "SPAN_PRICING",
 }
 
 export interface CronLogData {

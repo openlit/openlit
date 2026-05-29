@@ -17,3 +17,4 @@ logs/
 **.pem
 **certs/index.txt
 **.csr
+sdk/typescript-test/

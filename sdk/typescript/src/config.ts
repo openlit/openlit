@@ -1,5 +1,5 @@
-import OpenLitHelper from './helpers';
 import { OpenlitConfigInterface, PricingObject } from './types';
+import type { Pipeline } from './guard/pipeline';
 
 export default class OpenlitConfig {
   static environment: OpenlitConfigInterface['environment'];
@@ -9,18 +9,15 @@ export default class OpenlitConfig {
   static otlpEndpoint?: OpenlitConfigInterface['otlpEndpoint'];
   static otlpHeaders?: OpenlitConfigInterface['otlpHeaders'];
   static disableBatch?: OpenlitConfigInterface['disableBatch'];
-  static traceContent?: OpenlitConfigInterface['traceContent'];
-  static pricing_json?: OpenlitConfigInterface['pricing_json'];
-
-  static async updatePricingJson(pricing_json: any) {
-    try {
-      const response = await OpenLitHelper.fetchPricingInfo(pricing_json);
-      this.pricingInfo = response;
-    } catch (e) {
-      this.pricingInfo = {};
-    }
-    return this.pricingInfo;
-  }
+  static captureMessageContent?: OpenlitConfigInterface['captureMessageContent'];
+  static pricingJson?: OpenlitConfigInterface['pricingJson'];
+  static disableMetrics?: boolean;
+  static disableEvents?: boolean;
+  static maxContentLength?: number | null;
+  static customSpanAttributes?: Record<string, string> | null;
+  static openlitApiKey?: string;
+  static openlitUrl?: string;
+  static guardPipeline?: Pipeline;
 
   static updateConfig({
     environment = 'default',
@@ -28,17 +25,36 @@ export default class OpenlitConfig {
     tracer,
     otlpEndpoint,
     otlpHeaders,
-    disableBatch = true,
-    traceContent = true,
-    pricing_json,
-  }: OpenlitConfigInterface) {
+    disableBatch = false,
+    captureMessageContent = true,
+    pricingJson,
+    disableMetrics = false,
+    disableEvents = false,
+    maxContentLength = null,
+    customSpanAttributes = null,
+    openlitApiKey,
+    openlitUrl,
+  }: Partial<OpenlitConfigInterface> & {
+    disableMetrics?: boolean;
+    disableEvents?: boolean;
+    maxContentLength?: number | null;
+    customSpanAttributes?: Record<string, string> | null;
+    openlitApiKey?: string;
+    openlitUrl?: string;
+  }) {
     this.environment = environment;
     this.applicationName = applicationName;
-    this.tracer = tracer;
+    this.tracer = tracer as OpenlitConfigInterface['tracer'];
     this.otlpEndpoint = otlpEndpoint;
     this.otlpHeaders = otlpHeaders;
     this.disableBatch = disableBatch;
-    this.traceContent = traceContent;
-    this.pricing_json = pricing_json;
+    this.captureMessageContent = captureMessageContent;
+    this.pricingJson = pricingJson;
+    this.disableMetrics = disableMetrics;
+    this.disableEvents = disableEvents;
+    this.maxContentLength = maxContentLength;
+    this.customSpanAttributes = customSpanAttributes;
+    this.openlitApiKey = openlitApiKey;
+    this.openlitUrl = openlitUrl;
   }
 }

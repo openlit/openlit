@@ -4,20 +4,19 @@ Setups up OpenTelemetry events emitter
 
 import os
 import logging
-from opentelemetry import _events, _logs
+from opentelemetry import _logs
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
 )
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk._events import EventLoggerProvider
 from opentelemetry.sdk._logs.export import (
     BatchLogRecordProcessor,
     SimpleLogRecordProcessor,
 )
-from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs.export import ConsoleLogExporter
+from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider
+from opentelemetry.sdk._logs.export import ConsoleLogRecordExporter
 from openlit.__helpers import parse_exporters
 
 # pylint: disable=ungrouped-imports
@@ -46,12 +45,12 @@ def setup_events(
     Args:
         application_name: Name of the application
         environment: Deployment environment
-        event_logger: Optional pre-configured event logger provider
+        event_logger: Optional pre-configured Logger instance
         otlp_endpoint: Optional OTLP endpoint for exporter
         otlp_headers: Optional headers for OTLP exporter
 
     Returns:
-        EventLoggerProvider: The configured event logger provider
+        Logger: The configured OTel Logger for emitting events as LogRecords
     """
     # If an external events_logger is provided, return it immediately.
     if event_logger:
@@ -62,89 +61,86 @@ def setup_events(
 
     try:
         if not EVENTS_SET:
-            # Create resource with service and environment information
-            resource = Resource.create(
-                attributes={
-                    SERVICE_NAME: application_name,
-                    DEPLOYMENT_ENVIRONMENT: environment,
-                    TELEMETRY_SDK_NAME: "openlit",
-                }
-            )
+            existing_provider = _logs.get_logger_provider()
 
-            # Initialize the LoggerProvider with the created resource.
-            logger_provider = LoggerProvider(resource=resource)
+            if isinstance(existing_provider, SDKLoggerProvider):
+                logger.info("Detected existing LoggerProvider, reusing it")
+            else:
+                # No SDK provider configured yet -- create one.
+                resource = Resource.create(
+                    attributes={
+                        SERVICE_NAME: application_name,
+                        DEPLOYMENT_ENVIRONMENT: environment,
+                        TELEMETRY_SDK_NAME: "openlit",
+                    }
+                )
 
-            # Only set environment variables if you have a non-None value.
-            if otlp_endpoint is not None:
-                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint
+                logger_provider = SDKLoggerProvider(resource=resource)
 
-            if otlp_headers is not None:
-                if isinstance(otlp_headers, dict):
-                    headers_str = ",".join(
-                        f"{key}={value}" for key, value in otlp_headers.items()
-                    )
+                if otlp_endpoint is not None:
+                    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint
+
+                if otlp_headers is not None:
+                    if isinstance(otlp_headers, dict):
+                        headers_str = ",".join(
+                            f"{key}={value}" for key, value in otlp_headers.items()
+                        )
+                    else:
+                        headers_str = otlp_headers
+
+                    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
+
+                exporters_config = parse_exporters("OTEL_LOGS_EXPORTER")
+                processors_added = False
+
+                if exporters_config is not None:
+                    for exporter_name in exporters_config:
+                        if exporter_name == "otlp":
+                            event_exporter = OTLPLogExporter()
+                            log_processor = (
+                                BatchLogRecordProcessor(event_exporter)
+                                if not disable_batch
+                                else SimpleLogRecordProcessor(event_exporter)
+                            )
+                            logger_provider.add_log_record_processor(log_processor)
+                            processors_added = True
+                        elif exporter_name == "console":
+                            event_exporter = ConsoleLogRecordExporter()
+                            log_processor = SimpleLogRecordProcessor(event_exporter)
+                            logger_provider.add_log_record_processor(log_processor)
+                            processors_added = True
+                        elif exporter_name == "none":
+                            continue
+                        else:
+                            logger.warning("Unknown log exporter: %s", exporter_name)
+
+                    if not processors_added:
+                        logger.warning(
+                            "OTEL_LOGS_EXPORTER is set but no valid exporters "
+                            "configured. Log export is disabled. "
+                            "Valid exporters: otlp, console"
+                        )
                 else:
-                    headers_str = otlp_headers
-
-                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
-
-            # Check for OTEL_LOGS_EXPORTER env var for multiple exporters support
-            exporters_config = parse_exporters("OTEL_LOGS_EXPORTER")
-            processors_added = False
-
-            if exporters_config is not None:
-                # New behavior: use specified exporters from OTEL_LOGS_EXPORTER
-                for exporter_name in exporters_config:
-                    if exporter_name == "otlp":
+                    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                         event_exporter = OTLPLogExporter()
+                        # pylint: disable=line-too-long
                         log_processor = (
                             BatchLogRecordProcessor(event_exporter)
                             if not disable_batch
                             else SimpleLogRecordProcessor(event_exporter)
                         )
-                        logger_provider.add_log_record_processor(log_processor)
-                        processors_added = True
-                    elif exporter_name == "console":
-                        event_exporter = ConsoleLogExporter()
-                        log_processor = SimpleLogRecordProcessor(event_exporter)
-                        logger_provider.add_log_record_processor(log_processor)
-                        processors_added = True
-                    elif exporter_name == "none":
-                        # "none" means no exporter, skip
-                        continue
                     else:
-                        logger.warning("Unknown log exporter: %s", exporter_name)
+                        event_exporter = ConsoleLogRecordExporter()
+                        log_processor = SimpleLogRecordProcessor(event_exporter)
 
-                # Warn if no valid exporters were configured
-                if not processors_added:
-                    logger.warning(
-                        "OTEL_LOGS_EXPORTER is set but no valid exporters configured. "
-                        "Log export is disabled. Valid exporters: otlp, console"
-                    )
-            else:
-                # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
-                if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                    event_exporter = OTLPLogExporter()
-                    # pylint: disable=line-too-long
-                    log_processor = (
-                        BatchLogRecordProcessor(event_exporter)
-                        if not disable_batch
-                        else SimpleLogRecordProcessor(event_exporter)
-                    )
-                else:
-                    event_exporter = ConsoleLogExporter()
-                    log_processor = SimpleLogRecordProcessor(event_exporter)
+                    logger_provider.add_log_record_processor(log_processor)
 
-                logger_provider.add_log_record_processor(log_processor)
-
-            _logs.set_logger_provider(logger_provider)
-            event_provider = EventLoggerProvider()
-            _events.set_event_logger_provider(event_provider)
+                _logs.set_logger_provider(logger_provider)
 
             EVENTS_SET = True
 
-        return _events.get_event_logger(__name__)
+        return _logs.get_logger(__name__)
 
-    # pylint: disable=bare-except
-    except:
+    except Exception as e:
+        logger.error("Failed to setup OpenTelemetry events: %s", e, exc_info=True)
         return None

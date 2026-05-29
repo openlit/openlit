@@ -3,32 +3,44 @@ import {
 	BookKey,
 	Boxes,
 	Braces,
+	Brain,
 	CircleDollarSign,
 	CircleGauge,
 	ClipboardType,
+	Code2,
 	Combine,
 	Container,
 	Crop,
+	Database,
 	DoorClosed,
 	Factory,
 	FileAudio2,
 	FileCog,
 	FileStack,
 	Fingerprint,
+	Hammer,
+	Hash,
 	ImageIcon,
+	Layers,
+	MessageSquare,
 	MessageSquareWarning,
 	PyramidIcon,
+	Radio,
 	ScanSearch,
 	ShieldCheck,
+	Sliders,
 	SquareCode,
 	SquareRadical,
 	TicketCheck,
 	TicketPlus,
+	Timer,
+	User,
 } from "lucide-react";
 import { objectKeys } from "@/utils/object";
 import { isArray } from "lodash";
 import {
 	SPAN_KIND_TYPE,
+	TraceMappingPathType,
 	TraceMappingKeyType,
 	TraceMappingValueType,
 } from "@/types/trace";
@@ -77,13 +89,13 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		applicationName: {
 			label: "App Name",
 			type: "string",
-			path: "service.name",
+			path: ["SpanAttributes", "gen_ai.application_name"],
 			isRoot: true,
 		},
 		environment: {
 			label: "Environment",
 			type: "string",
-			path: "deployment.environment",
+			path: ["SpanAttributes", "gen_ai.environment"],
 			icon: Container,
 			isRoot: true,
 		},
@@ -153,8 +165,9 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		temperature: {
 			label: "Temperature",
 			type: "float",
-			path: "temperature",
+			path: "request.temperature",
 			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
 		},
 
 		// Tokens & Cost
@@ -173,6 +186,12 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Prompt Tokens",
 			type: "integer",
 			path: "usage.input_tokens",
+			paths: [
+				"usage.input_tokens",
+				"client.token.usage.input",
+				{ path: "input_tokens", prefix: null },
+				{ path: "prompt_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			icon: Braces,
 			defaultValue: "-",
@@ -181,6 +200,12 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Completion Tokens",
 			type: "integer",
 			path: "usage.output_tokens",
+			paths: [
+				"usage.output_tokens",
+				"client.token.usage.output",
+				{ path: "output_tokens", prefix: null },
+				{ path: "completion_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			defaultValue: "-",
 		},
@@ -188,6 +213,11 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Total Tokens",
 			type: "integer",
 			path: "usage.total_tokens",
+			paths: [
+				"usage.total_tokens",
+				"client.token.usage",
+				{ path: "total_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			icon: TicketPlus,
 			defaultValue: "-",
@@ -299,7 +329,7 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		embeddingFormat: {
 			label: "Embedding Format",
 			type: "string",
-			path: "request.embedding_format",
+			path: "request.encoding_formats",
 			prefix: SpanAttributesGenAIPrefix,
 		},
 		embeddingDimension: {
@@ -443,15 +473,265 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			prefix: SpanAttributesGenAIPrefix,
 			icon: SquareCode,
 		},
+
+		// ── Request sampling / generation params ────────────────────────
+		requestTopP: {
+			label: "Top P",
+			type: "float",
+			path: "request.top_p",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestTopK: {
+			label: "Top K",
+			type: "float",
+			path: "request.top_k",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestFrequencyPenalty: {
+			label: "Frequency Penalty",
+			type: "float",
+			path: "request.frequency_penalty",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestPresencePenalty: {
+			label: "Presence Penalty",
+			type: "float",
+			path: "request.presence_penalty",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestIsStream: {
+			label: "Streaming",
+			type: "string",
+			path: "request.is_stream",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Radio,
+		},
+		requestUser: {
+			label: "User",
+			type: "string",
+			path: "request.user",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: User,
+		},
+		requestChoiceCount: {
+			label: "Choice Count",
+			type: "integer",
+			path: "request.choice.count",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		requestStopSequences: {
+			label: "Stop Sequences",
+			type: "string",
+			path: "request.stop_sequences",
+			prefix: SpanAttributesGenAIPrefix,
+		},
+		requestToolChoice: {
+			label: "Tool Choice",
+			type: "string",
+			path: "request.tool_choice",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hammer,
+		},
+
+		// ── Response attributes ──────────────────────────────────────────
+		responseId: {
+			label: "Response ID",
+			type: "string",
+			path: "response.id",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		responseModel: {
+			label: "Response Model",
+			type: "string",
+			path: "response.model",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Boxes,
+		},
+		outputType: {
+			label: "Output Type",
+			type: "string",
+			path: "output.type",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Code2,
+		},
+
+		// ── Tool calling ─────────────────────────────────────────────────
+		toolName: {
+			label: "Tool Name",
+			type: "string",
+			path: "tool.name",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hammer,
+		},
+		toolCallId: {
+			label: "Tool Call ID",
+			type: "string",
+			path: "tool.call.id",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		toolArgs: {
+			label: "Tool Arguments",
+			type: "string",
+			path: "tool.args",
+			prefix: SpanAttributesGenAIPrefix,
+		},
+
+		// ── Token details ────────────────────────────────────────────────
+		cacheReadTokens: {
+			label: "Cache Read Tokens",
+			type: "integer",
+			path: "usage.cache_read.input_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Database,
+			defaultValue: "-",
+		},
+		cacheCreationTokens: {
+			label: "Cache Creation Tokens",
+			type: "integer",
+			path: "usage.cache_creation.input_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Database,
+			defaultValue: "-",
+		},
+		reasoningTokens: {
+			label: "Reasoning Tokens",
+			type: "integer",
+			path: "usage.completion_tokens_details.reasoning_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+			defaultValue: "-",
+		},
+
+		// ── Streaming latency ────────────────────────────────────────────
+		ttft: {
+			label: "Time to First Token",
+			type: "float",
+			path: "server.time_to_first_token",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Timer,
+			valueSuffix: "s",
+		},
+		tbt: {
+			label: "Time Per Output Token",
+			type: "float",
+			path: "server.time_per_output_token",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Timer,
+			valueSuffix: "s",
+		},
+
+		// ── Content ──────────────────────────────────────────────────────
+		systemInstructions: {
+			label: "System Instructions",
+			type: "string",
+			path: "system_instructions",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: MessageSquare,
+		},
+		contentReasoning: {
+			label: "Reasoning Content",
+			type: "string",
+			path: "content.reasoning",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+		},
+
+		// ── Reasoning / effort ───────────────────────────────────────────
+		reasoningEffort: {
+			label: "Reasoning Effort",
+			type: "string",
+			path: "request.reasoning_effort",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+		},
+
+		// ── OpenAI-specific ──────────────────────────────────────────────
+		openaiApiType: {
+			label: "API Type",
+			type: "string",
+			path: "api.type",
+			prefix: "openai",
+			icon: Code2,
+		},
+		openaiRequestServiceTier: {
+			label: "Service Tier (Req)",
+			type: "string",
+			path: "request.service_tier",
+			prefix: "openai",
+			icon: Layers,
+		},
+		openaiResponseServiceTier: {
+			label: "Service Tier (Res)",
+			type: "string",
+			path: "response.service_tier",
+			prefix: "openai",
+			icon: Layers,
+		},
+		openaiSystemFingerprint: {
+			label: "System Fingerprint",
+			type: "string",
+			path: "response.system_fingerprint",
+			prefix: "openai",
+			icon: Fingerprint,
+		},
+
+		// ── DB (new OTel paths) ──────────────────────────────────────────
+		dbSystemName: {
+			label: "DB System",
+			type: "string",
+			path: "system.name",
+			prefix: SpanAttributesDBPrefix,
+			icon: Database,
+		},
+		dbOperationName: {
+			label: "DB Operation",
+			type: "string",
+			path: "operation.name",
+			prefix: SpanAttributesDBPrefix,
+			icon: SquareRadical,
+		},
+		dbQueryText: {
+			label: "Query",
+			type: "string",
+			path: "query.text",
+			prefix: SpanAttributesDBPrefix,
+			icon: SquareCode,
+		},
 	};
+
+function getReverseTraceMappingPath(pathConfig: TraceMappingPathType): string {
+	if (
+		typeof pathConfig === "object" &&
+		!isArray(pathConfig) &&
+		"path" in pathConfig
+	) {
+		return isArray(pathConfig.path)
+			? (pathConfig.path as string[]).join(",")
+			: (pathConfig.path as string);
+	}
+
+	return isArray(pathConfig)
+		? (pathConfig as string[]).join(",")
+		: (pathConfig as string);
+}
 
 function getReverseTraceMapping(): Record<string, TraceMappingKeyType> {
 	return objectKeys(TraceMapping).reduce(
 		(acc: Record<string, TraceMappingKeyType>, key) => {
-			const path: string = isArray(TraceMapping[key].path)
-				? (TraceMapping[key].path as string[]).join(",")
-				: (TraceMapping[key].path as string);
-			acc[path] = key;
+			const paths = TraceMapping[key].paths?.length
+				? TraceMapping[key].paths!
+				: [TraceMapping[key].path];
+
+			paths.forEach((pathConfig) => {
+				acc[getReverseTraceMappingPath(pathConfig)] = key;
+			});
 			return acc;
 		},
 		{}

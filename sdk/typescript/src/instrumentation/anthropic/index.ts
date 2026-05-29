@@ -6,7 +6,6 @@ import {
 } from '@opentelemetry/instrumentation';
 import { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
-import Anthropic from '@anthropic-ai/sdk';
 import AnthropicWrapper from './wrapper';
 
 export interface AnthropicInstrumentationConfig extends InstrumentationConfig {}
@@ -37,7 +36,7 @@ export default class OpenlitAnthropicInstrumentation extends InstrumentationBase
     this._patch(anthropic);
   }
 
-  protected _patch(moduleExports: typeof Anthropic) {
+  protected _patch(moduleExports: any) {
     try {
       const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
       if (isWrapped(AnthropicClass.Messages.prototype.create)) {
@@ -54,7 +53,7 @@ export default class OpenlitAnthropicInstrumentation extends InstrumentationBase
     }
   }
 
-  protected _unpatch(moduleExports: typeof Anthropic) {
+  protected _unpatch(moduleExports: any) {
     const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
     this._unwrap(AnthropicClass.Messages.prototype, 'create');
   }

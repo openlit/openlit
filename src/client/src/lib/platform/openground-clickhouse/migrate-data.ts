@@ -94,8 +94,9 @@ export async function migrateOpengroundDataToClickhouse(
 				);
 				const stats: Stats = JSON.parse(record.stats);
 
-				// Escape single quotes in string values for SQL
-				const escapeString = (str: string) => str.replace(/'/g, "''");
+				// Escape string values before embedding them in ClickHouse literals.
+				const escapeString = (str: string) =>
+					str.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 				const promptEscaped = escapeString(requestMeta.prompt);
 				const createdAt = record.createdAt.toISOString().replace("T", " ").slice(0, 19);
 
@@ -192,7 +193,7 @@ export async function migrateOpengroundDataToClickhouse(
 
 					const providerName = escapeString(provider.provider);
 					const model = escapeString(evaluationData?.model || provider.config?.model || "unknown");
-					const config = JSON.stringify(provider.config || {}).replace(/'/g, "''");
+					const config = escapeString(JSON.stringify(provider.config || {}));
 					const responseText = escapeString(evaluationData?.response || "");
 					const errorText = escapeString(error || "");
 					const cost = evaluationData?.cost || 0;
@@ -201,7 +202,7 @@ export async function migrateOpengroundDataToClickhouse(
 					const totalTokens = evaluationData?.totalTokens || (promptTokens + completionTokens);
 					const responseTime = evaluationData?.responseTime || 0;
 					const finishReason = escapeString(evaluationData?.finishReason || "");
-					const providerResponse = JSON.stringify(response || {}).replace(/'/g, "''");
+					const providerResponse = escapeString(JSON.stringify(response || {}));
 
 					const providerInsertQuery = `
 						INSERT INTO ${OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME} (

@@ -6,7 +6,6 @@ import {
 } from '@opentelemetry/instrumentation';
 import { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
-import OpenAI from 'openai';
 import OpenAIWrapper from './wrapper';
 
 export interface OpenAIInstrumentationConfig extends InstrumentationConfig {}
@@ -37,7 +36,7 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
     this._patch(openai);
   }
 
-  protected _patch(moduleExports: typeof OpenAI) {
+  protected _patch(moduleExports: any) {
     try {
       if (isWrapped(moduleExports.OpenAI.Chat.Completions.prototype.create)) {
         this._unwrap(moduleExports.OpenAI.Chat.Completions.prototype, 'create');
@@ -117,7 +116,7 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
     }
   }
 
-  protected _unpatch(moduleExports: typeof OpenAI) {
+  protected _unpatch(moduleExports: any) {
     this._unwrap(moduleExports.OpenAI.Chat.Completions.prototype, 'create');
     this._unwrap(moduleExports.OpenAI.Embeddings.prototype, 'create');
     this._unwrap(moduleExports.OpenAI.FineTuning.prototype, 'jobs');

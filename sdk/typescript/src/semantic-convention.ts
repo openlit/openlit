@@ -31,10 +31,7 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_MODEL = 'gen_ai.response.model';
   static GEN_AI_INPUT_MESSAGES = 'gen_ai.input.messages';
   static GEN_AI_OUTPUT_MESSAGES = 'gen_ai.output.messages';
-  /** Legacy */
-  static GEN_AI_SYSTEM_INSTRUCTIONS = 'gen_ai.system.instructions';
-  /** OTel standard */
-  static GEN_AI_SYSTEM_INSTRUCTIONS_OTEL = 'gen_ai.system_instructions';
+  static GEN_AI_SYSTEM_INSTRUCTIONS = 'gen_ai.system_instructions';
   static GEN_AI_TOOL_DEFINITIONS = 'gen_ai.tool.definitions';
   static GEN_AI_EMBEDDINGS_DIMENSION_COUNT = 'gen_ai.embeddings.dimension.count';
   static GEN_AI_TOKEN_TYPE = 'gen_ai.token.type';
@@ -43,6 +40,8 @@ export default class SemanticConvention {
   static GEN_AI_TOKEN_TYPE_REASONING = 'reasoning';
   static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
   static GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = 'gen_ai.client.operation.time_to_first_chunk';
+  /** OTel standard span attribute for TTFT */
+  static GEN_AI_RESPONSE_TIME_TO_FIRST_CHUNK = 'gen_ai.response.time_to_first_chunk';
   static GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = 'gen_ai.client.operation.time_per_output_chunk';
   static GEN_AI_CLIENT_TOKEN_USAGE = 'gen_ai.client.token.usage';
   static GEN_AI_SERVER_REQUEST_DURATION = 'gen_ai.server.request.duration';
@@ -66,6 +65,7 @@ export default class SemanticConvention {
   static GEN_AI_ASSISTANT_MESSAGE = 'gen_ai.assistant.message';
   static GEN_AI_TOOL_MESSAGE = 'gen_ai.tools.message';
   static GEN_AI_CHOICE = 'gen_ai.choice';
+  static GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS = 'gen_ai.client.inference.operation.details';
 
   // ----- GenAI General (OpenLIT + OTel) -----
   static GEN_AI_ENDPOINT = 'gen_ai.endpoint';
@@ -79,6 +79,8 @@ export default class SemanticConvention {
 
   // GenAI Request (extended / OpenLIT)
   static GEN_AI_REQUEST_IS_STREAM = 'gen_ai.request.is_stream';
+  /** OTel standard: gen_ai.request.stream (replaces gen_ai.request.is_stream) */
+  static GEN_AI_REQUEST_STREAM = 'gen_ai.request.stream';
   static GEN_AI_REQUEST_USER = 'gen_ai.request.user';
   static GEN_AI_REQUEST_EMBEDDING_DIMENSION = 'gen_ai.request.embedding_dimension';
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
@@ -123,8 +125,14 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_IMAGE_SIZE = 'gen_ai.request.image_size';
   static GEN_AI_RESPONSE_IMAGE_QUALITY = 'gen_ai.request.image_quality';
   static GEN_AI_RESPONSE_IMAGE_STYLE = 'gen_ai.request.image_style';
-  static GEN_AI_REQUEST_SERVICE_TIER = 'gen_ai.request.service_tier';
-  static GEN_AI_RESPONSE_SERVICE_TIER = 'gen_ai.response.service_tier';
+
+  // OpenAI-specific attributes (openai.* namespace per OTel semconv)
+  static OPENAI_REQUEST_SERVICE_TIER = 'openai.request.service_tier';
+  static OPENAI_RESPONSE_SERVICE_TIER = 'openai.response.service_tier';
+  static OPENAI_RESPONSE_SYSTEM_FINGERPRINT = 'openai.response.system_fingerprint';
+  static OPENAI_API_TYPE = 'openai.api.type';
+
+  /** @deprecated Use OPENAI_RESPONSE_SYSTEM_FINGERPRINT for OpenAI */
   static GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = 'gen_ai.response.system_fingerprint';
 
   // GenAI Content
@@ -149,13 +157,33 @@ export default class SemanticConvention {
 
   // Retrieval (framework / RAG)
   static GEN_AI_RETRIEVAL_QUERY = 'gen_ai.retrieval.query';
+  static GEN_AI_RETRIEVAL_QUERY_TEXT = 'gen_ai.retrieval.query.text';
   static GEN_AI_RETRIEVAL_DOCUMENTS = 'gen_ai.retrieval.documents';
   static GEN_AI_RETRIEVAL_DOCUMENT_COUNT = 'gen_ai.retrieval.document_count';
+  static GEN_AI_DATA_SOURCE_ID = 'gen_ai.data_source.id';
+
+  // Agent (OTel Semconv)
+  static GEN_AI_AGENT_NAME = 'gen_ai.agent.name';
+  static GEN_AI_AGENT_ID = 'gen_ai.agent.id';
+  static GEN_AI_AGENT_DESCRIPTION = 'gen_ai.agent.description';
+  static GEN_AI_AGENT_VERSION = 'gen_ai.agent.version';
+  // OpenLIT vendor extension: auto-computed canonical fingerprint over the
+  // parts of an agent's definition that meaningfully change its behavior
+  // (system prompt + tools + primary model + sampling config). Stamped on
+  // every chat span/event so the server can group traffic by version.
+  static OPENLIT_AGENT_VERSION_HASH = 'openlit.agent.version_hash';
+  static GEN_AI_AGENT_SOURCE = 'gen_ai.agent.source';
+  static GEN_AI_AGENT_ACTION_TOOL = 'gen_ai.agent.action.tool';
+  static GEN_AI_AGENT_ACTION_TOOL_INPUT = 'gen_ai.agent.action.tool_input';
+  static GEN_AI_AGENT_ACTION_LOG = 'gen_ai.agent.action.log';
+  static GEN_AI_AGENT_FINISH_OUTPUT = 'gen_ai.agent.finish.output';
+  static GEN_AI_AGENT_FINISH_LOG = 'gen_ai.agent.finish.log';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
   static GEN_AI_WORKFLOW_OUTPUT = 'gen_ai.workflow.output';
   static GEN_AI_WORKFLOW_TYPE = 'gen_ai.workflow.type';
+  static GEN_AI_WORKFLOW_NAME = 'gen_ai.workflow.name';
   static GEN_AI_FRAMEWORK_ERROR_CLASS = 'gen_ai.framework.error.class';
   static GEN_AI_FRAMEWORK_ERROR_TYPE = 'gen_ai.framework.error.type';
   static GEN_AI_FRAMEWORK_ERROR_MESSAGE = 'gen_ai.framework.error.message';
@@ -173,7 +201,10 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_AUDIO = 'audio';
   static GEN_AI_OPERATION_TYPE_FINETUNING = 'fine_tuning';
   static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
-  static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'workflow';
+  static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow';
+  static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
+  static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
+  static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
@@ -184,7 +215,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_HUGGING_FACE = 'huggingface';
   static GEN_AI_SYSTEM_REPLICATE = 'replicate';
   static GEN_AI_SYSTEM_OPENAI = 'openai';
-  static GEN_AI_SYSTEM_AZURE_OPENAI = 'az.ai.openai';
+  static GEN_AI_SYSTEM_AZURE_OPENAI = 'azure.ai.openai';
   static GEN_AI_SYSTEM_ANTHROPIC = 'anthropic';
   static GEN_AI_SYSTEM_COHERE = 'cohere';
   static GEN_AI_SYSTEM_MISTRAL = 'mistral_ai';
@@ -192,7 +223,35 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_VERTEXAI = 'vertex_ai';
   static GEN_AI_SYSTEM_LANGCHAIN = 'langchain';
   static GEN_AI_SYSTEM_VERCEL_AI = 'vercel_ai';
+  static GEN_AI_SYSTEM_OLLAMA = 'ollama';
+  static GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = 'gcp.gemini';
+  static GEN_AI_SYSTEM_GROQ = 'groq';
+  static GEN_AI_SYSTEM_AZURE_AI_INFERENCE = 'azure.ai.inference';
   static GEN_AI_SYSTEM_LLAMAINDEX = 'llamaindex';
+  static GEN_AI_SYSTEM_TOGETHER = 'together';
+  static GEN_AI_SYSTEM_LANGGRAPH = 'langgraph';
+  static GEN_AI_SYSTEM_OPENAI_AGENTS = 'openai_agents';
+  static GEN_AI_SYSTEM_MASTRA = 'mastra';
+  static GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = 'claude_agent_sdk';
+  static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
+  static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
+  static GEN_AI_SYSTEM_CURSOR = 'cursor';
+
+  static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
+
+  // Graph attributes (LangGraph)
+  static GEN_AI_GRAPH_NODES = 'gen_ai.graph.nodes';
+  static GEN_AI_GRAPH_NODE_COUNT = 'gen_ai.graph.node_count';
+  static GEN_AI_GRAPH_EDGES = 'gen_ai.graph.edges';
+  static GEN_AI_GRAPH_EDGE_COUNT = 'gen_ai.graph.edge_count';
+  static GEN_AI_GRAPH_EXECUTED_NODES = 'gen_ai.graph.executed_nodes';
+  static GEN_AI_GRAPH_STATUS = 'gen_ai.graph.status';
+  static GEN_AI_GRAPH_MESSAGE_COUNT = 'gen_ai.graph.message_count';
+  static GEN_AI_GRAPH_TOTAL_CHUNKS = 'gen_ai.graph.total_chunks';
+
+  // Execution attributes (LangGraph)
+  static GEN_AI_EXECUTION_MODE = 'gen_ai.execution.mode';
+  static GEN_AI_CHECKPOINT_ID = 'gen_ai.checkpoint.id';
 
   // Vector DB
   static DB_REQUESTS = 'db.total.requests';
@@ -254,4 +313,20 @@ export default class SemanticConvention {
   static DB_PAYLOAD_COUNT = 'db.payload_count';
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
+
+  // ----- Guard System -----
+  static GUARD_REQUESTS = 'guard.requests';
+  static GUARD_VERDICT = 'guard.verdict';
+  static GUARD_SCORE = 'guard.score';
+  static GUARD_CLASSIFICATION = 'guard.classification';
+  static GUARD_VALIDATOR = 'guard.validator';
+  static GUARD_EXPLANATION = 'guard.explanation';
+  // Guard events (new guard system)
+  static GUARD_EVALUATION_EVENT = 'guard.evaluation';
+  static GUARD_NAME = 'guard.name';
+  static GUARD_PHASE = 'guard.phase';
+  static GUARD_ACTION = 'guard.action';
+  static GUARD_LATENCY_MS = 'guard.latency_ms';
+  static GUARD_DENIED = 'guard.denied';
+  static GUARD_REQUESTS_COUNTER = 'guard.requests';
 }

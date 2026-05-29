@@ -1,4 +1,8 @@
-export { getTraceMappingKeyFullPath } from "../client/trace";
+export {
+	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
+	getTraceMappingValue,
+} from "../client/trace";
 
 export const buildHierarchy = (data: any[]) => {
 	// Create a map for quick lookup of nodes by SpanId
@@ -21,6 +25,19 @@ export const buildHierarchy = (data: any[]) => {
 			parent.children.push(node);
 		}
 	});
+
+	// Sort children at every level by Timestamp (chronological order)
+	function sortChildren(node: any) {
+		if (node?.children?.length) {
+			node.children.sort((a: any, b: any) => {
+				const tsA = a.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+				const tsB = b.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+				return tsA - tsB;
+			});
+			node.children.forEach(sortChildren);
+		}
+	}
+	sortChildren(root);
 
 	return root; // Returns the hierarchical tree
 };

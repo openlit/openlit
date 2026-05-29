@@ -5,10 +5,13 @@ LiteLLM OpenTelemetry instrumentation utility functions
 import json
 import logging
 import time
+from urllib.parse import urlparse
 
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -18,10 +21,63 @@ from openlit.__helpers import (
     record_completion_metrics,
     record_embedding_metrics,
     otel_event,
+    truncate_message_content,
 )
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
+
+LITELLM_PROVIDER_HOSTS = {
+    "openai": "api.openai.com",
+    "azure": "azure.openai.com",
+    "anthropic": "api.anthropic.com",
+    "cohere": "api.cohere.com",
+    "ollama": "localhost",
+    "groq": "api.groq.com",
+    "mistral": "api.mistral.ai",
+    "together_ai": "api.together.xyz",
+    "vertex_ai": "aiplatform.googleapis.com",
+    "gemini": "generativelanguage.googleapis.com",
+    "bedrock": "bedrock-runtime.amazonaws.com",
+    "huggingface": "api-inference.huggingface.co",
+    "deepseek": "api.deepseek.com",
+    "fireworks_ai": "api.fireworks.ai",
+    "replicate": "api.replicate.com",
+    "ai21": "api.ai21.com",
+    "perplexity": "api.perplexity.ai",
+    "cerebras": "api.cerebras.ai",
+    "xai": "api.x.ai",
+    "sambanova": "api.sambanova.ai",
+}
+
+
+def get_litellm_server_address(instance, kwargs):
+    """
+    Resolve server address and port for LiteLLM calls.
+
+    LiteLLM uses module-level functions (not client instances), so the generic
+    set_server_address_and_port helper cannot extract a base_url. Instead we
+    check kwargs, module-level settings, and infer from the model prefix.
+    """
+    api_base = kwargs.get("api_base") or kwargs.get("base_url")
+    if not api_base:
+        api_base = getattr(instance, "api_base", None)
+
+    if api_base and isinstance(api_base, str):
+        if api_base.startswith(("http://", "https://")):
+            url = urlparse(api_base)
+            return (url.hostname or "unknown", url.port or 443)
+        return (api_base, 443)
+
+    model = kwargs.get("model", "")
+    provider = model.split("/", 1)[0] if "/" in model else ""
+    host = LITELLM_PROVIDER_HOSTS.get(provider)
+    if host:
+        port = 11434 if provider == "ollama" else 443
+        return (host, port)
+
+    return ("unknown", 443)
 
 
 def format_content(messages):
@@ -81,7 +137,7 @@ def build_input_messages(messages):
 
         # Handle tool calls (for assistant messages)
         if "tool_calls" in msg:
-            for tool_call in msg.get("tool_calls", []):
+            for tool_call in msg.get("tool_calls") or []:
                 parts.append(
                     {
                         "type": "tool_call",
@@ -161,6 +217,8 @@ def build_tool_definitions(tools):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
@@ -264,7 +322,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -321,25 +380,34 @@ def process_chunk(scope, chunk):
                         "arguments", ""
                     )
 
+    scope._response_id = chunked.get("id") or scope._response_id
+    scope._response_model = chunked.get("model") or scope._response_model
+    try:
+        scope._finish_reason = (
+            chunked.get("choices", [])[0].get("finish_reason") or scope._finish_reason
+        )
+    except (IndexError, AttributeError, TypeError):
+        pass
+    scope._response_service_tier = (
+        str(chunked.get("service_tier") or "") or scope._response_service_tier
+    )
+    scope._response_system_fingerprint = (
+        str(chunked.get("system_fingerprint") or "")
+        or scope._response_system_fingerprint
+    )
+
     if chunked.get("usage"):
         usage = chunked.get("usage", {})
-        # Handle token usage including reasoning tokens and cached tokens
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
-        prompt_tokens_details = usage.get(
-            "prompt_tokens_details", usage.get("input_tokens_details", {})
+        prompt_tokens_details = (
+            usage.get("prompt_tokens_details", usage.get("input_tokens_details", {}))
+            or {}
         )
         scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-        scope._cache_creation_input_tokens = usage.get(
-            "completion_tokens_details", {}
+        scope._cache_creation_input_tokens = (
+            usage.get("completion_tokens_details") or {}
         ).get("cached_tokens", 0)
-        scope._response_id = chunked.get("id")
-        scope._response_model = chunked.get("model")
-        finish_reason = chunked.get("choices", [{}])[0].get("finish_reason")
-        # Only update finish_reason if it's not None (preserve previous valid value)
-        if finish_reason is not None:
-            scope._finish_reason = finish_reason
-        scope._response_service_tier = str(chunked.get("system_fingerprint", ""))
         scope._end_time = time.time()
 
 
@@ -406,7 +474,8 @@ def common_chat_logic(
         safe_get(scope._kwargs.get("presence_penalty"), 0.0),
     )
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get("stop", [])
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+        safe_get(scope._kwargs.get("stop"), []),
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
@@ -419,23 +488,40 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_USER, safe_get(scope._kwargs.get("user"), "")
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
-        safe_get(scope._kwargs.get("service_tier"), "auto"),
+
+    # OpenAI-specific attributes: only set for OpenAI-compatible providers
+    provider_prefix = request_model.split("/", 1)[0] if "/" in request_model else ""
+    is_openai_compatible = provider_prefix in (
+        "openai",
+        "azure",
+        "azure_text",
+        "azure_ai",
+        "",
     )
+    if is_openai_compatible:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
+            safe_get(scope._kwargs.get("service_tier"), "auto"),
+        )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason or ""]
+        SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id or ""
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER, scope._response_service_tier
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
-        scope._response_service_tier,
-    )
+    if scope._finish_reason:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+            [scope._finish_reason.lower()],
+        )
+    if is_openai_compatible:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
+            scope._response_service_tier,
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+            scope._response_system_fingerprint,
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_OUTPUT_TYPE,
         "text" if isinstance(scope._llmresponse, str) else "json",
@@ -496,54 +582,87 @@ def common_chat_logic(
             scope._cache_creation_input_tokens,
         )
 
+    # Compute system instructions + tool definitions unconditionally so the
+    # agent version hash is stable across content-capture toggles.
+    system_instr = build_system_instructions_from_messages(
+        scope._kwargs.get("messages", [])
+    )
+    tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=scope._response_model or request_model,
+        runtime_config={
+            "temperature": scope._kwargs.get("temperature"),
+            "top_p": scope._kwargs.get("top_p"),
+            "max_tokens": scope._kwargs.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_LITELLM,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_LITELLM],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
+    input_msgs = build_input_messages(scope._kwargs.get("messages", []))
+    output_msgs = build_output_messages(
+        scope._llmresponse, scope._finish_reason, scope._tools
+    )
+
     # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
     if capture_message_content:
-        input_msgs = build_input_messages(scope._kwargs.get("messages", []))
-        output_msgs = build_output_messages(
-            scope._llmresponse, scope._finish_reason, scope._tools
-        )
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
 
-        # Emit inference event
-        if event_provider:
-            try:
-                tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
-                extra = {
-                    "response_id": scope._response_id,
-                    "finish_reasons": [scope._finish_reason],
-                    "output_type": "text"
-                    if isinstance(scope._llmresponse, str)
-                    else "json",
-                    "temperature": scope._kwargs.get("temperature"),
-                    "max_tokens": scope._kwargs.get("max_tokens"),
-                    "top_p": scope._kwargs.get("top_p"),
-                    "frequency_penalty": scope._kwargs.get("frequency_penalty"),
-                    "presence_penalty": scope._kwargs.get("presence_penalty"),
-                    "stop_sequences": scope._kwargs.get("stop"),
-                    "seed": scope._kwargs.get("seed"),
-                    "input_tokens": scope._input_tokens,
-                    "output_tokens": scope._output_tokens,
-                    "cache_read_input_tokens": getattr(
-                        scope, "_cache_read_input_tokens", 0
-                    ),
-                    "cache_creation_input_tokens": getattr(
-                        scope, "_cache_creation_input_tokens", 0
-                    ),
-                }
-                emit_inference_event(
-                    event_provider=event_provider,
-                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                    request_model=request_model,
-                    response_model=scope._response_model,
-                    input_messages=input_msgs,
-                    output_messages=output_msgs,
-                    tool_definitions=tool_defs,
-                    server_address=scope._server_address,
-                    server_port=scope._server_port,
-                    **extra,
-                )
-            except Exception as e:
-                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+    # Emit inference event independently of content capture.
+    if event_provider:
+        try:
+            extra = {
+                "response_id": scope._response_id,
+                "finish_reasons": [scope._finish_reason.lower()]
+                if scope._finish_reason
+                else None,
+                "output_type": "text"
+                if isinstance(scope._llmresponse, str)
+                else "json",
+                "temperature": scope._kwargs.get("temperature"),
+                "max_tokens": scope._kwargs.get("max_tokens"),
+                "top_p": scope._kwargs.get("top_p"),
+                "frequency_penalty": scope._kwargs.get("frequency_penalty"),
+                "presence_penalty": scope._kwargs.get("presence_penalty"),
+                "stop_sequences": scope._kwargs.get("stop"),
+                "seed": scope._kwargs.get("seed"),
+                "input_tokens": scope._input_tokens,
+                "output_tokens": scope._output_tokens,
+                "cache_read_input_tokens": getattr(
+                    scope, "_cache_read_input_tokens", 0
+                ),
+                "cache_creation_input_tokens": getattr(
+                    scope, "_cache_creation_input_tokens", 0
+                ),
+                **version_extras,
+            }
+            if capture_message_content and system_instr:
+                extra["system_instructions"] = system_instr
+            emit_inference_event(
+                event_provider=event_provider,
+                operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                request_model=request_model,
+                response_model=scope._response_model,
+                input_messages=input_msgs if capture_message_content else [],
+                output_messages=output_msgs if capture_message_content else [],
+                tool_definitions=tool_defs,
+                server_address=scope._server_address,
+                server_port=scope._server_port,
+                **extra,
+            )
+        except Exception as e:
+            logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -642,19 +761,23 @@ def process_chat_response(
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
-    prompt_tokens_details = usage.get(
-        "prompt_tokens_details", usage.get("input_tokens_details", {})
+    prompt_tokens_details = (
+        usage.get("prompt_tokens_details", usage.get("input_tokens_details", {})) or {}
     )
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-    scope._cache_creation_input_tokens = usage.get("completion_tokens_details", {}).get(
-        "cached_tokens", 0
+    scope._cache_creation_input_tokens = (
+        usage.get("completion_tokens_details") or {}
+    ).get("cached_tokens", 0)
+    scope._response_id = response_dict.get("id") or ""
+    scope._response_model = response_dict.get("model") or ""
+    choices = response_dict.get("choices", [])
+    first_choice = choices[0] if choices else {}
+    raw_fr = first_choice.get("finish_reason")
+    scope._finish_reason = str(raw_fr).lower() if raw_fr else ""
+    scope._response_service_tier = str(response_dict.get("service_tier") or "")
+    scope._response_system_fingerprint = str(
+        response_dict.get("system_fingerprint") or ""
     )
-    scope._response_id = response_dict.get("id")
-    scope._response_model = response_dict.get("model")
-    scope._finish_reason = str(
-        response_dict.get("choices", [])[0].get("finish_reason", "")
-    )
-    scope._response_service_tier = str(response_dict.get("system_fingerprint", ""))
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
@@ -662,9 +785,7 @@ def process_chat_response(
 
     # Handle tool calls
     if scope._kwargs.get("tools"):
-        scope._tools = (
-            response_dict.get("choices", [{}])[0].get("message", {}).get("tool_calls")
-        )
+        scope._tools = first_choice.get("message", {}).get("tool_calls")
     else:
         scope._tools = None
 
@@ -713,7 +834,7 @@ def process_embedding_response(
     scope._end_time = time.time()
     scope._span = span
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
-    scope._response_model = response_dict.get("model")
+    scope._response_model = response_dict.get("model") or ""
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 

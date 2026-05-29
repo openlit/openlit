@@ -13,7 +13,13 @@ export type REQUEST_VISIBILITY_COLUMNS = Record<
 	boolean
 >;
 
-export type PAGE = "dashboard" | "request" | "exception" | "fleethub";
+export type PAGE =
+	| "dashboard"
+	| "request"
+	| "exception"
+	| "observabilityLogs"
+	| "observabilityMetrics"
+	| "fleethub";
 
 export type PageHeader = {
 	title: string;
@@ -32,6 +38,12 @@ export type PageStore = {
 		visibilityColumns: Record<string, boolean>;
 	};
 	exception: {
+		visibilityColumns: Record<string, boolean>;
+	};
+	observabilityLogs: {
+		visibilityColumns: Record<string, boolean>;
+	};
+	observabilityMetrics: {
 		visibilityColumns: Record<string, boolean>;
 	};
 	fleethub: {

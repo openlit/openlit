@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRootStore } from "@/store";
@@ -18,6 +21,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import getMessage from "@/constants/messages";
 
 export default function OpengroundNew() {
+	const posthog = usePostHog();
 	const promptSource = useRootStore((state) => state.openground.promptSource);
 	const selectedProvidersNew = useRootStore((state) => state.openground.selectedProvidersNew);
 	const evaluatedResponse = useRootStore((state) => state.openground.evaluatedResponse);
@@ -26,6 +30,10 @@ export default function OpengroundNew() {
 	const reset = useRootStore((state) => state.openground.reset);
 
 	const { fireRequest: fireEvaluateRequest } = useFetchWrapper();
+
+	useEffect(() => {
+		posthog?.capture(CLIENT_EVENTS.OPENGROUND_NEW_PAGE_VISITED);
+	}, []);
 
 	const handleEvaluate = () => {
 		// Validation

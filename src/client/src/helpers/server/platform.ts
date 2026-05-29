@@ -8,6 +8,11 @@ import {
 } from "date-fns";
 import { getTraceMappingKeyFullPath } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
+import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
+
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
 
 export const validateMetricsRequestType = {
 	// Request
@@ -233,14 +238,72 @@ export const getFilterWhereCondition = (
 				);
 			}
 
-			if (filter.selectedConfig.environments?.length) {
+			if (filter.selectedConfig.serviceNames?.length) {
 				whereArray.push(
-					`ResourceAttributes['${getTraceMappingKeyFullPath(
-						"environment"
-					)}'] IN (${filter.selectedConfig.environments
-						.map((environment) => `'${environment}'`)
+					`ServiceName IN (${filter.selectedConfig.serviceNames
+						.map((serviceName: string) => `'${escapeClickHouseString(serviceName)}'`)
 						.join(", ")})`
 				);
+			}
+
+			if (filter.selectedConfig.spanNames?.length) {
+				whereArray.push(
+					`SpanName IN (${filter.selectedConfig.spanNames
+						.map((spanName) => `'${spanName}'`)
+						.join(", ")})`
+				);
+			}
+
+			if (filter.selectedConfig.environments?.length) {
+				// OTel-standard location for environment is
+				// `ResourceAttributes['deployment.environment']`. Older code
+				// here used `getTraceMappingKeyFullPath("environment")` which
+				// returns the dotted `SpanAttributes.gen_ai.environment` path
+				// and then wrapped *that* in `ResourceAttributes[...]`,
+				// producing a non-existent column key that always matched
+				// zero rows. Match both the OTel resource attribute and the
+				// legacy span attribute so any historic data still resolves.
+				const envList = filter.selectedConfig.environments
+					.map((environment: string) =>
+						`'${escapeClickHouseString(environment)}'`
+					)
+					.join(", ");
+				whereArray.push(
+					`(ResourceAttributes['deployment.environment'] IN (${envList}) OR SpanAttributes['gen_ai.environment'] IN (${envList}))`
+				);
+			}
+
+			if (filter.selectedConfig.customFilters?.length) {
+				filter.selectedConfig.customFilters.forEach(({ attributeType, key, value }) => {
+					if (key && value) {
+						const safeValue = escapeClickHouseString(value);
+						if (attributeType === "SpanAttributes") {
+							const safeKey = escapeClickHouseString(key);
+							whereArray.push(`SpanAttributes['${safeKey}'] = '${safeValue}'`);
+						} else if (attributeType === "ResourceAttributes") {
+							const safeKey = escapeClickHouseString(key);
+							whereArray.push(`ResourceAttributes['${safeKey}'] = '${safeValue}'`);
+						} else if (attributeType === "Field") {
+							// Direct column — key must be an identifier, strip anything non-alphanumeric/underscore
+							const safeKey = key.replace(/[^A-Za-z0-9_.]/g, "");
+							if (safeKey) {
+								whereArray.push(`${safeKey} = '${safeValue}'`);
+							}
+						}
+					}
+				});
+			}
+
+			// Agent version scope: when the agent detail page is active,
+			// `AgentScopeProvider` locks `versionFilter` on the filter store.
+			// Hybrid match: `openlit.agent.version_hash` attribute when
+			// stamped, falling back to the version's first_seen/last_seen
+			// window for historical spans.
+			if (filter.selectedConfig.versionFilter) {
+				const versionClause = buildVersionWhereClause(
+					filter.selectedConfig.versionFilter
+				);
+				if (versionClause) whereArray.push(versionClause);
 			}
 		}
 

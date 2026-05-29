@@ -60,6 +60,8 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Assembly AI](https://docs.openlit.io/latest/integrations/assemblyai)             |                                                                          |                                                |               |
 | [✅ Together](https://docs.openlit.io/latest/integrations/together)                  |                                                                          |                                                |               |
 | [✅ DeepSeek](https://docs.openlit.io/latest/integrations/deepseek)                                                                     |                                                                          |                                                |               |
+| [✅ DigitalOcean (pydo)](https://docs.openlit.io/latest/sdk/integrations/digitalocean)                                                  |                                                                          |                                                |               |
+| [✅ DigitalOcean Gradient](https://docs.openlit.io/latest/sdk/integrations/digitalocean-gradient)                                       |                                                                          |                                                |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
@@ -192,6 +194,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
 | `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
+| `custom_metrics_attributes`  | Custom key-value attributes applied to every metric recording. Useful for grouping metrics by custom tags (e.g., client ID, team, project). | `None` |    No    |
 
 ### OpenLIT Prompt Hub - `openlit.get_prompt()`
 
@@ -220,6 +223,42 @@ Below are the parameters for use with the SDK for OpenLIT Vault for secret manag
 | `should_set_env`        | Boolean value that sets all the secrets as environment variables for the application. Optional                                                     |
 | `tags`       | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                                                                                |
 
+
+### OpenLIT Rule Engine - `openlit.evaluate_rule()`
+
+Evaluate trace attributes against the OpenLIT Rule Engine to retrieve matching rules and associated entities (contexts, prompts, evaluation configurations).
+
+| Parameter             | Description                                                                                                                        |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`                 | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
+| `api_key`             | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `entity_type`         | Type of entity to match: `"context"`, `"prompt"`, or `"evaluation"`.                                                               |
+| `fields`              | Dictionary of trace attributes to evaluate against rules. e.g. `{"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4"}`     |
+| `include_entity_data` | If `True`, include full entity data in the response. Default: `False`. Optional                                                    |
+| `entity_inputs`       | Optional dictionary of inputs for entity resolution (e.g. prompt variables, version).                                              |
+
+#### Example
+
+```python
+import openlit
+
+# Evaluate rules to get matching contexts
+result = openlit.evaluate_rule(
+    entity_type="context",
+    fields={
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4",
+        "service.name": "my-app",
+    },
+    include_entity_data=True,
+)
+
+if result:
+    print("Matching rules:", result["matchingRuleIds"])
+    print("Entities:", result["entities"])
+    # Use with evaluations:
+    # contexts = result.get("entity_data", {})
+```
 
 ## 🛣️ Roadmap
 

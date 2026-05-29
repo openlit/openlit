@@ -38,7 +38,7 @@ export default class Vault {
         });
 
       const { res = {} } = vaultResponse;
-      if (!!options.shouldSetEnv) {
+      if (options.shouldSetEnv) {
         Object.entries(res).forEach(([key, value]: [string, unknown]) => {
           process.env[key] = value as string;
         });

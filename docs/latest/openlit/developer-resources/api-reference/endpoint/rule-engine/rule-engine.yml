@@ -1,0 +1,135 @@
+openapi: 3.0.0
+info:
+  title: Rule Engine Evaluate API
+  description: An API to evaluate active rules against input fields and retrieve linked entity data.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/rule-engine/evaluate:
+    post:
+      summary: Evaluate Rules
+      description: Evaluates all active rules against the provided input fields and returns matching rule IDs, linked entities, and optionally their full data.
+      operationId: evaluateRules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entity_type
+                - fields
+              properties:
+                entity_type:
+                  type: string
+                  enum:
+                    - context
+                    - prompt
+                    - dataset
+                    - meta_config
+                  example: context
+                  description: Filter results to entities of this type.
+                fields:
+                  type: object
+                  additionalProperties:
+                    oneOf:
+                      - type: string
+                      - type: number
+                      - type: boolean
+                  example:
+                    model: gpt-4
+                    user_tier: premium
+                    token_count: 1500
+                  description: Key-value map of input values to evaluate against rule conditions.
+                include_entity_data:
+                  type: boolean
+                  example: true
+                  description: When true, fetches full entity records and includes them in entity_data.
+                entity_inputs:
+                  type: object
+                  description: Extra inputs specific to the entity type. Used for prompts to control compilation.
+                  properties:
+                    variables:
+                      type: object
+                      additionalProperties: true
+                      example:
+                        user_name: Alice
+                        product: OpenLIT
+                      description: Variables to substitute into prompt templates.
+                    version:
+                      type: string
+                      example: "1.0.0"
+                      description: Specific prompt version to retrieve.
+                    shouldCompile:
+                      type: boolean
+                      example: true
+                      description: Set to false to return raw prompt without variable substitution.
+      responses:
+        "200":
+          description: Successfully evaluated rules.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matchingRuleIds:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                    example:
+                      - a1b2c3d4-1234-5678-abcd-ef0123456789
+                  entities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule_id:
+                          type: string
+                          format: uuid
+                          example: a1b2c3d4-1234-5678-abcd-ef0123456789
+                        entity_type:
+                          type: string
+                          example: context
+                        entity_id:
+                          type: string
+                          format: uuid
+                          example: b2c3d4e5-2345-6789-bcde-f01234567890
+                  entity_data:
+                    type: object
+                    additionalProperties: true
+                    example:
+                      "context:b2c3d4e5-2345-6789-bcde-f01234567890":
+                        id: b2c3d4e5-2345-6789-bcde-f01234567890
+                        name: Premium System Prompt
+                        content: You are a helpful AI assistant for premium users...
+                        status: ACTIVE
+        "400":
+          description: Invalid request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  err:
+                    type: string
+                    example: "entity_type is required and must be one of: context, prompt, dataset, meta_config"
+        "401":
+          description: Missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  err:
+                    type: string
+                    example: No API key provided
+      security:
+        - apiKeyAuth: []
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key

@@ -79,3 +79,47 @@ export async function getCompiledPrompt(
 	}
 	return promptObject;
 }
+
+/**
+ * Internal variant used by the rule-engine evaluate flow.
+ * Accepts a resolved databaseConfigId directly — no API key lookup, no download tracking.
+ */
+export async function getCompiledPromptByDbConfig({
+	id,
+	version,
+	variables,
+	shouldCompile,
+	databaseConfigId,
+}: {
+	id: string;
+	version?: string;
+	variables?: Record<string, any>;
+	shouldCompile?: boolean;
+	databaseConfigId?: string;
+}) {
+	const { err: promptErr, data: promptData } = await getSpecificPrompt(
+		{ id, version },
+		databaseConfigId
+	);
+
+	const promptObject = (promptData as any)?.[0] || {};
+
+	throwIfError(
+		!!(promptErr || !promptObject?.promptId || !promptObject?.version),
+		(promptErr as any) || getMessage().NO_PROMPT
+	);
+
+	promptObject.metaProperties = jsonParse(promptObject.metaProperties);
+	promptObject.tags = jsonParse(promptObject.tags);
+	promptObject.prompt = unescapeString(promptObject.prompt);
+
+	if (shouldCompile === false) {
+		promptObject.compiledPrompt = promptObject.prompt;
+	} else {
+		promptObject.compiledPrompt = compilePrompt(
+			promptObject.prompt,
+			variables || {}
+		);
+	}
+	return promptObject;
+}

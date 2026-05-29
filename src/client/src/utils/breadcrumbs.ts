@@ -119,6 +119,33 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => "Requests",
 		getBreadcrumbs: () => [],
 	},
+
+	// Telemetry
+	{
+		regex: /^\/telemetry$/,
+		getTitle: () => "Telemetry",
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/telemetry\/traces\/[^/]+$/,
+		getTitle: () => "Trace Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=traces" }],
+	},
+	{
+		regex: /^\/telemetry\/exceptions\/[^/]+$/,
+		getTitle: () => "Exception Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=exceptions" }],
+	},
+	{
+		regex: /^\/telemetry\/logs\/[^/]+$/,
+		getTitle: () => "Log Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=logs" }],
+	},
+	{
+		regex: /^\/telemetry\/metrics\/[^/]+$/,
+		getTitle: () => "Metric Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=metrics" }],
+	},
 	
 	// Exceptions
 	{
@@ -171,7 +198,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/openground\/[^/]+$/,
 		getTitle: (pathname, params) => {
 			if (pathname === "/openground/new") return getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND;
-			if (pathname === "/openground/models") return getMessage().OPENGROUND_MANAGE_MODELS;
+			if (pathname === "/openground/models" || pathname === "/manage-models") return getMessage().OPENGROUND_MANAGE_MODELS;
 			return params?.id ? getMessage().OPENGROUND_RUN_DETAILS : getMessage().FEATURE_OPENGROUND;
 		},
 		getBreadcrumbs: () => [
@@ -195,10 +222,34 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 	
 	{
-		regex: /^\/settings\/evaluation$/,
+		regex: /^\/evaluations\/settings$/,
 		getTitle: () => "Evaluation Settings",
 		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Settings", href: "/evaluations/settings" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/types$/,
+		getTitle: () => "Evaluation Types",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Evaluation Types", href: "/evaluations/types" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/manual$/,
+		getTitle: () => "Manual Marking",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" },
+			{ title: "Manual Marking", href: "/evaluations/manual" }
+		],
+	},
+	{
+		regex: /^\/evaluations\/?$/,
+		getTitle: () => "Evaluations",
+		getBreadcrumbs: () => [
+			{ title: "Evaluations", href: "/evaluations" }
 		],
 	},
 	
@@ -218,6 +269,29 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
+	// Agents
+	{
+		regex: /^\/agents$/,
+		getTitle: () => "Agents",
+		getBreadcrumbs: () => [],
+	},
+
+	{
+		regex: /^\/agents\/controller\/[^/]+$/,
+		getTitle: () => "Controller",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
+	{
+		regex: /^\/agents\/[^/]+$/,
+		getTitle: () => "Service Detail",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
 	// Fleet Hub
 	{
 		regex: /^\/fleet-hub\/[^/]+$/,
@@ -225,6 +299,22 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [
 			{ title: "Fleet Hub", href: "/fleet-hub" }
 		],
+	},
+
+	// Chat
+	{
+		regex: /^\/chat$/,
+		getTitle: () => getMessage().CHAT_TITLE,
+		getBreadcrumbs: () => [],
+		getDescription: () => getMessage().CHAT_DESCRIPTION,
+	},
+	{
+		regex: /^\/chat\/settings$/,
+		getTitle: () => getMessage().CHAT_SETTINGS_LINK,
+		getBreadcrumbs: () => [
+			{ title: getMessage().CHAT_TITLE, href: "/chat" }
+		],
+		getDescription: () => getMessage().CHAT_SETTINGS_DESCRIPTION,
 	},
 ];
 

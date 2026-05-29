@@ -11,6 +11,7 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     handle_exception,
 )
 from openlit.semcov import SemanticConvention
@@ -149,6 +150,7 @@ def multion_wrap(
                             },
                         )
 
+                _apply_custom_span_attributes(span)
                 span.set_status(Status(StatusCode.OK))
 
                 # Return original response

@@ -1,0 +1,117 @@
+---
+title: 'NVIDIA GPUs'
+description: 'Monitor NVIDIA GPU metrics via NVML using the OpenTelemetry GPU Collector'
+---
+
+The collector monitors NVIDIA GPUs via [NVML](https://developer.nvidia.com/nvidia-management-library-nvml) using the [go-nvml](https://github.com/NVIDIA/go-nvml) library, which loads `libnvidia-ml.so` at runtime. No CUDA toolkit or DCGM daemon is needed.
+
+## Requirements
+
+- Linux with NVIDIA GPU drivers installed
+- `libnvidia-ml.so` present on the host (installed with the NVIDIA driver)
+- For Docker: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+
+## Collected metrics
+
+| Metric | Description |
+|---|---|
+| `hw.gpu.utilization` | Compute, encoder, and decoder utilization (0.0–1.0) via `hw.gpu.task` |
+| `hw.gpu.memory.utilization` | Memory controller utilization (0.0–1.0) |
+| `hw.gpu.memory.limit` | Total VRAM (bytes) |
+| `hw.gpu.memory.usage` | Used VRAM (bytes) |
+| `hw.gpu.memory.free` | Free VRAM (bytes) |
+| `hw.gpu.temperature` | Die and memory temperature (°C) via `sensor` attribute |
+| `hw.gpu.fan_speed` | Fan speed (RPM) |
+| `hw.gpu.power.draw` | Current power draw (W) |
+| `hw.gpu.power.limit` | Power cap (W) |
+| `hw.gpu.energy.consumed` | Cumulative energy (J) |
+| `hw.gpu.clock.graphics` | Graphics/SM clock (MHz) |
+| `hw.gpu.clock.memory` | Memory clock (MHz) |
+| `hw.errors` | ECC correctable/uncorrectable errors and PCIe replay errors |
+
+## Docker
+
+```bash
+docker run -d \
+  --name otel-gpu-collector \
+  --gpus all \
+  -e OTEL_SERVICE_NAME=my-app \
+  -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 \
+  ghcr.io/openlit/otel-gpu-collector:latest
+```
+
+## Docker Compose
+
+```yaml
+services:
+  otel-gpu-collector:
+    image: ghcr.io/openlit/otel-gpu-collector:latest
+    environment:
+      OTEL_SERVICE_NAME: my-app
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: always
+```
+
+## Kubernetes (DaemonSet)
+
+To monitor GPUs on every node in a cluster, deploy the collector as a DaemonSet:
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-gpu-collector
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: otel-gpu-collector
+  template:
+    metadata:
+      labels:
+        app: otel-gpu-collector
+    spec:
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: collector
+          image: ghcr.io/openlit/otel-gpu-collector:latest
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: gpu-collector
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=production
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.monitoring.svc.cluster.local:4318
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          securityContext:
+            privileged: false
+```
+
+<Note>
+The collector does not need privileged mode for NVML — just access to `libnvidia-ml.so`. eBPF tracing requires `CAP_BPF` + `CAP_PERFMON`.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Metrics reference" href="/latest/gpu-collector/metrics#gpu-hardware-telemetry" icon="table">
+    Full metrics list with types, units, and attributes
+  </Card>
+  <Card title="Configuration" href="/latest/gpu-collector/configuration" icon="sliders">
+    All environment variables and defaults
+  </Card>
+</CardGroup>

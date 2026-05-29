@@ -9,6 +9,9 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
+    build_system_instructions_from_messages,
+    build_tool_definitions,
     calculate_ttft,
     calculate_tbt,
     general_tokens,
@@ -18,7 +21,9 @@ from openlit.__helpers import (
     record_completion_metrics,
     record_embedding_metrics,
     otel_event,
+    truncate_message_content,
 )
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
@@ -68,6 +73,8 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
@@ -167,7 +174,8 @@ def emit_inference_event(
             attributes=attributes,
             body="",
         )
-        event_provider.emit(event)
+        if not OpenlitConfig.disable_events:
+            event_provider.emit(event)
     except Exception as e:
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -328,15 +336,49 @@ def common_generate_logic(
             scope._cache_creation_input_tokens,
         )
 
-    # Span Attributes for Content
+    # Compute system instructions + tool definitions unconditionally so the
+    # agent version hash is stable across content-capture toggles.
+    system_instr = (
+        build_system_instructions_from_messages(prompt)
+        if isinstance(prompt, list)
+        else None
+    )
+    tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=response_model or request_model,
+        runtime_config={
+            "temperature": scope._kwargs.get("temp"),
+            "top_p": scope._kwargs.get("top_p"),
+            "max_tokens": scope._kwargs.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_GPT4ALL,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_GPT4ALL],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
     input_msgs = build_input_messages(prompt)
     output_msgs = build_output_messages(
         scope._llmresponse,
         getattr(scope, "_finish_reason", None),
         getattr(scope, "_tools", None),
     )
-    _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-    if capture_message_content and event_provider:
+
+    # Span Attributes for Content
+    if capture_message_content:
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if system_instr:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
+
+    # Emit inference event independently of content capture.
+    if event_provider:
         cache_read = getattr(scope, "_cache_read_input_tokens", 0)
         cache_creation = getattr(scope, "_cache_creation_input_tokens", 0)
         extra = {
@@ -353,14 +395,22 @@ def common_generate_logic(
             "output_tokens": output_tokens,
             "cache_read_input_tokens": cache_read,
             "cache_creation_input_tokens": cache_creation,
+            **version_extras,
         }
+        if capture_message_content and system_instr:
+            extra["system_instructions"] = system_instr
         emit_inference_event(
             event_provider,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
             request_model,
             response_model,
-            input_messages=json.dumps(input_msgs) if input_msgs else None,
-            output_messages=json.dumps(output_msgs) if output_msgs else None,
+            input_messages=(json.dumps(input_msgs) if input_msgs else None)
+            if capture_message_content
+            else [],
+            output_messages=(json.dumps(output_msgs) if output_msgs else None)
+            if capture_message_content
+            else [],
+            tool_definitions=tool_defs,
             server_address=scope._server_address,
             server_port=scope._server_port,
             **extra,

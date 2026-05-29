@@ -15,6 +15,7 @@ from opentelemetry.sdk.resources import (
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
 )
+from openlit.__helpers import _apply_custom_span_attributes
 from openlit.semcov import SemanticConvention
 
 # Initialize logger
@@ -207,6 +208,8 @@ def set_mem0_span_attributes(
 
     # Response attributes
     _set_response_attributes(span, response)
+
+    _apply_custom_span_attributes(span)
 
 
 def _set_operation_attributes(span, operation_name: str, ctx: Mem0Context):

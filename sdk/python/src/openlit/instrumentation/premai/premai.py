@@ -3,6 +3,7 @@ Module for monitoring PremAI API calls.
 """
 
 import time
+from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
@@ -123,9 +124,17 @@ def chat(
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
-            # Special handling for streaming response to accommodate the nature of data flow
-            awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            ctx = trace_api.set_span_in_context(span)
+            token = context_api.attach(ctx)
+            try:
+                awaited_wrapped = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                context_api.detach(token)
+                span.end()
+                raise
+            context_api.detach(token)
             return TracedSyncStream(
                 awaited_wrapped, span, span_name, kwargs, server_address, server_port
             )

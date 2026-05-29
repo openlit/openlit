@@ -9,6 +9,54 @@ import {
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
 
+const PREDEFINED_GROUP_BY: Record<string, string> = {
+	model: `SpanAttributes['gen_ai.request.model']`,
+	provider: `SpanAttributes['gen_ai.system']`,
+	spanName: `SpanName`,
+	applicationName: `ResourceAttributes['service.name']`,
+};
+
+const ALLOWED_FIELD_GROUP_BY = new Set([
+	"TraceId",
+	"ParentSpanId",
+	"TraceState",
+	"SpanId",
+	"SpanName",
+	"SpanKind",
+	"ServiceName",
+	"ScopeName",
+	"ScopeVersion",
+	"Timestamp",
+	"Duration",
+	"StatusCode",
+	"StatusMessage",
+]);
+
+function escapeClickHouseString(value: string) {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+export function getGroupByExpression(groupBy: string): string | null {
+	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
+	const sep = groupBy.indexOf(":");
+	if (sep === -1) {
+		const sanitized = escapeClickHouseString(groupBy).trim();
+		if (!sanitized) return null;
+		return `SpanAttributes['${sanitized}']`;
+	}
+	const attrType = groupBy.slice(0, sep);
+	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
+	if (!key) return null;
+	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
+	if (attrType === "Field") {
+		const field = key.replace(/[^A-Za-z0-9_.]/g, "");
+		if (!field || !ALLOWED_FIELD_GROUP_BY.has(field)) return null;
+		return field;
+	}
+	if (attrType === "SpanAttributes") return `SpanAttributes['${key}']`;
+	return `SpanAttributes['${key}']`;
+}
+
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
@@ -19,7 +67,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
 			${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" })}
+		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" }, true)}
 		GROUP BY
 			request_time
 		ORDER BY
@@ -35,7 +83,7 @@ export async function getTotalRequests(params: MetricParams) {
 			COUNT(*) AS total_requests,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition(parameters)}	
+		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
 
 	const previousWhereParams = getFilterPreviousParams(params);
@@ -66,7 +114,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			AVG(${keyPath}) AS average_duration,
 			'${params.timeLimit.start}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(parameters)} AND isFinite(${keyPath})
+		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;
 
 	const currentWhereParams = params;
@@ -132,13 +180,19 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
-			"environment"
-		)}'])) AS environments`
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanName)) AS spanNames`
+	);
+
+	select.push(
+		// OTel-standard environment is `ResourceAttributes['deployment.environment']`.
+		// The legacy `getTraceMappingKeyFullPath("environment")` returns a
+		// dotted SpanAttributes path that, wrapped in `ResourceAttributes[...]`,
+		// resolves to a non-existent key and silently yields no values.
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
-			WHERE ${getFilterWhereCondition(params)}`;
+			WHERE ${getFilterWhereCondition(params, true)}`;
 
 	return dataCollector({ query });
 }
@@ -203,73 +257,122 @@ export async function getRequestViaTraceId(traceId: string) {
 }
 
 export async function getHeirarchyViaSpanId(spanId: string) {
-	const commonQuery = (
-		dir: "upward" | "downward",
-		id: string
-	) => `WITH RECURSIVE trace_hierarchy AS (
-						SELECT
-								${getTraceMappingKeyFullPath("id")},
-								${getTraceMappingKeyFullPath("parentSpanId")},
-								${getTraceMappingKeyFullPath("spanId")},
-								${getTraceMappingKeyFullPath("spanName")},
-								${getTraceMappingKeyFullPath("requestDuration")},
-								0 AS level
-						FROM
-								${OTEL_TRACES_TABLE_NAME}
-						WHERE
-								SpanId = '${id}' -- Starting SpanId
-						
-						UNION ALL
+	// Step 1: Get the TraceId for this span
+	const traceIdQuery = `
+		SELECT ${getTraceMappingKeyFullPath("id")}
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE SpanId = '${spanId}'
+		LIMIT 1`;
 
-						SELECT
-								ot.${getTraceMappingKeyFullPath("id")},
-								ot.${getTraceMappingKeyFullPath("parentSpanId")},
-								ot.${getTraceMappingKeyFullPath("spanId")},
-								ot.${getTraceMappingKeyFullPath("spanName")},
-								ot.${getTraceMappingKeyFullPath("requestDuration")},
-								th.level + 1 AS level
-						FROM
-								${OTEL_TRACES_TABLE_NAME} ot
-						INNER JOIN
-								trace_hierarchy th
-						ON
-								${dir === "upward"
-			? `ot.${getTraceMappingKeyFullPath(
-				"spanId"
-			)} = th.${getTraceMappingKeyFullPath("parentSpanId")}`
-			: `ot.${getTraceMappingKeyFullPath(
-				"parentSpanId"
-			)} = th.${getTraceMappingKeyFullPath("spanId")}`
-		}
-				)
-				SELECT *
-				FROM trace_hierarchy
-				ORDER BY level DESC;`;
-
-	const { data: upwardData, err: upwardErr } = await dataCollector({
-		query: commonQuery("upward", spanId),
+	const { data: traceIdData, err: traceIdErr } = await dataCollector({
+		query: traceIdQuery,
 	});
 
-	if ((upwardData as any[])?.[0]?.SpanId) {
-		const { data: downwardData, err: downwardErr } = await dataCollector({
-			query: commonQuery("downward", (upwardData as any[])?.[0]?.SpanId),
-		});
-
-		const heirarchy = buildHierarchy(downwardData as any[]);
-
-		return {
-			err: upwardErr || downwardErr || (heirarchy ? null : "Error in fetching heirarchy"),
-			record: heirarchy,
-		};
+	if (traceIdErr || !Array.isArray(traceIdData) || traceIdData.length === 0) {
+		return { err: "Span not found", record: {} };
 	}
 
-	return {
-		err: "Error in fetching heirarchy",
-		record: {},
-	};
+	const traceId = traceIdData[0].TraceId;
+	if (!traceId) {
+		return { err: "TraceId not found for span", record: {} };
+	}
+
+	// Step 2: Fetch ALL spans belonging to this trace (include SpanAttributes for chat view)
+	const allSpansQuery = `
+		SELECT
+			${getTraceMappingKeyFullPath("id")},
+			${getTraceMappingKeyFullPath("parentSpanId")},
+			${getTraceMappingKeyFullPath("spanId")},
+			${getTraceMappingKeyFullPath("spanName")},
+			${getTraceMappingKeyFullPath("requestDuration")},
+			toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
+			Timestamp,
+			StatusCode,
+			StatusMessage,
+			ServiceName,
+			SpanKind,
+			TraceState,
+			ScopeName,
+			ScopeVersion,
+			SpanAttributes,
+			ResourceAttributes,
+			Events,
+			Links
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
+		ORDER BY Timestamp ASC`;
+
+	const { data: allSpans, err: allSpansErr } = await dataCollector({
+		query: allSpansQuery,
+	});
+
+	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
+		return { err: "Failed to fetch trace spans", record: {} };
+	}
+
+	// Step 3: Build the hierarchy tree in JS
+	const heirarchy = buildHierarchy(allSpans as any[]);
+
+	if (!heirarchy) {
+		return { err: "Error building hierarchy", record: {} };
+	}
+
+	return { err: null, record: heirarchy };
 }
 
 export async function getRequestExist() {
 	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
+	return dataCollector({ query });
+}
+
+export async function getAttributeKeys(params: MetricParams) {
+	const spanKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params, true)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const resourceKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params, true)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const [spanResult, resourceResult] = await Promise.all([
+		dataCollector({ query: spanKeysQuery }),
+		dataCollector({ query: resourceKeysQuery }),
+	]);
+
+	return {
+		err: spanResult.err || resourceResult.err,
+		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+	};
+}
+
+export async function getGroupedRequests(params: MetricParams, groupBy: string) {
+	const expr = getGroupByExpression(groupBy);
+	if (!expr) {
+		return {
+			err: "Invalid groupBy value",
+			data: [],
+		};
+	}
+	const query = `
+		SELECT
+			${expr} AS group_value,
+			CAST(COUNT(*) AS INTEGER) AS count,
+			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
+			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
+			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params, true)}
+		GROUP BY group_value
+		ORDER BY count DESC
+	`;
 	return dataCollector({ query });
 }

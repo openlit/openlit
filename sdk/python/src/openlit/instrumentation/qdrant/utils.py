@@ -28,6 +28,11 @@ DB_OPERATION_MAP = {
     "qdrant.clear_payload": SemanticConvention.DB_OPERATION_DELETE,
     "qdrant.retrieve": SemanticConvention.DB_OPERATION_GET,
     "qdrant.scroll": SemanticConvention.DB_OPERATION_GET,
+    # Deprecated in v1.13.0, removed in v1.16.0
+    "qdrant.search": SemanticConvention.DB_OPERATION_GET,
+    "qdrant.search_groups": SemanticConvention.DB_OPERATION_GET,
+    "qdrant.recommend": SemanticConvention.DB_OPERATION_GET,
+    # New methods (v1.13.0+)
     "qdrant.query_points": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.query_batch_points": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.query_points_groups": SemanticConvention.DB_OPERATION_QUERY,
@@ -71,7 +76,7 @@ def set_server_address_and_port(instance):
                     server_address = parsed.hostname
                 if parsed.port:
                     server_port = parsed.port
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
         # Also try direct port from init_options if URL parsing didnt work
@@ -95,6 +100,9 @@ def common_qdrant_logic(
     """
     Process Qdrant request and generate telemetry.
     """
+    # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
+    # pylint: disable=too-many-branches, too-many-statements, protected-access
+    # pylint: disable=unused-argument
     scope._end_time = time.time()
 
     # Set common database span attributes using helper
@@ -328,23 +336,24 @@ def common_qdrant_logic(
 
         elif endpoint == "qdrant.query_batch_points":
             requests = scope._kwargs.get("requests", [])
+            requests_count = object_count(requests)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
             scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(requests))
             scope._span.set_attribute(
-                SemanticConvention.DB_VECTOR_COUNT, object_count(requests)
+                SemanticConvention.DB_VECTOR_COUNT, requests_count
             )
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} requests={object_count(requests)}",
+                f"{scope._db_operation} {collection_name} batch_requests={requests_count}",
             )
 
         elif endpoint == "qdrant.query_points_groups":
             query = scope._kwargs.get("query", {})
-            group_by = scope._kwargs.get("group_by", "")
+            group_by = scope._kwargs.get("group_by", "unknown")
             limit = scope._kwargs.get("limit", 10)
             group_size = scope._kwargs.get("group_size", 3)
 
@@ -415,6 +424,8 @@ def process_qdrant_response(
     """
     Process Qdrant response and generate telemetry.
     """
+    # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals, protected-access
+    # pylint: disable=unused-argument
     # Create scope object
     scope = type("GenericScope", (), {})()
     scope._span = span

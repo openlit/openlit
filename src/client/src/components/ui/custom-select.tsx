@@ -65,7 +65,11 @@ export function CustomSelect({
 			}
 			onChange(defaultValue);
 		}
-	}, [defaultValue, options, onChange]);
+		// Only re-sync when defaultValue itself changes. Excluding options and onChange
+		// from deps prevents the effect from resetting a user's selection on every
+		// parent re-render (options is a new array literal each render).
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [defaultValue]);
 
 	const handleSelect = (currentValue: string) => {
 		if (currentValue === "other") {

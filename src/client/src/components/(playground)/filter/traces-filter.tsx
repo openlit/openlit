@@ -6,44 +6,272 @@ import {
 	getFilterDetails,
 	getUpdateFilter,
 	getUpdateConfig,
+	getAttributeKeys,
+	getUpdateAttributeKeys,
 } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import Sorting from "./sorting";
 import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, SlidersHorizontal, Trash2, ChevronDown, Layers, Link2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { FilterConfig, FilterType } from "@/types/store/filter";
+import {
+	AttributeKeys,
+	CustomFilter,
+	CustomFilterAttributeType,
+	FilterConfig,
+	FilterSorting,
+	FilterType,
+	TIME_RANGES,
+} from "@/types/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
+import { useRouter, usePathname } from "next/navigation";
+import getMessage from "@/constants/messages";
+import {
+	FILTER_PARAM_KEYS,
+	getFilterStorageKey,
+} from "@/helpers/client/filter-persistence";
+
+const m = getMessage();
+
+// ─── Combobox (text input + inline dropdown, portal-rendered to escape overflow) ───
+
+const Combobox = ({
+	value,
+	onChange,
+	options,
+	placeholder,
+	className,
+}: {
+	value: string;
+	onChange: (val: string) => void;
+	options: string[];
+	placeholder?: string;
+	className?: string;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [inputValue, setInputValue] = useState(value);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+	useEffect(() => {
+		setInputValue(value);
+	}, [value]);
+
+	const updateDropdownPos = () => {
+		if (inputRef.current) {
+			const rect = inputRef.current.getBoundingClientRect();
+			setDropdownStyle({
+				position: "fixed",
+				top: rect.bottom + 2,
+				left: rect.left,
+				width: Math.max(rect.width, 224),
+			});
+		}
+	};
+
+	const filtered = inputValue
+		? options.filter((o) => o.toLowerCase().includes(inputValue.toLowerCase()))
+		: options;
+
+	const commit = (val: string) => {
+		onChange(val);
+		setInputValue(val);
+		setOpen(false);
+	};
+
+	return (
+		<div className={`relative ${className ?? "w-44"}`}>
+			<Input
+				ref={inputRef}
+				placeholder={placeholder ?? ""}
+				value={inputValue}
+				onChange={(e) => {
+					setInputValue(e.target.value);
+					onChange(e.target.value);
+					if (!open) { updateDropdownPos(); setOpen(true); }
+				}}
+				onFocus={() => { updateDropdownPos(); setOpen(true); }}
+				onBlur={() => setTimeout(() => setOpen(false), 120)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.preventDefault();
+						const exact = filtered.find(
+							(o) => o.toLowerCase() === inputValue.toLowerCase()
+						);
+						commit(exact ?? inputValue);
+					} else if (e.key === "Escape") {
+						setOpen(false);
+					} else if (e.key === "ArrowDown" && open && filtered.length > 0) {
+						e.preventDefault();
+					}
+				}}
+				className={`h-7 text-xs w-full ${options.length > 0 ? "pr-6" : ""}`}
+			/>
+			{options.length > 0 && (
+				<ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400 pointer-events-none" />
+			)}
+			{open && filtered.length > 0 && typeof window !== "undefined" && createPortal(
+				<div
+					style={dropdownStyle}
+					className="z-[9999] rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 shadow-md max-h-48 overflow-auto"
+				>
+					{filtered.map((opt) => (
+						<button
+							key={opt}
+							type="button"
+							className="w-full text-left text-xs px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								commit(opt);
+							}}
+						>
+							{opt}
+						</button>
+					))}
+				</div>,
+				document.body
+			)}
+		</div>
+	);
+};
+
+// ─── URL sync helpers ─────────────────────────────────────────────────────────
+
+// Separator used inside a single custom-filter param value: type|key|value
+const CF_SEP = "|";
+
+function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) {
+	params.delete("models");
+	params.delete("providers");
+	params.delete("traceTypes");
+	params.delete("appNames");
+	params.delete("spanNames");
+	params.delete("envs");
+	params.delete("maxCost");
+	params.delete("services");
+	params.delete("severities");
+	params.delete("metricNames");
+	params.delete("metricTypes");
+	// remove all existing cf entries
+	params.delete("cf");
+
+	if (config.models?.length) params.set("models", config.models.join(","));
+	if (config.providers?.length) params.set("providers", config.providers.join(","));
+	if (config.traceTypes?.length) params.set("traceTypes", config.traceTypes.join(","));
+	if (config.applicationNames?.length) params.set("appNames", config.applicationNames.join(","));
+	if (config.spanNames?.length) params.set("spanNames", config.spanNames.join(","));
+	if (config.environments?.length) params.set("envs", config.environments.join(","));
+	if (config.maxCost) params.set("maxCost", String(config.maxCost));
+	if (config.services?.length) params.set("services", config.services.join(","));
+	if (config.severities?.length) params.set("severities", config.severities.join(","));
+	if (config.metricNames?.length) params.set("metricNames", config.metricNames.join(","));
+	if (config.metricTypes?.length) params.set("metricTypes", config.metricTypes.join(","));
+	config.customFilters?.forEach(({ attributeType, key, value }) => {
+		if (key && value) {
+			params.append("cf", [attributeType, key, value].join(CF_SEP));
+		}
+	});
+}
+
+function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
+	const config: Partial<FilterConfig> = {};
+	const models = params.get("models");
+	if (models) config.models = models.split(",").filter(Boolean);
+	const providers = params.get("providers");
+	if (providers) config.providers = providers.split(",").filter(Boolean);
+	const traceTypes = params.get("traceTypes");
+	if (traceTypes) config.traceTypes = traceTypes.split(",").filter(Boolean);
+	const appNames = params.get("appNames");
+	if (appNames) config.applicationNames = appNames.split(",").filter(Boolean);
+	const spanNames = params.get("spanNames");
+	if (spanNames) config.spanNames = spanNames.split(",").filter(Boolean);
+	const envs = params.get("envs");
+	if (envs) config.environments = envs.split(",").filter(Boolean);
+	const maxCost = params.get("maxCost");
+	if (maxCost) config.maxCost = parseFloat(maxCost);
+	const services = params.get("services");
+	if (services) config.services = services.split(",").filter(Boolean);
+	const severities = params.get("severities");
+	if (severities) config.severities = severities.split(",").filter(Boolean);
+	const metricNames = params.get("metricNames");
+	if (metricNames) config.metricNames = metricNames.split(",").filter(Boolean);
+	const metricTypes = params.get("metricTypes");
+	if (metricTypes) config.metricTypes = metricTypes.split(",").filter(Boolean);
+	const cfValues = params.getAll("cf");
+	if (cfValues.length) {
+		config.customFilters = cfValues.map((raw) => {
+			const [attributeType, key, ...rest] = raw.split(CF_SEP);
+			return {
+				attributeType: (attributeType || "SpanAttributes") as CustomFilterAttributeType,
+				key: key || "",
+				value: rest.join(CF_SEP),
+			};
+		}).filter((f) => f.key && f.value);
+	}
+	return config;
+}
+
+function hasActiveConfig(config: Partial<FilterConfig>): boolean {
+	return Object.values(config).some((v) => {
+		if (Array.isArray(v)) return v.length > 0;
+		if (typeof v === "number") return v > 0;
+		return !!v;
+	});
+}
+
+// ─── DynamicFilters ───────────────────────────────────────────────────────────
 
 const DynamicFilters = ({
 	isVisibleFilters,
 	filter,
 	areFiltersApplied,
+	configUrl,
+	attributeKeysUrl,
+	customAttributeTypes,
 }: {
 	isVisibleFilters: boolean;
 	filter: FilterType;
 	areFiltersApplied: boolean;
+	configUrl: string;
+	attributeKeysUrl: string;
+	customAttributeTypes: CustomFilterAttributeType[];
 }) => {
 	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
 	const pingStatus = useRootStore(getPingStatus);
 	const filterDetails = useRootStore(getFilterDetails);
 	const updateConfig = useRootStore(getUpdateConfig);
+	const attributeKeys = useRootStore(getAttributeKeys);
+	const updateAttributeKeys = useRootStore(getUpdateAttributeKeys);
 	const { fireRequest } = useFetchWrapper();
+	const { fireRequest: fireAttrKeysRequest } = useFetchWrapper();
 	const updateFilter = useRootStore(getUpdateFilter);
 	const [selectedFilterValues, setSelectedFilterValues] = useState<
 		Partial<FilterConfig>
 	>(filterDetails.selectedConfig || {});
+	const [customFilters, setCustomFilters] = useState<CustomFilter[]>(
+		filterDetails.selectedConfig?.customFilters || []
+	);
+
+	// Keep local UI state in sync when the store's selectedConfig changes externally
+	// (e.g. URL params applied on mount, or Clear Filters)
+	useEffect(() => {
+		setSelectedFilterValues(filterDetails.selectedConfig || {});
+		setCustomFilters(filterDetails.selectedConfig?.customFilters || []);
+	}, [filterDetails.selectedConfig]);
 
 	const clearFilter = (type: keyof FilterConfig) => {
 		setSelectedFilterValues((e) => ({ ...e, [type]: undefined }));
@@ -59,7 +287,12 @@ const DynamicFilters = ({
 			case "providers":
 			case "traceTypes":
 			case "applicationNames":
+			case "spanNames":
 			case "environments":
+			case "services":
+			case "severities":
+			case "metricNames":
+			case "metricTypes":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -80,13 +313,41 @@ const DynamicFilters = ({
 		}
 	};
 
-	const fetchConfig = useCallback(async () => {
+	const addCustomFilter = () => {
+		setCustomFilters((prev) => [
+			...prev,
+			{ attributeType: customAttributeTypes[0] ?? "Field", key: "", value: "" },
+		]);
+	};
+
+	const removeCustomFilter = (index: number) => {
+		setCustomFilters((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	const updateCustomFilter = (
+		index: number,
+		field: "attributeType" | "key" | "value",
+		val: string
+	) => {
+		setCustomFilters((prev) =>
+			prev.map((f, i) =>
+				i === index
+					? {
+							...f,
+							[field]: val as CustomFilterAttributeType,
+							// Reset key when attribute type changes
+							...(field === "attributeType" ? { key: "" } : {}),
+					  }
+					: f
+			)
+		);
+	};
+
+	const fetchConfig = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
-			url: "/api/metrics/request/config",
+			url: configUrl,
 			successCb: (resp) => {
 				updateConfig(resp.data?.[0]);
 			},
@@ -96,8 +357,10 @@ const DynamicFilters = ({
 				});
 			},
 		});
-	}, [filter]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [configUrl]);
 
+	// Fetch filter config when time window changes or config is cleared after a range change.
 	useEffect(() => {
 		if (
 			filter.timeLimit.start &&
@@ -105,141 +368,809 @@ const DynamicFilters = ({
 			pingStatus === "success" &&
 			!filterConfig
 		) {
-			fetchConfig();
+			fetchConfig(filter.timeLimit);
 		}
-	}, [filter, pingStatus, filterConfig, fetchConfig]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, pingStatus, filterConfig]);
+
+	const fetchAttributeKeys = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
+		fireAttrKeysRequest({
+			body: JSON.stringify({ timeLimit }),
+			requestType: "POST",
+			url: attributeKeysUrl,
+			successCb: (resp) => {
+				if (resp?.spanAttributeKeys !== undefined) {
+					updateAttributeKeys({
+						spanAttributeKeys: resp.spanAttributeKeys,
+						resourceAttributeKeys: resp.resourceAttributeKeys,
+						logAttributeKeys: resp.logAttributeKeys,
+						scopeAttributeKeys: resp.scopeAttributeKeys,
+						metricAttributeKeys: resp.metricAttributeKeys,
+					} as AttributeKeys);
+				}
+			},
+			failureCb: () => {
+				// silently fail – attribute keys are a nice-to-have
+			},
+		});
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [attributeKeysUrl]);
+
+	// Fetch attribute keys whenever the time window changes.
+	// Use leaf primitives as deps – lodash merge mutates timeLimit in-place
+	// so the object reference never changes between renders.
+	useEffect(() => {
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		) {
+			fetchAttributeKeys(filter.timeLimit);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
 	const updateFilterStore = () => {
-		updateFilter("selectedConfig", selectedFilterValues);
+		const validCustomFilters = customFilters.filter((f) => f.key && f.value);
+		updateFilter("selectedConfig", {
+			...selectedFilterValues,
+			customFilters:
+				validCustomFilters.length > 0 ? validCustomFilters : undefined,
+		});
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_APPLIED);
 	};
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
+		setCustomFilters([]);
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 		updateFilter("selectedConfig", {}, { clearFilter: true });
 	};
 
+	const getAttributeOptions = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return attributeKeys?.spanAttributeKeys ?? [];
+			case "ResourceAttributes":
+				return attributeKeys?.resourceAttributeKeys ?? [];
+			case "LogAttributes":
+				return attributeKeys?.logAttributeKeys ?? [];
+			case "ScopeAttributes":
+				return attributeKeys?.scopeAttributeKeys ?? [];
+			case "Attributes":
+				return attributeKeys?.metricAttributeKeys ?? [];
+			default:
+				return [];
+		}
+	};
+
+	const getAttributeTypeLabel = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return m.OBSERVABILITY_SPAN_ATTRIBUTES;
+			case "ResourceAttributes":
+				return m.OBSERVABILITY_RESOURCE_ATTRIBUTES;
+			case "LogAttributes":
+				return m.OBSERVABILITY_LOG_ATTRIBUTES;
+			case "ScopeAttributes":
+				return m.OBSERVABILITY_SCOPE_ATTRIBUTES;
+			case "Attributes":
+				return m.OBSERVABILITY_METRIC_ATTRIBUTES;
+			case "Field":
+				return m.OBSERVABILITY_FIELD;
+		}
+	};
+
 	return (
 		<div
-			className={`flex w-full overflow-hidden transition-all gap-4 ${
+			className={`flex flex-col w-full overflow-hidden transition-all gap-3 ${
 				isVisibleFilters ? "h-auto mt-4" : "h-0 mt-0"
 			}`}
 		>
-			<div className="flex grow gap-3 overflow-auto">
-				{filterConfig?.traceTypes?.length ? (
-					<ComboDropdown
-						options={filterConfig?.traceTypes.map((p) => ({
-							label: p,
-							value: p,
-						}))}
-						title="Types"
-						type="traceTypes"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.traceTypes}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.models?.length ? (
-					<ComboDropdown
-						options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
-						title="Models"
-						type="models"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.models}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.providers?.length ? (
-					<ComboDropdown
-						options={filterConfig?.providers.map((p) => ({
-							label: p,
-							value: p,
-						}))}
-						title="Providers"
-						type="providers"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.providers}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.maxCost ? (
-					<SlideWithValue
-						label="Max Cost"
-						value={selectedFilterValues.maxCost || 0}
-						maxValue={filterConfig.maxCost}
-						onChange={updateSelectedValues}
-						type="maxCost"
-					/>
-				) : null}
-				{filterConfig?.applicationNames?.length ? (
-					<ComboDropdown
-						options={filterConfig?.applicationNames.map((a) => ({
-							label: a,
-							value: a,
-						}))}
-						title="Application Names"
-						type="applicationNames"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.applicationNames}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.environments?.length ? (
-					<ComboDropdown
-						options={filterConfig?.environments.map((e) => ({
-							label: e,
-							value: e,
-						}))}
-						title="Environments"
-						type="environments"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.environments}
-						clearItem={clearFilter}
-					/>
-				) : null}
+			{/* Predefined filter dropdowns + action buttons */}
+			<div className="flex w-full gap-4 items-start">
+				<div className="flex grow gap-3 overflow-auto flex-wrap">
+					{filterConfig?.traceTypes?.length ? (
+						<ComboDropdown
+							options={filterConfig?.traceTypes.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+							title={m.OBSERVABILITY_TYPES}
+							type="traceTypes"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.traceTypes}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.models?.length ? (
+						<ComboDropdown
+							options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
+							title={m.OBSERVABILITY_MODELS}
+							type="models"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.models}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.providers?.length ? (
+						<ComboDropdown
+							options={filterConfig?.providers.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+							title={m.OBSERVABILITY_PROVIDERS}
+							type="providers"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.providers}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.maxCost ? (
+						<SlideWithValue
+							label={m.OBSERVABILITY_MAX_COST}
+							value={selectedFilterValues.maxCost || 0}
+							maxValue={filterConfig.maxCost}
+							onChange={updateSelectedValues}
+							type="maxCost"
+						/>
+					) : null}
+					{filterConfig?.applicationNames?.length ? (
+						<ComboDropdown
+							options={filterConfig?.applicationNames.map((a) => ({
+								label: a,
+								value: a,
+							}))}
+							title={m.OBSERVABILITY_APPLICATION_NAMES}
+							type="applicationNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.applicationNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.spanNames?.length ? (
+						<ComboDropdown
+							options={filterConfig?.spanNames.map((s) => ({
+								label: s,
+								value: s,
+							}))}
+							title={m.OBSERVABILITY_SPAN_NAMES}
+							type="spanNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.spanNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.environments?.length ? (
+						<ComboDropdown
+							options={filterConfig?.environments.map((e) => ({
+								label: e,
+								value: e,
+							}))}
+							title={m.OBSERVABILITY_ENVIRONMENTS}
+							type="environments"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.environments}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.services?.length ? (
+						<ComboDropdown
+							options={filterConfig.services.map((service) => ({
+								label: service,
+								value: service,
+							}))}
+							title={m.OBSERVABILITY_SERVICES}
+							type="services"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.services}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.severities?.length ? (
+						<ComboDropdown
+							options={filterConfig.severities.map((severity) => ({
+								label: severity,
+								value: severity,
+							}))}
+							title={m.OBSERVABILITY_SEVERITIES}
+							type="severities"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.severities}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricNames?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricNames.map((metricName) => ({
+								label: metricName,
+								value: metricName,
+							}))}
+							title={m.OBSERVABILITY_METRIC_NAMES}
+							type="metricNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricTypes?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricTypes.map((metricType) => ({
+								label: metricType,
+								value: metricType,
+							}))}
+							title={m.OBSERVABILITY_METRIC_TYPES}
+							type="metricTypes"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricTypes}
+							clearItem={clearFilter}
+						/>
+					) : null}
+				</div>
+				<div className="flex shrink-0 gap-3">
+					{areFiltersApplied && (
+						<Button
+							variant="ghost"
+							size="default"
+							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
+							onClick={clearFilterStore}
+						>
+							Clear Filters
+						</Button>
+					)}
+					<Button
+						variant="outline"
+						size="default"
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
+						onClick={updateFilterStore}
+					>
+						Apply Filters
+					</Button>
+				</div>
 			</div>
-			<div className="flex shrink-0 gap-3">
-				{areFiltersApplied && (
+
+			{/* Custom attribute key-value filters */}
+			<div className="flex flex-col gap-2">
+				<div className="flex items-center gap-3">
+					<span className="text-xs text-stone-500 dark:text-stone-400 shrink-0">
+						Custom Attributes
+					</span>
 					<Button
 						variant="ghost"
 						size="default"
-						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
-						onClick={clearFilterStore}
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1 px-2 h-auto text-xs gap-1"
+						onClick={addCustomFilter}
 					>
-						Clear Filters
+						<Plus className="w-3 h-3" />
+						{m.OBSERVABILITY_ADD}
 					</Button>
+				</div>
+				{customFilters.length > 0 && (
+					<div className="flex flex-wrap gap-2 max-h-[120px] overflow-auto">
+						{customFilters.map((cf, index) => (
+							<div key={index} className="flex items-center gap-1.5">
+								<select
+									value={cf.attributeType}
+									onChange={(e) =>
+										updateCustomFilter(index, "attributeType", e.target.value)
+									}
+									className="h-7 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
+								>
+									{customAttributeTypes.map((attributeType) => (
+										<option key={attributeType} value={attributeType}>
+											{getAttributeTypeLabel(attributeType)}
+										</option>
+									))}
+								</select>
+
+								{cf.attributeType === "Field" ? (
+									<Input
+										placeholder={m.OBSERVABILITY_SPAN_NAME_EXAMPLE}
+										value={cf.key}
+										onChange={(e) =>
+											updateCustomFilter(index, "key", e.target.value)
+										}
+										className="h-7 text-xs w-44"
+									/>
+								) : (
+									<Combobox
+										value={cf.key}
+										onChange={(val) => updateCustomFilter(index, "key", val)}
+										options={
+											getAttributeOptions(cf.attributeType)
+										}
+										placeholder={m.OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE}
+									/>
+								)}
+
+								<Input
+									placeholder={m.OBSERVABILITY_VALUE}
+									value={cf.value}
+									onChange={(e) =>
+										updateCustomFilter(index, "value", e.target.value)
+									}
+									className="h-7 text-xs w-32"
+								/>
+								<Button
+									variant="ghost"
+									size="default"
+									className="h-7 w-7 p-0 shrink-0 text-stone-400 hover:text-red-500"
+									onClick={() => removeCustomFilter(index)}
+								>
+									<Trash2 className="w-3.5 h-3.5" />
+								</Button>
+							</div>
+						))}
+					</div>
 				)}
-				<Button
-					variant="outline"
-					size="default"
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
-					onClick={updateFilterStore}
-				>
-					Apply Filters
-				</Button>
 			</div>
 		</div>
 	);
 };
 
+// ─── GroupBy selector ─────────────────────────────────────────────────────────
+
+const GROUP_BY_OPTIONS: { key: string; label: string }[] = [
+	{ key: "model", label: m.OBSERVABILITY_MODEL },
+	{ key: "provider", label: m.OBSERVABILITY_PROVIDERS },
+	{ key: "spanName", label: m.OBSERVABILITY_SPAN_NAMES },
+	{ key: "applicationName", label: m.OBSERVABILITY_APPLICATION },
+];
+
+const PREDEFINED_GROUP_BY_KEYS = new Set<string>(GROUP_BY_OPTIONS.map((o) => o.key));
+
+function getGroupByDisplayLabel(groupBy: string | undefined): string | undefined {
+	if (!groupBy) return undefined;
+	const predefined = GROUP_BY_OPTIONS.find((o) => o.key === groupBy)?.label;
+	if (predefined) return predefined;
+	const sep = groupBy.indexOf(":");
+	return sep !== -1 ? groupBy.slice(sep + 1) : groupBy;
+}
+
+// Simple inline suggest input — renders suggestions as a regular div child (no portal)
+// so it doesn't conflict with the Popover's DismissableLayer.
+function InlineSuggest({
+	value,
+	onChange,
+	options,
+	placeholder,
+}: {
+	value: string;
+	onChange: (val: string) => void;
+	options: string[];
+	placeholder?: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const filtered = value
+		? options.filter((o) => o.toLowerCase().includes(value.toLowerCase())).slice(0, 40)
+		: options.slice(0, 40);
+
+	return (
+		<div className="relative">
+			<Input
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				onFocus={() => setOpen(true)}
+				onBlur={() => setTimeout(() => setOpen(false), 120)}
+				placeholder={placeholder}
+				className="h-7 text-xs"
+			/>
+			{open && filtered.length > 0 && (
+				<div className="absolute top-full left-0 right-0 z-50 mt-0.5 max-h-40 overflow-auto rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 shadow-md">
+					{filtered.map((opt) => (
+						<button
+							key={opt}
+							type="button"
+							className="w-full text-left text-xs px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								onChange(opt);
+								setOpen(false);
+							}}
+						>
+							{opt}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function GroupByDropdown({
+	groupBy,
+	onChangeGroupBy,
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
+}: {
+	groupBy?: string;
+	onChangeGroupBy: (key: string | undefined) => void;
+	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
+}) {
+	const attributeKeys = useRootStore(getAttributeKeys);
+	const [open, setOpen] = useState(false);
+	const [customAttrType, setCustomAttrType] = useState<CustomFilterAttributeType>("SpanAttributes");
+	const [customKey, setCustomKey] = useState("");
+
+	// When groupBy changes externally (e.g. from URL restore), pre-fill the custom form
+	useEffect(() => {
+		if (groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy)) {
+			const sep = groupBy.indexOf(":");
+			if (sep !== -1) {
+				const attrType = groupBy.slice(0, sep) as CustomFilterAttributeType;
+				const key = groupBy.slice(sep + 1);
+				setCustomAttrType(attrType);
+				setCustomKey(key);
+			} else {
+				setCustomKey(groupBy);
+			}
+		} else if (!groupBy) {
+			setCustomKey("");
+		}
+	}, [groupBy]);
+
+	const activeLabel = getGroupByDisplayLabel(groupBy);
+	const isCustomActive = !!groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy);
+
+	const customOptions =
+		customAttrType === "SpanAttributes"
+			? (attributeKeys?.spanAttributeKeys ?? [])
+		: customAttrType === "ResourceAttributes"
+			? (attributeKeys?.resourceAttributeKeys ?? [])
+		: customAttrType === "LogAttributes"
+			? (attributeKeys?.logAttributeKeys ?? [])
+		: customAttrType === "ScopeAttributes"
+			? (attributeKeys?.scopeAttributeKeys ?? [])
+		: customAttrType === "Attributes"
+			? (attributeKeys?.metricAttributeKeys ?? [])
+			: [];
+
+	const applyCustom = () => {
+		const k = customKey.trim();
+		if (!k) return;
+		onChangeGroupBy(`${customAttrType}:${k}`);
+		setOpen(false);
+	};
+
+	const selectPredefined = (key: string | undefined) => {
+		onChangeGroupBy(key);
+		setOpen(false);
+	};
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<Button
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 p-1 h-[30px] relative gap-1.5 text-xs aspect-square"
+					variant="outline"
+				>
+					<Layers className="w-3 h-3 shrink-0" />
+					{activeLabel ? <span className="max-w-[80px] truncate">{activeLabel}</span> : null}
+					{groupBy && (
+						<span className="w-2 h-2 bg-primary absolute -top-0 -right-0 rounded-full" />
+					)}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-64 p-1" align="end">
+				{/* Predefined options */}
+				<button
+					className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+					onClick={() => selectPredefined(undefined)}
+				>
+					None
+					{!groupBy && <span className="ml-auto text-primary">✓</span>}
+				</button>
+				{GROUP_BY_OPTIONS.map(({ key, label }) => (
+					<button
+						key={key}
+						className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+						onClick={() => selectPredefined(key)}
+					>
+						{label}
+						{groupBy === key && <span className="ml-auto text-primary">✓</span>}
+					</button>
+				))}
+
+				{/* Custom attribute section */}
+				<div className="border-t dark:border-stone-700 mt-1 pt-2 px-1 pb-1">
+					<p className="text-xs text-stone-400 dark:text-stone-500 mb-1.5">
+						Custom attribute
+						{isCustomActive && <span className="ml-1.5 text-primary">✓</span>}
+					</p>
+					<div className="flex flex-col gap-1.5">
+						<select
+							value={customAttrType}
+							onChange={(e) => {
+								setCustomAttrType(e.target.value as CustomFilterAttributeType);
+								setCustomKey("");
+							}}
+							className="h-7 w-full rounded-md border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
+						>
+							{customAttributeTypes.map((attributeType) => (
+								<option key={attributeType} value={attributeType}>
+									{attributeType === "SpanAttributes"
+										? m.OBSERVABILITY_SPAN_ATTRIBUTES
+										: attributeType === "ResourceAttributes"
+										? m.OBSERVABILITY_RESOURCE_ATTRIBUTES
+										: attributeType === "LogAttributes"
+										? m.OBSERVABILITY_LOG_ATTRIBUTES
+										: attributeType === "ScopeAttributes"
+										? m.OBSERVABILITY_SCOPE_ATTRIBUTES
+										: attributeType === "Attributes"
+										? m.OBSERVABILITY_METRIC_ATTRIBUTES
+										: m.OBSERVABILITY_FIELD}
+								</option>
+							))}
+						</select>
+						<InlineSuggest
+							value={customKey}
+							onChange={setCustomKey}
+							options={customOptions}
+							placeholder="e.g. gen_ai.request.user"
+						/>
+						<Button
+							size="default"
+							variant="outline"
+							className="h-7 text-xs w-full"
+							onClick={applyCustom}
+						>
+							Apply
+						</Button>
+					</div>
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+// ─── Local storage persistence ────────────────────────────────────────────────
+
+type PersistedFilter = {
+	timeLimitType: string;
+	timeLimitStart?: string;
+	timeLimitEnd?: string;
+	limit: number;
+	selectedConfig: Partial<FilterConfig>;
+	sorting: FilterSorting;
+	groupBy?: string;
+	groupValue?: string;
+};
+
+function saveFilterToStorage(filter: FilterType, storageKey: string) {
+	try {
+		// Strip ephemeral scope fields — `serviceNames` is the lock set by
+		// AgentScopeProvider on the agent-detail page; persisting it would leak
+		// the scope into unrelated pages (e.g. /requests would silently filter
+		// to the last-viewed agent's service).
+		const { serviceNames: _omitServiceNames, ...persistableConfig } =
+			filter.selectedConfig || {};
+		void _omitServiceNames;
+		const toSave: PersistedFilter = {
+			timeLimitType: filter.timeLimit.type,
+			timeLimitStart: filter.timeLimit.start
+				? new Date(filter.timeLimit.start).toISOString()
+				: undefined,
+			timeLimitEnd: filter.timeLimit.end
+				? new Date(filter.timeLimit.end).toISOString()
+				: undefined,
+			limit: filter.limit,
+			selectedConfig: persistableConfig,
+			sorting: filter.sorting,
+			groupBy: filter.groupBy,
+			groupValue: filter.groupValue,
+		};
+		localStorage.setItem(storageKey, JSON.stringify(toSave));
+	} catch {}
+}
+
+function loadFilterFromStorage(storageKey: string): PersistedFilter | null {
+	try {
+		const raw = localStorage.getItem(storageKey);
+		return raw ? (JSON.parse(raw) as PersistedFilter) : null;
+	} catch {
+		return null;
+	}
+}
+
+function applyStoredFilter(
+	saved: PersistedFilter,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	validTimeRanges: Set<string>
+) {
+	// Time limit first (it resets selectedConfig, so must come before selectedConfig)
+	if (saved.timeLimitType === "CUSTOM" && saved.timeLimitStart && saved.timeLimitEnd) {
+		updateFilter("timeLimit.type", "CUSTOM", {
+			start: new Date(saved.timeLimitStart),
+			end: new Date(saved.timeLimitEnd),
+		});
+	} else if (validTimeRanges.has(saved.timeLimitType)) {
+		updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+	}
+	if (saved.limit) updateFilter("limit", saved.limit);
+	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
+		// Strip ephemeral scope fields defensively — older saves may still
+		// contain serviceNames from before the strip-on-save fix.
+		const { serviceNames: _omit, ...persistableConfig } =
+			saved.selectedConfig as Partial<FilterConfig>;
+		void _omit;
+		updateFilter("selectedConfig", persistableConfig);
+	}
+	if (saved.sorting?.type) updateFilter("sorting", saved.sorting);
+	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);
+	if (saved.groupValue) updateFilter("groupValue", saved.groupValue);
+}
+
+// ─── URL filter sync hook ─────────────────────────────────────────────────────
+
+const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
+
+function useFilterUrlSync(
+	filter: FilterType,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	storageScope?: string
+) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const storageKey = getFilterStorageKey(storageScope);
+	// Tracks whether the initial URL read has been applied to the store
+	const initializedFromUrl = useRef(false);
+
+	// On mount: URL params take priority; fall back to localStorage if URL has none.
+	useEffect(() => {
+		if (initializedFromUrl.current) return;
+		initializedFromUrl.current = true;
+
+		const params = new URLSearchParams(window.location.search);
+		const hasUrlParams = FILTER_PARAM_KEYS.some((k) => params.has(k));
+
+		if (hasUrlParams) {
+			// ── Apply URL params ──────────────────────────────────────────────
+			const tr = params.get("tr");
+			if (tr && VALID_TIME_RANGES.has(tr)) {
+				if (tr === "CUSTOM") {
+					const ts = params.get("ts");
+					const te = params.get("te");
+					if (ts && te) {
+						updateFilter("timeLimit.type", "CUSTOM", {
+							start: new Date(ts),
+							end: new Date(te),
+						});
+					}
+				} else {
+					updateFilter("timeLimit.type", tr);
+				}
+			}
+			const limitParam = params.get("limit");
+			if (limitParam) {
+				const parsed = parseInt(limitParam, 10);
+				if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
+			}
+			const offsetParam = params.get("offset");
+			if (offsetParam) {
+				const parsed = parseInt(offsetParam, 10);
+				if (!isNaN(parsed) && parsed >= 0) updateFilter("offset", parsed);
+			}
+			const config = paramsToConfig(params);
+			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
+			const gb = params.get("gb");
+			if (gb) updateFilter("groupBy", gb);
+			const gbv = params.get("gbv");
+			if (gbv) updateFilter("groupValue", gbv);
+		} else {
+			// ── Fall back to localStorage ─────────────────────────────────────
+			const saved = loadFilterFromStorage(storageKey);
+			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
+		}
+
+		// Signal that the initial filter read (URL / localStorage) is complete.
+		// Pages use this flag to avoid fetching before the correct params are applied.
+		updateFilter("filterReady", true);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// When filter state changes: write all serialisable parts to the URL
+	const prevSerializedRef = useRef<string>("");
+	useEffect(() => {
+		if (!initializedFromUrl.current) return;
+
+		const params = new URLSearchParams(window.location.search);
+
+		// Time limit
+		params.set("tr", filter.timeLimit.type);
+		if (filter.timeLimit.type === "CUSTOM") {
+			if (filter.timeLimit.start)
+				params.set("ts", new Date(filter.timeLimit.start).toISOString());
+			if (filter.timeLimit.end)
+				params.set("te", new Date(filter.timeLimit.end).toISOString());
+		} else {
+			params.delete("ts");
+			params.delete("te");
+		}
+
+		// Page size
+		params.set("limit", String(filter.limit));
+		params.set("offset", String(filter.offset));
+
+		// Selected config
+		configToParams(filter.selectedConfig, params);
+
+		// Group by
+		if (filter.groupBy) params.set("gb", filter.groupBy);
+		else params.delete("gb");
+
+		// Group value
+		if (filter.groupValue) params.set("gbv", filter.groupValue);
+		else params.delete("gbv");
+
+		const qs = params.toString();
+		if (qs !== prevSerializedRef.current) {
+			prevSerializedRef.current = qs;
+			router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+		}
+
+		// Persist to localStorage so other pages (and refreshes) pick up these filters
+		saveFilterToStorage(filter, storageKey);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.offset, filter.selectedConfig, filter.groupBy, filter.groupValue, storageKey]);
+}
+
+// ─── TracesFilter (exported) ──────────────────────────────────────────────────
+
 export default function TracesFilter({
 	total,
 	supportDynamicFilters = false,
+	showGroupBy = true,
+	showVisibilityColumns = true,
 	includeOnlySorting,
 	pageName,
 	columns,
+	configUrl = "/api/metrics/request/config",
+	attributeKeysUrl = "/api/metrics/request/attribute-keys",
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
+	filterStorageScope,
 }: {
-	total: number;
+	total?: number;
 	supportDynamicFilters?: boolean;
+	showGroupBy?: boolean;
+	showVisibilityColumns?: boolean;
 	includeOnlySorting?: string[];
 	pageName: PAGE;
 	columns: Columns<any, any>;
+	configUrl?: string;
+	attributeKeysUrl?: string;
+	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
+
+	const onChangeGroupBy = (key: string | undefined) => {
+		updateFilter("groupBy", key ?? null);
+	};
+
+	const onShareLink = () => {
+		if (typeof window === "undefined") return;
+
+		const clipboard = navigator.clipboard;
+		if (!clipboard?.writeText) {
+			toast.error(m.OBSERVABILITY_COPY_UNSUPPORTED);
+			return;
+		}
+
+		clipboard
+			.writeText(window.location.href)
+			.then(() => {
+				toast.success(m.OBSERVABILITY_LINK_COPIED);
+			})
+			.catch(() => {
+				toast.error(m.OBSERVABILITY_LINK_COPY_FAILED);
+			});
+	};
+
+	useFilterUrlSync(filter, updateFilter, filterStorageScope || pageName);
+
 	const onClickPageAction = (dir: -1 | 1) => {
 		updateFilter("offset", filter.offset + dir * filter.limit);
 	};
@@ -249,24 +1180,19 @@ export default function TracesFilter({
 	};
 
 	const toggleIsVisibleFilters = () => setIsVisibileFilters((e) => !e);
-	const showDynamicFilters =
-		filterConfig &&
-		Object.keys(filterConfig).filter((k) => {
-			const key = k as keyof FilterConfig;
-			if (typeof filterConfig[key] === "number") {
-				return (filterConfig[key] as number) > 0;
-			} else if (
-				typeof filterConfig[key] === "object" &&
-				(filterConfig[key] as string[]).length
-			) {
-				return true;
-			}
-			return false;
-		}).length > 0;
 
 	const areFiltersApplied =
 		Object.keys(filter.selectedConfig).filter((k) => {
 			const key = k as keyof FilterConfig;
+			if (key === "customFilters") {
+				return (
+					(
+						filter.selectedConfig.customFilters?.filter(
+							(f) => f.key && f.value
+						) || []
+					).length > 0
+				);
+			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
 			} else if (
@@ -288,23 +1214,32 @@ export default function TracesFilter({
 		<div className="flex flex-col items-center w-full justify-between mb-4">
 			<div className="flex w-full gap-4">
 				<Filter />
-				{filterConfig && total > 0 && (
+				{filterConfig && !!total && total > 0 && (
 					<TracesPagination
 						currentPage={filter.offset / filter.limit + 1}
 						currentSize={filter.limit}
-						totalPage={ceil((total || 0) / filter.limit)}
+						totalPage={ceil(total / filter.limit)}
 						onClickPageAction={onClickPageAction}
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
-				<VisibilityColumns columns={columns} pageName={pageName} />
-				{total > 0 && (
+				{showVisibilityColumns && (
+					<VisibilityColumns columns={columns} pageName={pageName} />
+				)}
+				{!!total && total > 0 && (
 					<Sorting
 						sorting={filter.sorting}
 						includeOnlySorting={includeOnlySorting}
 					/>
 				)}
-				{showDynamicFilters && supportDynamicFilters && (
+				{supportDynamicFilters && showGroupBy && (
+					<GroupByDropdown
+						groupBy={filter.groupBy}
+						onChangeGroupBy={onChangeGroupBy}
+						customAttributeTypes={customAttributeTypes}
+					/>
+				)}
+				{supportDynamicFilters && (
 					<Button
 						variant="outline"
 						size="default"
@@ -313,16 +1248,28 @@ export default function TracesFilter({
 					>
 						<SlidersHorizontal className="w-3 h-3" />
 						{areFiltersApplied && (
-							<span className="w-1 h-1 bg-primary absolute top-1 right-1 rounded-full" />
+							<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
 						)}
 					</Button>
 				)}
+				<Button
+					variant="outline"
+					size="default"
+					title={m.OBSERVABILITY_COPY_SHARE_LINK}
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
+					onClick={onShareLink}
+				>
+					<Link2 className="w-3 h-3" />
+				</Button>
 			</div>
 			{supportDynamicFilters && (
 				<DynamicFilters
 					isVisibleFilters={isVisibleFilters}
 					filter={filter}
 					areFiltersApplied={areFiltersApplied}
+					configUrl={configUrl}
+					attributeKeysUrl={attributeKeysUrl}
+					customAttributeTypes={customAttributeTypes}
 				/>
 			)}
 		</div>

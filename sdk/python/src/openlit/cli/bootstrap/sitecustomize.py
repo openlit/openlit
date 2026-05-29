@@ -33,13 +33,15 @@ except ImportError:
                 "OTEL_EXPORTER_OTLP_HEADERS": "otlp_headers",
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "capture_message_content",
                 "OPENLIT_DISABLED_INSTRUMENTORS": "disabled_instrumentors",
+                "OPENLIT_CONTROLLER_MODE": "controller_mode",
                 "OPENLIT_DISABLE_BATCH": "disable_batch",
                 "OPENLIT_DISABLE_METRICS": "disable_metrics",
+                "OPENLIT_DISABLE_EVENTS": "disable_events",
                 "OPENLIT_COLLECT_GPU_STATS": "collect_gpu_stats",
-                "OPENLIT_DETAILED_TRACING": "detailed_tracing",
                 "OPENLIT_PRICING_JSON": "pricing_json",
-                "OPENLIT_CAPTURE_PARAMETERS": "capture_parameters",
-                "OPENLIT_ENABLE_SQLCOMMENTER": "enable_sqlcommenter",
+                "OPENLIT_CAPTURE_DB_PARAMETERS": "capture_db_parameters",
+                "OPENLIT_MAX_CONTENT_LENGTH": "max_content_length",
+                "OPENLIT_CUSTOM_SPAN_ATTRIBUTES": "custom_span_attributes",
             }
 
             for env_var, param_name in env_mappings.items():
@@ -49,10 +51,9 @@ except ImportError:
                         "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
                         "OPENLIT_DISABLE_BATCH",
                         "OPENLIT_DISABLE_METRICS",
+                        "OPENLIT_DISABLE_EVENTS",
                         "OPENLIT_COLLECT_GPU_STATS",
-                        "OPENLIT_DETAILED_TRACING",
-                        "OPENLIT_CAPTURE_PARAMETERS",
-                        "OPENLIT_ENABLE_SQLCOMMENTER",
+                        "OPENLIT_CAPTURE_DB_PARAMETERS",
                     ]:
                         config[param_name] = env_value.lower() in ("true", "1", "yes")
                     # Handle CSV values
@@ -63,12 +64,21 @@ except ImportError:
                             if item.strip()
                         ]
                     # Handle JSON values
-                    elif env_var == "OTEL_EXPORTER_OTLP_HEADERS":
+                    elif env_var in [
+                        "OTEL_EXPORTER_OTLP_HEADERS",
+                        "OPENLIT_CUSTOM_SPAN_ATTRIBUTES",
+                    ]:
                         try:
                             import json
 
                             config[param_name] = json.loads(env_value)
                         except (json.JSONDecodeError, ImportError):
+                            pass
+                    # Handle integer values
+                    elif env_var == "OPENLIT_MAX_CONTENT_LENGTH":
+                        try:
+                            config[param_name] = int(env_value)
+                        except ValueError:
                             pass
                     else:
                         config[param_name] = env_value

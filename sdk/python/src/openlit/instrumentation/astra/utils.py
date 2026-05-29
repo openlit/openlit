@@ -8,6 +8,7 @@ from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     common_db_span_attributes,
     record_db_metrics,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -216,8 +217,8 @@ def common_astra_logic(
         scope._span.set_attribute(
             SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}... "
-            f"update={str(update_query)[:100]}...",
+            f"filter={truncate_content(filter_query)} "
+            f"update={truncate_content(update_query)}",
         )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_REPLACE:
@@ -240,7 +241,7 @@ def common_astra_logic(
         scope._span.set_attribute(
             SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}... "
+            f"filter={truncate_content(filter_query)} "
             f"upsert={scope._kwargs.get('upsert', False)}",
         )
 
@@ -262,7 +263,7 @@ def common_astra_logic(
         scope._span.set_attribute(
             SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}...",
+            f"filter={truncate_content(filter_query)}",
         )
 
     elif scope._db_operation in [
@@ -287,7 +288,7 @@ def common_astra_logic(
         scope._span.set_attribute(
             SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}...",
+            f"filter={truncate_content(filter_query)}",
         )
 
     scope._span.set_status(Status(StatusCode.OK))

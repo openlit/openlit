@@ -1,29 +1,28 @@
 import Metrics from '../metrics';
 import SemanticConvention from '../../semantic-convention';
 import { defaultResource } from '@opentelemetry/resources';
-import { ConsoleMetricExporter } from '@opentelemetry/sdk-metrics';
+
+const setupOpts = {
+  resource: defaultResource(),
+  otlpEndpoint: 'http://localhost:4318',
+  environment: 'default',
+  applicationName: 'default',
+  disableBatch: false,
+  captureMessageContent: true,
+  disableMetrics: false,
+  disableEvents: false,
+};
 
 describe('Metrics creation', () => {
   beforeEach(() => {
-    Metrics.setup({ resource: defaultResource(), otlpEndpoint: 'http://localhost:4318'  }); // Ensure metrics are initialized
+    Metrics.resetForTesting();
+    Metrics.setup(setupOpts as any);
   });
 
-  it('should create genaiRequests counter and allow increment', () => {
-    expect(Metrics.genaiRequests).toBeDefined();
-    expect(typeof Metrics.genaiRequests.add).toBe('function');
-    expect(() => Metrics.genaiRequests.add(1, { [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai' })).not.toThrow();
-  });
-
-  it('should create genaiPromptTokens counter and allow increment', () => {
-    expect(Metrics.genaiPromptTokens).toBeDefined();
-    expect(typeof Metrics.genaiPromptTokens.add).toBe('function');
-    expect(() => Metrics.genaiPromptTokens.add(42, { [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai' })).not.toThrow();
-  });
-
-  it('should create genaiCompletionTokens counter and allow increment', () => {
-    expect(Metrics.genaiCompletionTokens).toBeDefined();
-    expect(typeof Metrics.genaiCompletionTokens.add).toBe('function');
-    expect(() => Metrics.genaiCompletionTokens.add(24, { [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai' })).not.toThrow();
+  it('should create genaiClientUsageTokens histogram and allow record', () => {
+    expect(Metrics.genaiClientUsageTokens).toBeDefined();
+    expect(typeof Metrics.genaiClientUsageTokens.record).toBe('function');
+    expect(() => Metrics.genaiClientUsageTokens.record(42, { [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai' })).not.toThrow();
   });
 
   it('should create genaiClientOperationDuration histogram and allow record', () => {
@@ -36,18 +35,5 @@ describe('Metrics creation', () => {
     expect(Metrics.genaiCost).toBeDefined();
     expect(typeof Metrics.genaiCost.record).toBe('function');
     expect(() => Metrics.genaiCost.record(0.99, { [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai' })).not.toThrow();
-  });
-
-  it('should throw an error when allowConsoleExporterFallback is not set and fallback is required', () => {
-    expect(() => {
-      Metrics.handleExporterFallback(new Error('Simulated OTLPMetricExporter failure'), false);
-    }).toThrow('[Metrics] Failed to initialize OTLPMetricExporter and fallback to ConsoleMetricExporter is disabled. Set allowConsoleExporterFallback=true to enable fallback (not recommended for production).');
-  });
-
-  it('should use ConsoleMetricExporter when allowConsoleExporterFallback is set to true', () => {
-    expect(() => {
-      const exporter = Metrics.handleExporterFallback(new Error('Simulated OTLPMetricExporter failure'), true);
-      expect(exporter).toBeInstanceOf(ConsoleMetricExporter);
-    }).not.toThrow();
   });
 });

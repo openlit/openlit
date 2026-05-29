@@ -126,31 +126,6 @@ Learn how to use our `All` guardrail for complete prompt safety monitoring, dete
             const result = await guards.detect({ text });
             ```
           </Tab>
-          <Tab title="OpenLIT Operator">
-            For Kubernetes deployments - no pod modifications needed:
-            
-            ```yaml
-            # Apply OpenLIT Operator instrumentation
-            apiVersion: openlit.io/v1alpha1
-            kind: Instrumentation
-            metadata:
-              name: my-app-instrumentation
-            spec:
-              workload:
-                name: my-ai-app
-                namespace: production
-            ```
-            
-            Your application code remains unchanged:
-            ```python
-            import openlit
-            
-            # Operator handles instrumentation automatically
-            # Just enable guardrail metrics collection
-            guards = openlit.guard.All(collect_metrics=True)
-            result = guards.detect(text=text)
-            ```
-          </Tab>
         </Tabs>
         
         Metrics are sent to the same OpenTelemetry backend configured during instrumentation, check our [supported destinations](/latest/sdk/destinations/overview) for configuration details.

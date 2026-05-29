@@ -202,7 +202,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `traceContent`          | Enables tracing of content for deeper insights.                                      | `true`                                                             | No       |
 | `disabledInstrumentations` | List of instrumentations to disable.                                                    | `undefined`                                                             | No       |
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
-| `pricing_json`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
+| `pricingJson`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
 
 ### OpenLIT Prompt Hub - `Openlit.getPrompt()`
 
@@ -233,6 +233,40 @@ Below are the parameters for use with the SDK for OpenLIT Vault for secret manag
 | `shouldSetEnv`        | Boolean value that sets all the secrets as environment variables for the application. Optional                                                      |
 
 
+
+### OpenLIT Rule Engine - `Openlit.evaluateRule()`
+
+Evaluate trace attributes against the OpenLIT Rule Engine to retrieve matching rules and associated entities (contexts, prompts, evaluation configurations).
+
+| Parameter          | Description                                                                                                                        |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`              | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000`.                               |
+| `apiKey`           | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `entityType`       | Type of entity to match: `"context"`, `"prompt"`, or `"evaluation"`.                                                               |
+| `fields`           | Object of trace attributes to evaluate against rules. e.g. `{ "gen_ai.system": "openai" }`                                        |
+| `includeEntityData`| If `true`, include full entity data in the response. Default: `false`. Optional                                                    |
+| `entityInputs`     | Optional object of inputs for entity resolution (e.g. prompt variables).                                                           |
+
+#### Example
+
+```typescript
+import Openlit from 'openlit';
+
+const result = await Openlit.evaluateRule({
+  entityType: 'context',
+  fields: {
+    'gen_ai.system': 'openai',
+    'gen_ai.request.model': 'gpt-4',
+    'service.name': 'my-app',
+  },
+  includeEntityData: true,
+});
+
+if (!('err' in result)) {
+  console.log('Matching rules:', result.matchingRuleIds);
+  console.log('Entities:', result.entities);
+}
+```
 
 ## 🌱 Contributing
 
