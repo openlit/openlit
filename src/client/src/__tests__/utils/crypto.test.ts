@@ -68,9 +68,9 @@ describe("vault crypto utilities", () => {
 	it("returns tampered encrypted values unchanged when decryption fails", () => {
 		const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 		const encrypted = encryptValue("secret-value");
-		const lastChar = encrypted.charAt(encrypted.length - 1);
-		const replaceChar = lastChar === "x" ? "y" : "x";
-		const tampered = encrypted.slice(0, -1) + replaceChar;
+		const parts = encrypted.split(":");
+		parts[3] = `${parts[3].startsWith("A") ? "B" : "A"}${parts[3].slice(1)}`;
+		const tampered = parts.join(":");
 
 		expect(decryptValue(tampered)).toBe(tampered);
 		expect(errorSpy).toHaveBeenCalledWith(

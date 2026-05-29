@@ -41,7 +41,7 @@ export default function ChatFloatingButton() {
 				<TooltipTrigger asChild>
 					<Link href="/chat">
 						<button
-							aria-label="Open Otter chat"
+							aria-label="Open Otter"
 							className="relative flex items-center justify-center h-14 w-14 rounded-full bg-white dark:bg-stone-300 border border-stone-200 dark:border-stone-700 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 group"
 						>
 							<Otter className="transition-transform group-hover:rotate-6 text-stone-700" />

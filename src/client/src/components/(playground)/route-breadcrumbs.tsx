@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { usePageHeader } from "@/selectors/page";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import React, { useEffect } from "react";
 import { generatePageHeader } from "@/utils/breadcrumbs";
 
@@ -29,8 +30,8 @@ export default function RouteBreadcrumbs() {
 			<BreadcrumbList className="text-xs">
 				{showHomeBreadcrumb && (
 					<BreadcrumbItem>
-						<BreadcrumbLink href="/home">
-							Home
+						<BreadcrumbLink asChild>
+							<Link href="/home">Home</Link>
 						</BreadcrumbLink>
 					</BreadcrumbItem>
 				)}
@@ -40,8 +41,8 @@ export default function RouteBreadcrumbs() {
 				{header.breadcrumbs.map(({ title, href }, index) => (
 					<React.Fragment key={href}>
 						<BreadcrumbItem>
-							<BreadcrumbLink href={href}>
-								{title}
+							<BreadcrumbLink asChild>
+								<Link href={href}>{title}</Link>
 							</BreadcrumbLink>
 						</BreadcrumbItem>
 						{index < header.breadcrumbs.length - 1 && <BreadcrumbSeparator />}

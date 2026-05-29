@@ -35,9 +35,13 @@ export const EVALUATION_CONFIG_NOT_SET =
 	"Evaluation config not set! Please set the config first to run evaluations.";
 export const EVALUATION_CONFIG_SET = "Setup Evaluation!";
 export const EVALUATION_NOT_RUN_YET =
-	"Evaluation not run yet! Please run the evaluation to get results.";
+	"AI Evaluation has not run yet! Please run the evaluation to get results.";
 export const EVALUATION_RUN = "Run Evaluation";
 export const EVALUATION_RUN_AGAIN = "Run Evaluation Again";
+export const EVALUATION_RUN_COUNT = (count: number) =>
+	`${count} run${count !== 1 ? "s" : ""}`;
+export const EVALUATION_RUNS = "Runs";
+export const EVALUATION_RESULTS = "Evaluations";
 export const EVALUATION_DATA_LOADING = "Loading evaluation data...";
 export const EVALUATION_CREATED = "Evaluation created successfully!";
 export const EVALUATION_UPDATED = "Evaluation updated successfully!";
@@ -46,6 +50,19 @@ export const EVALUATION_CONFIG_INVALID = "Invalid evaluation config!";
 export const EVALUATION_CONFIG_UPDATING_FAILED =
 	"Evaluation config updation failed!";
 export const EVALUATION_RUN_FAILURE = "Evaluation run failed!";
+export const EVALUATION_FEEDBACK_SAVE_FAILURE = "Failed to save feedback";
+export const EVALUATION_CLASSIFICATION = "Classification";
+export const EVALUATION_EXPLANATION = "Explanation";
+export const EVALUATION_VERDICT = "Verdict";
+export const EVALUATION_RULE_ENGINE_DETAILS = "Rule Engine & Run Details";
+export const EVALUATION_SOURCE = "Source";
+export const EVALUATION_SOURCE_MANUAL = "Manual";
+export const EVALUATION_SOURCE_AUTO = "Auto";
+export const EVALUATION_ENGINE = "Engine";
+export const EVALUATION_RULES_APPLIED = "Rules applied";
+export const EVALUATION_CONTEXT = "Context";
+export const EVALUATION_CONTEXT_APPLIED = "Applied from context entities";
+export const EVALUATION_NO_RESULTS = "No evaluations";
 
 // Evaluation Settings page
 export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
@@ -93,7 +110,7 @@ export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
 
 // Manual feedback
-export const EVALUATION_MANUAL_FEEDBACK = "Manual Feedback";
+export const EVALUATION_MANUAL_FEEDBACK = "Feedback";
 export const EVALUATION_MANUAL_FEEDBACK_DESCRIPTION =
 	"Add your feedback on this response";
 export const EVALUATION_FEEDBACK_POSITIVE = "Good";
@@ -106,6 +123,113 @@ export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
 export const TRACE_FETCHING_ERROR = "Error fetching trace!";
+
+// Observability
+export const OBSERVABILITY_TITLE = "Telemetry";
+export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
+export const OBSERVABILITY_LOADING = "Loading...";
+export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";
+export const OBSERVABILITY_TRACES = "Traces";
+export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
+export const OBSERVABILITY_METRICS = "Metrics";
+export const OBSERVABILITY_LOGS = "Logs";
+export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
+export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
+export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
+export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
+export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
+export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
+export const OBSERVABILITY_BACK = "Back";
+export const OBSERVABILITY_DURATION = "Duration";
+export const OBSERVABILITY_TOKENS = "Tokens";
+export const OBSERVABILITY_COST = "Cost";
+export const OBSERVABILITY_MODEL = "Model";
+export const OBSERVABILITY_TRACE_ID = "Trace ID";
+export const OBSERVABILITY_SPAN_ID = "Span ID";
+export const OBSERVABILITY_SERVICE = "Service";
+export const OBSERVABILITY_APPLICATION = "Application";
+export const OBSERVABILITY_SYSTEM = "System";
+export const OBSERVABILITY_UNKNOWN_SERVICE = "unknown service";
+export const OBSERVABILITY_UNKNOWN_APP = "unknown app";
+export const OBSERVABILITY_PREVIOUS_SPAN = "Previous span";
+export const OBSERVABILITY_NEXT_SPAN = "Next span";
+export const OBSERVABILITY_SPAN_ATTRIBUTES = "Span Attributes";
+export const OBSERVABILITY_RESOURCE_ATTRIBUTES = "Resource Attributes";
+export const OBSERVABILITY_SCOPE_ATTRIBUTES = "Scope Attributes";
+export const OBSERVABILITY_LOG_ATTRIBUTES = "Log Attributes";
+export const OBSERVABILITY_METRIC_ATTRIBUTES = "Metric Attributes";
+export const OBSERVABILITY_RAW_RECORD = "Raw Record";
+export const OBSERVABILITY_RAW_LOG = "Raw Log";
+export const OBSERVABILITY_FIELD = "Field";
+export const OBSERVABILITY_VALUE = "Value";
+export const OBSERVABILITY_TYPES = "Types";
+export const OBSERVABILITY_MODELS = "Models";
+export const OBSERVABILITY_PROVIDERS = "Providers";
+export const OBSERVABILITY_MAX_COST = "Max Cost";
+export const OBSERVABILITY_APPLICATION_NAMES = "Application Names";
+export const OBSERVABILITY_SPAN_NAMES = "Span Names";
+export const OBSERVABILITY_ENVIRONMENTS = "Environments";
+export const OBSERVABILITY_SERVICES = "Services";
+export const OBSERVABILITY_SEVERITIES = "Severities";
+export const OBSERVABILITY_METRIC_NAMES = "Metric Names";
+export const OBSERVABILITY_METRIC_TYPES = "Metric Types";
+export const OBSERVABILITY_COPY_UNSUPPORTED =
+	"Copy to clipboard is not supported in this browser";
+export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
+export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
+export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const OBSERVABILITY_TIME = "Time";
+export const OBSERVABILITY_SEVERITY = "Severity";
+export const OBSERVABILITY_BODY = "Body";
+export const OBSERVABILITY_METRIC = "Metric";
+export const OBSERVABILITY_TYPE = "Type";
+export const OBSERVABILITY_UNIT = "Unit";
+export const OBSERVABILITY_LATEST = "Latest";
+export const OBSERVABILITY_POINTS = "Points";
+export const OBSERVABILITY_LAST_SEEN = "Last Seen";
+export const OBSERVABILITY_LOG_ENTRY = "Log entry";
+export const OBSERVABILITY_LATEST_METRIC_ATTRIBUTES =
+	"Latest Metric Attributes";
+export const OBSERVABILITY_LATEST_RESOURCE_ATTRIBUTES =
+	"Latest Resource Attributes";
+export const OBSERVABILITY_LATEST_SCOPE_ATTRIBUTES = "Latest Scope Attributes";
+export const OBSERVABILITY_LATEST_METRIC_POINT = "Latest Metric Point";
+export const OBSERVABILITY_LOADED_POINTS = "Loaded Points";
+export const OBSERVABILITY_CLOSE = "Close";
+export const OBSERVABILITY_FIELDS = "Fields";
+export const OBSERVABILITY_LOG_ATTRS = "Log Attrs";
+export const OBSERVABILITY_RESOURCE = "Resource";
+export const OBSERVABILITY_SCOPE = "Scope";
+export const OBSERVABILITY_RAW = "Raw";
+export const OBSERVABILITY_AUTO = "Auto";
+export const OBSERVABILITY_METRIC_POINTS = "Metric points";
+export const OBSERVABILITY_LOG_EVENTS = "Log events";
+export const OBSERVABILITY_SPANS = "Spans";
+export const OBSERVABILITY_TOTAL = "Total";
+export const OBSERVABILITY_PEAK = "Peak";
+export const OBSERVABILITY_SPAN_HIERARCHY = "Span Hierarchy";
+export const OBSERVABILITY_LOADING_SPANS = "Loading spans";
+export const OBSERVABILITY_SPAN_COUNT = (count: string) => `${count} spans`;
+export const OBSERVABILITY_SPAN_COUNT_WITH_COST = (count: string, cost: string) =>
+	`${count} spans / $${cost}`;
+export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
+	"Span hierarchy is not available for this span.";
+export const OBSERVABILITY_TREE = "Tree";
+export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_TIMELINE = "Timeline";
+export const OBSERVABILITY_GRAPH = "Graph";
+export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
+export const OBSERVABILITY_ADD = "Add";
+export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
+export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
+export const OBSERVABILITY_FULL_SCREEN = "Full screen";
+export const OBSERVABILITY_EVALUATION_PANEL = "Evaluation";
+export const OBSERVABILITY_ROW = "row";
+export const OBSERVABILITY_TRACE = "trace";
+export const OBSERVABILITY_SPAN = "span";
+export const OBSERVABILITY_SCOPE_META = "scope";
 
 // Cron
 export const CRON_RECURRING_TIME_INVALID =
@@ -1194,6 +1318,36 @@ export const PROMPT_HUB_SELECT_RULE = "Select a rule...";
 export const PROMPT_HUB_ALL_RULES_LINKED = "All rules already linked";
 export const PROMPT_HUB_NO_VERSION_CHANGE = "No version change";
 export const PROMPT_HUB_KEEP_DRAFT = "Keep as draft — not published";
+export const PROMPT_OTTER_TOOLTIP = "Improve this prompt with Otter";
+export const PROMPT_OTTER_TITLE = "Improve prompt with Otter";
+export const PROMPT_OTTER_DESCRIPTION = "Choose the dimensions Otter should review, then accept or decline patch suggestions directly into the editor.";
+export const PROMPT_OTTER_DIMENSIONS = "Improvement dimensions";
+export const PROMPT_OTTER_DIMENSIONS_HELP = "Edit, remove, or add review points before running the analysis.";
+export const PROMPT_OTTER_CRITERIA_CONCISE = "Be concise and remove redundant wording.";
+export const PROMPT_OTTER_CRITERIA_STRUCTURE = "Make the instruction structure easier to follow.";
+export const PROMPT_OTTER_CRITERIA_VARIABLES = "Preserve variables like {{variableName}} exactly.";
+export const PROMPT_OTTER_CRITERIA_OUTPUT = "Clarify output format, constraints, and success criteria.";
+export const PROMPT_OTTER_CRITERIA_AMBIGUITY = "Reduce ambiguity without changing the prompt intent.";
+export const PROMPT_OTTER_DEFAULT_DIMENSION = "Prompt quality";
+export const PROMPT_OTTER_CONFIG_NOT_FOUND = "Chat configuration not found. Configure Otter first.";
+export const PROMPT_OTTER_SUMMARY_PREFIX = "Prompt improvement generated";
+export const PROMPT_OTTER_SUGGESTION = "suggestion";
+export const PROMPT_OTTER_SUGGESTIONS = "suggestions";
+export const PROMPT_OTTER_ADD_DIMENSION = "Add another review point";
+export const PROMPT_OTTER_RUN = "Run prompt analysis";
+export const PROMPT_OTTER_RUN_SHORT = "Improve";
+export const PROMPT_OTTER_ANALYZING = "Analyzing prompt...";
+export const PROMPT_OTTER_CONTINUATION_PLACEHOLDER = "Ask Otter to also focus on tone, safety, examples, formatting...";
+export const PROMPT_OTTER_PENDING = "pending";
+export const PROMPT_OTTER_EMPTY_PROMPT = "Add prompt content before running Otter.";
+export const PROMPT_OTTER_ANALYSIS_FAILED = "Prompt analysis failed";
+export const PROMPT_OTTER_NO_SUGGESTIONS = "Otter did not find any precise prompt changes.";
+export const PROMPT_OTTER_ORIGINAL_NOT_FOUND = "This suggestion no longer matches the current prompt.";
+export const PROMPT_OTTER_EMPTY_STATE = "No prompt suggestions yet";
+export const PROMPT_OTTER_EMPTY_STATE_HELP = "Run Otter to compare concise, structured improvements against the current prompt.";
+export const PROMPT_OTTER_SHOW_CHANGE = "Show change";
+export const PROMPT_OTTER_REMOVE = "Remove";
+export const PROMPT_OTTER_ADD = "Add";
 
 // Rule Engine UI
 export const RULE_ENGINE_CREATE = "Create rule";
@@ -1212,6 +1366,8 @@ export const EDIT = "Edit";
 export const WRITE = "Write";
 export const PREVIEW = "Preview";
 export const BACK = "Back";
+export const ACCEPT = "Accept";
+export const DECLINE = "Decline";
 export const KEY = "Key";
 export const VALUE = "Value";
 export const AND = "AND";
@@ -1242,12 +1398,12 @@ export const CHAT_EMPTY_DESCRIPTION = "Query your telemetry data, create dashboa
 export const CHAT_CONFIGURE_PROVIDER = "Configure your AI provider in";
 export const CHAT_SETTINGS_LINK = "Chat Settings";
 export const CHAT_TO_GET_STARTED = "to get started.";
-export const CHAT_EXAMPLE_Q1 = "Create a GPU monitoring dashboard with utilization, memory, and temperature widgets";
-export const CHAT_EXAMPLE_Q2 = "What are my top 5 most expensive models this week and how much did they cost?";
-export const CHAT_EXAMPLE_Q3 = "Create a rule that triggers when request duration exceeds 5 seconds";
-export const CHAT_EXAMPLE_Q4 = "Show me error rate by provider over the last 24 hours as a line chart";
-export const CHAT_EXAMPLE_Q5 = "Create a prompt template for summarizing customer feedback with a tone variable";
-export const CHAT_EXAMPLE_Q6 = "List all my vault secrets and show which ones are used in evaluations";
+export const CHAT_EXAMPLE_Q1 = "Analyze the slowest traces from the last 24 hours and explain what is causing latency";
+export const CHAT_EXAMPLE_Q2 = "Show token usage and cost by model for this week, then highlight the biggest spend drivers";
+export const CHAT_EXAMPLE_Q3 = "Find recent errors for my busiest service and summarize the related traces and logs";
+export const CHAT_EXAMPLE_Q4 = "Create a dashboard for request volume, error rate, latency, token usage, and cost";
+export const CHAT_EXAMPLE_Q5 = "Run improvement analysis on traces with high cost and suggest where to reduce tokens";
+export const CHAT_EXAMPLE_Q6 = "Create a rule that alerts when a trace fails or request duration exceeds 5 seconds";
 export const CHAT_SQL_LABEL = "SQL Query";
 export const CHAT_COPY = "Copy";
 export const CHAT_COPIED = "Copied";
@@ -1282,6 +1438,19 @@ export const CHAT_SETTINGS_SAVE_FAILED = "Failed to save configuration";
 export const CHAT_SETTINGS_LOAD_FAILED = "Failed to load configuration";
 export const CHAT_SETTINGS_FILL_ALL = "Please fill in all fields";
 export const CHAT_SETTINGS_SELECT_PROVIDER_FIRST = "Select a provider first";
+export const CHAT_SETTINGS_CONFIG_TOOLTIP_TITLE = "Chat Configuration";
+export const CHAT_SETTINGS_CONFIG_PROVIDER = "Provider";
+export const CHAT_SETTINGS_CONFIG_MODEL = "Model";
+export const CHAT_SETTINGS_CONFIG_API_KEY = "API Key";
+export const CHAT_SETTINGS_CONFIG_API_KEY_CONFIGURED = "configured";
+export const CHAT_SETTINGS_CONFIG_PRICING = "Pricing (per message)";
+export const CHAT_SETTINGS_CONFIG_INPUT = "Input";
+export const CHAT_SETTINGS_CONFIG_OUTPUT = "Output";
+export const CHAT_SETTINGS_CONFIG_CONTEXT = "Context";
+export const CHAT_SETTINGS_CONFIG_COST_CALCULATION = "Cost calculation";
+export const CHAT_SETTINGS_CONFIG_COST_FORMULA =
+	"cost = (input_tokens / 1M) x input_price + (output_tokens / 1M) x output_price";
+export const CHAT_SETTINGS_OR = "or";
 export const CHAT_FAILED_TO_CREATE_CONVERSATION = "Failed to create conversation";
 export const CHAT_FAILED_TO_DELETE_CONVERSATION = "Failed to delete conversation";
 export const CHAT_ROWS = "rows";
@@ -1290,3 +1459,78 @@ export const CHAT_ERROR_PREFIX = "Error:";
 export const CHAT_SOMETHING_WENT_WRONG = "Something went wrong. Please try again.";
 export const CHAT_FAILED_TO_GET_RESPONSE = "Failed to get response";
 export const CHAT_NO_RESPONSE_STREAM = "No response stream";
+export const CHAT_OTTER_USAGE = "Otter usage";
+export const CHAT_OTTER_USAGE_DESCRIPTION =
+	"Token and cost attribution by feature, provider, model, and date.";
+export const CHAT_OTTER_USAGE_LOAD_FAILED = "Failed to load Otter usage";
+export const CHAT_OTTER_USAGE_EMPTY_TITLE = "No Otter usage recorded yet";
+export const CHAT_OTTER_USAGE_EMPTY_DESCRIPTION =
+	"Run a chat or AI analysis to see provider, model, token, and cost attribution here.";
+export const CHAT_OTTER_USAGE_TOTAL_TOKENS = "Total tokens";
+export const CHAT_OTTER_USAGE_TOTAL_COST = "Total cost";
+export const CHAT_OTTER_USAGE_PROMPT_COMPLETION = "Prompt / completion";
+export const CHAT_OTTER_USAGE_ACTIONS = "Otter actions";
+export const CHAT_OTTER_USAGE_CONVERSATIONS = "Chat conversations";
+export const CHAT_OTTER_USAGE_MESSAGES = "Chat messages";
+export const CHAT_OTTER_USAGE_AVG_TOKENS_PER_CHAT = "Avg tokens / chat";
+export const CHAT_OTTER_USAGE_AVG_COST_PER_CHAT = "Avg cost / chat";
+export const CHAT_OTTER_USAGE_PROVIDER_MODEL_SPEND = "Provider and model spend";
+export const CHAT_OTTER_USAGE_WHERE_USED = "Where Otter was used";
+export const CHAT_OTTER_USAGE_TYPE_CHAT = "Chat";
+export const CHAT_OTTER_USAGE_TYPE_TRACE_ANALYSIS = "Trace analysis";
+export const CHAT_OTTER_USAGE_TYPE_SPAN_ANALYSIS = "Span analysis";
+export const CHAT_OTTER_USAGE_TYPE_PROMPT_IMPROVEMENT = "Prompt improvement";
+export const CHAT_OTTER_USAGE_LOCATION_PROMPT_NEW = "New Prompt Hub improvement";
+export const CHAT_OTTER_USAGE_LOCATION_PROMPT_EDIT = "Prompt Hub improvement";
+export const CHAT_OTTER_USAGE_PROMPT_NEW_RUN = "New prompt improvement run";
+export const CHAT_OTTER_USAGE_PROMPT_EDIT_RUN = "Prompt improvement run";
+export const CHAT_OTTER_USAGE_UNKNOWN = "unknown";
+export const CHAT_OTTER_USAGE_TOKENS = (tokens: number | string) =>
+	`${tokens} tokens`;
+export const CHAT_OTTER_USAGE_ACTION_COUNT = (count: number | string) =>
+	`${count} actions`;
+export const CHAT_REFRESH = "Refresh";
+
+// Trace AI analysis
+export const TRACE_AI_IMPROVEMENT_TITLE = "AI Improvement";
+export const TRACE_AI_IMPROVEMENT_DESCRIPTION =
+	"Trace hierarchy analysis stored separately from normal Otter chat";
+export const TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION =
+	"Analyzes this individual span — prompt, output, cost, latency, tools, and context";
+export const TRACE_AI_DETAILS = "Details";
+export const TRACE_AI_SUGGESTED_FIX = "Suggested fix";
+export const TRACE_AI_TRY_IN_CHAT = "Try in Chat";
+export const TRACE_AI_CHAT_PROMPT_COPIED = "Chat prompt copied";
+export const TRACE_AI_CHAT_PROMPT_INTRO =
+	"I need help exploring this improvement opportunity found in my LLM trace:";
+export const TRACE_AI_CHAT_PROMPT_SPANS = "**Spans**:";
+export const TRACE_AI_CHAT_PROMPT_ISSUE = "**Issue**:";
+export const TRACE_AI_CHAT_PROMPT_DETAILS = "**Details**:";
+export const TRACE_AI_CHAT_PROMPT_SUGGESTED_FIX = "**Suggested fix**:";
+export const TRACE_AI_IMPROVEMENT_FLOW = "Improvement Flow";
+export const TRACE_AI_ANALYSIS_RUNNING = "Analysis is running.";
+export const TRACE_AI_ANALYZE = "Analyze";
+export const TRACE_AI_RERUN = "Rerun";
+export const TRACE_AI_ANALYZE_TRACE = "Analyze Trace";
+export const TRACE_AI_TAB_TITLE = "AI Analysis";
+export const TRACE_AI_LOAD_FAILED = "Failed to load AI improvement analysis";
+export const TRACE_AI_RUN_FAILED = "Failed to run AI improvement analysis";
+export const TRACE_AI_TIMEOUT = "Analysis timed out. Please try again.";
+export const TRACE_AI_FALLBACK_TRACE_LABEL = "Trace analysis";
+export const TRACE_AI_RUN_LABEL = (runNumber: number | string) => `Run ${runNumber}`;
+export const TRACE_AI_RUNNING_LABEL = "Running";
+export const TRACE_AI_TREND_VS_PREVIOUS = "vs previous run:";
+export const TRACE_AI_TREND_NEW = (count: number | string) => `${count} new`;
+export const TRACE_AI_TREND_RESOLVED = (count: number | string) =>
+	`${count} resolved`;
+export const TRACE_AI_TREND_NO_CHANGES = "no finding changes";
+export const TRACE_AI_TREND_COST = (delta: number | string) => `cost ${delta}`;
+export const TRACE_AI_SPAN_COUNT = (count: number | string) => `${count} spans`;
+export const TRACE_AI_TOKEN_COUNT = (count: number | string) => `${count} tokens`;
+export const TRACE_AI_DURATION_MS = (duration: number | string) => `${duration}ms`;
+export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
+export const TRACE_AI_EMPTY_DESCRIPTION =
+	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";
+export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
+	`${tokens} tokens saved`;
+export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;

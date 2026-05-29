@@ -2,10 +2,14 @@
 
 import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import { Card } from "@/components/ui/card";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
+import OtterUsageView from "./otter-usage-view";
+import ChatSettingsForm from "./chat-settings-form";
+import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
 import { useRootStore } from "@/store";
 import {
 	getChatConversations,
@@ -17,15 +21,18 @@ import {
 	getChatActions,
 } from "@/selectors/chat";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
 
 interface ChatLayoutProps {
 	initialConversationId: string | null;
+	initialView?: "chat" | "usage" | "settings";
 }
 
-export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
+export default function ChatLayout({ initialConversationId, initialView = "chat" }: ChatLayoutProps) {
 	const m = getMessage();
 	const router = useRouter();
+	const posthog = usePostHog();
 
 	const conversations = useRootStore(getChatConversations);
 	const activeId = useRootStore(getChatActiveId);
@@ -109,6 +116,16 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 		fetchConfig();
 	}, [fetchConversations, fetchConfig]);
 
+	useEffect(() => {
+		const event =
+			initialView === "usage"
+				? CLIENT_EVENTS.OTTER_USAGE_PAGE_VISITED
+				: initialView === "settings"
+					? CLIENT_EVENTS.OTTER_SETTINGS_PAGE_VISITED
+					: CLIENT_EVENTS.OTTER_CHAT_PAGE_VISITED;
+		posthog?.capture(event);
+	}, [initialView, posthog]);
+
 	const navigateTo = useCallback(
 		(id: string | null) => {
 			if (id) {
@@ -119,6 +136,14 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 		},
 		[router]
 	);
+
+	const navigateToUsage = useCallback(() => {
+		router.push("/chat/usage");
+	}, [router]);
+
+	const navigateToSettings = useCallback(() => {
+		router.push("/chat/settings");
+	}, [router]);
 
 	const handleNewConversation = useCallback(async (): Promise<string | null> => {
 		try {
@@ -178,7 +203,7 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 	}, [navigateTo]);
 
 	return (
-		<Card className="flex h-full w-full overflow-hidden border-stone-200 dark:border-stone-800">
+		<Card className="flex h-full w-full overflow-hidden border border-stone-200 dark:border-stone-800">
 			<ResizeablePanel
 				defaultWidth={280}
 				minWidth={220}
@@ -189,21 +214,32 @@ export default function ChatLayout({ initialConversationId }: ChatLayoutProps) {
 				<ConversationList
 					conversations={conversations}
 					activeId={activeId}
+					isUsageActive={initialView === "usage"}
+					isSettingsActive={initialView === "settings"}
 					onSelect={handleSelectConversation}
 					onDelete={handleDeleteConversation}
 					onNew={handleNewChat}
+					onUsage={navigateToUsage}
+					onSettings={navigateToSettings}
 					isLoading={loadingConversations}
 				/>
 			</ResizeablePanel>
 
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
-				<ChatPanel
-					conversationId={activeId}
-					hasConfig={hasConfig && !loadingConfig}
-					configInfo={configInfo}
-					onNewConversation={handleNewConversation}
-				/>
+				{initialView === "usage" ? (
+					<OtterUsageView />
+				) : initialView === "settings" ? (
+					<ChatSettingsForm />
+				) : (
+					<ChatPanel
+						conversationId={activeId}
+						hasConfig={hasConfig && !loadingConfig}
+						configInfo={configInfo}
+						onNewConversation={handleNewConversation}
+					/>
+				)}
 			</div>
+			<TraceDetailRequestSheet />
 		</Card>
 	);
 }

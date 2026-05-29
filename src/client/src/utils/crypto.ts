@@ -45,7 +45,10 @@ export function encryptValue(plaintext: string): string {
 	return `${ENCRYPTED_PREFIX}${ivBuf.toString("base64")}:${authTag.toString("base64")}:${encrypted}`;
 }
 
-export function decryptValue(encryptedValue: string): string {
+export function decryptValue(
+	encryptedValue: string,
+	{ logErrors = true }: { logErrors?: boolean } = {}
+): string {
 	if (!encryptedValue) return encryptedValue;
 	if (!encryptedValue.startsWith(ENCRYPTED_PREFIX)) return encryptedValue;
 
@@ -54,7 +57,7 @@ export function decryptValue(encryptedValue: string): string {
 		const parts = withoutPrefix.split(":");
 
 		if (parts.length !== 3) {
-			console.error("Invalid encrypted value format");
+			if (logErrors) console.error("Invalid encrypted value format");
 			return encryptedValue;
 		}
 
@@ -71,7 +74,7 @@ export function decryptValue(encryptedValue: string): string {
 
 		return decrypted;
 	} catch (error) {
-		console.error("Decryption failed, returning raw value:", error);
+		if (logErrors) console.error("Decryption failed, returning raw value:", error);
 		return encryptedValue;
 	}
 }
