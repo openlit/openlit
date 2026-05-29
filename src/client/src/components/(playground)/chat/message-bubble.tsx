@@ -208,6 +208,10 @@ function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
 			updateRequest({ spanId: ref.id });
 			return;
 		}
+		if (ref.spanId) {
+			updateRequest({ id: ref.id, spanId: ref.spanId });
+			return;
+		}
 		try {
 			const res = await fetch(`/api/metrics/request/trace/${ref.id}`);
 			const result = await res.json();

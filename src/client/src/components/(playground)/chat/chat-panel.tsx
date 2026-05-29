@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { usePostHog } from "posthog-js/react";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { useRootStore } from "@/store";
 import {
 	getChatMessages,
@@ -26,6 +28,7 @@ export default function ChatPanel({
 	configInfo,
 	onNewConversation,
 }: ChatPanelProps) {
+	const posthog = usePostHog();
 	const messages = useRootStore(getChatMessages);
 	const isStreaming = useRootStore(getChatIsStreaming);
 	const {
@@ -173,6 +176,10 @@ export default function ChatPanel({
 
 			// Add empty assistant message for streaming
 			addMessage({ role: "assistant", content: "", steps: [], createdAt: new Date().toISOString() });
+			posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_MESSAGE_SENT, {
+				conversationId: currentConvId,
+				hasExistingConversation: Boolean(conversationId),
+			});
 
 			try {
 				const controller = new AbortController();
@@ -253,12 +260,19 @@ export default function ChatPanel({
 							})
 							.catch(() => {});
 					}, 6000);
+					posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_MESSAGE_SUCCESS, {
+						conversationId: currentConvId,
+					});
 				}
 			} catch (e: any) {
 				if (e.name === "AbortError") {
 					// Remove empty assistant message on cancel
 					setMessages(messages.filter((m, i) => !(i === messages.length - 1 && m.role === "assistant" && !m.content)));
 				} else {
+					posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_MESSAGE_FAILURE, {
+						conversationId: currentConvId,
+						error: e.message || getMessage().CHAT_SOMETHING_WENT_WRONG,
+					});
 					updateLastMessage(`**${getMessage().CHAT_ERROR_PREFIX}** ${e.message || getMessage().CHAT_SOMETHING_WENT_WRONG}`);
 				}
 			} finally {
@@ -266,7 +280,7 @@ export default function ChatPanel({
 				abortControllerRef.current = null;
 			}
 		},
-		[conversationId, isStreaming, messages, onNewConversation, addMessage, updateLastMessage, updateLastMessageStep, setMessages, setIsStreaming, setInputValue, refreshConversation]
+		[conversationId, isStreaming, messages, onNewConversation, addMessage, posthog, updateLastMessage, updateLastMessageStep, setMessages, setIsStreaming, setInputValue, refreshConversation]
 	);
 
 	const handleExecuteQuery = useCallback(
@@ -279,14 +293,26 @@ export default function ChatPanel({
 				});
 				const result = await res.json();
 				if (!res.ok || result.err) {
+					posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_QUERY_EXECUTION_FAILURE, {
+						messageId,
+					});
 					return { err: typeof result.err === "string" ? result.err : JSON.stringify(result.err) };
 				}
+				posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_QUERY_EXECUTED, {
+					messageId,
+					rowsRead: result.stats?.rowsRead,
+					executionTimeMs: result.stats?.executionTimeMs,
+				});
 				return { data: result.data, stats: result.stats };
 			} catch (e: any) {
+				posthog?.capture(CLIENT_EVENTS.OTTER_CHAT_QUERY_EXECUTION_FAILURE, {
+					messageId,
+					error: e.message || getMessage().CHAT_QUERY_EXECUTION_FAILED,
+				});
 				return { err: e.message || getMessage().CHAT_QUERY_EXECUTION_FAILED };
 			}
 		},
-		[]
+		[posthog]
 	);
 
 	const showEmptyState = !conversationId && messages.length === 0 && !isStreaming;

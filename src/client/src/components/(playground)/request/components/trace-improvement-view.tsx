@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import {
 	CheckCircle2,
 	Circle,
@@ -33,6 +34,7 @@ import {
 } from "@/types/trace-analysis";
 import { useRequest } from "../request-context";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 type TraceAnalysisRunResponse = {
 	id: string;
@@ -518,6 +520,7 @@ export default function TraceImprovementView({
 }) {
 	const m = getMessage();
 	const router = useRouter();
+	const posthog = usePostHog();
 	const [, updateRequest] = useRequest();
 	const [analysis, setAnalysis] = useState<ImprovementResponse | null>(null);
 	const [streamedAnalysis, setStreamedAnalysis] = useState<TraceAnalysis | null>(null);
@@ -556,6 +559,11 @@ export default function TraceImprovementView({
 			const result = await res.json();
 			if (requestKeyRef.current !== requestKey) return;
 			setAnalysis(result);
+			posthog?.capture(CLIENT_EVENTS.AI_ANALYSIS_VIEWED, {
+				spanId: targetSpanId,
+				scope: targetScope,
+				runCount: result?.data?.runs?.length || 0,
+			});
 		} catch (err: any) {
 			if (requestKeyRef.current !== requestKey) return;
 			toast.error(err?.message || m.TRACE_AI_LOAD_FAILED, {
@@ -603,6 +611,12 @@ export default function TraceImprovementView({
 			setStreamedAnalysis(null);
 			setSelectedRunId(latestRun?.id || null);
 			setSteps((prev) => prev.map((step) => ({ ...step, status: "complete" })));
+			posthog?.capture(CLIENT_EVENTS.AI_ANALYSIS_RUN_SUCCESS, {
+				spanId,
+				scope,
+				runId: latestRun?.id,
+				runCount: runs.length,
+			});
 			return;
 		}
 		if (event.type === "error") {
@@ -654,11 +668,21 @@ export default function TraceImprovementView({
 		} catch (err: any) {
 			if (requestKeyRef.current !== requestKey) return;
 			if (err?.name === "AbortError") {
+				posthog?.capture(CLIENT_EVENTS.AI_ANALYSIS_RUN_FAILURE, {
+					spanId,
+					scope,
+					error: "timeout",
+				});
 				toast.error(m.TRACE_AI_TIMEOUT, {
 					id: "trace-improvement",
 				});
 				setSelectedRunId(null);
 			} else {
+				posthog?.capture(CLIENT_EVENTS.AI_ANALYSIS_RUN_FAILURE, {
+					spanId,
+					scope,
+					error: err?.message || m.TRACE_AI_RUN_FAILED,
+				});
 				toast.error(err?.message || m.TRACE_AI_RUN_FAILED, {
 					id: "trace-improvement",
 				});
