@@ -146,12 +146,11 @@ func TestCodexEndToEndOneTurn(t *testing.T) {
 	if llt.Response != lastMsg {
 		t.Errorf("llm.response: got %q want %q", llt.Response, lastMsg)
 	}
-	if len(llt.OutputToolCalls) != 1 || llt.OutputToolCalls[0].Name != "shell" {
-		t.Errorf("llm.output_tool_calls: %+v", llt.OutputToolCalls)
-	}
-	if len(llt.InputToolResults) != 1 || llt.InputToolResults[0].ID != "call_1" {
-		t.Errorf("llm.input_tool_results: %+v", llt.InputToolResults)
-	}
+	// Tool calls + tool results are NOT folded onto the LLM-turn
+	// span — they live on the dedicated `coding_agent.tool.call`
+	// span (asserted above via em.toolCalls). Re-encoding them in
+	// the turn's messages JSON used to balloon `gen_ai.input.messages`
+	// past the 16 KB cap, which broke the chat view's JSON parser.
 }
 
 // TestCodexMetadataModeDropsBodies verifies the content-capture matrix:
@@ -319,5 +318,48 @@ func TestCodexSubagentLinkFromSessionMeta(t *testing.T) {
 	}
 	if st.CodexSubagent.AgentRole != "code-reviewer" {
 		t.Errorf("agent_role: got %q", st.CodexSubagent.AgentRole)
+	}
+
+	// The session-root span emitted on SessionStart must carry the
+	// parent linkage. Without this, the Sessions list shows the
+	// subagent as a standalone row instead of folding it under the
+	// parent's chat.
+	if len(em.sessions) == 0 {
+		t.Fatalf("expected SessionStart to emit a session span")
+	}
+	gotParent := em.sessions[0].Extras["coding_agent.agent.parent_id"]
+	if gotParent != "cdx-parent" {
+		t.Errorf("SessionStart extras parent_id: got %q want cdx-parent", gotParent)
+	}
+
+	// A later Stop event in the same subagent session must re-stamp
+	// the parent_id on the llm.turn span — long subagents accumulate
+	// many turns and the UI's chat_id fold relies on the resource
+	// attr being present on *every* span this session emits, not just
+	// the root.
+	turn := "turn-sub-1"
+	stopBody, _ := json.Marshal(map[string]any{
+		"hook_event_name":        "Stop",
+		"session_id":             "cdx-child",
+		"turn_id":                turn,
+		"transcript_path":        rollout,
+		"last_assistant_message": "ok",
+		"timestamp":              time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err := handle(context.Background(), normalize.Input{
+		Vendor:         "codex",
+		Event:          "Stop",
+		Payload:        stopBody,
+		ContentCapture: "full",
+		Emit:           em,
+	}); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	if len(em.llmTurns) == 0 {
+		t.Fatalf("expected Stop to emit an llm.turn")
+	}
+	turnParent := em.llmTurns[0].Extras["coding_agent.agent.parent_id"]
+	if turnParent != "cdx-parent" {
+		t.Errorf("llm.turn extras parent_id: got %q want cdx-parent", turnParent)
 	}
 }

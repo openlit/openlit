@@ -191,18 +191,21 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// "generation" record per OTel GenAI.
 		emitTurnOnStop(in, p, cwd, permissionMode)
 		// Codex has NO `SessionEnd` event — the rollout just ends
-		// when the user closes the Codex CLI. Re-emit the session-
-		// root span on every Stop with `outcome=completed` so the
-		// session row in the UI lights up with the up-to-the-turn
-		// rollups. The exporter's `drainCodeCounters` reads the
-		// session-state LOC / commit / PR counters from disk and
-		// stamps them on the span, so each Stop refreshes those
-		// numbers. The deterministic SpanID guarantees this writes
-		// to the same `otel_traces` row instead of creating a
-		// duplicate.
-		s := buildSession(in, p, vcs, cls, permissionMode, cwd, "ended", parseEventTime(p.Timestamp))
-		s.Outcome = semconv.CodingAgentSessionOutcomeCompleted
-		_ = in.Emit.EmitSession(s)
+		// when the user closes the Codex CLI. We periodically
+		// re-emit the session-root span so the Sessions row lights
+		// up with up-to-the-turn rollups. Deterministic SpanIDs
+		// collapse all re-emits onto the same `otel_traces` row,
+		// so this is purely a wire / CPU optimisation; throttle to
+		// at most once per ~60s of wall-clock so long Codex
+		// sessions (which can fire dozens of Stop events per
+		// minute) don't ship a redundant session-root span per
+		// turn.
+		if shouldEmitCodexSessionRoot(p.SessionID) {
+			s := buildSession(in, p, vcs, cls, permissionMode, cwd, "ended", parseEventTime(p.Timestamp))
+			s.Outcome = semconv.CodingAgentSessionOutcomeCompleted
+			_ = in.Emit.EmitSession(s)
+			markCodexSessionRootEmitted(p.SessionID)
+		}
 		// Low-cost loop event so the Sessions tab can count turns
 		// without scanning the LLM-turn span every time.
 		return in.Emit.EmitEvent(normalize.EventEmission{
@@ -230,6 +233,45 @@ func handle(ctx context.Context, in normalize.Input) error {
 			},
 		})
 	}
+}
+
+// codexSessionRootMinInterval is the minimum wall-clock between
+// session-root re-emits during a Codex chat. Deterministic SpanIDs
+// collapse repeated emissions onto the same `otel_traces` row, but
+// the OTLP send still costs CPU + bytes on every Stop event. 60s is
+// a sane middle ground: dashboards refresh fast enough that the
+// Sessions row lights up within a single observation cycle, while
+// dense back-and-forth sessions don't ship one duplicate root span
+// per turn.
+const codexSessionRootMinInterval = 60 * time.Second
+
+// shouldEmitCodexSessionRoot reports whether enough wall-clock has
+// passed since the last session-root emission for this session to
+// justify another. Always allows the first emission (cache miss).
+func shouldEmitCodexSessionRoot(sessionID string) bool {
+	if sessionID == "" {
+		return true
+	}
+	st := sessionstate.Load(sessionID, "codex")
+	if st == nil || st.LastSessionRootEmitAt.IsZero() {
+		return true
+	}
+	return time.Since(st.LastSessionRootEmitAt) >= codexSessionRootMinInterval
+}
+
+// markCodexSessionRootEmitted records that we just emitted the
+// session-root span so the next Stop within the throttle window
+// skips re-emission.
+func markCodexSessionRootEmitted(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	st := sessionstate.Load(sessionID, "codex")
+	if st == nil {
+		st = &sessionstate.State{}
+	}
+	st.LastSessionRootEmitAt = time.Now()
+	sessionstate.Save(sessionID, "codex", st)
 }
 
 // buildSession produces the canonical `coding_agent.session` span. We
@@ -332,13 +374,17 @@ func buildToolCall(in normalize.Input, p codexPayload, cwd string) normalize.Too
 // emitTurnOnStop builds and emits one `coding_agent.llm.turn` span
 // from the cached turn fragment + a transcript-derived token snapshot.
 // This is the OTel-canonical "generation" record: a single LLM call
-// with input messages, output messages, tool refs, tokens, and cost.
+// with input messages, output messages, tokens, and cost.
 //
 // The shape of `gen_ai.input.messages` and `gen_ai.output.messages` is
 // produced centrally in `cli/internal/otlp/attrs.go` from the typed
-// fields we set here (Prompt, Response, InputToolResults,
-// OutputToolCalls). Adapters never serialise that JSON themselves —
-// keeping the OTel GenAI spec-compliance check in one place.
+// fields we set here (Prompt, Response). Adapters never serialise
+// that JSON themselves — keeping the OTel GenAI spec-compliance check
+// in one place. Tool calls + tool results that bracket this turn are
+// emitted as their own `coding_agent.tool.call` spans rather than
+// folded into the LLM-turn messages JSON, so a single turn's
+// messages stay well under the span-attribute size cap regardless of
+// how chatty the tool layer was.
 func emitTurnOnStop(in normalize.Input, p codexPayload, cwd, permissionMode string) {
 	st := sessionstate.Load(p.SessionID, "codex")
 	if st == nil {
@@ -398,7 +444,11 @@ func emitTurnOnStop(in normalize.Input, p codexPayload, cwd, permissionMode stri
 		}
 		turn.CacheReadTokens = snap.TurnUsage.CachedInputTokens
 		if rate := pricing.Lookup(turn.Model); turn.Model != "" {
-			turn.CostUSD = rate.Cost(turn.InputTokens, turn.OutputTokens, turn.CacheReadTokens)
+			// OpenAI's prompt caching is implicit — the rollout
+			// only surfaces `cached_input_tokens` (reads). There
+			// is no separate cache-write counter, so we pass 0
+			// for cacheCreation.
+			turn.CostUSD = rate.Cost(turn.InputTokens, turn.OutputTokens, turn.CacheReadTokens, 0)
 		}
 		if snap.TurnUsage.ReasoningOutputTokens > 0 {
 			if turn.Extras == nil {
@@ -442,22 +492,12 @@ func emitTurnOnStop(in normalize.Input, p codexPayload, cwd, permissionMode stri
 		if s := strings.TrimSpace(frag.LastAssistantMessage); s != "" {
 			turn.Response = s
 		}
-		if len(frag.Tools) > 0 {
-			turn.OutputToolCalls = make([]normalize.ToolCallPart, 0, len(frag.Tools))
-			turn.InputToolResults = make([]normalize.ToolResultPart, 0, len(frag.Tools))
-			for _, tool := range frag.Tools {
-				turn.OutputToolCalls = append(turn.OutputToolCalls, normalize.ToolCallPart{
-					ID:        tool.ToolUseID,
-					Name:      tool.ToolName,
-					Arguments: tool.ToolInput,
-				})
-				turn.InputToolResults = append(turn.InputToolResults, normalize.ToolResultPart{
-					ID:      tool.ToolUseID,
-					Result:  tool.ToolResponse,
-					IsError: tool.Status == "error",
-				})
-			}
-		}
+		// Tool calls + tool results are captured as their own
+		// `coding_agent.tool.call` spans (with
+		// `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result`)
+		// at PreToolUse / PostToolUse time. We deliberately do NOT
+		// duplicate them onto the LLM-turn messages JSON; the chat
+		// view interleaves the two span kinds by timestamp.
 	}
 
 	_ = in.Emit.EmitLLMTurn(turn)
@@ -661,6 +701,18 @@ func statusFromValue(v any) string {
 				}
 				return "error"
 			}
+		}
+		// Positive signal: a non-empty tool response with no
+		// explicit error / success / exit_code field is most often
+		// a successful tool call that simply returned a plain
+		// payload (Codex's `read_file` is a common shape — just a
+		// `{ "content": "..." }` body). Treating these as
+		// completed lets dashboards show "✓ tool" instead of a
+		// faded "unknown" pill. We deliberately only do this when
+		// there's at least one field — an empty map is still
+		// unknown.
+		if len(x) > 0 {
+			return "completed"
 		}
 	case string:
 		return canonicalStatus(x)

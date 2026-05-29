@@ -37,6 +37,18 @@ need curl
 need tar
 need uname
 
+# `sha256sum` lives on Linux, `shasum` on macOS — fall back gracefully
+# below. We don't fatal on missing either: if neither tool is present,
+# the verifier degrades to a clear warning instead of a hard failure,
+# matching how every other "official" CLI installer behaves on systems
+# without GNU coreutils (e.g. minimal Alpine images).
+sha256_cmd=""
+if command -v sha256sum >/dev/null 2>&1; then
+	sha256_cmd="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+	sha256_cmd="shasum -a 256"
+fi
+
 # --- Detect OS + arch -------------------------------------------------------
 
 uname_os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -76,6 +88,29 @@ trap 'rm -rf "$tmpdir"' EXIT INT TERM
 
 if ! curl -fsSL --retry 3 --retry-delay 1 -o "$tmpdir/$asset" "$url"; then
 	fatal "download failed: $url"
+fi
+
+# Pull the matching `.sha256` sidecar uploaded by cli-release.yml and
+# verify the tarball before extracting. The sidecar is best-effort —
+# if the release predates the sidecar upload or the network drops the
+# second request, we warn but continue rather than hard-fail (the
+# tarball was already served over HTTPS from GitHub, so we're paying
+# defense-in-depth, not establishing the only trust anchor).
+sha_url="${url}.sha256"
+if curl -fsSL --retry 3 --retry-delay 1 -o "$tmpdir/$asset.sha256" "$sha_url" 2>/dev/null; then
+	if [ -n "$sha256_cmd" ]; then
+		expected=$(awk '{print $1}' "$tmpdir/$asset.sha256")
+		# shellcheck disable=SC2086  # $sha256_cmd is a deliberate split for `shasum -a 256`.
+		actual=$($sha256_cmd "$tmpdir/$asset" | awk '{print $1}')
+		if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+			fatal "checksum mismatch for ${asset} — expected ${expected:-<empty>}, got ${actual}. Refusing to install a tampered tarball."
+		fi
+		info "Verified sha256 ${actual}"
+	else
+		warn "no sha256/shasum command found — skipping checksum verification"
+	fi
+else
+	warn "sha256 sidecar not available at ${sha_url}; skipping checksum verification"
 fi
 
 if ! tar -xzf "$tmpdir/$asset" -C "$tmpdir"; then

@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -174,6 +173,35 @@ type State struct {
 	// Stamped on every subsequent span this session emits so the UI
 	// can fold subagent runs under their spawning chat.
 	CodexSubagent *CodexSubagentLink `json:"codex_subagent,omitempty"`
+
+	// ActiveTaskToolUseID is the `tool_use_id` of the most recent
+	// Claude Code Task tool invocation. Claude Code's subagents don't
+	// fire intermediate hooks — only PreToolUse(Task) at spawn time
+	// and SubagentStop at completion. Caching the spawning tool-use
+	// id here lets us echo it onto the SubagentStop span as
+	// `gen_ai.tool.call.id`, which the chat view uses to group the
+	// Task tool call + subagent block into one collapsible item.
+	// Cleared on SubagentStop.
+	ActiveTaskToolUseID string `json:"active_task_tool_use_id,omitempty"`
+
+	// SessionStartedAt is the wall-clock at which we first saw a
+	// `SessionStart` (or equivalent) lifecycle event for this
+	// (sessionID, vendor) pair. Cached so SessionEnd / sessionEnd can
+	// compute a real duration without depending on the vendor to
+	// re-ship the start time. Previously Claude Code rolled this in
+	// as `StartedAt = time.Now()` at *both* events, producing ~0ms
+	// session durations across the board.
+	SessionStartedAt time.Time `json:"session_started_at,omitempty"`
+
+	// LastSessionRootEmitAt is the wall-clock of the most recent
+	// `coding_agent.session` span emission. Used by Codex (which has
+	// no SessionEnd hook and would otherwise re-emit the session-
+	// root span on EVERY Stop event) to throttle re-emits to once
+	// every ~60s. Deterministic SpanIDs ensure all re-emits collapse
+	// onto a single `otel_traces` row in ClickHouse, but throttling
+	// still saves the OTLP serialise + send cost on long sessions
+	// with dozens of turns.
+	LastSessionRootEmitAt time.Time `json:"last_session_root_emit_at,omitempty"`
 }
 
 // CodexTurnFragment is the per-turn state Codex's adapter accumulates
@@ -308,27 +336,19 @@ var diskMu sync.Mutex
 // `lockPath` and runs fn while holding it. The lock file is created
 // next to the cache entry (suffixed `.lock`) so concurrent hook
 // processes for the same session serialise on the same descriptor.
-// Best-effort: if flock fails for any reason (Windows, exotic FS) we
-// fall through to the in-process mutex which is at least correct for
-// the common single-host hook invocation pattern.
-func withFileLock(lockPath string, fn func()) {
-	if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
-		fn()
-		return
-	}
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		fn()
-		return
-	}
-	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		fn()
-		return
-	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-	fn()
-}
+//
+// On Unix, the real implementation in `flock_unix.go` uses
+// `syscall.Flock` for true cross-process serialisation. On Windows
+// the stub in `flock_windows.go` falls through to the in-process
+// `diskMu` mutex — that's correct for the common single-host case
+// and avoids the cgo dance of LockFileEx for what is, today, a Unix-
+// first dev tool. Both implementations always invoke `fn` exactly
+// once, regardless of whether the lock attempt succeeded — the
+// underlying contract is "best-effort serialisation; never block
+// the hook".
+//
+// The platform-specific definitions live in the build-tagged sibling
+// files in this package.
 
 // Load returns the cached state for the (sessionID, vendor) pair.
 // Always returns a non-nil State even when the cache file is missing

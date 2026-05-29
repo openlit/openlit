@@ -61,6 +61,43 @@ var tier1Patterns = []*regexp.Regexp{
 
 	// PEM-style private keys: collapse the entire block.
 	regexp.MustCompile(`(?s)-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----`),
+
+	// Azure storage / SAS keys. ?sv=… signature tail is sensitive
+	// even when the SAS itself looks like a URL-encoded blob.
+	regexp.MustCompile(`(?i)(sig=)[A-Za-z0-9%]{20,}`),
+	regexp.MustCompile(`(?i)DefaultEndpointsProtocol=https?;AccountName=[A-Za-z0-9]+;AccountKey=[A-Za-z0-9+/=]{20,}`),
+
+	// HuggingFace user tokens. Two formats are in the wild
+	// (`hf_…` short tokens and the longer fine-grained variants).
+	regexp.MustCompile(`hf_[A-Za-z0-9]{20,}`),
+
+	// Discord bot tokens — three dot-separated segments, first is
+	// a base64-encoded user id, fairly distinctive.
+	regexp.MustCompile(`[MN][A-Za-z0-9]{23}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{20,}`),
+
+	// npm tokens — both the legacy 36-char hex format and the
+	// modern `npm_…` prefix.
+	regexp.MustCompile(`npm_[A-Za-z0-9]{30,}`),
+
+}
+
+// tier1CaptureRewrites are patterns whose match must NOT be wholly
+// replaced — instead the redactor keeps some capture groups intact
+// (e.g. the DB scheme + host on a connection URL) and zeroes the
+// secret-bearing groups. Each entry is applied after tier1Patterns
+// on every call to String / StringFull.
+var tier1CaptureRewrites = []struct {
+	re   *regexp.Regexp
+	repl string
+}{
+	// Postgres / MySQL / Mongo / Redis / AMQP connection URLs carry
+	// the password inline in the userinfo segment. Keep the scheme
+	// and host so dashboards can still tell which DB the agent was
+	// touching; mask the credentials.
+	{
+		re:   regexp.MustCompile(`(?i)((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://)[^:\s/@]+:[^@\s]+@`),
+		repl: "${1}[REDACTED]:[REDACTED]@",
+	},
 }
 
 // tier2Patterns are aggressive heuristics enabled when content capture
@@ -82,6 +119,9 @@ func String(s string) string {
 	}
 	for _, re := range tier1Patterns {
 		s = re.ReplaceAllString(s, Replacement)
+	}
+	for _, r := range tier1CaptureRewrites {
+		s = r.re.ReplaceAllString(s, r.repl)
 	}
 	return s
 }

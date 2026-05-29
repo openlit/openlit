@@ -175,6 +175,49 @@ Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true)
 
+## 🤖 AI Coding Agents (Claude Code, Cursor, Codex)
+
+OpenLIT also ships a CLI that brings the same observability story to your
+**local coding agents** — Claude Code, Cursor, and Codex. No SDK to import:
+the CLI installs vendor hooks that emit OpenTelemetry traces for every
+session, prompt, tool call, file edit, subagent spawn, and code-impact event.
+
+### Install the CLI
+
+```bash
+# macOS + Linux
+curl -fsSL https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.sh | sh
+
+# Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.ps1 | iex
+```
+
+### Wire it into your agents
+
+```bash
+openlit configure --endpoint http://127.0.0.1:4318 [--api-key <key>]
+openlit coding install --vendor=all   # or: cursor / claude-code / codex
+```
+
+### Inspect what's running
+
+```bash
+openlit doctor    # config + OTLP reachability + installed plugins
+```
+
+Sessions, prompts, costs, and per-vendor breakdowns appear in the OpenLIT
+dashboard at `http://127.0.0.1:3000/coding-agents`. To detach later:
+
+```bash
+openlit coding uninstall --vendor=all
+```
+
+> Coding-agent observability is OTel-native end-to-end: traces use the
+> [`gen_ai.*`](https://opentelemetry.io/docs/specs/semconv/gen-ai/) semantic
+> conventions alongside an `coding_agent.*` extension namespace. Anything
+> that speaks OTLP (Datadog, Honeycomb, Grafana Tempo, raw OTel Collector)
+> can consume the same data — OpenLIT is just one possible viewer.
+
 ## 📦 Supported Integrations
 
 OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector databases** with a single line of code. Each integration produces [OpenTelemetry-native](https://opentelemetry.io/) traces and metrics. Click any card to view the integration docs.

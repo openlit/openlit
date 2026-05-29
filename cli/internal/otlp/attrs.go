@@ -45,6 +45,7 @@ import (
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/sdk/go/semconv"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -116,7 +117,12 @@ func setSessionAttrs(span trace.Span, s normalize.Session, scrub scrubFn) {
 		setStr(span, semconv.GenAIResponseModel, s.Model, scrub)
 	}
 	if s.Provider != "" {
+		// Dual-stamp until every downstream consumer is on
+		// gen_ai.provider.name. See sdk/go/semconv/genai.go for the
+		// rationale — OTel 1.36 renamed `gen_ai.system` and we want
+		// both keys present during the transition window.
 		setStr(span, semconv.GenAISystem, s.Provider, scrub)
+		setStr(span, semconv.GenAIProviderName, s.Provider, scrub)
 	}
 
 	setStr(span, semconv.CodingAgentSessionOutcome, s.Outcome, scrub)
@@ -206,6 +212,11 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn, capt
 	span.SetAttributes(attribute.String(semconv.CodingAgentHookSchemaVersion, semconv.CodingAgentSchemaVersion))
 	setStr(span, semconv.CodingAgentSessionID, t.SessionID, scrub)
 	setStr(span, semconv.CodingAgentAgentID, t.AgentID, scrub)
+	// OTel GenAI canonical op.name for tool spans. Without this the
+	// GenAI dashboards can't classify the span as a tool execution
+	// (they fall through to "internal" and the tool-latency widget
+	// goes blank).
+	setStr(span, semconv.GenAIOperationName, "execute_tool", scrub)
 	setStr(span, semconv.GenAIToolName, t.ToolName, scrub)
 	setStr(span, semconv.GenAIToolCallID, t.ToolUseID, scrub)
 	setStr(span, semconv.CodingAgentToolGroupID, t.GroupID, scrub)
@@ -242,11 +253,23 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn, capt
 	setStr(span, semconv.CodingAgentClient, t.Vendor, scrub)
 
 	if t.Errored {
+		// Stamp the boolean alongside the error.type string so
+		// dashboards filtering on `errored = true` work without
+		// the implicit "error.type non-empty" idiom (which fires
+		// false positives on shell tools that surface stderr but
+		// completed successfully).
+		span.SetAttributes(attribute.Bool("coding_agent.tool.errored", true))
 		setStr(span, semconv.ErrorType, nonEmpty(t.FailureType, "tool_error"), scrub)
 		setStr(span, "exception.message", truncate(t.ErrorMsg, 1024), scrub)
 		if t.IsInterrupt {
 			span.SetAttributes(attribute.Bool("coding_agent.tool.interrupted", true))
 		}
+		// Set the OTel span status to Error so the trace tree shows
+		// the failed tool span in red and parent rollups treat the
+		// span as failed. Previously failed tools left the span
+		// status Unset (visually "ok") which masked breakage in
+		// the chat view.
+		span.SetStatus(codes.Error, truncate(nonEmpty(t.ErrorMsg, "tool_error"), 256))
 	}
 	// Bodies are gated through bodyAllowed so adapters can't
 	// accidentally leak args/result when capture is metadata/minimal.
@@ -293,6 +316,7 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 	setStr(span, "gen_ai.operation.name", "chat", scrub)
 	if sys := inferProvider(t.Model, t.Vendor); sys != "" {
 		setStr(span, semconv.GenAISystem, sys, scrub)
+		setStr(span, semconv.GenAIProviderName, sys, scrub)
 	}
 	if t.Model != "" {
 		setStr(span, semconv.GenAIRequestModel, t.Model, scrub)
@@ -311,7 +335,12 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 		span.SetAttributes(attribute.Int64("gen_ai.usage.cache.creation_input_tokens", t.CacheCreationTokens))
 	}
 	if t.UserEmail != "" {
+		// Mirror onto both keys until consumers cut over. `user.email`
+		// is the legacy `coding_agent.*` shape; `gen_ai.request.user`
+		// is the OTel GenAI canonical (matches the per-request user
+		// identifier semconv).
 		setStr(span, "user.email", t.UserEmail, scrub)
+		setStr(span, semconv.GenAIRequestUser, t.UserEmail, scrub)
 	}
 	if t.AssistantMessageOnly {
 		setStr(span, "coding_agent.llm.turn.kind", "assistant_only", scrub)
@@ -335,7 +364,10 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 		span.SetAttributes(attribute.Int64("coding_agent.llm.thought.duration_ms", t.ThoughtMs))
 	}
 	if len(t.AttachmentPaths) > 0 {
-		span.SetAttributes(attribute.StringSlice("coding_agent.llm.turn.attachment.paths", t.AttachmentPaths))
+		// Paths may be absolute and rooted under $HOME — scrub
+		// every element so token/secret patterns embedded in
+		// filenames (e.g. `/tmp/sk_live_…`) don't leak.
+		setStrSlice(span, "coding_agent.llm.turn.attachment.paths", t.AttachmentPaths, scrub)
 		span.SetAttributes(attribute.Int("coding_agent.llm.turn.attachment.count", len(t.AttachmentPaths)))
 	}
 	for k, v := range t.Extras {
@@ -365,36 +397,38 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 // `gen_ai.input.messages` per the OTel GenAI semantic conventions
 // (https://github.com/open-telemetry/semantic-conventions-genai →
 // docs/gen-ai/gen-ai-spans.md). Each message has `role` + `parts`;
-// each text part uses `{"type":"text","content":"..."}`; tool-call
-// responses use `{"type":"tool_call_response","id":...,"result":...}`.
+// each text part uses `{"type":"text","content":"..."}`.
+//
+// Design note — we deliberately do NOT serialise `tool_call_response`
+// parts here even though the OTel GenAI spec allows them. Vendors
+// like Claude Code and Codex bundle every preceding tool's result
+// body into each turn's input (Anthropic / OpenAI message format),
+// which makes a single turn's messages JSON balloon well past the
+// 16 KB span-attribute cap — at which point the value gets truncated,
+// the chat view's JSON parser fails, and the entire truncated blob
+// falls back to rendering as a "user" message bubble.
+//
+// The canonical source for tool inputs / outputs is the dedicated
+// `coding_agent.tool.call` span (which carries
+// `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result`). The
+// chat view interleaves those spans with LLM turns by timestamp, so
+// nothing is lost — the conversation reconstructs from per-turn LLM
+// spans + per-tool tool.call spans without duplicative narration.
 //
 // Returns "" when there is nothing to record so adapters don't stamp
 // an empty `[]`.
 func buildInputMessagesJSON(t normalize.LLMTurn) string {
 	type part map[string]any
 	type message map[string]any
-	var msgs []message
 
-	if len(t.InputToolResults) > 0 {
-		parts := make([]part, 0, len(t.InputToolResults))
-		for _, r := range t.InputToolResults {
-			p := part{"type": "tool_call_response", "id": r.ID, "result": r.Result}
-			if r.IsError {
-				p["is_error"] = true
-			}
-			parts = append(parts, p)
-		}
-		msgs = append(msgs, message{"role": "tool", "parts": parts})
-	}
-	if s := strings.TrimSpace(t.Prompt); s != "" {
-		msgs = append(msgs, message{
-			"role":  "user",
-			"parts": []part{{"type": "text", "content": t.Prompt}},
-		})
-	}
-	if len(msgs) == 0 {
+	s := strings.TrimSpace(t.Prompt)
+	if s == "" {
 		return ""
 	}
+	msgs := []message{{
+		"role":  "user",
+		"parts": []part{{"type": "text", "content": t.Prompt}},
+	}}
 	body, err := json.Marshal(msgs)
 	if err != nil {
 		return ""
@@ -404,30 +438,21 @@ func buildInputMessagesJSON(t normalize.LLMTurn) string {
 
 // buildOutputMessagesJSON produces the OTel-canonical JSON for
 // `gen_ai.output.messages`. The output is a single assistant message
-// with text + tool_call parts and a `finish_reason` at the message
-// level (per the spec example, line 79 of docs/gen-ai/gen-ai-spans.md).
+// with the response text and a `finish_reason` at the message level
+// (per the spec example, line 79 of docs/gen-ai/gen-ai-spans.md).
+//
+// See `buildInputMessagesJSON` for why tool_call parts are not
+// serialised here even though the OTel GenAI spec allows them: the
+// `coding_agent.tool.call` span is the canonical source for tool
+// arguments + results, and bundling them into the LLM-turn message
+// blob blows past the span-attribute size cap.
 func buildOutputMessagesJSON(t normalize.LLMTurn) string {
 	type part map[string]any
 	type message map[string]any
 
-	parts := make([]part, 0, 1+len(t.OutputToolCalls))
+	parts := make([]part, 0, 1)
 	if s := strings.TrimSpace(t.Response); s != "" {
 		parts = append(parts, part{"type": "text", "content": t.Response})
-	}
-	for _, c := range t.OutputToolCalls {
-		entry := part{"type": "tool_call", "id": c.ID, "name": c.Name}
-		if c.Arguments != "" {
-			// Embed structured arguments when they're valid JSON;
-			// fall back to a raw string field otherwise so we never
-			// corrupt the envelope.
-			var v any
-			if err := json.Unmarshal([]byte(c.Arguments), &v); err == nil {
-				entry["arguments"] = v
-			} else {
-				entry["arguments"] = c.Arguments
-			}
-		}
-		parts = append(parts, entry)
 	}
 	if len(parts) == 0 && len(t.FinishReasons) == 0 {
 		return ""
@@ -467,7 +492,11 @@ func setSubagentAttrs(span trace.Span, s normalize.Subagent, scrub scrubFn) {
 		setStr(span, "vcs.ref.head.name", s.GitBranch, scrub)
 	}
 	if s.ToolCallID != "" {
-		setStr(span, "coding_agent.subagent.tool_call_id", s.ToolCallID, scrub)
+		// Canonical OTel GenAI key for tool-call linkage. Stamping
+		// this on the subagent span lets the UI join (parent's Task
+		// tool call ↔ subagent block) by id, which is what the chat
+		// view's "Subagent" collapsible expects.
+		setStr(span, semconv.GenAIToolCallID, s.ToolCallID, scrub)
 	}
 	if s.IsParallelWorker {
 		span.SetAttributes(attribute.Bool("coding_agent.subagent.parallel_worker", true))
@@ -485,7 +514,10 @@ func setSubagentAttrs(span trace.Span, s normalize.Subagent, scrub scrubFn) {
 		span.SetAttributes(attribute.Int("coding_agent.subagent.loop_count", s.LoopCount))
 	}
 	if len(s.ModifiedFiles) > 0 {
-		span.SetAttributes(attribute.StringSlice("coding_agent.subagent.modified_files", s.ModifiedFiles))
+		// Subagent file lists are typically absolute paths under
+		// the user's workspace — route through scrub so any
+		// embedded token-shaped substrings get redacted.
+		setStrSlice(span, "coding_agent.subagent.modified_files", s.ModifiedFiles, scrub)
 		span.SetAttributes(attribute.Int("coding_agent.subagent.modified_files.count", len(s.ModifiedFiles)))
 	}
 }
@@ -567,6 +599,27 @@ func setStr(span trace.Span, key, val string, scrub scrubFn) {
 		val = scrub(val)
 	}
 	span.SetAttributes(attribute.String(key, val))
+}
+
+// setStrSlice is the slice counterpart to setStr — every element is
+// passed through the scrub closure before the slice crosses the wire.
+// Use this for any attribute whose elements may contain user-supplied
+// content (absolute file paths, command lines, free-text args). The
+// raw `attribute.StringSlice` constructor bypasses redaction, which
+// is fine for fully-controlled enum values (vendor names, finish
+// reasons) but a leak for everything else.
+func setStrSlice(span trace.Span, key string, vals []string, scrub scrubFn) {
+	if len(vals) == 0 {
+		return
+	}
+	if scrub != nil {
+		scrubbed := make([]string, len(vals))
+		for i, v := range vals {
+			scrubbed[i] = scrub(v)
+		}
+		vals = scrubbed
+	}
+	span.SetAttributes(attribute.StringSlice(key, vals))
 }
 
 // setAnyAttr handles the heterogeneous values that flow through

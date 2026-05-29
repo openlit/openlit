@@ -15,6 +15,7 @@ import (
 
 	"github.com/openlit/openlit/cli/internal/coding"
 	"github.com/openlit/openlit/cli/internal/configure"
+	"github.com/openlit/openlit/cli/internal/doctor"
 	"github.com/openlit/openlit/cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +44,9 @@ v1 ships the 'coding' subcommand group for AI-coding-agent observability:
   openlit coding launch claude
   openlit coding hook --vendor=cc --event=SessionStart
 
+Run 'openlit doctor' to diagnose configuration, OTLP reachability,
+and installed plugins in one shot.
+
 Future subcommand groups (prompts, traces, eval) will plug in alongside.
 
 Configure the OTLP endpoint and (optional) API key via:
@@ -70,6 +74,7 @@ Configure the OTLP endpoint and (optional) API key via:
 func registerSubcommands(root *cobra.Command) {
 	root.AddCommand(coding.NewCmd())
 	root.AddCommand(configure.NewCmd())
+	root.AddCommand(doctor.NewCmd())
 	root.AddCommand(version.NewCmd())
 
 	// Future slots — left here intentionally as comments so contributors

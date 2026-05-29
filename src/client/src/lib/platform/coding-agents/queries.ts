@@ -46,10 +46,9 @@ import type {
 	CodingAgentClassification,
 	CodingAgentClassificationDispute,
 } from "./classifier";
+import { buildSessionsHaving, escape } from "./query-builders";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+export { buildSessionsHaving } from "./query-builders";
 
 // Wire-format sort keys for the Sessions tab. Mapped to ClickHouse
 // columns via SESSIONS_SORT_COLUMNS below; `latest` is the default
@@ -88,7 +87,15 @@ export interface ListSessionsOptions {
 	// of the `sessions_raw` CTE — see `SESSIONS_SORT_COLUMNS`.
 	sortBy?: CodingSessionsSortBy;
 	sortDir?: "asc" | "desc";
+	// Subagent rows (Cursor background agents, Codex subagents) are
+	// folded under the parent chat in the trace-detail view. By
+	// default we also hide them from the top-level Sessions list so
+	// one chat = one row. Setting this to true brings them back —
+	// useful for debugging linkage gaps or when a user explicitly
+	// wants to see every emitted session row.
+	includeSubagents?: boolean;
 }
+
 
 export interface CodingAgentSessionRow {
 	session_id: string;
@@ -155,6 +162,12 @@ export interface CodingAgentSessionRow {
 	acceptance_pct: number;
 	commit_count: number;
 	pr_count: number;
+	// True when the chat is a subagent of another chat — i.e. any span
+	// in the rollup has `coding_agent.agent.parent_id` set or the CLI
+	// stamped `coding_agent.session.is_subagent`. listSessions hides
+	// these by default; they fold under the parent chat via the
+	// CHAT_ID_EXPR coalesce.
+	is_subagent: 0 | 1;
 }
 
 /**
@@ -282,8 +295,12 @@ const SESSION_BASE_COLUMNS = `
 	${CHAT_ID_EXPR}                                                    AS session_id,
 	${VENDOR_EXPR}                                                     AS vendor,
 	${USER_EXPR}                                                       AS user,
-	formatDateTime(min(Timestamp), '%Y-%m-%dT%H:%i:%SZ')               AS started_at,
-	formatDateTime(max(Timestamp), '%Y-%m-%dT%H:%i:%SZ')               AS ended_at,
+	-- Explicit 'UTC' timezone — the literal 'Z' in the format string
+	-- was previously a lie when ClickHouse was running with a non-UTC
+	-- local timezone. The 3-arg form forces the output to be UTC,
+	-- matching the trailing 'Z' marker.
+	formatDateTime(min(Timestamp), '%Y-%m-%dT%H:%i:%SZ', 'UTC')        AS started_at,
+	formatDateTime(max(Timestamp), '%Y-%m-%dT%H:%i:%SZ', 'UTC')        AS ended_at,
 	greatest(
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
 		toInt64(toUnixTimestamp64Milli(max(Timestamp)) - toUnixTimestamp64Milli(min(Timestamp)))
@@ -292,9 +309,25 @@ const SESSION_BASE_COLUMNS = `
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
 	) AS tool_call_count,
-	greatest(
-		toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
-		sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
+	-- Cost rollup. Two source paths exist:
+	--   (1) The session-root span stamps coding_agent.session.cost_usd
+	--       (CLI-specific rollup) AND gen_ai.usage.cost (per OTel
+	--       GenAI conventions on the root) at SessionEnd.
+	--   (2) Every llm.turn child span stamps gen_ai.usage.cost per turn.
+	-- A naive sum(gen_ai.usage.cost) double-counts ended sessions
+	-- because the root span also carries it. We prefer the
+	-- authoritative session_cost_usd on the root when present and
+	-- only sum **child** spans otherwise.
+	coalesce(
+		nullIf(toFloat64OrZero(anyIf(
+			SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'],
+			SpanName = '${CODING_AGENT_SPAN_SESSION}'
+		)), 0),
+		sumOrNull(if(
+			SpanName != '${CODING_AGENT_SPAN_SESSION}',
+			toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']),
+			0
+		))
 	)                                                                  AS cost_usd,
 	-- Outcome: pick the LATEST non-empty value, not just any(). Stop
 	-- events on Claude Code and Codex stamp "completed" once per turn,
@@ -336,13 +369,46 @@ const SESSION_BASE_COLUMNS = `
 		Timestamp,
 		notEmpty(SpanAttributes['${GEN_AI_ATTR.requestModel}'])
 	)                                                                  AS model,
-	-- Token totals summed over LLM-turn spans (where they live).
-	toInt64(sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']))) AS input_tokens,
-	toInt64(sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))) AS output_tokens,
-	toInt64(
-		sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])) +
-		sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))
-	)                                                                  AS total_tokens,
+	-- Token rollups. Same shape as cost above: the session root
+	-- stamps gen_ai.usage.*_tokens at SessionEnd (rolled-up across the
+	-- whole session, per OTel GenAI conventions), AND every llm.turn
+	-- child span stamps its own per-turn count. A naive sum across
+	-- all spans double-counts ended sessions. Prefer the authoritative
+	-- root value when present and only sum **child** spans otherwise.
+	toInt64(coalesce(
+		nullIf(toInt64OrZero(anyIf(
+			SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'],
+			SpanName = '${CODING_AGENT_SPAN_SESSION}'
+		)), 0),
+		sumOrNull(if(
+			SpanName != '${CODING_AGENT_SPAN_SESSION}',
+			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']),
+			0
+		))
+	))                                                                 AS input_tokens,
+	toInt64(coalesce(
+		nullIf(toInt64OrZero(anyIf(
+			SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'],
+			SpanName = '${CODING_AGENT_SPAN_SESSION}'
+		)), 0),
+		sumOrNull(if(
+			SpanName != '${CODING_AGENT_SPAN_SESSION}',
+			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+			0
+		))
+	))                                                                 AS output_tokens,
+	toInt64(coalesce(
+		nullIf(toInt64OrZero(anyIf(
+			SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
+			SpanName = '${CODING_AGENT_SPAN_SESSION}'
+		)), 0),
+		sumOrNull(if(
+			SpanName != '${CODING_AGENT_SPAN_SESSION}',
+			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+				toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+			0
+		))
+	))                                                                 AS total_tokens,
 	-- TraceId for the session. The CLI derives it deterministically
 	-- from (session_id, vendor) so every span in the same (chat,
 	-- vendor) group shares one TraceId — any() picks the same value
@@ -512,7 +578,25 @@ const SESSION_BASE_COLUMNS = `
 	greatest(
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
-	)                                                                  AS pr_count
+	)                                                                  AS pr_count,
+	-- Is this chat a subagent of another chat? True when ANY span in
+	-- the group has a non-empty parent_id (resource OR span attr) OR
+	-- the CLI explicitly stamped coding_agent.session.is_subagent
+	-- on the session-root resource. listSessions hides these by
+	-- default - they fold under the parent chat via CHAT_ID_EXPR.
+	-- The check is intentionally lenient so a partial linkage (e.g.
+	-- parent_id only on a few spans, missing on the root) still
+	-- classifies the chat as a subagent.
+	if(
+		max(
+			notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
+			notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
+			ResourceAttributes['coding_agent.session.is_subagent'] = 'true' OR
+			SpanAttributes['coding_agent.session.is_subagent'] = 'true'
+		),
+		1,
+		0
+	) AS is_subagent
 `;
 
 /**
@@ -594,25 +678,7 @@ export async function listSessions(
 	const cursorClause = !useOffset && opts.cursor
 		? `WHERE started_at < '${escape(opts.cursor)}'`
 		: "";
-	// Filters are applied AFTER aggregation so the coalesced
-	// vendor/user values are filtered correctly (the same coalesce
-	// chain that produces the row is what we filter on). This avoids
-	// the previous bug where filtering on user='alice' rejected rows
-	// where alice's identity only lived on `user.email` or fell
-	// through to the `service.name` fallback.
-	const havingClauses: string[] = [];
-	if (opts.vendor) {
-		havingClauses.push(`vendor = '${escape(opts.vendor)}'`);
-	}
-	if (opts.user) {
-		havingClauses.push(`user = '${escape(opts.user)}'`);
-	}
-	if (opts.classification) {
-		havingClauses.push(`classification = '${escape(opts.classification)}'`);
-	}
-	const havingClause = havingClauses.length
-		? `HAVING ${havingClauses.join(" AND ")}`
-		: "";
+	const havingClause = buildSessionsHaving(opts);
 
 	// Cursor pagination presumes a stable order on `started_at` —
 	// we only honor a custom sort when callers use offset pagination.
@@ -730,6 +796,19 @@ export interface CodingSessionDigest {
 	commit_count: number;
 	pr_count: number;
 	acceptance_pct: number;
+	// Session-level usage rollups. These are populated by the same
+	// dedupe pattern SESSION_BASE_COLUMNS uses (prefer the session-root
+	// rollup attr when present; fall back to summing child llm.turn
+	// spans for in-flight sessions). The trace-detail top cards
+	// consume them so a still-running session's Tokens / Cost /
+	// Duration / Model don't render as zero just because the user is
+	// looking at a child span.
+	total_tokens: number;
+	input_tokens: number;
+	output_tokens: number;
+	cost_usd: number;
+	duration_ms: number;
+	model: string;
 }
 
 // SESSION_DIGEST_LOOKBACK_DAYS bounds how far back the per-session
@@ -749,6 +828,11 @@ export async function getCodingSessionDigest(
 
 	const sid = escape(sessionId);
 	const chatScope = `(${CHAT_ID_EXPR}) = '${sid}'`;
+	// The 90-day lookback bounds the worst-case full-history scan.
+	// Coupled with the deterministic SpanID, a session's spans land
+	// within a tight window anyway — the digest filters them out
+	// via chatScope. The lookback is intentionally generous so a
+	// long-running chat resumed weeks later still resolves.
 	const lookbackClause = `AND Timestamp >= now() - INTERVAL ${SESSION_DIGEST_LOOKBACK_DAYS} DAY`;
 	// We reuse the same greatest(rollup-attr, per-edit-sum) dual-source
 	// pattern as `SESSION_BASE_COLUMNS` so this digest can never
@@ -817,7 +901,77 @@ export async function getCodingSessionDigest(
 			greatest(
 				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 				toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
-			) AS pr_count
+			) AS pr_count,
+			-- Session-level usage rollups. Mirrors SESSION_BASE_COLUMNS
+			-- so the trace-detail header reads exactly what the
+			-- Sessions list shows for the same session_id. The dedupe
+			-- (anyIf-root, sumIf-non-root) is critical: the session
+			-- root carries gen_ai.usage.* per OTel GenAI conventions
+			-- AND every llm.turn child does the same, so a naive sum
+			-- across all spans double-counts ended sessions.
+			coalesce(
+				nullIf(toFloat64OrZero(anyIf(
+					SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'],
+					SpanName = '${CODING_AGENT_SPAN_SESSION}'
+				)), 0),
+				sumOrNull(if(
+					SpanName != '${CODING_AGENT_SPAN_SESSION}',
+					toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']),
+					0
+				))
+			) AS cost_usd,
+			toInt64(coalesce(
+				nullIf(toInt64OrZero(anyIf(
+					SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'],
+					SpanName = '${CODING_AGENT_SPAN_SESSION}'
+				)), 0),
+				sumOrNull(if(
+					SpanName != '${CODING_AGENT_SPAN_SESSION}',
+					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']),
+					0
+				))
+			)) AS input_tokens,
+			toInt64(coalesce(
+				nullIf(toInt64OrZero(anyIf(
+					SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'],
+					SpanName = '${CODING_AGENT_SPAN_SESSION}'
+				)), 0),
+				sumOrNull(if(
+					SpanName != '${CODING_AGENT_SPAN_SESSION}',
+					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+					0
+				))
+			)) AS output_tokens,
+			toInt64(coalesce(
+				nullIf(toInt64OrZero(anyIf(
+					SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
+					SpanName = '${CODING_AGENT_SPAN_SESSION}'
+				)), 0),
+				sumOrNull(if(
+					SpanName != '${CODING_AGENT_SPAN_SESSION}',
+					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+						toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+					0
+				))
+			)) AS total_tokens,
+			-- Wall-clock session duration. Same shape as Sessions row:
+			-- prefer the SessionEnd-stamped duration; fall back to
+			-- (max - min) Timestamp across spans for in-flight
+			-- sessions where SessionEnd hasn't fired yet. No
+			-- double-count risk here (any() + max-min, not a sum).
+			greatest(
+				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
+				toInt64(toUnixTimestamp64Milli(max(Timestamp)) - toUnixTimestamp64Milli(min(Timestamp)))
+			) AS duration_ms,
+			-- Predominant model: the latest non-empty
+			-- gen_ai.request.model across the session's child spans.
+			-- argMax picks the most recent value by Timestamp so a
+			-- model swap mid-session reflects the latest.
+			argMaxIf(
+				SpanAttributes['${GEN_AI_ATTR.requestModel}'],
+				Timestamp,
+				notEmpty(SpanAttributes['${GEN_AI_ATTR.requestModel}'])
+			) AS model
 		FROM ${OTEL_TRACES_TABLE}
 		${whereScope({ auth })}
 		${lookbackClause}
@@ -870,6 +1024,12 @@ export async function getCodingSessionDigest(
 		acceptance_pct: decisions
 			? Math.round((accepts * 10000) / decisions) / 100
 			: 0,
+		total_tokens: Number(row.total_tokens || 0),
+		input_tokens: Number(row.input_tokens || 0),
+		output_tokens: Number(row.output_tokens || 0),
+		cost_usd: Number(row.cost_usd || 0),
+		duration_ms: Number(row.duration_ms || 0),
+		model: typeof row.model === "string" ? row.model : "",
 	};
 }
 
@@ -1023,13 +1183,23 @@ export async function getCodingUserDigest(
 				min(Timestamp) AS first_seen,
 				max(Timestamp) AS last_seen,
 				countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
-				-- Canonical per-session cost (greatest of the
-				-- authoritative session-end total and the sum of
-				-- per-turn estimates). Matches listSessions,
-				-- listCodingUsers, and the agents-hub materializer.
-				greatest(
-					toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
-					sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
+				-- Canonical per-session cost. Mirrors the dedupe in
+				-- SESSION_BASE_COLUMNS: prefer the authoritative
+				-- root rollup; only sum **child** turn spans
+				-- otherwise. Naively summing across all spans
+				-- double-counts ended sessions because the root
+				-- also carries gen_ai.usage.cost per OTel GenAI
+				-- conventions.
+				coalesce(
+					nullIf(toFloat64OrZero(anyIf(
+						SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'],
+						SpanName = '${CODING_AGENT_SPAN_SESSION}'
+					)), 0),
+					sumOrNull(if(
+						SpanName != '${CODING_AGENT_SPAN_SESSION}',
+						toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']),
+						0
+					))
 				) AS cost,
 				-- Per-session code-change rollups. The same
 				-- greatest(rollup-attr, per-edit-sum) dual-source
@@ -1144,8 +1314,8 @@ export async function getCodingUserDigest(
 		FROM (
 			SELECT
 				'${safeUser}' AS user,
-				formatDateTime(min(first_seen), '%Y-%m-%dT%H:%i:%SZ') AS first_seen,
-				formatDateTime(max(last_seen), '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
+				formatDateTime(min(first_seen), '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS first_seen,
+				formatDateTime(max(last_seen), '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS last_seen,
 				toInt64(count())                                 AS session_count,
 				toInt64(sum(tool_calls))                         AS tool_call_count,
 				round(sumOrNull(cost), 4)                        AS cost_usd,
@@ -1338,23 +1508,39 @@ export async function listCodingUsers(
 						${VENDOR_EXPR} AS vendor,
 						max(Timestamp) AS session_last_ts,
 						countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
-						-- Canonical per-session cost: same formula
-						-- the Sessions list and the agents-hub
-						-- materializer use. Without the greatest()
-						-- the Users tab would silently lag behind
-						-- the authoritative session-end total (which
-						-- only lands on the session-root span at
-						-- SessionEnd) and the per-turn estimates
-						-- (gen_ai.usage.cost) would not agree with
-						-- what the Sessions list shows for the same
-						-- user.
-						greatest(
-							toFloat64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'])),
-							sumOrNull(toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']))
+						-- Canonical per-session cost: same dedupe as
+						-- listSessions / getCodingUserDigest. Without
+						-- this the Users tab would silently lag
+						-- behind the authoritative session-end total
+						-- AND double-count ended sessions (root +
+						-- per-turn both carry gen_ai.usage.cost per
+						-- OTel GenAI conventions).
+						coalesce(
+							nullIf(toFloat64OrZero(anyIf(
+								SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'],
+								SpanName = '${CODING_AGENT_SPAN_SESSION}'
+							)), 0),
+							sumOrNull(if(
+								SpanName != '${CODING_AGENT_SPAN_SESSION}',
+								toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']),
+								0
+							))
 						) AS cost,
-						sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'])) +
-							sumOrNull(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']))
-							AS tokens,
+						-- Tokens: same dedupe as cost (root carries
+						-- gen_ai.usage.*_tokens at SessionEnd; child
+						-- turn spans carry per-turn counts).
+						coalesce(
+							nullIf(toInt64OrZero(anyIf(
+								SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
+								SpanName = '${CODING_AGENT_SPAN_SESSION}'
+							)), 0),
+							sumOrNull(if(
+								SpanName != '${CODING_AGENT_SPAN_SESSION}',
+								toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+									toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+								0
+							))
+						) AS tokens,
 						-- Per-session code-change rollups (same
 						-- dual-source pattern as listSessions /
 						-- getCodingUserDigest). The user-list page
@@ -1429,7 +1615,7 @@ export async function listCodingUsers(
 	const dataQuery = `
 		SELECT
 			user,
-			formatDateTime(user_last_ts, '%Y-%m-%dT%H:%i:%SZ') AS last_seen,
+			formatDateTime(user_last_ts, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS last_seen,
 			session_count,
 			tool_call_count,
 			cost_usd,
@@ -1653,8 +1839,14 @@ async function disputeAlreadyExists(
 	`;
 	const { data, err } = await dataCollector({ query });
 	if (err) {
+		// Fail-closed: a lookup failure here means we can't tell if an
+		// open dispute already exists. The cost of a false-positive
+		// ("you already have an open dispute") is one extra click for
+		// the user, but the cost of a false-negative is a duplicate
+		// open dispute that pollutes the audit + governance queues.
+		// Surface as "exists" so the caller blocks the new write.
 		console.error("coding_agent.dispute.dedupe_lookup_failed", err);
-		return false;
+		return true;
 	}
 	return Array.isArray(data) && data.length > 0;
 }
@@ -1679,8 +1871,14 @@ async function disputeRateLimitExceeded(
 	`;
 	const { data, err } = await dataCollector({ query });
 	if (err) {
+		// Fail-closed: a lookup failure must NOT degrade into "no rate
+		// limit applied" — that turns this guard into a bypass-on-error
+		// vector. We reject the new dispute so a temporary ClickHouse
+		// blip can't let a script flood the audit log. The user can
+		// retry once telemetry is back; in practice this fires <0.1%
+		// of submissions.
 		console.error("coding_agent.dispute.rate_limit_lookup_failed", err);
-		return false;
+		return true;
 	}
 	const rows = data as Array<{ n?: number | string }> | undefined;
 	const n = Number(rows?.[0]?.n ?? 0);

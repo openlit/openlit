@@ -37,6 +37,12 @@ var shouldRedactTier1 = []struct {
 	{"jwt", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.signature123"},
 	{"bearer_header", "Authorization: Bearer abc123def456ghi789jkl"},
 	{"private_key", "-----BEGIN RSA PRIVATE KEY-----\nMIIEvQIBADANBgkq\n-----END RSA PRIVATE KEY-----"},
+	{"azure_sas_sig", "?sv=2021-08-06&sig=AbCdEf%2BGhIj0123456789xyzPQR%3D"},
+	{"azure_storage_conn", "DefaultEndpointsProtocol=https;AccountName=foo;AccountKey=AbCdEfGh1234567890abcdefghijklmn=="},
+	{"hf_token", "hf_AbCdEfGhIjKlMnOpQrStUvWx12"},
+	{"npm_token", "npm_abcdefghijklmnopqrstuvwxyz012345"},
+	{"postgres_url", "postgres://app:s3cret-Pa55@db.internal:5432/main"},
+	{"mysql_url", "mysql://root:hunter2hunter2@10.0.0.5/orders"},
 }
 
 func TestStringTier1RedactsKnownSecrets(t *testing.T) {
@@ -47,6 +53,19 @@ func TestStringTier1RedactsKnownSecrets(t *testing.T) {
 				t.Errorf("expected replacement marker; got %q", out)
 			}
 		})
+	}
+}
+
+func TestPostgresURLKeepsHostDropsCreds(t *testing.T) {
+	// The capture-rewrite path must keep the scheme + host so a
+	// dashboard can still tell which DB the agent was hitting, while
+	// dropping the user + password. Asserts the exact shape so a
+	// future refactor of the replacement template can't silently
+	// regress (e.g. swallowing the path).
+	in := "postgres://app:s3cret-Pa55@db.internal:5432/main"
+	want := "postgres://[REDACTED]:[REDACTED]@db.internal:5432/main"
+	if got := String(in); got != want {
+		t.Errorf("String(%q) = %q, want %q", in, got, want)
 	}
 }
 

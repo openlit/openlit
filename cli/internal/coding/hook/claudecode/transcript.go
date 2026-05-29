@@ -68,22 +68,6 @@ type assistantUsage struct {
 	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 }
 
-// userMessage is the decoded `message` field of a user line. Content is
-// polymorphic: a plain string for the original prompt, or an array of
-// tool_result / text blocks when the trigger is a tool reply.
-type userMessage struct {
-	Role    string          `json:"role"`
-	Content json.RawMessage `json:"content"`
-}
-
-type userContentBlock struct {
-	Type       string          `json:"type"`
-	ToolUseID  string          `json:"tool_use_id,omitempty"`
-	RawContent json.RawMessage `json:"content,omitempty"`
-	IsError    bool            `json:"is_error,omitempty"`
-	Text       string          `json:"text,omitempty"`
-}
-
 // skipTypes are line types the LLM-turn synthesiser ignores.
 var skipTypes = map[string]bool{
 	"file-history-snapshot": true,
@@ -96,6 +80,18 @@ var skipTypes = map[string]bool{
 }
 
 const maxScannerBuf = 10 * 1024 * 1024 // 10 MB — Claude Code emits multi-MB tool_result lines
+
+// maxBytesPerInvocation caps how many transcript bytes a single hook
+// process will scan. Claude Code transcripts grow to hundreds of MB
+// over a long-running chat; on the very first hook event (offset == 0
+// because sessionstate hasn't seen the session yet), an unbounded
+// scan would happily read the entire file and starve the 5s hook
+// timeout. The cap is a soft ceiling — we honour it by truncating the
+// returned new-offset to (offset + cap) so the next invocation
+// resumes from where we stopped. Set generous enough that a 1MB/sec
+// transcript would still drain in real time across consecutive hook
+// invocations.
+const maxBytesPerInvocation = 8 * 1024 * 1024 // 8 MiB
 
 // readTranscript reads JSONL lines from path starting at the supplied
 // byte offset and returns the parsed lines plus the new offset.
@@ -122,7 +118,7 @@ func readTranscript(path string, offset int64) ([]transcriptLine, int64, error) 
 		}
 	}
 
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(io.LimitReader(f, maxBytesPerInvocation))
 	scanner.Buffer(make([]byte, 0, 64*1024), maxScannerBuf)
 
 	var lastAdvance int
@@ -167,11 +163,19 @@ type coalescedTurn struct {
 // same RequestID into one turn, dropping anything that hasn't reached a
 // `stop_reason`. Returns the safe turns plus the offset that lets the
 // next reader resume immediately after them.
-func coalesceAssistants(lines []transcriptLine) ([]coalescedTurn, []transcriptLine, int64) {
+//
+// User / tool_result lines from the transcript are intentionally NOT
+// returned. We used to walk them to attach a `turnContext` to each
+// assistant turn so the user-prompt that triggered the turn could be
+// stamped onto the LLM-turn span — but Claude Code's transcript
+// stores its *wrapped* prompt (prefixed with `<ide_opened_file>…` and
+// similar IDE context envelopes), not the raw text the user typed.
+// We rely on the UserPromptSubmit hook (`emitUserPrompt`) for the raw
+// user-prompt and on `coding_agent.tool.call` spans for tool bodies,
+// so the transcript reader only needs to surface assistant turns.
+func coalesceAssistants(lines []transcriptLine) ([]coalescedTurn, int64) {
 	var (
 		turns          []coalescedTurn
-		userOrToolBuf  []transcriptLine
-		userOrToolKeep []transcriptLine
 		pending        []transcriptLine
 		lastSafeOffset int64
 		lastSafeLen    int
@@ -180,8 +184,6 @@ func coalesceAssistants(lines []transcriptLine) ([]coalescedTurn, []transcriptLi
 	markSafe := func(off int64) {
 		lastSafeOffset = off
 		lastSafeLen = len(turns)
-		userOrToolKeep = append(userOrToolKeep, userOrToolBuf...)
-		userOrToolBuf = nil
 	}
 
 	appendIfComplete := func(line transcriptLine) {
@@ -224,11 +226,10 @@ func coalesceAssistants(lines []transcriptLine) ([]coalescedTurn, []transcriptLi
 			continue
 		}
 		flush()
-		userOrToolBuf = append(userOrToolBuf, line)
 	}
 	flush()
 
-	return turns[:lastSafeLen], userOrToolKeep, lastSafeOffset
+	return turns[:lastSafeLen], lastSafeOffset
 }
 
 func mergeAssistantGroup(group []transcriptLine) transcriptLine {
@@ -255,80 +256,3 @@ func mergeAssistantGroup(group []transcriptLine) transcriptLine {
 	return final
 }
 
-// turnContext is the user-side trigger that produced an assistant turn.
-// Either a free-form prompt (the user typed) or a list of tool_result
-// blocks (the agent loop fed tool outputs back to the model).
-type turnContext struct {
-	Prompt      string
-	ToolResults []toolResultBlock
-}
-
-type toolResultBlock struct {
-	ToolUseID string
-	Content   string
-	IsError   bool
-}
-
-// parseUserLine extracts a turnContext from a user-typed message OR a
-// tool_result envelope. We only care about whichever was most recent
-// before the assistant turn.
-func parseUserLine(line transcriptLine) (turnContext, bool) {
-	var msg userMessage
-	if err := json.Unmarshal(line.Message, &msg); err != nil {
-		return turnContext{}, false
-	}
-	// Plain string: user typed a prompt.
-	var text string
-	if err := json.Unmarshal(msg.Content, &text); err == nil && strings.TrimSpace(text) != "" {
-		return turnContext{Prompt: text}, true
-	}
-	// Array of blocks: tool result envelope, or a mixed text+tool envelope.
-	var blocks []userContentBlock
-	if err := json.Unmarshal(msg.Content, &blocks); err == nil {
-		ctx := turnContext{}
-		for _, b := range blocks {
-			switch b.Type {
-			case "text":
-				if strings.TrimSpace(b.Text) != "" {
-					ctx.Prompt = b.Text
-				}
-			case "tool_result":
-				ctx.ToolResults = append(ctx.ToolResults, toolResultBlock{
-					ToolUseID: b.ToolUseID,
-					Content:   userContentToText(b.RawContent),
-					IsError:   b.IsError,
-				})
-			}
-		}
-		if ctx.Prompt != "" || len(ctx.ToolResults) > 0 {
-			return ctx, true
-		}
-	}
-	return turnContext{}, false
-}
-
-// userContentToText flattens a polymorphic content field (string OR
-// array of {type,text} blocks) into a single string.
-func userContentToText(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err == nil {
-		return s
-	}
-	var blocks []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(raw, &blocks); err == nil {
-		var parts []string
-		for _, b := range blocks {
-			if b.Text != "" {
-				parts = append(parts, b.Text)
-			}
-		}
-		return strings.Join(parts, "\n")
-	}
-	return string(raw)
-}

@@ -141,6 +141,21 @@ func handle(ctx context.Context, in normalize.Input) error {
 		if isEditTool(p.ToolName) {
 			stashPendingEdit(in, p)
 		}
+		// Cache Task tool spawns so the matching SubagentStop can
+		// echo `gen_ai.tool.call.id`. Claude Code does not fire
+		// PreToolUse / PostToolUse hooks for actions taken *inside*
+		// a subagent, so the only handle we have to bracket
+		// subagent activity is the (Task tool call, SubagentStop)
+		// pair. The chat view uses the shared id to render the two
+		// spans as one collapsible "Subagent" block.
+		if p.ToolName == "Task" && p.ToolUseID != "" && p.SessionID != "" {
+			st := sessionstate.Load(p.SessionID, "claude-code")
+			if st == nil {
+				st = &sessionstate.State{}
+			}
+			st.ActiveTaskToolUseID = p.ToolUseID
+			sessionstate.Save(p.SessionID, "claude-code", st)
+		}
 		// Pre-event only; the full tool span is emitted at PostToolUse
 		// time so we don't double-count. Still log a compact event so
 		// dashboards can show the in-flight tool list.
@@ -158,11 +173,27 @@ func handle(ctx context.Context, in normalize.Input) error {
 	case "PostToolUse":
 		return emitToolCall(in, p, vcs, cls)
 	case "SubagentStop":
+		// Echo the spawning Task tool-use id onto the subagent
+		// span so the chat view can group (Task tool call,
+		// subagent) into one block, then clear the cache. Best-effort
+		// — if PreToolUse(Task) didn't fire for this session (e.g.
+		// the user started in mid-stream or sessionstate was
+		// missing), we still emit the span with the linkage
+		// fields we do have.
+		var toolUseID string
+		if st := sessionstate.Load(p.SessionID, "claude-code"); st != nil {
+			toolUseID = st.ActiveTaskToolUseID
+			if toolUseID != "" {
+				st.ActiveTaskToolUseID = ""
+				sessionstate.Save(p.SessionID, "claude-code", st)
+			}
+		}
 		return in.Emit.EmitSubagent(normalize.Subagent{
 			SessionID:    p.SessionID,
 			SubagentID:   p.TaskID,
 			SubagentType: p.SubagentType,
 			Vendor:       in.Vendor,
+			ToolCallID:   toolUseID,
 			Status:       "completed",
 			StartedAt:    time.Now(),
 			EndedAt:      time.Now(),
@@ -237,7 +268,7 @@ func drainAssistantTurns(in normalize.Input, p claudePayload) {
 		}
 	}
 
-	turns, userLines, safeOffset := coalesceAssistants(lines)
+	turns, safeOffset := coalesceAssistants(lines)
 	if len(turns) == 0 {
 		// Persist transcript path + terminal so a later event can resume.
 		st.TranscriptPath = transcriptPath
@@ -246,26 +277,15 @@ func drainAssistantTurns(in normalize.Input, p claudePayload) {
 		return
 	}
 
-	// Build a quick index of the most recent user / tool_result context
-	// per RequestID by walking the lines in transcript order.
-	contextByTurnIdx := make(map[int]turnContext, len(turns))
-	turnIdx := 0
-	var pendingCtx turnContext
-	for _, line := range userLines {
-		ctx, ok := parseUserLine(line)
-		if !ok {
-			continue
-		}
-		pendingCtx = ctx
-		// Attach `pendingCtx` to the next assistant turn we haven't
-		// matched yet. We rely on transcript ordering: user line
-		// precedes the assistant turn it triggered.
-		for turnIdx < len(turns) {
-			contextByTurnIdx[turnIdx] = pendingCtx
-			turnIdx++
-			break
-		}
-	}
+	// User-typed prompts are emitted by the UserPromptSubmit hook
+	// (see emitUserPrompt). The transcript's user line for the same
+	// turn carries Claude Code's *wrapped* prompt — prefixed with
+	// `<ide_opened_file>…` and similar context envelopes the IDE
+	// injects before dispatching to the model — which is a different
+	// string than what UserPromptSubmit captured, so re-emitting it
+	// here surfaced a duplicate "User" bubble next to the raw one.
+	// We rely on UserPromptSubmit as the single source of truth for
+	// user prompts and skip the transcript-side prompt entirely.
 
 	seenIDs := make(map[string]struct{}, len(st.EmittedAssistantTurnIDs))
 	for _, id := range st.EmittedAssistantTurnIDs {
@@ -273,7 +293,7 @@ func drainAssistantTurns(in normalize.Input, p claudePayload) {
 	}
 
 	emittedNew := false
-	for i, t := range turns {
+	for _, t := range turns {
 		turnKey := t.line.RequestID
 		if turnKey == "" {
 			turnKey = t.line.UUID
@@ -281,8 +301,7 @@ func drainAssistantTurns(in normalize.Input, p claudePayload) {
 		if _, ok := seenIDs[turnKey]; ok {
 			continue
 		}
-		ctx := contextByTurnIdx[i]
-		emitOneAssistantTurn(in, p, t, ctx)
+		emitOneAssistantTurn(in, p, t)
 		seenIDs[turnKey] = struct{}{}
 		st.EmittedAssistantTurnIDs = append(st.EmittedAssistantTurnIDs, turnKey)
 		emittedNew = true
@@ -306,9 +325,14 @@ func drainAssistantTurns(in normalize.Input, p claudePayload) {
 }
 
 // emitOneAssistantTurn produces a single `coding_agent.llm.turn` span
-// from a fully-coalesced assistant turn + the user/tool context that
-// triggered it.
-func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, ctx turnContext) {
+// from a fully-coalesced assistant turn read out of the transcript.
+//
+// The span carries only the assistant's text reply, thinking text,
+// and per-turn usage / tags. The user-prompt that triggered the turn
+// is NOT stamped here — UserPromptSubmit's hook is the canonical
+// source for that string. Tool calls + tool results that bracket the
+// turn are emitted as their own `coding_agent.tool.call` spans.
+func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn) {
 	completedAt, _ := time.Parse(time.RFC3339Nano, t.line.Timestamp)
 	if completedAt.IsZero() {
 		completedAt = time.Now()
@@ -333,7 +357,12 @@ func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, 
 	}
 	if t.msg.Model != "" {
 		rate := pricing.Lookup(t.msg.Model)
-		turn.CostUSD = rate.Cost(turn.InputTokens, turn.OutputTokens, turn.CacheReadTokens+turn.CacheCreationTokens)
+		// Anthropic prompt caching has *two* rates: cache reads (~10%
+		// of input) and cache writes (~125% of input). Pass them
+		// through separately so the pricing layer can apply the
+		// correct premium — bundling them under the read rate
+		// silently under-bills cache-write-heavy turns by up to 12x.
+		turn.CostUSD = rate.Cost(turn.InputTokens, turn.OutputTokens, turn.CacheReadTokens, turn.CacheCreationTokens)
 	}
 	// Per-turn tags — surface the high-signal transcript fields
 	// adapters used to drop. We namespace them under `claude_code.*`
@@ -372,23 +401,15 @@ func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, 
 		// envelopes from these — adapters never construct that JSON
 		// themselves, so the shape is guaranteed identical across
 		// Cursor, Claude Code, and Codex.
-		text, thinking, toolCalls := splitAssistantContent(t.msg.Content)
+		//
+		// Tool calls + tool results that bracket this turn are
+		// emitted separately as `coding_agent.tool.call` spans by
+		// the PreToolUse / PostToolUse hooks, so we deliberately
+		// drop them here — folding them into the LLM-turn messages
+		// would balloon the JSON past the span-attribute cap.
+		text, thinking := splitAssistantContent(t.msg.Content)
 		turn.Response = text
 		turn.ThoughtText = thinking
-		turn.OutputToolCalls = toolCalls
-		if ctx.Prompt != "" {
-			turn.Prompt = ctx.Prompt
-		}
-		if len(ctx.ToolResults) > 0 {
-			turn.InputToolResults = make([]normalize.ToolResultPart, 0, len(ctx.ToolResults))
-			for _, r := range ctx.ToolResults {
-				turn.InputToolResults = append(turn.InputToolResults, normalize.ToolResultPart{
-					ID:      r.ToolUseID,
-					Result:  r.Content,
-					IsError: r.IsError,
-				})
-			}
-		}
 	}
 
 	_ = in.Emit.EmitLLMTurn(turn)
@@ -397,11 +418,11 @@ func emitOneAssistantTurn(in normalize.Input, p claudePayload, t coalescedTurn, 
 // splitAssistantContent returns the assistant turn split into:
 //   - text   : concatenated `text` blocks (the chat answer)
 //   - think  : concatenated `thinking` blocks (separate attribute)
-//   - calls  : tool_use blocks as normalize.ToolCallPart entries —
-//     these get rendered inside the OTel-canonical assistant message
-//     as `{"type":"tool_call","id":…,"name":…,"arguments":…}` parts
-//     by the emitter.
-func splitAssistantContent(blocks []assistantContentBlock) (text, think string, calls []normalize.ToolCallPart) {
+//
+// `tool_use` blocks are intentionally skipped: their canonical record
+// is the matching `coding_agent.tool.call` span emitted by the
+// PreToolUse / PostToolUse hooks.
+func splitAssistantContent(blocks []assistantContentBlock) (text, think string) {
 	var textParts, thoughtParts []string
 	for _, b := range blocks {
 		switch b.Type {
@@ -413,15 +434,9 @@ func splitAssistantContent(blocks []assistantContentBlock) (text, think string, 
 			if strings.TrimSpace(b.Thinking) != "" {
 				thoughtParts = append(thoughtParts, b.Thinking)
 			}
-		case "tool_use":
-			calls = append(calls, normalize.ToolCallPart{
-				ID:        b.ID,
-				Name:      b.Name,
-				Arguments: string(b.Input),
-			})
 		}
 	}
-	return strings.Join(textParts, "\n\n"), strings.Join(thoughtParts, "\n\n"), calls
+	return strings.Join(textParts, "\n\n"), strings.Join(thoughtParts, "\n\n")
 }
 
 // emitUserPrompt fires on Claude Code's UserPromptSubmit hook. We
@@ -454,11 +469,36 @@ func emitSession(
 	kind string,
 	endedAt time.Time,
 ) error {
+	// Resolve StartedAt with a real wall-clock when we can. On
+	// `started` we cache `time.Now()` so the matching `ended` event
+	// (which runs in a different hook subprocess) can reload it and
+	// compute a real duration. Previously both events used
+	// `time.Now()` directly, producing ~0ms sessions in the Sessions
+	// list and dragging duration averages to zero.
+	now := time.Now()
+	startedAt := now
+	if p.SessionID != "" {
+		if st := sessionstate.Load(p.SessionID, "claude-code"); st != nil && !st.SessionStartedAt.IsZero() {
+			startedAt = st.SessionStartedAt
+		}
+		if kind == "started" {
+			st := sessionstate.Load(p.SessionID, "claude-code")
+			if st == nil {
+				st = &sessionstate.State{}
+			}
+			if st.SessionStartedAt.IsZero() {
+				st.SessionStartedAt = now
+				sessionstate.Save(p.SessionID, "claude-code", st)
+			}
+			startedAt = st.SessionStartedAt
+		}
+	}
+
 	s := normalize.Session{
 		SessionID:            p.SessionID,
 		ConversationID:       p.SessionID,
 		Vendor:               in.Vendor,
-		StartedAt:            time.Now(),
+		StartedAt:            startedAt,
 		EndedAt:              endedAt,
 		PermissionMode:       p.PermissionMode,
 		CWD:                  p.CWD,
@@ -915,7 +955,7 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		} `json:"message"`
 	}
 
-	var ti, to, cached int64
+	var ti, to, cacheRead, cacheCreation int64
 	var lastModel string
 	for _, line := range lines {
 		var t turn
@@ -930,13 +970,14 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		creation := t.Message.Usage.CacheCreationInputTokens
 		read := t.Message.Usage.CacheReadInputTokens
 		ti += fresh + creation + read
-		cached += creation + read
+		cacheRead += read
+		cacheCreation += creation
 		to += t.Message.Usage.OutputTokens
 		if t.Message.Model != "" {
 			lastModel = t.Message.Model
 		}
 	}
 	rate := pricing.Lookup(lastModel)
-	cost = rate.Cost(ti, to, cached)
+	cost = rate.Cost(ti, to, cacheRead, cacheCreation)
 	return lastModel, cost, ti, to, ti + to
 }

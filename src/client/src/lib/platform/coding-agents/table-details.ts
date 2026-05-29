@@ -101,6 +101,7 @@ export const GEN_AI_ATTR = {
 	usageCost: "gen_ai.usage.cost",
 	usageInputTokens: "gen_ai.usage.input_tokens",
 	usageOutputTokens: "gen_ai.usage.output_tokens",
+	usageTotalTokens: "gen_ai.usage.total_tokens",
 	conversationId: "gen_ai.conversation.id",
 	toolName: "gen_ai.tool.name",
 } as const;

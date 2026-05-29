@@ -69,7 +69,21 @@ info "Building from $cli_dir"
 	# Keep these in sync with the release workflow so behaviour
 	# differences between source builds and release builds stay
 	# small.
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$tmpdir/openlit" ./cmd/openlit
+	#
+	# Stamp `dev-<short-sha>` into the version vars in
+	# cli/internal/version. Without this every local install reports
+	# `dev` with no commit, which is impossible to distinguish from
+	# an old build. Best-effort: silently fall back to `dev` if the
+	# checkout isn't a git tree.
+	VERSION_PKG="github.com/openlit/openlit/cli/internal/version"
+	COMMIT=$(git -C "$cli_dir" rev-parse --short HEAD 2>/dev/null || echo "")
+	VERSION="dev"
+	if [ -n "$COMMIT" ]; then
+		VERSION="dev-$COMMIT"
+	fi
+	CGO_ENABLED=0 go build -trimpath \
+		-ldflags "-s -w -X ${VERSION_PKG}.Version=${VERSION} -X ${VERSION_PKG}.Commit=${COMMIT}" \
+		-o "$tmpdir/openlit" ./cmd/openlit
 )
 
 mkdir -p "$OPENLIT_INSTALL_DIR"

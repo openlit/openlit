@@ -259,23 +259,23 @@ type LLMTurn struct {
 	// (https://github.com/open-telemetry/semantic-conventions-genai
 	// → docs/gen-ai/gen-ai-spans.md) at attribute-emission time, so
 	// adapters never deal with the JSON shape directly.
+	//
+	// Tool calls and tool results that bracket this turn are NOT
+	// stamped onto the LLM-turn span. They live on dedicated
+	// `coding_agent.tool.call` spans (with
+	// `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result`); the
+	// chat view interleaves those spans with LLM turns by timestamp,
+	// so the conversation reconstructs from per-turn LLM spans +
+	// per-tool tool.call spans without duplicative narration. The
+	// previous design folded the tool bodies into each turn's
+	// messages JSON, which routinely exceeded the 16 KB span-
+	// attribute cap and broke the chat view's parser.
 	Prompt   string
 	Response string
-	// InputToolResults are tool_result entries (Anthropic-shaped)
-	// that triggered THIS assistant turn. The emitter renders them
-	// as a `tool` role message with `tool_call_response` parts in
-	// `gen_ai.input.messages`, ahead of any text prompt.
-	InputToolResults []ToolResultPart
-	// OutputToolCalls are tool_use entries the assistant produced
-	// in THIS turn. The emitter renders them as `tool_call` parts
-	// inside the assistant message in `gen_ai.output.messages`. The
-	// per-call detail (args / result) still lives on the matching
-	// `coding_agent.tool.call` spans — these entries are just the
-	// in-message references.
-	OutputToolCalls []ToolCallPart
 	// ThoughtText is the assistant's reasoning/thinking block, when
-	// the vendor exposes it (e.g. Cursor afterAgentThought). Captured
-	// separately so dashboards can hide it by default.
+	// the vendor exposes it (e.g. Cursor afterAgentThought, Claude
+	// Code extended-thinking blocks). Captured separately so
+	// dashboards can hide it by default.
 	ThoughtText string
 	ThoughtMs   int64
 
@@ -316,21 +316,6 @@ type LLMTurn struct {
 	// `claude_code.subagent`). Stamped as `string` span attributes by
 	// the emitter — adapters MUST namespace their keys.
 	Extras map[string]string
-}
-
-// ToolCallPart and ToolResultPart are the in-message references used to
-// build OTel-canonical `gen_ai.{input,output}.messages`. Adapters fill
-// these on LLMTurn so the emitter can serialise once, centrally.
-type ToolCallPart struct {
-	ID        string
-	Name      string
-	Arguments string // raw JSON string, may be empty
-}
-
-type ToolResultPart struct {
-	ID      string
-	Result  string
-	IsError bool
 }
 
 // Subagent captures one subagent (Task tool) lifecycle. start and stop

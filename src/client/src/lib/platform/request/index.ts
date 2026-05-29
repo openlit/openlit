@@ -247,8 +247,9 @@ export async function getRequests(params: MetricParams) {
 }
 
 export async function getRequestViaSpanId(spanId: string) {
+	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE SpanId='${spanId}'`;
+		WHERE SpanId='${safeSpanId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -258,9 +259,10 @@ export async function getRequestViaSpanId(spanId: string) {
 }
 
 export async function getRequestViaTraceId(traceId: string) {
+	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
-	)}='${traceId}'`;
+	)}='${safeTraceId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -280,6 +282,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	//     PARENT's chat — fold this subagent's spans into the parent
 	//     trace, and union with the parent's own session_id, and with
 	//     all sibling subagents.
+	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const sourceSpanQuery = `
 		SELECT
 			TraceId,
@@ -289,7 +292,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 				nullIf(SpanAttributes['coding_agent.agent.parent_id'], '')
 			) AS CodingParentId
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE SpanId = '${spanId}'
+		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
 	const { data: sourceData, err: sourceErr } = await dataCollector({
@@ -319,11 +322,12 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	//   - all subagent spans pointing at this chat id (resource OR
 	//     span attribute parent_id match — folds subagents into the
 	//     parent's chat thread regardless of which session emitted them)
+	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const filterClause = codingSessionId
 		? `(${getTraceMappingKeyFullPath(
 				"id"
-			)} = '${traceId}' OR SpanAttributes['coding_agent.session.id'] = '${escapeClickHouseString(codingSessionId)}' OR ResourceAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}' OR SpanAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}')`
-		: `${getTraceMappingKeyFullPath("id")} = '${traceId}'`;
+			)} = '${safeTraceId}' OR SpanAttributes['coding_agent.session.id'] = '${escapeClickHouseString(codingSessionId)}' OR ResourceAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}' OR SpanAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}')`
+		: `${getTraceMappingKeyFullPath("id")} = '${safeTraceId}'`;
 
 	const allSpansQuery = `
 		SELECT
@@ -421,6 +425,7 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 				SpanAttributes: {
 					"coding_agent.session.id": sessionId,
 				},
+				ResourceAttributes: earliest?.ResourceAttributes || {},
 				children: [] as any[],
 			};
 	const sorted = [...spans].sort((a, b) => {

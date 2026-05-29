@@ -224,7 +224,7 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// extended-thinking, GPT-5 reasoning) by a wide margin.
 		thoughtTokens := pricing.EstimateTokens(p.Text)
 		thoughtRate := pricing.Lookup(p.Model)
-		thoughtCost := thoughtRate.Cost(0, thoughtTokens, 0)
+		thoughtCost := thoughtRate.Cost(0, thoughtTokens, 0, 0)
 		return in.Emit.EmitLLMTurn(normalize.LLMTurn{
 			SessionID:      sessionID,
 			ConversationID: p.ConversationID,
@@ -280,21 +280,34 @@ func handle(ctx context.Context, in normalize.Input) error {
 
 	case "subagentStop":
 		startedAt := time.Now().Add(-time.Duration(p.DurationMs) * time.Millisecond)
+		// Re-stamp every linkage attribute we know about. The earlier
+		// version dropped SubagentID + ParentConversationID + ToolCallID
+		// on Stop, which broke parent ↔ child ↔ tool-call joins in the
+		// trace view (we'd see the subagent.stop span with no way to
+		// match it against the subagent.start span or the spawning
+		// Task tool call). Status is the only non-Start field that
+		// genuinely differs between the two events.
 		return in.Emit.EmitSubagent(normalize.Subagent{
-			SessionID:     sessionID,
-			SubagentType:  p.SubagentType,
-			Task:          p.Task,
-			Description:   p.Description,
-			Summary:       p.Summary,
-			Vendor:        in.Vendor,
-			DurationMs:    p.DurationMs,
-			MessageCount:  p.MessageCount,
-			ToolCallCount: p.ToolCallCount,
-			LoopCount:     p.LoopCount,
-			Status:        nonEmpty(p.Status, "completed"),
-			ModifiedFiles: p.ModifiedFiles,
-			StartedAt:     startedAt,
-			EndedAt:       time.Now(),
+			SessionID:            sessionID,
+			ParentConversationID: p.ParentConversationID,
+			SubagentID:           p.SubagentID,
+			SubagentType:         p.SubagentType,
+			Task:                 p.Task,
+			Description:          p.Description,
+			Summary:              p.Summary,
+			Vendor:               in.Vendor,
+			Model:                p.SubagentModel,
+			GitBranch:            p.GitBranch,
+			IsParallelWorker:     p.IsParallelWorker,
+			ToolCallID:           p.ToolCallID,
+			DurationMs:           p.DurationMs,
+			MessageCount:         p.MessageCount,
+			ToolCallCount:        p.ToolCallCount,
+			LoopCount:            p.LoopCount,
+			Status:               nonEmpty(p.Status, "completed"),
+			ModifiedFiles:        p.ModifiedFiles,
+			StartedAt:            startedAt,
+			EndedAt:              time.Now(),
 		})
 
 	case "beforeShellExecution":
@@ -503,7 +516,7 @@ func buildPromptTurn(in normalize.Input, p cursorPayload, sessionID string) norm
 	// real usage (Codex rollout, Claude transcript), prefer that.
 	inputTokens := pricing.EstimateTokens(p.Prompt)
 	rate := pricing.Lookup(p.Model)
-	cost := rate.Cost(inputTokens, 0, 0)
+	cost := rate.Cost(inputTokens, 0, 0, 0)
 	return normalize.LLMTurn{
 		SessionID:       sessionID,
 		ConversationID:  p.ConversationID,
@@ -525,7 +538,7 @@ func buildResponseTurn(in normalize.Input, p cursorPayload, sessionID string) no
 	now := time.Now()
 	outputTokens := pricing.EstimateTokens(p.Text)
 	rate := pricing.Lookup(p.Model)
-	cost := rate.Cost(0, outputTokens, 0)
+	cost := rate.Cost(0, outputTokens, 0, 0)
 	return normalize.LLMTurn{
 		SessionID:            sessionID,
 		ConversationID:       p.ConversationID,

@@ -3,7 +3,8 @@
 //  1. CLI flags (--otlp-endpoint, --api-key)
 //  2. OPENLIT_* environment variables
 //  3. OTEL_EXPORTER_OTLP_* environment variables (standard OTel fallback)
-//  4. ~/.config/openlit/config.env (allow-listed keys; mode 0600)
+//  4. ~/.config/openlit/config.env on Unix, %APPDATA%\openlit\config.env
+//     on Windows; honors $XDG_CONFIG_HOME if set. Allow-listed keys; 0600.
 //
 // Keep this dead simple: no eval-style sourcing of arbitrary shell, no
 // secrets in flags' help text. The config file is a flat KEY=VALUE document
@@ -16,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -114,6 +116,14 @@ var allowedFileKeys = map[string]struct{}{
 // ~/.config/openlit/config.env would silently be unavailable to
 // per-vendor adapters that bypass the resolved struct. Existing env
 // vars take precedence so we never override a real shell setting.
+//
+// Secret-shaped keys (currently `OPENLIT_API_KEY`) are deliberately
+// NOT promoted. They live on the Resolved struct and are passed to
+// the OTLP exporter via header injection only. Promoting them to
+// the process env would propagate the key to every grandchild we
+// fork — including the developer's shell when the hook is invoked
+// via `claude code` / `cursor` — which is a needless attack surface
+// and a noisy `env` output for anyone debugging the hook.
 func PromoteFileToEnv() error {
 	vals, err := readConfigFile()
 	if err != nil {
@@ -123,12 +133,28 @@ func PromoteFileToEnv() error {
 		if v == "" {
 			continue
 		}
+		if isSecretKey(k) {
+			continue
+		}
 		if _, exists := os.LookupEnv(k); exists {
 			continue
 		}
 		_ = os.Setenv(k, v)
 	}
 	return nil
+}
+
+// isSecretKey reports whether a config key carries secret material
+// that must not be lifted into the process environment. Keep this
+// in sync with the allow-list above (any new sensitive key needs an
+// entry here AND a comment on the consuming side explaining that it
+// stays on the Resolved struct).
+func isSecretKey(k string) bool {
+	switch k {
+	case "OPENLIT_API_KEY":
+		return true
+	}
+	return false
 }
 
 // Load resolves config across all sources.
@@ -237,7 +263,83 @@ func Load(flags *Flags) (*Resolved, error) {
 		return nil, fmt.Errorf("invalid OTLP endpoint %q: %w", res.OTLPEndpoint, err)
 	}
 
+	// Quietly upgrade scheme-less or http:// endpoints to https://
+	// when the host is non-loopback. The CLI ships an API key in
+	// the Authorization header on every OTLP request; sending that
+	// in plaintext over a public network is the single highest-impact
+	// security regression we can prevent at config-resolution time.
+	// Loopback / RFC1918 hosts are preserved as-is so local devs and
+	// in-cluster collectors keep working without TLS.
+	res.OTLPEndpoint = upgradeScheme(res.OTLPEndpoint)
+
 	return res, nil
+}
+
+// upgradeScheme rewrites the OTLP endpoint to https:// when the host
+// looks non-local. Inputs without a scheme are interpreted as host
+// strings (e.g. `otel.example.com:4318` -> `https://otel.example.com:4318`).
+// Empty input returns "" unchanged.
+func upgradeScheme(endpoint string) string {
+	if endpoint == "" {
+		return endpoint
+	}
+	raw := endpoint
+	if !strings.Contains(raw, "://") {
+		raw = "//" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return endpoint
+	}
+	host := u.Hostname()
+	if isLocalHost(host) {
+		// Default to http for loopback if no scheme; preserve any
+		// explicit scheme the operator passed.
+		if u.Scheme == "" {
+			u.Scheme = "http"
+			return u.String()
+		}
+		return endpoint
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "", "http":
+		u.Scheme = "https"
+		return u.String()
+	default:
+		return endpoint
+	}
+}
+
+// isLocalHost recognises the host strings we treat as trusted-network
+// for the purposes of the https-upgrade rule.
+func isLocalHost(host string) bool {
+	if host == "" {
+		return true
+	}
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0":
+		return true
+	}
+	// RFC1918 / link-local: treat as local. These are the same prefixes
+	// kube-internal collectors usually live on, so they stay http://.
+	for _, prefix := range []string{
+		"10.",
+		"192.168.",
+		"169.254.",
+	} {
+		if strings.HasPrefix(host, prefix) {
+			return true
+		}
+	}
+	// 172.16.0.0/12 — slightly fiddly; check the second octet range.
+	if strings.HasPrefix(host, "172.") {
+		var oct int
+		_, _ = fmt.Sscanf(host, "172.%d.", &oct)
+		if oct >= 16 && oct <= 31 {
+			return true
+		}
+	}
+	return false
 }
 
 // Path returns the absolute path to the config file, even if it doesn't
@@ -259,6 +361,18 @@ func Path() (string, error) {
 func configDir() (string, error) {
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
 		return filepath.Join(x, "openlit"), nil
+	}
+	// On Windows the idiomatic config root is %APPDATA% (Roaming).
+	// os.UserConfigDir returns exactly that on Windows, whereas on
+	// macOS/Linux it returns paths we deliberately do NOT want
+	// (~/Library/Application Support and ~/.config respectively —
+	// the latter matches but is also what we already use, and on
+	// macOS we want the XDG-style ~/.config/openlit/ for parity with
+	// Linux so users moving between hosts find the same file).
+	if runtime.GOOS == "windows" {
+		if cfg, err := os.UserConfigDir(); err == nil && cfg != "" {
+			return filepath.Join(cfg, "openlit"), nil
+		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

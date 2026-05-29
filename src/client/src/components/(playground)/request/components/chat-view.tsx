@@ -22,6 +22,7 @@ import {
 	getSpanCostFormatted,
 } from "@/helpers/client/trace";
 import {
+	ArrowRight,
 	Bot,
 	Brain,
 	ChevronDown,
@@ -37,6 +38,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+// OTel GenAI canonical key for the tool-call id. Kept local so the
+// chat view doesn't have to import the platform table-details (which
+// would pull a server-only module into a client component).
+const GEN_AI_TOOL_CALL_ID_ATTR = "gen_ai.tool.call.id";
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ChatItemType =
@@ -45,7 +51,9 @@ type ChatItemType =
 	| "span-indicator"
 	| "thought"
 	| "edit"
-	| "subagent";
+	| "subagent"
+	| "mode-transition"
+	| "model-swap";
 
 interface ChatItem {
 	type: ChatItemType;
@@ -63,6 +71,28 @@ interface ChatItem {
 	details?: string;
 	/** Optional sub-label, e.g. file path / mcp server / cwd */
 	subLabel?: string;
+	/**
+	 * gen_ai.tool.call.id, set on tool-indicator and subagent items so
+	 * the renderer can fold a (Task tool call, subagent stop) pair
+	 * into one collapsible block instead of two separate timeline
+	 * entries. Claude Code's subagents are bracketed exactly this way.
+	 */
+	toolCallId?: string;
+	/**
+	 * coding_agent.agent.parent_id, read from either SpanAttributes
+	 * (Codex stamps it on every span) or ResourceAttributes (Cursor
+	 * stamps it as a resource attr). When non-empty AND this isn't
+	 * the parent chat the viewer is currently looking at, the
+	 * timeline indents the item to show it ran inside a subagent.
+	 */
+	parentId?: string;
+	/**
+	 * Mode / model transition from-value, e.g. "agent". Renders as
+	 * `Plan mode → Agent mode` slim pill.
+	 */
+	fromValue?: string;
+	/** Mode / model transition to-value. */
+	toValue?: string;
 	span: TraceHeirarchySpan;
 	timestampMs: number;
 }
@@ -86,6 +116,22 @@ function tryParseJson(raw: unknown): any[] | null {
 	}
 }
 
+/**
+ * True when the string looks like it was meant to be JSON (starts
+ * with `[` or `{`, optionally after whitespace). Used by
+ * `extractTextMessages` to suppress the raw-string fallback when
+ * the value was clearly a serialised messages envelope that simply
+ * failed to parse — usually because it was truncated mid-token at
+ * the OTLP attribute-size cap. Without this guard, the truncated
+ * blob renders as a "user" bubble with the full raw JSON inside,
+ * which is how Claude Code traces ended up showing tool_result
+ * contents as user messages.
+ */
+function looksLikeJson(raw: string): boolean {
+	const trimmed = raw.trimStart();
+	return trimmed.startsWith("[") || trimmed.startsWith("{");
+}
+
 function extractTextMessages(
 	raw: unknown,
 	defaultRole: "user" | "assistant" = "user"
@@ -94,16 +140,24 @@ function extractTextMessages(
 	// The CLI emits `gen_ai.{input,output}.messages` per the OTel
 	// GenAI semantic convention (https://github.com/open-telemetry/
 	// semantic-conventions-genai → docs/gen-ai/gen-ai-spans.md):
-	//   [{ role, parts: [{ type: "text", content: "..." },
-	//                    { type: "tool_call",          ... },
-	//                    { type: "tool_call_response", ... }],
+	//   [{ role, parts: [{ type: "text", content: "..." }],
 	//      finish_reason? }]
+	// Tool-call / tool-call-response parts are intentionally NOT
+	// stamped onto LLM-turn messages by the CLI — the canonical
+	// source for tool data is the matching `coding_agent.tool.call`
+	// span. See cli/internal/otlp/attrs.go for the rationale.
+	//
 	// Legacy paths fall back to a plain string body and to OpenAI's
 	// `content: "..."` / `content: [{type:"text", text:"..."}]` so
 	// vendors mid-migration still render.
 	const arr = tryParseJson(raw);
 	if (!arr) {
 		if (typeof raw === "string" && raw.trim()) {
+			// Drop unparseable strings that look like JSON — they're
+			// almost always a truncated messages envelope, and
+			// rendering them verbatim creates the "tool_result JSON
+			// appears as a user bubble" failure mode.
+			if (looksLikeJson(raw)) return [];
 			return [{ role: defaultRole, content: raw }];
 		}
 		return [];
@@ -126,31 +180,13 @@ function extractTextMessages(
 						(typeof p.text === "string" && p.text) ||
 						"";
 					if (t) lines.push(t);
-				} else if (p.type === "tool_call") {
-					const args =
-						typeof p.arguments === "string"
-							? p.arguments
-							: p.arguments != null
-								? JSON.stringify(p.arguments)
-								: "";
-					lines.push(
-						`🛠 ${p.name || "tool_call"}${p.id ? ` (${p.id})` : ""}${
-							args ? `\n${args}` : ""
-						}`
-					);
-				} else if (p.type === "tool_call_response") {
-					const r =
-						typeof p.result === "string"
-							? p.result
-							: p.result != null
-								? JSON.stringify(p.result)
-								: "";
-					lines.push(
-						`↩ tool_result${p.id ? ` (${p.id})` : ""}${p.is_error ? " · error" : ""}${
-							r ? `\n${r}` : ""
-						}`
-					);
 				}
+				// `tool_call` / `tool_call_response` parts are
+				// intentionally ignored here. Tool data lives on
+				// `coding_agent.tool.call` spans (rendered by
+				// `ToolIndicator` below); duplicating it inside a
+				// chat bubble produces redundant "Tool Result" /
+				// "🛠 tool_call" lines that clutter the conversation.
 			}
 			if (lines.length > 0) {
 				result.push({ role, content: lines.join("\n\n") });
@@ -224,6 +260,16 @@ function anyDescendantHasMessages(span: TraceHeirarchySpan): boolean {
 	return false;
 }
 
+function readParentId(span: TraceHeirarchySpan): string {
+	const sa = span.SpanAttributes || {};
+	const ra = span.ResourceAttributes || {};
+	const v =
+		(sa["coding_agent.agent.parent_id"] as string | undefined) ||
+		ra["coding_agent.agent.parent_id"] ||
+		"";
+	return typeof v === "string" ? v : "";
+}
+
 function extractItemsFromSpan(
 	span: TraceHeirarchySpan,
 	skipMessages: boolean
@@ -233,6 +279,7 @@ function extractItemsFromSpan(
 	const ts = parseTimestampMs(span.Timestamp);
 	const spanDurationMs = span.Duration / 1e6;
 	const isCodingLLMTurn = span.SpanName === "coding_agent.llm.turn";
+	const parentId = readParentId(span);
 
 	// Coding-agent llm.turn carries a `kind` attribute that disambiguates
 	// what the span represents:
@@ -250,6 +297,7 @@ function extractItemsFromSpan(
 					type: "message",
 					role: normalizeRole(msg.role),
 					content: msg.content,
+					parentId,
 					span,
 					timestampMs: ts,
 				});
@@ -263,6 +311,7 @@ function extractItemsFromSpan(
 					type: "message",
 					role: "user",
 					content: prompt,
+					parentId,
 					span,
 					timestampMs: ts,
 				});
@@ -280,6 +329,7 @@ function extractItemsFromSpan(
 					type: "message",
 					role: normalizeRole(msg.role),
 					content: msg.content,
+					parentId,
 					span,
 					timestampMs: ts + spanDurationMs,
 				});
@@ -293,6 +343,7 @@ function extractItemsFromSpan(
 					type: "message",
 					role: "assistant",
 					content: response,
+					parentId,
 					span,
 					timestampMs: ts + spanDurationMs,
 				});
@@ -314,6 +365,7 @@ function extractItemsFromSpan(
 					thoughtMs > 0
 						? `${(thoughtMs / 1000).toFixed(1)}s of thinking`
 						: undefined,
+				parentId,
 				span,
 				timestampMs: ts + spanDurationMs * 0.25,
 			});
@@ -350,6 +402,8 @@ function extractItemsFromSpan(
 			toolArgs: toolArgs || toolCommand || undefined,
 			toolResult: toolResult || undefined,
 			subLabel: subLabelParts.join(" • ") || undefined,
+			toolCallId: toolCallId || undefined,
+			parentId,
 			span,
 			timestampMs: ts + spanDurationMs * 0.5,
 		});
@@ -371,6 +425,7 @@ function extractItemsFromSpan(
 				linesAdded || linesRemoved
 					? `+${linesAdded} / -${linesRemoved}`
 					: undefined,
+			parentId,
 			span,
 			timestampMs: ts,
 		});
@@ -381,11 +436,48 @@ function extractItemsFromSpan(
 		const subagentType = attrs["coding_agent.subagent.type"] as string | undefined;
 		const task = attrs["coding_agent.subagent.task"] as string | undefined;
 		const summary = attrs["coding_agent.subagent.summary"] as string | undefined;
+		// gen_ai.tool.call.id is the canonical OTel key (now stamped
+		// by setSubagentAttrs). Keep the legacy `coding_agent.subagent.tool_call_id`
+		// readable so older traces still group correctly.
+		const subagentToolCallId =
+			(attrs[GEN_AI_TOOL_CALL_ID_ATTR] as string | undefined) ||
+			(attrs["coding_agent.subagent.tool_call_id"] as string | undefined);
 		items.push({
 			type: "subagent",
 			label: subagentType || "subagent",
 			content: task || undefined,
 			details: summary || undefined,
+			toolCallId: subagentToolCallId || undefined,
+			parentId,
+			span,
+			timestampMs: ts,
+		});
+	}
+
+	// ── Permission-mode transition (coding-agent only) ──
+	// Emitted as a low-cost child span by hook.go whenever the user
+	// toggles Cursor's composer_mode / Claude Code's permission_mode
+	// / Codex's approval_mode mid-session. Show as a slim centered
+	// pill so the chat reads like a Slack channel.
+	if (span.SpanName === "coding_agent.session.permission_mode.changed") {
+		items.push({
+			type: "mode-transition",
+			fromValue:
+				(attrs["coding_agent.session.permission_mode.from"] as string) || "",
+			toValue:
+				(attrs["coding_agent.session.permission_mode.to"] as string) || "",
+			parentId,
+			span,
+			timestampMs: ts,
+		});
+	}
+	// ── Model swap (coding-agent only) ──
+	if (span.SpanName === "coding_agent.session.model.changed") {
+		items.push({
+			type: "model-swap",
+			fromValue: (attrs["coding_agent.session.model.from"] as string) || "",
+			toValue: (attrs["coding_agent.session.model.to"] as string) || "",
+			parentId,
 			span,
 			timestampMs: ts,
 		});
@@ -414,6 +506,7 @@ function extractItemsFromSpan(
 				type: "span-indicator",
 				label: span.SpanName,
 				meta: spanKind || undefined,
+				parentId,
 				span,
 				timestampMs: ts,
 			});
@@ -719,6 +812,59 @@ function SubagentIndicator({
 	);
 }
 
+// ─── Inline session-event pill (mode-transition / model-swap) ────────────────
+
+/**
+ * Slim centered pill used for non-conversational session events that
+ * happen between bubbles. Read like "--- Plan mode → Agent mode ---"
+ * so the eye knows the toggle happened but isn't pulled away from the
+ * conversation.
+ */
+function TransitionPill({
+	item,
+	prefix,
+	suffix,
+	indented,
+}: {
+	item: ChatItem;
+	prefix: string;
+	suffix?: string;
+	indented?: boolean;
+}) {
+	const from = (item.fromValue || "").trim();
+	const to = (item.toValue || "").trim();
+	if (!from && !to) return null;
+	return (
+		<div
+			className={`flex justify-center px-2 py-0.5 ${
+				indented ? "pl-6" : ""
+			}`}
+		>
+			<div className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-stone-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
+				<span className="font-semibold">{prefix}</span>
+				{from && (
+					<>
+						<span className="font-mono text-stone-600 dark:text-stone-300">
+							{from}
+						</span>
+						<ArrowRight className="h-2.5 w-2.5" />
+					</>
+				)}
+				{to && (
+					<span className="font-mono text-stone-600 dark:text-stone-300">
+						{to}
+					</span>
+				)}
+				{suffix && (
+					<span className="text-stone-400 dark:text-stone-500">
+						{suffix}
+					</span>
+				)}
+			</div>
+		</div>
+	);
+}
+
 // ─── Role configs ────────────────────────────────────────────────────────────
 
 const roleConfig = {
@@ -819,8 +965,62 @@ export default function ChatView({
 		return true;
 	});
 
+	// 5b. Fold (Task tool-call → subagent) pairs into a single block.
+	//     Claude Code emits PreToolUse(Task) as a separate tool span,
+	//     then a SubagentStop span later. Both carry the same
+	//     gen_ai.tool.call.id (newly stamped by setSubagentAttrs +
+	//     PreToolUse caching in sessionstate). Rendering both would
+	//     show the Task tool indicator AND the Subagent banner —
+	//     redundant. Keep the subagent item, drop the tool indicator
+	//     that pairs with it, and copy the tool's args onto the
+	//     subagent so the user can still see what was requested.
+	const subagentByCallId = new Map<string, ChatItem>();
+	for (const it of dedupedItems) {
+		if (it.type === "subagent" && it.toolCallId) {
+			subagentByCallId.set(it.toolCallId, it);
+		}
+	}
+	const grouped = dedupedItems.filter((it) => {
+		if (
+			it.type === "tool-indicator" &&
+			it.label === "Task" &&
+			it.toolCallId &&
+			subagentByCallId.has(it.toolCallId)
+		) {
+			// Merge the tool args/result onto the subagent item once.
+			const sa = subagentByCallId.get(it.toolCallId)!;
+			if (!sa.toolArgs && it.toolArgs) sa.toolArgs = it.toolArgs;
+			if (!sa.toolResult && it.toolResult) sa.toolResult = it.toolResult;
+			return false;
+		}
+		return true;
+	});
+
+	// 5c. Identify the parent chat id we're currently viewing so the
+	//     renderer only indents items belonging to a *different*
+	//     parent (i.e. spans from a subagent that ran inside this
+	//     chat). Items whose parent_id == the chat we're viewing are
+	//     the chat's own spans and stay flush-left.
+	let viewerChatId = "";
+	for (const it of grouped) {
+		const sa = it.span.SpanAttributes || {};
+		const ra = it.span.ResourceAttributes || {};
+		const ownId =
+			(sa["coding_agent.session.id"] as string | undefined) ||
+			ra["coding_agent.session.id"] ||
+			(sa["gen_ai.conversation.id"] as string | undefined) ||
+			ra["gen_ai.conversation.id"] ||
+			"";
+		if (ownId && !it.parentId) {
+			viewerChatId = ownId as string;
+			break;
+		}
+	}
+	const isSubagentItem = (it: ChatItem) =>
+		!!it.parentId && it.parentId !== viewerChatId;
+
 	// 6. Empty state
-	if (dedupedItems.length === 0) {
+	if (grouped.length === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-stone-400 dark:text-stone-500 gap-2 py-12">
 				<MessageSquare className="h-8 w-8" />
@@ -834,52 +1034,91 @@ export default function ChatView({
 
 	return (
 		<div className="flex flex-col gap-2 py-2">
-			{dedupedItems.map((item, i) => {
+			{grouped.map((item, i) => {
 				const isSelected = request?.spanId === item.span.SpanId;
+				const indented = isSubagentItem(item);
+				// Subagent items rendered indented with a thin left
+				// border so the user can see at a glance which part
+				// of the chat ran inside a subagent and which is the
+				// parent agent's own work. The border colour matches
+				// the SubagentIndicator's violet accent.
+				const indentClass = indented
+					? "ml-6 border-l-2 border-violet-300/60 pl-2 dark:border-violet-700/50"
+					: "";
+
+				// ── Mode transition pill ──
+				if (item.type === "mode-transition") {
+					return (
+						<TransitionPill
+							key={`${item.span.SpanId}-mode-${i}`}
+							item={item}
+							prefix="Mode"
+							indented={indented}
+						/>
+					);
+				}
+
+				// ── Model swap pill ──
+				if (item.type === "model-swap") {
+					return (
+						<TransitionPill
+							key={`${item.span.SpanId}-model-${i}`}
+							item={item}
+							prefix="Model"
+							indented={indented}
+						/>
+					);
+				}
 
 				// ── Tool call indicator ──
 				if (item.type === "tool-indicator") {
 					return (
-						<ToolIndicator
-							key={`${item.span.SpanId}-tool-${i}`}
-							item={item}
-							isSelected={isSelected}
-							onClick={() =>
-								updateRequest({ spanId: item.span.SpanId })
-							}
-						/>
+						<div key={`${item.span.SpanId}-tool-${i}`} className={indentClass}>
+							<ToolIndicator
+								item={item}
+								isSelected={isSelected}
+								onClick={() =>
+									updateRequest({ spanId: item.span.SpanId })
+								}
+							/>
+						</div>
 					);
 				}
 
 				// ── Thinking / reasoning text ──
 				if (item.type === "thought") {
 					return (
-						<ThoughtIndicator
-							key={`${item.span.SpanId}-thought-${i}`}
-							item={item}
-							isSelected={isSelected}
-							onClick={() =>
-								updateRequest({ spanId: item.span.SpanId })
-							}
-						/>
+						<div key={`${item.span.SpanId}-thought-${i}`} className={indentClass}>
+							<ThoughtIndicator
+								item={item}
+								isSelected={isSelected}
+								onClick={() =>
+									updateRequest({ spanId: item.span.SpanId })
+								}
+							/>
+						</div>
 					);
 				}
 
 				// ── Edit decision ──
 				if (item.type === "edit") {
 					return (
-						<EditIndicator
-							key={`${item.span.SpanId}-edit-${i}`}
-							item={item}
-							isSelected={isSelected}
-							onClick={() =>
-								updateRequest({ spanId: item.span.SpanId })
-							}
-						/>
+						<div key={`${item.span.SpanId}-edit-${i}`} className={indentClass}>
+							<EditIndicator
+								item={item}
+								isSelected={isSelected}
+								onClick={() =>
+									updateRequest({ spanId: item.span.SpanId })
+								}
+							/>
+						</div>
 					);
 				}
 
-				// ── Subagent ──
+				// ── Subagent — always shown flush-left even when it
+				//    represents inner-subagent activity, because the
+				//    block itself is the visual anchor for that
+				//    "subagent triggered" moment.
 				if (item.type === "subagent") {
 					return (
 						<SubagentIndicator
@@ -902,7 +1141,7 @@ export default function ChatView({
 								isSelected
 									? "border-primary/40 bg-primary/5"
 									: "border-stone-200 bg-white hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-950 dark:hover:bg-stone-900"
-							}`}
+							} ${indentClass}`}
 							onClick={() =>
 								updateRequest({ spanId: item.span.SpanId })
 							}
@@ -932,7 +1171,7 @@ export default function ChatView({
 				return (
 					<div
 						key={`${item.span.SpanId}-${role}-${i}`}
-						className={`flex flex-col gap-0.5 px-2 ${config.align}`}
+						className={`flex flex-col gap-0.5 px-2 ${config.align} ${indentClass}`}
 					>
 						{/* Role label + span name */}
 						<div

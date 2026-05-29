@@ -258,27 +258,8 @@ func detectHostFromProcessTree() string {
 		if err != nil {
 			return ""
 		}
-		switch detectHostFromBinary(name) {
-		case "cursor":
-			return "cursor"
-		case "vscode":
-			return "vscode"
-		case "iterm":
-			return "iterm"
-		case "apple-terminal":
-			return "apple-terminal"
-		case "warp":
-			return "warp"
-		case "ghostty":
-			return "ghostty"
-		case "wezterm":
-			return "wezterm"
-		case "alacritty":
-			return "alacritty"
-		case "kitty":
-			return "kitty"
-		case "jetbrains":
-			return "jetbrains"
+		if h := detectHostFromBinary(name); h != "" {
+			return h
 		}
 		pid = parent
 	}
@@ -287,35 +268,63 @@ func detectHostFromProcessTree() string {
 
 // detectHostFromBinary maps an absolute binary path / argv[0] to a
 // known IDE/terminal label. Case-insensitive substring matching keeps
-// the map small.
+// the map small. Patterns cover all three supported OSes:
+//
+//   - macOS uses .app bundle paths ("/Cursor.app/Contents/MacOS/Cursor")
+//   - Linux uses lowercase binary names ("/usr/bin/cursor", "wezterm")
+//   - Windows uses .exe basenames ("Cursor.exe", "Code.exe", "wt.exe")
+//
+// The lowercase + substring strategy means a single check usually
+// matches across all three (e.g. "cursor" appears in every Cursor
+// host path).
 func detectHostFromBinary(bin string) string {
 	b := strings.ToLower(bin)
 	switch {
-	case strings.Contains(b, "/cursor.app/"), strings.Contains(b, "/cursor helper"):
+	case strings.Contains(b, "/cursor.app/"),
+		strings.Contains(b, "/cursor helper"),
+		strings.Contains(b, "cursor.exe"),
+		// Plain "cursor" appears in Linux package paths and the
+		// Windows AppData install dir alike. Anchored to a path
+		// or extension marker to avoid false positives on words
+		// like "cursorless".
+		strings.Contains(b, "\\cursor\\"),
+		strings.Contains(b, "/cursor/"):
 		return "cursor"
 	case strings.Contains(b, "/visual studio code.app/"),
 		strings.Contains(b, "/code helper"),
-		strings.Contains(b, "/vscodium"):
+		strings.Contains(b, "/vscodium"),
+		strings.Contains(b, "\\code.exe"),
+		strings.Contains(b, "\\vscodium.exe"):
 		return "vscode"
 	case strings.Contains(b, "/iterm.app/"), strings.Contains(b, "iterm2"):
 		return "iterm"
 	case strings.Contains(b, "/terminal.app/"):
 		return "apple-terminal"
-	case strings.Contains(b, "/warp.app/"):
+	case strings.Contains(b, "/warp.app/"), strings.Contains(b, "warp.exe"):
 		return "warp"
-	case strings.Contains(b, "/ghostty.app/"):
+	case strings.Contains(b, "/ghostty.app/"), strings.Contains(b, "ghostty.exe"):
 		return "ghostty"
-	case strings.Contains(b, "/wezterm"):
+	case strings.Contains(b, "wezterm"):
 		return "wezterm"
-	case strings.Contains(b, "/alacritty"):
+	case strings.Contains(b, "alacritty"):
 		return "alacritty"
-	case strings.Contains(b, "/kitty"):
+	case strings.Contains(b, "kitty"):
 		return "kitty"
+	case strings.Contains(b, "windowsterminal.exe"), strings.Contains(b, "\\wt.exe"):
+		return "windows-terminal"
+	case strings.Contains(b, "powershell.exe"), strings.Contains(b, "pwsh.exe"):
+		return "powershell"
+	case strings.Contains(b, "\\cmd.exe"):
+		return "cmd"
 	case strings.Contains(b, "/idea.app/"),
 		strings.Contains(b, "/intellij idea.app/"),
 		strings.Contains(b, "/pycharm.app/"),
 		strings.Contains(b, "/goland.app/"),
-		strings.Contains(b, "/webstorm.app/"):
+		strings.Contains(b, "/webstorm.app/"),
+		strings.Contains(b, "idea64.exe"),
+		strings.Contains(b, "pycharm64.exe"),
+		strings.Contains(b, "goland64.exe"),
+		strings.Contains(b, "webstorm64.exe"):
 		return "jetbrains"
 	}
 	return ""
@@ -438,6 +447,13 @@ func NewEmitter(_ context.Context, cfg *config.Resolved, vendor string, extraAtt
 		extra = map[string]string{}
 	}
 	extra["coding_agent.hook.cli.version"] = version.Version
+	// Stamp the build commit SHA when available so support can pin a
+	// reported behaviour to an exact CLI build. The release workflow
+	// passes the short SHA via -ldflags; `dev` / source builds may
+	// leave this empty.
+	if version.Commit != "" {
+		extra["coding_agent.hook.cli.commit"] = version.Commit
+	}
 	// Mark every span emitted from the hook path so the query layer
 	// can tell hook spans apart from a vendor's native OTel exporter
 	// (e.g. Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` path). See
@@ -586,7 +602,7 @@ func (e *Emitter) bumpSubagentCounter(sessionID string) {
 // the same TraceID + SpanID — so otel_traces ended up with two rows
 // per session, doubling counts and breaking the duration math (the
 // first row has startedAt == endedAt, dragging averages to ~0). We
-// now skip emission for the "started" outcome and rely on the final
+// now skip emission for the "started" lifecycle and rely on the final
 // sessionEnd call to write the single authoritative row. Sessions
 // that never see a sessionEnd (process killed, network drop) still
 // show their child spans on the trace view by their session_id
@@ -594,12 +610,35 @@ func (e *Emitter) bumpSubagentCounter(sessionID string) {
 // "active" sessions don't appear in the Sessions list until they
 // finish, which beats the previous bug of every active session
 // counting twice.
+//
+// The lifecycle marker is the vendor-stamped Extras key
+// `<vendor>.session.lifecycle` (set to "started" by every adapter's
+// buildSession kind=started path). The previous guard checked
+// `s.Outcome == "started"` but adapters never set Outcome that way —
+// they only set it on END events ("completed" / "cancelled" / …), so
+// the guard was a no-op and the double-emit persisted in production.
+func isSessionStart(s normalize.Session) bool {
+	if s.Outcome == "started" || s.Outcome == "in_progress" {
+		return true
+	}
+	for _, k := range []string{
+		"cursor.session.lifecycle",
+		"claude_code.session.lifecycle",
+		"codex.session.lifecycle",
+	} {
+		if v, ok := s.Extras[k]; ok && v == "started" {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Emitter) EmitSession(s normalize.Session) error {
 	if e == nil || e.tracer == nil {
 		return errors.New("nil emitter")
 	}
 
-	if s.Outcome == "started" || s.Outcome == "in_progress" {
+	if isSessionStart(s) {
 		return nil
 	}
 

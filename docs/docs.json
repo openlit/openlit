@@ -75,6 +75,14 @@
                   "latest/controller/architecture",
                   "latest/controller/configuration"
                 ]
+              },
+              {
+                "group": "Coding Agents",
+                "icon": "code",
+                "pages": [
+                  "latest/openlit/coding-agents/onboarding",
+                  "latest/openlit/coding-agents/architecture"
+                ]
               }
             ]
           },

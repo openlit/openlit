@@ -85,6 +85,16 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 		}
 	}()
 
+	// Canonicalize the vendor key once. Plugin manifests historically
+	// invoked `--vendor=cc` (short alias) for Claude Code, while
+	// sessionstate / adapters / queries.ts all use `claude-code`. The
+	// split produced two on-disk caches per session (one under `cc`,
+	// one under `claude-code`) that never merged, breaking identity
+	// promotion + parent_id replay across consecutive hook events. We
+	// no longer need the alias for back-compat, so collapse it here
+	// before any downstream code sees the raw flag.
+	vendor = canonicalVendor(vendor)
+
 	ctx, cancel := context.WithTimeout(cmd.Context(), hardTimeout)
 	defer cancel()
 
@@ -412,11 +422,33 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	return nil
 }
 
-// pickAdapter resolves the --vendor flag to a hook adapter. Both the long
-// vendor name ("claude-code") and the short alias ("cc") are accepted.
+// canonicalVendor folds the various vendor aliases the plugin manifests
+// have used historically (`cc`, `claudecode`, `claude_code`, …) onto
+// the canonical names used everywhere else: `cursor`, `claude-code`,
+// `codex`. Returns the input unchanged when it's already canonical or
+// unrecognized — pickAdapter then surfaces the unknown-vendor error.
+// Empty input is preserved so the "--vendor required" error fires as
+// before.
+func canonicalVendor(vendor string) string {
+	v := strings.ToLower(strings.TrimSpace(vendor))
+	switch v {
+	case "cc", "claude-code", "claudecode", "claude_code":
+		return "claude-code"
+	case "cursor":
+		return "cursor"
+	case "codex":
+		return "codex"
+	default:
+		return v
+	}
+}
+
+// pickAdapter resolves the (already-canonicalized) vendor key to a
+// hook adapter. Aliases were folded by canonicalVendor at run() entry,
+// so this switch only needs the canonical names.
 func pickAdapter(vendor string) (normalize.Adapter, error) {
 	switch vendor {
-	case "cc", "claude-code", "claudecode":
+	case "claude-code":
 		return claudecode.New(), nil
 	case "cursor":
 		return cursor.New(), nil
@@ -429,15 +461,12 @@ func pickAdapter(vendor string) (normalize.Adapter, error) {
 	}
 }
 
-// isClaudeCodeVendor returns true when the --vendor flag targets the
-// Claude Code adapter (long form, short form, or no-hyphen variant).
+// isClaudeCodeVendor returns true when the vendor key resolves to the
+// Claude Code adapter. Accepts any of the historical aliases the host
+// plugins have used (`cc`, `claudecode`, `claude_code`, …) so callers
+// can pass the raw --vendor flag without pre-canonicalising.
 func isClaudeCodeVendor(vendor string) bool {
-	switch strings.ToLower(strings.TrimSpace(vendor)) {
-	case "cc", "claude-code", "claudecode":
-		return true
-	default:
-		return false
-	}
+	return canonicalVendor(vendor) == "claude-code"
 }
 
 // isRealClaudeCodeInvocation returns true when the current process was
@@ -495,11 +524,20 @@ func logErrorf(format string, args ...any) {
 // is debug code, never on the hot path. The header doubles as a
 // jsonl pre-line so readers can ignore non-JSON lines easily.
 func teePayload(dir, vendor, event string, payload []byte) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// 0o700 mirrors the file-mode tightening below; otherwise a
+	// freshly-created debug directory would briefly be world-
+	// listable, leaking the (vendor, event) tuples even if the
+	// payload files are 0o600.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	name := fmt.Sprintf("%s-%s.jsonl", vendor, event)
-	f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	// 0o600: these payloads frequently contain prompt bodies, file
+	// paths under the user's home, and (despite tier-1 redaction)
+	// the occasional unredacted token. Keep them owner-readable
+	// only so a shared developer workstation doesn't leak between
+	// accounts.
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}

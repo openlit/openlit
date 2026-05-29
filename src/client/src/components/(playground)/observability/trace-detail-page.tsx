@@ -29,6 +29,21 @@ import {
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
 
+// Mirror of `durationLabel` in observability/columns.tsx — kept local
+// so the top-card override for coding-agent sessions can format the
+// session-level wall-clock duration the same way the Sessions list
+// row does ("1.2m", "12.3s", "450ms"). Returns "" for non-positive
+// inputs so the caller can fall back to the span-local duration.
+function formatSessionDurationMs(ms: number): string {
+	if (!Number.isFinite(ms) || ms <= 0) return "";
+	if (ms < 1000) return `${ms.toFixed(0)}ms`;
+	const sec = ms / 1000;
+	if (sec < 60) return `${sec.toFixed(1)}s`;
+	const min = sec / 60;
+	if (min < 60) return `${min.toFixed(1)}m`;
+	return `${(min / 60).toFixed(1)}h`;
+}
+
 // Compact inline notice when a coding-agent span was recorded with a
 // non-`full` content-capture mode (CLI flag OPENLIT_CODING_CONTENT_CAPTURE).
 // We surface the one command that flips it on; everything else (modes,
@@ -311,6 +326,17 @@ export function TraceDetailView({
 		commit_count: number;
 		pr_count: number;
 		acceptance_pct: number;
+		// Session-level usage rollups (see CodingSessionDigest in
+		// `lib/platform/coding-agents/queries.ts`). These power the
+		// top-card overrides below so a still-running coding-agent
+		// session doesn't render Tokens / Cost / Duration / Model as
+		// empty just because the user is looking at a child span.
+		total_tokens: number;
+		input_tokens: number;
+		output_tokens: number;
+		cost_usd: number;
+		duration_ms: number;
+		model: string;
 	} | null>(null);
 	const hierarchySpanIdRef = useRef(spanId);
 	const [listOffset, setListOffset] = useState(() => filterFromSource(from).offset);
@@ -685,6 +711,50 @@ export function TraceDetailView({
 		router.push(resultsHref);
 	};
 
+	// Top-card overrides for coding-agent sessions only.
+	//
+	// `trace.*` is span-local — for a still-running session viewed at
+	// its root, or for any child span (llm.turn / tool.call /
+	// edit.decision) clicked into via the hierarchy explorer, those
+	// fields are either zero or reflect only that one span's slice.
+	// The sessions list page meanwhile shows the session-level
+	// rollup; without these overrides the trace-detail header
+	// silently disagrees with the row the user just clicked through
+	// from.
+	//
+	// Hard scope guardrail: `isCodingAgentTrace` is derived from
+	// `coding_agent.client` (set exclusively by the CLI's hook
+	// adapters in `cli/internal/otlp/exporter.go`). Non-coding traces
+	// (SDK instrumentation, manual OTel spans, ad-hoc curl) fall
+	// through to the existing `trace.*` values unchanged — the
+	// digest fetch itself is also gated on this flag (see useEffect
+	// at ~line 500), so for non-coding traces `sessionDigest` stays
+	// null and every override here short-circuits.
+	const codingTokensValue =
+		isCodingAgentTrace && sessionDigest && Number(sessionDigest.total_tokens) > 0
+			? Number(sessionDigest.total_tokens).toLocaleString()
+			: undefined;
+	const codingCostValue =
+		isCodingAgentTrace && sessionDigest && Number(sessionDigest.cost_usd) > 0
+			? `$${Number(sessionDigest.cost_usd).toFixed(4)}`
+			: undefined;
+	const codingDurationValue =
+		isCodingAgentTrace && sessionDigest
+			? formatSessionDurationMs(Number(sessionDigest.duration_ms || 0))
+			: "";
+	const codingModelValue =
+		isCodingAgentTrace && sessionDigest && sessionDigest.model
+			? sessionDigest.model
+			: "";
+
+	const tokensValue = codingTokensValue ?? trace?.totalTokens;
+	const costValue =
+		codingCostValue ?? (trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined);
+	const durationValue =
+		codingDurationValue ||
+		(trace ? `${parseFloat(trace.requestDuration).toFixed(3)}s` : "");
+	const modelValue = codingModelValue || trace?.model || trace?.serviceName;
+
 	return (
 		<DetailShell
 			title={title}
@@ -708,15 +778,15 @@ export function TraceDetailView({
 						{statusValue && (
 							<Stat icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Status" value={statusValue} />
 						)}
-						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={`${parseFloat(trace.requestDuration).toFixed(3)}s`} />
-						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={trace.totalTokens} />
+						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={durationValue} />
+						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={tokensValue} />
 						<CostStat
-							costValue={trace.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined}
+							costValue={costValue}
 							spanId={trace.spanId}
-							hasModel={!!trace.model}
+							hasModel={!!modelValue}
 							onRecalculated={fetchData}
 						/>
-						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_MODEL} value={trace.model || trace.serviceName} />
+						<Stat icon={<Cpu className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_MODEL} value={modelValue} />
 					</div>
 				) : undefined
 			}

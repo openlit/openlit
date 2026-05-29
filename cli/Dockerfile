@@ -18,8 +18,11 @@ WORKDIR /src/cli
 RUN go mod download
 ARG VERSION=dev
 ARG COMMIT=unknown
+# Version vars live in cli/internal/version, not in `main`. Targeting
+# main.Version made -X a silent no-op — every image printed `dev`.
+ARG VERSION_PKG=github.com/openlit/openlit/cli/internal/version
 RUN CGO_ENABLED=0 GOOS=linux \
-	go build -trimpath -ldflags "-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT}" \
+	go build -trimpath -ldflags "-s -w -X ${VERSION_PKG}.Version=${VERSION} -X ${VERSION_PKG}.Commit=${COMMIT}" \
 	-o /out/openlit ./cmd/openlit
 
 FROM debian:bookworm-slim AS runtime

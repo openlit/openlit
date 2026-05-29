@@ -3,12 +3,22 @@
 package otlp
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// psTimeout caps how long the macOS `ps` fallback may run. Host
+// detection walks up to ~12 ancestors from a cold start (see the
+// readProcessNameAndPPIDOS callers in exporter.go), so an unbounded
+// `ps` invocation that hung even briefly could compound into a full
+// stall of the 5s hook budget. 100ms is generous for a process that
+// normally returns in single-digit ms.
+const psTimeout = 100 * time.Millisecond
 
 // readProcessNameAndPPIDOS returns the argv[0] and parent pid of `pid`.
 // On Linux it reads /proc directly; on macOS it shells out to `ps`.
@@ -42,8 +52,11 @@ func readProcessNameAndPPIDOS(pid int) (string, int, error) {
 	}
 	// macOS / fallback: `ps -o ppid=,command= -p <pid>` returns
 	// "  <ppid> <full command line>" on one line. `command=` strips
-	// the header.
-	out, err := exec.Command("ps", "-o", "ppid=,command=", "-p", strconv.Itoa(pid)).Output()
+	// the header. The CommandContext bound bails immediately if a
+	// hung `ps` would otherwise dominate the hook budget.
+	psCtx, cancel := context.WithTimeout(context.Background(), psTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(psCtx, "ps", "-o", "ppid=,command=", "-p", strconv.Itoa(pid)).Output()
 	if err != nil {
 		return "", 0, err
 	}

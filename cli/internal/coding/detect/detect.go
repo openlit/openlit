@@ -52,7 +52,7 @@ func IsGitCommit(cmd string) bool {
 	if strings.Contains(low, "--dry-run") {
 		return false
 	}
-	if strings.Contains(low, "--help") || regexp.MustCompile(`\bgit\s+commit\s+-h\b`).MatchString(low) {
+	if strings.Contains(low, "--help") || gitCommitDashHRe.MatchString(low) {
 		return false
 	}
 	// Accept any token sequence that has `git ... commit` with
@@ -64,6 +64,12 @@ func IsGitCommit(cmd string) bool {
 // gitCommitRe matches `git [opts] commit` allowing `-C <path>`,
 // `-c key=val`, and env-var prefixes before `git`.
 var gitCommitRe = regexp.MustCompile(`(?:^|\s|;|&&|\|\||\()(?:[a-z_][a-z0-9_]*=\S+\s+)*git(?:\s+-[cCp]\s+\S+|\s+--[a-zA-Z-]+(?:=\S+)?|\s+-[a-zA-Z]+)*\s+commit(?:\s|$|;|&&|\|\|)`)
+
+// gitCommitDashHRe matches `git commit -h` invocations and is checked
+// alongside `--help` to skip help-only commands. Compiled once at
+// package init — the previous in-function MustCompile cost ~200 ns
+// per IsGitCommit call on the shell hook hot path.
+var gitCommitDashHRe = regexp.MustCompile(`\bgit\s+commit\s+-h\b`)
 
 // shaRe matches a 7-40 char hex SHA, the common short / full forms
 // printed by `git commit`'s stdout (e.g. `[main 1a2b3c4] message`).
