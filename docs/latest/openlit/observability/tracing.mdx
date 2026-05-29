@@ -19,6 +19,47 @@ The OpenLIT platform provides comprehensive trace visualization capabilities. Yo
 
 2. **Dashboard Widgets**: Create custom trace widgets in your dashboards to monitor specific trace metrics, latency trends, and performance insights alongside other observability data.
 
+## AI analysis for traces and spans
+
+Trace details include an **AI Analysis** tab for both the full trace hierarchy and individual spans. Use it to turn raw OpenTelemetry data into a structured review of performance, reliability, cost, token usage, and execution flow.
+
+The analysis works at two scopes:
+
+- **Trace hierarchy analysis**: Reviews the root span and child spans together so you can understand the full request, agent path, tool calls, model calls, retries, errors, and cost drivers.
+- **Individual span analysis**: Focuses on one selected span when you need to inspect a specific model call, tool execution, retrieval step, error, or latency hotspot.
+
+Each analysis run evaluates:
+
+- **Performance**: latency, slow spans, blocking operations, duration hotspots, and inefficient paths.
+- **Reliability**: errors, failed spans, exception signals, retries, and unstable dependencies.
+- **Cost**: model usage, estimated spend, high-cost spans, and cost optimization opportunities.
+- **Token efficiency**: input tokens, output tokens, cache usage, repeated context, and verbose responses.
+- **Prompt and model behavior**: prompt structure, model choice, output quality, and response efficiency.
+- **Telemetry quality**: missing attributes, incomplete trace context, inconsistent service metadata, and weak observability signals.
+- **Actionability**: a grader pass reviews each section so recommendations are clearer and easier to apply.
+
+### Run analysis from trace details
+
+1. Open a trace from the Traces page or from a trace widget.
+2. Select **AI Analysis** in the trace detail view.
+3. Choose whether to analyze the full trace hierarchy or the currently selected span.
+4. Review the streamed progress. When the run completes, the analysis collapses into a reusable result.
+
+Existing runs are shown in the analysis panel, so you can revisit prior findings without rerunning the model. Use rerun only when the trace data or investigation question has changed.
+
+### Run analysis from Otter
+
+You can also ask Otter to analyze traces or spans by natural language:
+
+```
+"Analyze this trace hierarchy"
+"Review span <span_id> for token waste"
+"Find cost optimization opportunities for traces where session.id is dc7b1ba1-..."
+"Analyze the slowest traces from the last 24 hours"
+```
+
+When Otter references a trace or span in its answer, OpenLIT renders clickable trace/span pills so you can jump back into the trace detail experience.
+
 ## Group traces
 
 Use **Group By** on the Traces page to roll up large trace lists into meaningful groups before drilling into individual spans. Grouping works with the selected time range and any active filters, so you can narrow the dataset first and then compare trace segments.

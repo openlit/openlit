@@ -40,6 +40,7 @@ import { objectKeys } from "@/utils/object";
 import { isArray } from "lodash";
 import {
 	SPAN_KIND_TYPE,
+	TraceMappingPathType,
 	TraceMappingKeyType,
 	TraceMappingValueType,
 } from "@/types/trace";
@@ -185,6 +186,12 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Prompt Tokens",
 			type: "integer",
 			path: "usage.input_tokens",
+			paths: [
+				"usage.input_tokens",
+				"client.token.usage.input",
+				{ path: "input_tokens", prefix: null },
+				{ path: "prompt_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			icon: Braces,
 			defaultValue: "-",
@@ -193,6 +200,12 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Completion Tokens",
 			type: "integer",
 			path: "usage.output_tokens",
+			paths: [
+				"usage.output_tokens",
+				"client.token.usage.output",
+				{ path: "output_tokens", prefix: null },
+				{ path: "completion_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			defaultValue: "-",
 		},
@@ -200,6 +213,11 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Total Tokens",
 			type: "integer",
 			path: "usage.total_tokens",
+			paths: [
+				"usage.total_tokens",
+				"client.token.usage",
+				{ path: "total_tokens", prefix: null },
+			],
 			prefix: SpanAttributesGenAIPrefix,
 			icon: TicketPlus,
 			defaultValue: "-",
@@ -688,13 +706,32 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		},
 	};
 
+function getReverseTraceMappingPath(pathConfig: TraceMappingPathType): string {
+	if (
+		typeof pathConfig === "object" &&
+		!isArray(pathConfig) &&
+		"path" in pathConfig
+	) {
+		return isArray(pathConfig.path)
+			? (pathConfig.path as string[]).join(",")
+			: (pathConfig.path as string);
+	}
+
+	return isArray(pathConfig)
+		? (pathConfig as string[]).join(",")
+		: (pathConfig as string);
+}
+
 function getReverseTraceMapping(): Record<string, TraceMappingKeyType> {
 	return objectKeys(TraceMapping).reduce(
 		(acc: Record<string, TraceMappingKeyType>, key) => {
-			const path: string = isArray(TraceMapping[key].path)
-				? (TraceMapping[key].path as string[]).join(",")
-				: (TraceMapping[key].path as string);
-			acc[path] = key;
+			const paths = TraceMapping[key].paths?.length
+				? TraceMapping[key].paths!
+				: [TraceMapping[key].path];
+
+			paths.forEach((pathConfig) => {
+				acc[getReverseTraceMappingPath(pathConfig)] = key;
+			});
 			return acc;
 		},
 		{}

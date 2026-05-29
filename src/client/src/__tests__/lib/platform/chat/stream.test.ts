@@ -223,10 +223,14 @@ describe('streamChatMessage', () => {
     expect(result.streamError).toBeNull();
     expect(result.responseText).toContain('```query-result');
     expect(result.responseText).toContain('"one":1');
-    expect(dataCollector).toHaveBeenCalledWith({
-      query: 'SELECT 1',
-      enable_readonly: true,
-    });
+    expect(dataCollector).toHaveBeenCalledWith(
+      {
+        query: 'SELECT 1',
+        enable_readonly: true,
+      },
+      'query',
+      'db1'
+    );
     expect(updateConversation).toHaveBeenCalledWith('c1', {
       addPromptTokens: 100,
       addCompletionTokens: 20,
@@ -240,6 +244,8 @@ describe('streamChatMessage', () => {
       promptTokens: 100,
       completionTokens: 20,
       cost: 0.0006,
+      provider: 'openai',
+      model: 'gpt-4o',
     });
   });
 
@@ -264,7 +270,47 @@ describe('streamChatMessage', () => {
       conversationId: 'c1',
       role: 'assistant',
       content: expect.stringContaining('Invalid API key'),
+      provider: 'openai',
+      model: 'gpt-4o',
     });
+  });
+
+  it('emits stream deltas and progress steps to callbacks', async () => {
+    const onDelta = jest.fn();
+    const onStep = jest.fn();
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: 'Hello',
+        usage: { inputTokens: 2, outputTokens: 3 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          { type: 'text-delta', delta: 'Hel' },
+          { type: 'text-delta', delta: 'lo' },
+          { type: 'tool-call', toolName: 'list_rules' },
+          { type: 'tool-result', toolName: 'list_rules', result: { success: true, message: 'Rules listed' } },
+        ]),
+      };
+    });
+
+    await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Hello',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+      onDelta,
+      onStep,
+    });
+
+    expect(onDelta).toHaveBeenCalledWith('Hel');
+    expect(onDelta).toHaveBeenCalledWith('lo');
+    expect(onStep).toHaveBeenCalledWith('Saving user message', 'active');
+    expect(onStep).toHaveBeenCalledWith('Using list_rules', 'active');
+    expect(onStep).toHaveBeenCalledWith('Using list_rules', 'complete');
   });
 
   it('uses tool-result fallback content when no text deltas are streamed', async () => {
@@ -296,6 +342,137 @@ describe('streamChatMessage', () => {
 
     expect(result.responseText).toContain('**Secret stored**');
     expect(result.responseText).toContain('Key: API_KEY');
+  });
+
+  it('uses tool-result error fallback content when a tool fails without text deltas', async () => {
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 4, outputTokens: 2 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          {
+            type: 'tool-result',
+            toolName: 'get_prompt',
+            result: { success: false, error: 'Prompt "missing" was not found' },
+          },
+        ]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Improve missing prompt',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+    });
+
+    expect(result.responseText).toBe('**Error:** Prompt "missing" was not found');
+    expect(addMessage).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('Prompt "missing" was not found'),
+      })
+    );
+  });
+
+  it('uses onFinish tool summaries when tool-result parts are not streamed', async () => {
+    const onDelta = jest.fn();
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 10, outputTokens: 5 },
+        steps: [
+          {
+            toolResults: [
+              {
+                result: {
+                  success: true,
+                  message: 'Prompt loaded',
+                  details: 'Name: "music_recommend"\n\nRecommend music for {{mood}}',
+                },
+              },
+            ],
+          },
+        ],
+      });
+      return {
+        fullStream: streamParts([
+          { type: 'tool-call', toolName: 'get_prompt' },
+          { type: 'tool-input-delta', toolName: 'get_prompt', inputTextDelta: '{"name":"' },
+          { type: 'tool-input-delta', toolName: 'get_prompt', inputTextDelta: 'music_recommend"}' },
+        ]),
+      };
+    });
+
+    const result = await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Help me improve prompt music_recommend',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+      onDelta,
+    });
+
+    expect(result.responseText).toContain('**Prompt loaded**');
+    expect(result.responseText).toContain('Recommend music for {{mood}}');
+    expect(onDelta).toHaveBeenCalledWith(expect.stringContaining('**Prompt loaded**'));
+    expect(addMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('**Prompt loaded**'),
+        promptTokens: 10,
+        completionTokens: 5,
+      })
+    );
+  });
+
+  it('does not emit repeated progress steps for tool input deltas', async () => {
+    const onStep = jest.fn();
+    (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+      onFinish({
+        text: '',
+        usage: { inputTokens: 0, outputTokens: 0 },
+        steps: [],
+      });
+      return {
+        fullStream: streamParts([
+          { type: 'tool-input-start', toolName: 'update_prompt_version' },
+          { type: 'tool-input-delta', toolName: 'update_prompt_version', inputTextDelta: '{"prompt":"' },
+          { type: 'tool-input-delta', toolName: 'update_prompt_version', inputTextDelta: 'x"}' },
+          {
+            type: 'tool-result',
+            toolName: 'update_prompt_version',
+            result: { success: true, message: 'Prompt version updated' },
+          },
+        ]),
+      };
+    });
+
+    await streamChatMessage({
+      conversationId: 'c1',
+      content: 'Update prompt',
+      provider: 'openai',
+      apiKey: 'sk-test',
+      model: 'gpt-4o',
+      userId: 'u1',
+      dbConfigId: 'db1',
+      onStep,
+    });
+
+    expect(onStep).not.toHaveBeenCalledWith(
+      expect.stringContaining('Preparing update_prompt_version input'),
+      'active'
+    );
+    expect(onStep).toHaveBeenCalledWith('Using update_prompt_version', 'active');
+    expect(onStep).toHaveBeenCalledWith('Using update_prompt_version', 'complete');
   });
 
   it('generates a title for the first message using onFinish tool summaries', async () => {
