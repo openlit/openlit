@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from openlit.observability import record_threat_detected
+from openlit.threat import record_threat_detected
 from openlit.semcov import SemanticConvention
 
 
@@ -55,6 +55,35 @@ def test_record_threat_detected_uses_current_span_when_span_not_provided():
     assert (
         span.add_event.call_args[0][0]
         == SemanticConvention.GEN_AI_AGENT_THREAT_DETECTED
+    )
+
+
+def test_record_threat_detected_preserves_validated_core_attributes():
+    span = Mock()
+    span.is_recording.return_value = True
+
+    emitted = record_threat_detected(
+        "rule-1",
+        "high",
+        "jailbreak",
+        span=span,
+        detector="openlit.guard",
+        **{
+            SemanticConvention.GEN_AI_AGENT_THREAT_RULE_ID: "rule-2",
+            SemanticConvention.GEN_AI_AGENT_THREAT_SEVERITY: "low",
+            SemanticConvention.GEN_AI_AGENT_THREAT_CLASS: "prompt_injection",
+        },
+    )
+
+    assert emitted is True
+    span.add_event.assert_called_once_with(
+        SemanticConvention.GEN_AI_AGENT_THREAT_DETECTED,
+        attributes={
+            SemanticConvention.GEN_AI_AGENT_THREAT_RULE_ID: "rule-1",
+            SemanticConvention.GEN_AI_AGENT_THREAT_SEVERITY: "high",
+            SemanticConvention.GEN_AI_AGENT_THREAT_CLASS: "jailbreak",
+            "detector": "openlit.guard",
+        },
     )
 
 
