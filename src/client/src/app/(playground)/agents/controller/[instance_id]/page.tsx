@@ -41,22 +41,51 @@ const SUPPORTED_PROVIDERS: Array<keyof PayloadExtractionConfig> = [
 	"openai",
 	"anthropic",
 	"gemini",
+	"qwen",
+	"bedrock",
+	"custom",
+	"ollama",
+];
+
+// OpenAI-wire-compatible SaaS vendors discovery may report. They share the
+// single OpenAI extractor (mirrors openAICompatible in the controller's obi.go).
+const OPENAI_COMPATIBLE_PROVIDERS = new Set([
+	"openai",
 	"cohere",
 	"mistral",
 	"groq",
 	"deepseek",
 	"together",
 	"fireworks",
+	"azure_inference",
+	"azure_openai",
 	"vercel_ai",
 	"vertex_ai",
-	"azure_inference",
-	"bedrock",
-];
+]);
 
+// providerToExtractor maps a discovered provider string to the payload-extraction
+// toggle that enables it, or null if it has no extractor.
+function providerToExtractor(
+	provider: string
+): keyof PayloadExtractionConfig | null {
+	if (OPENAI_COMPATIBLE_PROVIDERS.has(provider)) return "openai";
+	if (provider === "anthropic") return "anthropic";
+	if (provider === "gemini") return "gemini";
+	if (provider === "qwen") return "qwen";
+	if (provider === "bedrock") return "bedrock";
+	if (provider === "custom") return "custom";
+	if (provider === "ollama") return "ollama";
+	return null;
+}
+
+// PROVIDER_LABELS humanizes every provider string discovery may emit (chips),
+// which is a superset of the payload-extraction toggles. Discovered SaaS vendors
+// keep their names for display even though they share the OpenAI extractor.
 const PROVIDER_LABELS: Record<string, string> = {
 	openai: getMessage().AGENTS_PROVIDER_OPENAI,
 	anthropic: getMessage().AGENTS_PROVIDER_ANTHROPIC,
 	gemini: getMessage().AGENTS_PROVIDER_GEMINI,
+	qwen: getMessage().AGENTS_PROVIDER_QWEN,
 	cohere: getMessage().AGENTS_PROVIDER_COHERE,
 	mistral: getMessage().AGENTS_PROVIDER_MISTRAL,
 	groq: getMessage().AGENTS_PROVIDER_GROQ,
@@ -67,30 +96,27 @@ const PROVIDER_LABELS: Record<string, string> = {
 	vertex_ai: getMessage().AGENTS_PROVIDER_VERTEX_AI,
 	azure_inference: getMessage().AGENTS_PROVIDER_AZURE_INFERENCE,
 	bedrock: getMessage().AGENTS_PROVIDER_BEDROCK,
+	ollama: getMessage().AGENTS_PROVIDER_OLLAMA,
+	custom: getMessage().AGENTS_PROVIDER_CUSTOM,
 };
 
 const DEFAULT_PAYLOAD_EXTRACTION: PayloadExtractionConfig = {
 	openai: false,
 	anthropic: false,
 	gemini: false,
-	cohere: false,
-	mistral: false,
-	groq: false,
-	deepseek: false,
-	together: false,
-	fireworks: false,
-	vercel_ai: false,
-	vertex_ai: false,
-	azure_inference: false,
-	azure_openai: false,
+	qwen: false,
 	bedrock: false,
-	litellm: false,
+	custom: false,
 	ollama: false,
 };
 
 const DEFAULT_CONFIG: ControllerConfig = {
 	export: {
-		otlp_endpoint: "http://localhost:4318",
+		// Empty by default: the controller uses its own OTEL_EXPORTER_OTLP_ENDPOINT
+		// (set per-deployment, e.g. the in-cluster collector). Only set this to
+		// override that endpoint. A hardcoded localhost default would point the
+		// controller at itself and silently drop telemetry.
+		otlp_endpoint: "",
 		otlp_headers: {},
 		otlp_protocol: "http/protobuf",
 	},
@@ -837,8 +863,9 @@ function buildDefaultConfig(
 	const payloadExtraction = { ...DEFAULT_PAYLOAD_EXTRACTION };
 	for (const service of sourceServices) {
 		for (const provider of service.llm_providers || []) {
-			if (provider in payloadExtraction) {
-				payloadExtraction[provider as keyof PayloadExtractionConfig] = true;
+			const key = providerToExtractor(provider);
+			if (key) {
+				payloadExtraction[key] = true;
 			}
 		}
 	}

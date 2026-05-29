@@ -3,7 +3,10 @@ import {
 	getControllerConfig,
 	saveControllerConfig,
 } from "@/lib/platform/controller";
-import type { ControllerConfig } from "@/types/controller";
+import {
+	validateControllerConfig,
+	ConfigValidationError,
+} from "@/lib/platform/controller/validate-config";
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -37,16 +40,23 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	try {
 		const body = await request.json();
-		const { instance_id, config } = body as {
-			instance_id?: string;
-			config?: ControllerConfig;
-		};
+		const { instance_id } = body as { instance_id?: string };
 
-		if (!config) {
-			return Response.json(
-				{ error: "config is required" },
-				{ status: 400 }
-			);
+		if (body?.config === undefined || body?.config === null) {
+			return Response.json({ error: "config is required" }, { status: 400 });
+		}
+
+		// The controller fetches and EXECUTES this config, and it is writable by
+		// any authenticated user, so validate + sanitize it into a known bounded
+		// shape before persisting. Reject hostile/malformed input outright.
+		let config;
+		try {
+			config = validateControllerConfig(body.config);
+		} catch (e) {
+			if (e instanceof ConfigValidationError) {
+				return Response.json({ error: `Invalid config: ${e.message}` }, { status: 400 });
+			}
+			throw e;
 		}
 
 		// Save config to ClickHouse. The controller will pick it up

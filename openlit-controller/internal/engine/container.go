@@ -268,9 +268,9 @@ func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodIn
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			return nil, fmt.Errorf("K8s API returned %d", resp.StatusCode)
 		}
 
@@ -300,8 +300,12 @@ func (c *k8sAPIClient) getPodByContainerID(containerID, nodeName string) (*PodIn
 			} `json:"items"`
 		}
 
-		if err := json.NewDecoder(resp.Body).Decode(&podList); err != nil {
-			return nil, fmt.Errorf("decoding pod list: %w", err)
+		decodeErr := json.NewDecoder(resp.Body).Decode(&podList)
+		// Close each page's body before processing/continuing so we don't
+		// accumulate open connections across pagination iterations.
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("decoding pod list: %w", decodeErr)
 		}
 
 		for _, pod := range podList.Items {
