@@ -14,7 +14,7 @@ export async function getResultGenerationByEndpoint(params: MetricParams) {
 			...params,
 			notEmpty: [{ key: keyPath }],
 			operationType: "llm",
-		})}
+		}, true)}
     GROUP BY provider;
   `;
 

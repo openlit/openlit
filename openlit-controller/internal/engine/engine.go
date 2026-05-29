@@ -14,6 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// ExportConfig holds the OTLP export settings that can be updated at runtime
+// from the Agents UI configuration editor.
+type ExportConfig struct {
+	OTLPEndpoint        string
+	OTLPProtocol        string
+	OTLPHeaders         map[string]string
+	OTLPTracesEndpoint  string
+	OTLPMetricsEndpoint string
+	OTLPLogsEndpoint    string
+}
+
 // instrumentPattern represents a service pattern for OBI discovery.
 type instrumentPattern struct {
 	ServiceID      string
@@ -37,10 +48,10 @@ type Engine struct {
 	logger   *zap.Logger
 	running  bool
 
-	scanner      *scanner.Scanner
-	obi          *OBIManager
-	otlpEndpoint string
-	procRoot     string
+	scanner    *scanner.Scanner
+	obi        *OBIManager
+	exportCfg  ExportConfig
+	procRoot   string
 	deployMode   config.DeployMode
 	container    *ContainerEnricher
 	environment  string
@@ -55,6 +66,23 @@ const (
 	CapabilityPythonSDKDockerV1       = "python_sdk_injection_docker_v1"
 	CapabilityPythonSDKLinuxSystemdV1 = "python_sdk_injection_linux_systemd_v1"
 	CapabilityPythonSDKLinuxBareV1    = "python_sdk_injection_linux_bare_v1"
+	CapabilityLifecycleKubernetesV1   = "lifecycle_kubernetes_v1"
+	CapabilityLifecycleDockerV1       = "lifecycle_docker_v1"
+	CapabilityLifecycleLinuxSystemdV1 = "lifecycle_linux_systemd_v1"
+	CapabilityLifecycleLinuxBareV1    = "lifecycle_linux_bare_v1"
+)
+
+// Lifecycle resource-attribute / annotation keys shared between the
+// controller heartbeat and the dashboard rollup. Keep these constants in
+// sync with the SQL projections in
+// src/client/src/lib/platform/agents/index.ts.
+const (
+	LifecycleStatusAttr   = "openlit.lifecycle.status"
+	LifecycleStatusRunning    = "running"
+	LifecycleStatusStopped    = "stopped"
+	LifecycleStatusRestarting = "restarting"
+	K8sSavedReplicasAnnotation = "openlit.io/saved-replicas"
+	K8sRolloutRestartAnnotation = "openlit.io/restartedAt"
 )
 
 func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment, sdkVersion string, mode config.DeployMode) *Engine {
@@ -73,16 +101,19 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 	)
 
 	return &Engine{
-		services:     make(map[string]*openlit.ServiceState),
-		patterns:     make(map[string]instrumentPattern),
-		logger:       logger,
-		obi:          NewOBIManager(obiBinaryPath, logger),
-		otlpEndpoint: otlpEndpoint,
-		procRoot:     procRoot,
-		deployMode:   mode,
-		container:    container,
-		environment:  environment,
-		sdkVersion:   sdkVersion,
+		services: make(map[string]*openlit.ServiceState),
+		patterns: make(map[string]instrumentPattern),
+		logger:   logger,
+		obi:      NewOBIManager(obiBinaryPath, logger),
+		exportCfg: ExportConfig{
+			OTLPEndpoint: otlpEndpoint,
+			OTLPProtocol: "http/protobuf",
+		},
+		procRoot:   procRoot,
+		deployMode: mode,
+		container:  container,
+		environment: environment,
+		sdkVersion:  sdkVersion,
 	}
 }
 
@@ -224,7 +255,7 @@ func (e *Engine) rebuildOBI() error {
 		entries = append(entries, entry)
 	}
 	cfg := BuildInstrumentConfig(
-		e.otlpEndpoint,
+		e.exportCfg,
 		entries,
 		e.enabledProvidersForPatterns(),
 		e.deployMode,
@@ -383,19 +414,67 @@ func (e *Engine) ControllerCapabilities() []string {
 	case config.DeployKubernetes:
 		if e.container != nil && e.container.k8sClient != nil {
 			capabilities = append(capabilities, CapabilityPythonSDKKubernetesV1)
+			capabilities = append(capabilities, CapabilityLifecycleKubernetesV1)
 		}
 	case config.DeployDocker:
 		if e.container != nil && e.container.dockerClient != nil && e.container.dockerClient.canManage() {
 			capabilities = append(capabilities, CapabilityPythonSDKDockerV1)
+			capabilities = append(capabilities, CapabilityLifecycleDockerV1)
 		}
 	default:
 		capabilities = append(capabilities, CapabilityPythonSDKLinuxBareV1)
+		capabilities = append(capabilities, CapabilityLifecycleLinuxBareV1)
 		if linuxSystemdSDKSupported() {
 			capabilities = append(capabilities, CapabilityPythonSDKLinuxSystemdV1)
+			capabilities = append(capabilities, CapabilityLifecycleLinuxSystemdV1)
 		}
 	}
 
 	return capabilities
+}
+
+// UpdateExportConfig replaces the runtime export settings. If OBI-relevant
+// fields (endpoint, protocol) changed and OBI is running, it triggers a
+// rebuildOBI so the new config takes effect immediately.
+func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	obiChanged := cfg.OTLPEndpoint != e.exportCfg.OTLPEndpoint ||
+		cfg.OTLPProtocol != e.exportCfg.OTLPProtocol ||
+		cfg.OTLPTracesEndpoint != e.exportCfg.OTLPTracesEndpoint
+
+	e.exportCfg = cfg
+	e.logger.Info("export config updated",
+		zap.String("otlp_endpoint", cfg.OTLPEndpoint),
+		zap.String("otlp_protocol", cfg.OTLPProtocol),
+		zap.String("otlp_traces_endpoint", cfg.OTLPTracesEndpoint),
+		zap.String("otlp_metrics_endpoint", cfg.OTLPMetricsEndpoint),
+		zap.String("otlp_logs_endpoint", cfg.OTLPLogsEndpoint),
+	)
+
+	if obiChanged && e.obi.IsRunning() {
+		if err := e.rebuildOBI(); err != nil {
+			e.logger.Error("failed to rebuild OBI after export config update", zap.Error(err))
+		}
+	}
+}
+
+// GetExportConfig returns a snapshot of the current export configuration.
+// The returned value is a deep copy safe for use outside the engine lock.
+func (e *Engine) GetExportConfig() ExportConfig {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	cfg := e.exportCfg
+	if cfg.OTLPHeaders != nil {
+		cloned := make(map[string]string, len(cfg.OTLPHeaders))
+		for k, v := range cfg.OTLPHeaders {
+			cloned[k] = v
+		}
+		cfg.OTLPHeaders = cloned
+	}
+	return cfg
 }
 
 func (e *Engine) pruneStaleServices(ctx context.Context) {
@@ -435,4 +514,58 @@ func (e *Engine) ServiceCount() (discovered, instrumented int) {
 		}
 	}
 	return
+}
+
+// setLifecycleState stamps the lifecycle status onto the matching in-memory
+// service so the next heartbeat reports it. Mirrors the
+// applyAgentStateLocked / setAgentObservabilityState pattern in python_sdk.go
+// and uses the same resource_attributes channel
+// (openlit.lifecycle.status) for the dashboard rollup.
+//
+// On Stop the scanner is likely to lose sight of the workload immediately
+// (the process exits / container exits / pod is gone), so this helper is the
+// last chance the controller has to surface the "stopped" state to the UI
+// before the row falls out of the heartbeat window. We also refresh
+// LastSeen so the row survives the next prune cycle (30-minute
+// not-instrumented cutoff in pruneStaleServices) while the user decides
+// whether to Play it back.
+func (e *Engine) setLifecycleState(workloadKey, status string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	svc, ok := e.services[workloadKey]
+	if !ok {
+		return
+	}
+	svc.LifecycleStatus = status
+	svc.LastSeen = time.Now()
+	if svc.ResourceAttributes == nil {
+		svc.ResourceAttributes = make(map[string]string)
+	}
+	if status != "" {
+		svc.ResourceAttributes[LifecycleStatusAttr] = status
+	} else {
+		delete(svc.ResourceAttributes, LifecycleStatusAttr)
+	}
+}
+
+// snapshotService returns a defensive copy of a service entry so callers
+// can read its identity (workload_key, namespace, service_name,
+// container name) without holding the engine lock.
+func (e *Engine) snapshotService(workloadKey string) (*openlit.ServiceState, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	svc, ok := e.services[workloadKey]
+	if !ok {
+		return nil, fmt.Errorf("service %q not found", workloadKey)
+	}
+	copied := *svc
+	if svc.ResourceAttributes != nil {
+		clone := make(map[string]string, len(svc.ResourceAttributes))
+		for k, v := range svc.ResourceAttributes {
+			clone[k] = v
+		}
+		copied.ResourceAttributes = clone
+	}
+	return &copied, nil
 }

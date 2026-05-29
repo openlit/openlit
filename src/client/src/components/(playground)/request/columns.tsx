@@ -4,7 +4,9 @@ import { TraceMapping } from "@/constants/traces";
 import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { CalendarDays } from "lucide-react";
 
-export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
+type RequestColumnKey = TraceMappingKeyType;
+
+export const columns: Columns<RequestColumnKey, TransformedTraceRow> = {
 	id: {
 		header: () => TraceMapping.id.label,
 		cell: ({ row }) => (

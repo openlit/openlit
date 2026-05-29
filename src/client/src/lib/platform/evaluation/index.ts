@@ -7,6 +7,7 @@ import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import { runEvaluation } from "./run-evaluation";
 import { getEvaluationConfig, getEvaluationConfigById } from "./config";
 import asaw from "@/utils/asaw";
+import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
 import {
 	AutoEvaluationConfig,
 	Evaluation,
@@ -701,4 +702,206 @@ export async function getEvaluationDetectedByType(
 	`;
 
 	return dataCollector({ query });
+}
+
+export interface OfflineEvaluationInput {
+	prompt: string;
+	response: string;
+	contexts?: string[];
+	evalTypes?: string[];
+	thresholdScore?: number;
+	storeResults?: boolean;
+	runId?: string;
+	metadata?: Record<string, string>;
+	attributes?: Record<string, string | number | boolean>;
+}
+
+export interface OfflineEvaluationResult {
+	success: boolean;
+	evaluations?: Evaluation[];
+	contextApplied?: {
+		ruleMatched: boolean;
+		matchingRuleIds: string[];
+		contextEntityIds: string[];
+		userContextsCount: number;
+	};
+	metadata?: Record<string, any>;
+	error?: string;
+}
+
+export async function runOfflineEvaluation(
+	input: OfflineEvaluationInput,
+	evaluationConfig: EvaluationConfigWithSecret & { evaluationTypes?: any[] },
+	databaseConfigId: string
+): Promise<OfflineEvaluationResult> {
+	const {
+		prompt,
+		response,
+		contexts: userContexts,
+		evalTypes: requestedTypes,
+		thresholdScore = 0.5,
+		storeResults = true,
+		runId,
+		metadata: userMetadata,
+		attributes,
+	} = input;
+
+	const allTypes = ((evaluationConfig as any).evaluationTypes || []) as Array<{
+		id: string;
+		enabled: boolean;
+		label?: string;
+		rules?: Array<{ ruleId: string; priority: number }>;
+		ruleId?: string;
+		priority?: number;
+		prompt?: string;
+		defaultPrompt?: string;
+	}>;
+
+	let enabledTypes = requestedTypes?.length
+		? allTypes.filter((t) => requestedTypes.includes(t.id))
+		: allTypes.filter((t) => t.enabled);
+
+	if (enabledTypes.length === 0) {
+		enabledTypes = allTypes
+			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+			.map((t) => ({ ...t, enabled: true }));
+	}
+
+	if (requestedTypes?.length) {
+		const allTypeIds = new Set(allTypes.map((t) => t.id));
+		const unknown = requestedTypes.filter((id) => !allTypeIds.has(id));
+		if (unknown.length > 0) {
+			return {
+				success: false,
+				error: `Unknown eval types: ${unknown.join(", ")}`,
+			};
+		}
+	}
+
+	let contextContents: string[] = [];
+	let matchingRuleIds: string[] = [];
+	let contextEntityIds: string[] = [];
+
+	if (attributes && Object.keys(attributes).length > 0) {
+		try {
+			const ruleResult = await evaluateRules(
+				{
+					fields: attributes,
+					entity_type: "context" as any,
+					include_entity_data: true,
+				},
+				databaseConfigId
+			);
+
+			matchingRuleIds = ruleResult.matchingRuleIds || [];
+
+			if (ruleResult.entity_data) {
+				for (const [key, entityData] of Object.entries(
+					ruleResult.entity_data
+				)) {
+					if (entityData?.content) {
+						contextContents.push(String(entityData.content));
+						const match = key.match(/^context:(.+)$/);
+						if (match) contextEntityIds.push(match[1]);
+					}
+				}
+			}
+		} catch (e) {
+			consoleLog("Rule engine evaluation failed for offline eval:", e);
+		}
+	}
+
+	const userContextsCount = userContexts?.length || 0;
+	if (userContexts?.length) {
+		contextContents.push(...userContexts);
+	}
+
+	const prebuiltParts: string[] = [];
+	for (const t of enabledTypes) {
+		const promptToUse = t.prompt?.trim() || t.defaultPrompt?.trim();
+		if (promptToUse) prebuiltParts.push(promptToUse);
+	}
+	const allContextParts = [...prebuiltParts, ...contextContents];
+	const finalContextString =
+		allContextParts.length > 0 ? allContextParts.join("\n\n") : "";
+
+	try {
+		const data = await runEvaluation({
+			provider: evaluationConfig.provider,
+			model: evaluationConfig.model,
+			apiKey: evaluationConfig.secret.value,
+			prompt,
+			contexts: finalContextString,
+			response,
+			thresholdScore,
+		});
+
+		if (!data.success) {
+			return { success: false, error: data.error };
+		}
+
+		const metaBase: Record<string, string> = {
+			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
+			ruleIds: matchingRuleIds.join(","),
+			contextIds: contextEntityIds.join(","),
+			contextApplied: contextContents.length > 0 ? "yes" : "no",
+			source: "offline_sdk",
+		};
+		if (runId) metaBase.runId = runId;
+		if (userMetadata) {
+			for (const [k, v] of Object.entries(userMetadata)) {
+				metaBase[`user_${k}`] = String(v);
+			}
+		}
+
+		let cost: number | undefined;
+		if (data.usage) {
+			metaBase.promptTokens = String(data.usage.promptTokens);
+			metaBase.completionTokens = String(data.usage.completionTokens);
+			cost = estimateEvaluationCost(
+				evaluationConfig.model,
+				data.usage.promptTokens,
+				data.usage.completionTokens
+			);
+			if (cost > 0) metaBase.cost = cost.toFixed(8);
+		}
+
+		if (storeResults) {
+			const spanId = `offline_${crypto.randomUUID()}`;
+			const storeResult = await storeEvaluation(
+				spanId,
+				data.result || [],
+				metaBase,
+				databaseConfigId
+			);
+			if (storeResult?.err) {
+				consoleLog("Failed to store offline eval results:", storeResult.err);
+			}
+		}
+
+		return {
+			success: true,
+			evaluations: data.result || [],
+			contextApplied: {
+				ruleMatched: matchingRuleIds.length > 0,
+				matchingRuleIds,
+				contextEntityIds,
+				userContextsCount,
+			},
+			metadata: {
+				model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
+				evalTypesRun: enabledTypes.map((t) => t.id),
+				thresholdScore,
+				runId: runId || undefined,
+				usage: data.usage || undefined,
+				cost: cost || undefined,
+			},
+		};
+	} catch (e) {
+		consoleLog(e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : String(e),
+		};
+	}
 }

@@ -59,15 +59,48 @@ describe('getConversations', () => {
 describe('getConversationWithMessages', () => {
   it('returns a conversation with ordered messages', async () => {
     (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ data: [{ id: 'c1', title: 'Chat' }] })
-      .mockResolvedValueOnce({ data: [{ id: 'm1', role: 'user', content: 'Hi' }] });
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'c1',
+            title: 'Chat',
+            totalPromptTokens: '10',
+            totalMessages: BigInt(2),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'm1',
+            conversationId: 'c1',
+            role: 'user',
+            content: 'Hi',
+            promptTokens: BigInt(4),
+          },
+        ],
+      });
 
     const { data } = await getConversationWithMessages('c1', 'db-1');
 
-    expect(data).toEqual({
-      conversation: { id: 'c1', title: 'Chat' },
-      messages: [{ id: 'm1', role: 'user', content: 'Hi' }],
-    });
+    expect(data?.conversation).toEqual(
+      expect.objectContaining({
+        id: 'c1',
+        title: 'Chat',
+        totalPromptTokens: 10,
+        totalMessages: 2,
+      })
+    );
+    expect(data?.messages[0]).toEqual(
+      expect.objectContaining({
+        id: 'm1',
+        conversationId: 'c1',
+        role: 'user',
+        content: 'Hi',
+        promptTokens: 4,
+      })
+    );
+    expect(() => JSON.stringify(data)).not.toThrow();
     expect(dataCollector).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ query: expect.stringContaining("WHERE id = 'c1'") }),
@@ -109,11 +142,13 @@ describe('getConversationWithMessages', () => {
 
 describe('createConversation', () => {
   it('inserts into conversation table', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} }) // insert
-      .mockResolvedValueOnce({ data: [{ id: 'new-id' }] }); // select latest
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
     const { data } = await createConversation('Test', 'openai', 'gpt-4');
-    expect(data).toBe('new-id');
+    expect(data).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    expect((dataCollector as jest.Mock).mock.calls[0][0].values[0].id).toBe(data);
   });
 
   it('returns error on insert failure', async () => {
@@ -122,14 +157,10 @@ describe('createConversation', () => {
     expect(err).toBe('fail');
   });
 
-  it('returns latest select errors after insert succeeds', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} })
-      .mockResolvedValueOnce({ err: 'latest failed' });
-
-    await expect(createConversation('Test', 'openai', 'gpt-4')).resolves.toEqual({
-      err: 'latest failed',
-    });
+  it('does not run a read-after-write lookup after insert succeeds', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+    await createConversation('Test', 'openai', 'gpt-4');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -166,9 +197,7 @@ describe('deleteConversation', () => {
 
 describe('addMessage', () => {
   it('inserts message with all fields', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} }) // insert
-      .mockResolvedValueOnce({ data: [{ id: 'msg-1' }] }); // select latest
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
     const { data } = await addMessage({
       conversationId: 'c1',
       role: 'user',
@@ -177,17 +206,20 @@ describe('addMessage', () => {
       completionTokens: 20,
       cost: 0.001,
     });
-    expect(data).toBe('msg-1');
+    // UUID is generated client-side; verify it is a non-empty string
+    expect(typeof data).toBe('string');
+    expect(data!.length).toBeGreaterThan(0);
     const insertCall = (dataCollector as jest.Mock).mock.calls[0];
     expect(insertCall[0].table).toBe('openlit_chat_message');
+    expect(insertCall[0].values[0].id).toBe(data);
     expect(insertCall[0].values[0].role).toBe('user');
     expect(insertCall[0].values[0].prompt_tokens).toBe(10);
+    // Only one DB call (no post-insert SELECT)
+    expect(dataCollector).toHaveBeenCalledTimes(1);
   });
 
   it('defaults optional message fields', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} })
-      .mockResolvedValueOnce({ data: [] });
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
 
     const { data } = await addMessage({
       conversationId: 'c1',
@@ -195,7 +227,7 @@ describe('addMessage', () => {
       content: 'Hello',
     });
 
-    expect(data).toBeUndefined();
+    expect(typeof data).toBe('string');
     expect(dataCollector).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -217,11 +249,13 @@ describe('addMessage', () => {
 
   it('returns insert errors', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'insert failed' });
-    await expect(addMessage({
+    const result = await addMessage({
       conversationId: 'c1',
       role: 'user',
       content: 'Hello',
-    })).resolves.toEqual({ err: 'insert failed' });
+    });
+    expect(result.err).toBe('insert failed');
+    expect(result.data).toBeUndefined();
   });
 });
 

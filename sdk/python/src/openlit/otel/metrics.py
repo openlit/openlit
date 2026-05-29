@@ -374,6 +374,12 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Number of tool execution errors encountered by an agent",
                 unit="1",
             ),
+            # Guard metrics
+            "guard_requests": meter.create_counter(
+                name=SemanticConvention.GUARD_REQUESTS,
+                description="Number of guard evaluations",
+                unit="1",
+            ),
         }
 
         return metrics_dict, None

@@ -25,6 +25,27 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			exceptionType: true,
 		},
 	},
+	observabilityLogs: {
+		visibilityColumns: {
+			time: true,
+			severityText: true,
+			serviceName: true,
+			body: true,
+			traceId: true,
+			spanId: false,
+		},
+	},
+	observabilityMetrics: {
+		visibilityColumns: {
+			metricName: true,
+			metricType: true,
+			serviceName: true,
+			metricUnit: true,
+			latestValue: true,
+			pointCount: true,
+			lastSeen: true,
+		},
+	},
 	fleethub: {
 		visibilityColumns: {
 			id: true,

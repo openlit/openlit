@@ -1,5 +1,6 @@
 import { SUPPORTED_EVALUATION_OPERATIONS, TraceMapping } from "@/constants/traces";
 import {
+	TraceMappingPathType,
 	TraceMappingKeyType,
 	TransformedTraceRow,
 	TraceRow,
@@ -93,15 +94,23 @@ export const getNormalizedTraceAttribute = (
 	}
 };
 
+function getNumberOrNull(value: unknown): number | null {
+	if (value === undefined || value === null || value === "" || value === "-") {
+		return null;
+	}
+
+	const numericValue = Number(value);
+	return Number.isFinite(numericValue) ? numericValue : null;
+}
+
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 	const spanAttrs = item?.SpanAttributes ?? {};
 	const resourceAttrs = (item as any)?.ResourceAttributes ?? {};
-	return objectKeys(TraceMapping).reduce(
+	const normalizedTrace = objectKeys(TraceMapping).reduce(
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
-			let value: unknown;
 			const mapping = TraceMapping[traceKey];
+			let value = getTraceMappingValue(item, traceKey);
 			if (mapping.isRoot) {
-				value = get(item, mapping.path);
 				// applicationName and environment live in ResourceAttributes, not at root
 				if (value == null && traceKey === "applicationName") {
 					value = resourceAttrs["service.name"];
@@ -120,16 +129,6 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 				} else if (value == null && traceKey === "revisedPrompt") {
 					value = spanAttrs["gen_ai.content.revised_prompt"];
 				}
-			} else {
-				value = get(spanAttrs, getTraceMappingKeyFullPath(traceKey));
-				// Backward compatibility: new OTel convention for token usage
-				if (value == null && traceKey === "totalTokens") {
-					value = spanAttrs["gen_ai.client.token.usage"];
-				} else if (value == null && traceKey === "promptTokens") {
-					value = spanAttrs["gen_ai.client.token.usage.input"];
-				} else if (value == null && traceKey === "completionTokens") {
-					value = spanAttrs["gen_ai.client.token.usage.output"];
-				}
 			}
 
 			acc[traceKey] = getNormalizedTraceAttribute(traceKey, value);
@@ -137,53 +136,104 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 		},
 		{} as TransformedTraceRow
 	);
+
+	if (getNumberOrNull(normalizedTrace.totalTokens) === null) {
+		const promptTokens = getNumberOrNull(normalizedTrace.promptTokens);
+		const completionTokens = getNumberOrNull(normalizedTrace.completionTokens);
+
+		if (promptTokens !== null || completionTokens !== null) {
+			normalizedTrace.totalTokens = (promptTokens ?? 0) + (completionTokens ?? 0);
+		}
+	}
+
+	return normalizedTrace;
 };
+
+function normalizeMappingPath(pathConfig: TraceMappingPathType) {
+	if (
+		typeof pathConfig === "object" &&
+		!Array.isArray(pathConfig) &&
+		"path" in pathConfig
+	) {
+		return pathConfig;
+	}
+
+	return { path: pathConfig };
+}
+
+function joinPathSegments(path: string | string[]) {
+	return Array.isArray(path) ? path.join(".") : path;
+}
+
+function getTraceMappingPathFullPath(
+	key: TraceMappingKeyType,
+	pathConfig: TraceMappingPathType,
+	shouldReturnArray: boolean = false
+) {
+	const mapping = TraceMapping[key];
+	const normalizedPath = normalizeMappingPath(pathConfig);
+	const prefix =
+		"prefix" in normalizedPath ? normalizedPath.prefix : mapping.prefix;
+
+	if (!prefix) {
+		if (shouldReturnArray) {
+			return Array.isArray(normalizedPath.path)
+				? normalizedPath.path
+				: [normalizedPath.path];
+		}
+		return joinPathSegments(normalizedPath.path);
+	}
+
+	if (shouldReturnArray) {
+		const prefixParts = Array.isArray(prefix) ? prefix : [prefix];
+		const pathParts = Array.isArray(normalizedPath.path)
+			? normalizedPath.path
+			: [normalizedPath.path];
+		return prefixParts.concat(pathParts);
+	}
+
+	return [joinPathSegments(prefix), joinPathSegments(normalizedPath.path)].join(".");
+}
 
 export const getTraceMappingKeyFullPath = (
 	key: TraceMappingKeyType,
 	shouldReturnArray: boolean = false
 ) => {
-	if (!TraceMapping[key].prefix) {
-		if (!shouldReturnArray) {
-			if (typeof TraceMapping[key].path !== "string") {
-				return (TraceMapping[key].path as string[]).join(".");
-			}
+	return getTraceMappingPathFullPath(
+		key,
+		TraceMapping[key].path,
+		shouldReturnArray
+	);
+};
+
+export const getTraceMappingKeyFullPaths = (
+	key: TraceMappingKeyType,
+	shouldReturnArray: boolean = false
+) => {
+	const mapping = TraceMapping[key];
+	const paths = mapping.paths?.length ? mapping.paths : [mapping.path];
+	return paths.map((pathConfig) =>
+		getTraceMappingPathFullPath(key, pathConfig, shouldReturnArray)
+	);
+};
+
+export const getTraceMappingValue = (
+	item: TraceRow | Record<string, unknown>,
+	key: TraceMappingKeyType
+) => {
+	const mapping = TraceMapping[key];
+	const source = mapping.isRoot
+		? item
+		: ((item as TraceRow)?.SpanAttributes ?? {});
+
+	for (const path of getTraceMappingKeyFullPaths(key)) {
+		const value = get(source, path as string);
+		if (value !== undefined && value !== null && value !== "") {
+			return value;
 		}
-		return TraceMapping[key].path;
-	}
-	if (shouldReturnArray) {
-		let returnArr: string[] = [];
-		if (typeof TraceMapping[key].prefix === "string") {
-			returnArr = returnArr.concat([TraceMapping[key].prefix as string]);
-		} else {
-			returnArr = returnArr.concat(TraceMapping[key].prefix as string[]);
-		}
-
-		if (typeof TraceMapping[key].path === "string") {
-			returnArr = returnArr.concat([TraceMapping[key].path as string]);
-		} else {
-			returnArr = returnArr.concat(TraceMapping[key].path as string[]);
-		}
-		return returnArr;
 	}
 
-	let returnString = "";
-	if (typeof TraceMapping[key].prefix === "string") {
-		returnString = TraceMapping[key].prefix as string;
-	} else {
-		returnString = (TraceMapping[key].prefix as string[]).join(".");
-	}
-
-	if (typeof TraceMapping[key].path === "string") {
-		returnString = [returnString, TraceMapping[key].path as string].join(".");
-	} else {
-		returnString = [
-			returnString,
-			(TraceMapping[key].path as string[]).join("."),
-		].join(".");
-	}
-
-	return returnString;
+	return undefined;
 };
 
 export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
@@ -255,10 +305,11 @@ export const SPAN_ATTR_INFO_PILL_KEYS: TraceMappingKeyType[] = [
 export const KNOWN_SPAN_ATTR_KEYS = new Set<string>(
 	objectKeys(TraceMapping)
 		.filter((key) => !TraceMapping[key].isRoot)
-		.map((key) => {
-			const path = getTraceMappingKeyFullPath(key);
-			return Array.isArray(path) ? path.join(".") : (path as string);
-		})
+		.flatMap((key) =>
+			getTraceMappingKeyFullPaths(key).map((path) =>
+				Array.isArray(path) ? path.join(".") : (path as string)
+			)
+		)
 );
 
 /**

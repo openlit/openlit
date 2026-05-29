@@ -40,6 +40,8 @@ export default class SemanticConvention {
   static GEN_AI_TOKEN_TYPE_REASONING = 'reasoning';
   static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
   static GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = 'gen_ai.client.operation.time_to_first_chunk';
+  /** OTel standard span attribute for TTFT */
+  static GEN_AI_RESPONSE_TIME_TO_FIRST_CHUNK = 'gen_ai.response.time_to_first_chunk';
   static GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = 'gen_ai.client.operation.time_per_output_chunk';
   static GEN_AI_CLIENT_TOKEN_USAGE = 'gen_ai.client.token.usage';
   static GEN_AI_SERVER_REQUEST_DURATION = 'gen_ai.server.request.duration';
@@ -77,6 +79,8 @@ export default class SemanticConvention {
 
   // GenAI Request (extended / OpenLIT)
   static GEN_AI_REQUEST_IS_STREAM = 'gen_ai.request.is_stream';
+  /** OTel standard: gen_ai.request.stream (replaces gen_ai.request.is_stream) */
+  static GEN_AI_REQUEST_STREAM = 'gen_ai.request.stream';
   static GEN_AI_REQUEST_USER = 'gen_ai.request.user';
   static GEN_AI_REQUEST_EMBEDDING_DIMENSION = 'gen_ai.request.embedding_dimension';
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
@@ -163,6 +167,11 @@ export default class SemanticConvention {
   static GEN_AI_AGENT_ID = 'gen_ai.agent.id';
   static GEN_AI_AGENT_DESCRIPTION = 'gen_ai.agent.description';
   static GEN_AI_AGENT_VERSION = 'gen_ai.agent.version';
+  // OpenLIT vendor extension: auto-computed canonical fingerprint over the
+  // parts of an agent's definition that meaningfully change its behavior
+  // (system prompt + tools + primary model + sampling config). Stamped on
+  // every chat span/event so the server can group traffic by version.
+  static OPENLIT_AGENT_VERSION_HASH = 'openlit.agent.version_hash';
   static GEN_AI_AGENT_SOURCE = 'gen_ai.agent.source';
   static GEN_AI_AGENT_ACTION_TOOL = 'gen_ai.agent.action.tool';
   static GEN_AI_AGENT_ACTION_TOOL_INPUT = 'gen_ai.agent.action.tool_input';
@@ -226,6 +235,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_CLAUDE_AGENT_SDK = 'claude_agent_sdk';
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
+  static GEN_AI_SYSTEM_CURSOR = 'cursor';
 
   static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
 
@@ -303,4 +313,20 @@ export default class SemanticConvention {
   static DB_PAYLOAD_COUNT = 'db.payload_count';
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
+
+  // ----- Guard System -----
+  static GUARD_REQUESTS = 'guard.requests';
+  static GUARD_VERDICT = 'guard.verdict';
+  static GUARD_SCORE = 'guard.score';
+  static GUARD_CLASSIFICATION = 'guard.classification';
+  static GUARD_VALIDATOR = 'guard.validator';
+  static GUARD_EXPLANATION = 'guard.explanation';
+  // Guard events (new guard system)
+  static GUARD_EVALUATION_EVENT = 'guard.evaluation';
+  static GUARD_NAME = 'guard.name';
+  static GUARD_PHASE = 'guard.phase';
+  static GUARD_ACTION = 'guard.action';
+  static GUARD_LATENCY_MS = 'guard.latency_ms';
+  static GUARD_DENIED = 'guard.denied';
+  static GUARD_REQUESTS_COUNTER = 'guard.requests';
 }

@@ -12,7 +12,7 @@ export async function getResultGenerationByOperation(params: MetricParams) {
 		...params,
 		notEmpty: [{ key: keyPath }],
 		operationType: "vectordb",
-	})}
+	}, true)}
   GROUP BY operation;`;
 
 	return dataCollector({ query });
