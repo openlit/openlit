@@ -4,10 +4,13 @@ import {
 	OPENLIT_CHAT_MESSAGE_TABLE,
 } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
+import { randomUUID } from "crypto";
 
 export interface Conversation {
 	id: string;
 	title: string;
+	conversationType?: "chat";
+	meta?: string;
 	totalPromptTokens: number;
 	totalCompletionTokens: number;
 	totalCost: number;
@@ -29,10 +32,65 @@ export interface ChatMessage {
 	promptTokens: number;
 	completionTokens: number;
 	cost: number;
+	provider?: string;
+	model?: string;
 	queryRowsRead: number;
 	queryExecutionTimeMs: number;
 	queryBytesRead: number;
 	createdAt: string;
+}
+
+function toStringValue(value: unknown): string {
+	if (value === null || value === undefined) return "";
+	return String(value);
+}
+
+function toNumberValue(value: unknown): number {
+	if (typeof value === "bigint") return Number(value);
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+}
+
+function normalizeConversationRow(row: any): Conversation {
+	return {
+		id: toStringValue(row?.id),
+		title: toStringValue(row?.title),
+		conversationType: (toStringValue(row?.conversationType) || "chat") as "chat",
+		meta: toStringValue(row?.meta),
+		totalPromptTokens: toNumberValue(row?.totalPromptTokens),
+		totalCompletionTokens: toNumberValue(row?.totalCompletionTokens),
+		totalCost: toNumberValue(row?.totalCost),
+		totalMessages: toNumberValue(row?.totalMessages),
+		provider: toStringValue(row?.provider),
+		model: toStringValue(row?.model),
+		createdAt: toStringValue(row?.createdAt),
+		updatedAt: toStringValue(row?.updatedAt),
+	};
+}
+
+function normalizeMessageRow(row: any): ChatMessage {
+	return {
+		id: toStringValue(row?.id),
+		conversationId: toStringValue(row?.conversationId),
+		role: toStringValue(row?.role) === "assistant" ? "assistant" : "user",
+		content: toStringValue(row?.content),
+		sqlQuery: toStringValue(row?.sqlQuery),
+		queryResult: toStringValue(row?.queryResult),
+		widgetType: toStringValue(row?.widgetType),
+		promptTokens: toNumberValue(row?.promptTokens),
+		completionTokens: toNumberValue(row?.completionTokens),
+		cost: toNumberValue(row?.cost),
+		provider: toStringValue(row?.provider),
+		model: toStringValue(row?.model),
+		queryRowsRead: toNumberValue(row?.queryRowsRead),
+		queryExecutionTimeMs: toNumberValue(row?.queryExecutionTimeMs),
+		queryBytesRead: toNumberValue(row?.queryBytesRead),
+		createdAt: toStringValue(row?.createdAt),
+	};
 }
 
 export async function getConversations(
@@ -41,6 +99,8 @@ export async function getConversations(
 	const query = `
 		SELECT
 			id, title,
+			conversation_type AS conversationType,
+			meta,
 			total_prompt_tokens AS totalPromptTokens,
 			total_completion_tokens AS totalCompletionTokens,
 			total_cost AS totalCost,
@@ -49,6 +109,7 @@ export async function getConversations(
 			created_at AS createdAt,
 			updated_at AS updatedAt
 		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
+		WHERE conversation_type = 'chat'
 		ORDER BY updated_at DESC
 		LIMIT 50
 	`;
@@ -59,7 +120,7 @@ export async function getConversations(
 		return { err };
 	}
 
-	return { data: (data as Conversation[]) || [] };
+	return { data: ((data as Conversation[]) || []).map(normalizeConversationRow) };
 }
 
 export async function getConversationWithMessages(
@@ -71,6 +132,8 @@ export async function getConversationWithMessages(
 	const convQuery = `
 		SELECT
 			id, title,
+			conversation_type AS conversationType,
+			meta,
 			total_prompt_tokens AS totalPromptTokens,
 			total_completion_tokens AS totalCompletionTokens,
 			total_cost AS totalCost,
@@ -79,7 +142,7 @@ export async function getConversationWithMessages(
 			created_at AS createdAt,
 			updated_at AS updatedAt
 		FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
-		WHERE id = '${safeId}'
+		WHERE id = '${safeId}' AND conversation_type = 'chat'
 		LIMIT 1
 	`;
 
@@ -109,6 +172,8 @@ export async function getConversationWithMessages(
 			prompt_tokens AS promptTokens,
 			completion_tokens AS completionTokens,
 			cost,
+			provider,
+			model,
 			query_rows_read AS queryRowsRead,
 			query_execution_time_ms AS queryExecutionTimeMs,
 			query_bytes_read AS queryBytesRead,
@@ -130,8 +195,8 @@ export async function getConversationWithMessages(
 
 	return {
 		data: {
-			conversation: conversations[0],
-			messages: (msgData as ChatMessage[]) || [],
+			conversation: normalizeConversationRow(conversations[0]),
+			messages: ((msgData as ChatMessage[]) || []).map(normalizeMessageRow),
 		},
 	};
 }
@@ -140,18 +205,26 @@ export async function createConversation(
 	title: string,
 	provider: string,
 	model: string,
+	options?: {
+		meta?: Record<string, unknown>;
+	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
 	const safeTitle = Sanitizer.sanitizeValue(title || "");
 	const safeProvider = Sanitizer.sanitizeValue(provider);
 	const safeModel = Sanitizer.sanitizeValue(model);
+	const meta = JSON.stringify(options?.meta || {});
+	const conversationId = randomUUID();
 
-	const { err, data } = await dataCollector(
+	const { err } = await dataCollector(
 		{
 			table: OPENLIT_CHAT_CONVERSATION_TABLE,
 			values: [
 				{
+					id: conversationId,
 					title: safeTitle,
+					conversation_type: "chat",
+					meta,
 					provider: safeProvider,
 					model: safeModel,
 				},
@@ -165,21 +238,7 @@ export async function createConversation(
 		return { err };
 	}
 
-	// Get the created conversation ID
-	const { data: latestData, err: latestErr } = await dataCollector(
-		{
-			query: `SELECT id FROM ${OPENLIT_CHAT_CONVERSATION_TABLE} ORDER BY created_at DESC LIMIT 1`,
-		},
-		"query",
-		databaseConfigId
-	);
-
-	if (latestErr) {
-		return { err: latestErr };
-	}
-
-	const records = latestData as { id: string }[];
-	return { data: records?.[0]?.id };
+	return { data: conversationId };
 }
 
 export async function deleteConversation(
@@ -224,6 +283,8 @@ export async function addMessage(
 		promptTokens,
 		completionTokens,
 		cost,
+		provider,
+		model,
 	}: {
 		conversationId: string;
 		role: "user" | "assistant";
@@ -234,14 +295,18 @@ export async function addMessage(
 		promptTokens?: number;
 		completionTokens?: number;
 		cost?: number;
+		provider?: string;
+		model?: string;
 	},
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
-	const { err, data } = await dataCollector(
+	const messageId = randomUUID();
+	const { err } = await dataCollector(
 		{
 			table: OPENLIT_CHAT_MESSAGE_TABLE,
 			values: [
 				{
+					id: messageId,
 					conversation_id: conversationId,
 					role,
 					content,
@@ -251,6 +316,8 @@ export async function addMessage(
 					prompt_tokens: promptTokens || 0,
 					completion_tokens: completionTokens || 0,
 					cost: cost || 0,
+					provider: provider ? Sanitizer.sanitizeValue(provider) : "",
+					model: model ? Sanitizer.sanitizeValue(model) : "",
 				},
 			],
 		},
@@ -262,17 +329,7 @@ export async function addMessage(
 		return { err };
 	}
 
-	// Return the message ID
-	const { data: latestData } = await dataCollector(
-		{
-			query: `SELECT id FROM ${OPENLIT_CHAT_MESSAGE_TABLE} WHERE conversation_id = '${Sanitizer.sanitizeValue(conversationId)}' ORDER BY created_at DESC LIMIT 1`,
-		},
-		"query",
-		databaseConfigId
-	);
-
-	const records = latestData as { id: string }[];
-	return { data: records?.[0]?.id };
+	return { data: messageId };
 }
 
 export async function updateMessage(
@@ -369,9 +426,12 @@ export async function getConversationMessages(
 			conversation_id AS conversationId,
 			role, content,
 			sql_query AS sqlQuery,
+			query_result AS queryResult,
 			prompt_tokens AS promptTokens,
 			completion_tokens AS completionTokens,
 			cost,
+			provider,
+			model,
 			created_at AS createdAt
 		FROM ${OPENLIT_CHAT_MESSAGE_TABLE}
 		WHERE conversation_id = '${safeId}'
@@ -385,5 +445,5 @@ export async function getConversationMessages(
 		return { err };
 	}
 
-	return { data: (data as ChatMessage[]) || [] };
+	return { data: ((data as ChatMessage[]) || []).map(normalizeMessageRow) };
 }

@@ -16,11 +16,15 @@ import AddControllerClusterIdMigration from "./add-controller-cluster-id-migrati
 import UpdateControllerActionsTTLMigration from "./update-controller-actions-ttl-migration";
 import GeneralizeControllerDesiredStatesMigration from "./generalize-controller-desired-states-migration";
 import CreateChatMigration from "./create-chat-migration";
+import AddChatConversationTypeMigration from "./add-chat-conversation-type-migration";
+import AddChatMessageModelAttributionMigration from "./add-chat-message-model-attribution-migration";
 import CreateProvidersMigration from "./create-providers-migration";
 import CreateProviderMetadataMigration from "./create-provider-metadata-migration";
 import DropLegacyOpengroundTablesMigration from "./drop-legacy-openground-tables-migration";
 import EncryptVaultValuesMigration from "./encrypt-vault-values-migration";
 import AddControllerSkippingIndexesMigration from "./add-controller-skipping-indexes-migration";
+import CreateTraceAnalysisMigration from "./create-trace-analysis-migration";
+import CreateOtterRunsMigration from "./create-otter-runs-migration";
 import CreateAgentsSummaryMigration from "./create-agents-summary-migration";
 import CreateAgentVersionsMigration from "./create-agent-versions-migration";
 import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-indexes-migration";
@@ -67,6 +71,10 @@ export default async function migrations(databaseConfigId?: string) {
 	]);
 
 	await EncryptVaultValuesMigration(databaseConfigId);
+	await AddChatConversationTypeMigration(databaseConfigId);
+	await AddChatMessageModelAttributionMigration(databaseConfigId);
+	await CreateTraceAnalysisMigration(databaseConfigId);
+	await CreateOtterRunsMigration(databaseConfigId);
 
 	// Group 4: Agent table optimisations (sequential -- must run after the
 	// agents-summary + agent-versions CREATEs).

@@ -3,7 +3,7 @@ jest.mock('@/lib/platform/chat/table-details', () => ({
   OPENLIT_CHAT_CONFIG_TABLE: 'openlit_chat_config',
 }));
 jest.mock('@/lib/platform/vault', () => ({
-  getSecrets: jest.fn(),
+  getSecretById: jest.fn(),
 }));
 jest.mock('@/utils/sanitizer', () => ({
   __esModule: true,
@@ -14,7 +14,7 @@ jest.mock('@/utils/sanitizer', () => ({
 
 import { getChatConfig, upsertChatConfig, getChatConfigWithApiKey } from '@/lib/platform/chat/config';
 import { dataCollector } from '@/lib/platform/common';
-import { getSecrets } from '@/lib/platform/vault';
+import { getSecretById } from '@/lib/platform/vault';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -91,7 +91,7 @@ describe('getChatConfigWithApiKey', () => {
     (dataCollector as jest.Mock).mockResolvedValue({
       data: [{ provider: 'openai', model: 'gpt-4o', vaultId: 'v1' }],
     });
-    (getSecrets as jest.Mock).mockResolvedValue({ data: [] });
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
     const { err } = await getChatConfigWithApiKey();
     expect(err).toContain('not found');
   });
@@ -100,7 +100,7 @@ describe('getChatConfigWithApiKey', () => {
     (dataCollector as jest.Mock).mockResolvedValue({
       data: [{ provider: 'openai', model: 'gpt-4o', vaultId: 'v1' }],
     });
-    (getSecrets as jest.Mock).mockResolvedValue({
+    (getSecretById as jest.Mock).mockResolvedValue({
       data: [{ id: 'v1', value: 'sk-test-key' }],
     });
     const { data } = await getChatConfigWithApiKey();

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BarChart3, DollarSign, GitBranch, MessageSquareText, Network } from "lucide-react";
+import { BarChart3, DollarSign, GitBranch, MessageSquareText, Network, Sparkles } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { TraceHeirarchySpan } from "@/types/trace";
 import {
@@ -13,14 +13,22 @@ import TreeNode from "@/components/(playground)/request/components/tree-node";
 import TimelineView from "@/components/(playground)/request/components/timeline-view";
 import NodeGraph from "@/components/(playground)/request/components/node-graph";
 import ChatView from "@/components/(playground)/request/components/chat-view";
+import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
 import getMessage from "@/constants/messages";
 import { cn } from "@/lib/utils";
 
-type ViewMode = "tree" | "chat" | "timeline" | "graph";
+type ViewMode = "tree" | "chat" | "analysis" | "timeline" | "graph";
+type ViewModeLabelKey =
+	| "OBSERVABILITY_TREE"
+	| "OBSERVABILITY_CHAT"
+	| "TRACE_AI_TAB_TITLE"
+	| "OBSERVABILITY_TIMELINE"
+	| "OBSERVABILITY_GRAPH";
 
-const VIEW_MODES: { key: ViewMode; labelKey: "OBSERVABILITY_TREE" | "OBSERVABILITY_CHAT" | "OBSERVABILITY_TIMELINE" | "OBSERVABILITY_GRAPH"; icon: ReactNode }[] = [
+const VIEW_MODES: { key: ViewMode; labelKey: ViewModeLabelKey; icon: ReactNode }[] = [
 	{ key: "tree", labelKey: "OBSERVABILITY_TREE", icon: <GitBranch className="h-3.5 w-3.5" /> },
 	{ key: "chat", labelKey: "OBSERVABILITY_CHAT", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
+	{ key: "analysis", labelKey: "TRACE_AI_TAB_TITLE", icon: <Sparkles className="h-3.5 w-3.5" /> },
 	{ key: "timeline", labelKey: "OBSERVABILITY_TIMELINE", icon: <BarChart3 className="h-3.5 w-3.5" /> },
 	{ key: "graph", labelKey: "OBSERVABILITY_GRAPH", icon: <Network className="h-3.5 w-3.5" /> },
 ];
@@ -195,6 +203,11 @@ function SpanHierarchyExplorerInner({
 						</div>
 					)}
 					{viewMode === "chat" && <ChatView record={record} />}
+					{viewMode === "analysis" && (
+						<div className="h-full overflow-auto">
+							<TraceAiAnalysisPanel spanId={hierarchySpanId} scope="trace" />
+						</div>
+					)}
 					{viewMode === "timeline" && (
 						<div className="min-w-fit p-3">
 							<TimelineView record={record} />

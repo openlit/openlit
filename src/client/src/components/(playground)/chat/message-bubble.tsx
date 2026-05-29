@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import SqlBlock from "./sql-block";
 import EntityCard from "./entity-card";
 import DashboardImportCard from "./dashboard-import-card";
 import getMessage from "@/constants/messages";
-import { Coins, Clock, Database, User, Bot } from "lucide-react";
+import { CheckCircle2, Circle, Coins, Clock, Database, Loader2, User, Bot } from "lucide-react";
+import { useRequest } from "@/components/(playground)/request/request-context";
 
 interface EntityLink {
 	type: string;
@@ -15,8 +16,15 @@ interface EntityLink {
 	url: string;
 }
 
+interface TraceReference {
+	type: "trace" | "span";
+	id: string;
+	label?: string;
+	spanId?: string;
+}
+
 /**
- * Parse ```entities and ```dashboard blocks from LLM response.
+ * Parse structured fenced blocks from LLM response.
  * Returns clean text and parsed structured data.
  */
 function parseStructuredBlocks(text: string): {
@@ -24,10 +32,12 @@ function parseStructuredBlocks(text: string): {
 	entities: EntityLink[];
 	dashboards: string[];
 	queryResults: any[][];
+	traceReferences: TraceReference[];
 } {
 	const entities: EntityLink[] = [];
 	const dashboards: string[] = [];
 	const queryResults: any[][] = [];
+	const traceReferences: TraceReference[] = [];
 
 	// Parse ```entities blocks
 	const entitiesRegex = /```entities\s*\n([\s\S]*?)```/g;
@@ -70,18 +80,42 @@ function parseStructuredBlocks(text: string): {
 		}
 	}
 
+	// Parse ```trace-refs blocks. These are the only source for trace/span pills.
+	const traceRefsRegex = /```trace-refs\s*\n([\s\S]*?)```/g;
+	while ((match = traceRefsRegex.exec(text)) !== null) {
+		try {
+			const parsed = JSON.parse(match[1].trim());
+			if (Array.isArray(parsed)) {
+				for (const item of parsed) {
+					if ((item.type === "trace" || item.type === "span") && item.id) {
+						traceReferences.push({
+							type: item.type,
+							id: String(item.id),
+							label: item.label ? String(item.label) : undefined,
+							spanId: item.spanId ? String(item.spanId) : undefined,
+						});
+					}
+				}
+			}
+		} catch {
+			// Invalid JSON — skip
+		}
+	}
+
 	const cleanText = text
 		.replace(/```entities\s*\n[\s\S]*?```/g, "")
 		.replace(/```dashboard\s*\n[\s\S]*?```/g, "")
 		.replace(/```query-result\s*\n[\s\S]*?```/g, "")
+		.replace(/```trace-refs\s*\n[\s\S]*?```/g, "")
 		.trim();
 
-	return { cleanText, entities, dashboards, queryResults };
+	return { cleanText, entities, dashboards, queryResults, traceReferences };
 }
 
 interface MessageBubbleProps {
 	role: "user" | "assistant";
 	content: string;
+	steps?: Array<{ label: string; status: "active" | "complete" | "error"; detail?: string }>;
 	promptTokens?: number;
 	completionTokens?: number;
 	cost?: number;
@@ -108,9 +142,107 @@ const StreamingDots = () => (
 	</div>
 );
 
-export default function MessageBubble({
+function ChatStepTimeline({
+	steps,
+}: {
+	steps: Array<{ label: string; status: "active" | "complete" | "error"; detail?: string }>;
+}) {
+	if (!steps.length) return null;
+
+	return (
+		<div className="mb-3 max-w-xl">
+			<div className="relative space-y-1.5 pl-7">
+				<div className="absolute left-[9px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/50 via-stone-300 to-transparent dark:via-stone-700" />
+				{steps.map((step, index) => {
+					const isActive = step.status === "active";
+					const isError = step.status === "error";
+					const Icon = isActive ? Loader2 : isError ? Circle : CheckCircle2;
+					return (
+						<div
+							key={`${step.label}-${index}`}
+							className={`relative flex gap-2 rounded-md py-1.5 pr-2 text-xs transition-colors ${
+								isActive ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : ""
+							}`}
+						>
+							<span
+								className={`absolute -left-7 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border ${
+									isActive
+										? "border-primary/30 bg-primary/10 text-primary shadow-[0_0_0_4px_rgba(243,108,6,0.08)]"
+										: isError
+											? "border-red-300 bg-red-50 text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-400"
+											: "border-stone-200 bg-white text-green-600 dark:border-stone-800 dark:bg-stone-950 dark:text-green-400"
+								}`}
+							>
+								<Icon className={`h-3 w-3 ${isActive ? "animate-spin" : ""}`} />
+							</span>
+							<div className="min-w-0">
+								<div
+									className={`font-medium ${
+										isActive
+											? "text-stone-900 dark:text-stone-100"
+											: "text-stone-600 dark:text-stone-300"
+									}`}
+								>
+									{step.label}
+								</div>
+								{step.detail ? (
+									<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+										{step.detail}
+									</div>
+								) : null}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
+	const [, updateRequest] = useRequest();
+	if (!refs.length) return null;
+
+	const openReference = async (ref: TraceReference) => {
+		if (ref.type === "span") {
+			updateRequest({ spanId: ref.id });
+			return;
+		}
+		if (ref.spanId) {
+			updateRequest({ id: ref.id, spanId: ref.spanId });
+			return;
+		}
+		try {
+			const res = await fetch(`/api/metrics/request/trace/${ref.id}`);
+			const result = await res.json();
+			const record = result?.record || result?.data?.record || result?.data;
+			const spanId = record?.SpanId || record?.spanId;
+			updateRequest({ id: ref.id, spanId });
+		} catch {
+			updateRequest({ id: ref.id, spanId: "" });
+		}
+	};
+
+	return (
+		<div className="mt-2 flex flex-wrap gap-1.5">
+			{refs.map((ref) => (
+				<button
+					key={`${ref.type}-${ref.id}`}
+					type="button"
+					onClick={() => openReference(ref)}
+					className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 font-mono text-[11px] text-stone-700 hover:border-primary hover:text-primary dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300"
+				>
+					{ref.label || `${ref.type}:${ref.id.slice(0, ref.type === "trace" ? 10 : 8)}`}
+				</button>
+			))}
+		</div>
+	);
+}
+
+function MessageBubble({
 	role,
 	content,
+	steps,
 	promptTokens,
 	completionTokens,
 	cost,
@@ -128,9 +260,9 @@ export default function MessageBubble({
 
 	// During streaming, pass raw content to ReactMarkdown (it handles incomplete code blocks).
 	// After streaming completes, parse and strip structured blocks for clean rendering.
-	const { cleanText, entities, dashboards, queryResults } = useMemo(() => {
+	const { cleanText, entities, dashboards, queryResults, traceReferences } = useMemo(() => {
 		if (isStreaming) {
-			return { cleanText: content || "", entities: [], dashboards: [], queryResults: [] };
+			return { cleanText: content || "", entities: [], dashboards: [], queryResults: [], traceReferences: [] };
 		}
 		return parseStructuredBlocks(content || "");
 	}, [content, isStreaming]);
@@ -163,6 +295,7 @@ export default function MessageBubble({
 				<Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
 			</div>
 			<div className="flex-1 min-w-0">
+				<ChatStepTimeline steps={steps || []} />
 				{cleanText ? (
 					<div className="chat-markdown">
 						<ReactMarkdown
@@ -287,6 +420,11 @@ export default function MessageBubble({
 										return null;
 									}
 
+									if (lang === "trace-refs") {
+										// Trace/span reference blocks are parsed separately — hide from markdown
+										return null;
+									}
+
 									// Block code (has className like language-*)
 									if (className) {
 										return (
@@ -341,6 +479,8 @@ export default function MessageBubble({
 					</div>
 				) : null}
 
+				{!isStreaming ? <TraceReferencePills refs={traceReferences} /> : null}
+
 				{/* Streaming indicator — blinking cursor when text is flowing, dots when waiting */}
 				{isStreaming ? (
 					cleanText ? <StreamingCursor /> : <StreamingDots />
@@ -373,3 +513,5 @@ export default function MessageBubble({
 		</div>
 	);
 }
+
+export default memo(MessageBubble);
