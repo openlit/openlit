@@ -2,6 +2,7 @@ import {
   integerParser,
   floatParser,
   getTraceMappingKeyFullPath,
+  getTraceMappingKeyFullPaths,
   getExtraTabsContentTypes,
   getNormalizedTraceAttribute,
   normalizeTrace,
@@ -89,6 +90,26 @@ describe('getTraceMappingKeyFullPath', () => {
     // 'prompt' has array path, no prefix
     const result = getTraceMappingKeyFullPath('prompt', true);
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  it('returns all configured fallback paths for token mappings', () => {
+    const result = getTraceMappingKeyFullPaths('promptTokens');
+    expect(result).toEqual([
+      'gen_ai.usage.input_tokens',
+      'gen_ai.client.token.usage.input',
+      'input_tokens',
+      'prompt_tokens',
+    ]);
+  });
+
+  it('returns all configured fallback paths as arrays when requested', () => {
+    const result = getTraceMappingKeyFullPaths('completionTokens', true);
+    expect(result).toEqual([
+      ['gen_ai', 'usage.output_tokens'],
+      ['gen_ai', 'client.token.usage.output'],
+      ['output_tokens'],
+      ['completion_tokens'],
+    ]);
   });
 
   describe('array prefix and path branches (runtime-patched TraceMapping)', () => {
@@ -293,6 +314,35 @@ describe('normalizeTrace', () => {
 
     const result = normalizeTrace(trace);
     expect(result.completionTokens).toBe(50);
+  });
+
+  it('falls back to direct input_tokens and output_tokens span attributes', () => {
+    const trace = {
+      SpanId: 'span-direct-tokens',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        input_tokens: '123',
+        output_tokens: '456',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.promptTokens).toBe(123);
+    expect(result.completionTokens).toBe(456);
+  });
+
+  it('derives totalTokens from prompt and completion tokens when total is missing', () => {
+    const trace = {
+      SpanId: 'span-derived-total',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.usage.input_tokens': '125',
+        'gen_ai.usage.output_tokens': '75',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.totalTokens).toBe(200);
   });
 
   it('prefers primary token attrs over fallback', () => {

@@ -18,6 +18,8 @@ import {
 } from "../context";
 import {
 	createPrompt,
+	getPromptByName,
+	getPromptDetails,
 	getPrompts,
 	deletePrompt,
 } from "../prompt";
@@ -29,6 +31,165 @@ import {
 	deleteCustomModel,
 	getCustomModels,
 } from "@/lib/platform/providers/models-service";
+import {
+	getTraceImprovement,
+	streamTraceImprovementAnalysis,
+	TraceAnalysisRun,
+} from "./improvement";
+import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
+import { dataCollector } from "../common";
+import Sanitizer from "@/utils/sanitizer";
+
+type OtterTraceAnalysisScope = "trace" | "span";
+
+function parseTraceAnalysisJson(run: TraceAnalysisRun) {
+	try {
+		return JSON.parse(run.analysisJson || "{}");
+	} catch {
+		return {};
+	}
+}
+
+function summarizeTraceAnalysisRun(run: TraceAnalysisRun) {
+	const analysis = parseTraceAnalysisJson(run);
+	const dimensionCounts = Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [
+			dimension,
+			Array.isArray(analysis[dimension]) ? analysis[dimension].length : 0,
+		])
+	);
+
+	return {
+		runId: run.id,
+		runNumber: run.runNumber,
+		traceId: analysis.trace_id || analysis.traceId || "",
+		rootSpanId: run.rootSpanId,
+		selectedSpanId: run.selectedSpanId,
+		analysisType: run.analysisType,
+		summary: run.summary || analysis.summary || "",
+		totals: analysis.totals || {},
+		dimensionCounts,
+		provider: run.modelProvider,
+		model: run.modelName,
+		promptTokens: run.promptTokens,
+		completionTokens: run.completionTokens,
+		cost: run.cost,
+		worstSeverity: run.worstSeverity,
+		createdAt: run.createdAt,
+	};
+}
+
+function traceRefsBlock(
+	refs: Array<{ type: "trace" | "span"; id?: string; spanId?: string; label?: string }>
+) {
+	const normalized = refs
+		.filter((ref) => ref.id)
+		.map((ref) => ({
+			type: ref.type,
+			id: ref.id,
+			...(ref.spanId ? { spanId: ref.spanId } : {}),
+			...(ref.label ? { label: ref.label } : {}),
+		}));
+	if (!normalized.length) return "";
+	return `\n\n\`\`\`trace-refs\n${JSON.stringify(normalized, null, 2)}\n\`\`\``;
+}
+
+function traceAnalysisDetails(analysis: ReturnType<typeof summarizeTraceAnalysisRun>) {
+	const refs = [
+		analysis.traceId
+			? {
+				type: "trace" as const,
+				id: analysis.traceId,
+				spanId: analysis.rootSpanId,
+				label: `trace:${String(analysis.traceId).slice(0, 10)}`,
+			}
+			: null,
+		analysis.selectedSpanId
+			? {
+				type: "span" as const,
+				id: analysis.selectedSpanId,
+				label: `span:${String(analysis.selectedSpanId).slice(0, 8)}`,
+			}
+			: null,
+	].filter(Boolean) as Array<{ type: "trace" | "span"; id: string; spanId?: string; label: string }>;
+	return `${analysis.summary || "Analysis is available."}${traceRefsBlock(refs)}`;
+}
+
+async function readTraceAnalysisStream(response: Response) {
+	const reader = response.body?.getReader();
+	if (!reader) throw new Error("Trace analysis stream did not return a body");
+
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let doneData: any;
+
+	const readLine = (line: string) => {
+		if (!line.trim()) return;
+		const event = JSON.parse(line);
+		if (event.type === "error") {
+			throw new Error(event.error || "Trace analysis failed");
+		}
+		if (event.type === "done") {
+			doneData = event.data;
+		}
+	};
+
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() || "";
+		for (const line of lines) readLine(line);
+	}
+
+	buffer += decoder.decode();
+	if (buffer.trim()) readLine(buffer);
+
+	if (!doneData) throw new Error("Trace analysis finished without a result");
+	return doneData as { rootSpanId: string; runs: TraceAnalysisRun[] };
+}
+
+async function runTraceAnalysisTool(
+	spanId: string,
+	scope: OtterTraceAnalysisScope,
+	rerun: boolean,
+	databaseConfigId: string
+) {
+	if (!rerun) {
+		const existing = await getTraceImprovement(spanId, databaseConfigId, scope);
+		if (existing.err) return { success: false, error: String(existing.err) };
+		const latest = existing.data?.runs?.at(-1);
+		if (latest) {
+			return {
+				success: true,
+				existing: true,
+				message: scope === "span" ? "Existing span analysis found" : "Existing trace analysis found",
+				analysis: summarizeTraceAnalysisRun(latest),
+				details: traceAnalysisDetails(summarizeTraceAnalysisRun(latest)),
+			};
+		}
+	}
+
+	const { response, err } = await streamTraceImprovementAnalysis(spanId, databaseConfigId, scope);
+	if (err || !response) {
+		return { success: false, error: String(err || "Failed to start trace analysis") };
+	}
+
+	const data = await readTraceAnalysisStream(response);
+	const latest = data.runs.at(-1);
+	if (!latest) {
+		return { success: false, error: "Trace analysis completed without a saved run" };
+	}
+
+	return {
+		success: true,
+		existing: false,
+		message: scope === "span" ? "Span analysis completed" : "Trace hierarchy analysis completed",
+		analysis: summarizeTraceAnalysisRun(latest),
+		details: traceAnalysisDetails(summarizeTraceAnalysisRun(latest)),
+	};
+}
 
 /**
  * Normalize a vault key name to UPPER_SNAKE_CASE.
@@ -371,7 +532,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 		}),
 
 		update_prompt_version: tool<any, any>({
-			description: "Update an existing prompt version or create a new version of an existing prompt.",
+			description: "Update/save/apply changes to an existing prompt version, or create a new version of an existing prompt. Use this only when the user explicitly asks to save, update, apply, publish, or create a version. Do not use it for review-only requests such as 'help me improve this prompt'.",
 			inputSchema: jsonSchema({
 				type: "object" as const,
 				properties: {
@@ -398,6 +559,57 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					return { success: true, message: params.version_id ? "Prompt version updated" : "New prompt version created", details: `Prompt: ${params.prompt_id} | Version: ${params.version || "latest"}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to update prompt" };
+				}
+			},
+		}),
+
+		get_prompt: tool<any, any>({
+			description: "Read a Prompt Hub prompt by exact prompt name or prompt ID, including the current prompt content. Use this for review-only prompt improvement requests before suggesting changes. This tool does not modify prompts.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					name: { type: "string", description: "Exact prompt name, for example music_recommend" },
+					prompt_id: { type: "string", description: "Prompt ID (UUID)" },
+					version: { type: "string", description: "Optional version string, for example 1.0.0" },
+				},
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					let promptId = params.prompt_id;
+					if (!promptId && params.name) {
+						const prompt = await getPromptByName({ name: params.name });
+						promptId = prompt?.id;
+					}
+					if (!promptId) {
+						return {
+							success: false,
+							error: params.name
+								? `Prompt "${params.name}" was not found`
+								: "Prompt name or prompt ID is required",
+						};
+					}
+
+					const { data, err } = await getPromptDetails(promptId, params.version ? { version: params.version } : undefined);
+					if (err) return { success: false, error: String(err) };
+					const prompt = (data as any[])?.[0];
+					if (!prompt) return { success: false, error: "Prompt was not found" };
+
+					return {
+						success: true,
+						message: "Prompt loaded",
+						prompt: {
+							id: prompt.promptId,
+							versionId: prompt.versionId,
+							name: prompt.name,
+							version: prompt.version,
+							status: prompt.status,
+							tags: prompt.tags,
+							content: prompt.prompt,
+						},
+						details: `Name: "${prompt.name}" | Version: ${prompt.version || "unknown"} | Status: ${prompt.status || "unknown"}\n\n${prompt.prompt || ""}`,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to load prompt" };
 				}
 			},
 		}),
@@ -622,6 +834,208 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					return { success: true, count: models.length, models: models.map((m: any) => ({ id: m.id, model_id: m.model_id, provider: m.provider, displayName: m.displayName })) };
 				} catch (e: any) {
 					return { success: false, error: e.message };
+				}
+			},
+		}),
+
+		// ==================== TRACE ANALYSIS ====================
+
+		analyze_trace: tool<any, any>({
+			description: "Run or retrieve Otter AI analysis for a trace hierarchy or a single span. Use this when the user asks to analyze, improve, review, or post-mortem a span or trace.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					span_id: { type: "string", description: "Span ID to analyze. For hierarchy analysis this can be any span in the trace." },
+					scope: { type: "string", enum: ["trace", "span"], description: "Use trace for full hierarchy analysis, span for the selected span only." },
+					rerun: { type: "boolean", description: "Set true only when the user explicitly asks to run a new analysis instead of using an existing run." },
+				},
+				required: ["span_id"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const scope: OtterTraceAnalysisScope = params.scope === "span" ? "span" : "trace";
+					return await runTraceAnalysisTool(
+						params.span_id,
+						scope,
+						Boolean(params.rerun),
+						databaseConfigId
+					);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to run trace analysis" };
+				}
+			},
+		}),
+
+		get_trace_analysis: tool<any, any>({
+			description: "Get saved Otter AI analysis runs for a trace hierarchy or a single span without creating a new run.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					span_id: { type: "string", description: "Span ID to look up." },
+					scope: { type: "string", enum: ["trace", "span"], description: "Use trace for full hierarchy analysis, span for selected span analysis." },
+				},
+				required: ["span_id"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const scope: OtterTraceAnalysisScope = params.scope === "span" ? "span" : "trace";
+					const { data, err } = await getTraceImprovement(params.span_id, databaseConfigId, scope);
+					if (err) return { success: false, error: String(err) };
+					const runs = data?.runs || [];
+					return {
+						success: true,
+						rootSpanId: data?.rootSpanId || "",
+						count: runs.length,
+						latest: runs.length ? summarizeTraceAnalysisRun(runs[runs.length - 1]) : null,
+						runs: runs.map(summarizeTraceAnalysisRun),
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to get trace analysis" };
+				}
+			},
+		}),
+
+		analyze_trace_batch: tool<any, any>({
+			description: "Run or retrieve Otter AI analysis for a bounded set of trace or span IDs. Use this for grouped workflows after identifying representative span IDs from filters or group-by queries.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					span_ids: {
+						type: "array",
+						items: { type: "string" },
+						description: "Span IDs to analyze. The tool processes up to 5 IDs per call.",
+					},
+					scope: { type: "string", enum: ["trace", "span"], description: "Use trace for hierarchy analysis, span for individual span analysis." },
+					rerun: { type: "boolean", description: "Set true only when the user explicitly asks for new analysis runs." },
+					group_label: { type: "string", description: "Optional label describing the filter or group represented by these spans." },
+				},
+				required: ["span_ids"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const spanIds = Array.isArray(params.span_ids)
+						? params.span_ids.filter(Boolean).slice(0, 5)
+						: [];
+					if (!spanIds.length) {
+						return { success: false, error: "No span IDs were provided for batch analysis" };
+					}
+					const scope: OtterTraceAnalysisScope = params.scope === "span" ? "span" : "trace";
+					const results = [];
+					for (const spanId of spanIds) {
+						results.push(
+							await runTraceAnalysisTool(
+								spanId,
+								scope,
+								Boolean(params.rerun),
+								databaseConfigId
+							)
+						);
+					}
+					return {
+						success: results.every((result) => result.success),
+						groupLabel: params.group_label || "",
+						processed: results.length,
+						limitApplied: Array.isArray(params.span_ids) && params.span_ids.length > spanIds.length,
+						results,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to run batch trace analysis" };
+				}
+			},
+		}),
+
+		analyze_traces_by_attribute: tool<any, any>({
+			description: "Find traces by a SpanAttributes key/value pair, then run or retrieve Otter trace analysis for the matched trace hierarchies. Use this for requests like analyzing traces with session.id, user.id, conversation.id, tenant, environment, or any custom span attribute.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					attribute_key: { type: "string", description: "SpanAttributes key, for example session.id or user.id." },
+					attribute_value: { type: "string", description: "Exact SpanAttributes value to match." },
+					limit: { type: "number", description: "Maximum trace hierarchies to analyze. Default 3, maximum 5." },
+					rerun: { type: "boolean", description: "Set true only when the user explicitly asks for new analysis runs." },
+				},
+				required: ["attribute_key", "attribute_value"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const attributeKey = Sanitizer.sanitizeValue(String(params.attribute_key || "").trim());
+					const attributeValue = Sanitizer.sanitizeValue(String(params.attribute_value || "").trim());
+					const limit = Math.max(1, Math.min(Number(params.limit) || 3, 5));
+					if (!attributeKey || !attributeValue) {
+						return { success: false, error: "Attribute key and value are required" };
+					}
+
+					const query = `
+						SELECT
+							TraceId AS traceId,
+							any(SpanId) AS spanId,
+							count() AS spanCount,
+							max(Timestamp) AS lastSeen
+						FROM otel_traces
+						WHERE SpanAttributes['${attributeKey}'] = '${attributeValue}'
+						GROUP BY TraceId
+						ORDER BY lastSeen DESC
+						LIMIT ${limit}
+					`;
+					const { data, err } = await dataCollector(
+						{ query, enable_readonly: true },
+						"query",
+						databaseConfigId
+					);
+					if (err) return { success: false, error: String(err) };
+					const matches = ((data as any[]) || []).filter((row) => row.spanId);
+					if (!matches.length) {
+						return {
+							success: false,
+							error: `No traces found where SpanAttributes['${attributeKey}'] matches the provided value`,
+						};
+					}
+
+					const results = [];
+					for (const match of matches) {
+						results.push({
+							traceId: match.traceId,
+							spanId: match.spanId,
+							spanCount: Number(match.spanCount) || 0,
+							analysis: await runTraceAnalysisTool(
+								match.spanId,
+								"trace",
+								Boolean(params.rerun),
+								databaseConfigId
+							),
+						});
+					}
+
+					return {
+						success: results.every((result) => result.analysis.success),
+						message: "Trace attribute analysis completed",
+						details: results
+							.map((result) => {
+								const summary = result.analysis?.analysis?.summary || result.analysis?.error || "";
+								return `Trace ${result.traceId} / span ${result.spanId}: ${summary}`;
+							})
+							.join("\n") +
+							traceRefsBlock(
+								results.flatMap((result) => [
+									{
+										type: "trace" as const,
+										id: String(result.traceId || ""),
+										spanId: String(result.spanId || ""),
+										label: `trace:${String(result.traceId || "").slice(0, 10)}`,
+									},
+									{
+										type: "span" as const,
+										id: String(result.spanId || ""),
+										label: `span:${String(result.spanId || "").slice(0, 8)}`,
+									},
+								])
+							),
+						attributeKey,
+						matchedTraceCount: matches.length,
+						results,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to analyze traces by attribute" };
 				}
 			},
 		}),

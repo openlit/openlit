@@ -9,6 +9,29 @@ Vault is designed to securely store and access sensitive information, such as AP
 
 - **Secrets Management**: Seamlessly create, edit, and monitor the secrets associated with your applications.
 - **Secure Access**: Retrieve secrets based on keys or tags, and safely integrate them into your Node.js or Python environments.
+- **Encrypted Storage**: Vault values are encrypted at rest with AES-256-GCM before they are stored.
+
+## Security and cross-origin access
+
+Vault secret retrieval uses API-key authentication and can be called from SDKs, REST clients, and server-side applications. Browser-based cross-origin calls are additionally restricted by CORS.
+
+If your application is hosted on a different domain from OpenLIT and calls `POST /api/vault/get-secrets` from the browser, add the application origin to `OPENLIT_ALLOWED_CORS_ORIGINS`:
+
+```bash
+OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com"
+```
+
+Multiple origins can be comma-separated:
+
+```bash
+OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
+```
+
+Server-to-server SDK and REST calls usually do not require CORS configuration because CORS is enforced by browsers. Do not use wildcard origins for secret retrieval endpoints.
+
+<Note>
+  Vault values are encrypted with `OPENLIT_VAULT_ENCRYPTION_KEY`, or `NEXTAUTH_SECRET` if no dedicated Vault key is set. Keep the encryption key stable so existing secrets remain decryptable.
+</Note>
 
 ## Get started
 

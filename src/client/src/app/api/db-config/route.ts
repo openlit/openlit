@@ -1,15 +1,25 @@
 import { getDBConfigByUser, upsertDBConfig } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import { DatabaseConfig } from "@prisma/client";
+import { errorResponse } from "@/utils/api-response";
+
+function stripSensitiveDbFields(config: any) {
+	if (!config) return config;
+
+	const { password, ...rest } = config;
+	return { ...rest, password: password ? "****" : "" };
+}
 
 export async function GET() {
 	const [err, res]: any = await asaw(getDBConfigByUser());
 	if (err)
-		return Response.json(err, {
-			status: 400,
-		});
+		return errorResponse(err, "Failed to fetch database configurations");
 
-	return Response.json(res);
+	const sanitized = Array.isArray(res)
+		? res.map(stripSensitiveDbFields)
+		: stripSensitiveDbFields(res);
+
+	return Response.json(sanitized);
 }
 
 export async function POST(request: Request) {
@@ -30,9 +40,7 @@ export async function POST(request: Request) {
 	const [err, res]: any = await asaw(upsertDBConfig(dbConfig, id));
 
 	if (err)
-		return Response.json(err, {
-			status: 400,
-		});
+		return errorResponse(err, "Failed to save database configuration");
 
 	return Response.json(res);
 }

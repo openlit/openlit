@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
@@ -77,8 +79,24 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	if payload.DuplicatePolicy == "" {
 		payload.DuplicatePolicy = defaultDuplicatePolicy
 	}
+	expCfg := e.GetExportConfig()
 	if payload.OTLPEndpoint == "" {
-		payload.OTLPEndpoint = e.otlpEndpoint
+		payload.OTLPEndpoint = expCfg.OTLPEndpoint
+	}
+	if payload.OTLPProtocol == "" {
+		payload.OTLPProtocol = expCfg.OTLPProtocol
+	}
+	if payload.OTLPHeaders == nil && len(expCfg.OTLPHeaders) > 0 {
+		payload.OTLPHeaders = expCfg.OTLPHeaders
+	}
+	if payload.OTLPTracesEndpoint == "" {
+		payload.OTLPTracesEndpoint = expCfg.OTLPTracesEndpoint
+	}
+	if payload.OTLPMetricsEndpoint == "" {
+		payload.OTLPMetricsEndpoint = expCfg.OTLPMetricsEndpoint
+	}
+	if payload.OTLPLogsEndpoint == "" {
+		payload.OTLPLogsEndpoint = expCfg.OTLPLogsEndpoint
 	}
 	if payload.SDKVersion == "" {
 		payload.SDKVersion = e.sdkVersion
@@ -372,11 +390,6 @@ func (e *Engine) applyAgentStateLocked(
 	} else {
 		delete(svc.ResourceAttributes, "openlit.observability.reason")
 	}
-	if svc.DesiredAgentObservabilityStatus != "" {
-		svc.ResourceAttributes["openlit.agent_observability.desired_status"] = svc.DesiredAgentObservabilityStatus
-	} else {
-		delete(svc.ResourceAttributes, "openlit.agent_observability.desired_status")
-	}
 }
 
 func (e *Engine) enablePythonSDKKubernetes(
@@ -433,6 +446,15 @@ func (e *Engine) enablePythonSDKKubernetes(
 		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
 		return err
 	}
+	// Flip in-memory state so the next heartbeat carries 'enabled'. See
+	// the matching comment in enablePythonSDKDocker for context.
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK injected via %s/%s patch (workload %s)", workloadKind, workloadName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -468,6 +490,13 @@ func (e *Engine) disablePythonSDKKubernetes(svc *openlit.ServiceState) error {
 		e.setAgentObservabilityState(svc.ID, "error", "controller_managed", "", fmt.Sprintf("Failed to patch workload %s/%s: %v", workloadKind, workloadName, err))
 		return err
 	}
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via %s/%s patch (workload %s)", workloadKind, workloadName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -604,6 +633,13 @@ func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload open
 		return fmt.Errorf("recreating naked pod %s/%s with SDK: %w", namespace, podName, err)
 	}
 
+	e.setAgentObservabilityState(
+		svc.ID,
+		"enabled",
+		"controller_managed",
+		"",
+		fmt.Sprintf("OpenLIT SDK injected via naked pod %s/%s recreate (workload %s)", namespace, podName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -691,6 +727,13 @@ func (e *Engine) disablePythonSDKNakedPod(svc *openlit.ServiceState) error {
 		return fmt.Errorf("recreating naked pod %s/%s without SDK: %w", namespace, podName, err)
 	}
 
+	e.setAgentObservabilityState(
+		svc.ID,
+		"disabled",
+		"none",
+		"",
+		fmt.Sprintf("OpenLIT SDK removed via naked pod %s/%s recreate (workload %s)", namespace, podName, svc.WorkloadKey),
+	)
 	return nil
 }
 
@@ -931,6 +974,24 @@ func applyPythonSDKContainerSettings(
 	env = upsertEnvValue(env, "OTEL_SERVICE_NAME", svc.ServiceName)
 	env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_ENDPOINT", payload.OTLPEndpoint)
 	env = upsertEnvValue(env, "OTEL_DEPLOYMENT_ENVIRONMENT", payload.Environment)
+	if svc.WorkloadKey != "" {
+		env = mergeOtelResourceAttrInK8sEnv(env, "service.workload.key", svc.WorkloadKey)
+	}
+	if payload.OTLPProtocol != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_PROTOCOL", payload.OTLPProtocol)
+	}
+	if payload.OTLPTracesEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", payload.OTLPTracesEndpoint)
+	}
+	if payload.OTLPMetricsEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", payload.OTLPMetricsEndpoint)
+	}
+	if payload.OTLPLogsEndpoint != "" {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", payload.OTLPLogsEndpoint)
+	}
+	if len(payload.OTLPHeaders) > 0 {
+		env = upsertEnvValue(env, "OTEL_EXPORTER_OTLP_HEADERS", formatOTLPHeaders(payload.OTLPHeaders))
+	}
 	env = upsertEnvValue(
 		env,
 		"OPENLIT_DISABLED_INSTRUMENTORS",
@@ -956,11 +1017,17 @@ func removePythonSDKContainerSettings(container map[string]any) {
 	for _, key := range []string{
 		"OPENLIT_CONTROLLER_MODE",
 		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_PROTOCOL",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_HEADERS",
 		"OTEL_DEPLOYMENT_ENVIRONMENT",
 		"OPENLIT_DISABLED_INSTRUMENTORS",
 	} {
 		env = removeEnvValue(env, key)
 	}
+	env = removeOtelResourceAttrFromK8sEnv(env, "service.workload.key")
 	env = removePrefixedEnvValue(env, "PYTHONPATH", k8sManagedPythonPath())
 	env = removePrefixedEnvValue(env, "PYTHONPATH", openlitInstrumentationMountPath)
 	container["env"] = objectSliceToAny(env)
@@ -970,6 +1037,28 @@ func removePythonSDKContainerSettings(container map[string]any) {
 		openlitInstrumentationVolume,
 	)
 	container["volumeMounts"] = objectSliceToAny(volumeMounts)
+}
+
+// formatOTLPHeaders converts a map of headers to the format specified by the
+// OTel spec for OTEL_EXPORTER_OTLP_HEADERS: "key1=value1,key2=value2".
+// Values containing ',' or '=' are percent-encoded per the spec. Keys are
+// sorted for deterministic output.
+func formatOTLPHeaders(headers map[string]string) string {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v := headers[k]
+		if strings.ContainsAny(v, ",=") {
+			v = url.QueryEscape(v)
+		}
+		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, ",")
 }
 
 func pythonSDKConfigHash(svc *openlit.ServiceState, payload openlit.PythonSDKActionPayload) string {
@@ -1105,6 +1194,46 @@ func upsertEnvValue(env []map[string]any, key, value string) []map[string]any {
 		}
 	}
 	return append(env, map[string]any{"name": key, "value": value})
+}
+
+// mergeOtelResourceAttrInK8sEnv merges a key=value into the
+// OTEL_RESOURCE_ATTRIBUTES entry of a K8s container env list. If the env var
+// is already set on the container we preserve its other pairs and just
+// replace/append the requested key.
+func mergeOtelResourceAttrInK8sEnv(env []map[string]any, key, value string) []map[string]any {
+	for index, item := range env {
+		if item["name"] != "OTEL_RESOURCE_ATTRIBUTES" {
+			continue
+		}
+		existing, _ := item["value"].(string)
+		env[index]["value"] = mergeResourceAttrValue(existing, key, value)
+		delete(env[index], "valueFrom")
+		return env
+	}
+	return append(env, map[string]any{
+		"name":  "OTEL_RESOURCE_ATTRIBUTES",
+		"value": mergeResourceAttrValue("", key, value),
+	})
+}
+
+// removeOtelResourceAttrFromK8sEnv removes a single key from
+// OTEL_RESOURCE_ATTRIBUTES. The env var itself is removed only when it would
+// otherwise become empty (so we don't leave a stray controller-injected
+// attribute behind when the user wasn't using OTEL_RESOURCE_ATTRIBUTES).
+func removeOtelResourceAttrFromK8sEnv(env []map[string]any, key string) []map[string]any {
+	for index, item := range env {
+		if item["name"] != "OTEL_RESOURCE_ATTRIBUTES" {
+			continue
+		}
+		existing, _ := item["value"].(string)
+		filtered := removeResourceAttrKey(existing, key)
+		if filtered == "" {
+			return removeEnvValue(env, "OTEL_RESOURCE_ATTRIBUTES")
+		}
+		env[index]["value"] = filtered
+		return env
+	}
+	return env
 }
 
 func removeEnvValue(env []map[string]any, key string) []map[string]any {

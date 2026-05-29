@@ -336,20 +336,29 @@ type obiAttrIncludeExclude struct {
 
 // BuildInstrumentConfig creates an OBI config from pattern-based entries.
 func BuildInstrumentConfig(
-	otlpEndpoint string,
+	expCfg ExportConfig,
 	entries []obiTarget,
 	enabledProviders map[string]bool,
 	mode config.DeployMode,
 	environment string,
 ) OBIConfig {
+	tracesEndpoint := expCfg.OTLPTracesEndpoint
+	if tracesEndpoint == "" {
+		tracesEndpoint = expCfg.OTLPEndpoint
+	}
+	protocol := expCfg.OTLPProtocol
+	if protocol == "" {
+		protocol = "http/protobuf"
+	}
+
 	excludeOTel := true
 
 	cfg := OBIConfig{
 		LogLevel:     "info",
 		TracePrinter: "text",
 		OTELTraces: obiOTELTraces{
-			Endpoint: otlpEndpoint,
-			Protocol: "http/protobuf",
+			Endpoint: tracesEndpoint,
+			Protocol: protocol,
 		},
 		Routes: obiRoutes{
 			Unmatched: "heuristic",

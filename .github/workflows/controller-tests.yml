@@ -16,7 +16,7 @@ permissions:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -26,12 +26,21 @@ jobs:
           cache-dependency-path: openlit-controller/go.sum
 
       - name: Install eBPF build dependencies
+        # Pin bpftool rather than resolving "latest" via the unauthenticated
+        # GitHub API (60/hour shared with other runners, and the response is
+        # silent on rate-limit -- `jq -r .tag_name` returns "null" and the
+        # subsequent download 404s, taking the whole step down). Pinning
+        # also keeps tests reproducible against a known toolchain.
+        env:
+          BPFTOOL_VERSION: v7.5.0
         run: |
+          set -euo pipefail
           sudo apt-get update -q
           sudo apt-get install -y clang llvm libbpf-dev
-          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest | jq -r .tag_name)
-          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" | sudo tar -xz -C /usr/local/bin/
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
           sudo chmod +x /usr/local/bin/bpftool
+          /usr/local/bin/bpftool version
 
       - name: Generate eBPF objects
         working-directory: openlit-controller

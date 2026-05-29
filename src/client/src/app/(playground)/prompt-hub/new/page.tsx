@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import PromptCodeEditor from "@/components/(playground)/prompt-hub/prompt-code-editor";
+import PromptMarkdownViewer from "@/components/(playground)/prompt-hub/prompt-markdown-viewer";
+import PromptOtterInlineAssistant from "@/components/(playground)/prompt-hub/prompt-otter-inline-assistant";
 import { CLIENT_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
 import { usePageHeader } from "@/selectors/page";
@@ -15,7 +17,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
 const m = getMessage();
@@ -189,7 +190,7 @@ export default function NewPromptPage() {
 						</div>
 
 						{/* Markdown editor */}
-						<div className="flex flex-col gap-2 flex-1 overflow-hidden">
+						<div className="flex flex-col gap-2 flex-1 overflow-auto">
 							<div className="flex items-center justify-between">
 								<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 									{m.PROMPT}
@@ -198,7 +199,13 @@ export default function NewPromptPage() {
 									{m.PROMPT_HUB_VARIABLE_HINT}
 								</span>
 							</div>
-							<Tabs defaultValue="write" className="flex flex-col flex-1 overflow-hidden">
+							<PromptOtterInlineAssistant
+								prompt={promptText}
+								onApplyPrompt={setPromptText}
+								storageKey="prompt-hub:new:otter"
+								persistState={false}
+							/>
+							<Tabs defaultValue="write" className="flex flex-col flex-1 overflow-hidden min-h-[200px]">
 								<TabsList className="grid w-48 grid-cols-2 bg-stone-100 dark:bg-stone-900 self-start flex-shrink-0">
 									<TabsTrigger
 										value="write"
@@ -214,25 +221,14 @@ export default function NewPromptPage() {
 									</TabsTrigger>
 								</TabsList>
 								<TabsContent value="write" className="flex-1 overflow-hidden mt-2">
-									<Textarea
+									<PromptCodeEditor
 										value={promptText}
-										onChange={(e) => setPromptText(e.target.value)}
+										onChange={setPromptText}
 										placeholder={m.PROMPT_HUB_CONTENT_PLACEHOLDER}
-										className="h-full min-h-[300px] resize-none font-mono text-sm bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
 									/>
 								</TabsContent>
 								<TabsContent value="preview" className="flex-1 overflow-auto mt-2">
-									<div className="min-h-[300px] h-full bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-md p-4 overflow-auto scrollbar-hidden">
-										{promptText ? (
-											<div className="prose prose-sm dark:prose-invert max-w-none prose-stone prose-headings:font-semibold prose-code:rounded prose-code:px-1 prose-pre:bg-stone-100 dark:prose-pre:bg-stone-800">
-												<ReactMarkdown>{promptText}</ReactMarkdown>
-											</div>
-										) : (
-											<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-												{m.PROMPT_HUB_NOTHING_TO_PREVIEW}
-											</p>
-										)}
-									</div>
+									<PromptMarkdownViewer value={promptText} />
 								</TabsContent>
 							</Tabs>
 						</div>

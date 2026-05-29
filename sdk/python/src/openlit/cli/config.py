@@ -109,12 +109,6 @@ PARAMETER_CONFIG = {
         "cli_help": "Capture database query parameters in OTel per-key format (security risk - may expose sensitive data)",
         "cli_type": bool,
     },
-    "evals_logs_export": {
-        "default": True,
-        "env_var": "OPENLIT_EVALS_LOGS_EXPORT",
-        "cli_help": "Emit evaluation results as OTEL Log Records instead of OTEL Events",
-        "cli_type": bool,
-    },
     "max_content_length": {
         "default": None,
         "env_var": "OPENLIT_MAX_CONTENT_LENGTH",

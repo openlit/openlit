@@ -11,12 +11,19 @@ else
     BPF_TARGET_ARCH := $(UNAME_M)
 endif
 
-.PHONY: setup-bpf
-setup-bpf:
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(SCANNER_DIR)/bpf/vmlinux.h
+# Copy libbpf headers needed for BPF compilation.
+# vmlinux.h is committed as a minimal hand-maintained header (see bpf/vmlinux.h).
+.PHONY: setup-bpf-headers
+setup-bpf-headers:
 	cp /usr/include/bpf/bpf_helpers.h $(SCANNER_DIR)/bpf/
 	cp /usr/include/bpf/bpf_helper_defs.h $(SCANNER_DIR)/bpf/
 	cp /usr/include/bpf/bpf_tracing.h $(SCANNER_DIR)/bpf/
+
+# Full setup: regenerate vmlinux.h from the running kernel + copy headers.
+# Requires /sys/kernel/btf/vmlinux (available on the host, NOT inside Docker).
+.PHONY: setup-bpf
+setup-bpf: setup-bpf-headers
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(SCANNER_DIR)/bpf/vmlinux.h
 
 .PHONY: generate
 generate:

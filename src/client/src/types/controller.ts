@@ -51,6 +51,9 @@ export interface ExportConfig {
 	otlp_endpoint: string;
 	otlp_headers: Record<string, string>;
 	otlp_protocol: string;
+	otlp_traces_endpoint?: string;
+	otlp_metrics_endpoint?: string;
+	otlp_logs_endpoint?: string;
 }
 
 export interface DiscoveryTarget {
@@ -118,6 +121,9 @@ export const KNOWN_ACTIONS = {
 	REMOVE_PROMPTS: "remove_prompts",
 	PUSH_ENVS: "push_envs",
 	REMOVE_ENVS: "remove_envs",
+	START_WORKLOAD: "start_workload",
+	STOP_WORKLOAD: "stop_workload",
+	RESTART_WORKLOAD: "restart_workload",
 } as const;
 
 export interface FeatureDesiredState {
@@ -137,15 +143,6 @@ export interface EnvironmentFeatureConfig {
 	updated_at: string;
 }
 
-export interface PromptConfig {
-	templates: Array<{ name: string; content: string; version: number }>;
-}
-
-export interface EnvConfig {
-	variables: Record<string, string>;
-	secrets_masked?: boolean;
-}
-
 export type PythonSDKActionRuntime = "python";
 export type PythonSDKInstrumentationProfile = "controller_managed";
 export type PythonSDKDuplicatePolicy =
@@ -160,6 +157,11 @@ export interface PythonSDKActionPayload {
 	duplicate_policy: PythonSDKDuplicatePolicy;
 	observability_scope: PythonSDKObservabilityScope;
 	otlp_endpoint?: string | null;
+	otlp_protocol?: string;
+	otlp_headers?: Record<string, string>;
+	otlp_traces_endpoint?: string;
+	otlp_metrics_endpoint?: string;
+	otlp_logs_endpoint?: string;
 	sdk_version?: string;
 	enable_http_instrumentation?: boolean;
 	resource_attributes?: Record<string, string>;

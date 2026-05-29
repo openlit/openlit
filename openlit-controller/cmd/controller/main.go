@@ -223,6 +223,7 @@ func doPoll(
 			AgentObservabilitySource: svc.AgentObservabilitySource,
 			ObservabilityConflict:    svc.ObservabilityConflict,
 			ObservabilityReason:      svc.ObservabilityReason,
+			LifecycleStatus:          svc.LifecycleStatus,
 			FirstSeen:                svc.FirstSeen.UTC().Format("2006-01-02 15:04:05"),
 			ResourceAttributes:       svc.ResourceAttributes,
 		})
@@ -264,6 +265,39 @@ func doPoll(
 				pr.pollInterval = time.Duration(seconds) * time.Second
 			}
 		}
+
+		if exportRaw, ok := resp.Config["export"]; ok {
+			if exportMap, ok := exportRaw.(map[string]interface{}); ok {
+				newCfg := eng.GetExportConfig()
+				if v, ok := exportMap["otlp_endpoint"].(string); ok {
+					newCfg.OTLPEndpoint = v
+				}
+				if v, ok := exportMap["otlp_protocol"].(string); ok {
+					newCfg.OTLPProtocol = v
+				}
+				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok {
+					newCfg.OTLPTracesEndpoint = v
+				}
+				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok {
+					newCfg.OTLPMetricsEndpoint = v
+				}
+				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok {
+					newCfg.OTLPLogsEndpoint = v
+				}
+				if headersRaw, ok := exportMap["otlp_headers"]; ok {
+					if headersMap, ok := headersRaw.(map[string]interface{}); ok {
+						headers := make(map[string]string, len(headersMap))
+						for k, v := range headersMap {
+							if sv, ok := v.(string); ok {
+								headers[k] = sv
+							}
+						}
+						newCfg.OTLPHeaders = headers
+					}
+				}
+				eng.UpdateExportConfig(newCfg)
+			}
+		}
 	}
 
 	return pr
@@ -271,6 +305,7 @@ func doPoll(
 
 func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap.Logger) openlit.ActionResult {
 	var execErr error
+	var snapshot string
 
 	switch action.ActionType {
 	case openlit.ActionInstrument:
@@ -291,6 +326,21 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 			break
 		}
 		execErr = eng.DisablePythonSDK(action.ServiceKey, payload)
+	case openlit.ActionStartWorkload:
+		execErr = eng.StartWorkload(action.ServiceKey, action.Payload)
+	case openlit.ActionStopWorkload:
+		// StopWorkload returns a snapshot blob the dashboard persists
+		// into desired_states_v2.config so a later Start can hand it
+		// back. For K8s controlled workloads the blob carries just
+		// (kind, ns, name, container_name); for K8s naked pods it
+		// carries the full gzipped pod spec; for Linux bare processes
+		// it carries (exe_path, argv, cwd, env-allowlist). Docker and
+		// Linux systemd modes return "" because the durable identifier
+		// (container name, unit name) is already encoded in
+		// workload_key and the runtime preserves the object across Stop.
+		snapshot, execErr = eng.StopWorkload(action.ServiceKey, action.Payload)
+	case openlit.ActionRestartWorkload:
+		execErr = eng.RestartWorkload(action.ServiceKey, action.Payload)
 	default:
 		logger.Warn("unknown action type", zap.String("type", action.ActionType))
 		return openlit.ActionResult{
@@ -321,6 +371,7 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 	return openlit.ActionResult{
 		ActionID: action.ID,
 		Status:   "completed",
+		Snapshot: snapshot,
 	}
 }
 

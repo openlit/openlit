@@ -125,13 +125,16 @@ def extract_content_from_events(span, operation):
     convention modes.
 
     Returns:
-        tuple: ``(input_messages, output_messages, system_instructions)``
-               where each messages list follows the OTel structured format
-               and *system_instructions* is a string or ``None``.
+        tuple: ``(input_messages, output_messages, system_instructions, tool_definitions)``
+               where each messages list follows the OTel structured format,
+               *system_instructions* is a string or ``None``, and
+               *tool_definitions* is the raw value (typically a JSON string)
+               or ``None``.
     """
     input_msgs = []
     output_msgs = []
     system_instructions = None
+    tool_definitions = None
 
     for event in span.events or []:
         event_attrs = event.attributes or {}
@@ -151,6 +154,8 @@ def extract_content_from_events(span, operation):
                     output_msgs = [raw] if raw else []
             if "gen_ai.system_instructions" in event_attrs:
                 system_instructions = event_attrs["gen_ai.system_instructions"]
+            if "gen_ai.tool.definitions" in event_attrs:
+                tool_definitions = event_attrs["gen_ai.tool.definitions"]
             continue
 
         if event.name == "gen_ai.system.message":
@@ -211,7 +216,7 @@ def extract_content_from_events(span, operation):
                     entry["finish_reason"] = str(finish_reason)
                 output_msgs.append(entry)
 
-    return input_msgs, output_msgs, system_instructions
+    return input_msgs, output_msgs, system_instructions, tool_definitions
 
 
 # -------------------------------------------------------------------------

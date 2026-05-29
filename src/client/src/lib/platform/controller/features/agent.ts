@@ -2,6 +2,8 @@ import {
 	getServiceById,
 	getControllerInstanceById,
 	getControllerIdsForWorkload,
+	getControllerConfig,
+	getFeatureDesiredStates,
 	queueAction,
 	updateFeatureDesiredState,
 } from "@/lib/platform/controller";
@@ -88,16 +90,30 @@ async function resolveAgentContext(
 	return { service, supportsPythonSDK, mode: instance?.mode || "linux" };
 }
 
-export function buildAgentStatusResponse(
+export async function buildAgentStatusResponse(
 	service: any,
 	supportsPythonSDK: boolean,
-	mode: string
+	mode: string,
+	dbConfigId?: string
 ) {
 	const attrs = service.resource_attributes || {};
 	const status = attrs["openlit.agent_observability.status"] || "disabled";
 	const source = attrs["openlit.agent_observability.source"] || "none";
-	const desiredStatus =
-		attrs["openlit.agent_observability.desired_status"] || "";
+	// Desired status no longer lives on the service's resource_attributes
+	// (the Go controller used to stamp it there as a UI hint). It now comes
+	// directly from openlit_controller_desired_states_v2 — single source of
+	// truth for both the read path and the rendered toggle.
+	let desiredStatus = "";
+	if (service.workload_key) {
+		const desiredRes = await getFeatureDesiredStates(
+			[service.workload_key],
+			service.cluster_id || "default",
+			[FEATURE],
+			dbConfigId
+		);
+		const row = desiredRes.data?.[0];
+		if (row?.desired_status) desiredStatus = row.desired_status;
+	}
 	let reason =
 		attrs["openlit.observability.reason"] ||
 		(service.language_runtime === "python"
@@ -176,10 +192,11 @@ const agentHandler: FeatureHandler = {
 
 			if (operation === "status") {
 				return Response.json(
-					buildAgentStatusResponse(
+					await buildAgentStatusResponse(
 						ctx.service,
 						ctx.supportsPythonSDK,
-						ctx.mode
+						ctx.mode,
+						dbConfigId
 					)
 				);
 			}
@@ -223,6 +240,32 @@ const agentHandler: FeatureHandler = {
 				targets.push(ctx.service.controller_instance_id);
 			}
 
+			let exportOverrides: Partial<PythonSDKActionPayload> = {};
+			if (enabling) {
+				const cfgRes = await getControllerConfig(
+					ctx.service.controller_instance_id,
+					dbConfigId
+				);
+				const raw = cfgRes.data?.[0]?.config;
+				if (raw) {
+					try {
+						const savedCfg = JSON.parse(raw) as import("@/types/controller").ControllerConfig;
+						const exp = savedCfg.export;
+						if (exp) {
+							if (exp.otlp_endpoint) exportOverrides.otlp_endpoint = exp.otlp_endpoint;
+							if (exp.otlp_protocol) exportOverrides.otlp_protocol = exp.otlp_protocol;
+							if (exp.otlp_headers && Object.keys(exp.otlp_headers).length > 0)
+								exportOverrides.otlp_headers = exp.otlp_headers;
+							if (exp.otlp_traces_endpoint) exportOverrides.otlp_traces_endpoint = exp.otlp_traces_endpoint;
+							if (exp.otlp_metrics_endpoint) exportOverrides.otlp_metrics_endpoint = exp.otlp_metrics_endpoint;
+							if (exp.otlp_logs_endpoint) exportOverrides.otlp_logs_endpoint = exp.otlp_logs_endpoint;
+						}
+					} catch {
+						// Config parse failure is non-fatal; the controller will use its defaults.
+					}
+				}
+			}
+
 			const actionPayload: PythonSDKActionPayload = {
 				target_runtime: "python",
 				instrumentation_profile: "controller_managed",
@@ -230,8 +273,9 @@ const agentHandler: FeatureHandler = {
 				observability_scope: "agent",
 				...(enabling
 					? {
+							...exportOverrides,
 							otlp_endpoint:
-								(payload?.otlp_endpoint as string) || null,
+								(payload?.otlp_endpoint as string) || exportOverrides.otlp_endpoint || null,
 							enable_http_instrumentation:
 								(payload?.enable_http_instrumentation as boolean) ??
 								true,

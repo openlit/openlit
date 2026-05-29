@@ -65,8 +65,8 @@ func buildSystemdDropInContent(
 	unit string,
 	sdkRoot string,
 	serviceName string,
-	otlpEndpoint string,
-	environment string,
+	workloadKey string,
+	payload systemdOTLPPayload,
 	disabledInstrumentors string,
 	existingPythonPath string,
 	configHash string,
@@ -82,10 +82,41 @@ func buildSystemdDropInContent(
 	buf.WriteString(fmt.Sprintf("Environment=\"PYTHONPATH=%s\"\n", escapeSystemdValue(pythonPath)))
 	buf.WriteString("Environment=\"OPENLIT_CONTROLLER_MODE=agent_observability\"\n")
 	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_SERVICE_NAME=%s\"\n", escapeSystemdValue(serviceName)))
-	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_ENDPOINT=%s\"\n", escapeSystemdValue(otlpEndpoint)))
-	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_DEPLOYMENT_ENVIRONMENT=%s\"\n", escapeSystemdValue(environment)))
+	if workloadKey != "" {
+		buf.WriteString(fmt.Sprintf(
+			"Environment=\"OTEL_RESOURCE_ATTRIBUTES=service.workload.key=%s\"\n",
+			escapeSystemdValue(workloadKey),
+		))
+	}
+	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_ENDPOINT=%s\"\n", escapeSystemdValue(payload.OTLPEndpoint)))
+	buf.WriteString(fmt.Sprintf("Environment=\"OTEL_DEPLOYMENT_ENVIRONMENT=%s\"\n", escapeSystemdValue(payload.Environment)))
+	if payload.OTLPProtocol != "" {
+		buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_PROTOCOL=%s\"\n", escapeSystemdValue(payload.OTLPProtocol)))
+	}
+	if payload.OTLPTracesEndpoint != "" {
+		buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=%s\"\n", escapeSystemdValue(payload.OTLPTracesEndpoint)))
+	}
+	if payload.OTLPMetricsEndpoint != "" {
+		buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=%s\"\n", escapeSystemdValue(payload.OTLPMetricsEndpoint)))
+	}
+	if payload.OTLPLogsEndpoint != "" {
+		buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=%s\"\n", escapeSystemdValue(payload.OTLPLogsEndpoint)))
+	}
+	if payload.OTLPHeaders != "" {
+		buf.WriteString(fmt.Sprintf("Environment=\"OTEL_EXPORTER_OTLP_HEADERS=%s\"\n", escapeSystemdValue(payload.OTLPHeaders)))
+	}
 	buf.WriteString(fmt.Sprintf("Environment=\"OPENLIT_DISABLED_INSTRUMENTORS=%s\"\n", escapeSystemdValue(disabledInstrumentors)))
 	return buf.String()
+}
+
+type systemdOTLPPayload struct {
+	OTLPEndpoint        string
+	OTLPProtocol        string
+	OTLPTracesEndpoint  string
+	OTLPMetricsEndpoint string
+	OTLPLogsEndpoint    string
+	OTLPHeaders         string
+	Environment         string
 }
 
 func escapeSystemdValue(value string) string {

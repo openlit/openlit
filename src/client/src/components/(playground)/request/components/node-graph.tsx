@@ -124,34 +124,33 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	const onMouseUp = useCallback(() => setPanning(false), []);
 
 	return (
-		<div className="relative flex-1 w-full min-h-0 h-full">
-
-			{/* Zoom controls */}
-			<div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white/90 dark:bg-stone-900/90 rounded-md border border-stone-200 dark:border-stone-700 p-0.5 shadow-sm">
-				<button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom in"><Plus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
-				<span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400 min-w-[32px] text-center select-none">{Math.round(zoom * 100)}%</span>
-				<button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom out"><Minus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
-				<div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
-				<button onClick={fitToView} className="p-1 rounded hover:bg-primary/10" title="Fit to view"><Maximize className="h-3.5 w-3.5 text-primary" /></button>
+		<div className="relative flex flex-col flex-1 w-full min-h-0 h-full overflow-hidden overscroll-contain">
+			<div className="shrink-0 flex flex-wrap items-center gap-2 justify-between border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 px-2 py-1.5">
+				<div className="flex flex-wrap items-center gap-3 text-[10px] text-stone-500 dark:text-stone-400">
+					<span className="font-semibold text-stone-700 dark:text-stone-300">
+						Edge Types
+					</span>
+					<span className="flex items-center gap-1.5">
+						<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#3b82f6" strokeWidth="1.5" /></svg>
+						Sequential
+					</span>
+					<span className="flex items-center gap-1.5">
+						<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="5 3" /></svg>
+						Parallel
+					</span>
+				</div>
+				<div className="flex items-center gap-1 rounded-md border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 p-0.5">
+					<button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom in"><Plus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
+					<span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400 min-w-[32px] text-center select-none">{Math.round(zoom * 100)}%</span>
+					<button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700" title="Zoom out"><Minus className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" /></button>
+					<div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
+					<button onClick={fitToView} className="p-1 rounded hover:bg-primary/10" title="Fit to view"><Maximize className="h-3.5 w-3.5 text-primary" /></button>
+				</div>
 			</div>
 
-			{/* Legend */}
-			<div className="absolute bottom-2 left-2 z-20 flex flex-col gap-1.5 text-[10px] text-stone-500 dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 rounded px-2.5 py-2 border border-stone-200 dark:border-stone-700 shadow-sm">
-				<div className="font-semibold text-stone-700 dark:text-stone-300 mb-0.5">Edge Types</div>
-				<span className="flex items-center gap-2">
-					<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#3b82f6" strokeWidth="1.5" /></svg>
-					Sequential
-				</span>
-				<span className="flex items-center gap-2">
-					<svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="5 3" /></svg>
-					Parallel
-				</span>
-			</div>
-
-			{/* Canvas */}
 			<div
 				ref={containerRef}
-				className="absolute inset-0"
+				className="relative flex-1 min-h-0 overflow-hidden overscroll-contain"
 				style={{ cursor: panning ? "grabbing" : "grab" }}
 				onWheel={onWheel}
 				onMouseDown={onMouseDown}

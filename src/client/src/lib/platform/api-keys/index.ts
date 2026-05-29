@@ -96,9 +96,30 @@ export async function getAllAPIKeys() {
 }
 
 export async function deleteAPIKey(id: string) {
-	return await asaw(
-		prisma.aPIKeys.update({ where: { id }, data: { isDeleted: true } })
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+	throwIfError(err, err);
+	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+
+	const apiKey = await prisma.aPIKeys.findFirst({
+		where: {
+			id,
+			databaseConfigId: dbConfig.id,
+			isDeleted: false,
+		},
+	});
+
+	if (!apiKey) {
+		throw new Error("API key not found");
+	}
+
+	await prisma.aPIKeys.update(
+		{ where: { id }, data: { isDeleted: true } }
 	);
+
+	return [null, { success: true }];
 }
 
 export async function hasAnyAPIKeys(): Promise<boolean> {
