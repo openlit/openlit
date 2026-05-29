@@ -9,6 +9,7 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    apply_agent_version_attributes,
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
@@ -605,66 +606,86 @@ def common_chat_logic(
             scope._cache_creation_input_tokens,
         )
 
-    # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
+    # Compute version hash regardless of content capture so versions still
+    # group correctly when capture_message_content=false.
+    system_raw = scope._kwargs.get("system")
+    system_instr = [{"type": "text", "content": system_raw}] if system_raw else None
+    tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+    version_extras = apply_agent_version_attributes(
+        scope._span,
+        system_instructions=system_instr,
+        tool_definitions=tool_defs,
+        primary_model=scope._response_model or request_model,
+        runtime_config={
+            "temperature": scope._kwargs.get("temperature"),
+            "top_p": scope._kwargs.get("top_p"),
+            "max_tokens": scope._kwargs.get("max_tokens"),
+            "provider": SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+        },
+        providers=[SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC],
+    )
+
+    # Build messages regardless of capture so the inference event below can
+    # still emit metadata.
+    input_msgs = build_input_messages(
+        scope._kwargs.get("messages", []),
+        system=scope._kwargs.get("system"),
+    )
+    output_msgs = build_output_messages(
+        scope._llmresponse,
+        scope._finish_reason,
+        scope._tool_calls if hasattr(scope, "_tool_calls") else None,
+    )
+
     if capture_message_content:
-        input_msgs = build_input_messages(
-            scope._kwargs.get("messages", []),
-            system=scope._kwargs.get("system"),
-        )
-        output_msgs = build_output_messages(
-            scope._llmresponse,
-            scope._finish_reason,
-            scope._tool_calls if hasattr(scope, "_tool_calls") else None,
-        )
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-        # gen_ai.system_instructions (Anthropic: from request system)
-        system_raw = scope._kwargs.get("system")
         if system_raw:
-            system_instr = [{"type": "text", "content": system_raw}]
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
                 json.dumps(system_instr),
             )
 
-        # Emit inference event
-        if event_provider:
-            try:
-                tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
-                output_type = "text" if isinstance(scope._llmresponse, str) else "json"
-                extra = {
-                    "response_id": scope._response_id,
-                    "finish_reasons": [scope._finish_reason],
-                    "output_type": output_type,
-                    "temperature": scope._kwargs.get("temperature"),
-                    "max_tokens": scope._kwargs.get("max_tokens"),
-                    "top_p": scope._kwargs.get("top_p"),
-                    "top_k": scope._kwargs.get("top_k"),
-                    "stop_sequences": scope._kwargs.get("stop_sequences"),
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "cache_read_input_tokens": getattr(
-                        scope, "_cache_read_input_tokens", 0
-                    ),
-                    "cache_creation_input_tokens": getattr(
-                        scope, "_cache_creation_input_tokens", 0
-                    ),
-                }
-                if system_raw:
-                    extra["system_instructions"] = system_instr
-                emit_inference_event(
-                    event_provider=event_provider,
-                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                    request_model=request_model,
-                    response_model=scope._response_model,
-                    input_messages=input_msgs,
-                    output_messages=output_msgs,
-                    tool_definitions=tool_defs,
-                    server_address=scope._server_address,
-                    server_port=scope._server_port,
-                    **extra,
-                )
-            except Exception as e:
-                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+    # Emit inference event independently of content capture so that
+    # `openlit.agent.version_hash`, token counts, latency, etc. always make
+    # it to the event stream. Match the TS SDK.
+    if event_provider:
+        try:
+            output_type = "text" if isinstance(scope._llmresponse, str) else "json"
+            extra = {
+                "response_id": scope._response_id,
+                "finish_reasons": [scope._finish_reason],
+                "output_type": output_type,
+                "temperature": scope._kwargs.get("temperature"),
+                "max_tokens": scope._kwargs.get("max_tokens"),
+                "top_p": scope._kwargs.get("top_p"),
+                "top_k": scope._kwargs.get("top_k"),
+                "stop_sequences": scope._kwargs.get("stop_sequences"),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_input_tokens": getattr(
+                    scope, "_cache_read_input_tokens", 0
+                ),
+                "cache_creation_input_tokens": getattr(
+                    scope, "_cache_creation_input_tokens", 0
+                ),
+                **version_extras,
+            }
+            if capture_message_content and system_raw:
+                extra["system_instructions"] = system_instr
+            emit_inference_event(
+                event_provider=event_provider,
+                operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                request_model=request_model,
+                response_model=scope._response_model,
+                input_messages=input_msgs if capture_message_content else [],
+                output_messages=output_msgs if capture_message_content else [],
+                tool_definitions=tool_defs,
+                server_address=scope._server_address,
+                server_port=scope._server_port,
+                **extra,
+            )
+        except Exception as e:
+            logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 

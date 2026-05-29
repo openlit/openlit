@@ -1,6 +1,7 @@
 import migrations from "@/clickhouse/migrations";
 import { dataCollector } from "../common";
 import asaw from "@/utils/asaw";
+import { getFirstDBConfig } from "@/lib/db-config";
 
 export async function pingClickhouse() {
 	const pingResponse = await dataCollector({}, "ping");
@@ -16,9 +17,11 @@ export async function pingClickhouse() {
 }
 
 export async function runClickhouseMigrations() {
-	try {
-		await migrations();
-	} catch (error) {
-		console.error("Error running migrations:", error);
+	const dbConfig = await getFirstDBConfig();
+	if (!dbConfig?.id) {
+		console.log("No ClickHouse DB config found; skipping migrations");
+		return;
 	}
+
+	await migrations(dbConfig.id);
 }

@@ -24,7 +24,7 @@ const featureKeys: Array<{ title: keyof ReturnType<typeof getMessage>; desc: key
 	{ title: "AUTH_FEATURE_PROMPT_HUB", desc: "AUTH_FEATURE_PROMPT_HUB_DESC" },
 	{ title: "AUTH_FEATURE_RULE_ENGINE", desc: "AUTH_FEATURE_RULE_ENGINE_DESC" },
 	{ title: "AUTH_FEATURE_VAULT", desc: "AUTH_FEATURE_VAULT_DESC" },
-	{ title: "AUTH_FEATURE_INSTRUMENTATION", desc: "AUTH_FEATURE_INSTRUMENTATION_DESC" },
+	{ title: "AUTH_FEATURE_AGENTS", desc: "AUTH_FEATURE_AGENTS_DESC" },
 	{ title: "AUTH_FEATURE_OTEL", desc: "AUTH_FEATURE_OTEL_DESC" },
 ];
 

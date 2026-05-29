@@ -63,7 +63,7 @@ describe('getUserByEmail', () => {
   it('throws when user not found', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
     await expect(getUserByEmail({ email: 'nobody@x.com' })).rejects.toThrow(
-      'No user with this email exists'
+      'Invalid email or password'
     );
   });
 
@@ -108,7 +108,7 @@ describe('createNewUser', () => {
     const createdUser = { id: 'u1', email: 'new@example.com', password: 'hashed' };
     (prisma.user.create as jest.Mock).mockResolvedValue(createdUser);
 
-    const result = await createNewUser({ email: 'NEW@EXAMPLE.COM', password: 'pass123' });
+    const result = await createNewUser({ email: 'NEW@EXAMPLE.COM', password: 'Pass1234' });
     expect(prisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -123,16 +123,26 @@ describe('createNewUser', () => {
   it('throws when user already exists', async () => {
     (asaw as jest.Mock).mockResolvedValue([null, { id: 'u1', email: 'existing@x.com' }]);
     await expect(
-      createNewUser({ email: 'existing@x.com', password: 'pass' })
+      createNewUser({ email: 'existing@x.com', password: 'Pass1234' })
     ).rejects.toThrow('User already exists');
   });
 
   it('throws when prisma.user.create returns no id', async () => {
     (asaw as jest.Mock).mockResolvedValue([null, null]);
     (prisma.user.create as jest.Mock).mockResolvedValue({ id: null });
-    await expect(createNewUser({ email: 'a@b.com', password: 'pass' })).rejects.toThrow(
+    await expect(createNewUser({ email: 'a@b.com', password: 'Pass1234' })).rejects.toThrow(
       'Cannot create a user!'
     );
+  });
+
+  it('rejects HTML/script-bearing registration email before storing it', async () => {
+    await expect(
+      createNewUser({
+        email: '"><img src=x onerror=alert(1)>@test.com',
+        password: 'Pass1234',
+      })
+    ).rejects.toThrow('Email contains invalid characters');
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 });
 
@@ -179,7 +189,7 @@ describe('updateUserProfile', () => {
     (compare as jest.Mock).mockResolvedValue(true);
     (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'u1' });
 
-    await updateUserProfile({ currentPassword: 'old', newPassword: 'new' });
+    await updateUserProfile({ currentPassword: 'old', newPassword: 'Newpass1' });
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ password: expect.any(String) }) })
     );
@@ -190,7 +200,7 @@ describe('updateUserProfile', () => {
     (compare as jest.Mock).mockResolvedValue(false);
 
     await expect(
-      updateUserProfile({ currentPassword: 'wrong', newPassword: 'new' })
+      updateUserProfile({ currentPassword: 'wrong', newPassword: 'Newpass1' })
     ).rejects.toThrow('Wrong current password!');
   });
 });

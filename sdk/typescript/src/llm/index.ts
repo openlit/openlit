@@ -1,4 +1,10 @@
-import { GuardResult } from '../guard/types';
+interface LegacyGuardResult {
+  score: number;
+  verdict: 'yes' | 'no' | 'none';
+  guard: string;
+  classification: string;
+  explanation: string;
+}
 
 export async function llmResponse(provider: string, prompt: string, model?: string, baseUrl?: string, apiKey?: string): Promise<string> {
   if (provider.toLowerCase() === 'openai') {
@@ -12,7 +18,7 @@ export async function llmResponse(provider: string, prompt: string, model?: stri
   }
 }
 
-export function parseLlmResponse(response: string | object): GuardResult {
+export function parseLlmResponse(response: string | object): LegacyGuardResult {
   try {
     let data: Record<string, unknown>;
     if (typeof response === 'string') {

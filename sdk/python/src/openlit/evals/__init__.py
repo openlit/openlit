@@ -1,13 +1,16 @@
 """
 openlit.evals
 
-This module provides a set of classes for analyzing text for various types of
-content-based vulnerabilities,
-such as Hallucination, Bias, and Toxicity detection.
+Server-side evaluation capabilities for AI-generated text.
+Uses the OpenLIT evaluation engine for hallucination, bias, toxicity,
+and custom evaluation types.
 """
 
-from openlit.evals.hallucination import Hallucination
-from openlit.evals.bias_detection import BiasDetector
-from openlit.evals.toxicity import ToxicityDetector
-from openlit.evals.all import All
-from openlit.evals.utils import emit_evaluation_event
+from openlit.evals.offline import run_eval, run_eval_batch, fetch_eval_types
+from openlit.evals.offline_types import (
+    OfflineEvaluation,
+    OfflineEvalResult,
+    BatchEvalResult,
+    EvalType,
+    ContextInfo,
+)

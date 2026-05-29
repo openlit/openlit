@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 const REFRESH_RATE_EVENT = "refresh-rate";
 
 const PAGES_ENABLED_FOR_REFRESH_RATE =
-	/^\/home$|^\/dashboard$|^\/requests$|^\/exceptions$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+	/^\/home$|^\/dashboard$|^\/telemetry(?:\/.*)?$|^\/observability(?:\/.*)?$|^\/requests$|^\/exceptions$|^\/agents(?:\/.*)?$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const refreshTimes = {
 	[REFRESH_RATE_TYPE["30s"]]: 30 * 1000,
@@ -88,7 +88,7 @@ const RefreshRate = () => {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline" className="flex gap-4 shrink-0 justify-start group-data-[state=close]:justify-center p-1 overflow-hidden text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 font-normal h-auto w-auto ml-auto">
+				<Button variant="outline" className="flex gap-4 shrink-0 justify-start group-data-[state=close]:justify-center py-1 px-2 overflow-hidden font-normal h-auto w-auto ml-auto text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900">
 					<TimerReset className={`size-3 shrink-0`} />
 					<span className="block text-ellipsis overflow-hidden whitespace-nowrap grow text-xs">{filter.refreshRate}</span>
 					<ChevronsUpDown className={`size-3 block shrink-0`} />

@@ -33,6 +33,7 @@ except ImportError:
                 "OTEL_EXPORTER_OTLP_HEADERS": "otlp_headers",
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "capture_message_content",
                 "OPENLIT_DISABLED_INSTRUMENTORS": "disabled_instrumentors",
+                "OPENLIT_CONTROLLER_MODE": "controller_mode",
                 "OPENLIT_DISABLE_BATCH": "disable_batch",
                 "OPENLIT_DISABLE_METRICS": "disable_metrics",
                 "OPENLIT_DISABLE_EVENTS": "disable_events",
@@ -40,7 +41,6 @@ except ImportError:
                 "OPENLIT_PRICING_JSON": "pricing_json",
                 "OPENLIT_CAPTURE_DB_PARAMETERS": "capture_db_parameters",
                 "OPENLIT_MAX_CONTENT_LENGTH": "max_content_length",
-                "OPENLIT_EVALS_LOGS_EXPORT": "evals_logs_export",
                 "OPENLIT_CUSTOM_SPAN_ATTRIBUTES": "custom_span_attributes",
             }
 
@@ -54,7 +54,6 @@ except ImportError:
                         "OPENLIT_DISABLE_EVENTS",
                         "OPENLIT_COLLECT_GPU_STATS",
                         "OPENLIT_CAPTURE_DB_PARAMETERS",
-                        "OPENLIT_EVALS_LOGS_EXPORT",
                     ]:
                         config[param_name] = env_value.lower() in ("true", "1", "yes")
                     # Handle CSV values

@@ -83,7 +83,7 @@ export default function DataTable({
 	extraFunctions?: Record<string, any>;
 }) {
 	const visibleColumns = objectEntries(visibilityColumns)
-		.filter(([, value]) => value)
+		.filter(([key, value]) => value && columns[key])
 		.map(([keys]) => keys);
 	const noData = !data?.length && !isLoading;
 

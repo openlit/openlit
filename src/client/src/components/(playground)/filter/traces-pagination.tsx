@@ -48,14 +48,14 @@ export default function TracesPagination(props: PaginationProps) {
 				<p className="text-xs shrink-0 mr-1 self-center text-stone-950 dark:text-stone-100">
 					Size :{" "}
 				</p>
-				<div className="w-[100px]">
+				<div className="w-[80px]">
 					<Select
 						onValueChange={onSizeChange}
 						defaultValue={`${props.currentSize}`}
 					>
 						<SelectTrigger
 							id="model"
-							className="items-center [&_[data-description]]:hidden text-stone-950 dark:text-stone-100 h-auto py-1"
+							className="items-center [&_[data-description]]:hidden h-auto py-1 text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1 px-2 h-[30px] relative gap-1 text-xs"
 						>
 							<SelectValue
 								placeholder={`${props.currentSize}`}
@@ -84,7 +84,7 @@ export default function TracesPagination(props: PaginationProps) {
 				<PaginationContent>
 					<PaginationItem>
 						<PaginationPrevious
-							className={`py-1 h-auto ${
+							className={`py-1 h-full ${
 								firstPage
 									? "pointer-events-none cursor-not-allowed text-stone-400"
 									: "text-stone-950 dark:text-stone-100"
@@ -101,7 +101,7 @@ export default function TracesPagination(props: PaginationProps) {
 					</PaginationItem>
 					<PaginationItem>
 						<PaginationNext
-							className={`py-1 h-auto ${
+							className={`py-1 h-full ${
 								lastPage
 									? "pointer-events-none cursor-not-allowed text-stone-400"
 									: "text-stone-950 dark:text-stone-100"

@@ -12,6 +12,8 @@ export async function getAllAgents() {
 		cache: 'no-store'
 	}));
 
+	console.log([err, res]);
+
 	if (err) {
 		return {
 			err

@@ -41,7 +41,7 @@ describe('Milvus Cross-Language Trace Comparison', () => {
 
     (OpenlitConfig as any).environment = 'openlit-testing';
     (OpenlitConfig as any).applicationName = 'openlit-test';
-    (OpenlitConfig as any).traceContent = true;
+    (OpenlitConfig as any).captureMessageContent = true;
     (OpenLitHelper as any).handleException = jest.fn();
   });
 

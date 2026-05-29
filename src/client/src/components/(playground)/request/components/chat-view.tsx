@@ -284,25 +284,25 @@ function ToolIndicator({
 
 	return (
 		<div
-			className={`mx-3 rounded-lg border cursor-pointer transition-colors ${
+			className={`mx-2 cursor-pointer rounded-md border transition-colors ${
 				isSelected
 					? "border-primary/40 bg-primary/5"
-					: "border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/50 hover:bg-stone-100 dark:hover:bg-stone-800"
+					: "border-stone-200 bg-white hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-950 dark:hover:bg-stone-900"
 			}`}
 			onClick={onClick}
 		>
 			{/* Header row */}
-			<div className="flex items-center gap-2 px-3 py-2">
-				<div className="flex items-center justify-center h-6 w-6 rounded-md bg-violet-100 dark:bg-violet-900/40 shrink-0">
-					<Wrench className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+			<div className="flex items-center gap-2 px-2.5 py-1.5">
+				<div className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-stone-200 bg-stone-50 dark:border-stone-800 dark:bg-stone-900">
+					<Wrench className="h-3 w-3 text-stone-500 dark:text-stone-400" />
 				</div>
 				<div className="flex flex-col min-w-0 flex-1">
 					<div className="flex items-center gap-1.5">
-						<span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+						<span className="text-[11px] font-semibold text-stone-700 dark:text-stone-300">
 							{item.label}
 						</span>
 						{item.toolType && (
-							<span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 font-medium">
+							<span className="rounded border border-stone-200 px-1.5 py-0.5 text-[9px] font-medium text-stone-500 dark:border-stone-800 dark:text-stone-400">
 								{item.toolType}
 							</span>
 						)}
@@ -322,7 +322,7 @@ function ToolIndicator({
 			{displayArgs && (
 				<div className="border-t border-stone-200 dark:border-stone-700">
 					<button
-						className="flex items-center gap-1 px-3 py-1 text-[10px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 w-full"
+						className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 w-full"
 						onClick={(e) => {
 							e.stopPropagation();
 							setExpanded(!expanded);
@@ -336,7 +336,7 @@ function ToolIndicator({
 						Arguments
 					</button>
 					{expanded && (
-						<pre className="px-3 pb-2 text-[10px] leading-relaxed text-stone-600 dark:text-stone-400 font-mono overflow-x-auto max-h-48 overflow-y-auto">
+						<pre className="px-2.5 pb-2 text-[10px] leading-relaxed text-stone-600 dark:text-stone-400 font-mono overflow-x-auto max-h-48 overflow-y-auto">
 							{displayArgs}
 						</pre>
 					)}
@@ -354,28 +354,28 @@ const roleConfig = {
 		label: "User",
 		align: "items-end" as const,
 		bubble:
-			"bg-primary/10 dark:bg-primary/15 text-stone-800 dark:text-stone-200 rounded-2xl rounded-br-md",
+			"border border-primary/20 bg-primary/5 dark:bg-primary/10 text-stone-800 dark:text-stone-200 rounded-md",
 	},
 	assistant: {
 		icon: <Bot className="h-3.5 w-3.5" />,
 		label: "Assistant",
 		align: "items-start" as const,
 		bubble:
-			"bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 rounded-2xl rounded-bl-md",
+			"border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-200 rounded-md",
 	},
 	system: {
 		icon: <Cog className="h-3.5 w-3.5" />,
 		label: "System",
 		align: "items-start" as const,
 		bubble:
-			"bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 rounded-2xl rounded-bl-md border border-amber-200 dark:border-amber-800",
+			"bg-amber-50/70 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 rounded-md border border-amber-200 dark:border-amber-900",
 	},
 	tool: {
 		icon: <Wrench className="h-3.5 w-3.5" />,
 		label: "Tool Result",
 		align: "items-start" as const,
 		bubble:
-			"bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-200 rounded-2xl rounded-bl-md border border-violet-200 dark:border-violet-800",
+			"bg-stone-50 dark:bg-stone-900/50 text-stone-800 dark:text-stone-200 rounded-md border border-stone-200 dark:border-stone-800",
 	},
 };
 
@@ -459,7 +459,7 @@ export default function ChatView({
 	}
 
 	return (
-		<div className="flex flex-col gap-2.5 py-3">
+		<div className="flex flex-col gap-2 py-2">
 			{dedupedItems.map((item, i) => {
 				const isSelected = request?.spanId === item.span.SpanId;
 
@@ -482,10 +482,10 @@ export default function ChatView({
 					return (
 						<div
 							key={`${item.span.SpanId}-span-${i}`}
-							className={`flex items-center gap-2 mx-3 px-3 py-1.5 rounded-md border cursor-pointer transition-colors ${
+							className={`mx-2 flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors ${
 								isSelected
 									? "border-primary/40 bg-primary/5"
-									: "border-dashed border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800"
+									: "border-stone-200 bg-white hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-950 dark:hover:bg-stone-900"
 							}`}
 							onClick={() =>
 								updateRequest({ spanId: item.span.SpanId })
@@ -516,11 +516,11 @@ export default function ChatView({
 				return (
 					<div
 						key={`${item.span.SpanId}-${role}-${i}`}
-						className={`flex flex-col gap-0.5 px-3 ${config.align}`}
+						className={`flex flex-col gap-0.5 px-2 ${config.align}`}
 					>
 						{/* Role label + span name */}
 						<div
-							className={`flex items-center gap-1.5 text-[10px] text-stone-400 dark:text-stone-500 px-1 ${
+							className={`flex items-center gap-1.5 px-1 text-[10px] text-stone-400 dark:text-stone-500 ${
 								role === "user" ? "flex-row-reverse" : ""
 							}`}
 						>
@@ -536,12 +536,12 @@ export default function ChatView({
 
 						{/* Bubble */}
 						<div
-							className={`max-w-[85%] px-3 py-2 text-[12px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer transition-shadow ${
+							className={`max-w-[92%] cursor-pointer whitespace-pre-wrap break-words px-2.5 py-2 text-[12px] leading-relaxed transition-colors ${
 								config.bubble
 							} ${
 								isSelected
-									? "ring-2 ring-primary ring-offset-1 dark:ring-offset-stone-900"
-									: "hover:shadow-md"
+									? "ring-1 ring-primary/60"
+									: "hover:border-stone-300 dark:hover:border-stone-700"
 							}`}
 							onClick={() =>
 								updateRequest({ spanId: item.span.SpanId })

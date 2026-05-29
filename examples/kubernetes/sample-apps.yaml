@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: llm-api-keys
+  namespace: openlit
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "random_key"
+  GEMINI_API_KEY: "random_key"
+  AWS_BEARER_BEDROCK_TOKEN: "random_key"
+---
+# Gemini sample app — naked Pod (no controller, no ReplicaSet)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gemini-app
+  namespace: openlit
+  labels:
+    app: gemini-app
+spec:
+  containers:
+    - name: gemini-app
+      image: openlit-example-gemini:latest
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: llm-api-keys
+              key: GEMINI_API_KEY
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+---
+# CrewAI agent app — Deployment with 2 replicas (spread across nodes)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crewai-agent-app
+  namespace: openlit
+  labels:
+    app: crewai-agent-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crewai-agent-app
+  template:
+    metadata:
+      labels:
+        app: crewai-agent-app
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: crewai-agent-app
+      containers:
+        - name: crewai-agent-app
+          image: openlit-example-crewai:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: llm-api-keys
+                  key: OPENAI_API_KEY
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+# Bedrock sample app — DaemonSet (runs on every node)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: bedrock-app
+  namespace: openlit
+  labels:
+    app: bedrock-app
+spec:
+  selector:
+    matchLabels:
+      app: bedrock-app
+  template:
+    metadata:
+      labels:
+        app: bedrock-app
+    spec:
+      containers:
+        - name: bedrock-app
+          image: openlit-example-bedrock:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AWS_BEARER_BEDROCK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: llm-api-keys
+                  key: AWS_BEARER_BEDROCK_TOKEN
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: BEDROCK_MODEL_ID
+              value: "amazon.nova-micro-v1:0"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists

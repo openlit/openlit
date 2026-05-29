@@ -119,7 +119,7 @@ async function main() {
 					organisationId: defaultOrg.id,
 				},
 			},
-			update: {},
+			update: environmentDBConfig,
 			create: {
 				environment: "production",
 				name: "Default DB",

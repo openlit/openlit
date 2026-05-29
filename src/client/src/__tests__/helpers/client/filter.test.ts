@@ -20,9 +20,15 @@ describe('getFilterParamsForDashboard', () => {
     expect(result).not.toHaveProperty('offset');
   });
 
-  it('omits selectedConfig from the result', () => {
+  it('preserves selectedConfig in the result', () => {
+    // Dashboard endpoints respect `selectedConfig` (provider, model,
+    // environment, and the agent-detail `serviceNames` scope lock) when the
+    // server-side helper is called with `filterSelectedConfig=true`.
+    // Stripping it here would leak unrelated services into the agent-detail
+    // Analytics tab — see comment in `helpers/client/filter.ts`.
     const result = getFilterParamsForDashboard(baseFilter);
-    expect(result).not.toHaveProperty('selectedConfig');
+    expect(result).toHaveProperty('selectedConfig');
+    expect(result.selectedConfig).toEqual(baseFilter.selectedConfig);
   });
 
   it('omits sorting from the result', () => {

@@ -296,8 +296,8 @@ class SemanticConvention:
     # GenAI System Names (OTel Semconv)
     GEN_AI_SYSTEM_ANTHROPIC = "anthropic"
     GEN_AI_SYSTEM_AWS_BEDROCK = "aws.bedrock"
-    GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "az.ai.inference"
-    GEN_AI_SYSTEM_AZURE_OPENAI = "az.ai.openai"
+    GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "azure.ai.inference"
+    GEN_AI_SYSTEM_AZURE_OPENAI = "azure.ai.openai"
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_DEEPSEEK = "deepseek"
     GEN_AI_SYSTEM_GEMINI = "gemini"
@@ -331,7 +331,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
     GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
     GEN_AI_SYSTEM_VLLM = "vLLM"
-    GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "google.ai.studio"
+    GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "gcp.gemini"
     GEN_AI_SYSTEM_REKAAI = "rekaai"
     GEN_AI_SYSTEM_PREMAI = "premai"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
@@ -352,6 +352,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_DIGITALOCEAN = "digitalocean"
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
     GEN_AI_SYSTEM_SARVAM = "sarvam"
@@ -405,7 +406,7 @@ class SemanticConvention:
     )
 
     # GenAI Request Attributes (Extra)
-    GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
+    GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.stream"
     GEN_AI_REQUEST_USER = "gen_ai.request.user"
     GEN_AI_REQUEST_EMBEDDING_DIMENSION = "gen_ai.request.embedding_dimension"
     GEN_AI_REQUEST_TOOL_CHOICE = "gen_ai.request.tool_choice"
@@ -690,6 +691,11 @@ class SemanticConvention:
     GEN_AI_AGENT_VERSION = _get_otel_attr(
         OTelGenAIAttributes, "GEN_AI_AGENT_VERSION", "gen_ai.agent.version"
     )
+    # OpenLIT vendor extension: auto-computed canonical fingerprint over the
+    # parts of an agent's definition that meaningfully change its behavior
+    # (system prompt + tools + primary model + sampling config). Stamped on
+    # every chat span/event so the server can group traffic by version.
+    OPENLIT_AGENT_VERSION_HASH = "openlit.agent.version_hash"
 
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
@@ -730,6 +736,12 @@ class SemanticConvention:
     GEN_AI_AGENT_ACTION_LOG = "gen_ai.agent.action.log"
     GEN_AI_AGENT_FINISH_OUTPUT = "gen_ai.agent.finish.output"
     GEN_AI_AGENT_FINISH_LOG = "gen_ai.agent.finish.log"
+
+    # Agent Threat Detection Events
+    GEN_AI_AGENT_THREAT_DETECTED = "gen_ai.agent.threat_detected"
+    GEN_AI_AGENT_THREAT_RULE_ID = "gen_ai.agent.threat.rule_id"
+    GEN_AI_AGENT_THREAT_SEVERITY = "gen_ai.agent.threat.severity"
+    GEN_AI_AGENT_THREAT_CLASS = "gen_ai.agent.threat.threat_class"
 
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
@@ -1039,6 +1051,14 @@ class SemanticConvention:
     GUARD_CLASSIFICATION = "guard.classification"
     GUARD_VALIDATOR = "guard.validator"
     GUARD_EXPLANATION = "guard.explanation"
+
+    # Guard events (new guard system)
+    GUARD_EVALUATION_EVENT = "guard.evaluation"
+    GUARD_NAME = "guard.name"
+    GUARD_PHASE = "guard.phase"
+    GUARD_ACTION = "guard.action"
+    GUARD_LATENCY_MS = "guard.latency_ms"
+    GUARD_DENIED = "guard.denied"
 
     # GenAI Evaluation Event (OTel Semantic Convention)
     # Per OpenTelemetry semantic conventions for generative AI

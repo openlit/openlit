@@ -119,6 +119,33 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => "Requests",
 		getBreadcrumbs: () => [],
 	},
+
+	// Telemetry
+	{
+		regex: /^\/telemetry$/,
+		getTitle: () => "Telemetry",
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/telemetry\/traces\/[^/]+$/,
+		getTitle: () => "Trace Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=traces" }],
+	},
+	{
+		regex: /^\/telemetry\/exceptions\/[^/]+$/,
+		getTitle: () => "Exception Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=exceptions" }],
+	},
+	{
+		regex: /^\/telemetry\/logs\/[^/]+$/,
+		getTitle: () => "Log Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=logs" }],
+	},
+	{
+		regex: /^\/telemetry\/metrics\/[^/]+$/,
+		getTitle: () => "Metric Details",
+		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=metrics" }],
+	},
 	
 	// Exceptions
 	{
@@ -242,6 +269,29 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
+	// Agents
+	{
+		regex: /^\/agents$/,
+		getTitle: () => "Agents",
+		getBreadcrumbs: () => [],
+	},
+
+	{
+		regex: /^\/agents\/controller\/[^/]+$/,
+		getTitle: () => "Controller",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
+	{
+		regex: /^\/agents\/[^/]+$/,
+		getTitle: () => "Service Detail",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" }
+		],
+	},
+
 	// Fleet Hub
 	{
 		regex: /^\/fleet-hub\/[^/]+$/,

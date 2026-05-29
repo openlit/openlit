@@ -49,21 +49,118 @@ describe('getConversations', () => {
     await getConversations('db-1');
     expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'query', 'db-1');
   });
+
+  it('returns errors from dataCollector', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'query failed' });
+    await expect(getConversations()).resolves.toEqual({ err: 'query failed' });
+  });
+});
+
+describe('getConversationWithMessages', () => {
+  it('returns a conversation with ordered messages', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'c1',
+            title: 'Chat',
+            totalPromptTokens: '10',
+            totalMessages: BigInt(2),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'm1',
+            conversationId: 'c1',
+            role: 'user',
+            content: 'Hi',
+            promptTokens: BigInt(4),
+          },
+        ],
+      });
+
+    const { data } = await getConversationWithMessages('c1', 'db-1');
+
+    expect(data?.conversation).toEqual(
+      expect.objectContaining({
+        id: 'c1',
+        title: 'Chat',
+        totalPromptTokens: 10,
+        totalMessages: 2,
+      })
+    );
+    expect(data?.messages[0]).toEqual(
+      expect.objectContaining({
+        id: 'm1',
+        conversationId: 'c1',
+        role: 'user',
+        content: 'Hi',
+        promptTokens: 4,
+      })
+    );
+    expect(() => JSON.stringify(data)).not.toThrow();
+    expect(dataCollector).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ query: expect.stringContaining("WHERE id = 'c1'") }),
+      'query',
+      'db-1'
+    );
+    expect(dataCollector).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ query: expect.stringContaining("WHERE conversation_id = 'c1'") }),
+      'query',
+      'db-1'
+    );
+  });
+
+  it('returns conversation query errors', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'conversation failed' });
+    await expect(getConversationWithMessages('c1')).resolves.toEqual({
+      err: 'conversation failed',
+    });
+  });
+
+  it('returns not found when no conversation exists', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
+    await expect(getConversationWithMessages('missing')).resolves.toEqual({
+      err: 'Conversation not found',
+    });
+  });
+
+  it('returns message query errors', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ id: 'c1' }] })
+      .mockResolvedValueOnce({ err: 'messages failed' });
+
+    await expect(getConversationWithMessages('c1')).resolves.toEqual({
+      err: 'messages failed',
+    });
+  });
 });
 
 describe('createConversation', () => {
   it('inserts into conversation table', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} }) // insert
-      .mockResolvedValueOnce({ data: [{ id: 'new-id' }] }); // select latest
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
     const { data } = await createConversation('Test', 'openai', 'gpt-4');
-    expect(data).toBe('new-id');
+    expect(data).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    expect((dataCollector as jest.Mock).mock.calls[0][0].values[0].id).toBe(data);
   });
 
   it('returns error on insert failure', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'fail' });
     const { err } = await createConversation('Test', 'openai', 'gpt-4');
     expect(err).toBe('fail');
+  });
+
+  it('does not run a read-after-write lookup after insert succeeds', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+    await createConversation('Test', 'openai', 'gpt-4');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -77,13 +174,30 @@ describe('deleteConversation', () => {
     const secondCall = (dataCollector as jest.Mock).mock.calls[1][0].query;
     expect(secondCall).toContain('openlit_chat_conversation');
   });
+
+  it('stops when deleting messages fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: 'message delete failed' });
+
+    await expect(deleteConversation('c1')).resolves.toEqual({
+      err: 'message delete failed',
+    });
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns conversation delete errors', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ err: null })
+      .mockResolvedValueOnce({ err: 'conversation delete failed' });
+
+    await expect(deleteConversation('c1')).resolves.toEqual({
+      err: 'conversation delete failed',
+    });
+  });
 });
 
 describe('addMessage', () => {
   it('inserts message with all fields', async () => {
-    (dataCollector as jest.Mock)
-      .mockResolvedValueOnce({ err: null, data: {} }) // insert
-      .mockResolvedValueOnce({ data: [{ id: 'msg-1' }] }); // select latest
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
     const { data } = await addMessage({
       conversationId: 'c1',
       role: 'user',
@@ -92,11 +206,56 @@ describe('addMessage', () => {
       completionTokens: 20,
       cost: 0.001,
     });
-    expect(data).toBe('msg-1');
+    // UUID is generated client-side; verify it is a non-empty string
+    expect(typeof data).toBe('string');
+    expect(data!.length).toBeGreaterThan(0);
     const insertCall = (dataCollector as jest.Mock).mock.calls[0];
     expect(insertCall[0].table).toBe('openlit_chat_message');
+    expect(insertCall[0].values[0].id).toBe(data);
     expect(insertCall[0].values[0].role).toBe('user');
     expect(insertCall[0].values[0].prompt_tokens).toBe(10);
+    // Only one DB call (no post-insert SELECT)
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults optional message fields', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+
+    const { data } = await addMessage({
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'Hello',
+    });
+
+    expect(typeof data).toBe('string');
+    expect(dataCollector).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        values: [
+          expect.objectContaining({
+            sql_query: '',
+            query_result: '',
+            widget_type: '',
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            cost: 0,
+          }),
+        ],
+      }),
+      'insert',
+      undefined
+    );
+  });
+
+  it('returns insert errors', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'insert failed' });
+    const result = await addMessage({
+      conversationId: 'c1',
+      role: 'user',
+      content: 'Hello',
+    });
+    expect(result.err).toBe('insert failed');
+    expect(result.data).toBeUndefined();
   });
 });
 
@@ -108,6 +267,17 @@ describe('updateMessage', () => {
     expect(query).toContain('ALTER TABLE');
     expect(query).toContain('query_result');
     expect(query).toContain('query_rows_read = 5');
+  });
+
+  it('updates execution time and bytes read', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await updateMessage('msg-1', {
+      queryExecutionTimeMs: 12,
+      queryBytesRead: 4096,
+    });
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain('query_execution_time_ms = 12');
+    expect(query).toContain('query_bytes_read = 4096');
   });
 
   it('skips update when no fields provided', async () => {
@@ -155,5 +325,12 @@ describe('getConversationMessages', () => {
     await getConversationMessages('c1', 5);
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('LIMIT 5');
+  });
+
+  it('returns errors from dataCollector', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'messages failed' });
+    await expect(getConversationMessages('c1')).resolves.toEqual({
+      err: 'messages failed',
+    });
   });
 });

@@ -15,7 +15,8 @@ import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, SlidersHorizontal, Trash2, ChevronDown } from "lucide-react";
+import { Plus, SlidersHorizontal, Trash2, ChevronDown, Layers, Link2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -27,7 +28,9 @@ import {
 	CustomFilter,
 	CustomFilterAttributeType,
 	FilterConfig,
+	FilterSorting,
 	FilterType,
+	TIME_RANGES,
 } from "@/types/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -35,6 +38,13 @@ import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
 import { useRouter, usePathname } from "next/navigation";
+import getMessage from "@/constants/messages";
+import {
+	FILTER_PARAM_KEYS,
+	getFilterStorageKey,
+} from "@/helpers/client/filter-persistence";
+
+const m = getMessage();
 
 // ─── Combobox (text input + inline dropdown, portal-rendered to escape overflow) ───
 
@@ -151,6 +161,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("spanNames");
 	params.delete("envs");
 	params.delete("maxCost");
+	params.delete("services");
+	params.delete("severities");
+	params.delete("metricNames");
+	params.delete("metricTypes");
 	// remove all existing cf entries
 	params.delete("cf");
 
@@ -161,6 +175,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	if (config.spanNames?.length) params.set("spanNames", config.spanNames.join(","));
 	if (config.environments?.length) params.set("envs", config.environments.join(","));
 	if (config.maxCost) params.set("maxCost", String(config.maxCost));
+	if (config.services?.length) params.set("services", config.services.join(","));
+	if (config.severities?.length) params.set("severities", config.severities.join(","));
+	if (config.metricNames?.length) params.set("metricNames", config.metricNames.join(","));
+	if (config.metricTypes?.length) params.set("metricTypes", config.metricTypes.join(","));
 	config.customFilters?.forEach(({ attributeType, key, value }) => {
 		if (key && value) {
 			params.append("cf", [attributeType, key, value].join(CF_SEP));
@@ -184,6 +202,14 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 	if (envs) config.environments = envs.split(",").filter(Boolean);
 	const maxCost = params.get("maxCost");
 	if (maxCost) config.maxCost = parseFloat(maxCost);
+	const services = params.get("services");
+	if (services) config.services = services.split(",").filter(Boolean);
+	const severities = params.get("severities");
+	if (severities) config.severities = severities.split(",").filter(Boolean);
+	const metricNames = params.get("metricNames");
+	if (metricNames) config.metricNames = metricNames.split(",").filter(Boolean);
+	const metricTypes = params.get("metricTypes");
+	if (metricTypes) config.metricTypes = metricTypes.split(",").filter(Boolean);
 	const cfValues = params.getAll("cf");
 	if (cfValues.length) {
 		config.customFilters = cfValues.map((raw) => {
@@ -212,10 +238,16 @@ const DynamicFilters = ({
 	isVisibleFilters,
 	filter,
 	areFiltersApplied,
+	configUrl,
+	attributeKeysUrl,
+	customAttributeTypes,
 }: {
 	isVisibleFilters: boolean;
 	filter: FilterType;
 	areFiltersApplied: boolean;
+	configUrl: string;
+	attributeKeysUrl: string;
+	customAttributeTypes: CustomFilterAttributeType[];
 }) => {
 	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
@@ -257,6 +289,10 @@ const DynamicFilters = ({
 			case "applicationNames":
 			case "spanNames":
 			case "environments":
+			case "services":
+			case "severities":
+			case "metricNames":
+			case "metricTypes":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -280,7 +316,7 @@ const DynamicFilters = ({
 	const addCustomFilter = () => {
 		setCustomFilters((prev) => [
 			...prev,
-			{ attributeType: "SpanAttributes", key: "", value: "" },
+			{ attributeType: customAttributeTypes[0] ?? "Field", key: "", value: "" },
 		]);
 	};
 
@@ -311,7 +347,7 @@ const DynamicFilters = ({
 		fireRequest({
 			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
-			url: "/api/metrics/request/config",
+			url: configUrl,
 			successCb: (resp) => {
 				updateConfig(resp.data?.[0]);
 			},
@@ -322,7 +358,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [configUrl]);
 
 	// Fetch filter config when time window changes or config is cleared after a range change.
 	useEffect(() => {
@@ -341,12 +377,15 @@ const DynamicFilters = ({
 		fireAttrKeysRequest({
 			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
-			url: "/api/metrics/request/attribute-keys",
+			url: attributeKeysUrl,
 			successCb: (resp) => {
 				if (resp?.spanAttributeKeys !== undefined) {
 					updateAttributeKeys({
 						spanAttributeKeys: resp.spanAttributeKeys,
 						resourceAttributeKeys: resp.resourceAttributeKeys,
+						logAttributeKeys: resp.logAttributeKeys,
+						scopeAttributeKeys: resp.scopeAttributeKeys,
+						metricAttributeKeys: resp.metricAttributeKeys,
 					} as AttributeKeys);
 				}
 			},
@@ -355,7 +394,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [attributeKeysUrl]);
 
 	// Fetch attribute keys whenever the time window changes.
 	// Use leaf primitives as deps – lodash merge mutates timeLimit in-place
@@ -388,6 +427,40 @@ const DynamicFilters = ({
 		updateFilter("selectedConfig", {}, { clearFilter: true });
 	};
 
+	const getAttributeOptions = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return attributeKeys?.spanAttributeKeys ?? [];
+			case "ResourceAttributes":
+				return attributeKeys?.resourceAttributeKeys ?? [];
+			case "LogAttributes":
+				return attributeKeys?.logAttributeKeys ?? [];
+			case "ScopeAttributes":
+				return attributeKeys?.scopeAttributeKeys ?? [];
+			case "Attributes":
+				return attributeKeys?.metricAttributeKeys ?? [];
+			default:
+				return [];
+		}
+	};
+
+	const getAttributeTypeLabel = (attributeType: CustomFilterAttributeType) => {
+		switch (attributeType) {
+			case "SpanAttributes":
+				return m.OBSERVABILITY_SPAN_ATTRIBUTES;
+			case "ResourceAttributes":
+				return m.OBSERVABILITY_RESOURCE_ATTRIBUTES;
+			case "LogAttributes":
+				return m.OBSERVABILITY_LOG_ATTRIBUTES;
+			case "ScopeAttributes":
+				return m.OBSERVABILITY_SCOPE_ATTRIBUTES;
+			case "Attributes":
+				return m.OBSERVABILITY_METRIC_ATTRIBUTES;
+			case "Field":
+				return m.OBSERVABILITY_FIELD;
+		}
+	};
+
 	return (
 		<div
 			className={`flex flex-col w-full overflow-hidden transition-all gap-3 ${
@@ -403,7 +476,7 @@ const DynamicFilters = ({
 								label: p,
 								value: p,
 							}))}
-							title="Types"
+							title={m.OBSERVABILITY_TYPES}
 							type="traceTypes"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.traceTypes}
@@ -413,7 +486,7 @@ const DynamicFilters = ({
 					{filterConfig?.models?.length ? (
 						<ComboDropdown
 							options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
-							title="Models"
+							title={m.OBSERVABILITY_MODELS}
 							type="models"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.models}
@@ -426,7 +499,7 @@ const DynamicFilters = ({
 								label: p,
 								value: p,
 							}))}
-							title="Providers"
+							title={m.OBSERVABILITY_PROVIDERS}
 							type="providers"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.providers}
@@ -435,7 +508,7 @@ const DynamicFilters = ({
 					) : null}
 					{filterConfig?.maxCost ? (
 						<SlideWithValue
-							label="Max Cost"
+							label={m.OBSERVABILITY_MAX_COST}
 							value={selectedFilterValues.maxCost || 0}
 							maxValue={filterConfig.maxCost}
 							onChange={updateSelectedValues}
@@ -448,7 +521,7 @@ const DynamicFilters = ({
 								label: a,
 								value: a,
 							}))}
-							title="Application Names"
+							title={m.OBSERVABILITY_APPLICATION_NAMES}
 							type="applicationNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.applicationNames}
@@ -461,7 +534,7 @@ const DynamicFilters = ({
 								label: s,
 								value: s,
 							}))}
-							title="Span Names"
+							title={m.OBSERVABILITY_SPAN_NAMES}
 							type="spanNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.spanNames}
@@ -474,10 +547,62 @@ const DynamicFilters = ({
 								label: e,
 								value: e,
 							}))}
-							title="Environments"
+							title={m.OBSERVABILITY_ENVIRONMENTS}
 							type="environments"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.environments}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.services?.length ? (
+						<ComboDropdown
+							options={filterConfig.services.map((service) => ({
+								label: service,
+								value: service,
+							}))}
+							title={m.OBSERVABILITY_SERVICES}
+							type="services"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.services}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.severities?.length ? (
+						<ComboDropdown
+							options={filterConfig.severities.map((severity) => ({
+								label: severity,
+								value: severity,
+							}))}
+							title={m.OBSERVABILITY_SEVERITIES}
+							type="severities"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.severities}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricNames?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricNames.map((metricName) => ({
+								label: metricName,
+								value: metricName,
+							}))}
+							title={m.OBSERVABILITY_METRIC_NAMES}
+							type="metricNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.metricTypes?.length ? (
+						<ComboDropdown
+							options={filterConfig.metricTypes.map((metricType) => ({
+								label: metricType,
+								value: metricType,
+							}))}
+							title={m.OBSERVABILITY_METRIC_TYPES}
+							type="metricTypes"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.metricTypes}
 							clearItem={clearFilter}
 						/>
 					) : null}
@@ -517,7 +642,7 @@ const DynamicFilters = ({
 						onClick={addCustomFilter}
 					>
 						<Plus className="w-3 h-3" />
-						Add
+						{m.OBSERVABILITY_ADD}
 					</Button>
 				</div>
 				{customFilters.length > 0 && (
@@ -531,14 +656,16 @@ const DynamicFilters = ({
 									}
 									className="h-7 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
 								>
-									<option value="SpanAttributes">Span Attributes</option>
-									<option value="ResourceAttributes">Resource Attributes</option>
-									<option value="Field">Field</option>
+									{customAttributeTypes.map((attributeType) => (
+										<option key={attributeType} value={attributeType}>
+											{getAttributeTypeLabel(attributeType)}
+										</option>
+									))}
 								</select>
 
 								{cf.attributeType === "Field" ? (
 									<Input
-										placeholder="e.g. SpanName"
+										placeholder={m.OBSERVABILITY_SPAN_NAME_EXAMPLE}
 										value={cf.key}
 										onChange={(e) =>
 											updateCustomFilter(index, "key", e.target.value)
@@ -550,16 +677,14 @@ const DynamicFilters = ({
 										value={cf.key}
 										onChange={(val) => updateCustomFilter(index, "key", val)}
 										options={
-											cf.attributeType === "SpanAttributes"
-												? (attributeKeys?.spanAttributeKeys ?? [])
-												: (attributeKeys?.resourceAttributeKeys ?? [])
+											getAttributeOptions(cf.attributeType)
 										}
-										placeholder="e.g. gen_ai.system"
+										placeholder={m.OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE}
 									/>
 								)}
 
 								<Input
-									placeholder="Value"
+									placeholder={m.OBSERVABILITY_VALUE}
 									value={cf.value}
 									onChange={(e) =>
 										updateCustomFilter(index, "value", e.target.value)
@@ -583,52 +708,363 @@ const DynamicFilters = ({
 	);
 };
 
+// ─── GroupBy selector ─────────────────────────────────────────────────────────
+
+const GROUP_BY_OPTIONS: { key: string; label: string }[] = [
+	{ key: "model", label: m.OBSERVABILITY_MODEL },
+	{ key: "provider", label: m.OBSERVABILITY_PROVIDERS },
+	{ key: "spanName", label: m.OBSERVABILITY_SPAN_NAMES },
+	{ key: "applicationName", label: m.OBSERVABILITY_APPLICATION },
+];
+
+const PREDEFINED_GROUP_BY_KEYS = new Set<string>(GROUP_BY_OPTIONS.map((o) => o.key));
+
+function getGroupByDisplayLabel(groupBy: string | undefined): string | undefined {
+	if (!groupBy) return undefined;
+	const predefined = GROUP_BY_OPTIONS.find((o) => o.key === groupBy)?.label;
+	if (predefined) return predefined;
+	const sep = groupBy.indexOf(":");
+	return sep !== -1 ? groupBy.slice(sep + 1) : groupBy;
+}
+
+// Simple inline suggest input — renders suggestions as a regular div child (no portal)
+// so it doesn't conflict with the Popover's DismissableLayer.
+function InlineSuggest({
+	value,
+	onChange,
+	options,
+	placeholder,
+}: {
+	value: string;
+	onChange: (val: string) => void;
+	options: string[];
+	placeholder?: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const filtered = value
+		? options.filter((o) => o.toLowerCase().includes(value.toLowerCase())).slice(0, 40)
+		: options.slice(0, 40);
+
+	return (
+		<div className="relative">
+			<Input
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				onFocus={() => setOpen(true)}
+				onBlur={() => setTimeout(() => setOpen(false), 120)}
+				placeholder={placeholder}
+				className="h-7 text-xs"
+			/>
+			{open && filtered.length > 0 && (
+				<div className="absolute top-full left-0 right-0 z-50 mt-0.5 max-h-40 overflow-auto rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 shadow-md">
+					{filtered.map((opt) => (
+						<button
+							key={opt}
+							type="button"
+							className="w-full text-left text-xs px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								onChange(opt);
+								setOpen(false);
+							}}
+						>
+							{opt}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function GroupByDropdown({
+	groupBy,
+	onChangeGroupBy,
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
+}: {
+	groupBy?: string;
+	onChangeGroupBy: (key: string | undefined) => void;
+	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
+}) {
+	const attributeKeys = useRootStore(getAttributeKeys);
+	const [open, setOpen] = useState(false);
+	const [customAttrType, setCustomAttrType] = useState<CustomFilterAttributeType>("SpanAttributes");
+	const [customKey, setCustomKey] = useState("");
+
+	// When groupBy changes externally (e.g. from URL restore), pre-fill the custom form
+	useEffect(() => {
+		if (groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy)) {
+			const sep = groupBy.indexOf(":");
+			if (sep !== -1) {
+				const attrType = groupBy.slice(0, sep) as CustomFilterAttributeType;
+				const key = groupBy.slice(sep + 1);
+				setCustomAttrType(attrType);
+				setCustomKey(key);
+			} else {
+				setCustomKey(groupBy);
+			}
+		} else if (!groupBy) {
+			setCustomKey("");
+		}
+	}, [groupBy]);
+
+	const activeLabel = getGroupByDisplayLabel(groupBy);
+	const isCustomActive = !!groupBy && !PREDEFINED_GROUP_BY_KEYS.has(groupBy);
+
+	const customOptions =
+		customAttrType === "SpanAttributes"
+			? (attributeKeys?.spanAttributeKeys ?? [])
+		: customAttrType === "ResourceAttributes"
+			? (attributeKeys?.resourceAttributeKeys ?? [])
+		: customAttrType === "LogAttributes"
+			? (attributeKeys?.logAttributeKeys ?? [])
+		: customAttrType === "ScopeAttributes"
+			? (attributeKeys?.scopeAttributeKeys ?? [])
+		: customAttrType === "Attributes"
+			? (attributeKeys?.metricAttributeKeys ?? [])
+			: [];
+
+	const applyCustom = () => {
+		const k = customKey.trim();
+		if (!k) return;
+		onChangeGroupBy(`${customAttrType}:${k}`);
+		setOpen(false);
+	};
+
+	const selectPredefined = (key: string | undefined) => {
+		onChangeGroupBy(key);
+		setOpen(false);
+	};
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<Button
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 p-1 h-[30px] relative gap-1.5 text-xs aspect-square"
+					variant="outline"
+				>
+					<Layers className="w-3 h-3 shrink-0" />
+					{activeLabel ? <span className="max-w-[80px] truncate">{activeLabel}</span> : null}
+					{groupBy && (
+						<span className="w-2 h-2 bg-primary absolute -top-0 -right-0 rounded-full" />
+					)}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-64 p-1" align="end">
+				{/* Predefined options */}
+				<button
+					className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+					onClick={() => selectPredefined(undefined)}
+				>
+					None
+					{!groupBy && <span className="ml-auto text-primary">✓</span>}
+				</button>
+				{GROUP_BY_OPTIONS.map(({ key, label }) => (
+					<button
+						key={key}
+						className="flex w-full items-center px-2 py-1.5 text-xs rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+						onClick={() => selectPredefined(key)}
+					>
+						{label}
+						{groupBy === key && <span className="ml-auto text-primary">✓</span>}
+					</button>
+				))}
+
+				{/* Custom attribute section */}
+				<div className="border-t dark:border-stone-700 mt-1 pt-2 px-1 pb-1">
+					<p className="text-xs text-stone-400 dark:text-stone-500 mb-1.5">
+						Custom attribute
+						{isCustomActive && <span className="ml-1.5 text-primary">✓</span>}
+					</p>
+					<div className="flex flex-col gap-1.5">
+						<select
+							value={customAttrType}
+							onChange={(e) => {
+								setCustomAttrType(e.target.value as CustomFilterAttributeType);
+								setCustomKey("");
+							}}
+							className="h-7 w-full rounded-md border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
+						>
+							{customAttributeTypes.map((attributeType) => (
+								<option key={attributeType} value={attributeType}>
+									{attributeType === "SpanAttributes"
+										? m.OBSERVABILITY_SPAN_ATTRIBUTES
+										: attributeType === "ResourceAttributes"
+										? m.OBSERVABILITY_RESOURCE_ATTRIBUTES
+										: attributeType === "LogAttributes"
+										? m.OBSERVABILITY_LOG_ATTRIBUTES
+										: attributeType === "ScopeAttributes"
+										? m.OBSERVABILITY_SCOPE_ATTRIBUTES
+										: attributeType === "Attributes"
+										? m.OBSERVABILITY_METRIC_ATTRIBUTES
+										: m.OBSERVABILITY_FIELD}
+								</option>
+							))}
+						</select>
+						<InlineSuggest
+							value={customKey}
+							onChange={setCustomKey}
+							options={customOptions}
+							placeholder="e.g. gen_ai.request.user"
+						/>
+						<Button
+							size="default"
+							variant="outline"
+							className="h-7 text-xs w-full"
+							onClick={applyCustom}
+						>
+							Apply
+						</Button>
+					</div>
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+// ─── Local storage persistence ────────────────────────────────────────────────
+
+type PersistedFilter = {
+	timeLimitType: string;
+	timeLimitStart?: string;
+	timeLimitEnd?: string;
+	limit: number;
+	selectedConfig: Partial<FilterConfig>;
+	sorting: FilterSorting;
+	groupBy?: string;
+	groupValue?: string;
+};
+
+function saveFilterToStorage(filter: FilterType, storageKey: string) {
+	try {
+		// Strip ephemeral scope fields — `serviceNames` is the lock set by
+		// AgentScopeProvider on the agent-detail page; persisting it would leak
+		// the scope into unrelated pages (e.g. /requests would silently filter
+		// to the last-viewed agent's service).
+		const { serviceNames: _omitServiceNames, ...persistableConfig } =
+			filter.selectedConfig || {};
+		void _omitServiceNames;
+		const toSave: PersistedFilter = {
+			timeLimitType: filter.timeLimit.type,
+			timeLimitStart: filter.timeLimit.start
+				? new Date(filter.timeLimit.start).toISOString()
+				: undefined,
+			timeLimitEnd: filter.timeLimit.end
+				? new Date(filter.timeLimit.end).toISOString()
+				: undefined,
+			limit: filter.limit,
+			selectedConfig: persistableConfig,
+			sorting: filter.sorting,
+			groupBy: filter.groupBy,
+			groupValue: filter.groupValue,
+		};
+		localStorage.setItem(storageKey, JSON.stringify(toSave));
+	} catch {}
+}
+
+function loadFilterFromStorage(storageKey: string): PersistedFilter | null {
+	try {
+		const raw = localStorage.getItem(storageKey);
+		return raw ? (JSON.parse(raw) as PersistedFilter) : null;
+	} catch {
+		return null;
+	}
+}
+
+function applyStoredFilter(
+	saved: PersistedFilter,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	validTimeRanges: Set<string>
+) {
+	// Time limit first (it resets selectedConfig, so must come before selectedConfig)
+	if (saved.timeLimitType === "CUSTOM" && saved.timeLimitStart && saved.timeLimitEnd) {
+		updateFilter("timeLimit.type", "CUSTOM", {
+			start: new Date(saved.timeLimitStart),
+			end: new Date(saved.timeLimitEnd),
+		});
+	} else if (validTimeRanges.has(saved.timeLimitType)) {
+		updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+	}
+	if (saved.limit) updateFilter("limit", saved.limit);
+	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
+		// Strip ephemeral scope fields defensively — older saves may still
+		// contain serviceNames from before the strip-on-save fix.
+		const { serviceNames: _omit, ...persistableConfig } =
+			saved.selectedConfig as Partial<FilterConfig>;
+		void _omit;
+		updateFilter("selectedConfig", persistableConfig);
+	}
+	if (saved.sorting?.type) updateFilter("sorting", saved.sorting);
+	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);
+	if (saved.groupValue) updateFilter("groupValue", saved.groupValue);
+}
+
 // ─── URL filter sync hook ─────────────────────────────────────────────────────
 
 const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
 
-function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value: any, extraParams?: any) => void) {
+function useFilterUrlSync(
+	filter: FilterType,
+	updateFilter: (key: string, value: any, extraParams?: any) => void,
+	storageScope?: string
+) {
 	const router = useRouter();
 	const pathname = usePathname();
+	const storageKey = getFilterStorageKey(storageScope);
 	// Tracks whether the initial URL read has been applied to the store
 	const initializedFromUrl = useRef(false);
 
-	// On mount: read URL params and apply to the store (client-side only)
+	// On mount: URL params take priority; fall back to localStorage if URL has none.
 	useEffect(() => {
 		if (initializedFromUrl.current) return;
 		initializedFromUrl.current = true;
 
 		const params = new URLSearchParams(window.location.search);
+		const hasUrlParams = FILTER_PARAM_KEYS.some((k) => params.has(k));
 
-		// Time limit
-		const tr = params.get("tr");
-		if (tr && VALID_TIME_RANGES.has(tr)) {
-			if (tr === "CUSTOM") {
-				const ts = params.get("ts");
-				const te = params.get("te");
-				if (ts && te) {
-					updateFilter("timeLimit.type", "CUSTOM", {
-						start: new Date(ts),
-						end: new Date(te),
-					});
+		if (hasUrlParams) {
+			// ── Apply URL params ──────────────────────────────────────────────
+			const tr = params.get("tr");
+			if (tr && VALID_TIME_RANGES.has(tr)) {
+				if (tr === "CUSTOM") {
+					const ts = params.get("ts");
+					const te = params.get("te");
+					if (ts && te) {
+						updateFilter("timeLimit.type", "CUSTOM", {
+							start: new Date(ts),
+							end: new Date(te),
+						});
+					}
+				} else {
+					updateFilter("timeLimit.type", tr);
 				}
-			} else {
-				updateFilter("timeLimit.type", tr);
 			}
+			const limitParam = params.get("limit");
+			if (limitParam) {
+				const parsed = parseInt(limitParam, 10);
+				if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
+			}
+			const offsetParam = params.get("offset");
+			if (offsetParam) {
+				const parsed = parseInt(offsetParam, 10);
+				if (!isNaN(parsed) && parsed >= 0) updateFilter("offset", parsed);
+			}
+			const config = paramsToConfig(params);
+			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
+			const gb = params.get("gb");
+			if (gb) updateFilter("groupBy", gb);
+			const gbv = params.get("gbv");
+			if (gbv) updateFilter("groupValue", gbv);
+		} else {
+			// ── Fall back to localStorage ─────────────────────────────────────
+			const saved = loadFilterFromStorage(storageKey);
+			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
 		}
 
-		// Page size
-		const limitParam = params.get("limit");
-		if (limitParam) {
-			const parsed = parseInt(limitParam, 10);
-			if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
-		}
-
-		// Selected config (filters)
-		const config = paramsToConfig(params);
-		if (hasActiveConfig(config)) {
-			updateFilter("selectedConfig", config);
-		}
+		// Signal that the initial filter read (URL / localStorage) is complete.
+		// Pages use this flag to avoid fetching before the correct params are applied.
+		updateFilter("filterReady", true);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -653,17 +1089,29 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 
 		// Page size
 		params.set("limit", String(filter.limit));
+		params.set("offset", String(filter.offset));
 
 		// Selected config
 		configToParams(filter.selectedConfig, params);
 
-		const qs = params.toString();
-		if (qs === prevSerializedRef.current) return;
-		prevSerializedRef.current = qs;
+		// Group by
+		if (filter.groupBy) params.set("gb", filter.groupBy);
+		else params.delete("gb");
 
-		router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+		// Group value
+		if (filter.groupValue) params.set("gbv", filter.groupValue);
+		else params.delete("gbv");
+
+		const qs = params.toString();
+		if (qs !== prevSerializedRef.current) {
+			prevSerializedRef.current = qs;
+			router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+		}
+
+		// Persist to localStorage so other pages (and refreshes) pick up these filters
+		saveFilterToStorage(filter, storageKey);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.selectedConfig]);
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.offset, filter.selectedConfig, filter.groupBy, filter.groupValue, storageKey]);
 }
 
 // ─── TracesFilter (exported) ──────────────────────────────────────────────────
@@ -671,22 +1119,57 @@ function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value:
 export default function TracesFilter({
 	total,
 	supportDynamicFilters = false,
+	showGroupBy = true,
+	showVisibilityColumns = true,
 	includeOnlySorting,
 	pageName,
 	columns,
+	configUrl = "/api/metrics/request/config",
+	attributeKeysUrl = "/api/metrics/request/attribute-keys",
+	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
+	filterStorageScope,
 }: {
-	total: number;
+	total?: number;
 	supportDynamicFilters?: boolean;
+	showGroupBy?: boolean;
+	showVisibilityColumns?: boolean;
 	includeOnlySorting?: string[];
 	pageName: PAGE;
 	columns: Columns<any, any>;
+	configUrl?: string;
+	attributeKeysUrl?: string;
+	customAttributeTypes?: CustomFilterAttributeType[];
+	filterStorageScope?: string;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
 
-	useFilterUrlSync(filter, updateFilter);
+	const onChangeGroupBy = (key: string | undefined) => {
+		updateFilter("groupBy", key ?? null);
+	};
+
+	const onShareLink = () => {
+		if (typeof window === "undefined") return;
+
+		const clipboard = navigator.clipboard;
+		if (!clipboard?.writeText) {
+			toast.error(m.OBSERVABILITY_COPY_UNSUPPORTED);
+			return;
+		}
+
+		clipboard
+			.writeText(window.location.href)
+			.then(() => {
+				toast.success(m.OBSERVABILITY_LINK_COPIED);
+			})
+			.catch(() => {
+				toast.error(m.OBSERVABILITY_LINK_COPY_FAILED);
+			});
+	};
+
+	useFilterUrlSync(filter, updateFilter, filterStorageScope || pageName);
 
 	const onClickPageAction = (dir: -1 | 1) => {
 		updateFilter("offset", filter.offset + dir * filter.limit);
@@ -731,20 +1214,29 @@ export default function TracesFilter({
 		<div className="flex flex-col items-center w-full justify-between mb-4">
 			<div className="flex w-full gap-4">
 				<Filter />
-				{filterConfig && total > 0 && (
+				{filterConfig && !!total && total > 0 && (
 					<TracesPagination
 						currentPage={filter.offset / filter.limit + 1}
 						currentSize={filter.limit}
-						totalPage={ceil((total || 0) / filter.limit)}
+						totalPage={ceil(total / filter.limit)}
 						onClickPageAction={onClickPageAction}
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
-				<VisibilityColumns columns={columns} pageName={pageName} />
-				{total > 0 && (
+				{showVisibilityColumns && (
+					<VisibilityColumns columns={columns} pageName={pageName} />
+				)}
+				{!!total && total > 0 && (
 					<Sorting
 						sorting={filter.sorting}
 						includeOnlySorting={includeOnlySorting}
+					/>
+				)}
+				{supportDynamicFilters && showGroupBy && (
+					<GroupByDropdown
+						groupBy={filter.groupBy}
+						onChangeGroupBy={onChangeGroupBy}
+						customAttributeTypes={customAttributeTypes}
 					/>
 				)}
 				{supportDynamicFilters && (
@@ -760,12 +1252,24 @@ export default function TracesFilter({
 						)}
 					</Button>
 				)}
+				<Button
+					variant="outline"
+					size="default"
+					title={m.OBSERVABILITY_COPY_SHARE_LINK}
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
+					onClick={onShareLink}
+				>
+					<Link2 className="w-3 h-3" />
+				</Button>
 			</div>
 			{supportDynamicFilters && (
 				<DynamicFilters
 					isVisibleFilters={isVisibleFilters}
 					filter={filter}
 					areFiltersApplied={areFiltersApplied}
+					configUrl={configUrl}
+					attributeKeysUrl={attributeKeysUrl}
+					customAttributeTypes={customAttributeTypes}
 				/>
 			)}
 		</div>

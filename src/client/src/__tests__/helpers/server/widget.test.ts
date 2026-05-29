@@ -15,8 +15,8 @@ import {
 } from '@/helpers/server/widget';
 
 describe('escapeSingleQuotes', () => {
-  it('wraps single-quoted substrings in double single-quotes', () => {
-    expect(escapeSingleQuotes("hello 'world'")).toBe("hello ''world''");
+  it('escapes single quotes for ClickHouse string literals', () => {
+    expect(escapeSingleQuotes("hello 'world'")).toBe("hello \\'world\\'");
   });
 
   it('returns the string unchanged when there are no single quotes', () => {
@@ -28,13 +28,11 @@ describe('escapeSingleQuotes', () => {
   });
 
   it('handles multiple quoted substrings', () => {
-    expect(escapeSingleQuotes("'foo' and 'bar'")).toBe("''foo'' and ''bar''");
+    expect(escapeSingleQuotes("'foo' and 'bar'")).toBe("\\'foo\\' and \\'bar\\'");
   });
 
-  it('doubles already-doubled adjacent single quotes', () => {
-    // The regex matches each '' pair and replaces it with ''''
-    const input = "it''s fine";
-    expect(escapeSingleQuotes(input)).toBe("it''''s fine");
+  it('escapes backslashes before single quotes', () => {
+    expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
   });
 });
 

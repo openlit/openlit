@@ -56,7 +56,7 @@ class MilvusWrapper extends BaseWrapper {
             const resultCount = response?.results?.length || 0;
             span.setAttribute(SemanticConvention.DB_N_RESULTS, resultCount);
 
-            if (OpenlitConfig.traceContent && params.vectors) {
+            if (OpenlitConfig.captureMessageContent && params.vectors) {
               const vectors = Array.isArray(params.vectors) ? params.vectors : [];
               span.setAttribute(SemanticConvention.DB_QUERY_TEXT,
                 JSON.stringify(vectors.slice(0, 1).map((v: number[]) => v?.slice(0, 10))));

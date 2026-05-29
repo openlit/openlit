@@ -67,6 +67,12 @@ PARAMETER_CONFIG = {
         "cli_type": str,
         "parser": "csv",  # Special handling needed
     },
+    "controller_mode": {
+        "default": None,
+        "env_var": "OPENLIT_CONTROLLER_MODE",
+        "cli_help": "Controller-managed instrumentation profile",
+        "cli_type": str,
+    },
     "disable_metrics": {
         "default": False,
         "env_var": "OPENLIT_DISABLE_METRICS",
@@ -101,12 +107,6 @@ PARAMETER_CONFIG = {
         "default": False,
         "env_var": "OPENLIT_CAPTURE_DB_PARAMETERS",
         "cli_help": "Capture database query parameters in OTel per-key format (security risk - may expose sensitive data)",
-        "cli_type": bool,
-    },
-    "evals_logs_export": {
-        "default": True,
-        "env_var": "OPENLIT_EVALS_LOGS_EXPORT",
-        "cli_help": "Emit evaluation results as OTEL Log Records instead of OTEL Events",
         "cli_type": bool,
     },
     "max_content_length": {
