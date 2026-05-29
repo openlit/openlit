@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: openlit-controller/go.mod
           cache-dependency-path: openlit-controller/go.sum
@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: openlit-controller/go.mod
           cache-dependency-path: openlit-controller/go.sum
@@ -133,7 +133,7 @@ jobs:
           sha256sum * > SHA256SUMS.txt
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
           files: |
             dist/*
