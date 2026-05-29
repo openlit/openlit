@@ -127,7 +127,15 @@ describe("materializeAgents — workload_key dedup", () => {
 		const inserts: RecordedInsert[] = [];
 		// First three calls are the queued discovery queries; capture the
 		// insert that follows.
-		mockedDC.mockImplementationOnce(async (c: any, op: string) => {
+		// `mockImplementation` (not `Once`) intentionally: the materializer
+		// now runs an extra conflict-resolution SELECT before the final
+		// summary INSERT when summaryRows contain any non-coding source.
+		// That probe must be covered too, otherwise the unmocked call
+		// returns `undefined` and the production code blows up reading
+		// `res.err`. The implementation here short-circuits every non-
+		// insert call with `{ data: [] }` so the conflict query sees
+		// "no conflicting coding rows" and proceeds to the insert.
+		mockedDC.mockImplementation(async (c: any, op: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -184,7 +192,15 @@ describe("materializeAgents — workload_key dedup", () => {
 			]
 		);
 		const inserts: RecordedInsert[] = [];
-		mockedDC.mockImplementationOnce(async (c: any, op: string) => {
+		// `mockImplementation` (not `Once`) intentionally: the materializer
+		// now runs an extra conflict-resolution SELECT before the final
+		// summary INSERT when summaryRows contain any non-coding source.
+		// That probe must be covered too, otherwise the unmocked call
+		// returns `undefined` and the production code blows up reading
+		// `res.err`. The implementation here short-circuits every non-
+		// insert call with `{ data: [] }` so the conflict query sees
+		// "no conflicting coding rows" and proceeds to the insert.
+		mockedDC.mockImplementation(async (c: any, op: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -272,7 +288,15 @@ describe("materializeAgents — workload_key dedup", () => {
 			]
 		);
 		const inserts: RecordedInsert[] = [];
-		mockedDC.mockImplementationOnce(async (c: any, op: string) => {
+		// `mockImplementation` (not `Once`) intentionally: the materializer
+		// now runs an extra conflict-resolution SELECT before the final
+		// summary INSERT when summaryRows contain any non-coding source.
+		// That probe must be covered too, otherwise the unmocked call
+		// returns `undefined` and the production code blows up reading
+		// `res.err`. The implementation here short-circuits every non-
+		// insert call with `{ data: [] }` so the conflict query sees
+		// "no conflicting coding rows" and proceeds to the insert.
+		mockedDC.mockImplementation(async (c: any, op: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -319,7 +343,15 @@ describe("materializeAgents — workload_key dedup", () => {
 			]
 		);
 		const inserts: RecordedInsert[] = [];
-		mockedDC.mockImplementationOnce(async (c: any, op: string) => {
+		// `mockImplementation` (not `Once`) intentionally: the materializer
+		// now runs an extra conflict-resolution SELECT before the final
+		// summary INSERT when summaryRows contain any non-coding source.
+		// That probe must be covered too, otherwise the unmocked call
+		// returns `undefined` and the production code blows up reading
+		// `res.err`. The implementation here short-circuits every non-
+		// insert call with `{ data: [] }` so the conflict query sees
+		// "no conflicting coding rows" and proceeds to the insert.
+		mockedDC.mockImplementation(async (c: any, op: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
