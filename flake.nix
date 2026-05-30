@@ -78,24 +78,36 @@
 
           case "''${1:-help}" in
             start)
-              echo "Starting OpenLit services..."
-              docker-compose up -d
+              echo "Starting OpenLIT services..."
+              "''${pkgs.docker-compose}/bin/docker-compose" up -d
               ;;
             stop)
-              echo "Stopping OpenLit services..."
-              docker-compose stop
+              echo "Stopping OpenLIT services..."
+              "''${pkgs.docker-compose}/bin/docker-compose" stop
               ;;
             status)
-              docker-compose ps
+              "''${pkgs.docker-compose}/bin/docker-compose" ps
               ;;
             build)
-              echo "Building OpenLit components..."
+              echo "Building OpenLIT components..."
               echo "Note: Use 'nix build .#<package>' for individual components"
               echo "Available packages: opamp-server, openlit-controller, gpu-collector"
               ;;
             dev-client)
               echo "Starting client dev server..."
-              cd src/client && npm run dev
+
+              if [ ! -d src/client ]; then
+                echo "Error: src/client directory not found. Client dev server cannot be started." >&2
+                exit 1
+              fi
+
+              if ! command -v npm >/dev/null 2>&1; then
+                echo "Error: npm is not installed or not found in PATH. Please install npm to run the client dev server." >&2
+                exit 1
+              fi
+
+              cd src/client
+              npm run dev
               ;;
             version)
               echo "OpenLit (nix flake development build)"

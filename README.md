@@ -103,7 +103,7 @@ flowchart TB;
    docker compose up -d
    ```
 
-   Or run the OpenLit helper directly:
+   Or run the OpenLIT helper directly:
 
    ```shell
    nix run github:openlit/openlit -- help
@@ -114,7 +114,7 @@ flowchart TB;
    For a reproducible development environment:
 
    ```shell
-   # Install devbox if not already installed
+   # Install Devbox if not already installed
    curl -fsSL https://get.jetify.dev/devbox | bash
 
    # Clone and enter the environment
