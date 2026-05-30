@@ -102,7 +102,8 @@
               fi
 
               if ! command -v npm >/dev/null 2>&1; then
-                echo "Error: npm is not installed or not found in PATH. Please install npm to run the client dev server." >&2
+                echo "Error: npm is not available. The 'dev-client' command is intended for the development shell." >&2
+                echo "       Run 'nix develop' or 'devbox shell' first, or install npm manually." >&2
                 exit 1
               fi
 

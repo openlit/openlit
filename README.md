@@ -100,7 +100,7 @@ flowchart TB;
    nix develop
 
    # Start services with Docker
-   docker compose up -d
+   docker-compose up -d
    ```
 
    Or run the OpenLIT helper directly:
@@ -123,7 +123,7 @@ flowchart TB;
    devbox shell
 
    # Start services
-   docker compose up -d
+   docker-compose up -d
    ```
 
 ### Step 2: Install OpenLIT SDK
