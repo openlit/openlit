@@ -16,7 +16,7 @@
           pname = "openlit-opamp-server";
           version = "0.0.1";
           src = ./src/opamp-server;
-          vendorHash = pkgs.lib.fakeHash;
+          vendorHash = "sha256-7rQ0+jV8v/W16Lx9KRVLoEhOfrKtKRxdUXuYCpuoMRo=";
           doCheck = false;
           meta = {
             description = "OpenLit OpAMP Server";
@@ -30,7 +30,7 @@
           pname = "openlit-controller";
           version = "0.0.1";
           src = ./openlit-controller;
-          vendorHash = pkgs.lib.fakeHash;
+          vendorHash = "sha256-YohapHEkKf5q5+bl9AvqAQyNwGWE8CEe3losEZF5wXA=";
           doCheck = false;
           meta = {
             description = "OpenLit Controller";
@@ -44,7 +44,7 @@
           pname = "openlit-gpu-collector";
           version = "0.0.1";
           src = ./opentelemetry-gpu-collector;
-          vendorHash = pkgs.lib.fakeHash;
+          vendorHash = "sha256-I1iyIw9Qoa1qS55IqvN/qssDYRBre2tIHo9DkfRX+AI=";
           doCheck = false;
           meta = {
             description = "OpenLit OpenTelemetry GPU Collector";
