@@ -76,17 +76,28 @@
             echo "For full documentation, visit: https://github.com/openlit/openlit"
           }
 
+          require_compose_file() {
+            if [ ! -f docker-compose.yml ] && [ ! -f docker-compose.yaml ]; then
+              echo "Error: docker-compose.yml not found in the current directory." >&2
+              echo "       Run this command from the repository root where docker-compose.yml is located." >&2
+              exit 1
+            fi
+          }
+
           case "''${1:-help}" in
             start)
+              require_compose_file
               echo "Starting OpenLIT services..."
-              "''${pkgs.docker-compose}/bin/docker-compose" up -d
+              "${pkgs.docker-compose}/bin/docker-compose" up -d
               ;;
             stop)
+              require_compose_file
               echo "Stopping OpenLIT services..."
-              "''${pkgs.docker-compose}/bin/docker-compose" stop
+              "${pkgs.docker-compose}/bin/docker-compose" stop
               ;;
             status)
-              "''${pkgs.docker-compose}/bin/docker-compose" ps
+              require_compose_file
+              "${pkgs.docker-compose}/bin/docker-compose" ps
               ;;
             build)
               echo "Building OpenLIT components..."
