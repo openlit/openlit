@@ -5,10 +5,12 @@ on:
     branches: ["main"]
     paths:
       - 'opentelemetry-gpu-collector/**'
+      - '.github/workflows/otel-gpu-collector-tests.yml'
   pull_request:
     branches: ["main"]
     paths:
       - 'opentelemetry-gpu-collector/**'
+      - '.github/workflows/otel-gpu-collector-tests.yml'
 
 permissions:
   contents: read
