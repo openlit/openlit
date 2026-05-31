@@ -45,3 +45,10 @@ jobs:
       - name: Run tests
         working-directory: opentelemetry-gpu-collector
         run: go test ./...
+
+      - name: Check eBPF package builds for linux/arm64
+        working-directory: opentelemetry-gpu-collector
+        env:
+          GOOS: linux
+          GOARCH: arm64
+        run: go test -exec=true ./internal/ebpf

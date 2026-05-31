@@ -123,7 +123,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 ./opentelemetry-gpu-collector
 ```sh
 git clone https://github.com/openlit/openlit.git
 cd openlit/opentelemetry-gpu-collector
-make build
+make all
 ./opentelemetry-gpu-collector
 ```
 

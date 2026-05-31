@@ -2,8 +2,8 @@
 openlit-collector
 
 # Generated eBPF Go bindings (output of go generate / bpf2go)
-internal/ebpf/gpuevent_bpfel*.go
-internal/ebpf/gpuevent_bpfel*.o
+internal/ebpf/gpuevent_*.go
+internal/ebpf/gpuevent_*.o
 
 # Copied/generated eBPF build headers (from setup-bpf)
 internal/ebpf/bpf/vmlinux.h
