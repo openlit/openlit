@@ -119,7 +119,7 @@
               fi
 
               cd src/client
-              npm run dev
+              exec npm run dev
               ;;
             version)
               echo "OpenLit (nix flake development build)"
