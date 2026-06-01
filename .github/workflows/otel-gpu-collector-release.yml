@@ -50,23 +50,40 @@ jobs:
   build-binaries:
     name: Build binaries (${{ matrix.goos }}/${{ matrix.goarch }})
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
+        # linux targets build on a native runner: go-nvml is cgo-only, and the
+        # eBPF objects are generated from the host kernel BTF + uname arch, so
+        # they must be produced on the matching architecture (no QEMU / cross).
+        # darwin/windows use the nvidia_stub.go, have no eBPF, and cross-compile
+        # cleanly on amd64 with cgo disabled.
         include:
           - goos: linux
+            runner: ubuntu-24.04
             goarch: amd64
+            cgo: "1"
           - goos: linux
+            runner: ubuntu-24.04-arm
             goarch: arm64
+            cgo: "1"
           - goos: darwin
+            runner: ubuntu-latest
             goarch: amd64
+            cgo: "0"
           - goos: darwin
+            runner: ubuntu-latest
             goarch: arm64
+            cgo: "0"
           - goos: windows
+            runner: ubuntu-latest
             goarch: amd64
+            cgo: "0"
             ext: .exe
           - goos: windows
+            runner: ubuntu-latest
             goarch: arm64
+            cgo: "0"
             ext: .exe
 
     steps:
@@ -82,9 +99,11 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y clang llvm libbpf-dev
+          # Static bpftool matching the runner architecture.
+          BPFTOOL_ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
           BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
             | jq -r .tag_name)
-          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-${BPFTOOL_ARCH}.tar.gz" \
             | sudo tar -xz -C /usr/local/bin/
           sudo chmod +x /usr/local/bin/bpftool
 
@@ -103,7 +122,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
-          CGO_ENABLED: "0"
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           OUTPUT="${{ env.BINARY_NAME }}-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}${{ matrix.ext }}"
           go build -trimpath -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
