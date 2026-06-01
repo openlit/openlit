@@ -168,10 +168,80 @@ jobs:
             dist/*
           generate_release_notes: true
 
-  # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
+  # ── 4. Docker image build per-arch on native runners → GHCR (by digest) ────
+  # Built natively (no QEMU) so each arch's /sys/kernel/btf/vmlinux matches the
+  # target arch — required because the eBPF objects are generated from the host
+  # kernel BTF and are architecture-specific.
+  docker-build:
+    name: Docker build (${{ matrix.platform }})
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Prepare platform pair
+        run: echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+        env:
+          platform: ${{ matrix.platform }}
+
+      - uses: actions/checkout@v4
+
+      - name: Docker labels
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log into GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: ./opentelemetry-gpu-collector/
+          file: ./opentelemetry-gpu-collector/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── 5. Merge per-arch digests into a multi-arch manifest, tag, sign ────────
   docker:
     name: Docker
-    needs: test
+    needs: docker-build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -179,13 +249,15 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - name: Install cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
@@ -211,31 +283,31 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
             type=raw,value=latest
         env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
 
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          context: ./opentelemetry-gpu-collector/
-          file: ./opentelemetry-gpu-collector/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          annotations: |
-            ${{ steps.meta.outputs.annotations }},
-            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
-            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/opentelemetry-gpu-collector/README.md,
-            io.artifacthub.package.license=Apache-2.0,
-            org.opencontainers.image.vendor=OpenLIT,
-            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
-            io.artifacthub.package.keywords='Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI'
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          # Index-level annotations: those from metadata-action plus ArtifactHub metadata.
+          annotations=()
+          while IFS= read -r a; do
+            [ -n "$a" ] && annotations+=(--annotation "$a")
+          done <<< '${{ steps.meta.outputs.annotations }}'
+          annotations+=(
+            --annotation "index:io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true"
+            --annotation "index:io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/opentelemetry-gpu-collector/README.md"
+            --annotation "index:io.artifacthub.package.license=Apache-2.0"
+            --annotation "index:org.opencontainers.image.vendor=OpenLIT"
+            --annotation "index:io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}]"
+            --annotation "index:io.artifacthub.package.keywords=Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI"
+          )
+          docker buildx imagetools create "${annotations[@]}" \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
       - name: Sign the published Docker image
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: |
+          digest="$(docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" --format '{{json .Manifest}}' | jq -r .digest)"
+          echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${digest}
