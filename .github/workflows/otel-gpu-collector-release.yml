@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: openlit/otel-gpu-collector
+  IMAGE_NAME: ${{ github.repository_owner }}/otel-gpu-collector
   BINARY_NAME: opentelemetry-gpu-collector
 
 permissions:
