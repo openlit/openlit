@@ -1,5 +1,5 @@
 # Binary
-openlit-collector
+opentelemetry-gpu-collector
 
 # Generated eBPF Go bindings (output of go generate / bpf2go)
 internal/ebpf/gpuevent_bpfel*.go
