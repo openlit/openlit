@@ -45,3 +45,56 @@ jobs:
       - name: Run tests
         working-directory: opentelemetry-gpu-collector
         run: go test ./...
+
+      # Cross-compile matrix: confirm the collector builds for every supported
+      # GOOS/GOARCH after `make generate` has produced the per-arch eBPF
+      # bindings. CGO_ENABLED=0 keeps the cross-builds reproducible without
+      # installing arch-specific C toolchains; NVML/eBPF paths fall back to
+      # their build-tagged stubs on unsupported targets.
+      - name: Cross-compile linux/arm64 (eBPF path)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: arm64
+        run: go build ./...
+
+      - name: Cross-compile linux/riscv64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: riscv64
+        run: go build ./...
+
+      - name: Cross-compile linux/ppc64le (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: ppc64le
+        run: go build ./...
+
+      - name: Cross-compile darwin/amd64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+          GOARCH: amd64
+        run: go build ./...
+
+      - name: Cross-compile darwin/arm64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+          GOARCH: arm64
+        run: go build ./...
+
+      - name: Cross-compile windows/amd64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: go build ./...
