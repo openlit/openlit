@@ -50,16 +50,15 @@ static __always_inline struct pid_info_t get_pid_info() {
 // Signature: cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim,
 //            dim3 blockDim, void **args, size_t sharedMem, cudaStream_t stream)
 //
-// ABI NOTE (x86_64 System V only):
-// dim3 is a struct of three uint32 values (12 bytes). Structs <= 16 bytes that
-// are "integer class" are split across consecutive argument registers. With func
-// in rdi (PARM1), the two dim3 structs consume rsi/rdx/rcx/r8 as follows:
-//   gridDim.x, gridDim.y  -> rsi (PARM2) low/high 32 bits
-//   gridDim.z, blockDim.x -> rdx (PARM3) low/high 32 bits
-//   blockDim.y, blockDim.z -> rcx (PARM4) low/high 32 bits
-// This packing was validated against CUDA 11.x–12.x on x86_64 gcc/clang.
-// It will NOT be correct on aarch64 (ARM64) or for future CUDA ABI changes.
-// TODO: replace with BTF CO-RE struct access once CUDA BTF info is available.
+// dim3 is a 12-byte struct of three uint32 values. The way it is passed in
+// registers at the libcudart entry point differs by target architecture, so
+// the decoder is split per __TARGET_ARCH_* macro (auto-defined by bpf2go).
+//
+// `stream` is intentionally not decoded here — it is the 6th argument and on
+// both ABIs it spills past the registers covered by libbpf's PT_REGS_PARMn
+// macros (x86_64: stack; arm64: x7). Userspace does not consume the field
+// today, so we keep the wire layout but zero the value to avoid reading
+// arbitrary stack bytes inside the BPF program.
 SEC("uprobe/cudaLaunchKernel")
 int handle_cuda_launch(struct pt_regs *ctx) {
     struct gpu_kernel_launch_t *ev;
@@ -69,25 +68,46 @@ int handle_cuda_launch(struct pt_regs *ctx) {
 
     ev->flags = EVENT_GPU_KERNEL_LAUNCH;
     ev->pid_info = get_pid_info();
+    ev->stream = 0;
 
     // arg0: const void *func (kernel function pointer)
     ev->kern_func_off = PT_REGS_PARM1(ctx);
 
-    // gridDim.x, gridDim.y packed into rsi; gridDim.z in low 32 bits of rdx
+#if defined(__TARGET_ARCH_x86)
+    // x86_64 System V: dim3 (12 bytes) is decomposed into 3 uint32 fields and
+    // packed two-per-register across rsi/rdx/rcx, as observed in libcudart
+    // CUDA 11.x–12.x (gcc/clang). With func consuming rdi:
+    //   rsi (PARM2): gridDim.x  | gridDim.y
+    //   rdx (PARM3): gridDim.z  | blockDim.x
+    //   rcx (PARM4): blockDim.y | blockDim.z
+    __u64 grid_xy = PT_REGS_PARM2(ctx);
+    ev->grid_x = grid_xy & 0xFFFFFFFF;
+    ev->grid_y = grid_xy >> 32;
+    __u64 grid_z_block_x = PT_REGS_PARM3(ctx);
+    ev->grid_z  = grid_z_block_x & 0xFFFFFFFF;
+    ev->block_x = grid_z_block_x >> 32;
+    __u64 block_yz = PT_REGS_PARM4(ctx);
+    ev->block_y = block_yz & 0xFFFFFFFF;
+    ev->block_z = block_yz >> 32;
+#elif defined(__TARGET_ARCH_arm64)
+    // AArch64 AAPCS64 (§6.4.2): each dim3 (12 bytes, rounded to 16) occupies
+    // two consecutive 64-bit GPRs and tail padding is NOT merged with the
+    // next argument. With func consuming x0:
+    //   x1 (PARM2): gridDim.x  | gridDim.y
+    //   x2 (PARM3): gridDim.z  | (pad)
+    //   x3 (PARM4): blockDim.x | blockDim.y
+    //   x4 (PARM5): blockDim.z | (pad)
     __u64 grid_xy = PT_REGS_PARM2(ctx);
     ev->grid_x = grid_xy & 0xFFFFFFFF;
     ev->grid_y = grid_xy >> 32;
     ev->grid_z = PT_REGS_PARM3(ctx) & 0xFFFFFFFF;
-
-    // blockDim.x in high 32 bits of rdx; blockDim.y, blockDim.z in rcx
-    __u64 block_xy = PT_REGS_PARM3(ctx) >> 32;
+    __u64 block_xy = PT_REGS_PARM4(ctx);
     ev->block_x = block_xy & 0xFFFFFFFF;
-    __u64 parm4 = PT_REGS_PARM4(ctx);
-    ev->block_y = parm4 & 0xFFFFFFFF;
-    ev->block_z = parm4 >> 32;
-
-    // arg4: cudaStream_t stream (6th parameter)
-    ev->stream = PT_REGS_PARM6(ctx);
+    ev->block_y = block_xy >> 32;
+    ev->block_z = PT_REGS_PARM5(ctx) & 0xFFFFFFFF;
+#else
+#error "cudaLaunchKernel argument decoding not implemented for this architecture"
+#endif
 
     // Capture user-space stack trace
     bpf_get_stack(ctx, ev->ustack, sizeof(ev->ustack), BPF_F_USER_STACK);

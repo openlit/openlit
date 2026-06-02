@@ -110,7 +110,7 @@ services:
 Download a pre-built binary from the [Releases](https://github.com/openlit/openlit/releases) page:
 
 ```sh
-# Linux amd64
+# Pick the asset matching your platform: linux-amd64 or linux-arm64.
 curl -L https://github.com/openlit/openlit/releases/latest/download/opentelemetry-gpu-collector-<version>-linux-amd64 \
     -o opentelemetry-gpu-collector
 chmod +x opentelemetry-gpu-collector

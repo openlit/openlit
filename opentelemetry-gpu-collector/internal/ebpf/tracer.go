@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux && (amd64 || arm64)
 
 package ebpf
 
@@ -207,6 +207,7 @@ func findCudaLib() string {
 	candidates := []string{
 		"/usr/local/cuda/lib64/libcudart.so",
 		"/usr/lib/x86_64-linux-gnu/libcudart.so",
+		"/usr/lib/aarch64-linux-gnu/libcudart.so",
 		"/usr/lib64/libcudart.so",
 		"/usr/lib/libcudart.so",
 	}
