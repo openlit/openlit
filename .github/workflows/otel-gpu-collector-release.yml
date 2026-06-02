@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: openlit/otel-gpu-collector
+  IMAGE_NAME: ${{ github.repository_owner }}/otel-gpu-collector
   BINARY_NAME: opentelemetry-gpu-collector
 
 permissions:
@@ -201,11 +201,20 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
 
+      # GHCR requires lowercase image names, but github.repository_owner keeps
+      # the owner's original case (e.g. OpenLIT). Expressions have no tolower(),
+      # so lowercase it here with tr (POSIX, no bash-version dependency).
+      - name: Lowercase image name
+        id: image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: echo "name=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
             type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
