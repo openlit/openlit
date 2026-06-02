@@ -37,7 +37,11 @@ lint:
 
 clean:
 	rm -f $(BINARY)
-	rm -f $(BPF_DIR)/gpuevent_*.go $(BPF_DIR)/gpuevent_*.o
+	# bpf2go output stems are always "<linux>_<clang>" (clang = bpfel|bpfeb),
+	# so restricting to those endings avoids deleting any hand-written file
+	# that might one day live alongside the generated ones.
+	rm -f $(BPF_DIR)/gpuevent_*bpfel.go $(BPF_DIR)/gpuevent_*bpfel.o
+	rm -f $(BPF_DIR)/gpuevent_*bpfeb.go $(BPF_DIR)/gpuevent_*bpfeb.o
 	rm -f $(BPF_DIR)/bpf/vmlinux.h
 	rm -f $(BPF_DIR)/bpf/bpf_helpers.h $(BPF_DIR)/bpf/bpf_helper_defs.h
 	rm -f $(BPF_DIR)/bpf/bpf_tracing.h $(BPF_DIR)/bpf/bpf_core_read.h $(BPF_DIR)/bpf/bpf_endian.h
