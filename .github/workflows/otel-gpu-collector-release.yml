@@ -96,7 +96,7 @@ jobs:
         if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install --no-install-recommends -y gcc-aarch64-linux-gnu
 
       - name: Generate eBPF objects (linux targets only)
         if: matrix.goos == 'linux'
