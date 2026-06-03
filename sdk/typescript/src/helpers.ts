@@ -204,6 +204,7 @@ const PROVIDER_DEFAULT_ENDPOINTS: Record<string, [string, number]> = {
   'gcp.vertex_ai': ['aiplatform.googleapis.com', 443],
   mistral_ai: ['api.mistral.ai', 443],
   groq: ['api.groq.com', 443],
+  ai21: ['api.ai21.com', 443],
   together: ['api.together.xyz', 443],
   fireworks: ['api.fireworks.ai', 443],
   perplexity: ['api.perplexity.ai', 443],
