@@ -424,6 +424,205 @@ class AI21Wrapper extends BaseWrapper {
       aiSystem: AI21Wrapper.aiSystem,
     };
   }
+
+  // --- Conversational RAG ---------------------------------------------------
+  // Mirrors the Python reference (ai21/ai21.py chat_rag + utils.py
+  // common_chat_rag_logic). The RAG surface is never streamed, responses carry
+  // no `model` and no usage token counts (counted locally), and the answer is
+  // at `choices[i].content` (flat) rather than `choices[i].message.content`.
+
+  static _patchConversationalRagCreate(tracer: Tracer): any {
+    const genAIEndpoint = 'ai21.conversational_rag';
+    return (originalMethod: (...args: any[]) => any) => {
+      return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = args[0]?.model || 'jamba-1.5-mini';
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(
+          spanName,
+          {
+            kind: SpanKind.CLIENT,
+            attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+          },
+          effectiveCtx
+        );
+        return context
+          .with(trace.setSpan(effectiveCtx, span), async () => {
+            return originalMethod.apply(this, args);
+          })
+          .then((response: any) => {
+            return AI21Wrapper._chatRag({ args, genAIEndpoint, response, span });
+          })
+          .catch((e: any) => {
+            OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: AI21Wrapper.aiSystem,
+              serverAddress: AI21Wrapper.serverAddress,
+              serverPort: AI21Wrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
+            span.end();
+            throw e;
+          });
+      };
+    };
+  }
+
+  static async _chatRag({
+    args,
+    genAIEndpoint,
+    response,
+    span,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    response: any;
+    span: Span;
+  }): Promise<any> {
+    let metricParams;
+    try {
+      metricParams = await AI21Wrapper._chatRagCommonSetter({
+        args,
+        genAIEndpoint,
+        result: response,
+        span,
+      });
+      return response;
+    } catch (e: any) {
+      OpenLitHelper.handleException(span, e);
+      throw e;
+    } finally {
+      span.end();
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
+    }
+  }
+
+  static async _chatRagCommonSetter({
+    args,
+    genAIEndpoint,
+    result,
+    span,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    result: any;
+    span: Span;
+  }) {
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const requestModel = args[0]?.model || 'jamba-1.5-mini';
+    const {
+      messages,
+      n = 1,
+      user,
+      max_segments,
+      retrieval_strategy,
+      max_neighbors,
+      file_ids,
+      path,
+      retrieval_similarity_threshold,
+      tools: _tools,
+    } = args[0];
+
+    // RAG choices are flat ChatMessage objects (`content` on the choice).
+    const choices = result.choices || [];
+    let llmResponse = '';
+    for (let i = 0; i < n; i++) {
+      llmResponse += choices[i]?.content ?? '';
+    }
+
+    // RAG responses report no usage; count tokens locally (mirrors Python
+    // general_tokens over the formatted prompt and the aggregated answer).
+    let inputTokens = 0;
+    for (const message of messages || []) {
+      inputTokens += OpenLitHelper.openaiTokens(message.content as string, requestModel) ?? 0;
+    }
+    const outputTokens = OpenLitHelper.openaiTokens(llmResponse, requestModel) ?? 0;
+
+    const responseModel = requestModel;
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
+    const cost = OpenLitHelper.getChatModelCost(requestModel, pricingInfo, inputTokens, outputTokens);
+
+    AI21Wrapper.setBaseSpanAttributes(span, {
+      genAIEndpoint,
+      model: requestModel,
+      user,
+      cost,
+      aiSystem: AI21Wrapper.aiSystem,
+      serverAddress: AI21Wrapper.serverAddress,
+      serverPort: AI21Wrapper.serverPort,
+    });
+
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
+
+    // RAG-specific attributes (defaults mirror the Python implementation).
+    span.setAttribute(SemanticConvention.GEN_AI_RAG_MAX_SEGMENTS, max_segments ?? -1);
+    span.setAttribute(SemanticConvention.GEN_AI_RAG_STRATEGY, retrieval_strategy ?? 'segments');
+    span.setAttribute(SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS, max_neighbors ?? -1);
+    span.setAttribute(SemanticConvention.GEN_AI_RAG_FILE_IDS, file_ids != null ? String(file_ids) : '');
+    span.setAttribute(SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH, path ?? '');
+    span.setAttribute(
+      SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD,
+      retrieval_similarity_threshold ?? -1
+    );
+
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+
+    const outputType =
+      typeof llmResponse === 'string'
+        ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
+        : SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON;
+    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputType);
+
+    let inputMessagesJson: string | undefined;
+    let outputMessagesJson: string | undefined;
+    const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(_tools);
+
+    if (captureContent) {
+      inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, inputMessagesJson);
+      outputMessagesJson = OpenLitHelper.buildOutputMessages(llmResponse, 'stop', undefined);
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
+    }
+    if (toolDefinitionsJson) {
+      span.setAttribute(SemanticConvention.GEN_AI_TOOL_DEFINITIONS, toolDefinitionsJson);
+    }
+
+    if (!OpenlitConfig.disableEvents) {
+      const eventAttrs: Attributes = {
+        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
+        [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
+        [SemanticConvention.SERVER_ADDRESS]: AI21Wrapper.serverAddress,
+        [SemanticConvention.SERVER_PORT]: AI21Wrapper.serverPort,
+        [SemanticConvention.GEN_AI_RESPONSE_ID]: result.id,
+        [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
+        [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
+        [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
+      };
+      if (captureContent) {
+        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      }
+      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
+      OpenLitHelper.emitInferenceEvent(span, eventAttrs);
+    }
+
+    return {
+      genAIEndpoint,
+      model: requestModel,
+      user,
+      cost,
+      aiSystem: AI21Wrapper.aiSystem,
+    };
+  }
 }
 
 export default AI21Wrapper;

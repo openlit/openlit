@@ -57,6 +57,22 @@ export default class OpenlitAI21Instrumentation extends InstrumentationBase {
         'create',
         AI21Wrapper._patchChatCompletionCreate(this.tracer)
       );
+
+      // Conversational RAG is exported as `ConversationalRag` from ai21 and maps
+      // to `ConversationalRag.prototype.create` (mirrors the Python SDK's
+      // StudioConversationalRag.create). Guarded the same way as Completions so
+      // it is a safe no-op when the SDK is loaded as CommonJS.
+      if (moduleExports?.ConversationalRag?.prototype?.create) {
+        if (isWrapped(moduleExports.ConversationalRag.prototype.create)) {
+          this._unwrap(moduleExports.ConversationalRag.prototype, 'create');
+        }
+
+        this._wrap(
+          moduleExports.ConversationalRag.prototype,
+          'create',
+          AI21Wrapper._patchConversationalRagCreate(this.tracer)
+        );
+      }
     } catch (e) {
       console.error('Error in _patch method:', e);
     }
@@ -65,6 +81,9 @@ export default class OpenlitAI21Instrumentation extends InstrumentationBase {
   protected _unpatch(moduleExports: any) {
     if (moduleExports?.Completions?.prototype?.create) {
       this._unwrap(moduleExports.Completions.prototype, 'create');
+    }
+    if (moduleExports?.ConversationalRag?.prototype?.create) {
+      this._unwrap(moduleExports.ConversationalRag.prototype, 'create');
     }
   }
 }
