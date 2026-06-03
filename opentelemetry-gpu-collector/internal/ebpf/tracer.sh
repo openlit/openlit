@@ -13,11 +13,12 @@
 
 set -e
 
-case "$(uname -m)" in
-	x86_64)  targets=amd64,arm64 ;;
-	aarch64) targets=arm64 ;;
-	*)       targets="$(go env GOARCH)" ;;
-esac
+goarch="$(go env GOARCH)"
+if [ "$goarch" = amd64 ]; then
+	targets=amd64,arm64
+else
+	targets="$goarch"
+fi
 
 exec go run github.com/cilium/ebpf/cmd/bpf2go -cc clang \
 	-target "$targets" gpuevent ./bpf/gpuevent.c -- -I./bpf
