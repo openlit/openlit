@@ -151,6 +151,12 @@ class AI21Wrapper extends BaseWrapper {
         if (chunk.id) {
           result.id = chunk.id;
         }
+        // AI21 stream chunks currently carry no `model`, so this is defensive:
+        // keep streaming aligned with the non-streaming path (which also falls
+        // back to the request model) if the API ever starts emitting one.
+        if (chunk.model && !result.model) {
+          result.model = chunk.model;
+        }
         if (chunk.choices?.[0]?.finish_reason) {
           result.choices[0].finish_reason = chunk.choices[0].finish_reason;
         }
@@ -245,7 +251,7 @@ class AI21Wrapper extends BaseWrapper {
       tools: _tools,
     } = args[0];
 
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p ?? 1);
     if (max_tokens != null) {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
     }
