@@ -100,3 +100,44 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: go build ./...
+
+  # Native arm64 build. The above `Test` only cross-compiles arm64,
+  # so it never exercises arm64 eBPF generation: tracer.sh on an
+  # arm64 host dumps arm64 kernel BTF into vmlinux.h and compiles
+  # the BPF object against it. This job validates that path end to
+  # end on a native arm64 runner.
+  test-arm64:
+    name: Test (arm64 native)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev
+          # Download static bpftool binary from libbpf/bpftool releases — avoids
+          # linux-tools-$(uname -r) which fails on azure/custom kernels.
+          BPFTOOL_VERSION=$(curl -fsSL https://api.github.com/repos/libbpf/bpftool/releases/latest \
+            | jq -r .tag_name)
+          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-arm64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/bpftool
+          bpftool version
+
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...
+
+      - name: Build linux/arm64 (native eBPF path)
+        working-directory: opentelemetry-gpu-collector
+        run: go build ./...
