@@ -6,8 +6,12 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   trigger:
+    if: github.repository == 'openlit/openlit'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch enterprise OSS sync
