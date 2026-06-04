@@ -81,9 +81,9 @@ type Defaults struct {
 
 func builtinDefaults() Defaults {
 	return Defaults{
-		OTLPEndpoint:         "http://127.0.0.1:4318",
-		Environment:          "default",
-		ApplicationName:      "openlit-cli",
+		OTLPEndpoint:    "http://127.0.0.1:4318",
+		Environment:     "default",
+		ApplicationName: "openlit-cli",
 		// "full" is the onboarding default: the trace detail view
 		// is unhelpful without prompt + response bodies, and a
 		// missing-content surprise sours first-run UX. Operators
@@ -99,15 +99,15 @@ func builtinDefaults() Defaults {
 // else is silently ignored (we never want this file to be a vector for
 // arbitrary env-injection on the developer's machine).
 var allowedFileKeys = map[string]struct{}{
-	"OPENLIT_OTLP_ENDPOINT":           {},
-	"OPENLIT_API_KEY":                 {},
-	"OPENLIT_ENVIRONMENT":             {},
-	"OPENLIT_APPLICATION_NAME":        {},
-	"OPENLIT_CODING_CONTENT_CAPTURE":  {},
-	"OPENLIT_CODING_REPO_ALLOWLIST":   {},
-	"OTEL_EXPORTER_OTLP_ENDPOINT":     {},
-	"OTEL_EXPORTER_OTLP_HEADERS":      {},
-	"OTEL_RESOURCE_ATTRIBUTES":        {},
+	"OPENLIT_OTLP_ENDPOINT":          {},
+	"OPENLIT_API_KEY":                {},
+	"OPENLIT_ENVIRONMENT":            {},
+	"OPENLIT_APPLICATION_NAME":       {},
+	"OPENLIT_CODING_CONTENT_CAPTURE": {},
+	"OPENLIT_CODING_REPO_ALLOWLIST":  {},
+	"OTEL_EXPORTER_OTLP_ENDPOINT":    {},
+	"OTEL_EXPORTER_OTLP_HEADERS":     {},
+	"OTEL_RESOURCE_ATTRIBUTES":       {},
 }
 
 // PromoteFileToEnv re-exports the config-file values that downstream

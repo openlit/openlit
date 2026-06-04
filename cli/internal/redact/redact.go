@@ -78,7 +78,6 @@ var tier1Patterns = []*regexp.Regexp{
 	// npm tokens — both the legacy 36-char hex format and the
 	// modern `npm_…` prefix.
 	regexp.MustCompile(`npm_[A-Za-z0-9]{30,}`),
-
 }
 
 // tier1CaptureRewrites are patterns whose match must NOT be wholly

@@ -7,7 +7,7 @@
 //   - Cursor    ships `user_email` in its hook payload.
 //   - Claude Code stores it in ~/.claude.json (`oauthAccount.emailAddress`).
 //   - Codex     authenticates via OAuth and stores the email inside the
-//                JWT under tokens.id_token (we don't decode JWTs in v1).
+//     JWT under tokens.id_token (we don't decode JWTs in v1).
 //
 // Without a per-vendor authoritative source we end up with two rows for
 // the same human: one labeled with the OAuth email (when OPENLIT_USER

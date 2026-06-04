@@ -370,8 +370,8 @@ Both vendors map onto the same six-value enum from `sdk/go/semconv/coding_agent.
 | Outcome | When (Cursor) | When (Claude Code hook) | When (Claude Code native) |
 | -- | -- | -- | -- |
 | `completed` | `outcome=completed` on sessionEnd | n/a (no equivalent signal) | n/a |
-| `merged` | (deferred to v2 GitHub App) | (deferred) | (deferred) |
-| `committed` | (deferred to v2 GitHub App) | (deferred) | (deferred) |
+| `merged` | (no signal yet) | (no signal yet) | (no signal yet) |
+| `committed` | (no signal yet) | (no signal yet) | (no signal yet) |
 | `abandoned_no_change` | `outcome=abandoned` AND `!vcs.dirty` | SessionEnd `reason in [exit, logout]` AND `!vcs.dirty` | SessionEnd metric AND no recent commit AND clean tree |
 | `abandoned_with_change` | `outcome=abandoned` AND `vcs.dirty` | SessionEnd `reason in [exit, logout]` AND `vcs.dirty` | SessionEnd metric AND dirty tree |
 | `cancelled` | `outcome=cancelled` | SessionEnd `reason=clear` | (no signal yet) |

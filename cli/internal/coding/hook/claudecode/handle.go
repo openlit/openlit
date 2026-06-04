@@ -942,10 +942,10 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		return "", 0, 0, 0, 0
 	}
 	type usage struct {
-		InputTokens                  int64 `json:"input_tokens"`
-		OutputTokens                 int64 `json:"output_tokens"`
-		CacheCreationInputTokens     int64 `json:"cache_creation_input_tokens"`
-		CacheReadInputTokens         int64 `json:"cache_read_input_tokens"`
+		InputTokens              int64 `json:"input_tokens"`
+		OutputTokens             int64 `json:"output_tokens"`
+		CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 	}
 	type turn struct {
 		Type    string `json:"type"`

@@ -187,37 +187,14 @@ const (
 	CodingAgentMCPSourceMarketplace = "marketplace"
 )
 
-// VCS bridging — stamped at hook-time by every adapter so the v2 GitHub
-// App can join coding-agent activity to commits/PRs/incidents without
-// reshaping data. Use OTel vcs.* attributes for the values that have
-// standard equivalents (see Reuse note at top of file).
+// VCS bridging — repo / branch / commit live under OTel's standard
+// `vcs.*` attributes (see Reuse note at top of file), stamped on the
+// session root from local git context by `cli/internal/coding/git`.
+// The constants below cover what OTel doesn't define.
 const (
 	// CodingAgentVCSDirty indicates the working tree has uncommitted changes
 	// when the agent started. Boolean serialized as "true"/"false".
 	CodingAgentVCSDirty = "coding_agent.vcs.dirty"
-	// CodingAgentVCSLineAttributionAuthor is one of: ai | human | mixed.
-	// Populated by the v2 AI-authorship detector.
-	CodingAgentVCSLineAttributionAuthor = "coding_agent.vcs.line_attribution.author"
-	// CodingAgentVCSLineAttributionSessionID points back to the session
-	// that authored the line (v2).
-	CodingAgentVCSLineAttributionSessionID = "coding_agent.vcs.line_attribution.session_id"
-	// CodingAgentVCSLineAttributionConfidence is one of: high | medium | low.
-	CodingAgentVCSLineAttributionConfidence = "coding_agent.vcs.line_attribution.confidence"
-	// CodingAgentVCSLineAttributionSignal is the strongest signal used:
-	// trailer | bot_identity | time_window | content_hash | heuristic.
-	CodingAgentVCSLineAttributionSignal = "coding_agent.vcs.line_attribution.signal"
-)
-
-const (
-	CodingAgentVCSAuthorAI    = "ai"
-	CodingAgentVCSAuthorHuman = "human"
-	CodingAgentVCSAuthorMixed = "mixed"
-
-	CodingAgentVCSSignalTrailer     = "trailer"
-	CodingAgentVCSSignalBotIdentity = "bot_identity"
-	CodingAgentVCSSignalTimeWindow  = "time_window"
-	CodingAgentVCSSignalContentHash = "content_hash"
-	CodingAgentVCSSignalHeuristic   = "heuristic"
 )
 
 // Identity & policy attributes.

@@ -48,6 +48,13 @@ func shellQuote(s string) string {
 
 // enableClaudeCodePlugin registers the bundled marketplace and installs
 // openlit-cc for the user. Best-effort when `claude` is missing.
+//
+// Skipping silently is only correct for "claude isn't installed on this
+// machine" — everything else (missing embedded template, can't resolve
+// our own binary) is a real failure that the caller surfaces via stderr.
+// Swallowing those would leave the on-disk plugin orphaned because Claude
+// Code only loads plugins it knows about via a marketplace, which is
+// the entire point of materializing one here.
 func enableClaudeCodePlugin() error {
 	claudeBin, err := exec.LookPath("claude")
 	if err != nil {
@@ -56,11 +63,11 @@ func enableClaudeCodePlugin() error {
 
 	openlitBin, err := resolveOpenlitBin()
 	if err != nil {
-		return nil
+		return fmt.Errorf("resolve openlit binary: %w", err)
 	}
 	marketplaceRoot, err := materializeClaudeMarketplace(openlitBin)
 	if err != nil {
-		return nil
+		return fmt.Errorf("materialize claude marketplace: %w", err)
 	}
 
 	add := exec.Command(claudeBin, "plugin", "marketplace", "add", marketplaceRoot) //nolint:gosec
@@ -82,20 +89,34 @@ func enableClaudeCodePlugin() error {
 	return nil
 }
 
-// materializeClaudeMarketplace writes plugins/.claude-plugin + claude-code
-// from the embedded FS to ~/.local/share/openlit/claude-marketplace so
-// `claude plugin marketplace add` has a stable directory path.
+// materializeClaudeMarketplace writes the embedded Claude Code
+// marketplace tree to ~/.local/share/openlit/claude-marketplace so
+// `claude plugin marketplace add` has a stable directory path. The
+// destination layout matches the repo-root layout exactly:
+//
+//	~/.local/share/openlit/claude-marketplace/
+//	  .claude-plugin/marketplace.json
+//	  plugins/claude-code/
+//	  plugins/cursor/    (carried for completeness; only claude-code is
+//	  plugins/codex/      registered via `claude plugin install` below)
+//
+// Keeping the layout identical to repo-root means the marketplace.json's
+// `source: "./plugins/claude-code"` resolves correctly for both flows
+// (Claude fetching the marketplace from GitHub or from this local dir).
 func materializeClaudeMarketplace(openlitBin string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 	root := filepath.Join(home, ".local", "share", "openlit", "claude-marketplace")
-	for _, sub := range []string{".claude-plugin", "claude-code"} {
-		src := filepath.ToSlash(filepath.Join("plugins", sub))
-		if err := extractEmbeddedDir(src, filepath.Join(root, sub), openlitBin); err != nil {
-			return "", err
-		}
+	// Wipe a stale tree so removals in the embed (e.g. a vendor dir
+	// being dropped) propagate. The marketplace dir is owned wholly
+	// by us; no user data lives here.
+	if err := os.RemoveAll(root); err != nil {
+		return "", fmt.Errorf("clean %s: %w", root, err)
+	}
+	if err := extractEmbeddedDir("marketplace", root, openlitBin); err != nil {
+		return "", err
 	}
 	return root, nil
 }
@@ -183,7 +204,7 @@ func resolveCodexBin() (string, error) {
 }
 
 func extractEmbeddedDir(src, dest, openlitBin string) error {
-	return fs.WalkDir(pluginsFS, src, func(p string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(marketplaceFS, src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -192,7 +213,7 @@ func extractEmbeddedDir(src, dest, openlitBin string) error {
 		}
 		rel := strings.TrimPrefix(p, src+"/")
 		target := filepath.Join(dest, rel)
-		body, readErr := pluginsFS.ReadFile(p)
+		body, readErr := marketplaceFS.ReadFile(p)
 		if readErr != nil {
 			return readErr
 		}

@@ -255,4 +255,3 @@ func mergeAssistantGroup(group []transcriptLine) transcriptLine {
 	}
 	return final
 }
-

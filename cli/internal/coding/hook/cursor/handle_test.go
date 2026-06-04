@@ -96,21 +96,21 @@ func TestCursorSubagentStopReStampsLinkage(t *testing.T) {
 	in := inputBuilder(t, em)
 
 	stopPayload := map[string]any{
-		"hook_event_name":         "subagentStop",
-		"conversation_id":         "cur-chat-1",
-		"subagent_id":             "sub-42",
-		"parent_conversation_id":  "cur-chat-1",
-		"subagent_type":           "edit",
-		"task":                    "refactor",
-		"tool_call_id":            "tc-99",
-		"subagent_model":          "claude-3.5-sonnet",
-		"git_branch":              "feat/sub",
-		"is_parallel_worker":      true,
-		"duration_ms":             int64(2400),
-		"message_count":           5,
-		"tool_call_count":         3,
-		"modified_files":          []string{"a.go", "b.go"},
-		"status":                  "completed",
+		"hook_event_name":        "subagentStop",
+		"conversation_id":        "cur-chat-1",
+		"subagent_id":            "sub-42",
+		"parent_conversation_id": "cur-chat-1",
+		"subagent_type":          "edit",
+		"task":                   "refactor",
+		"tool_call_id":           "tc-99",
+		"subagent_model":         "claude-3.5-sonnet",
+		"git_branch":             "feat/sub",
+		"is_parallel_worker":     true,
+		"duration_ms":            int64(2400),
+		"message_count":          5,
+		"tool_call_count":        3,
+		"modified_files":         []string{"a.go", "b.go"},
+		"status":                 "completed",
 	}
 	if err := handle(context.Background(), in("subagentStop", stopPayload)); err != nil {
 		t.Fatalf("subagentStop: %v", err)

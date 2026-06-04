@@ -47,8 +47,8 @@ type codexPayload struct {
 	// stamp it, but when it does we treat it as the OTel-canonical
 	// `coding_agent.policy.permission_mode`. Older builds called the
 	// field `approval_mode`; we accept both.
-	ApprovalMode    string `json:"approval_mode"`
-	PermissionMode  string `json:"permission_mode"`
+	ApprovalMode   string `json:"approval_mode"`
+	PermissionMode string `json:"permission_mode"`
 }
 
 // handle is the per-invocation entry point invoked by `openlit coding hook`.
@@ -108,10 +108,10 @@ func handle(ctx context.Context, in normalize.Input) error {
 			Name:      "coding_agent.user_prompt.submit",
 			At:        parseEventTime(p.Timestamp),
 			Attrs: map[string]any{
-				"coding_agent.client":    in.Vendor,
-				"coding_agent.turn.id":   p.TurnID,
-				"code.cwd":               cwd,
-				"gen_ai.request.model":   p.Model,
+				"coding_agent.client":  in.Vendor,
+				"coding_agent.turn.id": p.TurnID,
+				"code.cwd":             cwd,
+				"gen_ai.request.model": p.Model,
 			},
 		})
 
@@ -302,8 +302,8 @@ func buildSession(
 		UserClassification:   cls.Value,
 		ClassificationReason: cls.Reason,
 		Extras: map[string]string{
-			"coding_agent.hook.event":   p.HookEventName,
-			"codex.session.lifecycle":   kind,
+			"coding_agent.hook.event": p.HookEventName,
+			"codex.session.lifecycle": kind,
 		},
 	}
 	if p.TranscriptPath != "" {

@@ -31,8 +31,8 @@ import AddAgentsSummarySkipIndexesMigration from "./add-agents-summary-skip-inde
 import OptimizeAgentTablesStorageMigration from "./optimize-agent-tables-storage-migration";
 import AddCodingAgentSummaryFieldsMigration from "./add-coding-agent-summary-fields-migration";
 import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summary-fields-migration";
-import CreateVcsMigration from "./create-vcs-migration";
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
+import DropVcsMigration from "./drop-vcs-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -85,7 +85,6 @@ export default async function migrations(databaseConfigId?: string) {
 	// agents_summary exists; safe to parallel within itself).
 	await Promise.all([
 		AddCodingAgentSummaryFieldsMigration(databaseConfigId),
-		CreateVcsMigration(databaseConfigId),
 		CreateCodingAgentsAuditMigration(databaseConfigId),
 	]);
 
@@ -95,4 +94,10 @@ export default async function migrations(databaseConfigId?: string) {
 	// ALTERs on a single table anyway, but ordering the awaits keeps
 	// the dependency explicit.
 	await AddCodingAgentLOCSummaryFieldsMigration(databaseConfigId);
+
+	// Group 7: Drop the never-populated v2 GitHub App VCS tables that
+	// earlier deployments created via the now-removed
+	// `create-vcs-migration`. Runs last so stale deployments still get
+	// the cleanup, and uses IF EXISTS so fresh installs are no-ops.
+	await DropVcsMigration(databaseConfigId);
 }

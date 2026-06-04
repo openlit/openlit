@@ -10,9 +10,9 @@ const MIGRATION_ID = "create-coding-agents-audit";
  *   - openlit_coding_agent_disputes      one row per dispute submission
  *
  * Audit log captures every governance-grade action (classification
- * dispute, policy edit, integration install). It's kept separate from
- * the dispute table so we can query "who did what when" without
- * paginating through the larger trace data.
+ * dispute, policy edit). It's kept separate from the dispute table so
+ * we can query "who did what when" without paginating through the
+ * larger trace data.
  *
  * organization_id is stamped from the API route (pulled from the
  * caller's current org via Prisma) — not from a span attribute — so

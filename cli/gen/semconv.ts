@@ -203,37 +203,6 @@ export const CodingAgentMCPSourceMarketplace = "marketplace";
 // when the agent started. Boolean serialized as "true"/"false".
 export const CodingAgentVCSDirty = "coding_agent.vcs.dirty";
 
-// CodingAgentVCSLineAttributionAuthor is one of: ai | human | mixed.
-// Populated by the v2 AI-authorship detector.
-export const CodingAgentVCSLineAttributionAuthor = "coding_agent.vcs.line_attribution.author";
-
-// CodingAgentVCSLineAttributionSessionID points back to the session
-// that authored the line (v2).
-export const CodingAgentVCSLineAttributionSessionID = "coding_agent.vcs.line_attribution.session_id";
-
-// CodingAgentVCSLineAttributionConfidence is one of: high | medium | low.
-export const CodingAgentVCSLineAttributionConfidence = "coding_agent.vcs.line_attribution.confidence";
-
-// CodingAgentVCSLineAttributionSignal is the strongest signal used:
-// trailer | bot_identity | time_window | content_hash | heuristic.
-export const CodingAgentVCSLineAttributionSignal = "coding_agent.vcs.line_attribution.signal";
-
-export const CodingAgentVCSAuthorAI = "ai";
-
-export const CodingAgentVCSAuthorHuman = "human";
-
-export const CodingAgentVCSAuthorMixed = "mixed";
-
-export const CodingAgentVCSSignalTrailer = "trailer";
-
-export const CodingAgentVCSSignalBotIdentity = "bot_identity";
-
-export const CodingAgentVCSSignalTimeWindow = "time_window";
-
-export const CodingAgentVCSSignalContentHash = "content_hash";
-
-export const CodingAgentVCSSignalHeuristic = "heuristic";
-
 // CodingAgentUserClassification is one of: personal | work | disputed | unknown.
 // Stamped at hook-time using API-key allowlist + repo-origin allowlist.
 export const CodingAgentUserClassification = "coding_agent.user.classification";

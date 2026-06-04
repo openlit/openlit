@@ -2,9 +2,10 @@
 //
 // Writes per-vendor host plugin manifests to the user's home directory
 // so the agent (Claude Code, Cursor, Codex) finds them on next
-// launch. The manifest payloads themselves live under cli/internal/coding/install/plugins/
-// and are embedded into the binary at build time, so a single statically-
-// linked CLI carries everything.
+// launch. The manifest payloads themselves live under cli/internal/coding/install/marketplace/
+// (mirrored from the repo-root `.claude-plugin/` + `plugins/` by
+// `cli/scripts/sync-plugins.sh`) and are embedded into the binary at
+// build time, so a single statically-linked CLI carries everything.
 package install
 
 import (

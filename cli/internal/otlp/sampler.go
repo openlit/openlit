@@ -42,10 +42,10 @@ func defaultSampler() sdktrace.Sampler {
 		// roughly 1/3 of all spans.
 		return spanNameSampler{
 			drop: map[string]struct{}{
-				"coding_agent.tool.requested":      {},
-				"coding_agent.shell.requested":     {},
-				"coding_agent.mcp.tool.requested":  {},
-				"coding_agent.user_prompt.submit":  {},
+				"coding_agent.tool.requested":     {},
+				"coding_agent.shell.requested":    {},
+				"coding_agent.mcp.tool.requested": {},
+				"coding_agent.user_prompt.submit": {},
 			},
 		}
 	default:

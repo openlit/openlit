@@ -65,7 +65,7 @@ func installCursorHooks(dryRun bool) ([]string, error) {
 	// rewrite the bare `openlit ...` commands to use the absolute
 	// path of the running binary so GUI launches of Cursor (which
 	// don't inherit the shell's PATH) still find it.
-	tmplBytes, err := pluginsFS.ReadFile("plugins/cursor/hooks/hooks.json")
+	tmplBytes, err := marketplaceFS.ReadFile("marketplace/plugins/cursor/hooks/hooks.json")
 	if err != nil {
 		return nil, fmt.Errorf("read embedded cursor hooks template: %w", err)
 	}

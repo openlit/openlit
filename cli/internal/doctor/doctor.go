@@ -169,10 +169,22 @@ type installedPlugin struct {
 	path   string
 }
 
-// detectInstalledPlugins probes the well-known on-disk locations each
-// vendor uses for installed hook plugins. We only check existence —
-// the install command is the source of truth for what's actually
-// wired up.
+// detectInstalledPlugins probes the openlit-specific markers each
+// vendor's install routine writes — not the vendor's own root
+// directory, which exists whenever the vendor itself is installed
+// regardless of openlit. False positives there made doctor report
+// "cursor: installed" for any Cursor user who had never run `openlit
+// coding install --vendor=cursor`.
+//
+// Markers are sourced from cli/internal/coding/install:
+//   - cursor:      ~/.cursor/hooks.json containing an `openlit coding hook`
+//     command (the install routine merges entries into the
+//     user's hooks.json, which may pre-exist with other tools).
+//   - claude-code: ~/.claude/plugins/openlit-cc/.claude-plugin/plugin.json,
+//     created only by the openlit install.
+//   - codex:       ~/.local/share/openlit/codex-marketplace/, the local
+//     marketplace tree that `openlit coding install --vendor=codex`
+//     materializes and registers with codex.
 func detectInstalledPlugins() []installedPlugin {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -180,37 +192,46 @@ func detectInstalledPlugins() []installedPlugin {
 	}
 	candidates := []struct {
 		vendor string
-		paths  []string
+		path   string
+		// verify, when set, is run on the file's contents after a
+		// successful stat. The plugin counts as installed only when
+		// verify returns true. Used for cursor, where the hooks.json
+		// file may belong to another tool entirely.
+		verify func([]byte) bool
 	}{
 		{
 			vendor: "cursor",
-			paths: []string{
-				filepath.Join(home, ".cursor", "plugins"),
+			path:   filepath.Join(home, ".cursor", "hooks.json"),
+			verify: func(b []byte) bool {
+				return strings.Contains(string(b), "openlit coding hook") ||
+					strings.Contains(string(b), "/.openlit/")
 			},
 		},
 		{
 			vendor: "claude-code",
-			paths: []string{
-				filepath.Join(home, ".claude", "plugins"),
-				filepath.Join(home, ".claude.json"),
-			},
+			path:   filepath.Join(home, ".claude", "plugins", "openlit-cc", ".claude-plugin", "plugin.json"),
 		},
 		{
 			vendor: "codex",
-			paths: []string{
-				filepath.Join(home, ".codex", "hooks.toml"),
-				filepath.Join(home, ".codex"),
-			},
+			path:   filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"),
 		},
 	}
 	var out []installedPlugin
 	for _, c := range candidates {
-		for _, p := range c.paths {
-			if _, err := os.Stat(p); err == nil {
-				out = append(out, installedPlugin{vendor: c.vendor, path: p})
-				break
+		info, err := os.Stat(c.path)
+		if err != nil {
+			continue
+		}
+		if c.verify != nil {
+			if info.IsDir() {
+				continue
+			}
+			body, err := os.ReadFile(c.path)
+			if err != nil || !c.verify(body) {
+				continue
 			}
 		}
+		out = append(out, installedPlugin{vendor: c.vendor, path: c.path})
 	}
 	return out
 }

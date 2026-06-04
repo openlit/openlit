@@ -28,19 +28,19 @@ type cursorPayload struct {
 	HookEventName string `json:"hook_event_name"`
 
 	// Common identifiers across most events.
-	ConversationID string `json:"conversation_id"`
-	GenerationID   string `json:"generation_id"`
-	SessionID      string `json:"session_id"`
-	UserEmail      string `json:"user_email"`
-	CursorVersion  string `json:"cursor_version"`
+	ConversationID string   `json:"conversation_id"`
+	GenerationID   string   `json:"generation_id"`
+	SessionID      string   `json:"session_id"`
+	UserEmail      string   `json:"user_email"`
+	CursorVersion  string   `json:"cursor_version"`
 	WorkspaceRoots []string `json:"workspace_roots"`
-	IsBackground   bool   `json:"is_background_agent"`
-	ComposerMode   string `json:"composer_mode"`
-	Model          string `json:"model"`
+	IsBackground   bool     `json:"is_background_agent"`
+	ComposerMode   string   `json:"composer_mode"`
+	Model          string   `json:"model"`
 
 	// beforeSubmitPrompt
-	Prompt      string                  `json:"prompt"`
-	Attachments []cursorAttachment      `json:"attachments"`
+	Prompt      string             `json:"prompt"`
+	Attachments []cursorAttachment `json:"attachments"`
 
 	// afterAgentResponse / afterAgentThought
 	Text       string `json:"text"`
@@ -72,13 +72,13 @@ type cursorPayload struct {
 	Edits []cursorEdit `json:"edits"`
 
 	// preCompact
-	Trigger             string `json:"trigger"`
-	ContextUsagePct     int    `json:"context_usage_percent"`
-	ContextTokens       int64  `json:"context_tokens"`
-	ContextWindowSize   int64  `json:"context_window_size"`
-	MessageCount        int    `json:"message_count"`
-	MessagesToCompact   int    `json:"messages_to_compact"`
-	IsFirstCompaction   bool   `json:"is_first_compaction"`
+	Trigger           string `json:"trigger"`
+	ContextUsagePct   int    `json:"context_usage_percent"`
+	ContextTokens     int64  `json:"context_tokens"`
+	ContextWindowSize int64  `json:"context_window_size"`
+	MessageCount      int    `json:"message_count"`
+	MessagesToCompact int    `json:"messages_to_compact"`
+	IsFirstCompaction bool   `json:"is_first_compaction"`
 
 	// stop / sessionEnd
 	Status      string `json:"status"`
@@ -97,12 +97,12 @@ type cursorPayload struct {
 	GitBranch            string `json:"git_branch"`
 
 	// subagentStop
-	Description    string   `json:"description"`
-	Summary        string   `json:"summary"`
-	SubMessageCount int     `json:"message_count_subagent"` // alias avoidance — see normalize step
-	ToolCallCount  int      `json:"tool_call_count"`
-	ModifiedFiles  []string `json:"modified_files"`
-	TranscriptPath string   `json:"agent_transcript_path"`
+	Description     string   `json:"description"`
+	Summary         string   `json:"summary"`
+	SubMessageCount int      `json:"message_count_subagent"` // alias avoidance — see normalize step
+	ToolCallCount   int      `json:"tool_call_count"`
+	ModifiedFiles   []string `json:"modified_files"`
+	TranscriptPath  string   `json:"agent_transcript_path"`
 }
 
 type cursorAttachment struct {
@@ -248,11 +248,11 @@ func handle(ctx context.Context, in normalize.Input) error {
 			Name:      "coding_agent.tool.requested",
 			At:        time.Now(),
 			Attrs: map[string]any{
-				"coding_agent.client":     in.Vendor,
-				"gen_ai.tool.name":        p.ToolName,
-				"gen_ai.tool.call.id":     p.ToolUseID,
-				"code.cwd":                p.CWD,
-				"gen_ai.request.model":    p.Model,
+				"coding_agent.client":  in.Vendor,
+				"gen_ai.tool.name":     p.ToolName,
+				"gen_ai.tool.call.id":  p.ToolUseID,
+				"code.cwd":             p.CWD,
+				"gen_ai.request.model": p.Model,
 			},
 		})
 
@@ -341,9 +341,9 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// ExtractPRTitle are gated on `full` capture by the emitter.
 		emitGitArtifacts(in, p, sessionID)
 		return in.Emit.EmitToolCall(normalize.ToolCall{
-			SessionID:  sessionID,
-			ToolName:   "shell",
-			Vendor:     in.Vendor,
+			SessionID: sessionID,
+			ToolName:  "shell",
+			Vendor:    in.Vendor,
 			// Gate Command + Args together so a viewer in metadata
 			// mode sees only the binary name on the tool.call span.
 			Command:    commandForMode(in.ContentCapture, p.Command),
@@ -361,8 +361,8 @@ func handle(ctx context.Context, in normalize.Input) error {
 			Name:      "coding_agent.mcp.tool.requested",
 			At:        time.Now(),
 			Attrs: map[string]any{
-				"coding_agent.client":         in.Vendor,
-				"gen_ai.tool.name":            p.ToolName,
+				"coding_agent.client":          in.Vendor,
+				"gen_ai.tool.name":             p.ToolName,
 				"coding_agent.mcp.server.name": serverNameFromMCPInput(p.ToolInput),
 			},
 		})
@@ -420,14 +420,14 @@ func handle(ctx context.Context, in normalize.Input) error {
 			Name:      "coding_agent.session.compact",
 			At:        time.Now(),
 			Attrs: map[string]any{
-				"coding_agent.client":                       in.Vendor,
-				"coding_agent.session.compact.trigger":      p.Trigger,
-				"coding_agent.session.compact.usage_pct":    p.ContextUsagePct,
-				"coding_agent.session.compact.tokens":       p.ContextTokens,
-				"coding_agent.session.compact.window_size": p.ContextWindowSize,
-				"coding_agent.session.compact.message_count":  p.MessageCount,
+				"coding_agent.client":                              in.Vendor,
+				"coding_agent.session.compact.trigger":             p.Trigger,
+				"coding_agent.session.compact.usage_pct":           p.ContextUsagePct,
+				"coding_agent.session.compact.tokens":              p.ContextTokens,
+				"coding_agent.session.compact.window_size":         p.ContextWindowSize,
+				"coding_agent.session.compact.message_count":       p.MessageCount,
 				"coding_agent.session.compact.messages_to_compact": p.MessagesToCompact,
-				"coding_agent.session.compact.is_first":       p.IsFirstCompaction,
+				"coding_agent.session.compact.is_first":            p.IsFirstCompaction,
 			},
 		})
 
@@ -471,8 +471,8 @@ func buildSession(in normalize.Input, p cursorPayload, sessionID string, vcs git
 		UserClassification:   cls.Value,
 		ClassificationReason: cls.Reason,
 		Extras: map[string]string{
-			"coding_agent.hook.event":    p.HookEventName,
-			"cursor.session.lifecycle":   kind,
+			"coding_agent.hook.event":      p.HookEventName,
+			"cursor.session.lifecycle":     kind,
 			"cursor.session.composer_mode": p.ComposerMode,
 		},
 	}
@@ -785,4 +785,3 @@ func truncateStr(s string, max int) string {
 	}
 	return s[:max] + "..."
 }
-

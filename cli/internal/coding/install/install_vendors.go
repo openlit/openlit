@@ -1,5 +1,6 @@
 // Per-vendor manifest writers. The actual manifest contents live under
-// plugins/ at the repo root and are embedded into the binary via go:embed.
+// .claude-plugin/ + plugins/ at the repo root and are embedded into the
+// binary via go:embed as a single assembled tree under marketplace/.
 // installVendor writes the appropriate subset to the user's home directory
 // for each vendor.
 
@@ -14,17 +15,33 @@ import (
 	"strings"
 )
 
-// pluginsFS holds the host plugin manifests (one per vendor). The contents
-// are mirrored from the top-level plugins/ directory at build time so the
-// CLI binary is self-contained — users don't need to clone the repo to run
+// marketplaceFS holds the embedded Claude Code marketplace tree. The
+// contents are assembled by `cli/scripts/sync-plugins.sh` from the
+// two repo-root sources (`.claude-plugin/marketplace.json` and
+// `plugins/<vendor>/`) into a single in-tree mirror so the CLI binary
+// is self-contained — users don't need to clone the repo to run
 // `openlit coding install`.
+//
+// Layout inside the embed root matches the repo-root
+// layout exactly:
+//
+//	marketplace/
+//	  .claude-plugin/marketplace.json
+//	  plugins/claude-code/
+//	  plugins/cursor/
+//	  plugins/codex/
+//
+// Keeping the layouts identical means the single marketplace.json
+// `source: "./plugins/claude-code"` resolves correctly whether Claude
+// fetches the marketplace from GitHub or from the local materialized
+// directory.
 //
 // `all:` prefix is required so go:embed descends into dot-prefixed
 // subdirectories (Claude Code's `.claude-plugin/`, Cursor's
 // `.cursor-plugin/`, Codex's `.codex-plugin/`).
 //
-//go:embed all:plugins
-var pluginsFS embed.FS
+//go:embed all:marketplace
+var marketplaceFS embed.FS
 
 // installVendor writes the manifest set for one vendor to the user's
 // home directory. Returns the absolute paths it touched.
@@ -40,7 +57,7 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	srcDir := "plugins/" + vendor
+	srcDir := "marketplace/plugins/" + vendor
 
 	openlitBin, binErr := resolveOpenlitBin()
 	if binErr != nil {
@@ -48,7 +65,7 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 	}
 
 	var written []string
-	walkErr := fs.WalkDir(pluginsFS, srcDir, func(p string, d fs.DirEntry, err error) error {
+	walkErr := fs.WalkDir(marketplaceFS, srcDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -61,7 +78,7 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 		if dryRun {
 			return nil
 		}
-		body, readErr := pluginsFS.ReadFile(p)
+		body, readErr := marketplaceFS.ReadFile(p)
 		if readErr != nil {
 			return readErr
 		}
@@ -99,9 +116,9 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 // vendorDestRoot returns the directory under $HOME where this vendor's
 // manifests must land. We honor each vendor's own conventions:
 //
-//   Claude Code → ~/.claude/plugins/openlit-cc/
-//   Codex       → ~/.local/share/openlit/codex-marketplace/  (a local
-//                 marketplace registered via `codex plugin marketplace add`)
+//	Claude Code → ~/.claude/plugins/openlit-cc/
+//	Codex       → ~/.local/share/openlit/codex-marketplace/  (a local
+//	              marketplace registered via `codex plugin marketplace add`)
 //
 // Cursor is intentionally absent: it installs by merging into
 // ~/.cursor/hooks.json (user scope), not by writing a plugin tree.

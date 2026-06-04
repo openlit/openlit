@@ -663,8 +663,10 @@ func (e *Emitter) EmitSession(s normalize.Session) error {
 	// Session-root span. We deliberately attach the session id as a
 	// marker in the context (no parent SpanContext) so the
 	// `sessionIDGenerator` produces the deterministic root TraceID +
-	// SpanID derived from `s.SessionID`. v2 will tie this back to VCS
-	// commit context when the GitHub App lights up.
+	// SpanID derived from `s.SessionID`. The CLI stamps `vcs.*`
+	// resource attributes on this span from local git context (see
+	// `cli/internal/coding/git/git.go`); no remote VCS integration is
+	// required.
 	_, span := e.tracer.Start(
 		sessionRootContext(context.Background(), s.SessionID, e.vendor),
 		semconv.CodingAgentSpanSession,

@@ -100,11 +100,11 @@ type State struct {
 	// SessionRolledUp counters that Phase C's minimal mode emits on
 	// sessionEnd in lieu of per-event spans. Always safe to populate;
 	// only consumed when the active capture mode is "minimal".
-	ToolCallCount  int     `json:"tool_call_count,omitempty"`
-	SubagentCount  int     `json:"subagent_count,omitempty"`
-	InputTokens    int64   `json:"input_tokens,omitempty"`
-	OutputTokens   int64   `json:"output_tokens,omitempty"`
-	CostUSD        float64 `json:"cost_usd,omitempty"`
+	ToolCallCount int     `json:"tool_call_count,omitempty"`
+	SubagentCount int     `json:"subagent_count,omitempty"`
+	InputTokens   int64   `json:"input_tokens,omitempty"`
+	OutputTokens  int64   `json:"output_tokens,omitempty"`
+	CostUSD       float64 `json:"cost_usd,omitempty"`
 
 	// Per-session code-change rollups accumulated across hook
 	// invocations and stamped on the session-root span at

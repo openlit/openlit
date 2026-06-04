@@ -105,13 +105,13 @@ type Session struct {
 	EndedAt   time.Time
 	Duration  time.Duration
 
-	Outcome        string // see semconv.CodingAgentSessionOutcome*
-	ToolCallCount  int
-	SubagentCount  int
-	CostUSD        float64
-	InputTokens    int64
-	OutputTokens   int64
-	TotalTokens    int64
+	Outcome       string // see semconv.CodingAgentSessionOutcome*
+	ToolCallCount int
+	SubagentCount int
+	CostUSD       float64
+	InputTokens   int64
+	OutputTokens  int64
+	TotalTokens   int64
 
 	// Code-change rollups stamped on the session-root span at
 	// SessionEnd (or as the session progresses for vendors like Codex
@@ -120,12 +120,12 @@ type Session struct {
 	// reflect explicit user decisions where the vendor exposes them
 	// (Claude Code Pre+Post pair), and the auto-applied policy
 	// decisions on Cursor / Codex (both bump accept).
-	LinesAdded       int
-	LinesRemoved     int
-	LinesAccepted    int
-	LinesRejected    int
-	EditAcceptCount  int
-	EditRejectCount  int
+	LinesAdded      int
+	LinesRemoved    int
+	LinesAccepted   int
+	LinesRejected   int
+	EditAcceptCount int
+	EditRejectCount int
 	// Agent-attributed git activity. Detected via the agent's
 	// Bash / shell tool invocations only — a developer manually
 	// running `git commit` outside the agent's tool does NOT count.
@@ -139,9 +139,9 @@ type Session struct {
 	VCSDirty   bool
 
 	// Identity / classification.
-	UserID                string
-	UserClassification    string // "personal" | "work" | "disputed" | "unknown"
-	ClassificationReason  string
+	UserID               string
+	UserClassification   string // "personal" | "work" | "disputed" | "unknown"
+	ClassificationReason string
 
 	// Permission posture.
 	PermissionMode string
@@ -161,23 +161,23 @@ type Session struct {
 
 // ToolCall is the canonical tool-call span.
 type ToolCall struct {
-	SessionID  string
-	AgentID    string
-	ToolName   string
-	ToolUseID  string
-	GroupID    string
-	GroupType  string
-	Iteration  int
+	SessionID string
+	AgentID   string
+	ToolName  string
+	ToolUseID string
+	GroupID   string
+	GroupType string
+	Iteration int
 
 	StartedAt time.Time
 	EndedAt   time.Time
 	Duration  time.Duration
 
 	// Errored is true if the tool returned a non-zero / failure.
-	Errored      bool
-	ErrorMsg     string
-	FailureType  string // "error" | "timeout" | "permission_denied" (Cursor)
-	IsInterrupt  bool
+	Errored     bool
+	ErrorMsg    string
+	FailureType string // "error" | "timeout" | "permission_denied" (Cursor)
+	IsInterrupt bool
 
 	// MCP attribution (if this tool came from an MCP server).
 	MCPServerName string
@@ -232,8 +232,8 @@ type EditDecision struct {
 // known as a "generation"). Vendors map their hooks onto this:
 //
 //   - Cursor:       beforeSubmitPrompt → StartedAt + Prompt
-//                   afterAgentResponse → EndedAt + Response
-//                   afterAgentThought  → ThoughtText
+//     afterAgentResponse → EndedAt + Response
+//     afterAgentThought  → ThoughtText
 //   - Claude Code:  derived from transcript JSONL turns at SessionEnd
 //   - Codex:        derived from rollout JSONL on Stop
 //
@@ -284,10 +284,10 @@ type LLMTurn struct {
 	// captured regardless of ContentCapture.
 	AttachmentPaths []string
 
-	InputTokens         int64
-	OutputTokens        int64
-	TotalTokens         int64
-	CostUSD             float64
+	InputTokens  int64
+	OutputTokens int64
+	TotalTokens  int64
+	CostUSD      float64
 	// CacheReadTokens / CacheCreationTokens are the OTel-standard
 	// gen_ai cache fields. Anthropic exposes them on every response;
 	// OpenAI doesn't yet. Zero means "vendor didn't tell us" — never
@@ -335,12 +335,12 @@ type Subagent struct {
 	GitBranch            string
 	IsParallelWorker     bool
 
-	StartedAt   time.Time
-	EndedAt     time.Time
-	DurationMs  int64
-	MessageCount int
+	StartedAt     time.Time
+	EndedAt       time.Time
+	DurationMs    int64
+	MessageCount  int
 	ToolCallCount int
-	LoopCount    int
+	LoopCount     int
 
 	// Status is one of: started | completed | error | aborted.
 	Status string

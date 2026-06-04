@@ -88,9 +88,9 @@ func TestIsPullRequest(t *testing.T) {
 
 func TestExtractPRURLAndNumber(t *testing.T) {
 	cases := []struct {
-		in       string
-		wantURL  string
-		wantNum  int
+		in      string
+		wantURL string
+		wantNum int
 	}{
 		{
 			in:      `https://github.com/foo/bar/pull/123`,

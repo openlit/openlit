@@ -409,11 +409,11 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	}
 
 	if err := adapter.Handle(ctx, normalize.Input{
-		Vendor:        adapter.Vendor(),
-		Event:         event,
-		Payload:       payload,
+		Vendor:         adapter.Vendor(),
+		Event:          event,
+		Payload:        payload,
 		ContentCapture: cfg.CodingContentCapture,
-		Emit:          emit,
+		Emit:           emit,
 	}); err != nil {
 		logErrorf("hook adapter handle: %v", err)
 	}
@@ -658,4 +658,3 @@ func peekContext(payload []byte) peekedContext {
 	}
 	return out
 }
-

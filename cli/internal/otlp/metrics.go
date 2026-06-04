@@ -32,11 +32,11 @@ import (
 )
 
 var (
-	meterOnce         sync.Once
-	linesOfCodeCnt    metric.Int64Counter
-	editDecisionCnt   metric.Int64Counter
-	commitCnt         metric.Int64Counter
-	pullRequestCnt    metric.Int64Counter
+	meterOnce       sync.Once
+	linesOfCodeCnt  metric.Int64Counter
+	editDecisionCnt metric.Int64Counter
+	commitCnt       metric.Int64Counter
+	pullRequestCnt  metric.Int64Counter
 )
 
 // initMetrics initialises the coding-agent metric instruments on

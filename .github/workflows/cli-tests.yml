@@ -75,22 +75,24 @@ jobs:
         run: go build -trimpath -o /dev/null ./cmd/openlit
 
   plugin-sync-drift:
-    name: plugins/ in-sync with cli/internal/coding/install/plugins
+    name: .claude-plugin/ + plugins/ in-sync with cli/internal/coding/install/marketplace
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Sync into a temp dir and diff
         run: |
           set -euo pipefail
-          # Capture the embedded tree under cli/internal/coding/install/plugins
-          # before re-running sync, then diff the sync result against it.
+          # Capture the embedded marketplace tree before re-running sync,
+          # then diff the sync result against it. Drift here means
+          # somebody edited .claude-plugin/ or plugins/ at the repo root
+          # but forgot to run cli/scripts/sync-plugins.sh.
           BEFORE=$(mktemp -d)
-          cp -R cli/internal/coding/install/plugins/. "$BEFORE/"
+          cp -R cli/internal/coding/install/marketplace/. "$BEFORE/"
           bash cli/scripts/sync-plugins.sh
-          if ! diff -ru "$BEFORE" cli/internal/coding/install/plugins; then
+          if ! diff -ru "$BEFORE" cli/internal/coding/install/marketplace; then
             echo
-            echo "::error::plugins/ has drifted from cli/internal/coding/install/plugins/."
+            echo "::error::.claude-plugin/ or plugins/ has drifted from cli/internal/coding/install/marketplace/."
             echo "Run \`bash cli/scripts/sync-plugins.sh\` locally and commit the result."
             exit 1
           fi
-          echo "embedded plugin tree is in sync"
+          echo "embedded marketplace tree is in sync"
