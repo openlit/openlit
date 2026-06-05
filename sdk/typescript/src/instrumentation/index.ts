@@ -27,6 +27,7 @@ import StrandsInstrumentation from './strands';
 import GoogleADKInstrumentation from './google-adk';
 import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 import CursorSDKInstrumentation from './cursor-sdk';
+import ElevenLabsInstrumentation from './elevenlabs';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -96,6 +97,7 @@ export default class Instrumentations {
     'google-adk': new GoogleADKInstrumentation(),
     'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
     'cursor-sdk': new CursorSDKInstrumentation(),
+    elevenlabs: new ElevenLabsInstrumentation(),
   };
 
   static setup(
