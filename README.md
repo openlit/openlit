@@ -283,7 +283,7 @@ OpenLIT auto-instruments **50+ LLM providers, AI frameworks, and vector database
 
 <table>
 <tr>
-<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/elevenlabs"><b>ElevenLabs</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/elevenlabs"><b>ElevenLabs</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/assemblyai"><b>AssemblyAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 <td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/mcp"><b>MCP</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
 </tr>

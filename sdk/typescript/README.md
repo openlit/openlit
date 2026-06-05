@@ -47,6 +47,10 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
 
+| Audio / Speech                                                                              |
+| ------------------------------------------------------------------------------------------- |
+| [✅ ElevenLabs](https://docs.openlit.io/latest/sdk/integrations/elevenlabs)                   |
+
 | Vector Databases                                                                            |
 | ------------------------------------------------------------------------------------------- |
 | [✅ Chroma](https://docs.openlit.io/latest/integrations/chromadb)                           |

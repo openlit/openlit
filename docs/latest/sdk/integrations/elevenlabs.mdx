@@ -5,21 +5,76 @@ sidebarTitle: 'ElevenLabs'
 
 import IntegrationMethods from '/snippets/integration-methods.mdx';
 
-OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using Audio and Speech models from ElevenLabs. This includes tracking performance, costs, Voice inputs and settings and how users interact with the application.
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using Audio and Speech models from ElevenLabs. This includes tracking performance, costs, voice inputs and settings, and how users interact with the application.
 
 Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-The integration is compatible with  
-- ElevenLabs Python SDK client `>= 1.4.0` 
+The integration is compatible with
+- ElevenLabs Python SDK client `>= 1.4.0`
+- ElevenLabs TypeScript SDK client (`@elevenlabs/elevenlabs-js` or `elevenlabs`) `>= 1.0.0`
 
-## Get started 
+## Supported APIs
+
+| SDK | Instrumented methods |
+|-----|---------------------|
+| **TypeScript** | `ElevenLabsClient.textToSpeech.convert`, `.stream`, `.convertWithTimestamps` |
+| **Python** | `TextToSpeechClient.convert` and `AsyncTextToSpeechClient.convert` |
+
+TypeScript covers more TTS methods than Python. Python instruments `.convert` only (sync and async).
+
+## Prerequisites
+
+- Install the ElevenLabs SDK yourself. OpenLIT does not bundle it as a dependency.
+- For TypeScript, call `openlit.init()` **before** the ElevenLabs module is first loaded so OpenTelemetry can hook into the SDK at runtime.
+
+## TypeScript example
+
+```typescript
+import openlit from "openlit";
+
+openlit.init({ otlpEndpoint: "YOUR_OTEL_ENDPOINT" });
+
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+
+const client = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY! });
+const audio = await client.textToSpeech.convert("voice-id", {
+  text: "Hello",
+  modelId: "eleven_multilingual_v2", // also accepts model_id / model
+});
+```
+
+## Configuration
+
+| Option | Behavior |
+|--------|----------|
+| `captureMessageContent` | Gates `gen_ai.input.messages` / `gen_ai.output.messages` on spans and in events |
+| `disableEvents` | Suppresses all inference events |
+| `disableMetrics` | Global — metrics instruments are not set up |
+| `disabledInstrumentors: ['elevenlabs']` | Disables this instrumentation |
+
+<Note>
+On the Python SDK, inference events are only emitted when `capture_message_content` is enabled. On the TypeScript SDK, inference events are emitted when `disableEvents` is `false`, regardless of `captureMessageContent` (message fields within the event are still gated by content capture).
+</Note>
+
+## Get started
 
 <Steps>
   <Step title="Install OpenLIT">
     Open your command line or terminal and run:
-    ```shell
-    pip install openlit
-    ```
+    <Tabs>
+      <Tab title="Python">
+          ```shell
+          pip install openlit
+          ```
+      </Tab>
+      <Tab title="Typescript">
+          ```shell
+          npm install openlit
+          npm install @elevenlabs/elevenlabs-js
+          ```
+          The `elevenlabs` package is also supported.
+      </Tab>
+      </Tabs>
   </Step>
   <IntegrationMethods />
 </Steps>
