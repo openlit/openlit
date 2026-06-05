@@ -25,6 +25,48 @@ describe('ElevenLabsWrapper', () => {
     span.end();
   });
 
+  describe('_parseAudioArgs', () => {
+    it('should parse voice id and options from positional args', () => {
+      const parsed = ElevenLabsWrapper._parseAudioArgs([
+        'voice-id-123',
+        {
+          text: 'Hello world',
+          model_id: 'eleven_turbo_v2',
+          voice_settings: { stability: 0.5 },
+          output_format: 'pcm_16000',
+        },
+      ]);
+
+      expect(parsed).toEqual({
+        voiceId: 'voice-id-123',
+        options: {
+          text: 'Hello world',
+          model_id: 'eleven_turbo_v2',
+          voice_settings: { stability: 0.5 },
+          output_format: 'pcm_16000',
+        },
+        requestModel: 'eleven_turbo_v2',
+        text: 'Hello world',
+        voiceSettings: { stability: 0.5 },
+        outputFormat: 'pcm_16000',
+      });
+    });
+
+    it('should parse voice id and options from a single object arg', () => {
+      const parsed = ElevenLabsWrapper._parseAudioArgs([
+        {
+          voice_id: 'voice-id-456',
+          text: 'Nested args',
+          model: 'eleven_monolingual_v1',
+        },
+      ]);
+
+      expect(parsed.voiceId).toBe('voice-id-456');
+      expect(parsed.requestModel).toBe('eleven_monolingual_v1');
+      expect(parsed.text).toBe('Nested args');
+    });
+  });
+
   describe('_commonAudioSetter', () => {
     it('should set span attributes and return metric parameters', () => {
       const mockArgs = [
@@ -204,6 +246,44 @@ describe('ElevenLabsWrapper', () => {
         model: 'eleven_multilingual_v2',
         cost: 0.005,
         aiSystem: 'elevenlabs',
+      });
+    });
+
+    it('should record error metrics when streaming fails', async () => {
+      const mockArgs = [
+        'voice-id-123',
+        {
+          text: 'Hello world streaming',
+          model_id: 'eleven_multilingual_v2',
+        },
+      ];
+
+      const mockResponse = (async function* () {
+        yield Buffer.from('chunk1');
+        throw new Error('stream failed');
+      })();
+
+      const generator = ElevenLabsWrapper._streamGenerator({
+        args: mockArgs,
+        genAIEndpoint: 'elevenlabs.textToSpeech.stream',
+        response: mockResponse,
+        span,
+      });
+
+      await expect(async () => {
+        for await (const _chunk of generator) {
+          // consume until error
+        }
+      }).rejects.toThrow('stream failed');
+
+      expect(OpenLitHelper.handleException).toHaveBeenCalledWith(span, expect.any(Error));
+      expect(BaseWrapper.recordMetrics).toHaveBeenCalledWith(span, {
+        genAIEndpoint: 'elevenlabs.textToSpeech.stream',
+        model: 'eleven_multilingual_v2',
+        aiSystem: 'elevenlabs',
+        serverAddress: 'api.elevenlabs.io',
+        serverPort: 443,
+        errorType: 'Error',
       });
     });
   });

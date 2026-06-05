@@ -27,15 +27,31 @@ class ElevenLabsWrapper extends BaseWrapper {
   static serverAddress = 'api.elevenlabs.io';
   static serverPort = 443;
 
+  static _parseAudioArgs(args: any[]): {
+    voiceId: string;
+    options: Record<string, any>;
+    requestModel: string;
+    text: string;
+    voiceSettings: unknown;
+    outputFormat: string;
+  } {
+    const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
+    const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
+    const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
+    const text = options.text || '';
+    const voiceSettings = options.voice_settings || '';
+    const outputFormat = options.output_format || 'mp3_44100_128';
+
+    return { voiceId, options, requestModel, text, voiceSettings, outputFormat };
+  }
+
   static _patchConvert(tracer: Tracer, methodName: string): any {
     const genAIEndpoint = `elevenlabs.textToSpeech.${methodName}`;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
 
-        const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
-        const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
-        const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
+        const { requestModel } = ElevenLabsWrapper._parseAudioArgs(args);
 
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} ${requestModel}`;
         const effectiveCtx = getFrameworkParentContext() ?? context.active();
@@ -90,9 +106,7 @@ class ElevenLabsWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
 
-        const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
-        const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
-        const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
+        const { requestModel } = ElevenLabsWrapper._parseAudioArgs(args);
 
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} ${requestModel}`;
         const effectiveCtx = getFrameworkParentContext() ?? context.active();
@@ -158,10 +172,6 @@ class ElevenLabsWrapper extends BaseWrapper {
         yield chunk;
       }
 
-      const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
-      const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
-      const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
-
       const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
       let tbt = 0;
       if (timestamps.length > 1) {
@@ -179,6 +189,15 @@ class ElevenLabsWrapper extends BaseWrapper {
       });
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
+      const { requestModel } = ElevenLabsWrapper._parseAudioArgs(args);
+      BaseWrapper.recordMetrics(span, {
+        genAIEndpoint,
+        model: requestModel,
+        aiSystem: ElevenLabsWrapper.aiSystem,
+        serverAddress: ElevenLabsWrapper.serverAddress,
+        serverPort: ElevenLabsWrapper.serverPort,
+        errorType: e?.constructor?.name || '_OTHER',
+      });
       throw e;
     } finally {
       span.end();
@@ -205,12 +224,13 @@ class ElevenLabsWrapper extends BaseWrapper {
   }): BaseSpanAttributes {
     const captureContent = OpenlitConfig.captureMessageContent;
 
-    const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
-    const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
-    const text = options.text || '';
-    const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
-    const voiceSettings = options.voice_settings || '';
-    const outputFormat = options.output_format || 'mp3_44100_128';
+    const {
+      voiceId,
+      requestModel,
+      text,
+      voiceSettings,
+      outputFormat,
+    } = ElevenLabsWrapper._parseAudioArgs(args);
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, voiceId);
     if (voiceSettings) {
