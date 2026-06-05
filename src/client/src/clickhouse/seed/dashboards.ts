@@ -92,7 +92,14 @@ export default async function CreateCustomDashboardsSeed(
 		try {
 			const { err: importErr } = await importBoardLayout(
 				entry.layout,
-				databaseConfigId
+				databaseConfigId,
+				// Preserve the seed JSON's widget ids so the per-boot
+				// `syncWidgetSqlFromSeed` step below can update widgets
+				// by id when the seed file ships an SQL or properties
+				// fix. Public/user-driven imports keep the default
+				// (regenerate ids) to avoid colliding with whatever's
+				// already in the widget table.
+				{ preserveWidgetIds: true }
 			);
 			if (importErr) {
 				failures.push(`${entry.seedTitle}: ${String(importErr)}`);

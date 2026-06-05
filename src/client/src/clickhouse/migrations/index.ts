@@ -100,4 +100,10 @@ export default async function migrations(databaseConfigId?: string) {
 	// `create-vcs-migration`. Runs last so stale deployments still get
 	// the cleanup, and uses IF EXISTS so fresh installs are no-ops.
 	await DropVcsMigration(databaseConfigId);
+
+	// Built-in dashboard seeding (LLM / Vector DB / GPU / Coding
+	// Agents / future) lives inside `create-custom-dashboards-migration`
+	// and runs on every boot via per-title idempotent upsert -- no
+	// per-board one-off migration is needed when a new built-in board
+	// is added to `SEEDED_DASHBOARDS` (see seed/dashboards.ts).
 }

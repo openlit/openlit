@@ -468,7 +468,30 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 }
 
 // TODO: fix the type of data
-export async function importBoardLayout(data: any, databaseConfigId?: string) {
+export async function importBoardLayout(
+	data: any,
+	databaseConfigId?: string,
+	options?: {
+		// When true, widget ids from `data.widgets` are kept verbatim
+		// instead of being replaced with freshly generated UUIDs.
+		//
+		// Defaults to FALSE -- user-driven imports (the public
+		// `/api/manage-dashboard/board/layout/import` endpoint and the
+		// UI explorer that wraps it) must regenerate ids because the
+		// incoming JSON could carry widget ids that already exist in
+		// the table (re-importing the same exported dashboard, or two
+		// users importing a shared template).
+		//
+		// The seed path (`CreateCustomDashboardsSeed`) opts in by
+		// passing `true`. Its JSON ships stable, owned UUIDs that we
+		// also want to use as the in-table widget ids so that
+		// `syncWidgetSqlFromSeed` can update widgets by id on every
+		// boot when a built-in widget's SQL or properties change in
+		// the seed file. Without preservation those by-id updates
+		// silently match zero rows.
+		preserveWidgetIds?: boolean;
+	}
+) {
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
 
 	const boardData: Partial<Board> = {
@@ -494,15 +517,18 @@ export async function importBoardLayout(data: any, databaseConfigId?: string) {
 		widgets: data.widgets
 	};
 
+	const preserveWidgetIds = options?.preserveWidgetIds === true;
 	const widgetIdMap = new Map();
 
 	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
-		const newWidgetId = crypto.randomUUID();
-		widgetIdMap.set(widget.id, newWidgetId);
+		const nextWidgetId = preserveWidgetIds
+			? widget.id
+			: crypto.randomUUID();
+		widgetIdMap.set(widget.id, nextWidgetId);
 
 		return {
 			...widget,
-			id: newWidgetId,
+			id: nextWidgetId,
 		};
 	});
 
