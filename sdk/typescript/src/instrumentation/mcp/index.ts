@@ -1,3 +1,4 @@
+import { diag } from '@opentelemetry/api';
 import {
   InstrumentationBase,
   InstrumentationModuleDefinition,
@@ -110,7 +111,7 @@ export default class MCPInstrumentation extends InstrumentationBase {
         );
       }
     } catch (e) {
-      console.error('Error in MCP _patch method:', e);
+      diag.error('Error in MCP _patch method', e as Error);
     }
   }
 

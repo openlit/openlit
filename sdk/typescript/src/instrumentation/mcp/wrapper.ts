@@ -30,7 +30,7 @@ class MCPWrapper extends BaseWrapper {
   static _patchCallTool(tracer: Tracer): any {
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const toolName: string = args[0]?.name || 'unknown';
+        const toolName: string = typeof args[0] === 'string' ? args[0] : args[0]?.name || 'unknown';
         const spanName = `execute_tool ${toolName}`;
         const span = tracer.startSpan(spanName, { kind: SpanKind.CLIENT });
         const startTime = Date.now();
@@ -145,7 +145,7 @@ class MCPWrapper extends BaseWrapper {
   static _patchGetPrompt(tracer: Tracer): any {
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
-        const promptName: string = args[0]?.name || 'unknown';
+        const promptName: string = typeof args[0] === 'string' ? args[0] : args[0]?.name || 'unknown';
         const spanName = `invoke_agent ${promptName}`;
         const span = tracer.startSpan(spanName, { kind: SpanKind.CLIENT });
         const startTime = Date.now();
