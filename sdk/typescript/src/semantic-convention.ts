@@ -246,6 +246,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
+  static GEN_AI_SYSTEM_MCP = 'mcp';
 
   static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
 
