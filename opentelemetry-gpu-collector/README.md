@@ -110,7 +110,7 @@ services:
 Download a pre-built binary from the [Releases](https://github.com/openlit/openlit/releases) page:
 
 ```sh
-# Linux amd64
+# Pick the asset matching your platform: linux-amd64 or linux-arm64.
 curl -L https://github.com/openlit/openlit/releases/latest/download/opentelemetry-gpu-collector-<version>-linux-amd64 \
     -o opentelemetry-gpu-collector
 chmod +x opentelemetry-gpu-collector
@@ -123,7 +123,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 ./opentelemetry-gpu-collector
 ```sh
 git clone https://github.com/openlit/openlit.git
 cd openlit/opentelemetry-gpu-collector
-make build
+make all
 ./opentelemetry-gpu-collector
 ```
 

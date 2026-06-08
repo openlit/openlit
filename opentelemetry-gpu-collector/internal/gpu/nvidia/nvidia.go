@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux && (amd64 || arm64) && cgo
 
 package nvidia
 
