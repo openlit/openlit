@@ -89,6 +89,43 @@ flowchart TB;
 
 > For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/openlit/installation#kubernetes).
 
+3. Self-host using Nix (Flakes)
+
+   For users who already have Nix with flakes enabled:
+
+   ```shell
+   # Clone and enter the development shell
+   git clone git@github.com:openlit/openlit.git
+   cd openlit
+   nix develop
+
+   # Start services with Docker
+   docker-compose up -d
+   ```
+
+   Or run the OpenLIT helper directly:
+
+   ```shell
+   nix run github:openlit/openlit -- help
+   ```
+
+4. Self-host using Devbox
+
+   For a reproducible development environment:
+
+   ```shell
+   # Install Devbox if not already installed
+   curl -fsSL https://get.jetify.dev/devbox | bash
+
+   # Clone and enter the environment
+   git clone git@github.com:openlit/openlit.git
+   cd openlit
+   devbox shell
+
+   # Start services
+   docker-compose up -d
+   ```
+
 ### Step 2: Install OpenLIT SDK
 
 Open your command line or terminal and run:

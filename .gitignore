@@ -18,3 +18,7 @@ logs/
 **certs/index.txt
 **.csr
 sdk/typescript-test/
+
+# Nix build result symlinks
+/result
+/result-*
