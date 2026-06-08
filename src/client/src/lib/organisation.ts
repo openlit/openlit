@@ -217,10 +217,16 @@ export async function createOrganisationProject(
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
+	const trimmedName = name.trim();
+	throwIfError(
+		trimmedName.length < 1 || trimmedName.length > 120,
+		"Project name must be between 1 and 120 characters"
+	);
+
 	const isAdmin = await hasAdminOrOwnerRole(organisationId, user!.id);
 	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
-	const baseSlug = slugify(name) || "project";
+	const baseSlug = slugify(trimmedName) || "project";
 	for (let attempt = 0; attempt < 10; attempt++) {
 		const suffix = Math.random().toString(36).substring(2, 8);
 		const slug = `${baseSlug}-${suffix}`;
@@ -238,7 +244,7 @@ export async function createOrganisationProject(
 			return prisma.project.create({
 				data: {
 					organisationId,
-					name,
+					name: trimmedName,
 					slug,
 				},
 			});

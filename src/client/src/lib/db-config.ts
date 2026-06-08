@@ -285,6 +285,22 @@ export async function setCurrentDBConfig(id: string) {
 
 	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
+	const currentOrg = await getCurrentOrganisation();
+	const currentProject = currentOrg?.id
+		? await getCurrentProjectForOrganisation(currentOrg.id)
+		: null;
+	const targetConfig = await prisma.databaseConfig.findFirst({
+		where: {
+			id,
+			projectId: currentProject?.id ?? null,
+		},
+		select: { id: true },
+	});
+
+	if (!targetConfig) {
+		throw new Error("Database config doesn't exist in current project");
+	}
+
 	const currentConfig = await getDBConfigByUser(true);
 
 	if ((currentConfig as DatabaseConfig)?.id) {
