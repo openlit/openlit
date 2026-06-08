@@ -37,7 +37,10 @@ jobs:
           set -euo pipefail
           sudo apt-get update -q
           sudo apt-get install -y clang llvm libbpf-dev
-          curl -fsSL "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
+          # GitHub release-assets occasionally return transient 504s; retry before
+          # piping into tar (a truncated body produces a misleading gzip error).
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+            "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz" \
             | sudo tar -xz -C /usr/local/bin/
           sudo chmod +x /usr/local/bin/bpftool
           /usr/local/bin/bpftool version

@@ -357,6 +357,36 @@ export function FireworksSvg({ className }: SvgProps) {
 	);
 }
 
+export function CustomGatewaySvg({ className }: SvgProps) {
+	// Generic "LLM gateway / proxy" mark: a gateway/hub on the left fanning out
+	// to multiple model endpoints on the right. Uses currentColor so it adapts
+	// to light/dark themes like the other provider marks.
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+			className={className}
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			{/* gateway node */}
+			<rect x="2.5" y="9" width="5" height="6" rx="1.2" fill="currentColor" stroke="none" />
+			{/* routing lines to the three endpoints */}
+			<path d="M7.5 12h3.5" />
+			<path d="M11 12l4-5.5" />
+			<path d="M11 12h4.5" />
+			<path d="M11 12l4 5.5" />
+			{/* model endpoints */}
+			<circle cx="18" cy="6.5" r="2.4" />
+			<circle cx="19.2" cy="12" r="2.4" />
+			<circle cx="18" cy="17.5" r="2.4" />
+		</svg>
+	);
+}
+
 const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	openai: OpenAISvg,
 	anthropic: AnthropicSvg,
@@ -374,6 +404,7 @@ const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	vercel_ai: VercelSvg,
 	vertex_ai: VertexSvg,
 	litellm: LiteLLMSvg,
+	custom: CustomGatewaySvg,
 };
 
 export function ProviderIcon({
@@ -385,6 +416,10 @@ export function ProviderIcon({
 }) {
 	const Icon = PROVIDER_ICON_MAP[provider.toLowerCase()];
 	if (Icon) return <Icon className={className} />;
+	// Unknown providers (e.g. agent frameworks like crewai/langgraph, or future
+	// vendors) render no icon rather than a misleading gateway mark. The generic
+	// gateway icon is reserved for the explicit `custom` provider above — a
+	// self-hosted LLM gateway — not for anything we simply don't recognize.
 	return null;
 }
 

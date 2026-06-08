@@ -62,7 +62,7 @@ vendor-providers:
 	@echo "==> Checking out OBI submodule..."
 	git submodule update --init --checkout .obi-src
 	@echo "==> Copying provider parser files..."
-	@for dir in providers/*/; do \
+	@for dir in _obi-providers/*/; do \
 		provider=$$(basename $$dir); \
 		for gofile in $$dir*.go; do \
 			[ -f "$$gofile" ] || continue; \
