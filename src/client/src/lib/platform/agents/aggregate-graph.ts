@@ -23,10 +23,9 @@ import {
 import { buildVersionWhereClause } from "./version-filter";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 export type AggregateNodeKind = "span" | "tool";
 

@@ -191,7 +191,7 @@ type pollResult struct {
 }
 
 func doPoll(
-	_ context.Context,
+	ctx context.Context,
 	client *openlit.Client,
 	eng *engine.Engine,
 	logger *zap.Logger,
@@ -229,7 +229,7 @@ func doPoll(
 		})
 	}
 
-	resp, err := client.Poll(&openlit.PollRequest{
+	resp, err := client.Poll(ctx, &openlit.PollRequest{
 		InstanceID:           instanceID,
 		ClusterID:            clusterID,
 		Version:              server.Version,
@@ -266,22 +266,40 @@ func doPoll(
 			}
 		}
 
+		if hostsRaw, ok := resp.Config["custom_llm_hosts"]; ok {
+			if hostsList, ok := hostsRaw.([]interface{}); ok {
+				specs := make([]string, 0, len(hostsList))
+				for _, h := range hostsList {
+					if s, ok := h.(string); ok {
+						if s = strings.TrimSpace(s); s != "" {
+							specs = append(specs, s)
+						}
+					}
+				}
+				eng.UpdateCustomHosts(specs)
+			}
+		}
+
 		if exportRaw, ok := resp.Config["export"]; ok {
 			if exportMap, ok := exportRaw.(map[string]interface{}); ok {
+				// Only non-empty values override the controller's configured
+				// (env-derived) endpoints. An empty/unset field in the dashboard
+				// config means "use the controller's own OTEL_EXPORTER_OTLP_ENDPOINT",
+				// so it must NOT clobber the working endpoint with "".
 				newCfg := eng.GetExportConfig()
-				if v, ok := exportMap["otlp_endpoint"].(string); ok {
+				if v, ok := exportMap["otlp_endpoint"].(string); ok && v != "" {
 					newCfg.OTLPEndpoint = v
 				}
-				if v, ok := exportMap["otlp_protocol"].(string); ok {
+				if v, ok := exportMap["otlp_protocol"].(string); ok && v != "" {
 					newCfg.OTLPProtocol = v
 				}
-				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok {
+				if v, ok := exportMap["otlp_traces_endpoint"].(string); ok && v != "" {
 					newCfg.OTLPTracesEndpoint = v
 				}
-				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok {
+				if v, ok := exportMap["otlp_metrics_endpoint"].(string); ok && v != "" {
 					newCfg.OTLPMetricsEndpoint = v
 				}
-				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok {
+				if v, ok := exportMap["otlp_logs_endpoint"].(string); ok && v != "" {
 					newCfg.OTLPLogsEndpoint = v
 				}
 				if headersRaw, ok := exportMap["otlp_headers"]; ok {

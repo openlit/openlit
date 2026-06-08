@@ -22,7 +22,12 @@ func (e *Engine) consumeScannerEvents(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case ev := <-e.scanner.Events():
+		case ev, ok := <-e.scanner.Events():
+			if !ok {
+				// Channel closed (scanner shut down); stop consuming rather than
+				// spinning on zero-value events.
+				return
+			}
 			if ev.PID == selfPID {
 				continue
 			}
@@ -173,12 +178,18 @@ func buildWorkloadKey(meta *ProcessMetadata, mode config.DeployMode) string {
 	return ""
 }
 
+// stableContainerName returns the container-name component of the K8s workload
+// key. It deliberately does NOT fall back to meta.ServiceName: ServiceName can
+// be overridden by a user-set OTEL_SERVICE_NAME, and the workload identity key
+// must stay derived from infrastructure only — otherwise enabling/changing that
+// env would shift the key and produce a duplicate agent listing. ContainerID is
+// a stable infra fallback; "default" is the last resort.
 func stableContainerName(meta *ProcessMetadata) string {
 	if meta.ContainerName != "" {
 		return meta.ContainerName
 	}
-	if meta.ServiceName != "" {
-		return meta.ServiceName
+	if meta.ContainerID != "" {
+		return meta.ContainerID
 	}
 	return "default"
 }
