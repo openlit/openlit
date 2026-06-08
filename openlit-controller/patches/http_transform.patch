@@ -1,59 +1,113 @@
 diff --git a/pkg/ebpf/common/http_transform.go b/pkg/ebpf/common/http_transform.go
-index a79d1d7..c6d4f88 100644
+index 7fe38be..3ee401e 100644
 --- a/pkg/ebpf/common/http_transform.go
 +++ b/pkg/ebpf/common/http_transform.go
-@@ -197,6 +197,54 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
+@@ -222,6 +222,28 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
  		}
  	}
  
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Groq.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++	// Ollama native API (/api/chat, /api/generate). Path-gated inside OllamaSpan
++	// so it only matches the native endpoints, never the /v1/ OpenAI-compat path.
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Ollama.Enabled {
++		span, ok := ebpfhttp.OllamaSpan(&httpSpan, req, resp)
 +		if ok {
-+			span.SubType = request.HTTPSubtypeGroq
++			span.SubType = request.HTTPSubtypeOllama
 +			return span
 +		}
 +	}
 +
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Deepseek.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
++	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Placed LAST
++	// among the GenAI branches so the named providers above win when their flag
++	// is also on. Gated on the request's destination matching one of the
++	// configured gateway hosts (dashboard custom_llm_hosts), so it only ever
++	// fires for traffic to a known gateway and never disturbs other detection.
++	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Custom.Enabled {
++		span, ok := ebpfhttp.CustomSpan(&httpSpan, parseCtx.payloadExtraction.HTTP.GenAI.Custom.Hosts, req, resp)
 +		if ok {
-+			span.SubType = request.HTTPSubtypeDeepseek
 +			return span
 +		}
 +	}
 +
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Together.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
-+		if ok {
-+			span.SubType = request.HTTPSubtypeTogether
-+			return span
+ 	// Parse JSON-RPC once and reuse for both MCP and plain JSON-RPC
+ 	// detection, since MCP is a protocol layer on top of JSON-RPC.
+ 	if parseCtx != nil && (parseCtx.payloadExtraction.HTTP.GenAI.MCP.Enabled || parseCtx.payloadExtraction.HTTP.JSONRPC.Enabled) {
+diff --git a/pkg/export/otel/tracesgen/tracesgen.go b/pkg/export/otel/tracesgen/tracesgen.go
+index e5ceb57..fbb4ee7 100644
+--- a/pkg/export/otel/tracesgen/tracesgen.go
++++ b/pkg/export/otel/tracesgen/tracesgen.go
+@@ -593,6 +593,75 @@ func TraceAttributesSelector(span *request.Span, optionalAttrs map[attr.Name]str
+ 			}
+ 		}
+ 
++		// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Reuses
++		// the OpenAI-shaped VendorOpenAI payload but emits no provider name, since
++		// the backend vendor behind the gateway is unknown.
++		if span.SubType == request.HTTPSubtypeCustom && span.GenAI != nil && span.GenAI.Custom != nil {
++			ai := span.GenAI.Custom
++			// gen_ai.provider.name is intentionally a generic marker: the actual
++			// backend vendor behind a custom gateway is unknown. Discovery
++			// (IP+port) remains the authoritative attribution.
++			attrs = append(attrs, semconv.GenAIProviderNameKey.String("custom"))
++			attrs = append(attrs, semconv.GenAIOperationNameKey.String(ai.OperationName))
++			attrs = append(attrs, semconv.GenAIResponseID(ai.ID))
++			attrs = append(attrs, semconv.GenAIRequestModel(ai.Request.Model))
++			attrs = append(attrs, semconv.GenAIResponseModel(ai.ResponseModel))
++			if ai.FrequencyPenalty > 0.0 {
++				attrs = append(attrs, semconv.GenAIRequestFrequencyPenalty(ai.FrequencyPenalty))
++			}
++			if ai.Temperature > 0.0 {
++				attrs = append(attrs, semconv.GenAIRequestTemperature(ai.Temperature))
++			} else if ai.Request.Temperature != 0 {
++				attrs = append(attrs, semconv.GenAIRequestTemperature(ai.Request.Temperature))
++			}
++			if ai.TopP > 0.0 {
++				attrs = append(attrs, semconv.GenAIRequestTopP(ai.TopP))
++			}
++			attrs = append(attrs, semconv.GenAIUsageInputTokens(ai.Usage.GetInputTokens()))
++			attrs = append(attrs, semconv.GenAIUsageOutputTokens(ai.Usage.GetOutputTokens()))
++			// Messages are emitted in the GenAI semantic-conventions structure
++			// (role + parts[]), normalized by the custom parser — NOT the raw
++			// OpenAI shape returned by the VendorOpenAI getters.
++			if _, ok := optionalAttrs[attr.GenAIInput]; ok && span.GenAI.CustomInputMessages != "" {
++				attrs = append(attrs, semconv.GenAIInputMessagesKey.String(span.GenAI.CustomInputMessages))
++			}
++			if _, ok := optionalAttrs[attr.GenAIOutput]; ok && span.GenAI.CustomOutputMessages != "" {
++				attrs = append(attrs, semconv.GenAIOutputMessagesKey.String(span.GenAI.CustomOutputMessages))
++			}
++			if _, ok := optionalAttrs[attr.GenAIInstructions]; ok && span.GenAI.CustomSystemInstructions != "" {
++				attrs = append(attrs, semconv.GenAISystemInstructionsKey.String(span.GenAI.CustomSystemInstructions))
++			}
++			if _, ok := optionalAttrs[attr.GenAIMetadata]; ok {
++				if len(ai.Metadata) > 0 {
++					attrs = append(attrs, request.Metadata(string(ai.Metadata)))
++				}
++			}
++			if ai.Error.Type != "" {
++				attrs = append(attrs, semconv.ErrorTypeKey.String(ai.Error.Type))
++				attrs = append(attrs, semconv.ErrorMessage(ai.Error.Message))
++			}
++			if ai.OperationName == request.EmbeddingOperationName && ai.Request.Dimensions > 0 {
++				attrs = append(attrs, attribute.Int("gen_ai.request.embedding.dimensions", ai.Request.Dimensions))
++			}
 +		}
-+	}
 +
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Fireworks.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
-+		if ok {
-+			span.SubType = request.HTTPSubtypeFireworks
-+			return span
++		// Ollama native API (/api/chat, /api/generate).
++		if span.SubType == request.HTTPSubtypeOllama && span.GenAI != nil && span.GenAI.Ollama != nil {
++			ai := span.GenAI.Ollama
++			attrs = append(attrs, semconv.GenAIProviderNameKey.String("ollama"))
++			attrs = append(attrs, semconv.GenAIOperationNameKey.String(ai.Operation))
++			attrs = append(attrs, semconv.GenAIRequestModel(ai.Model))
++			attrs = append(attrs, semconv.GenAIResponseModel(ai.Model))
++			attrs = append(attrs, semconv.GenAIUsageInputTokens(ai.InputTokens))
++			attrs = append(attrs, semconv.GenAIUsageOutputTokens(ai.OutputTokens))
++			if _, ok := optionalAttrs[attr.GenAIInput]; ok {
++				attrs = append(attrs, semconv.GenAIInputMessagesKey.String(ai.Input))
++			}
++			if _, ok := optionalAttrs[attr.GenAIOutput]; ok {
++				attrs = append(attrs, semconv.GenAIOutputMessagesKey.String(ai.Output))
++			}
 +		}
-+	}
 +
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.AzureOpenAI.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
-+		if ok {
-+			span.SubType = request.HTTPSubtypeAzureOpenAI
-+			return span
-+		}
-+	}
-+
-+	if isClientEvent(event.Type) && parseCtx != nil && parseCtx.payloadExtraction.HTTP.GenAI.Mistral.Enabled {
-+		span, ok := ebpfhttp.OpenAISpan(&httpSpan, req, resp)
-+		if ok {
-+			span.SubType = request.HTTPSubtypeMistral
-+			return span
-+		}
-+	}
-+
- 	if parseCtx != nil && parseCtx.payloadExtraction.HTTP.JSONRPC.Enabled {
- 		span, ok := ebpfhttp.JSONRPCSpan(&httpSpan, req, resp)
- 		if ok {
+ 		if span.SubType == request.HTTPSubtypeAnthropic && span.GenAI != nil && span.GenAI.Anthropic != nil {
+ 			ai := span.GenAI.Anthropic
+ 			attrs = append(attrs, semconv.GenAIProviderNameAnthropic)

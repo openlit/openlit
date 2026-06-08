@@ -42,9 +42,30 @@ func TestBuildWorkloadKeyStableForNakedPods(t *testing.T) {
 		PodUID:      "some-uid-123",
 	}
 
+	// The container-name suffix is infra-derived only (ContainerName/ContainerID),
+	// never ServiceName — so a user-set OTEL_SERVICE_NAME cannot shift the key.
+	// With no container info the suffix is the stable "default" literal; the key
+	// remains unique via namespace + pod name.
 	got := buildWorkloadKey(meta, config.DeployKubernetes)
-	if got != "k8s:openlit:gemini-app:gemini-app" {
+	if got != "k8s:openlit:gemini-app:default" {
 		t.Fatalf("expected stable key using pod name, got %q", got)
+	}
+}
+
+// The workload key must NOT change when a user sets OTEL_SERVICE_NAME (which
+// flows into meta.ServiceName) — identity is infrastructure-derived.
+func TestBuildWorkloadKeyIgnoresServiceNameOverride(t *testing.T) {
+	base := &ProcessMetadata{
+		Namespace:     "openlit",
+		ServiceName:   "original",
+		PodName:       "gemini-app",
+		ContainerName: "app",
+	}
+	renamed := *base
+	renamed.ServiceName = "user-chosen-name" // simulates OTEL_SERVICE_NAME override
+
+	if buildWorkloadKey(base, config.DeployKubernetes) != buildWorkloadKey(&renamed, config.DeployKubernetes) {
+		t.Fatal("workload key changed when ServiceName changed — would cause a duplicate agent listing")
 	}
 }
 
@@ -239,6 +260,7 @@ func TestBuildInstrumentConfigEnablesOnlyDetectedProviders(t *testing.T) {
 			"openai":  true,
 			"bedrock": true,
 		},
+		nil,
 		config.DeployLinux,
 		"default",
 	)

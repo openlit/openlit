@@ -1,0 +1,119 @@
+---
+description: Design principles and invariants for the OpenLIT controller (Go agent that discovers + instruments LLM workloads via eBPF/OBI + SDK injection) and the Agents-page server layer that consumes its data. Use when modifying openlit-controller/** or the controller/agents backend in src/client.
+globs: openlit-controller/**/*.go,openlit-controller/patches/*.patch,openlit-controller/_obi-providers/**/*.go,src/client/src/app/api/controller/**/*.ts,src/client/src/app/api/agents/**/*.ts,src/client/src/lib/platform/controller/**/*.ts,src/client/src/lib/platform/agents/**/*.ts
+alwaysApply: false
+---
+
+# OpenLIT Controller — Design Principles & Invariants
+
+The controller (`openlit-controller/`, Go) is a node/cluster agent that:
+1. **Discovers** processes talking to LLM endpoints via an eBPF scanner (kprobe on
+   `tcp_connect` + `/proc/net/tcp` connscan), keyed on destination **IP+port**.
+2. **Instruments** discovered workloads two ways: OBI (eBPF payload extraction,
+   built from upstream + our `patches/`) and Python-SDK injection
+   (docker/k8s/systemd/bare).
+3. **Reports** to the OpenLIT backend via a poll loop; the backend materializes
+   the data into the Agents page.
+
+Full rationale: see `openlit-controller/DESIGN.md`. The rules below are
+**invariants** — violating one re-introduces a real bug we have already hit.
+
+## 1. Service naming — the controller is the single naming authority
+
+- A workload's `service.name` is resolved ONCE at discovery (`EnrichProcess`).
+  Precedence: a user-set `OTEL_SERVICE_NAME` / `service.name` in the process env
+  WINS; otherwise container name (docker/k8s) or process name.
+- **All three emission paths must agree on that name:** discovery heartbeat, OBI
+  (`entry.Name = svc.ServiceName` in ALL modes), and SDK injection
+  (`OTEL_SERVICE_NAME=svc.ServiceName`). If they diverge, traces don't match the
+  Agents summary row and the detail tabs render empty.
+- The Agents detail tabs match eBPF traces to an agent by `service_name`
+  equality (eBPF spans carry no `service.workload.key`), so the names MUST match.
+
+## 2. Workload identity must be infrastructure-derived, never user-overridable
+
+- The dedup key is `service_name` (`agent_key = sha1(cluster|env|service_name)`)
+  on the controller side, and `workload_key` for SDK↔controller merge.
+- `buildWorkloadKey` / `stableContainerName` must derive from infra only
+  (container name → container ID → pod/deployment/namespace). **Never** fall back
+  to `meta.ServiceName` for the key — it can be overridden by `OTEL_SERVICE_NAME`,
+  and a key that shifts on env change produces a **duplicate agent listing**.
+- Keep the key stable across restarts (so a restart updates the same row). In
+  Docker/K8s pin identity to container/pod; for the dev compose set a stable
+  `OPENLIT_INSTANCE_ID`.
+
+## 3. Everything from the poll response / config is UNTRUSTED input
+
+- The poll `config` and action payloads are attacker-influenceable and are
+  EXECUTED by the controller. Validate at the ingress, before any use:
+  - `sdk_version` is interpolated into `pip install` (incl. shell strings) — it
+    MUST match the PEP 440 grammar `^[A-Za-z0-9][A-Za-z0-9._+-]*$` (validated in
+    `EnablePythonSDK`, defended again in `pypiPackageSpec`). Never relax this.
+  - The backend `validateControllerConfig` sanitizes the config (types, size
+    caps, control-char strip) before persisting — it is writable by any
+    authenticated user. Keep it in sync with `ControllerConfig`; new config
+    fields must be added there or they are silently dropped.
+  - The poll route coerces/caps every service field before the ClickHouse insert.
+
+## 4. Never break out of a target sink with unescaped input
+
+- systemd drop-ins: `escapeSystemdValue` must escape `\` then `"` then strip
+  CR/LF + control chars (a newline injects a new unit directive).
+- ClickHouse string literals: use `escapeClickHouseString` (the single shared
+  helper in `src/lib/clickhouse-escape.ts`) for EVERY interpolated value. Do not
+  re-add per-file `escape()` copies. Prefer parameterized inserts (JSONEachRow).
+- Container selection: match the target container by name exactly; on a
+  specified-but-unmatched name, ERROR — never silently fall back to container[0].
+
+## 5. OBI subprocess lifecycle
+
+- `OBIManager` auto-restarts on unexpected exit. An INTENTIONAL stop must set the
+  `stopping` flag (under lock) BEFORE signalling SIGTERM — `Stop()` signals
+  before `cancel()`, so the wait goroutine would otherwise see `ctx.Err()==nil`
+  and resurrect a just-stopped OBI. `Start` resets the flag.
+- OBI config changes (providers, custom hosts, export endpoint) take effect only
+  via `rebuildOBI`; any setter that affects OBI config must call it when running.
+- `custom_llm_hosts` feed BOTH the eBPF scanner (discovery) AND OBI
+  `GenAI.Custom.Hosts` (the host-gated custom extractor). Update both.
+
+## 6. Concurrency
+
+- Maps shared between the refresh loop and scan loop (e.g. `ConnScanner`
+  endpoints) are replaced wholesale under a lock and read via a snapshot — never
+  mutate a shared map in place.
+- Channel consumers must handle close (`v, ok := <-ch`), not spin on zero values.
+- `snapshotService` and any "defensive copy" must deep-copy slices AND maps;
+  a struct copy shares slice backing arrays with the live engine state.
+
+## 7. OBI patches (`patches/` + `_obi-providers/`)
+
+- We build OBI from a pinned upstream tag (`OBI_BRANCH` in `Dockerfile`) and
+  apply `patches/{config,span,http_transform}.patch` + vendored `_obi-providers/`.
+  Bumping the version = re-rebasing the 3 patches; verify they `git apply` on a
+  fresh clone and that the obi-builder compiles.
+- GenAI message attributes MUST follow the strict semantic-conventions structure
+  (`gen_ai.input.messages`/`output.messages` = `[{role, parts:[{type,content}]}]`,
+  output adds `finish_reason`; `gen_ai.system_instructions` = flat parts array).
+  Operation names are normalized (`chat.completion` → `chat`). Span name is
+  `"<operation> <model>"`.
+- The OBI attribute-select list (`obi.go`) must use the EXACT semconv keys
+  (`gen_ai.system_instructions`, underscore — not `gen_ai.system.instructions`),
+  or the attribute is silently dropped.
+- Custom-gateway extraction is detected by the request's destination
+  host:port matching `custom_llm_hosts` — NOT by path or vendor headers. Custom
+  gateways may serve on arbitrary paths (e.g. `/testchat`); do not gate on path.
+
+## 8. Controller ↔ backend auth (intentional onboarding behavior)
+
+- The poll endpoint requires a valid API key IF any API key exists; if none has
+  been created yet it serves keyless (to speed first-run onboarding). This is
+  deliberate — do NOT "harden" it into always-required; the keyless path closes
+  automatically the moment the first key is created.
+
+## 9. Robustness
+
+- Backend down / OBI missing / BPF load fail must degrade gracefully (poll
+  backoff; discovery disabled; API still serves) — never crash the controller.
+- Destructive workload operations (naked-pod recreate = delete+create) must
+  capture the original spec (logged) and retry rollback; treat the delete→create
+  window as the danger zone.

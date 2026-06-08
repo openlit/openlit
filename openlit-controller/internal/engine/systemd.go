@@ -119,8 +119,24 @@ type systemdOTLPPayload struct {
 	Environment         string
 }
 
+// escapeSystemdValue makes a string safe to embed inside a double-quoted
+// systemd Environment="KEY=<value>" directive. Inputs can be attacker-influenced
+// (e.g. a user-set OTEL_SERVICE_NAME adopted as service name, or poll-supplied
+// OTLP settings), so we must prevent breaking out of the quoted value into new
+// unit directives. Order matters: escape backslashes first, then quotes, then
+// drop all C0 control characters (0x00–0x1F): CR/LF would terminate the directive
+// and inject a new one; tabs and other controls are invalid in a single-line value.
 func escapeSystemdValue(value string) string {
-	return strings.ReplaceAll(value, "\"", "\\\"")
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "\"", "\\\"")
+	value = strings.Map(func(r rune) rune {
+		// Drop every C0 control (including tab); none are valid here.
+		if r == '\n' || r == '\r' || (r >= 0 && r < 0x20) {
+			return -1
+		}
+		return r
+	}, value)
+	return value
 }
 
 func readSystemdDropInConfigHash(unit string) string {

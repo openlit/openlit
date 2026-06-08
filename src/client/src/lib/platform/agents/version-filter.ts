@@ -31,10 +31,9 @@ import { getAgent } from "./index";
 // have to drag in the DB / next-auth chain. See the comment in
 // `version-where.ts` for the full rationale.
 export { buildVersionWhereClause } from "./version-where";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 function toClickHouseDateTime(value: string | Date): string {
 	if (typeof value === "string") {

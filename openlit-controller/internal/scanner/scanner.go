@@ -40,6 +40,7 @@ type Scanner struct {
 	procRoot  string
 	closeCh   chan struct{}
 	closeOnce sync.Once
+	refreshMu sync.Mutex // serialises host resolution / map reconciliation
 }
 
 // New loads the BPF program, attaches kprobes, and initialises the host resolver.
@@ -74,7 +75,7 @@ func New(logger *zap.Logger, procRoot string) (*Scanner, error) {
 		return nil, fmt.Errorf("create ring buffer reader: %w", err)
 	}
 
-	resolver := NewHostResolver(objs.LlmIpv4, logger)
+	resolver := NewHostResolver(objs.LlmEndpoints, logger)
 	connScan := NewConnScanner(procRoot, logger)
 
 	// Initial DNS resolution populates both the BPF map and the ConnScanner IP set
@@ -110,9 +111,27 @@ func (s *Scanner) runHostRefreshLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			s.refreshMu.Lock()
 			RefreshAndUpdateBoth(s.resolver, s.connScan, s.logger)
+			s.refreshMu.Unlock()
 		}
 	}
+}
+
+// UpdateCustomHosts replaces the user-configured custom monitoring targets and
+// immediately reconciles the BPF map and ConnScanner endpoint set. Each spec is
+// "host[:port]"; when the port is omitted it defaults to 443. The provider is
+// inferred from a well-known port (LiteLLM/Ollama/vLLM) and otherwise reported
+// as "custom". Safe to call concurrently with the refresh loop.
+func (s *Scanner) UpdateCustomHosts(specs []string) {
+	targets := ParseCustomHostSpecs(specs, s.logger)
+
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	s.resolver.SetCustomTargets(targets)
+	RefreshAndUpdateBoth(s.resolver, s.connScan, s.logger)
+	s.logger.Info("custom LLM hosts updated", zap.Int("count", len(targets)))
 }
 
 // Events returns the channel that emits LLM connection events.
