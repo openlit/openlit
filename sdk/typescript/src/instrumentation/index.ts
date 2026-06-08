@@ -7,6 +7,7 @@ import AnthropicInstrumentation from './anthropic';
 import CohereInstrumentation from './cohere';
 import GroqInstrumentation from './groq';
 import AI21Instrumentation from './ai21';
+import GradientInstrumentation from './gradient';
 import MistralInstrumentation from './mistral';
 import GoogleAIInstrumentation from './google-ai';
 import TogetherInstrumentation from './together';
@@ -78,6 +79,7 @@ export default class Instrumentations {
     cohere: new CohereInstrumentation(),
     groq: new GroqInstrumentation(),
     ai21: new AI21Instrumentation(),
+    gradient: new GradientInstrumentation(),
     mistral: new MistralInstrumentation(),
     'google-ai': new GoogleAIInstrumentation(),
     together: new TogetherInstrumentation(),
