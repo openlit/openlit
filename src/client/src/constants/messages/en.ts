@@ -944,11 +944,19 @@ export const PROJECT_NAME = "Project Name";
 export const PROJECT_NAME_PLACEHOLDER = "Production";
 export const MANAGE_PROJECTS = "Manage Projects";
 export const DEFAULT_PROJECT = "Default Project";
+export const PROJECT_NAME_REQUIRED = "Project name is required";
+export const PROJECT_NAME_LENGTH_ERROR = "Project name must be 120 characters or less";
+export const PROJECT_NAME_LENGTH_RANGE_ERROR =
+	"Project name must be between 1 and 120 characters";
 export const CURRENT = "Current";
 export const LOADING_PROJECT = "Loading project";
 export const NO_PROJECT = "No project";
 export const PROJECT_NOT_FOUND = "Project not found";
 export const PROJECT_SWITCH_FAILED = "Failed to switch project";
+export const DB_CONFIG_NOT_IN_CURRENT_PROJECT =
+	"Database config doesn't exist in current project";
+export const CURRENT_DB_CONFIG_SET_SUCCESS =
+	"Current DB config set successfully!";
 export const PROJECT_DB_CONFIG_DESCRIPTION =
 	"Projects group database configs inside an organisation. Select a project before managing its database config.";
 export const USE_PROJECT = "Use project";

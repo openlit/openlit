@@ -298,7 +298,7 @@ export async function setCurrentDBConfig(id: string) {
 	});
 
 	if (!targetConfig) {
-		throw new Error("Database config doesn't exist in current project");
+		throw new Error(getMessage().DB_CONFIG_NOT_IN_CURRENT_PROJECT);
 	}
 
 	const currentConfig = await getDBConfigByUser(true);
@@ -329,7 +329,7 @@ export async function setCurrentDBConfig(id: string) {
 		},
 	});
 
-	return "Current DB config set successfully!";
+	return getMessage().CURRENT_DB_CONFIG_SET_SUCCESS;
 }
 
 export async function shareDBConfig({

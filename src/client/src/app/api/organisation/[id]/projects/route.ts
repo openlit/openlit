@@ -5,6 +5,7 @@ import {
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
+import getMessage from "@/constants/messages";
 
 async function readJson(request: Request) {
 	try {
@@ -18,8 +19,9 @@ export async function GET(
 	_request: Request,
 	{ params }: { params: { id: string } }
 ) {
+	const messages = getMessage();
 	const user = await getCurrentUser();
-	if (!user) return Response.json("Unauthorized", { status: 401 });
+	if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
 
 	const membership = await prisma.organisationUser.findUnique({
 		where: {
@@ -31,7 +33,7 @@ export async function GET(
 		select: { id: true },
 	});
 
-	if (!membership) return Response.json("Organisation not found", { status: 404 });
+	if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
 
 	const [currentProjectErr, currentProject] = await asaw(
 		getCurrentProjectForOrganisation(params.id)
@@ -57,10 +59,11 @@ export async function POST(
 ) {
 	const formData = await readJson(request);
 	const name = formData?.name?.trim();
+	const messages = getMessage();
 
-	if (!name) return Response.json("Project name is required", { status: 400 });
+	if (!name) return Response.json(messages.PROJECT_NAME_REQUIRED, { status: 400 });
 	if (name.length > 120) {
-		return Response.json("Project name must be 120 characters or less", {
+		return Response.json(messages.PROJECT_NAME_LENGTH_ERROR, {
 			status: 400,
 		});
 	}

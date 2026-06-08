@@ -220,7 +220,7 @@ export async function createOrganisationProject(
 	const trimmedName = name.trim();
 	throwIfError(
 		trimmedName.length < 1 || trimmedName.length > 120,
-		"Project name must be between 1 and 120 characters"
+		getMessage().PROJECT_NAME_LENGTH_RANGE_ERROR
 	);
 
 	const isAdmin = await hasAdminOrOwnerRole(organisationId, user!.id);

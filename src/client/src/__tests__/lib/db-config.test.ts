@@ -43,6 +43,8 @@ jest.mock('@/constants/messages', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     UNAUTHORIZED_USER: 'Unauthorized',
+    DB_CONFIG_NOT_IN_CURRENT_PROJECT: "Database config doesn't exist in current project",
+    CURRENT_DB_CONFIG_SET_SUCCESS: 'Current DB config set successfully!',
   })),
 }));
 jest.mock('@/utils/error', () => ({
