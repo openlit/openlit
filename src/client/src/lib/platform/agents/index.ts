@@ -24,10 +24,9 @@ import type {
 import { invalidate, POLICY_DETAIL, POLICY_LIST, swr } from "./cache";
 import { agentsLogger } from "./logger";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 function escapeList(values: string[]): string {
 	return values.map((v) => `'${escape(v)}'`).join(", ");

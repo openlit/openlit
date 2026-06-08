@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux && (amd64 || arm64)
 
 package ebpf
 
@@ -19,7 +19,8 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpfel gpuevent ./bpf/gpuevent.c -- -I./bpf -D__TARGET_ARCH_x86
+// tracer.sh picks the bpf2go target arches from the host arch.
+//go:generate ./tracer.sh
 
 // Tracer manages eBPF programs for CUDA runtime interception.
 type Tracer struct {
@@ -207,6 +208,7 @@ func findCudaLib() string {
 	candidates := []string{
 		"/usr/local/cuda/lib64/libcudart.so",
 		"/usr/lib/x86_64-linux-gnu/libcudart.so",
+		"/usr/lib/aarch64-linux-gnu/libcudart.so",
 		"/usr/lib64/libcudart.so",
 		"/usr/lib/libcudart.so",
 	}

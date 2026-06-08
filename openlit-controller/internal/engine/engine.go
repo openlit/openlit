@@ -48,14 +48,15 @@ type Engine struct {
 	logger   *zap.Logger
 	running  bool
 
-	scanner    *scanner.Scanner
-	obi        *OBIManager
-	exportCfg  ExportConfig
-	procRoot   string
-	deployMode   config.DeployMode
-	container    *ContainerEnricher
-	environment  string
-	sdkVersion   string
+	scanner     *scanner.Scanner
+	customHosts []string // user-configured custom LLM host specs ("host[:port]")
+	obi         *OBIManager
+	exportCfg   ExportConfig
+	procRoot    string
+	deployMode  config.DeployMode
+	container   *ContainerEnricher
+	environment string
+	sdkVersion  string
 
 	patterns map[string]instrumentPattern // serviceID -> pattern
 }
@@ -77,11 +78,11 @@ const (
 // sync with the SQL projections in
 // src/client/src/lib/platform/agents/index.ts.
 const (
-	LifecycleStatusAttr   = "openlit.lifecycle.status"
-	LifecycleStatusRunning    = "running"
-	LifecycleStatusStopped    = "stopped"
-	LifecycleStatusRestarting = "restarting"
-	K8sSavedReplicasAnnotation = "openlit.io/saved-replicas"
+	LifecycleStatusAttr         = "openlit.lifecycle.status"
+	LifecycleStatusRunning      = "running"
+	LifecycleStatusStopped      = "stopped"
+	LifecycleStatusRestarting   = "restarting"
+	K8sSavedReplicasAnnotation  = "openlit.io/saved-replicas"
 	K8sRolloutRestartAnnotation = "openlit.io/restartedAt"
 )
 
@@ -109,9 +110,9 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 			OTLPEndpoint: otlpEndpoint,
 			OTLPProtocol: "http/protobuf",
 		},
-		procRoot:   procRoot,
-		deployMode: mode,
-		container:  container,
+		procRoot:    procRoot,
+		deployMode:  mode,
+		container:   container,
 		environment: environment,
 		sdkVersion:  sdkVersion,
 	}
@@ -135,6 +136,9 @@ func (e *Engine) Start(ctx context.Context) error {
 		e.logger.Warn("eBPF scanner unavailable; discovery disabled", zap.Error(err))
 	} else {
 		e.scanner = sc
+		if len(e.customHosts) > 0 {
+			e.scanner.UpdateCustomHosts(e.customHosts)
+		}
 		go e.scanner.Run(ctx)
 		go e.consumeScannerEvents(ctx)
 	}
@@ -244,9 +248,14 @@ func (e *Engine) rebuildOBI() error {
 			K8sStatefulSet: p.K8sStatefulSet,
 		}
 		svc, ok := e.services[id]
-		if ok && e.deployMode != config.DeployDocker {
-			// In Docker mode OBI should keep container-derived naming instead of
-			// applying a static service name to every matching container.
+		if ok {
+			// The controller is the naming authority: it discovers the workload
+			// (and resolves any user-set OTEL_SERVICE_NAME) before OBI runs, so it
+			// sets the per-target service name OBI emits under. This keeps trace
+			// ServiceName aligned with the agents summary in every mode. OBI's
+			// instrument[].name is scoped per-target (each entry is matched to one
+			// workload via target_pids/pod/deployment), so this does not mislabel
+			// other containers, and it takes precedence over OBI's auto-derived name.
 			entry.Name = svc.ServiceName
 		}
 		if e.deployMode == config.DeployDocker && !entry.ContainersOnly {
@@ -258,6 +267,7 @@ func (e *Engine) rebuildOBI() error {
 		e.exportCfg,
 		entries,
 		e.enabledProvidersForPatterns(),
+		e.customHosts,
 		e.deployMode,
 		e.environment,
 	)
@@ -460,6 +470,48 @@ func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
 	}
 }
 
+// UpdateCustomHosts stores the user-configured custom LLM host specs and, if
+// the scanner is already running, applies them immediately. Specs are
+// "host[:port]" strings (e.g. "litellm.internal:4000", "ollama.local:11434").
+// If the scanner has not started yet, the specs are applied when it does.
+func (e *Engine) UpdateCustomHosts(specs []string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if stringSliceEqual(e.customHosts, specs) {
+		return
+	}
+	e.customHosts = append([]string(nil), specs...)
+	e.logger.Info("custom LLM hosts configured", zap.Strings("hosts", specs))
+
+	if e.scanner != nil {
+		e.scanner.UpdateCustomHosts(e.customHosts)
+	}
+
+	// The host list also feeds OBI's custom-gateway extractor gate
+	// (GenAI.Custom.Hosts) via BuildInstrumentConfig. If OBI is already running,
+	// rebuild so the updated hosts take effect immediately; otherwise the next
+	// instrumentation picks them up. Only rebuild when running to avoid spurious
+	// restarts before any workload is instrumented.
+	if e.obi.IsRunning() {
+		if err := e.rebuildOBI(); err != nil {
+			e.logger.Error("failed to rebuild OBI after custom hosts update", zap.Error(err))
+		}
+	}
+}
+
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // GetExportConfig returns a snapshot of the current export configuration.
 // The returned value is a deep copy safe for use outside the engine lock.
 func (e *Engine) GetExportConfig() ExportConfig {
@@ -566,6 +618,14 @@ func (e *Engine) snapshotService(workloadKey string) (*openlit.ServiceState, err
 			clone[k] = v
 		}
 		copied.ResourceAttributes = clone
+	}
+	// Clone slices too — a shallow struct copy shares the backing arrays with
+	// the live map entry, so a caller appending/mutating would race the engine.
+	if svc.LLMProviders != nil {
+		copied.LLMProviders = append([]string(nil), svc.LLMProviders...)
+	}
+	if svc.OpenPorts != nil {
+		copied.OpenPorts = append([]uint16(nil), svc.OpenPorts...)
 	}
 	return &copied, nil
 }

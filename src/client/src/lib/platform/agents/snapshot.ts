@@ -43,10 +43,10 @@ import type {
 } from "@/types/agents";
 import { computeAgentKey } from "./index";
 import { AGENT_VERSIONS_TABLE } from "./table-details";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import { mergeProviders } from "./provider-normalize";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 function normalizeWhitespace(s: string): string {
 	return (s || "").replace(/\s+/g, " ").trim();
@@ -343,8 +343,11 @@ export async function deriveSnapshot(
 	if (row.temperature !== null && row.temperature !== undefined) runtimeConfig.temperature = Number(row.temperature);
 	if (row.top_p !== null && row.top_p !== undefined) runtimeConfig.top_p = Number(row.top_p);
 	if (row.max_tokens !== null && row.max_tokens !== undefined) runtimeConfig.max_tokens = Number(row.max_tokens);
-	const providers = (row.providers || []).filter(Boolean);
-	if (providers.length) runtimeConfig.provider = providers.sort()[0];
+	// Canonicalize provider names (OTel semconv "gcp.gemini" -> short "gemini")
+	// so the stored version + fingerprint + provider chips are consistent with
+	// the controller's vocabulary and don't double-count one provider.
+	const providers = mergeProviders((row.providers as string[]) || []);
+	if (providers.length) runtimeConfig.provider = providers.slice().sort()[0];
 
 	const hash = fingerprint({
 		systemPrompt: row.system_prompt || "",

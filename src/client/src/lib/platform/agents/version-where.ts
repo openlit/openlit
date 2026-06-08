@@ -13,10 +13,11 @@
  * `VersionFilter` type.
  */
 import type { VersionFilter } from "@/types/platform";
+// Pure, side-effect-free helper (regex only) — safe to import here without
+// dragging in the DB/next-auth chain this leaf module deliberately avoids.
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 /**
  * ClickHouse DateTime values round-trip best with second precision. Some

@@ -134,8 +134,26 @@ func TestReadSystemdDropInConfigHash(t *testing.T) {
 }
 
 func TestEscapeSystemdValue(t *testing.T) {
-	got := escapeSystemdValue(`value with "quotes"`)
-	if got != `value with \"quotes\"` {
-		t.Errorf("got %q", got)
+	cases := []struct{ in, want string }{
+		{`value with "quotes"`, `value with \"quotes\"`},
+		{`back\slash`, `back\\slash`},
+		// Newline injection must be neutralized — otherwise a crafted value could
+		// inject a new Environment=/[Service] directive into the unit drop-in.
+		{"a\nEnvironment=\"EVIL=1\"", `aEnvironment=\"EVIL=1\"`},
+		{"a\r\nb", "ab"},
+		{"tab\tafter", "tabafter"},
+	}
+	for _, c := range cases {
+		if got := escapeSystemdValue(c.in); got != c.want {
+			t.Errorf("escapeSystemdValue(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	// Critical invariant: output never contains a raw line break.
+	for _, in := range []string{"x\ny", "x\r\ny", "a\nb\nc"} {
+		for _, r := range escapeSystemdValue(in) {
+			if r == '\n' || r == '\r' {
+				t.Fatalf("escapeSystemdValue(%q) left a line break", in)
+			}
+		}
 	}
 }

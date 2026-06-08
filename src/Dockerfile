@@ -46,14 +46,38 @@ RUN apk add --no-cache curl file
 # Set working directory
 WORKDIR /tmp
 
-# Download OpenTelemetry Collector Contrib and OpAMP Supervisor
+# Download OpenTelemetry Collector Contrib and OpAMP Supervisor.
+# GitHub release-assets occasionally 504 on specific blobs; fall back to the
+# matching .deb when needed (binaries at usr/bin/*).
 RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
-    curl -LO "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/${OTEL_VERSION}/otelcol-contrib_${OTEL_VERSION#v}_linux_${TARGETARCH}.tar.gz" && \
-    tar -xzf "otelcol-contrib_${OTEL_VERSION#v}_linux_${TARGETARCH}.tar.gz" && \
+    OTEL_TAR="otelcol-contrib_${OTEL_VERSION#v}_linux_${TARGETARCH}.tar.gz" && \
+    OTEL_BASE="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/${OTEL_VERSION}" && \
+    if curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "${OTEL_TAR}" "${OTEL_BASE}/${OTEL_TAR}"; then \
+      tar -xzf "${OTEL_TAR}" && rm "${OTEL_TAR}"; \
+    else \
+      echo "otelcol-contrib tar.gz unavailable, falling back to .deb" && \
+      OTEL_DEB="otelcol-contrib_${OTEL_VERSION#v}_linux_${TARGETARCH}.deb" && \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "${OTEL_DEB}" "${OTEL_BASE}/${OTEL_DEB}" && \
+      apk add --no-cache dpkg && \
+      dpkg-deb -x "${OTEL_DEB}" otel-deb && \
+      mv otel-deb/usr/bin/otelcol-contrib ./otelcol-contrib && \
+      rm -rf "${OTEL_DEB}" otel-deb; \
+    fi && \
     chmod +x otelcol-contrib && \
     echo "otelcol-contrib binary info:" && file otelcol-contrib && \
-    curl --proto '=https' --tlsv1.2 -fL -o opampsupervisor \
-    "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2F${OPAMP_SUPERVISOR_VERSION}/opampsupervisor_${OPAMP_SUPERVISOR_VERSION#v}_linux_${TARGETARCH}" && \
+    OPAMP_BASE="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2F${OPAMP_SUPERVISOR_VERSION}" && \
+    OPAMP_BIN="opampsupervisor_${OPAMP_SUPERVISOR_VERSION#v}_linux_${TARGETARCH}" && \
+    if curl --proto '=https' --tlsv1.2 -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o opampsupervisor "${OPAMP_BASE}/${OPAMP_BIN}"; then \
+      true; \
+    else \
+      echo "opampsupervisor binary unavailable, falling back to .deb" && \
+      OPAMP_DEB="opampsupervisor_${OPAMP_SUPERVISOR_VERSION#v}_linux_${TARGETARCH}.deb" && \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "${OPAMP_DEB}" "${OPAMP_BASE}/${OPAMP_DEB}" && \
+      (command -v dpkg-deb >/dev/null || apk add --no-cache dpkg) && \
+      dpkg-deb -x "${OPAMP_DEB}" opamp-deb && \
+      mv opamp-deb/usr/bin/opampsupervisor ./opampsupervisor && \
+      rm -rf "${OPAMP_DEB}" opamp-deb; \
+    fi && \
     chmod +x opampsupervisor && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
