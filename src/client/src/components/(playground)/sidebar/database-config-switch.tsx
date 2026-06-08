@@ -1,4 +1,3 @@
-import { ChevronsUpDown, Database, Plus, Settings } from "lucide-react";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { useEffect } from "react";
@@ -10,12 +9,24 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ICON_CLASSES } from "@/constants/sidebar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
+import { cn } from "@/lib/utils";
 
-export default function DatabaseConfigSwitch() {
+type DatabaseConfigSwitchProps = {
+	className?: string;
+	contentAlign?: "center" | "end" | "start";
+	contentSide?: "bottom" | "left" | "right" | "top";
+};
+
+const triggerClasses = "flex h-9 min-w-32 max-w-56 shrink-0 items-center justify-start overflow-hidden px-3 py-1.5 text-left font-normal";
+
+export default function DatabaseConfigSwitch({
+	className,
+	contentAlign = "start",
+	contentSide = "right",
+}: DatabaseConfigSwitchProps) {
 	const posthog = usePostHog();
 	const router = useRouter();
 	const messages = getMessage();
@@ -40,11 +51,10 @@ export default function DatabaseConfigSwitch() {
 		return (
 			<Button
 				variant="outline"
-				className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal"
+				className={cn(triggerClasses, className)}
 				onClick={() => router.push("/settings/database-config")}
 			>
-				<Settings className={`${ICON_CLASSES} shrink-0`} />
-				<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">
+				<span className="min-w-0 truncate text-xs font-medium">
 					{messages.MANAGE_DB_CONFIG}
 				</span>
 			</Button>
@@ -57,13 +67,11 @@ export default function DatabaseConfigSwitch() {
 	return (
 		<DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal">
-					<Database className={`${ICON_CLASSES} shrink-0`} />
-					<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">{displayDatabaseName}</span>
-					<ChevronsUpDown className={`size-4 block group-data-[state=close]:hidden shrink-0`} />
+        <Button variant="outline" className={cn(triggerClasses, className)}>
+					<span className="min-w-0 truncate text-xs font-medium">{displayDatabaseName}</span>
 				</Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" side="right" align="start">
+      <DropdownMenuContent className="w-56" side={contentSide} align={contentAlign}>
         <DropdownMenuLabel>{messages.DATABASES}</DropdownMenuLabel>
         <DropdownMenuSeparator />
 				{list.map((item) => (

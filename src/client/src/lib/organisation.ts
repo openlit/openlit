@@ -87,6 +87,167 @@ async function getUserRoleInOrganisation(
 	return membership?.role || null;
 }
 
+async function getMembershipCurrentProjectId(
+	organisationId: string,
+	userId: string
+) {
+	const rows = await prisma.$queryRaw<{ current_project_id: string | null }[]>`
+		SELECT current_project_id
+		FROM organisation_users
+		WHERE organisation_id = ${organisationId}
+		  AND user_id = ${userId}
+		LIMIT 1
+	`;
+
+	return rows[0]?.current_project_id || null;
+}
+
+async function setMembershipCurrentProjectId(
+	organisationId: string,
+	userId: string,
+	projectId: string
+) {
+	await prisma.$executeRaw`
+		UPDATE organisation_users
+		SET current_project_id = ${projectId}
+		WHERE organisation_id = ${organisationId}
+		  AND user_id = ${userId}
+	`;
+}
+
+export async function getDefaultProjectForOrganisation(organisationId: string) {
+	const existingProject = await prisma.project.findFirst({
+		where: { organisationId, isDefault: true },
+		orderBy: { createdAt: "asc" },
+	});
+
+	if (existingProject) return existingProject;
+
+	return prisma.project.create({
+		data: {
+			organisationId,
+			name: "Default Project",
+			slug: "default",
+			isDefault: true,
+		},
+	});
+}
+
+export async function getCurrentProjectForOrganisation(organisationId: string) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId: user!.id,
+			},
+		},
+		select: { id: true },
+	});
+
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+
+	const currentProjectId = await getMembershipCurrentProjectId(
+		organisationId,
+		user!.id
+	);
+
+	if (currentProjectId) {
+		const currentProject = await prisma.project.findFirst({
+			where: {
+				id: currentProjectId,
+				organisationId,
+			},
+		});
+
+		if (currentProject) return currentProject;
+	}
+
+	const defaultProject = await getDefaultProjectForOrganisation(organisationId);
+	await setMembershipCurrentProjectId(organisationId, user!.id, defaultProject.id);
+
+	return defaultProject;
+}
+
+export async function setCurrentProject(
+	organisationId: string,
+	projectId: string
+) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId: user!.id,
+			},
+		},
+	});
+
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+
+	const project = await prisma.project.findUnique({
+		where: { id: projectId },
+	});
+
+	throwIfError(
+		!project || project!.organisationId !== organisationId,
+		getMessage().PROJECT_NOT_FOUND
+	);
+
+	await setMembershipCurrentProjectId(organisationId, user!.id, project!.id);
+
+	return { success: true };
+}
+
+function slugify(name: string): string {
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
+export async function createOrganisationProject(
+	organisationId: string,
+	name: string
+) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const isAdmin = await hasAdminOrOwnerRole(organisationId, user!.id);
+	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
+
+	const baseSlug = slugify(name) || "project";
+	for (let attempt = 0; attempt < 10; attempt++) {
+		const suffix = Math.random().toString(36).substring(2, 8);
+		const slug = `${baseSlug}-${suffix}`;
+		const existing = await prisma.project.findUnique({
+			where: {
+				organisationId_slug: {
+					organisationId,
+					slug,
+				},
+			},
+			select: { id: true },
+		});
+
+		if (!existing) {
+			return prisma.project.create({
+				data: {
+					organisationId,
+					name,
+					slug,
+				},
+			});
+		}
+	}
+
+	throw new Error("Unable to generate a unique project slug.");
+}
+
 /**
  * Create a new organisation
  */
@@ -101,6 +262,16 @@ export async function createOrganisation(name: string) {
 			name,
 			slug,
 			createdByUserId: user!.id,
+			projects: {
+				create: {
+					name: "Default Project",
+					slug: "default",
+					isDefault: true,
+				},
+			},
+		},
+		include: {
+			projects: true,
 		},
 	});
 
@@ -113,6 +284,13 @@ export async function createOrganisation(name: string) {
 			isCurrent: false, // Don't auto-switch to new org
 		},
 	});
+	if (organisation.projects?.[0]?.id) {
+		await setMembershipCurrentProjectId(
+			organisation.id,
+			user!.id,
+			organisation.projects[0].id
+		);
+	}
 
 	// Migrate orphaned configs and shared users to the new org
 	await migrateUserConfigsToOrganisation(organisation.id, user!.id);
@@ -216,6 +394,11 @@ export async function setCurrentOrganisation(organisationId: string) {
 	// Atomically unset all current orgs and set the new one in a transaction
 	// This prevents a race condition where concurrent requests could see
 	// no current organisation between the two operations
+	const defaultProject = await getDefaultProjectForOrganisation(organisationId);
+	const currentProjectId =
+		(await getMembershipCurrentProjectId(organisationId, user!.id)) ||
+		defaultProject.id;
+
 	await prisma.$transaction([
 		// Unset all current orgs for this user
 		prisma.organisationUser.updateMany({
@@ -240,6 +423,7 @@ export async function setCurrentOrganisation(organisationId: string) {
 			},
 		}),
 	]);
+	await setMembershipCurrentProjectId(organisationId, user!.id, currentProjectId);
 
 	return { success: true };
 }
@@ -656,7 +840,9 @@ export async function removeUserFromOrganisation(
 		where: {
 			userId,
 			databaseConfig: {
-				organisationId,
+				project: {
+					organisationId,
+				},
 			},
 		},
 	});
@@ -931,12 +1117,14 @@ async function migrateUserConfigsToOrganisation(
 	organisationId: string,
 	userId: string
 ) {
+	const project = await getDefaultProjectForOrganisation(organisationId);
+
 	// Find all orphaned DB configs the user has access to
 	const userConfigLinks = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId,
 			databaseConfig: {
-				organisationId: null,
+				projectId: null,
 			},
 		},
 		select: { databaseConfigId: true },
@@ -948,10 +1136,10 @@ async function migrateUserConfigsToOrganisation(
 		(link) => link.databaseConfigId
 	);
 
-	// Move those configs to the new org
+	// Move those configs to the new organisation default project
 	await prisma.databaseConfig.updateMany({
 		where: { id: { in: orphanedConfigIds } },
-		data: { organisationId },
+		data: { projectId: project.id },
 	});
 
 	// Find other users who share those configs
@@ -989,6 +1177,11 @@ async function migrateUserConfigsToOrganisation(
 					isCurrent: !hasCurrentOrg,
 				},
 			});
+			await setMembershipCurrentProjectId(
+				organisationId,
+				sharedUserId,
+				project.id
+			);
 		} else if (!hasCurrentOrg) {
 			// Existing membership but no current org — fix it
 			await prisma.organisationUser.update({
@@ -1000,6 +1193,11 @@ async function migrateUserConfigsToOrganisation(
 				},
 				data: { isCurrent: true },
 			});
+			await setMembershipCurrentProjectId(
+				organisationId,
+				sharedUserId,
+				project.id
+			);
 		}
 
 		// Share org DB configs with the new member
@@ -1020,9 +1218,11 @@ async function shareOrganisationDatabaseConfigs(
 	organisationId: string,
 	userId: string
 ) {
+	const project = await getDefaultProjectForOrganisation(organisationId);
+
 	// Get all database configs for this organisation
 	const databaseConfigs = await prisma.databaseConfig.findMany({
-		where: { organisationId },
+		where: { projectId: project.id },
 		orderBy: {
 			createdAt: "asc",
 		},
@@ -1030,13 +1230,13 @@ async function shareOrganisationDatabaseConfigs(
 
 	if (databaseConfigs.length === 0) return;
 
-	// Check if user has any current database config in THIS organisation
+	// Check if user has any current database config in this project
 	const existingCurrentConfig = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId,
 			isCurrent: true,
 			databaseConfig: {
-				organisationId,
+				projectId: project.id,
 			},
 		},
 	});
