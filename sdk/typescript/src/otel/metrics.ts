@@ -48,6 +48,18 @@ export default class Metrics {
   static dbRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
   static guardRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
 
+  // MCP metrics
+  static mcpRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpClientOperationDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static mcpRequestSize: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static mcpResponseSize: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static mcpToolCalls: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpResourceReads: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpPromptGets: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpTransportUsage: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpErrors: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+  static mcpOperationSuccessRate: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+
   static initializeMetrics() {
     this.genaiClientUsageTokens = this.meter.createHistogram(
       SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
@@ -135,6 +147,57 @@ export default class Metrics {
       description: 'Number of guard evaluations.',
       unit: '1',
     });
+
+    // MCP metrics
+    this.mcpRequests = this.meter.createCounter(SemanticConvention.MCP_REQUESTS, {
+      description: 'Number of MCP requests.',
+      unit: '1',
+    });
+    this.mcpClientOperationDuration = this.meter.createHistogram(
+      SemanticConvention.MCP_CLIENT_OPERATION_DURATION_METRIC,
+      {
+        description: 'MCP client operation duration',
+        unit: 's',
+        advice: {
+          explicitBucketBoundaries: GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+        },
+      },
+    );
+    this.mcpRequestSize = this.meter.createHistogram(SemanticConvention.MCP_REQUEST_SIZE, {
+      description: 'MCP request payload size in bytes',
+      unit: 'By',
+    });
+    this.mcpResponseSize = this.meter.createHistogram(SemanticConvention.MCP_RESPONSE_SIZE_METRIC, {
+      description: 'MCP response payload size in bytes',
+      unit: 'By',
+    });
+    this.mcpToolCalls = this.meter.createCounter(SemanticConvention.MCP_TOOL_CALLS, {
+      description: 'Number of MCP tool calls.',
+      unit: '1',
+    });
+    this.mcpResourceReads = this.meter.createCounter(SemanticConvention.MCP_RESOURCE_READS, {
+      description: 'Number of MCP resource reads.',
+      unit: '1',
+    });
+    this.mcpPromptGets = this.meter.createCounter(SemanticConvention.MCP_PROMPT_GETS, {
+      description: 'Number of MCP prompt gets.',
+      unit: '1',
+    });
+    this.mcpTransportUsage = this.meter.createCounter(SemanticConvention.MCP_TRANSPORT_USAGE, {
+      description: 'Number of MCP transport operations.',
+      unit: '1',
+    });
+    this.mcpErrors = this.meter.createCounter(SemanticConvention.MCP_ERRORS, {
+      description: 'Number of MCP errors.',
+      unit: '1',
+    });
+    this.mcpOperationSuccessRate = this.meter.createHistogram(
+      SemanticConvention.MCP_OPERATION_SUCCESS_RATE,
+      {
+        description: 'MCP operation success rate (0.0 = failure, 1.0 = success)',
+        unit: '1',
+      },
+    );
   }
 
   static setup(options: SetupMetricsOptions) {
