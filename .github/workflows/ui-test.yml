@@ -18,6 +18,8 @@ jobs:
   jest:
     name: Jest Unit Tests
     runs-on: ubuntu-latest
+    env:
+      SQLITE_DATABASE_URL: file:./test.db
     defaults:
       run:
         working-directory: src/client
