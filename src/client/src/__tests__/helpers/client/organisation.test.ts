@@ -70,6 +70,9 @@ const mockSetIsLoading = jest.fn();
 const mockSetList = jest.fn();
 const mockSetCurrent = jest.fn();
 const mockSetPendingInvitations = jest.fn();
+const mockProjectSetIsLoading = jest.fn();
+const mockProjectSetList = jest.fn();
+const mockProjectSetCurrent = jest.fn();
 
 const makeGetState = (list: any[] = []) => ({
   organisation: {
@@ -83,6 +86,12 @@ const makeGetState = (list: any[] = []) => ({
     setIsLoading: jest.fn(),
     setList: jest.fn(),
     setPing: jest.fn(),
+    list: [],
+  },
+  project: {
+    setIsLoading: mockProjectSetIsLoading,
+    setList: mockProjectSetList,
+    setCurrent: mockProjectSetCurrent,
     list: [],
   },
 });

@@ -7,6 +7,11 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    project: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
     organisationUser: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -39,6 +44,8 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
     },
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   },
 }));
 jest.mock('@/lib/session', () => ({
@@ -54,6 +61,7 @@ jest.mock('@/constants/messages', () => ({
     ORGANISATION_CANNOT_DELETE_WITH_MEMBERS: 'Cannot delete with members',
     ONLY_ADMIN_CAN_UPDATE_ORGANISATION: 'Only admin can update',
     ORGANISATION_NOTHING_TO_UPDATE: 'Nothing to update',
+    PROJECT_NAME_LENGTH_RANGE_ERROR: 'Project name must be between 1 and 120 characters',
     ONLY_ADMIN_CAN_INVITE: 'Only admin can invite',
     USER_ALREADY_ORGANISATION_MEMBER: 'Already a member',
     USER_ALREADY_INVITED: 'Already invited',
@@ -101,12 +109,20 @@ import { throwIfError } from '@/utils/error';
 import getMessage from '@/constants/messages';
 
 const mockUser = { id: 'u1', email: 'user@example.com' };
+const mockProject = {
+  id: 'project1',
+  organisationId: 'org1',
+  name: 'Default Project',
+  slug: 'default',
+  isDefault: true,
+};
 const mockOrg = {
   id: 'org1',
   name: 'Test Org',
   slug: 'test-org-abc123',
   createdByUserId: 'u1',
   _count: { members: 1 },
+  projects: [mockProject],
 };
 
 beforeEach(() => {
@@ -125,6 +141,7 @@ beforeEach(() => {
     ORGANISATION_CANNOT_DELETE_WITH_MEMBERS: 'Cannot delete with members',
     ONLY_ADMIN_CAN_UPDATE_ORGANISATION: 'Only admin can update',
     ORGANISATION_NOTHING_TO_UPDATE: 'Nothing to update',
+    PROJECT_NAME_LENGTH_RANGE_ERROR: 'Project name must be between 1 and 120 characters',
     ONLY_ADMIN_CAN_INVITE: 'Only admin can invite',
     USER_ALREADY_ORGANISATION_MEMBER: 'Already a member',
     USER_ALREADY_INVITED: 'Already invited',
@@ -143,6 +160,11 @@ beforeEach(() => {
   (getCurrentUser as jest.Mock).mockResolvedValue(mockUser);
   // Default: no existing slug (unique slug generation)
   (prisma.organisation.findUnique as jest.Mock).mockResolvedValue(null);
+  (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+  (prisma.project.findUnique as jest.Mock).mockResolvedValue(mockProject);
+  (prisma.project.create as jest.Mock).mockResolvedValue(mockProject);
+  (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ current_project_id: 'project1' }]);
+  (prisma.$executeRaw as jest.Mock).mockResolvedValue(1);
   // Default: findUnique on organisationUser returns null (not a member by default)
   (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue(null);
   // Default: findMany returns empty arrays
@@ -150,8 +172,10 @@ beforeEach(() => {
   (prisma.databaseConfigUser.findMany as jest.Mock).mockResolvedValue([]);
   // Default: databaseConfig.findMany returns [] (no org configs)
   (prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([]);
-  // Default: $transaction resolves
-  (prisma.$transaction as jest.Mock).mockResolvedValue([]);
+  // Default: $transaction executes callback transactions and resolves batch transactions
+  (prisma.$transaction as jest.Mock).mockImplementation(async (arg) =>
+    typeof arg === 'function' ? arg(prisma) : arg
+  );
   // Default: user.findUnique returns null
   (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
   // Default: invited user operations return null/[]
