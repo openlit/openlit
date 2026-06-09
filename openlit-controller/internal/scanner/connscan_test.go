@@ -140,10 +140,10 @@ func TestScanWithKnownIPsDoesNotPanic(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cs := NewConnScanner("/proc", logger)
 
-	// Add a bogus IP so the scanner actually iterates /proc
-	var key [4]byte
-	key[0], key[1], key[2], key[3] = 192, 0, 2, 1
-	cs.knownIPs[key] = 1
+	// Add a bogus endpoint so the scanner actually iterates /proc
+	key := endpointKey{Port: 443}
+	key.Addr[0], key.Addr[1], key.Addr[2], key.Addr[3] = 192, 0, 2, 1
+	cs.knownEndpoints[key] = 1
 
 	// Should not panic even scanning real /proc
 	events := cs.Scan()
@@ -158,45 +158,40 @@ func TestPIDBoundsCheckInScan(t *testing.T) {
 	}
 }
 
-func TestConnScannerUpdateIPs(t *testing.T) {
+func TestConnScannerUpdateEndpoints(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cs := NewConnScanner("/proc", logger)
 
-	resolved := map[string][]net.IP{
-		"api.openai.com": {net.ParseIP("104.18.6.192")},
-	}
-	cs.UpdateIPs(resolved)
+	openai := endpointKey{Port: 443}
+	copy(openai.Addr[:], net.ParseIP("104.18.6.192").To4())
+	litellm := endpointKey{Port: 4000}
+	copy(litellm.Addr[:], net.ParseIP("10.0.0.5").To4())
 
-	if len(cs.knownIPs) != 1 {
-		t.Fatalf("expected 1 known IP, got %d", len(cs.knownIPs))
+	cs.UpdateEndpoints(map[endpointKey]uint8{
+		openai:  1,
+		litellm: providerCustom,
+	})
+
+	if len(cs.knownEndpoints) != 2 {
+		t.Fatalf("expected 2 known endpoints, got %d", len(cs.knownEndpoints))
+	}
+	if cs.knownEndpoints[litellm] != providerCustom {
+		t.Fatalf("expected litellm provider for :4000 endpoint, got %d", cs.knownEndpoints[litellm])
 	}
 }
 
-func TestConnScannerUpdateIPsSkipsUnknownHosts(t *testing.T) {
+func TestConnScannerUpdateEndpointsReplaces(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cs := NewConnScanner("/proc", logger)
 
-	resolved := map[string][]net.IP{
-		"unknown-host.example.com": {net.ParseIP("1.2.3.4")},
-	}
-	cs.UpdateIPs(resolved)
+	first := endpointKey{Port: 443}
+	copy(first.Addr[:], net.ParseIP("1.2.3.4").To4())
+	cs.UpdateEndpoints(map[endpointKey]uint8{first: 1})
 
-	if len(cs.knownIPs) != 0 {
-		t.Fatalf("expected 0 known IPs for unknown host, got %d", len(cs.knownIPs))
-	}
-}
-
-func TestConnScannerUpdateIPsSkipsIPv6(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	cs := NewConnScanner("/proc", logger)
-
-	resolved := map[string][]net.IP{
-		"api.openai.com": {net.ParseIP("2001:db8::1")},
-	}
-	cs.UpdateIPs(resolved)
-
-	if len(cs.knownIPs) != 0 {
-		t.Fatalf("expected 0 known IPs for pure IPv6, got %d", len(cs.knownIPs))
+	// A subsequent update replaces (does not merge) the set.
+	cs.UpdateEndpoints(map[endpointKey]uint8{})
+	if len(cs.knownEndpoints) != 0 {
+		t.Fatalf("expected endpoints to be replaced/cleared, got %d", len(cs.knownEndpoints))
 	}
 }
 
@@ -204,7 +199,7 @@ func TestScanTCPFileWithInodesNonexistent(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cs := NewConnScanner("/proc", logger)
 
-	matches := cs.scanTCPFileWithInodes("/nonexistent/tcp", false)
+	matches := cs.scanTCPFileWithInodes("/nonexistent/tcp", false, cs.knownEndpoints)
 	if matches != nil {
 		t.Fatalf("expected nil for nonexistent file, got %d matches", len(matches))
 	}
@@ -214,10 +209,10 @@ func TestScanTCPFileWithInodesValidFile(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cs := NewConnScanner("/proc", logger)
 
-	// Add a known IP so we can potentially match
-	var key [4]byte
-	key[0], key[1], key[2], key[3] = 192, 0, 2, 1
-	cs.knownIPs[key] = 1
+	// Add a known endpoint (192.0.2.1:443) so we can match the rem_address below
+	key := endpointKey{Port: 443}
+	key.Addr[0], key.Addr[1], key.Addr[2], key.Addr[3] = 192, 0, 2, 1
+	cs.knownEndpoints[key] = 1
 
 	// Create a temp file simulating /proc/net/tcp
 	dir := t.TempDir()
@@ -229,7 +224,7 @@ func TestScanTCPFileWithInodesValidFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	matches := cs.scanTCPFileWithInodes(tcpFile, false)
+	matches := cs.scanTCPFileWithInodes(tcpFile, false, cs.knownEndpoints)
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
 	}

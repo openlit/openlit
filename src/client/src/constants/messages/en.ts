@@ -809,7 +809,8 @@ export const AGENTS_CONFIG_POLL_INTERVAL = "Poll Interval (seconds)";
 export const AGENTS_CONFIG_POLL_INTERVAL_HELP = "How often the controller polls for updates and reports services. Lower values mean faster action response but more load. (5-300s)";
 export const AGENTS_CONFIG_EXPORT_SETTINGS = "Export Settings";
 export const AGENTS_CONFIG_OTLP_ENDPOINT = "OTLP Endpoint";
-export const AGENTS_CONFIG_OTLP_ENDPOINT_PLACEHOLDER = "http://localhost:4318";
+export const AGENTS_CONFIG_OTLP_ENDPOINT_PLACEHOLDER =
+	"Leave empty to use the controller's configured endpoint";
 export const AGENTS_CONFIG_OTLP_PROTOCOL = "OTLP Protocol";
 export const AGENTS_CONFIG_OTLP_PROTOCOL_HTTP = "HTTP/Protobuf";
 export const AGENTS_CONFIG_OTLP_PROTOCOL_GRPC = "gRPC";
@@ -839,6 +840,9 @@ export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";
 export const AGENTS_PROVIDER_BEDROCK = "AWS Bedrock";
+export const AGENTS_PROVIDER_QWEN = "Qwen";
+export const AGENTS_PROVIDER_OLLAMA = "Ollama";
+export const AGENTS_PROVIDER_CUSTOM = "Custom LLM Gateway";
 
 
 // Getting Started - Openground

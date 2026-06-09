@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
 	"github.com/openlit/openlit/openlit-controller/internal/openlit"
@@ -100,6 +101,13 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	}
 	if payload.SDKVersion == "" {
 		payload.SDKVersion = e.sdkVersion
+	}
+	// sdk_version is attacker-controllable (it arrives in the poll action payload
+	// and is interpolated into pip install commands, including shell strings for
+	// the k8s init container / docker helper). Reject anything that isn't a plain
+	// PEP 440-style version before it can reach any exec path.
+	if !isValidSDKVersion(payload.SDKVersion) {
+		return fmt.Errorf("invalid sdk_version %q: must match a PEP 440 version (letters, digits, . _ + -)", payload.SDKVersion)
 	}
 	if payload.Environment == "" {
 		payload.Environment = e.environment
@@ -605,7 +613,19 @@ func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload open
 		}
 	}
 
-	originalPodJSON, _ := json.Marshal(pod)
+	// Capture the original spec for rollback BEFORE the destructive delete. A
+	// naked pod has no controller to recreate it, so the delete→create window is
+	// the danger zone: log the full original spec at Error level first so it is
+	// recoverable from controller logs even if the process dies mid-recreate.
+	originalPodJSON, marshalErr := json.Marshal(pod)
+	if marshalErr != nil {
+		return fmt.Errorf("marshaling naked pod %s/%s before SDK injection: %w", namespace, podName, marshalErr)
+	}
+	e.logger.Info("recreating naked pod for SDK injection; original spec captured for rollback",
+		zap.String("namespace", namespace),
+		zap.String("pod", podName),
+		zap.ByteString("original_spec", originalPodJSON),
+	)
 
 	if err := e.container.k8sClient.deletePod(namespace, podName, 0); err != nil {
 		return fmt.Errorf("deleting naked pod %s/%s for SDK injection: %w", namespace, podName, err)
@@ -620,8 +640,23 @@ func (e *Engine) enablePythonSDKNakedPod(svc *openlit.ServiceState, payload open
 		var originalPod map[string]any
 		if unmarshalErr := json.Unmarshal(originalPodJSON, &originalPod); unmarshalErr == nil {
 			stripPodRuntimeFields(originalPod)
-			if restoreErr := e.container.k8sClient.createPod(namespace, originalPod); restoreErr != nil {
-				e.logger.Error("CRITICAL: naked pod rollback failed — pod is deleted and could not be restored. Manual intervention required.",
+			// Retry the rollback a few times — a transient API error must not be
+			// the difference between a recovered pod and a lost one.
+			var restoreErr error
+			for attempt := 1; attempt <= 3; attempt++ {
+				if restoreErr = e.container.k8sClient.createPod(namespace, originalPod); restoreErr == nil {
+					break
+				}
+				e.logger.Warn("naked pod rollback attempt failed, retrying",
+					zap.String("namespace", namespace),
+					zap.String("pod", podName),
+					zap.Int("attempt", attempt),
+					zap.Error(restoreErr),
+				)
+				time.Sleep(time.Duration(attempt) * time.Second)
+			}
+			if restoreErr != nil {
+				e.logger.Error("CRITICAL: naked pod rollback failed — pod is deleted and could not be restored. Original spec is in the preceding 'original_spec' log line. Manual intervention required.",
 					zap.String("namespace", namespace),
 					zap.String("pod", podName),
 					zap.Error(restoreErr),
@@ -1062,10 +1097,16 @@ func formatOTLPHeaders(headers map[string]string) string {
 }
 
 func pythonSDKConfigHash(svc *openlit.ServiceState, payload openlit.PythonSDKActionPayload) string {
-	data, _ := json.Marshal(map[string]any{
+	data, err := json.Marshal(map[string]any{
 		"service": svc.ID,
 		"payload": payload,
 	})
+	if err != nil {
+		// Marshal of these plain structs should never fail, but if it does, fall
+		// back to a value-derived representation so distinct configs don't all
+		// collide onto the hash of "null".
+		data = []byte(fmt.Sprintf("%s|%+v", svc.ID, payload))
+	}
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:8])
 }
@@ -1116,16 +1157,20 @@ func findTargetContainer(workload map[string]any, containerName string) (map[str
 }
 
 func selectContainerIndex(containers []map[string]any, containerName string) (int, error) {
-	if containerName == "" && len(containers) == 1 {
-		return 0, nil
+	// No target name specified: only unambiguous when there's exactly one container.
+	if containerName == "" {
+		if len(containers) == 1 {
+			return 0, nil
+		}
+		return -1, fmt.Errorf("no container name specified and pod has %d containers", len(containers))
 	}
+	// A name was specified: require an exact match. Do NOT silently fall back to
+	// containers[0] on mismatch — injecting into the wrong container is worse
+	// than failing the action visibly.
 	for index, container := range containers {
 		if container["name"] == containerName {
 			return index, nil
 		}
-	}
-	if len(containers) == 1 {
-		return 0, nil
 	}
 	return -1, fmt.Errorf("failed to resolve target container %q", containerName)
 }

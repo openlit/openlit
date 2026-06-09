@@ -23,6 +23,8 @@ import {
 	upsertVersion,
 } from "./snapshot";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import { mergeProviders } from "./provider-normalize";
 
 /**
  * Maximum agents the materializer touches in a single tick.
@@ -50,9 +52,7 @@ const MAX_AGENTS_PER_TICK = Math.max(
  */
 const _materializeCursor = new Map<string, number>();
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 interface DiscoveredAgent {
 	agent_key: string;
@@ -1065,19 +1065,13 @@ export async function materializeAgents(
 			// logos on the agents table for freshly-discovered controller
 			// workloads that haven't emitted GenAI spans yet, and for SDK
 			// workloads where the controller saw the import but the snapshot
-			// window did not yet contain a request. We clone before pushing so
-			// we don't mutate the snapshot / cached-version arrays in place.
-			if (agent.controller_llm_providers.length) {
-				const merged = providers.slice();
-				const seen = new Set(merged);
-				for (const p of agent.controller_llm_providers) {
-					if (p && !seen.has(p)) {
-						merged.push(p);
-						seen.add(p);
-					}
-				}
-				providers = merged;
-			}
+			// window did not yet contain a request.
+			//
+			// mergeProviders canonicalizes names across the two vocabularies
+			// (controller short names vs OTel semconv names, e.g. "gemini" vs
+			// "gcp.gemini") so the same provider doesn't appear twice with only
+			// one matching a logo.
+			providers = mergeProviders(providers, agent.controller_llm_providers);
 
 			const requestCount24h = requestCounts.get(agent.agent_key) || 0;
 			summaryRows.push({

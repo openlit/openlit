@@ -16,8 +16,8 @@ import {
 import { KNOWN_ACTIONS } from "@/types/controller";
 import { getAllFeatureHandlers } from "@/lib/platform/controller/features";
 import type { ReportedService } from "@/lib/platform/controller/features";
-import { getFirstDBConfig } from "@/lib/db-config";
 import { getAPIKeyInfo, hasAnyAPIKeys } from "@/lib/platform/api-keys";
+import { getFirstDBConfig } from "@/lib/db-config";
 import type { ControllerConfig, FeatureDesiredState } from "@/types/controller";
 import crypto from "crypto";
 
@@ -71,6 +71,11 @@ async function authenticatePollRequest(
 		return { dbId: apiInfo.databaseConfigId };
 	}
 
+	// Auth model (intentional, for fast onboarding):
+	//   - If any API key exists, the controller MUST send a valid one.
+	//   - If no API key has been created yet, the controller may poll without
+	//     one so it can come up before the operator finishes onboarding. The
+	//     moment the first key is created, this path closes automatically.
 	const keysExist = await hasAnyAPIKeys();
 	if (keysExist) {
 		return Response.json(
@@ -82,14 +87,10 @@ async function authenticatePollRequest(
 		);
 	}
 
-	console.warn("controller poll: no API keys configured -- poll endpoint is unauthenticated");
 	const dbConfig = await getFirstDBConfig();
 	if (!dbConfig) {
 		return Response.json(
-			{
-				error:
-					"No database configuration found. Complete onboarding first.",
-			},
+			{ error: "No database configuration found. Complete onboarding first." },
 			{ status: 503 }
 		);
 	}
@@ -141,44 +142,67 @@ async function phaseUpsertServices(
 		return reportedServices;
 	}
 
+	// Coerce/validate untrusted poll fields into known types/sizes before insert.
+	// The body is attacker-influenceable; downstream code (and queries) assume
+	// these are strings, so a non-string or oversized value must be normalized.
+	const MAX_FIELD = 1024;
+	const cStr = (v: unknown): string =>
+		(typeof v === "string" ? v : v == null ? "" : String(v))
+			// eslint-disable-next-line no-control-regex
+			.replace(/[\x00-\x1f\x7f]/g, "")
+			.slice(0, MAX_FIELD);
+	const cStrArr = (v: unknown): string[] =>
+		Array.isArray(v) ? v.slice(0, 256).map(cStr).filter(Boolean) : [];
+
 	const rows = body.services.map((svc: any) => {
-		if (!svc.workload_key) {
-			throw new Error(
-				"controller poll: service is missing workload_key"
-			);
+		const workloadKey = cStr(svc?.workload_key);
+		if (!workloadKey) {
+			throw new Error("controller poll: service is missing workload_key");
 		}
-		const ns = svc.namespace || "";
-		const name = svc.service_name || "";
+		const ns = cStr(svc.namespace);
+		const name = cStr(svc.service_name);
+		const status = cStr(svc.instrumentation_status) || "discovered";
+
+		// resource_attributes: keep only string->string entries.
+		const rawAttrs =
+			svc.resource_attributes && typeof svc.resource_attributes === "object"
+				? (svc.resource_attributes as Record<string, unknown>)
+				: {};
+		const attrs: Record<string, string> = {};
+		for (const k of Object.keys(rawAttrs).slice(0, 128)) {
+			attrs[cStr(k)] = cStr(rawAttrs[k]);
+		}
+
+		const openPorts = Array.isArray(svc.open_ports)
+			? svc.open_ports
+					.map((p: unknown) => Number(p))
+					.filter((p: number) => Number.isInteger(p) && p > 0 && p <= 65535)
+					.slice(0, 64)
+			: [];
+		const pid = Number.isInteger(svc.pid) && svc.pid > 0 ? svc.pid : 0;
 
 		reportedServices.push({
-			workload_key: svc.workload_key,
-			instrumentation_status:
-				svc.instrumentation_status || "discovered",
-			resource_attributes: svc.resource_attributes,
+			workload_key: workloadKey,
+			instrumentation_status: status,
+			resource_attributes: attrs,
 		});
 
 		return {
-			id: deterministicServiceId(
-				body.instance_id,
-				svc.workload_key,
-				ns,
-				name
-			),
+			id: deterministicServiceId(body.instance_id, workloadKey, ns, name),
 			controller_instance_id: body.instance_id,
 			cluster_id: clusterId,
 			service_name: name,
-			workload_key: svc.workload_key,
+			workload_key: workloadKey,
 			namespace: ns,
-			language_runtime: svc.language_runtime || "",
-			llm_providers: svc.llm_providers || [],
-			open_ports: svc.open_ports || [],
-			deployment_name: svc.deployment_name || "",
-			pid: svc.pid || 0,
-			exe_path: svc.exe_path || "",
-			instrumentation_status:
-				svc.instrumentation_status || "discovered",
-			resource_attributes: svc.resource_attributes || {},
-			first_seen: svc.first_seen || now,
+			language_runtime: cStr(svc.language_runtime),
+			llm_providers: cStrArr(svc.llm_providers),
+			open_ports: openPorts,
+			deployment_name: cStr(svc.deployment_name),
+			pid,
+			exe_path: cStr(svc.exe_path),
+			instrumentation_status: status,
+			resource_attributes: attrs,
+			first_seen: cStr(svc.first_seen) || now,
 			last_seen: now,
 			updated_at: now,
 		};

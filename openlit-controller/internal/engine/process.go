@@ -94,6 +94,31 @@ func readEnviron(procRoot string, pid int) map[string]string {
 	return env
 }
 
+// userServiceNameFromEnv returns an explicit, user-configured OTel service name
+// from a process's environment, or "" if none is set. Precedence follows the
+// OTel SDK: OTEL_SERVICE_NAME wins, then service.name inside
+// OTEL_RESOURCE_ATTRIBUTES. This lets the controller adopt the name the user
+// already chose so discovery, OBI instrumentation, and SDK injection all agree
+// on it (and traces match the agents summary).
+func userServiceNameFromEnv(env map[string]string) string {
+	if env == nil {
+		return ""
+	}
+	if v := strings.TrimSpace(env["OTEL_SERVICE_NAME"]); v != "" {
+		return v
+	}
+	// OTEL_RESOURCE_ATTRIBUTES is a comma-separated list of key=value pairs.
+	for _, pair := range strings.Split(env["OTEL_RESOURCE_ATTRIBUTES"], ",") {
+		key, value, ok := strings.Cut(pair, "=")
+		if ok && strings.TrimSpace(key) == "service.name" {
+			if v := strings.TrimSpace(value); v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
 func readCgroup(procRoot string, pid int) string {
 	data, err := os.ReadFile(filepath.Join(procRoot, strconv.Itoa(pid), "cgroup"))
 	if err != nil {
@@ -258,6 +283,15 @@ func EnrichProcess(procRoot string, pid int, container *ContainerEnricher, mode 
 			meta.IsContainerized = true
 		}
 	}
+
+	// An explicit user-set OTEL service name is authoritative: it overrides the
+	// container/process-derived name so the controller, OBI instrumentation, and
+	// SDK injection all report the same service.name the user already chose, and
+	// the emitted traces match the agents summary row keyed on this name.
+	if userName := userServiceNameFromEnv(env); userName != "" {
+		meta.ServiceName = userName
+	}
+
 	return meta
 }
 
@@ -326,4 +360,3 @@ func restartProcessWithEnv(procRoot string, pid int, envOverrides map[string]str
 	}
 	return restartProcess(procRoot, pid, existingEnv)
 }
-

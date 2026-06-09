@@ -27,3 +27,6 @@ func (s *Scanner) Events() <-chan LLMConnectEvent { return nil }
 
 // Close is a no-op on non-Linux.
 func (s *Scanner) Close() error { return nil }
+
+// UpdateCustomHosts is a no-op on non-Linux.
+func (s *Scanner) UpdateCustomHosts(_ []string) {}

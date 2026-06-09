@@ -81,22 +81,19 @@ export interface DiscoveryConfig {
 	kubernetes?: K8sDiscovery;
 }
 
+// Payload extraction toggles map 1:1 to OBI GenAI extractors the controller can
+// actually enable. OBI natively parses openai/anthropic/gemini/qwen/bedrock; all
+// OpenAI-compatible SaaS vendors are parsed by the OpenAI extractor; `custom`
+// covers self-hosted OpenAI-compatible gateways; `ollama` covers Ollama's native
+// API. (Discovery may still surface other vendor names as chips — see
+// PROVIDER_LABELS — but only these have a dedicated extractor toggle.)
 export interface PayloadExtractionConfig {
 	openai: boolean;
 	anthropic: boolean;
 	gemini: boolean;
-	cohere: boolean;
-	mistral: boolean;
-	groq: boolean;
-	azure_openai: boolean;
-	azure_inference: boolean;
+	qwen: boolean;
 	bedrock: boolean;
-	vercel_ai: boolean;
-	vertex_ai: boolean;
-	litellm: boolean;
-	deepseek: boolean;
-	together: boolean;
-	fireworks: boolean;
+	custom: boolean;
 	ollama: boolean;
 }
 

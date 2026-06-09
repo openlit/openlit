@@ -2,16 +2,29 @@
 FROM ghcr.io/open-telemetry/obi-generator:0.2.11 AS obi-builder
 
 ARG OBI_REPO=https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation.git
-ARG OBI_BRANCH=v0.8.0
+ARG OBI_BRANCH=v0.9.0
 ARG TARGETARCH
 
 ENV GOARCH=${TARGETARCH}
+# OBI v0.9.0 requires Go >= 1.25.9, newer than the obi-generator base image's
+# pinned toolchain. Allow Go to auto-download the toolchain its go.mod requests.
+ENV GOTOOLCHAIN=auto
 
 WORKDIR /obi-src
 
 RUN apk add --no-cache make git bash
 
 RUN git clone --depth 1 --branch ${OBI_BRANCH} ${OBI_REPO} .
+
+# Vendor our standalone provider parsers (new files, not patches) into the OBI
+# HTTP package, then apply patches that wire them in + add config/span fields.
+COPY _obi-providers/ /tmp/providers/
+RUN for gofile in /tmp/providers/*/*.go; do \
+      [ -f "$gofile" ] || continue; \
+      case "$gofile" in *_test.go) continue;; esac; \
+      echo "Vendoring $gofile"; \
+      cp "$gofile" pkg/ebpf/common/http/; \
+    done
 
 COPY patches/ /tmp/patches/
 RUN for patch in /tmp/patches/*.patch; do \

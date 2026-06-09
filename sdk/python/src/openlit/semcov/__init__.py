@@ -737,6 +737,12 @@ class SemanticConvention:
     GEN_AI_AGENT_FINISH_OUTPUT = "gen_ai.agent.finish.output"
     GEN_AI_AGENT_FINISH_LOG = "gen_ai.agent.finish.log"
 
+    # Agent Threat Detection Events
+    GEN_AI_AGENT_THREAT_DETECTED = "gen_ai.agent.threat_detected"
+    GEN_AI_AGENT_THREAT_RULE_ID = "gen_ai.agent.threat.rule_id"
+    GEN_AI_AGENT_THREAT_SEVERITY = "gen_ai.agent.threat.severity"
+    GEN_AI_AGENT_THREAT_CLASS = "gen_ai.agent.threat.threat_class"
+
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
     # Crawl4AI Specific Attributes (0.7.x Support)

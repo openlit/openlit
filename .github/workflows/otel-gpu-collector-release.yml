@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: openlit/otel-gpu-collector
+  IMAGE_NAME: ${{ github.repository_owner }}/otel-gpu-collector
   BINARY_NAME: opentelemetry-gpu-collector
 
 permissions:
@@ -18,7 +18,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v6
         with:
@@ -70,7 +70,7 @@ jobs:
             ext: .exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v6
         with:
@@ -88,6 +88,22 @@ jobs:
             | sudo tar -xz -C /usr/local/bin/
           sudo chmod +x /usr/local/bin/bpftool
 
+      # NVIDIA NVML (github.com/NVIDIA/go-nvml) uses cgo+dlopen to load
+      # libnvidia-ml.so at runtime, so the linux release binaries must be built
+      # with CGO_ENABLED=1. Cross-compiling linux/arm64 from an amd64 runner
+      # additionally needs an aarch64 C toolchain plus the target libc headers.
+      #
+      # libc6-dev-arm64-cross provides /usr/aarch64-linux-gnu/include (including
+      # bits/libc-header-start.h). It is only a Recommends of gcc-aarch64-linux-gnu,
+      # so we list it explicitly to stay safe under --no-install-recommends.
+      - name: Install aarch64 cross-compiler (linux/arm64 only)
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install --no-install-recommends -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
       - name: Generate eBPF objects (linux targets only)
         if: matrix.goos == 'linux'
         working-directory: opentelemetry-gpu-collector
@@ -103,7 +119,10 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
-          CGO_ENABLED: "0"
+          # Linux ships NVML via go-nvml (cgo+dlopen); darwin/windows have no
+          # NVML at all and fall through to the stub, so CGO is unnecessary.
+          CGO_ENABLED: ${{ matrix.goos == 'linux' && '1' || '0' }}
+          CC: ${{ (matrix.goos == 'linux' && matrix.goarch == 'arm64') && 'aarch64-linux-gnu-gcc' || '' }}
         run: |
           OUTPUT="${{ env.BINARY_NAME }}-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('-armv{0}', matrix.goarm) || '' }}${{ matrix.ext }}"
           go build -trimpath -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
@@ -123,7 +142,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -160,7 +179,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
@@ -169,7 +188,7 @@ jobs:
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
       - name: Log into GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -182,11 +201,20 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_OUTPUT
 
+      # GHCR requires lowercase image names, but github.repository_owner keeps
+      # the owner's original case (e.g. OpenLIT). Expressions have no tolower(),
+      # so lowercase it here with tr (POSIX, no bash-version dependency).
+      - name: Lowercase image name
+        id: image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: echo "name=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
             type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}

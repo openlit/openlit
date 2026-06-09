@@ -1,127 +1,166 @@
 diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
-index d7ccb12..7a73a13 100644
+index 54776da..77aa795 100644
 --- a/pkg/appolly/app/request/span.go
 +++ b/pkg/appolly/app/request/span.go
-@@ -97,13 +97,29 @@ const (
- 	HTTPSubtypeGemini        = 8  // http + Google AI Studio (Gemini)
- 	HTTPSubtypeJSONRPC       = 9  // http + JSON-RPC
- 	HTTPSubtypeAWSBedrock    = 10 // http + AWS Bedrock
-+	HTTPSubtypeCohere        = 11 // http + Cohere
-+	HTTPSubtypeMistral       = 12 // http + Mistral (OpenAI-compatible)
-+	HTTPSubtypeGroq          = 13 // http + Groq (OpenAI-compatible)
-+	HTTPSubtypeDeepseek      = 14 // http + Deepseek (OpenAI-compatible)
-+	HTTPSubtypeTogether      = 15 // http + Together (OpenAI-compatible)
-+	HTTPSubtypeFireworks     = 16 // http + Fireworks (OpenAI-compatible)
-+	HTTPSubtypeOllama        = 17 // http + Ollama
-+	HTTPSubtypeAzureOpenAI   = 18 // http + Azure OpenAI (OpenAI-compatible)
+@@ -105,6 +105,8 @@ const (
+ 	HTTPSubtypeMCP           = 12 // http + Model Context Protocol
+ 	HTTPSubtypeEmbedding     = 13 // http + generic embedding provider (Voyage, Cohere, Jina)
+ 	HTTPSubtypeRerank        = 14 // http + Rerank (Cohere, Jina, Voyage, etc.)
++	HTTPSubtypeCustom        = 15 // http + custom OpenAI-compatible gateway (LiteLLM, vLLM, ...)
++	HTTPSubtypeOllama        = 16 // http + Ollama native API
  )
  
  func IsGenAISubtype(subtype int) bool {
- 	return subtype == HTTPSubtypeOpenAI ||
- 		subtype == HTTPSubtypeAnthropic ||
- 		subtype == HTTPSubtypeGemini ||
--		subtype == HTTPSubtypeAWSBedrock
-+		subtype == HTTPSubtypeAWSBedrock ||
-+		subtype == HTTPSubtypeCohere ||
-+		subtype == HTTPSubtypeMistral ||
-+		subtype == HTTPSubtypeGroq ||
-+		subtype == HTTPSubtypeDeepseek ||
-+		subtype == HTTPSubtypeTogether ||
-+		subtype == HTTPSubtypeFireworks ||
-+		subtype == HTTPSubtypeOllama ||
-+		subtype == HTTPSubtypeAzureOpenAI
+@@ -115,7 +117,9 @@ func IsGenAISubtype(subtype int) bool {
+ 		subtype == HTTPSubtypeAWSBedrock ||
+ 		subtype == HTTPSubtypeMCP ||
+ 		subtype == HTTPSubtypeEmbedding ||
+-		subtype == HTTPSubtypeRerank
++		subtype == HTTPSubtypeRerank ||
++		subtype == HTTPSubtypeCustom ||
++		subtype == HTTPSubtypeOllama
  }
  
  //nolint:cyclop
-@@ -253,6 +269,14 @@ type GenAI struct {
- 	Anthropic *VendorAnthropic
- 	Gemini    *VendorGemini
- 	Bedrock   *VendorBedrock
-+	Cohere    *VendorCohere
+@@ -282,6 +286,33 @@ type GenAI struct {
+ 	MCP       *MCPCall
+ 	Embedding *VendorEmbedding
+ 	Rerank    *VendorRerank
++	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Reuses
++	// VendorOpenAI for tokens/model/params because the wire format is
++	// OpenAI-compatible. The message bodies, however, are normalized by the
++	// custom parser into the GenAI semconv role/parts structure and carried in
++	// the Custom*Messages fields below (the raw VendorOpenAI getters return the
++	// non-normalized OpenAI shape).
++	Custom                   *VendorOpenAI
++	CustomInputMessages      string
++	CustomOutputMessages     string
++	CustomSystemInstructions string
++	// Ollama native API (/api/chat, /api/generate). Distinct schema, own vendor.
++	Ollama *VendorOllama
 +}
 +
-+type VendorCohere struct {
-+	Model        string `json:"model"`
-+	InputTokens  int    `json:"input_tokens"`
-+	OutputTokens int    `json:"output_tokens"`
-+	Operation    string `json:"operation"`
++// VendorOllama holds fields parsed from Ollama's native API responses
++// (/api/chat, /api/generate), which differ from the OpenAI wire format:
++// tokens are prompt_eval_count/eval_count and output text is message.content
++// or response.
++type VendorOllama struct {
++	Model        string
++	InputTokens  int
++	OutputTokens int
++	Operation    string
++	// Input/Output carry the serialized request messages and response content
++	// for the gen_ai.{input,output}.messages span attributes.
++	Input  string
++	Output string
  }
  
  type OpenAIUsage struct {
-@@ -1494,6 +1518,10 @@ func (s *Span) GenAIInputTokens() int {
- 		return s.GenAI.Bedrock.Output.InputTokens
+@@ -1490,6 +1521,23 @@ func (s *Span) TraceName() string {
+ 			}
+ 		}
+ 
++		// Custom OpenAI-compatible gateway: name spans "<operation> <model>"
++		// (e.g. "chat gpt-4o-mini"), matching the OpenAI convention. Custom
++		// reuses VendorOpenAI, so the logic mirrors the OpenAI case above.
++		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeCustom && s.GenAI != nil && s.GenAI.Custom != nil {
++			name := s.GenAI.Custom.OperationName
++			if name != "" {
++				switch {
++				case s.GenAI.Custom.Request.Model != "":
++					return name + " " + s.GenAI.Custom.Request.Model
++				case s.GenAI.Custom.ResponseModel != "":
++					return name + " " + s.GenAI.Custom.ResponseModel
++				default:
++					return name
++				}
++			}
++		}
++
+ 		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeAnthropic && s.GenAI != nil && s.GenAI.Anthropic != nil {
+ 			name := s.GenAI.Anthropic.Output.Type
+ 			if name != "" {
+@@ -1819,6 +1867,14 @@ func (s *Span) GenAIInputTokens() int {
+ 		return s.GenAI.Rerank.Output.GetTotalTokens()
  	}
  
-+	if s.GenAI.Cohere != nil {
-+		return s.GenAI.Cohere.InputTokens
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Usage.GetInputTokens()
++	}
++
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.InputTokens
 +	}
 +
  	return 0
  }
  
-@@ -1518,6 +1546,10 @@ func (s *Span) GenAIOutputTokens() int {
- 		return s.GenAI.Bedrock.Output.OutputTokens
+@@ -1851,6 +1907,14 @@ func (s *Span) GenAIOutputTokens() int {
+ 		return s.GenAI.Embedding.GetOutputTokens()
  	}
  
-+	if s.GenAI.Cohere != nil {
-+		return s.GenAI.Cohere.OutputTokens
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Usage.GetOutputTokens()
++	}
++
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.OutputTokens
 +	}
 +
  	return 0
  }
  
-@@ -1537,6 +1569,9 @@ func (s *Span) GenAIOperationName() string {
- 	if s.GenAI.Bedrock != nil {
- 		return "invoke_model"
+@@ -1879,6 +1943,12 @@ func (s *Span) GenAIOperationName() string {
+ 	if s.GenAI.Rerank != nil {
+ 		return "rerank"
  	}
-+	if s.GenAI.Cohere != nil {
-+		return s.GenAI.Cohere.Operation
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.OperationName
++	}
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Operation
 +	}
  	return ""
  }
  
-@@ -1556,6 +1591,25 @@ func (s *Span) GenAIProviderName() string {
- 	if s.GenAI.Bedrock != nil {
- 		return semconv.GenAIProviderNameAWSBedrock.Value.AsString()
+@@ -1907,6 +1977,12 @@ func (s *Span) GenAIProviderName() string {
+ 	if s.GenAI.Rerank != nil {
+ 		return s.GenAI.Rerank.Provider
  	}
-+	if s.GenAI.Cohere != nil {
-+		return "cohere"
-+	}
-+	switch s.SubType {
-+	case HTTPSubtypeGroq:
-+		return "groq"
-+	case HTTPSubtypeDeepseek:
-+		return "deepseek"
-+	case HTTPSubtypeTogether:
-+		return "together"
-+	case HTTPSubtypeFireworks:
-+		return "fireworks"
-+	case HTTPSubtypeMistral:
-+		return "mistral"
-+	case HTTPSubtypeOllama:
++	if s.GenAI.Ollama != nil {
 +		return "ollama"
-+	case HTTPSubtypeAzureOpenAI:
-+		return "azure.openai"
++	}
++	// Custom gateways intentionally report no provider name: the wire format is
++	// OpenAI-compatible but the actual backend vendor is unknown. Discovery
++	// (IP+port) remains the authoritative attribution.
+ 	return ""
+ }
+ 
+@@ -1938,6 +2014,12 @@ func (s *Span) GenAIRequestModel() string {
+ 	if s.GenAI.Rerank != nil {
+ 		return s.GenAI.Rerank.Input.Model
+ 	}
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Request.Model
++	}
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Model
 +	}
  	return ""
  }
  
-@@ -1575,6 +1629,9 @@ func (s *Span) GenAIRequestModel() string {
- 	if s.GenAI.Bedrock != nil {
- 		return s.GenAI.Bedrock.Model
+@@ -1978,5 +2060,14 @@ func (s *Span) GenAIResponseModel() string {
+ 		}
+ 		return s.GenAI.Rerank.Input.Model
  	}
-+	if s.GenAI.Cohere != nil {
-+		return s.GenAI.Cohere.Model
++	if s.GenAI.Custom != nil {
++		if s.GenAI.Custom.ResponseModel != "" {
++			return s.GenAI.Custom.ResponseModel
++		}
++		return s.GenAI.Custom.Request.Model
 +	}
- 	return ""
- }
- 
-@@ -1597,5 +1654,8 @@ func (s *Span) GenAIResponseModel() string {
- 	if s.GenAI.Bedrock != nil {
- 		return s.GenAI.Bedrock.Model
- 	}
-+	if s.GenAI.Cohere != nil {
-+		return s.GenAI.Cohere.Model
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Model
 +	}
  	return ""
  }
