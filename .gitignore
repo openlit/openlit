@@ -12,8 +12,6 @@ logs/
 **.env
 .vscode/
 .idea/
-.cursor-rules/
-.cursorrules
 **.pem
 **certs/index.txt
 **.csr

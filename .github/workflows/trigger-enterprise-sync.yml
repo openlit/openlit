@@ -1,0 +1,33 @@
+name: Trigger Enterprise Sync
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    if: github.repository == 'openlit/openlit'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch enterprise OSS sync
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.ENTERPRISE_SYNC_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'openlit',
+              repo: 'openlit-enterprise',
+              event_type: 'oss-main-updated',
+              client_payload: {
+                source_repository: context.repo.repo,
+                source_owner: context.repo.owner,
+                source_ref: context.ref,
+                source_sha: context.sha,
+                source_run_id: context.runId,
+              },
+            });

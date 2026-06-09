@@ -23,6 +23,9 @@ jest.mock('@/lib/prisma', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    project: {
+      findFirst: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
     },
@@ -33,12 +36,15 @@ jest.mock('@/lib/session', () => ({
 }));
 jest.mock('@/lib/organisation', () => ({
   getCurrentOrganisation: jest.fn(),
+  getCurrentProjectForOrganisation: jest.fn(),
 }));
 jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/constants/messages', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     UNAUTHORIZED_USER: 'Unauthorized',
+    DB_CONFIG_NOT_IN_CURRENT_PROJECT: "Database config doesn't exist in current project",
+    CURRENT_DB_CONFIG_SET_SUCCESS: 'Current DB config set successfully!',
   })),
 }));
 jest.mock('@/utils/error', () => ({
@@ -65,11 +71,12 @@ import {
 } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
-import { getCurrentOrganisation } from '@/lib/organisation';
+import { getCurrentOrganisation, getCurrentProjectForOrganisation } from '@/lib/organisation';
 import asaw from '@/utils/asaw';
 
 const mockUser = { id: 'u1', email: 'user@example.com' };
 const mockOrg = { id: 'org1', name: 'Test Org' };
+const mockProject = { id: 'project1', organisationId: 'org1', name: 'Default Project' };
 const mockDbConfig = {
   id: 'db1',
   name: 'Test DB',
@@ -78,7 +85,7 @@ const mockDbConfig = {
   username: 'admin',
   password: 'pass',
   database: 'default',
-  organisationId: 'org1',
+  projectId: 'project1',
   createdByUserId: 'u1',
   createdAt: new Date(),
 };
@@ -87,6 +94,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (getCurrentUser as jest.Mock).mockResolvedValue(mockUser);
   (getCurrentOrganisation as jest.Mock).mockResolvedValue(mockOrg);
+  (getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(mockProject);
   (prisma.databaseConfigUser.findMany as jest.Mock).mockResolvedValue([]);
   (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue(null);
   (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue(null);
@@ -137,14 +145,14 @@ describe('getDBConfigByUser', () => {
     expect(result).toBeUndefined();
   });
 
-  it('auto-migrates orphaned configs when org exists', async () => {
+  it('auto-migrates orphaned configs when project exists', async () => {
     (prisma.databaseConfigUser.findMany as jest.Mock)
       .mockResolvedValueOnce([{ databaseConfigId: 'db-orphan' }]) // orphaned
       .mockResolvedValueOnce([]); // user configs
     (prisma.databaseConfig.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     await getDBConfigByUser();
     expect(prisma.databaseConfig.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { organisationId: 'org1' } })
+      expect.objectContaining({ data: { projectId: 'project1' } })
     );
   });
 
@@ -218,22 +226,23 @@ describe('upsertDBConfig', () => {
     await expect(upsertDBConfig(validConfig)).rejects.toThrow('DB config Name already exists');
   });
 
-  it('creates new config with org (org upsert path)', async () => {
-    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'new-db', organisationId: 'org1' }]);
-    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ organisationId: 'org1' });
+  it('creates new config with project (project upsert path)', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'new-db', projectId: 'project1' }]);
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ projectId: 'project1' });
     (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
 
     const result = await upsertDBConfig(validConfig);
     expect(result).toBe('Added db details successfully');
   });
 
-  it('creates config without org (no-org create path)', async () => {
+  it('creates config without project (no-project create path)', async () => {
     (getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
+    (getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(null);
     (prisma.databaseConfig.findFirst as jest.Mock)
       .mockResolvedValueOnce(null) // name uniqueness check
-      .mockResolvedValueOnce(null); // check if existing (no-org path)
+      .mockResolvedValueOnce(null); // check if existing (no-project path)
     (prisma.databaseConfig.create as jest.Mock).mockResolvedValue({ id: 'new-db' });
-    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ organisationId: null });
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ projectId: null });
     (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
 
     const result = await upsertDBConfig(validConfig);
@@ -241,13 +250,14 @@ describe('upsertDBConfig', () => {
     expect(prisma.databaseConfig.create).toHaveBeenCalled();
   });
 
-  it('updates existing config without org (no-org update path)', async () => {
+  it('updates existing config without project (no-project update path)', async () => {
     (getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
+    (getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(null);
     (prisma.databaseConfig.findFirst as jest.Mock)
       .mockResolvedValueOnce(null) // name uniqueness check
-      .mockResolvedValueOnce({ id: 'existing-db' }); // existing no-org config
+      .mockResolvedValueOnce({ id: 'existing-db' }); // existing no-project config
     (prisma.databaseConfig.update as jest.Mock).mockResolvedValue({ id: 'existing-db' });
-    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ organisationId: null });
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ projectId: null });
     (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
 
     const result = await upsertDBConfig(validConfig);
@@ -319,6 +329,7 @@ describe('deleteDBConfig', () => {
 
 describe('setCurrentDBConfig', () => {
   it('sets a new current db config (unsets old current)', async () => {
+    (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue({ id: 'new-db' });
     (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({
       databaseConfig: { id: 'old-db' },
     });
@@ -330,6 +341,7 @@ describe('setCurrentDBConfig', () => {
   });
 
   it('sets current db config when no existing current', async () => {
+    (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue({ id: 'new-db' });
     (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.databaseConfigUser.update as jest.Mock).mockResolvedValue({});
 
@@ -341,6 +353,14 @@ describe('setCurrentDBConfig', () => {
   it('throws when user is not authenticated', async () => {
     (getCurrentUser as jest.Mock).mockResolvedValue(null);
     await expect(setCurrentDBConfig('db1')).rejects.toThrow('Unauthorized');
+  });
+
+  it('rejects configs outside the current project', async () => {
+    (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await expect(setCurrentDBConfig('other-project-db')).rejects.toThrow(
+      "Database config doesn't exist in current project"
+    );
   });
 });
 
@@ -363,7 +383,7 @@ describe('shareDBConfig', () => {
       .mockResolvedValueOnce([null, { canShare: true, canEdit: true, canDelete: true }]) // checkPermissionForDbAction
       .mockResolvedValueOnce([null, { id: 'u2', email: 'other@example.com' }]) // user.findUnique
       .mockResolvedValueOnce([null, null]); // databaseConfigUser.findFirst (no existing)
-    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ organisationId: null });
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue({ projectId: null });
     (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
 
     const result = await shareDBConfig({

@@ -3,6 +3,7 @@ import { deleteData, getData, postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { toast } from "sonner";
 import { fetchDatabaseConfigList, pingActiveDatabaseConfig } from "./database-config";
+import { fetchProjectList } from "./project";
 import { OrganisationWithMeta } from "@/types/store/organisation";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -69,6 +70,7 @@ export const changeActiveOrganisation = async (
 	});
 
 	// Refetch database configs for the new organisation
+	await fetchProjectList(organisationId);
 	await fetchDatabaseConfigList(() => {});
 	await pingActiveDatabaseConfig();
 

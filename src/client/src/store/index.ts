@@ -9,6 +9,7 @@ import { pageStoreSlice } from "./page";
 import { RootStore } from "@/types/store/root";
 import { dashboardStoreSlice } from "./dashboards";
 import { organisationStoreSlice } from "./organisation";
+import { projectStoreSlice } from "./project";
 import { ruleEngineStoreSlice } from "./rule-engine";
 import { chatStoreSlice } from "./chat";
 import { agentsInstrumentationStoreSlice } from "./agents-instrumentation";
@@ -23,6 +24,7 @@ export const useRootStore = create<RootStore>()(
 			page: pageStoreSlice,
 			dashboards: dashboardStoreSlice,
 			organisation: organisationStoreSlice,
+			project: projectStoreSlice,
 			ruleEngine: ruleEngineStoreSlice,
 			chat: chatStoreSlice,
 			agentsInstrumentation: agentsInstrumentationStoreSlice,

@@ -933,6 +933,8 @@ export const EDIT_DETAILS = "Edit details";
 export const LOG_OUT = "Log out";
 export const EXPAND = "Expand";
 export const DATABASES = "Databases";
+export const DATABASE_CONFIG = "Database Config";
+export const DB_CONFIG = "DB Config";
 export const ADD_NEW_CONFIG = "Add New Config";
 export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const PENDING_INVITATION = "Pending Invitation";
@@ -940,6 +942,28 @@ export const PENDING_INVITATION = "Pending Invitation";
 // Organisation
 export const ORGANISATION = "Organisation";
 export const ORGANISATIONS = "Organisations";
+export const PROJECT = "Project";
+export const PROJECTS = "Projects";
+export const PROJECT_NAME = "Project Name";
+export const PROJECT_NAME_PLACEHOLDER = "Production";
+export const MANAGE_PROJECTS = "Manage Projects";
+export const DEFAULT_PROJECT = "Default Project";
+export const PROJECT_NAME_REQUIRED = "Project name is required";
+export const PROJECT_NAME_LENGTH_ERROR = "Project name must be 120 characters or less";
+export const PROJECT_NAME_LENGTH_RANGE_ERROR =
+	"Project name must be between 1 and 120 characters";
+export const CURRENT = "Current";
+export const LOADING_PROJECT = "Loading project";
+export const NO_PROJECT = "No project";
+export const PROJECT_NOT_FOUND = "Project not found";
+export const PROJECT_SWITCH_FAILED = "Failed to switch project";
+export const DB_CONFIG_NOT_IN_CURRENT_PROJECT =
+	"Database config doesn't exist in current project";
+export const CURRENT_DB_CONFIG_SET_SUCCESS =
+	"Current DB config set successfully!";
+export const PROJECT_DB_CONFIG_DESCRIPTION =
+	"Projects group database configs inside an organisation. Select a project before managing its database config.";
+export const USE_PROJECT = "Use project";
 export const ORGANISATION_NAME = "Organisation Name";
 export const ORGANISATION_NAME_PLACEHOLDER = "My Company";
 export const CREATE_ORGANISATION = "Create Organisation";
@@ -1007,6 +1031,12 @@ export const ORGANISATION_NOTHING_TO_UPDATE = "Nothing to update";
 export const ORGANISATION_ONLY_CREATOR_CAN_DELETE = "Only the creator can delete the organisation";
 export const ORGANISATION_CANNOT_DELETE_WITH_MEMBERS = "Cannot delete organisation with other members";
 export const USER_ALREADY_ORGANISATION_MEMBER = "User is already a member of this organisation";
+export const CREATE_ORGANISATION_PROJECT = "Create project";
+export const ORGANISATION_PROJECT_CREATED = "Project created";
+export const ORGANISATION_PROJECT_CREATE_FAILED =
+	"Unable to create project";
+export const NO_ORGANISATION_PROJECTS = "No projects yet. Create one above.";
+export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
 export const INVITATION_NOT_FOUND = "Invitation not found";
