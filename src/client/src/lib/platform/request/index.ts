@@ -4,6 +4,7 @@ import {
 	buildHierarchy,
 } from "@/helpers/server/trace";
 import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
+import { CODING_AGENT_ATTR } from "@/lib/platform/coding-agents/table-details";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -412,15 +413,45 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 		const accTs = acc?.Timestamp ? new Date(acc.Timestamp).getTime() : 0;
 		return !acc || ts < accTs ? s : acc;
 	}, undefined as any);
+	// Whole-session wall-clock duration, mirroring `getCodingSessionDigest`'s
+	// `greatest(reported coding_agent.session.duration_ms, max(start) - min(start))`.
+	// The raw `coding_agent.session` span Duration is unreliable (frequently 0,
+	// or just one hook invocation's slice), which is why the root node's time
+	// didn't match the detail header's session Duration. We recompute it here so
+	// the tree/timeline/graph root reflects the full session and matches the
+	// header. The header itself sources its value from `sessionDigest`, so this
+	// override is display-only for the hierarchy and can't regress it.
+	const sessionDurationNs = (() => {
+		let minTs = Number.POSITIVE_INFINITY;
+		let maxTs = Number.NEGATIVE_INFINITY;
+		let reportedMs = 0;
+		for (const s of spans) {
+			const ts = s.Timestamp ? new Date(s.Timestamp).getTime() : NaN;
+			if (Number.isFinite(ts)) {
+				if (ts < minTs) minTs = ts;
+				if (ts > maxTs) maxTs = ts;
+			}
+			const reported = Number(
+				s?.SpanAttributes?.[CODING_AGENT_ATTR.sessionDurationMs] || 0
+			);
+			if (Number.isFinite(reported) && reported > reportedMs) {
+				reportedMs = reported;
+			}
+		}
+		const wallClockMs =
+			Number.isFinite(minTs) && Number.isFinite(maxTs) ? maxTs - minTs : 0;
+		// ms → ns: `Duration` is nanoseconds (requestDuration offset is 1e-9).
+		return Math.max(reportedMs, wallClockMs, 0) * 1e6;
+	})();
 	const root = sessionSpan
-		? { ...sessionSpan, children: [] as any[] }
+		? { ...sessionSpan, Duration: sessionDurationNs, children: [] as any[] }
 		: {
 				SpanId: `${SYNTHETIC_SPAN_ID_PREFIX}${sessionId}`,
 				ParentSpanId: "",
 				SpanName: "coding_agent.session",
 				TraceId: earliest?.TraceId || "",
 				Timestamp: earliest?.Timestamp || "",
-				Duration: 0,
+				Duration: sessionDurationNs,
 				Cost: 0,
 				StatusCode: "",
 				SpanAttributes: {
