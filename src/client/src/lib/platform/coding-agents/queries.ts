@@ -349,17 +349,22 @@ const SESSION_BASE_COLUMNS = `
 	) AS outcome,
 	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
 	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}']), ''), 'no_signal') AS classification_reason,
-	-- VCS metadata. Span-level attrs win when present (the session
-	-- root has them); otherwise we fall through to the resource attrs
-	-- the CLI now stamps on every span in the same process so child
-	-- spans (llm.turn / tool.call) still surface the repo + branch.
+	-- VCS metadata. We surface the LATEST non-empty value across the
+	-- session (argMax by Timestamp), preferring the span attribute —
+	-- which carries the live per-turn value (Cursor's git_branch
+	-- payload, Claude Code's transcript gitBranch) — over the resource
+	-- attribute, which is the per-process session-start snapshot. This
+	-- way a mid-session branch / repo switch shows the current value on
+	-- the row instead of latching onto whichever span any() happened to
+	-- pick. Falls through to the resource attr for spans (llm.turn /
+	-- tool.call) that never stamped a span-level VCS attribute.
 	coalesce(
-		nullIf(any(SpanAttributes['${VCS_ATTR.repoUrl}']), ''),
-		nullIf(any(ResourceAttributes['${VCS_ATTR.repoUrl}']), '')
+		nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.repoUrl}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.repoUrl}'])), ''),
+		nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.repoUrl}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.repoUrl}'])), '')
 	)                                                                  AS repo_url,
 	coalesce(
-		nullIf(any(SpanAttributes['${VCS_ATTR.headRef}']), ''),
-		nullIf(any(ResourceAttributes['${VCS_ATTR.headRef}']), '')
+		nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.headRef}'])), ''),
+		nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.headRef}'])), '')
 	)                                                                  AS branch,
 	if(any(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}']) = 'true', 1, 0) AS repo_dirty,
 	-- Latest model used by the session (argMax keeps the most recent
@@ -809,6 +814,16 @@ export interface CodingSessionDigest {
 	cost_usd: number;
 	duration_ms: number;
 	model: string;
+	// VCS / workspace context, resolved as the LATEST non-empty value
+	// across the session (argMax by Timestamp, span attr preferred over
+	// resource attr). A developer who switches branch / repo / folder
+	// mid-session sees the current value in the header instead of the
+	// session-start snapshot that the chronologically-first span (which
+	// the detail view opens on) carries.
+	repo_url: string;
+	branch: string;
+	working_dir: string;
+	working_dir_label: string;
 }
 
 // SESSION_DIGEST_LOOKBACK_DAYS bounds how far back the per-session
@@ -971,7 +986,44 @@ export async function getCodingSessionDigest(
 				SpanAttributes['${GEN_AI_ATTR.requestModel}'],
 				Timestamp,
 				notEmpty(SpanAttributes['${GEN_AI_ATTR.requestModel}'])
-			) AS model
+			) AS model,
+			-- VCS / workspace context: LATEST non-empty value across the
+			-- session. We prefer the span attribute (which carries the
+			-- per-turn/live value — e.g. Cursor's git_branch payload and
+			-- Claude Code's transcript gitBranch) and only fall back to
+			-- the resource attribute (the per-process session-start
+			-- snapshot) when no span ever stamped one. argMaxIf keeps the
+			-- most recent value by Timestamp so a mid-session branch /
+			-- repo / folder change wins over the chronologically-first
+			-- span the detail view opens on.
+			coalesce(
+				nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.repoUrl}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.repoUrl}'])), ''),
+				nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.repoUrl}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.repoUrl}'])), ''),
+				''
+			) AS repo_url,
+			coalesce(
+				nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.headRef}'])), ''),
+				nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.headRef}'])), ''),
+				''
+			) AS branch,
+			coalesce(
+				nullIf(argMaxIf(SpanAttributes['code.cwd'], Timestamp, notEmpty(SpanAttributes['code.cwd'])), ''),
+				nullIf(argMaxIf(ResourceAttributes['code.cwd'], Timestamp, notEmpty(ResourceAttributes['code.cwd'])), ''),
+				''
+			) AS working_dir,
+			arrayStringConcat(
+				arraySlice(
+					arrayFilter(s -> s != '', splitByChar('/',
+						coalesce(
+							nullIf(argMaxIf(SpanAttributes['code.cwd'], Timestamp, notEmpty(SpanAttributes['code.cwd'])), ''),
+							nullIf(argMaxIf(ResourceAttributes['code.cwd'], Timestamp, notEmpty(ResourceAttributes['code.cwd'])), ''),
+							''
+						)
+					)),
+					-2
+				),
+				'/'
+			) AS working_dir_label
 		FROM ${OTEL_TRACES_TABLE}
 		${whereScope({ auth })}
 		${lookbackClause}
@@ -1030,6 +1082,11 @@ export async function getCodingSessionDigest(
 		cost_usd: Number(row.cost_usd || 0),
 		duration_ms: Number(row.duration_ms || 0),
 		model: typeof row.model === "string" ? row.model : "",
+		repo_url: typeof row.repo_url === "string" ? row.repo_url : "",
+		branch: typeof row.branch === "string" ? row.branch : "",
+		working_dir: typeof row.working_dir === "string" ? row.working_dir : "",
+		working_dir_label:
+			typeof row.working_dir_label === "string" ? row.working_dir_label : "",
 	};
 }
 

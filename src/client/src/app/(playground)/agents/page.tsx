@@ -17,6 +17,10 @@ import { getPingStatus } from "@/selectors/database-config";
 import { TIME_RANGE_TYPE } from "@/store/filter";
 import type { ControllerInstance } from "@/types/controller";
 import type { UnifiedAgent } from "@/types/agents";
+import {
+	isControllerStale,
+	resolveControllerHealth,
+} from "@/lib/platform/controller/health";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -58,6 +62,9 @@ export default function AgentsPage() {
 	const [systemFilter, setSystemFilter] = useState<string[]>([]);
 	const [providerFilter, setProviderFilter] = useState<string[]>([]);
 	const [statusFilter, setStatusFilter] = useState<string[]>([]);
+	const [controllerHealthFilter, setControllerHealthFilter] = useState<
+		string[]
+	>([]);
 	const [refreshError, setRefreshError] = useState<string | null>(null);
 
 	const setActiveTab = useCallback((tab: Tab) => {
@@ -120,11 +127,16 @@ export default function AgentsPage() {
 				params.set("end", new Date(filter.timeLimit.end).toISOString());
 			}
 			if (cursor) params.set("cursor", cursor);
-			if (providerFilter.length > 0) {
-				params.set("providers", providerFilter.join(","));
-			}
-			if (statusFilter.length > 0) {
-				params.set("statuses", statusFilter.join(","));
+			// Provider/status filters describe application instrumentation
+			// (discovered vs instrumented vs SDK-only). They apply only to
+			// the Applications tab fetch — not coding-agent rows.
+			if (source !== "coding") {
+				if (providerFilter.length > 0) {
+					params.set("providers", providerFilter.join(","));
+				}
+				if (statusFilter.length > 0) {
+					params.set("statuses", statusFilter.join(","));
+				}
 			}
 			// `source=coding` is required to fetch coding-agent rows;
 			// without it the API returns only Apps rows. This split is
@@ -443,7 +455,7 @@ export default function AgentsPage() {
 	// the wrong call: when a user is on Applications, they want the
 	// applications-side rollup at a glance, not coding metrics.
 	const activeControllers = controllerRows.filter(
-		(c) => (c.computed_status || c.status) !== "inactive"
+		(c) => !isControllerStale(c)
 	);
 	const staleCount = controllerRows.length - activeControllers.length;
 	const totalServices = applicationRows.length;
@@ -495,6 +507,44 @@ export default function AgentsPage() {
 		return Array.from(set).sort();
 	}, [controllerRows]);
 
+	const filteredControllerRows = useMemo(() => {
+		if (controllerHealthFilter.length === 0) return controllerRows;
+		return controllerRows.filter((row) =>
+			controllerHealthFilter.includes(resolveControllerHealth(row))
+		);
+	}, [controllerRows, controllerHealthFilter]);
+
+	const controllerHealthOptions = useMemo(() => {
+		const options = [
+			{
+				value: "active",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_ACTIVE,
+			},
+			{
+				value: "healthy",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_HEALTHY,
+			},
+			{
+				value: "degraded",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_DEGRADED,
+			},
+			{
+				value: "inactive",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_STALE,
+			},
+		];
+		const hasError = controllerRows.some(
+			(row) => resolveControllerHealth(row) === "error"
+		);
+		if (hasError) {
+			options.push({
+				value: "error",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_ERROR,
+			});
+		}
+		return options;
+	}, [controllerRows]);
+
 	// Per-stat click targets for the legacy (Applications /
 	// Controllers) stat row. Controllers cards routes to the
 	// controllers tab; the two service-side cards route to
@@ -526,7 +576,9 @@ export default function AgentsPage() {
 					? setSystemFilter
 					: type === "provider"
 						? setProviderFilter
-						: setStatusFilter;
+						: type === "controllerHealth"
+							? setControllerHealthFilter
+							: setStatusFilter;
 			setter((prev) =>
 				operationType === "delete"
 					? prev.filter((v) => v !== value)
@@ -542,7 +594,9 @@ export default function AgentsPage() {
 				? setSystemFilter
 				: type === "provider"
 					? setProviderFilter
-					: setStatusFilter;
+					: type === "controllerHealth"
+						? setControllerHealthFilter
+						: setStatusFilter;
 		setter([]);
 	}, []);
 
@@ -552,7 +606,12 @@ export default function AgentsPage() {
 			<div className="flex items-center w-full gap-4">
 				<Filter />
 				<div className="flex items-center gap-2 shrink-0">
-					{hasControllers && allSystems.length > 0 && (
+					{/* System / provider / status filters target application
+					    instrumentation. Hide them on Coding Agents and
+					    Controllers — they either don't apply to those tables
+					    or use the wrong semantics (e.g. "Discovered" on a
+					    coding vendor row). */}
+					{activeTab === "services" && hasControllers && allSystems.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_SYSTEM}
 							options={allSystems.map((s) => ({
@@ -570,7 +629,7 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{hasControllers && allProviders.length > 0 && (
+					{activeTab === "services" && hasControllers && allProviders.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_PROVIDER}
 							options={allProviders.map((p) => ({
@@ -583,7 +642,8 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{(hasControllers || serviceRows.length > 0 || codingRowsState.length > 0) && (
+					{activeTab === "services" &&
+						(hasControllers || serviceRows.length > 0) && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_STATUS}
 							options={[
@@ -602,6 +662,16 @@ export default function AgentsPage() {
 							]}
 							selectedValues={statusFilter}
 							type="status"
+							updateSelectedValues={updateFilterValues}
+							clearItem={clearFilterItem}
+						/>
+					)}
+					{activeTab === "controllers" && controllerRows.length > 0 && (
+						<ComboDropdown
+							title={getMessage().AGENTS_FILTER_CONTROLLER_HEALTH}
+							options={controllerHealthOptions}
+							selectedValues={controllerHealthFilter}
+							type="controllerHealth"
 							updateSelectedValues={updateFilterValues}
 							clearItem={clearFilterItem}
 						/>
@@ -837,7 +907,7 @@ export default function AgentsPage() {
 								<NoController />
 							) : (
 								<ControllerTable
-									instances={controllerRows}
+									instances={filteredControllerRows}
 									isFetched={instancesFetched}
 									isLoading={instancesLoading}
 								/>

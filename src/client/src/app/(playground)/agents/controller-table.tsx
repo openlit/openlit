@@ -6,6 +6,7 @@ import type {
 	ControllerInstance,
 	ControllerHealth,
 } from "@/types/controller";
+import { resolveControllerHealth, isControllerStale } from "@/lib/platform/controller/health";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import LinuxSvg from "@/components/svg/linux";
@@ -42,7 +43,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	controller: {
 		header: () => getMessage().AGENTS_COLUMN_CONTROLLER,
 		cell: ({ row }) => {
-			const stale = (row.computed_status || row.status) === "inactive";
+			const stale = isControllerStale(row);
 			return (
 				<div className={`overflow-hidden ${stale ? "opacity-50" : ""}`}>
 					<div className="font-medium text-stone-900 dark:text-stone-100 truncate">
@@ -139,7 +140,7 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 	status: {
 		header: () => getMessage().AGENTS_COLUMN_STATUS,
 		cell: ({ row }) => {
-			const health = row.computed_status || row.status;
+			const health = resolveControllerHealth(row);
 			return (
 				<Badge
 					variant="outline"

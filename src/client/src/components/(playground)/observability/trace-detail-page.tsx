@@ -5,7 +5,11 @@ import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import DetailShell from "./detail-shell";
-import { getExtraTabsContentTypes, normalizeTrace } from "@/helpers/client/trace";
+import {
+	getExtraTabsContentTypes,
+	normalizeTrace,
+	isSyntheticSpanId,
+} from "@/helpers/client/trace";
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
 import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
@@ -337,6 +341,15 @@ export function TraceDetailView({
 		cost_usd: number;
 		duration_ms: number;
 		model: string;
+		// Latest VCS / workspace context across the session (see
+		// CodingSessionDigest). The header pills prefer these over the
+		// selected span's own attributes so a mid-session branch / repo /
+		// folder switch is reflected regardless of which (often the
+		// chronologically-first) span the detail view opened on.
+		repo_url: string;
+		branch: string;
+		working_dir: string;
+		working_dir_label: string;
 	} | null>(null);
 	const hierarchySpanIdRef = useRef(spanId);
 	const [listOffset, setListOffset] = useState(() => filterFromSource(from).offset);
@@ -395,6 +408,13 @@ export function TraceDetailView({
 
 	const selectSpanInCurrentTrace = useCallback(
 		(nextSpanId: string) => {
+			// The synthetic session-root node has no backing row in
+			// `otel_traces`. Selecting it would fire a span-detail fetch
+			// and an AI-analysis fetch that both 404 ("Span not found"
+			// toast) and blank the detail panel. It's a visual grouping
+			// node only — ignore clicks so the panel stays on the last
+			// real span the developer was viewing.
+			if (isSyntheticSpanId(nextSpanId)) return;
 			setSelectedSpanId(nextSpanId);
 			onActiveSpanChange?.(nextSpanId);
 		},
@@ -473,11 +493,18 @@ export function TraceDetailView({
 	const codingAgentVendor = (ca("coding_agent.client") ||
 		ca("gen_ai.agent.name") ||
 		"") as string;
-	const repoUrl = ca("vcs.repository.url.full");
+	// Prefer the session digest's LATEST repo / branch / folder (resolved
+	// across every span by Timestamp) over the currently-selected span's
+	// own attributes. The detail view opens on the session-root span,
+	// which is the chronologically-FIRST span and therefore carries the
+	// session-start VCS snapshot — so without this a mid-session branch
+	// switch would keep showing the old branch. `sessionDigest` is only
+	// populated for coding-agent sessions, so this is a no-op elsewhere.
+	const repoUrl = sessionDigest?.repo_url || ca("vcs.repository.url.full");
 	const repoLabel = repoUrl
 		? repoUrl.replace(/^https?:\/\//, "").replace(/\.git$/, "")
 		: "";
-	const branchName = ca("vcs.ref.head.name");
+	const branchName = sessionDigest?.branch || ca("vcs.ref.head.name");
 	const codingAgentUser = (spanAttributes["gen_ai.user.name"] ||
 		resourceAttributes["gen_ai.user.name"] ||
 		"") as string;
@@ -493,10 +520,12 @@ export function TraceDetailView({
 	// Working folder ("cwd") — the host process directory where the
 	// agent was invoked. Useful when a developer has multiple repos
 	// open at once and the repo URL alone doesn't disambiguate.
-	const workingDir = ca("code.cwd");
-	const workingDirLabel = workingDir
-		? workingDir.split("/").filter(Boolean).slice(-2).join("/") || workingDir
-		: "";
+	const workingDir = sessionDigest?.working_dir || ca("code.cwd");
+	const workingDirLabel =
+		sessionDigest?.working_dir_label ||
+		(workingDir
+			? workingDir.split("/").filter(Boolean).slice(-2).join("/") || workingDir
+			: "");
 	// Permission mode (Cursor's composer_mode / Claude Code's permission mode).
 	// We surface the LATEST recorded value so the chat view header
 	// reflects what the agent is currently set to even if the user

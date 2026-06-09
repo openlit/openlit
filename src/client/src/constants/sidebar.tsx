@@ -8,10 +8,10 @@ import {
 	Activity,
 	Home,
 	Key,
+	Bot,
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
-	Radar,
 	SettingsIcon,
 	SlidersHorizontal,
 } from "lucide-react";
@@ -62,7 +62,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			type: "action",
 		},
 		{
-			icon: <Radar className={ICON_CLASSES} />,
+			icon: <Bot className={ICON_CLASSES} />,
 			text: "Agents",
 			link: "/agents",
 			type: "action",

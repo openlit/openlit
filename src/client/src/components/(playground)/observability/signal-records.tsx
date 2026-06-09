@@ -734,8 +734,11 @@ export default function SignalRecords({
 						key={config.getRowId(row)}
 						row={row}
 						visibilityColumns={visibilityColumns}
-						// `selectedId` is the URL `?selected=` value, which for
-						// sessions is the session-root SpanId (matches openDetail).
+						// For sessions, `selectedId` is the OPEN session's root
+						// SpanId (the parent passes `previewSpanId`, not the live
+						// `?selected=` value). It stays put while the developer
+						// drills into child spans inside the sheet, so the row
+						// highlight no longer flickers off on each span click.
 						isSelected={selectedId === row.session_root_span_id}
 						onOpen={onOpen}
 					/>

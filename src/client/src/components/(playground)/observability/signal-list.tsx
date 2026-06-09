@@ -326,9 +326,20 @@ export default function ObservabilitySignalList({
 
 	const updateActiveTraceSelection = useCallback(
 		(spanId: string) => {
+			// Drilling into a child span inside an open SESSION must not
+			// rewrite the URL. A coding-agent session is one logical unit:
+			// `?selected=` stays pinned to the session-root SpanId so (a)
+			// the session row keeps its highlight and (b) the list subtree
+			// doesn't re-render on every span click — that re-render was the
+			// row "flicker". The active inner span is tracked entirely by
+			// TraceDetailView's own `selectedSpanId` state, which is all the
+			// detail panel + AI analysis tab consume; the URL only needs the
+			// session-level entry point. Trace/exception signals keep writing
+			// the active span so per-span deep-links there still work.
+			if (isSessionSignal) return;
 			setSelectedInUrl(spanId);
 		},
-		[setSelectedInUrl]
+		[isSessionSignal, setSelectedInUrl]
 	);
 
 	const updateTraceNavigationPage = useCallback(
@@ -388,7 +399,17 @@ export default function ObservabilitySignalList({
 						isFetched={isFetched || pingStatus !== "pending"}
 						isLoading={isLoading || pingStatus === "pending"}
 						onOpen={openDetail}
-						selectedId={selectedParam}
+						// For sessions, the row highlight tracks the OPEN session
+						// (its root span id, held in `previewSpanId`), not the
+						// live `?selected=` value. Drilling into a child span
+						// (chat message, llm.turn, tool.call) rewrites `?selected=`
+						// to that child's id, which would otherwise drop the
+						// session row's highlight on every click — the flicker the
+						// row exhibited. Trace/exception signals keep matching the
+						// live selection.
+						selectedId={
+							isSessionSignal ? previewSpanId || selectedParam : selectedParam
+						}
 					/>
 				</div>
 			)}

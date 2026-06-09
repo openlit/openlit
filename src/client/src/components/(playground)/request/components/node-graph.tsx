@@ -18,6 +18,7 @@ import {
 	getSpanDurationDisplay,
 	getSpanCostFormatted,
 	getSpanTooltipText,
+	isSyntheticSpanId,
 } from "@/helpers/client/trace";
 import { transformTracesToGraph } from "@/lib/platform/graph-transform";
 import { useCallback, useEffect, useRef, useMemo, useState } from "react";
@@ -237,11 +238,18 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 						const dur = getSpanDurationDisplay(displaySpan);
 						const cost = getSpanCostFormatted(displaySpan, 4);
 						const tooltipText = getSpanTooltipText(displaySpan);
+						// Synthetic session-root node is a grouping device with
+						// no backing span — not selectable (no detail to show).
+						const synthetic = isSyntheticSpanId(node.spanId);
 
 						return (
 							<g key={node.spanId}
-								onClick={e => { e.stopPropagation(); updateRequest({ spanId: node.spanId }); }}
-								style={{ cursor: "pointer" }}
+								onClick={
+									synthetic
+										? undefined
+										: e => { e.stopPropagation(); updateRequest({ spanId: node.spanId }); }
+								}
+								style={{ cursor: synthetic ? "default" : "pointer" }}
 							>
 								<title>{tooltipText}</title>
 

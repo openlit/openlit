@@ -3,6 +3,7 @@ import {
 	getTraceMappingKeyFullPath,
 	buildHierarchy,
 } from "@/helpers/server/trace";
+import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -414,7 +415,7 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 	const root = sessionSpan
 		? { ...sessionSpan, children: [] as any[] }
 		: {
-				SpanId: `synthetic-${sessionId}`,
+				SpanId: `${SYNTHETIC_SPAN_ID_PREFIX}${sessionId}`,
 				ParentSpanId: "",
 				SpanName: "coding_agent.session",
 				TraceId: earliest?.TraceId || "",
