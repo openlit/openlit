@@ -163,7 +163,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
-          name: "OTel GPU Collector ${{ steps.version.outputs.version }}"
+          name: ${{ github.ref_name }}
           files: |
             dist/*
           generate_release_notes: true

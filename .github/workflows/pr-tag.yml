@@ -1,6 +1,13 @@
 name: Pull Request Labeler
+# pull_request_target is required for fork PRs: the default GITHUB_TOKEN on
+# pull_request is read-only for forks, so actions/labeler cannot set labels
+# ("Resource not accessible by integration"). This workflow only applies
+# labels from .github/labeler.yml based on changed file paths — it does not
+# checkout or execute code from the PR branch.
+# https://github.com/actions/labeler#recommended-permissions
 on:
-- pull_request
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   labeler:
