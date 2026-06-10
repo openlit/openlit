@@ -135,7 +135,8 @@ jobs:
       # Bump via Dependabot (see .github/dependabot.yml).
       - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
-          name: openlit CLI v${{ steps.ver.outputs.VERSION }}
+          tag_name: cli-${{ steps.ver.outputs.VERSION }}
+          name: cli-${{ steps.ver.outputs.VERSION }}
           files: release/*
           draft: false
           prerelease: false
