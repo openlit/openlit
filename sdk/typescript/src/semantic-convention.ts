@@ -168,15 +168,6 @@ export default class SemanticConvention {
   static GEN_AI_RAG_MAX_SEGMENTS = 'gen_ai.rag.max_segments';
   static GEN_AI_RAG_STRATEGY = 'gen_ai.rag.strategy';
 
-  // AI21 Conversational RAG (OpenLIT extensions, mirrored from the Python SDK;
-  // not part of the OTel GenAI semconv).
-  static GEN_AI_RAG_MAX_SEGMENTS = 'gen_ai.rag.max_segments';
-  static GEN_AI_RAG_STRATEGY = 'gen_ai.rag.strategy';
-  static GEN_AI_RAG_SIMILARITY_THRESHOLD = 'gen_ai.rag.similarity_threshold';
-  static GEN_AI_RAG_MAX_NEIGHBORS = 'gen_ai.rag.max_neighbors';
-  static GEN_AI_RAG_DOCUMENTS_PATH = 'gen_ai.rag.documents_path';
-  static GEN_AI_RAG_FILE_IDS = 'gen_ai.rag.file_ids';
-
   // Agent (OTel Semconv)
   static GEN_AI_AGENT_NAME = 'gen_ai.agent.name';
   static GEN_AI_AGENT_ID = 'gen_ai.agent.id';
@@ -252,7 +243,6 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
-  static GEN_AI_SYSTEM_AI21 = 'ai21';
   static GEN_AI_SYSTEM_MCP = 'mcp';
 
   // ----- MCP (Model Context Protocol) -----
