@@ -34,6 +34,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.mod
           check-latest: true
       - name: Resolve version
         id: ver
@@ -80,11 +81,16 @@ jobs:
           NAME="openlit-${{ matrix.os }}-${{ matrix.arch }}"
           BIN="dist/${NAME}${{ matrix.ext }}"
           cd dist
+          # Ship the binary only. Earlier tar/zip steps also tried to
+          # bundle ../README.md, but cli/ has no README — GNU tar exits
+          # 2 on a missing member (linux/darwin builds), while zip on
+          # Windows only warns. Homebrew and install.sh extract the
+          # binary alone, so LICENSE/README in the archive are optional.
           if [ "${{ matrix.os }}" = "windows" ]; then
-            zip "${NAME}.zip" "$(basename "$BIN")" ../README.md ../../LICENSE
+            zip "${NAME}.zip" "$(basename "$BIN")"
             sha256sum "${NAME}.zip" > "${NAME}.zip.sha256"
           else
-            tar -czf "${NAME}.tar.gz" "$(basename "$BIN")" -C ../ README.md -C ../../ LICENSE
+            tar -czf "${NAME}.tar.gz" "$(basename "$BIN")"
             sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
           fi
       - uses: actions/upload-artifact@v4
