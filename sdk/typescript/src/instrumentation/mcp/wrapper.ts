@@ -301,7 +301,7 @@ function spanNameForTransport(endpoint: string): string {
   if (endpoint.includes('stdio')) return 'mcp transport/stdio';
   if (endpoint.includes('sse')) return 'mcp transport/sse';
   if (endpoint.includes('websocket')) return 'mcp transport/websocket';
-  if (endpoint.includes('streamablehttp') || endpoint.includes('streamable_http')) return 'mcp transport/http';
+  if (endpoint.includes('streamablehttp') || endpoint.includes('streamable_http') || endpoint.includes('http')) return 'mcp transport/http';
   return 'mcp transport/operation';
 }
 
