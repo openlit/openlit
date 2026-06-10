@@ -191,7 +191,6 @@ jobs:
     name: Update Homebrew tap
     needs: release
     runs-on: ubuntu-latest
-    if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
       - name: Resolve version
         id: ver
