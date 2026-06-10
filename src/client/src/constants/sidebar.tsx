@@ -8,6 +8,7 @@ import {
 	Activity,
 	Home,
 	Key,
+	Bot,
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
@@ -47,12 +48,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/telemetry",
 			type: "action",
 		},
-		// {
-		// 	icon: <Radar className={ICON_CLASSES} />,
-		// 	text: "Agents",
-		// 	link: "/agents",
-		// 	type: "action",
-		// },
+		{
+			icon: <Bot className={ICON_CLASSES} />,
+			text: "Agents",
+			link: "/agents",
+			type: "action",
+		},
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",

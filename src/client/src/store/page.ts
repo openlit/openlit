@@ -56,6 +56,35 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			status: true,
 		}
 	},
+	codingAgentSessions: {
+		visibilityColumns: {
+			session: true,
+			user: true,
+			started: true,
+			duration: true,
+			model: true,
+			tools: true,
+			tokens: true,
+			cost: true,
+			outcome: true,
+			classification: true,
+			// Code-impact columns. All four default ON because
+			// they're the signal columns this feature is shipped
+			// for — operators can hide them via the visibility
+			// menu if they want a more compact view.
+			code: true,
+			acceptance: true,
+			commits: true,
+			prs: true,
+			// `coding_users` table reuses the same page store
+			sessions: true,
+			topVendor: true,
+			mix: true,
+			lastSeen: true,
+			// Users table columns
+			lines: true,
+		},
+	},
 	header: {
 		title: "",
 		breadcrumbs: [],

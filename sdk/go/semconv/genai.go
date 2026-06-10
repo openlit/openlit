@@ -19,10 +19,21 @@ const (
 	GenAIOperationTypeAudio = "audio"
 )
 
-// System Identifiers
+// System / Provider Identifiers.
+//
+// OTel GenAI renamed the long-standing `gen_ai.system` attribute to
+// `gen_ai.provider.name` (see GenAI semconv 1.36+). The constant for
+// the legacy key is preserved so we can dual-stamp during the
+// transition window without breaking existing dashboards.
 const (
-	// GenAISystem identifies the AI system being used
+	// GenAISystem is the legacy attribute name. Treat as deprecated;
+	// emit GenAIProviderName alongside it for new code paths.
 	GenAISystem = "gen_ai.system"
+	// GenAIProviderName is the OTel 1.36+ canonical attribute name
+	// for the AI provider (anthropic, openai, …). Stamp this on
+	// every span the CLI emits, and continue stamping
+	// GenAISystem until the downstream consumers are cut over.
+	GenAIProviderName = "gen_ai.provider.name"
 
 	// GenAISystemOpenAI represents OpenAI system
 	GenAISystemOpenAI = "openai"
@@ -84,16 +95,39 @@ const (
 	GenAITokenType = "gen_ai.token.type"
 )
 
-// Token Details (OpenAI specific)
+// Token Details (OpenAI specific - legacy).
+//
+// OTel GenAI introduced first-class cache / reasoning token
+// attributes in 1.36+. The new shape lives below in
+// `GenAIUsageCache*` and `GenAIUsageReasoningTokens`; the
+// `*_details.*` constants here are kept only to interoperate with
+// older receivers still keying off the OpenAI-shaped names.
 const (
 	// GenAIUsageCompletionTokensDetailsAudio tracks audio output tokens
 	GenAIUsageCompletionTokensDetailsAudio = "gen_ai.usage.completion_tokens_details.audio"
 	// GenAIUsageCompletionTokensDetailsReasoning tracks reasoning tokens
+	// (legacy; prefer GenAIUsageReasoningTokens)
 	GenAIUsageCompletionTokensDetailsReasoning = "gen_ai.usage.completion_tokens_details.reasoning"
 	// GenAIUsagePromptTokensDetailsCacheRead tracks cached tokens read
+	// (legacy; prefer GenAIUsageCacheReadInputTokens)
 	GenAIUsagePromptTokensDetailsCacheRead = "gen_ai.usage.prompt_tokens_details.cache_read"
 	// GenAIUsagePromptTokensDetailsCacheWrite tracks cached tokens written
+	// (legacy; prefer GenAIUsageCacheCreationInputTokens)
 	GenAIUsagePromptTokensDetailsCacheWrite = "gen_ai.usage.prompt_tokens_details.cache_write"
+)
+
+// Token Details (OTel 1.36+ canonical names).
+const (
+	// GenAIUsageCacheReadInputTokens is the cumulative count of input
+	// tokens that hit the provider's prompt cache for the request.
+	GenAIUsageCacheReadInputTokens = "gen_ai.usage.cache.read_input_tokens"
+	// GenAIUsageCacheCreationInputTokens is the count of input tokens
+	// the provider stored into a fresh cache entry on this request.
+	GenAIUsageCacheCreationInputTokens = "gen_ai.usage.cache.creation_input_tokens"
+	// GenAIUsageReasoningTokens is the count of reasoning / thinking
+	// tokens the model spent on the response (Anthropic's "thinking"
+	// budget, OpenAI's o*-series reasoning).
+	GenAIUsageReasoningTokens = "gen_ai.usage.reasoning_tokens"
 )
 
 // Message Attributes

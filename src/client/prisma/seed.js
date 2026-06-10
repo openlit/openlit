@@ -29,7 +29,11 @@ async function main() {
 		},
 	});
 
-	// Link user to default organisation
+	// Link user to default organisation as the owner. The `role` column
+	// defaults to `member` at the schema level; the seed user is the
+	// org creator and must have elevated permissions or downstream
+	// privacy gates (e.g. coding-agents COHORT_K_FLOOR) silently
+	// suppress their own data. Existing rows are upgraded too.
 	await prisma.organisationUser.upsert({
 		where: {
 			organisationId_userId: {
@@ -37,10 +41,14 @@ async function main() {
 				userId: user.id,
 			},
 		},
-		update: {},
+		update: {
+			role: "owner",
+			isCurrent: true,
+		},
 		create: {
 			organisationId: defaultOrg.id,
 			userId: user.id,
+			role: "owner",
 			isCurrent: true,
 		},
 	});

@@ -17,6 +17,10 @@ import { getPingStatus } from "@/selectors/database-config";
 import { TIME_RANGE_TYPE } from "@/store/filter";
 import type { ControllerInstance } from "@/types/controller";
 import type { UnifiedAgent } from "@/types/agents";
+import {
+	isControllerStale,
+	resolveControllerHealth,
+} from "@/lib/platform/controller/health";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -29,17 +33,27 @@ import ComboDropdown from "@/components/(playground)/filter/combo-dropdown";
 import Filter from "@/components/(playground)/filter";
 import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
+import NoCodingAgents from "./no-coding-agents";
 import ServiceTable from "./service-table";
 import ControllerTable from "./controller-table";
+import CodingAgentsTable from "./coding-agents-table";
 
-type Tab = "services" | "controllers";
+type Tab = "services" | "controllers" | "coding";
+
+function coerceTab(value: string | null): Tab {
+	if (value === "controllers") return "controllers";
+	if (value === "coding") return "coding";
+	return "services";
+}
 
 export default function AgentsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const initialTab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
+	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
-	const [showSetupModal, setShowSetupModal] = useState(false);
+	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
+		null
+	);
 	const [serviceRows, setServiceRows] = useState<UnifiedAgent[]>([]);
 	const [controllerRows, setControllerRows] = useState<ControllerInstance[]>([]);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -48,6 +62,9 @@ export default function AgentsPage() {
 	const [systemFilter, setSystemFilter] = useState<string[]>([]);
 	const [providerFilter, setProviderFilter] = useState<string[]>([]);
 	const [statusFilter, setStatusFilter] = useState<string[]>([]);
+	const [controllerHealthFilter, setControllerHealthFilter] = useState<
+		string[]
+	>([]);
 	const [refreshError, setRefreshError] = useState<string | null>(null);
 
 	const setActiveTab = useCallback((tab: Tab) => {
@@ -63,9 +80,20 @@ export default function AgentsPage() {
 	}, [router]);
 
 	useEffect(() => {
-		const tab = searchParams.get("tab") === "controllers" ? "controllers" : "services";
-		setActiveTabState(tab);
+		setActiveTabState(coerceTab(searchParams.get("tab")));
 	}, [searchParams]);
+
+	// Auto-redirect to the Coding Agents tab when it's the only place
+	// with data. Without this, a user with no controllers and no SDK
+	// rows lands on an empty Applications tab and has to discover the
+	// "Coding Agents" tab themselves — a bad first-run experience for
+	// anyone who installed the host plugins before the controller.
+	// Only fires:
+	//   - when the URL didn't pin a tab (so we don't fight the user's
+	//     navigation),
+	//   - while the apps view is empty AND the coding view has rows,
+	//   - exactly once after data first lands.
+	const didAutoRouteRef = useRef(false);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -84,7 +112,7 @@ export default function AgentsPage() {
 	const [servicesFetched, setServicesFetched] = useState(false);
 
 	const fetchAgents = useCallback(
-		async (cursor: string | null) => {
+		async (cursor: string | null, source?: "coding") => {
 			const params = new URLSearchParams();
 			if (filter.timeLimit.start)
 				params.set("start", new Date(filter.timeLimit.start).toISOString());
@@ -99,11 +127,23 @@ export default function AgentsPage() {
 				params.set("end", new Date(filter.timeLimit.end).toISOString());
 			}
 			if (cursor) params.set("cursor", cursor);
-			if (providerFilter.length > 0) {
-				params.set("providers", providerFilter.join(","));
+			// Provider/status filters describe application instrumentation
+			// (discovered vs instrumented vs SDK-only). They apply only to
+			// the Applications tab fetch — not coding-agent rows.
+			if (source !== "coding") {
+				if (providerFilter.length > 0) {
+					params.set("providers", providerFilter.join(","));
+				}
+				if (statusFilter.length > 0) {
+					params.set("statuses", statusFilter.join(","));
+				}
 			}
-			if (statusFilter.length > 0) {
-				params.set("statuses", statusFilter.join(","));
+			// `source=coding` is required to fetch coding-agent rows;
+			// without it the API returns only Apps rows. This split is
+			// what keeps coding rows from ever appearing in the Apps
+			// tab, even for one render frame.
+			if (source) {
+				params.set("source", source);
 			}
 			const res = await fetch(`/api/agents?${params.toString()}`);
 			if (!res.ok) {
@@ -124,6 +164,8 @@ export default function AgentsPage() {
 		]
 	);
 
+	const [codingRowsState, setCodingRowsState] = useState<UnifiedAgent[]>([]);
+
 	const refresh = useCallback(() => {
 		setRefreshError(null);
 		fetchInstances({
@@ -136,13 +178,26 @@ export default function AgentsPage() {
 			failureCb: (err: any) => setRefreshError(String(err)),
 		});
 		setServicesLoading(true);
-		fetchAgents(null)
-			.then((payload) => {
-				setServiceRows(payload.data || []);
-				setNextCursor(payload.nextCursor || null);
+		// Two parallel reads: Apps (default — server excludes coding)
+		// and Coding Agents (?source=coding). Settling them
+		// independently keeps a slow coding-rollup query from blocking
+		// the Apps tab from rendering, and vice versa.
+		Promise.allSettled([
+			fetchAgents(null),
+			fetchAgents(null, "coding"),
+		])
+			.then(([apps, coding]) => {
+				if (apps.status === "fulfilled") {
+					setServiceRows(apps.value.data || []);
+					setNextCursor(apps.value.nextCursor || null);
+				} else {
+					setRefreshError(String(apps.reason));
+				}
+				if (coding.status === "fulfilled") {
+					setCodingRowsState(coding.value.data || []);
+				}
 				setServicesFetched(true);
 			})
-			.catch((err: unknown) => setRefreshError(String(err)))
 			.finally(() => setServicesLoading(false));
 	}, [fetchInstances, fetchAgents]);
 
@@ -350,18 +405,91 @@ export default function AgentsPage() {
 	const isLoading = instancesLoading || servicesLoading;
 	const hasControllers = controllerRows.length > 0;
 
+	// Coding-agent rows live on a dedicated tab and a dedicated fetch
+	// (`?source=coding`). The Apps tab gets the default fetch which
+	// the server filters to controller/sdk/both. We still defensively
+	// strip any coding row that somehow ends up in `serviceRows`
+	// (e.g. an older browser tab whose API filter regressed) by
+	// double-checking both `source` and the synthetic `coding` cluster
+	// id we stamp at materialization time.
+	// Coding-only first-run redirect. We wait for `servicesFetched` so
+	// we don't bounce the tab on the first paint before either fetch
+	// has resolved. Once data lands and the only signal is coding
+	// telemetry, switch the user to that tab and pin it via
+	// `setActiveTab` (which also writes ?tab=coding into the URL so a
+	// browser refresh stays put).
+	useEffect(() => {
+		if (didAutoRouteRef.current) return;
+		if (!servicesFetched) return;
+		if (searchParams.get("tab")) return;
+		const onlyCoding =
+			!hasControllers &&
+			serviceRows.length === 0 &&
+			codingRowsState.length > 0;
+		if (onlyCoding) {
+			didAutoRouteRef.current = true;
+			setActiveTab("coding");
+		}
+	}, [
+		servicesFetched,
+		hasControllers,
+		serviceRows.length,
+		codingRowsState.length,
+		searchParams,
+		setActiveTab,
+	]);
+
+	const applicationRows = useMemo(
+		() =>
+			serviceRows.filter(
+				(s) => s.source !== "coding" && s.cluster_id !== "coding"
+			),
+		[serviceRows]
+	);
+	const codingRows = codingRowsState;
+
+	// Legacy controller / service stats. These power the top cards on
+	// the Applications and Controllers tabs — the original surface
+	// the hub was built around. Restored after a brief stint of
+	// "always show coding stats at the top" that turned out to be
+	// the wrong call: when a user is on Applications, they want the
+	// applications-side rollup at a glance, not coding metrics.
 	const activeControllers = controllerRows.filter(
-		(c) => (c.computed_status || c.status) !== "inactive"
+		(c) => !isControllerStale(c)
 	);
 	const staleCount = controllerRows.length - activeControllers.length;
-	const totalServices = serviceRows.length;
-	const instrumentedServices = serviceRows.filter(
+	const totalServices = applicationRows.length;
+	const instrumentedServices = applicationRows.filter(
 		(s) =>
 			s.source === "sdk" ||
 			s.source === "both" ||
 			s.instrumentation_status === "instrumented" ||
 			s.desired_agent_status === "enabled"
 	).length;
+
+	// Coding-agent rollups for the Coding Agents tab's top stat
+	// cards. We compute these from the same `codingRows` the table
+	// renders so the numbers can never disagree with the per-vendor
+	// breakdown a click away. One row per vendor, so
+	// `codingRows.length` is the unique-vendor count without needing
+	// a set. The users sum can over-count when a single human uses
+	// multiple vendors; the hint copy calls that out instead of
+	// pretending we have a dedup'd identity graph on the client (the
+	// platform-side directory does run a true distinct count, but
+	// that's a separate API hop we don't need for a stat glance).
+	const codingVendorsUsed = codingRows.filter(
+		(r) =>
+			(r.coding_session_count_24h ?? 0) > 0 ||
+			(r.coding_active_users_24h ?? 0) > 0
+	).length;
+	const codingTotalCost = codingRows.reduce(
+		(sum, r) => sum + (r.coding_cost_usd_24h ?? 0),
+		0
+	);
+	const codingTotalUsers = codingRows.reduce(
+		(sum, r) => sum + (r.coding_active_users_24h ?? 0),
+		0
+	);
 
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
@@ -379,7 +507,52 @@ export default function AgentsPage() {
 		return Array.from(set).sort();
 	}, [controllerRows]);
 
-	const handleStatClick = (stat: "controllers" | "discovered" | "instrumented") => {
+	const filteredControllerRows = useMemo(() => {
+		if (controllerHealthFilter.length === 0) return controllerRows;
+		return controllerRows.filter((row) =>
+			controllerHealthFilter.includes(resolveControllerHealth(row))
+		);
+	}, [controllerRows, controllerHealthFilter]);
+
+	const controllerHealthOptions = useMemo(() => {
+		const options = [
+			{
+				value: "active",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_ACTIVE,
+			},
+			{
+				value: "healthy",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_HEALTHY,
+			},
+			{
+				value: "degraded",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_DEGRADED,
+			},
+			{
+				value: "inactive",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_STALE,
+			},
+		];
+		const hasError = controllerRows.some(
+			(row) => resolveControllerHealth(row) === "error"
+		);
+		if (hasError) {
+			options.push({
+				value: "error",
+				label: getMessage().AGENTS_FILTER_CONTROLLER_ERROR,
+			});
+		}
+		return options;
+	}, [controllerRows]);
+
+	// Per-stat click targets for the legacy (Applications /
+	// Controllers) stat row. Controllers cards routes to the
+	// controllers tab; the two service-side cards route to
+	// Applications and optionally apply the "instrumented" status
+	// filter so the table reflects what the user just clicked.
+	const handleLegacyStatClick = (
+		stat: "controllers" | "discovered" | "instrumented",
+	) => {
 		if (stat === "controllers") {
 			setActiveTab("controllers");
 		} else if (stat === "discovered") {
@@ -391,6 +564,11 @@ export default function AgentsPage() {
 		}
 	};
 
+	// All three coding stat cards route to the same Coding Agents
+	// tab — there's no per-stat filter to apply because the table
+	// already shows the per-vendor breakdown.
+	const handleCodingStatClick = () => setActiveTab("coding");
+
 	const updateFilterValues = useCallback(
 		(type: string, value: string, operationType?: string) => {
 			const setter =
@@ -398,7 +576,9 @@ export default function AgentsPage() {
 					? setSystemFilter
 					: type === "provider"
 						? setProviderFilter
-						: setStatusFilter;
+						: type === "controllerHealth"
+							? setControllerHealthFilter
+							: setStatusFilter;
 			setter((prev) =>
 				operationType === "delete"
 					? prev.filter((v) => v !== value)
@@ -414,7 +594,9 @@ export default function AgentsPage() {
 				? setSystemFilter
 				: type === "provider"
 					? setProviderFilter
-					: setStatusFilter;
+					: type === "controllerHealth"
+						? setControllerHealthFilter
+						: setStatusFilter;
 		setter([]);
 	}, []);
 
@@ -424,7 +606,12 @@ export default function AgentsPage() {
 			<div className="flex items-center w-full gap-4">
 				<Filter />
 				<div className="flex items-center gap-2 shrink-0">
-					{hasControllers && allSystems.length > 0 && (
+					{/* System / provider / status filters target application
+					    instrumentation. Hide them on Coding Agents and
+					    Controllers — they either don't apply to those tables
+					    or use the wrong semantics (e.g. "Discovered" on a
+					    coding vendor row). */}
+					{activeTab === "services" && hasControllers && allSystems.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_SYSTEM}
 							options={allSystems.map((s) => ({
@@ -442,7 +629,7 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{hasControllers && allProviders.length > 0 && (
+					{activeTab === "services" && hasControllers && allProviders.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_PROVIDER}
 							options={allProviders.map((p) => ({
@@ -455,7 +642,8 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{(hasControllers || serviceRows.length > 0) && (
+					{activeTab === "services" &&
+						(hasControllers || serviceRows.length > 0) && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_STATUS}
 							options={[
@@ -478,6 +666,16 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
+					{activeTab === "controllers" && controllerRows.length > 0 && (
+						<ComboDropdown
+							title={getMessage().AGENTS_FILTER_CONTROLLER_HEALTH}
+							options={controllerHealthOptions}
+							selectedValues={controllerHealthFilter}
+							type="controllerHealth"
+							updateSelectedValues={updateFilterValues}
+							clearItem={clearFilterItem}
+						/>
+					)}
 					<button
 						onClick={refresh}
 						disabled={isLoading}
@@ -496,57 +694,130 @@ export default function AgentsPage() {
 				</div>
 			)}
 
-			{!hasControllers && serviceRows.length === 0 && !isLoading ? (
-				<NoController />
-			) : (
+			{/*
+			 * Empty state is now per-tab. Previously a hub-wide
+			 * `NoController` swallowed the entire viewport when every
+			 * source was empty, which forced a user with only coding
+			 * telemetry to discover the Coding Agents tab via the
+			 * auto-route effect. The new model:
+			 *   - Applications tab → NoController (the original
+			 *     install-the-controller flow) when 0 application rows.
+			 *   - Coding Agents tab → NoCodingAgents (vendor picker
+			 *     with `openlit coding install --vendor=<v>` snippets).
+			 *   - Controllers tab → NoController when 0 controllers.
+			 * The stat cards / tab bar always render so the user can
+			 * switch tabs and see the right onboarding for whatever
+			 * they're actually trying to do.
+			 */}
+			{(
 				<>
-					{/* Stat cards */}
-					<div className="grid grid-cols-3 gap-4">
-						<button
-							onClick={() => handleStatClick("controllers")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{activeControllers.length}
-								{staleCount > 0 && (
-									<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
-										({staleCount} stale)
-									</span>
-								)}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_CONTROLLERS}
-							</div>
-						</button>
-						<button
-							onClick={() => handleStatClick("discovered")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{totalServices}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
-							</div>
-						</button>
-						<button
-							onClick={() => handleStatClick("instrumented")}
-							className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
-						>
-							<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
-								{instrumentedServices}
-							</div>
-							<div className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
-							</div>
-						</button>
-					</div>
+					{/* Top-of-page stat cards. Tab-aware: the Coding
+					    Agents tab gets vendor/cost/user rollups
+					    derived from `codingRows`, every other tab
+					    keeps the legacy controller/service stats so
+					    the glance metric matches whatever the user
+					    is looking at below. Layout (grid-cols-3) is
+					    identical across both modes so the section
+					    height doesn't jump on tab switch. */}
+					{activeTab === "coding" ? (
+						/* Layout, padding, and typography match the
+						   legacy controller/service stat row exactly
+						   so the section doesn't visibly resize on
+						   tab switch — number + label only, no
+						   subtitle line. Order is Total Coding
+						   agents → Total users → Total cost. */
+						<div className="grid grid-cols-3 gap-4">
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{codingVendorsUsed}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_VENDORS}
+								</div>
+							</button>
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+									{codingTotalUsers.toLocaleString()}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_USERS}
+								</div>
+							</button>
+							<button
+								onClick={handleCodingStatClick}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+									${codingTotalCost.toFixed(2)}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CODING_COST}
+								</div>
+							</button>
+						</div>
+					) : (
+						<div className="grid grid-cols-3 gap-4">
+							<button
+								onClick={() => handleLegacyStatClick("controllers")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{activeControllers.length}
+									{staleCount > 0 && (
+										<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
+											({staleCount} stale)
+										</span>
+									)}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_CONTROLLERS}
+								</div>
+							</button>
+							<button
+								onClick={() => handleLegacyStatClick("discovered")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{totalServices}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
+								</div>
+							</button>
+							<button
+								onClick={() => handleLegacyStatClick("instrumented")}
+								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+							>
+								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+									{instrumentedServices}
+								</div>
+								<div className="text-sm text-stone-500 dark:text-stone-400">
+									{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
+								</div>
+							</button>
+						</div>
+					)}
 
-					{/* Tab switcher */}
+					{/* Tab switcher. Ordering reflects expected
+					    usage frequency: most teams will spend most
+					    of their time on Applications and Coding
+					    Agents; Controllers is a setup-time tab. We
+					    drop the count badge from Coding Agents
+					    intentionally — the tab name carries the
+					    affordance and the row count is already on
+					    the table itself; the badge was creating
+					    visual noise on the most-clicked tab. */}
 					<div className="flex items-center border-b border-stone-200 dark:border-stone-700">
 						{(
 							[
 								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
+								{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
 								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
 							] as const
 						).map((tab) => (
@@ -555,7 +826,7 @@ export default function AgentsPage() {
 								onClick={() => {
 									setActiveTab(tab.id);
 								}}
-								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 inline-flex items-center gap-1.5 ${
 									activeTab === tab.id
 										? "border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100"
 										: "border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300"
@@ -569,61 +840,121 @@ export default function AgentsPage() {
 								variant="outline"
 								size="default"
 								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setShowSetupModal(true)}
+								onClick={() => setSetupModal("controller")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
 								{getMessage().AGENTS_ADD_CONTROLLER}
 							</Button>
 						)}
+						{activeTab === "coding" && (
+							<Button
+								variant="outline"
+								size="default"
+								className="ml-auto text-xs h-auto py-1.5 px-3"
+								onClick={() => setSetupModal("coding")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CODING_AGENT}
+							</Button>
+						)}
 					</div>
 
-					{/* Content */}
+					{/* Content. Each tab owns its own empty state so
+					    the install instructions match the tab — a
+					    user landing on Coding Agents shouldn't see
+					    a Kubernetes/Docker controller picker, and
+					    vice versa. */}
 					{activeTab === "services" && (
 						<>
-							<ServiceTable
-								services={serviceRows}
-								instances={controllerRows}
-								onRefresh={refresh}
-								isFetched={servicesFetched && instancesFetched}
-								isLoading={isLoading}
-								systemFilter={systemFilter}
-							/>
-							{nextCursor && (
-								<div className="flex justify-center pt-2">
-									<button
-										onClick={loadMore}
-										disabled={isLoadingMore}
-										className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
-									>
-										{isLoadingMore && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-										{isLoadingMore
-											? getMessage().AGENTS_LOAD_MORE_LOADING
-											: getMessage().AGENTS_LOAD_MORE}
-									</button>
-								</div>
+							{servicesFetched &&
+							!isLoading &&
+							applicationRows.length === 0 ? (
+								<NoController />
+							) : (
+								<>
+									<ServiceTable
+										services={applicationRows}
+										instances={controllerRows}
+										onRefresh={refresh}
+										isFetched={servicesFetched && instancesFetched}
+										isLoading={isLoading}
+										systemFilter={systemFilter}
+									/>
+									{nextCursor && (
+										<div className="flex justify-center pt-2">
+											<button
+												onClick={loadMore}
+												disabled={isLoadingMore}
+												className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+											>
+												{isLoadingMore && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+												{isLoadingMore
+													? getMessage().AGENTS_LOAD_MORE_LOADING
+													: getMessage().AGENTS_LOAD_MORE}
+											</button>
+										</div>
+									)}
+								</>
 							)}
 						</>
 					)}
 
 					{activeTab === "controllers" && (
-						<ControllerTable
-							instances={controllerRows}
-							isFetched={instancesFetched}
-							isLoading={instancesLoading}
-						/>
+						<>
+							{instancesFetched &&
+							!instancesLoading &&
+							controllerRows.length === 0 ? (
+								<NoController />
+							) : (
+								<ControllerTable
+									instances={filteredControllerRows}
+									isFetched={instancesFetched}
+									isLoading={instancesLoading}
+								/>
+							)}
+						</>
+					)}
+
+					{activeTab === "coding" && (
+						<>
+							{servicesFetched &&
+							!isLoading &&
+							codingRows.length === 0 ? (
+								<NoCodingAgents />
+							) : (
+								<CodingAgentsTable
+									services={codingRows}
+									isFetched={servicesFetched}
+									isLoading={isLoading}
+								/>
+							)}
+						</>
 					)}
 				</>
 			)}
 
-			<Dialog open={showSetupModal} onOpenChange={setShowSetupModal}>
+			<Dialog
+				open={setupModal !== null}
+				onOpenChange={(open) => !open && setSetupModal(null)}
+			>
 				<DialogContent className="max-w-2xl">
 					<DialogHeader>
-						<DialogTitle>{getMessage().AGENTS_ADD_CONTROLLER}</DialogTitle>
+						<DialogTitle>
+							{setupModal === "coding"
+								? getMessage().AGENTS_ADD_CODING_AGENT
+								: getMessage().AGENTS_ADD_CONTROLLER}
+						</DialogTitle>
 						<DialogDescription>
-							{getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
+							{setupModal === "coding"
+								? getMessage().AGENTS_NO_CODING_AGENTS_DESCRIPTION
+								: getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
 						</DialogDescription>
 					</DialogHeader>
-					<NoController inModal />
+					{setupModal === "coding" ? (
+						<NoCodingAgents compact />
+					) : (
+						<NoController inModal />
+					)}
 				</DialogContent>
 			</Dialog>
 		</div>

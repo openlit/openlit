@@ -257,6 +257,166 @@
             "promptPrice": 0.00025,
             "completionPrice": 0.00125
         },
+        "claude-3-5-sonnet-20240620": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-3-5-sonnet-20241022": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-3-5-haiku-20241022": {
+            "promptPrice": 0.0008,
+            "completionPrice": 0.004
+        },
+        "claude-3-7-sonnet-20250219": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-haiku-4-5-20251001": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.005
+        },
+        "claude-haiku-4-5": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.005
+        },
+        "claude-sonnet-4-0": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-sonnet-4-5": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-sonnet-4-6": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-sonnet-4-7": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "claude-opus-4-0": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.075
+        },
+        "claude-opus-4-1": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.075
+        },
+        "claude-opus-4-5": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-6": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-7": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-7-thinking-xhigh": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-7-thinking-high": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-7-thinking-medium": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "claude-opus-4-7-thinking-low": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.025
+        },
+        "gpt-5": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gpt-5-codex": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gpt-5-mini": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.002
+        },
+        "gpt-5-nano": {
+            "promptPrice": 0.00005,
+            "completionPrice": 0.0004
+        },
+        "gpt-5-pro": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.12
+        },
+        "gpt-5.1": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gpt-5.1-codex": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gpt-5.1-codex-max": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gpt-5.2": {
+            "promptPrice": 0.00175,
+            "completionPrice": 0.014
+        },
+        "gpt-5.2-codex": {
+            "promptPrice": 0.00175,
+            "completionPrice": 0.014
+        },
+        "gpt-5.2-pro": {
+            "promptPrice": 0.021,
+            "completionPrice": 0.168
+        },
+        "gpt-5.3-codex": {
+            "promptPrice": 0.00175,
+            "completionPrice": 0.014
+        },
+        "gpt-5.4": {
+            "promptPrice": 0.0025,
+            "completionPrice": 0.015
+        },
+        "gpt-5.4-mini": {
+            "promptPrice": 0.00075,
+            "completionPrice": 0.0045
+        },
+        "gpt-5.4-nano": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.00125
+        },
+        "gpt-5.4-pro": {
+            "promptPrice": 0.03,
+            "completionPrice": 0.18
+        },
+        "gpt-5.5": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.03
+        },
+        "gpt-5.5-pro": {
+            "promptPrice": 0.03,
+            "completionPrice": 0.18
+        },
+        "o3": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.008
+        },
+        "o3-mini": {
+            "promptPrice": 0.0011,
+            "completionPrice": 0.0044
+        },
+        "o4-mini": {
+            "promptPrice": 0.0011,
+            "completionPrice": 0.0044
+        },
         "command": {
             "promptPrice": 0.001,
             "completionPrice": 0.002
@@ -420,6 +580,26 @@
         "gemini-2.5-pro": {
             "promptPrice": 0.00125,
             "completionPrice": 0.01
+        },
+        "gemini-2.5-pro-preview": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.01
+        },
+        "gemini-3-flash": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.003
+        },
+        "gemini-3.1-flash-lite": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.0015
+        },
+        "gemini-3.1-pro": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.012
+        },
+        "gemini-3.1-pro-preview": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.012
         },
         "text-bison": {
             "promptPrice": 0.001,

@@ -11,6 +11,8 @@ import {
   getSpanCostFormatted,
   getSpanTooltipText,
   ensureTraceRowShape,
+  isSyntheticSpanId,
+  SYNTHETIC_SPAN_ID_PREFIX,
 } from '@/helpers/client/trace';
 import { TraceMapping } from '@/constants/traces';
 
@@ -372,6 +374,44 @@ describe('getSpanDurationDisplay', () => {
   it('returns "0.00s" for zero duration', () => {
     const result = getSpanDurationDisplay(makeSpan('0'));
     expect(result).toMatch(/0\.00/);
+  });
+
+  // Regression: a falsy numeric Duration (the synthetic session root
+  // and point-in-time coding spans carry `Duration: 0` as a number)
+  // used to render the literal "NaNs" instead of "0.00s".
+  it('returns "0.00s" (never "NaN") for numeric-zero duration', () => {
+    const result = getSpanDurationDisplay({
+      Duration: 0,
+      SpanId: 's',
+      SpanName: 'coding_agent.session',
+      Cost: 0,
+      children: [],
+    } as any);
+    expect(result).toBe('0.00s');
+    expect(result).not.toContain('NaN');
+  });
+
+  it('returns "0.00s" (never "NaN") for missing duration', () => {
+    const result = getSpanDurationDisplay({
+      SpanId: 's',
+      SpanName: 'test',
+      Cost: 0,
+      children: [],
+    } as any);
+    expect(result).not.toContain('NaN');
+  });
+});
+
+describe('isSyntheticSpanId', () => {
+  it('detects synthetic session-root ids', () => {
+    expect(isSyntheticSpanId(`${SYNTHETIC_SPAN_ID_PREFIX}abc-123`)).toBe(true);
+  });
+
+  it('returns false for real span ids and empty/nullish values', () => {
+    expect(isSyntheticSpanId('b38ad6b13f2eaf71')).toBe(false);
+    expect(isSyntheticSpanId('')).toBe(false);
+    expect(isSyntheticSpanId(null)).toBe(false);
+    expect(isSyntheticSpanId(undefined)).toBe(false);
   });
 });
 
