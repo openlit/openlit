@@ -271,6 +271,7 @@ export default class SemanticConvention {
   static DB_SYSTEM_PINECONE = 'pinecone';
   static DB_SYSTEM_QDRANT = 'qdrant';
   static DB_SYSTEM_MILVUS = 'milvus';
+  static DB_SYSTEM_ASTRA = 'astra';
   static DB_COLLECTION_NAME = 'db.collection.name';
   static DB_OPERATION = 'db.operation';
   static DB_OPERATION_NAME = 'db.operation.name';
@@ -285,6 +286,11 @@ export default class SemanticConvention {
   static DB_OPERATION_PEEK = 'PEEK';
   static DB_OPERATION_SEARCH = 'SEARCH';
   static DB_OPERATION_FETCH = 'FETCH';
+  static DB_OPERATION_CREATE_COLLECTION = 'create_collection';
+  static DB_OPERATION_DELETE_COLLECTION = 'delete_collection';
+  static DB_OPERATION_SELECT = 'SELECT';
+  static DB_OPERATION_REPLACE = 'findAndModify';
+  static DB_OPERATION_FIND_AND_DELETE = 'findAndDelete';
   static DB_ID_COUNT = 'db.ids_count';
   static DB_VECTOR_COUNT = 'db.vector.count';
   static DB_METADATA_COUNT = 'db.metadatas_count';
