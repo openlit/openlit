@@ -403,7 +403,7 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2 overflow-hidden">
 				<Link
-					href={`/agents/${row.agent_key}`}
+					href={`/agents/${row.agent_key}?from=services`}
 					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
 					onClick={(e) => e.stopPropagation()}
 				>
@@ -482,29 +482,20 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 			</div>
 		),
 		cell: ({ row, extraFunctions }) => (
-			<ActionsCell
-				service={row}
-				onRefresh={extraFunctions.onRefresh}
-			/>
+			<ActionsCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),
 		enableHiding: false,
 	},
 	aiObservability: {
 		header: () => getMessage().AGENTS_COLUMN_LLM_OBSERVABILITY,
 		cell: ({ row, extraFunctions }) => (
-			<AIObservabilityCell
-				service={row}
-				onRefresh={extraFunctions.onRefresh}
-			/>
+			<AIObservabilityCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),
 	},
 	agentObservability: {
 		header: () => getMessage().AGENTS_COLUMN_AGENT_OBSERVABILITY,
 		cell: ({ row, extraFunctions }) => (
-			<AgentObservabilityCell
-				service={row}
-				onRefresh={extraFunctions.onRefresh}
-			/>
+			<AgentObservabilityCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),
 	},
 };
@@ -579,7 +570,9 @@ export default function ServiceTable({
 			isLoading={isLoading}
 			visibilityColumns={VISIBILITY_COLUMNS}
 			extraFunctions={{ onRefresh }}
-			onClick={(row) => router.push(`/agents/${row.agent_key}`)}
+			onClick={(row) =>
+				router.push(`/agents/${row.agent_key}?from=services`)
+			}
 		/>
 	);
 }

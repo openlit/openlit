@@ -1,0 +1,43 @@
+name: OSS Leak Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  leak-check:
+    if: github.repository == 'openlit/openlit'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for enterprise-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+
+          forbidden_paths='^(src/client/src/ee/|deploy/enterprise/|deploy/cloud/)'
+          if echo "$changed_files" | grep -E "$forbidden_paths"; then
+            echo "Enterprise-only files cannot be added to the OSS repository."
+            exit 1
+          fi
+
+          scripts/check-oss-boundary.sh

@@ -2,12 +2,17 @@ import { listAgents } from "@/lib/platform/agents";
 import type { AgentListCursor, AgentListFilters, AgentSource } from "@/types/agents";
 import { withCacheHeaders } from "./_cache";
 
-const ALLOWED_SOURCES = new Set<AgentSource>(["controller", "sdk", "both"]);
+// "coding" is intentionally allowed here so the Coding Agents tab can
+// pass `?source=coding` and read its rows out of the same endpoint.
+// Default behaviour (no `source` param) excludes coding rows below so
+// they can't leak into the Applications tab even for one render frame.
+const ALLOWED_SOURCES = new Set<AgentSource>(["controller", "sdk", "both", "coding"]);
 const ALLOWED_STATUSES = new Set<NonNullable<AgentListFilters["statuses"]>[number]>([
 	"discovered",
 	"instrumented",
 	"sdk",
 ]);
+const APPLICATION_SOURCES: AgentSource[] = ["controller", "sdk", "both"];
 
 function parseCsv(value: string | null): string[] {
 	if (!value) return [];
@@ -46,10 +51,17 @@ export async function GET(request: Request) {
 		return Response.json({ error: "Invalid limit" }, { status: 400 });
 	}
 
+	// When the caller doesn't pin a `source`, we exclude coding rows
+	// from the result so the Applications tab is never racy against
+	// the materializer (a brief moment where a freshly inserted coding
+	// row showed up in Apps before the client-side split filtered it
+	// out was the bug that motivated this change). The Coding Agents
+	// tab opts in via ?source=coding.
+	const sourceFilter = parseCsv(sp.get("source")).filter((v): v is AgentSource =>
+		ALLOWED_SOURCES.has(v as AgentSource)
+	);
 	const filters: AgentListFilters = {
-		source: parseCsv(sp.get("source")).filter((v): v is AgentSource =>
-			ALLOWED_SOURCES.has(v as AgentSource)
-		),
+		source: sourceFilter.length > 0 ? sourceFilter : APPLICATION_SOURCES,
 		environments: parseCsv(sp.get("environments")),
 		providers: parseCsv(sp.get("providers")),
 		statuses: parseCsv(sp.get("statuses")).filter((v): v is NonNullable<AgentListFilters["statuses"]>[number] =>

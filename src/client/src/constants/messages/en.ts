@@ -1,5 +1,7 @@
 export const DATABASE_CONFIG_NOT_FOUND = "No database config present!";
 export const UNAUTHORIZED_USER = "Unauthorized user!";
+export const FORBIDDEN_ACTION = "You do not have permission to perform this action.";
+export const NO_ORGANISATION_SELECTED = "No active organisation. Switch organisations to continue.";
 export const MALFORMED_INPUTS = "Malformed input! Please check the docs";
 export const OPERATION_FAILED = "Operation failed!";
 
@@ -487,6 +489,12 @@ export const AGENTS_FILTER_PROVIDER = "Provider";
 export const AGENTS_FILTER_STATUS = "Status";
 export const AGENTS_FILTER_STATUS_DISCOVERED = "Discovered";
 export const AGENTS_FILTER_STATUS_INSTRUMENTED = "Instrumented";
+export const AGENTS_FILTER_CONTROLLER_HEALTH = "Health";
+export const AGENTS_FILTER_CONTROLLER_ACTIVE = "Active";
+export const AGENTS_FILTER_CONTROLLER_HEALTHY = "Healthy";
+export const AGENTS_FILTER_CONTROLLER_DEGRADED = "Degraded";
+export const AGENTS_FILTER_CONTROLLER_STALE = "Stale";
+export const AGENTS_FILTER_CONTROLLER_ERROR = "Error";
 export const AGENTS_CLEAR_FILTERS = "Clear Filters";
 export const AGENTS_APPLY_FILTERS = "Apply Filters";
 export const AGENTS_SYSTEM_KUBERNETES = "Kubernetes";
@@ -495,9 +503,23 @@ export const AGENTS_SYSTEM_LINUX = "Linux";
 export const AGENTS_STAT_CONTROLLERS = "Active Controllers";
 export const AGENTS_STAT_DISCOVERED_SERVICES = "Discovered Agents";
 export const AGENTS_STAT_INSTRUMENTED_SERVICES = "Instrumented Agents";
-export const AGENTS_TAB_SERVICES = "Agents";
+export const AGENTS_STAT_CODING_VENDORS = "Total Coding Agents";
+export const AGENTS_STAT_CODING_COST = "Total Cost";
+export const AGENTS_STAT_CODING_USERS = "Total Users";
+export const AGENTS_TAB_SERVICES = "Applications";
 export const AGENTS_TAB_CONTROLLERS = "Controllers";
+export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
+export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
+export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
+
+// Trace-detail content-capture banner. Surfaces a one-liner the user
+// can run when prompts / responses are missing from a coding-agent
+// trace (i.e. the CLI is in metadata_only or minimal mode). Tracks the
+// OPENLIT_CODING_CONTENT_CAPTURE flag used by the CLI.
+export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";
+export const CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND =
+	"openlit configure --content-capture full";
 
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
@@ -527,6 +549,50 @@ export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
 export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
+// Coding-agent stat / column labels intentionally omit a window
+// suffix (no "24h"). The underlying data is always evaluated
+// against the global filter picker's selected time range — fixed-24h
+// language would be misleading once the user picks 7D / 1M / CUSTOM.
+export const AGENTS_CODING_USERS_WINDOW_LABEL = "Active users";
+export const AGENTS_CODING_COST_WINDOW_LABEL = "Cost (USD)";
+export const AGENTS_CODING_COLUMN_VENDOR = "Vendor";
+export const AGENTS_CODING_COLUMN_SESSIONS = "Sessions";
+export const AGENTS_CODING_COLUMN_USERS = "Users";
+export const AGENTS_CODING_COLUMN_COST = "Cost";
+export const AGENTS_CODING_COLUMN_LINES = "Lines";
+export const AGENTS_CODING_COLUMN_ACCEPTANCE = "Acceptance";
+export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
+export const AGENTS_CODING_COLUMN_PRS = "PRs";
+export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_EMPTY_BODY =
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
+export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
+export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
+export const AGENTS_CODING_SESSIONS_SESSION = "Session";
+export const AGENTS_CODING_SESSIONS_USER = "User";
+export const AGENTS_CODING_SESSIONS_STARTED = "Started";
+export const AGENTS_CODING_SESSIONS_DURATION = "Duration";
+export const AGENTS_CODING_SESSIONS_TOOLS = "Tools";
+export const AGENTS_CODING_SESSIONS_COST = "Cost";
+export const AGENTS_CODING_SESSIONS_CODE = "Lines (+/−)";
+export const AGENTS_CODING_SESSIONS_ACCEPTANCE = "Accept %";
+export const AGENTS_CODING_SESSIONS_COMMITS = "Commits";
+export const AGENTS_CODING_SESSIONS_PRS = "PRs";
+export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
+export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
+export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
+export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
+export const AGENTS_CODING_USERS_LABEL = "Coding users";
+export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
+export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";
+export const AGENTS_CODING_USERS_LINES = "Lines added";
+export const AGENTS_CODING_USERS_ACCEPTANCE = "Accept %";
+export const AGENTS_CODING_USERS_COMMITS = "Commits";
+export const AGENTS_CODING_USERS_PRS = "PRs";
+export const AGENTS_CODING_DASHBOARD_NOT_SEEDED =
+	"Dashboard not yet available. Restart the openlit container to run the latest seed migrations.";
+export const AGENTS_CODING_DASHBOARD_OPEN = "Open full dashboard";
 export const AGENTS_COLUMN_LAST_SEEN = "Last Seen";
 export const AGENTS_COLUMN_LLM_OBSERVABILITY = "LLM Observability";
 export const AGENTS_COLUMN_AGENT_OBSERVABILITY = "Agent Observability";
@@ -933,6 +999,8 @@ export const EDIT_DETAILS = "Edit details";
 export const LOG_OUT = "Log out";
 export const EXPAND = "Expand";
 export const DATABASES = "Databases";
+export const DATABASE_CONFIG = "Database Config";
+export const DB_CONFIG = "DB Config";
 export const ADD_NEW_CONFIG = "Add New Config";
 export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const PENDING_INVITATION = "Pending Invitation";
@@ -940,6 +1008,28 @@ export const PENDING_INVITATION = "Pending Invitation";
 // Organisation
 export const ORGANISATION = "Organisation";
 export const ORGANISATIONS = "Organisations";
+export const PROJECT = "Project";
+export const PROJECTS = "Projects";
+export const PROJECT_NAME = "Project Name";
+export const PROJECT_NAME_PLACEHOLDER = "Production";
+export const MANAGE_PROJECTS = "Manage Projects";
+export const DEFAULT_PROJECT = "Default Project";
+export const PROJECT_NAME_REQUIRED = "Project name is required";
+export const PROJECT_NAME_LENGTH_ERROR = "Project name must be 120 characters or less";
+export const PROJECT_NAME_LENGTH_RANGE_ERROR =
+	"Project name must be between 1 and 120 characters";
+export const CURRENT = "Current";
+export const LOADING_PROJECT = "Loading project";
+export const NO_PROJECT = "No project";
+export const PROJECT_NOT_FOUND = "Project not found";
+export const PROJECT_SWITCH_FAILED = "Failed to switch project";
+export const DB_CONFIG_NOT_IN_CURRENT_PROJECT =
+	"Database config doesn't exist in current project";
+export const CURRENT_DB_CONFIG_SET_SUCCESS =
+	"Current DB config set successfully!";
+export const PROJECT_DB_CONFIG_DESCRIPTION =
+	"Projects group database configs inside an organisation. Select a project before managing its database config.";
+export const USE_PROJECT = "Use project";
 export const ORGANISATION_NAME = "Organisation Name";
 export const ORGANISATION_NAME_PLACEHOLDER = "My Company";
 export const CREATE_ORGANISATION = "Create Organisation";
@@ -1007,6 +1097,12 @@ export const ORGANISATION_NOTHING_TO_UPDATE = "Nothing to update";
 export const ORGANISATION_ONLY_CREATOR_CAN_DELETE = "Only the creator can delete the organisation";
 export const ORGANISATION_CANNOT_DELETE_WITH_MEMBERS = "Cannot delete organisation with other members";
 export const USER_ALREADY_ORGANISATION_MEMBER = "User is already a member of this organisation";
+export const CREATE_ORGANISATION_PROJECT = "Create project";
+export const ORGANISATION_PROJECT_CREATED = "Project created";
+export const ORGANISATION_PROJECT_CREATE_FAILED =
+	"Unable to create project";
+export const NO_ORGANISATION_PROJECTS = "No projects yet. Create one above.";
+export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
 export const INVITATION_NOT_FOUND = "Invitation not found";

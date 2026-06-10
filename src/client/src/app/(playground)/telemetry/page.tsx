@@ -29,6 +29,22 @@ export default function TelemetryPage() {
 		});
 	}, [activeConfig.key, posthog]);
 
+	// Coding Sessions / Coding Users are no longer first-class
+	// tabs on the Telemetry page — they live under /agents now.
+	// Bounce any deep link that still asks for them so we don't
+	// render a hidden tab with no way to navigate away.
+	useEffect(() => {
+		if (activeTab === "sessions" || activeTab === "coding_users") {
+			const params = new URLSearchParams(searchParams.toString());
+			params.set("tab", "traces");
+			router.replace(`/telemetry?${params.toString()}`, { scroll: false });
+		}
+		// `searchParams` is intentionally not in deps — we react to
+		// `activeTab` only; the URL update inside this effect also
+		// updates `searchParams`, which would otherwise loop.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeTab]);
+
 	const onTabChange = (value: string) => {
 		prepareObservabilitySignalChange(updateConfig, updateFilter);
 		const params = new URLSearchParams(searchParams.toString());
@@ -58,7 +74,20 @@ export default function TelemetryPage() {
 						</div>
 					</div>
 					<div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
-						{OBSERVABILITY_SIGNALS.map((signal) => {
+						{/* The Coding Sessions + Coding Users signal
+						    configs stay registered (the per-vendor
+						    detail page still embeds them via
+						    <ObservabilitySignalList>), but we hide
+						    them from this top nav: the Telemetry
+						    page is the cross-signal generic surface,
+						    and the dedicated coding-agent hub at
+						    /agents is where users go for those
+						    drilldowns. */}
+						{OBSERVABILITY_SIGNALS.filter(
+							(signal) =>
+								signal.key !== "sessions" &&
+								signal.key !== "coding_users",
+						).map((signal) => {
 							const Icon = signal.icon;
 							const isActive = signal.key === activeConfig.key;
 							return (

@@ -1,0 +1,398 @@
+---
+title: "Coding Agents — Architecture & Vendor Authoring"
+sidebarTitle: "Architecture"
+description: "How OpenLit ingests, normalises, and rolls up coding-agent telemetry — and how to add a new vendor without breaking what's already there."
+---
+
+This page is for contributors. If you just want to send Claude Code or
+Cursor telemetry into OpenLit, the
+[Onboarding](/latest/features/coding-agents/onboarding) page is what you
+want. Read on if you're:
+
+- Adding a new vendor adapter (Claude Code, Codex, Windsurf, …).
+- Touching the rollup / materializer that powers the `/agents` and
+  `/coding-agents` views.
+- Debugging missing rows, empty pills, or doubled sessions.
+
+<Note>
+This doc is paired with the in-repo Cursor rule
+`.cursor/rules/coding-agents-hook.mdc`. The rule auto-loads when you
+edit anything under `cli/internal/coding/`, `sdk/go/semconv/`, or the
+coding-agents query layer; the rule is the canonical authoring
+checklist, this doc is the conceptual overview.
+</Note>
+
+## Data flow
+
+```
+Vendor hook event ──► openlit CLI ──► OTLP/HTTP ──► OpenLit collector
+                          │                              │
+                          ▼                              ▼
+                  sessionstate cache              otel_traces (ClickHouse)
+                  (XDG cache dir)                        │
+                                                        ▼
+                                          materializer (cron)
+                                                        │
+                                                        ▼
+                                          openlit_agents_summary
+                                                        │
+                                                        ▼
+                                          /agents + /coding-agents UI
+```
+
+Each developer machine runs one `openlit` CLI binary. The vendor's
+plugin / hook system invokes `openlit hook <vendor>` on every event;
+the CLI is short-lived (one process per event) so anything stateful
+lives in the session-state cache at
+`$XDG_CACHE_HOME/openlit/sessions/<session-id>.json`.
+
+## Identity model
+
+| Concept | Where it lives | Stable across |
+| ------- | -------------- | ------------- |
+| `session.id` | Span + resource attr `coding_agent.session.id` | One process / hook invocation |
+| `conversation.id` | Resource attr `gen_ai.conversation.id` | Multiple sessions when the vendor reports a stable chat id |
+| `chat_id` (UI) | Derived: `coalesce(parent_id, session_id)` | One chat thread including its subagents |
+| `agent_key` | Computed `computeAgentKey(cluster, env, vendor)` | One per vendor per environment |
+| `user` | Resource attr `gen_ai.user.name` | One developer per machine |
+
+The UI rolls up at `chat_id`. The materializer rolls up at `chat_id`,
+then by `vendor`. The hub on `/agents` shows one row per vendor.
+
+## Capture modes
+
+`OPENLIT_CODING_CONTENT_CAPTURE` controls what lands on spans. Pick one:
+
+| Mode            | Identifiers | Tool names + paths | File diffs / message bodies |
+| --------------- | ----------- | ------------------ | --------------------------- |
+| `minimal`       | ✅          | ❌                 | ❌                          |
+| `metadata_only` | ✅          | ✅                 | ❌                          |
+| `full`          | ✅          | ✅                 | ✅                          |
+
+Two redaction tiers always run, regardless of mode: a token-pattern
+scrubber (`tier 1`) and a body-scope scrubber (`tier 2`, only active in
+`full`). See `cli/internal/redact/redact.go`.
+
+The mode is stamped as a resource attribute
+`coding_agent.content_capture_mode` so audit trails can prove what the
+session was recorded under.
+
+## Vendor adapter contract
+
+Each adapter under `cli/internal/coding/hook/<vendor>/` is responsible
+for:
+
+1. Parsing the vendor's JSON payload into Go structs.
+2. Picking the **session id** (vendor-specific key name).
+3. Mapping the vendor's event semantics onto our `normalize` types:
+   - `Session` — sessionStart / sessionEnd lifecycle.
+   - `LLMTurn` — one LLM call (prompt + completion).
+   - `ToolCall` — one tool invocation by the agent.
+   - `EditDecision` — accept / reject / undo of a code edit.
+   - `ShellRequest` — agent-issued shell command.
+   - `Event` — generic counter or "something happened" marker.
+4. Calling the matching `emit.Emit*` method on the OTLP emitter.
+
+The adapter does **not** decide what to redact, what to drop, or what
+trace id to use. Those live in the OTLP layer
+(`cli/internal/otlp/{attrs,exporter,sampler,tracecontext}.go`) so
+adapters stay narrow and consistent.
+
+## Common pitfalls (and what to do instead)
+
+### Empty `/agents` "Coding Agents" tab
+
+Cause: the materializer's discovery query has an aggregate in `GROUP BY`,
+or a CTE that inlines into nested aggregates. The materializer's
+`/api/agents/materialize` route returns `processed: N` for *other*
+rows while the coding-vendor row silently errors.
+
+Fix: rewrite the discovery query to use a per-row chat_id expression
+(map lookups + coalesce, no `any()`) and group by it directly. See
+`discoverCodingAgents` in `src/client/src/lib/platform/agents/materialize.ts`.
+
+### Empty Repository / Working Folder pills on tool / llm spans
+
+Cause: Cursor only sends `workspace_roots` on session lifecycle events.
+Per-tool hooks come in without any cwd field, and `os.Getwd()` wasn't
+persisted to the session-state cache.
+
+Fix: in `hook.go`, when `cached.CWD == ""`, resolve `os.Getwd()` and
+write it back to `cached.CWD` before calling `git.Snapshot`. The save
+gate already covers `cached.CWD != ""`.
+
+### One chat appears as N sessions
+
+Cause: a subagent is reporting its own `session_id` but not the
+parent's `parent_conversation_id`, so the chat-thread coalesce falls
+through to per-process session_id.
+
+Fix: confirm `peekContext` is picking the vendor's parent-id field,
+and that it's promoted to the `coding_agent.agent.parent_id` resource
+attribute in the `sessionAttrs` block of `hook.go`.
+
+### Double session-root span
+
+Cause: `EmitSession` is emitting a root span on both `sessionStart`
+("started") and `sessionEnd` (outcome="completed" / "errored").
+
+Fix: only emit on `End` events. The `started` / `in_progress` outcomes
+are no-ops in `EmitSession` — they only update the session-state cache.
+
+### `coding_active_users_24h` is always 0 on a single-user install
+
+Cause: `COHORT_K_FLOOR` was applied at materialize time. Since the
+single developer is below the floor, the count is masked to 0 in
+the materialized table.
+
+Fix: don't apply the floor in the materializer. Store the raw count.
+Apply the floor at query time in `queries.ts` where auth context is
+available, so admins see the truth and viewers see the masked view.
+
+### `active_users_24h` shows 0 in queries even after fix
+
+Cause: `USER_EXPR` doesn't include the vendor's identity key. For
+Cursor, identity arrives as `user.email` on tool spans and
+`gen_ai.user.name` as a resource attribute on every span.
+
+Fix: confirm the resource attribute is set (check
+`sessionstate/<sid>.json` for a `user` field). If not, the vendor's
+payload didn't include identity and we need to widen `peekContext`'s
+key list.
+
+### Agent detail page renders the SDK layout for a coding agent
+
+You click into a Cursor (or Claude Code, …) row in the **Coding
+Agents** tab and instead of the Overview / Sessions / Users tabs you
+get the generic Overview / Dashboard / Monitoring / Definition /
+Configuration tabs from the SDK/Controller detail page. Refresh a few
+times and the layout flips back.
+
+Cause: two rows exist in `openlit_agents_summary` with the **same
+agent_key** but different `source` — one `coding` and one `sdk`.
+The CLI sets `service.name = '<vendor>'` and emits through the
+openlit-go SDK, so the SDK discovery in `materialize.ts:discoverAgents`
+picks the same `service.name` up unless explicitly excluded. The
+summary table is a `ReplacingMergeTree(updated_at)`, so `FINAL` on
+read picks whichever row was written most recently — and the detail
+page chooses its layout from `agent.source`.
+
+Fix: the SDK discovery query must filter out CLI rows by checking
+`ResourceAttributes['coding_agent.session.id']` AND
+`SpanAttributes['coding_agent.session.id']` are both empty.
+
+When adding a new vendor, sanity-check that exactly one row exists
+per agent in the summary table:
+
+```sql
+SELECT agent_key, source, count() AS rows
+FROM openlit_agents_summary
+WHERE service_name = '<vendor>'
+GROUP BY agent_key, source;
+```
+
+A single row with `source='coding'` is correct. Two rows
+(`coding` + anything else) means the exclusion isn't catching the
+vendor's spans — usually because the vendor's CLI is emitting some
+spans before the session id is stamped as a resource attribute.
+
+## Claude Code: dual-path coalesce
+
+Claude Code is the first vendor where users can send telemetry to
+OpenLit through **two independent paths** at the same time:
+
+1. **Hook path** (recommended primary). The `openlit-cc` plugin sits
+   in `~/.claude/plugins/openlit-cc/` and is invoked on every
+   `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+   `Stop`, `SubagentStop`, and `SessionEnd` hook event. The adapter
+   in `cli/internal/coding/hook/claudecode/handle.go` normalises each
+   event into our canonical `coding_agent.*` / `gen_ai.*` schema. It
+   tails the transcript JSONL for authoritative token + cost numbers
+   at session end.
+2. **Native OTel path** (optional, complementary). When the user
+   exports `CLAUDE_CODE_ENABLE_TELEMETRY=1` (plus the usual OTLP
+   endpoint / headers), Claude Code itself emits metrics, events,
+   and — with `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` — spans, all
+   under `service.name=claude-code` and the `claude_code.*`
+   attribute namespace.
+
+The two paths overlap. OpenLit dedupes per `session.id` at read
+time. The query layer (`queries.ts`, `materialize.ts`) coalesces both
+schemas into one chat row:
+
+- **Cost / tokens**: native wins when present (authoritative
+  Anthropic API numbers). Hook tail-of-transcript is the fallback
+  estimate.
+- **Repository / working folder / branch**: hook wins. Claude Code's
+  native exporter does not see the user's `cwd` or run
+  `git.Snapshot(cwd)`; only the openlit hook does.
+- **User identity**: either path. When the user is OAuth-authenticated
+  in Claude Code, the native path supplies `user.email` as a resource
+  attribute; the hook path supplies `gen_ai.user.name` from the local
+  env. Both are coalesced into the canonical user column.
+- **Vendor identifier**: any of `coding_agent.client = 'claude-code'`
+  (stamped by hook), `gen_ai.agent.name = 'claude-code'`, or
+  `service.name = 'claude-code'` (native default). The materializer
+  recognises all three.
+
+Every adapter stamps `coding_agent.signal_source = "hook"` on its
+resource attributes. The native path leaves the attribute unset; the
+query layer infers `"native"` from `service.name = 'claude-code'`. The
+SDK discovery in `materialize.ts:discoverAgents` excludes any span
+that carries `coding_agent.session.id` AND `telemetry.sdk.name =
+'openlit'`, so the openlit hook spans are never double-materialized
+as SDK rows. Native Claude Code spans use Claude Code's own SDK name
+(not `openlit`), so they too are excluded from SDK discovery.
+
+### Native Claude Code metric mapping
+
+Claude Code's native exporter emits a stable set of metrics under the
+`claude_code.*` namespace. The openlit CLI emits the same observable
+behavior under the canonical `coding_agent.*` namespace so a single
+OpenLit installation can ingest both streams interchangeably and any
+custom Grafana / Mimir dashboard the operator already has continues
+to work. The mapping:
+
+| Native Claude Code metric | Canonical openlit-CLI metric | Notes |
+|---|---|---|
+| `claude_code.session.count` | `coding_agent.session.count` | Counter; vendor-tagged via `coding_agent.client`. Native path is unitless; openlit-CLI counter is `{session}`. |
+| `claude_code.code_edit_tool.decision` | `coding_agent.edit.decision.count` | Counter, tags include `coding_agent.edit.decision` (`accept` / `auto_accepted` / `reject`) and `coding_agent.edit.source`. |
+| `claude_code.lines_of_code.count` | `coding_agent.lines_of_code.count` | Counter, tags include `coding_agent.edit.decision` so the same metric powers "lines added" and "lines accepted vs rejected" without two emitters. |
+| `claude_code.commit.count` | `coding_agent.commit.count` | Counter; the openlit-CLI adapters detect commits from Bash / shell / local_shell hooks and stamp the same canonical tags. |
+| `claude_code.pull_request.count` | `coding_agent.pull_request.count` | Counter; gated on `gh pr create / gh pr new` detection so it survives copy-pasted aliases. |
+| `claude_code.token.usage` | `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` | OpenLit follows the OTel GenAI semantic-conventions for token usage. Tags: `gen_ai.system`, `gen_ai.request.model`. |
+| `claude_code.cost.usage` | `gen_ai.usage.cost` | OTel GenAI semantic-conventions counter, USD. |
+| `claude_code.active_time.total` | (derived) | Active time is rolled up at query time as `duration_ms = ended_at - started_at` on the session-root span; we deliberately don't emit it as a separate counter because it is recoverable from the span timings. |
+
+All canonical counters are emitted via the openlit-go MeterProvider
+in `cli/internal/otlp/metrics.go` and pass through the same OTLP
+exporter as the spans, so a Prometheus / Mimir / Datadog backend
+attached to the OpenLit collector sees the same data as the trace
+backend.
+
+**Does coalesce-at-read scale?** Yes for current OpenLit volumes
+(under ~1M coding-agent spans per tenant per day). ClickHouse
+evaluates the per-row coalesce in a few milliseconds; the query
+bottleneck is the wider session scan, not the attribute lookup. Above
+that volume we'll ship a `coding_agent_sessions` materialized view
+that normalises both schemas at ingest. That deferral is documented
+inline in `queries.ts` next to the `E1 deferral note`.
+
+## Adding a new vendor
+
+The Cursor, Claude Code, and Codex adapters are the three reference
+implementations. Each one models a different vendor shape:
+
+- **Cursor** — IDE extension; 13+ named hook events, no per-session
+  transcript file, prompt/response/thought arrive as separate hooks.
+- **Claude Code** — CLI / IDE plugin; richer hook events plus a
+  per-session JSONL transcript that's the authoritative source for
+  per-turn LLM content + token usage. The adapter streams the
+  transcript with byte-offset bookkeeping.
+- **Codex** — CLI; per-turn hook protocol with `turn_id` on every
+  event and a separate rollout JSONL under
+  `~/.codex/sessions/YYYY/MM/DD/` that carries the `token_count`
+  events. The adapter accumulates a per-turn fragment in
+  sessionstate and drains it on `Stop`.
+
+To add another vendor (Windsurf / OpenCode / …):
+
+1. **Read the convention rule** — `.cursor/rules/coding-agents-convention.mdc`.
+   It defines the strict attribute matrix every adapter must follow.
+   New vendors must NOT introduce a new namespace for facts that
+   already have a canonical key.
+2. **Create the adapter package** under `cli/internal/coding/hook/<vendor>/`.
+   Map the vendor's hook payload keys onto the canonical `coding_agent.*`
+   / `gen_ai.*` schema. Use `setStr(..., scrub)` for any string —
+   never bypass the redaction layer.
+3. **Extend `peekContext`** in `hook.go` so the vendor's session id,
+   user, cwd, permission mode, model, and parent-conversation id
+   resolve from the payload. The function is intentionally a thin
+   string-pick — add new key names to the `pickString` calls.
+4. **Wire the plugin manifest** under `plugins/<vendor>/`. Mirror
+   `plugins/claude-code/` for Anthropic-style hooks or `plugins/cursor/`
+   for IDE-extension-style hooks. Add a marketplace entry in
+   `plugins/.claude-plugin/marketplace.json`.
+5. **Bound transcript reads** with `tailfile.Tail` if the vendor
+   exposes a per-session log file. Never read an unbounded file in a
+   hook process.
+6. **Stamp `gen_ai.system`** correctly: `anthropic` for Claude Code,
+   `openai` for Codex, `google` for Gemini-backed agents.
+   Use the `inferProvider(model, vendor)` helper.
+7. **Honor capture modes** — drop bodies in `minimal` and
+   `metadata_only`. The `bodyAllowed(mode)` and `setStr(..., scrub)`
+   helpers in `cli/internal/otlp/attrs.go` are mandatory.
+8. **Add UI icon + label**: register an inline SVG in
+   `src/client/src/components/svg/coding-agents.tsx` and add a switch
+   case in `CodingAgentVendorIcon` AND `hasCodingAgentVendorIcon`.
+   The existing call sites pick the icon up automatically once the
+   helpers know about the vendor.
+9. **Add the onboarding snippet** to `docs/features/coding-agents/onboarding.mdx`.
+   Document any vendor-specific env vars (`OTEL_*` overrides,
+   transcript paths, dual-path notes if applicable).
+10. **Sanity-check end to end**:
+    - Fire a real session through the vendor.
+    - Confirm `otel_traces` has spans with
+      `SpanAttributes['coding_agent.client'] = '<vendor>'`.
+    - Trigger the materializer
+      (`curl -X POST http://localhost:3000/api/agents/materialize -H 'X-CRON-JOB: true'`).
+    - Confirm a row lands in `openlit_agents_summary` with
+      `coding_agent_vendor = '<vendor>'` and `source = 'coding'`.
+    - Open `/agents`, click into the row, verify the Sessions and
+      Users tabs render without errors and that the trace-detail
+      pills (Repository, Working Folder, Branch, Mode, Terminal)
+      populate.
+
+## Threat model & accepted risks
+
+The CLI runs **on the developer's machine** alongside the coding
+agent. Anyone who can run `openlit coding hook` on that machine can
+emit arbitrary `coding_agent.*` spans into the configured collector
+— including spans claiming to be from a different session, vendor,
+or user. We accept this:
+
+- **Spoofing scope is bounded by who already has shell access.** A
+  developer who can run the hook can equally well run any other
+  process under their own user. There is no privilege boundary the
+  CLI is the only gate on.
+- **The OTLP endpoint authenticates the host, not the event.** The
+  Authorization header carries an org-scoped API key, so spans
+  reaching the backend are at least "from some machine our org
+  authorised". Per-event signing is intentionally out of scope for
+  v1 — the cost (key distribution, rotation, hook-latency budget)
+  outweighs the benefit for the threat model of in-org telemetry.
+- **Materialization runs k=5 cohort floors** so a single user
+  cannot inflate their own visible metrics by spamming events; the
+  per-user page refuses to render below five sessions.
+- **Repos and API keys drive the personal-vs-work classifier**, not
+  hook content. A user cannot relabel their own `personal` activity
+  as `work` by tampering with hook payloads.
+
+Operators that need stricter guarantees (e.g. an untrusted developer
+fleet) should:
+
+- Front the OTLP endpoint with a collector that drops events
+  whose `coding_agent.client.user.id` doesn't match the
+  authenticated key's owner.
+- Disable the hook tier and rely on vendor-native OTel only
+  (Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` path) where the
+  vendor signs its own egress.
+
+## Where to read next
+
+- `.cursor/rules/coding-agents-convention.mdc` — the strict schema
+  contract every vendor must follow. The attribute matrix, the
+  Cursor + Claude Code inbound mappings, and the dual-path coalesce
+  rules all live here.
+- `.cursor/rules/coding-agents-hook.mdc` — canonical authoring rules
+  + failure modes, auto-loaded by Cursor when editing hook code.
+- `cli/internal/coding/hook/cursor/handle.go` — reference adapter.
+- `cli/internal/coding/hook/claudecode/handle.go` — second reference
+  adapter, demonstrates dual-path-aware design.
+- `cli/internal/coding/normalize/normalize.go` — schema all adapters
+  emit into.
+- `cli/internal/otlp/attrs.go` — capture-mode gating and scrubbing.
+- `src/client/src/lib/platform/agents/materialize.ts` — rollup that
+  populates `openlit_agents_summary`.
+- `src/client/src/lib/platform/coding-agents/queries.ts` — Sessions,
+  Users, Overview query layer.

@@ -4,11 +4,12 @@ description: 'Manage multi-tenant workspaces, invite team members, and control a
 icon: 'building'
 ---
 
-Organisations in OpenLIT let you group team members under a shared workspace, each connected to its own ClickHouse database configuration. All resources — dashboards, prompts, rules, contexts, and secrets — are scoped per organisation, giving teams full isolation and control.
+Organisations in OpenLIT let you group team members under a shared workspace. Each organisation contains one or more projects, and each project owns its own ClickHouse database configuration. Resources such as dashboards, prompts, rules, contexts, and secrets are scoped through the selected organisation and project, giving teams isolation without forcing every workspace to become a separate organisation.
 
 ## Key features
 
 - **Workspace isolation**: Each organisation maintains its own database configuration and resource space.
+- **Project hierarchy**: Projects sit inside organisations and group database configurations for different environments, teams, or workloads.
 - **Role-based access control**: Assign **Admin** or **Member** roles to control who can manage settings and invite others.
 - **Email invitations**: Invite teammates by email. Invitations can be accepted or declined from the notification panel.
 - **Multiple organisations**: A single user can belong to multiple organisations and switch between them at any time.
@@ -33,6 +34,22 @@ Organisations in OpenLIT let you group team members under a shared workspace, ea
     4. Click **Send Invites**.
 
     Invited users receive an email with a link to accept and join the organisation.
+  </Step>
+  <Step title="Create a project">
+    Add a project when an organisation needs separate database configuration boundaries.
+    1. Navigate to **Settings → Organisation → Projects**.
+    2. Enter a project name.
+    3. Click **Create project**.
+
+    New projects appear in the project dropdown in the top navigation bar.
+  </Step>
+  <Step title="Switch projects">
+    Projects control which database configuration is active.
+    1. Use the project dropdown in the top navigation bar.
+    2. Select the project you want to work in.
+    3. Open **Settings → Organisation** to manage the project's database configuration.
+
+    Database configuration lists update to match the selected project.
   </Step>
   <Step title="Accept an invitation">
     When you receive an invitation:
@@ -70,6 +87,21 @@ Organisations in OpenLIT let you group team members under a shared workspace, ea
 | Remove members | ✅ | ❌ |
 | Delete organisation | ✅ | ❌ |
 | Manage database configuration | ✅ | ❌ |
+| Create and switch projects | ✅ | ✅ |
+
+## Project hierarchy
+
+OpenLIT uses the following hierarchy:
+
+```text
+Organisation
+  Project
+    Database configuration
+```
+
+Use organisations for account and membership boundaries. Use projects for separate database configuration boundaries inside the same organisation, such as production, staging, customer-specific workspaces, or different teams sharing the same membership model.
+
+Every organisation has a default project. Existing organisations are mapped to a default project so database configurations continue to work after upgrading.
 
 ---
 

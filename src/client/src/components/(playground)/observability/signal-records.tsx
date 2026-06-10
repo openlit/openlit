@@ -3,12 +3,21 @@
 import { format } from "date-fns";
 import {
 	BarChart3,
+	Bot,
 	Clock,
+	DollarSign,
+	Folder,
+	GitBranch,
 	Hash,
 	Info,
+	Wrench,
 	Zap,
 } from "lucide-react";
 import { ObservabilitySignalConfig } from "./registry";
+import {
+	CodingAgentVendorIcon,
+	hasCodingAgentVendorIcon,
+} from "@/components/svg/coding-agents";
 import getMessage from "@/constants/messages";
 
 const m = getMessage();
@@ -333,6 +342,336 @@ function MetricRecord({
 	);
 }
 
+function durationLabel(ms: number) {
+	if (!Number.isFinite(ms) || ms <= 0) return "—";
+	if (ms < 1000) return `${Math.round(ms)}ms`;
+	const sec = ms / 1000;
+	if (sec < 60) return `${sec.toFixed(1)}s`;
+	const min = sec / 60;
+	if (min < 60) return `${min.toFixed(1)}m`;
+	return `${(min / 60).toFixed(1)}h`;
+}
+
+const SESSION_OUTCOME_TONE: Record<string, string> = {
+	merged:
+		"bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+	committed:
+		"bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+	abandoned_with_change:
+		"bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+};
+
+const SESSION_CLASS_TONE: Record<string, string> = {
+	work: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+	personal:
+		"bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
+	disputed: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+};
+
+function tone(map: Record<string, string>, key: string) {
+	return (
+		map[key] ||
+		"bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300"
+	);
+}
+
+function CodingUserRecord({
+	row,
+	visibilityColumns,
+	isSelected,
+	onOpen,
+}: {
+	row: any;
+	visibilityColumns: Record<string, boolean>;
+	isSelected?: boolean;
+	onOpen: (row: any) => void;
+}) {
+	const show = (key: string) => visibilityColumns[key] !== false;
+	const masked = row.user === "low_cohort";
+	const total = Math.max(
+		1,
+		Number(row.classification_work || 0) +
+			Number(row.classification_personal || 0)
+	);
+	const workPct = (Number(row.classification_work || 0) / total) * 100;
+	return (
+		<button
+			type="button"
+			onClick={() => !masked && onOpen(row)}
+			disabled={masked}
+			className={`group w-full rounded-md border p-3 text-left transition ${
+				isSelected
+					? "border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-200 dark:border-violet-500 dark:bg-violet-950/30 dark:ring-violet-900"
+					: masked
+						? "border-stone-200 bg-stone-50 cursor-not-allowed dark:border-stone-800 dark:bg-stone-900/40"
+						: "border-stone-200 bg-white hover:border-violet-400 hover:bg-violet-50/60 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-violet-700 dark:hover:bg-violet-950/20"
+			}`}
+		>
+			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<div className="min-w-0">
+					<div className="flex min-w-0 items-center gap-2">
+						{/* Use the vendor's logo as the row leading icon when
+						    we know it; falls back to the generic Bot icon
+						    for an unknown vendor. We drop the separate
+						    vendor pill below to avoid duplicating the
+						    information. */}
+						{hasCodingAgentVendorIcon(row.top_vendor) ? (
+							<CodingAgentVendorIcon
+								vendor={row.top_vendor}
+								className="h-4 w-4 shrink-0"
+							/>
+						) : (
+							<Bot className="h-4 w-4 shrink-0 text-violet-500" />
+						)}
+						<h3 className="truncate font-mono text-sm font-semibold text-stone-950 dark:text-stone-50">
+							{masked ? "low cohort (privacy floor)" : row.user || "—"}
+						</h3>
+					</div>
+					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
+						{show("lastSeen") && <span>Last {formatDate(row.last_seen)}</span>}
+					</div>
+				</div>
+				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
+					{show("sessions") && (
+						<MiniMeta
+							icon={<Bot className="h-3.5 w-3.5" />}
+							label="sessions"
+							value={Number(row.session_count || 0).toLocaleString()}
+						/>
+					)}
+					{show("tools") && (
+						<MiniMeta
+							icon={<Wrench className="h-3.5 w-3.5" />}
+							label="tools"
+							value={Number(row.tool_call_count || 0).toLocaleString()}
+						/>
+					)}
+					{show("cost") && (
+						<MiniMeta
+							icon={<DollarSign className="h-3.5 w-3.5" />}
+							label="cost"
+							value={`$${Number(row.cost_usd || 0).toFixed(4)}`}
+						/>
+					)}
+					{show("tokens") && (
+						<MiniMeta
+							icon={<Hash className="h-3.5 w-3.5" />}
+							label="tokens"
+							value={compactNumber(Number(row.total_tokens || 0))}
+						/>
+					)}
+					{show("mix") && (
+						<MiniMeta
+							icon={<Bot className="h-3.5 w-3.5" />}
+							label="work%"
+							value={`${Math.round(workPct)}%`}
+						/>
+					)}
+				</div>
+			</div>
+		</button>
+	);
+}
+
+function SessionRecord({
+	row,
+	visibilityColumns,
+	isSelected,
+	onOpen,
+}: {
+	row: any;
+	visibilityColumns: Record<string, boolean>;
+	isSelected?: boolean;
+	onOpen: (row: any) => void;
+}) {
+	const show = (key: string) => visibilityColumns[key] !== false;
+	const sessionId = row.session_id || "";
+	// Cursor session ids are long UUIDs — show enough characters to disambiguate
+	// at a glance but keep the row visually compact.
+	const shortSessionId = sessionId
+		? sessionId.length > 12
+			? `${sessionId.slice(0, 12)}…`
+			: sessionId
+		: "—";
+	const vendor = (row.vendor || "").toLowerCase();
+	const totalTokens = Number(
+		row.total_tokens ||
+			Number(row.input_tokens || 0) + Number(row.output_tokens || 0)
+	);
+	// Repo / branch / working folder — surfaced as a thin metadata
+	// strip below the identity row so a developer can pick a session
+	// by repo without opening it. We trim noisy URL prefixes/suffixes
+	// to keep the chip compact (e.g. "openlit/openlit @ main") and
+	// fall back to the working-folder label when there's no VCS
+	// remote (e.g. a fresh clone or a non-git workspace).
+	const repoUrl = (row.repo_url || "").trim();
+	const repoLabel = repoUrl
+		? repoUrl.replace(/^https?:\/\//, "").replace(/\.git$/, "")
+		: "";
+	const branchName = (row.branch || "").trim();
+	const folderLabel = (row.working_dir_label || "").trim();
+	return (
+		<button
+			type="button"
+			onClick={() => onOpen(row)}
+			className={`group w-full rounded-md border p-3 text-left transition ${
+				isSelected
+					? "border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-200 dark:border-violet-500 dark:bg-violet-950/30 dark:ring-violet-900"
+					: "border-stone-200 bg-white hover:border-violet-400 hover:bg-violet-50/60 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-violet-700 dark:hover:bg-violet-950/20"
+			}`}
+		>
+			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<div className="min-w-0">
+					<div className="flex min-w-0 items-start gap-2">
+						{hasCodingAgentVendorIcon(vendor) ? (
+							<CodingAgentVendorIcon
+								vendor={vendor}
+								className="mt-0.5 h-4 w-4 shrink-0"
+							/>
+						) : (
+							<Bot className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+						)}
+						<div className="min-w-0">
+							<h3
+								className="truncate font-mono text-sm font-semibold text-stone-950 dark:text-stone-50"
+								title={sessionId}
+							>
+								{shortSessionId}
+							</h3>
+							<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+								{/* Vendor pill removed — the vendor icon
+								    already sits to the left of the session id
+								    so showing "cursor" here is redundant. */}
+								{show("user") && row.user && (
+									<span className="truncate text-xs text-stone-500 dark:text-stone-400">
+										{row.user}
+									</span>
+								)}
+								{row.model && (
+									<span
+										className="truncate rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+										title={row.model}
+									>
+										{row.model}
+									</span>
+								)}
+							</div>
+						</div>
+					</div>
+					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
+						{show("started") && <span>{formatDate(row.started_at)}</span>}
+						{/* Outcome and classification often arrive as the literal
+						   string "unknown" — Cursor's sessionEnd payload omits
+						   `reason`, and the CLI classifier returns "unknown"
+						   when no signal is decisive. Showing those as pills
+						   just clutters the row with two grey "unknown" chips
+						   per session. We render them only when they carry a
+						   real value; "running" stands in for "session is
+						   still open" so users still see SOMETHING when no
+						   end-of-session telemetry has landed yet. */}
+						{show("outcome") &&
+							row.outcome &&
+							row.outcome !== "unknown" && (
+								<span
+									className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone(
+										SESSION_OUTCOME_TONE,
+										row.outcome
+									)}`}
+								>
+									{row.outcome}
+								</span>
+							)}
+						{show("outcome") && (!row.outcome || row.outcome === "unknown") && (
+							<span className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+								running
+							</span>
+						)}
+						{show("classification") &&
+							row.classification &&
+							row.classification !== "unknown" && (
+								<span
+									className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone(
+										SESSION_CLASS_TONE,
+										row.classification
+									)}`}
+									title={row.classification_reason || row.classification}
+								>
+									{row.classification}
+								</span>
+							)}
+						{row.permission_mode && (
+							<span
+								className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+								title={`Last seen mode: ${row.permission_mode}`}
+							>
+								{row.permission_mode}
+							</span>
+						)}
+						{repoLabel && (
+							<span
+								className="inline-flex items-center gap-1 rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+								title={`${repoUrl}${branchName ? ` @ ${branchName}` : ""}`}
+							>
+								<GitBranch className="h-3 w-3 shrink-0" />
+								{repoLabel}
+								{branchName && (
+									<span className="text-stone-400">@{branchName}</span>
+								)}
+							</span>
+						)}
+						{folderLabel && (
+							<span
+								className="inline-flex items-center gap-1 rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+								title={row.working_dir || folderLabel}
+							>
+								<Folder className="h-3 w-3 shrink-0" />
+								{folderLabel}
+							</span>
+						)}
+					</div>
+				</div>
+				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
+					{show("duration") && (
+						<MiniMeta
+							icon={<Clock className="h-3.5 w-3.5" />}
+							label="duration"
+							value={durationLabel(Number(row.duration_ms || 0))}
+						/>
+					)}
+					{show("tools") && (
+						<MiniMeta
+							icon={<Wrench className="h-3.5 w-3.5" />}
+							label="tools"
+							value={Number(row.tool_call_count || 0).toLocaleString()}
+						/>
+					)}
+					{show("tokens") && totalTokens > 0 && (
+						<MiniMeta
+							icon={<Hash className="h-3.5 w-3.5" />}
+							label="tokens"
+							value={compactNumber(totalTokens)}
+						/>
+					)}
+					{show("cost") && (
+						<MiniMeta
+							icon={<DollarSign className="h-3.5 w-3.5" />}
+							label="cost"
+							value={`$${Number(row.cost_usd || 0).toFixed(4)}`}
+						/>
+					)}
+				</div>
+			</div>
+		</button>
+	);
+}
+
+function compactNumber(value: number): string {
+	if (!Number.isFinite(value)) return "0";
+	if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}m`;
+	if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+	return value.toLocaleString();
+}
+
 export default function SignalRecords({
 	config,
 	rows,
@@ -376,6 +715,43 @@ export default function SignalRecords({
 			<div className="grid gap-2">
 				{rows.map((row) => (
 					<MetricRecord
+						key={config.getRowId(row)}
+						row={row}
+						visibilityColumns={visibilityColumns}
+						isSelected={selectedId === config.getRowId(row)}
+						onOpen={onOpen}
+					/>
+				))}
+			</div>
+		);
+	}
+
+	if (config.key === "sessions") {
+		return (
+			<div className="grid gap-2">
+				{rows.map((row) => (
+					<SessionRecord
+						key={config.getRowId(row)}
+						row={row}
+						visibilityColumns={visibilityColumns}
+						// For sessions, `selectedId` is the OPEN session's root
+						// SpanId (the parent passes `previewSpanId`, not the live
+						// `?selected=` value). It stays put while the developer
+						// drills into child spans inside the sheet, so the row
+						// highlight no longer flickers off on each span click.
+						isSelected={selectedId === row.session_root_span_id}
+						onOpen={onOpen}
+					/>
+				))}
+			</div>
+		);
+	}
+
+	if (config.key === "coding_users") {
+		return (
+			<div className="grid gap-2">
+				{rows.map((row) => (
+					<CodingUserRecord
 						key={config.getRowId(row)}
 						row={row}
 						visibilityColumns={visibilityColumns}

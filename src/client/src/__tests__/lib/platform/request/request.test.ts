@@ -209,6 +209,69 @@ describe('getHeirarchyViaSpanId', () => {
 
     expect(result).toEqual({ err: 'Error building hierarchy', record: {} });
   });
+
+  it('unions spans across subagent sessions when source span is a subagent', async () => {
+    // Source span belongs to subagent 'sub-1' whose parent chat is 'parent-1'.
+    // Expectation: step 2 query unions trace + parent's session_id + any
+    // subagent whose parent_id is 'parent-1' (resource OR span attr).
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 't1', CodingSessionId: 'sub-1', CodingParentId: 'parent-1' }],
+        err: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            SpanId: 'root',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.session',
+            SpanAttributes: { 'coding_agent.session.id': 'parent-1' },
+            Timestamp: 1,
+          },
+          {
+            SpanId: 'sub-tool',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.tool.call',
+            SpanAttributes: { 'coding_agent.session.id': 'sub-1' },
+            Timestamp: 2,
+          },
+        ],
+        err: null,
+      });
+
+    const result = await getHeirarchyViaSpanId('any-span-in-sub-1');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    const [, secondCall] = (dataCollector as jest.Mock).mock.calls;
+    const allSpansQuery = secondCall[0].query as string;
+    expect(allSpansQuery).toContain("SpanAttributes['coding_agent.session.id'] = 'parent-1'");
+    expect(allSpansQuery).toContain("ResourceAttributes['coding_agent.agent.parent_id'] = 'parent-1'");
+    expect(result.err).toBeNull();
+  });
+
+  it('uses own session_id when no parent_id is set', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 't1', CodingSessionId: 'top-chat', CodingParentId: '' }],
+        err: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            SpanId: 'root',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.session',
+            SpanAttributes: { 'coding_agent.session.id': 'top-chat' },
+            Timestamp: 1,
+          },
+        ],
+        err: null,
+      });
+
+    await getHeirarchyViaSpanId('any-span-in-top-chat');
+    const [, secondCall] = (dataCollector as jest.Mock).mock.calls;
+    const allSpansQuery = secondCall[0].query as string;
+    expect(allSpansQuery).toContain("SpanAttributes['coding_agent.session.id'] = 'top-chat'");
+  });
 });
 
 describe('getRequestExist', () => {

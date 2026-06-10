@@ -8,31 +8,19 @@ import {
 	Activity,
 	Home,
 	Key,
+	Bot,
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
 	SettingsIcon,
 	SlidersHorizontal,
 } from "lucide-react";
-import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
-import OrganisationSwitch from "@/components/(playground)/sidebar/organisation-switch";
 import Otter from "@/components/svg/otter";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
 export const SIDEBAR_ITEMS: SidebarItemProps[] = [
-	{
-		title: "Organisation",
-		type: "section",
-		children: [
-			{
-				text: "Organisation Switch",
-				component: <OrganisationSwitch />,
-				type: "action",
-			},
-		]
-	},
 	{
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
@@ -60,12 +48,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			link: "/telemetry",
 			type: "action",
 		},
-		// {
-		// 	icon: <Radar className={ICON_CLASSES} />,
-		// 	text: "Agents",
-		// 	link: "/agents",
-		// 	type: "action",
-		// },
+		{
+			icon: <Bot className={ICON_CLASSES} />,
+			text: "Agents",
+			link: "/agents",
+			type: "action",
+		},
 		{
 			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
 			text: "Fleet Hub",
@@ -113,11 +101,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		title: "Configuration",
 		type: "section",
 		children: [{
-			text: "Database Switch",
-			component: <DatabaseConfigSwitch />,
-			type: "action",
-		},
-		{
 			icon: <MonitorCog className={ICON_CLASSES} />,
 			text: "Evaluations",
 			link: "/evaluations",

@@ -53,7 +53,18 @@ export function extractRouteParams(pathname: string, regex: RegExp): Record<stri
 			params.id = parts[idIndex];
 		}
 	}
-	
+
+	// Coding-agents per-user detail: /coding-agents/users/<userId>.
+	// `userId` is URL-encoded (emails contain `@` etc.) so we leave
+	// decoding to the caller (the route config calls
+	// decodeURIComponent before rendering the breadcrumb title).
+	if (pathname.startsWith('/coding-agents/users/')) {
+		const parts = pathname.split('/').filter(Boolean);
+		if (parts.length >= 3) {
+			params.userId = parts[2];
+		}
+	}
+
 	return params;
 }
 
@@ -298,6 +309,26 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => "Fleet Hub",
 		getBreadcrumbs: () => [
 			{ title: "Fleet Hub", href: "/fleet-hub" }
+		],
+	},
+
+	// Coding Agents — per-user drilldown.
+	//
+	// The per-user page lives under `/coding-agents/users/[userId]` (not
+	// under `/agents/<key>` like the per-vendor detail page) because it
+	// rolls up across vendors. Without an explicit route config the
+	// breadcrumb generator falls through to the path-tail fallback,
+	// which yields "Home › ishan.jain@grafana.com" — useless context for
+	// the operator. We thread back through the Coding Agents tab on
+	// the unified Agents hub so the user can backtrack out.
+	{
+		regex: /^\/coding-agents\/users\/[^/]+$/,
+		getTitle: (_pathname, params) =>
+			params?.userId ? decodeURIComponent(params.userId) : "User",
+		getBreadcrumbs: () => [
+			{ title: "Agents", href: "/agents" },
+			{ title: getMessage().AGENTS_TAB_CODING, href: "/agents?tab=coding" },
+			{ title: "Users", href: "/agents?tab=coding&codingTab=users" },
 		],
 	},
 

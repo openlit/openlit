@@ -19,7 +19,8 @@ export type PAGE =
 	| "exception"
 	| "observabilityLogs"
 	| "observabilityMetrics"
-	| "fleethub";
+	| "fleethub"
+	| "codingAgentSessions";
 
 export type PageHeader = {
 	title: string;
@@ -47,6 +48,9 @@ export type PageStore = {
 		visibilityColumns: Record<string, boolean>;
 	};
 	fleethub: {
+		visibilityColumns: Record<string, boolean>;
+	};
+	codingAgentSessions: {
 		visibilityColumns: Record<string, boolean>;
 	};
 	setData: (p: PAGE, keyPath: string, value: unknown) => void;

@@ -27,12 +27,21 @@ const SORTING_TYPES = [
 	},
 ];
 
+export type SortOption = { key: string; label: string };
+
 export default function Sorting({
 	sorting,
 	includeOnlySorting,
+	customOptions,
 }: {
 	sorting: FilterSorting;
 	includeOnlySorting?: string[];
+	// `customOptions` lets a signal override the OTel-attribute
+	// driven defaults with its own aggregation-level keys (e.g.
+	// "cost", "tokens", "sessions"). When set, the API for that
+	// signal interprets `filter.sorting.type` as one of these keys
+	// and maps it to its underlying ClickHouse column.
+	customOptions?: SortOption[];
 }) {
 	const updateFilter = useRootStore(getUpdateFilter);
 	const onSortingChange = (type: string) => {
@@ -44,9 +53,11 @@ export default function Sorting({
 		updateFilter("sorting", updatedSorting);
 	};
 
-	const sortingOptions = includeOnlySorting?.length
-		? SORTING_TYPES.filter((i) => includeOnlySorting.includes(i.key))
-		: SORTING_TYPES;
+	const sortingOptions = customOptions?.length
+		? customOptions
+		: includeOnlySorting?.length
+			? SORTING_TYPES.filter((i) => includeOnlySorting.includes(i.key))
+			: SORTING_TYPES;
 
 	return (
 		<DropdownMenu>

@@ -1,0 +1,227 @@
+name: openlit CLI Release
+
+on:
+  push:
+    tags:
+      - 'cli-*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (cli-X.Y.Z)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} / ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux,   arch: amd64,  ext: ""    }
+          - { os: linux,   arch: arm64,  ext: ""    }
+          - { os: darwin,  arch: amd64,  ext: ""    }
+          - { os: darwin,  arch: arm64,  ext: ""    }
+          - { os: windows, arch: amd64,  ext: ".exe" }
+          - { os: windows, arch: arm64,  ext: ".exe" }
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.mod
+          check-latest: true
+      - name: Resolve version
+        id: ver
+        # Single source of truth: prefer workflow_dispatch's `tag` input
+        # (stripping any leading `cli-` so the user can pass either
+        # `cli-1.2.0` or `1.2.0`), otherwise derive from GITHUB_REF for
+        # the tag-push trigger. We then validate the result matches a
+        # semver-ish shape — without the guard, a dispatch run with an
+        # empty `tag` input previously produced `VERSION=refs/heads/main`
+        # which got silently stamped into the release name *and* the
+        # binary's `--version` output.
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="$(echo '${{ github.event.inputs.tag }}' | sed 's/^cli-//')"
+          else
+            VERSION="${GITHUB_REF#refs/tags/cli-}"
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9._-]+)?$'; then
+            echo "::error::Could not resolve a semver release version (got '${VERSION}'). Pass a 'tag' input like 'cli-1.2.0' on workflow_dispatch, or push a 'cli-X.Y.Z' tag."
+            exit 1
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+      - name: Build
+        working-directory: ./cli
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          VERSION="${{ steps.ver.outputs.VERSION }}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          # The version vars live in cli/internal/version, not in
+          # `main`. The earlier `-X main.Version=...` flag silently
+          # had no effect — every release binary printed `dev` from
+          # the package default. -X must target the fully-qualified
+          # package path or Go's linker quietly ignores it.
+          PKG="github.com/openlit/openlit/cli/internal/version"
+          go build -trimpath -ldflags "-s -w -X ${PKG}.Version=$VERSION -X ${PKG}.Commit=$COMMIT" \
+            -o dist/openlit-${GOOS}-${GOARCH}${{ matrix.ext }} ./cmd/openlit
+      - name: Package
+        working-directory: ./cli
+        run: |
+          NAME="openlit-${{ matrix.os }}-${{ matrix.arch }}"
+          BIN="dist/${NAME}${{ matrix.ext }}"
+          cd dist
+          # Ship the binary only. Earlier tar/zip steps also tried to
+          # bundle ../README.md, but cli/ has no README — GNU tar exits
+          # 2 on a missing member (linux/darwin builds), while zip on
+          # Windows only warns. Homebrew and install.sh extract the
+          # binary alone, so LICENSE/README in the archive are optional.
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            zip "${NAME}.zip" "$(basename "$BIN")"
+            sha256sum "${NAME}.zip" > "${NAME}.zip.sha256"
+          else
+            tar -czf "${NAME}.tar.gz" "$(basename "$BIN")"
+            sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openlit-${{ matrix.os }}-${{ matrix.arch }}
+          path: cli/dist/*
+
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }
+      - name: Resolve version
+        id: ver
+        # Mirror the build job's resolver so workflow_dispatch runs
+        # produce a release named after the user-supplied tag rather
+        # than `vrefs/heads/main` (GITHUB_REF on a dispatched run).
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="$(echo '${{ github.event.inputs.tag }}' | sed 's/^cli-//')"
+          else
+            VERSION="${GITHUB_REF#refs/tags/cli-}"
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9._-]+)?$'; then
+            echo "::error::Could not resolve a semver release version (got '${VERSION}')."
+            exit 1
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" \) -exec cp {} release/ \;
+          ls -la release
+      # Pinned to a full commit SHA per supply-chain hardening guidance.
+      # `softprops/action-gh-release` writes the release artifacts that
+      # users install via curl|sh and brew — a moving `@v3` tag could be
+      # repointed at a malicious commit by a compromised maintainer.
+      # Bump via Dependabot (see .github/dependabot.yml).
+      - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: cli-${{ steps.ver.outputs.VERSION }}
+          name: cli-${{ steps.ver.outputs.VERSION }}
+          files: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Container image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      # The three Docker actions below are pinned to commit SHAs (instead
+      # of `@v3` / `@v5`) so a future repoint of the tag can't slip a
+      # backdoored buildx or login step into the GHCR push pipeline. The
+      # SHAs are kept fresh by Dependabot via .github/dependabot.yml.
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="$(echo '${{ github.event.inputs.tag }}' | sed 's/^cli-//')"
+          else
+            VERSION="${GITHUB_REF#refs/tags/cli-}"
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9._-]+)?$'; then
+            echo "::error::Could not resolve a semver release version (got '${VERSION}')."
+            exit 1
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+      - name: Build and push image
+        # docker/build-push-action is the action that actually produces
+        # and pushes the multi-arch container image. Pinned to a SHA so
+        # a compromised tag can't ship a backdoored image to GHCR.
+        # NOTE: v5 is the last release of the v5 series (v5.4.0); v7 is
+        # current upstream. Stay on v5 here until we test the v7 input
+        # changes — the bump is tracked in Dependabot.
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: .
+          file: cli/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.ver.outputs.VERSION }}
+            COMMIT=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/openlit-cli:${{ steps.ver.outputs.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/openlit-cli:latest
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="$(echo '${{ github.event.inputs.tag }}' | sed 's/^cli-//')"
+          else
+            VERSION="${GITHUB_REF#refs/tags/cli-}"
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9._-]+)?$'; then
+            echo "::error::Could not resolve a semver release version (got '${VERSION}')."
+            exit 1
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+      - name: Update tap formula
+        # `dawidd6/action-homebrew-bump-formula` is the lone-maintainer
+        # action with the highest blast radius in this workflow: its
+        # token can push commits into the homebrew tap that mints what
+        # `brew install openlit` resolves to. Pinning to a SHA is the
+        # whole point — a tag repoint here directly compromises every
+        # user who runs `brew upgrade`.
+        uses: dawidd6/action-homebrew-bump-formula@baf2b60c51fc1f8453c884b0c61052668a71bd1d # v3.11.0
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          tap: openlit/homebrew-openlit
+          formula: openlit
+          tag: cli-${{ steps.ver.outputs.VERSION }}

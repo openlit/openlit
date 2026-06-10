@@ -3,6 +3,8 @@ import {
 	getTraceMappingKeyFullPath,
 	buildHierarchy,
 } from "@/helpers/server/trace";
+import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
+import { CODING_AGENT_ATTR } from "@/lib/platform/coding-agents/table-details";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -142,6 +144,18 @@ export async function getAverageRequestDuration(params: MetricParams) {
 export async function getRequestsConfig(params: MetricParams) {
 	const select: string[] = [];
 
+	// Provider filter source list. Folds three attribute namespaces
+	// into one flat set so the "Provider" dropdown in the filter bar
+	// can act as a universal traffic-shaper:
+	//   • gen_ai.system   — LLM provider on regular GenAI spans
+	//   • db.system       — vector-DB provider on retrieval spans
+	//   • coding_agent.client — coding-agent vendor (cursor / codex /
+	//     claude_code) on every span we emit from the CLI hook. We
+	//     surface it here (rather than building a separate "Vendor"
+	//     filter) so operators can untick e.g. "cursor" to hide all
+	//     of that vendor's telemetry from any view — the user asked
+	//     for vendor visibility without a new control. The WHERE
+	//     side of this fold lives in helpers/server/platform.ts.
 	select.push(
 		`arrayConcat(
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
@@ -149,7 +163,8 @@ export async function getRequestsConfig(params: MetricParams) {
 		)}'])),
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
 			"system"
-		)}']))
+		)}'])),
+			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['coding_agent.client']))
 		) AS providers`
 	);
 
@@ -234,8 +249,9 @@ export async function getRequests(params: MetricParams) {
 }
 
 export async function getRequestViaSpanId(spanId: string) {
+	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE SpanId='${spanId}'`;
+		WHERE SpanId='${safeSpanId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -245,9 +261,10 @@ export async function getRequestViaSpanId(spanId: string) {
 }
 
 export async function getRequestViaTraceId(traceId: string) {
+	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
-	)}='${traceId}'`;
+	)}='${safeTraceId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
@@ -257,27 +274,63 @@ export async function getRequestViaTraceId(traceId: string) {
 }
 
 export async function getHeirarchyViaSpanId(spanId: string) {
-	// Step 1: Get the TraceId for this span
-	const traceIdQuery = `
-		SELECT ${getTraceMappingKeyFullPath("id")}
+	// Step 1: resolve the source span. We need:
+	//   - TraceId (the usual "show every span in the trace" path)
+	//   - coding_agent.session.id (so coding-agent sessions whose CLI
+	//     emitted multiple independent traces still render as one
+	//     conversation)
+	//   - coding_agent.agent.parent_id (resource attr, set on subagent
+	//     hooks). When this is set, the chat we should display is the
+	//     PARENT's chat — fold this subagent's spans into the parent
+	//     trace, and union with the parent's own session_id, and with
+	//     all sibling subagents.
+	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
+	const sourceSpanQuery = `
+		SELECT
+			TraceId,
+			SpanAttributes['coding_agent.session.id'] AS CodingSessionId,
+			coalesce(
+				nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),
+				nullIf(SpanAttributes['coding_agent.agent.parent_id'], '')
+			) AS CodingParentId
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE SpanId = '${spanId}'
+		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
-	const { data: traceIdData, err: traceIdErr } = await dataCollector({
-		query: traceIdQuery,
+	const { data: sourceData, err: sourceErr } = await dataCollector({
+		query: sourceSpanQuery,
 	});
 
-	if (traceIdErr || !Array.isArray(traceIdData) || traceIdData.length === 0) {
+	if (sourceErr || !Array.isArray(sourceData) || sourceData.length === 0) {
 		return { err: "Span not found", record: {} };
 	}
 
-	const traceId = traceIdData[0].TraceId;
-	if (!traceId) {
+	const traceId = sourceData[0].TraceId as string | undefined;
+	const ownSessionId = (sourceData[0].CodingSessionId || "") as string;
+	const parentId = (sourceData[0].CodingParentId || "") as string;
+	// The chat id we display is the parent's id when the source span
+	// is a subagent's; otherwise it's the source span's own session.
+	const codingSessionId = parentId || ownSessionId;
+	if (!traceId && !codingSessionId) {
 		return { err: "TraceId not found for span", record: {} };
 	}
 
-	// Step 2: Fetch ALL spans belonging to this trace (include SpanAttributes for chat view)
+	// Step 2: fetch every span we care about. For coding-agent sessions
+	// we union three sources:
+	//   - this trace (TraceId match — same hook invocation)
+	//   - all spans whose own session_id == chat id (the parent's own
+	//     spans when we opened from a subagent, or any spans that
+	//     share the chat id directly)
+	//   - all subagent spans pointing at this chat id (resource OR
+	//     span attribute parent_id match — folds subagents into the
+	//     parent's chat thread regardless of which session emitted them)
+	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
+	const filterClause = codingSessionId
+		? `(${getTraceMappingKeyFullPath(
+				"id"
+			)} = '${safeTraceId}' OR SpanAttributes['coding_agent.session.id'] = '${escapeClickHouseString(codingSessionId)}' OR ResourceAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}' OR SpanAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}')`
+		: `${getTraceMappingKeyFullPath("id")} = '${safeTraceId}'`;
+
 	const allSpansQuery = `
 		SELECT
 			${getTraceMappingKeyFullPath("id")},
@@ -299,8 +352,9 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			Events,
 			Links
 		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getTraceMappingKeyFullPath("id")} = '${traceId}'
-		ORDER BY Timestamp ASC`;
+		WHERE ${filterClause}
+		ORDER BY Timestamp ASC
+		LIMIT 5000`;
 
 	const { data: allSpans, err: allSpansErr } = await dataCollector({
 		query: allSpansQuery,
@@ -310,7 +364,24 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		return { err: "Failed to fetch trace spans", record: {} };
 	}
 
-	// Step 3: Build the hierarchy tree in JS
+	// Step 3: Build the hierarchy tree in JS.
+	// - For coding-agent sessions, prefer the explicit `coding_agent.session`
+	//   span as the root (synthesizing one if absent), then attach every
+	//   other span as a child. This works whether the CLI emitted one
+	//   shared TraceId or many independent traces.
+	// - For other traces, fall back to the regular ParentSpanId-based
+	//   buildHierarchy.
+	if (codingSessionId) {
+		const heirarchy = buildCodingSessionHierarchy(
+			allSpans as any[],
+			codingSessionId
+		);
+		if (!heirarchy) {
+			return { err: "Error building hierarchy", record: {} };
+		}
+		return { err: null, record: heirarchy };
+	}
+
 	const heirarchy = buildHierarchy(allSpans as any[]);
 
 	if (!heirarchy) {
@@ -318,6 +389,87 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 	}
 
 	return { err: null, record: heirarchy };
+}
+
+/**
+ * Coding-agent sessions span ≥ 1 trace because each hook invocation
+ * historically produced its own trace. The session-detail UI needs a
+ * single tree, so we synthesize one:
+ *   - prefer the `coding_agent.session` span as the root when present,
+ *   - otherwise mint a synthetic root node carrying the session id,
+ *   - attach every other span as a direct child of the root.
+ *
+ * We deliberately don't try to honor ParentSpanId across traces — the
+ * chat view flattens the tree anyway, and the timeline / tree views
+ * still get a clean chronological list.
+ */
+function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
+	if (spans.length === 0) return null;
+	const sessionSpan = spans.find(
+		(s) => s.SpanName === "coding_agent.session"
+	);
+	const earliest = spans.reduce((acc, s) => {
+		const ts = s.Timestamp ? new Date(s.Timestamp).getTime() : 0;
+		const accTs = acc?.Timestamp ? new Date(acc.Timestamp).getTime() : 0;
+		return !acc || ts < accTs ? s : acc;
+	}, undefined as any);
+	// Whole-session wall-clock duration, mirroring `getCodingSessionDigest`'s
+	// `greatest(reported coding_agent.session.duration_ms, max(start) - min(start))`.
+	// The raw `coding_agent.session` span Duration is unreliable (frequently 0,
+	// or just one hook invocation's slice), which is why the root node's time
+	// didn't match the detail header's session Duration. We recompute it here so
+	// the tree/timeline/graph root reflects the full session and matches the
+	// header. The header itself sources its value from `sessionDigest`, so this
+	// override is display-only for the hierarchy and can't regress it.
+	const sessionDurationNs = (() => {
+		let minTs = Number.POSITIVE_INFINITY;
+		let maxTs = Number.NEGATIVE_INFINITY;
+		let reportedMs = 0;
+		for (const s of spans) {
+			const ts = s.Timestamp ? new Date(s.Timestamp).getTime() : NaN;
+			if (Number.isFinite(ts)) {
+				if (ts < minTs) minTs = ts;
+				if (ts > maxTs) maxTs = ts;
+			}
+			const reported = Number(
+				s?.SpanAttributes?.[CODING_AGENT_ATTR.sessionDurationMs] || 0
+			);
+			if (Number.isFinite(reported) && reported > reportedMs) {
+				reportedMs = reported;
+			}
+		}
+		const wallClockMs =
+			Number.isFinite(minTs) && Number.isFinite(maxTs) ? maxTs - minTs : 0;
+		// ms → ns: `Duration` is nanoseconds (requestDuration offset is 1e-9).
+		return Math.max(reportedMs, wallClockMs, 0) * 1e6;
+	})();
+	const root = sessionSpan
+		? { ...sessionSpan, Duration: sessionDurationNs, children: [] as any[] }
+		: {
+				SpanId: `${SYNTHETIC_SPAN_ID_PREFIX}${sessionId}`,
+				ParentSpanId: "",
+				SpanName: "coding_agent.session",
+				TraceId: earliest?.TraceId || "",
+				Timestamp: earliest?.Timestamp || "",
+				Duration: sessionDurationNs,
+				Cost: 0,
+				StatusCode: "",
+				SpanAttributes: {
+					"coding_agent.session.id": sessionId,
+				},
+				ResourceAttributes: earliest?.ResourceAttributes || {},
+				children: [] as any[],
+			};
+	const sorted = [...spans].sort((a, b) => {
+		const ta = a.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+		const tb = b.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+		return ta - tb;
+	});
+	for (const span of sorted) {
+		if (span.SpanId === root.SpanId) continue;
+		root.children.push({ ...span, children: [] });
+	}
+	return root;
 }
 
 export async function getRequestExist() {

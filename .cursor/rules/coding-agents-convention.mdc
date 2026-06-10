@@ -1,0 +1,435 @@
+---
+description: Strict attribute and naming convention every coding-agent vendor must follow. Defines the canonical schema (the `coding_agent.*` + `gen_ai.*` keys we own), the per-vendor inbound mappings (Cursor → canonical, Claude Code native OTel → canonical, etc.), the dual-path dedupe rule when a vendor ships its own telemetry AND we ship hook spans for the same session, and the data-type / unit / enum-value contract. Read this before writing or reviewing any adapter, query, materializer change, or collector processor.
+globs: cli/internal/coding/**/*.go,cli/internal/otlp/**/*.go,sdk/go/semconv/coding_agent.go,sdk/go/semconv/genai.go,src/client/src/lib/platform/coding-agents/**/*.ts,src/client/src/lib/platform/agents/materialize.ts,plugins/**/hooks.json,assets/otel-collector*.yaml
+alwaysApply: false
+---
+
+# Coding-Agents Telemetry Convention
+
+This is the **strict** contract between every coding-agent vendor and OpenLit. Every adapter, every native-telemetry mapping, every query has to match it exactly. Drift in either direction (renaming an attribute, switching units, adding ad-hoc vendor-namespaced keys) breaks the `/coding-agents` and `/agents` views in subtle, hard-to-diagnose ways. When in doubt, prefer this document over what any individual vendor's docs claim.
+
+The companion authoring rule is `coding-agents-hook.mdc` (failure modes + checklist). This rule is the **schema**.
+
+---
+
+## 1. Canonical schema (single source of truth)
+
+Everything OpenLit reads or rolls up speaks one of two namespaces:
+
+- **`coding_agent.*`** — OpenLit-owned, defined in `sdk/go/semconv/coding_agent.go` (Go) and `cli/gen/semconv.ts` (TS mirror). Specific to coding agents — no other product surface uses these.
+- **`gen_ai.*`** — OpenTelemetry GenAI semantic conventions (with a few OpenLit-stamped additions in `sdk/go/semconv/genai.go`). Shared with the SDK / LLM observability surface.
+
+**Hard rules:**
+
+1. Adapters MUST stamp `coding_agent.session.id` on every span. No exceptions.
+2. Adapters MUST stamp `coding_agent.client` (vendor identifier) on every span. Allowed values: `cursor`, `claude-code`, `codex`, `windsurf`. Add new values to `sdk/go/semconv/coding_agent.go` AND `src/client/src/types/agents.ts` AND re-run `go generate`.
+3. `gen_ai.system` MUST be the LLM provider, not the agent vendor: `anthropic`, `openai`, `google`, `xai`, `mistral`. Use the `inferProvider(model, vendor)` helper.
+4. Numeric attributes are emitted as numbers, NEVER as strings. Tokens are `int64`. Cost is `float64` in USD. Duration is `int64` in milliseconds.
+5. Timestamps are RFC3339-with-nanos when stamped as strings, or the OTel span's intrinsic start/end when stamped as span time. NEVER unix seconds, never milliseconds-since-epoch.
+6. Enums (capture mode, outcome, edit decision, classification) MUST be exactly one of the defined values. Use the `semconv.CodingAgent*` constants — never inline a literal.
+
+## 2. Attribute matrix — what every adapter MUST set
+
+These keys MUST land on every adapter's spans. Where the value is unknown, leave the key off — DO NOT stamp `""` or `"unknown"` (the only exception is `coding_agent.user.classification = "unknown"`, which is a deliberate fallback).
+
+### Resource attributes (every span the process emits)
+
+| Attribute | Source | Required | Example |
+| -- | -- | -- | -- |
+| `coding_agent.client` | Vendor adapter | ✅ | `claude-code` |
+| `coding_agent.session.id` | Vendor payload | ✅ | UUID string |
+| `coding_agent.agent.parent_id` | Subagent linkage | When subagent | UUID string |
+| `coding_agent.content_capture_mode` | CLI config | ✅ | `minimal` / `metadata_only` / `full` |
+| `coding_agent.hook.cli.version` | CLI build | ✅ | `0.5.3` |
+| `coding_agent.signal_source` | Adapter (see §6) | ✅ | `hook` / `native` |
+| `telemetry.distro.name` | CLI emit layer | ✅ | `openlit-cli` |
+| `telemetry.distro.version` | CLI emit layer | ✅ | `0.5.3` |
+| `code.cwd` | Session probe + `os.Getwd()` fallback | ✅ | `/home/me/repo` |
+| `vcs.repository.url.full` | `git.Snapshot(cwd)` | When repo | `https://github.com/org/repo` |
+| `vcs.ref.head.name` | `git.Snapshot(cwd)` | When repo | `main` |
+| `gen_ai.user.name` | Vendor payload or local OS user | ✅ | `alice@example.com` |
+| `gen_ai.request.user` | Mirror of `gen_ai.user.name` | ✅ | Same as above |
+| `gen_ai.conversation.id` | Vendor's chat-thread id | When known | UUID string |
+| `terminal.type` | `resolveTerminalType()` | When known | `iTerm.app` / `vscode` / `tmux` |
+| `host.name` | `os.Hostname()` | ✅ | `alice-mbp` |
+| `service.name` | Vendor identifier | ✅ | `claude-code` |
+| `service.version` | CLI version | ✅ | `0.5.3` |
+| `telemetry.sdk.name` | openlit-go default | ✅ | `opentelemetry` |
+
+### Span attributes per span type
+
+**Session-root span** (`coding_agent.session`, only on session END):
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.session.outcome` | ✅ | One of the `CodingAgentSessionOutcome*` constants |
+| `coding_agent.session.duration_ms` | ✅ | `int64`, wall-clock |
+| `coding_agent.session.cost_usd` | When known | `float64`, USD |
+| `coding_agent.session.tool_call_count` | ✅ | `int64` |
+| `coding_agent.session.subagent_count` | When subagents | `int64` |
+| `coding_agent.session.lines.added` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.added` across the session's edit-decision spans (any decision). |
+| `coding_agent.session.lines.removed` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.removed` across edit-decision spans. |
+| `coding_agent.session.lines.accepted` | When edits captured | `int64`. Sum of `coding_agent.edit.lines.added` for edit-decision spans where `coding_agent.edit.decision IN ('accept', 'auto_accepted')`. |
+| `coding_agent.session.lines.rejected` | When edits captured | `int64`. Same shape as `lines.accepted` but for `decision = 'reject'`. |
+| `coding_agent.session.edit.accept_count` | When edits captured | `int64`. Count of edit-decision spans with decision = accept / auto_accepted. |
+| `coding_agent.session.edit.reject_count` | When edits captured | `int64`. Count of edit-decision spans with decision = reject. |
+| `coding_agent.session.commit_count` | When commits detected | `int64`. Count of `coding_agent.git.commit` spans the adapter emitted for this session. |
+| `coding_agent.session.pr_count` | When PRs detected | `int64`. Count of `coding_agent.git.pull_request` spans. |
+| `gen_ai.usage.input_tokens` | When known | `int64` |
+| `gen_ai.usage.output_tokens` | When known | `int64` |
+| `gen_ai.usage.total_tokens` | When known | `int64` |
+| `gen_ai.usage.cache.read_input_tokens` | When known | `int64` |
+| `gen_ai.usage.cache.creation_input_tokens` | When known | `int64` |
+| `gen_ai.request.model` | When known | Vendor model string |
+| `coding_agent.user.classification` | ✅ | `work` / `personal` / `unknown` |
+| `coding_agent.user.classification.reason` | ✅ | Human-readable reason |
+| `coding_agent.policy.permission_mode` | When set | Vendor permission mode |
+| `coding_agent.vcs.dirty` | When repo present | Boolean |
+
+The eight `coding_agent.session.{lines,edit,commit,pr}*` rollup
+attributes are an additive fast path — they let the per-session
+`listSessions` query render code-impact without scanning every
+`coding_agent.edit.decision` / `coding_agent.git.*` child span.
+For sessions where the rollup is missing (Codex never emits a
+`SessionEnd`; in-flight CC / Cursor sessions also lack the rollup),
+the query layer falls back to per-event aggregation with the
+`greatest(rollup, sum)` pattern documented in `queries.ts`.
+
+**LLM turn span** (`coding_agent.llm.turn`):
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `gen_ai.operation.name` | ✅ | `chat` |
+| `gen_ai.system` | ✅ | Provider — `anthropic`, `openai`, ... |
+| `gen_ai.request.model` | ✅ | Model string |
+| `gen_ai.response.model` | When known | Often equal to request |
+| `gen_ai.usage.input_tokens` | When known | `int64` |
+| `gen_ai.usage.output_tokens` | When known | `int64` |
+| `gen_ai.usage.total_tokens` | When known | `int64` |
+| `gen_ai.usage.cost` | When known | `float64`, USD |
+| `gen_ai.response.id` | When known | Vendor request id |
+| `gen_ai.response.finish_reasons` | When known | String array — `[end_turn]`, `[tool_use]`, etc. |
+| `gen_ai.input.messages` | Capture-mode `full` | JSON-stringified messages |
+| `gen_ai.output.messages` | Capture-mode `full` | JSON-stringified messages |
+| `coding_agent.llm.thought.text` | Capture-mode `full` | Reasoning / extended-thinking text |
+| `coding_agent.llm.thought.duration_ms` | When known | `int64` |
+| `coding_agent.llm.turn.kind` | ✅ | `prompt` / `response` / `thought` |
+
+**Tool call span** (`coding_agent.tool.call`):
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `gen_ai.tool.name` | ✅ | Vendor's tool name |
+| `gen_ai.tool.call.id` | ✅ | Vendor's tool_use_id |
+| `coding_agent.tool.duration_ms` | ✅ | `int64` |
+| `coding_agent.tool.errored` | ✅ | Boolean |
+| `coding_agent.tool.error_message` | When errored, gated | String — only in `full` mode |
+| `coding_agent.tool.iteration` | When known | `int64`, 1-based |
+| `coding_agent.tool.group.id` | When known | Vendor's tool-group id |
+| `coding_agent.tool.triggering_llm_request_id` | When known | LLM turn id that issued the call |
+| `coding_agent.mcp.server.name` | MCP tools only | String |
+| `coding_agent.mcp.scope` | MCP tools only | `user` / `project` / `local` |
+| `coding_agent.mcp.transport` | MCP tools only | `stdio` / `sse` / `http` |
+| `coding_agent.tool.sandboxed` | When known | Boolean |
+| `coding_agent.tool.command` | Shell tools, gated | `metadata_only`+ strips args, `full` keeps full string |
+| `gen_ai.tool.call.arguments` | Capture-mode `full` | JSON-stringified args |
+| `gen_ai.tool.call.result` | Capture-mode `full` | JSON-stringified result |
+
+**Edit decision span** (`coding_agent.edit.decision`):
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.edit.decision` | ✅ | `accept` / `reject` / `auto_accept` / `revert` |
+| `coding_agent.edit.decision.source` | ✅ | `user_interactive` / `policy` / `hook` |
+| `coding_agent.edit.tool.name` | ✅ | Vendor's edit tool name (Edit, Write, MultiEdit, …) |
+| `coding_agent.edit.language` | When known | Programming language guess |
+| `coding_agent.edit.lines.added` | When known | `int64` |
+| `coding_agent.edit.lines.removed` | When known | `int64` |
+| `code.file.path` | When known | Repo-relative path |
+
+**Subagent span** (`coding_agent.subagent`):
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.subagent.type` | ✅ | Vendor's subagent type label |
+| `coding_agent.agent.parent_id` | ✅ | Parent chat id (also as resource attr) |
+| `gen_ai.tool.call.id` | When spawned by Task tool | Tool use id that spawned it |
+
+**Git commit span** (`coding_agent.git.commit`):
+
+Detected by parsing `git commit` invocations out of the Bash /
+shell / local_shell tool's command + stdout (see
+`cli/internal/coding/detect/detect.go`).
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.git.commit.sha` | When stdout has it | Hex SHA from `git commit` stdout. Gated by capture mode (stripped in `metadata_only`). |
+| `coding_agent.git.commit.message` | When command has it | First line of `-m '…'`. Gated. |
+| `coding_agent.tool.name` | ✅ | Originating tool — `Bash`, `local_shell`, `shell`. |
+| `coding_agent.tool.working_dir` | When known | Repo cwd. |
+
+**Git pull-request span** (`coding_agent.git.pull_request`):
+
+Detected by parsing `gh pr create` / `gh pr new` invocations.
+
+| Attribute | Required | Notes |
+| -- | -- | -- |
+| `coding_agent.git.pr.url` | When stdout has it | PR URL from `gh pr` stdout. Gated. |
+| `coding_agent.git.pr.number` | When URL has it | Numeric ID parsed out of the URL. |
+| `coding_agent.git.pr.title` | When command has it | `--title '…'`. Gated. |
+| `coding_agent.tool.name` | ✅ | Originating tool — `Bash`, `local_shell`, `shell`. |
+| `coding_agent.tool.working_dir` | When known | Repo cwd. |
+
+## 3. Inbound mapping — Cursor → canonical
+
+Cursor sends payloads to our hook subcommand; we own the mapping. For full reference see `cli/internal/coding/hook/cursor/handle.go`.
+
+| Cursor payload key | Canonical attribute | Notes |
+| -- | -- | -- |
+| `session_id` | `coding_agent.session.id` | |
+| `conversation_id` | `gen_ai.conversation.id` | |
+| `parent_conversation_id` | `coding_agent.agent.parent_id` | resource attribute |
+| `user_email` | `gen_ai.user.name` + `gen_ai.request.user` | resource attribute, cached |
+| `cwd` / `workspace_roots[0]` | `code.cwd` | resource attribute, cached |
+| `composer_mode` | `coding_agent.policy.permission_mode` | resource attribute |
+| `model` | `gen_ai.request.model` | |
+| `cursor_version` | `coding_agent.client.version` | not always present |
+| `is_background_agent` / `is_parallel_worker` | `coding_agent.session.is_subagent` | boolean string |
+| `prompt` | `gen_ai.input.messages` | full mode only |
+| `text` (assistant response) | `gen_ai.output.messages` | full mode only |
+| `text` (thought) | `coding_agent.llm.thought.text` | full mode only |
+| `duration_ms` | `coding_agent.llm.thought.duration_ms` | for thoughts |
+| `tool_name` | `gen_ai.tool.name` | |
+| `tool_use_id` | `gen_ai.tool.call.id` | |
+| `tool_input` | `gen_ai.tool.call.arguments` | full mode only |
+| `tool_response` | `gen_ai.tool.call.result` | full mode only |
+| `attachments[].file_path` | `coding_agent.llm.turn.attachment.paths` | array |
+
+## 4. Inbound mapping — Claude Code → canonical
+
+Claude Code has **two telemetry paths**:
+
+- **Path A (Hook)** — our CLI plugin sits in `~/.claude/plugins/openlit-cc/` and is invoked on every PreToolUse / PostToolUse / SessionStart / SessionEnd / UserPromptSubmit / Stop / SubagentStop hook event. We emit `coding_agent.*` spans the same way we do for Cursor.
+- **Path B (Native)** — Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` makes Claude Code itself emit OTel metrics + events + (with `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`) spans, all under `claude_code.*` and `service.name=claude-code`.
+
+OpenLit accepts both. The query layer coalesces. The hard rule on attribute mapping:
+
+### Path A: hook adapter (`cli/internal/coding/hook/claudecode/handle.go`)
+
+| Claude Code hook payload key | Canonical attribute | Notes |
+| -- | -- | -- |
+| `session_id` | `coding_agent.session.id` | |
+| `transcript_path` | `claude_code.transcript.path` (extras) | so we can re-tail in the UI later |
+| `cwd` | `code.cwd` | resource attribute, cached |
+| `hook_event_name` | `coding_agent.hook.event` | |
+| `permission_mode` | `coding_agent.policy.permission_mode` | resource attribute |
+| `tool_name` | `gen_ai.tool.name` | |
+| `tool_use_id` | `gen_ai.tool.call.id` | |
+| `tool_input` | `gen_ai.tool.call.arguments` | full mode only |
+| `tool_response` | `gen_ai.tool.call.result` | full mode only |
+| `source` (SessionStart) | `claude_code.session.source` (extras) | `startup` / `resume` / `continue` |
+| `reason` (SessionEnd) | maps to outcome enum (see §7) | |
+| Transcript tail (last N KB) | session token + cost totals | bounded by `tailfile.Tail` |
+
+The hook adapter MUST stamp `coding_agent.signal_source = "hook"` on every span it emits.
+
+### Path B: native Claude Code telemetry
+
+Claude Code emits its own OTel signals with `service.name = "claude-code"`. We accept it raw. The query layer coalesces both schemas. For symmetry, the canonical equivalents are:
+
+| Claude Code native attribute | Canonical attribute | Notes |
+| -- | -- | -- |
+| `session.id` | `coding_agent.session.id` | also: `OTEL_METRICS_INCLUDE_SESSION_ID=1` |
+| `app.version` | `coding_agent.client.version` | enable with `OTEL_METRICS_INCLUDE_VERSION=1` |
+| `user.email` | `gen_ai.user.name` + `gen_ai.request.user` | resource-level |
+| `user.account_uuid` | not mapped — kept as Anthropic identifier | |
+| `organization.id` | mapped to `gen_ai.organization.id` if set | for org filtering |
+| `terminal.type` | `terminal.type` | already aligned |
+| `model` (cost metric) | `gen_ai.request.model` | |
+| `claude_code.cost.usage` (metric) | `coding_agent.session.cost_usd` (on session span) | metric-to-attribute mapped at query time |
+| `claude_code.token.usage` (metric, by `type`) | `gen_ai.usage.input_tokens` / `output_tokens` / `cache.read_input_tokens` / `cache.creation_input_tokens` | |
+| `claude_code.session.count` (metric) | session count rollup | derived |
+| `claude_code.lines_of_code.count` (metric) | `coding_agent.edit.lines.added` / `removed` | summed per session |
+| `claude_code.commit.count` (metric) | derived UI counter | no canonical attr — `gen_ai.user.commit_count`? Out of scope for v1. |
+| `claude_code.pull_request.count` (metric) | derived UI counter | same |
+| `claude_code.active_time.total` (metric) | `coding_agent.session.active_time_seconds` (future) | not yet wired |
+| `claude_code.user_prompt` event | `coding_agent.llm.turn` span, `kind=prompt` | |
+| `claude_code.tool_result` event | `coding_agent.tool.call` span | |
+| `claude_code.api_request` event | `coding_agent.llm.turn` span, `kind=response` | carries cost/tokens |
+| `claude_code.api_error` event | `coding_agent.llm.turn` span, `errored=true` | |
+| `claude_code.tool_decision` event | `coding_agent.edit.decision` span when tool ∈ {Edit, Write, NotebookEdit, MultiEdit} | otherwise dropped |
+| `claude_code.permission_mode_changed` event | `coding_agent.session.permission_mode_changed` event | |
+| `claude_code.compaction` event | `coding_agent.session.loop.compact` event | |
+| `claude_code.api_retries_exhausted` event | `coding_agent.llm.turn.retry_exhausted` event | |
+| `claude_code.mcp_server_connection` event | `coding_agent.mcp.connection` event | |
+| `claude_code.skill_activated` event | `coding_agent.skill.activated` event | |
+| `claude_code.plugin_loaded` / `plugin_installed` event | dropped at v1 | not modelled |
+| `claude_code.auth` event | dropped at v1 | not relevant to coding-agent analytics |
+| `claude_code.feedback_survey` event | dropped at v1 | |
+| `claude_code.internal_error` event | dropped at v1 | not user-actionable |
+
+Native spans (when traces beta is on) are accepted as-is and joined into our model via the **inbound coalesce in the query layer** (§5). We do NOT rewrite spans at the collector.
+
+The native path's `signal_source` is `native`. We infer this in the query layer:
+
+```sql
+multiIf(
+  SpanAttributes['coding_agent.signal_source'] = 'hook', 'hook',
+  ResourceAttributes['coding_agent.signal_source'] = 'hook', 'hook',
+  SpanName LIKE 'claude_code.%' OR ResourceAttributes['service.name'] = 'claude-code', 'native',
+  ResourceAttributes['service.name'] = 'cursor' AND mapContains(ResourceAttributes, 'coding_agent.session.id'), 'hook',
+  ''
+) AS signal_source
+```
+
+## 5. Query-layer coalesce — the dual-path rule
+
+When both paths are active for the same Claude Code session, we get two writers landing telemetry under the same `session.id`. We dedupe at read time:
+
+### Session-level rollup (cost, tokens, model)
+
+```text
+authoritative_cost   = coalesce(
+    native sum(claude_code.cost.usage),
+    hook  session.cost_usd      -- from transcript-tail estimate
+)
+
+authoritative_tokens = coalesce(
+    native sum(claude_code.token.usage),
+    hook  session.{input,output}_tokens
+)
+
+model = coalesce(
+    native gen_ai.request.model (from claude_code.api_request),
+    hook  gen_ai.request.model (from transcript tail)
+)
+```
+
+Native always wins when present. Anthropic counts tokens authoritatively from the API response; our hook estimates from a bounded transcript tail. Both estimates may exist for the same session — `coalesce(native, hook)` picks the truthful one.
+
+### Identity (user, cwd, repo)
+
+Hook always wins. The native path doesn't see the developer's repo or cwd; it only sees what Claude Code chose to expose. Our hook stamps `code.cwd`, `vcs.repository.url.full`, `vcs.ref.head.name` as resource attributes from `git.Snapshot(cwd)`.
+
+### Tool calls
+
+Coalesce by `gen_ai.tool.call.id`:
+
+- If both paths emitted for the same tool call: keep the **native** span (it has authoritative duration, retry count, MCP scope) but enrich it with `code.cwd` + `vcs.*` from the hook session's resource bundle.
+- If only one side emitted: keep that one as-is.
+
+### Edit decisions
+
+Hook always wins — the hook sees the actual file diff context; native only sees the decision and `language`.
+
+### Anti-double-count rule
+
+`session_count`, `tool_call_count`, and `subagent_count` are rolled up **per `session.id`**, never per span. As long as the chat_id rollup folds both paths into the same `chat_id`, we don't double-count. The materializer's discovery query (`discoverCodingAgents`) already does this — confirm with:
+
+```sql
+SELECT
+  coalesce(
+    nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),
+    nullIf(SpanAttributes['coding_agent.agent.parent_id'], ''),
+    SpanAttributes['coding_agent.session.id'],
+    SpanAttributes['session.id']           -- Claude Code native
+  ) AS chat_id,
+  count() AS spans, uniqExact(coalesce(...)) AS distinct_sessions
+FROM otel_traces
+WHERE Timestamp >= now() - INTERVAL 24 HOUR
+GROUP BY chat_id;
+```
+
+If `distinct_sessions > 1` for one `chat_id`, we have a dedupe leak. Fix by widening the coalesce in `CHAT_ID_EXPR`.
+
+### Is coalesce good enough at scale?
+
+Honest answer:
+
+- Under ~1M spans/day per tenant: coalesce in queries is fine. ClickHouse evaluates the per-row coalesce in a few milliseconds; the query bottleneck is usually the wider session scan, not the attribute lookup.
+- Over ~1M spans/day per tenant: we want a materialized view (`coding_agent_sessions`) that normalizes `claude_code.*` and `coding_agent.*` into one canonical row at ingest time. The view exists as a comment marker in `queries.ts` (the E1 deferral note). When we ship it, the change is single-file: point `OTEL_TRACES_TABLE` at the MV; the chat-id rollup logic stays the same.
+
+Until then, every new attribute MUST be added to the coalesce expression in `queries.ts` so reads still work for both paths.
+
+## 6. The `coding_agent.signal_source` marker
+
+Every span MUST carry this attribute (resource-level, set by the adapter or inferred from `service.name` at query time). Values:
+
+| Value | When |
+| -- | -- |
+| `hook` | OpenLit CLI emitted this span from a vendor hook event |
+| `native` | The vendor's own OTel exporter emitted this span (e.g. Claude Code with `CLAUDE_CODE_ENABLE_TELEMETRY=1`) |
+| `sdk` | A regular OpenLit Go/Python SDK process (NOT a coding agent) |
+
+Adapters MUST stamp `hook` explicitly. The query layer infers `native` from `service.name = 'claude-code'` AND absence of `coding_agent.signal_source`. The materializer's SDK discovery excludes anything that isn't `sdk` (a positive value of `hook` or `native` keeps the row off the SDK side).
+
+## 7. Outcome enum mapping
+
+Both vendors map onto the same six-value enum from `sdk/go/semconv/coding_agent.go`:
+
+| Outcome | When (Cursor) | When (Claude Code hook) | When (Claude Code native) |
+| -- | -- | -- | -- |
+| `completed` | `outcome=completed` on sessionEnd | n/a (no equivalent signal) | n/a |
+| `merged` | (no signal yet) | (no signal yet) | (no signal yet) |
+| `committed` | (no signal yet) | (no signal yet) | (no signal yet) |
+| `abandoned_no_change` | `outcome=abandoned` AND `!vcs.dirty` | SessionEnd `reason in [exit, logout]` AND `!vcs.dirty` | SessionEnd metric AND no recent commit AND clean tree |
+| `abandoned_with_change` | `outcome=abandoned` AND `vcs.dirty` | SessionEnd `reason in [exit, logout]` AND `vcs.dirty` | SessionEnd metric AND dirty tree |
+| `cancelled` | `outcome=cancelled` | SessionEnd `reason=clear` | (no signal yet) |
+
+Never invent a new outcome value. Never leave outcome empty on a session-root span.
+
+## 8. Capture-mode contract
+
+Three modes apply identically across vendors. The matrix in `coding-agents-hook.mdc` §4 governs which attributes are allowed in each mode. Vendors do not get to widen capture beyond the global setting.
+
+Special note on **bodies**:
+
+- `gen_ai.input.messages` / `gen_ai.output.messages` / `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result` / `coding_agent.llm.thought.text` / `coding_agent.tool.command` (full command) are body-bearing. They MUST be gated by `bodyAllowed(mode)` from `cli/internal/otlp/attrs.go`. Adapters that bypass this gate are bugs.
+
+When Claude Code is configured to send native `OTEL_LOG_RAW_API_BODIES`, those bodies arrive under `claude_code.api_request_body.body` / `claude_code.api_response_body.body`. The query layer drops them in `minimal` and `metadata_only` modes via a `WHERE` filter — we trust the deployer's CLI config over what the vendor's native exporter chose to send.
+
+## 9. Identity / privacy guardrails
+
+These guardrails are absolute. No vendor adapter and no native-telemetry mapping may relax them.
+
+1. **Cohort floor**. Per-user breakdowns suppress users with fewer than `COHORT_K_FLOOR` (default 5) sessions in the working window, unless the viewer is an admin. Apply this at query time in `queries.ts`, NEVER in the materializer.
+2. **Email visibility**. `gen_ai.user.name` is the developer's email when OAuth is configured. It MUST be queryable for admins and MUST be masked behind the cohort floor for non-admins.
+3. **Dispute trail**. Classification labels can be disputed via `POST /api/coding-agents/classification/dispute`. Disputed sessions are flagged but not deleted. Never re-classify a disputed session automatically — defer to the human reviewer.
+4. **Body retention**. When `OPENLIT_CODING_CONTENT_CAPTURE != "full"`, no prompt body / tool result / file diff may land in `otel_traces`. The collector does not redact post-hoc; the adapter MUST gate at emit time.
+5. **Cross-account leakage**. The `whereScope` helper in `queries.ts` enforces `organization.id` matching when `OPENLIT_REQUIRE_ORG_FILTER` is set. New queries MUST go through `whereScope`.
+
+## 10. Adding a new vendor (worked example: opencode)
+
+If we add OpenCode (or any other vendor):
+
+1. **semconv** — add the vendor identifier to `sdk/go/semconv/coding_agent.go`'s vendor list AND to `src/client/src/types/agents.ts`'s `CodingAgentVendor` union. Run `go generate ./cli/...` to regenerate `cli/gen/semconv.ts`.
+2. **Adapter** — create `cli/internal/coding/hook/opencode/handle.go`. Mirror the structure of `cursor/handle.go` or `claudecode/handle.go`. Map every payload key to the canonical attribute matrix in §2 — DO NOT introduce a new `opencode.*` namespace for facts that already have a canonical key.
+3. **`peekContext`** — `cli/internal/coding/hook/hook.go`. Add the vendor's payload key names to `pickString`. The function MUST resolve `session_id`, `user`, `cwd`, `permission_mode`, `model`, and (when applicable) `parent_conversation_id` from this vendor's payload format.
+4. **Plugin manifest** — `plugins/opencode/`. Mirror `plugins/cursor/` for VS-Code-style hooks or `plugins/claude-code/` for Anthropic-style. The plugin invokes `openlit coding hook --vendor=opencode --event=<EventName>`.
+5. **Native telemetry mapping** — if the vendor ships its own OTel signals, write §4's equivalent for it. Add the inbound coalesce to `queries.ts` and document the dual-path rules.
+6. **Icon** — add a tiny inline SVG component to `src/client/src/components/svg/coding-agents.tsx` and wire `case "opencode":` into `CodingAgentVendorIcon`. The hard-coded `=== "cursor"` checks in `coding-agents-table.tsx`, `signal-records.tsx`, and `trace-detail-page.tsx` should be replaced with a "ask the icon component, fall back to Bot" pattern so new vendors pick up icons automatically.
+7. **Onboarding doc** — `docs/features/coding-agents/onboarding.mdx`. Add a tab for the vendor.
+8. **Sanity check** — fire one session end to end, then run the verification SQL in `coding-agents-hook.mdc` §10.
+
+## 11. Things the convention WILL bite you on
+
+These are the rules that, when violated, make the UI silently render `0` / blank / wrong:
+
+- Stamping cost as a string (`"0.15"` instead of `0.15`). The UI's `(row.cost ?? 0).toFixed(2)` returns `"NaN"` and we render `$NaN`.
+- Stamping cost in cents (`15` for $0.15). Multiplies the dashboard total by 100.
+- Stamping `gen_ai.system = "claude-code"`. The provider rollup over-counts Anthropic + misses correct provider attribution. Use `anthropic`.
+- Stamping `coding_agent.session.outcome = ""`. The session-list query filters on outcome being one of the enum values; empty becomes "unknown" in the UI but breaks DORA-style queries.
+- Forgetting to stamp `coding_agent.signal_source` AND `telemetry.distro.name = "openlit-cli"`. The materializer's SDK discovery picks the spans up as SDK telemetry and the agent detail page flips between layouts on refresh. Both stamps are mandatory and live in `cli/internal/otlp/exporter.go`. See `coding-agents-hook.mdc` §10 for the full three-barrier exclusion chain.
+- Adding a vendor-namespaced attribute (`claude_code.foo`) that duplicates a canonical attribute (`coding_agent.foo`). The query layer reads canonical, the row will look empty even though the data is there.
+- Inventing new outcome / decision / classification values. The UI checks are explicit enum comparisons; new values render as blank.
+- Stamping ResourceAttributes with `service.name = "openlit-cli"`. Use the vendor identifier so the materializer's coding discovery picks it up. (The `openlit-cli` value goes on `telemetry.distro.name`, not on `service.name`.)
+- **`ORDER BY agent_key` dedup trap**. `openlit_agents_summary` is a `ReplacingMergeTree(updated_at) ORDER BY agent_key`. Once a phantom row exists for the same agent_key but a different `source` value, FINAL picks whichever has the higher `updated_at` — which can flip back and forth across materialize ticks. The mitigation lives at the *write side* (three barriers in `discoverAgents`, see hook rule §10); the long-term schema fix is widening the ORDER BY to `(agent_key, source)` so SDK and coding rows can coexist for the same service.
+
+## 12. Documented limitations (vendor data doesn't let us fold)
+
+These are known limits where the data the vendor sends prevents perfect rollup. Do not pretend they're fixed; surface them to the operator instead.
+
+- **Cursor: no stable chat-thread id across CLI processes**. When the user suspends a chat (laptop sleep, IDE restart) and resumes, Cursor spawns a fresh CLI process with a fresh `session_id` AND a fresh `conversation_id`. There is no field in the hook payload that links the new session to the previous one. Result: one user-perceived chat shows as N sessions in the OpenLit UI. The chat rollup is doing the right thing per the data it received; the limitation is upstream. Possible future fixes (in order of robustness): Cursor adds a `composer_thread_id` field to the payload, OR we read Cursor's local SQLite at `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` to map session_id → thread_id (version-fragile, not recommended without coordination with Cursor).
+- **Claude Code: no `cwd` / `repo` in native OTel telemetry**. The native exporter only knows what Claude Code itself sees. When the user runs Claude Code outside a Git repo, or when `CLAUDE_PROJECT_DIR` isn't set, those resource attributes will be empty even in the dual-path scenario.
+
+When in doubt: grep for the canonical attribute name in `queries.ts` and `materialize.ts`. If a reader doesn't already coalesce your new key, your data will be invisible to the UI no matter how cleanly it lands in ClickHouse.
