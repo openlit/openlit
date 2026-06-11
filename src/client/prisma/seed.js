@@ -53,6 +53,36 @@ async function main() {
 		},
 	});
 
+	const defaultProject = await prisma.project.upsert({
+		where: {
+			organisationId_slug: {
+				organisationId: defaultOrg.id,
+				slug: "default",
+			},
+		},
+		update: {
+			isDefault: true,
+		},
+		create: {
+			organisationId: defaultOrg.id,
+			name: "Default Project",
+			slug: "default",
+			isDefault: true,
+		},
+	});
+
+	await prisma.organisationUser.update({
+		where: {
+			organisationId_userId: {
+				organisationId: defaultOrg.id,
+				userId: user.id,
+			},
+		},
+		data: {
+			currentProjectId: defaultProject.id,
+		},
+	});
+
 	const environmentDBConfig = {
 		username: process.env.INIT_DB_USERNAME || "default",
 		password: process.env.INIT_DB_PASSWORD || "",
@@ -62,23 +92,22 @@ async function main() {
 	};
 
 	if (environmentDBConfig.host && environmentDBConfig.port) {
-		// First, migrate any orphaned "Default DB" configs to the default org
-		// This must happen before deleteMany to avoid foreign key constraint violations
-		// from databaseconfiguser records that reference these configs
+		// First, migrate any orphaned "Default DB" configs to the default project.
+		// This must happen before the upsert so existing installs keep references.
 		const orphanedDefaultDBConfigs = await prisma.databaseConfig.findMany({
 			where: {
 				name: "Default DB",
-				organisationId: null,
+				projectId: null,
 			},
 		});
 
 		if (orphanedDefaultDBConfigs.length > 0) {
-			// Check if a "Default DB" config already exists in the default org
+			// Check if a "Default DB" config already exists in the default project.
 			const existingDefaultDB = await prisma.databaseConfig.findUnique({
 				where: {
-					name_organisationId: {
+					name_projectId: {
 						name: "Default DB",
-						organisationId: defaultOrg.id,
+						projectId: defaultProject.id,
 					},
 				},
 			});
@@ -97,34 +126,33 @@ async function main() {
 							where: { id: orphanedConfig.id },
 						});
 					} else {
-						// Has references - migrate it by updating to a unique name
-						// Use a timestamp-based suffix to ensure uniqueness
+						// Has references - migrate it by updating to a unique name.
 						await prisma.databaseConfig.update({
 							where: { id: orphanedConfig.id },
 							data: {
 								name: `Default DB (${orphanedConfig.id.slice(0, 8)})`,
-								organisationId: defaultOrg.id,
+								projectId: defaultProject.id,
 							},
 						});
 					}
 				}
 			} else {
-				// No existing "Default DB" in default org - safe to migrate all orphaned ones
+				// No existing "Default DB" in default project - safe to migrate all orphaned ones.
 				await prisma.databaseConfig.updateMany({
 					where: {
 						name: "Default DB",
-						organisationId: null,
+						projectId: null,
 					},
-					data: { organisationId: defaultOrg.id },
+					data: { projectId: defaultProject.id },
 				});
 			}
 		}
 
 		const dbConfig = await prisma.databaseConfig.upsert({
 			where: {
-				name_organisationId: {
+				name_projectId: {
 					name: "Default DB",
-					organisationId: defaultOrg.id,
+					projectId: defaultProject.id,
 				},
 			},
 			update: environmentDBConfig,
@@ -133,7 +161,7 @@ async function main() {
 				name: "Default DB",
 				...environmentDBConfig,
 				createdByUserId: user.id,
-				organisationId: defaultOrg.id,
+				projectId: defaultProject.id,
 			},
 		});
 
@@ -157,40 +185,63 @@ async function main() {
 	}
 
 	// Migrate existing data if needed (for upgrades)
-	await migrateExistingData(defaultOrg.id, user.id);
+	await migrateExistingData(defaultOrg.id, defaultProject.id, user.id);
 
 	console.log("Seeding End.....");
 }
 
-// Migration logic for existing installations
-// Migrates ALL orphaned configs into the default org, then ensures
+// Migration logic for existing installations.
+// Migrates ALL orphaned configs into the default project, then ensures
 // all users sharing configs in the default org are also members.
-async function migrateExistingData(defaultOrgId, seedUserId) {
-	// Step 1: Move ALL orphaned DB configs into the default org
+async function migrateExistingData(defaultOrgId, defaultProjectId, seedUserId) {
+	// Step 1: Move ALL orphaned DB configs into the default project.
 	// This ensures no user loses access to their configs when they join/create an org
 	const allOrphanedConfigs = await prisma.databaseConfig.findMany({
 		where: {
-			organisationId: null,
+			projectId: null,
 		},
-		select: { id: true },
+		select: { id: true, name: true },
 	});
 
 	if (allOrphanedConfigs.length > 0) {
-		const orphanedConfigIds = allOrphanedConfigs.map((config) => config.id);
+		let migratedConfigCount = 0;
 
-		await prisma.databaseConfig.updateMany({
-			where: { id: { in: orphanedConfigIds } },
-			data: { organisationId: defaultOrgId },
-		});
+		for (const config of allOrphanedConfigs) {
+			const existingConfigWithName = await prisma.databaseConfig.findUnique({
+				where: {
+					name_projectId: {
+						name: config.name,
+						projectId: defaultProjectId,
+					},
+				},
+			});
+
+			if (existingConfigWithName) {
+				await prisma.databaseConfig.update({
+					where: { id: config.id },
+					data: {
+						name: `${config.name} (${config.id.slice(0, 8)})`,
+						projectId: defaultProjectId,
+					},
+				});
+			} else {
+				await prisma.databaseConfig.update({
+					where: { id: config.id },
+					data: { projectId: defaultProjectId },
+				});
+			}
+
+			migratedConfigCount++;
+		}
 
 		console.log(
-			`Migrated ${orphanedConfigIds.length} orphaned database configs to default organisation`
+			`Migrated ${migratedConfigCount} orphaned database configs to default project`
 		);
 	}
 
-	// Step 2: Find ALL configs now in the default org and ensure shared users are members
+	// Step 2: Find ALL configs now in the default project and ensure shared users are members.
 	const orgConfigs = await prisma.databaseConfig.findMany({
-		where: { organisationId: defaultOrgId },
+		where: { projectId: defaultProjectId },
 		select: { id: true },
 	});
 
@@ -229,6 +280,7 @@ async function migrateExistingData(defaultOrgId, seedUserId) {
 					organisationId: defaultOrgId,
 					userId,
 					isCurrent: !hasCurrentOrg,
+					currentProjectId: defaultProjectId,
 				},
 			});
 		} else if (!hasCurrentOrg) {
@@ -240,7 +292,20 @@ async function migrateExistingData(defaultOrgId, seedUserId) {
 						userId,
 					},
 				},
-				data: { isCurrent: true },
+				data: {
+					isCurrent: true,
+					currentProjectId: defaultProjectId,
+				},
+			});
+		} else if (!existingMembership.currentProjectId) {
+			await prisma.organisationUser.update({
+				where: {
+					organisationId_userId: {
+						organisationId: defaultOrgId,
+						userId,
+					},
+				},
+				data: { currentProjectId: defaultProjectId },
 			});
 		}
 
