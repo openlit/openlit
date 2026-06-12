@@ -45,6 +45,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |
 | [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface)                  |
 | [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
+| [✅ ElevenLabs](https://docs.openlit.io/latest/integrations/elevenlabs)                    |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
 
 | Vector Databases                                                                            |
