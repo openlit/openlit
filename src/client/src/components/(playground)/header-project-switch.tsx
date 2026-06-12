@@ -69,11 +69,6 @@ export default function HeaderProjectSwitch() {
 						className={cn(project.isDefault && "font-medium")}
 					>
 						<span className="truncate">{project.name}</span>
-						{project.isDefault ? (
-							<span className="ml-2 text-xs text-muted-foreground">
-								{messages.DEFAULT_PROJECT}
-							</span>
-						) : null}
 					</DropdownMenuCheckboxItem>
 				))}
 				<DropdownMenuSeparator />
