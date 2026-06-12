@@ -1,6 +1,7 @@
 import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
+import { decryptValue } from "@/utils/crypto";
 import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
 import { OPENLIT_PROVIDERS_TABLE_NAME } from "./table-details";
 
@@ -122,7 +123,7 @@ export async function getOpenGroundConfigWithSecret(
 		return {
 			data: {
 				...config,
-				apiKey: vaultRecord.value,
+				apiKey: decryptValue(vaultRecord.value),
 				vaultKey: vaultRecord.key,
 			},
 		};
