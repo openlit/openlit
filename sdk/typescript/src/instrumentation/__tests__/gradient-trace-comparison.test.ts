@@ -16,7 +16,18 @@ import BaseWrapper from '../base-wrapper';
 import SemanticConvention from '../../semantic-convention';
 
 jest.mock('../../config');
-jest.mock('../../helpers');
+// The wrapper reads its server host/port from PROVIDER_DEFAULT_ENDPOINTS via
+// getServerAddressForProvider at module load, so that named export must return a
+// real tuple (auto-mock returns undefined and the destructure would throw). The
+// default export's methods are still stubbed per-test in beforeEach.
+jest.mock('../../helpers', () => ({
+  __esModule: true,
+  default: {},
+  isFrameworkLlmActive: jest.fn(() => false),
+  getFrameworkParentContext: jest.fn(() => undefined),
+  getCurrentAgentVersion: jest.fn(() => undefined),
+  getServerAddressForProvider: jest.fn(() => ['inference.do-ai.run', 443]),
+}));
 jest.mock('../base-wrapper');
 
 describe('Gradient Cross-Language Trace Comparison', () => {

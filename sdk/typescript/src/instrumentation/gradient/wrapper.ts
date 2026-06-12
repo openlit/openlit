@@ -4,6 +4,7 @@ import OpenLitHelper, {
   isFrameworkLlmActive,
   getFrameworkParentContext,
   getCurrentAgentVersion,
+  getServerAddressForProvider,
 } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
@@ -21,13 +22,17 @@ function spanCreationAttrs(
   };
 }
 
+// Chat completions are served from the inference host (inference.do-ai.run), not
+// the control-plane base URL (api.digitalocean.com). The host/port live in
+// PROVIDER_DEFAULT_ENDPOINTS (helpers.ts) as the single source of truth; read them
+// via getServerAddressForProvider — the same pattern cursor-sdk / claude-agent-sdk
+// use — rather than re-hardcoding the literals here.
+const [GRADIENT_SERVER_ADDRESS, GRADIENT_SERVER_PORT] = getServerAddressForProvider('digitalocean');
+
 class GradientWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN;
-  // Chat completions are served from the inference host, not the control-plane
-  // base URL (api.digitalocean.com). Mirrors the Python reference's
-  // _DEFAULT_INFERENCE_HOST.
-  static serverAddress = 'inference.do-ai.run';
-  static serverPort = 443;
+  static serverAddress = GRADIENT_SERVER_ADDRESS;
+  static serverPort = GRADIENT_SERVER_PORT;
 
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'digitalocean.chat.completions';
