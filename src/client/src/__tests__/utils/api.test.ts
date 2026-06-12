@@ -1,4 +1,11 @@
 import { getData, postData, deleteData } from '@/utils/api';
+import { useRootStore } from '@/store';
+
+jest.mock('@/store', () => ({
+  useRootStore: {
+    getState: jest.fn(),
+  },
+}));
 
 const makeFetchResponse = (ok: boolean, body: unknown) => ({
   ok,
@@ -8,6 +15,11 @@ const makeFetchResponse = (ok: boolean, body: unknown) => ({
 describe('getData', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      organisation: {},
+      project: {},
+      databaseConfig: {},
+    });
   });
 
   it('makes a POST request by default', async () => {
@@ -48,6 +60,29 @@ describe('getData', () => {
     expect(options.body).toBe(JSON.stringify({ key: 'value' }));
   });
 
+  it('sends selected OpenLIT context headers when state has active scope', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(true, {}));
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      organisation: { current: { id: 'org-1' } },
+      project: { current: { id: 'project-1' } },
+      databaseConfig: {
+        list: [
+          { id: 'db-1', isCurrent: false },
+          { id: 'db-2', isCurrent: true },
+        ],
+      },
+    });
+
+    await getData({ url: '/api/test', method: 'GET' });
+
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(options.headers).toEqual({
+      'x-openlit-organisation-id': 'org-1',
+      'x-openlit-project-id': 'project-1',
+      'x-openlit-database-config-id': 'db-2',
+    });
+  });
+
   it('makes a PUT request when specified', async () => {
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(true, {}));
     await getData({ url: '/api/test', method: 'PUT', data: { x: 1 } });
@@ -58,6 +93,11 @@ describe('getData', () => {
 describe('postData', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      organisation: {},
+      project: {},
+      databaseConfig: {},
+    });
   });
 
   it('makes a POST request with JSON body', async () => {
@@ -87,12 +127,20 @@ describe('postData', () => {
 describe('deleteData', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      organisation: {},
+      project: {},
+      databaseConfig: {},
+    });
   });
 
   it('makes a DELETE request to the given URL', async () => {
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(true, { deleted: true }));
     await deleteData({ url: '/api/items/1' });
-    expect(global.fetch).toHaveBeenCalledWith('/api/items/1', { method: 'DELETE' });
+    expect(global.fetch).toHaveBeenCalledWith('/api/items/1', {
+      method: 'DELETE',
+      headers: {},
+    });
   });
 
   it('returns parsed JSON on success', async () => {
