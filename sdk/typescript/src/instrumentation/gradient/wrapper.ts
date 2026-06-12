@@ -4,63 +4,89 @@ import OpenLitHelper, {
   isFrameworkLlmActive,
   getFrameworkParentContext,
   getCurrentAgentVersion,
-  getServerAddressForProvider,
 } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
+import {
+  agentIdFromHost,
+  applyGradientChatRequestAttributes,
+  gradientSpanCreationAttrs,
+  resolveGradientEndpoint,
+  GradientEndpointKind,
+} from './utils';
 
-function spanCreationAttrs(
-  operationName: string,
-  requestModel: string
-): Attributes {
-  return {
-    [SemanticConvention.GEN_AI_OPERATION]: operationName,
-    [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: GradientWrapper.aiSystem,
-    [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
-    [SemanticConvention.SERVER_ADDRESS]: GradientWrapper.serverAddress,
-    [SemanticConvention.SERVER_PORT]: GradientWrapper.serverPort,
-  };
-}
+const AI_SYSTEM = SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN;
 
-// Chat completions are served from the inference host (inference.do-ai.run), not
-// the control-plane base URL (api.digitalocean.com). The host/port live in
-// PROVIDER_DEFAULT_ENDPOINTS (helpers.ts) as the single source of truth; read them
-// via getServerAddressForProvider — the same pattern cursor-sdk / claude-agent-sdk
-// use — rather than re-hardcoding the literals here.
-const [GRADIENT_SERVER_ADDRESS, GRADIENT_SERVER_PORT] = getServerAddressForProvider('digitalocean');
+type ChatPatchOptions = {
+  operationName: string;
+  endpointKind: GradientEndpointKind;
+  genAIEndpoint: string;
+  apiType: string;
+  isAgent?: boolean;
+};
 
 class GradientWrapper extends BaseWrapper {
-  static aiSystem = SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN;
-  static serverAddress = GRADIENT_SERVER_ADDRESS;
-  static serverPort = GRADIENT_SERVER_PORT;
+  static aiSystem = AI_SYSTEM;
 
   static _patchChatCompletionCreate(tracer: Tracer): any {
-    const genAIEndpoint = 'digitalocean.chat.completions';
+    return GradientWrapper._buildChatPatch(tracer, {
+      operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+      endpointKind: 'inference',
+      genAIEndpoint: 'digitalocean.chat.completions',
+      apiType: 'chat',
+    });
+  }
+
+  static _patchAgentChatCompletionCreate(tracer: Tracer): any {
+    return GradientWrapper._buildChatPatch(tracer, {
+      operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+      endpointKind: 'agent',
+      genAIEndpoint: 'digitalocean.agents.chat.completions',
+      apiType: 'chat',
+      isAgent: true,
+    });
+  }
+
+  static _patchResponsesCreate(tracer: Tracer): any {
+    return GradientWrapper._buildChatPatch(tracer, {
+      operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+      endpointKind: 'inference',
+      genAIEndpoint: 'digitalocean.responses',
+      apiType: 'responses',
+    });
+  }
+
+  static _buildChatPatch(tracer: Tracer, options: ChatPatchOptions): any {
+    const { operationName, endpointKind, genAIEndpoint, apiType, isAgent = false } = options;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-        // The Gradient API requires `model`; fall back to 'unknown' to match the
-        // Python reference (body.get("model", "unknown")) rather than guessing a
-        // provider default.
-        const requestModel = args[0]?.model || 'unknown';
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+
+        const body = args[0] || {};
+        const requestModel = body.model || 'unknown';
+        const [serverAddress, serverPort] = resolveGradientEndpoint(this, endpointKind);
+        const spanName = `${operationName} ${requestModel}`;
         const effectiveCtx = getFrameworkParentContext() ?? context.active();
         const span = tracer.startSpan(
           spanName,
           {
             kind: SpanKind.CLIENT,
-            attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
+            attributes: gradientSpanCreationAttrs(operationName, requestModel, serverAddress, serverPort),
           },
           effectiveCtx
         );
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            const { stream = false } = args[0];
 
-            if (stream) {
+        if (isAgent) {
+          const agentId = agentIdFromHost(serverAddress);
+          if (agentId) {
+            span.setAttribute(SemanticConvention.GEN_AI_AGENT_ID, agentId);
+          }
+        }
+
+        return context
+          .with(trace.setSpan(effectiveCtx, span), async () => originalMethod.apply(this, args))
+          .then((response: any) => {
+            if (body.stream) {
               return OpenLitHelper.createStreamProxy(
                 response,
                 GradientWrapper._chatCompletionGenerator({
@@ -68,20 +94,32 @@ class GradientWrapper extends BaseWrapper {
                   genAIEndpoint,
                   response,
                   span,
+                  serverAddress,
+                  serverPort,
+                  operationName,
+                  apiType,
                 })
               );
             }
-
-            return GradientWrapper._chatCompletion({ args, genAIEndpoint, response, span });
+            return GradientWrapper._chatCompletion({
+              args,
+              genAIEndpoint,
+              response,
+              span,
+              serverAddress,
+              serverPort,
+              operationName,
+              apiType,
+            });
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
             BaseWrapper.recordMetrics(span, {
               genAIEndpoint,
               model: requestModel,
-              aiSystem: GradientWrapper.aiSystem,
-              serverAddress: GradientWrapper.serverAddress,
-              serverPort: GradientWrapper.serverPort,
+              aiSystem: AI_SYSTEM,
+              serverAddress,
+              serverPort,
               errorType: e?.constructor?.name || '_OTHER',
             });
             span.end();
@@ -91,16 +129,144 @@ class GradientWrapper extends BaseWrapper {
     };
   }
 
+  static _patchImageGenerate(tracer: Tracer): any {
+    const genAIEndpoint = 'digitalocean.images.generate';
+    return (originalMethod: (...args: any[]) => any) => {
+      return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+
+        const body = args[0] || {};
+        const requestModel = body.model || 'unknown';
+        const [serverAddress, serverPort] = resolveGradientEndpoint(this, 'inference');
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(
+          spanName,
+          {
+            kind: SpanKind.CLIENT,
+            attributes: gradientSpanCreationAttrs(
+              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+              requestModel,
+              serverAddress,
+              serverPort
+            ),
+          },
+          effectiveCtx
+        );
+
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          let metricParams;
+          try {
+            const response = await originalMethod.apply(this, args);
+            metricParams = GradientWrapper._imageGenerateCommonSetter({
+              args,
+              genAIEndpoint,
+              response,
+              span,
+              serverAddress,
+              serverPort,
+            });
+            return response;
+          } catch (e: any) {
+            OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: AI_SYSTEM,
+              serverAddress,
+              serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
+            throw e;
+          } finally {
+            span.end();
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
+          }
+        });
+      };
+    };
+  }
+
+  static _patchRetrieveDocuments(tracer: Tracer): any {
+    const genAIEndpoint = 'digitalocean.retrieve.documents';
+    return (originalMethod: (...args: any[]) => any) => {
+      return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+
+        const body = args[0] || {};
+        const kbId = body.knowledge_base_uuid || body.knowledge_base_id || '';
+        const [serverAddress, serverPort] = resolveGradientEndpoint(this, 'kb');
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE} ${kbId || 'unknown'}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(
+          spanName,
+          {
+            kind: SpanKind.CLIENT,
+            attributes: gradientSpanCreationAttrs(
+              SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
+              kbId || 'unknown',
+              serverAddress,
+              serverPort
+            ),
+          },
+          effectiveCtx
+        );
+
+        return context.with(trace.setSpan(effectiveCtx, span), async () => {
+          let metricParams;
+          try {
+            const response = await originalMethod.apply(this, args);
+            metricParams = GradientWrapper._retrieveDocumentsCommonSetter({
+              args,
+              genAIEndpoint,
+              response,
+              span,
+              serverAddress,
+              serverPort,
+            });
+            return response;
+          } catch (e: any) {
+            OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: kbId || 'unknown',
+              aiSystem: AI_SYSTEM,
+              serverAddress,
+              serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
+            throw e;
+          } finally {
+            span.end();
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
+          }
+        });
+      };
+    };
+  }
+
   static async _chatCompletion({
     args,
     genAIEndpoint,
     response,
     span,
+    serverAddress,
+    serverPort,
+    operationName,
+    apiType,
   }: {
     args: any[];
     genAIEndpoint: string;
     response: any;
     span: Span;
+    serverAddress: string;
+    serverPort: number;
+    operationName: string;
+    apiType: string;
   }): Promise<any> {
     let metricParams;
     try {
@@ -109,6 +275,10 @@ class GradientWrapper extends BaseWrapper {
         genAIEndpoint,
         result: response,
         span,
+        serverAddress,
+        serverPort,
+        operationName,
+        apiType,
       });
       return response;
     } catch (e: any) {
@@ -127,11 +297,19 @@ class GradientWrapper extends BaseWrapper {
     genAIEndpoint,
     response,
     span,
+    serverAddress,
+    serverPort,
+    operationName,
+    apiType,
   }: {
     args: any[];
     genAIEndpoint: string;
     response: any;
     span: Span;
+    serverAddress: string;
+    serverPort: number;
+    operationName: string;
+    apiType: string;
   }): AsyncGenerator<unknown, any, unknown> {
     let metricParams;
     const timestamps: number[] = [];
@@ -150,33 +328,27 @@ class GradientWrapper extends BaseWrapper {
             index: 0,
             logprobs: null,
             finish_reason: 'stop',
-            message: { role: 'assistant', content: '' },
+            message: { role: 'assistant', content: '', reasoning_content: '' },
           },
         ],
         usage: {
           prompt_tokens: 0,
           completion_tokens: 0,
           total_tokens: 0,
+          output_tokens_details: { reasoning_tokens: 0 },
         },
       };
 
       const toolCalls: any[] = [];
+      let reasoningText = '';
 
       for await (const chunk of response) {
         timestamps.push(Date.now());
 
-        if (chunk.id) {
-          result.id = chunk.id;
-        }
-        if (chunk.created) {
-          result.created = chunk.created;
-        }
-        if (chunk.model) {
-          result.model = chunk.model;
-        }
-        if (chunk.system_fingerprint) {
-          result.system_fingerprint = chunk.system_fingerprint;
-        }
+        if (chunk.id) result.id = chunk.id;
+        if (chunk.created) result.created = chunk.created;
+        if (chunk.model) result.model = chunk.model;
+        if (chunk.system_fingerprint) result.system_fingerprint = chunk.system_fingerprint;
 
         if (chunk.choices?.[0]?.finish_reason) {
           result.choices[0].finish_reason = chunk.choices[0].finish_reason;
@@ -187,13 +359,15 @@ class GradientWrapper extends BaseWrapper {
         if (chunk.choices?.[0]?.delta?.content) {
           result.choices[0].message.content += chunk.choices[0].delta.content;
         }
+        if (chunk.choices?.[0]?.delta?.reasoning_content) {
+          reasoningText += chunk.choices[0].delta.reasoning_content;
+          (result.choices[0].message as any).reasoning_content = reasoningText;
+        }
 
         if (chunk.choices?.[0]?.delta?.tool_calls) {
           const deltaTools = chunk.choices[0].delta.tool_calls;
-
           for (const tool of deltaTools) {
             const idx = tool.index || 0;
-
             while (toolCalls.length <= idx) {
               toolCalls.push({
                 id: '',
@@ -201,31 +375,26 @@ class GradientWrapper extends BaseWrapper {
                 function: { name: '', arguments: '' },
               });
             }
-
             if (tool.id) {
               toolCalls[idx].id = tool.id;
               toolCalls[idx].type = tool.type || 'function';
-              if (tool.function?.name) {
-                toolCalls[idx].function.name = tool.function.name;
-              }
-              if (tool.function?.arguments) {
-                toolCalls[idx].function.arguments = tool.function.arguments;
-              }
+              if (tool.function?.name) toolCalls[idx].function.name = tool.function.name;
+              if (tool.function?.arguments) toolCalls[idx].function.arguments = tool.function.arguments;
             } else if (tool.function?.arguments) {
               toolCalls[idx].function.arguments += tool.function.arguments;
             }
           }
-
           tools = true;
         }
 
-        // Gradient is OpenAI-compatible: the final chunk carries `usage` when the
-        // caller passes `stream_options: { include_usage: true }` (unlike groq's
-        // x_groq.usage). Falls back to local token counting below otherwise.
         if (chunk.usage) {
           result.usage.prompt_tokens = chunk.usage.prompt_tokens || 0;
           result.usage.completion_tokens = chunk.usage.completion_tokens || 0;
           result.usage.total_tokens = chunk.usage.total_tokens || 0;
+          const details = chunk.usage.output_tokens_details || chunk.usage.completion_tokens_details;
+          if (details?.reasoning_tokens) {
+            result.usage.output_tokens_details.reasoning_tokens = details.reasoning_tokens;
+          }
         }
 
         yield chunk;
@@ -243,13 +412,13 @@ class GradientWrapper extends BaseWrapper {
         for (const message of messages || []) {
           promptTokens += OpenLitHelper.openaiTokens(message.content as string, result.model) ?? 0;
         }
-
         const completionTokens = OpenLitHelper.openaiTokens(
           result.choices[0].message.content ?? '',
           result.model
         );
         if (completionTokens) {
           result.usage = {
+            ...result.usage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
             total_tokens: promptTokens + completionTokens,
@@ -273,6 +442,11 @@ class GradientWrapper extends BaseWrapper {
         span,
         ttft,
         tbt,
+        serverAddress,
+        serverPort,
+        operationName,
+        apiType,
+        reasoningText,
       });
 
       return result;
@@ -287,6 +461,128 @@ class GradientWrapper extends BaseWrapper {
     }
   }
 
+  static _imageGenerateCommonSetter({
+    args,
+    genAIEndpoint,
+    response,
+    span,
+    serverAddress,
+    serverPort,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    response: any;
+    span: Span;
+    serverAddress: string;
+    serverPort: number;
+  }) {
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const body = args[0] || {};
+    const requestModel = body.model || 'unknown';
+    const responseModel = response?.model || requestModel;
+    const size = body.size || response?.size || '1024x1024';
+    const quality = body.quality || response?.quality || 'standard';
+    const pricingInfo = OpenlitConfig.pricingInfo || {};
+    const cost = OpenLitHelper.getImageModelCost(requestModel, pricingInfo, size, quality as any);
+
+    GradientWrapper.setBaseSpanAttributes(span, {
+      genAIEndpoint,
+      model: requestModel,
+      user: body.user,
+      cost,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
+    });
+
+    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'image');
+    if (response?.created != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, String(response.created));
+    }
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
+
+    if (captureContent && body.prompt) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_INPUT_MESSAGES,
+        JSON.stringify([
+          {
+            role: 'user',
+            parts: [{ type: 'text', content: String(body.prompt) }],
+          },
+        ])
+      );
+    }
+
+    return {
+      genAIEndpoint,
+      model: requestModel,
+      user: body.user,
+      cost,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
+    };
+  }
+
+  static _retrieveDocumentsCommonSetter({
+    args,
+    genAIEndpoint,
+    response,
+    span,
+    serverAddress,
+    serverPort,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    response: any;
+    span: Span;
+    serverAddress: string;
+    serverPort: number;
+  }) {
+    const captureContent = OpenlitConfig.captureMessageContent;
+    const body = args[0] || {};
+    const kbId = body.knowledge_base_uuid || body.knowledge_base_id || '';
+
+    GradientWrapper.setBaseSpanAttributes(span, {
+      genAIEndpoint,
+      model: kbId || 'unknown',
+      cost: 0,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
+    });
+
+    if (kbId) {
+      span.setAttribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, kbId);
+    }
+    if (body.top_k != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, body.top_k);
+    }
+    if (captureContent && body.query != null) {
+      span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT, String(body.query));
+    }
+    const retrieved = response?.retrieved_data ?? response?.documents;
+    if (captureContent && retrieved != null) {
+      try {
+        span.setAttribute(
+          SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS,
+          JSON.stringify(retrieved).slice(0, 65536)
+        );
+      } catch {
+        // ignore serialization failures
+      }
+    }
+
+    return {
+      genAIEndpoint,
+      model: kbId || 'unknown',
+      cost: 0,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
+    };
+  }
+
   static async _chatCompletionCommonSetter({
     args,
     genAIEndpoint,
@@ -294,6 +590,11 @@ class GradientWrapper extends BaseWrapper {
     span,
     ttft = 0,
     tbt = 0,
+    serverAddress,
+    serverPort,
+    operationName = SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+    apiType = 'chat',
+    reasoningText,
   }: {
     args: any[];
     genAIEndpoint: string;
@@ -301,48 +602,19 @@ class GradientWrapper extends BaseWrapper {
     span: Span;
     ttft?: number;
     tbt?: number;
+    serverAddress: string;
+    serverPort: number;
+    operationName?: string;
+    apiType?: string;
+    reasoningText?: string;
   }) {
     const captureContent = OpenlitConfig.captureMessageContent;
-    const requestModel = args[0]?.model || 'unknown';
-    const {
-      messages,
-      frequency_penalty = 0,
-      max_tokens = null,
-      n = 1,
-      presence_penalty = 0,
-      seed = null,
-      stop = null,
-      temperature = 1,
-      top_p,
-      user,
-      stream = false,
-      tools: _tools,
-    } = args[0];
+    const body = args[0] || {};
+    const requestModel = body.model || 'unknown';
+    const { messages, tools: _tools, stream: _stream = false } = body;
 
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p ?? 1);
-    if (max_tokens != null) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
-    }
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
-    if (presence_penalty) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
-    }
-    if (frequency_penalty) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
-    }
-    if (seed != null) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, Number(seed));
-    }
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
-    if (stop) {
-      span.setAttribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-        Array.isArray(stop) ? stop : [stop]
-      );
-    }
-    if (n && n !== 1) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT, n);
-    }
+    applyGradientChatRequestAttributes(span, body);
+    span.setAttribute(SemanticConvention.OPENAI_API_TYPE, apiType);
 
     if (captureContent) {
       span.setAttribute(
@@ -351,16 +623,13 @@ class GradientWrapper extends BaseWrapper {
       );
     }
 
-    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
+    if (result.id) {
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
+    }
 
     const responseModel = result.model || requestModel;
-
-    // Gradient marks `usage` as optional on its response type; default defensively
-    // so non-streaming responses without usage still produce a valid span.
     const usage = result.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-
     const pricingInfo = OpenlitConfig.pricingInfo || {};
-
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
@@ -371,11 +640,11 @@ class GradientWrapper extends BaseWrapper {
     GradientWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
       model: requestModel,
-      user,
+      user: body.user,
       cost,
-      aiSystem: GradientWrapper.aiSystem,
-      serverAddress: GradientWrapper.serverAddress,
-      serverPort: GradientWrapper.serverPort,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
     });
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
@@ -384,10 +653,19 @@ class GradientWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT, result.system_fingerprint);
     }
 
-    const inputTokens = usage.prompt_tokens;
-    const outputTokens = usage.completion_tokens;
+    const inputTokens = usage.prompt_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, inputTokens + outputTokens);
+
+    const reasoningTokens =
+      usage.output_tokens_details?.reasoning_tokens ??
+      usage.completion_tokens_details?.reasoning_tokens ??
+      0;
+    if (reasoningTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, reasoningTokens);
+    }
 
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
@@ -396,20 +674,25 @@ class GradientWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
-    if (result.choices[0].finish_reason) {
+    if (result.choices?.[0]?.finish_reason) {
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [
         result.choices[0].finish_reason,
       ]);
     }
 
     const outputType =
-      typeof result.choices[0].message.content === 'string'
-        ? SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT
-        : SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON;
+      (body.response_format as any)?.type === 'json_object'
+        ? SemanticConvention.GEN_AI_OUTPUT_TYPE_JSON
+        : SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT;
     span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputType);
 
-    if (result.choices[0].message.tool_calls) {
-      const toolCalls = result.choices[0].message.tool_calls;
+    const message = result.choices?.[0]?.message || {};
+    const resolvedReasoning =
+      reasoningText ||
+      message.reasoning_content ||
+      '';
+    if (message.tool_calls) {
+      const toolCalls = message.tool_calls;
       const toolNames = toolCalls.map((t: any) => t.function?.name || '').filter(Boolean);
       const toolIds = toolCalls.map((t: any) => t.id || '').filter(Boolean);
       const toolArgs = toolCalls.map((t: any) => t.function?.arguments || '').filter(Boolean);
@@ -428,23 +711,22 @@ class GradientWrapper extends BaseWrapper {
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
     const toolDefinitionsJson = OpenLitHelper.buildToolDefinitions(_tools);
-    // Always extract system_instructions so the version hash can be computed
-    // even when content capture is disabled.
     const systemInstructionsJson = OpenLitHelper.buildSystemInstructionsFromMessages(messages || []);
 
     const versionExtras: Record<string, string> = {};
     try {
+      const maxTokens = body.max_completion_tokens ?? body.max_tokens ?? null;
       const versionHash = OpenLitHelper.computeAgentVersionHash({
         systemInstructions: systemInstructionsJson ?? null,
         toolDefinitions: toolDefinitionsJson ?? null,
         primaryModel: responseModel || requestModel,
         runtimeConfig: {
-          temperature: temperature ?? null,
-          top_p: top_p ?? null,
-          max_tokens: max_tokens ?? null,
-          provider: SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN,
+          temperature: body.temperature ?? null,
+          top_p: body.top_p ?? null,
+          max_tokens: maxTokens,
+          provider: AI_SYSTEM,
         },
-        providers: [SemanticConvention.GEN_AI_SYSTEM_DIGITALOCEAN],
+        providers: [AI_SYSTEM],
       });
       if (versionHash) {
         versionExtras[SemanticConvention.OPENLIT_AGENT_VERSION_HASH] = versionHash;
@@ -460,11 +742,12 @@ class GradientWrapper extends BaseWrapper {
     }
 
     if (captureContent) {
-      const toolCalls = result.choices[0].message.tool_calls;
-      outputMessagesJson = OpenLitHelper.buildOutputMessages(
-        result.choices[0].message.content || '',
-        result.choices[0].finish_reason || 'stop',
-        toolCalls
+      const toolCalls = message.tool_calls;
+      outputMessagesJson = GradientWrapper._buildOutputMessages(
+        message.content || '',
+        result.choices?.[0]?.finish_reason || 'stop',
+        toolCalls,
+        resolvedReasoning || undefined
       );
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
       inputMessagesJson = OpenLitHelper.buildInputMessages(messages || []);
@@ -478,13 +761,13 @@ class GradientWrapper extends BaseWrapper {
 
     if (!OpenlitConfig.disableEvents) {
       const eventAttrs: Attributes = {
-        [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        [SemanticConvention.GEN_AI_OPERATION]: operationName,
         [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
         [SemanticConvention.GEN_AI_RESPONSE_MODEL]: responseModel,
-        [SemanticConvention.SERVER_ADDRESS]: GradientWrapper.serverAddress,
-        [SemanticConvention.SERVER_PORT]: GradientWrapper.serverPort,
+        [SemanticConvention.SERVER_ADDRESS]: serverAddress,
+        [SemanticConvention.SERVER_PORT]: serverPort,
         [SemanticConvention.GEN_AI_RESPONSE_ID]: result.id,
-        [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [result.choices[0].finish_reason],
+        [SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]: [result.choices?.[0]?.finish_reason],
         [SemanticConvention.GEN_AI_OUTPUT_TYPE]: outputType,
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
@@ -492,22 +775,68 @@ class GradientWrapper extends BaseWrapper {
       };
       if (captureContent) {
         if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
-        if (systemInstructionsJson)
+        if (systemInstructionsJson) {
           eventAttrs[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = systemInstructionsJson;
-        if (outputMessagesJson)
+        }
+        if (outputMessagesJson) {
           eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+        }
       }
-      if (toolDefinitionsJson) eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
+      if (toolDefinitionsJson) {
+        eventAttrs[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = toolDefinitionsJson;
+      }
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }
 
     return {
       genAIEndpoint,
       model: requestModel,
-      user,
+      user: body.user,
       cost,
-      aiSystem: GradientWrapper.aiSystem,
+      aiSystem: AI_SYSTEM,
+      serverAddress,
+      serverPort,
     };
+  }
+
+  static _buildOutputMessages(
+    text: string,
+    finishReason: string,
+    toolCalls?: any[],
+    reasoning?: string
+  ): string {
+    try {
+      const parts: any[] = [];
+      if (reasoning) {
+        parts.push({ type: 'reasoning', content: reasoning });
+      }
+      if (text) {
+        parts.push({ type: 'text', content: text });
+      }
+      if (toolCalls?.length) {
+        for (const tc of toolCalls) {
+          let argsVal = tc.function?.arguments || tc.arguments || {};
+          if (typeof argsVal === 'string') {
+            try {
+              argsVal = JSON.parse(argsVal);
+            } catch {
+              argsVal = { raw: argsVal };
+            }
+          }
+          parts.push({
+            type: 'tool_call',
+            id: tc.id || '',
+            name: tc.function?.name || tc.name || '',
+            arguments: argsVal,
+          });
+        }
+      }
+      return JSON.stringify([
+        { role: 'assistant', parts, finish_reason: finishReason || 'stop' },
+      ]);
+    } catch {
+      return '[]';
+    }
   }
 }
 

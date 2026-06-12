@@ -16,19 +16,17 @@ import BaseWrapper from '../base-wrapper';
 import SemanticConvention from '../../semantic-convention';
 
 jest.mock('../../config');
-// The wrapper reads its server host/port from PROVIDER_DEFAULT_ENDPOINTS via
-// getServerAddressForProvider at module load, so that named export must return a
-// real tuple (auto-mock returns undefined and the destructure would throw). The
-// default export's methods are still stubbed per-test in beforeEach.
 jest.mock('../../helpers', () => ({
   __esModule: true,
   default: {},
   isFrameworkLlmActive: jest.fn(() => false),
   getFrameworkParentContext: jest.fn(() => undefined),
   getCurrentAgentVersion: jest.fn(() => undefined),
-  getServerAddressForProvider: jest.fn(() => ['inference.do-ai.run', 443]),
 }));
 jest.mock('../base-wrapper');
+
+const SERVER = { serverAddress: 'inference.do-ai.run', serverPort: 443 };
+const AGENT_SERVER = { serverAddress: 'abc123.agents.do-ai.run', serverPort: 443 };
 
 describe('Gradient Cross-Language Trace Comparison', () => {
   let mockSpan: any;
@@ -48,6 +46,7 @@ describe('Gradient Cross-Language Trace Comparison', () => {
     (OpenlitConfig as any).disableEvents = false;
 
     (OpenLitHelper as any).getChatModelCost = jest.fn().mockReturnValue(0.001);
+    (OpenLitHelper as any).getImageModelCost = jest.fn().mockReturnValue(0.05);
     (OpenLitHelper as any).openaiTokens = jest.fn().mockReturnValue(5);
     (OpenLitHelper as any).handleException = jest.fn();
     (OpenLitHelper as any).createStreamProxy = jest
@@ -96,13 +95,15 @@ describe('Gradient Cross-Language Trace Comparison', () => {
     jest.clearAllMocks();
   });
 
-  // Gradient CompletionCreateResponse is OpenAI-shaped: it DOES carry a `model`
-  // field and a standard usage block.
   const mockResponse = () => ({
     id: 'gradient-test-id',
     model: 'llama3.3-70b-instruct',
     choices: [
-      { index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'DO says hi' } },
+      {
+        index: 0,
+        finish_reason: 'stop',
+        message: { role: 'assistant', content: 'DO says hi', reasoning_content: 'thinking...' },
+      },
     ],
     usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
   });
@@ -124,6 +125,9 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(
@@ -134,7 +138,6 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         SemanticConvention.GEN_AI_REQUEST_MODEL,
         'llama3.3-70b-instruct'
       );
-      // Gradient responses DO carry a `model`, so response model comes from the response.
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_RESPONSE_MODEL,
         'llama3.3-70b-instruct'
@@ -145,13 +148,39 @@ describe('Gradient Cross-Language Trace Comparison', () => {
       );
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 10);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 20);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, 30);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 0.7);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 100);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ['stop']);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'text');
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.OPENAI_API_TYPE, 'chat');
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_ADDRESS, 'inference.do-ai.run');
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
+    });
+
+    it('prefers max_completion_tokens over max_tokens (Python parity)', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'Test' }],
+          model: 'llama3.3-70b-instruct',
+          max_tokens: 50,
+          max_completion_tokens: 128,
+          stream: false,
+        },
+      ];
+
+      await GradientWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'digitalocean.chat.completions',
+        response: mockResponse(),
+        span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 128);
     });
 
     it('falls back to the "unknown" request model when none is supplied (matches Python)', async () => {
@@ -163,10 +192,12 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: responseNoModel,
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MODEL, 'unknown');
-      // With no response model, it falls back to the request model.
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_MODEL, 'unknown');
     });
 
@@ -180,6 +211,9 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       expect((OpenLitHelper as any).computeAgentVersionHash).toHaveBeenCalled();
@@ -189,7 +223,7 @@ describe('Gradient Cross-Language Trace Comparison', () => {
       );
     });
 
-    it('should NOT set total_tokens or client.token.usage on the span', async () => {
+    it('should NOT set total_tokens on the span', async () => {
       const mockArgs = [
         { messages: [{ role: 'user', content: 'Test' }], model: 'llama3.3-70b-instruct', stream: false },
       ];
@@ -199,11 +233,13 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       const attributeKeys = (mockSpan.setAttribute as jest.Mock).mock.calls.map(([key]: [string]) => key);
       expect(attributeKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS);
-      expect(attributeKeys).not.toContain(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE);
     });
 
     it('omits seed / penalties / optionals when not provided (no sentinel values)', async () => {
@@ -216,6 +252,9 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       const attributeKeys = (mockSpan.setAttribute as jest.Mock).mock.calls.map(([key]: [string]) => key);
@@ -237,6 +276,7 @@ describe('Gradient Cross-Language Trace Comparison', () => {
           presence_penalty: 0.3,
           stop: ['END'],
           n: 2,
+          reasoning_effort: 'high',
           stream: false,
         },
       ];
@@ -246,6 +286,9 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, 42);
@@ -253,6 +296,10 @@ describe('Gradient Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 0.3);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, ['END']);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT, 2);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT,
+        'high'
+      );
     });
 
     it('does not throw and still records tokens when the response omits usage', async () => {
@@ -267,9 +314,11 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: responseNoUsage,
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
-      // Defensive default keeps the span valid (0 tokens) rather than crashing.
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 0);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 0);
     });
@@ -284,14 +333,117 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockResponse(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
       expect((OpenLitHelper as any).emitInferenceEvent).toHaveBeenCalled();
     });
   });
 
+  describe('Agent Chat Completion Trace Consistency', () => {
+    it('emits invoke_agent operation in inference events (Python parity)', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'Run agent' }],
+          model: 'agent-model',
+          stream: false,
+        },
+      ];
+
+      await GradientWrapper._chatCompletion({
+        args: mockArgs,
+        genAIEndpoint: 'digitalocean.agents.chat.completions',
+        response: mockResponse(),
+        span: mockSpan,
+        ...AGENT_SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+        apiType: 'chat',
+      });
+
+      expect((OpenLitHelper as any).emitInferenceEvent).toHaveBeenCalledWith(
+        mockSpan,
+        expect.objectContaining({
+          [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+        })
+      );
+    });
+  });
+
+  describe('Image Generation Trace Consistency', () => {
+    it('sets image output type and cost like Python process_image_response', async () => {
+      const mockArgs = [
+        {
+          prompt: 'A cute otter',
+          model: 'gpt-image-1',
+          size: '1024x1024',
+          quality: 'high',
+        },
+      ];
+      const response = {
+        created: 1710000000,
+        model: 'gpt-image-1',
+        data: [{ b64_json: 'abc', revised_prompt: 'A very cute otter' }],
+      };
+
+      GradientWrapper._imageGenerateCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'digitalocean.images.generate',
+        response,
+        span: mockSpan,
+        ...SERVER,
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'image');
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_ID,
+        String(1710000000)
+      );
+      expect((OpenLitHelper as any).getImageModelCost).toHaveBeenCalledWith(
+        'gpt-image-1',
+        {},
+        '1024x1024',
+        'high'
+      );
+    });
+  });
+
+  describe('Knowledge Base Retrieval Trace Consistency', () => {
+    it('sets retrieval attributes like Python process_retrieve_response', () => {
+      const mockArgs = [
+        {
+          knowledge_base_uuid: 'kb-123',
+          query: 'What is RAG?',
+          top_k: 5,
+        },
+      ];
+      const response = {
+        retrieved_data: [{ text: 'doc1' }],
+      };
+
+      GradientWrapper._retrieveDocumentsCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'digitalocean.retrieve.documents',
+        response,
+        span: mockSpan,
+        serverAddress: 'kbaas.do-ai.run',
+        serverPort: 443,
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_DATA_SOURCE_ID,
+        'kb-123'
+      );
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_K, 5);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT,
+        'What is RAG?'
+      );
+    });
+  });
+
   describe('Streaming Trace Consistency', () => {
-    // Build an async iterable of OpenAI-style chunks, with usage on the final chunk.
     async function* mockStream() {
       yield {
         id: 'gradient-stream-id',
@@ -303,7 +455,6 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         model: 'llama3.3-70b-instruct',
         choices: [{ index: 0, delta: { content: ' world' }, finish_reason: 'stop' }],
       };
-      // Final usage chunk (stream_options: { include_usage: true }).
       yield {
         id: 'gradient-stream-id',
         model: 'llama3.3-70b-instruct',
@@ -326,9 +477,11 @@ describe('Gradient Cross-Language Trace Comparison', () => {
         genAIEndpoint: 'digitalocean.chat.completions',
         response: mockStream(),
         span: mockSpan,
+        ...SERVER,
+        operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        apiType: 'chat',
       });
 
-      // Drive the generator to completion (consumer would do this via the proxy).
       let step = await generator.next();
       while (!step.done) {
         step = await generator.next();
@@ -337,7 +490,6 @@ describe('Gradient Cross-Language Trace Comparison', () => {
 
       expect(final.choices[0].message.content).toBe('Hello world');
       expect(final.choices[0].finish_reason).toBe('stop');
-      // Usage came from the final chunk, not local token counting.
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 7);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 11);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, true);

@@ -161,15 +161,12 @@ export default class SemanticConvention {
   static GEN_AI_RETRIEVAL_DOCUMENTS = 'gen_ai.retrieval.documents';
   static GEN_AI_RETRIEVAL_DOCUMENT_COUNT = 'gen_ai.retrieval.document_count';
   static GEN_AI_DATA_SOURCE_ID = 'gen_ai.data_source.id';
-
-  // AI21 Conversational RAG (OpenLIT extensions, mirrored from the Python SDK;
-  // not part of the OTel GenAI semconv).
-  static GEN_AI_RAG_MAX_SEGMENTS = 'gen_ai.rag.max_segments';
-  static GEN_AI_RAG_STRATEGY = 'gen_ai.rag.strategy';
   static GEN_AI_RAG_SIMILARITY_THRESHOLD = 'gen_ai.rag.similarity_threshold';
-  static GEN_AI_RAG_MAX_NEIGHBORS = 'gen_ai.rag.max_neighbors';
   static GEN_AI_RAG_DOCUMENTS_PATH = 'gen_ai.rag.documents_path';
   static GEN_AI_RAG_FILE_IDS = 'gen_ai.rag.file_ids';
+  static GEN_AI_RAG_MAX_NEIGHBORS = 'gen_ai.rag.max_neighbors';
+  static GEN_AI_RAG_MAX_SEGMENTS = 'gen_ai.rag.max_segments';
+  static GEN_AI_RAG_STRATEGY = 'gen_ai.rag.strategy';
 
   // Agent (OTel Semconv)
   static GEN_AI_AGENT_NAME = 'gen_ai.agent.name';
@@ -247,6 +244,176 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
+  static GEN_AI_SYSTEM_MCP = 'mcp';
+
+  // ----- MCP (Model Context Protocol) -----
+  // Operation types
+  static GEN_AI_OPERATION_TYPE_MCP_TOOL_CALL = 'mcp_tool_call';
+  static GEN_AI_OPERATION_TYPE_MCP_TOOL_LIST = 'mcp_tool_list';
+  static GEN_AI_OPERATION_TYPE_MCP_RESOURCE_READ = 'mcp_resource_read';
+  static GEN_AI_OPERATION_TYPE_MCP_RESOURCE_LIST = 'mcp_resource_list';
+  static GEN_AI_OPERATION_TYPE_MCP_REQUEST = 'mcp_request';
+  static GEN_AI_OPERATION_TYPE_MCP_RESPONSE = 'mcp_response';
+  static GEN_AI_OPERATION_TYPE_MCP_SERVER = 'mcp_server';
+  static GEN_AI_OPERATION_TYPE_MCP_CLIENT = 'mcp_client';
+
+  // Core MCP attributes
+  static MCP_OPERATION = 'mcp.operation.name';
+  static MCP_SYSTEM = 'mcp.system';
+  static MCP_SDK_VERSION = 'mcp.sdk.version';
+  static MCP_METHOD = 'mcp.method';
+  static MCP_MESSAGE_ID = 'mcp.message_id';
+  static MCP_JSONRPC_VERSION = 'mcp.jsonrpc_version';
+  static MCP_PARAMS = 'mcp.params';
+  static MCP_RESULT = 'mcp.result';
+
+  // MCP error attributes
+  static MCP_ERROR_CODE = 'mcp.error.code';
+  static MCP_ERROR_MESSAGE = 'mcp.error.message';
+  static MCP_ERROR_DATA = 'mcp.error.data';
+
+  // MCP tool attributes
+  static MCP_TOOL_NAME = 'mcp.tool.name';
+  static MCP_TOOL_DESCRIPTION = 'mcp.tool.description';
+  static MCP_TOOL_ARGUMENTS = 'mcp.tool.arguments';
+  static MCP_TOOL_RESULT = 'mcp.tool.result';
+
+  // MCP resource attributes
+  static MCP_RESOURCE_URI = 'mcp.resource.uri';
+  static MCP_RESOURCE_NAME = 'mcp.resource.name';
+  static MCP_RESOURCE_DESCRIPTION = 'mcp.resource.description';
+  static MCP_RESOURCE_MIME_TYPE = 'mcp.resource.mime_type';
+  static MCP_RESOURCE_SIZE = 'mcp.resource.size';
+
+  // MCP transport attributes
+  static MCP_TRANSPORT_TYPE = 'mcp.transport.type';
+  static MCP_TRANSPORT_STDIO = 'stdio';
+  static MCP_TRANSPORT_SSE = 'sse';
+  static MCP_TRANSPORT_WEBSOCKET = 'websocket';
+
+  // MCP payload attributes
+  static MCP_REQUEST_PAYLOAD = 'mcp.request.payload';
+  static MCP_RESPONSE_PAYLOAD = 'mcp.response.payload';
+
+  // MCP client/server attributes
+  static MCP_CLIENT_OPERATION_DURATION = 'mcp.client.operation.duration';
+  static MCP_SERVER_NAME = 'mcp.server.name';
+  static MCP_SERVER_VERSION = 'mcp.server.version';
+  static MCP_CLIENT_VERSION = 'mcp.client.version';
+  static MCP_CLIENT_TYPE = 'mcp.client.type';
+  static MCP_RESPONSE_SIZE = 'mcp.response.size';
+
+  // MCP prompt attributes
+  static MCP_PROMPT_NAME = 'mcp.prompt.name';
+  static MCP_PROMPT_DESCRIPTION = 'mcp.prompt.description';
+
+  // MCP metric names
+  static MCP_REQUESTS = 'mcp.requests';
+  static MCP_CLIENT_OPERATION_DURATION_METRIC = 'mcp.client.operation.duration';
+  static MCP_REQUEST_SIZE = 'mcp.request.size';
+  static MCP_RESPONSE_SIZE_METRIC = 'mcp.response.size';
+  static MCP_TOOL_CALLS = 'mcp.tool.calls';
+  static MCP_RESOURCE_READS = 'mcp.resource.reads';
+  static MCP_PROMPT_GETS = 'mcp.prompt.gets';
+  static MCP_TRANSPORT_USAGE = 'mcp.transport.usage';
+  static MCP_ERRORS = 'mcp.errors';
+  static MCP_OPERATION_SUCCESS_RATE = 'mcp.operation.success_rate';
+
+  // FastMCP framework attributes
+  static MCP_FASTMCP_SERVER_DEBUG_MODE = 'mcp.fastmcp.server.debug_mode';
+  static MCP_FASTMCP_SERVER_LOG_LEVEL = 'mcp.fastmcp.server.log_level';
+  static MCP_FASTMCP_SERVER_HOST = 'mcp.fastmcp.server.host';
+  static MCP_FASTMCP_SERVER_PORT = 'mcp.fastmcp.server.port';
+  static MCP_FASTMCP_SERVER_TRANSPORT = 'mcp.fastmcp.server.transport';
+  static MCP_FASTMCP_TOOL_ANNOTATIONS = 'mcp.fastmcp.tool.annotations';
+  static MCP_FASTMCP_RESOURCE_MIME_TYPE = 'mcp.fastmcp.resource.mime_type';
+  static MCP_FASTMCP_PROMPT_ARGUMENTS = 'mcp.fastmcp.prompt.arguments';
+  static MCP_FASTMCP_TOOL_STRUCTURED_OUTPUT = 'mcp.fastmcp.tool.structured_output';
+  static MCP_FASTMCP_SERVER_INSTRUCTIONS = 'mcp.fastmcp.server.instructions';
+  static MCP_FASTMCP_SERVER_LIFESPAN = 'mcp.fastmcp.server.lifespan';
+  static MCP_FASTMCP_MOUNT_PATH = 'mcp.fastmcp.mount_path';
+  static MCP_FASTMCP_SSE_PATH = 'mcp.fastmcp.sse_path';
+  static MCP_FASTMCP_MESSAGE_PATH = 'mcp.fastmcp.message_path';
+  static MCP_FASTMCP_STREAMABLE_HTTP_PATH = 'mcp.fastmcp.streamable_http_path';
+  static MCP_FASTMCP_JSON_RESPONSE = 'mcp.fastmcp.json_response';
+  static MCP_FASTMCP_STATELESS_HTTP = 'mcp.fastmcp.stateless_http';
+
+  // MCP auth & security attributes
+  static MCP_AUTH_CLIENT_ID = 'mcp.auth.client_id';
+  static MCP_AUTH_SCOPES = 'mcp.auth.scopes';
+  static MCP_AUTH_GRANT_TYPE = 'mcp.auth.grant_type';
+  static MCP_AUTH_TOKEN_TYPE = 'mcp.auth.token_type';
+  static MCP_AUTH_EXPIRES_AT = 'mcp.auth.expires_at';
+  static MCP_AUTH_AUTHORIZATION_CODE = 'mcp.auth.authorization_code';
+  static MCP_AUTH_REDIRECT_URI = 'mcp.auth.redirect_uri';
+  static MCP_AUTH_STATE = 'mcp.auth.state';
+  static MCP_AUTH_CODE_CHALLENGE = 'mcp.auth.code_challenge';
+  static MCP_AUTH_RESOURCE_INDICATOR = 'mcp.auth.resource_indicator';
+  static MCP_SECURITY_TRANSPORT_SECURITY = 'mcp.security.transport_security';
+
+  // MCP session attributes
+  static MCP_SESSION_READ_TIMEOUT = 'mcp.session.read_timeout';
+  static MCP_SESSION_REQUEST_TIMEOUT = 'mcp.session.request_timeout';
+  static MCP_SESSION_SAMPLING_SUPPORT = 'mcp.session.sampling_support';
+  static MCP_SESSION_ELICITATION_SUPPORT = 'mcp.session.elicitation_support';
+  static MCP_SESSION_ROOTS_SUPPORT = 'mcp.session.roots_support';
+  static MCP_SESSION_CLIENT_INFO_NAME = 'mcp.session.client_info.name';
+  static MCP_SESSION_CLIENT_INFO_VERSION = 'mcp.session.client_info.version';
+  static MCP_SESSION_STATELESS = 'mcp.session.stateless';
+  static MCP_SESSION_RAISE_EXCEPTIONS = 'mcp.session.raise_exceptions';
+  static MCP_SESSION_PROGRESS_TOKEN = 'mcp.session.progress_token';
+
+  // MCP websocket attributes
+  static MCP_WEBSOCKET_URL = 'mcp.websocket.url';
+  static MCP_WEBSOCKET_SUBPROTOCOL = 'mcp.websocket.subprotocol';
+
+  // MCP performance attributes
+  static MCP_TOOL_EXECUTION_TIME = 'mcp.tool.execution_time';
+  static MCP_RESOURCE_READ_TIME = 'mcp.resource.read_time';
+  static MCP_PROMPT_RENDER_TIME = 'mcp.prompt.render_time';
+  static MCP_TRANSPORT_CONNECTION_TIME = 'mcp.transport.connection_time';
+
+  // MCP progress attributes
+  static MCP_PROGRESS_COMPLETION_PERCENTAGE = 'mcp.progress.completion_percentage';
+  static MCP_PROGRESS_TOTAL = 'mcp.progress.total';
+  static MCP_PROGRESS_MESSAGE = 'mcp.progress.message';
+  static MCP_PROGRESS_CONTEXT_CURRENT = 'mcp.progress.context.current';
+  static MCP_PROGRESS_CONTEXT_TOTAL = 'mcp.progress.context.total';
+
+  // MCP sampling attributes
+  static MCP_SAMPLING_MAX_TOKENS = 'mcp.sampling.max_tokens';
+  static MCP_SAMPLING_MESSAGES = 'mcp.sampling.messages';
+
+  // MCP elicitation attributes
+  static MCP_ELICITATION_ACTION = 'mcp.elicitation.action';
+
+  // MCP manager attributes
+  static MCP_MANAGER_TYPE = 'mcp.manager.type';
+  static MCP_TOOL_MANAGER_TOOL_COUNT = 'mcp.tool_manager.tool_count';
+  static MCP_TOOL_MANAGER_WARN_DUPLICATES = 'mcp.tool_manager.warn_duplicates';
+  static MCP_RESOURCE_MANAGER_RESOURCE_COUNT = 'mcp.resource_manager.resource_count';
+  static MCP_RESOURCE_MANAGER_WARN_DUPLICATES = 'mcp.resource_manager.warn_duplicates';
+  static MCP_PROMPT_MANAGER_PROMPT_COUNT = 'mcp.prompt_manager.prompt_count';
+  static MCP_PROMPT_MANAGER_WARN_DUPLICATES = 'mcp.prompt_manager.warn_duplicates';
+
+  // MCP memory attributes
+  static MCP_MEMORY_TRANSPORT_TYPE = 'mcp.memory.transport_type';
+  static MCP_MEMORY_CLIENT_SERVER_SESSION = 'mcp.memory.client_server_session';
+
+  // MCP completion attributes
+  static MCP_COMPLETION_REF_TYPE = 'mcp.completion.ref_type';
+  static MCP_COMPLETION_ARGUMENT_NAME = 'mcp.completion.argument_name';
+  static MCP_COMPLETION_ARGUMENT_VALUE = 'mcp.completion.argument_value';
+  static MCP_COMPLETION_CONTEXT_ARGUMENTS = 'mcp.completion.context_arguments';
+  static MCP_COMPLETION_VALUES = 'mcp.completion.values';
+  static MCP_COMPLETION_TOTAL = 'mcp.completion.total';
+  static MCP_COMPLETION_HAS_MORE = 'mcp.completion.has_more';
+
+  // MCP logging and notification attributes
+  static MCP_LOGGING_LEVEL_SET = 'mcp.logging.level_set';
+  static MCP_NOTIFICATION_TYPE = 'mcp.notification.type';
+  static MCP_NOTIFICATION_RELATED_REQUEST_ID = 'mcp.notification.related_request_id';
+  static MCP_PING_RESPONSE_TIME = 'mcp.ping.response_time';
 
   static GEN_AI_OPERATION_TYPE_CREATE_AGENT = 'create_agent';
 

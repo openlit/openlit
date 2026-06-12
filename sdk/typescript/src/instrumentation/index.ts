@@ -30,6 +30,7 @@ import GoogleADKInstrumentation from './google-adk';
 import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 import CursorSDKInstrumentation from './cursor-sdk';
 import AstraInstrumentation from './astra';
+import MCPInstrumentation from './mcp';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -102,6 +103,7 @@ export default class Instrumentations {
     'claude-agent-sdk': new ClaudeAgentSDKInstrumentation(),
     'cursor-sdk': new CursorSDKInstrumentation(),
     'astra': new AstraInstrumentation(),
+    mcp: new MCPInstrumentation(),
   };
 
   static setup(

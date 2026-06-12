@@ -15,6 +15,14 @@ export default class OpenlitGradientInstrumentation extends InstrumentationBase 
     super(`${INSTRUMENTATION_PREFIX}/instrumentation-gradient`, '1.0.0', config);
   }
 
+  private safeWrap(target: any, method: string, patcher: (tracer: any) => any): void {
+    if (!target?.[method]) return;
+    if (isWrapped(target[method])) {
+      this._unwrap(target, method);
+    }
+    this._wrap(target, method, patcher(this.tracer));
+  }
+
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
     const module = new InstrumentationNodeModuleDefinition(
       '@digitalocean/gradient',
@@ -43,23 +51,42 @@ export default class OpenlitGradientInstrumentation extends InstrumentationBase 
 
   protected _patch(moduleExports: any) {
     try {
-      // The DigitalOcean Gradient SDK is Stainless-generated (OpenAI-shaped): the
-      // top-level module only exports the `Gradient` client class, with resource
-      // classes attached as static nested properties. Chat completions live at
-      // `Gradient.Chat.Completions.prototype.create` (mirrors groq-sdk's
-      // `Groq.Chat.Completions`, not ai21's flat top-level `Completions`).
-      if (!moduleExports?.Gradient?.Chat?.Completions?.prototype?.create) {
-        return;
-      }
+      const Gradient = moduleExports?.Gradient;
+      if (!Gradient) return;
 
-      if (isWrapped(moduleExports.Gradient.Chat.Completions.prototype.create)) {
-        this._unwrap(moduleExports.Gradient.Chat.Completions.prototype, 'create');
-      }
-
-      this._wrap(
-        moduleExports.Gradient.Chat.Completions.prototype,
+      // Chat completions (inference)
+      this.safeWrap(
+        Gradient.Chat?.Completions?.prototype,
         'create',
-        GradientWrapper._patchChatCompletionCreate(this.tracer)
+        GradientWrapper._patchChatCompletionCreate
+      );
+
+      // Agent chat completions
+      this.safeWrap(
+        Gradient.Agents?.Chat?.Completions?.prototype,
+        'create',
+        GradientWrapper._patchAgentChatCompletionCreate
+      );
+
+      // Image generation
+      this.safeWrap(
+        Gradient.Images?.prototype,
+        'generate',
+        GradientWrapper._patchImageGenerate
+      );
+
+      // Responses API — not yet in @digitalocean/gradient; enable when DO ships it.
+      this.safeWrap(
+        Gradient.Responses?.prototype,
+        'create',
+        GradientWrapper._patchResponsesCreate
+      );
+
+      // Knowledge-base document retrieval — not yet in @digitalocean/gradient.
+      this.safeWrap(
+        Gradient.Retrieve?.prototype,
+        'documents',
+        GradientWrapper._patchRetrieveDocuments
       );
     } catch (e) {
       console.error('Error in _patch method:', e);
@@ -67,8 +94,21 @@ export default class OpenlitGradientInstrumentation extends InstrumentationBase 
   }
 
   protected _unpatch(moduleExports: any) {
-    if (moduleExports?.Gradient?.Chat?.Completions?.prototype?.create) {
-      this._unwrap(moduleExports.Gradient.Chat.Completions.prototype, 'create');
+    const Gradient = moduleExports?.Gradient;
+    if (!Gradient) return;
+
+    const targets: Array<[any, string]> = [
+      [Gradient.Chat?.Completions?.prototype, 'create'],
+      [Gradient.Agents?.Chat?.Completions?.prototype, 'create'],
+      [Gradient.Images?.prototype, 'generate'],
+      [Gradient.Responses?.prototype, 'create'],
+      [Gradient.Retrieve?.prototype, 'documents'],
+    ];
+
+    for (const [target, method] of targets) {
+      if (target?.[method]) {
+        this._unwrap(target, method);
+      }
     }
   }
 }
