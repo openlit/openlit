@@ -409,40 +409,6 @@ describe('Gradient Cross-Language Trace Comparison', () => {
     });
   });
 
-  describe('Knowledge Base Retrieval Trace Consistency', () => {
-    it('sets retrieval attributes like Python process_retrieve_response', () => {
-      const mockArgs = [
-        {
-          knowledge_base_uuid: 'kb-123',
-          query: 'What is RAG?',
-          top_k: 5,
-        },
-      ];
-      const response = {
-        retrieved_data: [{ text: 'doc1' }],
-      };
-
-      GradientWrapper._retrieveDocumentsCommonSetter({
-        args: mockArgs,
-        genAIEndpoint: 'digitalocean.retrieve.documents',
-        response,
-        span: mockSpan,
-        serverAddress: 'kbaas.do-ai.run',
-        serverPort: 443,
-      });
-
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_DATA_SOURCE_ID,
-        'kb-123'
-      );
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_K, 5);
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT,
-        'What is RAG?'
-      );
-    });
-  });
-
   describe('Streaming Trace Consistency', () => {
     async function* mockStream() {
       yield {

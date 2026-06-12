@@ -1,18 +1,16 @@
 import { Attributes } from '@opentelemetry/api';
 import SemanticConvention from '../../semantic-convention';
 
-export type GradientEndpointKind = 'inference' | 'agent' | 'kb';
+export type GradientEndpointKind = 'inference' | 'agent';
 
 const DEFAULT_HOSTS: Record<GradientEndpointKind, [string, number]> = {
   inference: ['inference.do-ai.run', 443],
   agent: ['agents.do-ai.run', 443],
-  kb: ['kbaas.do-ai.run', 443],
 };
 
 const ENDPOINT_ATTRS: Record<GradientEndpointKind, string> = {
   inference: 'inferenceEndpoint',
   agent: 'agentEndpoint',
-  kb: 'kbassEndpoint',
 };
 
 /**
@@ -88,7 +86,7 @@ export function normalizeStopSequences(stop: unknown): string[] | undefined {
   return s ? [s] : undefined;
 }
 
-/** Request attributes shared by chat / agent-chat / responses surfaces. */
+/** Request attributes shared by chat and agent-chat surfaces. */
 export function applyGradientChatRequestAttributes(span: any, body: Record<string, any>): void {
   if (body.temperature != null) {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, body.temperature);

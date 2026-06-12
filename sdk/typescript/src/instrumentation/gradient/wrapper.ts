@@ -47,15 +47,6 @@ class GradientWrapper extends BaseWrapper {
     });
   }
 
-  static _patchResponsesCreate(tracer: Tracer): any {
-    return GradientWrapper._buildChatPatch(tracer, {
-      operationName: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-      endpointKind: 'inference',
-      genAIEndpoint: 'digitalocean.responses',
-      apiType: 'responses',
-    });
-  }
-
   static _buildChatPatch(tracer: Tracer, options: ChatPatchOptions): any {
     const { operationName, endpointKind, genAIEndpoint, apiType, isAgent = false } = options;
     return (originalMethod: (...args: any[]) => any) => {
@@ -172,66 +163,6 @@ class GradientWrapper extends BaseWrapper {
             BaseWrapper.recordMetrics(span, {
               genAIEndpoint,
               model: requestModel,
-              aiSystem: AI_SYSTEM,
-              serverAddress,
-              serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
-            });
-            throw e;
-          } finally {
-            span.end();
-            if (metricParams) {
-              BaseWrapper.recordMetrics(span, metricParams);
-            }
-          }
-        });
-      };
-    };
-  }
-
-  static _patchRetrieveDocuments(tracer: Tracer): any {
-    const genAIEndpoint = 'digitalocean.retrieve.documents';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-
-        const body = args[0] || {};
-        const kbId = body.knowledge_base_uuid || body.knowledge_base_id || '';
-        const [serverAddress, serverPort] = resolveGradientEndpoint(this, 'kb');
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE} ${kbId || 'unknown'}`;
-        const effectiveCtx = getFrameworkParentContext() ?? context.active();
-        const span = tracer.startSpan(
-          spanName,
-          {
-            kind: SpanKind.CLIENT,
-            attributes: gradientSpanCreationAttrs(
-              SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
-              kbId || 'unknown',
-              serverAddress,
-              serverPort
-            ),
-          },
-          effectiveCtx
-        );
-
-        return context.with(trace.setSpan(effectiveCtx, span), async () => {
-          let metricParams;
-          try {
-            const response = await originalMethod.apply(this, args);
-            metricParams = GradientWrapper._retrieveDocumentsCommonSetter({
-              args,
-              genAIEndpoint,
-              response,
-              span,
-              serverAddress,
-              serverPort,
-            });
-            return response;
-          } catch (e: any) {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
-              genAIEndpoint,
-              model: kbId || 'unknown',
               aiSystem: AI_SYSTEM,
               serverAddress,
               serverPort,
@@ -518,65 +449,6 @@ class GradientWrapper extends BaseWrapper {
       model: requestModel,
       user: body.user,
       cost,
-      aiSystem: AI_SYSTEM,
-      serverAddress,
-      serverPort,
-    };
-  }
-
-  static _retrieveDocumentsCommonSetter({
-    args,
-    genAIEndpoint,
-    response,
-    span,
-    serverAddress,
-    serverPort,
-  }: {
-    args: any[];
-    genAIEndpoint: string;
-    response: any;
-    span: Span;
-    serverAddress: string;
-    serverPort: number;
-  }) {
-    const captureContent = OpenlitConfig.captureMessageContent;
-    const body = args[0] || {};
-    const kbId = body.knowledge_base_uuid || body.knowledge_base_id || '';
-
-    GradientWrapper.setBaseSpanAttributes(span, {
-      genAIEndpoint,
-      model: kbId || 'unknown',
-      cost: 0,
-      aiSystem: AI_SYSTEM,
-      serverAddress,
-      serverPort,
-    });
-
-    if (kbId) {
-      span.setAttribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, kbId);
-    }
-    if (body.top_k != null) {
-      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, body.top_k);
-    }
-    if (captureContent && body.query != null) {
-      span.setAttribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY_TEXT, String(body.query));
-    }
-    const retrieved = response?.retrieved_data ?? response?.documents;
-    if (captureContent && retrieved != null) {
-      try {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS,
-          JSON.stringify(retrieved).slice(0, 65536)
-        );
-      } catch {
-        // ignore serialization failures
-      }
-    }
-
-    return {
-      genAIEndpoint,
-      model: kbId || 'unknown',
-      cost: 0,
       aiSystem: AI_SYSTEM,
       serverAddress,
       serverPort,

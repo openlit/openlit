@@ -74,20 +74,6 @@ export default class OpenlitGradientInstrumentation extends InstrumentationBase 
         'generate',
         GradientWrapper._patchImageGenerate
       );
-
-      // Responses API — not yet in @digitalocean/gradient; enable when DO ships it.
-      this.safeWrap(
-        Gradient.Responses?.prototype,
-        'create',
-        GradientWrapper._patchResponsesCreate
-      );
-
-      // Knowledge-base document retrieval — not yet in @digitalocean/gradient.
-      this.safeWrap(
-        Gradient.Retrieve?.prototype,
-        'documents',
-        GradientWrapper._patchRetrieveDocuments
-      );
     } catch (e) {
       console.error('Error in _patch method:', e);
     }
@@ -101,8 +87,6 @@ export default class OpenlitGradientInstrumentation extends InstrumentationBase 
       [Gradient.Chat?.Completions?.prototype, 'create'],
       [Gradient.Agents?.Chat?.Completions?.prototype, 'create'],
       [Gradient.Images?.prototype, 'generate'],
-      [Gradient.Responses?.prototype, 'create'],
-      [Gradient.Retrieve?.prototype, 'documents'],
     ];
 
     for (const [target, method] of targets) {
