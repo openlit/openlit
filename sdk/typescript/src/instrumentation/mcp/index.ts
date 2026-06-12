@@ -1,4 +1,4 @@
-import { diag } from '@opentelemetry/api';
+import { diag, Tracer } from '@opentelemetry/api';
 import {
   InstrumentationBase,
   InstrumentationModuleDefinition,
@@ -9,23 +9,84 @@ import { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
 import {
   patchCallTool,
-  patchListTools,
+  patchClientConnect,
+  patchClientClose,
   patchGetPrompt,
   patchListPrompts,
-  patchReadResource,
   patchListResources,
-  patchClientSessionSendRequest,
-  patchClientSessionInitialize,
-  patchServerRun,
-  patchServerCallTool,
-  patchServerListTools,
-  patchServerReadResource,
-  patchServerListResources,
-  patchTransport,
-  patchServerSessionOperation,
+  patchListTools,
+  patchMcpServerConnect,
+  patchReadResource,
+  patchServerConnect,
+  patchTransportSend,
+  patchTransportStart,
 } from './wrapper';
 
 export interface MCPInstrumentationConfig extends InstrumentationConfig {}
+
+/** MCP SDK subpaths — match ESM/CJS resolution (see Traceloop instrumentation-mcp). */
+const CLIENT_MODULES = [
+  '@modelcontextprotocol/sdk/client',
+  '@modelcontextprotocol/sdk/client/index.js',
+] as const;
+
+const SERVER_MODULES = [
+  '@modelcontextprotocol/sdk/server',
+  '@modelcontextprotocol/sdk/server/index.js',
+] as const;
+
+const MCP_SERVER_MODULES = [
+  '@modelcontextprotocol/sdk/server/mcp',
+  '@modelcontextprotocol/sdk/server/mcp.js',
+] as const;
+
+/**
+ * Transport subpaths. Patching their `send`/`start` injects and extracts W3C
+ * trace context via the JSON-RPC `params._meta` field, linking client and
+ * server traces across the MCP boundary (same approach as openinference).
+ */
+const TRANSPORT_MODULES = [
+  '@modelcontextprotocol/sdk/inMemory',
+  '@modelcontextprotocol/sdk/inMemory.js',
+  '@modelcontextprotocol/sdk/client/stdio',
+  '@modelcontextprotocol/sdk/client/stdio.js',
+  '@modelcontextprotocol/sdk/server/stdio',
+  '@modelcontextprotocol/sdk/server/stdio.js',
+  '@modelcontextprotocol/sdk/client/sse',
+  '@modelcontextprotocol/sdk/client/sse.js',
+  '@modelcontextprotocol/sdk/server/sse',
+  '@modelcontextprotocol/sdk/server/sse.js',
+  '@modelcontextprotocol/sdk/client/streamableHttp',
+  '@modelcontextprotocol/sdk/client/streamableHttp.js',
+  '@modelcontextprotocol/sdk/server/streamableHttp',
+  '@modelcontextprotocol/sdk/server/streamableHttp.js',
+  '@modelcontextprotocol/sdk/client/websocket',
+  '@modelcontextprotocol/sdk/client/websocket.js',
+] as const;
+
+const TRANSPORT_METHODS = ['send', 'start'] as const;
+
+const CLIENT_METHODS = [
+  'callTool',
+  'listTools',
+  'getPrompt',
+  'listPrompts',
+  'readResource',
+  'listResources',
+  'connect',
+  'close',
+] as const;
+
+const CLIENT_PATCHERS: Record<string, (tracer: Tracer, version: string) => unknown> = {
+  callTool: patchCallTool,
+  listTools: patchListTools,
+  getPrompt: patchGetPrompt,
+  listPrompts: patchListPrompts,
+  readResource: patchReadResource,
+  listResources: patchListResources,
+  connect: patchClientConnect,
+  close: patchClientClose,
+};
 
 export default class MCPInstrumentation extends InstrumentationBase {
   private _mcpVersion = 'unknown';
@@ -38,314 +99,252 @@ export default class MCPInstrumentation extends InstrumentationBase {
     | void
     | InstrumentationModuleDefinition
     | InstrumentationModuleDefinition[] {
-    // Main MCP SDK module — covers Client, Server, and FastMCP
-    const mainModule = new InstrumentationNodeModuleDefinition(
-      '@modelcontextprotocol/sdk',
-      ['>=1.0.0'],
-      (moduleExports, moduleVersion) => {
-        if (moduleVersion) this._mcpVersion = String(moduleVersion);
-        this._patchMain(moduleExports);
-        return moduleExports;
-      },
-      (moduleExports) => {
-        if (moduleExports !== undefined) {
-          this._unpatchMain(moduleExports);
-        }
-      },
-    );
+    const modules: InstrumentationNodeModuleDefinition[] = [];
 
-    return [mainModule];
+    for (const name of CLIENT_MODULES) {
+      modules.push(
+        new InstrumentationNodeModuleDefinition(
+          name,
+          ['>=1.0.0'],
+          (moduleExports, moduleVersion) => {
+            if (moduleVersion) this._mcpVersion = String(moduleVersion);
+            this.patchClientModule(moduleExports);
+            return moduleExports;
+          },
+          (moduleExports) => {
+            if (moduleExports !== undefined) {
+              this.unpatchClientModule(moduleExports);
+            }
+          },
+        ),
+      );
+    }
+
+    for (const name of SERVER_MODULES) {
+      modules.push(
+        new InstrumentationNodeModuleDefinition(
+          name,
+          ['>=1.0.0'],
+          (moduleExports, moduleVersion) => {
+            if (moduleVersion) this._mcpVersion = String(moduleVersion);
+            this.patchServerModule(moduleExports);
+            return moduleExports;
+          },
+          (moduleExports) => {
+            if (moduleExports !== undefined) {
+              this.unpatchServerModule(moduleExports);
+            }
+          },
+        ),
+      );
+    }
+
+    for (const name of MCP_SERVER_MODULES) {
+      modules.push(
+        new InstrumentationNodeModuleDefinition(
+          name,
+          ['>=1.0.0'],
+          (moduleExports, moduleVersion) => {
+            if (moduleVersion) this._mcpVersion = String(moduleVersion);
+            this.patchMcpServerModule(moduleExports);
+            return moduleExports;
+          },
+          (moduleExports) => {
+            if (moduleExports !== undefined) {
+              this.unpatchMcpServerModule(moduleExports);
+            }
+          },
+        ),
+      );
+    }
+
+    for (const name of TRANSPORT_MODULES) {
+      modules.push(
+        new InstrumentationNodeModuleDefinition(
+          name,
+          ['>=1.0.0'],
+          (moduleExports, moduleVersion) => {
+            if (moduleVersion) this._mcpVersion = String(moduleVersion);
+            this.patchTransportModule(moduleExports);
+            return moduleExports;
+          },
+          (moduleExports) => {
+            if (moduleExports !== undefined) {
+              this.unpatchTransportModule(moduleExports);
+            }
+          },
+        ),
+      );
+    }
+
+    return modules;
   }
 
-  public manualPatch(mcpSdk: any): void {
-    this._patchMain(mcpSdk);
-  }
-
-  // -----------------------------------------------------------------------
-  // Main module patching — Client, Server, FastMCP, and transport classes
-  // -----------------------------------------------------------------------
-
-  private _patchMain(moduleExports: any): void {
+  /**
+   * Manually instrument MCP SDK modules when auto-instrumentation does not apply
+   * (bundlers, ESM edge cases). Pass the same module namespace the app imports, e.g.
+   * `import * as client from '@modelcontextprotocol/sdk/client/index.js'`.
+   */
+  public manualPatch(moduleExports: any): void {
+    if (!moduleExports) return;
     try {
-      this._patchClient(moduleExports);
-      this._patchServer(moduleExports);
-      this._patchTransports(moduleExports);
-      this._patchFastMCP(moduleExports);
+      if (moduleExports.Client) {
+        this.patchClientModule(moduleExports);
+      }
+      if (moduleExports.Server) {
+        this.patchServerModule(moduleExports);
+      }
+      if (moduleExports.McpServer) {
+        this.patchMcpServerModule(moduleExports);
+      }
+      if (this.hasTransportExport(moduleExports)) {
+        this.patchTransportModule(moduleExports);
+      }
     } catch (e) {
-      diag.error('Error in MCP _patchMain method', e as Error);
+      diag.error('Error in MCP manualPatch', e as Error);
     }
   }
 
-  private _unpatchMain(moduleExports: any): void {
-    try {
-      this._unpatchClient(moduleExports);
-      this._unpatchServer(moduleExports);
-      this._unpatchTransports(moduleExports);
-      this._unpatchFastMCP(moduleExports);
-    } catch {
-      /* ignore unpatch errors */
+  private hasTransportExport(moduleExports: any): boolean {
+    return Object.keys(moduleExports || {}).some(
+      (key) => key.endsWith('Transport') && moduleExports[key]?.prototype,
+    );
+  }
+
+  /**
+   * Patch every `*Transport` class exported by a transport module. We discover
+   * them by name rather than hard-coding each class so new transports are
+   * covered automatically.
+   */
+  private patchTransportModule(moduleExports: any): void {
+    if (!moduleExports) return;
+    for (const key of Object.keys(moduleExports)) {
+      if (!key.endsWith('Transport')) continue;
+      const transportClass = moduleExports[key];
+      if (!transportClass?.prototype) continue;
+
+      for (const method of TRANSPORT_METHODS) {
+        if (typeof transportClass.prototype[method] !== 'function') continue;
+        if (isWrapped(transportClass.prototype[method])) {
+          this._unwrap(transportClass.prototype, method);
+        }
+        const patcher = method === 'send' ? patchTransportSend : patchTransportStart;
+        this._wrap(
+          transportClass.prototype,
+          method,
+          patcher() as (original: (...args: any[]) => any) => any,
+        );
+      }
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Client + ClientSession
-  // -----------------------------------------------------------------------
+  private unpatchTransportModule(moduleExports: any): void {
+    if (!moduleExports) return;
+    for (const key of Object.keys(moduleExports)) {
+      if (!key.endsWith('Transport')) continue;
+      const transportClass = moduleExports[key];
+      if (!transportClass?.prototype) continue;
+      for (const method of TRANSPORT_METHODS) {
+        if (isWrapped(transportClass.prototype[method])) {
+          this._unwrap(transportClass.prototype, method);
+        }
+      }
+    }
+  }
 
-  private _patchClient(moduleExports: any): void {
-    const Client = moduleExports.Client;
+  private patchClientModule(moduleExports: any): void {
+    const Client = moduleExports?.Client;
     if (!Client?.prototype) return;
 
-    const clientMethods: Array<[string, (...args: any[]) => any]> = [
-      ['callTool', patchCallTool(this.tracer, this._mcpVersion)],
-      ['listTools', patchListTools(this.tracer, this._mcpVersion)],
-      ['getPrompt', patchGetPrompt(this.tracer, this._mcpVersion)],
-      ['listPrompts', patchListPrompts(this.tracer, this._mcpVersion)],
-      ['readResource', patchReadResource(this.tracer, this._mcpVersion)],
-      ['listResources', patchListResources(this.tracer, this._mcpVersion)],
-    ];
+    for (const method of CLIENT_METHODS) {
+      const patcherFactory = CLIENT_PATCHERS[method];
+      if (typeof Client.prototype[method] !== 'function' || !patcherFactory) continue;
 
-    for (const [method, patcher] of clientMethods) {
-      if (typeof Client.prototype[method] === 'function') {
-        if (isWrapped(Client.prototype[method])) {
-          this._unwrap(Client.prototype, method);
-        }
-        this._wrap(Client.prototype, method, patcher);
+      if (isWrapped(Client.prototype[method])) {
+        this._unwrap(Client.prototype, method);
       }
+      this._wrap(
+        Client.prototype,
+        method,
+        patcherFactory(this.tracer, this._mcpVersion) as (original: (...args: any[]) => any) => any,
+      );
     }
+  }
 
-    // ClientSession (low-level)
-    const ClientSession = moduleExports.ClientSession;
-    if (ClientSession?.prototype) {
-      const sessionMethods: Array<[string, (...args: any[]) => any]> = [
-        ['sendRequest', patchClientSessionSendRequest(this.tracer, this._mcpVersion)],
-        ['initialize', patchClientSessionInitialize(this.tracer, this._mcpVersion)],
-        ['callTool', patchCallTool(this.tracer, this._mcpVersion)],
-        ['listTools', patchListTools(this.tracer, this._mcpVersion)],
-        ['readResource', patchReadResource(this.tracer, this._mcpVersion)],
-        ['listResources', patchListResources(this.tracer, this._mcpVersion)],
-      ];
+  private unpatchClientModule(moduleExports: any): void {
+    const Client = moduleExports?.Client;
+    if (!Client?.prototype) return;
 
-      for (const [method, patcher] of sessionMethods) {
-        if (typeof ClientSession.prototype[method] === 'function') {
-          if (isWrapped(ClientSession.prototype[method])) {
-            this._unwrap(ClientSession.prototype, method);
-          }
-          this._wrap(ClientSession.prototype, method, patcher);
-        }
+    for (const method of CLIENT_METHODS) {
+      if (isWrapped(Client.prototype[method])) {
+        this._unwrap(Client.prototype, method);
       }
     }
   }
 
-  private _unpatchClient(moduleExports: any): void {
-    const Client = moduleExports.Client;
-    if (Client?.prototype) {
-      for (const method of [
-        'callTool', 'listTools', 'getPrompt', 'listPrompts', 'readResource', 'listResources',
-      ]) {
-        if (isWrapped(Client.prototype[method])) {
-          this._unwrap(Client.prototype, method);
-        }
-      }
-    }
-
-    const ClientSession = moduleExports.ClientSession;
-    if (ClientSession?.prototype) {
-      for (const method of [
-        'sendRequest', 'initialize', 'callTool', 'listTools', 'readResource', 'listResources',
-      ]) {
-        if (isWrapped(ClientSession.prototype[method])) {
-          this._unwrap(ClientSession.prototype, method);
-        }
-      }
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // Server
-  // -----------------------------------------------------------------------
-
-  private _patchServer(moduleExports: any): void {
-    const Server = moduleExports.Server;
+  private patchServerModule(moduleExports: any): void {
+    const Server = moduleExports?.Server;
     if (!Server?.prototype) return;
 
-    const serverMethods: Array<[string, (...args: any[]) => any]> = [
-      ['run', patchServerRun(this.tracer, this._mcpVersion)],
-      ['callTool', patchServerCallTool(this.tracer, this._mcpVersion)],
-      ['listTools', patchServerListTools(this.tracer, this._mcpVersion)],
-      ['readResource', patchServerReadResource(this.tracer, this._mcpVersion)],
-      ['listResources', patchServerListResources(this.tracer, this._mcpVersion)],
-    ];
-
-    for (const [method, patcher] of serverMethods) {
-      if (typeof Server.prototype[method] === 'function') {
-        if (isWrapped(Server.prototype[method])) {
-          this._unwrap(Server.prototype, method);
-        }
-        this._wrap(Server.prototype, method, patcher);
+    for (const method of ['connect', 'close'] as const) {
+      if (typeof Server.prototype[method] !== 'function') continue;
+      const patcher = method === 'connect' ? patchServerConnect : patchClientClose;
+      if (isWrapped(Server.prototype[method])) {
+        this._unwrap(Server.prototype, method);
       }
+      this._wrap(
+        Server.prototype,
+        method,
+        patcher(this.tracer, this._mcpVersion) as (original: (...args: any[]) => any) => any,
+      );
     }
+  }
 
-    // ServerSession (low-level)
-    const ServerSession = moduleExports.ServerSession;
-    if (ServerSession?.prototype) {
-      const sessionOps: Array<[string, string]> = [
-        ['sendRequest', 'send_request'],
-        ['sendNotification', 'send_notification'],
-        ['sendLogMessage', 'send_log'],
-      ];
+  private unpatchServerModule(moduleExports: any): void {
+    const Server = moduleExports?.Server;
+    if (!Server?.prototype) return;
 
-      for (const [method, endpoint] of sessionOps) {
-        if (typeof ServerSession.prototype[method] === 'function') {
-          if (isWrapped(ServerSession.prototype[method])) {
-            this._unwrap(ServerSession.prototype, method);
-          }
-          this._wrap(
-            ServerSession.prototype,
-            method,
-            patchServerSessionOperation(endpoint, this.tracer, this._mcpVersion),
-          );
-        }
+    for (const method of ['connect', 'close'] as const) {
+      if (isWrapped(Server.prototype[method])) {
+        this._unwrap(Server.prototype, method);
       }
     }
   }
 
-  private _unpatchServer(moduleExports: any): void {
-    const Server = moduleExports.Server;
-    if (Server?.prototype) {
-      for (const method of ['run', 'callTool', 'listTools', 'readResource', 'listResources']) {
-        if (isWrapped(Server.prototype[method])) {
-          this._unwrap(Server.prototype, method);
-        }
+  private patchMcpServerModule(moduleExports: any): void {
+    const McpServer = moduleExports?.McpServer;
+    if (!McpServer?.prototype) return;
+
+    if (typeof McpServer.prototype.connect === 'function') {
+      if (isWrapped(McpServer.prototype.connect)) {
+        this._unwrap(McpServer.prototype, 'connect');
       }
+      this._wrap(
+        McpServer.prototype,
+        'connect',
+        patchMcpServerConnect(this.tracer, this._mcpVersion) as (original: (...args: any[]) => any) => any,
+      );
     }
 
-    const ServerSession = moduleExports.ServerSession;
-    if (ServerSession?.prototype) {
-      for (const method of ['sendRequest', 'sendNotification', 'sendLogMessage']) {
-        if (isWrapped(ServerSession.prototype[method])) {
-          this._unwrap(ServerSession.prototype, method);
-        }
+    if (typeof McpServer.prototype.close === 'function') {
+      if (isWrapped(McpServer.prototype.close)) {
+        this._unwrap(McpServer.prototype, 'close');
       }
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // Transports (stdio, sse, websocket, streamablehttp)
-  // -----------------------------------------------------------------------
-
-  private _patchTransports(moduleExports: any): void {
-    const transportClasses: Array<[string, string, string]> = [
-      // [exportName, endpoint, methodName]
-      ['StdioClientTransport', 'transport stdio_client', 'connect'],
-      ['StdioServerTransport', 'transport stdio_server', 'connect'],
-      ['SSEClientTransport', 'transport sse_client', 'connect'],
-      ['SSEServerTransport', 'transport sse_server', 'connect'],
-      ['StreamableHTTPClientTransport', 'transport http_client', 'connect'],
-      ['StreamableHTTPServerTransport', 'transport http_server', 'connect'],
-    ];
-
-    for (const [exportName, endpoint, method] of transportClasses) {
-      const TransportClass = moduleExports[exportName];
-      if (!TransportClass?.prototype) continue;
-
-      // Patch connect method on transport instances
-      if (typeof TransportClass.prototype[method] === 'function') {
-        if (isWrapped(TransportClass.prototype[method])) {
-          this._unwrap(TransportClass.prototype, method);
-        }
-        this._wrap(
-          TransportClass.prototype,
-          method,
-          patchTransport(endpoint, this.tracer, this._mcpVersion),
-        );
-      }
-    }
-
-    // Also try to patch transport factory functions (e.g. stdio_client, sse_client)
-    const factoryFunctions: Array<[string, string]> = [
-      ['stdio_client', 'transport stdio_client'],
-      ['stdio_server', 'transport stdio_server'],
-      ['sse_client', 'transport sse_client'],
-      ['sse_server', 'transport sse_server'],
-      ['streamablehttp_client', 'transport http_client'],
-      ['streamablehttp_server', 'transport http_server'],
-    ];
-
-    for (const [fnName, endpoint] of factoryFunctions) {
-      if (typeof moduleExports[fnName] === 'function') {
-        if (isWrapped(moduleExports[fnName])) {
-          this._unwrap(moduleExports, fnName);
-        }
-        this._wrap(
-          moduleExports,
-          fnName,
-          patchTransport(endpoint, this.tracer, this._mcpVersion),
-        );
-      }
+      this._wrap(
+        McpServer.prototype,
+        'close',
+        patchClientClose(this.tracer, this._mcpVersion) as (original: (...args: any[]) => any) => any,
+      );
     }
   }
 
-  private _unpatchTransports(moduleExports: any): void {
-    const transportClasses = [
-      'StdioClientTransport', 'StdioServerTransport',
-      'SSEClientTransport', 'SSEServerTransport',
-      'StreamableHTTPClientTransport', 'StreamableHTTPServerTransport',
-    ];
-    for (const exportName of transportClasses) {
-      const TransportClass = moduleExports[exportName];
-      if (TransportClass?.prototype && isWrapped(TransportClass.prototype.connect)) {
-        this._unwrap(TransportClass.prototype, 'connect');
-      }
-    }
+  private unpatchMcpServerModule(moduleExports: any): void {
+    const McpServer = moduleExports?.McpServer;
+    if (!McpServer?.prototype) return;
 
-    const factoryFns = [
-      'stdio_client', 'stdio_server', 'sse_client', 'sse_server',
-      'streamablehttp_client', 'streamablehttp_server',
-    ];
-    for (const fnName of factoryFns) {
-      if (isWrapped(moduleExports[fnName])) {
-        this._unwrap(moduleExports, fnName);
-      }
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // FastMCP
-  // -----------------------------------------------------------------------
-
-  private _patchFastMCP(moduleExports: any): void {
-    const FastMCP = moduleExports.FastMCP;
-    if (!FastMCP?.prototype) return;
-
-    const fastMCPMethods: Array<[string, (...args: any[]) => any]> = [
-      ['run', patchServerRun(this.tracer, this._mcpVersion)],
-      ['callTool', patchServerCallTool(this.tracer, this._mcpVersion)],
-      ['listTools', patchServerListTools(this.tracer, this._mcpVersion)],
-      ['readResource', patchServerReadResource(this.tracer, this._mcpVersion)],
-      ['listResources', patchServerListResources(this.tracer, this._mcpVersion)],
-      ['getPrompt', patchGetPrompt(this.tracer, this._mcpVersion)],
-      ['listPrompts', patchListPrompts(this.tracer, this._mcpVersion)],
-    ];
-
-    for (const [method, patcher] of fastMCPMethods) {
-      if (typeof FastMCP.prototype[method] === 'function') {
-        if (isWrapped(FastMCP.prototype[method])) {
-          this._unwrap(FastMCP.prototype, method);
-        }
-        this._wrap(FastMCP.prototype, method, patcher);
-      }
-    }
-  }
-
-  private _unpatchFastMCP(moduleExports: any): void {
-    const FastMCP = moduleExports.FastMCP;
-    if (!FastMCP?.prototype) return;
-
-    for (const method of [
-      'run', 'callTool', 'listTools', 'readResource', 'listResources', 'getPrompt', 'listPrompts',
-    ]) {
-      if (isWrapped(FastMCP.prototype[method])) {
-        this._unwrap(FastMCP.prototype, method);
+    for (const method of ['connect', 'close'] as const) {
+      if (isWrapped(McpServer.prototype[method])) {
+        this._unwrap(McpServer.prototype, method);
       }
     }
   }

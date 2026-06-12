@@ -1,4 +1,13 @@
-import { SpanKind, Tracer, context, trace, Span, Attributes } from '@opentelemetry/api';
+import {
+  SpanKind,
+  Tracer,
+  context,
+  trace,
+  propagation,
+  Span,
+  Attributes,
+  createContextKey,
+} from '@opentelemetry/api';
 import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/semantic-conventions';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
@@ -8,6 +17,14 @@ import SemanticConvention from '../../semantic-convention';
 import Metrics from '../../otel/metrics';
 
 const MCP_SYSTEM = 'mcp';
+
+/**
+ * Marks that a server `connect` span is already active in the current context.
+ * `McpServer.connect` delegates to the low-level `Server.connect`, so without this
+ * guard a single high-level connect would emit two nested `mcp server/run` spans
+ * whenever both modules are patched.
+ */
+const MCP_SERVER_CONNECT_ACTIVE = createContextKey('openlit.mcp.server_connect_active');
 
 function getStringField(obj: unknown, key: string): string | undefined {
   if (obj && typeof obj === 'object' && key in (obj as Record<string, unknown>)) {
@@ -72,10 +89,12 @@ class MCPInstrumentationContext {
   }
 
   private extractMethodName(): string {
-    const name = this.kwargs['name'];
-    if (typeof name === 'string') return name;
+    // Prefer the explicit JSON-RPC wire method (e.g. "tools/call") over the
+    // tool/prompt name so mcp.method reflects the protocol method, not the target.
     const method = this.kwargs['method'];
     if (typeof method === 'string') return method;
+    const name = this.kwargs['name'];
+    if (typeof name === 'string') return name;
     const strArg = extractStringArg(this.args);
     if (strArg) return strArg;
     const inst = this.instance as Record<string, unknown> | null;
@@ -110,23 +129,79 @@ class MCPInstrumentationContext {
   }
 
   private extractTransportType(): string {
-    // Detect from instance class name / module
-    const inst = this.instance as Record<string, unknown> | null;
-    if (inst) {
-      const className = (inst.constructor?.name || '').toLowerCase();
-      if (className.includes('stdio')) return SemanticConvention.MCP_TRANSPORT_STDIO;
-      if (className.includes('sse')) return SemanticConvention.MCP_TRANSPORT_SSE;
-      if (className.includes('websocket')) return SemanticConvention.MCP_TRANSPORT_WEBSOCKET;
+    const override = this.kwargs['transportType'];
+    if (typeof override === 'string') return override;
+
+    const transport = this.args[0];
+    if (transport) {
+      return transportTypeFromTransport(transport);
     }
-    // Detect from kwargs
-    if (this.kwargs['command'] || this.kwargs['args']) return SemanticConvention.MCP_TRANSPORT_STDIO;
-    if (this.kwargs['url']) {
-      const url = String(this.kwargs['url']);
-      if (url.includes('sse')) return SemanticConvention.MCP_TRANSPORT_SSE;
-      if (url.includes('ws')) return SemanticConvention.MCP_TRANSPORT_WEBSOCKET;
+
+    const connected = (this.instance as { transport?: unknown } | null)?.transport;
+    if (connected) {
+      return transportTypeFromTransport(connected);
     }
+
     return SemanticConvention.MCP_TRANSPORT_STDIO;
   }
+}
+
+/**
+ * Pull peer identity off a Client/Server instance. On the client this returns the
+ * connected server's {name, version} (via `getServerVersion()`); on the server it
+ * returns the connected client's via `getClientVersion()`.
+ */
+function extractPeerInfo(instance: unknown): {
+  serverName?: string;
+  serverVersion?: string;
+  clientName?: string;
+  clientVersion?: string;
+} {
+  const out: {
+    serverName?: string;
+    serverVersion?: string;
+    clientName?: string;
+    clientVersion?: string;
+  } = {};
+  if (!instance || typeof instance !== 'object') return out;
+  try {
+    const inst = instance as {
+      getServerVersion?: () => { name?: string; version?: string } | undefined;
+      getClientVersion?: () => { name?: string; version?: string } | undefined;
+    };
+    if (typeof inst.getServerVersion === 'function') {
+      const sv = inst.getServerVersion();
+      if (sv) {
+        if (typeof sv.name === 'string') out.serverName = sv.name;
+        if (typeof sv.version === 'string') out.serverVersion = sv.version;
+      }
+    }
+    if (typeof inst.getClientVersion === 'function') {
+      const cv = inst.getClientVersion();
+      if (cv) {
+        if (typeof cv.name === 'string') out.clientName = cv.name;
+        if (typeof cv.version === 'string') out.clientVersion = cv.version;
+      }
+    }
+  } catch {
+    // getServerVersion/getClientVersion can throw before the handshake completes.
+  }
+  return out;
+}
+
+/** Infer MCP transport type from a Transport instance (stdio, sse, websocket, http). */
+function transportTypeFromTransport(transport: unknown): string {
+  if (!transport || typeof transport !== 'object') {
+    return SemanticConvention.MCP_TRANSPORT_STDIO;
+  }
+  const className = (
+    (transport as { constructor?: { name?: string } }).constructor?.name || ''
+  ).toLowerCase();
+  if (className.includes('stdio')) return SemanticConvention.MCP_TRANSPORT_STDIO;
+  if (className.includes('sse')) return SemanticConvention.MCP_TRANSPORT_SSE;
+  if (className.includes('websocket')) return SemanticConvention.MCP_TRANSPORT_WEBSOCKET;
+  if (className.includes('http') || className.includes('streamable')) return 'http';
+  return SemanticConvention.MCP_TRANSPORT_STDIO;
 }
 
 /** Core MCP span attributes set on every span. */
@@ -144,6 +219,7 @@ function setMCPSpanAttributes(
   span.setAttribute(SemanticConvention.MCP_OPERATION, operationName);
   span.setAttribute(SemanticConvention.MCP_SYSTEM, MCP_SYSTEM);
   span.setAttribute(SemanticConvention.MCP_SDK_VERSION, version);
+  span.setAttribute(SemanticConvention.MCP_JSONRPC_VERSION, '2.0');
   span.setAttribute(SEMRESATTRS_DEPLOYMENT_ENVIRONMENT, environment);
   span.setAttribute(SEMRESATTRS_SERVICE_NAME, applicationName);
   span.setAttribute(SemanticConvention.MCP_TRANSPORT_TYPE, ctx.transportType);
@@ -156,6 +232,15 @@ function setMCPSpanAttributes(
   }
   if (ctx.methodName) {
     span.setAttribute(SemanticConvention.MCP_METHOD, ctx.methodName);
+  }
+
+  const peer = extractPeerInfo(ctx.instance);
+  if (peer.serverName) span.setAttribute(SemanticConvention.MCP_SERVER_NAME, peer.serverName);
+  if (peer.serverVersion) {
+    span.setAttribute(SemanticConvention.MCP_SERVER_VERSION, peer.serverVersion);
+  }
+  if (peer.clientVersion) {
+    span.setAttribute(SemanticConvention.MCP_CLIENT_VERSION, peer.clientVersion);
   }
 
   applyCustomSpanAttributes(span);
@@ -171,6 +256,11 @@ function captureRequestPayload(
   const payload = safeStringify({ method: ctx.methodName, kwargs: ctx.kwargs });
   if (payload) {
     span.setAttribute(SemanticConvention.MCP_REQUEST_PAYLOAD, payload);
+  }
+  const toolArgs = ctx.kwargs['arguments'];
+  if (toolArgs !== undefined) {
+    const argsStr = safeStringify(toolArgs);
+    if (argsStr) span.setAttribute(SemanticConvention.MCP_TOOL_ARGUMENTS, argsStr);
   }
 }
 
@@ -289,14 +379,6 @@ function spanNameForPrompt(method: string): string {
   return 'mcp prompts/operation';
 }
 
-function spanNameForTransport(endpoint: string): string {
-  if (endpoint.includes('stdio')) return 'mcp transport/stdio';
-  if (endpoint.includes('sse')) return 'mcp transport/sse';
-  if (endpoint.includes('websocket')) return 'mcp transport/websocket';
-  if (endpoint.includes('streamablehttp') || endpoint.includes('streamable_http') || endpoint.includes('http')) return 'mcp transport/http';
-  return 'mcp transport/operation';
-}
-
 // ---------------------------------------------------------------------------
 // Generic span wrapper — used for all MCP operations
 // ---------------------------------------------------------------------------
@@ -385,7 +467,15 @@ function patchCallTool(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
       const toolName = extractStringArg(args) || getStringField(args[0], 'name') || 'unknown';
-      const ctx = new MCPInstrumentationContext(this, args, { name: toolName });
+      const toolArgs =
+        args[0] && typeof args[0] === 'object'
+          ? (args[0] as Record<string, unknown>)['arguments']
+          : undefined;
+      const ctx = new MCPInstrumentationContext(this, args, {
+        name: toolName,
+        method: 'tools/call',
+        arguments: toolArgs,
+      });
       const spanName = spanNameForToolCall('callTool', toolName);
 
       return wrapWithMCPSpan({
@@ -408,7 +498,7 @@ function patchCallTool(tracer: Tracer, version: string): any {
 function patchListTools(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
+      const ctx = new MCPInstrumentationContext(this, args, { method: 'tools/list' });
       return wrapWithMCPSpan({
         tracer, spanName: 'mcp tools/list', spanKind: SpanKind.CLIENT, operationName: 'tools_list',
         ctx, version,
@@ -422,7 +512,10 @@ function patchGetPrompt(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
       const promptName = extractStringArg(args) || getStringField(args[0], 'name') || 'unknown';
-      const ctx = new MCPInstrumentationContext(this, args, { name: promptName });
+      const ctx = new MCPInstrumentationContext(this, args, {
+        name: promptName,
+        method: 'prompts/get',
+      });
       const spanName = spanNameForPrompt('getPrompt');
 
       return wrapWithMCPSpan({
@@ -437,7 +530,7 @@ function patchGetPrompt(tracer: Tracer, version: string): any {
 function patchListPrompts(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
+      const ctx = new MCPInstrumentationContext(this, args, { method: 'prompts/list' });
       return wrapWithMCPSpan({
         tracer, spanName: 'mcp prompts/list', spanKind: SpanKind.CLIENT, operationName: 'prompts_list',
         ctx, version,
@@ -451,7 +544,10 @@ function patchReadResource(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
       const resourceUri = extractStringArg(args) || getStringField(args[0], 'uri') || 'unknown';
-      const ctx = new MCPInstrumentationContext(this, args, { uri: resourceUri });
+      const ctx = new MCPInstrumentationContext(this, args, {
+        uri: resourceUri,
+        method: 'resources/read',
+      });
       const spanName = spanNameForResource('readResource');
 
       return wrapWithMCPSpan({
@@ -476,7 +572,7 @@ function patchReadResource(tracer: Tracer, version: string): any {
 function patchListResources(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
+      const ctx = new MCPInstrumentationContext(this, args, { method: 'resources/list' });
       return wrapWithMCPSpan({
         tracer, spanName: 'mcp resources/list', spanKind: SpanKind.CLIENT, operationName: 'resources_list',
         ctx, version,
@@ -487,140 +583,126 @@ function patchListResources(tracer: Tracer, version: string): any {
 }
 
 // ---------------------------------------------------------------------------
-// ClientSession method patchers (lower-level session operations)
+// Client / server lifecycle patchers (connect runs MCP initialize handshake)
 // ---------------------------------------------------------------------------
 
-function patchClientSessionSendRequest(tracer: Tracer, version: string): any {
+function patchClientConnect(tracer: Tracer, version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
+      const transportType = transportTypeFromTransport(args[0]);
+      const ctx = new MCPInstrumentationContext(this, args, {
+        transportType,
+        method: 'initialize',
+      });
       return wrapWithMCPSpan({
-        tracer, spanName: 'mcp transport/request', spanKind: SpanKind.CLIENT, operationName: 'transport_request',
-        ctx, version,
+        tracer,
+        spanName: 'mcp initialize',
+        spanKind: SpanKind.CLIENT,
+        operationName: 'initialize',
+        ctx,
+        version,
         fn: () => originalMethod.apply(this, args),
       });
     };
   };
 }
 
-function patchClientSessionInitialize(tracer: Tracer, version: string): any {
+/** Pass-through close — no span (matches Traceloop session lifecycle). */
+function patchClientClose(_tracer: Tracer, _version: string): any {
   return (originalMethod: (...args: any[]) => any) => {
     return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
+      return originalMethod.apply(this, args);
+    };
+  };
+}
+
+function patchServerConnect(tracer: Tracer, version: string): any {
+  return (originalMethod: (...args: any[]) => any) => {
+    return async function (this: any, ...args: any[]) {
+      // Avoid a duplicate span when McpServer.connect delegates to Server.connect.
+      if (context.active().getValue(MCP_SERVER_CONNECT_ACTIVE)) {
+        return originalMethod.apply(this, args);
+      }
+      const transportType = transportTypeFromTransport(args[0]);
+      const ctx = new MCPInstrumentationContext(this, args, { transportType });
       return wrapWithMCPSpan({
-        tracer, spanName: 'mcp initialize', spanKind: SpanKind.CLIENT, operationName: 'initialize',
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
+        tracer,
+        spanName: 'mcp server/run',
+        spanKind: SpanKind.SERVER,
+        operationName: 'server_run',
+        ctx,
+        version,
+        fn: () =>
+          context.with(
+            context.active().setValue(MCP_SERVER_CONNECT_ACTIVE, true),
+            () => originalMethod.apply(this, args),
+          ),
       });
     };
   };
 }
 
-// ---------------------------------------------------------------------------
-// Server method patchers
-// ---------------------------------------------------------------------------
-
-function patchServerRun(tracer: Tracer, version: string): any {
-  return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
-      return wrapWithMCPSpan({
-        tracer, spanName: 'mcp server/run', spanKind: SpanKind.SERVER, operationName: 'server_run',
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
-      });
-    };
-  };
-}
-
-function patchServerCallTool(tracer: Tracer, version: string): any {
-  return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const toolName = extractStringArg(args) || getStringField(args[0], 'name') || 'unknown';
-      const ctx = new MCPInstrumentationContext(this, args, { name: toolName });
-      return wrapWithMCPSpan({
-        tracer, spanName: spanNameForToolCall('callTool', toolName), spanKind: SpanKind.SERVER, operationName: 'tools_call',
-        ctx, version, toolName,
-        fn: () => originalMethod.apply(this, args),
-      });
-    };
-  };
-}
-
-function patchServerListTools(tracer: Tracer, version: string): any {
-  return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
-      return wrapWithMCPSpan({
-        tracer, spanName: 'mcp tools/list', spanKind: SpanKind.SERVER, operationName: 'tools_list',
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
-      });
-    };
-  };
-}
-
-function patchServerReadResource(tracer: Tracer, version: string): any {
-  return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const resourceUri = extractStringArg(args) || getStringField(args[0], 'uri') || 'unknown';
-      const ctx = new MCPInstrumentationContext(this, args, { uri: resourceUri });
-      return wrapWithMCPSpan({
-        tracer, spanName: 'mcp resources/read', spanKind: SpanKind.SERVER, operationName: 'resources_read',
-        ctx, version, resourceUri,
-        fn: () => originalMethod.apply(this, args),
-      });
-    };
-  };
-}
-
-function patchServerListResources(tracer: Tracer, version: string): any {
-  return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
-      return wrapWithMCPSpan({
-        tracer, spanName: 'mcp resources/list', spanKind: SpanKind.SERVER, operationName: 'resources_list',
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
-      });
-    };
-  };
+function patchMcpServerConnect(tracer: Tracer, version: string): any {
+  return patchServerConnect(tracer, version);
 }
 
 // ---------------------------------------------------------------------------
-// Transport method patchers
+// Transport context propagation — links client and server traces across the
+// MCP boundary (mirrors openinference / Python: inject on send, extract on
+// receive via the JSON-RPC request `params._meta` field).
 // ---------------------------------------------------------------------------
 
-function patchTransport(endpoint: string, tracer: Tracer, version: string): any {
+/** A JSON-RPC request carries both a `method` and an `id` (notifications omit `id`). */
+function isJSONRPCRequest(message: unknown): message is {
+  method: string;
+  id: unknown;
+  params?: { _meta?: Record<string, unknown> } & Record<string, unknown>;
+} {
+  return (
+    !!message &&
+    typeof message === 'object' &&
+    typeof (message as { method?: unknown }).method === 'string' &&
+    'id' in (message as Record<string, unknown>)
+  );
+}
+
+/** Wrap Transport.send to inject the active trace context into outgoing requests. */
+function patchTransportSend(): any {
   return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
-      const spanName = spanNameForTransport(endpoint);
-      const isClient = endpoint.includes('client');
-      const kind = isClient ? SpanKind.CLIENT : SpanKind.SERVER;
-      return wrapWithMCPSpan({
-        tracer, spanName, spanKind: kind, operationName: endpoint,
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
-      });
+    return function (this: any, ...args: any[]) {
+      const message = args[0];
+      if (isJSONRPCRequest(message)) {
+        if (!message.params) message.params = {};
+        if (!message.params._meta) message.params._meta = {};
+        propagation.inject(context.active(), message.params._meta);
+      }
+      return originalMethod.apply(this, args);
     };
   };
 }
 
-// ---------------------------------------------------------------------------
-// ServerSession method patchers
-// ---------------------------------------------------------------------------
-
-function patchServerSessionOperation(endpoint: string, tracer: Tracer, version: string): any {
+/**
+ * Wrap Transport.start to intercept `onmessage`, extracting trace context from
+ * incoming requests so server-side work continues the client's trace.
+ */
+function patchTransportStart(): any {
   return (originalMethod: (...args: any[]) => any) => {
-    return async function (this: any, ...args: any[]) {
-      const ctx = new MCPInstrumentationContext(this, args, {});
-      const spanName = `mcp server/${endpoint}`;
-      return wrapWithMCPSpan({
-        tracer, spanName, spanKind: SpanKind.SERVER, operationName: endpoint,
-        ctx, version,
-        fn: () => originalMethod.apply(this, args),
-      });
+    return function (this: any, ...args: any[]) {
+      const onmessage = this.onmessage;
+      if (typeof onmessage === 'function') {
+        this.onmessage = function (this: any, ...msgArgs: any[]) {
+          const message = msgArgs[0];
+          if (isJSONRPCRequest(message)) {
+            const extracted = propagation.extract(
+              context.active(),
+              message.params?._meta ?? {},
+            );
+            return context.with(extracted, () => onmessage.apply(this, msgArgs));
+          }
+          return onmessage.apply(this, msgArgs);
+        };
+      }
+      return originalMethod.apply(this, args);
     };
   };
 }
@@ -636,19 +718,17 @@ export {
   captureResponsePayload,
   recordMCPMetrics,
   wrapWithMCPSpan,
+  transportTypeFromTransport,
   patchCallTool,
   patchListTools,
   patchGetPrompt,
   patchListPrompts,
   patchReadResource,
   patchListResources,
-  patchClientSessionSendRequest,
-  patchClientSessionInitialize,
-  patchServerRun,
-  patchServerCallTool,
-  patchServerListTools,
-  patchServerReadResource,
-  patchServerListResources,
-  patchTransport,
-  patchServerSessionOperation,
+  patchClientConnect,
+  patchClientClose,
+  patchServerConnect,
+  patchMcpServerConnect,
+  patchTransportSend,
+  patchTransportStart,
 };
