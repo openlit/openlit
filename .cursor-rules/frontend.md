@@ -16,7 +16,14 @@ Use these rules for OpenLIT client UI work in `src/client/src`.
 
 - Do not hard-code user-facing strings.
 - Add strings to `src/client/src/constants/messages/en.ts`.
+- Do not add enterprise-only strings here; those belong in `src/client/src/ee/constants/messages/en.ts` in `openlit-enterprise`.
 - Use existing message keys before adding new ones.
+
+## Enterprise Boundary
+
+- Do not add enterprise implementation to CE.
+- CE may include OSS-safe no-op extension fallbacks used by shared code.
+- Enterprise-only UI, providers, stores, selectors, types, and feature pages belong under `src/client/src/ee/` in `openlit-enterprise`.
 
 ## Project Hierarchy UI
 
@@ -28,6 +35,6 @@ Use these rules for OpenLIT client UI work in `src/client/src`.
 ## Quality Checklist
 
 - [ ] Light and dark mode are both checked.
-- [ ] Text uses `messages/en.ts`.
+- [ ] Text uses CE `messages/en.ts`, with no enterprise-only copy added to CE.
 - [ ] Project-scoped UI refreshes after organisation or project changes.
 - [ ] Loading, empty, disabled, and error states are covered.

@@ -204,8 +204,16 @@ describe('upsertSecret', () => {
       const [insertParams, insertMode] = (dataCollector as jest.Mock).mock.calls[1];
       expect(insertMode).toBe('insert');
       expect(insertParams.table).toBe('openlit_vault');
-      expect(insertParams.values[0]).toMatchObject({ key: 'MY_SECRET', value: 'enc:v1:abc123' });
-      expect(result).toEqual({ data: {}, message: 'Secret saved!' });
+      expect(insertParams.values[0]).toMatchObject({
+        id: expect.any(String),
+        key: 'MY_SECRET',
+        value: 'enc:v1:abc123',
+      });
+      expect(result).toEqual({
+        data: { id: insertParams.values[0].id },
+        id: insertParams.values[0].id,
+        message: 'Secret saved!',
+      });
     });
 
     it('throws UNAUTHORIZED_USER when no user', async () => {

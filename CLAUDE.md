@@ -4,8 +4,10 @@
 
 - This repository is the open-source CE/OSS codebase.
 - Do not add enterprise implementation files here.
-- CE may contain shared contracts, feature IDs, disabled feature placeholders, and upgrade-required responses.
+- CE may contain shared contracts, feature IDs, empty feature lists, disabled feature placeholders, upgrade-required responses, and OSS-safe no-op extension fallbacks.
 - Enterprise-only implementation belongs in the private `openlit-enterprise` repository under `src/client/src/ee/`.
+- If shared code needs an enterprise extension point, add a stable shared import with a CE no-op fallback here, then let `openlit-enterprise` override it from `src/client/src/ee/**`.
+- Do not add enterprise-only libraries, stores, selectors, middleware behavior, feature rules, billing logic, license logic, audit implementation, or UI here.
 
 ## Project Hierarchy
 
@@ -26,7 +28,7 @@ Organisation
 ## UI Rules
 
 - Follow the existing settings-page classes for light and dark mode.
-- Do not hard-code user-facing strings in React, route handlers, or library errors. Add them to `src/client/src/constants/messages/en.ts`.
+- Do not hard-code user-facing strings in React, route handlers, or library errors. Add CE strings to `src/client/src/constants/messages/en.ts`; enterprise-only strings belong in `src/client/src/ee/constants/messages/en.ts` in the private repo.
 - Use compact controls in settings and telemetry-style data pages.
 - Keep project and organisation switchers in the header; breadcrumbs belong below the header.
 
