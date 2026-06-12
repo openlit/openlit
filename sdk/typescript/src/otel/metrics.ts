@@ -7,7 +7,7 @@ import { metrics } from '@opentelemetry/api';
 import SemanticConvention from '../semantic-convention';
 import { SetupMetricsOptions } from '../types';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { parseExporters } from './utils';
+import { parseExporters, getRegisteredMeterProvider } from './utils';
 
 const DB_CLIENT_OPERATION_DURATION_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10];
 
@@ -209,15 +209,13 @@ export default class Metrics {
 
     try {
       if (!METER_SET) {
-        const existingProvider = metrics.getMeterProvider();
-        const isSDKProvider =
-          existingProvider &&
-          typeof (existingProvider as any).getMeter === 'function' &&
-          existingProvider.constructor.name !== 'NoopMeterProvider';
+        const existingProvider = getRegisteredMeterProvider();
 
-        if (isSDKProvider) {
-          this.meterProvider = existingProvider as unknown as MeterProvider;
+        if (existingProvider) {
+          // Reuse the host app's SDK MeterProvider — do not register a second one.
+          this.meterProvider = existingProvider;
         } else {
+          // No SDK provider configured yet — create one.
           const readers = Metrics.buildMetricReaders(options);
           this.meterProvider = new MeterProvider({
             resource: options.resource,

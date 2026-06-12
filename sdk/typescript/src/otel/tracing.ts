@@ -1,4 +1,5 @@
 import { trace } from '@opentelemetry/api';
+import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
 import { SetupTracerOptions } from '../types';
 import {
   NodeTracerProvider,
@@ -11,41 +12,41 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 
 import Instrumentations from '../instrumentation';
 import OpenlitConfig from '../config';
-import { parseExporters } from './utils';
+import { getRegisteredTracerProvider, parseExporters } from './utils';
 
 let TRACER_SET = false;
 
 export default class Tracing {
-  static traceProvider: NodeTracerProvider;
+  static traceProvider: BasicTracerProvider;
   static traceExporter: OTLPTraceExporter | undefined;
 
   static setup(options: SetupTracerOptions) {
+    // If an external tracer is provided, return it immediately (Python parity).
     if (options.tracer) return options.tracer;
 
     try {
       if (!TRACER_SET) {
-        const existingProvider = trace.getTracerProvider();
-        const isSDKProvider =
-          existingProvider &&
-          typeof (existingProvider as any).addSpanProcessor === 'function';
+        const existingProvider = getRegisteredTracerProvider();
 
-        if (isSDKProvider) {
-          // Reuse existing SDK TracerProvider
-          this.traceProvider = existingProvider as unknown as NodeTracerProvider;
+        if (existingProvider) {
+          // Reuse the host app's SDK TracerProvider — do not register a second one.
+          this.traceProvider = existingProvider;
         } else {
+          // No SDK provider configured yet — create one.
           const spanProcessors = Tracing.buildSpanProcessors(options);
 
-          this.traceProvider = new NodeTracerProvider({
+          const provider = new NodeTracerProvider({
             resource: options.resource,
             spanProcessors,
           });
 
-          this.traceProvider.register();
+          provider.register();
+          this.traceProvider = provider;
         }
 
         OpenlitConfig.updateConfig({
           ...options,
-          tracer: options.tracer || Tracing.traceProvider,
+          tracer: (options.tracer || Tracing.traceProvider) as NodeTracerProvider,
         });
 
         Instrumentations.setup(
