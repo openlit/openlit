@@ -1,16 +1,11 @@
 import { useRootStore } from "@/store";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 type GET_DATA = {
 	body?: string;
 	method?: "GET" | "POST" | "PUT" | "PATCH";
 	url: string;
 	data?: Record<string, unknown>;
-};
-
-const OPENLIT_CONTEXT_HEADERS = {
-	organisationId: "x-openlit-organisation-id",
-	projectId: "x-openlit-project-id",
-	databaseConfigId: "x-openlit-database-config-id",
 };
 
 function getActiveDatabaseConfigId() {
