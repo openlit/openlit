@@ -25,7 +25,9 @@ else
     echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET will not be persisted there." >&2
 fi
 
-echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
+if [ -z "${NEXTAUTH_URL}" ]; then
+    echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
+fi
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 echo "PATH=./node_modules/.bin:$PATH" >> /etc/environment
 
