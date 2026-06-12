@@ -17,14 +17,6 @@ function getStringField(obj: unknown, key: string): string | undefined {
   return undefined;
 }
 
-function getNumberField(obj: unknown, key: string): number | undefined {
-  if (obj && typeof obj === 'object' && key in (obj as Record<string, unknown>)) {
-    const v = (obj as Record<string, unknown>)[key];
-    return typeof v === 'number' ? v : undefined;
-  }
-  return undefined;
-}
-
 function safeStringify(val: unknown, maxLen = 4096): string | undefined {
   try {
     const s = JSON.stringify(val, (_k, v) => (typeof v === 'bigint' ? String(v) : v));
@@ -280,7 +272,7 @@ function recordMCPMetrics(params: {
 // Span name helpers — align with Python's get_enhanced_span_name
 // ---------------------------------------------------------------------------
 
-function spanNameForToolCall(method: string, toolName?: string): string {
+function spanNameForToolCall(method: string, _toolName?: string): string {
   if (method === 'listTools' || method === 'list_tools') return 'mcp tools/list';
   return `mcp tools/call`;
 }

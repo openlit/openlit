@@ -27,12 +27,6 @@ import {
 
 export interface MCPInstrumentationConfig extends InstrumentationConfig {}
 
-interface MethodConfig {
-  target: any;
-  methods: string[];
-  patcher: (...args: any[]) => any;
-}
-
 export default class MCPInstrumentation extends InstrumentationBase {
   private _mcpVersion = 'unknown';
 
