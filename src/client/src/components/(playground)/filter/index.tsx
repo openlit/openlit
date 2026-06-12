@@ -34,7 +34,7 @@ const Filter = ({ className = "" }: { className?: string }) => {
 	};
 
 	return (
-		<div className={`flex grow gap-4 ${className}`}>
+		<div className={`flex grow items-center gap-4 ${className}`}>
 			<Tabs value={filter.timeLimit.type} onValueChange={handleChange}>
 				<TabsList className="p-0 h-[30px] border border-stone-200 dark:border-stone-800">
 					{TIME_RANGE_TABS.map(({ label, key }) => (

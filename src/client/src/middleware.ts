@@ -2,6 +2,7 @@ import { chain } from "@/middleware/chain";
 import checkAuth from "@/middleware/check-auth";
 import checkCsrf from "@/middleware/check-csrf";
 import checkDemoAccount from "@/middleware/check-demo-account";
+import { ENTERPRISE_MIDDLEWARE_MATCHERS } from "@/middleware/enterprise-matchers";
 
 export const middleware = chain([
 	checkCsrf,
@@ -19,6 +20,7 @@ export const config = {
 		"/dashboard",
 		"/telemetry",
 		"/telemetry/:path*",
+		...ENTERPRISE_MIDDLEWARE_MATCHERS,
 		"/observability",
 		"/observability/:path*",
 		"/requests",

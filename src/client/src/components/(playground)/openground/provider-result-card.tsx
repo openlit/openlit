@@ -59,7 +59,7 @@ export default function ProviderResultCard({ result, index }: ProviderResultCard
 			{/* Response/Error Content */}
 			<div className="p-4">
 				{result.error ? (
-					<div className="text-red-600 dark:text-red-400 text-sm font-mono whitespace-pre-wrap">
+					<div className="text-red-600 dark:text-red-400 text-sm font-mono whitespace-pre-wrap break-all">
 						{result.error}
 					</div>
 				) : (

@@ -16,6 +16,12 @@ jest.mock('@/lib/session', () => ({
 jest.mock('@/lib/db-config', () => ({
   getDBConfigByUser: jest.fn(),
 }));
+jest.mock('@/lib/organisation', () => ({
+  getCurrentOrganisation: jest.fn(),
+}));
+jest.mock('@/lib/billing/usage-recorder', () => ({
+  recordOrganisationUsageEvent: jest.fn(),
+}));
 jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/utils/error', () => ({
   throwIfError: jest.fn((condition: boolean, msg: string) => {
@@ -33,11 +39,14 @@ jest.mock('@/constants/messages', () => ({
 import { deleteAPIKey, generateAPIKey, getAllAPIKeys, getAPIKeyInfo, hasAnyAPIKeys } from '@/lib/platform/api-keys/index';
 import { getCurrentUser } from '@/lib/session';
 import { getDBConfigByUser } from '@/lib/db-config';
+import { getCurrentOrganisation } from '@/lib/organisation';
+import { recordOrganisationUsageEvent } from '@/lib/billing/usage-recorder';
 import asaw from '@/utils/asaw';
 import prisma from '@/lib/prisma';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
 });
 
 describe('generateAPIKey', () => {
@@ -50,6 +59,23 @@ describe('generateAPIKey', () => {
     expect(prisma.aPIKeys.create).toHaveBeenCalledTimes(1);
     expect(result.apiKey).toMatch(/^openlit-/);
     expect(result.databaseConfigId).toBe('db-1');
+  });
+
+  it('calls the usage recorder when a current organisation exists', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1', email: 'u@x.com' });
+    (getCurrentOrganisation as jest.Mock).mockResolvedValue({ id: 'org1' });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (prisma.aPIKeys.create as jest.Mock).mockResolvedValue({});
+    (recordOrganisationUsageEvent as jest.Mock).mockResolvedValue({});
+
+    await generateAPIKey('my-key');
+
+    expect(recordOrganisationUsageEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organisationId: 'org1',
+        featureId: 'platform.api-keys',
+      })
+    );
   });
 
   it('throws when user is not authenticated', async () => {
