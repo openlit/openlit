@@ -9,7 +9,6 @@ import { ProjectStore } from "./project";
 import { RuleEngineStore } from "./rule-engine";
 import { ChatStore } from "./chat";
 import { AgentInstrumentationStore } from "./agents-instrumentation";
-import { AuditLookupStore } from "@/types/store/audit";
 
 export type RootStore = {
 	user: UserStore;
@@ -23,5 +22,4 @@ export type RootStore = {
 	ruleEngine: RuleEngineStore;
 	chat: ChatStore;
 	agentsInstrumentation: AgentInstrumentationStore;
-	audit: AuditLookupStore;
 };
