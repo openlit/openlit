@@ -233,6 +233,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = 'gcp.gemini';
   static GEN_AI_SYSTEM_GROQ = 'groq';
   static GEN_AI_SYSTEM_AI21 = 'ai21';
+  static GEN_AI_SYSTEM_DIGITALOCEAN = 'digitalocean';
   static GEN_AI_SYSTEM_AZURE_AI_INFERENCE = 'azure.ai.inference';
   static GEN_AI_SYSTEM_LLAMAINDEX = 'llamaindex';
   static GEN_AI_SYSTEM_TOGETHER = 'together';
