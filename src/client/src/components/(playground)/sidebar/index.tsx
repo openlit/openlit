@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
 	Tooltip,
@@ -18,7 +18,11 @@ import { Accordion, AccordionTrigger, AccordionItem, AccordionContent } from "@/
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 import getMessage from "@/constants/messages";
 
-const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
+const getIfSidebarItemClasses = (
+	pathname: string,
+	item: SidebarItemProps,
+	currentUrl = pathname
+) => {
 	const commonClasses = "flex gap-2 group-data-[state=open]:w-auto group-data-[state=open]:justify-start p-2.5 font-normal ";
 	const activeClasses = "text-white bg-primary dark:bg-primary dark:text-white [&]:hover:bg-primary [&]:dark:hover:bg-primary hover:text-white [&>.external-icon-svg]:fill-white [&>.external-icon-svg]:dark:fill-white ";
 	const inactiveClasses = "text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white [&>.external-icon-svg]:fill-stone-500 [&>.external-icon-svg]:dark:fill-stone-300 [&>.external-icon-svg]:hover:fill-white ";
@@ -27,6 +31,10 @@ const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
 		return `${inactiveClasses}${commonClasses}`;
 
 	if(item.link) {
+		if (item.link.includes("?")) {
+			return currentUrl.startsWith(item.link) ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
+		}
+
 		if (["/home", "/dashboard", "/telemetry", "/requests", "/exceptions", "/prompt-hub", "/vault", "/openground", "/settings"].includes(item.link)) {
 			return pathname.startsWith(item.link) ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		}
@@ -109,7 +117,17 @@ const SidebarActionItemComponent = ({ item, className }: { item: SidebarActionIt
 	);
 }
 
-const SidebarItem = ({ item, className, pathname }: { item: SidebarItemProps, className?: string, pathname: string }) => {
+const SidebarItem = ({
+	item,
+	className,
+	pathname,
+	currentUrl,
+}: {
+	item: SidebarItemProps;
+	className?: string;
+	pathname: string;
+	currentUrl: string;
+}) => {
 	if (item.type === "section") {
 		return (
 			<Accordion
@@ -135,7 +153,7 @@ const SidebarItem = ({ item, className, pathname }: { item: SidebarItemProps, cl
 					</AccordionTrigger>
 					<AccordionContent className="flex flex-col pb-0">
 						{item.children?.map((child, index) => (
-							<SidebarActionItemComponent key={`sidebar-${item.title}-${index}`} item={child} className={getIfSidebarItemClasses(pathname, child)} />
+							<SidebarActionItemComponent key={`sidebar-${item.title}-${index}`} item={child} className={getIfSidebarItemClasses(pathname, child, currentUrl)} />
 						))}
 					</AccordionContent>
 				</AccordionItem>
@@ -148,8 +166,11 @@ const SidebarItem = ({ item, className, pathname }: { item: SidebarItemProps, cl
 
 export default function Sidebar() {
 	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const messages = getMessage();
 	const [isExpanded, setIsExpanded] = useState<boolean>(true);
+	const queryString = searchParams.toString();
+	const currentUrl = queryString ? `${pathname}?${queryString}` : pathname;
 
 	const toggleExpansion = () => setIsExpanded(e => !e);
 
@@ -180,9 +201,10 @@ export default function Sidebar() {
 				{SIDEBAR_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
-						className={getIfSidebarItemClasses(pathname, item)}
+						className={getIfSidebarItemClasses(pathname, item, currentUrl)}
 						item={item}
 						pathname={pathname}
+						currentUrl={currentUrl}
 					/>
 				))}
 			</nav>

@@ -6,6 +6,8 @@
 - Do not add enterprise implementation here.
 - CE may contain shared contracts, empty feature lists, disabled feature placeholders, upgrade-required responses, and OSS-safe no-op extension fallbacks.
 - Enterprise implementation belongs in `openlit-enterprise/src/client/src/ee/`.
+- RBAC, audit log, billing, licensing, seats, entitlements, enterprise stores/selectors, enterprise route handlers, and enterprise UI must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`.
+- Common/shared behavior must be implemented here in CE first, then synced into `openlit-enterprise`; enterprise `app/**` route/page files should be thin wrappers only when they need Next.js filesystem routing.
 
 ## Extension Points
 

@@ -22,8 +22,10 @@ Use these rules for OpenLIT client UI work in `src/client/src`.
 ## Enterprise Boundary
 
 - Do not add enterprise implementation to CE.
+- Common/shared behavior belongs in CE first, then should be synced into `openlit-enterprise`.
 - CE may include OSS-safe no-op extension fallbacks used by shared code.
 - Enterprise-only UI, providers, stores, selectors, types, and feature pages belong under `src/client/src/ee/` in `openlit-enterprise`.
+- RBAC UI must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`; enterprise `app/**` pages should be thin wrappers only.
 
 ## Project Hierarchy UI
 

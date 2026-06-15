@@ -2,6 +2,7 @@ export const DATABASE_CONFIG_NOT_FOUND = "No database config present!";
 export const UNAUTHORIZED_USER = "Unauthorized user!";
 export const FORBIDDEN_ACTION = "You do not have permission to perform this action.";
 export const NO_ORGANISATION_SELECTED = "No active organisation. Switch organisations to continue.";
+export const ORGANISATION_CONTEXT_REQUIRED = "Organisation context required";
 export const MALFORMED_INPUTS = "Malformed input! Please check the docs";
 export const OPERATION_FAILED = "Operation failed!";
 
@@ -1000,6 +1001,8 @@ export const LOG_OUT = "Log out";
 export const EXPAND = "Expand";
 export const DATABASES = "Databases";
 export const DATABASE_CONFIG = "Database Config";
+export const API_KEYS = "API Keys";
+export const USER_PROFILE = "User Profile";
 export const DB_CONFIG = "DB Config";
 export const ADD_NEW_CONFIG = "Add New Config";
 export const MANAGE_DB_CONFIG = "Manage DB Config";

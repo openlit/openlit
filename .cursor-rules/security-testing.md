@@ -9,6 +9,7 @@ Use these rules for API routes, auth checks, project hierarchy, billing, licensi
 - Server routes must enforce authorization. UI checks are not authorization.
 - Project routes must validate organisation membership.
 - Enterprise routes in the private repo must enforce entitlement or billing-admin checks on the server.
+- RBAC, audit, billing, licensing, seats, and entitlement route implementations must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`; enterprise `app/api/**` files should be thin Next.js wrappers only.
 - Database config selection must be scoped to the current project.
 - CE must not contain enterprise audit, billing, licensing, or entitlement implementation beyond OSS-safe contracts and disabled/no-op fallbacks.
 
@@ -28,6 +29,7 @@ Use these rules for API routes, auth checks, project hierarchy, billing, licensi
 ## Extension Points
 
 - Shared code may import stable extension hooks only when CE provides an OSS-safe no-op fallback.
+- Common/shared behavior belongs in CE first, then should be synced into `openlit-enterprise`.
 - Enterprise implementations for those hooks must live under `src/client/src/ee/**` in `openlit-enterprise`.
 - Keep tests covering the CE fallback behavior when a shared hook is added.
 
