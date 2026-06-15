@@ -8,23 +8,9 @@ import OpenLitHelper, {
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
-// Extract the short model name from a full resource path or plain name.
-// Full paths look like: publishers/google/models/gemini-2.0-flash
-// or: projects/p/locations/l/publishers/google/models/gemini-2.0-flash
-function extractModelName(instance: any): string {
-  const raw =
-    instance?.model ||
-    instance?._modelId ||
-    instance?.generativeModel?.model ||
-    instance?.generativeModel?._modelId ||
-    'gemini-2.0-flash';
-  return String(raw)
-    .replace(/^projects\/[^/]+\/locations\/[^/]+\/publishers\/[^/]+\/models\//, '')
-    .replace(/^publishers\/[^/]+\/models\//, '');
-}
-
 // Derive the regional API endpoint from the model/session instance.
 // @google-cloud/vertexai exposes `location` on GenerativeModel and ChatSession.
+
 function extractServerAddress(instance: any): string {
   const location =
     instance?.location ||
@@ -52,6 +38,21 @@ function spanCreationAttrs(
 class VertexAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_VERTEXAI;
   static serverPort = 443;
+
+  // Exposed as a static method so it can be unit-tested directly.
+  // Strips full Vertex AI resource paths to the short model name.
+  // e.g. projects/p/locations/l/publishers/google/models/gemini-2.0-flash → gemini-2.0-flash
+  static _extractModelName(instance: any): string {
+    const raw =
+      instance?.model ||
+      instance?._modelId ||
+      instance?.generativeModel?.model ||
+      instance?.generativeModel?._modelId ||
+      'gemini-2.0-flash';
+    return String(raw)
+      .replace(/^projects\/[^/]+\/locations\/[^/]+\/publishers\/[^/]+\/models\//, '')
+      .replace(/^publishers\/[^/]+\/models\//, '');
+  }
 
   static _stampAgentVersion(
     span: Span,
@@ -93,220 +94,116 @@ class VertexAIWrapper extends BaseWrapper {
     return out;
   }
 
-  // Patches GenerativeModel.generateContent() — always returns {response}.
+  // Shared span/context/error boilerplate for all four patch methods.
+  // Only genAIEndpoint, isStream, and isChatSession vary between them.
+  static _buildPatcher({
+    genAIEndpoint,
+    isStream,
+    isChatSession,
+    tracer,
+  }: {
+    genAIEndpoint: string;
+    isStream: boolean;
+    isChatSession: boolean;
+    tracer: Tracer;
+  }): (originalMethod: (...args: any[]) => any) => (...args: any[]) => Promise<any> {
+    return (originalMethod: (...args: any[]) => any) => {
+      return async function (this: any, ...args: any[]) {
+        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        const requestModel = VertexAIWrapper._extractModelName(this);
+        const serverAddress = extractServerAddress(this);
+        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
+        const effectiveCtx = getFrameworkParentContext() ?? context.active();
+        const span = tracer.startSpan(
+          spanName,
+          {
+            kind: SpanKind.CLIENT,
+            attributes: spanCreationAttrs(
+              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+              requestModel,
+              serverAddress
+            ),
+          },
+          effectiveCtx
+        );
+        return context
+          .with(trace.setSpan(effectiveCtx, span), async () => {
+            return originalMethod.apply(this, args);
+          })
+          .then((result: any) => {
+            if (isStream) {
+              const wrappedStream = VertexAIWrapper._streamGenerator({
+                args,
+                genAIEndpoint,
+                stream: result.stream,
+                span,
+                requestModel,
+                serverAddress,
+                isChatSession,
+              });
+              return { ...result, stream: wrappedStream };
+            }
+            return VertexAIWrapper._processResponse({
+              args,
+              genAIEndpoint,
+              response: result,
+              span,
+              requestModel,
+              serverAddress,
+              isChatSession,
+            });
+          })
+          .catch((e: any) => {
+            OpenLitHelper.handleException(span, e);
+            BaseWrapper.recordMetrics(span, {
+              genAIEndpoint,
+              model: requestModel,
+              aiSystem: VertexAIWrapper.aiSystem,
+              serverAddress,
+              serverPort: VertexAIWrapper.serverPort,
+              errorType: e?.constructor?.name || '_OTHER',
+            });
+            span.end();
+            throw e;
+          });
+      };
+    };
+  }
+
   static _patchGenerateContent(tracer: Tracer): any {
-    const genAIEndpoint = 'vertexai.generative_models.generate_content';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-        const requestModel = extractModelName(this);
-        const serverAddress = extractServerAddress(this);
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
-        const effectiveCtx = getFrameworkParentContext() ?? context.active();
-        const span = tracer.startSpan(
-          spanName,
-          {
-            kind: SpanKind.CLIENT,
-            attributes: spanCreationAttrs(
-              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-              requestModel,
-              serverAddress
-            ),
-          },
-          effectiveCtx
-        );
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            return VertexAIWrapper._processResponse({
-              args,
-              genAIEndpoint,
-              response,
-              span,
-              requestModel,
-              serverAddress,
-            });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
-              genAIEndpoint,
-              model: requestModel,
-              aiSystem: VertexAIWrapper.aiSystem,
-              serverAddress,
-              serverPort: VertexAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
-            });
-            span.end();
-            throw e;
-          });
-      };
-    };
+    return VertexAIWrapper._buildPatcher({
+      genAIEndpoint: 'vertexai.generative_models.generate_content',
+      isStream: false,
+      isChatSession: false,
+      tracer,
+    });
   }
 
-  // Patches GenerativeModel.generateContentStream() — returns {stream, response}.
   static _patchGenerateContentStream(tracer: Tracer): any {
-    const genAIEndpoint = 'vertexai.generative_models.generate_content_stream';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-        const requestModel = extractModelName(this);
-        const serverAddress = extractServerAddress(this);
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
-        const effectiveCtx = getFrameworkParentContext() ?? context.active();
-        const span = tracer.startSpan(
-          spanName,
-          {
-            kind: SpanKind.CLIENT,
-            attributes: spanCreationAttrs(
-              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-              requestModel,
-              serverAddress
-            ),
-          },
-          effectiveCtx
-        );
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((streamResult: any) => {
-            const wrappedStream = VertexAIWrapper._streamGenerator({
-              args,
-              genAIEndpoint,
-              stream: streamResult.stream,
-              span,
-              requestModel,
-              serverAddress,
-            });
-            return { ...streamResult, stream: wrappedStream };
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
-              genAIEndpoint,
-              model: requestModel,
-              aiSystem: VertexAIWrapper.aiSystem,
-              serverAddress,
-              serverPort: VertexAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
-            });
-            span.end();
-            throw e;
-          });
-      };
-    };
+    return VertexAIWrapper._buildPatcher({
+      genAIEndpoint: 'vertexai.generative_models.generate_content_stream',
+      isStream: true,
+      isChatSession: false,
+      tracer,
+    });
   }
 
-  // Patches ChatSession.sendMessage() — same response shape as generateContent.
   static _patchSendMessage(tracer: Tracer): any {
-    const genAIEndpoint = 'vertexai.generative_models.chat_session.send_message';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-        const requestModel = extractModelName(this);
-        const serverAddress = extractServerAddress(this);
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
-        const effectiveCtx = getFrameworkParentContext() ?? context.active();
-        const span = tracer.startSpan(
-          spanName,
-          {
-            kind: SpanKind.CLIENT,
-            attributes: spanCreationAttrs(
-              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-              requestModel,
-              serverAddress
-            ),
-          },
-          effectiveCtx
-        );
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            return VertexAIWrapper._processResponse({
-              args,
-              genAIEndpoint,
-              response,
-              span,
-              requestModel,
-              serverAddress,
-              isChatSession: true,
-            });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
-              genAIEndpoint,
-              model: requestModel,
-              aiSystem: VertexAIWrapper.aiSystem,
-              serverAddress,
-              serverPort: VertexAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
-            });
-            span.end();
-            throw e;
-          });
-      };
-    };
+    return VertexAIWrapper._buildPatcher({
+      genAIEndpoint: 'vertexai.generative_models.chat_session.send_message',
+      isStream: false,
+      isChatSession: true,
+      tracer,
+    });
   }
 
-  // Patches ChatSession.sendMessageStream() — same stream shape as generateContentStream.
   static _patchSendMessageStream(tracer: Tracer): any {
-    const genAIEndpoint = 'vertexai.generative_models.chat_session.send_message_stream';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
-        const requestModel = extractModelName(this);
-        const serverAddress = extractServerAddress(this);
-        const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
-        const effectiveCtx = getFrameworkParentContext() ?? context.active();
-        const span = tracer.startSpan(
-          spanName,
-          {
-            kind: SpanKind.CLIENT,
-            attributes: spanCreationAttrs(
-              SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-              requestModel,
-              serverAddress
-            ),
-          },
-          effectiveCtx
-        );
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((streamResult: any) => {
-            const wrappedStream = VertexAIWrapper._streamGenerator({
-              args,
-              genAIEndpoint,
-              stream: streamResult.stream,
-              span,
-              requestModel,
-              serverAddress,
-              isChatSession: true,
-            });
-            return { ...streamResult, stream: wrappedStream };
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
-              genAIEndpoint,
-              model: requestModel,
-              aiSystem: VertexAIWrapper.aiSystem,
-              serverAddress,
-              serverPort: VertexAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
-            });
-            span.end();
-            throw e;
-          });
-      };
-    };
+    return VertexAIWrapper._buildPatcher({
+      genAIEndpoint: 'vertexai.generative_models.chat_session.send_message_stream',
+      isStream: true,
+      isChatSession: true,
+      tracer,
+    });
   }
 
   static async _processResponse({
@@ -487,7 +384,9 @@ class VertexAIWrapper extends BaseWrapper {
     const responseData = result.response || result;
 
     // @google-cloud/vertexai uses `generationConfig` (camelCase).
-    // For ChatSession.sendMessage the first arg is the message content itself.
+    // ChatSession.sendMessage only accepts the message content as args[0]
+    // (string | Array<string | Part>) — there is no per-call generationConfig
+    // argument. Per-session config is set once via GenerativeModel.startChat().
     const requestArg = isChatSession ? {} : (args[0] || {});
     const generationConfig = requestArg.generationConfig || {};
     const {

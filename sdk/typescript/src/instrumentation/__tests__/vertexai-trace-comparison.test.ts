@@ -308,29 +308,30 @@ describe('Vertex AI Cross-Language Trace Comparison', () => {
   });
 
   describe('model name extraction', () => {
-    it('strips full resource path from model name', async () => {
-      const mockArgs = [{ contents: 'Hello', generationConfig: {} }];
-      const mockResponse = {
-        response: {
-          candidates: [{ content: { parts: [{ text: 'Hi' }] }, finishReason: 'STOP' }],
-          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
-        },
+    it('strips full projects/locations/publishers/models/ resource path', () => {
+      const instance = {
+        model: 'projects/my-project/locations/us-central1/publishers/google/models/gemini-2.0-flash',
       };
+      expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-2.0-flash');
+    });
 
-      // Simulate a model instance with a full resource path
-      await VertexAIWrapper._processResponse({
-        args: mockArgs,
-        genAIEndpoint: 'vertexai.generative_models.generate_content',
-        response: mockResponse,
-        span: mockSpan,
-        requestModel: 'gemini-2.0-flash',
-        serverAddress: 'us-central1-aiplatform.googleapis.com',
-      });
+    it('strips publishers/google/models/ prefix', () => {
+      const instance = { model: 'publishers/google/models/gemini-pro' };
+      expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-pro');
+    });
 
-      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
-        SemanticConvention.GEN_AI_REQUEST_MODEL,
-        'gemini-2.0-flash'
-      );
+    it('leaves a plain model name unchanged', () => {
+      const instance = { model: 'gemini-2.0-flash' };
+      expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-2.0-flash');
+    });
+
+    it('falls back to gemini-2.0-flash when instance has no model field', () => {
+      expect(VertexAIWrapper._extractModelName({})).toBe('gemini-2.0-flash');
+    });
+
+    it('reads model from generativeModel property (ChatSession shape)', () => {
+      const instance = { generativeModel: { model: 'gemini-1.5-pro' } };
+      expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-1.5-pro');
     });
   });
 
