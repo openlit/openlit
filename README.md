@@ -17,6 +17,7 @@
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
 [![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
+[![Sagerbuddy Repo Guide](https://img.shields.io/badge/Sagerbuddy-Repo%20Guide-00B8A9?style=flat&logo=readthedocs&logoColor=white)](https://www.aiflowlearn.net/en/codex/openlit)
 </div>
 
 ---
