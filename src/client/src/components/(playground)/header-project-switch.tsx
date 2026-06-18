@@ -74,7 +74,7 @@ export default function HeaderProjectSwitch() {
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onSelect={() => {
-						router.push("/settings/organisation?tab=projects");
+						router.push("/organisation");
 					}}
 				>
 					{messages.MANAGE_PROJECTS}

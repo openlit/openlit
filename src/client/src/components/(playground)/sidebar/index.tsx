@@ -35,7 +35,7 @@ const getIfSidebarItemClasses = (
 			return currentUrl.startsWith(item.link) ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		}
 
-		if (["/home", "/dashboard", "/telemetry", "/requests", "/exceptions", "/prompt-hub", "/vault", "/openground", "/settings"].includes(item.link)) {
+		if (["/home", "/dashboard", "/telemetry", "/requests", "/exceptions", "/prompt-hub", "/vault", "/openground", "/organisation", "/settings"].includes(item.link)) {
 			return pathname.startsWith(item.link) ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		}
 
@@ -69,6 +69,8 @@ const getIfSidebarItemClasses = (
 			return pathname.startsWith("/vault") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/openground":
 			return pathname.startsWith("/openground") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
+		case "/organisation":
+			return pathname.startsWith("/organisation") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		case "/settings":
 			return pathname.startsWith("/settings") ? `${activeClasses}${commonClasses}` : `${inactiveClasses}${commonClasses}`;
 		default:

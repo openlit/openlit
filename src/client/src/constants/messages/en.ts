@@ -1006,6 +1006,43 @@ export const USER_PROFILE = "User Profile";
 export const DB_CONFIG = "DB Config";
 export const ADD_NEW_CONFIG = "Add New Config";
 export const MANAGE_DB_CONFIG = "Manage DB Config";
+export const MODIFYING_DB_CONFIG = "Modifying database config...";
+export const DB_CONFIG_UPDATED = "Database config updated";
+export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_SET_ACTIVE = (name: string) =>
+	`Database config: ${name} is being set active`;
+export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";
+export const DB_CONFIG_FIELD_ENVIRONMENT = "Environment";
+export const DB_CONFIG_FIELD_USERNAME = "Username";
+export const DB_CONFIG_FIELD_PASSWORD = "Password";
+export const DB_CONFIG_FIELD_HOST = "Host";
+export const DB_CONFIG_FIELD_PORT = "Port";
+export const DB_CONFIG_FIELD_DATABASE = "Database";
+export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
+export const UPDATE_DB_CONFIG = "Update Database config";
+export const ADD_DB_CONFIG = "Add Database config";
+export const DB_CONFIG_EDIT_PERMISSION_REQUIRED =
+	"You don't have enough permissions to edit this database config";
+export const UPDATE = "Update";
+export const DB_CONFIG_EMPTY_TITLE = "You have not created any database config";
+export const DB_CONFIG_NOT_SELECTED_TITLE =
+	"You have not selected any database config";
+export const DB_CONFIG_EMPTY_DESCRIPTION =
+	"You can have multiple database configs to manage different environments.";
+export const DB_CONFIG_NOT_SELECTED_DESCRIPTION =
+	"Select a database config to update its details.";
+export const ADD_DATABASE_CONFIG = "Add database config";
+export const MARK_DB_CONFIG_ACTIVE = (name: string) =>
+	`Mark ${name} as the active database config`;
+export const SHARE_DATABASE_CONFIG = "Share Database config";
+export const SHARE_DATABASE_CONFIG_DESCRIPTION =
+	"You can share the selected database config with multiple users and permissions.";
+export const ADD_EMAIL_PLACEHOLDER = "Add an email...";
+export const ENTER = "Enter";
+export const SHARE = "Share";
+export const EMAIL_INVALID = "Email invalid";
+export const DB_CONFIG_SHARED = "Database config shared";
+export const DB_CONFIG_SHARE_FAILED = "Database config share failed";
 export const PENDING_INVITATION = "Pending Invitation";
 
 // Organisation
@@ -1032,6 +1069,16 @@ export const CURRENT_DB_CONFIG_SET_SUCCESS =
 	"Current DB config set successfully!";
 export const PROJECT_DB_CONFIG_DESCRIPTION =
 	"Projects group database configs inside an organisation. Select a project before managing its database config.";
+export const BACK_TO_ORGANISATION = "Back to Organisation";
+export const PROJECT_DETAILS = "Project details";
+export const PROJECT_DETAILS_DESCRIPTION =
+	"Review project identity, current status, and database configuration.";
+export const PROJECT_DATABASE_CONFIGS = "Database configurations";
+export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =
+	"Create, select, and update database configs scoped to this project.";
+export const PROJECT_MEMBER_ACCESS = "Project member access";
+export const PROJECT_MEMBER_ACCESS_DESCRIPTION =
+	"Control which organisation members can access this project.";
 export const USE_PROJECT = "Use project";
 export const ORGANISATION_NAME = "Organisation Name";
 export const ORGANISATION_NAME_PLACEHOLDER = "My Company";
@@ -1039,8 +1086,8 @@ export const CREATE_ORGANISATION = "Create Organisation";
 export const NEW_ORGANISATION = "New Organisation";
 export const MANAGE_ORGANISATIONS = "Manage Organisations";
 export const SWITCH_ORGANISATION = "Switch Organisation";
-export const ORGANISATION_SETTINGS = "Organisation Settings";
-export const ORGANISATION_SETTINGS_DESCRIPTION = "Manage your organisations and team members";
+export const ORGANISATION_SETTINGS = "Organisation";
+export const ORGANISATION_SETTINGS_DESCRIPTION = "Manage organisation details, projects, database configs, and members";
 export const CURRENT_ORGANISATION = "Current Organisation";
 export const UPDATE_ORGANISATION_DETAILS = "Update your organisation details";
 export const YOUR_ORGANISATIONS = "Your Organisations";
@@ -1105,6 +1152,19 @@ export const ORGANISATION_PROJECT_CREATED = "Project created";
 export const ORGANISATION_PROJECT_CREATE_FAILED =
 	"Unable to create project";
 export const NO_ORGANISATION_PROJECTS = "No projects yet. Create one above.";
+export const HOME_SETUP_TITLE = "Set up your workspace";
+export const HOME_SETUP_DESCRIPTION =
+	"Create a project, connect a database config, then OpenLIT will show dashboards for that project.";
+export const HOME_SETUP_ORGANISATION_STEP = "Organisation selected";
+export const HOME_SETUP_PROJECT_STEP = "Create a project";
+export const HOME_SETUP_PROJECT_DESCRIPTION =
+	"Projects group telemetry, dashboards, members, and database configs.";
+export const HOME_SETUP_DB_CONFIG_STEP = "Add database config";
+export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
+	"Connect the ClickHouse database config that stores this project's data.";
+export const HOME_SETUP_READY_STEP = "Devtool unlocked";
+export const HOME_SETUP_READY_DESCRIPTION =
+	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
@@ -1264,6 +1324,7 @@ export const CONTEXT_NAME_REQUIRED = "Context name is required!";
 export const CONTEXT_CONTENT_REQUIRED = "Context content is required!";
 
 // Onboarding
+export const ONBOARDING = "Onboarding";
 export const ONBOARDING_WELCOME = "Welcome to OpenLIT";
 export const ONBOARDING_SUBTITLE = "Let's get you set up with an organisation";
 export const ONBOARDING_CREATE_DESCRIPTION = "Create a new organisation to get started";

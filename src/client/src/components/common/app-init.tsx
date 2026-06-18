@@ -8,12 +8,17 @@ import {
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
 import { getIsUserFetched } from "@/selectors/user";
-import { getOrganisationList } from "@/selectors/organisation";
+import {
+	getCurrentOrganisation,
+	getOrganisationList,
+} from "@/selectors/organisation";
 import { useRootStore } from "@/store";
+import { onOrganisationChanged } from "@/features/organisation";
 
 export default function AppInit() {
 	const isFetched = useRootStore(getIsUserFetched);
 	const organisationList = useRootStore(getOrganisationList);
+	const currentOrg = useRootStore(getCurrentOrganisation);
 	const isOrgLoading = useRootStore(
 		(state) => state.organisation.isLoading
 	);
@@ -26,6 +31,12 @@ export default function AppInit() {
 			fetchPendingInvitations();
 		}
 	}, [isFetched]);
+
+	useEffect(() => {
+		if (currentOrg?.id) {
+			onOrganisationChanged(currentOrg.id);
+		}
+	}, [currentOrg?.id]);
 
 	// Redirect to onboarding if user has no organisations
 	useEffect(() => {

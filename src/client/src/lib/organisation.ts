@@ -115,6 +115,82 @@ async function setMembershipCurrentProjectId(
 	`;
 }
 
+async function assignUserToAllOrganisationProjects(
+	organisationId: string,
+	userId: string
+) {
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		select: { id: true },
+	});
+	if (!membership) return;
+
+	const projects = await prisma.project.findMany({
+		where: { organisationId },
+		select: { id: true },
+		orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+	});
+
+	for (const project of projects) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId: project.id,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId: project.id,
+				organisationUserId: membership.id,
+				userId,
+			},
+			update: {},
+		});
+	}
+
+	if (projects[0]?.id) {
+		const currentProjectId = await getMembershipCurrentProjectId(
+			organisationId,
+			userId
+		);
+		if (!currentProjectId) {
+			await setMembershipCurrentProjectId(organisationId, userId, projects[0].id);
+		}
+	}
+}
+
+async function assignAllOrganisationMembersToProject(
+	organisationId: string,
+	projectId: string
+) {
+	const memberships = await prisma.organisationUser.findMany({
+		where: { organisationId },
+		select: { id: true, userId: true },
+	});
+
+	for (const membership of memberships) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId,
+				organisationUserId: membership.id,
+				userId: membership.userId,
+			},
+			update: {},
+		});
+	}
+}
+
 export async function getDefaultProjectForOrganisation(organisationId: string) {
 	const existingProject = await prisma.project.findFirst({
 		where: { organisationId, isDefault: true },
@@ -241,13 +317,15 @@ export async function createOrganisationProject(
 		});
 
 		if (!existing) {
-			return prisma.project.create({
+			const project = await prisma.project.create({
 				data: {
 					organisationId,
 					name: trimmedName,
 					slug,
 				},
 			});
+			await assignAllOrganisationMembersToProject(organisationId, project.id);
+			return project;
 		}
 	}
 
@@ -282,7 +360,7 @@ export async function createOrganisation(name: string) {
 	});
 
 	// Add creator as a member with owner role
-	await prisma.organisationUser.create({
+	const creatorMembership = await prisma.organisationUser.create({
 		data: {
 			organisationId: organisation.id,
 			userId: user!.id,
@@ -291,6 +369,13 @@ export async function createOrganisation(name: string) {
 		},
 	});
 	if (organisation.projects?.[0]?.id) {
+		await prisma.projectUser.create({
+			data: {
+				projectId: organisation.projects[0].id,
+				organisationUserId: creatorMembership.id,
+				userId: user!.id,
+			},
+		});
 		await setMembershipCurrentProjectId(
 			organisation.id,
 			user!.id,
@@ -591,6 +676,8 @@ export async function inviteUserToOrganisation(
 			},
 		});
 
+		await assignUserToAllOrganisationProjects(organisationId, existingUser.id);
+
 		// Share all organisation database configs with the new member
 		await shareOrganisationDatabaseConfigs(organisationId, existingUser.id);
 
@@ -682,6 +769,8 @@ export async function acceptInvitation(invitationId: string) {
 			isCurrent: false,
 		},
 	});
+
+	await assignUserToAllOrganisationProjects(invitation!.organisationId, user!.id);
 
 	// Share all organisation database configs with the new member
 	await shareOrganisationDatabaseConfigs(invitation!.organisationId, user!.id);
@@ -1188,6 +1277,7 @@ async function migrateUserConfigsToOrganisation(
 				sharedUserId,
 				project.id
 			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		} else if (!hasCurrentOrg) {
 			// Existing membership but no current org — fix it
 			await prisma.organisationUser.update({
@@ -1204,6 +1294,9 @@ async function migrateUserConfigsToOrganisation(
 				sharedUserId,
 				project.id
 			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
+		} else {
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		}
 
 		// Share org DB configs with the new member

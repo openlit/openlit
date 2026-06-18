@@ -8,6 +8,7 @@ import { OrganisationWithMeta } from "@/types/store/organisation";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
 import posthog from "posthog-js";
+import { onOrganisationChanged } from "@/features/organisation";
 
 export const fetchOrganisationList = async () => {
 	useRootStore.getState().organisation.setIsLoading(true);
@@ -59,6 +60,8 @@ export const changeActiveOrganisation = async (
 	}
 
 	// Update the current organisation in store
+	useRootStore.getState().project.reset();
+	useRootStore.getState().databaseConfig.reset();
 	const list = useRootStore.getState().organisation.list || [];
 	const newCurrent = list.find((org) => org.id === organisationId);
 	if (newCurrent) {
@@ -73,6 +76,7 @@ export const changeActiveOrganisation = async (
 	await fetchProjectList(organisationId);
 	await fetchDatabaseConfigList(() => {});
 	await pingActiveDatabaseConfig();
+	await onOrganisationChanged(organisationId);
 
 	successCb?.();
 };

@@ -11,7 +11,6 @@ import {
 	Building2,
 	CircleDollarSign,
 	Component,
-	Database,
 	Home,
 	Key,
 	LayoutDashboard,
@@ -125,6 +124,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				link: "/pricing",
 				type: "action",
 			},
+			{
+				icon: <Building2 className={ICON_CLASSES} />,
+				text: "Organisation",
+				link: "/organisation",
+				type: "action",
+			},
 			...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
 		],
 	},
@@ -133,18 +138,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		type: "section",
 		collapsible: true,
 		children: [
-			{
-				icon: <Building2 className={ICON_CLASSES} />,
-				text: "Organisation",
-				link: "/settings/organisation",
-				type: "action",
-			},
-			{
-				icon: <Database className={ICON_CLASSES} />,
-				text: "Database Config",
-				link: "/settings/database-config",
-				type: "action",
-			},
 			{
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",
