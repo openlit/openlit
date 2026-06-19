@@ -281,9 +281,18 @@ def general_tokens(text):
     return math.ceil(len(text) / 2)
 
 
-def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
+def get_chat_model_cost(
+    model,
+    pricing_info,
+    prompt_tokens,
+    completion_tokens,
+    cache_read_tokens=0,
+    cache_creation_tokens=0,
+):
     """
     Retrieve the cost of processing for a given model based on prompt and tokens.
+    Optionally accounts for cache read and cache creation tokens when the model
+    pricing entry includes cacheReadPrice / cacheCreationPrice fields.
     """
 
     try:
@@ -293,8 +302,11 @@ def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
             model_pricing = chat_pricing.get(model.split("/", 1)[1])
         if model_pricing is None:
             return 0
-        cost = ((prompt_tokens / 1000) * model_pricing["promptPrice"]) + (
-            (completion_tokens / 1000) * model_pricing["completionPrice"]
+        cost = (
+            (prompt_tokens / 1000) * model_pricing["promptPrice"]
+            + (completion_tokens / 1000) * model_pricing["completionPrice"]
+            + (cache_read_tokens / 1000) * model_pricing.get("cacheReadPrice", 0)
+            + (cache_creation_tokens / 1000) * model_pricing.get("cacheCreationPrice", 0)
         )
     except Exception:
         cost = 0
