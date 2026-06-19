@@ -314,7 +314,7 @@ export async function createOrganisationProject(
 	const isAdmin = await hasAdminOrOwnerRole(
 		organisationId,
 		user!.id,
-		"organisation:update"
+		"organisation.update"
 	);
 	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
@@ -549,7 +549,7 @@ export async function updateOrganisation(
 	const hasPermission = await hasAdminOrOwnerRole(
 		id,
 		user!.id,
-		"organisation:update"
+		"organisation.update"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
@@ -651,7 +651,7 @@ export async function inviteUserToOrganisation(
 	const hasPermission = await hasAdminOrOwnerRole(
 		organisationId,
 		user!.id,
-		"members:invite"
+		"members.invite"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
@@ -925,7 +925,7 @@ export async function removeUserFromOrganisation(
 		const extensionDecision = await canManageOrganisation({
 			organisationId,
 			userId: user!.id,
-			action: "members:remove",
+			action: "members.remove",
 		});
 		const hasPermission =
 			typeof extensionDecision === "boolean"
@@ -1109,7 +1109,7 @@ export async function updateMemberRole(
 	const extensionDecision = await canManageOrganisation({
 		organisationId,
 		userId: user!.id,
-		action: "members:role_change",
+		action: "members.role_change",
 	});
 	const hasPermission =
 		typeof extensionDecision === "boolean"
@@ -1192,7 +1192,7 @@ export async function cancelInvitation(invitationId: string) {
 	const hasPermission = await hasAdminOrOwnerRole(
 		invitation!.organisationId,
 		user!.id,
-		"members:invite"
+		"members.invite"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_CANCEL_INVITATION);
 

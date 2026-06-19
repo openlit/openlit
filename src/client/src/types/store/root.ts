@@ -9,6 +9,7 @@ import { ProjectStore } from "./project";
 import { RuleEngineStore } from "./rule-engine";
 import { ChatStore } from "./chat";
 import { AgentInstrumentationStore } from "./agents-instrumentation";
+import { EnterpriseRootStore } from "@/types/store/enterprise";
 
 export type RootStore = {
 	user: UserStore;
@@ -22,4 +23,4 @@ export type RootStore = {
 	ruleEngine: RuleEngineStore;
 	chat: ChatStore;
 	agentsInstrumentation: AgentInstrumentationStore;
-};
+} & EnterpriseRootStore;

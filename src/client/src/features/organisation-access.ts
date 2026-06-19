@@ -1,8 +1,8 @@
 export type OrganisationAccessAction =
-	| "organisation:update"
-	| "members:invite"
-	| "members:remove"
-	| "members:role_change";
+	| "organisation.update"
+	| "members.invite"
+	| "members.remove"
+	| "members.role_change";
 
 type OrganisationAccessContext = {
 	organisationId: string;
