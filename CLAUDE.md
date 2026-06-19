@@ -4,11 +4,14 @@
 
 - This repository is the open-source CE/OSS codebase.
 - Do not add enterprise implementation files here.
-- CE may contain shared contracts, feature IDs, empty feature lists, disabled feature placeholders, upgrade-required responses, and OSS-safe no-op extension fallbacks.
+- CE may contain shared contracts, neutral extension hook types, empty feature lists, disabled feature placeholders, upgrade-required responses, and OSS-safe no-op extension fallbacks.
+- CE must not contain enterprise permission names, RBAC policy maps, entitlement feature maps, paid-plan branching, enterprise imports, or private implementation details.
 - Enterprise-only implementation belongs in the private `openlit-enterprise` repository under `src/client/src/ee/`.
 - RBAC, audit log, billing, licensing, seats, entitlements, enterprise stores/selectors, enterprise route handlers, and enterprise UI must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`.
 - Common/shared behavior must be implemented here in CE first, then synced into `openlit-enterprise`; enterprise `app/**` route/page files should be thin wrappers only when they need Next.js filesystem routing.
 - If shared code needs an enterprise extension point, add a stable shared import with a CE no-op fallback here, then let `openlit-enterprise` override it from `src/client/src/ee/**`.
+- Shared imports must use neutral paths such as `@/lib/access/route-access`, `@/components/rbac/feature-access`, `@/components/enterprise-feature-access-provider`, or `@/store/enterprise`; never import `@/ee/**` from CE or shared/common files.
+- CE fallback APIs should expose feature-agnostic keys such as `dashboard.read`, not permission literals such as `dashboard:read`. The enterprise repo maps neutral keys to actual permissions under `src/client/src/ee/**`.
 - Do not add enterprise-only libraries, stores, selectors, middleware behavior, feature rules, billing logic, license logic, audit implementation, or UI here.
 
 ## Project Hierarchy
@@ -46,7 +49,11 @@ cd src/client
 npm test -- --runInBand
 npm run lint
 npx prisma validate --schema prisma/schema.prisma
+rg -n "@/ee/" src
+rg -n '"[a-z_]+:[a-z_]+"' src
 ```
+
+Review the colon-string scan manually. CSS variants, cache keys, and encrypted-value prefixes are fine; RBAC permission literals are not.
 
 ## Security Rules
 

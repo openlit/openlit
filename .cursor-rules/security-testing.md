@@ -12,6 +12,7 @@ Use these rules for API routes, auth checks, project hierarchy, billing, licensi
 - RBAC, audit, billing, licensing, seats, and entitlement route implementations must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`; enterprise `app/api/**` files should be thin Next.js wrappers only.
 - Database config selection must be scoped to the current project.
 - CE must not contain enterprise audit, billing, licensing, or entitlement implementation beyond OSS-safe contracts and disabled/no-op fallbacks.
+- CE must not contain RBAC permission literals such as `dashboard:read`; shared route wrappers should accept neutral access keys such as `dashboard.read`.
 
 ## Input Handling
 
@@ -32,6 +33,7 @@ Use these rules for API routes, auth checks, project hierarchy, billing, licensi
 - Common/shared behavior belongs in CE first, then should be synced into `openlit-enterprise`.
 - Enterprise implementations for those hooks must live under `src/client/src/ee/**` in `openlit-enterprise`.
 - Keep tests covering the CE fallback behavior when a shared hook is added.
+- Use neutral import paths in shared files. Do not import `@/ee/**` outside `src/client/src/ee/**` and EE-only tests.
 
 ## Tests
 
@@ -45,4 +47,8 @@ cd src/client
 npm test -- --runInBand
 npm run lint
 npx prisma validate --schema prisma/schema.prisma
+rg -n "@/ee/" src
+rg -n '"[a-z_]+:[a-z_]+"' src
 ```
+
+Review colon-string matches manually. CSS variants, cache keys, and encrypted-value prefixes are acceptable; RBAC permission literals are not.

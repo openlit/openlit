@@ -176,6 +176,7 @@
             "pages": [
               "latest/openlit/developer-resources/vault",
               "latest/openlit/developer-resources/multiple-db",
+              "latest/openlit/developer-resources/ce-ee-extension-boundary",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
                 "group": "API Reference",

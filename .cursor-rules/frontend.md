@@ -24,6 +24,8 @@ Use these rules for OpenLIT client UI work in `src/client/src`.
 - Do not add enterprise implementation to CE.
 - Common/shared behavior belongs in CE first, then should be synced into `openlit-enterprise`.
 - CE may include OSS-safe no-op extension fallbacks used by shared code.
+- CE fallbacks must stay neutral: no RBAC permission literals, no entitlement feature maps, no paid-plan decisions, and no `@/ee/**` imports.
+- Shared UI should import neutral extension points such as `@/components/rbac/feature-access`, `@/components/rbac/otter-page-access`, and `@/components/enterprise-feature-access-provider`.
 - Enterprise-only UI, providers, stores, selectors, types, and feature pages belong under `src/client/src/ee/` in `openlit-enterprise`.
 - RBAC UI must stay out of CE and live under `openlit-enterprise/src/client/src/ee/**`; enterprise `app/**` pages should be thin wrappers only.
 
@@ -40,3 +42,4 @@ Use these rules for OpenLIT client UI work in `src/client/src`.
 - [ ] Text uses CE `messages/en.ts`, with no enterprise-only copy added to CE.
 - [ ] Project-scoped UI refreshes after organisation or project changes.
 - [ ] Loading, empty, disabled, and error states are covered.
+- [ ] CE has no `@/ee/**` imports and no RBAC permission literals.

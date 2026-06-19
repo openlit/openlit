@@ -1,0 +1,64 @@
+---
+title: 'CE and Enterprise Extension Boundary'
+description: 'Architecture rules for shared OpenLIT code, OSS-safe extension hooks, and enterprise implementations'
+sidebarTitle: 'CE/Enterprise Boundary'
+---
+
+OpenLIT keeps shared product behavior in the CE repository and enterprise implementation in the private enterprise overlay. Shared code can define extension points, but those extension points must be neutral and safe to ship in OSS.
+
+## Boundary model
+
+```text
+CE shared code
+  Neutral extension hook
+  OSS-safe no-op fallback
+
+Enterprise overlay
+  Private implementation under src/client/src/ee
+  Permission, entitlement, billing, audit, and license logic
+```
+
+CE owns common contracts, project hierarchy behavior, disabled placeholders, upgrade-required responses, and no-op extension fallbacks. Enterprise owns RBAC, audit logs, billing, licensing, seats, entitlements, enterprise route handlers, enterprise stores, enterprise selectors, and enterprise UI.
+
+## Shared imports
+
+Shared files must import stable neutral paths, not private enterprise modules.
+
+Use neutral paths such as:
+
+- `@/lib/access/route-access`
+- `@/lib/chat/access`
+- `@/components/rbac/feature-access`
+- `@/components/rbac/otter-page-access`
+- `@/components/enterprise-feature-access-provider`
+- `@/store/enterprise`
+- `@/types/store/enterprise`
+
+Do not import `@/ee/**` from CE or from shared files. Enterprise implementations are selected by enterprise path aliases or thin wrappers and live under `src/client/src/ee/**`.
+
+## Neutral keys
+
+CE extension hooks should use feature-agnostic keys, not enterprise permission literals.
+
+Use neutral keys such as:
+
+```ts
+"dashboard.read"
+"prompt.create"
+"organisation.update"
+```
+
+Do not add RBAC permission literals such as `dashboard:read`, `prompt:create`, or entitlement feature maps to CE. The enterprise repo maps neutral keys to real permissions and entitlements inside `src/client/src/ee/**`.
+
+## Validation
+
+Before handing off shared code changes, scan CE for enterprise leakage:
+
+```bash
+cd src/client
+rg -n "@/ee/" src
+rg -n '"[a-z_]+:[a-z_]+"' src
+npm run lint
+```
+
+Review colon-string matches manually. CSS variants, cache keys, telemetry entity keys, and encrypted-value prefixes can be valid. RBAC permission literals are not valid in CE.
