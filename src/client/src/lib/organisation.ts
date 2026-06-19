@@ -2,6 +2,10 @@ import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
+import {
+	OrganisationAccessAction,
+	canManageOrganisation,
+} from "@/features/organisation-access";
 
 /**
  * Generate a URL-safe slug from a name
@@ -49,8 +53,16 @@ async function generateUniqueOrganisationSlug(
  */
 async function hasAdminOrOwnerRole(
 	organisationId: string,
-	userId: string
+	userId: string,
+	action: OrganisationAccessAction
 ): Promise<boolean> {
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId,
+		action,
+	});
+	if (typeof extensionDecision === "boolean") return extensionDecision;
+
 	const membership = await prisma.organisationUser.findUnique({
 		where: {
 			organisationId_userId: {
@@ -299,7 +311,11 @@ export async function createOrganisationProject(
 		getMessage().PROJECT_NAME_LENGTH_RANGE_ERROR
 	);
 
-	const isAdmin = await hasAdminOrOwnerRole(organisationId, user!.id);
+	const isAdmin = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"organisation:update"
+	);
 	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const baseSlug = slugify(trimmedName) || "project";
@@ -530,7 +546,11 @@ export async function updateOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify user has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(id, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		id,
+		user!.id,
+		"organisation:update"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const updateData: { name?: string } = {};
@@ -628,7 +648,11 @@ export async function inviteUserToOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify inviter has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"members:invite"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
 	// Validate and normalize email
@@ -636,14 +660,14 @@ export async function inviteUserToOrganisation(
 	
 	// Validate email is not empty
 	if (!normalizedEmail) {
-		throw new Error("Email cannot be empty");
+		throw new Error(getMessage().EMAIL_REQUIRED);
 	}
 	
 	// Validate email format - using a safer regex pattern that avoids ReDoS
 	// This pattern is more restrictive but safe from catastrophic backtracking
 	const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 	if (!EMAIL_REGEX.test(normalizedEmail)) {
-		throw new Error("Invalid email format");
+		throw new Error(getMessage().INVALID_EMAIL_FORMAT);
 	}
 
 	// Check if user already exists
@@ -896,9 +920,17 @@ export async function removeUserFromOrganisation(
 			userId
 		);
 
-		// Only admins and owners can remove other members
+		// Only admins and owners can remove other members by default. Enterprise can
+		// override this through the organisation access extension hook.
+		const extensionDecision = await canManageOrganisation({
+			organisationId,
+			userId: user!.id,
+			action: "members:remove",
+		});
 		const hasPermission =
-			currentUserRole === "owner" || currentUserRole === "admin";
+			typeof extensionDecision === "boolean"
+				? extensionDecision
+				: currentUserRole === "owner" || currentUserRole === "admin";
 		throwIfError(
 			!hasPermission,
 			getMessage().ONLY_ADMIN_CAN_REMOVE_MEMBERS
@@ -1072,9 +1104,17 @@ export async function updateMemberRole(
 	);
 	throwIfError(!targetUserRole, getMessage().NOT_ORGANISATION_MEMBER);
 
-	// Only admins and owners can update roles
+	// Only admins and owners can update roles by default. Enterprise can override
+	// this through the organisation access extension hook.
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId: user!.id,
+		action: "members:role_change",
+	});
 	const hasPermission =
-		currentUserRole === "owner" || currentUserRole === "admin";
+		typeof extensionDecision === "boolean"
+			? extensionDecision
+			: currentUserRole === "owner" || currentUserRole === "admin";
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_OR_OWNER_CAN_UPDATE_ROLES);
 
 	// Only owner can change admin roles (demote admin to member)
@@ -1151,7 +1191,8 @@ export async function cancelInvitation(invitationId: string) {
 	// Verify user has admin or owner role
 	const hasPermission = await hasAdminOrOwnerRole(
 		invitation!.organisationId,
-		user!.id
+		user!.id,
+		"members:invite"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_CANCEL_INVITATION);
 
