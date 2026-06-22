@@ -17,6 +17,7 @@ import {
   getCurrentAgentVersion,
 } from './helpers';
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
+import { TracedSpan, startTrace, trace as traceManual } from './manual-trace';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
 import { parseBoolEnv } from './otel/utils';
@@ -165,6 +166,9 @@ class Openlit extends BaseOpenlit {
   static withAgentVersion = runWithAgentVersion;
   static getAgentVersion = getCurrentAgentVersion;
 
+  static startTrace = startTrace;
+  static trace = traceManual;
+
   static init(options?: OpenlitOptions) {
     try {
       diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
@@ -226,6 +230,7 @@ const openlit = Openlit as typeof Openlit & {
 
 export default openlit;
 export { Openlit, usingAttributes, injectAdditionalAttributes };
+export { TracedSpan, startTrace, traceManual as trace };
 export type { OpenlitOptions } from './types';
 
 // Guard re-exports for named imports: import { PII, Pipeline } from 'openlit'
