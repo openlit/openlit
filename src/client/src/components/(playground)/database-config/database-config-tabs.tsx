@@ -73,9 +73,16 @@ export default function DatabaseConfigTabs({
 								<div className="flex flex-col h-full space-y-1 items-end">
 									<Tooltip>
 										<TooltipTrigger asChild>
-											<div onClick={onClickItemChangeActive}>
+											<div
+												onClick={
+													item.canSelect === false
+														? undefined
+														: onClickItemChangeActive
+												}
+											>
 												<Checkbox
 													checked={!!item.isCurrent}
+													disabled={item.canSelect === false}
 													className="data-[state=checked]:bg-primary dark:data-[state=checked]:bg-primary text-white data-[state=checked]:border-primary dark:data-[state=checked]:border-primary data-[state=checked]:ring-offset-primary dark:text-white data-[state=checked]:text-white dark:data-[state=checked]:text-white"
 												/>
 											</div>

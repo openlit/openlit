@@ -27,8 +27,12 @@ import getMessage from "@/constants/messages";
 
 function ModifyDatabaseConfig({
 	dbConfig,
+	canCreate = true,
+	canUpdate = true,
 }: {
 	dbConfig?: DatabaseConfigWithActive;
+	canCreate?: boolean;
+	canUpdate?: boolean;
 }) {
 	const posthog = usePostHog();
 	const { fireRequest, isLoading } = useFetchWrapper();
@@ -94,8 +98,9 @@ function ModifyDatabaseConfig({
 		[dbConfig?.id]
 	);
 
-	const formFieldsDisabled =
-		dbConfig?.id && !dbConfig?.permissions?.canEdit ? true : false;
+	const formFieldsDisabled = dbConfig?.id
+		? !canUpdate || !dbConfig.permissions?.canEdit
+		: !canCreate;
 
 	return (
 		<FormBuilder
@@ -212,7 +217,11 @@ function ModifyDatabaseConfig({
 			subHeadingClass="text-error"
 			isLoading={isLoading}
 			onSubmit={modifyDetails}
-			isAllowedToSubmit={!dbConfig?.id || !!dbConfig?.permissions?.canEdit}
+			isAllowedToSubmit={
+				dbConfig?.id
+					? canUpdate && !!dbConfig.permissions?.canEdit
+					: canCreate
+			}
 			submitButtonText={dbConfig?.id ? messages.UPDATE : messages.SAVE}
 		/>
 	);
@@ -220,9 +229,19 @@ function ModifyDatabaseConfig({
 function DatabaseList({
 	dbConfigs,
 	isLoadingList,
+	canCreate,
+	canSelect,
+	canUpdate,
+	canDelete,
+	canShare,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
 	isLoadingList: boolean;
+	canCreate: boolean;
+	canSelect: boolean;
+	canUpdate: boolean;
+	canDelete: boolean;
+	canShare: boolean;
 }) {
 	const posthog = usePostHog();
 	const messages = getMessage();
@@ -280,15 +299,16 @@ function DatabaseList({
 		name: dbConfig.name,
 		badge: dbConfig.environment,
 		isCurrent: !!dbConfig.isCurrent,
-		canDelete: !!dbConfig.permissions?.canDelete,
-		canEdit: !!dbConfig.permissions?.canEdit,
-		canShare: !!dbConfig.permissions?.canShare,
+		canDelete: canDelete && !!dbConfig.permissions?.canDelete,
+		canEdit: canUpdate && !!dbConfig.permissions?.canEdit,
+		canShare: canShare && !!dbConfig.permissions?.canShare,
+		canSelect,
 	}));
 
 	return (
 		<div className="flex w-full flex-1 relative">
 			<DatabaseConfigTabs
-				addButton
+				addButton={canCreate}
 				items={items}
 				onClickTab={onClickDB}
 				selectedTabId={selectedDBConfigId || ""}
@@ -297,7 +317,11 @@ function DatabaseList({
 			/>
 			<div className="flex flex-1 w-full h-full overflow-hidden">
 				{selectedDBConfigId ? (
-					<ModifyDatabaseConfig dbConfig={dbConfigByKey[selectedDBConfigId]} />
+					<ModifyDatabaseConfig
+						dbConfig={dbConfigByKey[selectedDBConfigId]}
+						canCreate={canCreate}
+						canUpdate={canUpdate}
+					/>
 				) : (
 					<div className="flex flex-1 items-center justify-center">
 						<div className="flex flex-col items-center gap-1 text-center">
@@ -311,7 +335,7 @@ function DatabaseList({
 									? messages.DB_CONFIG_EMPTY_DESCRIPTION
 									: messages.DB_CONFIG_NOT_SELECTED_DESCRIPTION}
 							</p>
-							{dbConfigs.length !== 0 && (
+							{dbConfigs.length !== 0 && canCreate && (
 								<Button
 									className="mt-4 item-element-card"
 									data-item-id={"ADD_NEW_ID"}
@@ -331,7 +355,19 @@ function DatabaseList({
 	);
 }
 
-export default function Database() {
+export default function Database({
+	canCreate = true,
+	canSelect = true,
+	canUpdate = true,
+	canDelete = true,
+	canShare = true,
+}: {
+	canCreate?: boolean;
+	canSelect?: boolean;
+	canUpdate?: boolean;
+	canDelete?: boolean;
+	canShare?: boolean;
+}) {
 	const messages = getMessage();
 	const databaseList = useRootStore(getDatabaseConfigList);
 	const databaseListIsLoading = useRootStore(getDatabaseConfigListIsLoading);
@@ -344,6 +380,11 @@ export default function Database() {
 		<DatabaseList
 			dbConfigs={(databaseList as DatabaseConfigWithActive[]) || []}
 			isLoadingList={databaseListIsLoading}
+			canCreate={canCreate}
+			canSelect={canSelect}
+			canUpdate={canUpdate}
+			canDelete={canDelete}
+			canShare={canShare}
 		/>
 	);
 }

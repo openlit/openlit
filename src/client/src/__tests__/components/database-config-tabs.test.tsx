@@ -17,6 +17,7 @@ describe("DatabaseConfigTabs", () => {
 							name: "Default DB",
 							badge: "production",
 							isCurrent: true,
+							canSelect: false,
 						},
 					]}
 					onClickItemChangeActive={onClickItemChangeActive}
@@ -29,9 +30,25 @@ describe("DatabaseConfigTabs", () => {
 		expect(screen.getByText("Add New Config")).toBeInTheDocument();
 		expect(screen.getByText("Default DB")).toBeInTheDocument();
 		expect(screen.getByText("production")).toBeInTheDocument();
-		expect(screen.getByRole("checkbox")).toBeChecked();
+		expect(screen.getByRole("checkbox")).toBeDisabled();
 
 		fireEvent.click(screen.getByText("Add New Config"));
 		expect(onClickTab).toHaveBeenCalledTimes(1);
+	});
+
+	it("hides the create action when creation is unavailable", () => {
+		render(
+			<TooltipProvider>
+				<DatabaseConfigTabs
+					items={[]}
+					onClickItemChangeActive={jest.fn()}
+					onClickTab={jest.fn()}
+					selectedTabId=""
+					addButton={false}
+				/>
+			</TooltipProvider>
+		);
+
+		expect(screen.queryByText("Add New Config")).not.toBeInTheDocument();
 	});
 });
