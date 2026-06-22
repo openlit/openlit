@@ -13,6 +13,15 @@ from openlit.__helpers import (
 from openlit.semcov import SemanticConvention
 
 
+# LangChain/LangGraph type → OTel GenAI semantic convention role
+_ROLE_MAPPING = {
+    "human": "user",
+    "ai": "assistant",
+    "tool": "tool",
+    "function": "tool",
+    "system": "system",
+}
+
 # === OPERATION MAPPING - Framework Guide Compliant ===
 OPERATION_MAP = {
     # Graph Construction Operations
@@ -147,14 +156,16 @@ def get_message_role(message):
         str: Role string
     """
     if hasattr(message, "role"):
-        return message.role
+        raw = message.role
     elif hasattr(message, "type"):
-        return message.type
+        raw = message.type
     elif hasattr(message, "__class__"):
         # Extract role from class name (e.g., HumanMessage -> human)
         class_name = message.__class__.__name__
-        return class_name.replace("Message", "").lower()
-    return "unknown"
+        raw = class_name.replace("Message", "").lower()
+    else:
+        raw = "unknown"
+    return _ROLE_MAPPING.get(raw, raw)
 
 
 def set_graph_attributes(span, nodes=None, edges=None):
@@ -288,7 +299,7 @@ def extract_llm_info_from_result(span, state, result):
                 if hasattr(last_msg, "content"):
                     content = get_message_content(last_msg)
                     role = get_message_role(last_msg)
-                    if content:
+                    if content and role == "assistant":
                         otel_msg = [
                             {"role": role, "content": truncate_content(content)}
                         ]
