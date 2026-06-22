@@ -630,11 +630,15 @@ function extractLlmInfoFromResult(span: any, _state: any, result: any): void {
         ? lastMsg.content
         : JSON.stringify(lastMsg.content);
       if (content && OpenlitConfig.captureMessageContent) {
-        const role = lastMsg.role || lastMsg._getType?.() || lastMsg.type || 'assistant';
-        span.setAttribute(
-          SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-          JSON.stringify([{ role, parts: [{ type: 'text', content }] }])
-        );
+        const rawRole = lastMsg.role || lastMsg._getType?.() || lastMsg.type || '';
+        const roleMap: Record<string, string> = { human: 'user', ai: 'assistant', tool: 'tool', function: 'tool', system: 'system' };
+        const role = roleMap[rawRole] ?? rawRole || 'assistant';
+        if (role === 'assistant') {
+          span.setAttribute(
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+            JSON.stringify([{ role, parts: [{ type: 'text', content }] }])
+          );
+        }
       }
     }
   } catch { /* don't fail the span */ }
