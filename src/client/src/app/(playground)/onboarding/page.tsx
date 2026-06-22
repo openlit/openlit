@@ -286,8 +286,21 @@ export default function OnboardingPage() {
 		}
 	};
 
-	const handleAcceptInvitation = async (invitationId: string) => {
-	await acceptInvitation(invitationId);
+	const handleAcceptInvitation = async (invitation: {
+		id: string;
+		organisationId: string;
+	}) => {
+		if (isCompleting) return;
+
+		setIsSelectingOrg(invitation.organisationId);
+		try {
+			const accepted = await acceptInvitation(invitation.id);
+			if (accepted) {
+				await setCurrentOrgAndComplete(invitation.organisationId);
+			}
+		} finally {
+			setIsSelectingOrg(null);
+		}
 	};
 
 	const handleDeclineInvitation = async (invitationId: string) => {
@@ -373,7 +386,7 @@ export default function OnboardingPage() {
 							>
 								{hasProject && !hasDbConfig && currentProject?.id ? (
 									<Button asChild size="sm" className="h-9">
-										<Link href={`/organisation/project/${currentProject.id}`}>
+										<Link href={`/organisation/project/${currentProject.id}?tab=database`}>
 											<Database className="mr-1.5 h-3.5 w-3.5" />
 											{isDatabaseConfigLoading
 												? messages.LOADING
@@ -468,10 +481,17 @@ export default function OnboardingPage() {
 										</Button>
 										<Button
 											size="sm"
-											onClick={() => handleAcceptInvitation(invitation.id)}
+											onClick={() => handleAcceptInvitation(invitation)}
+											disabled={isCompleting || isSelectingOrg === invitation.organisationId}
 										>
-											<Check className="h-4 w-4 mr-1" />
-											{messages.JOIN}
+											{isSelectingOrg === invitation.organisationId ? (
+												messages.LOADING
+											) : (
+												<>
+													<Check className="h-4 w-4 mr-1" />
+													{messages.JOIN}
+												</>
+											)}
 										</Button>
 									</div>
 								</div>

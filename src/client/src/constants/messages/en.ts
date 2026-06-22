@@ -1143,6 +1143,7 @@ export const INACTIVE = "Inactive";
 export const STATUS = "Status";
 
 // Organisation Errors
+export const PROJECT_OVERVIEW = "Overview";
 export const NOT_ORGANISATION_MEMBER = "You are not a member of this organisation";
 export const ORGANISATION_NOT_FOUND = "Organisation not found";
 export const ORGANISATION_NOTHING_TO_UPDATE = "Nothing to update";
