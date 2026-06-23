@@ -17,6 +17,7 @@ import {
   getCurrentAgentVersion,
 } from './helpers';
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
+import { trace as traceDecorator, startTrace, startActiveSpan } from './tracing';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
 import { parseBoolEnv } from './otel/utils';
@@ -165,6 +166,21 @@ class Openlit extends BaseOpenlit {
   static withAgentVersion = runWithAgentVersion;
   static getAgentVersion = getCurrentAgentVersion;
 
+  /**
+   * Manual tracing helpers (parity with Python's `openlit.trace` /
+   * `openlit.start_trace`). Use these to group custom business logic,
+   * multi-step chains, and non-instrumented code into a single trace.
+   *
+   * - `Openlit.startTrace(name, fn)` — run `fn` inside a manual span that is
+   *   the active context, so auto-instrumented child spans nest under it.
+   * - `@Openlit.trace()` — method decorator that wraps a method in a manual
+   *   span and records its return value.
+   * - `Openlit.startActiveSpan(name)` — start a span you `end()` yourself.
+   */
+  static trace = traceDecorator;
+  static startTrace = startTrace;
+  static startActiveSpan = startActiveSpan;
+
   static init(options?: OpenlitOptions) {
     try {
       diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
@@ -227,6 +243,10 @@ const openlit = Openlit as typeof Openlit & {
 export default openlit;
 export { Openlit, usingAttributes, injectAdditionalAttributes };
 export type { OpenlitOptions } from './types';
+
+// Manual tracing helpers (parity with Python's openlit.trace / start_trace)
+export { startTrace, startActiveSpan, TracedSpan } from './tracing';
+export { trace as traceDecorator } from './tracing';
 
 // Guard re-exports for named imports: import { PII, Pipeline } from 'openlit'
 export {

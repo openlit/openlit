@@ -157,6 +157,38 @@ def guess_one_liner(one_liner: str):
         trace.set_result(completion.choices[0].message.content)
 ```
 
+### TypeScript
+
+The TypeScript SDK exposes the same capability. Use `Openlit.startTrace(name, fn)` as the equivalent of Python's `start_trace` context manager (JavaScript has no `with` statement, so it takes a callback) and `@Openlit.trace()` as the equivalent of the `@openlit.trace` decorator. Any auto-instrumented call inside the trace is grouped under one trace ID.
+
+```typescript typescript
+import Openlit from 'openlit';
+
+// Context-manager style: the span is the active context, ends automatically.
+const oneLiner = await Openlit.startTrace('Guess One-liner', async (trace) => {
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: 'Give me a movie one-liner' }],
+  });
+  const result = completion.choices[0].message.content;
+  trace.setResult(result);                  // -> gen_ai.output.messages
+  trace.setMetadata({ 'user.id': 'u123' });  // custom attributes
+  return result;
+});
+
+// Decorator style (requires experimentalDecorators in tsconfig.json):
+class Movies {
+  @Openlit.trace()
+  async generateOneLiner() {
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Give me a movie one-liner' }],
+    });
+    return completion.choices[0].message.content;
+  }
+}
+```
+
 ---
 
 <CardGroup cols={3}>

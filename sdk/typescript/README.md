@@ -268,6 +268,60 @@ if (!('err' in result)) {
 }
 ```
 
+### Manual Tracing
+
+In addition to auto-instrumentation, you can manually create traces to group custom business logic, multi-step chains, and non-instrumented code into a single trace. This is the TypeScript parity for Python's `openlit.trace` / `openlit.start_trace`.
+
+Any auto-instrumented LLM/vector-DB span created inside a manual trace is automatically nested under it (they share one trace ID).
+
+**`Openlit.startTrace(name, fn)`** — runs `fn` inside a manual span that is set as the active context. The span ends automatically, including on error.
+
+```typescript
+import Openlit from 'openlit';
+
+Openlit.init();
+
+const oneLiner = await Openlit.startTrace('Guess One-liner', async (trace) => {
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: 'Give me a movie one-liner' }],
+  });
+  const result = completion.choices[0].message.content;
+  trace.setResult(result);                 // -> gen_ai.output.messages
+  trace.setMetadata({ 'user.id': 'u123' }); // custom span attributes
+  return result;
+});
+```
+
+**`@Openlit.trace()`** — a method decorator that wraps a method in a manual span named after the method (or a custom name) and records its return value. Requires `experimentalDecorators` in your `tsconfig.json`.
+
+```typescript
+import Openlit from 'openlit';
+
+class Movies {
+  @Openlit.trace()
+  async generateOneLiner() {
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Give me a movie one-liner' }],
+    });
+    return completion.choices[0].message.content;
+  }
+}
+```
+
+**`Openlit.startActiveSpan(name)`** — start a span you end yourself, for cases where wrapping your code in a callback is not possible. Prefer `startTrace` so child spans nest automatically.
+
+```typescript
+const trace = Openlit.startActiveSpan('my-step');
+try {
+  // ... your code ...
+  trace.setResult('done');
+} finally {
+  trace.end();
+}
+```
+
 ## 🌱 Contributing
 
 Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](../../CONTRIBUTING.md) to get started
