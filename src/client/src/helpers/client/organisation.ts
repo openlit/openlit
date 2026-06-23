@@ -247,7 +247,7 @@ export const inviteToOrganisation = async (
 export const acceptInvitation = async (
 	invitationId: string,
 	successCb?: () => void
-) => {
+): Promise<boolean> => {
 	const messages = getMessage();
 	const [err, data] = await asaw(
 		postData({
@@ -260,7 +260,7 @@ export const acceptInvitation = async (
 		toast.error(err || data?.err || messages.INVITATION_ACCEPT_FAILED, {
 			id: "organisation-invitation",
 		});
-		return;
+		return false;
 	}
 
 	toast.success(messages.INVITATION_ACCEPTED, {
@@ -274,6 +274,7 @@ export const acceptInvitation = async (
 	await fetchOrganisationList();
 	await fetchPendingInvitations();
 	successCb?.();
+	return true;
 };
 
 export const declineInvitation = async (
