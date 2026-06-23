@@ -36,6 +36,16 @@ OPERATION_MAP = {
     "node_execute": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
 }
 
+MESSAGE_ROLE_MAP = {
+    "system": "system",
+    "human": "user",
+    "user": "user",
+    "ai": "assistant",
+    "assistant": "assistant",
+    "tool": "tool",
+    "function": "tool",
+}
+
 
 def set_server_address_and_port(instance, provider_name=None):
     """
@@ -75,6 +85,15 @@ def set_server_address_and_port(instance, provider_name=None):
 def ensure_no_none_values(attributes):
     """Filter out None values from attributes dict."""
     return {k: v for k, v in attributes.items() if v is not None}
+
+
+def normalize_message_role(role):
+    """Map framework-native message roles to OTel GenAI roles."""
+    if role is None:
+        return "unknown"
+
+    normalized_role = str(role).strip().lower()
+    return MESSAGE_ROLE_MAP.get(normalized_role, normalized_role)
 
 
 def extract_messages_from_input(input_data):
@@ -147,13 +166,17 @@ def get_message_role(message):
         str: Role string
     """
     if hasattr(message, "role"):
-        return message.role
+        return normalize_message_role(message.role)
     elif hasattr(message, "type"):
-        return message.type
+        return normalize_message_role(message.type)
     elif hasattr(message, "__class__"):
         # Extract role from class name (e.g., HumanMessage -> human)
         class_name = message.__class__.__name__
-        return class_name.replace("Message", "").lower()
+        for suffix in ("MessageChunk", "Message"):
+            if class_name.endswith(suffix):
+                class_name = class_name[: -len(suffix)]
+                break
+        return normalize_message_role(class_name)
     return "unknown"
 
 
@@ -288,7 +311,7 @@ def extract_llm_info_from_result(span, state, result):
                 if hasattr(last_msg, "content"):
                     content = get_message_content(last_msg)
                     role = get_message_role(last_msg)
-                    if content:
+                    if role == "assistant" and content:
                         otel_msg = [
                             {"role": role, "content": truncate_content(content)}
                         ]
@@ -600,6 +623,8 @@ def _process_invoke_response(span, response, capture_message_content):
                     for msg in messages:
                         content = get_message_content(msg)
                         role = get_message_role(msg)
+                        if role != "assistant":
+                            continue
                         entry = {"role": role}
                         if content:
                             entry["content"] = truncate_content(content)
