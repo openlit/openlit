@@ -9,18 +9,12 @@ from openlit.__helpers import (
     common_framework_span_attributes,
     truncate_content,
     get_server_address_for_provider,
+    LANGCHAIN_ROLE_MAPPING,
 )
 from openlit.semcov import SemanticConvention
 
-
-# LangChain/LangGraph type → OTel GenAI semantic convention role
-_ROLE_MAPPING = {
-    "human": "user",
-    "ai": "assistant",
-    "tool": "tool",
-    "function": "tool",
-    "system": "system",
-}
+_ROLE_MAPPING = LANGCHAIN_ROLE_MAPPING
+_ROLE_ASSISTANT = LANGCHAIN_ROLE_MAPPING["ai"]
 
 # === OPERATION MAPPING - Framework Guide Compliant ===
 OPERATION_MAP = {
@@ -299,7 +293,7 @@ def extract_llm_info_from_result(span, state, result):
                 if hasattr(last_msg, "content"):
                     content = get_message_content(last_msg)
                     role = get_message_role(last_msg)
-                    if content and role == "assistant":
+                    if content and role == _ROLE_ASSISTANT:
                         otel_msg = [
                             {"role": role, "content": truncate_content(content)}
                         ]
