@@ -84,7 +84,7 @@ export function trace<T>(name: string, fn: (span: TracedSpan) => T | Promise<T>)
     throw err;
   }
 
-  if (result instanceof Promise) {
+  if (result && typeof (result as any).then === 'function') {
     return result.then(
       (val) => { rawSpan.setStatus({ code: SpanStatusCode.OK }); rawSpan.end(); return val; },
       (err) => { rawSpan.recordException(err); rawSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) }); rawSpan.end(); throw err; }
