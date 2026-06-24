@@ -36,6 +36,7 @@ def test_get_message_role_normalizes_langchain_roles():
     assert get_message_role(TypedMessage("human", "hello")) == "user"
     assert get_message_role(TypedMessage("ai", "hi")) == "assistant"
     assert get_message_role(TypedMessage("function", "tool payload")) == "tool"
+    assert get_message_role(TypedMessage("moderator", "custom")) == "unknown"
 
 
 def test_get_message_role_normalizes_message_class_names():
@@ -58,6 +59,37 @@ def test_extract_llm_info_from_result_skips_non_assistant_outputs():
     input_messages = json.loads(span.attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES])
     assert [message["role"] for message in input_messages] == ["user", "system"]
     assert SemanticConvention.GEN_AI_OUTPUT_MESSAGES not in span.attributes
+
+
+def test_extract_llm_info_from_result_keeps_only_assistant_outputs():
+    span = SpanStub()
+    state = {
+        "messages": [
+            TypedMessage("human", "hello"),
+            TypedMessage("system", "follow policy"),
+        ]
+    }
+    result = {
+        "messages": [
+            TypedMessage("human", "user says hi"),
+            TypedMessage("system", "stay in scope"),
+            TypedMessage("ai", "assistant response 1"),
+            TypedMessage("assistant", "assistant response 2"),
+        ]
+    }
+
+    extract_llm_info_from_result(span, state, result)
+
+    input_messages = json.loads(span.attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES])
+    assert [message["role"] for message in input_messages] == ["user", "system"]
+
+    output_messages = json.loads(
+        span.attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+    )
+    assert output_messages == [
+        {"role": "assistant", "content": "assistant response 1"},
+        {"role": "assistant", "content": "assistant response 2"},
+    ]
 
 
 def test_process_invoke_response_keeps_only_assistant_outputs():

@@ -93,7 +93,7 @@ def normalize_message_role(role):
         return "unknown"
 
     normalized_role = str(role).strip().lower()
-    return MESSAGE_ROLE_MAP.get(normalized_role, normalized_role)
+    return MESSAGE_ROLE_MAP.get(normalized_role, "unknown")
 
 
 def extract_messages_from_input(input_data):
@@ -178,6 +178,26 @@ def get_message_role(message):
                 break
         return normalize_message_role(class_name)
     return "unknown"
+
+
+def build_assistant_output_messages(messages):
+    """Return OTel output messages for assistant-role entries only."""
+    if not isinstance(messages, list):
+        messages = [messages]
+
+    otel_messages = []
+    for msg in messages:
+        role = get_message_role(msg)
+        if role != "assistant":
+            continue
+
+        entry = {"role": role}
+        content = get_message_content(msg)
+        if content:
+            entry["content"] = truncate_content(content)
+        otel_messages.append(entry)
+
+    return otel_messages
 
 
 def set_graph_attributes(span, nodes=None, edges=None):
@@ -308,17 +328,12 @@ def extract_llm_info_from_result(span, state, result):
                                 SemanticConvention.GEN_AI_RESPONSE_ID, metadata["id"]
                             )
 
-                if hasattr(last_msg, "content"):
-                    content = get_message_content(last_msg)
-                    role = get_message_role(last_msg)
-                    if role == "assistant" and content:
-                        otel_msg = [
-                            {"role": role, "content": truncate_content(content)}
-                        ]
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            json.dumps(otel_msg),
-                        )
+                otel_messages = build_assistant_output_messages(output_messages)
+                if otel_messages:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                        json.dumps(otel_messages),
+                    )
 
                 # Extract usage_metadata (alternative location)
                 if hasattr(last_msg, "usage_metadata"):
@@ -619,16 +634,7 @@ def _process_invoke_response(span, response, capture_message_content):
                 )
 
                 if capture_message_content:
-                    otel_msgs = []
-                    for msg in messages:
-                        content = get_message_content(msg)
-                        role = get_message_role(msg)
-                        if role != "assistant":
-                            continue
-                        entry = {"role": role}
-                        if content:
-                            entry["content"] = truncate_content(content)
-                        otel_msgs.append(entry)
+                    otel_msgs = build_assistant_output_messages(messages)
                     if otel_msgs:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
