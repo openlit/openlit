@@ -1,0 +1,42 @@
+---
+title: 'Projects'
+description: 'Create and manage project boundaries inside an OpenLIT organisation'
+icon: 'folder'
+---
+
+Projects group database configurations and resources inside an organisation. They are useful when one organisation needs multiple isolated environments without creating separate workspaces.
+
+## When to create a project
+
+Create a project for:
+
+- Production, staging, and development environments.
+- Separate teams that share the same organisation.
+- Customer-specific deployments.
+- Workloads that should use different ClickHouse database configurations.
+
+## Create a project
+
+<Steps>
+  <Step title="Open Organisation">
+    Select **Organisation** from the sidebar.
+  </Step>
+  <Step title="Review existing projects">
+    Use the projects list to see the projects already available in the organisation.
+  </Step>
+  <Step title="Create project">
+    Click **Create project**, enter a project name, and submit the form.
+  </Step>
+  <Step title="Select project">
+    Use the project selector in the top navigation to make the project active.
+  </Step>
+</Steps>
+
+## Project details
+
+Project details show the project name, status, and database configurations attached to that project. Open a project from the Organisation page to review or update its configuration.
+
+## Member access
+
+Project access controls which organisation members can use a project. Existing organisation members are assigned to existing projects during migration so current installations continue to work. New members can be invited to the organisation first and then granted access to specific projects as needed.
+

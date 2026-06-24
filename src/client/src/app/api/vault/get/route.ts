@@ -1,5 +1,6 @@
 import { SecretGetFilters } from "@/types/vault";
 import { getSecrets } from "@/lib/platform/vault";
+import { errorResponse } from "@/helpers/server/response";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
@@ -11,9 +12,7 @@ export async function POST(request: Request) {
 
 	const { err, data }: any = await getSecrets(filters);
 	if (err) {
-		return Response.json(err, {
-			status: 400,
-		});
+		return errorResponse(err);
 	}
 
 	return Response.json(data);

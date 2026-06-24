@@ -72,6 +72,27 @@ describe("organisation projects route", () => {
 		expect(prisma.project.findMany).not.toHaveBeenCalled();
 	});
 
+	it("requires authentication before creating projects", async () => {
+		(getCurrentUser as jest.Mock).mockResolvedValue(null);
+
+		const response = await POST(jsonRequest({ name: "Production" }), params);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toBe("Unauthorized user!");
+		expect(prisma.organisationUser.findUnique).not.toHaveBeenCalled();
+		expect(createOrganisationProject).not.toHaveBeenCalled();
+	});
+
+	it("requires organisation membership before creating projects", async () => {
+		(prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue(null);
+
+		const response = await POST(jsonRequest({ name: "Production" }), params);
+
+		expect(response.status).toBe(404);
+		expect(await response.json()).toBe("Organisation not found");
+		expect(createOrganisationProject).not.toHaveBeenCalled();
+	});
+
 	it("marks the selected project in the list", async () => {
 		(prisma.project.findMany as jest.Mock).mockResolvedValue([
 			{ id: "project1", name: "Default", isDefault: true },

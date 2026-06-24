@@ -38,7 +38,7 @@ export default function ClickhouseConnectivityWrapper({ children }: { children: 
 							{pingDetails.error}
 						</div>
 						<Link
-							href="/settings/database-config"
+							href="/organisation"
 							className="inline-flex my-2 border rounded md py-2 px-4 text-center bg-primary cursor-pointer text-white hover:bg-stone-950 outline-none self-start text-sm"
 						>
 							Take me there!
