@@ -1,5 +1,4 @@
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
-import Otter from "@/components/svg/otter";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import { SidebarItemProps } from "@/types/sidebar";
 import {
@@ -18,6 +17,7 @@ import {
 	MonitorPlay,
 	SettingsIcon,
 	SlidersHorizontal,
+	User,
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
@@ -27,12 +27,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
-		type: "action",
-	},
-	{
-		icon: <Otter className={ICON_CLASSES} />,
-		text: "Otter",
-		link: "/chat",
 		type: "action",
 	},
 	{
@@ -138,6 +132,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		type: "section",
 		collapsible: true,
 		children: [
+			{
+				icon: <User className={ICON_CLASSES} />,
+				text: "User Profile",
+				link: "/settings/profile",
+				type: "action",
+			},
 			{
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",

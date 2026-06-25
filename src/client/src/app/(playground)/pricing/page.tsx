@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface PricingConfig {
 	id?: string;
@@ -95,17 +96,8 @@ export default function PricingPage() {
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-			{/* Page header */}
-			<div className="space-y-1">
-				<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-					<CircleDollarSign className="size-5" />
-					{m.PRICING_TITLE}
-				</h1>
-				<p className="text-sm text-stone-500 dark:text-stone-400">
-					{m.PRICING_PAGE_DESCRIPTION}
-				</p>
-			</div>
+		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
+			<FeaturePageHeader eyebrow="Configuration" title={m.PRICING_TITLE} description="Model provider cost and token economics so usage, evaluations, and experiments reflect real operating spend." icon={<CircleDollarSign className="size-4" />} tone="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300" />
 
 			{/* Single info bar (replaces the large left description card) */}
 			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
