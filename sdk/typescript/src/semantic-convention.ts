@@ -87,6 +87,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
+  static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
   static GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX = 'gen_ai.request.fine_tune_model_suffix';
   static GEN_AI_REQUEST_FINETUNE_MODEL_EPOCHS = 'gen_ai.request.fine_tune_n_epochs';
@@ -245,6 +246,9 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_MCP = 'mcp';
+  static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
+  static GEN_AI_SYSTEM_MEM0 = 'mem0';
+  static GEN_AI_SYSTEM_TRANSFORMERS = 'huggingface';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
@@ -440,6 +444,8 @@ export default class SemanticConvention {
   static DB_SYSTEM_QDRANT = 'qdrant';
   static DB_SYSTEM_MILVUS = 'milvus';
   static DB_SYSTEM_ASTRA = 'astra';
+  static DB_SYSTEM_POSTGRESQL = 'postgresql';
+  static DB_SYSTEM_MEM0 = 'mem0';
   static DB_COLLECTION_NAME = 'db.collection.name';
   static DB_OPERATION = 'db.operation';
   static DB_OPERATION_NAME = 'db.operation.name';
@@ -459,6 +465,14 @@ export default class SemanticConvention {
   static DB_OPERATION_SELECT = 'SELECT';
   static DB_OPERATION_REPLACE = 'findAndModify';
   static DB_OPERATION_FIND_AND_DELETE = 'findAndDelete';
+  static DB_OPERATION_CREATE = 'CREATE';
+  static DB_OPERATION_ALTER = 'ALTER';
+  static DB_OPERATION_DROP = 'DROP';
+  static DB_OPERATION_TRUNCATE = 'TRUNCATE';
+  static DB_OPERATION_COMMIT = 'COMMIT';
+  static DB_OPERATION_ROLLBACK = 'ROLLBACK';
+  static DB_OPERATION_COPY = 'COPY';
+  static DB_TABLE_NAME = 'db.sql.table';
   static DB_ID_COUNT = 'db.ids_count';
   static DB_VECTOR_COUNT = 'db.vector.count';
   static DB_METADATA_COUNT = 'db.metadatas_count';
