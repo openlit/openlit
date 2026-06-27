@@ -245,6 +245,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_MCP = 'mcp';
+  static GEN_AI_SYSTEM_MEM0 = 'mem0';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
@@ -440,6 +441,7 @@ export default class SemanticConvention {
   static DB_SYSTEM_QDRANT = 'qdrant';
   static DB_SYSTEM_MILVUS = 'milvus';
   static DB_SYSTEM_ASTRA = 'astra';
+  static DB_SYSTEM_MEM0 = 'mem0';
   static DB_COLLECTION_NAME = 'db.collection.name';
   static DB_OPERATION = 'db.operation';
   static DB_OPERATION_NAME = 'db.operation.name';
