@@ -6,10 +6,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
 	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
 	LayoutGrid,
 	MessageSquareText,
-	PanelLeftClose,
-	PanelLeftOpen,
 	Search,
 	X,
 } from "lucide-react";
@@ -27,7 +27,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { SIDEBAR_ITEMS } from "@/constants/sidebar";
 import { cn } from "@/lib/utils";
 import { SidebarActionItem, SidebarItemProps, SidebarSection } from "@/types/sidebar";
-import getMessage from "@/constants/messages";
 import UserActions from "./user-actions";
 import OtterSidebar from "./otter-sidebar";
 import ThemeToggleSwitch from "./theme-switch";
@@ -152,7 +151,6 @@ export default function Sidebar() {
 	const pathname = usePathname();
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const messages = getMessage();
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [openSection, setOpenSection] = useState<SidebarSection | null>(null);
 	const [commandOpen, setCommandOpen] = useState(false);
@@ -160,6 +158,10 @@ export default function Sidebar() {
 	const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
 	const allItems = useMemo(() => flatItems(SIDEBAR_ITEMS), []);
 	const isOtterActive = pathname.startsWith("/chat");
+	const toggleSidebar = () => {
+		setIsExpanded((value) => !value);
+		setOpenSection(null);
+	};
 
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
@@ -206,16 +208,30 @@ export default function Sidebar() {
 					onClick={() => setOpenSection(null)}
 				/>
 			)}
-			<div data-state={isExpanded ? "open" : "closed"} className={cn("flex h-full flex-col border border-stone-200 bg-stone-50 dark:border-stone-800 dark:bg-stone-950 z-40", isExpanded ? "w-64" : "w-16")}>
+			<div data-state={isExpanded ? "open" : "closed"} className={cn("relative z-40 flex h-full flex-col border border-stone-200 bg-stone-50 dark:border-stone-800 dark:bg-stone-950", isExpanded ? "w-64" : "w-16")}>
+				<Tooltip delayDuration={100}>
+					<TooltipTrigger asChild>
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={toggleSidebar}
+							aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+							aria-expanded={isExpanded}
+							className="absolute -right-3 top-5 z-50 size-6 rounded-full border-stone-300 bg-white p-0 text-stone-600 shadow-sm hover:bg-stone-100 hover:text-stone-950 focus-visible:ring-2 focus-visible:ring-primary dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+						>
+							{isExpanded ? <ChevronsLeft className="size-3.5" /> : <ChevronsRight className="size-3.5" />}
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="right" sideOffset={10}>
+						{isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+					</TooltipContent>
+				</Tooltip>
 				<div className={cn("flex items-center gap-2 px-3 pb-3 pt-4", !isExpanded && "justify-center px-2")}>
 					<Image className={cn("size-9 shrink-0 rounded-lg", !isExpanded && "hidden")} src="/images/logo.png" alt="OpenLIT logo" priority width={36} height={36} />
 					<div className={cn("min-w-0 flex-1", !isExpanded && "hidden")}>
 						<p className="truncate text-lg font-semibold text-stone-900 dark:text-white">OpenLIT</p>
 						<p className="text-[10px] text-stone-500">v{version.version}</p>
 					</div>
-					<Button variant="ghost" size="icon" onClick={() => { setIsExpanded((value) => !value); setOpenSection(null); }} aria-label={messages.EXPAND} className="size-9 shrink-0 text-stone-600 dark:text-stone-300">
-						{isExpanded ? <PanelLeftClose className="size-5" /> : <PanelLeftOpen className="size-5" />}
-					</Button>
 				</div>
 
 				<div className="px-2 pb-3">
