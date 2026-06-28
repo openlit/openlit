@@ -31,6 +31,7 @@ import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 import CursorSDKInstrumentation from './cursor-sdk';
 import AstraInstrumentation from './astra';
 import MCPInstrumentation from './mcp';
+import AgentFrameworkInstrumentation from './agent-framework';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -104,6 +105,7 @@ export default class Instrumentations {
     'cursor-sdk': new CursorSDKInstrumentation(),
     'astra': new AstraInstrumentation(),
     mcp: new MCPInstrumentation(),
+    'agent-framework': new AgentFrameworkInstrumentation(),
   };
 
   static setup(
