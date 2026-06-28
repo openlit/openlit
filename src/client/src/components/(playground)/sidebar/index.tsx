@@ -31,6 +31,7 @@ import UserActions from "./user-actions";
 import OtterSidebar from "./otter-sidebar";
 import ThemeToggleSwitch from "./theme-switch";
 import version from "../../../../package.json";
+import logoImage from "../../../../public/images/logo.png";
 
 const isActive = (pathname: string, item: SidebarActionItem, currentUrl: string) => {
 	if (!item.link) return false;
@@ -226,9 +227,9 @@ export default function Sidebar() {
 						{isExpanded ? "Collapse sidebar" : "Expand sidebar"}
 					</TooltipContent>
 				</Tooltip>
-				<div className={cn("flex items-center gap-2 px-3 pb-3 pt-4", !isExpanded && "justify-center px-2")}>
-					<Image className="size-9 shrink-0 object-contain" src="/images/logo.png" alt="OpenLIT logo" priority width={36} height={36} />
-					<div className={cn("min-w-0 flex-1", !isExpanded && "hidden")}>
+				<div className="flex items-center gap-2 px-3 pb-3 pt-4">
+					<Image className="size-9 shrink-0 object-contain" src={logoImage} alt="OpenLIT logo" priority width={36} height={36} />
+					<div className={cn("min-w-0 flex-1 transition-opacity", !isExpanded && "pointer-events-none invisible opacity-0")}>
 						<p className="truncate text-lg font-semibold text-stone-900 dark:text-white">OpenLIT</p>
 						<p className="text-[10px] text-stone-500">v{version.version}</p>
 					</div>
