@@ -323,6 +323,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
   static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
   static GEN_AI_SYSTEM_FIRECRAWL = 'firecrawl';
+  static GEN_AI_SYSTEM_AGENT_FRAMEWORK = 'agent_framework';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
