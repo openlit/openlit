@@ -93,7 +93,7 @@ jobs:
             tar -czf "${NAME}.tar.gz" "$(basename "$BIN")"
             sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: openlit-${{ matrix.os }}-${{ matrix.arch }}
           path: cli/dist/*
