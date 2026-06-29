@@ -44,7 +44,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Together AI](https://docs.openlit.io/latest/integrations/together)                      |
 | [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                             |
 | [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |
-| [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface)                  |
+| [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface) *(Inference API + local Transformers.js)* |
 | [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
 
