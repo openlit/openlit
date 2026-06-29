@@ -15,4 +15,5 @@ export type DatabaseConfigStore = {
 	}) => void;
 	setList: (u: DatabaseConfigWithActive[]) => void;
 	setIsLoading: (f?: boolean) => void;
+	reset: () => void;
 };

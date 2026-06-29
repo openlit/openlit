@@ -4,6 +4,8 @@ import RuleForm from "./form";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import getMessage from "@/constants/messages";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import { SlidersHorizontal } from "lucide-react";
 
 export default function RuleEngineHeader({
 	className = "flex w-full items-center justify-end gap-4",
@@ -15,7 +17,7 @@ export default function RuleEngineHeader({
 	const pingStatus = useRootStore(getPingStatus);
 	const messages = getMessage();
 
-	return (
+	const actions = (
 		<div className={className}>
 			{pingStatus === "success" && (
 				<RuleForm successCallback={successCallback}>
@@ -29,4 +31,6 @@ export default function RuleEngineHeader({
 			)}
 		</div>
 	);
+
+	return <FeaturePageHeader eyebrow="Resources" title={messages.RULE_ENGINE_BREADCRUMB} description="Define policy-driven logic that turns context and telemetry into repeatable AI workflow decisions." icon={<SlidersHorizontal className="h-4 w-4" />} tone="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-300" actions={actions} />;
 }
