@@ -10,6 +10,8 @@ import { User } from "@prisma/client";
 import { usePostHog } from "posthog-js/react";
 import { toast } from "sonner";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import { UserIcon } from "lucide-react";
 
 const PROFILE_TOAST_ID = "profile-details";
 
@@ -156,8 +158,11 @@ export default function Profile() {
 	};
 
 	return (
-		<div className="flex flex-1 h-full w-full relative">
-			<ModifyProfileDetails user={userDetails as User} fetchUser={fetchUser} />
+		<div className="flex flex-1 h-full w-full flex-col gap-4 overflow-auto">
+			<FeaturePageHeader eyebrow="Settings" title="User Profile" description="Keep your identity, password, and workspace access details current across OpenLIT." icon={<UserIcon className="h-4 w-4" />} tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15" />
+			<div className={`flex w-full h-full ${PRIMARY_BACKGROUND}`}>
+				<ModifyProfileDetails user={userDetails as User} fetchUser={fetchUser} />
+			</div>
 		</div>
 	);
 }

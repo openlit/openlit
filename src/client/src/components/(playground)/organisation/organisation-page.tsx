@@ -92,6 +92,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
 import { toast } from "sonner";
@@ -147,6 +148,23 @@ export default function OrganisationSettingsPage() {
 	const [projectName, setProjectName] = useState("");
 	const [isProjectsLoading, setIsProjectsLoading] = useState(false);
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
+	const requestedTab = searchParams.get("tab") || "details";
+	const availableTabs = orgPendingInvites.length > 0
+		? ["details", "projects", "members", "pending", "all"]
+		: ["details", "projects", "members", "all"];
+	const selectedTab = availableTabs.includes(requestedTab)
+		? requestedTab
+		: "details";
+	const handleTabChange = (tab: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		if (tab === "details") {
+			params.delete("tab");
+		} else {
+			params.set("tab", tab);
+		}
+		const query = params.toString();
+		router.replace(query ? `/organisation?${query}` : "/organisation", { scroll: false });
+	};
 
 	const isCreator = currentOrg?.createdByUserId === currentUserId;
 
@@ -324,19 +342,15 @@ export default function OrganisationSettingsPage() {
 	};
 
 	return (
-		<div className="p-4 space-y-4 overflow-auto w-full text-stone-700 dark:text-stone-300">
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="text-xl font-bold">{messages.ORGANISATION_SETTINGS}</h1>
-					<p className="text-sm text-muted-foreground">
-						{messages.ORGANISATION_SETTINGS_DESCRIPTION}
-					</p>
-				</div>
-				<Button onClick={() => setCreateDialogOpen(true)} size="sm">
-					<Building2 className="h-3.5 w-3.5 mr-1.5" />
-					{messages.NEW_ORGANISATION}
-				</Button>
-			</div>
+		<div className="space-y-4 overflow-auto w-full text-stone-700 dark:text-stone-300">
+			<FeaturePageHeader
+				eyebrow={messages.ORGANISATION}
+				title={messages.ORGANISATION_SETTINGS}
+				description="Manage organisations, projects, and team access from the top-level workspace control plane."
+				icon={<Building2 className="h-4 w-4" />}
+				tone="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+				actions={<Button onClick={() => setCreateDialogOpen(true)} size="sm"><Building2 className="mr-1.5 h-3.5 w-3.5" />{messages.NEW_ORGANISATION}</Button>}
+			/>
 
 			{pendingInvitations.length > 0 && (
 				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
@@ -378,7 +392,7 @@ export default function OrganisationSettingsPage() {
 			)}
 
 			{currentOrg && (
-				<Tabs defaultValue={searchParams.get("tab") === "projects" ? "projects" : "details"} className="w-auto">
+				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-auto">
 					<TabsList className="w-auto justify-start p-0 h-auto">
 						<TabsTrigger value="details" className="text-xs text-stone-700 dark:text-stone-300">
 							<Settings className="h-3.5 w-3.5 mr-1.5" />

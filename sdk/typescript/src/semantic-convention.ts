@@ -85,6 +85,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_EMBEDDING_DIMENSION = 'gen_ai.request.embedding_dimension';
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
+  static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
@@ -211,7 +212,8 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
-  
+  static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
+
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
   static GEN_AI_OUTPUT_TYPE_JSON = 'json';
@@ -244,7 +246,9 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_GOOGLE_ADK = 'google_adk';
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
+  static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
   static GEN_AI_SYSTEM_MCP = 'mcp';
+  static GEN_AI_SYSTEM_MEM0 = 'mem0';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
@@ -498,6 +502,20 @@ export default class SemanticConvention {
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
 
+  // ----- Mem0 (memory layer) instrumentation -----
+  // Session scope (mirrors Python semcov; stamped on memory spans when present)
+  static GEN_AI_USER_ID = 'gen_ai.user.id';
+  static GEN_AI_RUN_ID = 'gen_ai.run.id';
+  // Memory operation attributes
+  static GEN_AI_MEMORY_TYPE = 'gen_ai.memory.type';
+  static GEN_AI_MEMORY_METADATA = 'gen_ai.memory.metadata';
+  static GEN_AI_MEMORY_INFER = 'gen_ai.memory.infer';
+  static GEN_AI_MEMORY_COUNT = 'gen_ai.memory.count';
+  static GEN_AI_MEMORY_SEARCH_QUERY = 'gen_ai.memory.search.query';
+  static GEN_AI_MEMORY_SEARCH_LIMIT = 'gen_ai.memory.search.limit';
+  static GEN_AI_MEMORY_SEARCH_THRESHOLD = 'gen_ai.memory.search.threshold';
+  static GEN_AI_MEMORY_OPERATION_RESULT_COUNT = 'gen_ai.memory.operation.result_count';
+
   // ----- Guard System -----
   static GUARD_REQUESTS = 'guard.requests';
   static GUARD_VERDICT = 'guard.verdict';
@@ -513,4 +531,12 @@ export default class SemanticConvention {
   static GUARD_LATENCY_MS = 'guard.latency_ms';
   static GUARD_DENIED = 'guard.denied';
   static GUARD_REQUESTS_COUNTER = 'guard.requests';
+
+  // GenAI Evaluation Event (OTel Semantic Convention)
+  static GEN_AI_EVALUATION_RESULT = 'gen_ai.evaluation.result';
+  static GEN_AI_EVALUATION_NAME = 'gen_ai.evaluation.name';
+  static GEN_AI_EVALUATION_SCORE_VALUE = 'gen_ai.evaluation.score.value';
+  static GEN_AI_EVALUATION_SCORE_LABEL = 'gen_ai.evaluation.score.label';
+  static GEN_AI_EVALUATION_EXPLANATION = 'gen_ai.evaluation.explanation';
+  static OPENLIT_SCORE_IDEMPOTENCY_KEY = 'openlit.score.idempotency_key';
 }

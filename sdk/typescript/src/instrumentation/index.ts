@@ -10,6 +10,7 @@ import AI21Instrumentation from './ai21';
 import GradientInstrumentation from './gradient';
 import MistralInstrumentation from './mistral';
 import GoogleAIInstrumentation from './google-ai';
+import VertexAIInstrumentation from './vertexai';
 import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
 import VercelAIInstrumentation from './vercel-ai';
@@ -31,6 +32,8 @@ import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 import CursorSDKInstrumentation from './cursor-sdk';
 import AstraInstrumentation from './astra';
 import MCPInstrumentation from './mcp';
+import Mem0Instrumentation from './mem0';
+import ElevenLabsInstrumentation from './elevenlabs';
 import TransformersInstrumentation from './transformers';
 
 /**
@@ -84,6 +87,7 @@ export default class Instrumentations {
     gradient: new GradientInstrumentation(),
     mistral: new MistralInstrumentation(),
     'google-ai': new GoogleAIInstrumentation(),
+    vertexai: new VertexAIInstrumentation(),
     together: new TogetherInstrumentation(),
     ollama: new OllamaInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),
@@ -105,6 +109,8 @@ export default class Instrumentations {
     'cursor-sdk': new CursorSDKInstrumentation(),
     'astra': new AstraInstrumentation(),
     mcp: new MCPInstrumentation(),
+    mem0: new Mem0Instrumentation(),
+    elevenlabs: new ElevenLabsInstrumentation(),
     transformers: new TransformersInstrumentation(),
   };
 

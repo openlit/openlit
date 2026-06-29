@@ -11,6 +11,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from openlit._config import OpenlitConfig
 from openlit.__helpers import (
+    LANGCHAIN_ROLE_MAPPING,
     common_span_attributes,
     get_chat_model_cost,
     record_completion_metrics,
@@ -88,18 +89,11 @@ def build_input_messages_from_langchain(messages: List) -> List[dict]:
     """
     try:
         structured = []
-        role_mapping = {
-            "system": "system",
-            "human": "user",
-            "ai": "assistant",
-            "tool": "tool",
-            "function": "tool",
-        }
         for msg_list in messages:
             for msg in msg_list:
                 role = getattr(msg, "type", "user")
                 content = getattr(msg, "content", str(msg))
-                otel_role = role_mapping.get(role, "user")
+                otel_role = LANGCHAIN_ROLE_MAPPING.get(role, "user")
                 structured.append(
                     {
                         "role": otel_role,
@@ -374,7 +368,18 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+    # LangChain's normalized usage_metadata reports input_tokens as the sum of
+    # all input token types (uncached + cache read + cache creation), so flag
+    # the prompt tokens as cache-inclusive to avoid billing cached tokens twice.
+    cost = get_chat_model_cost(
+        request_model,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        prompt_tokens_include_cache=True,
+    )
 
     provider = (
         getattr(scope, "_provider", None) or SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
