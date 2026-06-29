@@ -17,6 +17,7 @@ import {
   getCurrentAgentVersion,
 } from './helpers';
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
+import { logScore } from './score';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
 import { parseBoolEnv } from './otel/utils';
@@ -144,6 +145,7 @@ class Openlit extends BaseOpenlit {
   static eval = runEval;
   static evalBatch = runEvalBatch;
   static getEvalTypes = fetchEvalTypes;
+  static logScore = logScore;
 
   /**
    * Public API: stamp every subsequent chat span / inference event in the
@@ -225,8 +227,9 @@ const openlit = Openlit as typeof Openlit & {
 (openlit as any).injectAdditionalAttributes = injectAdditionalAttributes;
 
 export default openlit;
-export { Openlit, usingAttributes, injectAdditionalAttributes };
+export { Openlit, usingAttributes, injectAdditionalAttributes, logScore };
 export type { OpenlitOptions } from './types';
+export type { LogScoreOptions } from './score';
 
 // Guard re-exports for named imports: import { PII, Pipeline } from 'openlit'
 export {
