@@ -211,7 +211,8 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
-  
+  static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
+
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
   static GEN_AI_OUTPUT_TYPE_JSON = 'json';
@@ -245,6 +246,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_MCP = 'mcp';
+  static GEN_AI_SYSTEM_MEM0 = 'mem0';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
@@ -497,6 +499,20 @@ export default class SemanticConvention {
   static DB_PAYLOAD_COUNT = 'db.payload_count';
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
+
+  // ----- Mem0 (memory layer) instrumentation -----
+  // Session scope (mirrors Python semcov; stamped on memory spans when present)
+  static GEN_AI_USER_ID = 'gen_ai.user.id';
+  static GEN_AI_RUN_ID = 'gen_ai.run.id';
+  // Memory operation attributes
+  static GEN_AI_MEMORY_TYPE = 'gen_ai.memory.type';
+  static GEN_AI_MEMORY_METADATA = 'gen_ai.memory.metadata';
+  static GEN_AI_MEMORY_INFER = 'gen_ai.memory.infer';
+  static GEN_AI_MEMORY_COUNT = 'gen_ai.memory.count';
+  static GEN_AI_MEMORY_SEARCH_QUERY = 'gen_ai.memory.search.query';
+  static GEN_AI_MEMORY_SEARCH_LIMIT = 'gen_ai.memory.search.limit';
+  static GEN_AI_MEMORY_SEARCH_THRESHOLD = 'gen_ai.memory.search.threshold';
+  static GEN_AI_MEMORY_OPERATION_RESULT_COUNT = 'gen_ai.memory.operation.result_count';
 
   // ----- Guard System -----
   static GUARD_REQUESTS = 'guard.requests';

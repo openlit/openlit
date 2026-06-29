@@ -32,6 +32,7 @@ import ClaudeAgentSDKInstrumentation from './claude-agent-sdk';
 import CursorSDKInstrumentation from './cursor-sdk';
 import AstraInstrumentation from './astra';
 import MCPInstrumentation from './mcp';
+import Mem0Instrumentation from './mem0';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -106,6 +107,7 @@ export default class Instrumentations {
     'cursor-sdk': new CursorSDKInstrumentation(),
     'astra': new AstraInstrumentation(),
     mcp: new MCPInstrumentation(),
+    mem0: new Mem0Instrumentation(),
   };
 
   static setup(
