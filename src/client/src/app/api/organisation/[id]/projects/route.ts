@@ -57,9 +57,24 @@ export async function POST(
 	request: Request,
 	{ params }: { params: { id: string } }
 ) {
+	const messages = getMessage();
+	const user = await getCurrentUser();
+	if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
+
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId: params.id,
+				userId: user.id,
+			},
+		},
+		select: { id: true },
+	});
+
+	if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
+
 	const formData = await readJson(request);
 	const name = formData?.name?.trim();
-	const messages = getMessage();
 
 	if (!name) return Response.json(messages.PROJECT_NAME_REQUIRED, { status: 400 });
 	if (name.length > 120) {

@@ -2,6 +2,10 @@ import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
+import {
+	OrganisationAccessAction,
+	canManageOrganisation,
+} from "@/features/organisation-access";
 
 /**
  * Generate a URL-safe slug from a name
@@ -49,8 +53,16 @@ async function generateUniqueOrganisationSlug(
  */
 async function hasAdminOrOwnerRole(
 	organisationId: string,
-	userId: string
+	userId: string,
+	action: OrganisationAccessAction
 ): Promise<boolean> {
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId,
+		action,
+	});
+	if (typeof extensionDecision === "boolean") return extensionDecision;
+
 	const membership = await prisma.organisationUser.findUnique({
 		where: {
 			organisationId_userId: {
@@ -113,6 +125,82 @@ async function setMembershipCurrentProjectId(
 		WHERE organisation_id = ${organisationId}
 		  AND user_id = ${userId}
 	`;
+}
+
+async function assignUserToAllOrganisationProjects(
+	organisationId: string,
+	userId: string
+) {
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		select: { id: true },
+	});
+	if (!membership) return;
+
+	const projects = await prisma.project.findMany({
+		where: { organisationId },
+		select: { id: true },
+		orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+	});
+
+	for (const project of projects) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId: project.id,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId: project.id,
+				organisationUserId: membership.id,
+				userId,
+			},
+			update: {},
+		});
+	}
+
+	if (projects[0]?.id) {
+		const currentProjectId = await getMembershipCurrentProjectId(
+			organisationId,
+			userId
+		);
+		if (!currentProjectId) {
+			await setMembershipCurrentProjectId(organisationId, userId, projects[0].id);
+		}
+	}
+}
+
+async function assignAllOrganisationMembersToProject(
+	organisationId: string,
+	projectId: string
+) {
+	const memberships = await prisma.organisationUser.findMany({
+		where: { organisationId },
+		select: { id: true, userId: true },
+	});
+
+	for (const membership of memberships) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId,
+				organisationUserId: membership.id,
+				userId: membership.userId,
+			},
+			update: {},
+		});
+	}
 }
 
 export async function getDefaultProjectForOrganisation(organisationId: string) {
@@ -223,7 +311,11 @@ export async function createOrganisationProject(
 		getMessage().PROJECT_NAME_LENGTH_RANGE_ERROR
 	);
 
-	const isAdmin = await hasAdminOrOwnerRole(organisationId, user!.id);
+	const isAdmin = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"organisation.update"
+	);
 	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const baseSlug = slugify(trimmedName) || "project";
@@ -241,13 +333,15 @@ export async function createOrganisationProject(
 		});
 
 		if (!existing) {
-			return prisma.project.create({
+			const project = await prisma.project.create({
 				data: {
 					organisationId,
 					name: trimmedName,
 					slug,
 				},
 			});
+			await assignAllOrganisationMembersToProject(organisationId, project.id);
+			return project;
 		}
 	}
 
@@ -282,7 +376,7 @@ export async function createOrganisation(name: string) {
 	});
 
 	// Add creator as a member with owner role
-	await prisma.organisationUser.create({
+	const creatorMembership = await prisma.organisationUser.create({
 		data: {
 			organisationId: organisation.id,
 			userId: user!.id,
@@ -291,6 +385,13 @@ export async function createOrganisation(name: string) {
 		},
 	});
 	if (organisation.projects?.[0]?.id) {
+		await prisma.projectUser.create({
+			data: {
+				projectId: organisation.projects[0].id,
+				organisationUserId: creatorMembership.id,
+				userId: user!.id,
+			},
+		});
 		await setMembershipCurrentProjectId(
 			organisation.id,
 			user!.id,
@@ -445,7 +546,11 @@ export async function updateOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify user has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(id, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		id,
+		user!.id,
+		"organisation.update"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const updateData: { name?: string } = {};
@@ -543,7 +648,11 @@ export async function inviteUserToOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify inviter has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"members.invite"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
 	// Validate and normalize email
@@ -551,14 +660,14 @@ export async function inviteUserToOrganisation(
 	
 	// Validate email is not empty
 	if (!normalizedEmail) {
-		throw new Error("Email cannot be empty");
+		throw new Error(getMessage().EMAIL_REQUIRED);
 	}
 	
 	// Validate email format - using a safer regex pattern that avoids ReDoS
 	// This pattern is more restrictive but safe from catastrophic backtracking
 	const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 	if (!EMAIL_REGEX.test(normalizedEmail)) {
-		throw new Error("Invalid email format");
+		throw new Error(getMessage().INVALID_EMAIL_FORMAT);
 	}
 
 	// Check if user already exists
@@ -590,6 +699,8 @@ export async function inviteUserToOrganisation(
 				isCurrent: false,
 			},
 		});
+
+		await assignUserToAllOrganisationProjects(organisationId, existingUser.id);
 
 		// Share all organisation database configs with the new member
 		await shareOrganisationDatabaseConfigs(organisationId, existingUser.id);
@@ -682,6 +793,8 @@ export async function acceptInvitation(invitationId: string) {
 			isCurrent: false,
 		},
 	});
+
+	await assignUserToAllOrganisationProjects(invitation!.organisationId, user!.id);
 
 	// Share all organisation database configs with the new member
 	await shareOrganisationDatabaseConfigs(invitation!.organisationId, user!.id);
@@ -807,9 +920,17 @@ export async function removeUserFromOrganisation(
 			userId
 		);
 
-		// Only admins and owners can remove other members
+		// Only admins and owners can remove other members by default. Enterprise can
+		// override this through the organisation access extension hook.
+		const extensionDecision = await canManageOrganisation({
+			organisationId,
+			userId: user!.id,
+			action: "members.remove",
+		});
 		const hasPermission =
-			currentUserRole === "owner" || currentUserRole === "admin";
+			typeof extensionDecision === "boolean"
+				? extensionDecision
+				: currentUserRole === "owner" || currentUserRole === "admin";
 		throwIfError(
 			!hasPermission,
 			getMessage().ONLY_ADMIN_CAN_REMOVE_MEMBERS
@@ -983,9 +1104,17 @@ export async function updateMemberRole(
 	);
 	throwIfError(!targetUserRole, getMessage().NOT_ORGANISATION_MEMBER);
 
-	// Only admins and owners can update roles
+	// Only admins and owners can update roles by default. Enterprise can override
+	// this through the organisation access extension hook.
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId: user!.id,
+		action: "members.role_change",
+	});
 	const hasPermission =
-		currentUserRole === "owner" || currentUserRole === "admin";
+		typeof extensionDecision === "boolean"
+			? extensionDecision
+			: currentUserRole === "owner" || currentUserRole === "admin";
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_OR_OWNER_CAN_UPDATE_ROLES);
 
 	// Only owner can change admin roles (demote admin to member)
@@ -1062,7 +1191,8 @@ export async function cancelInvitation(invitationId: string) {
 	// Verify user has admin or owner role
 	const hasPermission = await hasAdminOrOwnerRole(
 		invitation!.organisationId,
-		user!.id
+		user!.id,
+		"members.invite"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_CANCEL_INVITATION);
 
@@ -1188,6 +1318,7 @@ async function migrateUserConfigsToOrganisation(
 				sharedUserId,
 				project.id
 			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		} else if (!hasCurrentOrg) {
 			// Existing membership but no current org — fix it
 			await prisma.organisationUser.update({
@@ -1204,6 +1335,9 @@ async function migrateUserConfigsToOrganisation(
 				sharedUserId,
 				project.id
 			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
+		} else {
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		}
 
 		// Share org DB configs with the new member
