@@ -9,12 +9,13 @@ import { Trash2 } from "lucide-react";
 import ShareDialog from "./share-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatabaseConfigTabsProps } from "@/types/database-config";
+import getMessage from "@/constants/messages";
 
 const ADD_NEW_ID = "ADD_NEW_ID";
 
 const getCommonCardClasses = (isActive: boolean) =>
-	`item-element-card flex flex-col p-4 text-sm cursor-pointer relative group w-64 hover:bg-primary/30 dark:hover:bg-primary/30 ${
-		isActive ? "bg-primary/30 dark:bg-primary/40 text-stone-700 dark:text-stone-200" : "text-stone-700 dark:text-stone-300"
+	`item-element-card flex flex-col p-4 text-sm cursor-pointer relative group w-64 hover:bg-primary/10 dark:hover:bg-primary/20 ${
+		isActive ? "bg-primary/15 dark:bg-primary/25 text-stone-900 dark:text-stone-100" : "text-stone-700 dark:text-stone-300"
 	}`;
 
 export default function DatabaseConfigTabs({
@@ -25,8 +26,10 @@ export default function DatabaseConfigTabs({
 	onClickItemChangeActive,
 	addButton,
 }: DatabaseConfigTabsProps) {
+	const messages = getMessage();
+
 	return (
-		<div className="flex flex-col overflow-hidden border-r dark:border-stone-800">
+		<div className="flex max-h-full shrink-0 flex-col overflow-hidden border-r border-stone-200 dark:border-stone-800">
 			{addButton && (
 				<>
 					<div
@@ -36,7 +39,7 @@ export default function DatabaseConfigTabs({
 						data-item-id={ADD_NEW_ID}
 						onClick={onClickTab}
 					>
-						Add New Config
+						{messages.ADD_NEW_CONFIG}
 					</div>
 					<hr className="dark:border-stone-800" />
 				</>
@@ -70,15 +73,22 @@ export default function DatabaseConfigTabs({
 								<div className="flex flex-col h-full space-y-1 items-end">
 									<Tooltip>
 										<TooltipTrigger asChild>
-											<div onClick={onClickItemChangeActive}>
+											<div
+												onClick={
+													item.canSelect === false
+														? undefined
+														: onClickItemChangeActive
+												}
+											>
 												<Checkbox
 													checked={!!item.isCurrent}
+													disabled={item.canSelect === false}
 													className="data-[state=checked]:bg-primary dark:data-[state=checked]:bg-primary text-white data-[state=checked]:border-primary dark:data-[state=checked]:border-primary data-[state=checked]:ring-offset-primary dark:text-white data-[state=checked]:text-white dark:data-[state=checked]:text-white"
 												/>
 											</div>
 										</TooltipTrigger>
 										<TooltipContent side="bottom" sideOffset={5}>
-											Mark {item.name} as the active database config
+											{messages.MARK_DB_CONFIG_ACTIVE(item.name)}
 										</TooltipContent>
 									</Tooltip>
 									{item.canDelete && onClickItemDelete && (

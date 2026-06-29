@@ -104,7 +104,7 @@ export default function OrganisationSwitch({
 						<>
 							<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 								<Link
-									href="/settings/organisation"
+									href="/organisation"
 									className="flex items-center gap-2"
 								>
 									<Mail className="size-4" />
@@ -126,7 +126,7 @@ export default function OrganisationSwitch({
 					</DropdownMenuItem>
 					<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 						<Link
-							href="/settings/organisation"
+							href="/organisation"
 							className="flex items-center w-full"
 						>
 							{messages.MANAGE_ORGANISATIONS}

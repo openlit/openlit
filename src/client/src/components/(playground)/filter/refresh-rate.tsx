@@ -88,7 +88,7 @@ const RefreshRate = () => {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline" className="flex gap-4 shrink-0 justify-start group-data-[state=close]:justify-center py-1 px-2 overflow-hidden font-normal h-auto w-auto ml-auto text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900">
+				<Button variant="outline" className="ml-auto flex h-[30px] w-auto shrink-0 justify-start gap-4 overflow-hidden px-2 py-1 font-normal text-stone-500 hover:text-stone-600 group-data-[state=close]:justify-center dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-900 dark:hover:text-stone-300">
 					<TimerReset className={`size-3 shrink-0`} />
 					<span className="block text-ellipsis overflow-hidden whitespace-nowrap grow text-xs">{filter.refreshRate}</span>
 					<ChevronsUpDown className={`size-3 block shrink-0`} />

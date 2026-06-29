@@ -46,6 +46,9 @@ jest.mock('@/helpers/client/database-config', () => ({
   fetchDatabaseConfigList: jest.fn().mockResolvedValue(undefined),
   pingActiveDatabaseConfig: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('@/features/organisation', () => ({
+  onOrganisationChanged: jest.fn().mockResolvedValue(undefined),
+}));
 
 import {
   fetchOrganisationList,
@@ -65,6 +68,7 @@ import { useRootStore } from '@/store';
 import { getData, postData, deleteData } from '@/utils/api';
 import asaw from '@/utils/asaw';
 import { toast } from 'sonner';
+import { onOrganisationChanged } from '@/features/organisation';
 
 const mockSetIsLoading = jest.fn();
 const mockSetList = jest.fn();
@@ -73,6 +77,8 @@ const mockSetPendingInvitations = jest.fn();
 const mockProjectSetIsLoading = jest.fn();
 const mockProjectSetList = jest.fn();
 const mockProjectSetCurrent = jest.fn();
+const mockProjectReset = jest.fn();
+const mockDatabaseConfigReset = jest.fn();
 
 const makeGetState = (list: any[] = []) => ({
   organisation: {
@@ -86,12 +92,14 @@ const makeGetState = (list: any[] = []) => ({
     setIsLoading: jest.fn(),
     setList: jest.fn(),
     setPing: jest.fn(),
+    reset: mockDatabaseConfigReset,
     list: [],
   },
   project: {
     setIsLoading: mockProjectSetIsLoading,
     setList: mockProjectSetList,
     setCurrent: mockProjectSetCurrent,
+    reset: mockProjectReset,
     list: [],
   },
 });
@@ -151,6 +159,9 @@ describe('changeActiveOrganisation', () => {
     await changeActiveOrganisation('org-1', successCb);
 
     expect(mockSetCurrent).toHaveBeenCalledWith(orgList[0]);
+    expect(mockProjectReset).toHaveBeenCalled();
+    expect(mockDatabaseConfigReset).toHaveBeenCalled();
+    expect(onOrganisationChanged).toHaveBeenCalledWith('org-1');
     expect(toast.success).toHaveBeenCalled();
     expect(successCb).toHaveBeenCalled();
   });

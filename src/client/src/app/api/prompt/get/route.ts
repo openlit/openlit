@@ -1,11 +1,10 @@
 import { getPrompts } from "@/lib/platform/prompt";
+import { errorResponse } from "@/helpers/server/response";
 
 export async function POST() {
 	const { err, data }: any = await getPrompts();
 	if (err) {
-		return Response.json(err, {
-			status: 400,
-		});
+		return errorResponse(err);
 	}
 
 	return Response.json(data);

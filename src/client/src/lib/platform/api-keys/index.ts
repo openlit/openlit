@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { throwIfError } from "@/utils/error";
 import getMessage from "@/constants/messages";
+import { recordOrganisationUsageEvent } from "@/lib/billing/usage-recorder";
+import { getCurrentOrganisation } from "@/lib/organisation";
 
 const APIKEY_PREFIX = "openlit-";
 
@@ -36,6 +38,24 @@ export async function generateAPIKey(name: string) {
 			createdByUserId: user!.id,
 		},
 	});
+
+	const currentOrganisation = await getCurrentOrganisation();
+
+	if (currentOrganisation?.id) {
+		const periodStart = new Date();
+		periodStart.setUTCDate(1);
+		periodStart.setUTCHours(0, 0, 0, 0);
+
+		const periodEnd = new Date(periodStart);
+		periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
+
+		await recordOrganisationUsageEvent({
+			organisationId: currentOrganisation.id,
+			featureId: "platform.api-keys",
+			periodStart,
+			periodEnd,
+		});
+	}
 
 	return {
 		apiKey,
