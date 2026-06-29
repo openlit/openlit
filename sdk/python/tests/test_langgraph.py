@@ -279,7 +279,49 @@ class TestLangGraphInstrumentorUnit:
             type = "human"
 
         result = get_message_role(MockMessageWithType())
-        assert result == "human"
+        assert result == "user"
+
+        class MockAiMessage:
+            type = "ai"
+
+        assert get_message_role(MockAiMessage()) == "assistant"
+
+    def test_build_assistant_output_messages_filters_non_assistant(self):
+        """Only assistant messages belong in gen_ai.output.messages."""
+        from openlit.instrumentation.langgraph.utils import build_assistant_output_messages
+
+        class HumanMsg:
+            type = "human"
+            content = "user turn"
+
+        class AiMsg:
+            type = "ai"
+            content = "assistant reply"
+
+        result = build_assistant_output_messages([HumanMsg(), AiMsg()])
+        assert len(result) == 1
+        assert result[0]["role"] == "assistant"
+        assert result[0]["parts"][0]["content"] == "assistant reply"
+
+    def test_extract_llm_info_skips_human_output_message(self):
+        """Node results ending in HumanMessage must not write gen_ai.output.messages."""
+        from openlit.instrumentation.langgraph.utils import extract_llm_info_from_result
+
+        class HumanMsg:
+            type = "human"
+            content = "follow-up question"
+
+        class MockSpan:
+            def __init__(self):
+                self.attributes = {}
+
+            def set_attribute(self, key, value):
+                """Record span attributes for assertions."""
+                self.attributes[key] = value
+
+        span = MockSpan()
+        extract_llm_info_from_result(span, {}, {"messages": [HumanMsg()]})
+        assert "gen_ai.output.messages" not in span.attributes
 
     def test_generate_span_name(self):
         """Tests span name generation."""

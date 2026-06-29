@@ -1068,6 +1068,7 @@ class SemanticConvention:
     GEN_AI_EVALUATION_SCORE_VALUE = "gen_ai.evaluation.score.value"
     GEN_AI_EVALUATION_SCORE_LABEL = "gen_ai.evaluation.score.label"
     GEN_AI_EVALUATION_EXPLANATION = "gen_ai.evaluation.explanation"
+    OPENLIT_SCORE_IDEMPOTENCY_KEY = "openlit.score.idempotency_key"
 
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
 

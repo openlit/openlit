@@ -38,6 +38,10 @@ jest.mock('@/lib/organisation', () => ({
   getCurrentOrganisation: jest.fn(),
   getCurrentProjectForOrganisation: jest.fn(),
 }));
+jest.mock('../../lib/organisation', () => ({
+  getCurrentOrganisation: jest.fn(),
+  getCurrentProjectForOrganisation: jest.fn(),
+}));
 jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/constants/messages', () => ({
   __esModule: true,
@@ -71,7 +75,7 @@ import {
 } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
-import { getCurrentOrganisation, getCurrentProjectForOrganisation } from '@/lib/organisation';
+import { getCurrentOrganisation, getCurrentProjectForOrganisation } from '../../lib/organisation';
 import asaw from '@/utils/asaw';
 
 const mockUser = { id: 'u1', email: 'user@example.com' };

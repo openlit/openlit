@@ -316,11 +316,15 @@ export default class AnthropicWrapper extends BaseWrapper {
     const responseModel = result.model || requestModel;
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
+    // Anthropic reports input_tokens exclusive of cache read / creation tokens,
+    // so cache tokens are added on top (promptTokensIncludeCache stays false).
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       result.usage.input_tokens,
-      result.usage.output_tokens
+      result.usage.output_tokens,
+      Number(result.usage.cache_read_input_tokens) || 0,
+      Number(result.usage.cache_creation_input_tokens) || 0
     );
 
     AnthropicWrapper.setBaseSpanAttributes(span, {

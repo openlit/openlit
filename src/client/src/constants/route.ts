@@ -21,6 +21,9 @@ export const CRON_JOB_ROUTES = [
 
 // Non-API routes that are accessible without completing onboarding
 export const ONBOARDING_WHITELIST_ROUTES = ["/onboarding"];
+export const ONBOARDING_WHITELIST_ROUTE_PREFIXES = [
+	"/organisation",
+];
 
 // API routes that are accessible without completing onboarding.
 // Prefix entries must include a trailing slash to avoid overmatching sibling routes.
@@ -30,8 +33,11 @@ export const ONBOARDING_WHITELIST_API_ROUTES = {
 		POST: ["/api/organisation", "/api/user/complete-onboarding", "/api/auth/session"],
 	},
 	prefix: {
-		POST: ["/api/organisation/current/", "/api/organisation/invitation/"],
-		DELETE: ["/api/organisation/invitation/"],
+		GET: ["/api/organisation/"],
+		POST: ["/api/organisation/current/", "/api/organisation/invitation/", "/api/organisation/"],
+		PUT: ["/api/organisation/"],
+		PATCH: ["/api/organisation/"],
+		DELETE: ["/api/organisation/invitation/", "/api/organisation/"],
 	},
 } as const;
 

@@ -40,6 +40,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                                 |
 | [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                           |
 | [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)         |
+| [✅ Google Vertex AI](https://docs.openlit.io/latest/integrations/vertex-ai) *(via `@google-cloud/vertexai`)* |
 | [✅ Together AI](https://docs.openlit.io/latest/integrations/together)                      |
 | [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                             |
 | [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |
@@ -266,6 +267,33 @@ if (!('err' in result)) {
   console.log('Matching rules:', result.matchingRuleIds);
   console.log('Entities:', result.entities);
 }
+```
+
+### Score ingestion - `Openlit.logScore()`
+
+Attach numeric, boolean, or categorical scores and user feedback to a GenAI span. When called inside an instrumented LLM request, the score auto-attaches to the active span.
+
+| Parameter | Description |
+|-----------|-------------|
+| `name` | Score name, for example `user_feedback` or `quality`. |
+| `value` | Numeric, boolean, or categorical score value. |
+| `span` | Optional explicit OpenTelemetry span. |
+| `traceId` | Optional trace ID for async feedback against a past trace. |
+| `spanId` | Optional span ID for async feedback against a past trace. |
+| `comment` | Optional explanation or reviewer comment. |
+| `idempotencyKey` | Optional key to deduplicate score updates. |
+| `metadata` | Optional object of extra event attributes. |
+
+#### Example
+
+```typescript
+import Openlit from 'openlit';
+
+Openlit.init();
+
+Openlit.logScore({ name: 'user_feedback', value: true, comment: 'Helpful response' });
+Openlit.logScore({ name: 'quality', value: 0.85, metadata: { reviewer: 'human' } });
+Openlit.logScore({ name: 'category', value: 'accurate' });
 ```
 
 ## 🌱 Contributing

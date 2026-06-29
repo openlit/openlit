@@ -873,7 +873,19 @@ def common_response_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
+    # flag the prompt tokens as cache-inclusive to avoid billing cached tokens
+    # twice once a model defines cacheReadPrice. OpenAI has no cache-creation
+    # charge, so that count stays 0 unless a provider sets it.
+    cost = get_chat_model_cost(
+        request_model,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        prompt_tokens_include_cache=True,
+    )
 
     # Common Span Attributes
     common_span_attributes(
@@ -1366,7 +1378,19 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
+    # flag the prompt tokens as cache-inclusive to avoid billing cached tokens
+    # twice once a model defines cacheReadPrice. OpenAI has no cache-creation
+    # charge, so that count stays 0 unless a provider sets it.
+    cost = get_chat_model_cost(
+        request_model,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        prompt_tokens_include_cache=True,
+    )
 
     # Common Span Attributes
     common_span_attributes(

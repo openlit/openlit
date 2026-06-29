@@ -1,0 +1,40 @@
+---
+title: 'Organisation Overview'
+description: 'Understand how organisations, projects, and database configurations fit together in OpenLIT'
+icon: 'building'
+---
+
+Organisations in OpenLIT are shared workspaces for teams and environments. An organisation contains projects, and each project contains one or more ClickHouse database configurations.
+
+```text
+Organisation
+  Project
+    Database configuration
+```
+
+Use organisations for workspace and membership boundaries. Use projects when you need separate database boundaries inside the same organisation, such as production, staging, customer-specific environments, or different teams.
+
+## What belongs to an organisation
+
+- Organisation identity, such as the workspace name.
+- Members and pending invitations.
+- Projects owned by the organisation.
+- Billing and licensing state where applicable.
+
+Every organisation has a default project. Existing installations are mapped to a default project so existing database configurations continue to work after upgrading.
+
+## Common tasks
+
+<CardGroup cols={2}>
+  <Card title="Manage projects" href="/latest/openlit/organisation/projects" icon="folder">
+    Create projects, switch project context, and review project-level structure.
+  </Card>
+  <Card title="Configure databases" href="/latest/openlit/organisation/database-config" icon="database">
+    Add, select, and update ClickHouse database configurations inside a project.
+  </Card>
+</CardGroup>
+
+## Workspace switching
+
+If you belong to multiple organisations, use the organisation selector in the top navigation to change the active workspace. Project and database configuration selectors update based on the selected organisation.
+

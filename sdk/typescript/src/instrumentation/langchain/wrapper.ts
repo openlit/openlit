@@ -10,6 +10,7 @@ import OpenLitHelper, {
   setFrameworkParentContext,
   clearFrameworkParentContext,
   getServerAddressForProvider,
+  LANGCHAIN_ROLE_MAP,
 } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 import SemanticConvention from '../../semantic-convention';
@@ -260,13 +261,7 @@ function detectObservationType(serialized: any, callbackType: string, name: stri
 // Message formatting helpers (mirrors Python utils.py)
 // ---------------------------------------------------------------------------
 
-const ROLE_MAP: Record<string, string> = {
-  system: 'system',
-  human: 'user',
-  ai: 'assistant',
-  tool: 'tool',
-  function: 'tool',
-};
+const ROLE_MAP = LANGCHAIN_ROLE_MAP;
 
 function buildInputMessagesFromLangChain(messages: any[][]): any[] {
   try {
@@ -945,7 +940,18 @@ class OpenLITCallbackHandler {
 
       // Cost
       const pricingInfo = OpenlitConfig.pricingInfo || {};
-      const cost = OpenLitHelper.getChatModelCost(modelName, pricingInfo, inputTokens, outputTokens);
+      // LangChain's normalized usage reports input_tokens as the sum of all
+      // input token types (uncached + cache read + cache creation), so flag the
+      // prompt tokens as cache-inclusive to avoid billing cached tokens twice.
+      const cost = OpenLitHelper.getChatModelCost(
+        modelName,
+        pricingInfo,
+        inputTokens,
+        outputTokens,
+        holder.cacheReadInputTokens || 0,
+        holder.cacheCreationInputTokens || 0,
+        true
+      );
 
       // Provider for span attributes
       const provider = holder.provider || SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN;

@@ -18,9 +18,10 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { Rule } from "@/types/rule-engine";
 import { toast } from "sonner";
-import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles } from "lucide-react";
+import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface RuleWithPriority {
 	ruleId: string;
@@ -202,33 +203,30 @@ export default function EvaluationTypeDetailPage() {
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-
-			<div className="flex items-center gap-4">
-				<Link href="/evaluations/types">
-					<Button
-						variant="outline"
-						size="icon"
-						className="shrink-0 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800"
-					>
-						<ArrowLeft className="size-4" />
-					</Button>
-				</Link>
-				<div>
-					<h2 className="text-lg font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-2">
-						{displayLabel}
+		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
+			<FeaturePageHeader
+				eyebrow="Configuration"
+				title={displayLabel}
+				description={displayDescription}
+				icon={<Layers className="h-4 w-4" />}
+				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+				actions={
+					<div className="flex flex-wrap items-center gap-2">
 						{isCustom && (
-							<Badge variant="outline" className="text-xs font-normal gap-1 border-primary/30 text-primary">
+							<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
 								<Sparkles className="size-3" />
 								Custom
 							</Badge>
 						)}
-					</h2>
-					<p className="text-sm text-stone-500 dark:text-stone-400">
-						{displayDescription}
-					</p>
-				</div>
-			</div>
+						<Button asChild variant="outline" size="sm" className="h-8">
+							<Link href="/evaluations/types">
+								<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+								Evaluation Types
+							</Link>
+						</Button>
+					</div>
+				}
+			/>
 
 			<div className="grid grid-cols-3 gap-4">
 				<div className="grid col-span-2 gap-4">

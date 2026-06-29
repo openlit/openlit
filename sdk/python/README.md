@@ -260,6 +260,38 @@ if result:
     # contexts = result.get("entity_data", {})
 ```
 
+### Score ingestion - `openlit.log_score()`
+
+Attach numeric, boolean, or categorical scores and user feedback to a GenAI span. When called inside an instrumented LLM request, the score auto-attaches to the active span.
+
+| Parameter | Description |
+|-----------|-------------|
+| `name` | Score name, for example `user_feedback` or `quality`. |
+| `value` | Numeric, boolean, or categorical score value. |
+| `span` | Optional explicit OpenTelemetry span. |
+| `trace_id` | Optional trace ID for async feedback against a past trace. |
+| `span_id` | Optional span ID for async feedback against a past trace. |
+| `comment` | Optional explanation or reviewer comment. |
+| `idempotency_key` | Optional key to deduplicate score updates. |
+| `metadata` | Optional dictionary of extra event attributes. |
+
+#### Example
+
+```python
+import openlit
+
+openlit.init()
+
+# Thumbs up/down style feedback on the current span
+openlit.log_score("user_feedback", True, comment="Helpful response")
+
+# Numeric reviewer score
+openlit.log_score("quality", 0.85, metadata={"reviewer": "human"})
+
+# Categorical label
+openlit.log_score("category", "accurate")
+```
+
 ## 🛣️ Roadmap
 
 We are dedicated to continuously improving OpenLIT SDKs. Here's a look at what's been accomplished and what's on the horizon:
