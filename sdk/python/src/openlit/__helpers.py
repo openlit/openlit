@@ -281,9 +281,38 @@ def general_tokens(text):
     return math.ceil(len(text) / 2)
 
 
-def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
+def get_chat_model_cost(
+    model,
+    pricing_info,
+    prompt_tokens,
+    completion_tokens,
+    cache_read_tokens=0,
+    cache_creation_tokens=0,
+    prompt_tokens_include_cache=False,
+):
     """
     Retrieve the cost of processing for a given model based on prompt and tokens.
+
+    Cache-aware pricing:
+        When the model's pricing entry defines ``cacheReadPrice`` /
+        ``cacheCreationPrice``, the matching cache tokens are billed at those
+        rates instead of the regular prompt price.
+
+    Token accounting differs across providers:
+        * Some providers (e.g. the Anthropic native API) report
+          ``prompt_tokens`` *exclusive* of cached tokens, so the cache tokens
+          must simply be added on top -> keep ``prompt_tokens_include_cache``
+          ``False`` (the default).
+        * Others (e.g. LangChain's normalized ``usage_metadata``) report
+          ``prompt_tokens`` as the *sum of all* input token types, already
+          including cache read / creation tokens. Pass
+          ``prompt_tokens_include_cache=True`` so the re-priced cache tokens are
+          subtracted from the prompt base and never billed twice.
+
+    Cache tokens are only ever re-priced (and, when inclusive, only ever
+    subtracted) when a dedicated cache price exists. This keeps the result
+    identical to the legacy behaviour for every model that has no cache pricing
+    configured, regardless of the token-accounting convention.
     """
 
     try:
@@ -293,8 +322,33 @@ def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
             model_pricing = chat_pricing.get(model.split("/", 1)[1])
         if model_pricing is None:
             return 0
-        cost = ((prompt_tokens / 1000) * model_pricing["promptPrice"]) + (
-            (completion_tokens / 1000) * model_pricing["completionPrice"]
+
+        cache_read_tokens = cache_read_tokens or 0
+        cache_creation_tokens = cache_creation_tokens or 0
+
+        billable_prompt_tokens = prompt_tokens
+        cache_cost = 0.0
+
+        if "cacheReadPrice" in model_pricing:
+            cache_cost += (cache_read_tokens / 1000) * (
+                model_pricing["cacheReadPrice"] or 0
+            )
+            if prompt_tokens_include_cache:
+                billable_prompt_tokens -= cache_read_tokens
+
+        if "cacheCreationPrice" in model_pricing:
+            cache_cost += (cache_creation_tokens / 1000) * (
+                model_pricing["cacheCreationPrice"] or 0
+            )
+            if prompt_tokens_include_cache:
+                billable_prompt_tokens -= cache_creation_tokens
+
+        billable_prompt_tokens = max(billable_prompt_tokens, 0)
+
+        cost = (
+            (billable_prompt_tokens / 1000) * model_pricing["promptPrice"]
+            + (completion_tokens / 1000) * model_pricing["completionPrice"]
+            + cache_cost
         )
     except Exception:
         cost = 0
