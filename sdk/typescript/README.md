@@ -40,6 +40,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                                 |
 | [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                           |
 | [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)         |
+| [✅ Google Vertex AI](https://docs.openlit.io/latest/integrations/vertex-ai) *(via `@google-cloud/vertexai`)* |
 | [✅ Together AI](https://docs.openlit.io/latest/integrations/together)                      |
 | [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                             |
 | [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |

@@ -12,7 +12,22 @@ import BaseWrapper from '../base-wrapper';
 import SemanticConvention from '../../semantic-convention';
 
 jest.mock('../../config');
-jest.mock('../../helpers');
+jest.mock('../../helpers', () => {
+  const actual = jest.requireActual('../../helpers');
+  return {
+    ...actual,
+    getChatModelCost: jest.fn(),
+    handleException: jest.fn(),
+    buildInputMessages: jest.fn(),
+    buildOutputMessages: jest.fn(),
+    emitInferenceEvent: jest.fn(),
+    buildToolDefinitions: jest.fn(),
+    computeAgentVersionHash: jest.fn(),
+    isFrameworkLlmActive: jest.fn().mockReturnValue(false),
+    getFrameworkParentContext: jest.fn().mockReturnValue(undefined),
+    getCurrentAgentVersion: jest.fn().mockReturnValue(null),
+  };
+});
 jest.mock('../base-wrapper');
 
 const mockTracer = trace.getTracer('test-tracer');
@@ -329,16 +344,26 @@ describe('Vertex AI Cross-Language Trace Comparison', () => {
       expect(VertexAIWrapper._extractModelName({})).toBe('gemini-2.0-flash');
     });
 
-    it('reads model from generativeModel property (ChatSession shape)', () => {
+    it('reads model from resourcePath (ChatSession shape)', () => {
+      const instance = {
+        resourcePath: 'projects/my-project/locations/us-central1/publishers/google/models/gemini-1.5-pro',
+      };
+      expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-1.5-pro');
+    });
+
+    it('reads model from generativeModel property', () => {
       const instance = { generativeModel: { model: 'gemini-1.5-pro' } };
       expect(VertexAIWrapper._extractModelName(instance)).toBe('gemini-1.5-pro');
     });
   });
 
   describe('ChatSession.sendMessage', () => {
-    it('captures the turn message as input and skips generationConfig (isChatSession)', async () => {
-      // For ChatSession, args[0] is the message string, not a request object
+    it('captures the turn message as input and reads session config from instance', async () => {
       const mockArgs = ['What is the capital of France?'];
+      const mockInstance = {
+        generationConfig: { temperature: 0.4, maxOutputTokens: 128 },
+        systemInstruction: { parts: [{ text: 'You are a geography tutor.' }] },
+      };
       const mockResponse = {
         response: {
           candidates: [{ content: { parts: [{ text: 'Paris' }] }, finishReason: 'STOP' }],
@@ -352,6 +377,7 @@ describe('Vertex AI Cross-Language Trace Comparison', () => {
 
       await VertexAIWrapper._processResponse({
         args: mockArgs,
+        instance: mockInstance,
         genAIEndpoint: 'vertexai.generative_models.chat_session.send_message',
         response: mockResponse,
         span: mockSpan,
@@ -363,10 +389,67 @@ describe('Vertex AI Cross-Language Trace Comparison', () => {
       expect(OpenLitHelper.buildInputMessages).toHaveBeenCalledWith([
         { role: 'user', content: 'What is the capital of France?' },
       ]);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 0.4);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 128);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
         8
       );
+    });
+  });
+
+  describe('custom span attributes', () => {
+    it('applies global custom attributes via setBaseSpanAttributes', async () => {
+      const actualBaseWrapper = jest.requireActual('../base-wrapper').default;
+      (BaseWrapper as any).setBaseSpanAttributes = actualBaseWrapper.setBaseSpanAttributes;
+      (OpenlitConfig as any).customSpanAttributes = { 'team.id': 'eng-ml' };
+
+      const mockArgs = [{ contents: 'Hello', generationConfig: {} }];
+      const mockResponse = {
+        response: {
+          candidates: [{ content: { parts: [{ text: 'Hi' }] }, finishReason: 'STOP' }],
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
+        },
+      };
+
+      await VertexAIWrapper._processResponse({
+        args: mockArgs,
+        genAIEndpoint: 'vertexai.generative_models.generate_content',
+        response: mockResponse,
+        span: mockSpan,
+        requestModel: 'gemini-2.0-flash',
+        serverAddress: 'us-central1-aiplatform.googleapis.com',
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith('team.id', 'eng-ml');
+    });
+
+    it('applies custom attributes on failed requests before span end', async () => {
+      (OpenlitConfig as any).customSpanAttributes = { 'request.source': 'batch' };
+
+      const errorSpan = {
+        setAttribute: jest.fn(),
+        end: jest.fn(),
+        setStatus: jest.fn(),
+        recordException: jest.fn(),
+      };
+      const tracer = {
+        startSpan: jest.fn().mockReturnValue(errorSpan),
+      };
+
+      const patcher = VertexAIWrapper._patchGenerateContent(tracer as any);
+      const failingMethod = patcher(async () => {
+        throw new Error('vertex unavailable');
+      });
+
+      await expect(
+        failingMethod.call({ model: 'gemini-2.0-flash', location: 'us-central1' }, {
+          contents: 'Hello',
+          generationConfig: {},
+        })
+      ).rejects.toThrow('vertex unavailable');
+
+      expect(errorSpan.setAttribute).toHaveBeenCalledWith('request.source', 'batch');
     });
   });
 

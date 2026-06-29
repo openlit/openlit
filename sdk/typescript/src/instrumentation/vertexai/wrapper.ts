@@ -1,6 +1,7 @@
 import { Span, SpanKind, Tracer, context, trace, Attributes } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper, {
+  applyCustomSpanAttributes,
   isFrameworkLlmActive,
   getFrameworkParentContext,
   getCurrentAgentVersion,
@@ -19,6 +20,24 @@ function extractServerAddress(instance: any): string {
     instance?.generativeModel?._location ||
     'us-central1';
   return `${location}-aiplatform.googleapis.com`;
+}
+
+// Non-chat: args[0] is the GenerateContentRequest.
+// ChatSession: args[0] is the turn message; generationConfig/systemInstruction/tools
+// are stored on the session instance from startChat().
+function resolveRequestContext(
+  instance: any,
+  args: any[],
+  isChatSession: boolean
+): Record<string, any> {
+  if (!isChatSession) {
+    return args[0] || {};
+  }
+  return {
+    generationConfig: instance?.generationConfig,
+    systemInstruction: instance?.systemInstruction,
+    tools: instance?.tools,
+  };
 }
 
 function spanCreationAttrs(
@@ -46,8 +65,10 @@ class VertexAIWrapper extends BaseWrapper {
     const raw =
       instance?.model ||
       instance?._modelId ||
+      instance?.resourcePath ||
       instance?.generativeModel?.model ||
       instance?.generativeModel?._modelId ||
+      instance?.generativeModel?.resourcePath ||
       'gemini-2.0-flash';
     return String(raw)
       .replace(/^projects\/[^/]+\/locations\/[^/]+\/publishers\/[^/]+\/models\//, '')
@@ -135,6 +156,7 @@ class VertexAIWrapper extends BaseWrapper {
               const wrappedStream = VertexAIWrapper._streamGenerator({
                 args,
                 genAIEndpoint,
+                instance: this,
                 stream: result.stream,
                 span,
                 requestModel,
@@ -146,6 +168,7 @@ class VertexAIWrapper extends BaseWrapper {
             return VertexAIWrapper._processResponse({
               args,
               genAIEndpoint,
+              instance: this,
               response: result,
               span,
               requestModel,
@@ -155,6 +178,7 @@ class VertexAIWrapper extends BaseWrapper {
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
+            applyCustomSpanAttributes(span);
             BaseWrapper.recordMetrics(span, {
               genAIEndpoint,
               model: requestModel,
@@ -209,6 +233,7 @@ class VertexAIWrapper extends BaseWrapper {
   static async _processResponse({
     args,
     genAIEndpoint,
+    instance,
     response,
     span,
     requestModel,
@@ -217,6 +242,7 @@ class VertexAIWrapper extends BaseWrapper {
   }: {
     args: any[];
     genAIEndpoint: string;
+    instance?: any;
     response: any;
     span: Span;
     requestModel: string;
@@ -228,6 +254,7 @@ class VertexAIWrapper extends BaseWrapper {
       metricParams = await VertexAIWrapper._commonSetter({
         args,
         genAIEndpoint,
+        instance,
         result: response,
         span,
         requestModel,
@@ -249,6 +276,7 @@ class VertexAIWrapper extends BaseWrapper {
   static async *_streamGenerator({
     args,
     genAIEndpoint,
+    instance,
     stream,
     span,
     requestModel,
@@ -257,6 +285,7 @@ class VertexAIWrapper extends BaseWrapper {
   }: {
     args: any[];
     genAIEndpoint: string;
+    instance?: any;
     stream: any;
     span: Span;
     requestModel: string;
@@ -333,6 +362,7 @@ class VertexAIWrapper extends BaseWrapper {
       metricParams = await VertexAIWrapper._commonSetter({
         args,
         genAIEndpoint,
+        instance,
         result: accumulated,
         span,
         requestModel,
@@ -358,6 +388,7 @@ class VertexAIWrapper extends BaseWrapper {
   static async _commonSetter({
     args,
     genAIEndpoint,
+    instance,
     result,
     span,
     requestModel,
@@ -369,6 +400,7 @@ class VertexAIWrapper extends BaseWrapper {
   }: {
     args: any[];
     genAIEndpoint: string;
+    instance?: any;
     result: any;
     span: Span;
     requestModel: string;
@@ -384,10 +416,7 @@ class VertexAIWrapper extends BaseWrapper {
     const responseData = result.response || result;
 
     // @google-cloud/vertexai uses `generationConfig` (camelCase).
-    // ChatSession.sendMessage only accepts the message content as args[0]
-    // (string | Array<string | Part>) — there is no per-call generationConfig
-    // argument. Per-session config is set once via GenerativeModel.startChat().
-    const requestArg = isChatSession ? {} : (args[0] || {});
+    const requestArg = resolveRequestContext(instance, args, isChatSession);
     const generationConfig = requestArg.generationConfig || {};
     const {
       temperature,
