@@ -34,6 +34,8 @@ This directory contains organized cursor rules for different aspects of the Open
 - Compact operational UI guidance
 - CE/EE boundary expectations
 - OSS-safe fallback guidance
+- Neutral extension hook guidance
+- No enterprise permission literals or `@/ee/**` imports in CE
 - Project hierarchy UI expectations
 - Message key requirements
 
@@ -49,6 +51,8 @@ This directory contains organized cursor rules for different aspects of the Open
 - Server-side authorization requirements
 - Invalid JSON handling
 - OSS-safe extension fallback requirements
+- Neutral shared import requirements
+- CE leakage scans for `@/ee/**` imports and RBAC permission literals
 - Secret redaction requirements
 - Project-scoped DB config test expectations
 

@@ -13,6 +13,7 @@ import { projectStoreSlice } from "./project";
 import { ruleEngineStoreSlice } from "./rule-engine";
 import { chatStoreSlice } from "./chat";
 import { agentsInstrumentationStoreSlice } from "./agents-instrumentation";
+import { enterpriseStoreSlices } from "@/store/enterprise";
 
 export const useRootStore = create<RootStore>()(
 	devtools(
@@ -28,6 +29,7 @@ export const useRootStore = create<RootStore>()(
 			ruleEngine: ruleEngineStoreSlice,
 			chat: chatStoreSlice,
 			agentsInstrumentation: agentsInstrumentationStoreSlice,
+			...enterpriseStoreSlices,
 		})
 	)
 );

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import getMessage from "@/constants/messages";
 import { fetchDatabaseConfigList, pingActiveDatabaseConfig } from "./database-config";
 
+const inFlightProjectListRequests = new Map<string, Promise<ProjectWithMeta[]>>();
+
 export const fetchProjectList = async (organisationId?: string) => {
 	const currentOrgId =
 		organisationId || useRootStore.getState().organisation.current?.id;
@@ -15,22 +17,34 @@ export const fetchProjectList = async (organisationId?: string) => {
 		return [];
 	}
 
+	const inFlight = inFlightProjectListRequests.get(currentOrgId);
+	if (inFlight) return inFlight;
+
 	useRootStore.getState().project.setIsLoading(true);
-	const [err, data] = await asaw(
-		getData({
-			url: `/api/organisation/${currentOrgId}/projects`,
-			method: "GET",
-		})
-	);
+	const request = (async () => {
+		const [err, data] = await asaw(
+			getData({
+				url: `/api/organisation/${currentOrgId}/projects`,
+				method: "GET",
+			})
+		);
 
-	if (err || !Array.isArray(data)) {
-		useRootStore.getState().project.setIsLoading(false);
-		useRootStore.getState().project.setList([]);
-		return [];
+		if (err || !Array.isArray(data)) {
+			useRootStore.getState().project.setIsLoading(false);
+			useRootStore.getState().project.setList([]);
+			return [];
+		}
+
+		useRootStore.getState().project.setList(data);
+		return data as ProjectWithMeta[];
+	})();
+
+	inFlightProjectListRequests.set(currentOrgId, request);
+	try {
+		return await request;
+	} finally {
+		inFlightProjectListRequests.delete(currentOrgId);
 	}
-
-	useRootStore.getState().project.setList(data);
-	return data as ProjectWithMeta[];
 };
 
 export const changeActiveProject = async (

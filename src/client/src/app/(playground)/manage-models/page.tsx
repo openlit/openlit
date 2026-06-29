@@ -37,6 +37,7 @@ import { getDatabaseConfigList } from "@/selectors/database-config";
 import { Input } from "@/components/ui/input";
 import copy from "copy-to-clipboard";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface CustomModel extends ModelMetadata {
 	id: string;
@@ -188,17 +189,8 @@ export default function ManageModelsPage() {
 
 	return (
 		<div className="flex flex-col h-full w-full overflow-hidden">
-			{/* Header */}
-			<div className="flex items-center justify-between p-4 border-b border-stone-200 dark:border-stone-800 shrink-0">
-				<div className="flex flex-col gap-2">
-					<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-						{m.OPENGROUND_MANAGE_MODELS}
-					</h1>
-					<p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
-						{m.OPENGROUND_MANAGE_MODELS_DESCRIPTION}
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
+			<div className="shrink-0">
+				<FeaturePageHeader eyebrow="Configuration" title={m.OPENGROUND_MANAGE_MODELS} description="Curate provider models, pricing, and defaults so experiments and production runs use trusted options." icon={<SettingsIcon className="h-4 w-4" />} tone="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300" actions={<div className="flex items-center gap-2">
 					<Tooltip>
 						<TooltipTrigger>
 							<Button
@@ -263,7 +255,7 @@ export default function ManageModelsPage() {
 							{m.MANAGE_MODELS_EXPORT_PRICING}
 						</TooltipContent>
 					</Tooltip>
-				</div>
+				</div>} />
 			</div>
 
 			{/* SDK Pricing URL bar */}
