@@ -25,6 +25,17 @@ from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
 
+# Shared LangChain/LangGraph message-type → OTel GenAI semantic convention role mapping.
+# Both the LangChain and LangGraph instrumentations use these types; centralising here
+# prevents the two copies from drifting apart.
+LANGCHAIN_ROLE_MAPPING: Dict[str, str] = {
+    "human": "user",
+    "ai": "assistant",
+    "tool": "tool",
+    "function": "tool",
+    "system": "system",
+}
+
 # ContextVar for propagating agent name from agent frameworks to LLM instrumentors.
 # Set by framework instrumentors (CrewAI, PydanticAI, etc.) or via the public
 # openlit.set_agent_name() API so that downstream LLM call metrics are tagged
