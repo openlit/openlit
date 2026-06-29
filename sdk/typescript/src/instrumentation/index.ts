@@ -33,6 +33,7 @@ import CursorSDKInstrumentation from './cursor-sdk';
 import AstraInstrumentation from './astra';
 import MCPInstrumentation from './mcp';
 import Mem0Instrumentation from './mem0';
+import ElevenLabsInstrumentation from './elevenlabs';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -108,6 +109,7 @@ export default class Instrumentations {
     'astra': new AstraInstrumentation(),
     mcp: new MCPInstrumentation(),
     mem0: new Mem0Instrumentation(),
+    elevenlabs: new ElevenLabsInstrumentation(),
   };
 
   static setup(
