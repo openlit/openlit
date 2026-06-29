@@ -316,6 +316,7 @@ class TestLangGraphInstrumentorUnit:
                 self.attributes = {}
 
             def set_attribute(self, key, value):
+                """Record span attributes for assertions."""
                 self.attributes[key] = value
 
         span = MockSpan()
