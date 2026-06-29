@@ -11,6 +11,7 @@ jest.mock('@/constants/messages', () => ({
     DATABASE_CONFIG_NOT_FOUND: 'DB config not found',
     EVALUATION_CONFIG_SET_ERROR: 'Eval config set error',
     CRON_JOB_UPDATION_ERROR: 'Cron job error',
+    EVALUATION_SAMPLE_RATE_INVALID: 'Sample rate must be a number between 0 and 1.',
   })),
 }));
 jest.mock('@/lib/db-config', () => ({
@@ -73,7 +74,7 @@ import { getSecretById } from '@/lib/platform/vault';
 import Cron from '@/helpers/server/cron';
 import getMessage from '@/constants/messages';
 import { randomUUID } from 'crypto';
-import { jsonParse } from '@/utils/json';
+import { jsonParse, jsonStringify } from '@/utils/json';
 
 const mockDBConfig = { id: 'db-1', name: 'test-db' };
 
@@ -103,6 +104,7 @@ beforeEach(() => {
     DATABASE_CONFIG_NOT_FOUND: 'DB config not found',
     EVALUATION_CONFIG_SET_ERROR: 'Eval config set error',
     CRON_JOB_UPDATION_ERROR: 'Cron job error',
+    EVALUATION_SAMPLE_RATE_INVALID: 'Sample rate must be a number between 0 and 1.',
   });
 
   // Re-apply throwIfError implementation after resetAllMocks
@@ -130,6 +132,7 @@ beforeEach(() => {
   (jsonParse as jest.Mock).mockImplementation((v: string) => {
     try { return JSON.parse(v); } catch { return {}; }
   });
+  (jsonStringify as jest.Mock).mockImplementation((v: unknown) => JSON.stringify(v));
 });
 
 // ---------------------------------------------------------------------------
@@ -340,6 +343,40 @@ describe('setEvaluationConfig', () => {
     await expect(
       setEvaluationConfig(autoConfig as any, 'http://api.example.com')
     ).rejects.toThrow('Cron system unavailable');
+  });
+
+  it('throws when evalSampleRate is invalid', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, mockDBConfig]);
+
+    await expect(
+      setEvaluationConfig(
+        { auto: false, meta: JSON.stringify({ evalSampleRate: 'invalid' }) } as any,
+        'http://api.example.com'
+      )
+    ).rejects.toThrow('Sample rate must be a number between 0 and 1.');
+  });
+
+  it('normalizes evalSampleRate when creating config', async () => {
+    const newConfig = {
+      auto: false,
+      recurringTime: '',
+      meta: JSON.stringify({ evalSampleRate: 0.25 }),
+    };
+    const createdRecord = { id: 'new-cfg-1', ...newConfig, databaseConfigId: 'db-1' };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, createdRecord]);
+
+    await setEvaluationConfig(newConfig as any, 'http://api.example.com');
+
+    expect(prisma.evaluationConfigs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: expect.stringContaining('"evalSampleRate":0.25'),
+        }),
+      })
+    );
   });
 });
 

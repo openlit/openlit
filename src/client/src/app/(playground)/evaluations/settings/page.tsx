@@ -53,6 +53,7 @@ export default function EvaluationSettingsPage() {
 	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
+	const [sampleRatePercent, setSampleRatePercent] = useState("100");
 	const [vaultId, setVaultId] = useState("");
 	const [vaultKeys, setVaultKeys] = useState<{ label: string; value: string }[]>(
 		[]
@@ -99,6 +100,10 @@ export default function EvaluationSettingsPage() {
 			setAutoEvaluation(config.auto || false);
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
+			const meta = JSON.parse(config.meta || "{}");
+			const storedSampleRate =
+				typeof meta.evalSampleRate === "number" ? meta.evalSampleRate : 1;
+			setSampleRatePercent(String(Math.round(storedSampleRate * 100)));
 		}
 	}, [config]);
 
@@ -118,12 +123,26 @@ export default function EvaluationSettingsPage() {
 			});
 			return;
 		}
+
+		const parsedSampleRate = Number.parseFloat(sampleRatePercent);
+		if (
+			!Number.isFinite(parsedSampleRate) ||
+			parsedSampleRate < 0 ||
+			parsedSampleRate > 100
+		) {
+			toast.error(getMessage().EVALUATION_SAMPLE_RATE_PERCENT_INVALID, {
+				id: EVALUATION_TOAST_ID,
+			});
+			return;
+		}
+
 		toast.loading(getMessage().EVALUATION_CONFIG_MODIFYING, {
 			id: EVALUATION_TOAST_ID,
 		});
 
 		const meta = JSON.parse(config?.meta || "{}");
 		meta.engine = engine;
+		meta.evalSampleRate = parsedSampleRate / 100;
 
 		saveConfig({
 			body: JSON.stringify({
@@ -359,6 +378,18 @@ export default function EvaluationSettingsPage() {
 									/>
 									<p className="text-xs text-stone-500 dark:text-stone-400">
 										{getMessage().EVALUATION_CRON_HELP}
+									</p>
+									<Label>{getMessage().EVALUATION_SAMPLE_RATE_LABEL}</Label>
+									<Input
+										type="number"
+										min={0}
+										max={100}
+										step={1}
+										value={sampleRatePercent}
+										onChange={(e) => setSampleRatePercent(e.target.value)}
+									/>
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{getMessage().EVALUATION_SAMPLE_RATE_DESCRIPTION}
 									</p>
 								</div>
 							)}
