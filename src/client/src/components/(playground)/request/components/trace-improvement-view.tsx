@@ -201,7 +201,7 @@ function MarkdownText({ content }: { content: string }) {
 			<ReactMarkdown
 				components={{
 					p({ children }) {
-						return <p className="my-1.5 text-sm leading-relaxed text-stone-800 dark:text-stone-100">{children}</p>;
+						return <p className="my-1.5 text-sm leading-relaxed text-stone-800 dark:text-stone-100 whitespace-pre-wrap">{children}</p>;
 					},
 					ul({ children }) {
 						return <ul className="my-1.5 list-disc space-y-1 pl-5 text-sm text-stone-800 dark:text-stone-100">{children}</ul>;

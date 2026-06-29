@@ -313,13 +313,38 @@ export const KNOWN_SPAN_ATTR_KEYS = new Set<string>(
 );
 
 /**
+ * Prefix used for the synthetic session-root node minted when a
+ * coding-agent session has no real `coding_agent.session` span (see
+ * `buildCodingSessionHierarchy` in `lib/platform/request`). Such a node
+ * has no row in `otel_traces`, so any code that fetches a span / trace
+ * by this id (span detail, AI analysis, hierarchy) MUST treat it as a
+ * non-selectable grouping node rather than a real span.
+ */
+export const SYNTHETIC_SPAN_ID_PREFIX = "synthetic-";
+
+/** True when `spanId` is a synthetic grouping node (no backing DB row). */
+export function isSyntheticSpanId(spanId?: string | null): boolean {
+	return (
+		typeof spanId === "string" && spanId.startsWith(SYNTHETIC_SPAN_ID_PREFIX)
+	);
+}
+
+/**
  * Get formatted duration string for a hierarchy span (e.g. "1.20s").
+ *
+ * `getNormalizedTraceAttribute` returns `requestDuration`'s (absent)
+ * defaultValue — `undefined` — for a falsy `Duration` (the numeric `0`
+ * carried by the synthetic session root and by point-in-time coding
+ * spans). `parseFloat(undefined)` is `NaN`, which used to render as
+ * the literal "NaNs" on every zero-duration node. Guard the non-finite
+ * case so those nodes read a truthful "0.00s" instead.
  */
 export function getSpanDurationDisplay(span: TraceHeirarchySpan): string {
-	const durationStr = parseFloat(
+	const parsed = parseFloat(
 		getNormalizedTraceAttribute("requestDuration", span.Duration) as string
-	).toFixed(2);
-	return `${durationStr}${TraceMapping.requestDuration.valueSuffix}`;
+	);
+	const seconds = Number.isFinite(parsed) ? parsed : 0;
+	return `${seconds.toFixed(2)}${TraceMapping.requestDuration.valueSuffix}`;
 }
 
 /**

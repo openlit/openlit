@@ -1,4 +1,5 @@
 import { dataCollector } from "@/lib/platform/common";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import {
 	CONTROLLER_SERVICES_TABLE,
 	CONTROLLER_INSTANCES_TABLE,
@@ -23,9 +24,7 @@ function clickhouseNow(): string {
 	return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
-function escapeClickHouse(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escapeClickHouse = escapeClickHouseString;
 
 // --- ClickHouse queries (OpenLIT dashboard reads/writes) ---
 

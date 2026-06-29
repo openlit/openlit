@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 )
@@ -19,41 +20,50 @@ import (
 const tcpEstablished = "01"
 
 // ConnScanner scans /proc/net/tcp{,6} for established connections to known
-// LLM API IPs. This catches connections that already existed before the
+// LLM API endpoints. This catches connections that already existed before the
 // kprobe was attached (e.g. apps with long-lived HTTP keep-alive pools).
+//
+// Endpoints are keyed on IP+port so self-hosted proxies on non-443 ports
+// (LiteLLM :4000, Ollama :11434, vLLM :8000, ...) are matched without
+// flagging unrelated traffic to a shared IP.
 type ConnScanner struct {
 	procRoot string
-	knownIPs map[[4]byte]uint8 // IPv4 -> provider_id (mirrors BPF map)
 	logger   *zap.Logger
+
+	// mu guards knownEndpoints. The map is replaced wholesale (never mutated in
+	// place), so readers snapshot the reference under RLock and use it lock-free.
+	// UpdateEndpoints runs from the refresh loop while Scan runs from the conn
+	// scan loop, so this access must be synchronised.
+	mu             sync.RWMutex
+	knownEndpoints map[endpointKey]uint8 // IPv4+port -> provider_id (mirrors BPF map)
 }
 
 func NewConnScanner(procRoot string, logger *zap.Logger) *ConnScanner {
 	return &ConnScanner{
-		procRoot: procRoot,
-		knownIPs: make(map[[4]byte]uint8),
-		logger:   logger,
+		procRoot:       procRoot,
+		knownEndpoints: make(map[endpointKey]uint8),
+		logger:         logger,
 	}
 }
 
-// UpdateIPs rebuilds the known-IP set from resolved LLM hosts.
-// Called after each HostResolver.Refresh().
-func (c *ConnScanner) UpdateIPs(resolved map[string][]net.IP) {
-	c.knownIPs = make(map[[4]byte]uint8, len(resolved)*4)
-	for host, ips := range resolved {
-		provID, ok := llmHosts[host]
-		if !ok {
-			continue
-		}
-		for _, ip := range ips {
-			ip4 := ip.To4()
-			if ip4 == nil {
-				continue
-			}
-			var key [4]byte
-			copy(key[:], ip4)
-			c.knownIPs[key] = provID
-		}
+// UpdateEndpoints rebuilds the known-endpoint set from resolved targets.
+// Called after each RefreshAndUpdateBoth resolution cycle.
+func (c *ConnScanner) UpdateEndpoints(resolved map[endpointKey]uint8) {
+	next := make(map[endpointKey]uint8, len(resolved))
+	for k, v := range resolved {
+		next[k] = v
 	}
+	c.mu.Lock()
+	c.knownEndpoints = next
+	c.mu.Unlock()
+}
+
+// endpointsSnapshot returns the current known-endpoint map. The returned map is
+// read-only and must not be mutated (it is shared with future readers).
+func (c *ConnScanner) endpointsSnapshot() map[endpointKey]uint8 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.knownEndpoints
 }
 
 // Scan finds established connections to known LLM API IPs and attributes each
@@ -72,7 +82,10 @@ func (c *ConnScanner) UpdateIPs(resolved map[string][]net.IP) {
 // To avoid redundantly parsing the same /proc/<pid>/net/tcp for PIDs that
 // share a network namespace, results are cached by namespace inode.
 func (c *ConnScanner) Scan() []LLMConnectEvent {
-	if len(c.knownIPs) == 0 {
+	// Snapshot the endpoint set once for the whole scan so it's consistent and
+	// lock-free for the duration (the map is never mutated in place).
+	known := c.endpointsSnapshot()
+	if len(known) == 0 {
 		return nil
 	}
 
@@ -107,7 +120,7 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 			inodeToMatch = make(map[uint64]connMatch)
 			for _, variant := range []string{"tcp", "tcp6"} {
 				path := filepath.Join(pidDir, "net", variant)
-				matches := c.scanTCPFileWithInodes(path, variant == "tcp6")
+				matches := c.scanTCPFileWithInodes(path, variant == "tcp6", known)
 				for _, m := range matches {
 					inodeToMatch[m.inode] = m
 				}
@@ -127,7 +140,7 @@ func (c *ConnScanner) Scan() []LLMConnectEvent {
 			if !ok {
 				continue
 			}
-			key := fmt.Sprintf("%d:%s", pid, m.remoteIP)
+			key := fmt.Sprintf("%d:%s:%d", pid, m.remoteIP, m.remotePort)
 			if _, dup := seen[key]; dup {
 				continue
 			}
@@ -191,7 +204,7 @@ func readSocketInodes(fdDir string) []uint64 {
 
 // scanTCPFileWithInodes parses /proc/net/tcp{,6} and returns connections
 // to known LLM IPs along with their socket inode numbers.
-func (c *ConnScanner) scanTCPFileWithInodes(path string, isV6 bool) []connMatch {
+func (c *ConnScanner) scanTCPFileWithInodes(path string, isV6 bool, known map[endpointKey]uint8) []connMatch {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil
@@ -211,12 +224,13 @@ func (c *ConnScanner) scanTCPFileWithInodes(path string, isV6 bool) []connMatch 
 			continue
 		}
 		ip4, port := parseHexIPPort(fields[2], isV6)
-		if ip4 == nil || port != 443 {
+		if ip4 == nil {
 			continue
 		}
-		var key [4]byte
-		copy(key[:], ip4)
-		provID, ok := c.knownIPs[key]
+		var key endpointKey
+		copy(key.Addr[:], ip4)
+		key.Port = port
+		provID, ok := known[key]
 		if !ok {
 			continue
 		}
@@ -224,13 +238,14 @@ func (c *ConnScanner) scanTCPFileWithInodes(path string, isV6 bool) []connMatch 
 		if err != nil {
 			continue
 		}
-		matches = append(matches, connMatch{remoteIP: ip4, providerID: provID, inode: inode})
+		matches = append(matches, connMatch{remoteIP: ip4, remotePort: port, providerID: provID, inode: inode})
 	}
 	return matches
 }
 
 type connMatch struct {
 	remoteIP   net.IP
+	remotePort uint16
 	providerID uint8
 	inode      uint64
 }
@@ -277,47 +292,12 @@ func parseHexIPPort(s string, isV6 bool) (net.IP, uint16) {
 	return ip.To4(), uint16(portVal)
 }
 
-// ResolveAllHosts resolves all LLM hostnames and returns the results.
-// Used to feed both the BPF map and the ConnScanner's known IP set.
-func ResolveAllHosts() map[string][]net.IP {
-	resolved := make(map[string][]net.IP, len(llmHosts))
-	for host := range llmHosts {
-		addrs, err := net.LookupHost(host)
-		if err != nil {
-			continue
-		}
-		for _, a := range addrs {
-			ip := net.ParseIP(a).To4()
-			if ip != nil {
-				resolved[host] = append(resolved[host], ip)
-			}
-		}
-	}
-	return resolved
-}
-
-// RefreshAndUpdateBoth refreshes DNS, updates both the BPF map and ConnScanner IPs.
+// RefreshAndUpdateBoth resolves all targets once, programs the BPF endpoint map
+// (with stale-key pruning, handled by the resolver) and updates the
+// ConnScanner's known-endpoint set from the same resolution result.
 func RefreshAndUpdateBoth(resolver *HostResolver, connScan *ConnScanner, logger *zap.Logger) {
-	resolved := ResolveAllHosts()
-	for host, ips := range resolved {
-		provID := llmHosts[host]
-		for _, ip := range ips {
-			var key [4]byte
-			copy(key[:], ip.To4())
-			if err := resolver.ipMap.Put(key, provID); err != nil {
-				logger.Warn("failed to update BPF map", zap.String("ip", ip.String()), zap.Error(err))
-			}
-		}
-		logger.Debug("resolved LLM host", zap.String("host", host), zap.Int("ips", len(ips)))
-	}
-	connScan.UpdateIPs(resolved)
-	logger.Debug("updated conn scanner IPs", zap.Int("total_ips", countIPs(resolved)))
-}
-
-func countIPs(m map[string][]net.IP) int {
-	n := 0
-	for _, ips := range m {
-		n += len(ips)
-	}
-	return n
+	resolved := resolveTargets(resolver.Targets(), logger)
+	resolver.applyResolved(resolved)
+	connScan.UpdateEndpoints(resolved)
+	logger.Debug("updated conn scanner endpoints", zap.Int("total_endpoints", len(resolved)))
 }

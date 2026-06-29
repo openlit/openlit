@@ -2,6 +2,10 @@ import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
+import {
+	OrganisationAccessAction,
+	canManageOrganisation,
+} from "@/features/organisation-access";
 
 /**
  * Generate a URL-safe slug from a name
@@ -49,8 +53,16 @@ async function generateUniqueOrganisationSlug(
  */
 async function hasAdminOrOwnerRole(
 	organisationId: string,
-	userId: string
+	userId: string,
+	action: OrganisationAccessAction
 ): Promise<boolean> {
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId,
+		action,
+	});
+	if (typeof extensionDecision === "boolean") return extensionDecision;
+
 	const membership = await prisma.organisationUser.findUnique({
 		where: {
 			organisationId_userId: {
@@ -87,6 +99,255 @@ async function getUserRoleInOrganisation(
 	return membership?.role || null;
 }
 
+async function getMembershipCurrentProjectId(
+	organisationId: string,
+	userId: string
+) {
+	const rows = await prisma.$queryRaw<{ current_project_id: string | null }[]>`
+		SELECT current_project_id
+		FROM organisation_users
+		WHERE organisation_id = ${organisationId}
+		  AND user_id = ${userId}
+		LIMIT 1
+	`;
+
+	return rows[0]?.current_project_id || null;
+}
+
+async function setMembershipCurrentProjectId(
+	organisationId: string,
+	userId: string,
+	projectId: string
+) {
+	await prisma.$executeRaw`
+		UPDATE organisation_users
+		SET current_project_id = ${projectId}
+		WHERE organisation_id = ${organisationId}
+		  AND user_id = ${userId}
+	`;
+}
+
+async function assignUserToAllOrganisationProjects(
+	organisationId: string,
+	userId: string
+) {
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		select: { id: true },
+	});
+	if (!membership) return;
+
+	const projects = await prisma.project.findMany({
+		where: { organisationId },
+		select: { id: true },
+		orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+	});
+
+	for (const project of projects) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId: project.id,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId: project.id,
+				organisationUserId: membership.id,
+				userId,
+			},
+			update: {},
+		});
+	}
+
+	if (projects[0]?.id) {
+		const currentProjectId = await getMembershipCurrentProjectId(
+			organisationId,
+			userId
+		);
+		if (!currentProjectId) {
+			await setMembershipCurrentProjectId(organisationId, userId, projects[0].id);
+		}
+	}
+}
+
+async function assignAllOrganisationMembersToProject(
+	organisationId: string,
+	projectId: string
+) {
+	const memberships = await prisma.organisationUser.findMany({
+		where: { organisationId },
+		select: { id: true, userId: true },
+	});
+
+	for (const membership of memberships) {
+		await prisma.projectUser.upsert({
+			where: {
+				projectId_organisationUserId: {
+					projectId,
+					organisationUserId: membership.id,
+				},
+			},
+			create: {
+				projectId,
+				organisationUserId: membership.id,
+				userId: membership.userId,
+			},
+			update: {},
+		});
+	}
+}
+
+export async function getDefaultProjectForOrganisation(organisationId: string) {
+	const existingProject = await prisma.project.findFirst({
+		where: { organisationId, isDefault: true },
+		orderBy: { createdAt: "asc" },
+	});
+
+	if (existingProject) return existingProject;
+
+	return prisma.project.create({
+		data: {
+			organisationId,
+			name: "Default Project",
+			slug: "default",
+			isDefault: true,
+		},
+	});
+}
+
+export async function getCurrentProjectForOrganisation(organisationId: string) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId: user!.id,
+			},
+		},
+		select: { id: true },
+	});
+
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+
+	const currentProjectId = await getMembershipCurrentProjectId(
+		organisationId,
+		user!.id
+	);
+
+	if (currentProjectId) {
+		const currentProject = await prisma.project.findFirst({
+			where: {
+				id: currentProjectId,
+				organisationId,
+			},
+		});
+
+		if (currentProject) return currentProject;
+	}
+
+	const defaultProject = await getDefaultProjectForOrganisation(organisationId);
+	await setMembershipCurrentProjectId(organisationId, user!.id, defaultProject.id);
+
+	return defaultProject;
+}
+
+export async function setCurrentProject(
+	organisationId: string,
+	projectId: string
+) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId: user!.id,
+			},
+		},
+	});
+
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+
+	const project = await prisma.project.findUnique({
+		where: { id: projectId },
+	});
+
+	throwIfError(
+		!project || project!.organisationId !== organisationId,
+		getMessage().PROJECT_NOT_FOUND
+	);
+
+	await setMembershipCurrentProjectId(organisationId, user!.id, project!.id);
+
+	return { success: true };
+}
+
+function slugify(name: string): string {
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
+export async function createOrganisationProject(
+	organisationId: string,
+	name: string
+) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const trimmedName = name.trim();
+	throwIfError(
+		trimmedName.length < 1 || trimmedName.length > 120,
+		getMessage().PROJECT_NAME_LENGTH_RANGE_ERROR
+	);
+
+	const isAdmin = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"organisation.update"
+	);
+	throwIfError(!isAdmin, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
+
+	const baseSlug = slugify(trimmedName) || "project";
+	for (let attempt = 0; attempt < 10; attempt++) {
+		const suffix = Math.random().toString(36).substring(2, 8);
+		const slug = `${baseSlug}-${suffix}`;
+		const existing = await prisma.project.findUnique({
+			where: {
+				organisationId_slug: {
+					organisationId,
+					slug,
+				},
+			},
+			select: { id: true },
+		});
+
+		if (!existing) {
+			const project = await prisma.project.create({
+				data: {
+					organisationId,
+					name: trimmedName,
+					slug,
+				},
+			});
+			await assignAllOrganisationMembersToProject(organisationId, project.id);
+			return project;
+		}
+	}
+
+	throw new Error("Unable to generate a unique project slug.");
+}
+
 /**
  * Create a new organisation
  */
@@ -101,11 +362,21 @@ export async function createOrganisation(name: string) {
 			name,
 			slug,
 			createdByUserId: user!.id,
+			projects: {
+				create: {
+					name: "Default Project",
+					slug: "default",
+					isDefault: true,
+				},
+			},
+		},
+		include: {
+			projects: true,
 		},
 	});
 
 	// Add creator as a member with owner role
-	await prisma.organisationUser.create({
+	const creatorMembership = await prisma.organisationUser.create({
 		data: {
 			organisationId: organisation.id,
 			userId: user!.id,
@@ -113,6 +384,20 @@ export async function createOrganisation(name: string) {
 			isCurrent: false, // Don't auto-switch to new org
 		},
 	});
+	if (organisation.projects?.[0]?.id) {
+		await prisma.projectUser.create({
+			data: {
+				projectId: organisation.projects[0].id,
+				organisationUserId: creatorMembership.id,
+				userId: user!.id,
+			},
+		});
+		await setMembershipCurrentProjectId(
+			organisation.id,
+			user!.id,
+			organisation.projects[0].id
+		);
+	}
 
 	// Migrate orphaned configs and shared users to the new org
 	await migrateUserConfigsToOrganisation(organisation.id, user!.id);
@@ -216,6 +501,11 @@ export async function setCurrentOrganisation(organisationId: string) {
 	// Atomically unset all current orgs and set the new one in a transaction
 	// This prevents a race condition where concurrent requests could see
 	// no current organisation between the two operations
+	const defaultProject = await getDefaultProjectForOrganisation(organisationId);
+	const currentProjectId =
+		(await getMembershipCurrentProjectId(organisationId, user!.id)) ||
+		defaultProject.id;
+
 	await prisma.$transaction([
 		// Unset all current orgs for this user
 		prisma.organisationUser.updateMany({
@@ -240,6 +530,7 @@ export async function setCurrentOrganisation(organisationId: string) {
 			},
 		}),
 	]);
+	await setMembershipCurrentProjectId(organisationId, user!.id, currentProjectId);
 
 	return { success: true };
 }
@@ -255,7 +546,11 @@ export async function updateOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify user has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(id, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		id,
+		user!.id,
+		"organisation.update"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const updateData: { name?: string } = {};
@@ -353,7 +648,11 @@ export async function inviteUserToOrganisation(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	// Verify inviter has admin or owner role
-	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
+	const hasPermission = await hasAdminOrOwnerRole(
+		organisationId,
+		user!.id,
+		"members.invite"
+	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
 	// Validate and normalize email
@@ -361,14 +660,14 @@ export async function inviteUserToOrganisation(
 	
 	// Validate email is not empty
 	if (!normalizedEmail) {
-		throw new Error("Email cannot be empty");
+		throw new Error(getMessage().EMAIL_REQUIRED);
 	}
 	
 	// Validate email format - using a safer regex pattern that avoids ReDoS
 	// This pattern is more restrictive but safe from catastrophic backtracking
 	const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 	if (!EMAIL_REGEX.test(normalizedEmail)) {
-		throw new Error("Invalid email format");
+		throw new Error(getMessage().INVALID_EMAIL_FORMAT);
 	}
 
 	// Check if user already exists
@@ -400,6 +699,8 @@ export async function inviteUserToOrganisation(
 				isCurrent: false,
 			},
 		});
+
+		await assignUserToAllOrganisationProjects(organisationId, existingUser.id);
 
 		// Share all organisation database configs with the new member
 		await shareOrganisationDatabaseConfigs(organisationId, existingUser.id);
@@ -492,6 +793,8 @@ export async function acceptInvitation(invitationId: string) {
 			isCurrent: false,
 		},
 	});
+
+	await assignUserToAllOrganisationProjects(invitation!.organisationId, user!.id);
 
 	// Share all organisation database configs with the new member
 	await shareOrganisationDatabaseConfigs(invitation!.organisationId, user!.id);
@@ -617,9 +920,17 @@ export async function removeUserFromOrganisation(
 			userId
 		);
 
-		// Only admins and owners can remove other members
+		// Only admins and owners can remove other members by default. Enterprise can
+		// override this through the organisation access extension hook.
+		const extensionDecision = await canManageOrganisation({
+			organisationId,
+			userId: user!.id,
+			action: "members.remove",
+		});
 		const hasPermission =
-			currentUserRole === "owner" || currentUserRole === "admin";
+			typeof extensionDecision === "boolean"
+				? extensionDecision
+				: currentUserRole === "owner" || currentUserRole === "admin";
 		throwIfError(
 			!hasPermission,
 			getMessage().ONLY_ADMIN_CAN_REMOVE_MEMBERS
@@ -656,7 +967,9 @@ export async function removeUserFromOrganisation(
 		where: {
 			userId,
 			databaseConfig: {
-				organisationId,
+				project: {
+					organisationId,
+				},
 			},
 		},
 	});
@@ -791,9 +1104,17 @@ export async function updateMemberRole(
 	);
 	throwIfError(!targetUserRole, getMessage().NOT_ORGANISATION_MEMBER);
 
-	// Only admins and owners can update roles
+	// Only admins and owners can update roles by default. Enterprise can override
+	// this through the organisation access extension hook.
+	const extensionDecision = await canManageOrganisation({
+		organisationId,
+		userId: user!.id,
+		action: "members.role_change",
+	});
 	const hasPermission =
-		currentUserRole === "owner" || currentUserRole === "admin";
+		typeof extensionDecision === "boolean"
+			? extensionDecision
+			: currentUserRole === "owner" || currentUserRole === "admin";
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_OR_OWNER_CAN_UPDATE_ROLES);
 
 	// Only owner can change admin roles (demote admin to member)
@@ -870,7 +1191,8 @@ export async function cancelInvitation(invitationId: string) {
 	// Verify user has admin or owner role
 	const hasPermission = await hasAdminOrOwnerRole(
 		invitation!.organisationId,
-		user!.id
+		user!.id,
+		"members.invite"
 	);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_CANCEL_INVITATION);
 
@@ -931,12 +1253,14 @@ async function migrateUserConfigsToOrganisation(
 	organisationId: string,
 	userId: string
 ) {
+	const project = await getDefaultProjectForOrganisation(organisationId);
+
 	// Find all orphaned DB configs the user has access to
 	const userConfigLinks = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId,
 			databaseConfig: {
-				organisationId: null,
+				projectId: null,
 			},
 		},
 		select: { databaseConfigId: true },
@@ -948,10 +1272,10 @@ async function migrateUserConfigsToOrganisation(
 		(link) => link.databaseConfigId
 	);
 
-	// Move those configs to the new org
+	// Move those configs to the new organisation default project
 	await prisma.databaseConfig.updateMany({
 		where: { id: { in: orphanedConfigIds } },
-		data: { organisationId },
+		data: { projectId: project.id },
 	});
 
 	// Find other users who share those configs
@@ -989,6 +1313,12 @@ async function migrateUserConfigsToOrganisation(
 					isCurrent: !hasCurrentOrg,
 				},
 			});
+			await setMembershipCurrentProjectId(
+				organisationId,
+				sharedUserId,
+				project.id
+			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		} else if (!hasCurrentOrg) {
 			// Existing membership but no current org — fix it
 			await prisma.organisationUser.update({
@@ -1000,6 +1330,14 @@ async function migrateUserConfigsToOrganisation(
 				},
 				data: { isCurrent: true },
 			});
+			await setMembershipCurrentProjectId(
+				organisationId,
+				sharedUserId,
+				project.id
+			);
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
+		} else {
+			await assignUserToAllOrganisationProjects(organisationId, sharedUserId);
 		}
 
 		// Share org DB configs with the new member
@@ -1020,9 +1358,11 @@ async function shareOrganisationDatabaseConfigs(
 	organisationId: string,
 	userId: string
 ) {
+	const project = await getDefaultProjectForOrganisation(organisationId);
+
 	// Get all database configs for this organisation
 	const databaseConfigs = await prisma.databaseConfig.findMany({
-		where: { organisationId },
+		where: { projectId: project.id },
 		orderBy: {
 			createdAt: "asc",
 		},
@@ -1030,13 +1370,13 @@ async function shareOrganisationDatabaseConfigs(
 
 	if (databaseConfigs.length === 0) return;
 
-	// Check if user has any current database config in THIS organisation
+	// Check if user has any current database config in this project
 	const existingCurrentConfig = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId,
 			isCurrent: true,
 			databaseConfig: {
-				organisationId,
+				projectId: project.id,
 			},
 		},
 	});

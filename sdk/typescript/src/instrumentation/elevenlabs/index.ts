@@ -5,6 +5,7 @@ import {
   isWrapped,
 } from '@opentelemetry/instrumentation';
 import { InstrumentationConfig } from '@opentelemetry/instrumentation';
+import { diag } from '@opentelemetry/api';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
 import ElevenLabsWrapper from './wrapper';
 
@@ -20,9 +21,9 @@ export default class OpenlitElevenLabsInstrumentation extends InstrumentationBas
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
     const elevenlabsModule = new InstrumentationNodeModuleDefinition(
       'elevenlabs',
-      ['>=1.0.0'],
-      (moduleExports) => {
-        this._patch(moduleExports);
+      ['>=1.4.0'],
+      (moduleExports, moduleVersion) => {
+        this._patch(moduleExports, moduleVersion);
         return moduleExports;
       },
       (moduleExports) => {
@@ -35,8 +36,8 @@ export default class OpenlitElevenLabsInstrumentation extends InstrumentationBas
     const elevenlabsJsModule = new InstrumentationNodeModuleDefinition(
       '@elevenlabs/elevenlabs-js',
       ['>=1.0.0'],
-      (moduleExports) => {
-        this._patch(moduleExports);
+      (moduleExports, moduleVersion) => {
+        this._patch(moduleExports, moduleVersion);
         return moduleExports;
       },
       (moduleExports) => {
@@ -53,7 +54,7 @@ export default class OpenlitElevenLabsInstrumentation extends InstrumentationBas
     this._patch(elevenlabs);
   }
 
-  protected _patch(moduleExports: any) {
+  protected _patch(moduleExports: any, moduleVersion?: string) {
     try {
       const OriginalElevenLabsClient = moduleExports.ElevenLabsClient;
       if (!OriginalElevenLabsClient || typeof OriginalElevenLabsClient !== 'function') {
@@ -65,38 +66,38 @@ export default class OpenlitElevenLabsInstrumentation extends InstrumentationBas
       }
 
       const tracer = this.tracer;
-      const self = this;
+      const sdkVersion = moduleVersion ? String(moduleVersion) : undefined;
 
       this._wrap(moduleExports, 'ElevenLabsClient', (original: (...args: any[]) => any) => {
-        return function (this: any, ...args: any[]) {
-          const client = new (original as any)(...args);
+        return (...clientArgs: any[]) => {
+          const client = new (original as any)(...clientArgs);
 
           if (client && client.textToSpeech) {
             const textToSpeechProto = Object.getPrototypeOf(client.textToSpeech);
             if (textToSpeechProto) {
-              self._textToSpeechProto = textToSpeechProto;
+              this._textToSpeechProto = textToSpeechProto;
 
               if (textToSpeechProto.convert && !isWrapped(textToSpeechProto.convert)) {
-                self._wrap(
+                this._wrap(
                   textToSpeechProto,
                   'convert',
-                  ElevenLabsWrapper._patchConvert(tracer, 'convert')
+                  ElevenLabsWrapper._patchConvert(tracer, 'convert', sdkVersion)
                 );
               }
 
               if (textToSpeechProto.stream && !isWrapped(textToSpeechProto.stream)) {
-                self._wrap(
+                this._wrap(
                   textToSpeechProto,
                   'stream',
-                  ElevenLabsWrapper._patchStream(tracer, 'stream')
+                  ElevenLabsWrapper._patchStream(tracer, 'stream', sdkVersion)
                 );
               }
 
               if (textToSpeechProto.convertWithTimestamps && !isWrapped(textToSpeechProto.convertWithTimestamps)) {
-                self._wrap(
+                this._wrap(
                   textToSpeechProto,
                   'convertWithTimestamps',
-                  ElevenLabsWrapper._patchConvert(tracer, 'convertWithTimestamps')
+                  ElevenLabsWrapper._patchConvert(tracer, 'convertWithTimestamps', sdkVersion)
                 );
               }
             }
@@ -106,7 +107,7 @@ export default class OpenlitElevenLabsInstrumentation extends InstrumentationBas
         };
       });
     } catch (e) {
-      console.error('Error in _patch method for ElevenLabs:', e);
+      diag.error('elevenlabs instrumentation: error in _patch method', e);
     }
   }
 

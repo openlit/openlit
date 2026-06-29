@@ -24,10 +24,10 @@ import type {
 import { invalidate, POLICY_DETAIL, POLICY_LIST, swr } from "./cache";
 import { agentsLogger } from "./logger";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import { recomputeCodingAgentsForWindow } from "./materialize";
 
-function escape(value: string): string {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+const escape = escapeClickHouseString;
 
 function escapeList(values: string[]): string {
 	return values.map((v) => `'${escape(v)}'`).join(", ");
@@ -75,6 +75,19 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 		pods_total: Number(row.pods_total || 0),
 		pods_pending: Number(row.pods_pending || 0),
 		pods_acknowledged: Number(row.pods_acknowledged || 0),
+		coding_agent_vendor:
+			(String(row.coding_agent_vendor || "") || undefined) as UnifiedAgent["coding_agent_vendor"],
+		coding_session_count_24h: Number(row.coding_session_count_24h || 0),
+		coding_cost_usd_24h: Number(row.coding_cost_usd_24h || 0),
+		coding_active_users_24h: Number(row.coding_active_users_24h || 0),
+		coding_lines_added_24h: Number(row.coding_lines_added_24h || 0),
+		coding_lines_removed_24h: Number(row.coding_lines_removed_24h || 0),
+		coding_lines_accepted_24h: Number(row.coding_lines_accepted_24h || 0),
+		coding_lines_rejected_24h: Number(row.coding_lines_rejected_24h || 0),
+		coding_edit_accept_24h: Number(row.coding_edit_accept_24h || 0),
+		coding_edit_reject_24h: Number(row.coding_edit_reject_24h || 0),
+		coding_commit_count_24h: Number(row.coding_commit_count_24h || 0),
+		coding_pr_count_24h: Number(row.coding_pr_count_24h || 0),
 	};
 }
 
@@ -235,7 +248,22 @@ const SELECT_COLUMNS = `
 	s.last_materialized_at AS last_materialized_at,
 	coalesce(pod_set.pods_total, 0) AS pods_total,
 	coalesce(pod_actions.pods_pending, 0) AS pods_pending,
-	coalesce(pod_actions.pods_acknowledged, 0) AS pods_acknowledged
+	coalesce(pod_actions.pods_acknowledged, 0) AS pods_acknowledged,
+	-- Coding-agent rollups. Only populated when source = 'coding'; always
+	-- 0/empty for other rows. Returned unconditionally so the front-end
+	-- can render uniformly without an if-coding branch on every cell.
+	s.coding_agent_vendor AS coding_agent_vendor,
+	s.coding_session_count_24h AS coding_session_count_24h,
+	s.coding_cost_usd_24h AS coding_cost_usd_24h,
+	s.coding_active_users_24h AS coding_active_users_24h,
+	s.coding_lines_added_24h AS coding_lines_added_24h,
+	s.coding_lines_removed_24h AS coding_lines_removed_24h,
+	s.coding_lines_accepted_24h AS coding_lines_accepted_24h,
+	s.coding_lines_rejected_24h AS coding_lines_rejected_24h,
+	s.coding_edit_accept_24h AS coding_edit_accept_24h,
+	s.coding_edit_reject_24h AS coding_edit_reject_24h,
+	s.coding_commit_count_24h AS coding_commit_count_24h,
+	s.coding_pr_count_24h AS coding_pr_count_24h
 `;
 
 /**
@@ -346,6 +374,25 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 		`(s.source != 'sdk' OR s.last_seen >= now() - INTERVAL 10 MINUTE)`
 	);
 
+	// Same problem, different source: when a coding-agent vendor stops
+	// emitting (e.g. the user disables their Claude Code plugin), the
+	// materializer doesn't tombstone the row because
+	// `discoverCodingAgents` only returns vendors with current data —
+	// no INSERT means no new `last_materialized_at`, so the previous
+	// row (with its non-zero `coding_session_count_24h` /
+	// `coding_cost_usd_24h`) lingers until the 90d TTL. The hub then
+	// shows e.g. "Claude Code · 6 sessions · 1 user" with clickthrough
+	// landing on an empty detail page because otel_traces has no
+	// matching spans. Gating on `last_materialized_at` (not
+	// `last_seen` — last_seen is the timestamp of the last hosted span
+	// at the time of materialization, NOT when we last refreshed)
+	// hides coding rows whose materializer skipped them this round.
+	// 10 minutes matches the SDK guard and gives the cron-driven
+	// materializer plenty of headroom.
+	where.push(
+		`(s.source != 'coding' OR s.last_materialized_at >= now() - INTERVAL 10 MINUTE)`
+	);
+
 	if (filters.source?.length) {
 		where.push(`s.source IN (${escapeList(filters.source)})`);
 	}
@@ -405,6 +452,66 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 		const last = rows[limit - 1];
 		nextCursor = { last_seen: last.last_seen, agent_key: last.agent_key };
 		rows.length = limit;
+	}
+
+	// Live overlay for the Coding Agents hub card. The summary table
+	// stores `coding_session_count_24h` / `_active_users_24h` /
+	// `_cost_usd_24h` — values the materializer bakes in once a tick
+	// for the trailing 24h. That doesn't agree with what the per-tab
+	// (Sessions / Users / Dashboard) views show when the user picks a
+	// different range in the top-right time filter.
+	//
+	// To keep all four views answering the same question for the same
+	// window, we recompute coding rows live whenever this list is
+	// scoped to coding sources AND the caller passed a non-default
+	// time window. We only do this when the caller is *exclusively*
+	// asking for coding (the Coding Agents tab passes
+	// `?source=coding`), so the Apps / Controllers paths skip the
+	// extra round-trip.
+	if (
+		filters.source &&
+		filters.source.length > 0 &&
+		filters.source.every((s) => s === "coding") &&
+		(params.timeStart || params.timeEnd)
+	) {
+		try {
+			const liveRows = await recomputeCodingAgentsForWindow(
+				{
+					timeStart: params.timeStart,
+					timeEnd: params.timeEnd,
+				},
+				params.dbConfigId
+			);
+			const overlay = new Map<string, (typeof liveRows)[number]>();
+			for (const r of liveRows) overlay.set(r.agent_key, r);
+			for (let i = 0; i < rows.length; i++) {
+				const liveRow = overlay.get(rows[i].agent_key);
+				if (!liveRow) continue;
+				rows[i] = {
+					...rows[i],
+					coding_session_count_24h: liveRow.coding_session_count_24h,
+					coding_active_users_24h: liveRow.coding_active_users_24h,
+					coding_cost_usd_24h: liveRow.coding_cost_usd_24h,
+					coding_lines_added_24h: liveRow.coding_lines_added_24h,
+					coding_lines_removed_24h: liveRow.coding_lines_removed_24h,
+					coding_lines_accepted_24h: liveRow.coding_lines_accepted_24h,
+					coding_lines_rejected_24h: liveRow.coding_lines_rejected_24h,
+					coding_edit_accept_24h: liveRow.coding_edit_accept_24h,
+					coding_edit_reject_24h: liveRow.coding_edit_reject_24h,
+					coding_commit_count_24h: liveRow.coding_commit_count_24h,
+					coding_pr_count_24h: liveRow.coding_pr_count_24h,
+					// `last_seen` from the live recompute reflects the
+					// most recent span inside the user's window; reuse
+					// it so the "Last seen" column doesn't show a
+					// timestamp from outside the filter.
+					last_seen: liveRow.last_seen || rows[i].last_seen,
+				};
+			}
+		} catch (err) {
+			agentsLogger.error("list_agents_coding_overlay_failed", {
+				err: String(err),
+			});
+		}
 	}
 	return { data: rows, nextCursor };
 }

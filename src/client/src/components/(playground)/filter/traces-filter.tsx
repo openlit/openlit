@@ -10,7 +10,7 @@ import {
 	getUpdateAttributeKeys,
 } from "@/selectors/filter";
 import { useRootStore } from "@/store";
-import Sorting from "./sorting";
+import Sorting, { type SortOption } from "./sorting";
 import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
@@ -1122,24 +1122,37 @@ export default function TracesFilter({
 	showGroupBy = true,
 	showVisibilityColumns = true,
 	includeOnlySorting,
+	customSortOptions,
 	pageName,
 	columns,
 	configUrl = "/api/metrics/request/config",
 	attributeKeysUrl = "/api/metrics/request/attribute-keys",
 	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
 	filterStorageScope,
+	extraControls,
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
 	showGroupBy?: boolean;
 	showVisibilityColumns?: boolean;
 	includeOnlySorting?: string[];
+	// When provided, replaces the default OTel-attribute sort
+	// options with aggregation-level keys (e.g. "cost", "tokens",
+	// "sessions"). Each signal type wires its own resolver in the
+	// API route — see `coding-agents/sessions/route.ts` and
+	// `coding-agents/users/route.ts`.
+	customSortOptions?: SortOption[];
 	pageName: PAGE;
 	columns: Columns<any, any>;
 	configUrl?: string;
 	attributeKeysUrl?: string;
 	customAttributeTypes?: CustomFilterAttributeType[];
 	filterStorageScope?: string;
+	// `extraControls` is rendered immediately to the LEFT of the
+	// SlidersHorizontal filter button on the toolbar. Used by
+	// coding-agent pages to drop in a User picker that's visually
+	// part of the same control cluster.
+	extraControls?: React.ReactNode;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
@@ -1230,6 +1243,7 @@ export default function TracesFilter({
 					<Sorting
 						sorting={filter.sorting}
 						includeOnlySorting={includeOnlySorting}
+						customOptions={customSortOptions}
 					/>
 				)}
 				{supportDynamicFilters && showGroupBy && (
@@ -1239,6 +1253,7 @@ export default function TracesFilter({
 						customAttributeTypes={customAttributeTypes}
 					/>
 				)}
+				{extraControls}
 				{supportDynamicFilters && (
 					<Button
 						variant="outline"

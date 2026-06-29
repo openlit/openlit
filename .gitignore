@@ -14,6 +14,8 @@ logs/
 .idea/
 .cursor-rules/
 .cursorrules
+# Local Cursor hook config has machine-specific binary paths
+.cursor/hooks.json
 **.pem
 **certs/index.txt
 **.csr

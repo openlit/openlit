@@ -2,6 +2,7 @@ package openlit
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,15 +31,15 @@ func NewClient(baseURL, apiKey string, logger *zap.Logger) *Client {
 	}
 }
 
-func (c *Client) Poll(req *PollRequest) (*PollResponse, error) {
+func (c *Client) Poll(ctx context.Context, req *PollRequest) (*PollResponse, error) {
 	resp := &PollResponse{}
-	if err := c.post("/api/controller/poll", req, resp); err != nil {
+	if err := c.post(ctx, "/api/controller/poll", req, resp); err != nil {
 		return nil, fmt.Errorf("poll: %w", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) post(path string, body interface{}, out interface{}) error {
+func (c *Client) post(ctx context.Context, path string, body interface{}, out interface{}) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("marshal request: %w", err)
@@ -48,7 +49,7 @@ func (c *Client) post(path string, body interface{}, out interface{}) error {
 	if err != nil {
 		return fmt.Errorf("build URL: %w", err)
 	}
-	req, err := http.NewRequest(http.MethodPost, u, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}

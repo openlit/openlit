@@ -79,24 +79,24 @@ type ActionResult struct {
 }
 
 type DiscoveredService struct {
-	ServiceName              string            `json:"service_name"`
-	WorkloadKey              string            `json:"workload_key,omitempty"`
-	Namespace                string            `json:"namespace,omitempty"`
-	LanguageRuntime          string            `json:"language_runtime,omitempty"`
-	LLMProviders             []string          `json:"llm_providers"`
-	OpenPorts                []uint16          `json:"open_ports,omitempty"`
-	DeploymentName           string            `json:"deployment_name,omitempty"`
-	PID                      int               `json:"pid,omitempty"`
-	ExePath                  string            `json:"exe_path,omitempty"`
-	InstrumentationStatus    string            `json:"instrumentation_status"`
-	AgentObservabilityStatus string            `json:"agent_observability_status,omitempty"`
-	AgentObservabilitySource string            `json:"agent_observability_source,omitempty"`
-	ObservabilityConflict    string            `json:"observability_conflict,omitempty"`
-	ObservabilityReason      string            `json:"observability_reason,omitempty"`
+	ServiceName              string   `json:"service_name"`
+	WorkloadKey              string   `json:"workload_key,omitempty"`
+	Namespace                string   `json:"namespace,omitempty"`
+	LanguageRuntime          string   `json:"language_runtime,omitempty"`
+	LLMProviders             []string `json:"llm_providers"`
+	OpenPorts                []uint16 `json:"open_ports,omitempty"`
+	DeploymentName           string   `json:"deployment_name,omitempty"`
+	PID                      int      `json:"pid,omitempty"`
+	ExePath                  string   `json:"exe_path,omitempty"`
+	InstrumentationStatus    string   `json:"instrumentation_status"`
+	AgentObservabilityStatus string   `json:"agent_observability_status,omitempty"`
+	AgentObservabilitySource string   `json:"agent_observability_source,omitempty"`
+	ObservabilityConflict    string   `json:"observability_conflict,omitempty"`
+	ObservabilityReason      string   `json:"observability_reason,omitempty"`
 	// LifecycleStatus is the controller's last-known lifecycle state for the
 	// workload ("running"/"stopped"/"restarting"). Echoed via
 	// resource_attributes["openlit.lifecycle.status"] for the dashboard rollup.
-	LifecycleStatus string            `json:"lifecycle_status,omitempty"`
+	LifecycleStatus    string            `json:"lifecycle_status,omitempty"`
 	FirstSeen          string            `json:"first_seen,omitempty"`
 	ResourceAttributes map[string]string `json:"resource_attributes,omitempty"`
 }

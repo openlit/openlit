@@ -31,7 +31,7 @@ export const DEFAULT_TIME_RANGE = "24H";
 
 const DEFAULT_LIMIT = 25;
 
-const DEFAULT_SORTING: FilterSorting = {
+export const DEFAULT_SORTING: FilterSorting = {
 	type: "Timestamp",
 	direction: "desc",
 };

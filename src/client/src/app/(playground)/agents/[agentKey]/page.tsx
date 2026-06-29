@@ -74,13 +74,28 @@ const VersionDrawer = dynamic(
 	() => import("@/components/(playground)/agents/version-drawer"),
 	{ loading: () => null, ssr: false }
 );
+const CodingAgentDetail = dynamic(
+	() =>
+		import(
+			"@/components/(playground)/coding-agents/coding-agent-detail"
+		),
+	{
+		loading: () => <TabLoading label={getMessage().AGENTS_LOADING_SERVICE_DETAILS} />,
+		ssr: false,
+	}
+);
 
 type AgentDetailTab =
 	| "overview"
 	| "dashboard"
 	| "monitoring"
 	| "definition"
-	| "configuration";
+	| "configuration"
+	| "sessions"
+	// Coding-agent-only tab (`UnifiedAgent.source === "coding"`). Was
+	// missing from VALID_TABS, so clicks on the Users tab fell back to
+	// "overview" via `coerceTab`.
+	| "users";
 
 const VALID_TABS: AgentDetailTab[] = [
 	"overview",
@@ -88,6 +103,8 @@ const VALID_TABS: AgentDetailTab[] = [
 	"monitoring",
 	"definition",
 	"configuration",
+	"sessions",
+	"users",
 ];
 
 function coerceTab(value: string | null): AgentDetailTab {
@@ -314,11 +331,21 @@ export default function AgentDetailPage() {
 	}
 
 	if (error || !agent) {
+		// Even on a 404 we honor `?from=<tab>` so a failed deep-link
+		// from the Coding Agents tab still routes back to Coding
+		// Agents rather than tossing the user back to Applications.
+		const fromParam = searchParams.get("from");
+		const backHref =
+			fromParam === "coding"
+				? "/agents?tab=coding"
+				: fromParam === "controllers"
+					? "/agents?tab=controllers"
+					: "/agents";
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 text-sm gap-3">
 				<div>{error || "Agent not found"}</div>
 				<button
-					onClick={() => router.push("/agents")}
+					onClick={() => router.push(backHref)}
 					className="text-stone-700 dark:text-stone-200 underline"
 				>
 					{getMessage().AGENTS_BACK_TO_HUB}
@@ -329,6 +356,7 @@ export default function AgentDetailPage() {
 
 	const activeVersion = selectedVersion || latestVersion;
 	const scopedVersionFilter = urlVersionHash ? versionFilter : null;
+	const isCodingAgent = agent.source === "coding";
 
 	// Pulses an attention dot on the Configuration tab when a
 	// controller-discovered agent has no telemetry yet. Two guards prevent
@@ -352,29 +380,86 @@ export default function AgentDetailPage() {
 					agent={agent}
 					onRefresh={fetchAgent}
 					rightSlot={
-						<div className="flex items-center gap-2">
-							<LifecycleActions
-								agent={agent}
-								onRefresh={fetchAgent}
-								variant="header"
-							/>
-							<VersionChooser
-								versions={versions}
-								selectedHash={urlVersionHash}
-								onSelectVersion={handleSelectVersion}
-								onOpenAllVersions={() => setVersionsOpen(true)}
-							/>
-						</div>
+						isCodingAgent ? null : (
+							<div className="flex items-center gap-2">
+								<LifecycleActions
+									agent={agent}
+									onRefresh={fetchAgent}
+									variant="header"
+								/>
+								<VersionChooser
+									versions={versions}
+									selectedHash={urlVersionHash}
+									onSelectVersion={handleSelectVersion}
+									onOpenAllVersions={() => setVersionsOpen(true)}
+								/>
+							</div>
+						)
 					}
 				/>
 
-				<VersionTimeline
-					agentKey={agent.agent_key}
-					versions={versions}
-					selectedHash={urlVersionHash}
-				/>
+				{isCodingAgent ? (
+					<CodingAgentDetail
+						agent={agent}
+						tab={urlTab}
+						onTabChange={handleTabChange}
+					/>
+				) : (
+					<>
+						<VersionTimeline
+							agentKey={agent.agent_key}
+							versions={versions}
+							selectedHash={urlVersionHash}
+						/>
+						<TraditionalAgentTabs
+							agent={agent}
+							versions={versions}
+							urlTab={urlTab}
+							urlVersionHash={urlVersionHash}
+							handleTabChange={handleTabChange}
+							effectiveVersionHash={effectiveVersionHash}
+							activeVersion={activeVersion}
+							needsInstrumentation={needsInstrumentation}
+							fetchAgent={fetchAgent}
+							versionsOpen={versionsOpen}
+							setVersionsOpen={setVersionsOpen}
+						/>
+					</>
+				)}
+			</div>
+		</AgentScopeProvider>
+	);
+}
 
-				<Tabs
+interface TraditionalAgentTabsProps {
+	agent: UnifiedAgent;
+	versions: AgentVersion[];
+	urlTab: AgentDetailTab;
+	urlVersionHash: string | null;
+	handleTabChange: (value: string) => void;
+	effectiveVersionHash: string | null;
+	activeVersion: AgentVersion | null;
+	needsInstrumentation: boolean;
+	fetchAgent: () => Promise<void>;
+	versionsOpen: boolean;
+	setVersionsOpen: (open: boolean) => void;
+}
+
+function TraditionalAgentTabs({
+	agent,
+	versions,
+	urlTab,
+	handleTabChange,
+	effectiveVersionHash,
+	activeVersion,
+	needsInstrumentation,
+	fetchAgent,
+	versionsOpen,
+	setVersionsOpen,
+}: TraditionalAgentTabsProps) {
+	return (
+		<>
+			<Tabs
 					value={urlTab}
 					onValueChange={handleTabChange}
 					className="w-full"
@@ -445,14 +530,13 @@ export default function AgentDetailPage() {
 					</TabsContent>
 				</Tabs>
 
-				<VersionDrawer
-					agentKey={agent.agent_key}
-					open={versionsOpen}
-					onClose={() => setVersionsOpen(false)}
-					initialVersions={versions}
-				/>
-			</div>
-		</AgentScopeProvider>
+			<VersionDrawer
+				agentKey={agent.agent_key}
+				open={versionsOpen}
+				onClose={() => setVersionsOpen(false)}
+				initialVersions={versions}
+			/>
+		</>
 	);
 }
 

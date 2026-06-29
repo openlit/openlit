@@ -1,0 +1,98 @@
+name: openlit CLI tests
+
+# Runs go-test + the plugin-tree drift check for the openlit CLI.
+# Splits out from cli-release.yml so test failures don't have to wait
+# for a tag push: every PR that touches cli/ or plugins/ gets the
+# same signal the release workflow would.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'cli/**'
+      - 'plugins/**'
+      - 'sdk/go/**'
+      - '.github/workflows/cli-tests.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'cli/**'
+      - 'plugins/**'
+      - 'sdk/go/**'
+      - '.github/workflows/cli-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: go test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+          check-latest: true
+      - name: go mod download
+        working-directory: cli
+        run: go mod download
+      - name: go build
+        working-directory: cli
+        run: go build -trimpath ./...
+      - name: go test
+        working-directory: cli
+        # -race catches concurrency bugs in sessionstate / OTLP
+        # batching paths. -count=1 disables the test cache so
+        # flaky-on-purpose retries (rate-limit windows, etc.)
+        # don't get a free pass.
+        run: go test -race -count=1 ./...
+
+  cross-compile:
+    name: cross-compile (${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows, arch: amd64 }
+          - { os: darwin,  arch: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+          check-latest: true
+      - name: Build
+        working-directory: cli
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        # We don't ship these here — just confirm the build tags
+        # (flock_windows.go, etc.) keep cross-compile green.
+        run: go build -trimpath -o /dev/null ./cmd/openlit
+
+  plugin-sync-drift:
+    name: .claude-plugin/ + plugins/ in-sync with cli/internal/coding/install/marketplace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Sync into a temp dir and diff
+        run: |
+          set -euo pipefail
+          # Capture the embedded marketplace tree before re-running sync,
+          # then diff the sync result against it. Drift here means
+          # somebody edited .claude-plugin/ or plugins/ at the repo root
+          # but forgot to run cli/scripts/sync-plugins.sh.
+          BEFORE=$(mktemp -d)
+          cp -R cli/internal/coding/install/marketplace/. "$BEFORE/"
+          bash cli/scripts/sync-plugins.sh
+          if ! diff -ru "$BEFORE" cli/internal/coding/install/marketplace; then
+            echo
+            echo "::error::.claude-plugin/ or plugins/ has drifted from cli/internal/coding/install/marketplace/."
+            echo "Run \`bash cli/scripts/sync-plugins.sh\` locally and commit the result."
+            exit 1
+          fi
+          echo "embedded marketplace tree is in sync"

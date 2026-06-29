@@ -1,0 +1,172 @@
+---
+description: Authoring or modifying a coding-agent hook adapter (Cursor, Claude Code, Codex, Windsurf, generic). Covers payload probing, session-state caching, OTel attribute emission, head sampling, capture modes, and the ClickHouse query patterns that consume them. Read before adding a new vendor or changing what we stamp on coding-agent spans.
+globs: cli/internal/coding/**/*.go,sdk/go/semconv/coding_agent.go,src/client/src/lib/platform/coding-agents/**/*.ts,src/client/src/lib/platform/agents/materialize.ts,plugins/**/hooks.json
+alwaysApply: false
+---
+
+# Coding-Agent Hook Authoring Guide
+
+This is the **authoring + failure-mode rule** for coding-agent hook code. The companion rule `.cursor/rules/coding-agents-convention.mdc` is the **schema contract** — start there if you're adding a new vendor or coalescing native vendor telemetry into our canonical attributes. This rule covers process, gotchas, and end-to-end verification.
+
+This rule is the contract between three pieces that have to stay in lock-step or the `/agents` and `/coding-agents` views go silently empty:
+
+1. **CLI hook adapter** — `cli/internal/coding/hook/<vendor>/handle.go`. Receives a JSON payload from the vendor, normalises it onto our schema, calls `Emit*` on the OTLP emitter.
+2. **OTel emission layer** — `cli/internal/otlp/{exporter,attrs,sampler,tracecontext}.go` and `sdk/go/openlit.go`. Stamps resource + span attributes, derives the deterministic TraceID, applies head sampling.
+3. **ClickHouse readers** — `src/client/src/lib/platform/coding-agents/queries.ts` and `src/client/src/lib/platform/agents/materialize.ts`. Roll up by chat thread, surface the hub row, drive the Sessions / Users / Overview pages.
+
+If you add a new vendor, change a span attribute, or touch the materializer, walk this rule top-to-bottom.
+
+---
+
+## 1. The chat-thread rollup contract
+
+Every coding-agent span MUST carry `coding_agent.session.id`. That is the **per-process** identifier. The chat thread the user actually sees is `chat_id`:
+
+```text
+chat_id = coalesce(
+    ResourceAttributes['coding_agent.agent.parent_id'],
+    SpanAttributes['coding_agent.agent.parent_id'],
+    SpanAttributes['coding_agent.session.id']
+)
+```
+
+When a vendor reports a parent conversation id on subagent payloads (Cursor's `parent_conversation_id`, Codex's similar field, etc.), `hook.go` promotes it to the resource attribute `coding_agent.agent.parent_id` so every span the subagent emits folds under the parent's chat row. If you skip this stamp, parent + N subagents will appear as N+1 separate sessions in the UI.
+
+When adding a new vendor:
+
+- Wire its parent-id field into `peekContext` (`hook.go`) so it lands in `cached.ParentConversationID`.
+- Confirm the resource attribute is added in the `sessionAttrs` block that's handed to `NewEmitter`.
+- Do **not** change `CHAT_ID_EXPR` in `queries.ts` — fold new keys into the coalesce there only if the vendor uses a brand-new attribute name.
+
+## 2. Session-state cache: persist, don't probe-only
+
+The CLI is short-lived (one process per hook event), so anything the vendor only ships on lifecycle events (sessionStart, prompt-submit) MUST be cached at `$XDG_CACHE_HOME/openlit/sessions/<sid>.json` and replayed on every later event in the same session. Otherwise per-tool / per-edit spans land without identity, cwd, repo, branch, model, or permission mode — and the trace-detail header pills go empty.
+
+Persist into `cached.*` and let `hook.go` re-write the cache:
+
+- `User` — vendor-provided email (Cursor's `user_email`, Claude Code transcript author, …).
+- `CWD` — first from payload (`cwd` / `workspace_roots[0]`), then `os.Getwd()` fallback. **Always persist** the resolved value so non-lifecycle events inherit it.
+- `RepoURL` + `Branch` — derived from `git.Snapshot(ctx, cwd)`. Best-effort, idempotent once cached.
+- `Model` / `PermissionMode` — vendor-supplied; persist verbatim.
+- `ConversationID` + `ParentConversationID` — chat-thread + subagent linkage.
+- `IsBackgroundAgent` — collapses Cursor's `is_background_agent` and `is_parallel_worker`.
+
+Things to **not** cache:
+
+- Tool call payloads, prompt bodies, file diffs. Those are per-event and capture-mode-gated.
+- Anything redacted by `redact.ForCapture(...)`.
+
+Always re-save (`sessionstate.Save`) when ANY of the cached fields change. The gate in `hook.go` keys off "is any field non-empty"; preserve that.
+
+## 3. Resource attributes vs span attributes
+
+These rules cover the most common confusion when reviewing a new adapter:
+
+- **Resource attributes** ride on *every span* this process emits. Use them for facts that are stable per session: `gen_ai.user.name`, `terminal.type`, `code.cwd`, `vcs.repository.url.full`, `vcs.ref.head.name`, `coding_agent.session.permission_mode`, `coding_agent.session.id`, `gen_ai.conversation.id`, `coding_agent.agent.parent_id`, `coding_agent.content_capture_mode`, `coding_agent.hook.cli.version`.
+- **Span attributes** belong to a single event. Examples: `coding_agent.tool.name`, `gen_ai.usage.input_tokens`, `coding_agent.edit.lines.added`, `coding_agent.session.model.from` / `…to`.
+
+When the trace-detail header pills go empty for a non-lifecycle span, the cause is almost always a fact that's emitted as a span attribute on lifecycle events but never as a resource attribute. Promote it.
+
+## 4. Capture modes
+
+Three modes, controlled per-deployment via `OPENLIT_CODING_CONTENT_CAPTURE`:
+
+| Mode            | What lands on spans                                        |
+| --------------- | ---------------------------------------------------------- |
+| `minimal`       | Counters and identifiers only. No bodies. Single session-root span per session. Per-event spans suppressed. |
+| `metadata_only` | Adds tool names, file paths (sanitised), classification labels. Still no message bodies, no file diffs, no shell commands. |
+| `full`          | Everything `metadata_only` has, plus prompt/completion bodies, tool results, edit diffs. Both redaction tiers active. |
+
+Centralised in `cli/internal/otlp/attrs.go`:
+
+- `setStr(span, key, val, scrub)` — runs every string through `redact.ForCapture(mode)` before stamping.
+- `perEventSpansAllowed(mode)` — gates per-event span emission for `minimal` mode.
+- Adapters must use these helpers; never call `span.SetAttributes` directly with a value that might contain a body.
+
+When adding a new attribute, decide which capture mode tier it belongs to and gate accordingly. Don't add a body-bearing attribute that lands in `metadata_only`.
+
+## 5. Deterministic trace/span IDs
+
+`cli/internal/otlp/tracecontext.go` derives the trace and root-span IDs from the session id, salted with `OPENLIT_TRACEID_SALT` via HMAC-SHA256. The salt is optional; without it the ID is deterministic but more easily reverse-engineerable. Don't change the derivation function — readers (UI hierarchy explorer, the materializer's rollup logic) all rely on `(sessionID) → traceID` being stable across hook processes.
+
+If you must extend it (e.g. to support per-tenant salts), update both the CLI derivation and the UI's session-resolution helpers in the same change.
+
+## 6. Head sampling
+
+`cli/internal/otlp/sampler.go` reads `OPENLIT_CODING_SAMPLE_EVENTS`. Today the only configured rule is `drop_requested`, which drops `coding_agent.tool.requested`, `coding_agent.shell.requested`, and similar high-frequency "about to happen" events when an operator wants only completed events. When you add a new noisy event type:
+
+- Add the span name to the sampler's drop list under a named rule.
+- Document the rule in the onboarding mdx so operators know which knob to flip.
+
+Do **not** add a sampler that silently drops session-root spans or LLM turns. Those are the trustable backbone of the data model.
+
+## 7. ClickHouse query patterns and the `any()`-in-GROUP-BY trap
+
+ClickHouse aggressively inlines `WITH` CTEs and explicit subqueries. Two patterns will silently break a query:
+
+1. **Aggregate inside `GROUP BY`**. Anything like
+   ```sql
+   GROUP BY coalesce(any(SpanAttributes['…parent_id']), SpanAttributes['…session.id'])
+   ```
+   fails with `ILLEGAL_AGGREGATION`. Solution: derive the rollup key per-row (no `any()` / `argMax()`), then GROUP BY the alias.
+
+2. **Aggregate-of-an-aggregate after inlining**. If `per_user.last_seen = max(Timestamp)` and `users_raw.last_seen = max(last_seen)`, the inliner sees `max(max(Timestamp))` and rejects it. Solution: alias each layer's aggregates with distinct names (e.g. `session_last_ts`, `per_user_last_ts`, `user_last_ts`) and format/round only at the outermost SELECT.
+
+When writing or reviewing a new query in `queries.ts` / `materialize.ts`, run it directly against ClickHouse first:
+
+```bash
+curl -s -u 'default:OPENLIT' 'http://localhost:8123/?database=openlit' --data-binary @query.sql
+```
+
+Don't trust the route's `processed: N` counter — it can succeed for other rows while silently swallowing the coding-agent rollup via a logger.error.
+
+## 8. Cohort floor: privacy at *read* time, not materialize time
+
+`COHORT_K_FLOOR` (currently 5) masks per-user breakdowns for non-admins. Apply it:
+
+- ✅ In `queries.ts` for `/coding-agents/users` and similar per-user breakdowns, inside the SQL projection so masking happens *before* `LIMIT` and pagination stays consistent.
+- ❌ Never in the materializer (`materialize.ts`). The materialized table is internal; if you apply the floor at write time, a single-developer OSS install will always show 0 active users on the hub. The masking belongs at the auth-aware query boundary.
+
+## 9. Vendor-adding checklist
+
+When adding `claude-code`, `codex`, or any new vendor:
+
+1. **Adapter** — `cli/internal/coding/hook/<vendor>/handle.go`. Map vendor events onto `normalize.{Session, ToolCall, LLMTurn, EditDecision, …}` and call the matching `emit.Emit*` method. Stamp `Vendor`, `SessionID`, `ConversationID`, `ParentConversationID` on every payload.
+2. **Probe extension** — `peekContext` in `hook.go`. Add the vendor's key names to `pickString` so user / cwd / model / permission_mode resolve from the payload.
+3. **Plugin manifest** — `plugins/<vendor>/...`. Register the hook subcommands the vendor exposes. Mirror the schema Cursor uses for consistency.
+4. **Onboarding doc** — `docs/features/coding-agents/onboarding.mdx`. Add the vendor's install snippet and the list of hooks it ships.
+5. **Queries** — usually no change. `VENDOR_EXPR`, `CHAT_ID_EXPR`, `USER_EXPR` already coalesce across the standard semantic-conv keys. Touch them only if the vendor uses a brand-new attribute name.
+6. **Materializer** — usually no change. The single-pass GROUP BY in `discoverCodingAgents` covers any vendor that sets `coding_agent.client` and `coding_agent.session.id`.
+7. **Sanity check** — fire a hook event end-to-end, then verify:
+   ```sql
+   SELECT count() FROM otel_traces
+   WHERE SpanAttributes['coding_agent.client'] = '<vendor>';
+   ```
+   then trigger the materializer (`curl -X POST … -H 'X-CRON-JOB: true'`) and confirm a row lands in `openlit_agents_summary` with `source='coding'` and `coding_agent_vendor='<vendor>'`.
+
+## 10. Things that have bitten us — do not regress
+
+- **Empty Coding-Agents tab**. Caused by `any()` inside `GROUP BY` in `discoverCodingAgents`. Always rewrite to a per-row rollup key.
+- **Empty Repository / Working Folder pills on non-lifecycle spans**. Caused by `os.Getwd()` fallback not being persisted to `cached.CWD`. Persist it.
+- **`active_users_24h` always 0**. Caused by applying `COHORT_K_FLOOR` at materialize time. Move it to query time.
+- **Duplicate session rows**. Caused by emitting a session-root span on both `sessionStart` and `sessionEnd`. Only emit on `End`; treat `started` / `in_progress` outcomes as a no-op (see `EmitSession` in `exporter.go`).
+- **OOM / latency spikes on big transcripts**. Caused by reading entire Claude transcript or Codex rollout files. Use `tailfile.Tail(path, cap)` with a sane byte cap.
+- **Span attributes carrying secrets**. Caused by adapters bypassing `setStr(..., scrub)`. Always pipe strings through the scrubber.
+- **Agent detail page flips between the coding view and the generic SDK Overview/Dashboard/Monitoring view on refresh**. Caused by the SDK discovery in `materialize.ts:discoverAgents` picking up the CLI's spans (the CLI sets `service.name = '<vendor>'` and emits via the openlit-go SDK), writing an `source='sdk'` row that shares the agent_key with the `source='coding'` row. `openlit_agents_summary` is a `ReplacingMergeTree(updated_at) ORDER BY agent_key`, so whichever tick wrote most recently wins on `FINAL`, and the detail page chooses its layout from `agent.source`. The structural fix has THREE independent barriers, all of which must stay in place:
+
+   1. **`telemetry.distro.name = 'openlit-cli'`** stamped on every CLI span as a resource attribute (set in `cli/internal/otlp/exporter.go`). This is the *positive* identifier of the emitting distribution — the same hook OTel itself uses (`opentelemetry-ebpf-instrumentation`, `opentelemetry-auto-instrumentation`, …). Once set on the resource, it rides on every span emitted by that process.
+   2. **`discoverAgents` excludes by distro name AND by service-name anti-join** against any service that ever emitted an `openlit-cli` distro span in the lookback window. A future regression that strips `coding_agent.session.id` from one span won't leak — the service is still excluded.
+   3. **Legacy `coding_agent.session.id` per-span filter** kept as a backstop for spans emitted before barrier #1 shipped. Remove only after the retention window has rolled past the distro cutover.
+
+   Do **not** add a new coding vendor without confirming all three barriers cover it. A pending one-time cleanup is also needed when the bug DID slip through: `ALTER TABLE openlit_agents_summary DELETE WHERE service_name IN (SELECT service_name FROM openlit_agents_summary WHERE source = 'coding') AND source != 'coding'`. The dedup key being just `agent_key` (not `(agent_key, source)`) means once a phantom SDK row exists, the next coding tick will eventually overwrite it on `FINAL`, but only if its `updated_at` is strictly newer — a future schema migration to widen the dedup key to `(agent_key, source)` would let both rows coexist and end this category of bug for good.
+
+   A **fourth** structural failure mode lived independently of the three barriers above and was the actual cause of the repeated "SDK Overview tabs on my Cursor agent" sightings: `materializeAgents({ scope })`, called by `/api/agents/[agentKey]/refresh` whenever the operator clicks the Refresh button on the agent detail page, only looked the agent up via `discoverAgents` (SDK pipeline). For a coding agent the lookup correctly missed, the code fell through to a `source: 'sdk'` placeholder, and inserted that phantom row directly — sidestepping every discovery-side barrier. Two new safeguards live in [src/client/src/lib/platform/agents/materialize.ts](src/client/src/lib/platform/agents/materialize.ts):
+
+   - The scoped branch now consults BOTH `discoverAgents` AND `discoverCodingAgents`, and refuses to manufacture an SDK placeholder when neither matches. A refresh hitting before any spans arrive is a no-op; it does NOT invent a row.
+   - Right before the `INSERT INTO openlit_agents_summary`, any row whose `source !== 'coding'` is checked against the table; if an existing `source='coding'` row already lives at the same `agent_key`, the would-be clobberer is dropped and the materializer logs `materializer_blocked_coding_clobber`. This is the final safety net — any future code path that tries to write a non-coding row over a coding row is caught at the insert site.
+
+- **Two distinct Cursor "session_id"s for what the user remembers as one chat**. Cursor's hook payload exposes `session_id` (per CLI process), `conversation_id` (per Cursor chat thread, but in current Cursor builds it equals `session_id` for non-subagent chats), and `parent_conversation_id` (set only on subagent payloads). When a chat is suspended (laptop sleep) and resumed, or when the user opens a previous chat from history, Cursor may spawn a new CLI process with a fresh `session_id` AND a fresh `conversation_id`. There is **no stable chat-thread identifier in the hook payload** that survives this. Our chat rollup folds by `coalesce(parent_conversation_id, session_id)`, so two un-linked Cursor sessions land as two chats — even if the user thinks of them as one. This is a documented limitation, not a bug; we can close it only by:
+  1. Reading Cursor's local SQLite DB at `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` to map session_id → composer_thread_id (brittle, version-specific schema), OR
+  2. Cursor surfacing a stable `composer_thread_id` on the hook payload (upstream change we'd file with Cursor).
+
+   Until then, when investigating "I have N chats but the UI shows N+1": confirm `gen_ai.conversation.id` across the spans for the two presumed-equal sessions. If Cursor sent different conversation_ids, our rollup is doing the right thing.

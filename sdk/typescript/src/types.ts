@@ -3,7 +3,7 @@ import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { metrics } from '@opentelemetry/api';
 import type { Guard } from './guard/base';
 
-export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'together' | 'ollama' | 'vercel-ai' | 'langchain' | 'langgraph' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus' | 'azure-ai-inference' | 'openai-agents' | 'strands' | 'google-adk' | 'claude-agent-sdk' | 'cursor-sdk' | 'elevenlabs';
+export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'vertexai' | 'together' | 'ollama' | 'vercel-ai' | 'langchain' | 'langgraph' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus' | 'astra' | 'azure-ai-inference' | 'openai-agents' | 'strands' | 'google-adk' | 'claude-agent-sdk' | 'cursor-sdk' | 'ai21' | 'gradient' | 'mcp' | 'mem0' | 'elevenlabs';
 
 export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 

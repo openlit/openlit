@@ -19,6 +19,7 @@ var providerNames = map[uint8]string{
 	10: "vercel_ai",
 	11: "vertex_ai",
 	12: "azure_inference",
+	13: "custom",
 	// IDs 20-26 are Bedrock regions (assigned dynamically in hosts.go init)
 	20: "bedrock",
 	21: "bedrock",
@@ -28,3 +29,10 @@ var providerNames = map[uint8]string{
 	25: "bedrock",
 	26: "bedrock",
 }
+
+// providerCustom is the single provider ID assigned to every user-configured
+// custom LLM gateway (LiteLLM, vLLM, Ollama, LocalAI, ...). We deliberately do
+// not infer the specific vendor from the port: the workload is surfaced as a
+// "Custom LLM Gateway" either way, and payload extraction uses the generic
+// OpenAI-compatible parser.
+const providerCustom uint8 = 13

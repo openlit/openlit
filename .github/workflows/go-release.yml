@@ -49,7 +49,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3.0.0
         with:
-          name: Go SDK v${{ steps.get_version.outputs.VERSION }}
+          name: ${{ github.ref_name }}
           body_path: /tmp/changelog.md
           draft: false
           prerelease: false

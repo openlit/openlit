@@ -1,0 +1,44 @@
+# OpenLIT Cursor Rules
+
+This project uses organized cursor rules to maintain consistency across different types of development work.
+
+## Rule Categories
+
+### Documentation Rules
+For all documentation work including MDX files, guides, and API documentation.
+- **File**: `.cursor-rules/documentation.md`
+- **Applies to**: `/docs/**`, `*.mdx`, `README.md`, documentation-related files
+- **Purpose**: Ensures consistent documentation structure, formatting, and OpenLIT brand guidelines
+
+### Frontend Rules
+For OpenLIT client UI work.
+- **File**: `.cursor-rules/frontend.md`
+- **Applies to**: `src/client/src/**/*.tsx`, settings pages, telemetry-style pages, stores, selectors, helpers, and OSS-safe extension fallbacks
+- **Purpose**: Keeps light/dark styling, compact page layout, project hierarchy UI, CE message usage, neutral extension hooks, and CE/EE boundary placement consistent
+
+### Security And Testing Rules
+For API routes, project hierarchy, auth, audit, billing, licensing, and tests.
+- **File**: `.cursor-rules/security-testing.md`
+- **Applies to**: `src/client/src/app/api/**`, `src/client/src/lib/**`, `src/client/src/ee/**`, `src/client/src/__tests__/**`
+- **Purpose**: Ensures server-side authorization, invalid JSON handling, project scoping, OSS-safe fallback boundaries, no enterprise leakage into CE, redaction, and validation coverage
+
+## Usage
+
+Cursor will automatically apply the appropriate rules based on the files you're working with. The rules are organized by category to make them easier to maintain and update.
+
+## Adding New Rule Categories
+
+When adding new types of cursor rules:
+
+1. Create a new file in `.cursor-rules/` with a descriptive name (e.g., `frontend.md`, `backend.md`, `testing.md`)
+2. Update this main `.cursorrules` file to reference the new category
+3. Follow the same structure and format as existing rule files
+
+## Rule Structure
+
+Each rule file should include:
+- Clear overview and purpose
+- Specific guidelines and standards
+- Code examples and templates
+- Quality checklists
+- Quick reference sections

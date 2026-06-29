@@ -104,9 +104,16 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
     queries,
   });
 
-  if (!migrationExist) {
-    await CreateCustomDashboardsSeed(databaseConfigId);
-  }
+  // Always run the seed -- it is idempotent per-title via
+  // `boardExistsByTitle` and exists precisely so that dashboards
+  // added to `SEEDED_DASHBOARDS` after a stack's first boot still
+  // land on every existing deployment without a per-board one-off
+  // migration. Gating this on `!migrationExist` silently broke that
+  // contract (every new built-in board would skip every existing
+  // stack), which is exactly the regression that hid the Coding
+  // Agents dashboard. Cost per boot is N small `SELECT count(*)
+  // FROM openlit_board WHERE title = ?` queries -- negligible.
+  await CreateCustomDashboardsSeed(databaseConfigId);
 
   return { migrationExist, queriesRun };
 }

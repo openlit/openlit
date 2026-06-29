@@ -6,7 +6,7 @@ import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
-import { getCurrentOrganisation } from "./organisation";
+import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "./organisation";
 import { validateDatabaseHost } from "@/utils/validation";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
@@ -16,16 +16,19 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 
 	// Get current organisation
 	const currentOrg = await getCurrentOrganisation();
+	const currentProject = currentOrg?.id
+		? await getCurrentProjectForOrganisation(currentOrg.id)
+		: null;
 
-	// Auto-migrate orphaned configs: If user has a current org, move any orphaned configs
-	// they have access to into that org. This handles edge cases where migration didn't run
+	// Auto-migrate orphaned configs: If user has a current organisation, move any orphaned configs
+	// they have access to into its current project. This handles edge cases where migration didn't run
 	// or new orphaned configs were created.
 	if (currentOrg?.id) {
 		const userOrphanedLinks = await prisma.databaseConfigUser.findMany({
 			where: {
 				userId: user.id,
 				databaseConfig: {
-					organisationId: null,
+					projectId: null,
 				},
 			},
 			select: { databaseConfigId: true },
@@ -38,7 +41,7 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 
 			await prisma.databaseConfig.updateMany({
 				where: { id: { in: orphanedConfigIds } },
-				data: { organisationId: currentOrg.id },
+				data: { projectId: currentProject?.id },
 			});
 
 			consoleLog(
@@ -52,10 +55,10 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 			where: {
 				userId: user.id,
 				isCurrent: true,
-				// Always filter by current organisation to maintain data isolation
-				// If no current org, only return orphaned configs (organisationId: null)
+				// Always filter by current project to maintain data isolation
+				// If no current organisation, only return orphaned configs (projectId: null)
 				databaseConfig: {
-					organisationId: currentOrg?.id ?? null,
+					projectId: currentProject?.id ?? null,
 				},
 			},
 			select: {
@@ -69,10 +72,10 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const dbUserConfigs = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId: user.id,
-			// Always filter by current organisation to maintain data isolation
-			// If no current org, only return orphaned configs (organisationId: null)
+			// Always filter by current project to maintain data isolation
+			// If no current organisation, only return orphaned configs (projectId: null)
 			databaseConfig: {
-				organisationId: currentOrg?.id ?? null,
+				projectId: currentProject?.id ?? null,
 			},
 		},
 		select: {
@@ -144,11 +147,14 @@ export const upsertDBConfig = async (
 
 	// Get current organisation
 	const currentOrg = await getCurrentOrganisation();
+	const currentProject = currentOrg?.id
+		? await getCurrentProjectForOrganisation(currentOrg.id)
+		: null;
 
 	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,
-			organisationId: currentOrg?.id || null,
+			projectId: currentProject?.id || null,
 			NOT: {
 				id,
 			},
@@ -172,7 +178,7 @@ export const upsertDBConfig = async (
 				create: {
 					...(dbConfig as any),
 					createdByUserId: user!.id,
-					organisationId: currentOrg?.id,
+					projectId: currentProject?.id,
 				},
 				update: {
 					...dbConfig,
@@ -182,12 +188,12 @@ export const upsertDBConfig = async (
 		if (err) throw err;
 		createddbConfig = result;
 	}
-	// When creating with an organisation, use compound unique constraint
-	else if (currentOrg?.id) {
+	// When creating with a project, use compound unique constraint
+	else if (currentProject?.id) {
 		const whereObject = {
-			name_organisationId: {
+			name_projectId: {
 				name: dbConfig.name,
-				organisationId: currentOrg.id,
+				projectId: currentProject.id,
 			},
 		};
 		const [err, result] = await asaw(
@@ -196,7 +202,7 @@ export const upsertDBConfig = async (
 				create: {
 					...(dbConfig as any),
 					createdByUserId: user!.id,
-					organisationId: currentOrg.id,
+					projectId: currentProject.id,
 				},
 				update: {
 					...dbConfig,
@@ -206,14 +212,14 @@ export const upsertDBConfig = async (
 		if (err) throw err;
 		createddbConfig = result;
 	}
-	// When creating without organisation (null organisationId), 
+	// When creating without a project (null projectId),
 	// Prisma doesn't support null in compound unique constraints, 
 	// so we use findFirst + create/update pattern
 	else {
 		const existing = await prisma.databaseConfig.findFirst({
 			where: {
 				name: dbConfig.name,
-				organisationId: null,
+				projectId: null,
 			},
 		});
 		
@@ -231,7 +237,7 @@ export const upsertDBConfig = async (
 				data: {
 					...(dbConfig as any),
 					createdByUserId: user!.id,
-					organisationId: null,
+					projectId: null,
 				},
 			});
 		}
@@ -279,6 +285,22 @@ export async function setCurrentDBConfig(id: string) {
 
 	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
+	const currentOrg = await getCurrentOrganisation();
+	const currentProject = currentOrg?.id
+		? await getCurrentProjectForOrganisation(currentOrg.id)
+		: null;
+	const targetConfig = await prisma.databaseConfig.findFirst({
+		where: {
+			id,
+			projectId: currentProject?.id ?? null,
+		},
+		select: { id: true },
+	});
+
+	if (!targetConfig) {
+		throw new Error(getMessage().DB_CONFIG_NOT_IN_CURRENT_PROJECT);
+	}
+
 	const currentConfig = await getDBConfigByUser(true);
 
 	if ((currentConfig as DatabaseConfig)?.id) {
@@ -307,7 +329,7 @@ export async function setCurrentDBConfig(id: string) {
 		},
 	});
 
-	return "Current DB config set successfully!";
+	return getMessage().CURRENT_DB_CONFIG_SET_SUCCESS;
 }
 
 export async function shareDBConfig({
@@ -468,19 +490,19 @@ async function addDatabaseConfigUserEntry(
 		canShare: boolean;
 	}
 ) {
-	// Get the database config to find its organisation
+	// Get the database config to find its project
 	const dbConfig = await prisma.databaseConfig.findUnique({
 		where: { id: databaseConfigId },
-		select: { organisationId: true },
+		select: { projectId: true },
 	});
 
-	// Check if user has any current database config in the SAME organisation
+	// Check if user has any current database config in the same project
 	const existingCurrentConfigInOrg = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId: userId,
 			isCurrent: true,
 			databaseConfig: {
-				organisationId: dbConfig?.organisationId || null,
+				projectId: dbConfig?.projectId || null,
 			},
 		},
 	});

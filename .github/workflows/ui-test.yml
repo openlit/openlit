@@ -18,6 +18,8 @@ jobs:
   jest:
     name: Jest Unit Tests
     runs-on: ubuntu-latest
+    env:
+      SQLITE_DATABASE_URL: file:./test.db
     defaults:
       run:
         working-directory: src/client
@@ -78,27 +80,43 @@ jobs:
                 : []),
             ].join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
+            const fromFork =
+              context.payload.pull_request?.head?.repo?.full_name !==
+              context.repo.owner + '/' + context.repo.repo;
 
-            const existing = comments.find((c) => c.body.includes(MARKER));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
+            if (!fromFork) {
+              try {
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                });
+
+                const existing = comments.find((c) => c.body.includes(MARKER));
+                if (existing) {
+                  await github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: existing.id,
+                    body,
+                  });
+                } else {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    body,
+                  });
+                }
+              } catch (error) {
+                core.warning(
+                  `Could not post coverage comment: ${error.message}`
+                );
+              }
             } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
+              core.info(
+                'Skipping PR coverage comment: fork PRs cannot write comments with GITHUB_TOKEN.'
+              );
             }
 
             if (overall < 80) {

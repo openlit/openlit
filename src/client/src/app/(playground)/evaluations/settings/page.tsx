@@ -22,9 +22,10 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { Zap, Settings2, Clock, Play, Info, SettingsIcon } from "lucide-react";
+import { Zap, Settings2, Clock, Play, Info, SettingsIcon, Layers } from "lucide-react";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import { Badge } from "@/components/ui/badge";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const EvaluationVaultCreate = ({
 	successCallback,
@@ -173,16 +174,22 @@ export default function EvaluationSettingsPage() {
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-			{/* Page header */}
-			<div className="space-y-1">
-				<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-					{getMessage().EVALUATION_ENGINE_TITLE}
-				</h1>
-				<p className="text-sm text-stone-500 dark:text-stone-400">
-					{getMessage().EVALUATION_ENGINE_DESCRIPTION}
-				</p>
-			</div>
+		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
+			<FeaturePageHeader
+				eyebrow="Configuration"
+				title={getMessage().EVALUATION_ENGINE_TITLE}
+				description="Continuously grade AI outputs with automated and manual checks that turn quality signals into action."
+				icon={<Settings2 className="h-4 w-4" />}
+				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+				actions={
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations/types">
+							<Layers className="mr-1.5 h-3.5 w-3.5" />
+							Evaluation Types
+						</Link>
+					</Button>
+				}
+			/>
 			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
 				<CardContent className="pt-6">
 					<div className="flex gap-3">

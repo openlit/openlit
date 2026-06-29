@@ -167,6 +167,9 @@ export interface TraceHeirarchySpan {
 	ScopeVersion?: string;
 	Cost?: number;
 	SpanAttributes?: Record<string, string | number>;
+	// ResourceAttributes carry per-process facts (e.g. `coding_agent.agent.parent_id`
+	// for Cursor/Claude Code subagents whose parent linkage isn't stamped at the
+	// span level). Optional because legacy SDK paths may omit them.
 	ResourceAttributes?: Record<string, string | number>;
 	Events?: {
 		Timestamp?: Date | string;

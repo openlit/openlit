@@ -57,11 +57,27 @@ export function getBoards(isHome?: boolean) {
 export async function createBoard(board: Board, databaseConfigId?: string) {
 	const sanitizedBoard = Sanitizer.sanitizeObject(board);
 
+	// Generate the board id client-side so the post-insert readback
+	// can deterministically lookup THIS row by primary key. The
+	// previous implementation read back the most-recently-created
+	// row by `ORDER BY created_at DESC LIMIT 1` — that races whenever
+	// two boards are inserted within the same second-precision tick
+	// (notably, dashboard seeding inserts 4 boards back-to-back). On
+	// fresh stacks this caused widget attachment to land on the wrong
+	// board (or the readback returned an empty result, which then
+	// threw `Cannot read property 'id' of undefined` upstream).
+	const boardId =
+		(sanitizedBoard.id as string | undefined) ||
+		(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+			? crypto.randomUUID()
+			: fallbackUUID());
+
 	const { err, data } = await dataCollector(
 		{
 			table: OPENLIT_BOARD_TABLE_NAME,
 			values: [
 				{
+					id: boardId,
 					title: sanitizedBoard.title,
 					description: sanitizedBoard.description,
 					parent_id: sanitizedBoard.parentId,
@@ -75,19 +91,44 @@ export async function createBoard(board: Board, databaseConfigId?: string) {
 		databaseConfigId
 	);
 
-	if (err || !(data as { query_id: string }).query_id)
-		return { err: getMessage().BOARD_CREATE_FAILED };
+	// Older ClickHouse builds returned a query_id on every insert; the
+	// version we ship in dev (24.4) sometimes returns an empty string.
+	// Treat the absence of `err` as the source of truth and only use
+	// query_id as a defensive check for legacy callers — this keeps the
+	// dashboard seed reliable regardless of CH minor version skew.
+	if (err) return { err: getMessage().BOARD_CREATE_FAILED };
 
-	const { data: data_board, err: err_board } = await dataCollector({
-		query: `Select * from ${OPENLIT_BOARD_TABLE_NAME} order by created_at desc limit 1`,
+	// We already know the inserted row's id (we generated it client-
+	// side and supplied it in the INSERT). Skipping the post-insert
+	// readback both avoids the eventual-consistency race AND removes
+	// the need for a database-config lookup on this code path —
+	// important because the dashboard seed runs at server startup with
+	// no current user, and the prior readback was issuing a
+	// `getDBConfigByUser()` lookup that always failed with
+	// "Unauthorized user!", causing the seed to silently bail with
+	// "Board create failed!" even though the INSERT had succeeded.
+	return {
+		data: {
+			id: boardId,
+			title: sanitizedBoard.title,
+			description: sanitizedBoard.description,
+			parentId: sanitizedBoard.parentId,
+			isMainDashboard: sanitizedBoard.isMainDashboard,
+			isPinned: sanitizedBoard.isPinned,
+			tags: sanitizedBoard.tags,
+		},
+	};
+}
+
+function fallbackUUID(): string {
+	// RFC4122-ish v4 UUID, used only when crypto.randomUUID is
+	// unavailable (very old runtimes). Not security-sensitive — these
+	// ids are public identifiers in the board table.
+	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+		const r = Math.floor(Math.random() * 16);
+		const v = c === "x" ? r : (r & 0x3) | 0x8;
+		return v.toString(16);
 	});
-
-
-	if (err_board) {
-		return { err: getMessage().BOARD_CREATE_FAILED };
-	}
-
-	return { data: (data_board as any[])[0] };
 }
 
 export async function updateBoard(board: Board & { updateParent?: boolean }) {
@@ -427,7 +468,30 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 }
 
 // TODO: fix the type of data
-export async function importBoardLayout(data: any, databaseConfigId?: string) {
+export async function importBoardLayout(
+	data: any,
+	databaseConfigId?: string,
+	options?: {
+		// When true, widget ids from `data.widgets` are kept verbatim
+		// instead of being replaced with freshly generated UUIDs.
+		//
+		// Defaults to FALSE -- user-driven imports (the public
+		// `/api/manage-dashboard/board/layout/import` endpoint and the
+		// UI explorer that wraps it) must regenerate ids because the
+		// incoming JSON could carry widget ids that already exist in
+		// the table (re-importing the same exported dashboard, or two
+		// users importing a shared template).
+		//
+		// The seed path (`CreateCustomDashboardsSeed`) opts in by
+		// passing `true`. Its JSON ships stable, owned UUIDs that we
+		// also want to use as the in-table widget ids so that
+		// `syncWidgetSqlFromSeed` can update widgets by id on every
+		// boot when a built-in widget's SQL or properties change in
+		// the seed file. Without preservation those by-id updates
+		// silently match zero rows.
+		preserveWidgetIds?: boolean;
+	}
+) {
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
 
 	const boardData: Partial<Board> = {
@@ -453,15 +517,18 @@ export async function importBoardLayout(data: any, databaseConfigId?: string) {
 		widgets: data.widgets
 	};
 
+	const preserveWidgetIds = options?.preserveWidgetIds === true;
 	const widgetIdMap = new Map();
 
 	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
-		const newWidgetId = crypto.randomUUID();
-		widgetIdMap.set(widget.id, newWidgetId);
+		const nextWidgetId = preserveWidgetIds
+			? widget.id
+			: crypto.randomUUID();
+		widgetIdMap.set(widget.id, nextWidgetId);
 
 		return {
 			...widget,
-			id: newWidgetId,
+			id: nextWidgetId,
 		};
 	});
 
@@ -525,4 +592,31 @@ export async function isBoardTableEmpty(databaseConfigId?: string) {
 	}
 
 	return { data: (boardCount as any[])[0].count === 0, err: null };
+}
+
+/**
+ * Returns true when at least one board with the given title already
+ * exists. Used by the seed runner to "fill in" newly added seeded
+ * boards on stacks that already have other boards (the table-empty
+ * check would otherwise short-circuit and skip them forever).
+ */
+export async function boardExistsByTitle(
+	title: string,
+	databaseConfigId?: string
+) {
+	const safe = title.replace(/'/g, "''");
+	const query = `
+		SELECT CAST(COUNT(*) AS INTEGER) as count
+		FROM ${OPENLIT_BOARD_TABLE_NAME}
+		WHERE title = '${safe}'
+	`;
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) {
+		return { err, data: false };
+	}
+	return { data: ((data as any[])?.[0]?.count ?? 0) > 0, err: null };
 }

@@ -59,6 +59,7 @@ model User {
   deletedApiKeys         APIKeys[]            @relation("deletedByUser")
   opengrounds            OpenGround[]
   organisations          OrganisationUser[]
+  projectMemberships     ProjectUser[]
 
   @@map("users")
 }
@@ -85,9 +86,26 @@ model Organisation {
   createdByUserId String                    @map("created_by_user_id")
   members         OrganisationUser[]
   invitedUsers    OrganisationInvitedUser[]
-  databaseConfigs DatabaseConfig[]
+  projects        Project[]
 
   @@map("organisations")
+}
+
+model Project {
+  id              String                    @id @default(cuid())
+  organisationId  String                    @map("organisation_id")
+  organisation    Organisation              @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  name            String
+  slug            String
+  isDefault       Boolean                   @default(false) @map("is_default")
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  databaseConfigs DatabaseConfig[]
+  currentForUsers OrganisationUser[]        @relation("CurrentOrganisationProject")
+  members         ProjectUser[]
+
+  @@unique([organisationId, slug])
+  @@map("projects")
 }
 
 model OrganisationUser {
@@ -98,11 +116,29 @@ model OrganisationUser {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String       @default("member")
   isCurrent      Boolean      @default(false)
+  currentProjectId String?    @map("current_project_id")
+  currentProject Project?     @relation("CurrentOrganisationProject", fields: [currentProjectId], references: [id], onDelete: SetNull)
+  projects        ProjectUser[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@unique([organisationId, userId])
   @@map("organisation_users")
+}
+
+model ProjectUser {
+  id                   String           @id @default(cuid())
+  projectId            String           @map("project_id")
+  project              Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organisationUserId   String           @map("organisation_user_id")
+  organisationUser     OrganisationUser @relation(fields: [organisationUserId], references: [id], onDelete: Cascade)
+  userId               String           @map("user_id")
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt            DateTime         @default(now())
+
+  @@unique([projectId, organisationUserId])
+  @@index([userId])
+  @@map("project_users")
 }
 
 model OrganisationInvitedUser {
@@ -133,13 +169,13 @@ model DatabaseConfig {
   updatedAt       DateTime                    @updatedAt
   createdByUserId String                      @map("user_id")
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
-  organisationId  String?                     @map("organisation_id")
-  organisation    Organisation?               @relation(fields: [organisationId], references: [id])
+  projectId       String?                     @map("project_id")
+  project         Project?                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   dbInvitedUsers  DatabaseConfigInvitedUser[]
   apiKeys         APIKeys[]
   opengrounds     OpenGround[]
 
-  @@unique([name, organisationId])
+  @@unique([name, projectId])
   @@map("databaseconfig")
 }
 
@@ -147,7 +183,7 @@ model DatabaseConfigUser {
   databaseConfigId String
   userId           String          @map("user_id")
   user             User            @relation(fields: [userId], references: [id])
-  databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id])
+  databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id], onDelete: Cascade)
   isCurrent        Boolean         @default(false)
   canEdit          Boolean         @default(false)
   canShare         Boolean         @default(false)

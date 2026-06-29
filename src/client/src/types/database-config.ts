@@ -11,6 +11,7 @@ export type DatabaseConfigTabItemProps = {
 	canDelete?: boolean;
 	canShare?: boolean;
 	canEdit?: boolean;
+	canSelect?: boolean;
 };
 
 export type DatabaseConfigTabsProps = {

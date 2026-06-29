@@ -35,17 +35,25 @@ class ElevenLabsWrapper extends BaseWrapper {
     voiceSettings: unknown;
     outputFormat: string;
   } {
-    const voiceId = typeof args[0] === 'string' ? args[0] : (args[0]?.voice_id || '');
-    const options = (typeof args[0] === 'object' && args[0] !== null) ? args[0] : (args[1] || {});
-    const requestModel = options.model_id || options.model || 'eleven_multilingual_v2';
-    const text = options.text || '';
-    const voiceSettings = options.voice_settings || '';
-    const outputFormat = options.output_format || 'mp3_44100_128';
+    const voiceId =
+      typeof args[0] === 'string'
+        ? args[0]
+        : (args[0]?.voice_id || args[0]?.voiceId || '');
+    const options =
+      typeof args[0] === 'object' && args[0] !== null && typeof args[0] !== 'string'
+        ? args[0]
+        : (args[1] || {});
+    const requestModel =
+      options.modelId || options.model_id || options.model || 'eleven_multilingual_v2';
+    const text = options.text || options.input || '';
+    const voiceSettings = options.voiceSettings ?? options.voice_settings ?? '';
+    const outputFormat =
+      options.outputFormat || options.output_format || 'mp3_44100_128';
 
     return { voiceId, options, requestModel, text, voiceSettings, outputFormat };
   }
 
-  static _patchConvert(tracer: Tracer, methodName: string): any {
+  static _patchConvert(tracer: Tracer, methodName: string, sdkVersion?: string): any {
     const genAIEndpoint = `elevenlabs.textToSpeech.${methodName}`;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -67,14 +75,19 @@ class ElevenLabsWrapper extends BaseWrapper {
 
         return context.with(trace.setSpan(effectiveCtx, span), async () => {
           let metricParams;
+          const startTime = Date.now();
           try {
             const response = await originalMethod.apply(this, args);
+            const ttft = (Date.now() - startTime) / 1000;
 
             metricParams = ElevenLabsWrapper._commonAudioSetter({
               args,
               genAIEndpoint,
               span,
+              ttft,
+              tbt: 0,
               isStream: false,
+              sdkVersion,
             });
 
             return response;
@@ -100,7 +113,7 @@ class ElevenLabsWrapper extends BaseWrapper {
     };
   }
 
-  static _patchStream(tracer: Tracer, methodName: string): any {
+  static _patchStream(tracer: Tracer, methodName: string, sdkVersion?: string): any {
     const genAIEndpoint = `elevenlabs.textToSpeech.${methodName}`;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -131,6 +144,7 @@ class ElevenLabsWrapper extends BaseWrapper {
                 genAIEndpoint,
                 response,
                 span,
+                sdkVersion,
               })
             );
           } catch (e: any) {
@@ -156,11 +170,13 @@ class ElevenLabsWrapper extends BaseWrapper {
     genAIEndpoint,
     response,
     span,
+    sdkVersion,
   }: {
     args: any[];
     genAIEndpoint: string;
     response: any;
     span: Span;
+    sdkVersion?: string;
   }): AsyncGenerator<unknown, any, unknown> {
     let metricParams;
     const timestamps: number[] = [];
@@ -186,6 +202,7 @@ class ElevenLabsWrapper extends BaseWrapper {
         ttft,
         tbt,
         isStream: true,
+        sdkVersion,
       });
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
@@ -214,6 +231,7 @@ class ElevenLabsWrapper extends BaseWrapper {
     ttft = 0,
     tbt = 0,
     isStream = false,
+    sdkVersion,
   }: {
     args: any[];
     genAIEndpoint: string;
@@ -221,6 +239,7 @@ class ElevenLabsWrapper extends BaseWrapper {
     ttft?: number;
     tbt?: number;
     isStream?: boolean;
+    sdkVersion?: string;
   }): BaseSpanAttributes {
     const captureContent = OpenlitConfig.captureMessageContent;
 
@@ -233,24 +252,24 @@ class ElevenLabsWrapper extends BaseWrapper {
     } = ElevenLabsWrapper._parseAudioArgs(args);
 
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, voiceId);
-    if (voiceSettings) {
-      span.setAttribute(
-        SemanticConvention.GEN_AI_REQUEST_AUDIO_SETTINGS,
-        typeof voiceSettings === 'object' ? JSON.stringify(voiceSettings) : String(voiceSettings)
-      );
-    }
+    span.setAttribute(
+      SemanticConvention.GEN_AI_REQUEST_AUDIO_SETTINGS,
+      voiceSettings === '' || voiceSettings == null
+        ? ''
+        : typeof voiceSettings === 'object'
+          ? JSON.stringify(voiceSettings)
+          : String(voiceSettings)
+    );
     span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, outputFormat);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, isStream);
 
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 0);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 0);
-
-    if (ttft > 0) {
-      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
-    }
-    if (tbt > 0) {
-      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
-    }
+    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, 0);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, 0);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, 0);
+    span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+    span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
     const cost = OpenLitHelper.getAudioModelCost(requestModel, pricingInfo, text);
@@ -264,15 +283,19 @@ class ElevenLabsWrapper extends BaseWrapper {
       serverPort: ElevenLabsWrapper.serverPort,
     });
 
+    // Python stamps gen_ai.system and the ElevenLabs package version (not OpenLIT's).
+    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, ElevenLabsWrapper.aiSystem);
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, requestModel);
+    if (sdkVersion) {
+      span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, sdkVersion);
+    }
+
     let inputMessagesJson: string | undefined;
     let outputMessagesJson: string | undefined;
 
     if (captureContent) {
-      const inputMessages = [{ role: 'user', parts: [{ type: 'text', content: String(text) }] }];
-      const outputMessages = [{ role: 'assistant', parts: [{ type: 'text', content: '[audio generated]' }], finish_reason: 'stop' }];
-
-      inputMessagesJson = JSON.stringify(inputMessages);
-      outputMessagesJson = JSON.stringify(outputMessages);
+      inputMessagesJson = OpenLitHelper.buildInputMessages([{ role: 'user', content: text }]);
+      outputMessagesJson = OpenLitHelper.buildOutputMessages('[audio generated]', 'stop');
 
       span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, inputMessagesJson);
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
@@ -301,6 +324,8 @@ class ElevenLabsWrapper extends BaseWrapper {
       model: requestModel,
       cost,
       aiSystem: ElevenLabsWrapper.aiSystem,
+      serverAddress: ElevenLabsWrapper.serverAddress,
+      serverPort: ElevenLabsWrapper.serverPort,
     };
   }
 }

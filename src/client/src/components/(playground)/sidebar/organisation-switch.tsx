@@ -1,5 +1,5 @@
 "use client";
-import { Building2, ChevronsUpDown, Plus, Mail } from "lucide-react";
+import { Plus, Mail } from "lucide-react";
 import {
 	getCurrentOrganisation,
 	getOrganisationList,
@@ -19,14 +19,26 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ICON_CLASSES } from "@/constants/sidebar";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CreateOrganisationDialog from "./create-organisation-dialog";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
+import { cn } from "@/lib/utils";
 
-export default function OrganisationSwitch() {
+type OrganisationSwitchProps = {
+	className?: string;
+	contentAlign?: "center" | "end" | "start";
+	contentSide?: "bottom" | "left" | "right" | "top";
+};
+
+const triggerClasses = "flex h-9 min-w-36 max-w-64 shrink-0 items-center justify-start overflow-hidden px-3 py-1.5 text-left font-normal relative";
+
+export default function OrganisationSwitch({
+	className,
+	contentAlign = "start",
+	contentSide = "right",
+}: OrganisationSwitchProps) {
 	const posthog = usePostHog();
 	const messages = getMessage();
 	const list = useRootStore(getOrganisationList) || [];
@@ -49,26 +61,22 @@ export default function OrganisationSwitch() {
 				<DropdownMenuTrigger asChild>
 					<Button
 						variant="outline"
-						className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal relative"
+						className={cn(triggerClasses, className)}
 					>
-						<Building2 className={`${ICON_CLASSES} shrink-0`} />
-						<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">
+						<span className="min-w-0 grow truncate text-xs font-medium">
 							{currentOrg?.name}
 						</span>
 						{pendingInvitationsCount > 0 && (
 							<Badge
 								variant="destructive"
-								className="h-5 w-5 p-0 flex items-center justify-center text-xs group-data-[state=close]:absolute group-data-[state=close]:-top-1 group-data-[state=close]:-right-1"
+								className="h-4 min-w-4 px-1 flex items-center justify-center text-[10px]"
 							>
 								{pendingInvitationsCount}
 							</Badge>
 						)}
-						<ChevronsUpDown
-							className={`size-4 block group-data-[state=close]:hidden shrink-0`}
-						/>
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent className="w-56" side="right" align="start">
+				<DropdownMenuContent className="w-56" side={contentSide} align={contentAlign}>
 					<DropdownMenuLabel>{messages.ORGANISATIONS}</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					{list.map((item) => (
@@ -96,7 +104,7 @@ export default function OrganisationSwitch() {
 						<>
 							<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 								<Link
-									href="/settings/organisation"
+									href="/organisation"
 									className="flex items-center gap-2"
 								>
 									<Mail className="size-4" />
@@ -118,7 +126,7 @@ export default function OrganisationSwitch() {
 					</DropdownMenuItem>
 					<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 						<Link
-							href="/settings/organisation"
+							href="/organisation"
 							className="flex items-center w-full"
 						>
 							{messages.MANAGE_ORGANISATIONS}

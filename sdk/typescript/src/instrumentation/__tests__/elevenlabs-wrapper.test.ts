@@ -19,6 +19,29 @@ describe('ElevenLabsWrapper', () => {
     span.setAttribute = jest.fn();
     span.addEvent = jest.fn();
     jest.clearAllMocks();
+
+    (OpenLitHelper as any).buildInputMessages = jest
+      .fn()
+      .mockImplementation((messages: Array<{ role: string; content: string }>) =>
+        JSON.stringify(
+          messages.map((m) => ({
+            role: m.role,
+            parts: [{ type: 'text', content: m.content }],
+          }))
+        )
+      );
+    (OpenLitHelper as any).buildOutputMessages = jest
+      .fn()
+      .mockImplementation((text: string, finishReason: string) =>
+        JSON.stringify([
+          {
+            role: 'assistant',
+            parts: [{ type: 'text', content: text }],
+            finish_reason: finishReason,
+          },
+        ])
+      );
+    (BaseWrapper as any).setBaseSpanAttributes = jest.fn();
   });
 
   afterEach(() => {
@@ -50,6 +73,22 @@ describe('ElevenLabsWrapper', () => {
         voiceSettings: { stability: 0.5 },
         outputFormat: 'pcm_16000',
       });
+    });
+
+    it('should parse camelCase modelId from the official JS SDK', () => {
+      const parsed = ElevenLabsWrapper._parseAudioArgs([
+        'voice-id-123',
+        {
+          text: 'Hello',
+          modelId: 'eleven_turbo_v2_5',
+          voiceSettings: { stability: 0.5 },
+          outputFormat: 'mp3_44100_128',
+        },
+      ]);
+
+      expect(parsed.requestModel).toBe('eleven_turbo_v2_5');
+      expect(parsed.voiceSettings).toEqual({ stability: 0.5 });
+      expect(parsed.outputFormat).toBe('mp3_44100_128');
     });
 
     it('should parse voice id and options from a single object arg', () => {
@@ -115,8 +154,34 @@ describe('ElevenLabsWrapper', () => {
         SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
         0
       );
-
-      // Check messages are set
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        0
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        0
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        0
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_SERVER_TTFT,
+        0
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_SERVER_TBT,
+        0
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        'elevenlabs'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_MODEL,
+        'eleven_multilingual_v2'
+      );
       expect(span.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_INPUT_MESSAGES,
         JSON.stringify([{ role: 'user', parts: [{ type: 'text', content: 'Hello world' }] }])
@@ -131,7 +196,31 @@ describe('ElevenLabsWrapper', () => {
         model: 'eleven_multilingual_v2',
         cost: 0.005,
         aiSystem: 'elevenlabs',
+        serverAddress: 'api.elevenlabs.io',
+        serverPort: 443,
       });
+    });
+
+    it('should stamp the ElevenLabs package version on the span', () => {
+      const mockArgs = ['voice-id-123', { text: 'Hello world' }];
+
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = false;
+      jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0.005);
+
+      ElevenLabsWrapper._commonAudioSetter({
+        args: mockArgs,
+        genAIEndpoint: 'elevenlabs.textToSpeech.convert',
+        span,
+        isStream: false,
+        sdkVersion: '2.54.0',
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_SDK_VERSION,
+        '2.54.0'
+      );
     });
 
     it('should not set message content if captureMessageContent is false', () => {

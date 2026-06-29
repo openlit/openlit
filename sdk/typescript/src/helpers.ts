@@ -204,6 +204,8 @@ const PROVIDER_DEFAULT_ENDPOINTS: Record<string, [string, number]> = {
   'gcp.vertex_ai': ['aiplatform.googleapis.com', 443],
   mistral_ai: ['api.mistral.ai', 443],
   groq: ['api.groq.com', 443],
+  ai21: ['api.ai21.com', 443],
+  digitalocean: ['inference.do-ai.run', 443],
   together: ['api.together.xyz', 443],
   fireworks: ['api.fireworks.ai', 443],
   perplexity: ['api.perplexity.ai', 443],
@@ -222,6 +224,25 @@ const PROVIDER_DEFAULT_ENDPOINTS: Record<string, [string, number]> = {
 
 export function getServerAddressForProvider(provider: string): [string, number] {
   return PROVIDER_DEFAULT_ENDPOINTS[provider] || ['', 0];
+}
+
+/** LangChain/LangGraph message type → OTel GenAI role (mirrors Python LANGCHAIN_ROLE_MAPPING). */
+export const LANGCHAIN_ROLE_MAP: Record<string, string> = {
+  system: 'system',
+  human: 'user',
+  ai: 'assistant',
+  tool: 'tool',
+  function: 'tool',
+};
+
+export const OTEL_ASSISTANT_ROLE = LANGCHAIN_ROLE_MAP.ai;
+
+/** Map a raw LangChain message type/role to the OTel GenAI convention value. */
+export function mapLangChainRole(rawRole: string | undefined | null): string {
+  if (!rawRole) {
+    return OTEL_ASSISTANT_ROLE;
+  }
+  return LANGCHAIN_ROLE_MAP[rawRole] ?? rawRole;
 }
 
 /**
@@ -302,11 +323,32 @@ export default class OpenLitHelper {
     return encoding.encode(text).length;
   }
 
+  /**
+   * Compute chat completion cost, optionally accounting for prompt-cache tokens.
+   *
+   * When the model's pricing entry defines `cacheReadPrice` / `cacheCreationPrice`,
+   * the matching cache tokens are billed at those rates instead of the regular
+   * prompt price.
+   *
+   * Token accounting differs across providers:
+   *   - Anthropic's native API reports `promptTokens` exclusive of cache tokens,
+   *     so cache tokens are added on top (keep `promptTokensIncludeCache` false).
+   *   - OpenAI / LangChain report `promptTokens` inclusive of cache read tokens,
+   *     so pass `promptTokensIncludeCache: true` to subtract the re-priced cache
+   *     tokens from the prompt base and avoid billing them twice.
+   *
+   * Cache tokens are only re-priced (and, when inclusive, only subtracted) when a
+   * dedicated cache price exists, so the result is identical to the legacy
+   * behaviour for any model without cache pricing configured.
+   */
   static getChatModelCost(
     model: string,
     pricingInfo: any,
     promptTokens: number,
-    completionTokens: number
+    completionTokens: number,
+    cacheReadTokens: number = 0,
+    cacheCreationTokens: number = 0,
+    promptTokensIncludeCache: boolean = false
   ): number {
     try {
       const chatPricing = pricingInfo?.chat;
@@ -316,9 +358,34 @@ export default class OpenLitHelper {
         modelPricing = chatPricing[model.split('/', 2)[1]];
       }
       if (modelPricing == null) return 0;
+
+      const cacheRead = cacheReadTokens || 0;
+      const cacheCreation = cacheCreationTokens || 0;
+
+      let billablePromptTokens = promptTokens;
+      let cacheCost = 0;
+
+      if (modelPricing.cacheReadPrice != null) {
+        cacheCost += (cacheRead / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.cacheReadPrice;
+        if (promptTokensIncludeCache) {
+          billablePromptTokens -= cacheRead;
+        }
+      }
+      if (modelPricing.cacheCreationPrice != null) {
+        cacheCost +=
+          (cacheCreation / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.cacheCreationPrice;
+        if (promptTokensIncludeCache) {
+          billablePromptTokens -= cacheCreation;
+        }
+      }
+      if (billablePromptTokens < 0) {
+        billablePromptTokens = 0;
+      }
+
       const cost =
-        (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.promptPrice +
-        (completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.completionPrice;
+        (billablePromptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.promptPrice +
+        (completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * modelPricing.completionPrice +
+        cacheCost;
       return isNaN(cost) ? 0 : cost;
     } catch {
       return 0;

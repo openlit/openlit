@@ -25,6 +25,7 @@ type OBIManager struct {
 	configPath string
 	logger     *zap.Logger
 	running    bool
+	stopping   bool // set before signalling an intentional Stop, so the wait goroutine does not auto-restart
 	lastConfig *OBIConfig
 }
 
@@ -68,6 +69,7 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 	childCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 	m.waitDone = make(chan struct{})
+	m.stopping = false
 
 	m.cmd = exec.CommandContext(childCtx, m.binaryPath, "--config", m.configPath)
 	m.cmd.Env = os.Environ()
@@ -98,6 +100,7 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 		err := cmd.Wait()
 		m.mu.Lock()
 		lastCfg := m.lastConfig
+		intentional := m.stopping
 		m.running = false
 		if m.cmd == cmd {
 			m.cmd = nil
@@ -107,8 +110,13 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 		m.mu.Unlock()
 		close(waitDone)
 
-		if childCtx.Err() != nil {
-			m.logger.Debug("OBI stopped (context cancelled)")
+		// An intentional Stop sets m.stopping before signalling, so we must not
+		// auto-restart. We check the flag (set under lock above) in addition to
+		// childCtx.Err(): Stop() sends SIGTERM before calling cancel(), so the
+		// process can exit while childCtx.Err() is still nil — without the flag
+		// this goroutine would spuriously resurrect a just-stopped OBI.
+		if intentional || childCtx.Err() != nil {
+			m.logger.Debug("OBI stopped (intentional)")
 			return
 		}
 		if err != nil {
@@ -136,6 +144,9 @@ func (m *OBIManager) Stop() error {
 	cmd := m.cmd
 	cancel := m.cancel
 	waitDone := m.waitDone
+	// Mark intentional stop BEFORE signalling so the wait goroutine (which may
+	// wake from SIGTERM before cancel() runs) does not auto-restart.
+	m.stopping = true
 	m.mu.Unlock()
 
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
@@ -170,7 +181,9 @@ func (m *OBIManager) Stop() error {
 	}
 	m.mu.Unlock()
 
-	os.Remove(m.configPath)
+	if err := os.Remove(m.configPath); err != nil && !os.IsNotExist(err) {
+		m.logger.Debug("failed to remove OBI config file", zap.String("path", m.configPath), zap.Error(err))
+	}
 	return nil
 }
 
@@ -269,27 +282,30 @@ type obiHTTP struct {
 	GenAI obiGenAI `yaml:"genai"`
 }
 
+// obiGenAI mirrors OBI v0.9.0's genai payload-extraction config, plus our two
+// added extractors (custom, ollama). OBI natively parses OpenAI, Anthropic,
+// Gemini, Qwen, and Bedrock; the many OpenAI-compatible SaaS providers
+// (Groq, Mistral, Together, ...) are all handled by the OpenAI parser, so we do
+// not carry a separate flag per vendor — discovery maps them to "openai".
 type obiGenAI struct {
-	OpenAI         obiEnabled `yaml:"openai"`
-	Anthropic      obiEnabled `yaml:"anthropic"`
-	Gemini         obiEnabled `yaml:"gemini"`
-	Cohere         obiEnabled `yaml:"cohere"`
-	Mistral        obiEnabled `yaml:"mistral"`
-	Groq           obiEnabled `yaml:"groq"`
-	Deepseek       obiEnabled `yaml:"deepseek"`
-	Together       obiEnabled `yaml:"together"`
-	Fireworks      obiEnabled `yaml:"fireworks"`
-	AzureInference obiEnabled `yaml:"azure_inference"`
-	AzureOpenAI    obiEnabled `yaml:"azure_openai"`
-	Bedrock        obiEnabled `yaml:"bedrock"`
-	VercelAI       obiEnabled `yaml:"vercel_ai"`
-	VertexAI       obiEnabled `yaml:"vertex_ai"`
-	LiteLLM        obiEnabled `yaml:"litellm"`
-	Ollama         obiEnabled `yaml:"ollama"`
+	OpenAI    obiEnabled       `yaml:"openai"`
+	Anthropic obiEnabled       `yaml:"anthropic"`
+	Gemini    obiEnabled       `yaml:"gemini"`
+	Qwen      obiEnabled       `yaml:"qwen"`
+	Bedrock   obiEnabled       `yaml:"bedrock"`
+	Custom    obiCustomEnabled `yaml:"custom"`
+	Ollama    obiEnabled       `yaml:"ollama"`
 }
 
 type obiEnabled struct {
 	Enabled bool `yaml:"enabled"`
+}
+
+// obiCustomEnabled carries the configured gateway destinations so OBI only
+// parses traffic to a known custom gateway as a custom GenAI span.
+type obiCustomEnabled struct {
+	Enabled bool     `yaml:"enabled"`
+	Hosts   []string `yaml:"hosts,omitempty"`
 }
 
 type obiOTELTraces struct {
@@ -339,6 +355,7 @@ func BuildInstrumentConfig(
 	expCfg ExportConfig,
 	entries []obiTarget,
 	enabledProviders map[string]bool,
+	customHosts []string,
 	mode config.DeployMode,
 	environment string,
 ) OBIConfig {
@@ -371,21 +388,32 @@ func BuildInstrumentConfig(
 
 	cfg.EBPF.BufferSizes.HTTP = 8192
 	cfg.EBPF.ProtocolDebug = false
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.OpenAI.Enabled = enabledProviders["openai"]
+
+	// OBI has native parsers only for OpenAI, Anthropic, Gemini, Qwen, and
+	// Bedrock. Every other OpenAI-wire-compatible SaaS provider we discover
+	// (Cohere/Mistral/Groq/Deepseek/Together/Fireworks/Vercel/Vertex/Azure...)
+	// is parsed by the OpenAI extractor, so enabling any of them enables OpenAI.
+	openAICompatible := []string{
+		"openai", "cohere", "mistral", "groq", "deepseek", "together",
+		"fireworks", "azure_inference", "azure_openai", "vercel_ai", "vertex_ai",
+	}
+	for _, p := range openAICompatible {
+		if enabledProviders[p] {
+			cfg.EBPF.PayloadExtraction.HTTP.GenAI.OpenAI.Enabled = true
+			break
+		}
+	}
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Anthropic.Enabled = enabledProviders["anthropic"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Gemini.Enabled = enabledProviders["gemini"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Cohere.Enabled = enabledProviders["cohere"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Mistral.Enabled = enabledProviders["mistral"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Groq.Enabled = enabledProviders["groq"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Deepseek.Enabled = enabledProviders["deepseek"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Together.Enabled = enabledProviders["together"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Fireworks.Enabled = enabledProviders["fireworks"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.AzureInference.Enabled = enabledProviders["azure_inference"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.AzureOpenAI.Enabled = enabledProviders["azure_openai"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Qwen.Enabled = enabledProviders["qwen"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Bedrock.Enabled = enabledProviders["bedrock"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.VercelAI.Enabled = enabledProviders["vercel_ai"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.VertexAI.Enabled = enabledProviders["vertex_ai"]
-	cfg.EBPF.PayloadExtraction.HTTP.GenAI.LiteLLM.Enabled = enabledProviders["litellm"]
+	// Self-hosted gateways discovered via custom_llm_hosts.
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Custom.Enabled = enabledProviders["custom"]
+	if enabledProviders["custom"] {
+		cfg.EBPF.PayloadExtraction.HTTP.GenAI.Custom.Hosts = customHosts
+	}
+	// Ollama native API: opt-in (not auto-enabled from discovery, which reports
+	// custom gateways as "custom"). A user can enable it explicitly.
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Ollama.Enabled = enabledProviders["ollama"]
 
 	cfg.Attributes.Select = obiAttrSelection{
@@ -393,7 +421,10 @@ func BuildInstrumentConfig(
 			Include: []string{
 				"gen_ai.input.messages",
 				"gen_ai.output.messages",
-				"gen_ai.system.instructions",
+				// Canonical GenAI semconv key is underscore-separated
+				// (gen_ai.system_instructions). The dotted form silently fails to
+				// match OBI's GenAIInstructions selector, dropping the attribute.
+				"gen_ai.system_instructions",
 				"gen_ai.metadata",
 			},
 		},
