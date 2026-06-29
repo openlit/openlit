@@ -1,4 +1,4 @@
-# pylint: disable=missing-function-docstring, missing-class-docstring
+# pylint: disable=missing-function-docstring, missing-class-docstring, too-few-public-methods
 """
 Unit tests for cache-aware cost calculation in ``get_chat_model_cost``.
 
