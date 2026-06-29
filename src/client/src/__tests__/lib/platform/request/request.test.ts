@@ -43,6 +43,26 @@ describe('getRequestPerTime', () => {
   });
 });
 
+describe('getGroupByExpression', () => {
+  it('returns predefined group-by expressions', () => {
+    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.system']");
+  });
+
+  it('builds safe span/resource/field group-by expressions', () => {
+    expect(getGroupByExpression('custom.key')).toBe("SpanAttributes['custom.key']");
+    expect(getGroupByExpression("SpanAttributes:o'malley")).toBe("SpanAttributes['o\\'malley']");
+    expect(getGroupByExpression('ResourceAttributes:service.name')).toBe("ResourceAttributes['service.name']");
+    expect(getGroupByExpression('Field:Duration')).toBe('Duration');
+  });
+
+  it('rejects empty and unsupported field group-by inputs', () => {
+    expect(getGroupByExpression('')).toBeNull();
+    expect(getGroupByExpression('SpanAttributes:   ')).toBeNull();
+    expect(getGroupByExpression('Field:Duration;DROP')).toBeNull();
+  });
+});
+
 describe('getTotalRequests', () => {
   it('builds JOIN query for current/previous comparison', async () => {
     await getTotalRequests(baseParams);

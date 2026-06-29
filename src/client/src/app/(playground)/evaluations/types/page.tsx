@@ -8,9 +8,10 @@ import { EVALUATION_TYPES } from "@/constants/evaluation-types";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { Rule } from "@/types/rule-engine";
-import { Layers, CheckCircle2, ChevronRight, ArrowLeft, Plus, Sparkles } from "lucide-react";
+import { Layers, CheckCircle2, ChevronRight, Settings2, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface EvaluationTypeDisplay {
 	id: string;
@@ -153,35 +154,31 @@ export default function EvaluationTypesPage() {
 	};
 
 	return (
-		<div className="flex flex-1 h-full w-full p-6 overflow-auto">
-			<div className="w-full space-y-6">
-				<div className="flex items-start gap-4">
-					<Link href="/evaluations/settings">
-						<Button
-							variant="outline"
-							size="icon"
-							className="shrink-0 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800"
-						>
-							<ArrowLeft className="size-4" />
-						</Button>
-					</Link>
-					<div className="flex-1">
-						<h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-							<Layers className="size-5" />
-							Evaluation Types
-						</h2>
-						<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-							Configure built-in evaluation types or create custom ones. Click a type to set rules,
-							priorities, and evaluation context.
-						</p>
-					</div>
-					<Link href="/evaluations/types/new">
-						<Button className="shrink-0">
-							<Plus className="size-4 mr-1.5" />
-							Create Custom Type
-						</Button>
-					</Link>
-				</div>
+		<div className="flex flex-1 h-full w-full overflow-auto">
+			<div className="w-full space-y-4">
+				<FeaturePageHeader
+					eyebrow="Configuration"
+					title="Evaluation Types"
+					description="Shape what quality means for your AI system with built-in checks, custom judges, and rule-driven context."
+					icon={<Layers className="h-4 w-4" />}
+					tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+					actions={
+						<div className="flex flex-wrap items-center gap-2">
+							<Button asChild variant="outline" size="sm" className="h-8">
+								<Link href="/evaluations/settings">
+									<Settings2 className="mr-1.5 h-3.5 w-3.5" />
+									Settings
+								</Link>
+							</Button>
+							<Button asChild size="sm" className="h-8">
+								<Link href="/evaluations/types/new">
+									<Plus className="mr-1.5 h-3.5 w-3.5" />
+									Create Custom Type
+								</Link>
+							</Button>
+						</div>
+					}
+				/>
 
 				{/* Built-in types */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useRootStore } from "@/store";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
-import FeatureHero from "@/components/(playground)/getting-started/feature-hero";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const columns: Columns<string, OpengroundRecord> = {
 	prompt: {
@@ -179,8 +179,12 @@ export default function Openground() {
 
 	if (!data?.length && !isLoading && isFetched) {
 		return (
-			<div className="flex flex-col items-center mx-auto p-8 overflow-auto">
-				<OpengroundGettingStarted />
+			<div className="flex flex-col w-full h-full gap-4 overflow-auto">
+				<OpengroundHeader validateResponse={false} />
+				<FeaturePageHeader eyebrow="Resources" title={getMessage().FEATURE_OPENGROUND} description="Compare prompts and models side by side so teams can choose the fastest, cheapest, and highest-quality path." icon={<MonitorPlay className="h-4 w-4" />} tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300" />
+				<div className="flex flex-col items-center mx-auto">
+					<OpengroundGettingStarted />
+				</div>
 			</div>
 		);
 	}
@@ -188,11 +192,7 @@ export default function Openground() {
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<OpengroundHeader validateResponse={false} />
-			<FeatureHero 
-				iconComponent={<MonitorPlay />}
-				title={getMessage().FEATURE_OPENGROUND}
-				description={getMessage().GET_STARTED_WITH_OPENGROUND_DESCRIPTION}
-			/>
+			<FeaturePageHeader eyebrow="Resources" title={getMessage().FEATURE_OPENGROUND} description="Compare prompts and models side by side so teams can choose the fastest, cheapest, and highest-quality path." icon={<MonitorPlay className="h-4 w-4" />} tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300" />
 
 			<DataTable
 				columns={columns}
