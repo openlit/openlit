@@ -782,6 +782,51 @@ def log_agent_tool_error(agent_name, tool_name, system=None, model=None):
         logger.debug("Failed to record agent tool error: %s", e)
 
 
+def log_score(
+    name,
+    value,
+    *,
+    span=None,
+    trace_id=None,
+    span_id=None,
+    comment=None,
+    idempotency_key=None,
+    metadata=None,
+):
+    """
+    Record an external evaluation score or user feedback on a GenAI span.
+
+    When called inside an instrumented LLM request, the score auto-attaches to
+    the active span. You can also pass ``span``, or ``trace_id`` and ``span_id``
+    for async feedback against a past trace.
+
+    Returns ``True`` when a score event was emitted and ``False`` otherwise.
+
+    Usage:
+        openlit.log_score("user_feedback", True, comment="Helpful response")
+        openlit.log_score("quality", 0.85, metadata={"reviewer": "human"})
+        openlit.log_score("category", "accurate")
+    """
+    from openlit.score import record_evaluation_score
+
+    try:
+        return record_evaluation_score(
+            name,
+            value,
+            span=span,
+            trace_id=trace_id,
+            span_id=span_id,
+            comment=comment,
+            idempotency_key=idempotency_key,
+            metadata=metadata,
+        )
+    except (ValueError, TypeError):
+        raise
+    except Exception as e:
+        logger.debug("Failed to record evaluation score: %s", e)
+        return False
+
+
 @contextmanager
 def agent_context(name):
     """

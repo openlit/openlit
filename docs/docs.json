@@ -56,7 +56,15 @@
               },
               "latest/openlit/configuration",
               "latest/openlit/oauth",
-              "latest/openlit/organisation"
+              {
+                "group": "Organisation",
+                "icon": "building",
+                "pages": [
+                  "latest/openlit/organisation/overview",
+                  "latest/openlit/organisation/projects",
+                  "latest/openlit/organisation/database-config"
+                ]
+              }
             ]
           },
           {

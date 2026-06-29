@@ -15,7 +15,13 @@ jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/lib/db-config', () => ({
   moveSharedDBConfigToDBUser: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../../lib/db-config', () => ({
+  moveSharedDBConfigToDBUser: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('@/lib/organisation', () => ({
+  moveInvitationsToMembership: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../lib/organisation', () => ({
   moveInvitationsToMembership: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/constants/messages', () => ({

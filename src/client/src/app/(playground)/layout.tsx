@@ -8,6 +8,11 @@ import NavigationEvents from "@/components/common/navigation-events";
 import AppInit from "@/components/common/app-init";
 import { PortalProvider } from "@/components/(playground)/header-portal";
 import ChatFloatingButton from "@/components/(playground)/chat/chat-floating-button";
+import {
+	EnterpriseFeatureAccessProvider,
+	EnterpriseFeatureRouteGate,
+} from "@/components/enterprise-feature-access-provider";
+import { getEnterpriseFeatureAccessSnapshot } from "@/lib/enterprise-feature-access";
 
 export default async function PlaygroundLayout({
 	children,
@@ -15,24 +20,29 @@ export default async function PlaygroundLayout({
 	children: React.ReactNode;
 }) {
 	const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
+	const enterpriseFeatureAccess = await getEnterpriseFeatureAccessSnapshot();
 
 	return (
 		<CustomPostHogProvider telemetryEnabled={telemetryEnabled}>
 			<TooltipProvider>
-				<PortalProvider>
-					<div className="flex h-screen w-full gap-4 overflow-hidden p-2">
-						<Sidebar />
-						<div className="flex flex-col grow w-full">
-							<Header />
-							<main className="flex flex-col grow flex-1 items-start p-0 overflow-hidden">
-								<ClickhouseConnectivityWrapper>
-									{children}
-								</ClickhouseConnectivityWrapper>
-							</main>
+				<EnterpriseFeatureAccessProvider snapshot={enterpriseFeatureAccess}>
+					<PortalProvider>
+						<div className="flex h-screen w-full gap-4 overflow-hidden p-2">
+							<Sidebar />
+							<div className="flex flex-col grow w-full">
+								<Header />
+								<main className="flex flex-col grow flex-1 items-start p-0 overflow-hidden">
+									<ClickhouseConnectivityWrapper>
+										<EnterpriseFeatureRouteGate>
+											{children}
+										</EnterpriseFeatureRouteGate>
+									</ClickhouseConnectivityWrapper>
+								</main>
+							</div>
 						</div>
-					</div>
-					<ChatFloatingButton />
-				</PortalProvider>
+						<ChatFloatingButton />
+					</PortalProvider>
+				</EnterpriseFeatureAccessProvider>
 			</TooltipProvider>
 			<Suspense fallback={null}>
 				<NavigationEvents />
