@@ -1,4 +1,5 @@
-import { SpanKind, SpanStatusCode, context, trace as otelTrace } from '@opentelemetry/api';
+import { Span, SpanKind, SpanStatusCode, trace as otelTrace } from '@opentelemetry/api';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import OpenlitConfig from './config';
 import SemanticConvention from './semantic-convention';
 
@@ -7,16 +8,23 @@ function getTracer() {
   return provider?.getTracer?.('openlit') ?? otelTrace.getTracer('openlit');
 }
 
-function attachAppAttrs(span: any): void {
-  span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName ?? 'default');
-  span.setAttribute(SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment ?? 'default');
+function attachAppAttrs(span: Span): void {
+  span.setAttribute(ATTR_SERVICE_NAME, OpenlitConfig.applicationName ?? 'default');
+  span.setAttribute(
+    SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT,
+    OpenlitConfig.environment ?? 'default'
+  );
 }
 
-/** Handle returned by startTrace() for imperative span control. */
+/**
+ * Wrapper for an OpenTelemetry span with helpers to set result and metadata.
+ * Mirrors Python's TracedSpan — the span lifecycle is managed by startTrace() /
+ * trace(), so you do not call end() yourself (like Python's `with` block).
+ */
 export class TracedSpan {
-  private readonly _span: any;
+  private readonly _span: Span;
 
-  constructor(span: any) {
+  constructor(span: Span) {
     this._span = span;
   }
 
@@ -29,37 +37,77 @@ export class TracedSpan {
   setMetadata(metadata: Record<string, string | number | boolean>): void {
     this._span.setAttributes(metadata);
   }
+}
 
-  /** End the span. Always call this — ideally in a finally block. */
-  end(): void {
-    this._span.end();
-  }
+function runInActiveSpan<T>(
+  name: string,
+  fn: (span: TracedSpan) => T | Promise<T>
+): T | Promise<T> {
+  return getTracer().startActiveSpan(
+    name,
+    { kind: SpanKind.CLIENT },
+    (rawSpan: Span) => {
+      attachAppAttrs(rawSpan);
+      const handle = new TracedSpan(rawSpan);
+
+      const endOk = () => {
+        rawSpan.setStatus({ code: SpanStatusCode.OK });
+        rawSpan.end();
+      };
+
+      const endError = (err: unknown): never => {
+        rawSpan.recordException(err as Error);
+        rawSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: String(err),
+        });
+        rawSpan.end();
+        throw err;
+      };
+
+      try {
+        const result = fn(handle);
+        if (result !== null && typeof (result as any)?.then === 'function') {
+          return (result as Promise<T>).then(
+            (val) => {
+              endOk();
+              return val;
+            },
+            (err) => endError(err)
+          );
+        }
+        endOk();
+        return result;
+      } catch (err) {
+        return endError(err);
+      }
+    }
+  );
 }
 
 /**
- * Start a named CLIENT span and return a TracedSpan handle.
- * You are responsible for calling handle.end() (use a try/finally block).
- * For automatic span ending, prefer openlit.trace(name, fn) instead.
+ * Start a named CLIENT span scoped to a callback — the TypeScript equivalent of
+ * Python's `with start_trace(name) as span:`.
+ *
+ * The span is active for the duration of `fn`, so child LLM spans nest correctly.
  *
  * @example
- *   const span = openlit.startTrace('my-operation');
- *   try {
+ *   const answer = await openlit.startTrace('my-operation', async (span) => {
  *     const result = await doWork();
  *     span.setResult(String(result));
- *   } finally {
- *     span.end();
- *   }
+ *     return result;
+ *   });
  */
-export function startTrace(name: string): TracedSpan {
-  const rawSpan = getTracer().startSpan(name, { kind: SpanKind.CLIENT });
-  attachAppAttrs(rawSpan);
-  return new TracedSpan(rawSpan);
+export function startTrace<T>(
+  name: string,
+  fn: (span: TracedSpan) => T | Promise<T>
+): T | Promise<T> {
+  return runInActiveSpan(name, fn);
 }
 
 /**
- * Wrap a function call in a CLIENT span that ends automatically.
- * Child spans (e.g., LLM calls) created inside fn nest correctly
- * under this span via OTel context propagation.
+ * Wrap a function call in a CLIENT span — the TypeScript equivalent of
+ * Python's `@openlit.trace` decorator.
  *
  * @example
  *   const answer = await openlit.trace('my-chain', async (span) => {
@@ -68,30 +116,9 @@ export function startTrace(name: string): TracedSpan {
  *     return result;
  *   });
  */
-export function trace<T>(name: string, fn: (span: TracedSpan) => T | Promise<T>): T | Promise<T> {
-  const rawSpan = getTracer().startSpan(name, { kind: SpanKind.CLIENT });
-  attachAppAttrs(rawSpan);
-  const ctx = otelTrace.setSpan(context.active(), rawSpan);
-  const handle = new TracedSpan(rawSpan);
-
-  let result: T | Promise<T>;
-  try {
-    result = context.with(ctx, () => fn(handle));
-  } catch (err: any) {
-    rawSpan.recordException(err);
-    rawSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
-    rawSpan.end();
-    throw err;
-  }
-
-  if (result && typeof (result as any).then === 'function') {
-    return result.then(
-      (val) => { rawSpan.setStatus({ code: SpanStatusCode.OK }); rawSpan.end(); return val; },
-      (err) => { rawSpan.recordException(err); rawSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) }); rawSpan.end(); throw err; }
-    );
-  }
-
-  rawSpan.setStatus({ code: SpanStatusCode.OK });
-  rawSpan.end();
-  return result;
+export function trace<T>(
+  name: string,
+  fn: (span: TracedSpan) => T | Promise<T>
+): T | Promise<T> {
+  return runInActiveSpan(name, fn);
 }
