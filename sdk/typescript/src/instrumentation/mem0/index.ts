@@ -26,6 +26,7 @@ const MEM0_METHODS: Array<[string, string]> = [
   ['delete', 'memory delete'],
   ['deleteAll', 'memory delete_all'],
   ['history', 'memory history'],
+  ['reset', 'memory reset'],
 ];
 
 export default class OpenlitMem0Instrumentation extends InstrumentationBase {
@@ -44,7 +45,7 @@ export default class OpenlitMem0Instrumentation extends InstrumentationBase {
       (filePath) =>
         new InstrumentationNodeModuleFile(
           filePath,
-          ['>=1.0.0'],
+          ['>=0.1.32'],
           (moduleExports: any, moduleVersion?: string) => {
             this._patchOss(moduleExports, moduleVersion);
             return moduleExports;
@@ -57,7 +58,7 @@ export default class OpenlitMem0Instrumentation extends InstrumentationBase {
 
     const module = new InstrumentationNodeModuleDefinition(
       'mem0ai',
-      ['>=1.0.0'],
+      ['>=0.1.32'],
       (moduleExports: any, moduleVersion?: string) => {
         this._patch(moduleExports, moduleVersion);
         return moduleExports;

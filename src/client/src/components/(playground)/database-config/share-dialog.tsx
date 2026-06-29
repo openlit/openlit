@@ -27,6 +27,7 @@ import { set } from "lodash";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { DatabaseConfigPermissions } from "@/constants/dbConfig";
 import { escapeEmailForDisplay } from "@/utils/string";
+import getMessage from "@/constants/messages";
 
 const validateEmail = (email: string) => {
 	return String(email)
@@ -50,6 +51,7 @@ export default function ShareDialog({
 		}[]
 	>([]);
 	const { fireRequest, isLoading } = useFetchWrapper();
+	const messages = getMessage();
 
 	const emailRef = useRef<HTMLInputElement>(null);
 
@@ -71,7 +73,7 @@ export default function ShareDialog({
 			return;
 		}
 
-		toast.error("Email invalid!", {
+		toast.error(messages.EMAIL_INVALID, {
 			id: "share-db-config",
 		});
 	};
@@ -91,14 +93,14 @@ export default function ShareDialog({
 			requestType: "POST",
 			url: "/api/db-config/share",
 			responseDataKey: "data",
-			successCb: (res) => {
-				toast.success("Db config shared!", {
+			successCb: () => {
+				toast.success(messages.DB_CONFIG_SHARED, {
 					id: "share-db-config",
 				});
 				resetData();
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Db config shared failed!", {
+				toast.error(err || messages.DB_CONFIG_SHARE_FAILED, {
 					id: "db-config-details",
 				});
 			},
@@ -122,10 +124,9 @@ export default function ShareDialog({
 			</DialogTrigger>
 			<DialogContent className="">
 				<DialogHeader>
-					<DialogTitle>Share Database config</DialogTitle>
+					<DialogTitle>{messages.SHARE_DATABASE_CONFIG}</DialogTitle>
 					<DialogDescription>
-						You can share the selected database config to multiple users with
-						different permissions.
+						{messages.SHARE_DATABASE_CONFIG_DESCRIPTION}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex items-center space-x-2">
@@ -133,7 +134,7 @@ export default function ShareDialog({
 						id="email"
 						name="email"
 						className="dark:text-stone-200"
-						placeholder="Add an email..."
+						placeholder={messages.ADD_EMAIL_PLACEHOLDER}
 						ref={emailRef}
 					/>
 					<Button
@@ -142,17 +143,17 @@ export default function ShareDialog({
 						className="px-3"
 						onClick={onEnterEmail}
 					>
-						<span className="sr-only">Enter</span>
+						<span className="sr-only">{messages.ENTER}</span>
 						<CornerDownLeft className="h-4 w-4" />
 					</Button>
 				</div>
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Email</TableHead>
-							<TableHead className="text-center">Edit</TableHead>
-							<TableHead className="text-center">Delete</TableHead>
-							<TableHead className="text-center">Share</TableHead>
+							<TableHead>{messages.EMAIL}</TableHead>
+							<TableHead className="text-center">{messages.EDIT}</TableHead>
+							<TableHead className="text-center">{messages.DELETE}</TableHead>
+							<TableHead className="text-center">{messages.SHARE}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -206,11 +207,11 @@ export default function ShareDialog({
 				</Table>
 				<DialogFooter className="justify-end">
 					<Button type="button" variant="default" onClick={shareRequest}>
-						Share
+						{messages.SHARE}
 					</Button>
 					<DialogClose asChild>
 						<Button type="button" variant="secondary">
-							Close
+							{messages.CLOSE}
 						</Button>
 					</DialogClose>
 				</DialogFooter>

@@ -1,4 +1,5 @@
 import { getDatabaseConfigList } from "@/selectors/database-config";
+import { getCurrentProject } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import { useEffect } from "react";
 import {
@@ -31,7 +32,11 @@ export default function DatabaseConfigSwitch({
 	const router = useRouter();
 	const messages = getMessage();
 	const list = useRootStore(getDatabaseConfigList) || [];
+	const currentProject = useRootStore(getCurrentProject);
 	const activeDatabase = list.find((item) => !!item.isCurrent);
+	const manageDbConfigHref = currentProject?.id
+		? `/organisation/project/${currentProject.id}`
+		: "/organisation";
 	const onClickItem = (id: string) => {
 		changeActiveDatabaseConfig(id, () => {
 			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
@@ -52,7 +57,7 @@ export default function DatabaseConfigSwitch({
 			<Button
 				variant="outline"
 				className={cn(triggerClasses, className)}
-				onClick={() => router.push("/settings/database-config")}
+				onClick={() => router.push(manageDbConfigHref)}
 			>
 				<span className="min-w-0 truncate text-xs font-medium">
 					{messages.MANAGE_DB_CONFIG}
@@ -96,7 +101,7 @@ export default function DatabaseConfigSwitch({
 				))}
         <DropdownMenuSeparator />
 				<DropdownMenuItem className="py-1.5 pl-8 pr-2">
-					<Link href="/settings/database-config" className=" flex items-center">
+					<Link href={manageDbConfigHref} className=" flex items-center">
 						{messages.ADD_NEW_CONFIG}
 					</Link>
 				</DropdownMenuItem>

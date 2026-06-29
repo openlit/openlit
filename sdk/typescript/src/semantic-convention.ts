@@ -529,4 +529,12 @@ export default class SemanticConvention {
   static GUARD_LATENCY_MS = 'guard.latency_ms';
   static GUARD_DENIED = 'guard.denied';
   static GUARD_REQUESTS_COUNTER = 'guard.requests';
+
+  // GenAI Evaluation Event (OTel Semantic Convention)
+  static GEN_AI_EVALUATION_RESULT = 'gen_ai.evaluation.result';
+  static GEN_AI_EVALUATION_NAME = 'gen_ai.evaluation.name';
+  static GEN_AI_EVALUATION_SCORE_VALUE = 'gen_ai.evaluation.score.value';
+  static GEN_AI_EVALUATION_SCORE_LABEL = 'gen_ai.evaluation.score.label';
+  static GEN_AI_EVALUATION_EXPLANATION = 'gen_ai.evaluation.explanation';
+  static OPENLIT_SCORE_IDEMPOTENCY_KEY = 'openlit.score.idempotency_key';
 }

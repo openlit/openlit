@@ -198,6 +198,13 @@ describe('mem0 Cross-Language Trace Comparison', () => {
       await runOp('memory delete_all', async () => ({ message: 'ok' }), [{ userId: 'bob' }]);
       expect(mockTracer.startSpan).toHaveBeenCalledWith('memory delete_all', { kind: SpanKind.CLIENT });
     });
+
+    it('reset uses the Python endpoint span name', async () => {
+      await runOp('memory reset', async () => ({ message: 'ok' }), []);
+      expect(mockTracer.startSpan).toHaveBeenCalledWith('memory reset', { kind: SpanKind.CLIENT });
+      expect(attrs()[SemanticConvention.GEN_AI_ENDPOINT]).toBe('memory reset');
+      expect(attrs()[SemanticConvention.GEN_AI_OPERATION]).toBe(SemanticConvention.GEN_AI_OPERATION_TYPE_MEMORY);
+    });
   });
 
   describe('Content capture toggle', () => {

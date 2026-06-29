@@ -12,6 +12,9 @@ jest.mock('@/lib/prisma', () => ({
       findUnique: jest.fn(),
       create: jest.fn(),
     },
+    projectUser: {
+      create: jest.fn(),
+    },
     organisationUser: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -62,6 +65,8 @@ jest.mock('@/constants/messages', () => ({
     ONLY_ADMIN_CAN_UPDATE_ORGANISATION: 'Only admin can update',
     ORGANISATION_NOTHING_TO_UPDATE: 'Nothing to update',
     PROJECT_NAME_LENGTH_RANGE_ERROR: 'Project name must be between 1 and 120 characters',
+    EMAIL_REQUIRED: 'Email cannot be empty',
+    INVALID_EMAIL_FORMAT: 'Invalid email format',
     ONLY_ADMIN_CAN_INVITE: 'Only admin can invite',
     USER_ALREADY_ORGANISATION_MEMBER: 'Already a member',
     USER_ALREADY_INVITED: 'Already invited',
@@ -142,6 +147,8 @@ beforeEach(() => {
     ONLY_ADMIN_CAN_UPDATE_ORGANISATION: 'Only admin can update',
     ORGANISATION_NOTHING_TO_UPDATE: 'Nothing to update',
     PROJECT_NAME_LENGTH_RANGE_ERROR: 'Project name must be between 1 and 120 characters',
+    EMAIL_REQUIRED: 'Email cannot be empty',
+    INVALID_EMAIL_FORMAT: 'Invalid email format',
     ONLY_ADMIN_CAN_INVITE: 'Only admin can invite',
     USER_ALREADY_ORGANISATION_MEMBER: 'Already a member',
     USER_ALREADY_INVITED: 'Already invited',
