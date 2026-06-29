@@ -10,6 +10,7 @@ import OpenLitHelper, {
   setFrameworkParentContext,
   clearFrameworkParentContext,
   getServerAddressForProvider,
+  LANGCHAIN_ROLE_MAP,
 } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 import SemanticConvention from '../../semantic-convention';
@@ -260,13 +261,7 @@ function detectObservationType(serialized: any, callbackType: string, name: stri
 // Message formatting helpers (mirrors Python utils.py)
 // ---------------------------------------------------------------------------
 
-const ROLE_MAP: Record<string, string> = {
-  system: 'system',
-  human: 'user',
-  ai: 'assistant',
-  tool: 'tool',
-  function: 'tool',
-};
+const ROLE_MAP = LANGCHAIN_ROLE_MAP;
 
 function buildInputMessagesFromLangChain(messages: any[][]): any[] {
   try {

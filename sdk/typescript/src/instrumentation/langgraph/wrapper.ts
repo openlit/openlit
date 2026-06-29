@@ -10,8 +10,10 @@ import {
 import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/semantic-conventions';
 import SemanticConvention from '../../semantic-convention';
 import OpenlitConfig from '../../config';
-import OpenLitHelper, { applyCustomSpanAttributes } from '../../helpers';
-import {
+import OpenLitHelper, {
+  applyCustomSpanAttributes,
+  mapLangChainRole,
+  OTEL_ASSISTANT_ROLE,
   runWithLangGraph,
   runWithCreateAgent,
   isCreateAgentActive,
@@ -631,9 +633,8 @@ function extractLlmInfoFromResult(span: any, _state: any, result: any): void {
         : JSON.stringify(lastMsg.content);
       if (content && OpenlitConfig.captureMessageContent) {
         const rawRole = lastMsg.role || lastMsg._getType?.() || lastMsg.type || '';
-        const roleMap: Record<string, string> = { human: 'user', ai: 'assistant', tool: 'tool', function: 'tool', system: 'system' };
-        const role = roleMap[rawRole] ?? rawRole || 'assistant';
-        if (role === 'assistant') {
+        const role = mapLangChainRole(rawRole);
+        if (role === OTEL_ASSISTANT_ROLE) {
           span.setAttribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             JSON.stringify([{ role, parts: [{ type: 'text', content }] }])

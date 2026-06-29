@@ -226,6 +226,25 @@ export function getServerAddressForProvider(provider: string): [string, number] 
   return PROVIDER_DEFAULT_ENDPOINTS[provider] || ['', 0];
 }
 
+/** LangChain/LangGraph message type → OTel GenAI role (mirrors Python LANGCHAIN_ROLE_MAPPING). */
+export const LANGCHAIN_ROLE_MAP: Record<string, string> = {
+  system: 'system',
+  human: 'user',
+  ai: 'assistant',
+  tool: 'tool',
+  function: 'tool',
+};
+
+export const OTEL_ASSISTANT_ROLE = LANGCHAIN_ROLE_MAP.ai;
+
+/** Map a raw LangChain message type/role to the OTel GenAI convention value. */
+export function mapLangChainRole(rawRole: string | undefined | null): string {
+  if (!rawRole) {
+    return OTEL_ASSISTANT_ROLE;
+  }
+  return LANGCHAIN_ROLE_MAP[rawRole] ?? rawRole;
+}
+
 /**
  * Apply global (from init) and context-scoped (from usingAttributes /
  * injectAdditionalAttributes) custom attributes to a span.

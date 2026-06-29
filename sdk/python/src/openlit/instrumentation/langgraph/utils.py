@@ -14,7 +14,7 @@ from openlit.__helpers import (
 from openlit.semcov import SemanticConvention
 
 _ROLE_MAPPING = LANGCHAIN_ROLE_MAPPING
-_ROLE_ASSISTANT = LANGCHAIN_ROLE_MAPPING["ai"]
+_ROLE_ASSISTANT = "assistant"
 
 # === OPERATION MAPPING - Framework Guide Compliant ===
 OPERATION_MAP = {
@@ -162,6 +162,32 @@ def get_message_role(message):
     return _ROLE_MAPPING.get(raw, raw)
 
 
+def build_assistant_output_messages(messages):
+    """
+    Build OTel ``gen_ai.output.messages`` entries for assistant messages only.
+
+    Per the GenAI semantic convention, output spans must not contain user/human
+    or tool messages — only assistant responses belong in ``gen_ai.output.messages``.
+    """
+    otel_msgs = []
+    for msg in messages:
+        content = get_message_content(msg)
+        role = get_message_role(msg)
+        if content and role == _ROLE_ASSISTANT:
+            otel_msgs.append(
+                {
+                    "role": role,
+                    "parts": [
+                        {
+                            "type": "text",
+                            "content": truncate_content(content),
+                        }
+                    ],
+                }
+            )
+    return otel_msgs
+
+
 def set_graph_attributes(span, nodes=None, edges=None):
     """
     Set graph structure attributes on span.
@@ -198,7 +224,7 @@ def set_graph_attributes(span, nodes=None, edges=None):
                 span.set_attribute(f"gen_ai.graph.edge.{i}.target", parts[1])
 
 
-def extract_llm_info_from_result(span, state, result):
+def extract_llm_info_from_result(span, state, result, set_output_messages=True):
     """
     Extract LLM token usage, model info from node result.
 
@@ -206,6 +232,8 @@ def extract_llm_info_from_result(span, state, result):
         span: OpenTelemetry span
         state: Input state dict
         result: Result from node execution
+        set_output_messages: When False, skip writing ``gen_ai.output.messages``
+            (e.g. graph invoke already wrote assistant-only output).
     """
     try:
         # Extract messages from state as OTel-compliant gen_ai.input.messages
@@ -290,16 +318,12 @@ def extract_llm_info_from_result(span, state, result):
                                 SemanticConvention.GEN_AI_RESPONSE_ID, metadata["id"]
                             )
 
-                if hasattr(last_msg, "content"):
-                    content = get_message_content(last_msg)
-                    role = get_message_role(last_msg)
-                    if content and role == _ROLE_ASSISTANT:
-                        otel_msg = [
-                            {"role": role, "content": truncate_content(content)}
-                        ]
+                if set_output_messages:
+                    otel_msgs = build_assistant_output_messages([last_msg])
+                    if otel_msgs:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                            json.dumps(otel_msg),
+                            json.dumps(otel_msgs),
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -601,21 +625,19 @@ def _process_invoke_response(span, response, capture_message_content):
                 )
 
                 if capture_message_content:
-                    otel_msgs = []
-                    for msg in messages:
-                        content = get_message_content(msg)
-                        role = get_message_role(msg)
-                        entry = {"role": role}
-                        if content:
-                            entry["content"] = truncate_content(content)
-                        otel_msgs.append(entry)
+                    otel_msgs = build_assistant_output_messages(messages)
                     if otel_msgs:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                             json.dumps(otel_msgs),
                         )
 
-            extract_llm_info_from_result(span, {}, response)
+            extract_llm_info_from_result(
+                span,
+                {},
+                response,
+                set_output_messages=not capture_message_content,
+            )
 
     except Exception:
         pass

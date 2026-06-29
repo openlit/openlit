@@ -11,6 +11,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from openlit._config import OpenlitConfig
 from openlit.__helpers import (
+    LANGCHAIN_ROLE_MAPPING,
     common_span_attributes,
     get_chat_model_cost,
     record_completion_metrics,
@@ -88,18 +89,11 @@ def build_input_messages_from_langchain(messages: List) -> List[dict]:
     """
     try:
         structured = []
-        role_mapping = {
-            "system": "system",
-            "human": "user",
-            "ai": "assistant",
-            "tool": "tool",
-            "function": "tool",
-        }
         for msg_list in messages:
             for msg in msg_list:
                 role = getattr(msg, "type", "user")
                 content = getattr(msg, "content", str(msg))
-                otel_role = role_mapping.get(role, "user")
+                otel_role = LANGCHAIN_ROLE_MAPPING.get(role, "user")
                 structured.append(
                     {
                         "role": otel_role,
