@@ -1,13 +1,15 @@
 import {
 	normalizeEvalSampleRate,
+	resolveEvalSampleRate,
 	shouldAutoEvaluateSpan,
 } from "@/lib/platform/evaluation/sampling";
+import { DEFAULT_EVAL_SAMPLE_RATE } from "@/constants/evaluation-sampling";
 
 describe("normalizeEvalSampleRate", () => {
 	it("defaults to 1 when value is missing", () => {
-		expect(normalizeEvalSampleRate(undefined)).toBe(1);
-		expect(normalizeEvalSampleRate(null)).toBe(1);
-		expect(normalizeEvalSampleRate("")).toBe(1);
+		expect(normalizeEvalSampleRate(undefined)).toBe(DEFAULT_EVAL_SAMPLE_RATE);
+		expect(normalizeEvalSampleRate(null)).toBe(DEFAULT_EVAL_SAMPLE_RATE);
+		expect(normalizeEvalSampleRate("")).toBe(DEFAULT_EVAL_SAMPLE_RATE);
 	});
 
 	it("clamps values to the 0-1 range", () => {
@@ -21,6 +23,18 @@ describe("normalizeEvalSampleRate", () => {
 	it("returns NaN for invalid values", () => {
 		expect(Number.isNaN(normalizeEvalSampleRate("invalid"))).toBe(true);
 		expect(Number.isNaN(normalizeEvalSampleRate(Number.NaN))).toBe(true);
+	});
+});
+
+describe("resolveEvalSampleRate", () => {
+	it("falls back to the default when normalization fails", () => {
+		expect(resolveEvalSampleRate("invalid")).toBe(DEFAULT_EVAL_SAMPLE_RATE);
+		expect(resolveEvalSampleRate(undefined)).toBe(DEFAULT_EVAL_SAMPLE_RATE);
+	});
+
+	it("returns normalized values unchanged", () => {
+		expect(resolveEvalSampleRate(0.25)).toBe(0.25);
+		expect(resolveEvalSampleRate(0)).toBe(0);
 	});
 });
 

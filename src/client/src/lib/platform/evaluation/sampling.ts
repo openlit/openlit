@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 
-const DEFAULT_EVAL_SAMPLE_RATE = 1;
+import { DEFAULT_EVAL_SAMPLE_RATE } from "@/constants/evaluation-sampling";
+
+export { DEFAULT_EVAL_SAMPLE_RATE };
 
 export function normalizeEvalSampleRate(value: unknown): number {
 	if (value === undefined || value === null || value === "") {
@@ -22,6 +24,14 @@ export function normalizeEvalSampleRate(value: unknown): number {
 	}
 
 	return numeric;
+}
+
+export function resolveEvalSampleRate(value: unknown): number {
+	const normalized = normalizeEvalSampleRate(value);
+	if (Number.isNaN(normalized)) {
+		return DEFAULT_EVAL_SAMPLE_RATE;
+	}
+	return normalized;
 }
 
 export function shouldAutoEvaluateSpan(

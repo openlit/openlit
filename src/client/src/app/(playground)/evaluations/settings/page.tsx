@@ -25,6 +25,7 @@ import Link from "next/link";
 import { Zap, Settings2, Clock, Play, Info, SettingsIcon } from "lucide-react";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import { Badge } from "@/components/ui/badge";
+import { evalSampleRateToPercent } from "@/constants/evaluation-sampling";
 
 const EvaluationVaultCreate = ({
 	successCallback,
@@ -53,7 +54,9 @@ export default function EvaluationSettingsPage() {
 	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
-	const [sampleRatePercent, setSampleRatePercent] = useState("100");
+	const [sampleRatePercent, setSampleRatePercent] = useState(
+		String(evalSampleRateToPercent(undefined))
+	);
 	const [vaultId, setVaultId] = useState("");
 	const [vaultKeys, setVaultKeys] = useState<{ label: string; value: string }[]>(
 		[]
@@ -101,9 +104,9 @@ export default function EvaluationSettingsPage() {
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
 			const meta = JSON.parse(config.meta || "{}");
-			const storedSampleRate =
-				typeof meta.evalSampleRate === "number" ? meta.evalSampleRate : 1;
-			setSampleRatePercent(String(Math.round(storedSampleRate * 100)));
+			setSampleRatePercent(
+				String(evalSampleRateToPercent(meta.evalSampleRate))
+			);
 		}
 	}, [config]);
 

@@ -29,6 +29,7 @@ import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { jsonParse } from "@/utils/json";
 import {
 	normalizeEvalSampleRate,
+	resolveEvalSampleRate,
 	shouldAutoEvaluateSpan,
 } from "./sampling";
 import {
@@ -623,7 +624,13 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 		string,
 		unknown
 	>;
-	const sampleRate = normalizeEvalSampleRate(configMeta.evalSampleRate);
+	const rawSampleRate = normalizeEvalSampleRate(configMeta.evalSampleRate);
+	if (Number.isNaN(rawSampleRate)) {
+		consoleLog(
+			`Invalid evalSampleRate in evaluation config meta (${String(configMeta.evalSampleRate)}); defaulting to 1`
+		);
+	}
+	const sampleRate = resolveEvalSampleRate(configMeta.evalSampleRate);
 	const sampledTraces = traces.filter((trace) =>
 		shouldAutoEvaluateSpan(trace.SpanId, sampleRate)
 	);
