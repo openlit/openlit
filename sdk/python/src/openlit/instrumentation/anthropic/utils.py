@@ -519,6 +519,9 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
+    # Anthropic's API reports input_tokens exclusive of cache read / creation
+    # tokens, so the cache tokens are added on top (prompt_tokens_include_cache
+    # stays False).
     cost = get_chat_model_cost(
         request_model,
         pricing_info,

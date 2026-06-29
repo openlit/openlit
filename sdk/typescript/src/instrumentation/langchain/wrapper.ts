@@ -945,7 +945,18 @@ class OpenLITCallbackHandler {
 
       // Cost
       const pricingInfo = OpenlitConfig.pricingInfo || {};
-      const cost = OpenLitHelper.getChatModelCost(modelName, pricingInfo, inputTokens, outputTokens);
+      // LangChain's normalized usage reports input_tokens as the sum of all
+      // input token types (uncached + cache read + cache creation), so flag the
+      // prompt tokens as cache-inclusive to avoid billing cached tokens twice.
+      const cost = OpenLitHelper.getChatModelCost(
+        modelName,
+        pricingInfo,
+        inputTokens,
+        outputTokens,
+        holder.cacheReadInputTokens || 0,
+        holder.cacheCreationInputTokens || 0,
+        true
+      );
 
       // Provider for span attributes
       const provider = holder.provider || SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN;

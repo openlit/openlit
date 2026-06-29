@@ -289,63 +289,93 @@
         },
         "claude-haiku-4-5-20251001": {
             "promptPrice": 0.001,
-            "completionPrice": 0.005
+            "completionPrice": 0.005,
+            "cacheReadPrice": 0.0001,
+            "cacheCreationPrice": 0.00125
         },
         "claude-haiku-4-5": {
             "promptPrice": 0.001,
-            "completionPrice": 0.005
+            "completionPrice": 0.005,
+            "cacheReadPrice": 0.0001,
+            "cacheCreationPrice": 0.00125
         },
         "claude-sonnet-4-0": {
             "promptPrice": 0.003,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.0003,
+            "cacheCreationPrice": 0.00375
         },
         "claude-sonnet-4-5": {
             "promptPrice": 0.003,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.0003,
+            "cacheCreationPrice": 0.00375
         },
         "claude-sonnet-4-6": {
             "promptPrice": 0.003,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.0003,
+            "cacheCreationPrice": 0.00375
         },
         "claude-sonnet-4-7": {
             "promptPrice": 0.003,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.0003,
+            "cacheCreationPrice": 0.00375
         },
         "claude-opus-4-0": {
             "promptPrice": 0.015,
-            "completionPrice": 0.075
+            "completionPrice": 0.075,
+            "cacheReadPrice": 0.0015,
+            "cacheCreationPrice": 0.01875
         },
         "claude-opus-4-1": {
             "promptPrice": 0.015,
-            "completionPrice": 0.075
+            "completionPrice": 0.075,
+            "cacheReadPrice": 0.0015,
+            "cacheCreationPrice": 0.01875
         },
         "claude-opus-4-5": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-6": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-7": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-7-thinking-xhigh": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-7-thinking-high": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-7-thinking-medium": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "claude-opus-4-7-thinking-low": {
             "promptPrice": 0.005,
-            "completionPrice": 0.025
+            "completionPrice": 0.025,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
         },
         "gpt-5": {
             "promptPrice": 0.00125,

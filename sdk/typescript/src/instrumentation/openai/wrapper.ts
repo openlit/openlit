@@ -385,11 +385,17 @@ class OpenAIWrapper extends BaseWrapper {
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
 
+    // OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
+    // flag the prompt tokens as cache-inclusive to avoid billing cached tokens
+    // twice once a model defines cacheReadPrice.
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       result.usage.prompt_tokens,
-      result.usage.completion_tokens
+      result.usage.completion_tokens,
+      Number(result.usage.prompt_tokens_details?.cached_tokens) || 0,
+      Number(result.usage.prompt_tokens_details?.cache_creation_tokens) || 0,
+      true
     );
 
     OpenAIWrapper.setBaseSpanAttributes(span, {
@@ -1181,11 +1187,15 @@ class OpenAIWrapper extends BaseWrapper {
 
     const inputTokens = result.usage?.input_tokens || 0;
     const outputTokens = result.usage?.output_tokens || 0;
+    // Responses API reports input_tokens inclusive of cached tokens.
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       inputTokens,
-      outputTokens
+      outputTokens,
+      Number(result.usage?.input_tokens_details?.cached_tokens) || 0,
+      0,
+      true
     );
 
     OpenAIWrapper.setBaseSpanAttributes(span, {
