@@ -4,7 +4,16 @@ sidebarTitle: "Configuration"
 description: "Configuration options for the OpenLIT Controller"
 ---
 
-The Controller is configured via a YAML file mounted at `/etc/openlit/config.yaml` or through environment variables.
+The Controller is configured via a YAML file (pass its path with `--config`) or through environment variables. It also accepts two command-line flags:
+
+```bash
+openlit-controller --config /etc/openlit/config.yaml --openlit-url http://openlit:3000
+```
+
+| Flag | Description |
+|---|---|
+| `--config` | Path to the YAML config file. Omit to run from environment variables only. |
+| `--openlit-url` | OpenLIT dashboard URL. Overrides `OPENLIT_URL` / the `openlit_url` config field. |
 
 ## Configuration File
 
@@ -22,21 +31,24 @@ api_listen: ":4321"
 |---|---|---|---|
 | `openlit_url` | `OPENLIT_URL` | (required) | URL of the OpenLIT dashboard for the poll API |
 | `otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP HTTP endpoint for sending traces and metrics |
-| `poll_interval` | `OPENLIT_POLL_INTERVAL` | `60s` | Duration between poll cycles (e.g., `60s`, `2m`) |
-| `environment` | `OPENLIT_ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`) |
+| `poll_interval` | `OPENLIT_POLL_INTERVAL` | `60s` | Duration between poll cycles (e.g., `60s`, `2m`). The dashboard may override this per poll, clamped to the `5s`–`300s` range. |
+| `environment` | `OPENLIT_ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`). Falls back to `OTEL_DEPLOYMENT_ENVIRONMENT`. |
 | `api_listen` | `OPENLIT_API_LISTEN` | `:4321` | Address for the Controller's REST API |
 | `cluster_id` | `OPENLIT_CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
 | `api_key` | `OPENLIT_API_KEY` | — | API key for authenticating with the dashboard |
-| `sdk_version` | `OPENLIT_SDK_VERSION` | (auto) | Pin a specific OpenLIT Python SDK version |
+| `obi_binary_path` | `OPENLIT_OBI_PATH` | `/usr/local/bin/obi` | Path to the bundled OBI (eBPF) binary |
+| `proc_root` | `OPENLIT_PROC_ROOT` | `/proc` | Root of the `/proc` filesystem to scan. Set to `/host/proc` when `/proc` is mounted there (e.g., the Kubernetes DaemonSet). |
+| `sdk_version` | `OPENLIT_SDK_VERSION` | (auto) | Pin a specific OpenLIT Python SDK version (validated against the PEP 440 version grammar before injection) |
+| — | `OPENLIT_DEPLOY_MODE` | (auto) | Force the deployment mode: `kubernetes`, `docker`, or `linux` |
 | — | `OPENLIT_INSTANCE_ID` | (auto) | Override the controller's identity. By default, the instance ID is derived automatically (hostname on Linux, host hostname on Docker, `NODE_NAME` on K8s). Set this to force a stable, custom identity — useful when the automatic ID is not stable across restarts |
 
 Environment variables take precedence over config file values.
 
 ## Deployment Mode
 
-The Controller auto-detects its deployment mode:
+The Controller auto-detects its deployment mode on startup:
 
-- **Kubernetes** — Detected when the `KUBERNETES_SERVICE_HOST` environment variable is present
+- **Kubernetes** — Detected when the in-cluster service account is mounted at `/var/run/secrets/kubernetes.io/serviceaccount`
 - **Docker** — Detected when `/var/run/docker.sock` is accessible
 - **Linux** — Default fallback when neither Kubernetes nor Docker is detected
 

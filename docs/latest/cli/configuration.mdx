@@ -1,0 +1,100 @@
+---
+title: "CLI Configuration"
+sidebarTitle: "Configuration"
+description: "Configure the openlit CLI — endpoint, API key, content capture, and precedence rules"
+---
+
+The CLI reads its settings from flags, environment variables, and a config file. The fastest way to set it up is `openlit configure`.
+
+## Configure once
+
+```bash
+openlit configure \
+  --endpoint https://openlit.example.com:4318 \
+  --api-key  $OPENLIT_API_KEY
+```
+
+This writes a `KEY=VALUE` file to:
+
+- **Linux / macOS** — `~/.config/openlit/config.env` (honors `$XDG_CONFIG_HOME`)
+- **Windows** — `%APPDATA%\openlit\config.env`
+
+The file is written with mode `0600` (owner-readable only).
+
+To inspect the effective configuration without writing anything — including which source each value came from — use `--show`:
+
+```bash
+openlit configure --show
+```
+
+## `configure` flags
+
+| Flag | Maps to | Description |
+|---|---|---|
+| `--endpoint` | `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP endpoint URL (e.g. `http://localhost:4318`) |
+| `--api-key` | `OPENLIT_API_KEY` | API key, sent as `Authorization: Bearer <key>` |
+| `--environment` | `OPENLIT_ENVIRONMENT` | Deployment environment (e.g. `production`, `staging`) |
+| `--application-name` | `OPENLIT_APPLICATION_NAME` | Application name (default `openlit-cli`) |
+| `--content-capture` | `OPENLIT_CODING_CONTENT_CAPTURE` | Coding-agent content capture: `minimal` \| `metadata_only` \| `full` |
+| `--show` | — | Print resolved config (and its source) without writing |
+
+## Precedence
+
+Settings resolve highest-to-lowest:
+
+1. **CLI flags** (`--endpoint`, `--api-key`, …)
+2. **`OPENLIT_*` environment variables**
+3. **`OTEL_EXPORTER_OTLP_*` environment variables** (standard OpenTelemetry fallback)
+4. **Config file** (`~/.config/openlit/config.env`, allow-listed keys only)
+5. **Built-in defaults**
+
+For headless / fleet rollouts, prefer environment variables or flags — they take precedence over the file. Existing OpenTelemetry users can reuse their standard `OTEL_EXPORTER_OTLP_*` setup.
+
+## Environment variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP base URL | `http://127.0.0.1:4318` |
+| `OPENLIT_API_KEY` | Authenticates the OTLP exporter (`Authorization: Bearer <key>`) | — |
+| `OPENLIT_ENVIRONMENT` | Deployment environment label | `default` |
+| `OPENLIT_APPLICATION_NAME` | App name for OTel resource attributes | `openlit-cli` |
+| `OPENLIT_CODING_CONTENT_CAPTURE` | Coding-agent content capture mode | `full` |
+| `OPENLIT_CODING_REPO_ALLOWLIST` | Comma/newline-separated repo patterns for personal-vs-work classification | — |
+| `OPENLIT_USER` | Override the resolved user identity (`gen_ai.user.name`) | auto |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Standard OTel endpoint (fallback) | — |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Extra headers as comma-separated `k=v` pairs | — |
+| `OTEL_RESOURCE_ATTRIBUTES` | Standard OTel resource attributes | — |
+| `OPENLIT_DEBUG_PAYLOAD_DIR` | Tee raw hook payloads to JSONL for debugging | — |
+
+<Warning>
+The `OPENLIT_API_KEY` value is never promoted into a launched agent's child-process environment, and the config file is written `0600`. The CLI never reads your shell rc files (`~/.zshrc`, `~/.bashrc`) — if you set `OPENLIT_*` vars in a shell rc, source them before launching the agent.
+</Warning>
+
+## Content capture modes
+
+`OPENLIT_CODING_CONTENT_CAPTURE` controls how much of each coding-agent interaction is captured. Tier-1 secret redaction runs on every export regardless of mode.
+
+| Mode | What's captured |
+|---|---|
+| `minimal` | Session bookends and counters only — good for cost + activity dashboards |
+| `metadata_only` | Per-event spans **without** prompt bodies or tool-arg bodies |
+| `full` *(default)* | Complete prompt + response bodies and tool I/O, secret-scrubbed on the way out |
+
+<Tip>
+`full` is the default so the trace-detail view is useful on first use. Switch to `metadata_only` when rolling out across a team where prompts may carry confidential material, or `minimal` if you only need cost and activity rollups.
+</Tip>
+
+## Endpoint normalization
+
+The CLI accepts scheme-less, `http://`, or `https://` endpoints, with or without a path/trailing slash. For non-loopback hosts it auto-upgrades plain `http://` to `https://`. Loopback and private-range hosts (`localhost`, `127.0.0.1`, `::1`, `10.*`, `192.168.*`, `172.16–31.*`, `169.254.*`) are left on `http://`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Command reference" href="/latest/cli/commands" icon="terminal">
+    Every command, subcommand, and flag
+  </Card>
+  <Card title="Wire your coding agents" href="/latest/openlit/coding-agents/onboarding" icon="code">
+    The end-to-end onboarding guide
+  </Card>
+</CardGroup>
