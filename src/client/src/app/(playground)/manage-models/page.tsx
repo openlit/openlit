@@ -190,7 +190,7 @@ export default function ManageModelsPage() {
 	return (
 		<div className="flex flex-col h-full w-full overflow-hidden">
 			<div className="shrink-0">
-				<FeaturePageHeader eyebrow="Configuration" title={m.OPENGROUND_MANAGE_MODELS} description="Curate provider models, pricing, and defaults so experiments and production runs use trusted options." icon={<SettingsIcon className="h-4 w-4" />} tone="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300" actions={<div className="flex items-center gap-2">
+				<FeaturePageHeader eyebrow="Configuration" title={m.OPENGROUND_MANAGE_MODELS} icon={<SettingsIcon className="h-4 w-4" />} tone="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300" actions={<div className="flex items-center gap-2">
 					<Tooltip>
 						<TooltipTrigger>
 							<Button

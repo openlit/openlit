@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRootStore } from "@/store";
 import { PlayIcon, RotateCcwIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
-import OpengroundHeader from "@/components/(playground)/openground/header";
+import { OpengroundActions } from "@/components/(playground)/openground/header";
 import PromptSourceToggle from "@/components/(playground)/openground/prompt-source-toggle";
 import DynamicProviderGrid from "@/components/(playground)/openground/dynamic-provider-grid";
 import ProviderSettingsPanel from "@/components/(playground)/openground/provider-settings-panel";
@@ -117,7 +117,9 @@ export default function OpengroundNew() {
 
 	return (
 		<div className="flex flex-col w-full h-full gap-6 overflow-auto">
-			<OpengroundHeader validateResponse={false} />
+			<div className="flex justify-end px-4 pt-3">
+				<OpengroundActions validateResponse={false} />
+			</div>
 
 			{/* Main Content */}
 			<div className="space-y-6">

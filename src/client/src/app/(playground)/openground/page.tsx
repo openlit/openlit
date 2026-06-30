@@ -6,19 +6,17 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import Link from "next/link";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Component, EyeIcon, MonitorPlay, PlayIcon } from "lucide-react";
+import { Component, EyeIcon, PlayIcon } from "lucide-react";
 import OpengroundHeader from "@/components/(playground)/openground/header";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import OpengroundGettingStarted from "@/components/(playground)/getting-started/openground";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRootStore } from "@/store";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
-import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const columns: Columns<string, OpengroundRecord> = {
 	prompt: {
@@ -181,7 +179,6 @@ export default function Openground() {
 		return (
 			<div className="flex flex-col w-full h-full gap-4 overflow-auto">
 				<OpengroundHeader validateResponse={false} />
-				<FeaturePageHeader eyebrow="Resources" title={getMessage().FEATURE_OPENGROUND} description="Compare prompts and models side by side so teams can choose the fastest, cheapest, and highest-quality path." icon={<MonitorPlay className="h-4 w-4" />} tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300" />
 				<div className="flex flex-col items-center mx-auto">
 					<OpengroundGettingStarted />
 				</div>
@@ -192,7 +189,6 @@ export default function Openground() {
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<OpengroundHeader validateResponse={false} />
-			<FeaturePageHeader eyebrow="Resources" title={getMessage().FEATURE_OPENGROUND} description="Compare prompts and models side by side so teams can choose the fastest, cheapest, and highest-quality path." icon={<MonitorPlay className="h-4 w-4" />} tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300" />
 
 			<DataTable
 				columns={columns}

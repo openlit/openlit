@@ -3,7 +3,7 @@ import { DashboardItemType } from "@/types/manage-dashboard";
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
 import { DropResult } from "react-beautiful-dnd";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { toast } from "sonner";
 import EmptyState from "../common/empty-state";
@@ -11,8 +11,7 @@ import ExplorerItemRow from "./item-row";
 import UpsertResourceDialog from "../common/upsert-resource-dialog";
 import { jsonParse, jsonStringify } from "@/utils/json";
 import { useRouter } from "next/navigation";
-import RootActions from "./root-actions";
-import Header from "../common/header";
+import { useRegisterDashboardHeaderActions } from "../dashboard-header-actions-context";
 import getMessage from "@/constants/messages";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/selectors/page";
@@ -676,13 +675,18 @@ export default function DashboardExplorer() {
 		[items, updateFolderRequest, updateBoardRequest, loadHierarchy]
 	);
 
+	const headerActions = useMemo(
+		() => ({
+			onCreate: () => openAddDialog(),
+			onImport: importBoardLayout,
+		}),
+		[openAddDialog, importBoardLayout]
+	);
+	useRegisterDashboardHeaderActions(headerActions);
 
 	return (
-		<div className="flex flex-col gap-2 grow overflow-y-hidden">
-			<Header title="Explorer">
-				<RootActions openAddDialog={openAddDialog} importBoardLayout={importBoardLayout} />
-			</Header>
-			<div className={`grow ${PRIMARY_BACKGROUND} border border-stone-200 dark:border-stone-800 rounded-sm p-2 overflow-y-auto`}>
+		<div className="flex grow flex-col overflow-y-hidden">
+			<div className={`grow ${PRIMARY_BACKGROUND} overflow-y-auto rounded-sm`}>
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8 h-full">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

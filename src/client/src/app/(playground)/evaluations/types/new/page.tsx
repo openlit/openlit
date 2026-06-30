@@ -100,7 +100,6 @@ export default function CreateCustomEvaluationTypePage() {
 			<FeaturePageHeader
 				eyebrow="Configuration"
 				title="Create Custom Evaluation Type"
-				description="Define a domain-specific judge that scores traces against the behavior, policy, and quality criteria your product needs."
 				icon={<Sparkles className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
 				actions={

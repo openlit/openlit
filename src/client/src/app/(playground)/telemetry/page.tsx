@@ -56,7 +56,7 @@ export default function TelemetryPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-hidden">
-			<section className="rounded-md border border-stone-200 bg-white px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
+			<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
 				<div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
 					<div className="min-w-0">
 						<div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export default function TelemetryPage() {
 								<p className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 									Telemetry
 								</p>
-								<h1 className="text-base font-semibold text-stone-950 dark:text-stone-50">
+								<h1 className="text-sm font-semibold leading-tight text-stone-950 dark:text-stone-50">
 									{activeConfig.label}
 								</h1>
 							</div>

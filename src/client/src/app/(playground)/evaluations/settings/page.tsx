@@ -178,7 +178,6 @@ export default function EvaluationSettingsPage() {
 			<FeaturePageHeader
 				eyebrow="Configuration"
 				title={getMessage().EVALUATION_ENGINE_TITLE}
-				description="Continuously grade AI outputs with automated and manual checks that turn quality signals into action."
 				icon={<Settings2 className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
 				actions={

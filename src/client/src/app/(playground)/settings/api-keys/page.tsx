@@ -20,7 +20,6 @@ export default function APIKeys() {
 				<FeaturePageHeader
 					eyebrow="Settings"
 					title="API Keys"
-					description="Create scoped credentials for integrations while keeping secrets rotated, revocable, and under your control."
 					icon={<Key className="h-4 w-4" />}
 					tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
 				/>

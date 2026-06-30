@@ -110,7 +110,7 @@ export default function ContextDetailPage() {
 					loadContextIntoState(ctx);
 					setHeader({
 						title: ctx.name,
-						breadcrumbs: [{ title: m.CONTEXT_TITLE, href: "/context" }],
+						breadcrumbs: [],
 					});
 				}
 			},

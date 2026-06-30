@@ -2,16 +2,16 @@ import { Button } from "@/components/ui/button";
 import { getEvaluatedResponse, resetOpenground } from "@/selectors/openground";
 import { useRootStore } from "@/store";
 import Link from "next/link";
-import { HeaderPortal } from "../header-portal";
-import { SettingsIcon } from "lucide-react";
+import { MonitorPlay, SettingsIcon } from "lucide-react";
 import getMessage from "@/constants/messages";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
-export default function OpengroundHeader({
-	className = "flex w-full items-center justify-end gap-2",
+export function OpengroundActions({
+	className = "flex items-center justify-end gap-2",
 	validateResponse = true,
 }: {
 	className?: string;
-	validateResponse: boolean;
+	validateResponse?: boolean;
 }) {
 	const evaluatedResponse = useRootStore(getEvaluatedResponse);
 	const resetOpengroundData = useRootStore(resetOpenground);
@@ -19,23 +19,45 @@ export default function OpengroundHeader({
 	const showButton =
 		(validateResponse && !!evaluatedResponse.data) || !validateResponse;
 
+	if (!showButton) return null;
+
 	return (
-		<HeaderPortal>
-			<div className={className}>
-				{showButton ? (
-					<>
-						<Link href={"/manage-models"}>
-							<Button variant="outline" className="h-auto py-1">
-								<SettingsIcon className="h-4 w-4 mr-2" />
-								{getMessage().OPENGROUND_MANAGE_MODELS}
-							</Button>
-						</Link>
-						<Link href={"/openground/new"} onClick={resetOpengroundData}>
-							<Button variant="secondary" className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 h-auto py-1">{getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND}</Button>
-						</Link>
-					</>
-				) : null}
-			</div>
-		</HeaderPortal>
+		<div className={className}>
+			<Link href="/manage-models">
+				<Button variant="outline" size="sm" className="h-8">
+					<SettingsIcon className="mr-1.5 size-3.5" />
+					{getMessage().OPENGROUND_MANAGE_MODELS}
+				</Button>
+			</Link>
+			<Link href="/openground/new" onClick={resetOpengroundData}>
+				<Button
+					variant="secondary"
+					size="sm"
+					className="h-8 bg-primary text-white hover:bg-primary/90 dark:bg-primary dark:text-white dark:hover:bg-primary/90"
+				>
+					{getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND}
+				</Button>
+			</Link>
+		</div>
+	);
+}
+
+export default function OpengroundHeader({
+	validateResponse = true,
+}: {
+	validateResponse?: boolean;
+}) {
+	const messages = getMessage();
+
+	return (
+		<FeaturePageHeader
+			eyebrow="Resources"
+			title={messages.FEATURE_OPENGROUND}
+			icon={<MonitorPlay className="size-4" />}
+			tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300"
+			actions={
+				<OpengroundActions validateResponse={validateResponse} />
+			}
+		/>
 	);
 }

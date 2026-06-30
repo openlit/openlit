@@ -1,7 +1,7 @@
 "use client";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import OpengroundHeader from "@/components/(playground)/openground/header";
+import { OpengroundActions } from "@/components/(playground)/openground/header";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
@@ -57,7 +57,9 @@ export default function OpengroundRequest({
 
 	return (
 		<div className="flex flex-col w-full h-full gap-6 overflow-auto">
-			<OpengroundHeader validateResponse={false} />
+			<div className="flex justify-end px-4 pt-3">
+				<OpengroundActions validateResponse={false} />
+			</div>
 
 			{/* Evaluation Info */}
 			<Card>

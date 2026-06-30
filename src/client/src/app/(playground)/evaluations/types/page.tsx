@@ -159,7 +159,6 @@ export default function EvaluationTypesPage() {
 				<FeaturePageHeader
 					eyebrow="Configuration"
 					title="Evaluation Types"
-					description="Shape what quality means for your AI system with built-in checks, custom judges, and rule-driven context."
 					icon={<Layers className="h-4 w-4" />}
 					tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
 					actions={

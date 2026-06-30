@@ -10,9 +10,9 @@ import PromptMarkdownViewer from "@/components/(playground)/prompt-hub/prompt-ma
 import PromptOtterInlineAssistant from "@/components/(playground)/prompt-hub/prompt-otter-inline-assistant";
 import { CLIENT_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
-import { usePageHeader } from "@/selectors/page";
 import { Prompt, PromptVersion, PromptVersionStatus } from "@/types/prompt";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { unescapeString } from "@/utils/string";
@@ -39,8 +39,6 @@ export default function EditPromptPage() {
 	const router = useRouter();
 	const posthog = usePostHog();
 	const params = useParams();
-	const { setHeader } = usePageHeader();
-
 	const { fireRequest: fetchReq, data: promptData, isLoading: isFetching } =
 		useFetchWrapper<Prompt>();
 	const { fireRequest: saveReq, isLoading: isSaving } = useFetchWrapper();
@@ -122,15 +120,15 @@ export default function EditPromptPage() {
 		];
 		setVersionOptions(opts);
 		setSelectedVersion(versions.draft);
+	}, [promptData]);
 
-		setHeader({
-			title: d.name,
-			breadcrumbs: [
-				{ title: m.PROMPT_HUB, href: "/prompt-hub" },
-				{ title: d.name, href: `/prompt-hub/${params.id}` },
-			],
-		});
-	}, [(promptData as any)?.promptId]);
+	useCustomBreadcrumbs(
+		{
+			title: (promptData as Prompt | undefined)?.name || (isFetching ? m.LOADING : ""),
+			breadcrumbs: [],
+		},
+		[(promptData as Prompt | undefined)?.name, isFetching]
+	);
 
 	const addTag = useCallback(() => {
 		const val = tagInput.trim();

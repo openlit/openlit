@@ -71,9 +71,7 @@ export default function RuleDetailPage() {
 				});
 				setHeader({
 					title: data.name,
-					breadcrumbs: [
-						{ title: messages.RULE_ENGINE_BREADCRUMB, href: "/rule-engine" },
-					],
+					breadcrumbs: [],
 				});
 				const groups: ConditionGroupState[] = (data.condition_groups || []).map(
 					(g: any) => ({

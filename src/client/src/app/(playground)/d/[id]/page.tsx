@@ -175,7 +175,7 @@ export default function DashboardPage() {
 			}
 			{!isLoading && initialConfig && (
 				<Dashboard
-					className="h-100 overflow-y-auto"
+					className="h-100 overflow-y-auto px-4"
 					initialConfig={initialConfig}
 					runQuery={runQuery}
 					onSave={handleSave}

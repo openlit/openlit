@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import Sidebar from "@/components/(playground)/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+	SidebarLayoutProvider,
+	useSidebarLayout,
+} from "@/components/(playground)/sidebar-layout-context";
 
 const pushMock = jest.fn();
 let pathname = "/home";
@@ -18,6 +22,8 @@ jest.mock("@/constants/sidebar", () => {
 
 	return {
 		ICON_CLASSES: "size-5",
+		COMPACT_SIDEBAR_ICON_CLASS: "",
+		COMPACT_SIDEBAR_SEARCH_ICON_CLASS: "",
 		SIDEBAR_ITEMS: [
 			{
 				icon: icon("home"),
@@ -72,12 +78,33 @@ jest.mock("@/components/ui/command", () => ({
 	CommandItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+function LayoutControls() {
+	const { isExpanded, toggleSidebar } = useSidebarLayout();
+	return (
+		<div>
+			<span data-testid="layout-state">
+				{isExpanded ? "expanded" : "collapsed"}
+			</span>
+			<button type="button" onClick={toggleSidebar}>
+				Toggle sidebar
+			</button>
+		</div>
+	);
+}
+
 function renderSidebar() {
 	return render(
-		<TooltipProvider>
-			<Sidebar />
-		</TooltipProvider>
+		<SidebarLayoutProvider>
+			<TooltipProvider>
+				<LayoutControls />
+				<Sidebar />
+			</TooltipProvider>
+		</SidebarLayoutProvider>
 	);
+}
+
+function collapse() {
+	fireEvent.click(screen.getByRole("button", { name: "Toggle sidebar" }));
 }
 
 describe("Sidebar", () => {
@@ -88,51 +115,54 @@ describe("Sidebar", () => {
 		window.localStorage.clear();
 	});
 
-	it("keeps the brand logo rendered and hides brand copy without removing layout space when collapsed", () => {
+	it("shows the Browse/Otter shortcuts when expanded and hides them when collapsed", () => {
 		renderSidebar();
 
-		expect(screen.getByAltText("OpenLIT logo")).toBeInTheDocument();
-		expect(screen.getByText("OpenLIT").parentElement).not.toHaveClass("invisible");
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("expanded");
+		expect(screen.getByRole("button", { name: "Browse" })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Otter" })).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+		collapse();
 
-		expect(screen.getByAltText("OpenLIT logo")).toBeInTheDocument();
-		expect(screen.getByText("OpenLIT").parentElement).toHaveClass(
-			"invisible",
-			"opacity-0",
-			"pointer-events-none"
-		);
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("collapsed");
+		expect(screen.queryByRole("button", { name: "Browse" })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: "Otter" })).not.toBeInTheDocument();
+		// Navigation items stay accessible (label kept for screen readers).
 		expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
 	});
 
-	it("expands the sidebar when clicking a collapsed action item", () => {
+	it("navigates without expanding when clicking a collapsed action item", () => {
 		renderSidebar();
 
-		fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+		collapse();
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("collapsed");
+
 		fireEvent.click(screen.getByRole("link", { name: "Home" }));
 
-		expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
-		expect(screen.getByText("OpenLIT").parentElement).not.toHaveClass("invisible");
+		// The rail stays collapsed: navigation should not auto-expand the sidebar.
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("collapsed");
 	});
 
-	it("expands the sidebar and opens a secondary panel when clicking a collapsed section item", () => {
+	it("opens a secondary panel without expanding when clicking a collapsed section item", () => {
 		renderSidebar();
 
-		fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+		collapse();
 		fireEvent.click(screen.getByRole("button", { name: "R" }));
 
-		expect(screen.getByRole("button", { name: "Collapse sidebar" })).toHaveClass("right-2");
-		expect(screen.getAllByText("Resources")).toHaveLength(2);
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("collapsed");
 		expect(screen.getByRole("link", { name: "Prompt Hub" })).toBeInTheDocument();
+		expect(screen.getAllByText("Resources").length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("expands before opening command search from the collapsed search button", () => {
+	it("opens command search without expanding from the collapsed search button", () => {
 		renderSidebar();
 
-		fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+		collapse();
 		fireEvent.click(screen.getByRole("button", { name: "Search navigation" }));
 
-		expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
-		expect(screen.getByPlaceholderText("Search OpenLIT navigation...")).toBeInTheDocument();
+		expect(screen.getByTestId("layout-state")).toHaveTextContent("collapsed");
+		expect(
+			screen.getByPlaceholderText("Search OpenLIT navigation...")
+		).toBeInTheDocument();
 	});
 });

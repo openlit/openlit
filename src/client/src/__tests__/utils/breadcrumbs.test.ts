@@ -60,14 +60,12 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates header with breadcrumbs for individual dashboard view', () => {
+  it('generates header with empty title for individual dashboard view', () => {
     const header = generatePageHeader(
       '/d/123e4567-e89b-12d3-a456-426614174000'
     );
-    expect(header.title).toBe('Dashboard');
-    expect(header.breadcrumbs).toEqual([
-      { title: 'Dashboards', href: '/dashboards' },
-    ]);
+    expect(header.title).toBe('');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('generates correct header for /requests', () => {
@@ -84,16 +82,14 @@ describe('generatePageHeader', () => {
 
   it('generates correct header for /prompt-hub', () => {
     const header = generatePageHeader('/prompt-hub');
-    expect(header.title).toBe('Prompt Hub');
+    expect(header.title).toBe('Prompts');
     expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates breadcrumbs for /prompt-hub/:id', () => {
+  it('generates empty title for /prompt-hub/:id until data loads', () => {
     const header = generatePageHeader('/prompt-hub/abc-123');
-    expect(header.title).toBe('Prompt Details');
-    expect(header.breadcrumbs).toEqual([
-      { title: 'Prompt Hub', href: '/prompt-hub' },
-    ]);
+    expect(header.title).toBe('');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('generates correct header for /vault', () => {
@@ -102,12 +98,10 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates breadcrumbs for /vault/:id', () => {
+  it('generates empty title for /vault/:id until data loads', () => {
     const header = generatePageHeader('/vault/my-secret');
-    expect(header.title).toBe('Vault Item');
-    expect(header.breadcrumbs).toEqual([
-      { title: 'Vault', href: '/vault' },
-    ]);
+    expect(header.title).toBe('');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('generates correct header for /settings/profile', () => {
@@ -188,10 +182,10 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
   });
 
-  it('generates breadcrumbs for /fleet-hub/:id', () => {
+  it('generates empty title for /fleet-hub/:id until data loads', () => {
     const header = generatePageHeader('/fleet-hub/agent-1');
-    expect(header.title).toBe('Fleet Hub');
-    expect(header.breadcrumbs).toContainEqual({ title: 'Fleet Hub', href: '/fleet-hub' });
+    expect(header.title).toBe('');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('falls back gracefully for unknown routes', () => {
@@ -211,11 +205,9 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates breadcrumbs for /prompt-hub/:id without params (no id extracted)', () => {
-    // Covers the "Prompt" branch in prompt-hub title when params.id is absent
-    // This is reached when title fn is called with no params
+  it('generates empty title for /prompt-hub/:id without params', () => {
     const header = generatePageHeader('/prompt-hub/abc');
-    expect(typeof header.title).toBe('string');
+    expect(header.title).toBe('');
   });
 });
 

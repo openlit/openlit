@@ -37,7 +37,7 @@ export default function UserActions() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline" className="flex gap-2 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal w-full">
+				<Button variant="ghost" className="flex gap-2 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden border border-transparent bg-transparent shadow-none text-stone-500 dark:text-stone-300 hover:bg-stone-200/70 hover:text-stone-950 dark:hover:bg-stone-800 dark:hover:text-white font-normal w-full">
 					<Avatar className={"h-5 w-5 rounded-lg"}>
 						<AvatarImage className="rounded-full" src={user!.image || ""} alt={user!.name || ""} />
 						<AvatarFallback className="rounded-lg bg-transparent dark:bg-transparent">{user!.name?.substring(0, 2) || displayEmail.substring(0, 2)}</AvatarFallback>

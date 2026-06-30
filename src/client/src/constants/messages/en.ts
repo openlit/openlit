@@ -960,6 +960,7 @@ export const VARIABLES = "Variables";
 export const PROMPT = "Prompt";
 export const PROMPT_PREVIEW = "Prompt Preview";
 export const PROMPT_HUB = "Prompt Hub";
+export const NAV_APP_PROMPTS = "Prompts";
 export const PROVIDERS = "Providers";
 export const NO_DATA_FOUND = "No data found!";
 export const CANNOT_CONNECT_TO_SERVER = "Cannot connect to server!";

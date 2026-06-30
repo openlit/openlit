@@ -33,5 +33,5 @@ export default function PromptHubHeader({
 		</div>
 	);
 
-	return <FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} description="Design, version, and reuse prompts so teams can ship consistent AI behavior across products." icon={<Component className="h-4 w-4" />} tone="border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900/70 dark:bg-pink-950/40 dark:text-pink-300" actions={actions} />;
+	return <FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone="border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900/70 dark:bg-pink-950/40 dark:text-pink-300" actions={actions} />;
 }

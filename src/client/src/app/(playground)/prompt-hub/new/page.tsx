@@ -77,9 +77,9 @@ export default function NewPromptPage() {
 	useEffect(() => {
 		setHeader({
 			title: m.PROMPT_HUB_CREATE_PROMPT,
-			breadcrumbs: [{ title: m.PROMPT_HUB, href: "/prompt-hub" }],
+			breadcrumbs: [],
 		});
-	}, []);
+	}, [setHeader]);
 
 	const addTag = useCallback(() => {
 		const val = tagInput.trim();

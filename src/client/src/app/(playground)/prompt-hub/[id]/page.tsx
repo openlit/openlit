@@ -1,7 +1,6 @@
 "use client";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 import RuleForm from "@/components/(playground)/rule-engine/form";
 import getMessage from "@/constants/messages";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +27,7 @@ import { useRootStore } from "@/store";
 import { Prompt, PromptVersion, PromptVersionStatus } from "@/types/prompt";
 import { Rule, RuleEntity } from "@/types/rule-engine";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { unescapeString } from "@/utils/string";
@@ -51,6 +51,11 @@ export default function PromptHub() {
 	const searchParams = useSearchParams();
 	const version = searchParams.get("version") || undefined;
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<Prompt>();
+
+	useDynamicBreadcrumbs(
+		{ title: (data as Prompt | undefined)?.name || (isLoading ? m.LOADING : "") },
+		[(data as Prompt | undefined)?.name, isLoading]
+	);
 
 	const [selectedRuleId, setSelectedRuleId] = useState("");
 	const [isLinkingOpen, setIsLinkingOpen] = useState(false);
@@ -190,7 +195,6 @@ export default function PromptHub() {
 
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
-			<PromptHubHeader />
 			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
 				{/* Left: prompt details */}
 				<Card className="grow col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
