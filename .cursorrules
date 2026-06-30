@@ -13,14 +13,14 @@ For all documentation work including MDX files, guides, and API documentation.
 ### Frontend Rules
 For OpenLIT client UI work.
 - **File**: `.cursor-rules/frontend.md`
-- **Applies to**: `src/client/src/**/*.tsx`, settings pages, telemetry-style pages, stores, selectors, and helpers
-- **Purpose**: Keeps light/dark styling, compact page layout, project hierarchy UI, and message usage consistent
+- **Applies to**: `src/client/src/**/*.tsx`, settings pages, telemetry-style pages, stores, selectors, helpers, and OSS-safe extension fallbacks
+- **Purpose**: Keeps light/dark styling, compact page layout, project hierarchy UI, CE message usage, neutral extension hooks, and CE/EE boundary placement consistent
 
 ### Security And Testing Rules
 For API routes, project hierarchy, auth, audit, billing, licensing, and tests.
 - **File**: `.cursor-rules/security-testing.md`
 - **Applies to**: `src/client/src/app/api/**`, `src/client/src/lib/**`, `src/client/src/ee/**`, `src/client/src/__tests__/**`
-- **Purpose**: Ensures server-side authorization, invalid JSON handling, project scoping, redaction, and validation coverage
+- **Purpose**: Ensures server-side authorization, invalid JSON handling, project scoping, OSS-safe fallback boundaries, no enterprise leakage into CE, redaction, and validation coverage
 
 ## Usage
 

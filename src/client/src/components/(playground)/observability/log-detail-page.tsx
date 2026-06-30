@@ -71,7 +71,7 @@ function ContextPill({ label, value }: { label: string; value?: unknown }) {
 				{label}
 			</div>
 			<div
-				className="max-w-64 truncate font-mono text-xs text-stone-900 dark:text-stone-100"
+				className="max-w-64 whitespace-pre-wrap break-words font-mono text-xs text-stone-900 dark:text-stone-100"
 				title={displayValue}
 			>
 				{displayValue}

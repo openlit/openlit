@@ -80,6 +80,48 @@ describe('OpenLitHelper', () => {
       const cost = OpenLitHelper.getChatModelCost('gpt-4', 100, 50);
       expect(cost).toBe('0');
     });
+
+    describe('cache-aware pricing', () => {
+      beforeEach(() => {
+        OpenLitHelper.pricingInfo = {
+          chat: {
+            'claude-cache': {
+              promptPrice: 0.003,
+              completionPrice: 0.015,
+              cacheReadPrice: 0.0003,
+              cacheCreationPrice: 0.00375,
+            },
+            'gpt-4': { promptPrice: 0.03, completionPrice: 0.06 },
+          },
+        };
+      });
+
+      it('stays backward compatible for legacy 3-arg calls', () => {
+        const cost = OpenLitHelper.getChatModelCost('gpt-4', 100, 50);
+        expect(parseFloat(cost)).toBeCloseTo(0.006, 8);
+      });
+
+      it('adds cache cost on top for the exclusive (Anthropic) convention', () => {
+        const cost = OpenLitHelper.getChatModelCost('claude-cache', 800, 500, 100, 100);
+        const expected =
+          (800 / 1000) * 0.003 +
+          (500 / 1000) * 0.015 +
+          (100 / 1000) * 0.0003 +
+          (100 / 1000) * 0.00375;
+        expect(parseFloat(cost)).toBeCloseTo(expected, 8);
+      });
+
+      it('does not bill cache tokens twice for the inclusive (OpenAI/LangChain) convention', () => {
+        const inclusive = OpenLitHelper.getChatModelCost('claude-cache', 1000, 500, 100, 100, true);
+        const exclusive = OpenLitHelper.getChatModelCost('claude-cache', 800, 500, 100, 100);
+        expect(parseFloat(inclusive)).toBeCloseTo(parseFloat(exclusive), 8);
+      });
+
+      it('matches the legacy total when no cache price exists', () => {
+        const cost = OpenLitHelper.getChatModelCost('gpt-4', 1000, 500, 100, 100, true);
+        expect(parseFloat(cost)).toBeCloseTo((1000 / 1000) * 0.03 + (500 / 1000) * 0.06, 8);
+      });
+    });
   });
 
   describe('getEmbedModelCost', () => {

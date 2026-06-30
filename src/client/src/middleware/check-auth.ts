@@ -12,6 +12,7 @@ import {
 	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN,
 	CRON_JOB_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
+	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
 	ONBOARDING_WHITELIST_API_ROUTES,
 } from "@/constants/route";
 
@@ -42,6 +43,8 @@ export default function checkAuth(next: NextMiddleware) {
 				const method = request.method.toUpperCase();
 				const isOnboardingWhitelistedPage = ONBOARDING_WHITELIST_ROUTES.includes(
 					pathname
+				) || ONBOARDING_WHITELIST_ROUTE_PREFIXES.some(
+					(prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
 				);
 				const exactApiRoutes: readonly string[] =
 					method in ONBOARDING_WHITELIST_API_ROUTES.exact
