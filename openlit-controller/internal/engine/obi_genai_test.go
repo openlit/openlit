@@ -53,6 +53,9 @@ func TestBuildInstrumentConfigNativeProviders(t *testing.T) {
 	if g := buildGenAI(t, "qwen"); !g.Qwen.Enabled || g.OpenAI.Enabled {
 		t.Fatalf("qwen mapping wrong: %+v", g)
 	}
+	if g := buildGenAI(t, "retrieval"); !g.Retrieval.Enabled || g.OpenAI.Enabled {
+		t.Fatalf("retrieval mapping wrong: %+v", g)
+	}
 }
 
 // Custom gateways enable the custom extractor only.
@@ -98,7 +101,8 @@ func TestBuildInstrumentConfigOllama(t *testing.T) {
 func TestBuildInstrumentConfigEmpty(t *testing.T) {
 	g := buildGenAI(t)
 	if g.OpenAI.Enabled || g.Anthropic.Enabled || g.Gemini.Enabled ||
-		g.Qwen.Enabled || g.Bedrock.Enabled || g.Custom.Enabled || g.Ollama.Enabled {
+		g.Qwen.Enabled || g.Bedrock.Enabled || g.Retrieval.Enabled ||
+		g.Custom.Enabled || g.Ollama.Enabled {
 		t.Fatalf("no providers should enable nothing: %+v", g)
 	}
 }

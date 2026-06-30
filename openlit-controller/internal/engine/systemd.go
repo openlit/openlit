@@ -12,8 +12,9 @@ import (
 var systemdDropInBaseDir = "/etc/systemd/system"
 
 const (
-	systemdSDKStateDir = "/var/lib/openlit/python-sdk"
-	systemdDropInName  = "openlit-python-sdk.conf"
+	systemdSDKStateDir      = "/var/lib/openlit/python-sdk"
+	systemdDropInName       = "openlit-sdk.conf"
+	legacySystemdDropInName = "openlit-python-sdk.conf"
 )
 
 func linuxSystemdSDKSupported() bool {
@@ -33,6 +34,10 @@ func systemdDropInPath(unit string) string {
 	return filepath.Join(systemdDropInBaseDir, unit+".d", systemdDropInName)
 }
 
+func legacySystemdDropInPath(unit string) string {
+	return filepath.Join(systemdDropInBaseDir, unit+".d", legacySystemdDropInName)
+}
+
 func writeSystemdDropIn(unit string, content string) error {
 	dropInPath := systemdDropInPath(unit)
 	if err := os.MkdirAll(filepath.Dir(dropInPath), 0755); err != nil {
@@ -45,9 +50,10 @@ func writeSystemdDropIn(unit string, content string) error {
 }
 
 func removeSystemdDropIn(unit string) error {
-	dropInPath := systemdDropInPath(unit)
-	if err := os.Remove(dropInPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove systemd drop-in: %w", err)
+	for _, dropInPath := range []string{systemdDropInPath(unit), legacySystemdDropInPath(unit)} {
+		if err := os.Remove(dropInPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove systemd drop-in: %w", err)
+		}
 	}
 	return nil
 }
@@ -140,13 +146,15 @@ func escapeSystemdValue(value string) string {
 }
 
 func readSystemdDropInConfigHash(unit string) string {
-	data, err := os.ReadFile(systemdDropInPath(unit))
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "# openlit-managed-config-hash=") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "# openlit-managed-config-hash="))
+	for _, dropInPath := range []string{systemdDropInPath(unit), legacySystemdDropInPath(unit)} {
+		data, err := os.ReadFile(dropInPath)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "# openlit-managed-config-hash=") {
+				return strings.TrimSpace(strings.TrimPrefix(line, "# openlit-managed-config-hash="))
+			}
 		}
 	}
 	return ""
