@@ -1,0 +1,35 @@
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { metrics } from '@opentelemetry/api';
+import { SetupMetricsOptions } from '../types';
+export default class Metrics {
+    static meterProvider: MeterProvider;
+    static meter: ReturnType<typeof metrics.getMeter>;
+    static metricReaders: PeriodicExportingMetricReader[];
+    static genaiClientUsageTokens: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiClientOperationDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiServerTbt: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiServerTtft: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiClientTimeToFirstChunk: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiClientTimePerOutputChunk: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiServerRequestDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static dbClientOperationDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static genaiCost: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static dbRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static guardRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpRequests: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpClientOperationDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static mcpRequestSize: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static mcpResponseSize: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static mcpToolCalls: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpResourceReads: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpPromptGets: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpTransportUsage: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpErrors: ReturnType<ReturnType<typeof metrics.getMeter>['createCounter']>;
+    static mcpOperationSuccessRate: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+    static initializeMetrics(): void;
+    static setup(options: SetupMetricsOptions): import("@opentelemetry/api").Meter | null;
+    private static buildMetricReaders;
+    private static createOTLPReader;
+    private static createConsoleReader;
+    static resetForTesting(): void;
+}

@@ -141,7 +141,7 @@ export interface EnvironmentFeatureConfig {
 	updated_at: string;
 }
 
-export type PythonSDKActionRuntime = "python";
+export type PythonSDKActionRuntime = "python" | "nodejs";
 export type PythonSDKInstrumentationProfile = "controller_managed";
 export type PythonSDKDuplicatePolicy =
 	| "prefer_sdk_agent_spans"

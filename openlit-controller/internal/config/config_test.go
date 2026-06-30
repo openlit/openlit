@@ -26,6 +26,7 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("OPENLIT_ENVIRONMENT", "staging")
 	t.Setenv("OPENLIT_CLUSTER_ID", "my-cluster")
 	t.Setenv("OPENLIT_SDK_VERSION", "1.2.3")
+	t.Setenv("OPENLIT_NODE_SDK_VERSION", "4.5.6")
 	t.Setenv("OPENLIT_DEPLOY_MODE", "docker")
 
 	cfg, err := Load("")
@@ -52,6 +53,9 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.SDKVersion != "1.2.3" {
 		t.Errorf("SDKVersion = %q", cfg.SDKVersion)
+	}
+	if cfg.NodeSDKVersion != "4.5.6" {
+		t.Errorf("NodeSDKVersion = %q", cfg.NodeSDKVersion)
 	}
 	if cfg.DeployMode != DeployDocker {
 		t.Errorf("DeployMode = %q, want docker", cfg.DeployMode)

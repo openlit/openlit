@@ -13,6 +13,8 @@ const (
 const (
 	ActionInstrument       = "instrument"
 	ActionUninstrument     = "uninstrument"
+	ActionEnableSDK        = "enable_sdk"
+	ActionDisableSDK       = "disable_sdk"
 	ActionEnablePythonSDK  = "enable_python_sdk"
 	ActionDisablePythonSDK = "disable_python_sdk"
 	ActionStartWorkload    = "start_workload"
@@ -50,7 +52,7 @@ type PendingAction struct {
 	Payload    string `json:"payload,omitempty"`
 }
 
-type PythonSDKActionPayload struct {
+type SDKActionPayload struct {
 	TargetRuntime          string            `json:"target_runtime"`
 	InstrumentationProfile string            `json:"instrumentation_profile"`
 	DuplicatePolicy        string            `json:"duplicate_policy"`
@@ -64,6 +66,10 @@ type PythonSDKActionPayload struct {
 	SDKVersion             string            `json:"sdk_version,omitempty"`
 	Environment            string            `json:"environment,omitempty"`
 }
+
+// PythonSDKActionPayload is kept as a compatibility alias for existing queued
+// actions and tests. The payload is now runtime-aware via TargetRuntime.
+type PythonSDKActionPayload = SDKActionPayload
 
 type ActionResult struct {
 	ActionID string `json:"action_id"`
