@@ -25,6 +25,7 @@ import Link from "next/link";
 import { Zap, Settings2, Clock, Play, Info, SettingsIcon, Layers } from "lucide-react";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import { Badge } from "@/components/ui/badge";
+import { evalSampleRateToPercent } from "@/constants/evaluation-sampling";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const EvaluationVaultCreate = ({
@@ -54,6 +55,9 @@ export default function EvaluationSettingsPage() {
 	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
+	const [sampleRatePercent, setSampleRatePercent] = useState(
+		String(evalSampleRateToPercent(undefined))
+	);
 	const [vaultId, setVaultId] = useState("");
 	const [vaultKeys, setVaultKeys] = useState<{ label: string; value: string }[]>(
 		[]
@@ -100,6 +104,10 @@ export default function EvaluationSettingsPage() {
 			setAutoEvaluation(config.auto || false);
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
+			const meta = JSON.parse(config.meta || "{}");
+			setSampleRatePercent(
+				String(evalSampleRateToPercent(meta.evalSampleRate))
+			);
 		}
 	}, [config]);
 
@@ -119,12 +127,26 @@ export default function EvaluationSettingsPage() {
 			});
 			return;
 		}
+
+		const parsedSampleRate = Number.parseFloat(sampleRatePercent);
+		if (
+			!Number.isFinite(parsedSampleRate) ||
+			parsedSampleRate < 0 ||
+			parsedSampleRate > 100
+		) {
+			toast.error(getMessage().EVALUATION_SAMPLE_RATE_PERCENT_INVALID, {
+				id: EVALUATION_TOAST_ID,
+			});
+			return;
+		}
+
 		toast.loading(getMessage().EVALUATION_CONFIG_MODIFYING, {
 			id: EVALUATION_TOAST_ID,
 		});
 
 		const meta = JSON.parse(config?.meta || "{}");
 		meta.engine = engine;
+		meta.evalSampleRate = parsedSampleRate / 100;
 
 		saveConfig({
 			body: JSON.stringify({
@@ -366,6 +388,18 @@ export default function EvaluationSettingsPage() {
 									/>
 									<p className="text-xs text-stone-500 dark:text-stone-400">
 										{getMessage().EVALUATION_CRON_HELP}
+									</p>
+									<Label>{getMessage().EVALUATION_SAMPLE_RATE_LABEL}</Label>
+									<Input
+										type="number"
+										min={0}
+										max={100}
+										step={1}
+										value={sampleRatePercent}
+										onChange={(e) => setSampleRatePercent(e.target.value)}
+									/>
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{getMessage().EVALUATION_SAMPLE_RATE_DESCRIPTION}
 									</p>
 								</div>
 							)}

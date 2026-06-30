@@ -95,6 +95,13 @@ export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
 export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
 export const EVALUATION_CRON_HELP =
 	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAMPLE_RATE_LABEL = "Sample rate (%)";
+export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
+	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost.";
+export const EVALUATION_SAMPLE_RATE_INVALID =
+	"Sample rate must be a number between 0 and 1.";
+export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
+	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";
 export const EVALUATION_SAVE_CHANGES = "Save Changes";
 export const EVALUATION_CREATE_CONFIG = "Create Config";

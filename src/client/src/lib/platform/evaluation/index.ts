@@ -28,6 +28,11 @@ import { getDBConfigById } from "@/lib/db-config";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { jsonParse } from "@/utils/json";
 import {
+	normalizeEvalSampleRate,
+	resolveEvalSampleRate,
+	shouldAutoEvaluateSpan,
+} from "./sampling";
+import {
 	getLastRunCronLogByCronId,
 	getLastFailureCronLogBySpanId,
 	insertCronLog,
@@ -615,10 +620,24 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const traces = data as TraceRow[];
+	const configMeta = jsonParse(evaluationConfig.meta || "{}") as Record<
+		string,
+		unknown
+	>;
+	const rawSampleRate = normalizeEvalSampleRate(configMeta.evalSampleRate);
+	if (Number.isNaN(rawSampleRate)) {
+		consoleLog(
+			`Invalid evalSampleRate in evaluation config meta (${String(configMeta.evalSampleRate)}); defaulting to 1`
+		);
+	}
+	const sampleRate = resolveEvalSampleRate(configMeta.evalSampleRate);
+	const sampledTraces = traces.filter((trace) =>
+		shouldAutoEvaluateSpan(trace.SpanId, sampleRate)
+	);
 	let errorCount = 0;
 
 	const results = await Promise.all(
-		traces.map(async (trace) => {
+		sampledTraces.map(async (trace) => {
 			return await getEvaluationConfigForTrace(
 				trace,
 				evaluationConfig,
@@ -631,7 +650,7 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	const errorObject = results.reduce(
 		(acc: Record<string, string>, r, index) => {
 			if (!r.success) {
-				acc[traces[index].SpanId] = r.error as string;
+				acc[sampledTraces[index].SpanId] = r.error as string;
 				errorCount++;
 			}
 			return acc;
@@ -644,17 +663,19 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 		{
 			...cronLogObject,
 			runStatus:
-				errorCount === results.length
+				sampledTraces.length > 0 && errorCount === results.length
 					? CronRunStatus.FAILURE
 					: errorCount > 0
 					? CronRunStatus.PARTIAL_SUCCESS
 					: CronRunStatus.SUCCESS,
 			errorStacktrace: errorObject,
 			meta: {
+				sampleRate,
 				totalSpans: traces.length,
+				totalSampled: sampledTraces.length,
 				totalEvaluated: results.length - errorCount,
 				totalFailed: errorCount,
-				spanIds: traces.map((t) => t.SpanId),
+				spanIds: sampledTraces.map((t) => t.SpanId),
 			},
 			finishedAt,
 			duration: differenceInSeconds(finishedAt, startedAt),
