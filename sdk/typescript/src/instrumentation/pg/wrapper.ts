@@ -1,4 +1,4 @@
-import { SpanKind, Span, Tracer, context, trace } from '@opentelemetry/api';
+import { SpanKind, SpanStatusCode, Span, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
@@ -279,7 +279,7 @@ class PgWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.DB_SEARCH_SIMILARITY_METRIC, metric);
     }
 
-    span.setStatus({ code: 1 }); // SpanStatusCode.OK
+    span.setStatus({ code: SpanStatusCode.OK });
   }
 
   /**

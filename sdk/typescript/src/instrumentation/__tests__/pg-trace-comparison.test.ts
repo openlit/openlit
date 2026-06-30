@@ -353,4 +353,130 @@ describe('PostgreSQL (pg) Cross-Language Trace Comparison', () => {
     expect(OpenLitHelper.handleException).toHaveBeenCalledWith(mockSpan, error);
     expect(mockSpan.end).toHaveBeenCalled();
   });
+
+  // ── Submittable / Cursor form (result.on('end' | 'error')) ──────────────────────
+
+  describe('submittable / cursor form', () => {
+    // Minimal EventEmitter-like fake submittable (neither a promise nor a callback).
+    const makeSubmittable = (extra: Record<string, unknown> = {}) => {
+      const listeners: Record<string, Array<(...a: any[]) => void>> = {};
+      return {
+        ...extra,
+        on(event: string, cb: (...a: any[]) => void) {
+          (listeners[event] ||= []).push(cb);
+          return this;
+        },
+        emit(event: string, ...args: any[]) {
+          (listeners[event] || []).forEach((cb) => cb(...args));
+        },
+      };
+    };
+
+    it('finalizes the span when the submittable emits "end"', () => {
+      const submittable = makeSubmittable({ rowCount: 4 });
+      const patchFn = PgWrapper._patchQuery(mockTracer, {});
+      const original = jest.fn().mockReturnValue(submittable);
+      const wrapped = patchFn(original);
+
+      const returned: any = wrapped.apply(fakeClient(), ['SELECT * FROM events']);
+      expect(returned).toBe(submittable); // submittable passed through unchanged
+      expect(mockSpan.end).not.toHaveBeenCalled(); // not finalized until completion
+
+      returned.emit('end');
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.DB_SYSTEM_NAME,
+        'postgresql'
+      );
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
+        4
+      );
+      expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 }); // SpanStatusCode.OK
+      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+    });
+
+    it('records an exception when the submittable emits "error"', () => {
+      const submittable = makeSubmittable();
+      const error = new Error('cursor failed');
+      const patchFn = PgWrapper._patchQuery(mockTracer, {});
+      const original = jest.fn().mockReturnValue(submittable);
+      const wrapped = patchFn(original);
+
+      const returned: any = wrapped.apply(fakeClient(), ['SELECT * FROM events']);
+      returned.emit('error', error);
+
+      expect(OpenLitHelper.handleException).toHaveBeenCalledWith(mockSpan, error);
+      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+    });
+
+    it('finalizes the span only once even if "end" fires after "error"', () => {
+      const submittable = makeSubmittable();
+      const error = new Error('boom');
+      const patchFn = PgWrapper._patchQuery(mockTracer, {});
+      const original = jest.fn().mockReturnValue(submittable);
+      const wrapped = patchFn(original);
+
+      const returned: any = wrapped.apply(fakeClient(), ['SELECT 1']);
+      returned.emit('error', error);
+      returned.emit('end');
+
+      expect(OpenLitHelper.handleException).toHaveBeenCalledTimes(1);
+      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── Single-span guarantee ──────────────────────────────────────────────────────
+
+  describe('exactly one span per logical query', () => {
+    it('creates exactly one span for a promise-form query', async () => {
+      await invokePromise(['SELECT * FROM users'], { rowCount: 1 });
+      expect(mockTracer.startSpan).toHaveBeenCalledTimes(1);
+      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates exactly one span for a pool.query() that delegates to client.query()', async () => {
+      // Model `pg`: Pool.query() checks out a Client and calls client.query().
+      // Only Client.query is patched, so a pool query must yield ONE span.
+      const patchFn = PgWrapper._patchQuery(mockTracer, {});
+      const realClientQuery = jest.fn().mockResolvedValue({ rowCount: 2 });
+      const patchedClientQuery = patchFn(realClientQuery);
+
+      const client = { ...fakeClient(), query: patchedClientQuery };
+      // Unpatched Pool.query delegating to the patched client query.
+      const poolQuery = (...args: any[]) => client.query(...args);
+
+      await poolQuery('SELECT * FROM users WHERE id = $1', [1]);
+
+      expect(mockTracer.startSpan).toHaveBeenCalledTimes(1);
+      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// ── Instrumentation patching: only Client.query is wrapped, never Pool.query ──────
+
+describe('OpenlitPgInstrumentation patch targets', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const PgInstrumentation = require('../pg').default;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { isWrapped } = require('@opentelemetry/instrumentation');
+
+  it('wraps Client.prototype.query but leaves Pool.prototype.query untouched', () => {
+    const clientQuery = function () {};
+    const poolQuery = function () {};
+    const fakePgModule = {
+      Client: function () {},
+      Pool: function () {},
+    } as any;
+    fakePgModule.Client.prototype.query = clientQuery;
+    fakePgModule.Pool.prototype.query = poolQuery;
+
+    const instr = new PgInstrumentation();
+    instr.manualPatch(fakePgModule);
+
+    expect(isWrapped(fakePgModule.Client.prototype.query)).toBe(true);
+    expect(isWrapped(fakePgModule.Pool.prototype.query)).toBe(false);
+    expect(fakePgModule.Pool.prototype.query).toBe(poolQuery); // unchanged
+  });
 });

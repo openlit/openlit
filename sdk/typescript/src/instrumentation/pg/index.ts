@@ -22,7 +22,6 @@ export interface PgInstrumentationConfig extends InstrumentationConfig {
 
 export default class OpenlitPgInstrumentation extends InstrumentationBase {
   private _clientProto: any = null;
-  private _poolProto: any = null;
 
   constructor(config: PgInstrumentationConfig = {}) {
     super(`${INSTRUMENTATION_PREFIX}/instrumentation-pg`, '1.0.0', config);
@@ -59,7 +58,14 @@ export default class OpenlitPgInstrumentation extends InstrumentationBase {
       const sdkVersion = moduleVersion ? String(moduleVersion) : undefined;
       const wrapperConfig = { captureDbParameters: this.captureDbParameters, sdkVersion };
 
-      // Wrap Client.prototype.query.
+      // Wrap ONLY Client.prototype.query.
+      //
+      // We deliberately do NOT wrap Pool.prototype.query. In `pg`, Pool.query()
+      // checks out a pooled Client and delegates to that Client's query(), so
+      // client-level wrapping already captures pool-routed queries. Wrapping both
+      // would emit two spans for a single logical pool query (a Pool span plus a
+      // child Client span). This matches the OTel community pg instrumentation,
+      // which also instruments only the Client. Result: exactly one span per query.
       const Client = moduleExports.Client;
       if (Client?.prototype && typeof Client.prototype.query === 'function') {
         if (isWrapped(Client.prototype.query)) {
@@ -67,28 +73,6 @@ export default class OpenlitPgInstrumentation extends InstrumentationBase {
         }
         this._clientProto = Client.prototype;
         this._wrap(Client.prototype, 'query', PgWrapper._patchQuery(this.tracer, wrapperConfig));
-      }
-
-      // Wrap Pool.prototype.query.
-      //
-      // `pg`'s Pool.query() delegates to an underlying Client.query(), so wrapping
-      // both would double-count. We still wrap Pool.query for parity (it captures
-      // pool-routed queries even if the Client constructor was swapped), and the
-      // single-span guard inside the wrapper relies on OTel context: the inner
-      // Client.query runs inside the Pool span's context as a child. To avoid an
-      // extra child span, prefer wrapping Client only when both share the same
-      // query implementation.
-      const Pool = moduleExports.Pool;
-      if (
-        Pool?.prototype &&
-        typeof Pool.prototype.query === 'function' &&
-        Pool.prototype.query !== Client?.prototype?.query
-      ) {
-        if (isWrapped(Pool.prototype.query)) {
-          this._unwrap(Pool.prototype, 'query');
-        }
-        this._poolProto = Pool.prototype;
-        this._wrap(Pool.prototype, 'query', PgWrapper._patchQuery(this.tracer, wrapperConfig));
       }
     } catch (e) {
       diag.error('pg instrumentation: error in _patch method', e);
@@ -101,11 +85,6 @@ export default class OpenlitPgInstrumentation extends InstrumentationBase {
         this._unwrap(moduleExports.Client.prototype, 'query');
       } else if (this._clientProto && isWrapped(this._clientProto.query)) {
         this._unwrap(this._clientProto, 'query');
-      }
-      if (moduleExports?.Pool?.prototype && isWrapped(moduleExports.Pool.prototype.query)) {
-        this._unwrap(moduleExports.Pool.prototype, 'query');
-      } else if (this._poolProto && isWrapped(this._poolProto.query)) {
-        this._unwrap(this._poolProto, 'query');
       }
     } catch {
       /* ignore */
