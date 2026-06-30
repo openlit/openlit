@@ -82,10 +82,10 @@ export interface DiscoveryConfig {
 }
 
 // Payload extraction toggles map 1:1 to OBI GenAI extractors the controller can
-// actually enable. OBI natively parses openai/anthropic/gemini/qwen/bedrock; all
-// OpenAI-compatible SaaS vendors are parsed by the OpenAI extractor; `custom`
-// covers self-hosted OpenAI-compatible gateways; `ollama` covers Ollama's native
-// API. (Discovery may still surface other vendor names as chips — see
+// actually enable. OBI natively parses openai/anthropic/gemini/qwen/bedrock and
+// retrieval; all OpenAI-compatible SaaS vendors are parsed by the OpenAI
+// extractor; `custom` covers self-hosted OpenAI-compatible gateways; `ollama`
+// covers Ollama's native API. (Discovery may still surface other vendor names as chips - see
 // PROVIDER_LABELS — but only these have a dedicated extractor toggle.)
 export interface PayloadExtractionConfig {
 	openai: boolean;
@@ -93,6 +93,7 @@ export interface PayloadExtractionConfig {
 	gemini: boolean;
 	qwen: boolean;
 	bedrock: boolean;
+	retrieval: boolean;
 	custom: boolean;
 	ollama: boolean;
 }

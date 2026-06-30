@@ -2,11 +2,11 @@
 FROM ghcr.io/open-telemetry/obi-generator:0.2.11 AS obi-builder
 
 ARG OBI_REPO=https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation.git
-ARG OBI_BRANCH=v0.9.0
+ARG OBI_BRANCH=v0.10.0
 ARG TARGETARCH
 
 ENV GOARCH=${TARGETARCH}
-# OBI v0.9.0 requires Go >= 1.25.9, newer than the obi-generator base image's
+# OBI v0.10.0 requires Go >= 1.25.11, newer than the obi-generator base image's
 # pinned toolchain. Allow Go to auto-download the toolchain its go.mod requests.
 ENV GOTOOLCHAIN=auto
 
