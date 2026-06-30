@@ -7,60 +7,7 @@ description: 'The open-source engineering platform for teams building with AI. M
 OpenLIT is the open-source intelligence layer for teams building with AI. It helps you monitor, debug, and optimize your entire AI stack creating a continuous reliability feedback loop from development to production. OpenLIT is self-hostable and built on OpenTelemetry.
 
 <Tabs>
-  <Tab title="Tracing" icon="bars-staggered">
-    <video
-      autoPlay
-      muted
-      loop
-      controls
-      className="w-full aspect-video rounded-xl"
-      src="/images/trace-details.mp4"
-    >
-    </video>
-
-    End-to-end LLM observability and AI agent observability for your entire stack:
-    - [OpenTelemetry-native SDKs](/latest/sdk/overview) - Automatic instrumentation for 90+ LLMs, frameworks, vector databases, MCP servers, and GPUs.
-    - [Exceptions Monitoring](/latest/openlit/observability/error) - Track and debug errors with full stack traces and span context.
-    - [Zero-code Controller](/latest/controller/overview) - eBPF-based discovery and instrumentation across Kubernetes, Docker, and Linux. No SDK, no code change.
-    - **Universal compatibility** - Ingest traces from any OpenTelemetry-instrumented tool, including OpenInference and OpenLLMetry.
-  </Tab>
-
-  <Tab title="Coding Agents" icon="code">
-    First-class observability for AI coding agents including Claude Code, Cursor, and Codex:
-    - [One-command setup](/latest/openlit/coding-agents/onboarding) - Install the [`openlit` CLI](/latest/cli/overview) and wire any vendor in under a minute. No SDK, no code changes in your repos.
-    - **Per-session visibility** - See cost, lines added and removed, acceptance rate, commits, and PRs per session and per user.
-    - **Auto-detected on `/agents`** - Coding agent sessions appear automatically alongside your other agent traffic.
-    - **Privacy controls** - Tier-1 secret redaction, personal vs. work classification, and cohort-floor anonymization built in.
-  </Tab>
-
-  <Tab title="Otter" icon="message-bot">
-    <img src="/images/otter.svg" width="60" className="mb-4" />
-
-    **Otter** is an AI copilot built into OpenLIT. You can query your telemetry, manage platform resources, and generate dashboards through natural language:
-    - [Natural language queries](/latest/openlit/chat) - Ask questions about traces, costs, and tokens. Otter converts them to SQL and runs them inline.
-    - **Trace and span analysis** - Get structured analysis across performance, reliability, cost, token efficiency, and execution path.
-    - **Prompt improvement** - Ask Otter to review and suggest improvements to any Prompt Hub prompt.
-    - **Dashboard generation** - Describe the dashboard you want and Otter generates a complete importable layout with working queries.
-    - **Resource management** - Create rules, contexts, vault secrets, and custom models through conversation.
-  </Tab>
-
-  <Tab title="Evaluations" icon="ruler">
-    <video
-      autoPlay
-      muted
-      loop
-      controls
-      className="w-full aspect-video rounded-xl"
-      src="/images/evaluations.mp4"
-    >
-    </video>
-
-    Automated quality monitoring for production AI applications:
-    - [Online LLM-as-a-judge](/latest/openlit/evaluations/llm-as-a-judge) - Zero-setup evaluation that automatically scores LLM responses from your live traces.
-    - [Programmatic evaluations](/latest/openlit/evaluations/programmatic-evals) - Custom testing workflows for CI pipelines and development.
-  </Tab>
-
-  <Tab title="Prompts" icon="message">
+  <Tab title="Develop" icon="code-branch">
     <video
       autoPlay
       muted
@@ -71,28 +18,92 @@ OpenLIT is the open-source intelligence layer for teams building with AI. It hel
     >
     </video>
 
-    Centrally manage prompts across your team and environments:
-    - [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub) - Version, edit, and deploy prompts without code changes.
-    - Track prompt evolution over time and collaborate across teams.
-    - [OpenGround](/latest/openlit/prompts-experiments/openground) - Compare cost, latency, and output quality across models to pick the right one for your use case.
+    Prompt management, prompt versioning, and model testing tools for teams building AI applications:
+    - **Prompt versioning and deployment** - [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub) treats prompts as versioned artifacts. Edit, version, and deploy to any environment without code changes. Roll back instantly when needed.
+    - **Collaborate on prompts** - Edit prompts as a team with full change history. Every version is tracked and linked to the evaluations and traces it produced, giving you full traceability from prompt to output.
+    - **Model comparison and A/B testing** - [OpenGround](/latest/openlit/prompts-experiments/openground) runs side-by-side LLM prompt testing across models, comparing cost, latency, and output quality so you pick the right model before you ship.
+    - **Model pricing** - [Manage Models](/latest/openlit/pricing/manage-models) lets you configure cost per token for any model. OpenLIT ships with pricing for popular models built in and applies it automatically across traces, dashboards, and cost reports.
   </Tab>
 
-  <Tab title="Dashboards" icon="grid">
+  <Tab title="Observe" icon="bars-staggered">
     <video
       autoPlay
       muted
       loop
       controls
       className="w-full aspect-video rounded-xl"
-      src="/images/dashboards.mp4"
+      src="/images/trace-details.mp4"
     >
     </video>
 
-    Flexible visualization for all your AI telemetry:
-    - [Custom dashboards](/latest/openlit/dashboards/overview) - Build and resize widgets with custom SQL queries and flexible layouts.
-    - Visualize data from any OpenTelemetry source, including OpenInference and OpenLLMetry.
-    - Export and import dashboard configs as JSON to share across teams and environments.
-    - [Cost tracking](/latest/openlit/pricing/manage-models) - Built-in cost per model, provider, and request with recalculation support.
+    LLM observability and AI agent observability for agents built with CrewAI, LangGraph, or any agent framework. OpenLIT brings OpenTelemetry-native instrumentation so you can analyze how your agents perform in production with full stack visibility:
+    - **Tracing** - Instrument once via [OpenTelemetry-native SDKs](/latest/sdk/overview) for 90+ LLMs and agent frameworks, or use the [Zero-code Controller](/latest/controller/overview) to capture LLM traffic at the infrastructure level with eBPF. Both paths produce the same OpenTelemetry traces.
+    - **Lowest level transparency** - [Exceptions Monitoring](/latest/openlit/observability/error) surfaces errors with full stack traces and span context so you know exactly where and why something failed. All telemetry is automatically redacted for sensitive data before it leaves your stack.
+    - **Understand cost and latency** - Track token consumption, spend per model, provider, and request. Monitor GPU utilization alongside LLM call latency in [custom dashboards](/latest/openlit/dashboards/overview) built on your raw telemetry.
+    - **Track and manage agents** - See every agent version running in production, monitor health, and manage deployments from the `/agents` page.
+  </Tab>
+
+  <Tab title="Coding Agents" icon="laptop-code">
+    <video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/trace-details.mp4"
+    >
+    </video>
+
+    Coding agent observability for Claude Code, Cursor, and Codex. Understand token consumption, AI spend, and developer productivity across your entire engineering team:
+    - [One-command setup](/latest/openlit/coding-agents/onboarding) - Install the `openlit` CLI and wire any vendor in under a minute. No SDK, no code changes in your repos.
+    - **Session monitoring** - Track cost per session, token usage, lines added and removed, model acceptance rate, commits, and PRs per user and per team.
+    - **AI spend visibility** - See exactly how much each developer, team, and project spends on AI coding tools. Break down cost by model and vendor across Claude Code, Cursor, and Codex in one place.
+    - **Privacy controls** - Automatic secret redaction, personal vs. work session classification, and cohort-floor anonymization so individual data stays protected.
+  </Tab>
+
+  <Tab title="Improve" icon="arrow-trend-up">
+    <video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/evaluations.mp4"
+    >
+    </video>
+
+    LLM evaluation in production and development using the same evaluators. Close the loop between what you ship and what you measure:
+    - **Online LLM evaluation** - [LLM-as-a-judge](/latest/openlit/evaluations/llm-as-a-judge) runs automatically on your live traces in production. Create custom evaluators with your own scoring criteria and quality gates. No setup required.
+    - **Offline evaluation and CI/CD testing** - Use the same evaluators via the [programmatic evaluations API](/latest/openlit/evaluations/programmatic-evals) for regression testing in CI pipelines and local development. Catch quality regressions before they reach production.
+    - **Traceability** - Every evaluation score is linked back to the exact prompt version, model, and trace that produced it so you know what changed and why quality shifted.
+  </Tab>
+
+  <Tab title="Manage" icon="sliders">
+    <video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/fleet-hub.mp4"
+    >
+    </video>
+
+    Zero-code AI agent infrastructure management. Remotely instrument, start, stop, and monitor agents without touching application code:
+    - **Remote instrumentation** - The [Controller](/latest/controller/overview) uses eBPF to inject OpenTelemetry instrumentation into running agents across Kubernetes, Docker, and Linux. No SDK required, no restarts, no code changes.
+    - **Fleet Hub** - [Monitor and manage](/latest/openlit/observability/fleet-hub) your OpenTelemetry collectors across every environment from one place. Track health, connectivity, and versions across your entire agent fleet.
+    - **Vault** - [Centrally store and rotate](/latest/openlit/developer-resources/vault) LLM API keys that agents retrieve at runtime. No restarts, no code changes, no secrets in your codebase.
+  </Tab>
+
+  <Tab title="Otter" icon="message-bot">
+    <img src="/images/otter.svg" width="60" className="mb-4" />
+
+    **Otter** is a built-in AI copilot that works across all of OpenLIT. Query your telemetry, analyze traces, improve prompts, and generate dashboards through natural language:
+    - [Natural language queries](/latest/openlit/chat) - Ask questions about traces, costs, and tokens. Otter converts them to SQL and runs them inline.
+    - **Trace and span analysis** - Get structured AI analysis across performance, reliability, cost, token efficiency, and execution path.
+    - **Prompt improvement** - Ask Otter to review and suggest improvements to any Prompt Hub prompt.
+    - **Dashboard generation** - Describe the dashboard you want and Otter generates a complete importable layout with working queries.
+    - **Resource management** - Create rules, contexts, vault secrets, and custom models through conversation.
   </Tab>
 </Tabs>
 
