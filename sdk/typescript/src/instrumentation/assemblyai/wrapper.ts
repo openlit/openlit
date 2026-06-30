@@ -42,12 +42,17 @@ class AssemblyAIWrapper extends BaseWrapper {
       typeof args[0] === 'object' && args[0] !== null ? args[0] : {};
     const requestModel =
       options.speechModel || options.speech_model || 'best';
-    const audioUrl =
+    const rawAudioUrl =
       typeof args[0] === 'string'
         ? args[0]
-        : options.audio || options.audioUrl || options.audio_url || '';
+        : options.audio ?? options.audioUrl ?? options.audio_url;
 
-    return { options, requestModel, audioUrl: String(audioUrl) };
+    // Only stringify when a real value is present, so undefined/null never
+    // becomes the literal string 'undefined'/'null'.
+    const audioUrl =
+      rawAudioUrl === undefined || rawAudioUrl === null ? '' : String(rawAudioUrl);
+
+    return { options, requestModel, audioUrl };
   }
 
   static _patchTranscribe(tracer: Tracer, methodName: string, sdkVersion?: string): any {
@@ -138,13 +143,18 @@ class AssemblyAIWrapper extends BaseWrapper {
 
     const { requestModel, audioUrl } = AssemblyAIWrapper._parseAudioArgs(args);
 
+    // Coerce to a string only when a real value is present, so undefined/null
+    // never becomes the literal string 'undefined'/'null'.
+    const toStr = (v: unknown): string =>
+      v === undefined || v === null ? '' : String(v);
+
     // Prefer values from the returned Transcript (matches the Python instrumentor,
     // which reads audio_url / audio_duration / id / text off the response).
-    const prompt = response?.audio_url ?? response?.audioUrl ?? audioUrl ?? '';
+    const prompt = toStr(response?.audio_url ?? response?.audioUrl ?? audioUrl);
     const audioDuration =
       response?.audio_duration ?? response?.audioDuration ?? 0;
-    const responseId = response?.id ?? '';
-    const responseText = response?.text ?? '';
+    const responseId = toStr(response?.id);
+    const responseText = toStr(response?.text);
 
     // Request parameters
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_DURATION, audioDuration);

@@ -78,6 +78,13 @@ describe('AssemblyAIWrapper', () => {
       expect(parsed.audioUrl).toBe('transcript-id-123');
       expect(parsed.requestModel).toBe('best');
     });
+
+    it('should return an empty string (never "undefined"/"null") when audio is missing', () => {
+      expect(AssemblyAIWrapper._parseAudioArgs([{ speechModel: 'nano' }]).audioUrl).toBe('');
+      expect(AssemblyAIWrapper._parseAudioArgs([{ audio: null }]).audioUrl).toBe('');
+      expect(AssemblyAIWrapper._parseAudioArgs([{ audio: undefined }]).audioUrl).toBe('');
+      expect(AssemblyAIWrapper._parseAudioArgs([]).audioUrl).toBe('');
+    });
   });
 
   describe('_commonAudioSetter', () => {
@@ -243,6 +250,43 @@ describe('AssemblyAIWrapper', () => {
           [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'nano',
           [SemanticConvention.GEN_AI_RESPONSE_ID]: 'rid',
         })
+      );
+    });
+
+    it('should never emit the literal string "undefined"/"null" when fields are missing', () => {
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = true;
+      jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0);
+
+      // No audio in args, and a response with no id/text/audio_url.
+      AssemblyAIWrapper._commonAudioSetter({
+        args: [{ speechModel: 'best' }],
+        genAIEndpoint: 'assemblyai.transcripts.transcribe',
+        response: {},
+        span,
+        isStream: false,
+      });
+
+      const calls = (span.setAttribute as jest.Mock).mock.calls;
+      for (const [, value] of calls) {
+        expect(value).not.toBe('undefined');
+        expect(value).not.toBe('null');
+        if (typeof value === 'string') {
+          expect(value).not.toContain('"undefined"');
+          expect(value).not.toContain('"null"');
+        }
+      }
+
+      // Response id is set as an empty string rather than 'undefined'.
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_ID,
+        ''
+      );
+      // Input message content is the empty string, not 'undefined'.
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_INPUT_MESSAGES,
+        JSON.stringify([{ role: 'user', parts: [{ type: 'text', content: '' }] }])
       );
     });
   });

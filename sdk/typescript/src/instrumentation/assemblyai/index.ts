@@ -56,21 +56,29 @@ export default class OpenlitAssemblyAIInstrumentation extends InstrumentationBas
       const tracer = this.tracer;
       const sdkVersion = moduleVersion ? String(moduleVersion) : undefined;
 
+      // Capture instance helpers in closures so the wrapped constructor (a plain
+      // function expression, required to carry the original's static surface)
+      // never needs to alias `this`.
+      const wrap = this._wrap.bind(this);
+      const rememberTranscriptsProto = (proto: any) => {
+        this._transcriptsProto = proto;
+      };
+
       this._wrap(moduleExports, 'AssemblyAI', (original: (...args: any[]) => any) => {
-        return (...clientArgs: any[]) => {
+        const WrappedAssemblyAI = function (this: any, ...clientArgs: any[]) {
           const client = new (original as any)(...clientArgs);
 
           if (client && client.transcripts) {
             const transcriptsProto = Object.getPrototypeOf(client.transcripts);
             if (transcriptsProto) {
-              this._transcriptsProto = transcriptsProto;
+              rememberTranscriptsProto(transcriptsProto);
 
               for (const methodName of TRANSCRIBE_METHODS) {
                 if (
                   typeof transcriptsProto[methodName] === 'function' &&
                   !isWrapped(transcriptsProto[methodName])
                 ) {
-                  this._wrap(
+                  wrap(
                     transcriptsProto,
                     methodName,
                     AssemblyAIWrapper._patchTranscribe(tracer, methodName, sdkVersion)
@@ -82,6 +90,14 @@ export default class OpenlitAssemblyAIInstrumentation extends InstrumentationBas
 
           return client;
         };
+
+        // Preserve the original constructor's static surface (static methods,
+        // properties and metadata) so consumers relying on them still work.
+        Object.setPrototypeOf(WrappedAssemblyAI, original);
+        Object.assign(WrappedAssemblyAI, original);
+        WrappedAssemblyAI.prototype = (original as any).prototype;
+
+        return WrappedAssemblyAI;
       });
     } catch (e) {
       diag.error('assemblyai instrumentation: error in _patch method', e);
