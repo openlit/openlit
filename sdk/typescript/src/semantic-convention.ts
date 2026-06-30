@@ -249,6 +249,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
+  static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
