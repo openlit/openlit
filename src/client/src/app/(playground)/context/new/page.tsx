@@ -18,12 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePageHeader } from "@/selectors/page";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { ArrowLeftIcon, PlusIcon, XIcon } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
+import ContextHeader from "@/components/(playground)/context/header";
 
 export default function NewContextPage() {
 	const posthog = usePostHog();
@@ -112,23 +112,21 @@ export default function NewContextPage() {
 
 	return (
 		<div className="flex flex-col w-full h-full gap-4 overflow-hidden">
-			{/* Topbar */}
-			<div className="flex items-center justify-between flex-shrink-0">
-				<Link
-					href="/context"
-					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
-				>
-					<ArrowLeftIcon className="w-4 h-4" />
-					{m.CONTEXT_BACK_TO_LIST}
-				</Link>
-				<Button
-					onClick={handleSubmit}
-					disabled={isLoading}
-					className={isLoading ? "animate-pulse" : ""}
-				>
-					{m.CONTEXT_SAVE}
-				</Button>
-			</div>
+			<ContextHeader createNew={false} extraButtons={(
+				<>
+					<Button variant="outline" size="sm" className="h-8" onClick={() => router.back()}>
+						<ArrowLeftIcon className="mr-1.5 size-3.5" />
+							{getMessage().BACK}
+					</Button>
+					<Button
+						onClick={handleSubmit}
+						disabled={isLoading}
+						className={`${isLoading ? "animate-pulse" : ""} h-8`}
+					>
+						{m.CONTEXT_SAVE}
+					</Button>
+				</>
+			)} />
 
 			{/* Body */}
 			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden">

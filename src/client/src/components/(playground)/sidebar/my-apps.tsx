@@ -25,7 +25,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { COMPACT_SIDEBAR_ICON_CLASS } from "@/constants/sidebar";
 import { cn } from "@/lib/utils";
 import { SidebarActionItem, SidebarGroup } from "@/types/sidebar";
 
@@ -38,7 +37,7 @@ type MyAppsPreferences = {
 
 const rowClassName = (active: boolean) =>
 	cn(
-		"flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-medium transition-colors",
+		"flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
 		active
 			? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white"
 			: "text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
@@ -69,7 +68,7 @@ function AppRow({
 
 	return (
 		<div className="group/app relative flex items-center">
-			<Link href={link} onClick={onNavigate} className={rowClassName(active)}>
+			<Link href={link} onClick={onNavigate} aria-current={active ? "page" : undefined} className={rowClassName(active)}>
 				{item.icon}
 				<span className="min-w-0 truncate">{item.text}</span>
 			</Link>
@@ -79,7 +78,7 @@ function AppRow({
 						variant="ghost"
 						size="icon"
 						aria-label={`Options for ${item.text}`}
-						className="absolute right-1 size-6 text-stone-400 opacity-0 transition-opacity hover:bg-stone-200 hover:text-stone-700 focus-visible:opacity-100 group-hover/app:opacity-100 data-[state=open]:opacity-100 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+						className="absolute right-1 size-7 text-stone-400 opacity-0 transition-opacity hover:bg-stone-200 hover:text-stone-700 focus-visible:opacity-100 group-hover/app:opacity-100 data-[state=open]:opacity-100 dark:hover:bg-stone-800 dark:hover:text-stone-200"
 						onClick={(event) => event.stopPropagation()}
 					>
 						<MoreHorizontal className="size-4" />
@@ -128,7 +127,7 @@ function EditRow({
 	const link = item.link ?? "#";
 
 	return (
-		<label className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200/70 dark:text-stone-300 dark:hover:bg-stone-800">
+		<label className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-stone-600 hover:bg-stone-200/70 dark:text-stone-300 dark:hover:bg-stone-800">
 			<Checkbox
 				checked={checked}
 				onCheckedChange={() => onToggle(link)}
@@ -188,9 +187,9 @@ export default function MyApps({
 								<Link
 									href={item.link!}
 									onClick={onNavigate}
+									aria-current={isActive(item) ? "page" : undefined}
 									className={cn(
-										"flex w-full items-center justify-center rounded-lg px-2 py-1 transition-colors",
-										COMPACT_SIDEBAR_ICON_CLASS,
+										"flex w-full items-center justify-center rounded-lg px-2.5 py-2 transition-colors",
 										isActive(item)
 											? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white"
 											: "text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
@@ -209,7 +208,7 @@ export default function MyApps({
 	}
 
 	return (
-		<div className="mt-3 border-t border-stone-200 pt-3 dark:border-stone-800">
+		<div className="mt-2 border-t border-stone-200 pt-2 dark:border-stone-800">
 			<div className="flex items-center justify-between px-2 pb-1">
 				<div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
 					{icon}
@@ -221,9 +220,9 @@ export default function MyApps({
 					onClick={() => setEditing((value) => !value)}
 					aria-label={editing ? "Done editing my apps" : "Edit my apps"}
 					aria-pressed={editing}
-					className="size-6 text-stone-400 hover:bg-stone-200 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+					className="size-7 text-stone-400 hover:bg-stone-200 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200"
 				>
-					{editing ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+					{editing ? <Check className="size-4" /> : <Pencil className="size-4" />}
 				</Button>
 			</div>
 

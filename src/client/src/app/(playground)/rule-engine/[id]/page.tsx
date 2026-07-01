@@ -4,7 +4,8 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, SlidersHorizontal } from "lucide-react";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -164,12 +165,17 @@ export default function RuleDetailPage() {
 		});
 	}, [ruleId, conditionGroups]);
 
+	const ruleHeaderTone = "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-300";
+
 	if (isLoading && !rule) {
 		return (
-			<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
-				<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<FeaturePageHeader eyebrow="Resources" title={messages.LOADING} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} />
+				<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
+					<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+				</div>
 			</div>
 		);
 	}
@@ -179,7 +185,9 @@ export default function RuleDetailPage() {
 	const r = rule as any;
 
 	return (
-		<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader eyebrow="Resources" title={r.name} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} />
+			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 			{/* Left: Rule info + condition builder */}
 			<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
 				<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800">
@@ -224,6 +232,7 @@ export default function RuleDetailPage() {
 			<div className="grid grid-flow-row grid-rows-2 gap-4 overflow-hidden scrollbar-hidden">
 				<RulePreviewSection ruleId={ruleId} />
 				<RuleEntitiesCard ruleId={ruleId} />
+			</div>
 			</div>
 		</div>
 	);

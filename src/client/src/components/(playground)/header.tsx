@@ -22,7 +22,7 @@ export function HeaderContextRow() {
 	return (
 		<div
 			className={playgroundTopBarClassName(
-				"min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5 pl-6 pr-3"
+				"min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 pl-6 pr-3"
 			)}
 		>
 			<OrganisationSwitch contentAlign="start" contentSide="bottom" />

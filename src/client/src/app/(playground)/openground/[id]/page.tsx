@@ -1,7 +1,7 @@
 "use client";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { OpengroundActions } from "@/components/(playground)/openground/header";
+import OpengroundHeader, { OpengroundActions } from "@/components/(playground)/openground/header";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
@@ -13,8 +13,9 @@ import PerformanceWaterfall from "@/components/(playground)/openground/performan
 import CostBreakdown from "@/components/(playground)/openground/cost-breakdown";
 import ProviderResultCard from "@/components/(playground)/openground/provider-result-card";
 import Link from "next/link";
-import { Component } from "lucide-react";
+import { Component, MonitorPlay } from "lucide-react";
 import getMessage from "@/constants/messages";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 export default function OpengroundRequest({
 	params,
@@ -41,26 +42,32 @@ export default function OpengroundRequest({
 		fetchData();
 	}, []);
 
+	const opengroundHeaderTone = "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300";
+
 	if (isLoading || !isFetched)
 		return (
-			<div className="flex w-full h-full text-stone-600 dark:text-stone-400 items-center justify-center">
-				{getMessage().LOADING}
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<OpengroundHeader title={getMessage().LOADING} />
+				<div className="flex w-full h-full text-stone-600 dark:text-stone-400 items-center justify-center">
+					{getMessage().LOADING}
+				</div>
 			</div>
 		);
 
 	if (!data)
 		return (
-			<div className="flex w-full h-full text-error items-center justify-center">
-				{getMessage().NO_DATA_FOUND}
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
+				<div className="flex w-full h-full text-error items-center justify-center">
+					{getMessage().NO_DATA_FOUND}
+				</div>
 			</div>
 		);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-6 overflow-auto">
-			<div className="flex justify-end px-4 pt-3">
-				<OpengroundActions validateResponse={false} />
-			</div>
-
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
+			<div className="flex flex-col w-full h-full gap-6 overflow-auto p-4">
 			{/* Evaluation Info */}
 			<Card>
 				<CardHeader>
@@ -147,6 +154,7 @@ export default function OpengroundRequest({
 					</Card>
 				</div>
 			)}
+			</div>
 		</div>
 	);
 }

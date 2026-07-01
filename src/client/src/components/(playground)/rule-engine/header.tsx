@@ -23,7 +23,8 @@ export default function RuleEngineHeader({
 				<RuleForm successCallback={successCallback}>
 					<Button
 						variant="secondary"
-						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-0.5"
+						size={"sm"}
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-8"
 					>
 						{messages.RULE_CREATE_BUTTON}
 					</Button>

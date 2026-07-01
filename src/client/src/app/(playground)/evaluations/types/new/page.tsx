@@ -96,7 +96,7 @@ export default function CreateCustomEvaluationTypePage() {
 	};
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
+		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
 				eyebrow="Configuration"
 				title="Create Custom Evaluation Type"
@@ -112,7 +112,7 @@ export default function CreateCustomEvaluationTypePage() {
 				}
 			/>
 
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
 				<div className="col-span-2 space-y-4">
 					{/* Type ID & Label */}
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">

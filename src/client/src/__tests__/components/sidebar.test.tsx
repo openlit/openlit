@@ -22,8 +22,6 @@ jest.mock("@/constants/sidebar", () => {
 
 	return {
 		ICON_CLASSES: "size-5",
-		COMPACT_SIDEBAR_ICON_CLASS: "",
-		COMPACT_SIDEBAR_SEARCH_ICON_CLASS: "",
 		SIDEBAR_ITEMS: [
 			{
 				icon: icon("home"),

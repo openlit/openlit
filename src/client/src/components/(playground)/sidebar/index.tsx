@@ -20,7 +20,7 @@ import {
 	CommandList,
 } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { SIDEBAR_ITEMS, COMPACT_SIDEBAR_ICON_CLASS, COMPACT_SIDEBAR_SEARCH_ICON_CLASS } from "@/constants/sidebar";
+import { SIDEBAR_ITEMS } from "@/constants/sidebar";
 import { cn } from "@/lib/utils";
 import { getCurrentUserId } from "@/selectors/user";
 import { useRootStore } from "@/store";
@@ -70,9 +70,8 @@ function NavigationLink({
 		<span className={cn("min-w-0 truncate", compact && "sr-only")}>{item.text}</span>
 	</>;
 	const className = cn(
-		"flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-medium transition-colors",
+		"flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
 		compact && "justify-center px-2",
-		compact && COMPACT_SIDEBAR_ICON_CLASS,
 		active
 			? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white"
 			: "text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white",
@@ -80,10 +79,10 @@ function NavigationLink({
 
 	if (item.component) return item.component;
 	if (item.link && !item.target) {
-		return <Link href={item.link} onClick={onNavigate} className={className}>{content}</Link>;
+		return <Link href={item.link} onClick={onNavigate} aria-current={active ? "page" : undefined} className={className}>{content}</Link>;
 	}
 	return (
-		<a href={item.link} target={item.target} onClick={() => { item.onClick?.(); onNavigate?.(); }} className={className}>
+		<a href={item.link} target={item.target} onClick={() => { item.onClick?.(); onNavigate?.(); }} aria-current={active ? "page" : undefined} className={className}>
 			{content}
 		</a>
 	);
@@ -119,9 +118,8 @@ function PrimaryItem({
 					aria-expanded={openSection === item.title}
 					onClick={() => setOpenSection(openSection === item.title ? null : item)}
 					className={cn(
-						"h-7 w-full justify-start gap-1.5 rounded-lg px-2 text-xs font-medium",
+						"h-9 w-full justify-start gap-2 rounded-lg px-2.5 text-[13px] font-medium",
 						compact && "justify-center px-2",
-						compact && COMPACT_SIDEBAR_ICON_CLASS,
 						selected
 							? "bg-stone-200 text-stone-950 hover:bg-stone-200 dark:bg-stone-800 dark:text-white dark:hover:bg-stone-800"
 							: "text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white",
@@ -233,7 +231,7 @@ export default function Sidebar() {
 			)}
 			<div data-state={isExpanded ? "open" : "closed"} className="relative z-40 flex h-full min-h-0 flex-col">
 				<div className="px-2 pb-3 pt-3">
-					<Button variant="outline" onClick={() => setCommandOpen(true)} className={cn("h-8 w-full justify-start gap-1.5 border-stone-200 bg-transparent px-2.5 text-xs text-stone-500 shadow-none hover:bg-stone-200/60 dark:border-stone-800 dark:hover:bg-stone-800/60", !isExpanded && "justify-center px-2", !isExpanded && COMPACT_SIDEBAR_SEARCH_ICON_CLASS)} aria-label="Search navigation">
+					<Button variant="outline" onClick={() => setCommandOpen(true)} className={cn("h-9 w-full justify-start gap-2 border-stone-200 bg-transparent px-2.5 text-[13px] text-stone-500 shadow-none hover:bg-stone-200/60 dark:border-stone-800 dark:hover:bg-stone-800/60", !isExpanded && "justify-center px-2")} aria-label="Search navigation">
 						<Search className="size-4 shrink-0" />
 						<span className={cn("flex-1 text-left", !isExpanded && "hidden")}>Search data</span>
 						<kbd className={cn("rounded border border-stone-200 px-1 py-0.5 text-[10px] dark:border-stone-700", !isExpanded && "hidden")}>⌘K</kbd>
@@ -241,16 +239,18 @@ export default function Sidebar() {
 				</div>
 
 				{isExpanded && (
-					<div className="mx-2 grid grid-cols-2 gap-1">
-						<Button variant="ghost" className={cn("h-7 rounded-lg px-2 text-xs text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white", !openSection && !pathname.startsWith("/chat") && "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white")} onClick={() => { setOpenSection(null); router.push("/home"); }} aria-label="Browse">
+					<div className="mx-2 grid grid-cols-2 gap-1 rounded-lg border border-stone-200 bg-stone-100 p-1 dark:border-stone-800 dark:bg-stone-900">
+						<Button variant="ghost" className={cn("h-8 rounded-md px-2 text-[13px] text-stone-600 hover:bg-white/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800/70 dark:hover:text-white", !openSection && !pathname.startsWith("/chat") && "bg-white text-stone-950 shadow-sm dark:bg-stone-800 dark:text-white")} onClick={() => { setOpenSection(null); router.push("/home"); }} aria-label="Browse">
 							<span>Browse</span>
 						</Button>
-						<Link href="/chat" className={cn("flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-medium text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white", !openSection && isOtterActive && "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white")}><Otter className="size-3.5 shrink-0" />Otter</Link>
+						<Link href="/chat" className={cn("flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-stone-600 hover:bg-white/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800/70 dark:hover:text-white", !openSection && isOtterActive && "bg-white text-stone-950 shadow-sm dark:bg-stone-800 dark:text-white")}><Otter className="size-4 shrink-0" />Otter</Link>
 					</div>
 				)}
 
-				{isOtterActive && isExpanded ? <div className="min-h-0 grow"><OtterSidebar /></div> : <nav className="flex grow flex-col gap-1 overflow-y-auto px-2 py-4" aria-label="Product navigation">
-					{SIDEBAR_ITEMS.map((item) => <PrimaryItem key={item.type === "section" ? item.title : item.text} item={item} pathname={pathname} currentUrl={currentUrl} compact={!isExpanded} openSection={openSection?.title || null} setOpenSection={setOpenSection} />)}
+				{isOtterActive && isExpanded ? <div className="min-h-0 grow"><OtterSidebar /></div> : <nav className="flex grow flex-col gap-1 overflow-y-auto px-2 py-2" aria-label="Product navigation">
+					<div className="flex flex-col w-full shrink-0">
+						{SIDEBAR_ITEMS.map((item) => <PrimaryItem key={item.type === "section" ? item.title : item.text} item={item} pathname={pathname} currentUrl={currentUrl} compact={!isExpanded} openSection={openSection?.title || null} setOpenSection={setOpenSection} />)}
+					</div>
 					<MyApps
 						groups={appGroups}
 						icon={appsSectionIcon}

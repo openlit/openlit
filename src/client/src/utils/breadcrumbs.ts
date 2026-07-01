@@ -256,9 +256,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	{
 		regex: /^\/settings\/profile$/,
 		getTitle: () => "User Profile",
-		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
-		],
+		getBreadcrumbs: () => [],
 	},
 	
 	{
@@ -303,10 +301,8 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	
 	{
 		regex: /^\/settings\/api-keys$/,
-		getTitle: () => "API Keys",
-		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
-		],
+		getTitle: () => "Api Keys",
+		getBreadcrumbs: () => [],
 	},
 	
 	// Agents
@@ -329,6 +325,11 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 
 	// Fleet Hub
+	{
+		regex: /^\/fleet-hub$/,
+		getTitle: () => getMessage().FEATURE_FLEET_HUB,
+		getBreadcrumbs: () => [],
+	},
 	{
 		regex: /^\/fleet-hub\/[^/]+$/,
 		getTitle: () => "",

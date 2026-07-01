@@ -18,6 +18,8 @@ import { usePageHeader } from "@/selectors/page"
 import { usePostHog } from "posthog-js/react"
 import { CLIENT_EVENTS } from "@/constants/events"
 import { toast } from "sonner"
+import FeaturePageHeader from "@/components/(playground)/feature-page-header"
+import OpenTelemetrySvg from "@/components/svg/opentelemetry"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -43,7 +45,14 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
   }, [agent, setHeader]);
 
   return (
-    <div className="space-y-6 overflow-auto w-full flex flex-col grow">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      <FeaturePageHeader
+        eyebrow="Monitoring"
+        title={getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")}
+        icon={<OpenTelemetrySvg className="h-4 w-4" />}
+        tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300"
+      />
+      <div className="space-y-6 overflow-auto w-full flex flex-col grow p-4">
       <Card>
         <CardHeader className="flex flex-row items-center gap-8 space-y-0 p-4">
           <CardTitle>{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")}</CardTitle>
@@ -117,6 +126,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
         </CardFooter>
       </Card>
       <ConfigDetails agent={agent} fetchAgentInfo={fetchAgentInfo} />
+      </div>
     </div>
   )
 }

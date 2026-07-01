@@ -111,7 +111,10 @@ const columns: Columns<string, OpengroundRecord> = {
 		header: () => "Actions",
 		cell: ({ row, extraFunctions }) => {
 			return (
-				<div className="flex items-center gap-2">
+				<div
+					className="flex items-center gap-2"
+					onClick={(e) => e.stopPropagation()}
+				>
 					<Link href={`/openground/${row.id}`}>
 						<Button variant="ghost" size="icon" className="h-8 w-8">
 							<EyeIcon className="h-4 w-4" />
@@ -187,27 +190,30 @@ export default function Openground() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
+		<div className="flex flex-col w-full h-full">
 			<OpengroundHeader validateResponse={false} />
 
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched}
-				isLoading={isLoading}
-				visibilityColumns={{
-					prompt: true,
-					providers: true,
-					bestCost: true,
-					bestSpeed: true,
-					bestEfficiency: true,
-					createdAt: true,
-					actions: true
-				}}
-				extraFunctions={{
-					handleRerun,
-				}}
-			/>
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched}
+					isLoading={isLoading}
+					visibilityColumns={{
+						prompt: true,
+						providers: true,
+						bestCost: true,
+						bestSpeed: true,
+						bestEfficiency: true,
+						createdAt: true,
+						actions: true
+					}}
+					onClick={(row: OpengroundRecord) => router.push(`/openground/${row.id}`)}
+					extraFunctions={{
+						handleRerun,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

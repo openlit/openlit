@@ -55,7 +55,7 @@ export default function TelemetryPage() {
 	};
 
 	return (
-		<div className="flex h-full w-full flex-col gap-4 overflow-hidden">
+		<div className="flex h-full w-full flex-col overflow-hidden">
 			<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
 				<div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
 					<div className="min-w-0">
@@ -108,7 +108,7 @@ export default function TelemetryPage() {
 					</div>
 				</div>
 			</section>
-			<section className="min-h-0 flex-1 overflow-auto rounded-md border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+			<section className="min-h-0 flex-1 overflow-auto bg-white p-4 dark:bg-stone-950">
 				<ObservabilitySignalList key={activeConfig.key} config={activeConfig} />
 			</section>
 		</div>

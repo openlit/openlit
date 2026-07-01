@@ -138,28 +138,30 @@ export default function RuleEnginePage() {
 	}, [pingStatus]);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
+		<div className="flex flex-col w-full h-full">
 			<RuleEngineHeader successCallback={fetchData} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus === "failure"}
-				isLoading={isLoading || isDeleting}
-				visibilityColumns={{
-					name: true,
-					description: true,
-					groupOperator: true,
-					status: true,
-					createdBy: true,
-					createdAt: true,
-					actions: true,
-				}}
-				onClick={(row: Rule) => router.push(`/rule-engine/${row.id}`)}
-				extraFunctions={{
-					handleDelete: deleteRule,
-					successCallback: fetchData,
-				}}
-			/>
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched || pingStatus === "failure"}
+					isLoading={isLoading || isDeleting}
+					visibilityColumns={{
+						name: true,
+						description: true,
+						groupOperator: true,
+						status: true,
+						createdBy: true,
+						createdAt: true,
+						actions: true,
+					}}
+					onClick={(row: Rule) => router.push(`/rule-engine/${row.id}`)}
+					extraFunctions={{
+						handleDelete: deleteRule,
+						successCallback: fetchData,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

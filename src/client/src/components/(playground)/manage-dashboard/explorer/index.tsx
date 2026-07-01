@@ -1,5 +1,4 @@
 import { Droppable, DroppableProps } from "react-beautiful-dnd";
-import { DashboardItemType } from "@/types/manage-dashboard";
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
 import { DropResult } from "react-beautiful-dnd";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";

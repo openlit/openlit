@@ -13,11 +13,11 @@ import getMessage from "@/constants/messages";
 import { usePageHeader } from "@/selectors/page";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { ArrowLeftIcon, PlusIcon, XIcon } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 
 const m = getMessage();
 
@@ -146,27 +146,26 @@ export default function NewPromptPage() {
 	}, [name, promptText, tags, metaProps, selectedVersion]);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4 overflow-hidden">
-			{/* Topbar */}
-			<div className="flex items-center justify-between flex-shrink-0">
-				<Link
-					href="/prompt-hub"
-					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
-				>
-					<ArrowLeftIcon className="w-4 h-4" />
-					{m.PROMPT_HUB_BACK}
-				</Link>
-				<Button
-					onClick={handleSubmit}
-					disabled={isLoading}
-					className={isLoading ? "animate-pulse" : ""}
-				>
-					{m.PROMPT_HUB_SAVE}
-				</Button>
-			</div>
+		<div className="flex flex-col w-full h-full overflow-hidden">
+			<PromptHubHeader createNew={false} promptUsage={false} extraButtons={(
+				<>
+					<Button variant="outline" size="sm" className="h-8" onClick={() => router.push("/prompt-hub")}>
+						<ArrowLeftIcon className="mr-1.5 size-3.5" />
+							{getMessage().BACK}
+					</Button>
+					<Button
+						onClick={handleSubmit}
+						disabled={isLoading}
+						size={"sm"}
+						className={`${isLoading ? "animate-pulse" : ""} h-8`}
+					>
+						{m.PROMPT_HUB_SAVE}
+					</Button>
+				</>
+			)} />
 
 			{/* Body */}
-			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden">
+			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden p-4">
 				{/* Left: name + markdown editor */}
 				<Card className="col-span-2 flex flex-col overflow-hidden border border-stone-200 dark:border-stone-800">
 					<CardContent className="flex flex-col gap-4 p-4 flex-1 overflow-hidden">

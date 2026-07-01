@@ -149,8 +149,8 @@ export default function OrganisationSettingsPage() {
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
 	const requestedTab = searchParams.get("tab") || "details";
 	const availableTabs = orgPendingInvites.length > 0
-		? ["details", "projects", "members", "pending", "all"]
-		: ["details", "projects", "members", "all"];
+		? ["details", "projects", "members", "pending"]
+		: ["details", "projects", "members"];
 	const selectedTab = availableTabs.includes(requestedTab)
 		? requestedTab
 		: "details";
@@ -341,7 +341,7 @@ export default function OrganisationSettingsPage() {
 	};
 
 	return (
-		<div className="overflow-auto w-full text-stone-700 dark:text-stone-300">
+		<div className="flex h-full w-full flex-col overflow-hidden text-stone-700 dark:text-stone-300">
 			<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
 				<div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
 					<div className="min-w-0 shrink-0">
@@ -383,11 +383,6 @@ export default function OrganisationSettingsPage() {
 												},
 											]
 										: []),
-									{
-										key: "all",
-										label: messages.ORGANISATIONS,
-										icon: Building2,
-									},
 								].map((tab) => {
 									const Icon = tab.icon;
 									const isActive = selectedTab === tab.key;
@@ -423,7 +418,7 @@ export default function OrganisationSettingsPage() {
 				</div>
 			</section>
 
-			<div className="space-y-4 px-4">
+			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
 			{pendingInvitations.length > 0 && (
 				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
 					<CardHeader className="pb-3">
@@ -507,6 +502,58 @@ export default function OrganisationSettingsPage() {
 								</Card>
 							</div>
 						)}
+
+						<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
+							<h4 className="mb-2 text-sm font-medium text-stone-900 dark:text-stone-100">
+								{messages.ORGANISATIONS}
+							</h4>
+							<Table>
+								<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+									<TableRow className="text-xs">
+										<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
+										<TableHead className="h-8">{messages.MEMBERS}</TableHead>
+										<TableHead className="h-8">{messages.STATUS}</TableHead>
+										<TableHead className="h-8 text-right">
+											{messages.ACTIONS}
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{organisations.map((org) => (
+										<TableRow key={org.id} className="text-sm">
+											<TableCell className="py-2 font-medium pl-2">
+												{org.name}
+											</TableCell>
+											<TableCell className="py-2 text-xs text-muted-foreground">
+												{org.memberCount} {messages.MEMBER}
+												{org.memberCount !== 1 ? "s" : ""}
+											</TableCell>
+											<TableCell className="py-2">
+												{org.isCurrent ? (
+													<Badge className="text-xs h-5 px-2">
+														{messages.ACTIVE}
+													</Badge>
+												) : (
+													<span className="text-xs text-muted-foreground">-</span>
+												)}
+											</TableCell>
+											<TableCell className="py-2 text-right">
+												{!org.isCurrent && (
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														onClick={() => changeActiveOrganisation(org.id)}
+													>
+														{messages.SWITCH_ORGANISATION}
+													</Button>
+												)}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 
 						{isCreator && (
 							<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
@@ -898,54 +945,6 @@ export default function OrganisationSettingsPage() {
 						</TabsContent>
 					)}
 
-					<TabsContent value="all" className="mt-0 p-0 pt-2">
-						<Table>
-							<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
-								<TableRow className="text-xs">
-									<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
-									<TableHead className="h-8">{messages.MEMBERS}</TableHead>
-									<TableHead className="h-8">{messages.STATUS}</TableHead>
-									<TableHead className="h-8 text-right">
-										{messages.ACTIONS}
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{organisations.map((org) => (
-									<TableRow key={org.id} className="text-sm">
-										<TableCell className="py-2 font-medium pl-2">
-											{org.name}
-										</TableCell>
-										<TableCell className="py-2 text-xs text-muted-foreground">
-											{org.memberCount} {messages.MEMBER}
-											{org.memberCount !== 1 ? "s" : ""}
-										</TableCell>
-										<TableCell className="py-2">
-											{org.isCurrent ? (
-												<Badge className="text-xs h-5 px-2">
-													{messages.ACTIVE}
-												</Badge>
-											) : (
-												<span className="text-xs text-muted-foreground">-</span>
-											)}
-										</TableCell>
-										<TableCell className="py-2 text-right">
-											{!org.isCurrent && (
-												<Button
-													variant="outline"
-													size="sm"
-													className="h-7 text-xs"
-													onClick={() => changeActiveOrganisation(org.id)}
-												>
-													{messages.SWITCH_ORGANISATION}
-												</Button>
-											)}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</TabsContent>
 				</Tabs>
 			)}
 

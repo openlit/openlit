@@ -20,7 +20,6 @@ import {
 	getDatabaseConfigListIsLoading,
 } from "@/selectors/database-config";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
-import { fetchProjectList } from "@/helpers/client/project";
 import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
@@ -54,12 +53,6 @@ export default function DashboardPage() {
 		isDatabaseConfigLoading ||
 		projects === undefined ||
 		(hasProject && databaseConfigs === undefined);
-
-	useEffect(() => {
-		if (currentOrg?.id) {
-			fetchProjectList(currentOrg.id);
-		}
-	}, [currentOrg?.id]);
 
 	useEffect(() => {
 		if (currentProject?.id) {

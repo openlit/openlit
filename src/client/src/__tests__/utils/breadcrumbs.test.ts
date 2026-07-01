@@ -107,18 +107,13 @@ describe('generatePageHeader', () => {
   it('generates correct header for /settings/profile', () => {
     const header = generatePageHeader('/settings/profile');
     expect(header.title).toBe('User Profile');
-    expect(header.breadcrumbs).toEqual([
-      { title: 'Settings', href: '/settings' },
-    ]);
+    expect(header.breadcrumbs).toEqual([]);
   });
 
-  it('generates correct header for /settings/api-keys', () => {
+  it('generates a title for /settings/api-keys matching the sidebar label exactly', () => {
     const header = generatePageHeader('/settings/api-keys');
-    expect(header.title).toBe('API Keys');
-    expect(header.breadcrumbs).toContainEqual({
-      title: 'Settings',
-      href: '/settings',
-    });
+    expect(header.title).toBe('Api Keys');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('generates breadcrumbs for /dashboards/board', () => {
@@ -180,6 +175,12 @@ describe('generatePageHeader', () => {
     const header = generatePageHeader('/settings/database-config');
     expect(header.title).toBe('Database Config');
     expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+  });
+
+  it('generates a title for /fleet-hub matching the sidebar label exactly', () => {
+    const header = generatePageHeader('/fleet-hub');
+    expect(header.title).toBe('Fleet Hub');
+    expect(header.breadcrumbs).toEqual([]);
   });
 
   it('generates empty title for /fleet-hub/:id until data loads', () => {
