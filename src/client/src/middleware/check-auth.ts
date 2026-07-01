@@ -16,6 +16,69 @@ import {
 	ONBOARDING_WHITELIST_API_ROUTES,
 } from "@/constants/route";
 
+function isValidCronJobRequest(request: NextRequest) {
+	const expectedToken = process.env.CRON_JOB_SECRET;
+	const cronJobToken =
+		request.headers.get("X-CRON-JOB") ?? request.headers.get("x-cron-job");
+
+	return Boolean(expectedToken && cronJobToken === expectedToken);
+}
+
+const rateLimitWindows = new Map<string, { count: number; resetAt: number }>();
+const SENSITIVE_API_RATE_LIMIT = 120;
+const SENSITIVE_API_RATE_LIMIT_WINDOW_MS = 60_000;
+const SENSITIVE_API_RATE_LIMIT_CLEANUP_MS = 60_000;
+const RATE_LIMITED_API_PREFIXES = [
+	"/api/organisation",
+	"/api/metrics",
+	"/api/telemetry",
+	"/api/observability",
+	"/api/prompt",
+	"/api/evaluation",
+	"/api/agents",
+	"/api/alerts",
+	"/api/vault",
+	"/api/context",
+	"/api/manage-dashboard",
+];
+let nextRateLimitCleanupAt = 0;
+
+function shouldRateLimitApi(pathname: string) {
+	return RATE_LIMITED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function getClientRateLimitKey(request: NextRequest) {
+	return (
+		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+		request.headers.get("x-real-ip") ||
+		"unknown"
+	);
+}
+
+function isRateLimited(request: NextRequest) {
+	const now = Date.now();
+	if (now >= nextRateLimitCleanupAt) {
+		rateLimitWindows.forEach((window, key) => {
+			if (window.resetAt <= now) rateLimitWindows.delete(key);
+		});
+		nextRateLimitCleanupAt = now + SENSITIVE_API_RATE_LIMIT_CLEANUP_MS;
+	}
+
+	const key = getClientRateLimitKey(request);
+	const window = rateLimitWindows.get(key);
+
+	if (!window || window.resetAt <= now) {
+		rateLimitWindows.set(key, {
+			count: 1,
+			resetAt: now + SENSITIVE_API_RATE_LIMIT_WINDOW_MS,
+		});
+		return false;
+	}
+
+	window.count += 1;
+	return window.count > SENSITIVE_API_RATE_LIMIT;
+}
+
 export default function checkAuth(next: NextMiddleware) {
 	return withAuth(
 		async function middleware(request: NextRequest, _next: NextFetchEvent) {
@@ -40,6 +103,7 @@ export default function checkAuth(next: NextMiddleware) {
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
+				const isRateLimitedApi = shouldRateLimitApi(pathname);
 				const method = request.method.toUpperCase();
 				const isOnboardingWhitelistedPage = ONBOARDING_WHITELIST_ROUTES.includes(
 					pathname
@@ -83,12 +147,22 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				if (isApiPage) {
+					if (isRateLimitedApi && isRateLimited(request)) {
+						return NextResponse.json(
+							{ error: "Too many requests" },
+							{ status: 429 }
+						);
+					}
+
 					if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
 						if (isCronJobRoute) {
-							const cronJobToken = request.headers.get("X-CRON-JOB");
-							if (cronJobToken) {
+							if (isValidCronJobRequest(request)) {
 								return NextResponse.next();
 							}
+							return NextResponse.json(
+								{ error: "Forbidden" },
+								{ status: 403 }
+							);
 						}
 					// Enforce onboarding restrictions for authenticated API calls.
 					// Only explicitly whitelisted API routes should work before onboarding.

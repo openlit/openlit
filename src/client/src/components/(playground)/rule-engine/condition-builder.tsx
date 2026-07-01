@@ -51,6 +51,8 @@ export const CONDITION_FIELDS = () => {
 	];
 };
 
+export type ConditionFieldDefinition = ReturnType<typeof CONDITION_FIELDS>[number];
+
 // Fields that support dynamic value lookup from otel_traces
 const FIELDS_WITH_VALUES = new Set([
 	"ServiceName", "SpanName", "SpanKind", "StatusCode",
@@ -83,8 +85,8 @@ function getOperatorsForDataType(dataType: string) {
 	return dataType === "number" ? NUMBER_OPERATORS : STRING_OPERATORS;
 }
 
-function getDataTypeForField(fieldValue: string): string {
-	return CONDITION_FIELDS().find((f) => f.value === fieldValue)?.dataType || "string";
+function getDataTypeForField(fieldValue: string, fields: ConditionFieldDefinition[]): string {
+	return fields.find((f) => f.value === fieldValue)?.dataType || "string";
 }
 
 export type ConditionGroupState = {
@@ -264,13 +266,15 @@ export default function ConditionBuilder({
 	groups,
 	onChange,
 	groupOperator = "AND",
+	extraFields = [],
 }: {
 	groups: ConditionGroupState[];
 	onChange: (groups: ConditionGroupState[]) => void;
 	groupOperator?: "AND" | "OR";
+	extraFields?: ConditionFieldDefinition[];
 }) {
 	const messages = getMessage();
-	const fields = CONDITION_FIELDS();
+	const fields = [...CONDITION_FIELDS(), ...extraFields];
 
 	const addGroup = () => {
 		onChange([
@@ -315,7 +319,7 @@ export default function ConditionBuilder({
 
 	const updateConditionField = (groupIdx: number, condIdx: number, fieldValue: string) => {
 		const updated = [...groups];
-		const dataType = getDataTypeForField(fieldValue);
+		const dataType = getDataTypeForField(fieldValue, fields);
 		updated[groupIdx] = {
 			...updated[groupIdx],
 			conditions: updated[groupIdx].conditions.map((c, i) =>

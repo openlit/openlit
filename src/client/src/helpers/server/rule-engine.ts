@@ -6,6 +6,7 @@ const VALID_ENTITY_TYPES: RuleEntityType[] = [
 	// "dataset",
 	// "meta_config",
 	"evaluation",
+	"alert",
 ];
 const VALID_OPERATORS = [
 	"equals", "not_equals", "contains", "not_contains",
