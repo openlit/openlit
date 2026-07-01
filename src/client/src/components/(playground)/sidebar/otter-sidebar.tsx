@@ -58,8 +58,8 @@ export default function OtterSidebar() {
 				<ConversationList conversations={conversations} activeId={activeId} onSelect={(id) => router.push(`/chat?id=${id}`)} onDelete={deleteConversation} onNew={() => router.push("/chat")} isLoading={isLoading} />
 			</div>
 			<div className="flex gap-1 border-t border-stone-200 p-2 dark:border-stone-800">
-				<Button asChild variant="ghost" size="sm" className="h-8 flex-1 justify-start gap-2 text-xs text-stone-600 dark:text-stone-300"><Link href="/chat/usage"><BarChart3 className="size-3.5" />{messages.CHAT_OTTER_USAGE}</Link></Button>
-				<Button asChild variant="ghost" size="icon" className="size-8 text-stone-600 dark:text-stone-300"><Link href="/chat/settings" aria-label="Otter settings"><Settings className="size-3.5" /></Link></Button>
+					<Button asChild variant="ghost" size="sm" className="h-8 flex-1 justify-start gap-2 text-[13px] text-stone-600 dark:text-stone-300"><Link href="/chat/usage"><BarChart3 className="size-4" />{messages.CHAT_OTTER_USAGE}</Link></Button>
+					<Button asChild variant="ghost" size="icon" className="size-8 text-stone-600 dark:text-stone-300"><Link href="/chat/settings" aria-label="Otter settings"><Settings className="size-4" /></Link></Button>
 			</div>
 		</div>
 	);

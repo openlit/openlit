@@ -22,13 +22,13 @@ import {
 	User,
 } from "lucide-react";
 
-export const ICON_CLASSES = "flex-shrink-0 size-3.5";
+export const ICON_CLASSES = "flex-shrink-0 size-4";
 
-/** ~32% larger than size-3.5 (two 15% bumps) for collapsed sidebar icons */
-export const COMPACT_SIDEBAR_ICON_CLASS = "[&_svg]:!size-[1.1572rem]";
+/** ~32% larger than size-4 (two 15% bumps) for collapsed sidebar icons */
+export const COMPACT_SIDEBAR_ICON_CLASS = "[&_svg]:!size-[1.3225rem]";
 
-/** ~32% larger than size-4 (two 15% bumps) for collapsed sidebar search icon */
-export const COMPACT_SIDEBAR_SEARCH_ICON_CLASS = "[&_svg]:!size-[1.3225rem]";
+/** Slightly larger than the compact navigation icons for the collapsed search action */
+export const COMPACT_SIDEBAR_SEARCH_ICON_CLASS = "[&_svg]:!size-[1.4rem]";
 
 export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
