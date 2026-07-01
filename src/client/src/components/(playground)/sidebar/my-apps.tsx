@@ -210,7 +210,7 @@ export default function MyApps({
 	return (
 		<div className="mt-2 border-t border-stone-200 pt-2 dark:border-stone-800">
 			<div className="flex items-center justify-between px-2 pb-1">
-				<div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+					<div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">
 					{icon}
 					<span>My apps</span>
 				</div>
@@ -240,7 +240,7 @@ export default function MyApps({
 
 				return (
 					<div key={group.title} className="mb-1.5">
-						<p className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+							<p className="px-2.5 pb-0.5 pt-1 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
 							{group.title}
 						</p>
 						{visible.map((item) =>

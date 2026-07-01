@@ -125,7 +125,7 @@ function PrimaryItem({
 							: "text-stone-600 hover:bg-stone-200/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white",
 					)}
 				>
-					{compact ? (item.icon ?? <span className="text-xs font-bold">{item.title.slice(0, 1)}</span>) : <>{item.icon}<span>{item.title}</span><ChevronRight className="ml-auto size-4" /></>}
+					{compact ? (item.icon ?? <span className="text-[13px] font-bold">{item.title.slice(0, 1)}</span>) : <>{item.icon}<span>{item.title}</span><ChevronRight className="ml-auto size-4" /></>}
 				</Button>
 			</TooltipTrigger>
 			{compact && <TooltipContent side="right" sideOffset={8}>{item.title}</TooltipContent>}
@@ -145,16 +145,16 @@ function SectionPanel({ section, pathname, currentUrl, onClose }: { section: Sid
 			<div className="flex items-center justify-between border-b border-stone-200 px-3 py-2.5 dark:border-stone-800">
 				<div className="flex items-center gap-2 text-stone-900 dark:text-white">
 					{section.icon}
-					<p className="text-sm font-semibold">{section.title}</p>
+						<p className="text-[15px] font-semibold">{section.title}</p>
 				</div>
 				<Button variant="ghost" size="icon" onClick={onClose} aria-label="Close navigation panel" className="size-8 text-stone-700 hover:bg-stone-200 dark:text-stone-200 dark:hover:bg-stone-800"><X className="size-4" /></Button>
 			</div>
-			<div className="overflow-y-auto p-2">
+				<div className="scrollbar-hidden overflow-y-auto p-2">
 				{groups ? (
 					<div className="space-y-3">
 						{groups.map((group) => (
 							<div key={group.title} className="space-y-0.5">
-								<p className="px-2.5 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500">{group.title}</p>
+									<p className="px-2.5 pb-0.5 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500">{group.title}</p>
 								{group.children.map((item) => <NavigationLink key={item.text} item={item} active={isActive(pathname, item, currentUrl)} onNavigate={onClose} />)}
 							</div>
 						))}
@@ -165,7 +165,7 @@ function SectionPanel({ section, pathname, currentUrl, onClose }: { section: Sid
 					</div>
 				)}
 			</div>
-			{section.title === "Settings" ? <div className="flex items-center justify-between border-t border-stone-200 px-3 py-2.5 dark:border-stone-800"><span className="text-xs font-medium text-stone-600 dark:text-stone-300">Appearance</span><ThemeToggleSwitch /></div> : null}
+			{section.title === "Settings" ? <div className="flex items-center justify-between border-t border-stone-200 px-3 py-2.5 dark:border-stone-800"><span className="text-[13px] font-medium text-stone-600 dark:text-stone-300">Appearance</span><ThemeToggleSwitch /></div> : null}
 		</div>
 	);
 }
@@ -247,7 +247,7 @@ export default function Sidebar() {
 					</div>
 				)}
 
-				{isOtterActive && isExpanded ? <div className="min-h-0 grow"><OtterSidebar /></div> : <nav className="flex grow flex-col gap-1 overflow-y-auto px-2 py-2" aria-label="Product navigation">
+				{isOtterActive && isExpanded ? <div className="min-h-0 grow"><OtterSidebar /></div> : <nav className="scrollbar-hidden flex grow flex-col gap-1 overflow-y-auto px-2 py-2" aria-label="Product navigation">
 					<div className="flex flex-col w-full shrink-0">
 						{SIDEBAR_ITEMS.map((item) => <PrimaryItem key={item.type === "section" ? item.title : item.text} item={item} pathname={pathname} currentUrl={currentUrl} compact={!isExpanded} openSection={openSection?.title || null} setOpenSection={setOpenSection} />)}
 					</div>
