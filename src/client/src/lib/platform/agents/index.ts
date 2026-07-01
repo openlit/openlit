@@ -329,6 +329,13 @@ export async function listAgents(
 	return swr(cacheKey, POLICY_LIST, () => loadAgents(params));
 }
 
+// Staleness window (minutes) for source='sdk' / 'coding' rows on the agents list.
+// SDK-instrumented deployments without the controller have no ~10s heartbeat, so a
+// short *hardcoded* window silently dropped them from the dashboard while they were
+// still inside the user-selected time range (24H/7D/...). Make it configurable; the
+// default preserves the original 10-minute behavior for controller-based setups.
+const SDK_STALENESS_MINUTES = Number(process.env.AGENTS_SDK_STALENESS_MINUTES || 10);
+
 async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
 	const filters = params.filters || {};
@@ -371,7 +378,7 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	// TTL. Controller-source rows are left untouched because they get refreshed
 	// every controller heartbeat (~10s).
 	where.push(
-		`(s.source != 'sdk' OR s.last_seen >= now() - INTERVAL 10 MINUTE)`
+		`(s.source != 'sdk' OR s.last_seen >= now() - INTERVAL ${SDK_STALENESS_MINUTES} MINUTE)`
 	);
 
 	// Same problem, different source: when a coding-agent vendor stops
@@ -390,7 +397,7 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	// 10 minutes matches the SDK guard and gives the cron-driven
 	// materializer plenty of headroom.
 	where.push(
-		`(s.source != 'coding' OR s.last_materialized_at >= now() - INTERVAL 10 MINUTE)`
+		`(s.source != 'coding' OR s.last_materialized_at >= now() - INTERVAL ${SDK_STALENESS_MINUTES} MINUTE)`
 	);
 
 	if (filters.source?.length) {
