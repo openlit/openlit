@@ -96,11 +96,10 @@ export default function CreateCustomEvaluationTypePage() {
 	};
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
+		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
 				eyebrow="Configuration"
 				title="Create Custom Evaluation Type"
-				description="Define a domain-specific judge that scores traces against the behavior, policy, and quality criteria your product needs."
 				icon={<Sparkles className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
 				actions={
@@ -113,7 +112,7 @@ export default function CreateCustomEvaluationTypePage() {
 				}
 			/>
 
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
 				<div className="col-span-2 space-y-4">
 					{/* Type ID & Label */}
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">

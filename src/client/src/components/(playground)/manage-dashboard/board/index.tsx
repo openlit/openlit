@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Board } from "@/types/manage-dashboard";
 import { jsonParse } from "@/utils/json";
 import { useRouter } from "next/navigation";
-import Header from "../common/header";
 import { useDashboardPageSearch } from "@/selectors/dashboards";
 import EmptyState from "../common/empty-state";
 import getMessage from "@/constants/messages";
@@ -55,9 +54,8 @@ export default function BoardList() {
 	});
 
 	return (
-		<div className="flex flex-col gap-3 grow overflow-y-hidden">
-			<Header title="Dashboard" />
-			<div className="grow rounded-sm overflow-y-auto">
+		<div className="flex grow flex-col overflow-y-hidden">
+			<div className="grow overflow-y-auto rounded-sm">
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

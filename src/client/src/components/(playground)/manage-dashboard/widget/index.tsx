@@ -25,7 +25,6 @@ import {
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Widget } from "@/types/manage-dashboard";
-import Header from "../common/header";
 import { useDashboardPageSearch } from "@/selectors/dashboards";
 import EmptyState from "../common/empty-state";
 import getMessage from "@/constants/messages";
@@ -90,9 +89,7 @@ const WidgetListPage = () => {
 	});
 
 	return (
-		<div className="flex flex-col gap-3 grow overflow-y-hidden">
-			<Header title="Widgets" />
-
+		<div className="flex grow flex-col overflow-y-hidden">
 			{isLoading ? (
 				<div className="flex justify-center items-center grow">
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

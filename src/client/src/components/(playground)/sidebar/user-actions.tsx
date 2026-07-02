@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
 
-const DROPDOWN_MENU_ITEM_CLASS = "flex w-full text-xs gap-2 hover:bg-primary/10 dark:hover:bg-primary/10 px-2 py-1.5";
+const DROPDOWN_MENU_ITEM_CLASS = "flex w-full text-[13px] gap-2 hover:bg-primary/10 dark:hover:bg-primary/10 px-2 py-1.5";
 const DROPDOWN_MENU_ICON_CLASS = "w-4 h-4";
 
 export default function UserActions() {
@@ -37,12 +37,12 @@ export default function UserActions() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline" className="flex gap-2 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal w-full">
+				<Button variant="ghost" className="flex gap-2 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden border border-transparent bg-transparent shadow-none text-stone-500 dark:text-stone-300 hover:bg-stone-200/70 hover:text-stone-950 dark:hover:bg-stone-800 dark:hover:text-white font-normal w-full">
 					<Avatar className={"h-5 w-5 rounded-lg"}>
 						<AvatarImage className="rounded-full" src={user!.image || ""} alt={user!.name || ""} />
 						<AvatarFallback className="rounded-lg bg-transparent dark:bg-transparent">{user!.name?.substring(0, 2) || displayEmail.substring(0, 2)}</AvatarFallback>
 					</Avatar>
-					<div className="grid flex-1 text-left text-xs leading-tight group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap">
+						<div className="grid flex-1 text-left text-[13px] leading-tight group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap">
 						<span className="truncate font-medium">{user!.name}</span>
 						<span className="truncate text-xs">{displayEmail}</span>
 					</div>
@@ -63,7 +63,7 @@ export default function UserActions() {
 						</Avatar>
 						<div className="grid flex-1 text-left text-xs leading-tight text-ellipsis overflow-hidden whitespace-nowrap">
 							<span className="truncate font-medium">{user!.name}</span>
-							<span className="truncate text-xs">{displayEmail}</span>
+							<span className="truncate text-[13px]">{displayEmail}</span>
 						</div>
 					</div>
 				</DropdownMenuLabel>

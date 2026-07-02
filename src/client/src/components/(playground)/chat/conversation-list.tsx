@@ -88,7 +88,7 @@ export default function ConversationList({
 			</div>
 
 			{/* Conversation list */}
-			<div className="flex-1 overflow-y-auto px-3 py-2">
+				<div className="scrollbar-hidden flex-1 overflow-y-auto px-3 py-2">
 				{isLoading ? (
 					<div className="space-y-2 px-1">
 						{[1, 2, 3].map((i) => (
