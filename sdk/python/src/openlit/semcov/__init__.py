@@ -662,6 +662,7 @@ class SemanticConvention:
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
     DB_SYSTEM_ASTRA = "astra"
+    DB_SYSTEM_ELASTICSEARCH = "elasticsearch"
     DB_SYSTEM_POSTGRESQL = "postgresql"
 
     # SQL Transaction Operations
