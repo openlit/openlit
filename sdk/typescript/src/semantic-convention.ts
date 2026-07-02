@@ -232,6 +232,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_LANGCHAIN = 'langchain';
   static GEN_AI_SYSTEM_VERCEL_AI = 'vercel_ai';
   static GEN_AI_SYSTEM_OLLAMA = 'ollama';
+  static GEN_AI_SYSTEM_VLLM = 'vllm';
   static GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = 'gcp.gemini';
   static GEN_AI_SYSTEM_GROQ = 'groq';
   static GEN_AI_SYSTEM_AI21 = 'ai21';
