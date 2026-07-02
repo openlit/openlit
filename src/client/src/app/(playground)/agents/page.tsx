@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { RefreshCw, Plus } from "lucide-react";
+import { Bot, RefreshCw, Plus } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import ComboDropdown from "@/components/(playground)/filter/combo-dropdown";
 import Filter from "@/components/(playground)/filter";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
 import NoCodingAgents from "./no-coding-agents";
@@ -601,7 +602,61 @@ export default function AgentsPage() {
 	}, []);
 
 	return (
-		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader
+				eyebrow="Monitoring"
+				title={getMessage().FEATURE_AGENTS}
+				icon={<Bot className="h-4 w-4" />}
+				tone="border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/70 dark:bg-teal-950/40 dark:text-teal-300"
+				actions={(
+					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+						<div className="flex flex-wrap items-center gap-2">
+							{(
+								[
+									{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
+									{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
+									{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
+								] as const
+							).map((tab) => (
+								<button
+									key={tab.id}
+									onClick={() => setActiveTab(tab.id)}
+									className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition ${
+										activeTab === tab.id
+											? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/70 dark:bg-teal-950/40 dark:text-teal-300"
+											: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+									}`}
+								>
+									<span className="font-medium">{tab.label}</span>
+								</button>
+							))}
+						</div>
+						{activeTab === "controllers" && (
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-8"
+								onClick={() => setSetupModal("controller")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CONTROLLER}
+							</Button>
+						)}
+						{activeTab === "coding" && (
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-8"
+								onClick={() => setSetupModal("coding")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CODING_AGENT}
+							</Button>
+						)}
+					</div>
+				)}
+			/>
+			<section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
 			{/* Toolbar */}
 			<div className="flex items-center w-full gap-4">
 				<Filter />
@@ -804,61 +859,6 @@ export default function AgentsPage() {
 						</div>
 					)}
 
-					{/* Tab switcher. Ordering reflects expected
-					    usage frequency: most teams will spend most
-					    of their time on Applications and Coding
-					    Agents; Controllers is a setup-time tab. We
-					    drop the count badge from Coding Agents
-					    intentionally — the tab name carries the
-					    affordance and the row count is already on
-					    the table itself; the badge was creating
-					    visual noise on the most-clicked tab. */}
-					<div className="flex items-center border-b border-stone-200 dark:border-stone-700">
-						{(
-							[
-								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
-								{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
-								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
-							] as const
-						).map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => {
-									setActiveTab(tab.id);
-								}}
-								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 inline-flex items-center gap-1.5 ${
-									activeTab === tab.id
-										? "border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100"
-										: "border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300"
-								}`}
-							>
-								{tab.label}
-							</button>
-						))}
-						{activeTab === "controllers" && (
-							<Button
-								variant="outline"
-								size="default"
-								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setSetupModal("controller")}
-							>
-								<Plus className="w-3 h-3 mr-1.5" />
-								{getMessage().AGENTS_ADD_CONTROLLER}
-							</Button>
-						)}
-						{activeTab === "coding" && (
-							<Button
-								variant="outline"
-								size="default"
-								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setSetupModal("coding")}
-							>
-								<Plus className="w-3 h-3 mr-1.5" />
-								{getMessage().AGENTS_ADD_CODING_AGENT}
-							</Button>
-						)}
-					</div>
-
 					{/* Content. Each tab owns its own empty state so
 					    the install instructions match the tab — a
 					    user landing on Coding Agents shouldn't see
@@ -932,6 +932,7 @@ export default function AgentsPage() {
 					)}
 				</>
 			)}
+			</section>
 
 			<Dialog
 				open={setupModal !== null}

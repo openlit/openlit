@@ -26,8 +26,6 @@ import { Badge } from "@/components/ui/badge";
 import {
 	Tabs,
 	TabsContent,
-	TabsList,
-	TabsTrigger,
 } from "@/components/ui/tabs";
 import {
 	Select,
@@ -52,6 +50,7 @@ import {
 	Clock,
 	FolderKanban,
 	Database,
+	Plus,
 } from "lucide-react";
 import { useRootStore } from "@/store";
 import {
@@ -92,7 +91,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
-import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import { cn } from "@/lib/utils";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
 import { toast } from "sonner";
@@ -150,8 +149,8 @@ export default function OrganisationSettingsPage() {
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
 	const requestedTab = searchParams.get("tab") || "details";
 	const availableTabs = orgPendingInvites.length > 0
-		? ["details", "projects", "members", "pending", "all"]
-		: ["details", "projects", "members", "all"];
+		? ["details", "projects", "members", "pending"]
+		: ["details", "projects", "members"];
 	const selectedTab = availableTabs.includes(requestedTab)
 		? requestedTab
 		: "details";
@@ -342,16 +341,84 @@ export default function OrganisationSettingsPage() {
 	};
 
 	return (
-		<div className="space-y-4 overflow-auto w-full text-stone-700 dark:text-stone-300">
-			<FeaturePageHeader
-				eyebrow={messages.ORGANISATION}
-				title={messages.ORGANISATION_SETTINGS}
-				description="Manage organisations, projects, and team access from the top-level workspace control plane."
-				icon={<Building2 className="h-4 w-4" />}
-				tone="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
-				actions={<Button onClick={() => setCreateDialogOpen(true)} size="sm"><Building2 className="mr-1.5 h-3.5 w-3.5" />{messages.NEW_ORGANISATION}</Button>}
-			/>
+		<div className="flex h-full w-full flex-col overflow-hidden text-stone-700 dark:text-stone-300">
+			<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+				<div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+					<div className="min-w-0 shrink-0">
+						<div className="flex items-center gap-2">
+							<span className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300">
+								<Building2 className="size-4" />
+							</span>
+							<div>
+								<p className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
+									{messages.ORGANISATION}
+								</p>
+								<h1 className="text-sm font-semibold leading-tight text-stone-950 dark:text-stone-50">
+									{messages.ORGANISATION_SETTINGS}
+								</h1>
+							</div>
+						</div>
+					</div>
+					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+						{currentOrg ? (
+							<div className="flex flex-wrap items-center gap-2">
+								{[
+									{ key: "details", label: messages.DETAILS, icon: Settings },
+									{
+										key: "projects",
+										label: `${messages.PROJECTS} (${projects.length})`,
+										icon: FolderKanban,
+									},
+									{
+										key: "members",
+										label: `${messages.MEMBERS} (${members.length})`,
+										icon: Users,
+									},
+									...(orgPendingInvites.length > 0
+										? [
+												{
+													key: "pending",
+													label: `${messages.PENDING} (${orgPendingInvites.length})`,
+													icon: Clock,
+												},
+											]
+										: []),
+								].map((tab) => {
+									const Icon = tab.icon;
+									const isActive = selectedTab === tab.key;
+									return (
+										<button
+											key={tab.key}
+											type="button"
+											onClick={() => handleTabChange(tab.key)}
+											className={cn(
+												"inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition",
+												isActive
+													? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+													: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+											)}
+										>
+											<Icon className="size-4" />
+											<span className="font-medium">{tab.label}</span>
+										</button>
+									);
+								})}
+							</div>
+						) : null}
+						<Button
+							type="button"
+							size="sm"
+							onClick={() => setCreateDialogOpen(true)}
+							aria-label={messages.NEW_ORGANISATION}
+							className="h-8 bg-primary px-2 text-white hover:bg-primary/90 dark:bg-primary dark:text-white dark:hover:bg-primary/90"
+						>
+							<Plus className="size-4" />
+						</Button>
+					</div>
+				</div>
+			</section>
 
+			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
 			{pendingInvitations.length > 0 && (
 				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
 					<CardHeader className="pb-3">
@@ -392,31 +459,7 @@ export default function OrganisationSettingsPage() {
 			)}
 
 			{currentOrg && (
-				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-auto">
-					<TabsList className="w-auto justify-start p-0 h-auto">
-						<TabsTrigger value="details" className="text-xs text-stone-700 dark:text-stone-300">
-							<Settings className="h-3.5 w-3.5 mr-1.5" />
-							{messages.DETAILS}
-						</TabsTrigger>
-						<TabsTrigger value="projects" className="text-xs text-stone-700 dark:text-stone-300">
-							<FolderKanban className="h-3.5 w-3.5 mr-1.5" />
-							{messages.PROJECTS} ({projects.length})
-						</TabsTrigger>
-						<TabsTrigger value="members" className="text-xs text-stone-700 dark:text-stone-300">
-							<Users className="h-3.5 w-3.5 mr-1.5" />
-							{messages.MEMBERS} ({members.length})
-						</TabsTrigger>
-						{orgPendingInvites.length > 0 && (
-							<TabsTrigger value="pending" className="text-xs text-stone-700 dark:text-stone-300">
-								<Clock className="h-3.5 w-3.5 mr-1.5" />
-								{messages.PENDING} ({orgPendingInvites.length})
-							</TabsTrigger>
-						)}
-						<TabsTrigger value="all" className="text-xs text-stone-700 dark:text-stone-300">
-							<Building2 className="h-3.5 w-3.5 mr-1.5" />
-							{messages.ORGANISATIONS}
-						</TabsTrigger>
-					</TabsList>
+				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
 
 					<TabsContent value="details" className="space-y-4 mt-0">
 						{hasAdminPermissions ? (
@@ -459,6 +502,58 @@ export default function OrganisationSettingsPage() {
 								</Card>
 							</div>
 						)}
+
+						<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
+							<h4 className="mb-2 text-sm font-medium text-stone-900 dark:text-stone-100">
+								{messages.ORGANISATIONS}
+							</h4>
+							<Table>
+								<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+									<TableRow className="text-xs">
+										<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
+										<TableHead className="h-8">{messages.MEMBERS}</TableHead>
+										<TableHead className="h-8">{messages.STATUS}</TableHead>
+										<TableHead className="h-8 text-right">
+											{messages.ACTIONS}
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{organisations.map((org) => (
+										<TableRow key={org.id} className="text-sm">
+											<TableCell className="py-2 font-medium pl-2">
+												{org.name}
+											</TableCell>
+											<TableCell className="py-2 text-xs text-muted-foreground">
+												{org.memberCount} {messages.MEMBER}
+												{org.memberCount !== 1 ? "s" : ""}
+											</TableCell>
+											<TableCell className="py-2">
+												{org.isCurrent ? (
+													<Badge className="text-xs h-5 px-2">
+														{messages.ACTIVE}
+													</Badge>
+												) : (
+													<span className="text-xs text-muted-foreground">-</span>
+												)}
+											</TableCell>
+											<TableCell className="py-2 text-right">
+												{!org.isCurrent && (
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														onClick={() => changeActiveOrganisation(org.id)}
+													>
+														{messages.SWITCH_ORGANISATION}
+													</Button>
+												)}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 
 						{isCreator && (
 							<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
@@ -850,54 +945,6 @@ export default function OrganisationSettingsPage() {
 						</TabsContent>
 					)}
 
-					<TabsContent value="all" className="mt-0 p-0 pt-2">
-						<Table>
-							<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
-								<TableRow className="text-xs">
-									<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
-									<TableHead className="h-8">{messages.MEMBERS}</TableHead>
-									<TableHead className="h-8">{messages.STATUS}</TableHead>
-									<TableHead className="h-8 text-right">
-										{messages.ACTIONS}
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{organisations.map((org) => (
-									<TableRow key={org.id} className="text-sm">
-										<TableCell className="py-2 font-medium pl-2">
-											{org.name}
-										</TableCell>
-										<TableCell className="py-2 text-xs text-muted-foreground">
-											{org.memberCount} {messages.MEMBER}
-											{org.memberCount !== 1 ? "s" : ""}
-										</TableCell>
-										<TableCell className="py-2">
-											{org.isCurrent ? (
-												<Badge className="text-xs h-5 px-2">
-													{messages.ACTIVE}
-												</Badge>
-											) : (
-												<span className="text-xs text-muted-foreground">-</span>
-											)}
-										</TableCell>
-										<TableCell className="py-2 text-right">
-											{!org.isCurrent && (
-												<Button
-													variant="outline"
-													size="sm"
-													className="h-7 text-xs"
-													onClick={() => changeActiveOrganisation(org.id)}
-												>
-													{messages.SWITCH_ORGANISATION}
-												</Button>
-											)}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</TabsContent>
 				</Tabs>
 			)}
 
@@ -905,6 +952,7 @@ export default function OrganisationSettingsPage() {
 				open={createDialogOpen}
 				onOpenChange={setCreateDialogOpen}
 			/>
+			</div>
 		</div>
 	);
 }
