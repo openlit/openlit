@@ -48,15 +48,16 @@ type Engine struct {
 	logger   *zap.Logger
 	running  bool
 
-	scanner     *scanner.Scanner
-	customHosts []string // user-configured custom LLM host specs ("host[:port]")
-	obi         *OBIManager
-	exportCfg   ExportConfig
-	procRoot    string
-	deployMode  config.DeployMode
-	container   *ContainerEnricher
-	environment string
-	sdkVersion  string
+	scanner        *scanner.Scanner
+	customHosts    []string // user-configured custom LLM host specs ("host[:port]")
+	obi            *OBIManager
+	exportCfg      ExportConfig
+	procRoot       string
+	deployMode     config.DeployMode
+	container      *ContainerEnricher
+	environment    string
+	sdkVersion     string
+	nodeSDKVersion string
 
 	patterns map[string]instrumentPattern // serviceID -> pattern
 }
@@ -67,6 +68,10 @@ const (
 	CapabilityPythonSDKDockerV1       = "python_sdk_injection_docker_v1"
 	CapabilityPythonSDKLinuxSystemdV1 = "python_sdk_injection_linux_systemd_v1"
 	CapabilityPythonSDKLinuxBareV1    = "python_sdk_injection_linux_bare_v1"
+	CapabilityNodeJSSDKKubernetesV1   = "nodejs_sdk_injection_kubernetes_v1"
+	CapabilityNodeJSSDKDockerV1       = "nodejs_sdk_injection_docker_v1"
+	CapabilityNodeJSSDKLinuxSystemdV1 = "nodejs_sdk_injection_linux_systemd_v1"
+	CapabilityNodeJSSDKLinuxBareV1    = "nodejs_sdk_injection_linux_bare_v1"
 	CapabilityLifecycleKubernetesV1   = "lifecycle_kubernetes_v1"
 	CapabilityLifecycleDockerV1       = "lifecycle_docker_v1"
 	CapabilityLifecycleLinuxSystemdV1 = "lifecycle_linux_systemd_v1"
@@ -86,7 +91,7 @@ const (
 	K8sRolloutRestartAnnotation = "openlit.io/restartedAt"
 )
 
-func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment, sdkVersion string, mode config.DeployMode) *Engine {
+func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment, sdkVersion, nodeSDKVersion string, mode config.DeployMode) *Engine {
 	if procRoot == "" {
 		procRoot = "/proc"
 	}
@@ -99,6 +104,7 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 		zap.String("obi_binary", obiBinaryPath),
 		zap.String("otlp_endpoint", otlpEndpoint),
 		zap.String("sdk_version", sdkVersion),
+		zap.String("node_sdk_version", nodeSDKVersion),
 	)
 
 	return &Engine{
@@ -110,11 +116,12 @@ func New(logger *zap.Logger, obiBinaryPath, otlpEndpoint, procRoot, environment,
 			OTLPEndpoint: otlpEndpoint,
 			OTLPProtocol: "http/protobuf",
 		},
-		procRoot:    procRoot,
-		deployMode:  mode,
-		container:   container,
-		environment: environment,
-		sdkVersion:  sdkVersion,
+		procRoot:       procRoot,
+		deployMode:     mode,
+		container:      container,
+		environment:    environment,
+		sdkVersion:     sdkVersion,
+		nodeSDKVersion: nodeSDKVersion,
 	}
 }
 
@@ -144,6 +151,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 
 	go e.pruneStaleServices(ctx)
+	go e.discoverRuntimeServicesLoop(ctx)
 
 	e.logger.Info("engine started")
 	return nil
@@ -424,18 +432,22 @@ func (e *Engine) ControllerCapabilities() []string {
 	case config.DeployKubernetes:
 		if e.container != nil && e.container.k8sClient != nil {
 			capabilities = append(capabilities, CapabilityPythonSDKKubernetesV1)
+			capabilities = append(capabilities, CapabilityNodeJSSDKKubernetesV1)
 			capabilities = append(capabilities, CapabilityLifecycleKubernetesV1)
 		}
 	case config.DeployDocker:
 		if e.container != nil && e.container.dockerClient != nil && e.container.dockerClient.canManage() {
 			capabilities = append(capabilities, CapabilityPythonSDKDockerV1)
+			capabilities = append(capabilities, CapabilityNodeJSSDKDockerV1)
 			capabilities = append(capabilities, CapabilityLifecycleDockerV1)
 		}
 	default:
 		capabilities = append(capabilities, CapabilityPythonSDKLinuxBareV1)
+		capabilities = append(capabilities, CapabilityNodeJSSDKLinuxBareV1)
 		capabilities = append(capabilities, CapabilityLifecycleLinuxBareV1)
 		if linuxSystemdSDKSupported() {
 			capabilities = append(capabilities, CapabilityPythonSDKLinuxSystemdV1)
+			capabilities = append(capabilities, CapabilityNodeJSSDKLinuxSystemdV1)
 			capabilities = append(capabilities, CapabilityLifecycleLinuxSystemdV1)
 		}
 	}

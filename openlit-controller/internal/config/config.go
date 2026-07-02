@@ -18,17 +18,18 @@ const (
 )
 
 type Config struct {
-	OpenlitURL    string        `yaml:"openlit_url"`
-	APIKey        string        `yaml:"api_key"`
-	APIListen     string        `yaml:"api_listen"`
-	PollInterval  time.Duration `yaml:"poll_interval"`
-	OBIBinaryPath string        `yaml:"obi_binary_path"`
-	OTLPEndpoint  string        `yaml:"otlp_endpoint"`
-	ProcRoot      string        `yaml:"proc_root"`
-	Environment   string        `yaml:"environment"`
-	ClusterID     string        `yaml:"cluster_id"`
-	SDKVersion    string        `yaml:"sdk_version"`
-	DeployMode    DeployMode    `yaml:"-"`
+	OpenlitURL     string        `yaml:"openlit_url"`
+	APIKey         string        `yaml:"api_key"`
+	APIListen      string        `yaml:"api_listen"`
+	PollInterval   time.Duration `yaml:"poll_interval"`
+	OBIBinaryPath  string        `yaml:"obi_binary_path"`
+	OTLPEndpoint   string        `yaml:"otlp_endpoint"`
+	ProcRoot       string        `yaml:"proc_root"`
+	Environment    string        `yaml:"environment"`
+	ClusterID      string        `yaml:"cluster_id"`
+	SDKVersion     string        `yaml:"sdk_version"`
+	NodeSDKVersion string        `yaml:"node_sdk_version"`
+	DeployMode     DeployMode    `yaml:"-"`
 }
 
 func DetectDeployMode() DeployMode {
@@ -105,6 +106,13 @@ func Load(path string) (*Config, error) {
 
 	if v := os.Getenv("OPENLIT_SDK_VERSION"); v != "" {
 		cfg.SDKVersion = v
+	}
+	// Node injection installs from npm, which versions independently from the
+	// Python SDK on PyPI. Use a dedicated knob so pinning one runtime's SDK
+	// version never forces a non-existent version on the other (a pinned
+	// OPENLIT_SDK_VERSION would otherwise be passed to `npm install openlit@X`).
+	if v := os.Getenv("OPENLIT_NODE_SDK_VERSION"); v != "" {
+		cfg.NodeSDKVersion = v
 	}
 
 	cfg.OpenlitURL = strings.TrimRight(cfg.OpenlitURL, "/")
