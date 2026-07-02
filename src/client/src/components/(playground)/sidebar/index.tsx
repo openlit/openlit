@@ -225,7 +225,10 @@ export default function Sidebar() {
 			{openSection && (
 				<button
 					aria-label="Close navigation panel"
-					className="fixed inset-y-0 left-0 right-0 z-30 cursor-default bg-black/20 dark:bg-stone-900/40"
+					className={cn(
+						"fixed inset-y-0 right-0 z-30 cursor-default bg-black/20 dark:bg-stone-900/40",
+						isExpanded ? "left-64" : "left-16"
+					)}
 					onClick={() => setOpenSection(null)}
 				/>
 			)}

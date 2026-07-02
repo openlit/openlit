@@ -12,6 +12,7 @@ import { stripFilterParams } from "@/helpers/client/filter-persistence";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 export default function TelemetryPage() {
 	const searchParams = useSearchParams();
@@ -56,23 +57,12 @@ export default function TelemetryPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
-			<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
-				<div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-					<div className="min-w-0">
-						<div className="flex items-center gap-2">
-							<span className={`rounded-md border p-1.5 ${activeConfig.tone}`}>
-								<ActiveIcon className="h-4 w-4" />
-							</span>
-							<div>
-								<p className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
-									Telemetry
-								</p>
-								<h1 className="text-sm font-semibold leading-tight text-stone-950 dark:text-stone-50">
-									{activeConfig.label}
-								</h1>
-							</div>
-						</div>
-					</div>
+			<FeaturePageHeader
+				eyebrow={"Telemetry"}
+				title={activeConfig.label}
+				icon={<ActiveIcon className="h-4 w-4" />}
+				tone={`rounded-md border p-1.5 ${activeConfig.tone}`}
+				actions={(
 					<div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
 						{/* The Coding Sessions + Coding Users signal
 						    configs stay registered (the per-vendor
@@ -94,11 +84,10 @@ export default function TelemetryPage() {
 								<button
 									key={signal.key}
 									onClick={() => onTabChange(signal.key)}
-									className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition ${
-										isActive
+									className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition ${isActive
 											? signal.tone
 											: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
-									}`}
+										}`}
 								>
 									<Icon className="h-4 w-4" />
 									<span className="font-medium">{signal.label}</span>
@@ -106,8 +95,8 @@ export default function TelemetryPage() {
 							);
 						})}
 					</div>
-				</div>
-			</section>
+				)}
+			/>
 			<section className="min-h-0 flex-1 overflow-auto bg-white p-4 dark:bg-stone-950">
 				<ObservabilitySignalList key={activeConfig.key} config={activeConfig} />
 			</section>

@@ -111,7 +111,7 @@ export default function NewContextPage() {
 	}, [name, content, description, status, tags, metaProps]);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4 overflow-hidden">
+		<div className="flex flex-col w-full h-full overflow-hidden">
 			<ContextHeader createNew={false} extraButtons={(
 				<>
 					<Button variant="outline" size="sm" className="h-8" onClick={() => router.back()}>
@@ -129,7 +129,7 @@ export default function NewContextPage() {
 			)} />
 
 			{/* Body */}
-			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden">
+			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden p-4">
 				{/* Left: name + description + markdown editor */}
 				<Card className="col-span-2 flex flex-col overflow-hidden border border-stone-200 dark:border-stone-800">
 					<CardContent className="flex flex-col gap-4 p-4 flex-1 overflow-hidden">
