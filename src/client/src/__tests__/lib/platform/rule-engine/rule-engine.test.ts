@@ -111,7 +111,7 @@ describe('getRuleById', () => {
 
   it('returns error when ruleResult has err', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: null, err: 'DB err' });
-    const result = await getRuleById('r1');
+    const result = (await getRuleById('r1')) as any;
     expect(result.err).toBe('DB err');
   });
 
