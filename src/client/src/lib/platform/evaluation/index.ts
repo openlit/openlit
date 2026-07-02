@@ -26,10 +26,14 @@ import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
 import { getDBConfigById } from "@/lib/db-config";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
+import {
+	AUTO_EVALUATION_HANDLED_SOURCES,
+	EVALUATION_SOURCE,
+} from "@/constants/evaluation-sources";
+import { DEFAULT_EVAL_SAMPLE_RATE } from "@/constants/evaluation-sampling";
 import { jsonParse } from "@/utils/json";
 import {
 	normalizeEvalSampleRate,
-	resolveEvalSampleRate,
 	shouldAutoEvaluateSpan,
 } from "./sampling";
 import {
@@ -79,7 +83,7 @@ export async function getEvaluationSummaryForSpanId(spanId: string) {
 			sum(toFloat64OrZero(meta['cost'])) as totalCost,
 			argMax(meta['model'], created_at) as latestModel
 		FROM ${OPENLIT_EVALUATION_TABLE_NAME}
-		WHERE span_id = '${sanitizedSpanId}' AND meta['source'] != 'manual_feedback';
+		WHERE span_id = '${sanitizedSpanId}' AND meta['source'] NOT IN ('${EVALUATION_SOURCE.MANUAL_FEEDBACK}', '${EVALUATION_SOURCE.AUTO_SKIPPED}');
 	`;
 
 	const { data, err } = await dataCollector({ query });
@@ -126,10 +130,12 @@ export async function getEvaluationsForSpanId(spanId: string) {
 
 	const allRows = (data as any[]) || [];
 	const feedbackRows = allRows.filter(
-		(r: any) => r?.meta?.source === "manual_feedback"
+		(r: any) => r?.meta?.source === EVALUATION_SOURCE.MANUAL_FEEDBACK
 	);
 	const aiEvalRows = allRows.filter(
-		(r: any) => r?.meta?.source !== "manual_feedback"
+		(r: any) =>
+			r?.meta?.source !== EVALUATION_SOURCE.MANUAL_FEEDBACK &&
+			r?.meta?.source !== EVALUATION_SOURCE.AUTO_SKIPPED
 	);
 	const feedbacks: Array<{
 		createdAt: Date;
@@ -312,6 +318,23 @@ async function storeEvaluation(
 	}
 
 	return { data: true };
+}
+
+async function storeAutoEvaluationSkip(
+	trace: TraceRow,
+	sampleRate: number,
+	dbConfigId: string
+) {
+	return storeEvaluation(
+		trace.SpanId,
+		[],
+		{
+			source: EVALUATION_SOURCE.AUTO_SKIPPED,
+			traceTimeStamp: String(trace.Timestamp ?? ""),
+			sampleRate: String(sampleRate),
+		},
+		dbConfigId
+	);
 }
 
 export async function storeManualFeedback(
@@ -575,14 +598,17 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
 
-	// Only exclude traces that already have an auto evaluation (source='auto').
+	// Exclude spans already handled by auto evaluation (evaluated or sampling-skipped).
 	// Manual feedback does not block auto evaluation. Manual runs are always allowed.
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
 	const query = `
 		SELECT t.*
 		FROM ${OTEL_TRACES_TABLE_NAME} AS t
 		LEFT JOIN (
 			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
-			WHERE meta['source'] = 'auto'
+			WHERE meta['source'] IN (${autoHandledSources})
 		) AS e ON t.SpanId = e.span_id
 		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
 		(operation) => `'${operation}'`
@@ -624,16 +650,41 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 		string,
 		unknown
 	>;
-	const rawSampleRate = normalizeEvalSampleRate(configMeta.evalSampleRate);
-	if (Number.isNaN(rawSampleRate)) {
+	const normalizedSampleRate = normalizeEvalSampleRate(
+		configMeta.evalSampleRate
+	);
+	if (Number.isNaN(normalizedSampleRate)) {
 		consoleLog(
-			`Invalid evalSampleRate in evaluation config meta (${String(configMeta.evalSampleRate)}); defaulting to 1`
+			`Invalid evalSampleRate in evaluation config meta (${String(configMeta.evalSampleRate)}); defaulting to ${DEFAULT_EVAL_SAMPLE_RATE}`
 		);
 	}
-	const sampleRate = resolveEvalSampleRate(configMeta.evalSampleRate);
-	const sampledTraces = traces.filter((trace) =>
-		shouldAutoEvaluateSpan(trace.SpanId, sampleRate)
-	);
+	const sampleRate = Number.isNaN(normalizedSampleRate)
+		? DEFAULT_EVAL_SAMPLE_RATE
+		: normalizedSampleRate;
+
+	const sampledTraces: TraceRow[] = [];
+	const skippedTraces: TraceRow[] = [];
+	for (const trace of traces) {
+		if (shouldAutoEvaluateSpan(trace.SpanId, sampleRate)) {
+			sampledTraces.push(trace);
+		} else if (sampleRate < 1) {
+			skippedTraces.push(trace);
+		}
+	}
+
+	if (skippedTraces.length > 0) {
+		const skipResults = await Promise.all(
+			skippedTraces.map((trace) =>
+				storeAutoEvaluationSkip(trace, sampleRate, databaseConfig.id)
+			)
+		);
+		for (const skipResult of skipResults) {
+			if (skipResult.err) {
+				consoleLog(skipResult.err);
+			}
+		}
+	}
+
 	let errorCount = 0;
 
 	const results = await Promise.all(
@@ -673,6 +724,7 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 				sampleRate,
 				totalSpans: traces.length,
 				totalSampled: sampledTraces.length,
+				totalSkipped: skippedTraces.length,
 				totalEvaluated: results.length - errorCount,
 				totalFailed: errorCount,
 				spanIds: sampledTraces.map((t) => t.SpanId),

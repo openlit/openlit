@@ -427,12 +427,27 @@ describe('autoEvaluate', () => {
       .mockResolvedValueOnce([null, evalConfig])
       .mockResolvedValueOnce([null, { id: 'db-1' }]);
 
-    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [trace], err: null });
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [trace], err: null })
+      .mockResolvedValue({ data: true, err: null });
 
     const result = await autoEvaluate(autoEvalConfig as any);
 
     expect(result.success).toBe(true);
     expect(runEvaluation).not.toHaveBeenCalled();
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        table: 'openlit_evaluation',
+        values: [
+          expect.objectContaining({
+            span_id: 'span-1',
+            meta: expect.objectContaining({ source: 'auto_skipped' }),
+          }),
+        ],
+      }),
+      'insert',
+      'db-1'
+    );
     expect(insertCronLog).toHaveBeenCalledWith(
       expect.objectContaining({
         runStatus: CronRunStatus.SUCCESS,
@@ -440,6 +455,7 @@ describe('autoEvaluate', () => {
           sampleRate: 0,
           totalSpans: 1,
           totalSampled: 0,
+          totalSkipped: 1,
           totalEvaluated: 0,
           totalFailed: 0,
           spanIds: [],
@@ -513,6 +529,7 @@ describe('autoEvaluate', () => {
           sampleRate: 1,
           totalSpans: 1,
           totalSampled: 1,
+          totalSkipped: 0,
           totalEvaluated: 1,
           totalFailed: 0,
           spanIds: ['span-1'],
@@ -520,6 +537,18 @@ describe('autoEvaluate', () => {
       }),
       'db-1'
     );
+  });
+
+  it('excludes auto_skipped spans from the pending trace query', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: {} }])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+
+    await autoEvaluate(autoEvalConfig as any);
+
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("meta['source'] IN ('auto', 'auto_skipped')");
   });
 });
 

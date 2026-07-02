@@ -78,7 +78,7 @@ export const EVALUATION_CRON_HELP =
 	"मानक क्रॉन एक्सप्रेशन (उदाहरण: प्रति घंटे के लिए 0 * * * *)";
 export const EVALUATION_SAMPLE_RATE_LABEL = "सैंपल दर (%)";
 export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
-	"ऑटो-इवैल्यूएशन के लिए ट्रेस का प्रतिशत। LLM लागत कम करने के लिए प्रति ट्रेस निर्धारक सैंपलिंग का उपयोग करता है।";
+	"ऑटो-इवैल्यूएशन के लिए ट्रेस का प्रतिशत। LLM लागत कम करने के लिए प्रति ट्रेस निर्धारक सैंपलिंग का उपयोग करता है। चयनित नहीं ट्रेस को स्किप के रूप में चिह्नित किया जाता है और भविष्य के क्रॉन रन में दोबारा क्वेरी नहीं होती; मैनुअल इवैल्यूएशन हमेशा उपलब्ध है।";
 export const EVALUATION_SAMPLE_RATE_INVALID =
 	"सैंपल दर 0 और 1 के बीच एक संख्या होनी चाहिए।";
 export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =

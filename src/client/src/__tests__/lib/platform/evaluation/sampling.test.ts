@@ -3,7 +3,21 @@ import {
 	resolveEvalSampleRate,
 	shouldAutoEvaluateSpan,
 } from "@/lib/platform/evaluation/sampling";
-import { DEFAULT_EVAL_SAMPLE_RATE } from "@/constants/evaluation-sampling";
+import {
+	DEFAULT_EVAL_SAMPLE_RATE,
+	evalSampleRateToPercent,
+} from "@/constants/evaluation-sampling";
+
+describe("evalSampleRateToPercent", () => {
+	it("defaults to 100 when value is missing", () => {
+		expect(evalSampleRateToPercent(undefined)).toBe("100");
+	});
+
+	it("preserves fractional percentages without rounding drift", () => {
+		expect(evalSampleRateToPercent(0.333)).toBe("33.3");
+		expect(evalSampleRateToPercent(0.25)).toBe("25");
+	});
+});
 
 describe("normalizeEvalSampleRate", () => {
 	it("defaults to 1 when value is missing", () => {

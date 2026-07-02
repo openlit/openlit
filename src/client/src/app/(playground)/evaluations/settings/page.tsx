@@ -56,7 +56,7 @@ export default function EvaluationSettingsPage() {
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
 	const [sampleRatePercent, setSampleRatePercent] = useState(
-		String(evalSampleRateToPercent(undefined))
+		evalSampleRateToPercent(undefined)
 	);
 	const [vaultId, setVaultId] = useState("");
 	const [vaultKeys, setVaultKeys] = useState<{ label: string; value: string }[]>(
@@ -105,9 +105,7 @@ export default function EvaluationSettingsPage() {
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
 			const meta = JSON.parse(config.meta || "{}");
-			setSampleRatePercent(
-				String(evalSampleRateToPercent(meta.evalSampleRate))
-			);
+			setSampleRatePercent(evalSampleRateToPercent(meta.evalSampleRate));
 		}
 	}, [config]);
 
@@ -129,15 +127,17 @@ export default function EvaluationSettingsPage() {
 		}
 
 		const parsedSampleRate = Number.parseFloat(sampleRatePercent);
-		if (
-			!Number.isFinite(parsedSampleRate) ||
-			parsedSampleRate < 0 ||
-			parsedSampleRate > 100
-		) {
-			toast.error(getMessage().EVALUATION_SAMPLE_RATE_PERCENT_INVALID, {
-				id: EVALUATION_TOAST_ID,
-			});
-			return;
+		if (autoEvaluation) {
+			if (
+				!Number.isFinite(parsedSampleRate) ||
+				parsedSampleRate < 0 ||
+				parsedSampleRate > 100
+			) {
+				toast.error(getMessage().EVALUATION_SAMPLE_RATE_PERCENT_INVALID, {
+					id: EVALUATION_TOAST_ID,
+				});
+				return;
+			}
 		}
 
 		toast.loading(getMessage().EVALUATION_CONFIG_MODIFYING, {
@@ -146,7 +146,9 @@ export default function EvaluationSettingsPage() {
 
 		const meta = JSON.parse(config?.meta || "{}");
 		meta.engine = engine;
-		meta.evalSampleRate = parsedSampleRate / 100;
+		if (autoEvaluation) {
+			meta.evalSampleRate = parsedSampleRate / 100;
+		}
 
 		saveConfig({
 			body: JSON.stringify({

@@ -97,7 +97,7 @@ export const EVALUATION_CRON_HELP =
 	"Standard cron expression (e.g. 0 * * * * for hourly)";
 export const EVALUATION_SAMPLE_RATE_LABEL = "Sample rate (%)";
 export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
-	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost.";
+	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost. Traces not selected are marked as skipped and are not re-queried on future cron runs; manual evaluation is always available.";
 export const EVALUATION_SAMPLE_RATE_INVALID =
 	"Sample rate must be a number between 0 and 1.";
 export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =

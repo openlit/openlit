@@ -378,6 +378,37 @@ describe('setEvaluationConfig', () => {
       })
     );
   });
+
+  it('merges incoming meta with previous meta on update', async () => {
+    const previousConfig = {
+      ...makeMockEvalConfig(),
+      meta: JSON.stringify({ cronJobId: 'existing-cron', engine: 'old-engine' }),
+    };
+    const inputConfig = {
+      id: 'eval-cfg-1',
+      auto: true,
+      recurringTime: '0 * * * *',
+      meta: JSON.stringify({ engine: 'new-engine', evalSampleRate: 0.5 }),
+    };
+    const updatedRecord = { ...previousConfig, ...inputConfig };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, previousConfig])
+      .mockResolvedValueOnce([null, updatedRecord]);
+
+    await setEvaluationConfig(inputConfig as any, 'http://api.example.com');
+
+    expect(prisma.evaluationConfigs.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: expect.stringMatching(
+            /"engine":"new-engine".*"evalSampleRate":0\.5|"evalSampleRate":0\.5.*"engine":"new-engine"/
+          ),
+        }),
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
