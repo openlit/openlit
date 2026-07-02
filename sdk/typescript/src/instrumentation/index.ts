@@ -13,6 +13,7 @@ import GoogleAIInstrumentation from './google-ai';
 import VertexAIInstrumentation from './vertexai';
 import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
+import VllmInstrumentation from './vllm';
 import VercelAIInstrumentation from './vercel-ai';
 import LangChainInstrumentation from './langchain';
 import LangGraphInstrumentation from './langgraph';
@@ -90,6 +91,7 @@ export default class Instrumentations {
     vertexai: new VertexAIInstrumentation(),
     together: new TogetherInstrumentation(),
     ollama: new OllamaInstrumentation(),
+    vllm: new VllmInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),
     langchain: new LangChainInstrumentation(),
     langgraph: new LangGraphInstrumentation(),
