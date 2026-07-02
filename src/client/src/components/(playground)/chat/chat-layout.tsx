@@ -135,7 +135,7 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 	}, [addConversation, navigateTo, m, configInfo]);
 
 	return (
-		<Card className="flex h-full w-full overflow-hidden border border-stone-200 dark:border-stone-800">
+		<div className="flex h-full w-full overflow-hidden">
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
 				{initialView === "usage" ? (
 					<OtterUsageView />
@@ -151,6 +151,6 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 				)}
 			</div>
 			<TraceDetailRequestSheet />
-		</Card>
+		</div>
 	);
 }

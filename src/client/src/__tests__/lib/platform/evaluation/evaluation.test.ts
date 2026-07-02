@@ -84,6 +84,7 @@ import { getDBConfigById } from '@/lib/db-config';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
 import { runEvaluation } from '@/lib/platform/evaluation/run-evaluation';
+import { CronRunStatus } from '@/types/cron';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -409,6 +410,145 @@ describe('autoEvaluate', () => {
     const result = await autoEvaluate(autoEvalConfig as any);
     expect(result.success).toBe(true);
     expect(runEvaluation).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not run evaluation when sample rate is 0', async () => {
+    const evalConfig = {
+      id: 'eval-cfg-1',
+      databaseConfigId: 'db-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      meta: JSON.stringify({ evalSampleRate: 0 }),
+    };
+    const trace = { SpanId: 'span-1', Timestamp: '2024-01-01', SpanAttributes: {} };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, evalConfig])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [trace], err: null })
+      .mockResolvedValue({ data: true, err: null });
+
+    const result = await autoEvaluate(autoEvalConfig as any);
+
+    expect(result.success).toBe(true);
+    expect(runEvaluation).not.toHaveBeenCalled();
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        table: 'openlit_evaluation',
+        values: [
+          expect.objectContaining({
+            span_id: 'span-1',
+            meta: expect.objectContaining({ source: 'auto_skipped' }),
+          }),
+        ],
+      }),
+      'insert',
+      'db-1'
+    );
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runStatus: CronRunStatus.SUCCESS,
+        meta: expect.objectContaining({
+          sampleRate: 0,
+          totalSpans: 1,
+          totalSampled: 0,
+          totalSkipped: 1,
+          totalEvaluated: 0,
+          totalFailed: 0,
+          spanIds: [],
+        }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('falls back to default sample rate when stored value is invalid', async () => {
+    const evalConfig = {
+      id: 'eval-cfg-1',
+      databaseConfigId: 'db-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      meta: JSON.stringify({ evalSampleRate: 'invalid' }),
+    };
+    const trace = { SpanId: 'span-1', Timestamp: '2024-01-01', SpanAttributes: {} };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, evalConfig])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [trace], err: null })
+      .mockResolvedValue({ data: true, err: null });
+
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    await autoEvaluate(autoEvalConfig as any);
+
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          sampleRate: 1,
+          totalSampled: 1,
+        }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('records sampling metadata in cron log', async () => {
+    const evalConfig = {
+      id: 'eval-cfg-1',
+      databaseConfigId: 'db-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      meta: JSON.stringify({ evalSampleRate: 1 }),
+    };
+    const trace = { SpanId: 'span-1', Timestamp: '2024-01-01', SpanAttributes: {} };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, evalConfig])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [trace], err: null })
+      .mockResolvedValue({ data: true, err: null });
+
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    await autoEvaluate(autoEvalConfig as any);
+
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runStatus: CronRunStatus.SUCCESS,
+        meta: expect.objectContaining({
+          sampleRate: 1,
+          totalSpans: 1,
+          totalSampled: 1,
+          totalSkipped: 0,
+          totalEvaluated: 1,
+          totalFailed: 0,
+          spanIds: ['span-1'],
+        }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('excludes auto_skipped spans from the pending trace query', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: {} }])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+
+    await autoEvaluate(autoEvalConfig as any);
+
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("meta['source'] IN ('auto', 'auto_skipped')");
   });
 });
 

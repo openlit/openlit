@@ -20,7 +20,6 @@ import {
 	getDatabaseConfigListIsLoading,
 } from "@/selectors/database-config";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
-import { fetchProjectList } from "@/helpers/client/project";
 import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
@@ -28,8 +27,6 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
 import BoardList from "./board-list";
-import DescriptionTooltip from "@/components/common/description-tooltip";
-import { BookText } from "lucide-react";
 
 export default function DashboardPage() {
 	const router = useRouter();
@@ -56,12 +53,6 @@ export default function DashboardPage() {
 		isDatabaseConfigLoading ||
 		projects === undefined ||
 		(hasProject && databaseConfigs === undefined);
-
-	useEffect(() => {
-		if (currentOrg?.id) {
-			fetchProjectList(currentOrg.id);
-		}
-	}, [currentOrg?.id]);
 
 	useEffect(() => {
 		if (currentProject?.id) {
@@ -150,14 +141,7 @@ export default function DashboardPage() {
 
 	return (
 		<>
-			<div className="flex w-full items-center justify-between mb-4 gap-4">
-				{initialConfig?.description && (
-					<DescriptionTooltip
-						description={initialConfig.description}
-						className="ml-2 h-4 w-4"
-						icon={<BookText className="text-stone-500 cursor-pointer" />}
-					/>
-				)}
+			<div className="flex w-full items-center justify-between gap-4 px-4 pt-3 mb-4">
 				<Filter />
 				<BoardList dashboardId={dashboardId} />
 			</div>
@@ -168,7 +152,7 @@ export default function DashboardPage() {
 			) : null}
 			{initialConfig ? (
 				<Dashboard
-					className="h-100 overflow-y-auto"
+					className="h-100 overflow-y-auto px-4"
 					initialConfig={initialConfig}
 					readonly
 					runQuery={runQuery}

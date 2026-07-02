@@ -7,7 +7,7 @@ export default function SettingsLayout({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className={`flex h-full w-full grow overflow-hidden rounded-lg `}>
+		<div className="flex h-full w-full grow overflow-hidden">
 			{children}
 		</div>
 	);

@@ -18,7 +18,7 @@ describe("buildVersionWhereClause", () => {
 		const clause = buildVersionWhereClause({
 			versionHash: "v1",
 			firstSeen: "2026-01-01T12:34:56.789Z",
-			lastSeen: new Date("2026-01-02T01:02:03.000Z"),
+			lastSeen: new Date("2026-01-02T01:02:03.000Z") as any,
 			hasAttributeSpans: false,
 		});
 
