@@ -111,6 +111,7 @@ function sanitizePayloadExtraction(raw: unknown): PayloadExtractionConfig {
 		gemini: bool(p.gemini),
 		qwen: bool(p.qwen),
 		bedrock: bool(p.bedrock),
+		retrieval: bool(p.retrieval),
 		custom: bool(p.custom),
 		ollama: bool(p.ollama),
 	};

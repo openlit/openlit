@@ -71,7 +71,7 @@ describe('normalizeWidgetToServer', () => {
       properties: {},
       config: {},
     } as any;
-    const result = normalizeWidgetToServer(widget);
+    const result = normalizeWidgetToServer(widget) as any;
     expect(result.id).toBe('w1');
     expect(result.name).toBe('My Widget');
   });
@@ -105,7 +105,7 @@ describe('normalizeWidgetToClient', () => {
       properties: '{}',
       config: '{}',
     } as any;
-    const result = normalizeWidgetToClient(widget);
+    const result = normalizeWidgetToClient(widget) as any;
     expect(result.id).toBe('w2');
     expect(result.name).toBe('Test');
   });

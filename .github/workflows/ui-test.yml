@@ -38,6 +38,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Type check
+        run: npm run typecheck
+
       - name: Run Jest tests
         run: npm test -- --coverage --ci --coverageReporters=json-summary --coverageReporters=text
 

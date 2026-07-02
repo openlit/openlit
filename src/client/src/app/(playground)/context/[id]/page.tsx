@@ -34,6 +34,7 @@ import { usePageHeader } from "@/selectors/page";
 import RuleForm from "@/components/(playground)/rule-engine/form";
 import Link from "next/link";
 import getMessage from "@/constants/messages";
+import ContextHeader from "@/components/(playground)/context/header";
 
 function parseTags(raw: any): string[] {
 	if (Array.isArray(raw)) return raw.map(String);
@@ -110,7 +111,7 @@ export default function ContextDetailPage() {
 					loadContextIntoState(ctx);
 					setHeader({
 						title: ctx.name,
-						breadcrumbs: [{ title: m.CONTEXT_TITLE, href: "/context" }],
+						breadcrumbs: [],
 					});
 				}
 			},
@@ -224,12 +225,17 @@ export default function ContextDetailPage() {
 	const linkedRules = ((allRules as any[]) || []).filter((r: any) => linkedRuleIds.has(r.id));
 	const unlinkdRules = ((allRules as any[]) || []).filter((r: any) => !linkedRuleIds.has(r.id));
 
+	const contextHeaderTone = "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-300";
+
 	if (isLoading && !context) {
 		return (
-			<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
-				<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<ContextHeader title={m.LOADING} />
+				<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
+					<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+				</div>
 			</div>
 		);
 	}
@@ -241,7 +247,9 @@ export default function ContextDetailPage() {
 	const displayMeta = parseMeta(ctx.meta_properties);
 
 	return (
-		<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<ContextHeader title={ctx.name} />
+			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 			{/* Left: Context info + content */}
 			<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
 				<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800 flex-shrink-0">
@@ -652,5 +660,6 @@ export default function ContextDetailPage() {
 				</CardContent>
 			</Card>
 		</div>
+	</div>
 	);
 }

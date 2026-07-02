@@ -76,6 +76,13 @@ export const EVALUATION_CRON_SCHEDULE = "क्रॉन शेड्यूल";
 export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
 export const EVALUATION_CRON_HELP =
 	"मानक क्रॉन एक्सप्रेशन (उदाहरण: प्रति घंटे के लिए 0 * * * *)";
+export const EVALUATION_SAMPLE_RATE_LABEL = "सैंपल दर (%)";
+export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
+	"ऑटो-इवैल्यूएशन के लिए ट्रेस का प्रतिशत। LLM लागत कम करने के लिए प्रति ट्रेस निर्धारक सैंपलिंग का उपयोग करता है। चयनित नहीं ट्रेस को स्किप के रूप में चिह्नित किया जाता है और भविष्य के क्रॉन रन में दोबारा क्वेरी नहीं होती; मैनुअल इवैल्यूएशन हमेशा उपलब्ध है।";
+export const EVALUATION_SAMPLE_RATE_INVALID =
+	"सैंपल दर 0 और 1 के बीच एक संख्या होनी चाहिए।";
+export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
+	"सैंपल दर 0 और 100 के बीच एक संख्या होनी चाहिए।";
 export const EVALUATION_SAVING = "सहेज रहे हैं...";
 export const EVALUATION_SAVE_CHANGES = "बदलाव सहेजें";
 export const EVALUATION_CREATE_CONFIG = "कॉन्फ़िग बनाएं";
@@ -88,7 +95,7 @@ export const EVALUATION_MANUAL_STEP_2 =
 	"ट्रेस विवरण में इवैल्यूएशन टैब पर क्लिक करें";
 export const EVALUATION_MANUAL_STEP_3 =
 	'इवैल्यूएशन चलाने के लिए "Run Evaluation" पर क्लिक करें';
-export const EVALUATION_GO_TO_REQUESTS = "रिक्वेस्ट पर जाएं";
+export const EVALUATION_GO_TO_TRACES = "ट्रेस पर जाएं";
 export const EVALUATION_MANUAL_AND_AUTO = "मैनुअल & ऑटो";
 export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"मैनुअल और ऑटो इवैल्यूएशन रूल इंजन कॉन्टेक्स्ट का उपयोग करते हैं जब नियम ट्रेस से मेल खाते हैं। मैनुअल रन source=manual के साथ संग्रहीत होते हैं; ऑटो रन source=auto का उपयोग करते हैं।";

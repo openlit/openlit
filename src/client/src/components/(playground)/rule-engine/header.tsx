@@ -23,7 +23,8 @@ export default function RuleEngineHeader({
 				<RuleForm successCallback={successCallback}>
 					<Button
 						variant="secondary"
-						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-0.5"
+						size={"sm"}
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-8"
 					>
 						{messages.RULE_CREATE_BUTTON}
 					</Button>
@@ -32,5 +33,5 @@ export default function RuleEngineHeader({
 		</div>
 	);
 
-	return <FeaturePageHeader eyebrow="Resources" title={messages.RULE_ENGINE_BREADCRUMB} description="Define policy-driven logic that turns context and telemetry into repeatable AI workflow decisions." icon={<SlidersHorizontal className="h-4 w-4" />} tone="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-300" actions={actions} />;
+	return <FeaturePageHeader eyebrow="Resources" title={messages.RULE_ENGINE_BREADCRUMB} icon={<SlidersHorizontal className="h-4 w-4" />} tone="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-300" actions={actions} />;
 }

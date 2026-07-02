@@ -18,6 +18,24 @@ import { randomUUID } from "crypto";
 import path, { dirname } from "path";
 import { EVALUATION_TYPES } from "@/constants/evaluation-types";
 import { getEvaluationTypeDefaultPrompts } from "./evaluation-type-defaults";
+import { normalizeEvalSampleRate } from "./sampling";
+
+function sanitizeEvaluationMeta(meta: Record<string, any>): Record<string, any> {
+	if (!("evalSampleRate" in meta)) {
+		return meta;
+	}
+
+	const normalized = normalizeEvalSampleRate(meta.evalSampleRate);
+	throwIfError(
+		Number.isNaN(normalized),
+		getMessage().EVALUATION_SAMPLE_RATE_INVALID
+	);
+
+	return {
+		...meta,
+		evalSampleRate: normalized,
+	};
+}
 
 export interface EvaluationTypeWithPrompt {
 	id: string;
@@ -166,12 +184,22 @@ export async function setEvaluationConfig(
 		);
 
 		evaluationConfigId = previousConfig?.id;
-		const meta = jsonParse(previousConfig?.meta || "{}") as Record<string, any>;
-		cronJobId = meta?.cronJobId || randomUUID();
-		evaluationConfig.meta = jsonStringify({
-			...meta,
-			cronJobId,
-		});
+		const previousMeta = jsonParse(previousConfig?.meta || "{}") as Record<
+			string,
+			any
+		>;
+		const incomingMeta = jsonParse(evaluationConfig.meta || "{}") as Record<
+			string,
+			any
+		>;
+		cronJobId = previousMeta?.cronJobId || randomUUID();
+		evaluationConfig.meta = jsonStringify(
+			sanitizeEvaluationMeta({
+				...previousMeta,
+				...incomingMeta,
+				cronJobId,
+			})
+		);
 		evaluationConfig = merge(previousConfig, evaluationConfig);
 		[err, data] = await asaw(
 			prisma.evaluationConfigs.update({
@@ -184,10 +212,12 @@ export async function setEvaluationConfig(
 	} else {
 		cronJobId = randomUUID();
 		const meta = jsonParse(evaluationConfig.meta) as Record<string, any>;
-		evaluationConfig.meta = jsonStringify({
-			...meta,
-			cronJobId,
-		});
+		evaluationConfig.meta = jsonStringify(
+			sanitizeEvaluationMeta({
+				...meta,
+				cronJobId,
+			})
+		);
 		[err, data] = await asaw(
 			prisma.evaluationConfigs.create({
 				data: {

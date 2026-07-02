@@ -1,8 +1,8 @@
 diff --git a/pkg/ebpf/common/http_transform.go b/pkg/ebpf/common/http_transform.go
-index 7fe38be..3ee401e 100644
+index a3e1265..e590595 100644
 --- a/pkg/ebpf/common/http_transform.go
 +++ b/pkg/ebpf/common/http_transform.go
-@@ -222,6 +222,28 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
+@@ -232,6 +232,28 @@ func httpRequestResponseToSpan(parseCtx *EBPFParseContext, event *BPFHTTPInfo, r
  		}
  	}
  
@@ -32,16 +32,16 @@ index 7fe38be..3ee401e 100644
  	// detection, since MCP is a protocol layer on top of JSON-RPC.
  	if parseCtx != nil && (parseCtx.payloadExtraction.HTTP.GenAI.MCP.Enabled || parseCtx.payloadExtraction.HTTP.JSONRPC.Enabled) {
 diff --git a/pkg/export/otel/tracesgen/tracesgen.go b/pkg/export/otel/tracesgen/tracesgen.go
-index e5ceb57..fbb4ee7 100644
+index ae18472..faff0b1 100644
 --- a/pkg/export/otel/tracesgen/tracesgen.go
 +++ b/pkg/export/otel/tracesgen/tracesgen.go
-@@ -593,6 +593,75 @@ func TraceAttributesSelector(span *request.Span, optionalAttrs map[attr.Name]str
+@@ -1132,6 +1132,74 @@ func traceAttributesSelectorInternal(span *request.Span, optionalAttrs map[attr.
  			}
  		}
  
 +		// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Reuses
-+		// the OpenAI-shaped VendorOpenAI payload but emits no provider name, since
-+		// the backend vendor behind the gateway is unknown.
++		// the OpenAI-shaped VendorOpenAI payload and emits the generic "custom"
++		// provider name because the backend vendor behind the gateway is unknown.
 +		if span.SubType == request.HTTPSubtypeCustom && span.GenAI != nil && span.GenAI.Custom != nil {
 +			ai := span.GenAI.Custom
 +			// gen_ai.provider.name is intentionally a generic marker: the actual
@@ -66,7 +66,7 @@ index e5ceb57..fbb4ee7 100644
 +			attrs = append(attrs, semconv.GenAIUsageInputTokens(ai.Usage.GetInputTokens()))
 +			attrs = append(attrs, semconv.GenAIUsageOutputTokens(ai.Usage.GetOutputTokens()))
 +			// Messages are emitted in the GenAI semantic-conventions structure
-+			// (role + parts[]), normalized by the custom parser — NOT the raw
++			// (role + parts[]), normalized by the custom parser - NOT the raw
 +			// OpenAI shape returned by the VendorOpenAI getters.
 +			if _, ok := optionalAttrs[attr.GenAIInput]; ok && span.GenAI.CustomInputMessages != "" {
 +				attrs = append(attrs, semconv.GenAIInputMessagesKey.String(span.GenAI.CustomInputMessages))
@@ -84,7 +84,6 @@ index e5ceb57..fbb4ee7 100644
 +			}
 +			if ai.Error.Type != "" {
 +				attrs = append(attrs, semconv.ErrorTypeKey.String(ai.Error.Type))
-+				attrs = append(attrs, semconv.ErrorMessage(ai.Error.Message))
 +			}
 +			if ai.OperationName == request.EmbeddingOperationName && ai.Request.Dimensions > 0 {
 +				attrs = append(attrs, attribute.Int("gen_ai.request.embedding.dimensions", ai.Request.Dimensions))
@@ -108,6 +107,6 @@ index e5ceb57..fbb4ee7 100644
 +			}
 +		}
 +
- 		if span.SubType == request.HTTPSubtypeAnthropic && span.GenAI != nil && span.GenAI.Anthropic != nil {
- 			ai := span.GenAI.Anthropic
- 			attrs = append(attrs, semconv.GenAIProviderNameAnthropic)
+ 		attrs = append(attrs, jsonRPCAttributes(span)...)
+ 		attrs = append(attrs, httpEnrichmentAttributes(span)...)
+ 	case request.EventTypeGRPCClient:
