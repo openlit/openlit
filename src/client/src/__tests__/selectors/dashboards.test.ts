@@ -15,7 +15,7 @@ const mockStore = {
 describe('useDashboardPageSearch', () => {
   beforeEach(() => {
     mockStore.dashboards.page.search = '';
-    (useRootStore as jest.Mock).mockImplementation((selector) => selector(mockStore));
+    (useRootStore as unknown as jest.Mock).mockImplementation((selector) => selector(mockStore));
   });
 
   it('returns dashboards.page.search from store', () => {
@@ -30,7 +30,7 @@ describe('useDashboardPageSearch', () => {
 
 describe('useSetDashboardPageSearch', () => {
   beforeEach(() => {
-    (useRootStore as jest.Mock).mockImplementation((selector) => selector(mockStore));
+    (useRootStore as unknown as jest.Mock).mockImplementation((selector) => selector(mockStore));
   });
 
   it('returns dashboards.setPageSearch from store', () => {
