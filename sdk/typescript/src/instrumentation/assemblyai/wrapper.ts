@@ -55,6 +55,23 @@ class AssemblyAIWrapper extends BaseWrapper {
     return { options, requestModel, audioUrl };
   }
 
+  /**
+   * Prefer the model stamped on the Transcript response (e.g. transcripts.get
+   * polls only pass a transcript id). Fall back to request args, then "best".
+   */
+  static _resolveRequestModel(args: any[], response: any): string {
+    const { requestModel } = AssemblyAIWrapper._parseAudioArgs(args);
+    const responseModel =
+      response?.speech_model ??
+      response?.speechModel ??
+      response?.config?.speech_model ??
+      response?.config?.speechModel;
+    if (typeof responseModel === 'string' && responseModel.length > 0) {
+      return responseModel;
+    }
+    return requestModel;
+  }
+
   static _patchTranscribe(tracer: Tracer, methodName: string, sdkVersion?: string): any {
     const genAIEndpoint = `assemblyai.transcripts.${methodName}`;
     return (originalMethod: (...args: any[]) => any) => {
@@ -141,7 +158,8 @@ class AssemblyAIWrapper extends BaseWrapper {
   }): BaseSpanAttributes {
     const captureContent = OpenlitConfig.captureMessageContent;
 
-    const { requestModel, audioUrl } = AssemblyAIWrapper._parseAudioArgs(args);
+    const { audioUrl } = AssemblyAIWrapper._parseAudioArgs(args);
+    const requestModel = AssemblyAIWrapper._resolveRequestModel(args, response);
 
     // Coerce to a string only when a real value is present, so undefined/null
     // never becomes the literal string 'undefined'/'null'.
@@ -150,7 +168,13 @@ class AssemblyAIWrapper extends BaseWrapper {
 
     // Prefer values from the returned Transcript (matches the Python instrumentor,
     // which reads audio_url / audio_duration / id / text off the response).
-    const prompt = toStr(response?.audio_url ?? response?.audioUrl ?? audioUrl);
+    // Do not treat a bare transcript id (transcripts.get) as an audio URL for
+    // cost or message content — Python uses response.audio_url only.
+    const argsAudioPrompt =
+      typeof args[0] === 'object' && args[0] !== null ? audioUrl : '';
+    const prompt = toStr(
+      response?.audio_url ?? response?.audioUrl ?? argsAudioPrompt
+    );
     const audioDuration =
       response?.audio_duration ?? response?.audioDuration ?? 0;
     const responseId = toStr(response?.id);
@@ -178,7 +202,12 @@ class AssemblyAIWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
-    const cost = OpenLitHelper.getAudioModelCost(requestModel, pricingInfo, prompt);
+    const cost = OpenLitHelper.getAudioModelCost(
+      requestModel,
+      pricingInfo,
+      prompt,
+      audioDuration
+    );
 
     AssemblyAIWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
@@ -207,7 +236,9 @@ class AssemblyAIWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputMessagesJson);
     }
 
-    if (!OpenlitConfig.disableEvents) {
+    // Match Python assemblyai: inference events are emitted only when content
+    // capture is enabled (messages are part of the event payload).
+    if (!OpenlitConfig.disableEvents && captureContent) {
       const eventAttrs: Attributes = {
         [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
         [SemanticConvention.GEN_AI_REQUEST_MODEL]: requestModel,
@@ -219,9 +250,11 @@ class AssemblyAIWrapper extends BaseWrapper {
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: inputTokens,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: outputTokens,
       };
-      if (captureContent) {
-        if (inputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
-        if (outputMessagesJson) eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
+      if (inputMessagesJson) {
+        eventAttrs[SemanticConvention.GEN_AI_INPUT_MESSAGES] = inputMessagesJson;
+      }
+      if (outputMessagesJson) {
+        eventAttrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = outputMessagesJson;
       }
       OpenLitHelper.emitInferenceEvent(span, eventAttrs);
     }

@@ -227,7 +227,7 @@ describe('AssemblyAIWrapper', () => {
       );
     });
 
-    it('should emit inference event if disableEvents is false', () => {
+    it('should emit inference event when disableEvents is false and captureMessageContent is true', () => {
       (OpenlitConfig as any).pricingInfo = {};
       (OpenlitConfig as any).disableEvents = false;
       (OpenlitConfig as any).captureMessageContent = true;
@@ -251,6 +251,73 @@ describe('AssemblyAIWrapper', () => {
           [SemanticConvention.GEN_AI_RESPONSE_ID]: 'rid',
         })
       );
+    });
+
+    it('should not emit inference event when captureMessageContent is false', () => {
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = false;
+      (OpenlitConfig as any).captureMessageContent = false;
+      jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0.005);
+
+      const spyEmit = jest.spyOn(OpenLitHelper, 'emitInferenceEvent');
+
+      AssemblyAIWrapper._commonAudioSetter({
+        args: [{ audio: 'https://example.com/a.mp3', speechModel: 'nano' }],
+        genAIEndpoint: 'assemblyai.transcripts.transcribe',
+        response: { id: 'rid', text: 'hi', audio_url: '', audio_duration: 5 },
+        span,
+        isStream: false,
+      });
+
+      expect(spyEmit).not.toHaveBeenCalled();
+    });
+
+    it('should resolve the model from the transcript response for transcripts.get polls', () => {
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = false;
+      jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0.005);
+
+      const metricParams = AssemblyAIWrapper._commonAudioSetter({
+        args: ['transcript-id-123'],
+        genAIEndpoint: 'assemblyai.transcripts.get',
+        response: {
+          id: 'transcript-id-123',
+          text: 'done',
+          speech_model: 'nano',
+          audio_duration: 10,
+        },
+        span,
+        isStream: false,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_MODEL,
+        'nano'
+      );
+      expect(metricParams.model).toBe('nano');
+    });
+
+    it('should pass audio duration to getAudioModelCost when audio_url is absent', () => {
+      (OpenlitConfig as any).pricingInfo = { audio: { best: 0.001 } };
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = false;
+      const costSpy = jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0.01);
+
+      AssemblyAIWrapper._commonAudioSetter({
+        args: ['transcript-id-123'],
+        genAIEndpoint: 'assemblyai.transcripts.get',
+        response: {
+          id: 'transcript-id-123',
+          text: 'done',
+          speech_model: 'best',
+          audio_duration: 60,
+        },
+        span,
+        isStream: false,
+      });
+
+      expect(costSpy).toHaveBeenCalledWith('best', { audio: { best: 0.001 } }, '', 60);
     });
 
     it('should never emit the literal string "undefined"/"null" when fields are missing', () => {
