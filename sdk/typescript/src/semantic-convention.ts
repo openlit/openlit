@@ -504,6 +504,30 @@ export default class SemanticConvention {
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
 
+  // ----- PostgreSQL (pg) instrumentation -----
+  // Mirrors Python SDK psycopg instrumentation (sdk/python/src/openlit/instrumentation/psycopg).
+  static DB_SYSTEM_POSTGRESQL = 'postgresql';
+  // OTel database namespace (database name). Python psycopg uses "db.namespace";
+  // the existing TS DB_NAMESPACE = "db.query.namespace" is a vector-DB attribute,
+  // so a dedicated constant keeps parity with the Python attribute value.
+  static DB_NAMESPACE_POSTGRESQL = 'db.namespace';
+  // SQL operation names (statement verbs) — values mirror Python semcov.
+  static DB_OPERATION_COMMIT = 'COMMIT';
+  static DB_OPERATION_ROLLBACK = 'ROLLBACK';
+  static DB_OPERATION_COPY = 'COPY';
+  static DB_OPERATION_CREATE = 'CREATE';
+  static DB_OPERATION_ALTER = 'ALTER';
+  static DB_OPERATION_DROP = 'DROP';
+  static DB_OPERATION_TRUNCATE = 'TRUNCATE';
+  static DB_OPERATION_CALL = 'CALL';
+  // pgvector similarity metric (set when a similarity operator is present).
+  static DB_SEARCH_SIMILARITY_METRIC = 'db.search.similarity_metric';
+  // PostgreSQL-specific extras (mirror Python semcov).
+  static DB_POSTGRESQL_ROWS_AFFECTED = 'db.postgresql.rows_affected';
+  static DB_POSTGRESQL_PLAN = 'db.postgresql.plan';
+  // Batch size attribute used by executemany-style batched queries.
+  static DB_BATCH_SIZE = 'db.batch.size';
+
   // ----- Mem0 (memory layer) instrumentation -----
   // Session scope (mirrors Python semcov; stamped on memory spans when present)
   static GEN_AI_USER_ID = 'gen_ai.user.id';

@@ -36,6 +36,7 @@ import Mem0Instrumentation from './mem0';
 import ElevenLabsInstrumentation from './elevenlabs';
 import AssemblyAIInstrumentation from './assemblyai';
 import TransformersInstrumentation from './transformers';
+import PgInstrumentation from './pg';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -114,6 +115,7 @@ export default class Instrumentations {
     elevenlabs: new ElevenLabsInstrumentation(),
     assemblyai: new AssemblyAIInstrumentation(),
     transformers: new TransformersInstrumentation(),
+    pg: new PgInstrumentation(),
   };
 
   static setup(
