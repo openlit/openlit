@@ -186,6 +186,34 @@ export default class SemanticConvention {
   static GEN_AI_AGENT_ACTION_LOG = 'gen_ai.agent.action.log';
   static GEN_AI_AGENT_FINISH_OUTPUT = 'gen_ai.agent.finish.output';
   static GEN_AI_AGENT_FINISH_LOG = 'gen_ai.agent.finish.log';
+  static GEN_AI_OPERATION_TYPE = 'gen_ai.operation.type';
+  static GEN_AI_AGENT_TYPE = 'gen_ai.agent.type';
+  static GEN_AI_AGENT_TYPE_BROWSER = 'browser';
+  static GEN_AI_AGENT_BROWSE_URL = 'gen_ai.agent.browse_url';
+  static GEN_AI_AGENT_STEP_COUNT = 'gen_ai.agent.step_count';
+  static GEN_AI_AGENT_MAX_STEPS = 'gen_ai.agent.max_steps';
+  static GEN_AI_BROWSER_AGENT_TASK_ID = 'gen_ai.agent.task_id';
+  static GEN_AI_AGENT_SESSION_ID = 'gen_ai.agent.session_id';
+  static GEN_AI_AGENT_USE_VISION = 'gen_ai.agent.use_vision';
+  static GEN_AI_AGENT_HEADLESS = 'gen_ai.agent.headless';
+  static GEN_AI_AGENT_ALLOWED_DOMAINS = 'gen_ai.agent.allowed_domains';
+  static GEN_AI_AGENT_TOTAL_ACTIONS = 'gen_ai.agent.total_actions';
+  static GEN_AI_AGENT_SUCCESSFUL_STEPS = 'gen_ai.agent.successful_steps';
+  static GEN_AI_AGENT_FAILED_STEPS = 'gen_ai.agent.failed_steps';
+  static GEN_AI_AGENT_SUCCESS_RATE = 'gen_ai.agent.success_rate';
+  static GEN_AI_AGENT_FINAL_RESULT = 'gen_ai.agent.final_result';
+  static GEN_AI_AGENT_EXECUTION_TIME = 'gen_ai.agent.execution_time';
+  static GEN_AI_AGENT_THINKING = 'gen_ai.agent.thinking';
+  static GEN_AI_AGENT_MEMORY = 'gen_ai.agent.memory';
+  static GEN_AI_AGENT_NEXT_GOAL = 'gen_ai.agent.next_goal';
+  static GEN_AI_AGENT_EVALUATION = 'gen_ai.agent.evaluation';
+  static GEN_AI_AGENT_ACTIONS = 'gen_ai.agent.actions';
+  static GEN_AI_AGENT_ACTIONS_COUNT = 'gen_ai.agent.actions_count';
+  static GEN_AI_AGENT_PAGE_TITLE = 'gen_ai.agent.page_title';
+  static GEN_AI_ACTION_SUCCESS = 'gen_ai.action.success';
+  static GEN_AI_ACTION_ERROR = 'gen_ai.action.error';
+  static GEN_AI_ACTION_TYPE = 'gen_ai.action.type';
+  static GEN_AI_ACTION_INDEX = 'gen_ai.action.index';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
@@ -211,6 +239,7 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
   static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow';
   static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
+  static GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = 'execute_task';
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
@@ -252,6 +281,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_ASSEMBLYAI = 'assemblyai';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
+  static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
