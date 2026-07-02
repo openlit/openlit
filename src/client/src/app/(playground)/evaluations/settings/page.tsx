@@ -185,33 +185,40 @@ export default function EvaluationSettingsPage() {
 		});
 	};
 
+	const header = (
+		<FeaturePageHeader
+			eyebrow="Configuration"
+			title={getMessage().EVALUATION_ENGINE_TITLE}
+			icon={<Settings2 className="h-4 w-4" />}
+			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			actions={
+				<Button asChild variant="outline" size="sm" className="h-8">
+					<Link href="/evaluations/types">
+						<Layers className="mr-1.5 h-3.5 w-3.5" />
+						Evaluation Types
+					</Link>
+				</Button>
+			}
+		/>
+	);
+
 	if (isLoadingConfig && !config) {
 		return (
-			<div className="flex flex-1 h-full w-full p-6">
-				<div className="animate-pulse grid gap-4 w-full max-w-3xl">
-					<div className="h-40 bg-stone-100 dark:bg-stone-900 rounded-xl" />
+			<div className="flex flex-col h-full w-full overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full p-4">
+					<div className="animate-pulse grid gap-4 w-full max-w-3xl">
+						<div className="h-40 bg-stone-100 dark:bg-stone-900" />
+					</div>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
-			<FeaturePageHeader
-				eyebrow="Configuration"
-				title={getMessage().EVALUATION_ENGINE_TITLE}
-				description="Continuously grade AI outputs with automated and manual checks that turn quality signals into action."
-				icon={<Settings2 className="h-4 w-4" />}
-				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
-				actions={
-					<Button asChild variant="outline" size="sm" className="h-8">
-						<Link href="/evaluations/types">
-							<Layers className="mr-1.5 h-3.5 w-3.5" />
-							Evaluation Types
-						</Link>
-					</Button>
-				}
-			/>
+		<div className="flex flex-col h-full w-full overflow-hidden">
+			{header}
+			<div className="flex flex-col flex-1 w-full overflow-auto gap-4 p-4">
 			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
 				<CardContent className="pt-6">
 					<div className="flex gap-3">
@@ -431,13 +438,14 @@ export default function EvaluationSettingsPage() {
 								<li>{getMessage().EVALUATION_MANUAL_STEP_2}</li>
 								<li>{getMessage().EVALUATION_MANUAL_STEP_3}</li>
 							</ol>
-							<Link href="/requests">
-								<Button variant="default">{getMessage().EVALUATION_GO_TO_REQUESTS}</Button>
+							<Link href="/telemetry">
+								<Button variant="default">{getMessage().EVALUATION_GO_TO_TRACES}</Button>
 							</Link>
 						</CardContent>
 					</Card>
 				</div>
 			</div>
+		</div>
 		</div>
 	);
 }

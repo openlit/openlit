@@ -282,17 +282,18 @@ type obiHTTP struct {
 	GenAI obiGenAI `yaml:"genai"`
 }
 
-// obiGenAI mirrors OBI v0.9.0's genai payload-extraction config, plus our two
+// obiGenAI mirrors OBI v0.10.0's genai payload-extraction config, plus our two
 // added extractors (custom, ollama). OBI natively parses OpenAI, Anthropic,
-// Gemini, Qwen, and Bedrock; the many OpenAI-compatible SaaS providers
-// (Groq, Mistral, Together, ...) are all handled by the OpenAI parser, so we do
-// not carry a separate flag per vendor — discovery maps them to "openai".
+// Gemini, Qwen, Bedrock, and vector retrieval; the many OpenAI-compatible SaaS
+// providers (Groq, Mistral, Together, ...) are all handled by the OpenAI parser,
+// so we do not carry a separate flag per vendor - discovery maps them to "openai".
 type obiGenAI struct {
 	OpenAI    obiEnabled       `yaml:"openai"`
 	Anthropic obiEnabled       `yaml:"anthropic"`
 	Gemini    obiEnabled       `yaml:"gemini"`
 	Qwen      obiEnabled       `yaml:"qwen"`
 	Bedrock   obiEnabled       `yaml:"bedrock"`
+	Retrieval obiEnabled       `yaml:"retrieval"`
 	Custom    obiCustomEnabled `yaml:"custom"`
 	Ollama    obiEnabled       `yaml:"ollama"`
 }
@@ -407,6 +408,7 @@ func BuildInstrumentConfig(
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Gemini.Enabled = enabledProviders["gemini"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Qwen.Enabled = enabledProviders["qwen"]
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Bedrock.Enabled = enabledProviders["bedrock"]
+	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Retrieval.Enabled = enabledProviders["retrieval"]
 	// Self-hosted gateways discovered via custom_llm_hosts.
 	cfg.EBPF.PayloadExtraction.HTTP.GenAI.Custom.Enabled = enabledProviders["custom"]
 	if enabledProviders["custom"] {

@@ -11,6 +11,8 @@ import (
 const (
 	pythonSDKPackagesDirName  = "packages"
 	pythonSDKBootstrapDirName = "bootstrap"
+	nodeSDKDirName            = "node-sdk"
+	nodeSDKRegisterRelPath    = "node_modules/openlit/dist/register.js"
 )
 
 // sdkVersionPattern allows only PEP 440-ish version strings: letters, digits,
@@ -41,6 +43,24 @@ func pypiPackageSpec(version string) string {
 		return "openlit"
 	}
 	return "openlit==" + version
+}
+
+func npmPackageSpec(version string) string {
+	if version == "" || !isValidSDKVersion(version) {
+		return "openlit"
+	}
+	return "openlit@" + version
+}
+
+func buildNPMInstallShellCmd(targetRoot, version string) string {
+	pkg := npmPackageSpec(version)
+	nodeRoot := targetRoot + "/" + nodeSDKDirName
+	return fmt.Sprintf(
+		`set -e; mkdir -p %s && npm install --omit=dev --no-audit --no-fund --prefix %s %s && `+
+			`node -e "const p=require('%s/node_modules/openlit/package.json'); require('fs').writeFileSync('%s/.openlit-version', p.version || 'unknown')"`,
+		nodeRoot, nodeRoot, pkg,
+		nodeRoot, targetRoot,
+	)
 }
 
 func buildPyPIInstallShellCmd(targetRoot, version string) string {
@@ -91,5 +111,19 @@ func installPythonSDKFromPyPI(pythonBinaryPath, targetRoot, version string) erro
 		return fmt.Errorf("write sitecustomize.py to bootstrap dir: %w", err)
 	}
 
+	return nil
+}
+
+func installNodeSDKFromNPM(targetRoot, version string) error {
+	if err := os.MkdirAll(targetRoot, 0755); err != nil {
+		return fmt.Errorf("create node sdk target dir: %w", err)
+	}
+	pkg := npmPackageSpec(version)
+	cmd := exec.Command("npm", "install", "--omit=dev", "--no-audit", "--no-fund", "--prefix", targetRoot, pkg)
+	cmd.Env = os.Environ()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("npm install openlit: %w: %s", err, string(output))
+	}
 	return nil
 }

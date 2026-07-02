@@ -7,7 +7,7 @@ import (
 )
 
 func newNilEngine() *engine.Engine {
-	return engine.New(testLogger(), "/nonexistent/obi", "http://localhost:4318", "/proc", "test", "", config.DeployLinux)
+	return engine.New(testLogger(), "/nonexistent/obi", "http://localhost:4318", "/proc", "test", "", "", config.DeployLinux)
 }
 
 func testLogger() *zap.Logger {
