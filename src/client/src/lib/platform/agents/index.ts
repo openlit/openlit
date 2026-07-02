@@ -329,13 +329,6 @@ export async function listAgents(
 	return swr(cacheKey, POLICY_LIST, () => loadAgents(params));
 }
 
-// Staleness window (minutes) for source='sdk' / 'coding' rows on the agents list.
-// SDK-instrumented deployments without the controller have no ~10s heartbeat, so a
-// short *hardcoded* window silently dropped them from the dashboard while they were
-// still inside the user-selected time range (24H/7D/...). Make it configurable; the
-// default preserves the original 10-minute behavior for controller-based setups.
-const SDK_STALENESS_MINUTES = Number(process.env.AGENTS_SDK_STALENESS_MINUTES || 10);
-
 async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
 	const filters = params.filters || {};
@@ -346,7 +339,9 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	// an *optional* upper bound: relative time ranges (24H/7D/1M/3M) leave it
 	// off so we always include the most recent materialized rows, even if the
 	// browser captured `end` slightly before the materializer wrote the row.
-	// Custom ranges still send both bounds.
+	// Custom ranges still send both bounds. All sources (sdk, controller,
+	// coding, both) share the same `last_seen` window — no extra staleness
+	// guard. Phantom SDK rows are prevented at write time in the materializer.
 	//
 	// Stopped-workload exception: a workload the user has Stopped no longer
 	// emits heartbeats, so `s.last_seen` ages out fast. We special-case it
@@ -368,37 +363,6 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 			`s.last_seen <= parseDateTimeBestEffort('${escape(params.timeEnd)}')`
 		);
 	}
-
-	// Hide stale SDK-only rows. When a controller-managed container is recreated
-	// for SDK-injection, the original `service.name` (from compose service or
-	// container hostname) stops emitting and any phantom row materialized from
-	// pre-recreate traces lingers in `openlit_agents_summary` until TTL (90d).
-	// Filtering by `last_seen >= now() - 10 MINUTE` for source='sdk' rows lets
-	// such phantoms drop out of the UI within a few minutes without waiting for
-	// TTL. Controller-source rows are left untouched because they get refreshed
-	// every controller heartbeat (~10s).
-	where.push(
-		`(s.source != 'sdk' OR s.last_seen >= now() - INTERVAL ${SDK_STALENESS_MINUTES} MINUTE)`
-	);
-
-	// Same problem, different source: when a coding-agent vendor stops
-	// emitting (e.g. the user disables their Claude Code plugin), the
-	// materializer doesn't tombstone the row because
-	// `discoverCodingAgents` only returns vendors with current data —
-	// no INSERT means no new `last_materialized_at`, so the previous
-	// row (with its non-zero `coding_session_count_24h` /
-	// `coding_cost_usd_24h`) lingers until the 90d TTL. The hub then
-	// shows e.g. "Claude Code · 6 sessions · 1 user" with clickthrough
-	// landing on an empty detail page because otel_traces has no
-	// matching spans. Gating on `last_materialized_at` (not
-	// `last_seen` — last_seen is the timestamp of the last hosted span
-	// at the time of materialization, NOT when we last refreshed)
-	// hides coding rows whose materializer skipped them this round.
-	// 10 minutes matches the SDK guard and gives the cron-driven
-	// materializer plenty of headroom.
-	where.push(
-		`(s.source != 'coding' OR s.last_materialized_at >= now() - INTERVAL ${SDK_STALENESS_MINUTES} MINUTE)`
-	);
 
 	if (filters.source?.length) {
 		where.push(`s.source IN (${escapeList(filters.source)})`);
