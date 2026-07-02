@@ -40,7 +40,7 @@ describe('checkAuth', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    middleware = checkAuth(nextHandler);
+    middleware = checkAuth(nextHandler as any);
   });
 
   it('passes through _next static routes', async () => {

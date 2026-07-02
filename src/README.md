@@ -5,7 +5,7 @@ This guide covers the steps needed to set up the development environment for Ope
 | Mode | What starts | Use case |
 |------|-------------|----------|
 | **Default** | ClickHouse + OpenLIT UI | Working on the OpenLIT dashboard/UI |
-| **Full** (`--profile full`) | + Controller + sample apps (OpenAI, Anthropic, Gemini, CrewAI) | Testing the full end-to-end setup |
+| **Full** (`--profile full`) | + Controller + sample apps (OpenAI, Anthropic, Gemini, CrewAI, OpenAI Agents JS) | Testing the full end-to-end setup |
 
 ## Running the Development Environment
 
@@ -36,6 +36,7 @@ This guide covers the steps needed to set up the development environment for Ope
 | **anthropic-app** | Sample Anthropic chat app (from `examples/`) |
 | **gemini-app** | Sample Gemini chat app (from `examples/`) |
 | **crewai-app** | Sample CrewAI agent app (from `examples/`) |
+| **openai-agents-js-app** | Sample JavaScript/TypeScript OpenAI Agents SDK app with an in-process mock LLM (from `examples/`) |
 
 ## Stopping the environment
 

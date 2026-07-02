@@ -69,7 +69,7 @@ interface DiscoveredAgent {
 	last_seen: string;
 	instrumentation_status: string;
 	// Provider candidates the controller detected by scanning the process
-	// (Python imports for `openai`, `anthropic`, etc.). Lets the agents
+	// (SDK packages or provider connection events). Lets the agents
 	// table render provider logos for controller-discovered workloads
 	// before any GenAI trace has arrived. Empty for SDK-only rows.
 	controller_llm_providers: string[];
@@ -236,6 +236,7 @@ async function discoverAgents(
 				argMax(s.service_name, s.last_seen) AS service_name,
 				argMax(s.workload_key, s.last_seen) AS workload_key,
 				argMax(s.instrumentation_status, s.last_seen) AS instrumentation_status,
+				argMax(s.language_runtime, s.last_seen) AS language_runtime,
 				argMax(s.resource_attributes, s.last_seen) AS resource_attributes,
 				argMax(s.llm_providers, s.last_seen) AS llm_providers,
 				min(s.first_seen) AS first_seen,
@@ -269,6 +270,7 @@ async function discoverAgents(
 				argMax(s.service_name, s.last_seen) AS service_name,
 				argMax(s.workload_key, s.last_seen) AS workload_key,
 				argMax(s.instrumentation_status, s.last_seen) AS instrumentation_status,
+				argMax(s.language_runtime, s.last_seen) AS language_runtime,
 				argMax(s.resource_attributes, s.last_seen) AS resource_attributes,
 				argMax(s.llm_providers, s.last_seen) AS llm_providers,
 				min(s.first_seen) AS first_seen,
@@ -292,6 +294,7 @@ async function discoverAgents(
 			latest.service_name AS service_name,
 			latest.workload_key AS workload_key,
 			latest.instrumentation_status AS instrumentation_status,
+			latest.language_runtime AS language_runtime,
 			latest.resource_attributes AS resource_attributes,
 			latest.llm_providers AS llm_providers,
 			latest.first_seen AS first_seen,
@@ -311,6 +314,7 @@ async function discoverAgents(
 		service_name: string;
 		workload_key: string;
 		instrumentation_status: string;
+		language_runtime: string;
 		resource_attributes: Record<string, string> | string[][] | null;
 		llm_providers: string[] | null;
 		first_seen: string;
@@ -395,6 +399,7 @@ async function discoverAgents(
 			existing.controller_instance_id = row.controller_instance_id;
 			existing.instrumentation_status =
 				row.instrumentation_status || existing.instrumentation_status;
+			existing.sdk_language = row.language_runtime || existing.sdk_language;
 			existing.first_seen = earliest(existing.first_seen, row.first_seen);
 			existing.last_seen = latest(existing.last_seen, row.last_seen);
 			existing.controller_llm_providers = ctrlProviders;
@@ -409,7 +414,7 @@ async function discoverAgents(
 				controller_service_id: row.id,
 				controller_instance_id: row.controller_instance_id,
 				sdk_version: attrs["telemetry.sdk.version"] || "",
-				sdk_language: attrs["telemetry.sdk.language"] || "",
+				sdk_language: attrs["telemetry.sdk.language"] || row.language_runtime || "",
 				first_seen: row.first_seen,
 				last_seen: row.last_seen,
 				instrumentation_status: row.instrumentation_status || "discovered",

@@ -86,6 +86,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
   static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
+  static GEN_AI_REQUEST_AUDIO_DURATION = 'gen_ai.request.audio_duration';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
@@ -248,6 +249,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
+  static GEN_AI_SYSTEM_ASSEMBLYAI = 'assemblyai';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
 
@@ -502,6 +504,30 @@ export default class SemanticConvention {
   static DB_PAYLOAD_COUNT = 'db.payload_count';
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
+
+  // ----- PostgreSQL (pg) instrumentation -----
+  // Mirrors Python SDK psycopg instrumentation (sdk/python/src/openlit/instrumentation/psycopg).
+  static DB_SYSTEM_POSTGRESQL = 'postgresql';
+  // OTel database namespace (database name). Python psycopg uses "db.namespace";
+  // the existing TS DB_NAMESPACE = "db.query.namespace" is a vector-DB attribute,
+  // so a dedicated constant keeps parity with the Python attribute value.
+  static DB_NAMESPACE_POSTGRESQL = 'db.namespace';
+  // SQL operation names (statement verbs) — values mirror Python semcov.
+  static DB_OPERATION_COMMIT = 'COMMIT';
+  static DB_OPERATION_ROLLBACK = 'ROLLBACK';
+  static DB_OPERATION_COPY = 'COPY';
+  static DB_OPERATION_CREATE = 'CREATE';
+  static DB_OPERATION_ALTER = 'ALTER';
+  static DB_OPERATION_DROP = 'DROP';
+  static DB_OPERATION_TRUNCATE = 'TRUNCATE';
+  static DB_OPERATION_CALL = 'CALL';
+  // pgvector similarity metric (set when a similarity operator is present).
+  static DB_SEARCH_SIMILARITY_METRIC = 'db.search.similarity_metric';
+  // PostgreSQL-specific extras (mirror Python semcov).
+  static DB_POSTGRESQL_ROWS_AFFECTED = 'db.postgresql.rows_affected';
+  static DB_POSTGRESQL_PLAN = 'db.postgresql.plan';
+  // Batch size attribute used by executemany-style batched queries.
+  static DB_BATCH_SIZE = 'db.batch.size';
 
   // ----- Mem0 (memory layer) instrumentation -----
   // Session scope (mirrors Python semcov; stamped on memory spans when present)

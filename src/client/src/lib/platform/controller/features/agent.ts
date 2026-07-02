@@ -10,6 +10,7 @@ import {
 import { KNOWN_ACTIONS } from "@/types/controller";
 import type {
 	PythonSDKActionPayload,
+	PythonSDKActionRuntime,
 	FeatureDesiredState,
 	EnvironmentFeatureConfig,
 } from "@/types/controller";
@@ -23,27 +24,41 @@ import { registerFeature } from "./registry";
 const FEATURE = "agent";
 
 function capabilityForMode(
-	mode: string | undefined
+	mode: string | undefined,
+	runtime: string
 ): { value: string; prefix: boolean } {
+	const runtimePrefix = runtime === "nodejs" ? "nodejs_sdk_injection" : "python_sdk_injection";
 	switch (mode) {
 		case "kubernetes":
-			return { value: "python_sdk_injection_kubernetes_v1", prefix: false };
+			return { value: `${runtimePrefix}_kubernetes_v1`, prefix: false };
 		case "docker":
-			return { value: "python_sdk_injection_docker_v1", prefix: false };
+			return { value: `${runtimePrefix}_docker_v1`, prefix: false };
 		case "linux":
-			return { value: "python_sdk_injection_linux_", prefix: true };
+			return { value: `${runtimePrefix}_linux_`, prefix: true };
 		default:
 			return { value: "", prefix: false };
 	}
 }
 
-function preflightReasonForMode(mode: string, supportsPythonSDK: boolean) {
-	if (supportsPythonSDK) return "";
+function isSupportedAgentRuntime(runtime: string): runtime is PythonSDKActionRuntime {
+	return runtime === "python" || runtime === "nodejs";
+}
+
+function normalizeAgentRuntime(runtime?: string) {
+	return runtime === "node" ? "nodejs" : runtime || "python";
+}
+
+function runtimeLabel(runtime: string) {
+	return normalizeAgentRuntime(runtime) === "nodejs" ? "JavaScript/TypeScript" : "Python";
+}
+
+function preflightReasonForMode(mode: string, supportsSDK: boolean, runtime: string) {
+	if (supportsSDK) return "";
 	switch (mode) {
 		case "docker":
 			return "Docker Agent Observability requires a writable Docker socket and a Docker-capable controller.";
 		case "linux":
-			return "Linux Agent Observability requires a Python runtime on the target host.";
+			return `Linux Agent Observability requires a supported ${runtimeLabel(runtime)} runtime on the target host.`;
 		default:
 			return "Selected controller does not advertise Agent Observability support for this mode yet.";
 	}
@@ -54,17 +69,18 @@ async function resolveAgentContext(
 	dbConfigId?: string
 ): Promise<
 	| { error: Response }
-	| { service: any; supportsPythonSDK: boolean; mode: string }
+	| { service: any; supportsPythonSDK: boolean; mode: string; runtime: PythonSDKActionRuntime }
 > {
 	const serviceRes = await getServiceById(serviceId, dbConfigId);
 	if (!serviceRes.data || serviceRes.data.length === 0) {
 		return { error: Response.json({ error: "Service not found" }, { status: 404 }) };
 	}
 	const service = serviceRes.data[0];
-	if (service.language_runtime !== "python") {
+	const runtime = normalizeAgentRuntime(service.language_runtime);
+	if (!isSupportedAgentRuntime(runtime)) {
 		return {
 			error: Response.json(
-				{ error: "Agent observability is only available for Python services." },
+				{ error: "Agent observability is only available for Python and JavaScript/TypeScript services." },
 				{ status: 400 }
 			),
 		};
@@ -75,7 +91,7 @@ async function resolveAgentContext(
 		dbConfigId
 	);
 	const instance = instanceRes.data?.[0];
-	const expected = capabilityForMode(instance?.mode);
+	const expected = capabilityForMode(instance?.mode, runtime);
 	const capabilities =
 		instance?.resource_attributes?.["controller.capabilities"] || "";
 	const supportsPythonSDK = capabilities
@@ -87,7 +103,7 @@ async function resolveAgentContext(
 				: cap === expected.value
 		);
 
-	return { service, supportsPythonSDK, mode: instance?.mode || "linux" };
+	return { service, supportsPythonSDK, mode: instance?.mode || "linux", runtime };
 }
 
 export async function buildAgentStatusResponse(
@@ -97,6 +113,7 @@ export async function buildAgentStatusResponse(
 	dbConfigId?: string
 ) {
 	const attrs = service.resource_attributes || {};
+	const runtime = normalizeAgentRuntime(service.language_runtime);
 	const status = attrs["openlit.agent_observability.status"] || "disabled";
 	const source = attrs["openlit.agent_observability.source"] || "none";
 	// Desired status no longer lives on the service's resource_attributes
@@ -116,9 +133,9 @@ export async function buildAgentStatusResponse(
 	}
 	let reason =
 		attrs["openlit.observability.reason"] ||
-		(service.language_runtime === "python"
-			? "Python runtime detected but OpenLIT Python SDK not enabled"
-			: "Agent observability is only available for Python services");
+		(isSupportedAgentRuntime(runtime)
+			? `${runtimeLabel(runtime)} runtime detected but OpenLIT SDK not enabled`
+			: "Agent observability is only available for Python and JavaScript/TypeScript services");
 	const conflict = attrs["openlit.observability.conflict"] || "";
 	let automatable = supportsPythonSDK;
 	const isContainerized = attrs["openlit.is_containerized"] === "true";
@@ -137,7 +154,7 @@ export async function buildAgentStatusResponse(
 			"Existing OpenLIT instrumentation was detected, but it is not controller-managed and will not be removed automatically.";
 	}
 	if (!automatable && !attrs["openlit.observability.reason"]) {
-		reason = preflightReasonForMode(mode, supportsPythonSDK) || reason;
+		reason = preflightReasonForMode(mode, supportsPythonSDK, runtime) || reason;
 	}
 
 	const transitioning = desiredStatus !== "" && desiredStatus !== status;
@@ -148,7 +165,7 @@ export async function buildAgentStatusResponse(
 
 	return {
 		enabled: status === "enabled" || status === "manual",
-		supported: service.language_runtime === "python",
+		supported: isSupportedAgentRuntime(runtime),
 		automatable,
 		mode,
 		status,
@@ -267,7 +284,7 @@ const agentHandler: FeatureHandler = {
 			}
 
 			const actionPayload: PythonSDKActionPayload = {
-				target_runtime: "python",
+				target_runtime: ctx.runtime,
 				instrumentation_profile: "controller_managed",
 				duplicate_policy: "block_if_existing_otel_detected",
 				observability_scope: "agent",
@@ -306,8 +323,8 @@ const agentHandler: FeatureHandler = {
 			return Response.json({
 				status: "queued",
 				message: enabling
-					? "Controller-managed Python SDK rollout queued. Workload-level changes will be applied on the next controller poll."
-					: "Controller-managed Python SDK removal queued.",
+					? "Controller-managed OpenLIT SDK rollout queued. Workload-level changes will be applied on the next controller poll."
+					: "Controller-managed OpenLIT SDK removal queued.",
 				service: ctx.service.service_name,
 				namespace: ctx.service.namespace || "default",
 				controllers: targets.length,
@@ -327,7 +344,6 @@ const agentHandler: FeatureHandler = {
 	): ReconcileAction[] {
 		const actions: ReconcileAction[] = [];
 		const defaultPayload = JSON.stringify({
-			target_runtime: "python",
 			instrumentation_profile: "controller_managed",
 			duplicate_policy: "block_if_existing_otel_detected",
 			observability_scope: "agent",
@@ -336,6 +352,8 @@ const agentHandler: FeatureHandler = {
 		for (const svc of reportedServices) {
 			const desired = desiredStates.get(svc.workload_key);
 			if (!desired) continue;
+			const runtime = normalizeAgentRuntime(svc.language_runtime);
+			if (!isSupportedAgentRuntime(runtime)) continue;
 
 			const agentStatus =
 				svc.resource_attributes?.[
@@ -349,7 +367,10 @@ const agentHandler: FeatureHandler = {
 				actions.push({
 					actionType: KNOWN_ACTIONS.ENABLE_AGENT,
 					serviceKey: svc.workload_key,
-					payload: desired.config !== "{}" ? desired.config : defaultPayload,
+					payload: desired.config !== "{}" ? desired.config : JSON.stringify({
+						...JSON.parse(defaultPayload),
+						target_runtime: runtime,
+					}),
 				});
 			}
 			if (
@@ -359,7 +380,10 @@ const agentHandler: FeatureHandler = {
 				actions.push({
 					actionType: KNOWN_ACTIONS.DISABLE_AGENT,
 					serviceKey: svc.workload_key,
-					payload: defaultPayload,
+					payload: JSON.stringify({
+						...JSON.parse(defaultPayload),
+						target_runtime: runtime,
+					}),
 				});
 			}
 		}

@@ -8,7 +8,7 @@ const span = (
 	SpanId: string,
 	Timestamp: string,
 	Duration: number,
-	children = []
+	children: any[] = []
 ) => ({
 	SpanId,
 	SpanName: SpanId,

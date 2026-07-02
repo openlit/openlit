@@ -123,7 +123,7 @@ describe("getChatTools", () => {
 	});
 
 	it("builds the expected tool set", () => {
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		expect(Object.keys(tools)).toEqual(
 			expect.arrayContaining([
@@ -150,7 +150,7 @@ describe("getChatTools", () => {
 
 	it("creates a rule and adds condition groups when provided", async () => {
 		(createRule as jest.Mock).mockResolvedValue({ id: "rule-1" });
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.create_rule.execute({
@@ -174,7 +174,7 @@ describe("getChatTools", () => {
 	it("returns rule operation errors without throwing", async () => {
 		(deleteRule as jest.Mock).mockResolvedValue(["delete failed"]);
 		(getRules as jest.Mock).mockResolvedValue({ err: "list failed" });
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(tools.delete_rule.execute({ id: "rule-1" })).resolves.toEqual({
 			success: false,
@@ -188,7 +188,7 @@ describe("getChatTools", () => {
 
 	it("normalizes vault keys before storing secrets", async () => {
 		(upsertSecret as jest.Mock).mockResolvedValue(undefined);
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.create_vault_secret.execute({
@@ -216,7 +216,7 @@ describe("getChatTools", () => {
 		(getCustomModels as jest.Mock).mockResolvedValue({
 			data: [{ id: "model-1", model_id: "custom-model", provider: "openai" }],
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.create_custom_model.execute({
@@ -262,7 +262,7 @@ describe("getChatTools", () => {
 			data: [{ id: "entity-1" }],
 			err: null,
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.update_rule.execute({ id: "rule-1", name: "Updated" })
@@ -309,7 +309,7 @@ describe("getChatTools", () => {
 			data: [{ id: "ctx-1", name: "Policy", status: "ACTIVE" }],
 			err: null,
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.create_context.execute({
@@ -374,7 +374,7 @@ describe("getChatTools", () => {
 			data: [{ id: "prompt-1", name: "Prompt", totalVersions: 2 }],
 			err: null,
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.create_prompt.execute({ name: "Prompt", prompt: "Hello {{name}}" })
@@ -433,7 +433,7 @@ describe("getChatTools", () => {
 	});
 
 	it("returns get_prompt validation and lookup errors without mutating prompts", async () => {
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(tools.get_prompt.execute({})).resolves.toEqual({
 			success: false,
@@ -482,7 +482,7 @@ describe("getChatTools", () => {
 			data: [{ id: "secret-1", key: "API_KEY", tags: ["llm"] }],
 			err: null,
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.update_vault_secret.execute({
@@ -518,7 +518,7 @@ describe("getChatTools", () => {
 	it("executes custom model update and delete tools", async () => {
 		(updateCustomModel as jest.Mock).mockResolvedValue({ err: null });
 		(deleteCustomModel as jest.Mock).mockResolvedValue({ err: null });
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(
 			tools.update_custom_model.execute({
@@ -550,7 +550,7 @@ describe("getChatTools", () => {
 		(createPrompt as jest.Mock).mockRejectedValue(new Error("prompt failed"));
 		(upsertSecret as jest.Mock).mockRejectedValue(new Error("secret failed"));
 		(createCustomModel as jest.Mock).mockRejectedValue(new Error("model failed"));
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		await expect(tools.update_rule.execute({ id: "rule-1" })).resolves.toEqual({
 			success: false,
@@ -607,7 +607,7 @@ describe("getChatTools", () => {
 				],
 			},
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		const result = await tools.analyze_trace.execute({
 			span_id: "span-root",
@@ -670,7 +670,7 @@ describe("getChatTools", () => {
 				})}\n`
 			),
 		});
-		const tools = getChatTools("user-1", "db-1");
+		const tools = getChatTools("user-1", "db-1") as any;
 
 		const result = await tools.analyze_traces_by_attribute.execute({
 			attribute_key: "session.id",

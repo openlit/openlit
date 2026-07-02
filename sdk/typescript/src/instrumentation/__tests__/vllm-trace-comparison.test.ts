@@ -5,7 +5,6 @@ import OpenLitHelper from '../../helpers';
 import BaseWrapper from '../base-wrapper';
 import SemanticConvention from '../../semantic-convention';
 
-
 jest.mock('../../../src/config');
 jest.mock('../../../src/helpers');
 jest.mock('../../../src/instrumentation/base-wrapper');
@@ -20,10 +19,71 @@ describe('VllmWrapper', () => {
     span.setAttribute = jest.fn();
     span.addEvent = jest.fn();
     jest.clearAllMocks();
+    jest.restoreAllMocks();
+    VllmWrapper.baseUrlPrefixes = [...VllmWrapper.defaultBaseUrlPrefixes];
   });
 
   afterEach(() => {
     span.end();
+  });
+
+  describe('isVllmClient / extractServerInfo', () => {
+    it('returns false for default OpenAI client (api.openai.com)', () => {
+      expect(VllmWrapper.isVllmClient({ baseURL: 'https://api.openai.com/v1' })).toBe(false);
+    });
+
+    it('returns true for localhost:8000 vLLM endpoint', () => {
+      expect(VllmWrapper.isVllmClient({ baseURL: 'http://127.0.0.1:8000/v1' })).toBe(true);
+    });
+
+    it('returns true for custom baseUrlPrefixes', () => {
+      VllmWrapper.baseUrlPrefixes.push('http://gpu-cluster:8080/v1');
+      expect(VllmWrapper.isVllmClient({ baseURL: 'http://gpu-cluster:8080/v1' })).toBe(true);
+    });
+
+    it('extracts server address and port from client baseURL', () => {
+      const info = VllmWrapper.extractServerInfo({ baseURL: 'http://my-vllm:9000/v1' });
+      expect(info).toEqual({ address: 'my-vllm', port: 9000 });
+    });
+  });
+
+  describe('_patchChat routing', () => {
+    it('delegates non-vLLM clients to the OpenAI handler', async () => {
+      const openaiHandler = jest.fn().mockResolvedValue({ id: 'openai-resp' });
+      const rawCreate = jest.fn();
+      const patchFn = VllmWrapper._patchChat(mockTracer, openaiHandler, rawCreate);
+      const wrapped = patchFn(jest.fn());
+
+      const client = { baseURL: 'https://api.openai.com/v1' };
+      const result = await wrapped.call(client, { model: 'gpt-4o', messages: [] });
+
+      expect(openaiHandler).toHaveBeenCalled();
+      expect(rawCreate).not.toHaveBeenCalled();
+      expect(result).toEqual({ id: 'openai-resp' });
+    });
+
+    it('creates a vLLM span for vLLM clients', async () => {
+      const openaiHandler = jest.fn();
+      const rawCreate = jest.fn().mockResolvedValue({
+        id: 'vllm-resp',
+        model: 'facebook/opt-125m',
+        choices: [{ message: { content: 'hi', role: 'assistant' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      });
+      const patchFn = VllmWrapper._patchChat(mockTracer, openaiHandler, rawCreate);
+      const wrapped = patchFn(jest.fn());
+
+      jest.spyOn(mockTracer, 'startSpan').mockReturnValue(span);
+      jest.spyOn(VllmWrapper, '_chat').mockResolvedValue({ id: 'vllm-resp' });
+
+      const client = { baseURL: 'http://127.0.0.1:8000/v1' };
+      await wrapped.call(client, { model: 'facebook/opt-125m', messages: [{ role: 'user', content: 'hi' }] });
+
+      expect(openaiHandler).not.toHaveBeenCalled();
+      expect(rawCreate).toHaveBeenCalled();
+      expect(mockTracer.startSpan).toHaveBeenCalled();
+      expect(VllmWrapper._chat).toHaveBeenCalled();
+    });
   });
 
   describe('_chat', () => {
@@ -64,6 +124,8 @@ describe('VllmWrapper', () => {
         genAIEndpoint: mockGenAIEndpoint,
         response: mockResponse,
         span,
+        serverAddress: '127.0.0.1',
+        serverPort: 8000,
       });
 
       expect(BaseWrapper.recordMetrics).toHaveBeenCalledWith(span, {
@@ -77,6 +139,67 @@ describe('VllmWrapper', () => {
     });
   });
 
+  describe('_chatGenerator streaming', () => {
+    async function* mockStream() {
+      yield {
+        id: 'chatcmpl-stream',
+        model: 'facebook/opt-125m',
+        choices: [{
+          delta: { role: 'assistant', content: 'Hello' },
+          finish_reason: null,
+        }],
+      };
+      yield {
+        id: 'chatcmpl-stream',
+        model: 'facebook/opt-125m',
+        choices: [{
+          delta: {
+            tool_calls: [{ index: 0, id: 'call_1', function: { name: 'get_weather', arguments: '{"loc' } }],
+          },
+          finish_reason: null,
+        }],
+      };
+      yield {
+        id: 'chatcmpl-stream',
+        model: 'facebook/opt-125m',
+        choices: [{
+          delta: {
+            tool_calls: [{ index: 0, function: { arguments: '":"SF"}' } }],
+          },
+          finish_reason: 'tool_calls',
+        }],
+        usage: { prompt_tokens: 5, completion_tokens: 10 },
+      };
+    }
+
+    it('aggregates streaming tool_calls across chunks', async () => {
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+
+      const generator = VllmWrapper._chatGenerator({
+        args: [{ model: 'facebook/opt-125m', messages: [{ role: 'user', content: 'weather?' }], stream: true }],
+        genAIEndpoint: 'vllm.chat',
+        response: mockStream(),
+        span,
+        serverAddress: '127.0.0.1',
+        serverPort: 8000,
+      });
+
+      // drain generator
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of generator) { /* consume */ }
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_TOOL_NAME, 'get_weather');
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_TOOL_CALL_ID, 'call_1');
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_ARGS,
+        '{"loc":"SF"}'
+      );
+    });
+  });
+
   describe('_chatCommonSetter', () => {
     it('should set span attributes and return metric parameters', async () => {
       const mockArgs = [
@@ -86,6 +209,7 @@ describe('VllmWrapper', () => {
           max_tokens: 100,
           temperature: 0.7,
           top_p: 1,
+          top_k: 40,
           presence_penalty: 2,
           frequency_penalty: 3,
           seed: 3,
@@ -120,6 +244,7 @@ describe('VllmWrapper', () => {
       });
 
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_P, 1);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_K, 40);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 100);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 0.7);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 2);
@@ -130,6 +255,7 @@ describe('VllmWrapper', () => {
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_MODEL, 'facebook/opt-125m');
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 10);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 20);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, 30);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ['stop']);
 
       expect(metricParams).toEqual({
@@ -140,6 +266,40 @@ describe('VllmWrapper', () => {
         serverAddress: '127.0.0.1',
         serverPort: 8000,
       });
+    });
+
+    it('should record zero penalty values', async () => {
+      const mockArgs = [
+        {
+          model: 'facebook/opt-125m',
+          messages: [{ role: 'user', content: 'test' }],
+          presence_penalty: 0,
+          frequency_penalty: 0,
+          stream: false,
+        },
+      ];
+
+      const mockResult = {
+        id: 'chatcmpl-zero',
+        model: 'facebook/opt-125m',
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+        choices: [{ message: { content: 'ok', role: 'assistant' }, finish_reason: 'stop' }],
+      };
+
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+
+      await VllmWrapper._chatCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'vllm.chat',
+        result: mockResult,
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 0);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 0);
     });
 
     it('should NOT set sentinel values for optional request params', async () => {
@@ -185,6 +345,43 @@ describe('VllmWrapper', () => {
       expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY);
       expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES);
       expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT);
+    });
+
+    it('should set gen_ai.input.messages on span when capture enabled', async () => {
+      const mockArgs = [
+        {
+          model: 'facebook/opt-125m',
+          messages: [{ role: 'user', content: 'hello' }],
+          stream: false,
+        },
+      ];
+
+      const mockResult = {
+        id: 'chatcmpl-input',
+        model: 'facebook/opt-125m',
+        usage: { prompt_tokens: 2, completion_tokens: 3 },
+        choices: [{ message: { content: 'hi', role: 'assistant' }, finish_reason: 'stop' }],
+      };
+
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+      jest.spyOn(OpenLitHelper, 'buildInputMessages').mockReturnValue('[{"role":"user","content":"hello"}]');
+      jest.spyOn(OpenLitHelper, 'buildOutputMessages').mockReturnValue('[]');
+
+      await VllmWrapper._chatCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'vllm.chat',
+        result: mockResult,
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_INPUT_MESSAGES,
+        '[{"role":"user","content":"hello"}]'
+      );
     });
 
     it('should handle tool calls properly', async () => {
@@ -267,6 +464,8 @@ describe('VllmWrapper', () => {
         genAIEndpoint: 'vllm.chat',
         result: mockResult,
         span,
+        serverAddress: 'my-vllm',
+        serverPort: 9000,
       });
 
       expect(OpenLitHelper.emitInferenceEvent).toHaveBeenCalledWith(
@@ -275,13 +474,35 @@ describe('VllmWrapper', () => {
           [SemanticConvention.GEN_AI_OPERATION]: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
           [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'facebook/opt-125m',
           [SemanticConvention.GEN_AI_RESPONSE_MODEL]: 'facebook/opt-125m',
-          [SemanticConvention.SERVER_ADDRESS]: '127.0.0.1',
-          [SemanticConvention.SERVER_PORT]: 8000,
+          [SemanticConvention.SERVER_ADDRESS]: 'my-vllm',
+          [SemanticConvention.SERVER_PORT]: 9000,
           [SemanticConvention.GEN_AI_RESPONSE_ID]: 'chatcmpl-789',
           [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: 10,
           [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: 20,
         })
       );
+    });
+
+    it('falls back to token estimation when usage is missing', async () => {
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0);
+      jest.spyOn(OpenLitHelper, 'openaiTokens').mockReturnValue(7);
+
+      await VllmWrapper._chatCommonSetter({
+        args: [{ model: 'facebook/opt-125m', messages: [{ role: 'user', content: 'hi' }] }],
+        genAIEndpoint: 'vllm.chat',
+        result: {
+          id: 'no-usage',
+          model: 'facebook/opt-125m',
+          choices: [{ message: { content: 'hello', role: 'assistant' }, finish_reason: 'stop' }],
+        },
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 7);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 7);
     });
   });
 
@@ -336,6 +557,8 @@ describe('VllmWrapper', () => {
         genAIEndpoint: 'vllm.chat',
         response: mockResponse,
         span,
+        serverAddress: '127.0.0.1',
+        serverPort: 8000,
       });
 
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 8);
@@ -344,12 +567,33 @@ describe('VllmWrapper', () => {
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ['stop']);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 0.7);
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 50);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_INPUT_MESSAGES, '[]');
 
-      // Must NOT set total tokens (not in OpenAI-compatible vLLM response)
       const setAttrCalls = (span.setAttribute as jest.Mock).mock.calls;
       const attrKeys = setAttrCalls.map((c: any[]) => c[0]);
       expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS);
-      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE);
     });
+  });
+});
+
+describe('OpenlitVllmInstrumentation patch targets', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const VllmInstrumentation = require('../vllm').default;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { isWrapped } = require('@opentelemetry/instrumentation');
+
+  it('wraps OpenAI.Chat.Completions.prototype.create once with vLLM routing', () => {
+    const rawCreate = jest.fn();
+    const fakeOpenAiModule = {
+      OpenAI: function () {},
+    } as any;
+    fakeOpenAiModule.OpenAI.Chat = { Completions: function () {} };
+    fakeOpenAiModule.OpenAI.Chat.Completions.prototype.create = rawCreate;
+
+    const instr = new VllmInstrumentation();
+    instr.manualPatch(fakeOpenAiModule);
+
+    expect(isWrapped(fakeOpenAiModule.OpenAI.Chat.Completions.prototype.create)).toBe(true);
+    expect(fakeOpenAiModule.OpenAI.Chat.Completions.prototype.create).not.toBe(rawCreate);
   });
 });

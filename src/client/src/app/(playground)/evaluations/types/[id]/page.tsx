@@ -194,41 +194,47 @@ export default function EvaluationTypeDetailPage() {
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
 
+	const header = (
+		<FeaturePageHeader
+			eyebrow="Configuration"
+			title={displayLabel}
+			icon={<Layers className="h-4 w-4" />}
+			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			actions={
+				<div className="flex flex-wrap items-center gap-2">
+					{isCustom && (
+						<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
+							<Sparkles className="size-3" />
+							Custom
+						</Badge>
+					)}
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations/types">
+							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+							Evaluation Types
+						</Link>
+					</Button>
+				</div>
+			}
+		/>
+	);
+
 	if (!et && !config) {
 		return (
-			<div className="flex flex-1 h-full w-full p-6 items-center justify-center">
-				<p className="text-stone-500">Loading...</p>
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full items-center justify-center p-4">
+					<p className="text-stone-500">Loading...</p>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full overflow-auto gap-4">
-			<FeaturePageHeader
-				eyebrow="Configuration"
-				title={displayLabel}
-				description={displayDescription}
-				icon={<Layers className="h-4 w-4" />}
-				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
-				actions={
-					<div className="flex flex-wrap items-center gap-2">
-						{isCustom && (
-							<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
-								<Sparkles className="size-3" />
-								Custom
-							</Badge>
-						)}
-						<Button asChild variant="outline" size="sm" className="h-8">
-							<Link href="/evaluations/types">
-								<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-								Evaluation Types
-							</Link>
-						</Button>
-					</div>
-				}
-			/>
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			{header}
 
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
 				<div className="grid col-span-2 gap-4">
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-4">
@@ -371,7 +377,7 @@ export default function EvaluationTypeDetailPage() {
 				</div>
 				<div className="flex flex-col gap-4">
 					<Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90">
-					{isSaving ? "Saving..." : "Save Changes"}
+						{isSaving ? "Saving..." : "Save Changes"}
 					</Button>
 					{isCustom && (
 						<Button

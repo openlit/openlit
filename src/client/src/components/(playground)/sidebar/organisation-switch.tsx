@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Mail } from "lucide-react";
+import { Plus, Mail, ChevronDown } from "lucide-react";
 import {
 	getCurrentOrganisation,
 	getOrganisationList,
@@ -18,13 +18,13 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CreateOrganisationDialog from "./create-organisation-dialog";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { cn } from "@/lib/utils";
+import { headerScopeTriggerClassName } from "../header-scope-pill";
 
 type OrganisationSwitchProps = {
 	className?: string;
@@ -32,7 +32,7 @@ type OrganisationSwitchProps = {
 	contentSide?: "bottom" | "left" | "right" | "top";
 };
 
-const triggerClasses = "flex h-9 min-w-36 max-w-64 shrink-0 items-center justify-start overflow-hidden px-3 py-1.5 text-left font-normal relative";
+const triggerClasses = headerScopeTriggerClassName;
 
 export default function OrganisationSwitch({
 	className,
@@ -59,13 +59,8 @@ export default function OrganisationSwitch({
 		<>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button
-						variant="outline"
-						className={cn(triggerClasses, className)}
-					>
-						<span className="min-w-0 grow truncate text-xs font-medium">
-							{currentOrg?.name}
-						</span>
+					<button type="button" className={cn(triggerClasses, className)}>
+						<span className="min-w-0 truncate">{currentOrg?.name}</span>
 						{pendingInvitationsCount > 0 && (
 							<Badge
 								variant="destructive"
@@ -74,7 +69,8 @@ export default function OrganisationSwitch({
 								{pendingInvitationsCount}
 							</Badge>
 						)}
-					</Button>
+						<ChevronDown className="size-3 shrink-0 opacity-50" />
+					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent className="w-56" side={contentSide} align={contentAlign}>
 					<DropdownMenuLabel>{messages.ORGANISATIONS}</DropdownMenuLabel>
