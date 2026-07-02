@@ -5,31 +5,35 @@ jest.mock('@/store', () => ({
 import { useDashboardPageSearch, useSetDashboardPageSearch } from '@/selectors/dashboards';
 import { useRootStore } from '@/store';
 
+const mockStore = {
+  dashboards: {
+    page: { search: '' },
+    setPageSearch: jest.fn(),
+  },
+};
+
 describe('useDashboardPageSearch', () => {
+  beforeEach(() => {
+    mockStore.dashboards.page.search = '';
+    (useRootStore as jest.Mock).mockImplementation((selector) => selector(mockStore));
+  });
+
   it('returns dashboards.page.search from store', () => {
-    const mockSearch = 'my query';
-    (useRootStore as jest.Mock).mockReturnValue({
-      dashboards: { page: { search: mockSearch }, setPageSearch: jest.fn() },
-    });
-    const result = useDashboardPageSearch();
-    expect(result).toBe(mockSearch);
+    mockStore.dashboards.page.search = 'my query';
+    expect(useDashboardPageSearch()).toBe('my query');
   });
 
   it('returns empty string when search is empty', () => {
-    (useRootStore as jest.Mock).mockReturnValue({
-      dashboards: { page: { search: '' }, setPageSearch: jest.fn() },
-    });
     expect(useDashboardPageSearch()).toBe('');
   });
 });
 
 describe('useSetDashboardPageSearch', () => {
+  beforeEach(() => {
+    (useRootStore as jest.Mock).mockImplementation((selector) => selector(mockStore));
+  });
+
   it('returns dashboards.setPageSearch from store', () => {
-    const mockSetPageSearch = jest.fn();
-    (useRootStore as jest.Mock).mockReturnValue({
-      dashboards: { page: { search: '' }, setPageSearch: mockSetPageSearch },
-    });
-    const result = useSetDashboardPageSearch();
-    expect(result).toBe(mockSetPageSearch);
+    expect(useSetDashboardPageSearch()).toBe(mockStore.dashboards.setPageSearch);
   });
 });

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import getMessage from "@/constants/messages";
 import SecretForm from "@/components/(playground)/vault/form";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface ModelMetadata {
 	id: string;
@@ -125,8 +126,16 @@ export default function ChatSettingsForm() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center py-12">
-				<Loader2 className="h-6 w-6 animate-spin text-stone-400" />
+			<div className="flex flex-col w-full h-full">
+				<FeaturePageHeader
+					eyebrow={m.CHAT_SETTINGS_TITLE}
+					title={m.CHAT_SETTINGS_DESCRIPTION}
+					icon={<Settings className="h-4 w-4" />}
+					tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
+				/>
+				<div className="flex flex-col w-full h-full items-center justify-center">
+					<Loader2 className="h-6 w-6 animate-spin text-stone-400" />
+				</div>
 			</div>
 		);
 	}
@@ -138,26 +147,21 @@ export default function ChatSettingsForm() {
 
 	return (
 		<div className="flex h-full flex-col bg-white dark:bg-stone-950">
-			<div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
-				<div className="min-w-0">
-					<div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
-						<Settings className="h-4 w-4 text-primary" />
-						{m.CHAT_SETTINGS_TITLE}
-					</div>
-					<div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
-						{m.CHAT_SETTINGS_DESCRIPTION}
-					</div>
-				</div>
-				{hasExistingConfig && (
+			<FeaturePageHeader
+				eyebrow={m.CHAT_SETTINGS_TITLE}
+				title={m.CHAT_SETTINGS_DESCRIPTION}
+				icon={<Settings className="h-4 w-4" />}
+				tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
+				actions={hasExistingConfig && (
 					<div className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-800 dark:bg-stone-950">
 						<CheckCircle className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
-						<div className="min-w-0">
-							<div className="text-[11px] font-medium leading-4 text-stone-900 dark:text-stone-100">
+						<div className="flex gap-4 items-center min-w-0">
+							<span className="text-[11px] font-medium leading-4 text-stone-900 dark:text-stone-100">
 								{m.CONFIGURED}
-							</div>
-							<div className="max-w-[260px] truncate text-[10px] leading-3 text-stone-500 dark:text-stone-400">
+							</span>
+							<span className="max-w-[260px] truncate text-[10px] leading-3 text-stone-500 dark:text-stone-400">
 								{selectedProviderName || provider} / {selectedModelName || model} / {selectedVaultName || vaultId}
-							</div>
+							</span>
 						</div>
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -184,124 +188,123 @@ export default function ChatSettingsForm() {
 						</Tooltip>
 					</div>
 				)}
-			</div>
-
+			/>
 			<div className="min-h-0 flex-1 overflow-auto px-4 py-4">
 				<div className="max-w-lg space-y-6">
 					<div className="space-y-2">
-				<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-					{m.CHAT_SETTINGS_PROVIDER_LABEL}
-				</label>
-				<Select value={provider} onValueChange={handleProviderChange}>
-					<SelectTrigger className="bg-white dark:bg-stone-900">
-						<SelectValue placeholder={m.CHAT_SETTINGS_PROVIDER_PLACEHOLDER} />
-					</SelectTrigger>
-					<SelectContent>
-						{providers.map((p) => (
-							<SelectItem key={p.providerId} value={p.providerId}>
-								{p.displayName}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
+						<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+							{m.CHAT_SETTINGS_PROVIDER_LABEL}
+						</label>
+						<Select value={provider} onValueChange={handleProviderChange}>
+							<SelectTrigger className="bg-white dark:bg-stone-900">
+								<SelectValue placeholder={m.CHAT_SETTINGS_PROVIDER_PLACEHOLDER} />
+							</SelectTrigger>
+							<SelectContent>
+								{providers.map((p) => (
+									<SelectItem key={p.providerId} value={p.providerId}>
+										{p.displayName}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 
-			<div className="space-y-2">
-				<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-					{m.CHAT_SETTINGS_MODEL_LABEL}
-				</label>
-				<Select value={model} onValueChange={setModel} disabled={!provider}>
-					<SelectTrigger className="bg-white dark:bg-stone-900">
-						<SelectValue
-							placeholder={
-								provider
-									? m.CHAT_SETTINGS_MODEL_PLACEHOLDER
-									: m.CHAT_SETTINGS_SELECT_PROVIDER_FIRST
-							}
-						/>
-					</SelectTrigger>
-					<SelectContent>
-						{availableModels.map((md) => (
-							<SelectItem key={md.id} value={md.id}>
-								{md.displayName}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<p className="text-xs text-stone-400 dark:text-stone-500">
-					{m.CHAT_SETTINGS_MODEL_HINT}{" "}
-					<a
-						href="/manage-models"
-						className="underline hover:text-stone-600 dark:hover:text-stone-300"
-					>
-						{m.CHAT_SETTINGS_MANAGE_MODELS}
-					</a>
-					{m.CHAT_SETTINGS_MODEL_HINT_SUFFIX}
-				</p>
-			</div>
-
-			<div className="space-y-2">
-				<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-					{m.CHAT_SETTINGS_API_KEY_LABEL}
-				</label>
-				<Select value={vaultId} onValueChange={setVaultId}>
-					<SelectTrigger className="bg-white dark:bg-stone-900">
-						<SelectValue placeholder={m.CHAT_SETTINGS_API_KEY_PLACEHOLDER} />
-					</SelectTrigger>
-					<SelectContent>
-						{vaultSecrets.map((secret: any) => (
-							<SelectItem key={secret.id} value={secret.id}>
-								{secret.key}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<div className="flex flex-wrap items-center gap-1 text-xs text-stone-400 dark:text-stone-500">
-					{m.CHAT_SETTINGS_API_KEY_HINT_PREFIX}{" "}
-					<a
-						href="/vault"
-						className="underline hover:text-stone-600 dark:hover:text-stone-300"
-					>
-						{m.FEATURE_VAULT}
-					</a>{" "}
-					{m.CHAT_SETTINGS_API_KEY_HINT_SUFFIX}
-					{" "}
-					{m.CHAT_SETTINGS_OR}
-					{" "}
-					<SecretForm
-						successCallback={() => {
-							// Reload vault secrets after creation
-							fetch("/api/vault/get", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({}),
-							})
-								.then((r) => r.json())
-								.then((res) => {
-									const secrets = Array.isArray(res) ? res : res?.data || [];
-									setVaultSecrets(secrets);
-									// Auto-select the newly created secret (last one)
-									if (secrets.length > 0) {
-										setVaultId(secrets[secrets.length - 1].id);
+					<div className="space-y-2">
+						<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+							{m.CHAT_SETTINGS_MODEL_LABEL}
+						</label>
+						<Select value={model} onValueChange={setModel} disabled={!provider}>
+							<SelectTrigger className="bg-white dark:bg-stone-900">
+								<SelectValue
+									placeholder={
+										provider
+											? m.CHAT_SETTINGS_MODEL_PLACEHOLDER
+											: m.CHAT_SETTINGS_SELECT_PROVIDER_FIRST
 									}
-								})
-								.catch(() => {});
-						}}
-					>
-						<Button
-							variant="ghost"
-							className="py-0 h-auto px-0 text-xs text-primary hover:bg-transparent underline"
-						>
-							{m.EVALUATION_CREATE_NEW}
-						</Button>
-					</SecretForm>
-				</div>
-			</div>
+								/>
+							</SelectTrigger>
+							<SelectContent>
+								{availableModels.map((md) => (
+									<SelectItem key={md.id} value={md.id}>
+										{md.displayName}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<p className="text-xs text-stone-400 dark:text-stone-500">
+							{m.CHAT_SETTINGS_MODEL_HINT}{" "}
+							<a
+								href="/manage-models"
+								className="underline hover:text-stone-600 dark:hover:text-stone-300"
+							>
+								{m.CHAT_SETTINGS_MANAGE_MODELS}
+							</a>
+							{m.CHAT_SETTINGS_MODEL_HINT_SUFFIX}
+						</p>
+					</div>
 
-			<Button onClick={handleSave} disabled={saving}>
-				{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-				{hasExistingConfig ? m.OPENGROUND_UPDATE_CONFIGURATION : m.CHAT_SETTINGS_SAVE}
-			</Button>
+					<div className="space-y-2">
+						<label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+							{m.CHAT_SETTINGS_API_KEY_LABEL}
+						</label>
+						<Select value={vaultId} onValueChange={setVaultId}>
+							<SelectTrigger className="bg-white dark:bg-stone-900">
+								<SelectValue placeholder={m.CHAT_SETTINGS_API_KEY_PLACEHOLDER} />
+							</SelectTrigger>
+							<SelectContent>
+								{vaultSecrets.map((secret: any) => (
+									<SelectItem key={secret.id} value={secret.id}>
+										{secret.key}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<div className="flex flex-wrap items-center gap-1 text-xs text-stone-400 dark:text-stone-500">
+							{m.CHAT_SETTINGS_API_KEY_HINT_PREFIX}{" "}
+							<a
+								href="/vault"
+								className="underline hover:text-stone-600 dark:hover:text-stone-300"
+							>
+								{m.FEATURE_VAULT}
+							</a>{" "}
+							{m.CHAT_SETTINGS_API_KEY_HINT_SUFFIX}
+							{" "}
+							{m.CHAT_SETTINGS_OR}
+							{" "}
+							<SecretForm
+								successCallback={() => {
+									// Reload vault secrets after creation
+									fetch("/api/vault/get", {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({}),
+									})
+										.then((r) => r.json())
+										.then((res) => {
+											const secrets = Array.isArray(res) ? res : res?.data || [];
+											setVaultSecrets(secrets);
+											// Auto-select the newly created secret (last one)
+											if (secrets.length > 0) {
+												setVaultId(secrets[secrets.length - 1].id);
+											}
+										})
+										.catch(() => { });
+								}}
+							>
+								<Button
+									variant="ghost"
+									className="py-0 h-auto px-0 text-xs text-primary hover:bg-transparent underline"
+								>
+									{m.EVALUATION_CREATE_NEW}
+								</Button>
+							</SecretForm>
+						</div>
+					</div>
+
+					<Button onClick={handleSave} disabled={saving}>
+						{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+						{hasExistingConfig ? m.OPENGROUND_UPDATE_CONFIGURATION : m.CHAT_SETTINGS_SAVE}
+					</Button>
 				</div>
 			</div>
 		</div>

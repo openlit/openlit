@@ -284,7 +284,7 @@ export default function CodingAgentUserPage() {
 	if (!digest) return null;
 
 	return (
-		<div className="flex flex-col w-full h-full gap-5 overflow-y-auto p-1 pb-8">
+		<div className="flex flex-col w-full h-full gap-5 overflow-y-auto p-4 pb-8">
 			<div className="space-y-2">
 				{/* Back button + email styled to match the trace
 				    full-view header (see trace-detail-page.tsx).

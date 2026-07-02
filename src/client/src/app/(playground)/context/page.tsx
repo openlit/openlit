@@ -131,27 +131,29 @@ export default function ContextPage() {
 	}, [pingStatus]);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
-			<ContextHeader successCallback={fetchData} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus === "failure"}
-				isLoading={isLoading || isDeleting}
-				visibilityColumns={{
-					name: true,
-					description: true,
-					status: true,
-					createdBy: true,
-					createdAt: true,
-					actions: true,
-				}}
-				onClick={(row: Context) => router.push(`/context/${row.id}`)}
-				extraFunctions={{
-					handleDelete: deleteContext,
-					successCallback: fetchData,
-				}}
-			/>
+		<div className="flex flex-col w-full h-full">
+			<ContextHeader />
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched || pingStatus === "failure"}
+					isLoading={isLoading || isDeleting}
+					visibilityColumns={{
+						name: true,
+						description: true,
+						status: true,
+						createdBy: true,
+						createdAt: true,
+						actions: true,
+					}}
+					onClick={(row: Context) => router.push(`/context/${row.id}`)}
+					extraFunctions={{
+						handleDelete: deleteContext,
+						successCallback: fetchData,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

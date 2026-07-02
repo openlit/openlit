@@ -88,7 +88,7 @@ export const EVALUATION_MANUAL_STEP_2 =
 	"ट्रेस विवरण में इवैल्यूएशन टैब पर क्लिक करें";
 export const EVALUATION_MANUAL_STEP_3 =
 	'इवैल्यूएशन चलाने के लिए "Run Evaluation" पर क्लिक करें';
-export const EVALUATION_GO_TO_REQUESTS = "रिक्वेस्ट पर जाएं";
+export const EVALUATION_GO_TO_TRACES = "ट्रेस पर जाएं";
 export const EVALUATION_MANUAL_AND_AUTO = "मैनुअल & ऑटो";
 export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"मैनुअल और ऑटो इवैल्यूएशन रूल इंजन कॉन्टेक्स्ट का उपयोग करते हैं जब नियम ट्रेस से मेल खाते हैं। मैनुअल रन source=manual के साथ संग्रहीत होते हैं; ऑटो रन source=auto का उपयोग करते हैं।";

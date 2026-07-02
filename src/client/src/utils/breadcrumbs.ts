@@ -87,10 +87,8 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	// Individual dashboard view
 	{
 		regex: /^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-		getTitle: () => "Dashboard",
-		getBreadcrumbs: () => [
-			{ title: "Dashboards", href: "/dashboards" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	
 	// Dashboard management
@@ -139,23 +137,23 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 	{
 		regex: /^\/telemetry\/traces\/[^/]+$/,
-		getTitle: () => "Trace Details",
-		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=traces" }],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	{
 		regex: /^\/telemetry\/exceptions\/[^/]+$/,
-		getTitle: () => "Exception Details",
-		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=exceptions" }],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	{
 		regex: /^\/telemetry\/logs\/[^/]+$/,
-		getTitle: () => "Log Details",
-		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=logs" }],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	{
 		regex: /^\/telemetry\/metrics\/[^/]+$/,
-		getTitle: () => "Metric Details",
-		getBreadcrumbs: () => [{ title: "Telemetry", href: "/telemetry?tab=metrics" }],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	
 	// Exceptions
@@ -168,19 +166,23 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	// Prompt Hub
 	{
 		regex: /^\/prompt-hub$/,
-		getTitle: () => "Prompt Hub",
+		getTitle: () => getMessage().NAV_APP_PROMPTS,
 		getBreadcrumbs: () => [],
 	},
-	
+	{
+		regex: /^\/prompt-hub\/new$/,
+		getTitle: () => getMessage().PROMPT_HUB_CREATE_PROMPT,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/prompt-hub\/[^/]+\/edit$/,
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
+	},
 	{
 		regex: /^\/prompt-hub\/[^/]+$/,
-		getTitle: (pathname, params) => {
-			// In a real app, you might want to fetch the prompt name
-			return params?.id ? "Prompt Details" : "Prompt";
-		},
-		getBreadcrumbs: () => [
-			{ title: "Prompt Hub", href: "/prompt-hub" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 	
 	// Vault
@@ -192,10 +194,20 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	
 	{
 		regex: /^\/vault\/[^/]+$/,
-		getTitle: () => "Vault Item",
-		getBreadcrumbs: () => [
-			{ title: "Vault", href: "/vault" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
+	},
+
+	// Rule Engine
+	{
+		regex: /^\/rule-engine$/,
+		getTitle: () => getMessage().RULE_ENGINE_BREADCRUMB,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/rule-engine\/[^/]+$/,
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 
 	// Openground
@@ -217,6 +229,23 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
+	// Context
+	{
+		regex: /^\/context$/,
+		getTitle: () => getMessage().CONTEXT_TITLE,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/context\/new$/,
+		getTitle: () => getMessage().CONTEXT_CREATE_NEW,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/context\/[^/]+$/,
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
+	},
+
 	// Settings
 	{
 		regex: /^\/settings$/,
@@ -227,9 +256,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	{
 		regex: /^\/settings\/profile$/,
 		getTitle: () => "User Profile",
-		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
-		],
+		getBreadcrumbs: () => [],
 	},
 	
 	{
@@ -274,10 +301,8 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	
 	{
 		regex: /^\/settings\/api-keys$/,
-		getTitle: () => "API Keys",
-		getBreadcrumbs: () => [
-			{ title: "Settings", href: "/settings" }
-		],
+		getTitle: () => "Api Keys",
+		getBreadcrumbs: () => [],
 	},
 	
 	// Agents
@@ -289,27 +314,26 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 
 	{
 		regex: /^\/agents\/controller\/[^/]+$/,
-		getTitle: () => "Controller",
-		getBreadcrumbs: () => [
-			{ title: "Agents", href: "/agents" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 
 	{
 		regex: /^\/agents\/[^/]+$/,
-		getTitle: () => "Service Detail",
-		getBreadcrumbs: () => [
-			{ title: "Agents", href: "/agents" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 
 	// Fleet Hub
 	{
+		regex: /^\/fleet-hub$/,
+		getTitle: () => getMessage().FEATURE_FLEET_HUB,
+		getBreadcrumbs: () => [],
+	},
+	{
 		regex: /^\/fleet-hub\/[^/]+$/,
-		getTitle: () => "Fleet Hub",
-		getBreadcrumbs: () => [
-			{ title: "Fleet Hub", href: "/fleet-hub" }
-		],
+		getTitle: () => "",
+		getBreadcrumbs: () => [],
 	},
 
 	// Coding Agents — per-user drilldown.

@@ -153,7 +153,7 @@ export default function DashboardPage() {
 	};
 
 	return (
-		<div className="flex flex-col w-full justify-between h-full">
+		<div className="flex flex-col w-full h-full">
 			{
 				!isLoading && (error as Error) && (
 					<div className="flex flex-col items-center w-full justify-center h-full">
@@ -175,7 +175,7 @@ export default function DashboardPage() {
 			}
 			{!isLoading && initialConfig && (
 				<Dashboard
-					className="h-100 overflow-y-auto"
+					className="h-100 overflow-y-auto px-4"
 					initialConfig={initialConfig}
 					runQuery={runQuery}
 					onSave={handleSave}

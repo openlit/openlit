@@ -107,7 +107,7 @@ export const EVALUATION_MANUAL_STEP_2 =
 	"Click the Evaluation tab in the trace details";
 export const EVALUATION_MANUAL_STEP_3 =
 	'Click "Run Evaluation" to evaluate the trace';
-export const EVALUATION_GO_TO_REQUESTS = "Go to Requests";
+export const EVALUATION_GO_TO_TRACES = "Go to Traces";
 export const EVALUATION_MANUAL_AND_AUTO = "Manual & Auto";
 export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
@@ -448,7 +448,7 @@ export const PRICING_MANUAL_STEP_2 =
 	'Click "Recalculate Cost" in the trace detail panel.';
 export const PRICING_MANUAL_STEP_3 =
 	"The gen_ai.usage.cost attribute is updated using the latest model pricing.";
-export const PRICING_GO_TO_REQUESTS = "Go to Requests";
+export const PRICING_GO_TO_TRACES = "Go to Traces";
 export const PRICING_SAVE = "Save";
 export const PRICING_UPDATE = "Update";
 export const PRICING_CONFIG_SAVED = "Pricing config saved";
@@ -483,6 +483,7 @@ export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FEATURE_AGENTS = "Agents";
 
 // Agents
 export const AGENTS_FILTER_SYSTEM = "System";
@@ -961,6 +962,7 @@ export const VARIABLES = "Variables";
 export const PROMPT = "Prompt";
 export const PROMPT_PREVIEW = "Prompt Preview";
 export const PROMPT_HUB = "Prompt Hub";
+export const NAV_APP_PROMPTS = "Prompts";
 export const PROVIDERS = "Providers";
 export const NO_DATA_FOUND = "No data found!";
 export const CANNOT_CONNECT_TO_SERVER = "Cannot connect to server!";
