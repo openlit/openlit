@@ -1,6 +1,22 @@
-import { SpanKind, SpanStatusCode, Span, Tracer, context, trace } from '@opentelemetry/api';
+import {
+  Attributes,
+  SpanKind,
+  SpanStatusCode,
+  Span,
+  Tracer,
+  context,
+  trace,
+} from '@opentelemetry/api';
+import { isTracingSuppressed } from '@opentelemetry/core';
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_TELEMETRY_SDK_NAME,
+  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
+} from '@opentelemetry/semantic-conventions';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import { SDK_NAME } from '../../constant';
+import OpenLitHelper, { applyCustomSpanAttributes } from '../../helpers';
+import Metrics from '../../otel/metrics';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
@@ -59,6 +75,32 @@ export interface PgWrapperConfig {
   sdkVersion?: string;
 }
 
+function recordDbMetrics(
+  dbOperation: string,
+  connInfo: { host: string; port: number },
+  durationSeconds: number,
+): void {
+  if (OpenlitConfig.disableMetrics) {
+    return;
+  }
+
+  const applicationName = OpenlitConfig.applicationName || '';
+  const environment = OpenlitConfig.environment || '';
+
+  const attributes: Attributes = {
+    [ATTR_TELEMETRY_SDK_NAME]: SDK_NAME,
+    [ATTR_SERVICE_NAME]: applicationName,
+    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: environment,
+    [SemanticConvention.DB_SYSTEM_NAME]: PgWrapper.dbSystem,
+    [SemanticConvention.DB_OPERATION_NAME]: dbOperation,
+    [SemanticConvention.SERVER_ADDRESS]: connInfo.host,
+    [SemanticConvention.SERVER_PORT]: connInfo.port,
+  };
+
+  Metrics.dbRequests?.add(1, attributes);
+  Metrics.dbClientOperationDuration?.record(durationSeconds, attributes);
+}
+
 class PgWrapper extends BaseWrapper {
   static dbSystem = SemanticConvention.DB_SYSTEM_POSTGRESQL;
 
@@ -115,12 +157,40 @@ class PgWrapper extends BaseWrapper {
     return undefined;
   }
 
+  /** Detect full-text search keywords (mirrors Python detect_special_features). */
+  static detectFullTextSearch(query: unknown): boolean {
+    if (query === null || query === undefined) {
+      return false;
+    }
+    const queryUpper = String(query).toUpperCase();
+    return (
+      queryUpper.includes('TSVECTOR') ||
+      queryUpper.includes('TSQUERY') ||
+      queryUpper.includes('TS_RANK') ||
+      queryUpper.includes('WEBSEARCH_TO_TSQUERY')
+    );
+  }
+
+  /** Resolve batch size when values is an array of parameter arrays (executemany-style). */
+  static resolveBatchSize(values: unknown): number | undefined {
+    if (!Array.isArray(values) || values.length === 0) {
+      return undefined;
+    }
+    if (Array.isArray(values[0])) {
+      return values.length;
+    }
+    return undefined;
+  }
+
   /** Build the human-readable query summary (mirrors Python get_query_summary). */
   static getQuerySummary(dbOperation: string, tableName: string, query: unknown): string {
     let summary = `${dbOperation} ${tableName}`;
     const metric = PgWrapper.detectSimilarityMetric(query);
     if (metric) {
       summary += ` (vector ${metric})`;
+    }
+    if (PgWrapper.detectFullTextSearch(query)) {
+      summary += ' (full-text)';
     }
     return summary;
   }
@@ -198,6 +268,7 @@ class PgWrapper extends BaseWrapper {
       connInfo,
       durationSeconds,
       rowCount,
+      batchSize,
       captureDbParameters,
       sdkVersion,
     }: {
@@ -208,6 +279,7 @@ class PgWrapper extends BaseWrapper {
       connInfo: { host: string; port: number; database?: string };
       durationSeconds: number;
       rowCount?: number | null;
+      batchSize?: number;
       captureDbParameters: boolean;
       sdkVersion?: string;
     }
@@ -215,12 +287,14 @@ class PgWrapper extends BaseWrapper {
     const applicationName = OpenlitConfig.applicationName || '';
     const environment = OpenlitConfig.environment || '';
 
+    span.setAttribute(ATTR_TELEMETRY_SDK_NAME, SDK_NAME);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB);
     span.setAttribute(SemanticConvention.DB_SYSTEM_NAME, PgWrapper.dbSystem);
     span.setAttribute(SemanticConvention.DB_OPERATION_NAME, dbOperation);
     span.setAttribute(SemanticConvention.SERVER_ADDRESS, connInfo.host);
     span.setAttribute(SemanticConvention.SERVER_PORT, connInfo.port);
-    span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
-    span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
+    span.setAttribute(SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT, environment);
+    span.setAttribute(ATTR_SERVICE_NAME, applicationName);
     span.setAttribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION, durationSeconds);
     if (sdkVersion) {
       span.setAttribute(SemanticConvention.DB_SDK_VERSION, sdkVersion);
@@ -231,6 +305,9 @@ class PgWrapper extends BaseWrapper {
     }
     if (tableName && tableName !== 'unknown') {
       span.setAttribute(SemanticConvention.DB_COLLECTION_NAME, tableName);
+    }
+    if (typeof batchSize === 'number' && batchSize > 0) {
+      span.setAttribute(SemanticConvention.DB_BATCH_SIZE, batchSize);
     }
 
     // Capture query text when message-content capture is enabled (parity w/ Python).
@@ -244,16 +321,21 @@ class PgWrapper extends BaseWrapper {
     }
 
     // Capture query parameters (OTel per-index convention) only when explicitly enabled.
-    if (captureDbParameters && values !== null && values !== undefined) {
-      if (Array.isArray(values)) {
-        values.slice(0, MAX_PARAMS_COUNT).forEach((value, idx) => {
+    const paramsForCapture =
+      typeof batchSize === 'number' && batchSize > 0 && Array.isArray(values)
+        ? values[0]
+        : values;
+
+    if (captureDbParameters && paramsForCapture !== null && paramsForCapture !== undefined) {
+      if (Array.isArray(paramsForCapture)) {
+        paramsForCapture.slice(0, MAX_PARAMS_COUNT).forEach((value, idx) => {
           span.setAttribute(
             `${SemanticConvention.DB_QUERY_PARAMETER}.${idx}`,
             PgWrapper.sanitizeParameter(value)
           );
         });
-      } else if (typeof values === 'object') {
-        Object.entries(values as Record<string, unknown>)
+      } else if (typeof paramsForCapture === 'object') {
+        Object.entries(paramsForCapture as Record<string, unknown>)
           .slice(0, MAX_PARAMS_COUNT)
           .forEach(([key, value]) => {
             span.setAttribute(
@@ -279,7 +361,9 @@ class PgWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.DB_SEARCH_SIMILARITY_METRIC, metric);
     }
 
+    applyCustomSpanAttributes(span);
     span.setStatus({ code: SpanStatusCode.OK });
+    recordDbMetrics(dbOperation, connInfo, durationSeconds);
   }
 
   /**
@@ -292,16 +376,19 @@ class PgWrapper extends BaseWrapper {
 
     return (originalQuery: (...args: any[]) => any) => {
       return function (this: any, ...args: any[]) {
-        if (context.active() === undefined) {
-          // Defensive — should not happen, but never break the driver.
+        if (isTracingSuppressed(context.active())) {
           return originalQuery.apply(this, args);
         }
 
         const { queryText, values } = PgWrapper.resolveQuery(args);
         const dbOperation = PgWrapper.parseSqlOperation(queryText);
         const tableName = PgWrapper.extractTableName(queryText);
+        const batchSize = PgWrapper.resolveBatchSize(values);
         const connInfo = PgWrapper.extractConnectionInfo(this);
-        const spanName = `${dbOperation} ${tableName}`;
+        const spanName =
+          typeof batchSize === 'number' && batchSize > 0
+            ? `${dbOperation} ${tableName} (batch)`
+            : `${dbOperation} ${tableName}`;
         const span = tracer.startSpan(spanName, { kind: SpanKind.CLIENT });
         const startTime = Date.now();
 
@@ -318,6 +405,7 @@ class PgWrapper extends BaseWrapper {
               connInfo,
               durationSeconds,
               rowCount,
+              batchSize,
               captureDbParameters,
               sdkVersion,
             });

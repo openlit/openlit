@@ -14,6 +14,9 @@ import { ApiKey } from "@/types/api-key";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import { escapeEmailForDisplay } from "@/utils/string";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Key, Shield, RotateCcw, Trash2 } from "lucide-react";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const columns: Columns<string, ApiKey> = {
 	name: {
@@ -114,24 +117,54 @@ export default function ManageKeys() {
 	);
 
 	return (
-		<div className="flex flex-col grow w-full gap-6 overflow-hidden">
-			<Generate refresh={fetchData} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus !== "pending"}
-				isLoading={isLoading || pingStatus === "pending"}
-				visibilityColumns={{
-					name: true,
-					apiKey: true,
-					createdBy: true,
-					createdAt: true,
-					actions: true,
-				}}
-				extraFunctions={{
-					handleYes,
-				}}
+		<div className="flex flex-col grow w-full overflow-hidden">
+			<FeaturePageHeader
+				eyebrow="Settings"
+				title="API Keys"
+				icon={<Key className="h-4 w-4" />}
+				tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
+				actions={<Generate refresh={fetchData} />}
 			/>
+			<div className="flex flex-col w-full h-full p-4 gap-4">
+				<Alert className="border-amber-200 bg-amber-50/70 py-3 text-stone-700 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-stone-300">
+					<Shield className="h-4 w-4 stroke-amber-700 dark:stroke-amber-300" />
+					<AlertTitle className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+						Important notice
+					</AlertTitle>
+					<AlertDescription className="mt-1">
+						<div className="grid gap-2 text-xs leading-relaxed text-stone-600 dark:text-stone-400 md:grid-cols-3">
+							<div className="flex items-start gap-2">
+								<Key className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+								<span>Secret keys are shown only once after generation.</span>
+							</div>
+							<div className="flex items-start gap-2">
+								<RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+								<span>Rotate keys periodically and after team changes.</span>
+							</div>
+							<div className="flex items-start gap-2">
+								<Trash2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+								<span>Revoke unused or exposed keys immediately.</span>
+							</div>
+						</div>
+					</AlertDescription>
+				</Alert>
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched || pingStatus !== "pending"}
+					isLoading={isLoading || pingStatus === "pending"}
+					visibilityColumns={{
+						name: true,
+						apiKey: true,
+						createdBy: true,
+						createdAt: true,
+						actions: true,
+					}}
+					extraFunctions={{
+						handleYes,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

@@ -158,8 +158,8 @@ export default function ModelEditorPanel({
 	};
 
 	return (
-		<div className="p-6 max-w-3xl">
-			<Card>
+		<>
+			<Card className="rounded-none">
 				<CardHeader>
 					<div className="flex items-center justify-between">
 						<CardTitle className="text-lg">
@@ -277,8 +277,8 @@ export default function ModelEditorPanel({
 					</div>
 
 					{/* Actions — all models editable now */}
-					<div className="flex gap-2 pt-4">
-						<Button onClick={handleSave} disabled={saving} className="flex-1">
+					<div className="flex gap-4 pt-4">
+						<Button onClick={handleSave} disabled={saving} className="w-1/3 h-9">
 							{saving ? getMessage().SAVING : getMessage().OPENGROUND_SAVE_MODEL}
 						</Button>
 						{!isAddingNew && (
@@ -286,12 +286,13 @@ export default function ModelEditorPanel({
 								variant="destructive"
 								onClick={() => setShowDeleteDialog(true)}
 								disabled={deleting}
+								className=" h-9"
 							>
 								<Trash2Icon className="h-4 w-4 mr-2" />
 								{getMessage().DELETE}
 							</Button>
 						)}
-						<Button variant="outline" onClick={onCancel}>
+						<Button variant="outline" onClick={onCancel} className=" h-9">
 							{getMessage().CANCEL}
 						</Button>
 					</div>
@@ -317,6 +318,6 @@ export default function ModelEditorPanel({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</>
 	);
 }

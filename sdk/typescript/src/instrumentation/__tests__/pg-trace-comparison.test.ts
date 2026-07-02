@@ -21,11 +21,29 @@
 
 import PgWrapper from '../pg/wrapper';
 import OpenlitConfig from '../../config';
-import OpenLitHelper from '../../helpers';
+import OpenLitHelper, { applyCustomSpanAttributes } from '../../helpers';
+import Metrics from '../../otel/metrics';
 import SemanticConvention from '../../semantic-convention';
+import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from '@opentelemetry/semantic-conventions';
+import { SpanKind } from '@opentelemetry/api';
+import { isTracingSuppressed } from '@opentelemetry/core';
 
 jest.mock('../../config');
-jest.mock('../../helpers');
+jest.mock('../../helpers', () => ({
+  __esModule: true,
+  default: { handleException: jest.fn() },
+  applyCustomSpanAttributes: jest.fn(),
+}));
+jest.mock('../../otel/metrics', () => ({
+  __esModule: true,
+  default: {
+    dbRequests: { add: jest.fn() },
+    dbClientOperationDuration: { record: jest.fn() },
+  },
+}));
+jest.mock('@opentelemetry/core', () => ({
+  isTracingSuppressed: jest.fn().mockReturnValue(false),
+}));
 
 describe('PostgreSQL (pg) Cross-Language Trace Comparison', () => {
   let mockSpan: any;
@@ -47,7 +65,9 @@ describe('PostgreSQL (pg) Cross-Language Trace Comparison', () => {
     (OpenlitConfig as any).applicationName = 'openlit-test';
     (OpenlitConfig as any).captureMessageContent = true;
     (OpenlitConfig as any).maxContentLength = null;
+    (OpenlitConfig as any).disableMetrics = false;
     (OpenLitHelper as any).handleException = jest.fn();
+    (isTracingSuppressed as jest.Mock).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -162,6 +182,71 @@ describe('PostgreSQL (pg) Cross-Language Trace Comparison', () => {
     );
   });
 
+  it('sets deployment.environment and service.name (not gen_ai.* env attrs)', async () => {
+    await invokePromise(['SELECT 1']);
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+      SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT,
+      'openlit-testing'
+    );
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(ATTR_SERVICE_NAME, 'openlit-test');
+    expect(mockSpan.setAttribute).not.toHaveBeenCalledWith(
+      SemanticConvention.GEN_AI_ENVIRONMENT,
+      expect.anything()
+    );
+    expect(mockSpan.setAttribute).not.toHaveBeenCalledWith(
+      SemanticConvention.GEN_AI_APPLICATION_NAME,
+      expect.anything()
+    );
+  });
+
+  it('sets telemetry.sdk.name, gen_ai.operation.name=vectordb, and custom span attrs', async () => {
+    await invokePromise(['SELECT 1']);
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(ATTR_TELEMETRY_SDK_NAME, 'openlit');
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+      SemanticConvention.GEN_AI_OPERATION,
+      SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB
+    );
+    expect(applyCustomSpanAttributes).toHaveBeenCalledWith(mockSpan);
+  });
+
+  it('records db metrics when disableMetrics is false', async () => {
+    await invokePromise(['SELECT * FROM users'], { rowCount: 1 });
+    expect(Metrics.dbRequests.add).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        [SemanticConvention.DB_SYSTEM_NAME]: 'postgresql',
+        [SemanticConvention.DB_OPERATION_NAME]: 'SELECT',
+        [SemanticConvention.SERVER_ADDRESS]: 'db.example.com',
+        [SemanticConvention.SERVER_PORT]: 5433,
+        [ATTR_SERVICE_NAME]: 'openlit-test',
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: 'openlit-testing',
+      })
+    );
+    expect(Metrics.dbClientOperationDuration.record).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.objectContaining({
+        [SemanticConvention.DB_OPERATION_NAME]: 'SELECT',
+      })
+    );
+  });
+
+  it('skips db metrics when disableMetrics is true', async () => {
+    (OpenlitConfig as any).disableMetrics = true;
+    await invokePromise(['SELECT 1']);
+    expect(Metrics.dbRequests.add).not.toHaveBeenCalled();
+    expect(Metrics.dbClientOperationDuration.record).not.toHaveBeenCalled();
+  });
+
+  it('bypasses instrumentation when tracing is suppressed', async () => {
+    (isTracingSuppressed as jest.Mock).mockReturnValue(true);
+    const patchFn = PgWrapper._patchQuery(mockTracer, {});
+    const original = jest.fn().mockResolvedValue({ rowCount: 0 });
+    const wrapped = patchFn(original);
+    await wrapped.apply(fakeClient(), ['SELECT 1']);
+    expect(original).toHaveBeenCalled();
+    expect(mockTracer.startSpan).not.toHaveBeenCalled();
+  });
+
   // ── Basic query span ─────────────────────────────────────────────────────────
 
   describe('basic query span', () => {
@@ -232,6 +317,42 @@ describe('PostgreSQL (pg) Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.DB_QUERY_SUMMARY,
         'SELECT embeddings (vector l2)'
+      );
+    });
+  });
+
+  // ── Full-text search ─────────────────────────────────────────────────────────
+
+  describe('full-text search query', () => {
+    it('appends (full-text) to the query summary for TSVECTOR queries', async () => {
+      await invokePromise(['SELECT id FROM docs WHERE body @@ to_tsquery($1)', ['search']]);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.DB_QUERY_SUMMARY,
+        'SELECT docs (full-text)'
+      );
+    });
+
+    it('detects full-text search via detectFullTextSearch()', () => {
+      expect(PgWrapper.detectFullTextSearch('SELECT * FROM docs WHERE col @@ TSQUERY')).toBe(true);
+      expect(PgWrapper.detectFullTextSearch('SELECT rank FROM ts_rank(col, q)')).toBe(true);
+      expect(PgWrapper.detectFullTextSearch('SELECT * FROM users')).toBe(false);
+    });
+  });
+
+  // ── Batch queries ────────────────────────────────────────────────────────────
+
+  describe('batch parameter arrays', () => {
+    it('names the span with (batch) and sets db.batch.size', async () => {
+      await invokePromise(
+        ['INSERT INTO users (name) VALUES ($1)', [['alice'], ['bob']]],
+        { rowCount: 2 },
+        { captureDbParameters: true }
+      );
+      expect(mockTracer.startSpan).toHaveBeenCalledWith('INSERT users (batch)', { kind: SpanKind.CLIENT });
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.DB_BATCH_SIZE, 2);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        `${SemanticConvention.DB_QUERY_PARAMETER}.0`,
+        'alice'
       );
     });
   });

@@ -104,7 +104,7 @@ describe('useFilters', () => {
       updateFilter: jest.fn(),
       updateConfig: jest.fn(),
     };
-    (useRootStore as jest.Mock).mockImplementation((selector: (s: any) => any) => {
+    (useRootStore as unknown as jest.Mock).mockImplementation((selector: (s: any) => any) => {
       return selector({ filter: mockFilter });
     });
     const result = useFilters();

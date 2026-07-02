@@ -24,7 +24,7 @@ export default function VaultHeader({
 				<SecretForm successCallback={successCallback}>
 					<Button
 						variant="secondary"
-						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-0.5"
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-8"
 					>
 						Create new
 					</Button>
@@ -33,5 +33,5 @@ export default function VaultHeader({
 		</div>
 	);
 
-	return <FeaturePageHeader eyebrow="Resources" title={messages.FEATURE_VAULT} description="Centralize sensitive values and runtime secrets so AI workflows stay portable without exposing credentials." icon={<BookKey className="h-4 w-4" />} tone="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300" actions={actions} />;
+	return <FeaturePageHeader eyebrow="Resources" title={messages.FEATURE_VAULT} icon={<BookKey className="h-4 w-4" />} tone="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300" actions={actions} />;
 }

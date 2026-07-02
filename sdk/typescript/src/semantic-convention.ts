@@ -86,6 +86,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
   static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
+  static GEN_AI_REQUEST_AUDIO_DURATION = 'gen_ai.request.audio_duration';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
@@ -247,6 +248,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
+  static GEN_AI_SYSTEM_ASSEMBLYAI = 'assemblyai';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
 

@@ -353,3 +353,27 @@ describe('OpenLitHelper.computeAgentVersionHash', () => {
     expect(hash()).toBe(expected);
   });
 });
+
+describe('OpenLitHelper.getAudioModelCost', () => {
+  const pricingInfo = {
+    audio: {
+      best: 0.00010277777,
+      nano: 0.00003333333,
+    },
+  };
+
+  it('uses prompt length when audio url is present', () => {
+    const prompt = 'https://example.com/audio.mp3';
+    const cost = OpenLitHelper.getAudioModelCost('best', pricingInfo, prompt);
+    expect(cost).toBeCloseTo((prompt.length / 1000) * pricingInfo.audio.best);
+  });
+
+  it('uses duration when prompt is empty', () => {
+    const cost = OpenLitHelper.getAudioModelCost('nano', pricingInfo, '', 120);
+    expect(cost).toBeCloseTo(120 * pricingInfo.audio.nano);
+  });
+
+  it('returns 0 for unknown models', () => {
+    expect(OpenLitHelper.getAudioModelCost('unknown', pricingInfo, '', 60)).toBe(0);
+  });
+});

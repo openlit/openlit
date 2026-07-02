@@ -10,9 +10,9 @@ import PromptMarkdownViewer from "@/components/(playground)/prompt-hub/prompt-ma
 import PromptOtterInlineAssistant from "@/components/(playground)/prompt-hub/prompt-otter-inline-assistant";
 import { CLIENT_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
-import { usePageHeader } from "@/selectors/page";
 import { Prompt, PromptVersion, PromptVersionStatus } from "@/types/prompt";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { useCustomBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { unescapeString } from "@/utils/string";
@@ -20,8 +20,9 @@ import { ArrowLeftIcon, PlusIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 
 const getVersions = (startingVersion: string) => {
 	const v = startingVersion.split(".").map(Number);
@@ -39,8 +40,6 @@ export default function EditPromptPage() {
 	const router = useRouter();
 	const posthog = usePostHog();
 	const params = useParams();
-	const { setHeader } = usePageHeader();
-
 	const { fireRequest: fetchReq, data: promptData, isLoading: isFetching } =
 		useFetchWrapper<Prompt>();
 	const { fireRequest: saveReq, isLoading: isSaving } = useFetchWrapper();
@@ -122,15 +121,16 @@ export default function EditPromptPage() {
 		];
 		setVersionOptions(opts);
 		setSelectedVersion(versions.draft);
+	}, [promptData]);
 
-		setHeader({
-			title: d.name,
-			breadcrumbs: [
-				{ title: m.PROMPT_HUB, href: "/prompt-hub" },
-				{ title: d.name, href: `/prompt-hub/${params.id}` },
-			],
-		});
-	}, [(promptData as any)?.promptId]);
+	const customHeader = useMemo(
+		() => ({
+			title: (promptData as Prompt | undefined)?.name || (isFetching ? m.LOADING : ""),
+			breadcrumbs: [],
+		}),
+		[(promptData as Prompt | undefined)?.name, isFetching]
+	);
+	useCustomBreadcrumbs(customHeader, [(promptData as Prompt | undefined)?.name, isFetching]);
 
 	const addTag = useCallback(() => {
 		const val = tagInput.trim();
@@ -222,27 +222,26 @@ export default function EditPromptPage() {
 	const isDraft = versionData?.status === PromptVersionStatus.DRAFT;
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4 overflow-hidden">
-			{/* Topbar */}
-			<div className="flex items-center justify-between flex-shrink-0">
-				<Link
-					href={`/prompt-hub/${params.id}`}
-					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
-				>
-					<ArrowLeftIcon className="w-4 h-4" />
-					{m.PROMPT_HUB_BACK_TO} {promptName}
-				</Link>
-				<Button
-					onClick={handleSubmit}
-					disabled={isSaving || isFetching}
-					className={isSaving ? "animate-pulse" : ""}
-				>
-					{isSaving ? m.SAVING : m.SAVE}
-				</Button>
-			</div>
+		<div className="flex flex-col w-full h-full overflow-hidden">
+			<PromptHubHeader createNew={false} title={`Prompt : ${promptName}`} promptUsage={false} extraButtons={(
+				<>
+					<Button variant="outline" size="sm" className="h-8" onClick={() => router.push(`/prompt-hub/${params.id}`)}>
+						<ArrowLeftIcon className="mr-1.5 size-3.5" />
+						{m.PROMPT_HUB_BACK_TO} {promptName}
+					</Button>
+					<Button
+						onClick={handleSubmit}
+						disabled={isSaving || isFetching}
+						className={`${isSaving ? "animate-pulse" : ""} h-8`}
+						size={"sm"}
+					>
+						{isSaving ? m.SAVING : m.SAVE}
+					</Button>
+				</>
+			)} />
 
 			{/* Body */}
-			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden">
+			<div className="grid grid-cols-3 gap-4 flex-1 overflow-hidden p-4">
 				{/* Left: markdown editor */}
 				<Card className="col-span-2 flex flex-col overflow-hidden border border-stone-200 dark:border-stone-800">
 					<CardHeader className="p-4 pb-2 border-b border-stone-200 dark:border-stone-800 flex-shrink-0">
@@ -322,11 +321,10 @@ export default function EditPromptPage() {
 										key={opt.value}
 										type="button"
 										onClick={() => setSelectedVersion(opt.value)}
-										className={`text-left p-3 rounded-md border transition-colors ${
-											selectedVersion === opt.value
+										className={`text-left p-3 rounded-md border transition-colors ${selectedVersion === opt.value
 												? "border-primary bg-primary/5 dark:bg-primary/10"
 												: "border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600"
-										}`}
+											}`}
 									>
 										<div className="text-sm font-medium text-stone-800 dark:text-stone-200">
 											{opt.title}
