@@ -418,9 +418,24 @@ export default class OpenLitHelper {
     }
   }
 
-  static getAudioModelCost(model: string, pricingInfo: any, prompt: string): number {
+  static getAudioModelCost(
+    model: string,
+    pricingInfo: any,
+    prompt: string,
+    duration?: number
+  ): number {
     try {
-      const cost = (prompt.length / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.audio[model];
+      const rate = pricingInfo?.audio?.[model];
+      if (typeof rate !== 'number') {
+        return 0;
+      }
+      if (prompt) {
+        const cost = (prompt.length / OpenLitHelper.PROMPT_TOKEN_FACTOR) * rate;
+        return isNaN(cost) ? 0 : cost;
+      }
+      const durationSeconds =
+        typeof duration === 'number' && Number.isFinite(duration) ? duration : 0;
+      const cost = durationSeconds * rate;
       return isNaN(cost) ? 0 : cost;
     } catch (error) {
       console.error(`Error in getAudioModelCost: ${error}`);
