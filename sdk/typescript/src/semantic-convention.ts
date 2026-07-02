@@ -86,6 +86,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
   static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
+  static GEN_AI_REQUEST_AUDIO_DURATION = 'gen_ai.request.audio_duration';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
@@ -185,6 +186,34 @@ export default class SemanticConvention {
   static GEN_AI_AGENT_ACTION_LOG = 'gen_ai.agent.action.log';
   static GEN_AI_AGENT_FINISH_OUTPUT = 'gen_ai.agent.finish.output';
   static GEN_AI_AGENT_FINISH_LOG = 'gen_ai.agent.finish.log';
+  static GEN_AI_OPERATION_TYPE = 'gen_ai.operation.type';
+  static GEN_AI_AGENT_TYPE = 'gen_ai.agent.type';
+  static GEN_AI_AGENT_TYPE_BROWSER = 'browser';
+  static GEN_AI_AGENT_BROWSE_URL = 'gen_ai.agent.browse_url';
+  static GEN_AI_AGENT_STEP_COUNT = 'gen_ai.agent.step_count';
+  static GEN_AI_AGENT_MAX_STEPS = 'gen_ai.agent.max_steps';
+  static GEN_AI_BROWSER_AGENT_TASK_ID = 'gen_ai.agent.task_id';
+  static GEN_AI_AGENT_SESSION_ID = 'gen_ai.agent.session_id';
+  static GEN_AI_AGENT_USE_VISION = 'gen_ai.agent.use_vision';
+  static GEN_AI_AGENT_HEADLESS = 'gen_ai.agent.headless';
+  static GEN_AI_AGENT_ALLOWED_DOMAINS = 'gen_ai.agent.allowed_domains';
+  static GEN_AI_AGENT_TOTAL_ACTIONS = 'gen_ai.agent.total_actions';
+  static GEN_AI_AGENT_SUCCESSFUL_STEPS = 'gen_ai.agent.successful_steps';
+  static GEN_AI_AGENT_FAILED_STEPS = 'gen_ai.agent.failed_steps';
+  static GEN_AI_AGENT_SUCCESS_RATE = 'gen_ai.agent.success_rate';
+  static GEN_AI_AGENT_FINAL_RESULT = 'gen_ai.agent.final_result';
+  static GEN_AI_AGENT_EXECUTION_TIME = 'gen_ai.agent.execution_time';
+  static GEN_AI_AGENT_THINKING = 'gen_ai.agent.thinking';
+  static GEN_AI_AGENT_MEMORY = 'gen_ai.agent.memory';
+  static GEN_AI_AGENT_NEXT_GOAL = 'gen_ai.agent.next_goal';
+  static GEN_AI_AGENT_EVALUATION = 'gen_ai.agent.evaluation';
+  static GEN_AI_AGENT_ACTIONS = 'gen_ai.agent.actions';
+  static GEN_AI_AGENT_ACTIONS_COUNT = 'gen_ai.agent.actions_count';
+  static GEN_AI_AGENT_PAGE_TITLE = 'gen_ai.agent.page_title';
+  static GEN_AI_ACTION_SUCCESS = 'gen_ai.action.success';
+  static GEN_AI_ACTION_ERROR = 'gen_ai.action.error';
+  static GEN_AI_ACTION_TYPE = 'gen_ai.action.type';
+  static GEN_AI_ACTION_INDEX = 'gen_ai.action.index';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
@@ -210,6 +239,7 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
   static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow';
   static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
+  static GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = 'execute_task';
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
@@ -247,6 +277,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
+  static GEN_AI_SYSTEM_ASSEMBLYAI = 'assemblyai';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
   static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
@@ -502,6 +533,30 @@ export default class SemanticConvention {
   static DB_PAYLOAD_COUNT = 'db.payload_count';
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
+
+  // ----- PostgreSQL (pg) instrumentation -----
+  // Mirrors Python SDK psycopg instrumentation (sdk/python/src/openlit/instrumentation/psycopg).
+  static DB_SYSTEM_POSTGRESQL = 'postgresql';
+  // OTel database namespace (database name). Python psycopg uses "db.namespace";
+  // the existing TS DB_NAMESPACE = "db.query.namespace" is a vector-DB attribute,
+  // so a dedicated constant keeps parity with the Python attribute value.
+  static DB_NAMESPACE_POSTGRESQL = 'db.namespace';
+  // SQL operation names (statement verbs) — values mirror Python semcov.
+  static DB_OPERATION_COMMIT = 'COMMIT';
+  static DB_OPERATION_ROLLBACK = 'ROLLBACK';
+  static DB_OPERATION_COPY = 'COPY';
+  static DB_OPERATION_CREATE = 'CREATE';
+  static DB_OPERATION_ALTER = 'ALTER';
+  static DB_OPERATION_DROP = 'DROP';
+  static DB_OPERATION_TRUNCATE = 'TRUNCATE';
+  static DB_OPERATION_CALL = 'CALL';
+  // pgvector similarity metric (set when a similarity operator is present).
+  static DB_SEARCH_SIMILARITY_METRIC = 'db.search.similarity_metric';
+  // PostgreSQL-specific extras (mirror Python semcov).
+  static DB_POSTGRESQL_ROWS_AFFECTED = 'db.postgresql.rows_affected';
+  static DB_POSTGRESQL_PLAN = 'db.postgresql.plan';
+  // Batch size attribute used by executemany-style batched queries.
+  static DB_BATCH_SIZE = 'db.batch.size';
 
   // ----- Mem0 (memory layer) instrumentation -----
   // Session scope (mirrors Python semcov; stamped on memory spans when present)

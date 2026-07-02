@@ -1,31 +1,31 @@
 diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
-index 54776da..77aa795 100644
+index 3f7a63a..95bb87a 100644
 --- a/pkg/appolly/app/request/span.go
 +++ b/pkg/appolly/app/request/span.go
-@@ -105,6 +105,8 @@ const (
- 	HTTPSubtypeMCP           = 12 // http + Model Context Protocol
+@@ -110,6 +110,8 @@ const (
  	HTTPSubtypeEmbedding     = 13 // http + generic embedding provider (Voyage, Cohere, Jina)
  	HTTPSubtypeRerank        = 14 // http + Rerank (Cohere, Jina, Voyage, etc.)
-+	HTTPSubtypeCustom        = 15 // http + custom OpenAI-compatible gateway (LiteLLM, vLLM, ...)
-+	HTTPSubtypeOllama        = 16 // http + Ollama native API
+ 	HTTPSubtypeRetrieval     = 15 // http + vector retrieval (Pinecone, Qdrant, Milvus, Chroma, Weaviate, etc.)
++	HTTPSubtypeCustom        = 16 // http + custom OpenAI-compatible gateway (LiteLLM, vLLM, ...)
++	HTTPSubtypeOllama        = 17 // http + Ollama native API
  )
  
  func IsGenAISubtype(subtype int) bool {
-@@ -115,7 +117,9 @@ func IsGenAISubtype(subtype int) bool {
- 		subtype == HTTPSubtypeAWSBedrock ||
+@@ -121,7 +123,9 @@ func IsGenAISubtype(subtype int) bool {
  		subtype == HTTPSubtypeMCP ||
  		subtype == HTTPSubtypeEmbedding ||
--		subtype == HTTPSubtypeRerank
-+		subtype == HTTPSubtypeRerank ||
+ 		subtype == HTTPSubtypeRerank ||
+-		subtype == HTTPSubtypeRetrieval
++		subtype == HTTPSubtypeRetrieval ||
 +		subtype == HTTPSubtypeCustom ||
 +		subtype == HTTPSubtypeOllama
  }
  
  //nolint:cyclop
-@@ -282,6 +286,33 @@ type GenAI struct {
- 	MCP       *MCPCall
+@@ -293,6 +297,33 @@ type GenAI struct {
  	Embedding *VendorEmbedding
  	Rerank    *VendorRerank
+ 	Retrieval *VendorRetrieval
 +	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Reuses
 +	// VendorOpenAI for tokens/model/params because the wire format is
 +	// OpenAI-compatible. The message bodies, however, are normalized by the
@@ -55,8 +55,8 @@ index 54776da..77aa795 100644
 +	Output string
  }
  
- type OpenAIUsage struct {
-@@ -1490,6 +1521,23 @@ func (s *Span) TraceName() string {
+ type OpenAIPromptTokensDetails struct {
+@@ -1804,6 +1835,23 @@ func (s *Span) TraceName() string {
  			}
  		}
  
@@ -80,8 +80,22 @@ index 54776da..77aa795 100644
  		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeAnthropic && s.GenAI != nil && s.GenAI.Anthropic != nil {
  			name := s.GenAI.Anthropic.Output.Type
  			if name != "" {
-@@ -1819,6 +1867,14 @@ func (s *Span) GenAIInputTokens() int {
- 		return s.GenAI.Rerank.Output.GetTotalTokens()
+@@ -1889,6 +1937,13 @@ func (s *Span) TraceName() string {
+ 			return RetrievalOperationName
+ 		}
+ 
++		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeOllama && s.GenAI != nil && s.GenAI.Ollama != nil {
++			if s.GenAI.Ollama.Model != "" {
++				return s.GenAI.Ollama.Operation + " " + s.GenAI.Ollama.Model
++			}
++			return s.GenAI.Ollama.Operation
++		}
++
+ 		if s.SubType == HTTPSubtypeJSONRPC && s.JSONRPC != nil {
+ 			if s.JSONRPC.Method != "" {
+ 				return s.JSONRPC.Method
+@@ -2155,6 +2210,14 @@ func (s *Span) GenAIInputTokens() int {
+ 		return s.GenAI.Retrieval.GetInputTokens()
  	}
  
 +	if s.GenAI.Custom != nil {
@@ -95,7 +109,7 @@ index 54776da..77aa795 100644
  	return 0
  }
  
-@@ -1851,6 +1907,14 @@ func (s *Span) GenAIOutputTokens() int {
+@@ -2187,6 +2250,14 @@ func (s *Span) GenAIOutputTokens() int {
  		return s.GenAI.Embedding.GetOutputTokens()
  	}
  
@@ -110,9 +124,9 @@ index 54776da..77aa795 100644
  	return 0
  }
  
-@@ -1879,6 +1943,12 @@ func (s *Span) GenAIOperationName() string {
- 	if s.GenAI.Rerank != nil {
- 		return "rerank"
+@@ -2218,6 +2289,12 @@ func (s *Span) GenAIOperationName() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.OperationName()
  	}
 +	if s.GenAI.Custom != nil {
 +		return s.GenAI.Custom.OperationName
@@ -123,9 +137,9 @@ index 54776da..77aa795 100644
  	return ""
  }
  
-@@ -1907,6 +1977,12 @@ func (s *Span) GenAIProviderName() string {
- 	if s.GenAI.Rerank != nil {
- 		return s.GenAI.Rerank.Provider
+@@ -2249,6 +2326,12 @@ func (s *Span) GenAIProviderName() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.Provider
  	}
 +	if s.GenAI.Ollama != nil {
 +		return "ollama"
@@ -136,9 +150,9 @@ index 54776da..77aa795 100644
  	return ""
  }
  
-@@ -1938,6 +2014,12 @@ func (s *Span) GenAIRequestModel() string {
- 	if s.GenAI.Rerank != nil {
- 		return s.GenAI.Rerank.Input.Model
+@@ -2283,6 +2366,12 @@ func (s *Span) GenAIRequestModel() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.Input.Model
  	}
 +	if s.GenAI.Custom != nil {
 +		return s.GenAI.Custom.Request.Model
@@ -149,9 +163,9 @@ index 54776da..77aa795 100644
  	return ""
  }
  
-@@ -1978,5 +2060,14 @@ func (s *Span) GenAIResponseModel() string {
+@@ -2329,5 +2418,14 @@ func (s *Span) GenAIResponseModel() string {
  		}
- 		return s.GenAI.Rerank.Input.Model
+ 		return s.GenAI.Retrieval.Input.Model
  	}
 +	if s.GenAI.Custom != nil {
 +		if s.GenAI.Custom.ResponseModel != "" {

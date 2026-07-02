@@ -205,7 +205,7 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	return (
 		<>
 			{(renderTitle || !readonly || headerComponent) && (
-				<div className="flex items-center w-full mb-6 gap-4">
+				<div className="flex items-center w-full gap-4 px-4 pt-3 mb-4">
 					{renderTitle && (
 						<div className="flex items-center gap-2 text-stone-900 dark:text-stone-300">
 							<h1 className="text-2xl font-bold">{details.title}</h1>
@@ -213,9 +213,6 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 								<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer h-5" />} />
 							)}
 						</div>
-					)}
-					{!renderTitle && details.description && (
-						<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer h-5" />} />
 					)}
 					{headerComponent}
 					{isEditing && (

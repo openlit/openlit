@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -12,7 +12,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { getCurrentOrganisation } from "@/selectors/organisation";
 import {
 	getCurrentProject,
@@ -23,6 +22,7 @@ import { useRootStore } from "@/store";
 import { cn } from "@/lib/utils";
 import getMessage from "@/constants/messages";
 import { changeActiveProject, fetchProjectList } from "@/helpers/client/project";
+import { headerScopeTriggerClassName } from "./header-scope-pill";
 
 export default function HeaderProjectSwitch() {
 	const messages = getMessage();
@@ -44,19 +44,20 @@ export default function HeaderProjectSwitch() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button
-					variant="outline"
-					className="h-9 min-w-32 max-w-56 shrink-0 justify-start overflow-hidden border-stone-200 bg-stone-100/50 px-3 py-1.5 text-left font-normal text-stone-700 hover:bg-stone-200 hover:text-stone-950 dark:border-stone-800 dark:bg-stone-900/70 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white"
+				<button
+					type="button"
+					className={headerScopeTriggerClassName}
 					disabled={!currentOrg?.id || isLoading || projects.length === 0}
 				>
 					{isLoading ? (
-						<Loader2 className="mr-2 size-3 shrink-0 animate-spin" />
+						<Loader2 className="size-3 shrink-0 animate-spin" />
 					) : null}
-					<span className="min-w-0 truncate text-xs font-medium">
+					<span className="min-w-0 truncate">
 						{selectedProject?.name ||
 							(isLoading ? messages.LOADING_PROJECT : messages.NO_PROJECT)}
 					</span>
-				</Button>
+					<ChevronDown className="size-3 shrink-0 opacity-50" />
+				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-56" side="bottom" align="start">
 				<DropdownMenuLabel>{messages.PROJECTS}</DropdownMenuLabel>

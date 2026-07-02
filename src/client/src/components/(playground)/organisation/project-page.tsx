@@ -56,7 +56,7 @@ export default function OrganisationProjectPage({
 					<TabsTrigger value="database" className="gap-1.5 text-xs"><Database className="h-3.5 w-3.5" />{messages.PROJECT_DATABASE_CONFIGS}</TabsTrigger>
 				</TabsList>
 					<TabsContent value="overview" className="mt-0 data-[state=active]:mt-3">
-				<section className="rounded-md border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+				<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 					<div className="mb-4 flex items-center gap-2">
 						<FolderKanban className="h-4 w-4 text-primary" />
 						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
@@ -85,7 +85,7 @@ export default function OrganisationProjectPage({
 				</TabsContent>
 
 					<TabsContent value="database" className="mt-0 data-[state=active]:mt-3">
-				<section className="min-h-[520px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+				<section className="min-h-[520px] overflow-hidden border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
 					<div className="border-b border-stone-200 p-4 dark:border-stone-800">
 						<div className="flex items-center gap-2">
 							<Database className="h-4 w-4 text-primary" />

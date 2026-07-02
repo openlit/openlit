@@ -11,6 +11,17 @@ import BrowserUseWrapper from './wrapper';
 
 const SUPPORTED_VERSIONS = ['>=0.1.0'];
 
+const AGENT_METHODS: Array<{
+  name: string;
+  patch: (tracer: any, version?: string) => any;
+}> = [
+  { name: 'run', patch: BrowserUseWrapper._patchAgentRun },
+  { name: 'step', patch: BrowserUseWrapper._patchAgentStep },
+  { name: 'pause', patch: (tracer, version) => BrowserUseWrapper._patchAgentLifecycle(tracer, 'pause', version) },
+  { name: 'resume', patch: (tracer, version) => BrowserUseWrapper._patchAgentLifecycle(tracer, 'resume', version) },
+  { name: 'stop', patch: (tracer, version) => BrowserUseWrapper._patchAgentLifecycle(tracer, 'stop', version) },
+];
+
 export default class BrowserUseInstrumentation extends InstrumentationBase {
   constructor(config: InstrumentationConfig = {}) {
     super(`${INSTRUMENTATION_PREFIX}/instrumentation-browser-use`, '1.0.0', config);
@@ -22,19 +33,6 @@ export default class BrowserUseInstrumentation extends InstrumentationBase {
         'browser-use',
         SUPPORTED_VERSIONS,
         (moduleExports: any, moduleVersion?: string) => {
-          this._patch(moduleExports, moduleVersion);
-          return moduleExports;
-        },
-        (moduleExports: any) => {
-          if (moduleExports !== undefined) {
-            this._unpatch(moduleExports);
-          }
-        }
-      ),
-      new InstrumentationNodeModuleDefinition(
-        'browser-use/agent',
-        SUPPORTED_VERSIONS,
-        (moduleExports: any, moduleVersion?: string) => {
           this._patchAgent(moduleExports, moduleVersion);
           return moduleExports;
         },
@@ -42,7 +40,7 @@ export default class BrowserUseInstrumentation extends InstrumentationBase {
           if (moduleExports !== undefined) {
             this._unpatchAgent(moduleExports);
           }
-        }
+        },
       ),
       new InstrumentationNodeModuleDefinition(
         'browser-use/controller',
@@ -55,16 +53,12 @@ export default class BrowserUseInstrumentation extends InstrumentationBase {
           if (moduleExports !== undefined) {
             this._unpatchController(moduleExports);
           }
-        }
+        },
       ),
     ];
   }
 
-  public manualPatch(moduleExports: any): void {
-    this._patch(moduleExports);
-  }
-
-  private _patch(moduleExports: any, moduleVersion?: string): void {
+  public manualPatch(moduleExports: any, moduleVersion?: string): void {
     this._patchAgent(moduleExports, moduleVersion);
     this._patchController(moduleExports, moduleVersion);
   }
@@ -73,17 +67,19 @@ export default class BrowserUseInstrumentation extends InstrumentationBase {
     try {
       const AgentClass = moduleExports?.Agent ?? moduleExports?.default;
       const proto = AgentClass?.prototype;
-      if (!proto || typeof proto.run !== 'function' || isWrapped(proto.run)) {
+      if (!proto) {
         return;
       }
 
-      this._wrap(
-        proto,
-        'run',
-        BrowserUseWrapper._patchAgentRun(this.tracer, moduleVersion ? String(moduleVersion) : undefined)
-      );
+      const sdkVersion = moduleVersion ? String(moduleVersion) : undefined;
+      for (const { name, patch } of AGENT_METHODS) {
+        if (typeof proto[name] !== 'function' || isWrapped(proto[name])) {
+          continue;
+        }
+        this._wrap(proto, name, patch(this.tracer, sdkVersion));
+      }
     } catch (e) {
-      diag.error('browser-use instrumentation: failed to patch Agent.run', e);
+      diag.error('browser-use instrumentation: failed to patch Agent methods', e);
     }
   }
 
@@ -100,24 +96,23 @@ export default class BrowserUseInstrumentation extends InstrumentationBase {
         'act',
         BrowserUseWrapper._patchControllerAct(
           this.tracer,
-          moduleVersion ? String(moduleVersion) : undefined
-        )
+          moduleVersion ? String(moduleVersion) : undefined,
+        ),
       );
     } catch (e) {
       diag.error('browser-use instrumentation: failed to patch Controller.act', e);
     }
   }
 
-  private _unpatch(moduleExports: any): void {
-    this._unpatchAgent(moduleExports);
-    this._unpatchController(moduleExports);
-  }
-
   private _unpatchAgent(moduleExports: any): void {
     const AgentClass = moduleExports?.Agent ?? moduleExports?.default;
     const proto = AgentClass?.prototype;
-    if (proto?.run && isWrapped(proto.run)) {
-      this._unwrap(proto, 'run');
+    if (!proto) return;
+
+    for (const { name } of AGENT_METHODS) {
+      if (proto[name] && isWrapped(proto[name])) {
+        this._unwrap(proto, name);
+      }
     }
   }
 

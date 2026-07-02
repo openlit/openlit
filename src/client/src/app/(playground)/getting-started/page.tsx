@@ -262,7 +262,7 @@ openlit.init();`}
 	];
 
 	return (
-		<div className="flex flex-col w-full flex-1 overflow-auto relative bg-stone-100/50 dark:bg-stone-900/50 p-4 rounded-md">
+		<div className="flex flex-col w-full flex-1 overflow-auto relative bg-stone-100/50 dark:bg-stone-900/50 p-4">
 			<div className="mb-6">
 				<h1 className="text-2xl font-bold mb-4 text-stone-950 dark:text-stone-100">
 					Get started with AI Observability

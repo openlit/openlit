@@ -184,6 +184,7 @@ async function phaseUpsertServices(
 		reportedServices.push({
 			workload_key: workloadKey,
 			instrumentation_status: status,
+			language_runtime: cStr(svc.language_runtime),
 			resource_attributes: attrs,
 		});
 

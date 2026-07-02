@@ -43,6 +43,7 @@ const SUPPORTED_PROVIDERS: Array<keyof PayloadExtractionConfig> = [
 	"gemini",
 	"qwen",
 	"bedrock",
+	"retrieval",
 	"custom",
 	"ollama",
 ];
@@ -73,6 +74,7 @@ function providerToExtractor(
 	if (provider === "gemini") return "gemini";
 	if (provider === "qwen") return "qwen";
 	if (provider === "bedrock") return "bedrock";
+	if (provider === "retrieval") return "retrieval";
 	if (provider === "custom") return "custom";
 	if (provider === "ollama") return "ollama";
 	return null;
@@ -96,6 +98,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 	vertex_ai: getMessage().AGENTS_PROVIDER_VERTEX_AI,
 	azure_inference: getMessage().AGENTS_PROVIDER_AZURE_INFERENCE,
 	bedrock: getMessage().AGENTS_PROVIDER_BEDROCK,
+	retrieval: getMessage().AGENTS_PROVIDER_RETRIEVAL,
 	ollama: getMessage().AGENTS_PROVIDER_OLLAMA,
 	custom: getMessage().AGENTS_PROVIDER_CUSTOM,
 };
@@ -106,6 +109,7 @@ const DEFAULT_PAYLOAD_EXTRACTION: PayloadExtractionConfig = {
 	gemini: false,
 	qwen: false,
 	bedrock: false,
+	retrieval: false,
 	custom: false,
 	ollama: false,
 };
