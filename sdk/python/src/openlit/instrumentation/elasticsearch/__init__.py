@@ -77,21 +77,22 @@ class ElasticsearchInstrumentor(BaseInstrumentor):
                     async_general_wrap(endpoint, **wrap_kwargs),
                 )
 
+        # indices.* methods live on IndicesClient, not on Elasticsearch directly
+        # (Elasticsearch.indices is an instance attribute set in __init__).
+        from elasticsearch._sync.client.indices import IndicesClient  # pylint: disable=import-outside-toplevel
+        from elasticsearch._async.client.indices import IndicesClient as AsyncIndicesClient  # pylint: disable=import-outside-toplevel
+
         for method_name, endpoint in ELASTICSEARCH_INDICES_OPERATIONS:
-            if hasattr(Elasticsearch, "indices") and hasattr(
-                Elasticsearch.indices, method_name
-            ):
+            if hasattr(IndicesClient, method_name):
                 wrap_function_wrapper(
-                    "elasticsearch",
-                    f"Elasticsearch.indices.{method_name}",
+                    "elasticsearch._sync.client.indices",
+                    f"IndicesClient.{method_name}",
                     general_wrap(endpoint, **wrap_kwargs),
                 )
-            if hasattr(AsyncElasticsearch, "indices") and hasattr(
-                AsyncElasticsearch.indices, method_name
-            ):
+            if hasattr(AsyncIndicesClient, method_name):
                 wrap_function_wrapper(
-                    "elasticsearch",
-                    f"AsyncElasticsearch.indices.{method_name}",
+                    "elasticsearch._async.client.indices",
+                    f"IndicesClient.{method_name}",
                     async_general_wrap(endpoint, **wrap_kwargs),
                 )
 

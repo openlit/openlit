@@ -47,35 +47,27 @@ def set_server_address_and_port(instance):
     server_port = 9200
 
     try:
-        # elasticsearch-py v8.x stores connection info in _transport
-        transport = getattr(instance, "_transport", None) or getattr(instance, "transport", None)
+        # IndicesClient stores the parent Elasticsearch client as _client
+        actual = getattr(instance, "_client", instance)
+        transport = getattr(actual, "transport", None) or getattr(actual, "_transport", None)
         if transport is None:
             return server_address, server_port
 
-        # Try node_pool (v8.x)
+        # elasticsearch-py v8/v9: transport.node_pool.all() yields node objects
         node_pool = getattr(transport, "node_pool", None)
-        if node_pool is not None:
-            nodes = getattr(node_pool, "_orig_opt", None) or getattr(node_pool, "nodes", {})
+        if node_pool is not None and callable(getattr(node_pool, "all", None)):
+            nodes = list(node_pool.all())
             if nodes:
-                node = next(iter(nodes.values())) if isinstance(nodes, dict) else next(iter(nodes))
+                node = nodes[0]
+                # Prefer node.config (NodeConfig dataclass, v8+)
                 config = getattr(node, "config", None)
-                if config:
+                if config is not None:
                     server_address = getattr(config, "host", server_address) or server_address
-                    server_port = getattr(config, "port", server_port) or server_port
-
-        # Fallback: sniff_hosts or connection_pool (v7.x)
-        connection_pool = getattr(transport, "connection_pool", None)
-        if connection_pool is not None:
-            connections = getattr(connection_pool, "connections", [])
-            if connections:
-                host = getattr(connections[0], "host", "")
-                if host:
-                    # host may look like "http://localhost:9200"
-                    if "://" in host:
-                        from urllib.parse import urlparse
-                        parsed = urlparse(host)
-                        server_address = parsed.hostname or server_address
-                        server_port = parsed.port or server_port
+                    server_port = int(getattr(config, "port", server_port) or server_port)
+                else:
+                    # Fallback: direct attributes on the node
+                    server_address = getattr(node, "host", server_address) or server_address
+                    server_port = int(getattr(node, "port", server_port) or server_port)
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 
