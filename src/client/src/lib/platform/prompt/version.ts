@@ -10,8 +10,7 @@ import { jsonStringify } from "@/utils/json";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { throwIfError } from "@/utils/error";
-import { emitAlertSignal } from "@/features/alerts";
-import { getCurrentOrganisation } from "@/lib/organisation";
+import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 
 export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 	const user = await getCurrentUser();
@@ -19,7 +18,6 @@ export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const promptInput = Sanitizer.sanitizeObject(promptInputParams);
-	const organisation = await getCurrentOrganisation().catch(() => null);
 
 	let versionErr;
 	let versionData;
@@ -77,23 +75,22 @@ export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 			: (versionErr as string) || getMessage().VERSION_NOT_SAVED
 	);
 
-	emitAlertSignal({
+	emitManagementAlertSignalSafe({
 		triggerType: "prompt_version_update",
-		organisationId: organisation?.id,
+		event: promptInput.versionId ? "prompt_version_updated" : "prompt_version_created",
+		message: `Prompt version ${promptInput.version || ""} was saved.`,
+		sourceId: promptInput.versionId || promptInput.promptId,
 		fields: {
-			event: promptInput.versionId ? "prompt_version_updated" : "prompt_version_created",
 			prompt_id: promptInput.promptId || "",
 			version: promptInput.version || "",
 			status: promptInput.status || "",
 		},
-		sourceId: promptInput.versionId || promptInput.promptId,
 		payloadSummary: {
-			message: `Prompt version ${promptInput.version || ""} was saved.`,
 			promptId: promptInput.promptId,
 			version: promptInput.version,
 			status: promptInput.status,
 		},
-	}).catch(() => undefined);
+	});
 
 	return getMessage().VERSION_SAVED;
 }

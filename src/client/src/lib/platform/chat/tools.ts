@@ -428,7 +428,18 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					status: { type: "string", enum: ["active", "paused"] },
 					triggerTypes: {
 						type: "array",
-						items: { type: "string", enum: ["access_update", "cost_limit", "invite", "failure", "prompt_version_update"] },
+						items: {
+							type: "string",
+							enum: [
+								"access_update",
+								"invite",
+								"prompt_version_update",
+								"fleet_hub_config_update",
+								"vault_secret_change",
+								"context_change",
+								"rule_engine_change",
+							],
+						},
 					},
 					destinationIds: { type: "array", items: { type: "string" } },
 					ruleId: { type: "string" },

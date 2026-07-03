@@ -2,10 +2,12 @@ export type AlertStatus = "active" | "paused";
 export type AlertSeverity = "low" | "medium" | "high" | "critical";
 export type AlertTriggerType =
 	| "access_update"
-	| "cost_limit"
 	| "invite"
-	| "failure"
-	| "prompt_version_update";
+	| "prompt_version_update"
+	| "fleet_hub_config_update"
+	| "vault_secret_change"
+	| "context_change"
+	| "rule_engine_change";
 
 export type AlertProviderType =
 	| "slack"
