@@ -2,6 +2,7 @@ export const DATABASE_CONFIG_NOT_FOUND = "No database config present!";
 export const UNAUTHORIZED_USER = "Unauthorized user!";
 export const FORBIDDEN_ACTION = "You do not have permission to perform this action.";
 export const NO_ORGANISATION_SELECTED = "No active organisation. Switch organisations to continue.";
+export const ORGANISATION_CONTEXT_REQUIRED = "Organisation context required";
 export const MALFORMED_INPUTS = "Malformed input! Please check the docs";
 export const OPERATION_FAILED = "Operation failed!";
 
@@ -94,6 +95,13 @@ export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
 export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
 export const EVALUATION_CRON_HELP =
 	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAMPLE_RATE_LABEL = "Sample rate (%)";
+export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
+	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost. Traces not selected are marked as skipped and are not re-queried on future cron runs; manual evaluation is always available.";
+export const EVALUATION_SAMPLE_RATE_INVALID =
+	"Sample rate must be a number between 0 and 1.";
+export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
+	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";
 export const EVALUATION_SAVE_CHANGES = "Save Changes";
 export const EVALUATION_CREATE_CONFIG = "Create Config";
@@ -106,7 +114,7 @@ export const EVALUATION_MANUAL_STEP_2 =
 	"Click the Evaluation tab in the trace details";
 export const EVALUATION_MANUAL_STEP_3 =
 	'Click "Run Evaluation" to evaluate the trace';
-export const EVALUATION_GO_TO_REQUESTS = "Go to Requests";
+export const EVALUATION_GO_TO_TRACES = "Go to Traces";
 export const EVALUATION_MANUAL_AND_AUTO = "Manual & Auto";
 export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
@@ -447,7 +455,7 @@ export const PRICING_MANUAL_STEP_2 =
 	'Click "Recalculate Cost" in the trace detail panel.';
 export const PRICING_MANUAL_STEP_3 =
 	"The gen_ai.usage.cost attribute is updated using the latest model pricing.";
-export const PRICING_GO_TO_REQUESTS = "Go to Requests";
+export const PRICING_GO_TO_TRACES = "Go to Traces";
 export const PRICING_SAVE = "Save";
 export const PRICING_UPDATE = "Update";
 export const PRICING_CONFIG_SAVED = "Pricing config saved";
@@ -482,6 +490,7 @@ export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FEATURE_AGENTS = "Agents";
 
 // Agents
 export const AGENTS_FILTER_SYSTEM = "System";
@@ -820,7 +829,7 @@ export const AGENTS_CONFIG_AUTO_DISCOVER_DESCRIPTION = "Automatically scan for a
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS = "Custom LLM Hosts";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_HELP = "Add custom hostnames for self-hosted LLM proxies (e.g. LiteLLM, Ollama, Azure per-deployment endpoints). Comma-separated. The controller will resolve these and monitor traffic to them.";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER = "litellm.internal:4000, ollama.internal:11434, my-azure.openai.azure.com";
-export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (LLM Providers)";
+export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (AI Providers)";
 export const AGENTS_CONFIG_PAYLOAD_EXTRACTION_HELP = "Enable payload extraction to capture GenAI span attributes (prompts, completions, tokens) for each provider.";
 export const AGENTS_CONFIG_OTLP_HEADERS = "OTLP Headers";
 export const AGENTS_CONFIG_HEADER_NAME_PLACEHOLDER = "Header name";
@@ -840,6 +849,7 @@ export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";
 export const AGENTS_PROVIDER_BEDROCK = "AWS Bedrock";
+export const AGENTS_PROVIDER_RETRIEVAL = "Vector Retrieval";
 export const AGENTS_PROVIDER_QWEN = "Qwen";
 export const AGENTS_PROVIDER_OLLAMA = "Ollama";
 export const AGENTS_PROVIDER_CUSTOM = "Custom LLM Gateway";
@@ -959,6 +969,7 @@ export const VARIABLES = "Variables";
 export const PROMPT = "Prompt";
 export const PROMPT_PREVIEW = "Prompt Preview";
 export const PROMPT_HUB = "Prompt Hub";
+export const NAV_APP_PROMPTS = "Prompts";
 export const PROVIDERS = "Providers";
 export const NO_DATA_FOUND = "No data found!";
 export const CANNOT_CONNECT_TO_SERVER = "Cannot connect to server!";
@@ -1000,9 +1011,50 @@ export const LOG_OUT = "Log out";
 export const EXPAND = "Expand";
 export const DATABASES = "Databases";
 export const DATABASE_CONFIG = "Database Config";
+export const API_KEYS = "API Keys";
+export const USER_PROFILE = "User Profile";
 export const DB_CONFIG = "DB Config";
 export const ADD_NEW_CONFIG = "Add New Config";
 export const MANAGE_DB_CONFIG = "Manage DB Config";
+export const MODIFYING_DB_CONFIG = "Modifying database config...";
+export const DB_CONFIG_UPDATED = "Database config updated";
+export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_SET_ACTIVE = (name: string) =>
+	`Database config: ${name} is being set active`;
+export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";
+export const DB_CONFIG_FIELD_ENVIRONMENT = "Environment";
+export const DB_CONFIG_FIELD_USERNAME = "Username";
+export const DB_CONFIG_FIELD_PASSWORD = "Password";
+export const DB_CONFIG_FIELD_HOST = "Host";
+export const DB_CONFIG_FIELD_PORT = "Port";
+export const DB_CONFIG_FIELD_DATABASE = "Database";
+export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
+export const UPDATE_DB_CONFIG = "Update Database config";
+export const ADD_DB_CONFIG = "Add Database config";
+export const DB_CONFIG_EDIT_PERMISSION_REQUIRED =
+	"You don't have enough permissions to edit this database config";
+export const UPDATE = "Update";
+export const DB_CONFIG_EMPTY_TITLE = "You have not created any database config";
+export const DB_CONFIG_NOT_SELECTED_TITLE =
+	"You have not selected any database config";
+export const DB_CONFIG_EMPTY_DESCRIPTION =
+	"You can have multiple database configs to manage different environments.";
+export const DB_CONFIG_NOT_SELECTED_DESCRIPTION =
+	"Select a database config to update its details.";
+export const ADD_DATABASE_CONFIG = "Add database config";
+export const MARK_DB_CONFIG_ACTIVE = (name: string) =>
+	`Mark ${name} as the active database config`;
+export const SHARE_DATABASE_CONFIG = "Share Database config";
+export const SHARE_DATABASE_CONFIG_DESCRIPTION =
+	"You can share the selected database config with multiple users and permissions.";
+export const ADD_EMAIL_PLACEHOLDER = "Add an email...";
+export const ENTER = "Enter";
+export const SHARE = "Share";
+export const EMAIL_INVALID = "Email invalid";
+export const EMAIL_REQUIRED = "Email is required";
+export const INVALID_EMAIL_FORMAT = "Invalid email format";
+export const DB_CONFIG_SHARED = "Database config shared";
+export const DB_CONFIG_SHARE_FAILED = "Database config share failed";
 export const PENDING_INVITATION = "Pending Invitation";
 
 // Organisation
@@ -1029,6 +1081,16 @@ export const CURRENT_DB_CONFIG_SET_SUCCESS =
 	"Current DB config set successfully!";
 export const PROJECT_DB_CONFIG_DESCRIPTION =
 	"Projects group database configs inside an organisation. Select a project before managing its database config.";
+export const BACK_TO_ORGANISATION = "Back to Organisation";
+export const PROJECT_DETAILS = "Project details";
+export const PROJECT_DETAILS_DESCRIPTION =
+	"Review project identity, current status, and database configuration.";
+export const PROJECT_DATABASE_CONFIGS = "Database configurations";
+export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =
+	"Create, select, and update database configs scoped to this project.";
+export const PROJECT_MEMBER_ACCESS = "Project member access";
+export const PROJECT_MEMBER_ACCESS_DESCRIPTION =
+	"Control which organisation members can access this project.";
 export const USE_PROJECT = "Use project";
 export const ORGANISATION_NAME = "Organisation Name";
 export const ORGANISATION_NAME_PLACEHOLDER = "My Company";
@@ -1036,8 +1098,8 @@ export const CREATE_ORGANISATION = "Create Organisation";
 export const NEW_ORGANISATION = "New Organisation";
 export const MANAGE_ORGANISATIONS = "Manage Organisations";
 export const SWITCH_ORGANISATION = "Switch Organisation";
-export const ORGANISATION_SETTINGS = "Organisation Settings";
-export const ORGANISATION_SETTINGS_DESCRIPTION = "Manage your organisations and team members";
+export const ORGANISATION_SETTINGS = "Organisation";
+export const ORGANISATION_SETTINGS_DESCRIPTION = "Manage organisation details, projects, database configs, and members";
 export const CURRENT_ORGANISATION = "Current Organisation";
 export const UPDATE_ORGANISATION_DETAILS = "Update your organisation details";
 export const YOUR_ORGANISATIONS = "Your Organisations";
@@ -1091,6 +1153,7 @@ export const INACTIVE = "Inactive";
 export const STATUS = "Status";
 
 // Organisation Errors
+export const PROJECT_OVERVIEW = "Overview";
 export const NOT_ORGANISATION_MEMBER = "You are not a member of this organisation";
 export const ORGANISATION_NOT_FOUND = "Organisation not found";
 export const ORGANISATION_NOTHING_TO_UPDATE = "Nothing to update";
@@ -1102,6 +1165,19 @@ export const ORGANISATION_PROJECT_CREATED = "Project created";
 export const ORGANISATION_PROJECT_CREATE_FAILED =
 	"Unable to create project";
 export const NO_ORGANISATION_PROJECTS = "No projects yet. Create one above.";
+export const HOME_SETUP_TITLE = "Set up your workspace";
+export const HOME_SETUP_DESCRIPTION =
+	"Create a project, connect a database config, then OpenLIT will show dashboards for that project.";
+export const HOME_SETUP_ORGANISATION_STEP = "Organisation selected";
+export const HOME_SETUP_PROJECT_STEP = "Create a project";
+export const HOME_SETUP_PROJECT_DESCRIPTION =
+	"Projects group telemetry, dashboards, members, and database configs.";
+export const HOME_SETUP_DB_CONFIG_STEP = "Add database config";
+export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
+	"Connect the ClickHouse database config that stores this project's data.";
+export const HOME_SETUP_READY_STEP = "Devtool unlocked";
+export const HOME_SETUP_READY_DESCRIPTION =
+	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
@@ -1261,6 +1337,7 @@ export const CONTEXT_NAME_REQUIRED = "Context name is required!";
 export const CONTEXT_CONTENT_REQUIRED = "Context content is required!";
 
 // Onboarding
+export const ONBOARDING = "Onboarding";
 export const ONBOARDING_WELCOME = "Welcome to OpenLIT";
 export const ONBOARDING_SUBTITLE = "Let's get you set up with an organisation";
 export const ONBOARDING_CREATE_DESCRIPTION = "Create a new organisation to get started";

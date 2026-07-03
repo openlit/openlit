@@ -1,4 +1,5 @@
 import { getDatabaseConfigList } from "@/selectors/database-config";
+import { getCurrentProject } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import { useEffect } from "react";
 import {
@@ -8,11 +9,12 @@ import {
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { cn } from "@/lib/utils";
+import { headerScopeTriggerClassName } from "../header-scope-pill";
 
 type DatabaseConfigSwitchProps = {
 	className?: string;
@@ -20,7 +22,7 @@ type DatabaseConfigSwitchProps = {
 	contentSide?: "bottom" | "left" | "right" | "top";
 };
 
-const triggerClasses = "flex h-9 min-w-32 max-w-56 shrink-0 items-center justify-start overflow-hidden px-3 py-1.5 text-left font-normal";
+const triggerClasses = headerScopeTriggerClassName;
 
 export default function DatabaseConfigSwitch({
 	className,
@@ -31,7 +33,11 @@ export default function DatabaseConfigSwitch({
 	const router = useRouter();
 	const messages = getMessage();
 	const list = useRootStore(getDatabaseConfigList) || [];
+	const currentProject = useRootStore(getCurrentProject);
 	const activeDatabase = list.find((item) => !!item.isCurrent);
+	const manageDbConfigHref = currentProject?.id
+		? `/organisation/project/${currentProject.id}`
+		: "/organisation";
 	const onClickItem = (id: string) => {
 		changeActiveDatabaseConfig(id, () => {
 			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
@@ -49,15 +55,14 @@ export default function DatabaseConfigSwitch({
 	// Show manage button when no database configs exist
 	if (list.length === 0) {
 		return (
-			<Button
-				variant="outline"
+			<button
+				type="button"
 				className={cn(triggerClasses, className)}
-				onClick={() => router.push("/settings/database-config")}
+				onClick={() => router.push(manageDbConfigHref)}
 			>
-				<span className="min-w-0 truncate text-xs font-medium">
-					{messages.MANAGE_DB_CONFIG}
-				</span>
-			</Button>
+				<span className="min-w-0 truncate">{messages.MANAGE_DB_CONFIG}</span>
+				<ChevronDown className="size-3 shrink-0 opacity-50" />
+			</button>
 		);
 	}
 
@@ -67,9 +72,10 @@ export default function DatabaseConfigSwitch({
 	return (
 		<DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className={cn(triggerClasses, className)}>
-					<span className="min-w-0 truncate text-xs font-medium">{displayDatabaseName}</span>
-				</Button>
+        <button type="button" className={cn(triggerClasses, className)}>
+					<span className="min-w-0 truncate">{displayDatabaseName}</span>
+					<ChevronDown className="size-3 shrink-0 opacity-50" />
+				</button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" side={contentSide} align={contentAlign}>
         <DropdownMenuLabel>{messages.DATABASES}</DropdownMenuLabel>
@@ -96,7 +102,7 @@ export default function DatabaseConfigSwitch({
 				))}
         <DropdownMenuSeparator />
 				<DropdownMenuItem className="py-1.5 pl-8 pr-2">
-					<Link href="/settings/database-config" className=" flex items-center">
+					<Link href={manageDbConfigHref} className=" flex items-center">
 						{messages.ADD_NEW_CONFIG}
 					</Link>
 				</DropdownMenuItem>

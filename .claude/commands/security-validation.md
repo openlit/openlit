@@ -7,11 +7,14 @@ Use this command before handing off security-sensitive OpenLIT changes.
 3. Confirm malformed JSON returns `400`, not `500`.
 4. Confirm secrets, tokens, cookies, passwords, API keys, and license keys are redacted from logs and audit metadata.
 5. Confirm user-facing strings come from `src/client/src/constants/messages/en.ts`.
-6. Run:
+6. Confirm CE/shared files do not import `@/ee/**` and do not contain RBAC permission literals.
+7. Run:
 
 ```bash
 cd src/client
 npm test -- --runInBand
 npm run lint
 npx prisma validate --schema prisma/schema.prisma
+rg -n "@/ee/" src
+rg -n '"[a-z_]+:[a-z_]+"' src
 ```

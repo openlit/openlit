@@ -1,11 +1,11 @@
 diff --git a/pkg/config/payload_extraction.go b/pkg/config/payload_extraction.go
-index 1b67d5c..339fa8a 100644
+index 16e5a77..f4c7ce8 100644
 --- a/pkg/config/payload_extraction.go
 +++ b/pkg/config/payload_extraction.go
-@@ -85,13 +85,20 @@ type GenAIConfig struct {
- 	Embedding EmbeddingProviderConfig `yaml:"embedding"`
- 	// Rerank payload extraction and parsing (Cohere, Jina AI, Voyage AI, etc.)
+@@ -87,13 +87,20 @@ type GenAIConfig struct {
  	Rerank RerankConfig `yaml:"rerank"`
+ 	// Vector retrieval payload extraction and parsing (Pinecone, Qdrant, Milvus, Chroma, Weaviate, etc.)
+ 	Retrieval RetrievalConfig `yaml:"retrieval"`
 +	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, OpenRouter, ...)
 +	// payload extraction and parsing. Reuses the OpenAI parser; safe to enable
 +	// broadly because OpenAISpan returns ok=false on non-OpenAI-shaped bodies.
@@ -18,14 +18,14 @@ index 1b67d5c..339fa8a 100644
  	return g.Anthropic.Enabled || g.OpenAI.Enabled ||
  		g.Gemini.Enabled || g.Qwen.Enabled || g.Bedrock.Enabled ||
  		g.MCP.Enabled ||
--		g.Embedding.Enabled || g.Rerank.Enabled
-+		g.Embedding.Enabled || g.Rerank.Enabled ||
+-		g.Embedding.Enabled || g.Rerank.Enabled || g.Retrieval.Enabled
++		g.Embedding.Enabled || g.Rerank.Enabled || g.Retrieval.Enabled ||
 +		g.Custom.Enabled || g.Ollama.Enabled
  }
  
  type OpenAIConfig struct {
-@@ -129,6 +136,21 @@ type EmbeddingProviderConfig struct {
- 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_GENAI_EMBEDDING_ENABLED" validate:"boolean"`
+@@ -141,6 +148,21 @@ type RetrievalConfig struct {
+ 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_RETRIEVAL_ENABLED" validate:"boolean"`
  }
  
 +type CustomConfig struct {
@@ -43,6 +43,6 @@ index 1b67d5c..339fa8a 100644
 +	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_OLLAMA_ENABLED" validate:"boolean"`
 +}
 +
- type RerankConfig struct {
- 	// Enable Rerank (Cohere, Jina AI, Voyage AI, etc.) payload extraction and parsing
- 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_RERANK_ENABLED" validate:"boolean"`
+ type JSONRPCConfig struct {
+ 	// Enable JSON-RPC payload extraction and parsing
+ 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_JSONRPC_ENABLED" validate:"boolean"`

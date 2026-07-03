@@ -4,19 +4,15 @@ import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { Card } from "@/components/ui/card";
-import { ResizeablePanel } from "@/components/ui/resizeable-panel";
-import ConversationList from "./conversation-list";
 import ChatPanel from "./chat-panel";
 import OtterUsageView from "./otter-usage-view";
 import ChatSettingsForm from "./chat-settings-form";
 import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
 import { useRootStore } from "@/store";
 import {
-	getChatConversations,
 	getChatActiveId,
 	getChatHasConfig,
 	getChatConfigInfo,
-	getChatIsLoadingConversations,
 	getChatIsLoadingConfig,
 	getChatActions,
 } from "@/selectors/chat";
@@ -34,51 +30,22 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 	const router = useRouter();
 	const posthog = usePostHog();
 
-	const conversations = useRootStore(getChatConversations);
 	const activeId = useRootStore(getChatActiveId);
 	const hasConfig = useRootStore(getChatHasConfig);
 	const configInfo = useRootStore(getChatConfigInfo);
-	const loadingConversations = useRootStore(getChatIsLoadingConversations);
 	const loadingConfig = useRootStore(getChatIsLoadingConfig);
 	const {
-		setConversations,
 		setActiveConversationId,
 		setHasConfig,
 		setConfigInfo,
-		setIsLoadingConversations,
 		setIsLoadingConfig,
 		addConversation,
-		removeConversation,
 	} = useRootStore(getChatActions);
 
 	// Sync activeId with URL param
 	useEffect(() => {
 		setActiveConversationId(initialConversationId);
 	}, [initialConversationId, setActiveConversationId]);
-
-	const fetchConversations = useCallback(async () => {
-		try {
-			const res = await fetch("/api/chat/conversation");
-			const result = await res.json();
-			if (result.data) {
-				setConversations(
-					result.data.map((c: any) => ({
-						id: c.id,
-						title: c.title || m.CHAT_NEW_CONVERSATION,
-						totalCost: Number(c.totalCost) || 0,
-						totalMessages: Number(c.totalMessages) || 0,
-						totalPromptTokens: Number(c.totalPromptTokens) || 0,
-						totalCompletionTokens: Number(c.totalCompletionTokens) || 0,
-						updatedAt: c.updatedAt,
-					}))
-				);
-			}
-		} catch {
-			// Silently fail
-		} finally {
-			setIsLoadingConversations(false);
-		}
-	}, [m, setConversations, setIsLoadingConversations]);
 
 	const fetchConfig = useCallback(async () => {
 		try {
@@ -112,9 +79,8 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 	}, [setHasConfig, setConfigInfo, setIsLoadingConfig]);
 
 	useEffect(() => {
-		fetchConversations();
 		fetchConfig();
-	}, [fetchConversations, fetchConfig]);
+	}, [fetchConfig]);
 
 	useEffect(() => {
 		const event =
@@ -136,14 +102,6 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 		},
 		[router]
 	);
-
-	const navigateToUsage = useCallback(() => {
-		router.push("/chat/usage");
-	}, [router]);
-
-	const navigateToSettings = useCallback(() => {
-		router.push("/chat/settings");
-	}, [router]);
 
 	const handleNewConversation = useCallback(async (): Promise<string | null> => {
 		try {
@@ -176,55 +134,8 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 		return null;
 	}, [addConversation, navigateTo, m, configInfo]);
 
-	const handleDeleteConversation = useCallback(
-		async (id: string) => {
-			try {
-				await fetch(`/api/chat/conversation/${id}`, { method: "DELETE" });
-				removeConversation(id);
-				if (activeId === id) {
-					navigateTo(null);
-				}
-			} catch {
-				toast.error(m.CHAT_FAILED_TO_DELETE_CONVERSATION);
-			}
-		},
-		[activeId, removeConversation, navigateTo, m]
-	);
-
-	const handleSelectConversation = useCallback(
-		(id: string) => {
-			navigateTo(id);
-		},
-		[navigateTo]
-	);
-
-	const handleNewChat = useCallback(() => {
-		navigateTo(null);
-	}, [navigateTo]);
-
 	return (
-		<Card className="flex h-full w-full overflow-hidden border border-stone-200 dark:border-stone-800">
-			<ResizeablePanel
-				defaultWidth={280}
-				minWidth={220}
-				maxWidth={400}
-				handlePosition="right"
-				className="border-r border-stone-200 dark:border-stone-800"
-			>
-				<ConversationList
-					conversations={conversations}
-					activeId={activeId}
-					isUsageActive={initialView === "usage"}
-					isSettingsActive={initialView === "settings"}
-					onSelect={handleSelectConversation}
-					onDelete={handleDeleteConversation}
-					onNew={handleNewChat}
-					onUsage={navigateToUsage}
-					onSettings={navigateToSettings}
-					isLoading={loadingConversations}
-				/>
-			</ResizeablePanel>
-
+		<div className="flex h-full w-full overflow-hidden">
 			<div className="flex-1 min-w-0 bg-white dark:bg-stone-950">
 				{initialView === "usage" ? (
 					<OtterUsageView />
@@ -240,6 +151,6 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 				)}
 			</div>
 			<TraceDetailRequestSheet />
-		</Card>
+		</div>
 	);
 }

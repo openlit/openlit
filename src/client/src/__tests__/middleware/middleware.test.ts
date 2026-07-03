@@ -43,4 +43,9 @@ describe('middleware', () => {
   it('matcher includes /login route', () => {
     expect(config.matcher).toContain('/login');
   });
+
+  it('does not include enterprise-only routes in CE', () => {
+    expect(config.matcher).not.toContain('/audit-logs');
+    expect(config.matcher).not.toContain('/audit-logs/:path*');
+  });
 });

@@ -148,6 +148,23 @@ services:
       openlit:
         condition: service_healthy
 
+  # JavaScript/TypeScript agent-framework sample app.
+  # Runs the real @openai/agents SDK against an in-process OpenAI-compatible
+  # mock LLM. It intentionally does not call openlit.init(); use the Agents
+  # page to enable controller-managed JS/TS SDK injection and verify framework
+  # spans from the injected OpenLIT preload.
+  openai-agents-js-app:
+    build: ../examples/openai-agents-js-app
+    container_name: demo-openai-agents-js-app
+    profiles: [full]
+    environment:
+      AGENT_MODEL: gpt-4o-mini
+      REQUEST_INTERVAL_SECONDS: "20"
+    restart: unless-stopped
+    depends_on:
+      openlit:
+        condition: service_healthy
+
   non-llm-app:
     build: ../examples/non-llm-http-app
     container_name: demo-non-llm-app

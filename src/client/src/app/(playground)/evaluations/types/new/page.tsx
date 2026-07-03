@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 export default function CreateCustomEvaluationTypePage() {
 	const posthog = usePostHog();
@@ -95,30 +96,23 @@ export default function CreateCustomEvaluationTypePage() {
 	};
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-			{/* Header */}
-			<div className="flex items-center gap-4">
-				<Link href="/evaluations/types">
-					<Button
-						variant="outline"
-						size="icon"
-						className="shrink-0 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800"
-					>
-						<ArrowLeft className="size-4" />
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader
+				eyebrow="Configuration"
+				title="Create Custom Evaluation Type"
+				icon={<Sparkles className="h-4 w-4" />}
+				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+				actions={
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations/types">
+							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+							Evaluation Types
+						</Link>
 					</Button>
-				</Link>
-				<div>
-					<h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-						<Sparkles className="size-5 text-primary" />
-						Create Custom Evaluation Type
-					</h2>
-					<p className="text-sm text-stone-500 dark:text-stone-400">
-						Define a custom evaluation type with your own prompt. The LLM judge will use it to evaluate traces.
-					</p>
-				</div>
-			</div>
+				}
+			/>
 
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
 				<div className="col-span-2 space-y-4">
 					{/* Type ID & Label */}
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">

@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface PricingConfig {
 	id?: string;
@@ -84,28 +85,28 @@ export default function PricingPage() {
 		});
 	};
 
+	const header = (
+		<FeaturePageHeader eyebrow="Configuration" title={m.PRICING_TITLE} icon={<CircleDollarSign className="size-4" />} tone="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300" />
+	);
+
 	if (isLoadingConfig && !config) {
 		return (
-			<div className="flex flex-1 h-full w-full p-6">
-				<div className="animate-pulse grid gap-4 w-full max-w-3xl">
-					<div className="h-40 bg-stone-100 dark:bg-stone-900 rounded-xl" />
+			<div className="flex flex-col h-full w-full overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full p-4">
+					<div className="animate-pulse grid gap-4 w-full max-w-3xl">
+						<div className="h-40 bg-stone-100 dark:bg-stone-900" />
+					</div>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-			{/* Page header */}
-			<div className="space-y-1">
-				<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-					<CircleDollarSign className="size-5" />
-					{m.PRICING_TITLE}
-				</h1>
-				<p className="text-sm text-stone-500 dark:text-stone-400">
-					{m.PRICING_PAGE_DESCRIPTION}
-				</p>
-			</div>
+		<div className="flex flex-col h-full w-full overflow-hidden">
+			{header}
+
+			<div className="flex flex-col flex-1 w-full overflow-auto gap-4 p-4">
 
 			{/* Single info bar (replaces the large left description card) */}
 			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
@@ -197,8 +198,8 @@ export default function PricingPage() {
 							<li>{m.PRICING_MANUAL_STEP_2}</li>
 							<li>{m.PRICING_MANUAL_STEP_3}</li>
 						</ol>
-						<Link href="/requests" className="mt-3 inline-block">
-							<Button variant="default">{m.PRICING_GO_TO_REQUESTS}</Button>
+						<Link href="/telemetry" className="mt-3 inline-block">
+							<Button variant="default">{m.PRICING_GO_TO_TRACES}</Button>
 						</Link>
 					</CardContent>
 				</Card>
@@ -226,6 +227,7 @@ export default function PricingPage() {
 					</ol>
 				</CardContent>
 			</Card>
+		</div>
 		</div>
 	);
 }

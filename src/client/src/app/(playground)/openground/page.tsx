@@ -6,19 +6,17 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import Link from "next/link";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Component, EyeIcon, MonitorPlay, PlayIcon } from "lucide-react";
+import { Component, EyeIcon, PlayIcon } from "lucide-react";
 import OpengroundHeader from "@/components/(playground)/openground/header";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import OpengroundGettingStarted from "@/components/(playground)/getting-started/openground";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRootStore } from "@/store";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
-import FeatureHero from "@/components/(playground)/getting-started/feature-hero";
 
 const columns: Columns<string, OpengroundRecord> = {
 	prompt: {
@@ -113,7 +111,10 @@ const columns: Columns<string, OpengroundRecord> = {
 		header: () => "Actions",
 		cell: ({ row, extraFunctions }) => {
 			return (
-				<div className="flex items-center gap-2">
+				<div
+					className="flex items-center gap-2"
+					onClick={(e) => e.stopPropagation()}
+				>
 					<Link href={`/openground/${row.id}`}>
 						<Button variant="ghost" size="icon" className="h-8 w-8">
 							<EyeIcon className="h-4 w-4" />
@@ -179,39 +180,40 @@ export default function Openground() {
 
 	if (!data?.length && !isLoading && isFetched) {
 		return (
-			<div className="flex flex-col items-center mx-auto p-8 overflow-auto">
-				<OpengroundGettingStarted />
+			<div className="flex flex-col w-full h-full gap-4 overflow-auto">
+				<OpengroundHeader validateResponse={false} />
+				<div className="flex flex-col items-center mx-auto">
+					<OpengroundGettingStarted />
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
+		<div className="flex flex-col w-full h-full">
 			<OpengroundHeader validateResponse={false} />
-			<FeatureHero 
-				iconComponent={<MonitorPlay />}
-				title={getMessage().FEATURE_OPENGROUND}
-				description={getMessage().GET_STARTED_WITH_OPENGROUND_DESCRIPTION}
-			/>
 
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched}
-				isLoading={isLoading}
-				visibilityColumns={{
-					prompt: true,
-					providers: true,
-					bestCost: true,
-					bestSpeed: true,
-					bestEfficiency: true,
-					createdAt: true,
-					actions: true
-				}}
-				extraFunctions={{
-					handleRerun,
-				}}
-			/>
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched}
+					isLoading={isLoading}
+					visibilityColumns={{
+						prompt: true,
+						providers: true,
+						bestCost: true,
+						bestSpeed: true,
+						bestEfficiency: true,
+						createdAt: true,
+						actions: true
+					}}
+					onClick={(row: OpengroundRecord) => router.push(`/openground/${row.id}`)}
+					extraFunctions={{
+						handleRerun,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

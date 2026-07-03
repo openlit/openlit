@@ -18,9 +18,10 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { Rule } from "@/types/rule-engine";
 import { toast } from "sonner";
-import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles } from "lucide-react";
+import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 interface RuleWithPriority {
 	ruleId: string;
@@ -193,44 +194,47 @@ export default function EvaluationTypeDetailPage() {
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
 
+	const header = (
+		<FeaturePageHeader
+			eyebrow="Configuration"
+			title={displayLabel}
+			icon={<Layers className="h-4 w-4" />}
+			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			actions={
+				<div className="flex flex-wrap items-center gap-2">
+					{isCustom && (
+						<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
+							<Sparkles className="size-3" />
+							Custom
+						</Badge>
+					)}
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations/types">
+							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+							Evaluation Types
+						</Link>
+					</Button>
+				</div>
+			}
+		/>
+	);
+
 	if (!et && !config) {
 		return (
-			<div className="flex flex-1 h-full w-full p-6 items-center justify-center">
-				<p className="text-stone-500">Loading...</p>
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full items-center justify-center p-4">
+					<p className="text-stone-500">Loading...</p>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			{header}
 
-			<div className="flex items-center gap-4">
-				<Link href="/evaluations/types">
-					<Button
-						variant="outline"
-						size="icon"
-						className="shrink-0 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800"
-					>
-						<ArrowLeft className="size-4" />
-					</Button>
-				</Link>
-				<div>
-					<h2 className="text-lg font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-2">
-						{displayLabel}
-						{isCustom && (
-							<Badge variant="outline" className="text-xs font-normal gap-1 border-primary/30 text-primary">
-								<Sparkles className="size-3" />
-								Custom
-							</Badge>
-						)}
-					</h2>
-					<p className="text-sm text-stone-500 dark:text-stone-400">
-						{displayDescription}
-					</p>
-				</div>
-			</div>
-
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
 				<div className="grid col-span-2 gap-4">
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-4">
@@ -373,7 +377,7 @@ export default function EvaluationTypeDetailPage() {
 				</div>
 				<div className="flex flex-col gap-4">
 					<Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90">
-					{isSaving ? "Saving..." : "Save Changes"}
+						{isSaving ? "Saving..." : "Save Changes"}
 					</Button>
 					{isCustom && (
 						<Button

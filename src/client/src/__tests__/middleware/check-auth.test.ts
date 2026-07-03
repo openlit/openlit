@@ -40,7 +40,7 @@ describe('checkAuth', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    middleware = checkAuth(nextHandler);
+    middleware = checkAuth(nextHandler as any);
   });
 
   it('passes through _next static routes', async () => {
@@ -139,6 +139,14 @@ describe('checkAuth', () => {
       const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectCall.toString()).toContain('/onboarding');
     });
+
+    it('allows organisation setup pages before project setup is complete', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/organisation');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+    });
   });
 
   describe('error handling', () => {
@@ -192,6 +200,14 @@ describe('checkAuth', () => {
   });
 
   describe('onboarding-whitelisted API routes (prefix match)', () => {
+    it('allows organisation management APIs without onboarding completion', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/organisation/org-1/projects');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
     it('allows POST to /api/organisation/current/123 without onboarding', async () => {
       (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
       const req = makeRequest('POST', '/api/organisation/current/123');

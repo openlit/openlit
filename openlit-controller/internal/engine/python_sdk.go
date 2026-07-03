@@ -68,39 +68,12 @@ var controllerManagedDisabledInstrumentors = []string{
 }
 
 func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActionPayload) error {
-	if payload.TargetRuntime == "" {
-		payload.TargetRuntime = "python"
+	payload = e.normalizeSDKPayload(payload, "python")
+	if isNodeRuntime(payload.TargetRuntime) {
+		return e.EnableNodeJSSDK(serviceID, payload)
 	}
-	if payload.InstrumentationProfile == "" {
-		payload.InstrumentationProfile = controllerManagedObservability
-	}
-	if payload.ObservabilityScope == "" {
-		payload.ObservabilityScope = "agent"
-	}
-	if payload.DuplicatePolicy == "" {
-		payload.DuplicatePolicy = defaultDuplicatePolicy
-	}
-	expCfg := e.GetExportConfig()
-	if payload.OTLPEndpoint == "" {
-		payload.OTLPEndpoint = expCfg.OTLPEndpoint
-	}
-	if payload.OTLPProtocol == "" {
-		payload.OTLPProtocol = expCfg.OTLPProtocol
-	}
-	if payload.OTLPHeaders == nil && len(expCfg.OTLPHeaders) > 0 {
-		payload.OTLPHeaders = expCfg.OTLPHeaders
-	}
-	if payload.OTLPTracesEndpoint == "" {
-		payload.OTLPTracesEndpoint = expCfg.OTLPTracesEndpoint
-	}
-	if payload.OTLPMetricsEndpoint == "" {
-		payload.OTLPMetricsEndpoint = expCfg.OTLPMetricsEndpoint
-	}
-	if payload.OTLPLogsEndpoint == "" {
-		payload.OTLPLogsEndpoint = expCfg.OTLPLogsEndpoint
-	}
-	if payload.SDKVersion == "" {
-		payload.SDKVersion = e.sdkVersion
+	if strings.ToLower(payload.TargetRuntime) != "python" {
+		return fmt.Errorf("unsupported SDK target_runtime %q", payload.TargetRuntime)
 	}
 	// sdk_version is attacker-controllable (it arrives in the poll action payload
 	// and is interpolated into pip install commands, including shell strings for
@@ -108,9 +81,6 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	// PEP 440-style version before it can reach any exec path.
 	if !isValidSDKVersion(payload.SDKVersion) {
 		return fmt.Errorf("invalid sdk_version %q: must match a PEP 440 version (letters, digits, . _ + -)", payload.SDKVersion)
-	}
-	if payload.Environment == "" {
-		payload.Environment = e.environment
 	}
 
 	svc, err := e.serviceSnapshot(serviceID)
@@ -223,7 +193,13 @@ func (e *Engine) EnablePythonSDK(serviceID string, payload openlit.PythonSDKActi
 	}
 }
 
-func (e *Engine) DisablePythonSDK(serviceID string, _ openlit.PythonSDKActionPayload) error {
+func (e *Engine) DisablePythonSDK(serviceID string, payload openlit.PythonSDKActionPayload) error {
+	if isNodeRuntime(payload.TargetRuntime) {
+		return e.DisableNodeJSSDK(serviceID, payload)
+	}
+	if payload.TargetRuntime != "" && strings.ToLower(payload.TargetRuntime) != "python" {
+		return fmt.Errorf("unsupported SDK target_runtime %q", payload.TargetRuntime)
+	}
 	svc, err := e.serviceSnapshot(serviceID)
 	if err != nil {
 		return err
@@ -305,6 +281,56 @@ func (e *Engine) DisablePythonSDK(serviceID string, _ openlit.PythonSDKActionPay
 		}
 		return nil
 	}
+}
+
+func (e *Engine) normalizeSDKPayload(payload openlit.SDKActionPayload, defaultRuntime string) openlit.SDKActionPayload {
+	if payload.TargetRuntime == "" {
+		payload.TargetRuntime = defaultRuntime
+	}
+	if payload.InstrumentationProfile == "" {
+		payload.InstrumentationProfile = controllerManagedObservability
+	}
+	if payload.ObservabilityScope == "" {
+		payload.ObservabilityScope = "agent"
+	}
+	if payload.DuplicatePolicy == "" {
+		payload.DuplicatePolicy = defaultDuplicatePolicy
+	}
+	expCfg := e.GetExportConfig()
+	if payload.OTLPEndpoint == "" {
+		payload.OTLPEndpoint = expCfg.OTLPEndpoint
+	}
+	if payload.OTLPProtocol == "" {
+		payload.OTLPProtocol = expCfg.OTLPProtocol
+	}
+	if payload.OTLPHeaders == nil && len(expCfg.OTLPHeaders) > 0 {
+		payload.OTLPHeaders = expCfg.OTLPHeaders
+	}
+	if payload.OTLPTracesEndpoint == "" {
+		payload.OTLPTracesEndpoint = expCfg.OTLPTracesEndpoint
+	}
+	if payload.OTLPMetricsEndpoint == "" {
+		payload.OTLPMetricsEndpoint = expCfg.OTLPMetricsEndpoint
+	}
+	if payload.OTLPLogsEndpoint == "" {
+		payload.OTLPLogsEndpoint = expCfg.OTLPLogsEndpoint
+	}
+	if payload.SDKVersion == "" {
+		// PyPI (Python) and npm (Node) publish the `openlit` package under
+		// independent version numbers, so each runtime gets its own default.
+		// Falling the Node default back to e.sdkVersion is intentionally
+		// avoided: a version valid on PyPI is unlikely to exist on npm and
+		// would make `npm install openlit@<version>` fail.
+		if isNodeRuntime(payload.TargetRuntime) {
+			payload.SDKVersion = e.nodeSDKVersion
+		} else {
+			payload.SDKVersion = e.sdkVersion
+		}
+	}
+	if payload.Environment == "" {
+		payload.Environment = e.environment
+	}
+	return payload
 }
 
 func (e *Engine) serviceSnapshot(serviceID string) (*openlit.ServiceState, error) {

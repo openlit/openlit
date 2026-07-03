@@ -73,4 +73,22 @@ describe('databaseConfigStoreSlice', () => {
       expect(store.getState().databaseConfig.isLoading).toBe(false);
     });
   });
+
+  describe('reset', () => {
+    it('restores the initial state', () => {
+      const list = [{ id: 'db1', name: 'Primary', isCurrent: true }];
+
+      store.getState().databaseConfig.setList(list);
+      store
+        .getState()
+        .databaseConfig.setPing({ status: 'failure', error: 'Connection refused' });
+      store.getState().databaseConfig.setIsLoading(true);
+
+      store.getState().databaseConfig.reset();
+
+      expect(store.getState().databaseConfig.list).toBeUndefined();
+      expect(store.getState().databaseConfig.isLoading).toBe(false);
+      expect(store.getState().databaseConfig.ping).toEqual({ status: 'pending' });
+    });
+  });
 });

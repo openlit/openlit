@@ -1,4 +1,5 @@
 import getMessage from "@/constants/messages";
+import { randomUUID } from "crypto";
 import {
 	SecretGetFilters,
 	SecretGetFiltersWithApiKey,
@@ -84,6 +85,7 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 		: undefined;
 	const ownerCondition = getOwnerEmailCondition(user!);
 	const ownerEmail = escapeClickHouseString(user!.email || "");
+	let createdSecretId: string | undefined;
 
 	if (!secretInputParams.id) {
 		const { isValid } = await checkNameValidity({
@@ -129,11 +131,13 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 
 		return getMessage().SECRET_SAVED;
 	} else {
+		createdSecretId = randomUUID();
 		const { err } = await dataCollector(
 			{
 				table: OPENLIT_VAULT_TABLE_NAME,
 				values: [
 					{
+						id: createdSecretId,
 						key: secretInput.key,
 						value: encryptedValue || "",
 						tags: secretInput.tags,
@@ -151,7 +155,8 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 	}
 
 	return {
-		data: {},
+		data: createdSecretId ? { id: createdSecretId } : {},
+		id: createdSecretId,
 		message: getMessage().SECRET_SAVED,
 	};
 }

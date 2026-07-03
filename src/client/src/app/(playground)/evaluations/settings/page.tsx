@@ -22,9 +22,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { Zap, Settings2, Clock, Play, Info, SettingsIcon } from "lucide-react";
+import { Zap, Settings2, Clock, Play, Info, SettingsIcon, Layers } from "lucide-react";
 import { ProviderMetadata, ModelMetadata } from "@/types/openground";
 import { Badge } from "@/components/ui/badge";
+import { evalSampleRateToPercent } from "@/constants/evaluation-sampling";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 const EvaluationVaultCreate = ({
 	successCallback,
@@ -53,6 +55,9 @@ export default function EvaluationSettingsPage() {
 	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
+	const [sampleRatePercent, setSampleRatePercent] = useState(
+		evalSampleRateToPercent(undefined)
+	);
 	const [vaultId, setVaultId] = useState("");
 	const [vaultKeys, setVaultKeys] = useState<{ label: string; value: string }[]>(
 		[]
@@ -99,6 +104,8 @@ export default function EvaluationSettingsPage() {
 			setAutoEvaluation(config.auto || false);
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
+			const meta = JSON.parse(config.meta || "{}");
+			setSampleRatePercent(evalSampleRateToPercent(meta.evalSampleRate));
 		}
 	}, [config]);
 
@@ -118,12 +125,30 @@ export default function EvaluationSettingsPage() {
 			});
 			return;
 		}
+
+		const parsedSampleRate = Number.parseFloat(sampleRatePercent);
+		if (autoEvaluation) {
+			if (
+				!Number.isFinite(parsedSampleRate) ||
+				parsedSampleRate < 0 ||
+				parsedSampleRate > 100
+			) {
+				toast.error(getMessage().EVALUATION_SAMPLE_RATE_PERCENT_INVALID, {
+					id: EVALUATION_TOAST_ID,
+				});
+				return;
+			}
+		}
+
 		toast.loading(getMessage().EVALUATION_CONFIG_MODIFYING, {
 			id: EVALUATION_TOAST_ID,
 		});
 
 		const meta = JSON.parse(config?.meta || "{}");
 		meta.engine = engine;
+		if (autoEvaluation) {
+			meta.evalSampleRate = parsedSampleRate / 100;
+		}
 
 		saveConfig({
 			body: JSON.stringify({
@@ -162,27 +187,40 @@ export default function EvaluationSettingsPage() {
 		});
 	};
 
+	const header = (
+		<FeaturePageHeader
+			eyebrow="Configuration"
+			title={getMessage().EVALUATION_ENGINE_TITLE}
+			icon={<Settings2 className="h-4 w-4" />}
+			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			actions={
+				<Button asChild variant="outline" size="sm" className="h-8">
+					<Link href="/evaluations/types">
+						<Layers className="mr-1.5 h-3.5 w-3.5" />
+						Evaluation Types
+					</Link>
+				</Button>
+			}
+		/>
+	);
+
 	if (isLoadingConfig && !config) {
 		return (
-			<div className="flex flex-1 h-full w-full p-6">
-				<div className="animate-pulse grid gap-4 w-full max-w-3xl">
-					<div className="h-40 bg-stone-100 dark:bg-stone-900 rounded-xl" />
+			<div className="flex flex-col h-full w-full overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full p-4">
+					<div className="animate-pulse grid gap-4 w-full max-w-3xl">
+						<div className="h-40 bg-stone-100 dark:bg-stone-900" />
+					</div>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col flex-1 h-full w-full p-6 overflow-auto gap-6">
-			{/* Page header */}
-			<div className="space-y-1">
-				<h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-					{getMessage().EVALUATION_ENGINE_TITLE}
-				</h1>
-				<p className="text-sm text-stone-500 dark:text-stone-400">
-					{getMessage().EVALUATION_ENGINE_DESCRIPTION}
-				</p>
-			</div>
+		<div className="flex flex-col h-full w-full overflow-hidden">
+			{header}
+			<div className="flex flex-col flex-1 w-full overflow-auto gap-4 p-4">
 			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
 				<CardContent className="pt-6">
 					<div className="flex gap-3">
@@ -360,6 +398,18 @@ export default function EvaluationSettingsPage() {
 									<p className="text-xs text-stone-500 dark:text-stone-400">
 										{getMessage().EVALUATION_CRON_HELP}
 									</p>
+									<Label>{getMessage().EVALUATION_SAMPLE_RATE_LABEL}</Label>
+									<Input
+										type="number"
+										min={0}
+										max={100}
+										step={1}
+										value={sampleRatePercent}
+										onChange={(e) => setSampleRatePercent(e.target.value)}
+									/>
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{getMessage().EVALUATION_SAMPLE_RATE_DESCRIPTION}
+									</p>
 								</div>
 							)}
 						</CardContent>
@@ -390,13 +440,14 @@ export default function EvaluationSettingsPage() {
 								<li>{getMessage().EVALUATION_MANUAL_STEP_2}</li>
 								<li>{getMessage().EVALUATION_MANUAL_STEP_3}</li>
 							</ol>
-							<Link href="/requests">
-								<Button variant="default">{getMessage().EVALUATION_GO_TO_REQUESTS}</Button>
+							<Link href="/telemetry">
+								<Button variant="default">{getMessage().EVALUATION_GO_TO_TRACES}</Button>
 							</Link>
 						</CardContent>
 					</Card>
 				</div>
 			</div>
+		</div>
 		</div>
 	);
 }

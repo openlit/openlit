@@ -19,17 +19,54 @@ export default class OpenLitHelper {
 		return encoding.encode(text).length;
 	}
 
+	// Cache-aware cost calculation, kept in parity with the SDK helpers.
+	// When the model pricing defines cacheReadPrice / cacheCreationPrice the
+	// matching cache tokens are billed at those rates. Providers that report
+	// promptTokens inclusive of cache tokens (OpenAI, LangChain) should pass
+	// promptTokensIncludeCache=true so cached tokens are not billed twice;
+	// providers that report them exclusively (Anthropic native) leave it false.
 	static getChatModelCost(
 		model: string,
 		promptTokens: number,
-		completionTokens: number
+		completionTokens: number,
+		cacheReadTokens: number = 0,
+		cacheCreationTokens: number = 0,
+		promptTokensIncludeCache: boolean = false
 	): string {
 		try {
+			const modelPricing = this.pricingInfo.chat[model];
+			const cacheRead = cacheReadTokens || 0;
+			const cacheCreation = cacheCreationTokens || 0;
+
+			let billablePromptTokens = promptTokens;
+			let cacheCost = 0;
+
+			if (modelPricing.cacheReadPrice != null) {
+				cacheCost +=
+					(cacheRead / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
+					modelPricing.cacheReadPrice;
+				if (promptTokensIncludeCache) {
+					billablePromptTokens -= cacheRead;
+				}
+			}
+			if (modelPricing.cacheCreationPrice != null) {
+				cacheCost +=
+					(cacheCreation / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
+					modelPricing.cacheCreationPrice;
+				if (promptTokensIncludeCache) {
+					billablePromptTokens -= cacheCreation;
+				}
+			}
+			if (billablePromptTokens < 0) {
+				billablePromptTokens = 0;
+			}
+
 			return (
-				(promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
-					this.pricingInfo.chat[model].promptPrice +
+				(billablePromptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
+					modelPricing.promptPrice +
 				(completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
-					this.pricingInfo.chat[model].completionPrice
+					modelPricing.completionPrice +
+				cacheCost
 			).toFixed(8);
 		} catch (error) {
 			console.error(`Error in getChatModelCost: ${error}`);

@@ -213,18 +213,29 @@ func detectSystemdUnit(cgroup string) (unit string, isUserService bool) {
 }
 
 func detectAgentObservability(runtime, cmdline string, env map[string]string) (status, source, conflict, reason string) {
-	if runtime != "python" {
-		return "unsupported", "none", "", "Agent observability is only available for Python runtimes"
-	}
-
-	preflight := evaluatePythonSDKPreflight(env, strings.Fields(cmdline), defaultDuplicatePolicy)
-	switch preflight.Decision {
-	case pythonSDKDecisionAdopt:
-		return "enabled", preflight.Source, "", preflight.Reason
-	case pythonSDKDecisionBlock:
-		return "disabled", preflight.Source, preflight.Conflict, preflight.Reason
+	switch runtime {
+	case "python":
+		preflight := evaluatePythonSDKPreflight(env, strings.Fields(cmdline), defaultDuplicatePolicy)
+		switch preflight.Decision {
+		case pythonSDKDecisionAdopt:
+			return "enabled", preflight.Source, "", preflight.Reason
+		case pythonSDKDecisionBlock:
+			return "disabled", preflight.Source, preflight.Conflict, preflight.Reason
+		default:
+			return "disabled", "none", "", "Python runtime detected but OpenLIT Python SDK not enabled"
+		}
+	case "nodejs":
+		preflight := evaluateNodeJSSDKPreflight(env, strings.Fields(cmdline), defaultDuplicatePolicy)
+		switch preflight.Decision {
+		case pythonSDKDecisionAdopt:
+			return "enabled", preflight.Source, "", preflight.Reason
+		case pythonSDKDecisionBlock:
+			return "disabled", preflight.Source, preflight.Conflict, preflight.Reason
+		default:
+			return "disabled", "none", "", "JavaScript/TypeScript runtime detected but OpenLIT SDK not enabled"
+		}
 	default:
-		return "disabled", "none", "", "Python runtime detected but OpenLIT Python SDK not enabled"
+		return "unsupported", "none", "", "Agent observability is only available for Python and JavaScript/TypeScript runtimes"
 	}
 }
 

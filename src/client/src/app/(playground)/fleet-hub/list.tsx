@@ -13,6 +13,9 @@ import LinuxSvg from "@/components/svg/linux";
 import WindowsSvg from "@/components/svg/windows";
 import { formatDate } from "@/utils/date";
 import MacSvg from "@/components/svg/mac";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import OpenTelemetrySvg from "@/components/svg/opentelemetry";
+import getMessage from "@/constants/messages";
 
 const osTypeMap = {
 	linux: <LinuxSvg />,
@@ -136,18 +139,18 @@ export default function List({ agents, isLoading, isFetched }: {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full gap-3">
-			<div className="flex items-end justify-end w-full">
-				<VisibilityColumns columns={columns} pageName={"fleethub"} />
+		<div className="flex flex-col w-full h-full">
+			<FeaturePageHeader eyebrow="Monitoring" title={getMessage().FEATURE_FLEET_HUB} icon={<OpenTelemetrySvg className="h-4 w-4" />} tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300" actions={<VisibilityColumns columns={columns} pageName={"fleethub"} />} />
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={agents}
+					isFetched={isFetched}
+					isLoading={isLoading}
+					visibilityColumns={visibilityColumns}
+					onClick={handleClick}
+				/>
 			</div>
-			<DataTable
-				columns={columns}
-				data={agents}
-				isFetched={isFetched}
-				isLoading={isLoading}
-				visibilityColumns={visibilityColumns}
-				onClick={handleClick}
-			/>
 		</div>
 	);
 }

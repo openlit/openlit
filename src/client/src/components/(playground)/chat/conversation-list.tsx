@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BarChart3, Plus, Search, Settings } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import getMessage from "@/constants/messages";
@@ -18,13 +18,9 @@ interface Conversation {
 interface ConversationListProps {
 	conversations: Conversation[];
 	activeId: string | null;
-	isUsageActive?: boolean;
-	isSettingsActive?: boolean;
 	onSelect: (id: string) => void;
 	onDelete: (id: string) => void;
 	onNew: () => void;
-	onUsage: () => void;
-	onSettings: () => void;
 	isLoading: boolean;
 }
 
@@ -60,13 +56,9 @@ function groupByDate(conversations: Conversation[]) {
 export default function ConversationList({
 	conversations,
 	activeId,
-	isUsageActive,
-	isSettingsActive,
 	onSelect,
 	onDelete,
 	onNew,
-	onUsage,
-	onSettings,
 	isLoading,
 }: ConversationListProps) {
 	const [search, setSearch] = useState("");
@@ -81,57 +73,22 @@ export default function ConversationList({
 	const groups = useMemo(() => groupByDate(filtered), [filtered]);
 
 	return (
-		<div className="flex flex-col h-full bg-stone-50 dark:bg-stone-900">
-			{/* Header */}
-			<div className="p-3 space-y-3 border-b border-stone-200 dark:border-stone-800">
-				<div className="flex items-center gap-2">
-					<Button
-						onClick={onNew}
-						className="flex-1 justify-center gap-2"
-						size="sm"
-					>
-						<Plus className="h-4 w-4" />
-						{m.CHAT_NEW_CHAT}
-					</Button>
-					<Button
-						variant="outline"
-						size="icon"
-						className={`h-8 w-8 shrink-0 border-stone-200 dark:border-stone-700 ${
-							isSettingsActive
-								? "bg-stone-200 text-stone-900 dark:bg-stone-800 dark:text-stone-100"
-								: ""
-						}`}
-						onClick={onSettings}
-					>
-						<Settings className="h-4 w-4" />
-					</Button>
-				</div>
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={onUsage}
-					className={`w-full justify-start gap-2 ${
-						isUsageActive
-							? "bg-stone-200 text-stone-900 dark:bg-stone-800 dark:text-stone-100"
-							: "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
-					}`}
-				>
-					<BarChart3 className="h-4 w-4" />
-					{m.CHAT_OTTER_USAGE}
-				</Button>
+		<div className="flex h-full flex-col bg-stone-50 dark:bg-stone-950">
+			<div className="space-y-3 px-4 py-4">
 				<div className="relative">
 					<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 dark:text-stone-500" />
 					<Input
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder={m.CHAT_SEARCH_CONVERSATIONS}
-						className="pl-8 h-8 text-sm bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700"
+						className="h-8 border-stone-200 bg-white pl-8 pr-10 text-sm dark:border-stone-700 dark:bg-stone-900"
 					/>
+					<Button variant="outline" size="icon" onClick={onNew} aria-label={m.CHAT_NEW_CHAT} className="absolute right-0 top-0 h-8 w-8 border-stone-200 bg-stone-50 text-primary hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:hover:bg-stone-800"><Plus className="size-4" /></Button>
 				</div>
 			</div>
 
 			{/* Conversation list */}
-			<div className="flex-1 overflow-y-auto px-2 py-2">
+				<div className="scrollbar-hidden flex-1 overflow-y-auto px-3 py-2">
 				{isLoading ? (
 					<div className="space-y-2 px-1">
 						{[1, 2, 3].map((i) => (

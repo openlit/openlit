@@ -1,0 +1,39 @@
+---
+title: 'Database Config'
+description: 'Add and manage ClickHouse database configurations for an OpenLIT project'
+icon: 'database'
+---
+
+Database configurations connect OpenLIT to ClickHouse. They are scoped to the active project, so each project can use its own database connection.
+
+## Add a database configuration
+
+<Steps>
+  <Step title="Open Organisation">
+    Select **Organisation** from the sidebar.
+  </Step>
+  <Step title="Open a project">
+    Choose the project that should own the database configuration.
+  </Step>
+  <Step title="Add config">
+    Click **Add database config** and enter the ClickHouse connection details.
+  </Step>
+  <Step title="Test and save">
+    Test the connection, then save the configuration.
+  </Step>
+  <Step title="Select config">
+    Select the database configuration from the project page or the top navigation selector.
+  </Step>
+</Steps>
+
+## Selection behavior
+
+The active database configuration is scoped to the current user and project. Switching projects updates the available database configurations. If a project does not have a database configuration, OpenLIT guides you through onboarding before showing data pages.
+
+## Multiple databases
+
+A project can have multiple database configurations. Use multiple configurations when you need to switch between environments or ClickHouse clusters without changing the organisation.
+
+<Card title="Multiple database guide" href="/latest/openlit/developer-resources/multiple-db" icon="database">
+  Learn more about using multiple ClickHouse database configurations in OpenLIT.
+</Card>
