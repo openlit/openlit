@@ -58,6 +58,12 @@ export type OpenlitOptions = {
   instrumentations?: OpenlitInstrumentations;
   disableMetrics?: boolean;
   disableEvents?: boolean;
+  /**
+   * Collect host GPU metrics (utilization, memory, temperature, power, …) via
+   * `nvidia-smi`. Off by default. Requires metrics to be enabled and a GPU
+   * host; on a non-GPU host it logs and no-ops. Python: `collect_gpu_stats`.
+   */
+  collectGpuStats?: boolean;
   pricingJson?: string | PricingObject;
   maxContentLength?: number | null;
   customSpanAttributes?: Record<string, string> | null;
@@ -82,6 +88,7 @@ export interface ResolvedOptions {
   instrumentations?: OpenlitInstrumentations;
   disableMetrics: boolean;
   disableEvents: boolean;
+  collectGpuStats: boolean;
   pricingJson?: string | PricingObject;
   maxContentLength?: number | null;
   customSpanAttributes?: Record<string, string> | null;

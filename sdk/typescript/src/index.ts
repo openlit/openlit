@@ -20,6 +20,7 @@ import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import { logScore } from './score';
 import { TracedSpan, startTrace, trace as traceManual } from './manual-trace';
 import Metrics from './otel/metrics';
+import { setupGpuInstrumentation } from './instrumentation/gpu';
 import SemanticConvention from './semantic-convention';
 import { parseBoolEnv } from './otel/utils';
 import { setupAutoGuards } from './guard/integration';
@@ -98,6 +99,12 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     disableEvents = envDisableEvents ?? false;
   }
 
+  let collectGpuStats = o.collectGpuStats ?? undefined;
+  const envCollectGpuStats = parseBoolEnv('OPENLIT_COLLECT_GPU_STATS');
+  if (collectGpuStats === undefined) {
+    collectGpuStats = envCollectGpuStats ?? false;
+  }
+
   const openlitApiKey = o.openlitApiKey ?? process.env.OPENLIT_API_KEY ?? undefined;
   const openlitUrl = o.openlitUrl ?? process.env.OPENLIT_URL ?? undefined;
 
@@ -113,6 +120,7 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     instrumentations: o.instrumentations,
     disableMetrics,
     disableEvents,
+    collectGpuStats,
     pricingJson: o.pricingJson,
     maxContentLength: o.maxContentLength ?? null,
     customSpanAttributes: o.customSpanAttributes ?? null,
@@ -199,10 +207,25 @@ class Openlit extends BaseOpenlit {
         const exportIntervalMillis =
           Number(process.env.OTEL_EXPORTER_OTLP_METRICS_EXPORT_INTERVAL ?? 60000) || 60000;
 
-        Metrics.setup({
+        const meter = Metrics.setup({
           ...setupBase,
           exportIntervalMillis,
         });
+
+        // GPU stats ride on the metrics pipeline, so they require metrics to
+        // be enabled. Fire-and-forget: detection shells out to `nvidia-smi`
+        // and no-ops on non-GPU hosts.
+        if (resolved.collectGpuStats && meter) {
+          setupGpuInstrumentation({
+            meter,
+            environment: resolved.environment,
+            applicationName: resolved.applicationName,
+          }).catch((e) => console.error('OpenLIT GPU instrumentation setup failed:', e));
+        }
+      } else if (resolved.collectGpuStats) {
+        console.warn(
+          'OpenLIT: collectGpuStats was enabled but metrics are disabled; GPU stats will not be collected.'
+        );
       }
 
       OpenlitConfig.openlitApiKey = resolved.openlitApiKey;

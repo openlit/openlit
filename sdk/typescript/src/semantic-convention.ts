@@ -468,6 +468,23 @@ export default class SemanticConvention {
   static GEN_AI_EXECUTION_MODE = 'gen_ai.execution.mode';
   static GEN_AI_CHECKPOINT_ID = 'gen_ai.checkpoint.id';
 
+  // GPU metrics (parity with Python `gpu` instrumentor — keep names identical
+  // so OpenLIT dashboards render Python and JS GPU stats from the same series).
+  static GPU_INDEX = 'gpu.index';
+  static GPU_UUID = 'gpu.uuid';
+  static GPU_NAME = 'gpu.name';
+  static GPU_UTILIZATION = 'gpu.utilization';
+  static GPU_UTILIZATION_ENC = 'gpu.enc.utilization';
+  static GPU_UTILIZATION_DEC = 'gpu.dec.utilization';
+  static GPU_TEMPERATURE = 'gpu.temperature';
+  static GPU_FAN_SPEED = 'gpu.fan_speed';
+  static GPU_MEMORY_AVAILABLE = 'gpu.memory.available';
+  static GPU_MEMORY_TOTAL = 'gpu.memory.total';
+  static GPU_MEMORY_USED = 'gpu.memory.used';
+  static GPU_MEMORY_FREE = 'gpu.memory.free';
+  static GPU_POWER_DRAW = 'gpu.power.draw';
+  static GPU_POWER_LIMIT = 'gpu.power.limit';
+
   // Vector DB
   static DB_REQUESTS = 'db.total.requests';
   static DB_SYSTEM = 'db.system';
