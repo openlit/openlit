@@ -133,7 +133,7 @@ jobs:
       # users install via curl|sh and brew — a moving `@v3` tag could be
       # repointed at a malicious commit by a compromised maintainer.
       # Bump via Dependabot (see .github/dependabot.yml).
-      - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+      - uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: cli-${{ steps.ver.outputs.VERSION }}
           name: cli-${{ steps.ver.outputs.VERSION }}
