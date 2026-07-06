@@ -6,6 +6,7 @@ drive the instrumentation's processing / wrapper code directly, asserting the
 emitted OpenTelemetry span attributes.
 """
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +24,7 @@ from oci.generative_ai_inference.models import (
     CohereChatResponse,
     ChatChoice,
     AssistantMessage,
+    UserMessage,
     TextContent,
     Usage,
     ChatDetails,
@@ -117,7 +119,16 @@ def test_generic_chat_span_attributes():
     """Test generic chat span attributes."""
     tracer, exporter = _tracer()
     request = GenericChatRequest(
-        api_format="GENERIC", is_stream=False, max_tokens=128, temperature=0.7
+        api_format="GENERIC",
+        is_stream=False,
+        max_tokens=128,
+        temperature=0.7,
+        messages=[
+            UserMessage(
+                role="USER",
+                content=[TextContent(type="TEXT", text="hello there")],
+            )
+        ],
     )
     with tracer.start_as_current_span("chat test") as span:
         process_chat_response(
@@ -154,6 +165,15 @@ def test_generic_chat_span_attributes():
     assert attrs[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] == 0
     assert attrs[SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] == 0
     assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 128
+
+    # Content capture: input/output messages are JSON arrays following the
+    # nested {"role", "parts": [{"type", "content"}]} schema _set_content emits.
+    input_messages = json.loads(attrs[SemanticConvention.GEN_AI_INPUT_MESSAGES])
+    output_messages = json.loads(attrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES])
+    assert isinstance(input_messages, list)
+    assert isinstance(output_messages, list)
+    assert input_messages[0]["parts"][0]["content"] == "hello there"
+    assert output_messages[0]["parts"][0]["content"] == "hi there"
 
 
 def test_cohere_chat_span_attributes():
