@@ -17,6 +17,7 @@ import LinuxSvg from "@/components/svg/linux";
 import KubernetesSvg from "@/components/svg/kubernetes";
 import DockerSvg from "@/components/svg/docker";
 import { ProviderIcon } from "@/components/svg/providers";
+import { RuntimeIcon } from "@/components/svg/runtime";
 import getMessage from "@/constants/messages";
 import {
 	getObservabilityView,
@@ -51,14 +52,33 @@ interface EnrichedAgent extends UnifiedAgent {
 type ServiceColumnKey =
 	| "service"
 	| "system"
+	| "runtime"
 	| "providers"
 	| "lifecycle"
 	| "aiObservability"
 	| "agentObservability"
 	| "lastSeen";
 
-function StaticDash() {
-	return <span className="text-xs text-stone-400 dark:text-stone-500">—</span>;
+function StaticDash({ title }: { title?: string }) {
+	return (
+		<span className="text-xs text-stone-400 dark:text-stone-500" title={title}>
+			—
+		</span>
+	);
+}
+
+function runtimeTitle(runtime: string) {
+	switch ((runtime || "").toLowerCase()) {
+		case "nodejs":
+		case "node":
+		case "javascript":
+		case "typescript":
+			return "JavaScript/TypeScript";
+		case "python":
+			return "Python";
+		default:
+			return "";
+	}
 }
 
 /**
@@ -427,7 +447,9 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 		header: () => getMessage().AGENTS_COLUMN_SYSTEM,
 		cell: ({ row }) => {
 			if (row.isSdkOnly) {
-				return <span className="text-xs text-stone-400 dark:text-stone-500">—</span>;
+				return (
+					<StaticDash title="SDK telemetry only; no controller system metadata" />
+				);
 			}
 			const title =
 				row.mode === "kubernetes"
@@ -448,6 +470,21 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 						<LinuxSvg className="w-5 h-5" />
 					)}
 				</div>
+			);
+		},
+	},
+	runtime: {
+		header: () => "Runtime",
+		cell: ({ row }) => {
+			const title = runtimeTitle(row.sdk_language);
+			if (!title) return <StaticDash />;
+			return (
+				<span
+					className="inline-flex h-6 w-6 items-center justify-center"
+					title={title}
+				>
+					<RuntimeIcon runtime={row.sdk_language} className="h-5 w-5" />
+				</span>
 			);
 		},
 	},
@@ -507,6 +544,7 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 const VISIBILITY_COLUMNS: Record<ServiceColumnKey, boolean> = {
 	service: true,
 	system: true,
+	runtime: true,
 	providers: true,
 	lastSeen: true,
 	aiObservability: true,

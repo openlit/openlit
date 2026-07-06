@@ -35,7 +35,7 @@ describe("Otter route access wrappers", () => {
 			const wrapped = wrapper(handler);
 
 			expect(wrapped).toBe(handler);
-			expect(await wrapped({ method: "GET" }, { params: {} })).toBe(response);
+			expect(await (wrapped as any)({ method: "GET" }, { params: {} })).toBe(response);
 			expect(handler).toHaveBeenCalledWith(
 				{ method: "GET" },
 				{ params: {} }

@@ -41,7 +41,7 @@ describe('checkAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CRON_JOB_SECRET = 'secret-token';
-    middleware = checkAuth(nextHandler);
+    middleware = checkAuth(nextHandler as any);
   });
 
   it('passes through _next static routes', async () => {

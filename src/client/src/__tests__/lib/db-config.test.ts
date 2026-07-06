@@ -129,7 +129,7 @@ describe('getDBConfigByUser', () => {
     (prisma.databaseConfigUser.findMany as jest.Mock)
       .mockResolvedValueOnce([]) // orphaned configs query
       .mockResolvedValueOnce([mockUserConfig]); // user configs query
-    const result = await getDBConfigByUser();
+    const result = (await getDBConfigByUser()) as any;
     expect(result).toHaveLength(1);
     expect(result[0].isCurrent).toBe(true);
     expect(result[0].permissions.canEdit).toBe(true);

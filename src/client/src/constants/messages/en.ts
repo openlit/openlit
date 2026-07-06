@@ -95,6 +95,13 @@ export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
 export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
 export const EVALUATION_CRON_HELP =
 	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAMPLE_RATE_LABEL = "Sample rate (%)";
+export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
+	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost. Traces not selected are marked as skipped and are not re-queried on future cron runs; manual evaluation is always available.";
+export const EVALUATION_SAMPLE_RATE_INVALID =
+	"Sample rate must be a number between 0 and 1.";
+export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
+	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";
 export const EVALUATION_SAVE_CHANGES = "Save Changes";
 export const EVALUATION_CREATE_CONFIG = "Create Config";
@@ -822,7 +829,7 @@ export const AGENTS_CONFIG_AUTO_DISCOVER_DESCRIPTION = "Automatically scan for a
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS = "Custom LLM Hosts";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_HELP = "Add custom hostnames for self-hosted LLM proxies (e.g. LiteLLM, Ollama, Azure per-deployment endpoints). Comma-separated. The controller will resolve these and monitor traffic to them.";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER = "litellm.internal:4000, ollama.internal:11434, my-azure.openai.azure.com";
-export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (LLM Providers)";
+export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (AI Providers)";
 export const AGENTS_CONFIG_PAYLOAD_EXTRACTION_HELP = "Enable payload extraction to capture GenAI span attributes (prompts, completions, tokens) for each provider.";
 export const AGENTS_CONFIG_OTLP_HEADERS = "OTLP Headers";
 export const AGENTS_CONFIG_HEADER_NAME_PLACEHOLDER = "Header name";
@@ -842,6 +849,7 @@ export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";
 export const AGENTS_PROVIDER_BEDROCK = "AWS Bedrock";
+export const AGENTS_PROVIDER_RETRIEVAL = "Vector Retrieval";
 export const AGENTS_PROVIDER_QWEN = "Qwen";
 export const AGENTS_PROVIDER_OLLAMA = "Ollama";
 export const AGENTS_PROVIDER_CUSTOM = "Custom LLM Gateway";

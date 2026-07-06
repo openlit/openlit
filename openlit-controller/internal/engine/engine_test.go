@@ -10,7 +10,7 @@ import (
 
 func newTestEngine() *Engine {
 	logger, _ := zap.NewDevelopment()
-	eng := New(logger, "/nonexistent/obi", "http://localhost:4318", "/proc", "test", "", config.DeployLinux)
+	eng := New(logger, "/nonexistent/obi", "http://localhost:4318", "/proc", "test", "", "", config.DeployLinux)
 	return eng
 }
 

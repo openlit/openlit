@@ -1,7 +1,7 @@
 import { getFilterParamsForDashboard } from '@/helpers/client/filter';
 
 const baseFilter = {
-  timeLimit: { type: '24H', start: new Date('2024-01-01'), end: new Date('2024-01-02') },
+  timeLimit: { type: '24H' as const, start: new Date('2024-01-01'), end: new Date('2024-01-02') },
   limit: 25,
   offset: 0,
   selectedConfig: { models: ['gpt-4'] },

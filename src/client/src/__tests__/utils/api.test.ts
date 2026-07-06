@@ -94,7 +94,7 @@ describe('getData', () => {
 
   it('falls back to first database config when no current config is marked', async () => {
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(true, {}));
-    mockSelectedScope([{ id: 'db-1' }, { id: 'db-2' }]);
+    mockSelectedScope([{ id: 'db-1' }, { id: 'db-2' }] as any);
 
     await getData({ url: '/api/test', method: 'GET' });
 

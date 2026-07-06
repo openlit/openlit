@@ -71,7 +71,7 @@ describe('usePageHeader', () => {
   it('calls useRootStore twice and returns header and setHeader', () => {
     const mockHeader = { title: 'Dashboard', breadcrumbs: [] };
     const mockSetHeader = jest.fn();
-    (useRootStore as jest.Mock)
+    (useRootStore as unknown as jest.Mock)
       .mockReturnValueOnce(mockHeader)
       .mockReturnValueOnce(mockSetHeader);
     const result = usePageHeader();

@@ -229,20 +229,26 @@ describe("listAgents", () => {
 		expect(issuedQuery).not.toMatch(/s\.source\s+IN\s*\(\s*'sdk'\s*,\s*'both'\s*\)/);
 	});
 
-	it("[REGRESSION] hides stale SDK-only rows whose last_seen is older than the freshness window", async () => {
-		// Phantom SDK rows can linger in openlit_agents_summary when a
-		// workload's service.name shifts after controller-managed recreate
-		// (e.g. OBI briefly emits as `anthropic-app` before the SDK is
-		// re-enabled with OTEL_SERVICE_NAME=demo-anthropic-app). The
-		// materializer no longer refreshes those rows after the OBI fix,
-		// but they persist in the table until the 90-day TTL. Pin the
-		// SDK-specific freshness filter so we always hide them from the
-		// list query.
+	it("[REGRESSION] lists SDK agents by the same time-range filter as other sources", async () => {
+		// SDK rows must not be hidden by a separate staleness guard (e.g.
+		// `last_seen >= now() - 10 MINUTE`). An idle SDK agent whose
+		// `last_seen` falls inside the user's selected window should stay
+		// visible, matching controller rows. Phantom SDK rows are prevented
+		// at write time in the materializer, not by a read-side cutoff.
 		mockedDataCollector.mockResolvedValueOnce({ data: [makeRow()] });
-		await listAgents();
+		await listAgents({
+			timeStart: "2026-05-11 00:00:00",
+			timeEnd: "2026-05-11 23:59:59",
+		});
 		const issuedQuery = (mockedDataCollector.mock.calls[0][0] as any).query as string;
 		expect(issuedQuery).toMatch(
-			/s\.source\s*!=\s*'sdk'\s+OR\s+s\.last_seen\s*>=\s*now\(\)\s*-\s*INTERVAL\s+10\s+MINUTE/
+			/s\.last_seen\s*>=\s*parseDateTimeBestEffort\('2026-05-11 00:00:00'\)/
+		);
+		expect(issuedQuery).not.toMatch(
+			/s\.source\s*!=\s*'sdk'\s+OR\s+s\.last_seen\s*>=\s*now\(\)\s*-\s*INTERVAL/
+		);
+		expect(issuedQuery).not.toMatch(
+			/s\.source\s*!=\s*'coding'\s+OR\s+s\.last_materialized_at\s*>=\s*now\(\)\s*-\s*INTERVAL/
 		);
 	});
 
