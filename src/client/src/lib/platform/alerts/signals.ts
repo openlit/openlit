@@ -27,7 +27,8 @@ export async function emitManagementAlertSignal(input: ManagementAlertInput) {
 	if (!organisation?.id) return [];
 
 	const project = await getCurrentProjectForOrganisation(organisation.id).catch(() => null);
-	const databaseConfig = await getDBConfigByUser(true).catch(() => null);
+	const rawDbConfig = await getDBConfigByUser(true).catch(() => null);
+	const databaseConfig = rawDbConfig && !Array.isArray(rawDbConfig) ? rawDbConfig : null;
 	const fields = {
 		event: input.event,
 		...cleanFields(input.fields),
