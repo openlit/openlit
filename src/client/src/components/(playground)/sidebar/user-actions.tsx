@@ -21,8 +21,8 @@ export default function UserActions() {
 	const resetUserFn = useRootStore(resetUser);
 	const onClickSignout = () => {
 		posthog?.reset();
-		signOut();
 		resetUserFn();
+		signOut({ callbackUrl: "/login" });
 	};
 
 	useEffect(() => {

@@ -94,7 +94,7 @@ export async function syncRuleEntitiesFromConfig() {
 	for (const e of entities) {
 		const key = `${e.rule_id}:${e.entity_id}`;
 		if (!desired.has(key)) {
-			await deleteRuleEntity(e.id);
+			await deleteRuleEntity(e.id, { emitAlert: false });
 		}
 	}
 
@@ -110,7 +110,7 @@ export async function syncRuleEntitiesFromConfig() {
 						rule_id: r.ruleId,
 						entity_type: "evaluation",
 						entity_id: t.id,
-					})
+					}, { emitAlert: false })
 				);
 				if (addErr) {
 					console.error("Failed to add rule entity:", addErr);

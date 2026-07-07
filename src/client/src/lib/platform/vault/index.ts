@@ -14,6 +14,7 @@ import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
+import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -129,6 +130,21 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 				: (err as string) || getMessage().SECRET_NOT_SAVED
 		);
 
+		emitManagementAlertSignalSafe({
+			triggerType: "vault_secret_change",
+			event: "vault_secret_updated",
+			message: `Vault key ${secretInput.key || secretInput.id || ""} was updated.`,
+			sourceId: secretInput.id || null,
+			fields: {
+				secret_id: secretInput.id || "",
+				key: secretInput.key || "",
+			},
+			payloadSummary: {
+				secretId: secretInput.id,
+				key: secretInput.key,
+			},
+		});
+
 		return getMessage().SECRET_SAVED;
 	} else {
 		createdSecretId = randomUUID();
@@ -154,6 +170,21 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 		);
 	}
 
+	emitManagementAlertSignalSafe({
+		triggerType: "vault_secret_change",
+		event: "vault_secret_created",
+		message: `Vault key ${secretInput.key || ""} was created.`,
+		sourceId: createdSecretId || null,
+		fields: {
+			secret_id: createdSecretId || "",
+			key: secretInput.key || "",
+		},
+		payloadSummary: {
+			secretId: createdSecretId,
+			key: secretInput.key,
+		},
+	});
+
 	return {
 		data: createdSecretId ? { id: createdSecretId } : {},
 		id: createdSecretId,
@@ -178,6 +209,19 @@ export async function deleteSecret(secretIdParam: string) {
 	if (err) {
 		return [getMessage().SECRET_NOT_DELETED];
 	}
+
+	emitManagementAlertSignalSafe({
+		triggerType: "vault_secret_change",
+		event: "vault_secret_deleted",
+		message: `Vault key ${secretId} was deleted.`,
+		sourceId: secretId,
+		fields: {
+			secret_id: secretId,
+		},
+		payloadSummary: {
+			secretId,
+		},
+	});
 
 	return [undefined, getMessage().SECRET_DELETED];
 }

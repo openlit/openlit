@@ -10,6 +10,7 @@ import { jsonStringify } from "@/utils/json";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { throwIfError } from "@/utils/error";
+import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 
 export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 	const user = await getCurrentUser();
@@ -73,6 +74,23 @@ export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 			? versionErr.toString()
 			: (versionErr as string) || getMessage().VERSION_NOT_SAVED
 	);
+
+	emitManagementAlertSignalSafe({
+		triggerType: "prompt_version_update",
+		event: promptInput.versionId ? "prompt_version_updated" : "prompt_version_created",
+		message: `Prompt version ${promptInput.version || ""} was saved.`,
+		sourceId: promptInput.versionId || promptInput.promptId,
+		fields: {
+			prompt_id: promptInput.promptId || "",
+			version: promptInput.version || "",
+			status: promptInput.status || "",
+		},
+		payloadSummary: {
+			promptId: promptInput.promptId,
+			version: promptInput.version,
+			status: promptInput.status,
+		},
+	});
 
 	return getMessage().VERSION_SAVED;
 }

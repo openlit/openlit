@@ -7,6 +7,7 @@ import {
 	fetchOrganisationList,
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
+import { fetchProjectList } from "@/helpers/client/project";
 import { getIsUserFetched } from "@/selectors/user";
 import {
 	getCurrentOrganisation,
@@ -35,6 +36,7 @@ export default function AppInit() {
 	useEffect(() => {
 		if (currentOrg?.id) {
 			onOrganisationChanged(currentOrg.id);
+			fetchProjectList(currentOrg.id);
 		}
 	}, [currentOrg?.id]);
 

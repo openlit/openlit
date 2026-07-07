@@ -71,6 +71,17 @@ describe('evaluateRules', () => {
       expect(query).toContain("'prompt'");
     });
 
+    it('does not query for unsupported entity types', async () => {
+      const result = await evaluateRules({
+        fields: { model: 'gpt-4' },
+        entity_type: "prompt' OR 1=1 --" as any,
+        include_entity_data: false,
+      });
+
+      expect(result).toEqual({ matchingRuleIds: [], entities: [] });
+      expect(dataCollector).not.toHaveBeenCalled();
+    });
+
     it('passes databaseConfigId to dataCollector', async () => {
       await evaluateRules({ fields: { model: 'gpt-4' }, entity_type: 'context', include_entity_data: false }, 'db-42');
       expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'query', 'db-42');
