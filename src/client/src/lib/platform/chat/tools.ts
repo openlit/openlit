@@ -42,11 +42,15 @@ import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
 	createAlertTool,
+	deleteAlertDestinationTool,
 	deleteAlertTool,
+	getAlertDestinationTool,
 	getAlertTool,
 	listAlertDestinationsTool,
 	listAlertsTool,
+	testAlertDestinationTool,
 	testAlertTool,
+	updateAlertDestinationTool,
 	updateAlertTool,
 } from "@/features/alert-tools";
 
@@ -529,10 +533,45 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			execute: async (params: any) => createAlertDestinationTool(params),
 		}),
 
+		update_alert_destination: tool<any, any>({
+			description: "Update an existing alert destination's name, status, or provider config.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string" },
+					name: { type: "string" },
+					status: { type: "string", enum: ["active", "paused"] },
+					config: { type: "object" },
+				},
+				required: ["id"],
+			}) as any,
+			execute: async ({ id, ...params }: any) => updateAlertDestinationTool(id, params),
+		}),
+
+		delete_alert_destination: tool<any, any>({
+			description: "Delete an alert destination.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => deleteAlertDestinationTool(params.id),
+		}),
+
 		list_alert_destinations: tool<any, any>({
 			description: "List alert destinations.",
 			inputSchema: jsonSchema({ type: "object" as const, properties: {} }) as any,
 			execute: async () => listAlertDestinationsTool(),
+		}),
+
+		get_alert_destination: tool<any, any>({
+			description: "Get an alert destination by ID.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => getAlertDestinationTool(params.id),
 		}),
 
 		test_alert: tool<any, any>({
@@ -543,6 +582,16 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 				required: ["id"],
 			}) as any,
 			execute: async (params: any) => testAlertTool(params.id),
+		}),
+
+		test_alert_destination: tool<any, any>({
+			description: "Send a test notification directly to an alert destination.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => testAlertDestinationTool(params.id),
 		}),
 
 		// ==================== CONTEXT ====================
