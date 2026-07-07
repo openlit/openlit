@@ -11,7 +11,7 @@ export async function deleteAlertTool(_id: string) {
 }
 
 export async function listAlertsTool() {
-	return { success: true, alerts: [] };
+	return { success: false, error: "Alerting is not available in this edition." };
 }
 
 export async function getAlertTool(_id: string) {
@@ -31,7 +31,7 @@ export async function deleteAlertDestinationTool(_id: string) {
 }
 
 export async function listAlertDestinationsTool() {
-	return { success: true, destinations: [] };
+	return { success: false, error: "Alerting is not available in this edition." };
 }
 
 export async function getAlertDestinationTool(_id: string) {
