@@ -20,6 +20,7 @@ import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import { logScore } from './score';
 import { TracedSpan, startTrace, trace as traceManual } from './manual-trace';
 import Metrics from './otel/metrics';
+import GpuMetricsCollector from './instrumentation/gpu';
 import SemanticConvention from './semantic-convention';
 import { parseBoolEnv } from './otel/utils';
 import { setupAutoGuards } from './guard/integration';
@@ -98,6 +99,12 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     disableEvents = envDisableEvents ?? false;
   }
 
+  let collectGpuStats = o.collectGpuStats ?? undefined;
+  const envCollectGpuStats = parseBoolEnv('OPENLIT_COLLECT_GPU_STATS');
+  if (collectGpuStats === undefined) {
+    collectGpuStats = envCollectGpuStats ?? false;
+  }
+
   const openlitApiKey = o.openlitApiKey ?? process.env.OPENLIT_API_KEY ?? undefined;
   const openlitUrl = o.openlitUrl ?? process.env.OPENLIT_URL ?? undefined;
 
@@ -120,6 +127,7 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     openlitUrl,
     guards: o.guards,
     guardFailOpen: o.guardFailOpen ?? true,
+    collectGpuStats,
   };
 }
 
@@ -199,10 +207,21 @@ class Openlit extends BaseOpenlit {
         const exportIntervalMillis =
           Number(process.env.OTEL_EXPORTER_OTLP_METRICS_EXPORT_INTERVAL ?? 60000) || 60000;
 
-        Metrics.setup({
+        const meter = Metrics.setup({
           ...setupBase,
           exportIntervalMillis,
         });
+
+        // GPU metrics are registered only when a supported GPU is detected
+        if (resolved.collectGpuStats && meter) {
+          new GpuMetricsCollector().setup({
+            meter,
+            environment: resolved.environment,
+            applicationName: resolved.applicationName,
+          }).catch((e) => {
+            console.error('OpenLIT GPU metrics setup failed:', e);
+          });
+        }
       }
 
       OpenlitConfig.openlitApiKey = resolved.openlitApiKey;

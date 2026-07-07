@@ -596,4 +596,20 @@ export default class SemanticConvention {
   static GEN_AI_EVALUATION_SCORE_LABEL = 'gen_ai.evaluation.score.label';
   static GEN_AI_EVALUATION_EXPLANATION = 'gen_ai.evaluation.explanation';
   static OPENLIT_SCORE_IDEMPOTENCY_KEY = 'openlit.score.idempotency_key';
+
+  // ----- GPU (matches Python semcov) -----
+  static GPU_INDEX = 'gpu.index';
+  static GPU_UUID = 'gpu.uuid';
+  static GPU_NAME = 'gpu.name';
+  static GPU_UTILIZATION = 'gpu.utilization';
+  static GPU_UTILIZATION_ENC = 'gpu.enc.utilization';
+  static GPU_UTILIZATION_DEC = 'gpu.dec.utilization';
+  static GPU_TEMPERATURE = 'gpu.temperature';
+  static GPU_FAN_SPEED = 'gpu.fan_speed';
+  static GPU_MEMORY_AVAILABLE = 'gpu.memory.available';
+  static GPU_MEMORY_TOTAL = 'gpu.memory.total';
+  static GPU_MEMORY_USED = 'gpu.memory.used';
+  static GPU_MEMORY_FREE = 'gpu.memory.free';
+  static GPU_POWER_DRAW = 'gpu.power.draw';
+  static GPU_POWER_LIMIT = 'gpu.power.limit';
 }
