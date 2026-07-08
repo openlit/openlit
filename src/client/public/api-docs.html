@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OpenLIT API Reference</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      #scalar-wrapper {
+        height: 100vh;
+        width: 100vw;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scalar-wrapper"></div>
+    <script
+      id="api-reference"
+      data-url="/openapi.yaml"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      // Detect system theme or parent theme preference
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.getElementById('api-reference').setAttribute('data-configuration', JSON.stringify({
+        theme: 'default',
+        showSidebar: true,
+        darkMode: isDark
+      }));
+    </script>
+  </body>
+</html>

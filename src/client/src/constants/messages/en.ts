@@ -8,6 +8,22 @@ export const OPERATION_FAILED = "Operation failed!";
 
 // API Keys
 export const NO_API_KEY = "No such apiKey exists!";
+export const MANAGE_API_KEYS = "Manage API Keys";
+export const OPENAI_SPEC = "OpenAPI Specification";
+export const GENERATE_NEW_API_KEY = "Generate New API Key";
+export const CREATE_NEW_KEY = "Create a new api key";
+export const SETTINGS = "Settings";
+export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
+export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
+export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
+export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
+export const AVAILABLE_ENDPOINTS = "Available Endpoints";
+export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
+export const COPY_SNIPPET = "Copy Snippet";
+export const COPIED = "Copied";
+export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
+export const RESPONSE_BODY_JSON = "Response Body (JSON)";
+export const COPIED_TO_CLIPBOARD = "Copied to clipboard!";
 
 // Prompts
 export const PROMPT_NAME_TAKEN = "Prompt name is already taken!";

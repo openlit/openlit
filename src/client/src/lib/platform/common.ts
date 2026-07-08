@@ -35,6 +35,7 @@ export interface MetricParams {
 	sorting?: any;
 	operationType?: OPERATION_TYPE;
 	statusCode?: string[];
+	databaseConfigId?: string;
 }
 
 export type GPU_TYPE_KEY =

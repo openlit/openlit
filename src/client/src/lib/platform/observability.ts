@@ -186,7 +186,7 @@ export async function getLogsConfig(params: MetricParams) {
 		FROM ${OTEL_LOGS_TABLE_NAME}
 		WHERE ${buildWhere(params, "logs")}
 	`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getLogAttributeKeys(params: MetricParams) {
@@ -205,7 +205,7 @@ export async function getLogAttributeKeys(params: MetricParams) {
 			query: `SELECT DISTINCT arrayJoin(mapKeys(ScopeAttributes)) AS key FROM ${OTEL_LOGS_TABLE_NAME} WHERE ${where} ORDER BY key LIMIT 500`,
 		},
 	];
-	const results = await Promise.all(queries.map(({ query }) => dataCollector({ query })));
+	const results = await Promise.all(queries.map(({ query }) => dataCollector({ query }, "query", params.databaseConfigId)));
 	return {
 		err: results.find((result) => result.err)?.err ?? null,
 		spanAttributeKeys: [],
@@ -222,7 +222,7 @@ export async function getLogs(params: MetricParams) {
 	const { limit = 25, offset = 0 } = params;
 	const where = buildWhere(params, "logs");
 	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total FROM ${OTEL_LOGS_TABLE_NAME} WHERE ${where}`;
-	const { data: countData, err: countErr } = await dataCollector({ query: countQuery });
+	const { data: countData, err: countErr } = await dataCollector({ query: countQuery }, "query", params.databaseConfigId);
 	if (countErr) return { err: countErr };
 
 	const orderBy = params.sorting?.type
@@ -238,7 +238,7 @@ export async function getLogs(params: MetricParams) {
 		LIMIT ${limit}
 		OFFSET ${offset}
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
 	return {
 		err,
 		records: data,
@@ -301,7 +301,7 @@ export async function getSignalSummary(
 		`;
 	}
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
 	const buckets = (data as any[]) || [];
 	const total = buckets.reduce((sum, row) => sum + Number(row.count || 0), 0);
 
@@ -314,7 +314,7 @@ export async function getSignalSummary(
 	};
 }
 
-export async function getLogByRowId(rowId: string) {
+export async function getLogByRowId(rowId: string, dbConfigId?: string) {
 	const safeRowId = rowId.replace(/[^0-9]/g, "");
 	const query = `
 		SELECT
@@ -324,7 +324,7 @@ export async function getLogByRowId(rowId: string) {
 		WHERE cityHash64(toString(Timestamp), TraceId, SpanId, SeverityText, Body) = ${safeRowId || "0"}
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
 	return { err, record: (data as any[])?.[0] };
 }
 
@@ -337,7 +337,7 @@ export async function getMetricsConfig(params: MetricParams) {
 			CAST(COUNT(*) AS INTEGER) AS totalRows
 		FROM (${metricUnionSelect(params, "ServiceName, MetricName")})
 	`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getMetricAttributeKeys(params: MetricParams) {
@@ -349,13 +349,13 @@ export async function getMetricAttributeKeys(params: MetricParams) {
 	const [metricResult, resourceResult, scopeResult] = await Promise.all([
 		dataCollector({
 			query: `${queries.map((q) => q.metric).join(" UNION DISTINCT ")} ORDER BY key LIMIT 500`,
-		}),
+		}, "query", params.databaseConfigId),
 		dataCollector({
 			query: `${queries.map((q) => q.resource).join(" UNION DISTINCT ")} ORDER BY key LIMIT 500`,
-		}),
+		}, "query", params.databaseConfigId),
 		dataCollector({
 			query: `${queries.map((q) => q.scope).join(" UNION DISTINCT ")} ORDER BY key LIMIT 500`,
-		}),
+		}, "query", params.databaseConfigId),
 	]);
 	return {
 		err: metricResult.err || resourceResult.err || scopeResult.err,
@@ -383,7 +383,7 @@ export async function getMetrics(params: MetricParams) {
 			GROUP BY MetricName, metric_type, ServiceName
 		)
 	`;
-	const { data: countData, err: countErr } = await dataCollector({ query: countQuery });
+	const { data: countData, err: countErr } = await dataCollector({ query: countQuery }, "query", params.databaseConfigId);
 	if (countErr) return { err: countErr };
 
 	const query = `
@@ -406,7 +406,7 @@ export async function getMetrics(params: MetricParams) {
 		LIMIT ${limit}
 		OFFSET ${offset}
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
 	return {
 		err,
 		records: data,
@@ -454,8 +454,8 @@ export async function getMetricDetail(metricName: string, metricType?: string, s
 		LIMIT 100
 	`;
 	const [series, points] = await Promise.all([
-		dataCollector({ query: seriesQuery }),
-		dataCollector({ query: pointsQuery }),
+		dataCollector({ query: seriesQuery }, "query", params?.databaseConfigId),
+		dataCollector({ query: pointsQuery }, "query", params?.databaseConfigId),
 	]);
 	return {
 		err: series.err || points.err,

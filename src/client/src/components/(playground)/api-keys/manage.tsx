@@ -16,7 +16,7 @@ import DataTable from "@/components/data-table/table";
 import { escapeEmailForDisplay } from "@/utils/string";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Key, Shield, RotateCcw, Trash2 } from "lucide-react";
-import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import ApiKeysHeader from "./header-tabs";
 
 const columns: Columns<string, ApiKey> = {
 	name: {
@@ -118,13 +118,7 @@ export default function ManageKeys() {
 
 	return (
 		<div className="flex flex-col grow w-full overflow-hidden">
-			<FeaturePageHeader
-				eyebrow="Settings"
-				title="API Keys"
-				icon={<Key className="h-4 w-4" />}
-				tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
-				actions={<Generate refresh={fetchData} />}
-			/>
+			<ApiKeysHeader actions={<Generate refresh={fetchData} />} />
 			<div className="flex flex-col w-full h-full p-4 gap-4">
 				<Alert className="border-amber-200 bg-amber-50/70 py-3 text-stone-700 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-stone-300">
 					<Shield className="h-4 w-4 stroke-amber-700 dark:stroke-amber-300" />
