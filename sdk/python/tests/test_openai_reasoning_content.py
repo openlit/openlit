@@ -51,6 +51,7 @@ def _stream_scope(span):
 
 
 def test_streaming_chat_sets_reasoning_content_attribute():
+    """Verify streamed reasoning deltas are captured on the span."""
     tracer, exporter = _tracer_and_exporter()
     span = tracer.start_span("chat anthropic/claude-sonnet-4.6")
     scope = _stream_scope(span)
@@ -97,6 +98,7 @@ def test_streaming_chat_sets_reasoning_content_attribute():
 
 
 def test_streaming_chat_does_not_set_reasoning_when_content_capture_disabled():
+    """Verify streamed reasoning is omitted when content capture is disabled."""
     tracer, exporter = _tracer_and_exporter()
     span = tracer.start_span("chat anthropic/claude-sonnet-4.6")
     scope = _stream_scope(span)
@@ -127,6 +129,7 @@ def test_streaming_chat_does_not_set_reasoning_when_content_capture_disabled():
 
 
 def test_non_streaming_chat_sets_reasoning_content_attribute():
+    """Verify non-streaming message reasoning is captured on the span."""
     tracer, exporter = _tracer_and_exporter()
     span = tracer.start_span("chat anthropic/claude-sonnet-4.6")
     response = {
