@@ -633,10 +633,13 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
-    # Handle reasoning content from a non-streaming response (Groq reasoning models)
-    reasoning = (
-        response_dict.get("choices", [{}])[0].get("message", {}).get("reasoning")
-    )
+    # Handle reasoning content from a non-streaming response (Groq reasoning
+    # models). Aggregate across all choices to stay consistent with how
+    # scope._llmresponse concatenates content when n > 1.
+    reasoning = " ".join(
+        (choice.get("message", {}).get("reasoning") or "")
+        for choice in response_dict.get("choices", [])
+    ).strip()
     if reasoning:
         scope._reasoning_content = reasoning
     scope._response_id = response_dict.get("id")

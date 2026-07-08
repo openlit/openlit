@@ -130,6 +130,51 @@ def test_groq_non_streaming_without_reasoning_omits_attribute():
     assert REASONING_ATTR not in (finished[0].attributes or {})
 
 
+def test_groq_non_streaming_aggregates_reasoning_across_choices():
+    """Groq non-streaming with n > 1: reasoning is aggregated across all choices."""
+    tracer, exporter = _tracer_with_exporter()
+
+    response = {
+        "id": "resp-3",
+        "model": "qwen/qwen3-32b",
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "A", "reasoning": "first."},
+            },
+            {
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "B", "reasoning": "second."},
+            },
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 2},
+    }
+
+    with tracer.start_as_current_span("groq.chat") as span:
+        groq_utils.process_chat_response(
+            response=response,
+            request_model="qwen/qwen3-32b",
+            pricing_info={},
+            server_port=443,
+            server_address="api.groq.com",
+            environment="test",
+            application_name="test",
+            metrics={},
+            start_time=time.time(),
+            span=span,
+            capture_message_content=True,
+            disable_metrics=True,
+            version="1.0.0",
+            event_provider=None,
+            messages=[{"role": "user", "content": "hi"}],
+            model="qwen/qwen3-32b",
+        )
+
+    finished = exporter.get_finished_spans()
+    assert len(finished) == 1
+    assert finished[0].attributes.get(REASONING_ATTR) == "first. second."
+
+
 def test_groq_streaming_accumulates_reasoning():
     """Groq streaming: delta.reasoning chunks accumulate into the reasoning text."""
     scope = SimpleNamespace(
