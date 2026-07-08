@@ -215,6 +215,15 @@ export default class SemanticConvention {
   static GEN_AI_ACTION_TYPE = 'gen_ai.action.type';
   static GEN_AI_ACTION_INDEX = 'gen_ai.action.index';
 
+  // Web crawling / scraping (Firecrawl)
+  static GEN_AI_CRAWL_URL_COUNT = 'gen_ai.crawl.url_count';
+  static GEN_AI_CRAWL_RESULT_SUCCESS = 'gen_ai.crawl.result.success';
+  static GEN_AI_CRAWL_RESULT_STATUS_CODE = 'gen_ai.crawl.result.status_code';
+  static GEN_AI_CRAWL_RESULT_HTML_LENGTH = 'gen_ai.crawl.result.html_length';
+  static GEN_AI_CRAWL_RESULT_MARKDOWN_LENGTH = 'gen_ai.crawl.result.markdown_length';
+  static GEN_AI_CRAWL_RESULT_LINKS_COUNT = 'gen_ai.crawl.result.links_count';
+  static GEN_AI_MONITOR_TASK_STATUS = 'gen_ai.monitor.task_status';
+
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
   static GEN_AI_WORKFLOW_OUTPUT = 'gen_ai.workflow.output';
@@ -243,6 +252,12 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
+  static GEN_AI_OPERATION_TYPE_SCRAPE = 'scrape';
+  static GEN_AI_OPERATION_TYPE_CRAWL = 'crawl';
+  static GEN_AI_OPERATION_TYPE_MAP = 'map';
+  static GEN_AI_OPERATION_TYPE_SEARCH = 'search';
+  static GEN_AI_OPERATION_TYPE_CRAWL_STATUS = 'crawl_status';
+  static GEN_AI_OPERATION_TYPE_SCRAPE_STATUS = 'scrape_status';
 
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
@@ -282,6 +297,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
   static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
+  static GEN_AI_SYSTEM_FIRECRAWL = 'firecrawl';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
