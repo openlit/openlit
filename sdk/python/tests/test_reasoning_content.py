@@ -1,0 +1,208 @@
+# pylint: disable=protected-access
+"""
+Unit tests for reasoning-content capture (``gen_ai.content.reasoning``) in the
+Groq and Ollama instrumentations.
+
+These tests drive the instrumentation helpers directly with mocked provider
+responses, so they need neither a live API key nor a running model:
+
+- Non-streaming: ``process_chat_response`` is called with an in-memory span and
+  the exported span is asserted to carry ``gen_ai.content.reasoning``.
+- Streaming: ``process_chunk`` is fed reasoning deltas and the accumulated
+  reasoning text is asserted.
+"""
+
+import time
+from types import SimpleNamespace
+
+import pytest
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+
+from openlit._config import OpenlitConfig
+from openlit.instrumentation.groq import utils as groq_utils
+from openlit.instrumentation.ollama import utils as ollama_utils
+from openlit.semcov import SemanticConvention
+
+REASONING_ATTR = SemanticConvention.GEN_AI_CONTENT_REASONING
+
+
+@pytest.fixture(autouse=True)
+def _reset_openlit_config():
+    """The span helpers read global OpenlitConfig; initialize it to defaults."""
+    OpenlitConfig.reset_to_defaults()
+
+
+def _tracer_with_exporter():
+    """Return (tracer, exporter) backed by an in-memory span exporter."""
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    tracer = trace.get_tracer(__name__, tracer_provider=provider)
+    return tracer, exporter
+
+
+def test_groq_non_streaming_captures_reasoning():
+    """Groq non-streaming: reasoning maps to gen_ai.content.reasoning on the span."""
+    tracer, exporter = _tracer_with_exporter()
+
+    response = {
+        "id": "resp-1",
+        "model": "qwen/qwen3-32b",
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "The answer is 4.",
+                    "reasoning": "2 + 2 = 4, so the answer is 4.",
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
+
+    with tracer.start_as_current_span("groq.chat") as span:
+        groq_utils.process_chat_response(
+            response=response,
+            request_model="qwen/qwen3-32b",
+            pricing_info={},
+            server_port=443,
+            server_address="api.groq.com",
+            environment="test",
+            application_name="test",
+            metrics={},
+            start_time=time.time(),
+            span=span,
+            capture_message_content=True,
+            disable_metrics=True,
+            version="1.0.0",
+            event_provider=None,
+            messages=[{"role": "user", "content": "what is 2 + 2?"}],
+            model="qwen/qwen3-32b",
+        )
+
+    finished = exporter.get_finished_spans()
+    assert len(finished) == 1
+    assert finished[0].attributes.get(REASONING_ATTR) == "2 + 2 = 4, so the answer is 4."
+
+
+def test_groq_non_streaming_without_reasoning_omits_attribute():
+    """Groq non-streaming: no reasoning field means the attribute is not set."""
+    tracer, exporter = _tracer_with_exporter()
+
+    response = {
+        "id": "resp-2",
+        "model": "llama-3.3-70b-versatile",
+        "choices": [
+            {"finish_reason": "stop", "message": {"role": "assistant", "content": "Hi!"}}
+        ],
+        "usage": {"prompt_tokens": 3, "completion_tokens": 1},
+    }
+
+    with tracer.start_as_current_span("groq.chat") as span:
+        groq_utils.process_chat_response(
+            response=response,
+            request_model="llama-3.3-70b-versatile",
+            pricing_info={},
+            server_port=443,
+            server_address="api.groq.com",
+            environment="test",
+            application_name="test",
+            metrics={},
+            start_time=time.time(),
+            span=span,
+            capture_message_content=True,
+            disable_metrics=True,
+            version="1.0.0",
+            event_provider=None,
+            messages=[{"role": "user", "content": "hi"}],
+            model="llama-3.3-70b-versatile",
+        )
+
+    finished = exporter.get_finished_spans()
+    assert len(finished) == 1
+    # No reasoning field on the response -> attribute must be absent.
+    assert REASONING_ATTR not in (finished[0].attributes or {})
+
+
+def test_groq_streaming_accumulates_reasoning():
+    """Groq streaming: delta.reasoning chunks accumulate into the reasoning text."""
+    scope = SimpleNamespace(
+        _timestamps=[],
+        _start_time=time.time(),
+        _ttft=0,
+        _llmresponse="",
+        _tools=None,
+    )
+
+    for delta_reasoning in ("Let me ", "think it ", "through."):
+        groq_utils.process_chunk(
+            scope,
+            {"choices": [{"delta": {"content": "", "reasoning": delta_reasoning}, "finish_reason": None}]},
+        )
+
+    assert scope._reasoning_content == "Let me think it through."
+
+
+def test_ollama_non_streaming_captures_reasoning():
+    """Ollama non-streaming: message.thinking maps to gen_ai.content.reasoning."""
+    tracer, exporter = _tracer_with_exporter()
+
+    response = {
+        "model": "qwen3",
+        "done_reason": "stop",
+        "message": {
+            "role": "assistant",
+            "content": "The answer is 4.",
+            "thinking": "I need to add 2 and 2, which gives 4.",
+        },
+        "prompt_eval_count": 10,
+        "eval_count": 5,
+    }
+
+    with tracer.start_as_current_span("ollama.chat") as span:
+        ollama_utils.process_chat_response(
+            response=response,
+            pricing_info={},
+            server_port=11434,
+            server_address="127.0.0.1",
+            environment="test",
+            application_name="test",
+            metrics={},
+            start_time=time.monotonic(),
+            span=span,
+            capture_message_content=True,
+            disable_metrics=True,
+            version="1.0.0",
+            event_provider=None,
+            messages=[{"role": "user", "content": "what is 2 + 2?"}],
+            model="qwen3",
+        )
+
+    finished = exporter.get_finished_spans()
+    assert len(finished) == 1
+    assert finished[0].attributes.get(REASONING_ATTR) == "I need to add 2 and 2, which gives 4."
+
+
+def test_ollama_streaming_accumulates_reasoning():
+    """Ollama streaming: message.thinking chunks accumulate into the reasoning text."""
+    scope = SimpleNamespace(
+        _timestamps=[],
+        _start_time=time.monotonic(),
+        _ttft=0,
+        _llmresponse="",
+        _tools=None,
+    )
+
+    for thinking in ("Adding ", "two and two ", "makes four."):
+        ollama_utils.process_chunk(
+            scope,
+            {"message": {"content": "", "thinking": thinking}},
+        )
+
+    assert scope._reasoning_content == "Adding two and two makes four."

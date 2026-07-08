@@ -282,6 +282,17 @@ def process_chunk(scope, chunk):
         if content:
             scope._llmresponse += content
 
+    # Handle reasoning content (Groq reasoning models stream it on delta.reasoning)
+    if (
+        len(chunked.get("choices", [])) > 0
+        and "delta" in chunked.get("choices")[0]
+    ):
+        reasoning = chunked.get("choices")[0].get("delta", {}).get("reasoning")
+        if reasoning:
+            if not hasattr(scope, "_reasoning_content"):
+                scope._reasoning_content = ""
+            scope._reasoning_content += reasoning
+
     if chunked.get("x_groq") is not None:
         if chunked.get("x_groq").get("usage") is not None:
             # Handle token usage including reasoning tokens and cached tokens
@@ -474,6 +485,11 @@ def common_chat_logic(
     # Span Attributes for Content
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if hasattr(scope, "_reasoning_content") and scope._reasoning_content:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_CONTENT_REASONING,
+                scope._reasoning_content,
+            )
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -617,6 +633,12 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
+    # Handle reasoning content from a non-streaming response (Groq reasoning models)
+    reasoning = (
+        response_dict.get("choices", [{}])[0].get("message", {}).get("reasoning")
+    )
+    if reasoning:
+        scope._reasoning_content = reasoning
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model") or request_model
     # Handle token usage including reasoning tokens and cached tokens

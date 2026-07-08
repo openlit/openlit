@@ -276,6 +276,13 @@ def process_chunk(self, chunk):
     chunked = response_as_dict(chunk)
     self._llmresponse += chunked.get("message", {}).get("content", "")
 
+    # Handle reasoning content (Ollama streams it on message.thinking when think=True)
+    thinking = chunked.get("message", {}).get("thinking")
+    if thinking:
+        if not hasattr(self, "_reasoning_content"):
+            self._reasoning_content = ""
+        self._reasoning_content += thinking
+
     if chunked.get("message", {}).get("tool_calls"):
         self._tools = chunked["message"]["tool_calls"]
 
@@ -429,6 +436,11 @@ def common_chat_logic(
 
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if hasattr(scope, "_reasoning_content") and scope._reasoning_content:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_CONTENT_REASONING,
+                scope._reasoning_content,
+            )
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -864,6 +876,10 @@ def process_chat_response(
     scope._span = span
     scope._llmresponse = response_dict.get("message", {}).get("content", "")
     scope._response_role = response_dict.get("message", {}).get("role", "assistant")
+    # Handle reasoning content from a non-streaming response (Ollama think=True)
+    thinking = response_dict.get("message", {}).get("thinking")
+    if thinking:
+        scope._reasoning_content = thinking
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = response_dict.get("prompt_eval_count", 0)
     scope._output_tokens = response_dict.get("eval_count", 0)
