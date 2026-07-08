@@ -224,7 +224,11 @@ def audio_create(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -286,7 +290,11 @@ def audio_transcription(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                raise
             end_time = time.time()
 
             try:
@@ -348,7 +356,11 @@ def audio_translation(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                raise
             end_time = time.time()
 
             try:

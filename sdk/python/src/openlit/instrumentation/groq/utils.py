@@ -902,7 +902,13 @@ def common_transcription_logic(
 
     if capture_message_content:
         file_obj = scope._kwargs.get("file")
-        file_name = getattr(file_obj, "name", "unknown") if file_obj else "unknown"
+        if isinstance(file_obj, (tuple, list)) and file_obj:
+            # Groq accepts (filename, fileobj[, content_type]) tuples for uploads.
+            file_name = file_obj[0]
+        elif file_obj is not None:
+            file_name = getattr(file_obj, "name", "unknown")
+        else:
+            file_name = "unknown"
         input_msgs = [
             {
                 "role": "user",

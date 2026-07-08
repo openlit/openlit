@@ -27,12 +27,12 @@ _instruments = ("groq >= 0.5.0",)
 
 
 def _safe_wrap(module, class_method, wrapper):
-    """Wrap a function, silently skipping if the module doesn't exist in this SDK version."""
+    """Wrap a function, silently skipping if the target isn't present in this SDK version."""
     try:
         wrap_function_wrapper(module, class_method, wrapper)
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, AttributeError):
         logger.debug(
-            "Skipping %s.%s — module not in this groq version", module, class_method
+            "Skipping %s.%s — not available in this groq version", module, class_method
         )
 
 
