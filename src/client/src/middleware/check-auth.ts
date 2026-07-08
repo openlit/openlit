@@ -81,7 +81,7 @@ function isRateLimited(request: NextRequest) {
 	return window.count > SENSITIVE_API_RATE_LIMIT;
 }
 
-import prisma from "@/lib/prisma";
+
 
 export default function checkAuth(next: NextMiddleware) {
 	return withAuth(
@@ -90,7 +90,8 @@ export default function checkAuth(next: NextMiddleware) {
 			if (
 				pathname.startsWith("/_next") ||
 				pathname.startsWith("/static") ||
-				pathname.startsWith("/images")
+				pathname.startsWith("/images") ||
+				pathname === "/api/auth/verify-key"
 			) {
 				return next(request, _next);
 			}
@@ -113,22 +114,25 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				try {
-					const apiInfo = await prisma.aPIKeys.findFirst({
-						where: {
-							apiKey,
-							isDeleted: false,
+					const verifyUrl = new URL("/api/auth/verify-key", request.url);
+					const res = await fetch(verifyUrl, {
+						headers: {
+							Authorization: authHeader,
 						},
 					});
 
-					if (apiInfo?.databaseConfigId) {
-						const requestHeaders = new Headers(request.headers);
-						requestHeaders.set("x-database-config-id", apiInfo.databaseConfigId);
-						return next(
-							new NextRequest(request, {
-								headers: requestHeaders,
-							}),
-							_next
-						);
+					if (res.ok) {
+						const data = await res.json();
+						if (data.valid && data.databaseConfigId) {
+							const requestHeaders = new Headers(request.headers);
+							requestHeaders.set("x-database-config-id", data.databaseConfigId);
+							return next(
+								new NextRequest(request, {
+									headers: requestHeaders,
+								}),
+								_next
+							);
+						}
 					}
 				} catch (e) {
 					console.error("Middleware API key validation error:", e);
