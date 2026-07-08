@@ -19,8 +19,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
-    "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-    "end": "${new Date().toISOString()}"
+    "start": "2026-07-07T13:08:52.311Z",
+    "end": "2026-07-08T13:09:17.114Z"
   },
   "limit": 25,
   "offset": 0
@@ -45,8 +45,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   -d '{
     "timeLimit": {
       "type": "24H",
-      "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-      "end": "${new Date().toISOString()}"
+      "start": "2026-07-07T13:08:52.311Z",
+      "end": "2026-07-08T13:09:17.114Z"
     },
     "limit": 25
   }'`,
@@ -83,8 +83,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
-    "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-    "end": "${new Date().toISOString()}"
+    "start": "2026-07-07T13:08:52.311Z",
+    "end": "2026-07-08T13:09:17.114Z"
   }
 }`,
 		responseBody: `{
@@ -110,8 +110,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   -d '{
     "timeLimit": {
       "type": "24H",
-      "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-      "end": "${new Date().toISOString()}"
+      "start": "2026-07-07T13:08:52.311Z",
+      "end": "2026-07-08T13:09:17.114Z"
     }
   }'`,
 	},
@@ -124,8 +124,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
-    "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-    "end": "${new Date().toISOString()}"
+    "start": "2026-07-07T13:08:52.311Z",
+    "end": "2026-07-08T13:09:17.114Z"
   },
   "metricType": "Sum",
   "serviceName": "chat-service"
@@ -145,8 +145,8 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   -d '{
     "timeLimit": {
       "type": "24H",
-      "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
-      "end": "${new Date().toISOString()}"
+      "start": "2026-07-07T13:08:52.311Z",
+      "end": "2026-07-08T13:09:17.114Z"
     },
     "metricType": "Sum"
   }'`,
