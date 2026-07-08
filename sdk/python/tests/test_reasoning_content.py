@@ -16,7 +16,6 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -42,7 +41,7 @@ def _tracer_with_exporter():
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    tracer = trace.get_tracer(__name__, tracer_provider=provider)
+    tracer = provider.get_tracer(__name__)
     return tracer, exporter
 
 
