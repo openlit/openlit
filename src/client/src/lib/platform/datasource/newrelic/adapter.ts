@@ -6,8 +6,8 @@
  * pushed down as an NRQL WHERE fragment; aggregation/discovery use NRQL
  * `FACET`. New Relic stores OTel span events as separate `Span` rows rather
  * than embedded events, so `spanEvents` is false and prompt/completion are
- * read from span attributes (the eval extractor is attribute-first). NRQL is
- * immutable, so cost is applied via the CostOverlay at read time.
+ * read from span attributes (the eval extractor is attribute-first). Cost is
+ * surfaced as reported by the source; New Relic telemetry is read-only.
  */
 
 import { BaseExternalAdapter } from "../base-adapter";

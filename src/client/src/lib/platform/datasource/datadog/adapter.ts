@@ -8,7 +8,7 @@
  * endpoint hard (~300 req/hr), every read goes through the per-source query
  * cache and summaries prefer the aggregate endpoint. Datadog does not expose
  * OTel span events and cannot mutate spans, so `spanEvents`/`spanMutation` are
- * false and cost is applied via the CostOverlay at read time.
+ * false and cost is surfaced as reported by the source (read-only).
  */
 
 import { BaseExternalAdapter } from "../base-adapter";

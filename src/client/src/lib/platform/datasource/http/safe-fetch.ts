@@ -31,6 +31,12 @@ const BLOCKED_HOSTNAMES = new Set([
 	"169.254.169.254",
 ]);
 
+/** HTTP redirect status codes we follow manually (with per-hop re-validation). */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/** Cap on manually-followed redirects to avoid loops. */
+const MAX_REDIRECTS = 5;
+
 /** Classify an IP (v4 or v6) as private / loopback / link-local / unspecified. */
 export function isPrivateAddress(ip: string): boolean {
 	const version = net.isIP(ip);
@@ -82,6 +88,12 @@ const defaultLookup: LookupFn = async (hostname) => {
 /**
  * Validate a user-supplied URL for outbound fetch. Throws `SsrfError` on any
  * violation. Returns the parsed URL when safe.
+ *
+ * Residual note: Node's global `fetch` re-resolves DNS at connect time, so a
+ * hostname that passes here could in theory rebind to a private address before
+ * the socket opens (TOCTOU). `safeFetch` re-runs this check on every redirect
+ * hop, but airtight rebinding protection requires socket-level egress control
+ * (a pinned dispatcher / proxy) that is out of scope for the self-hosted model.
  */
 export async function assertPublicUrl(
 	rawUrl: string,
@@ -191,19 +203,65 @@ export async function safeFetch<T = unknown>(
 	});
 	const fetchImpl = options.fetchImpl || fetch;
 
-	const doFetch = async (): Promise<T> => {
+	// Follow redirects manually so every hop is re-validated against the SSRF
+	// rules. Default `fetch` follows redirects transparently, which would let a
+	// vendor 3xx to an internal/loopback address bypass `assertPublicUrl`.
+	const performOnce = async (target: URL) => {
 		const controller = new AbortController();
 		const timeout = setTimeout(
 			() => controller.abort(),
 			options.timeoutMs ?? 15000
 		);
 		try {
-			const response = await fetchImpl(url.toString(), {
+			return await fetchImpl(target.toString(), {
 				method: options.method || "GET",
 				headers: options.headers,
 				body: options.body,
 				signal: controller.signal,
+				redirect: "manual",
 			});
+		} finally {
+			clearTimeout(timeout);
+		}
+	};
+
+	const doFetch = async (): Promise<T> => {
+		let currentUrl = url;
+		for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+			let response: Awaited<ReturnType<typeof fetchImpl>>;
+			try {
+				response = await performOnce(currentUrl);
+			} catch (err) {
+				if ((err as Error)?.name === "AbortError") {
+					throw new Error("Data source request timed out");
+				}
+				throw new Error(
+					redact(String((err as Error)?.message || err), redactValues)
+				);
+			}
+
+			if (REDIRECT_STATUSES.has(response.status)) {
+				const location = response.headers?.get?.("location");
+				if (!location) {
+					throw new SourceResponseError(
+						response.status,
+						`Data source responded ${response.status} without a Location header`
+					);
+				}
+				let next: URL;
+				try {
+					next = new URL(location, currentUrl);
+				} catch {
+					throw new SsrfError("Data source redirected to an invalid URL");
+				}
+				// Re-validate the redirect target; throws SsrfError if internal.
+				currentUrl = await assertPublicUrl(next.toString(), {
+					allowHttp: options.allowHttp,
+					lookup: options.lookup,
+				});
+				continue;
+			}
+
 			const text = await response.text();
 			if (!response.ok) {
 				throw new SourceResponseError(
@@ -220,17 +278,10 @@ export async function safeFetch<T = unknown>(
 			} catch {
 				return text as unknown as T;
 			}
-		} catch (err) {
-			if ((err as Error)?.name === "AbortError") {
-				throw new Error("Data source request timed out");
-			}
-			if (err instanceof SourceResponseError) throw err;
-			throw new Error(
-				redact(String((err as Error)?.message || err), redactValues)
-			);
-		} finally {
-			clearTimeout(timeout);
 		}
+		throw new SsrfError(
+			"Data source exceeded the maximum number of redirects"
+		);
 	};
 
 	const withRetryMaybe = options.retry

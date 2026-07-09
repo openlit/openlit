@@ -162,6 +162,49 @@ describe("safeFetch", () => {
 		).rejects.toMatchObject({ name: "SourceResponseError", status: 429 });
 	});
 
+	it("blocks a redirect that points at an internal address", async () => {
+		const rebindLookup = async (host: string) => {
+			if (host === "api.example.com") return [{ address: "8.8.8.8" }];
+			if (host === "evil.internal") return [{ address: "169.254.169.254" }];
+			return [];
+		};
+		const fetchImpl = jest.fn().mockResolvedValue({
+			status: 302,
+			headers: { get: (h: string) => (h === "location" ? "https://evil.internal/steal" : null) },
+			text: async () => "",
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup: rebindLookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toThrow(SsrfError);
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
+	});
+
+	it("follows a redirect to another public URL", async () => {
+		const twoHopLookup = async () => [{ address: "8.8.8.8" }];
+		const fetchImpl = jest
+			.fn()
+			.mockResolvedValueOnce({
+				status: 302,
+				headers: { get: (h: string) => (h === "location" ? "https://cdn.example.com/data" : null) },
+				text: async () => "",
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				headers: { get: () => null },
+				text: async () => JSON.stringify({ ok: true }),
+			});
+		const result = await safeFetch("https://api.example.com", {
+			lookup: twoHopLookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+		});
+		expect(result).toEqual({ ok: true });
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
 	it("retries a transient 429 then succeeds when retry is enabled", async () => {
 		const fetchImpl = jest
 			.fn()
