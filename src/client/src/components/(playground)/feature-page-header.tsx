@@ -26,7 +26,7 @@ export default function FeaturePageHeader({
 							{icon}
 						</span>
 						<div>
-							<p className="text-[11px] leading-none uppercase tracking-wide text-stone-500 dark:text-stone-400">
+							<p className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 								{eyebrow}
 							</p>
 							<h1 className="text-sm font-semibold leading-tight text-stone-950 dark:text-stone-50">

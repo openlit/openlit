@@ -7,8 +7,9 @@ This PR implements client-wide OpenAPI specification documentation, centralizes 
 #### Key Enhancements:
 1. **Traces & Exceptions Telemetry in OpenAPI Spec**:
    * Added OpenAPI definitions and schema documentation for the traces retrieval API `/api/metrics/request` and the exceptions retrieval API `/api/metrics/exception`.
+   * Added OpenAPI definitions for individual span detail `/api/metrics/request/span/{id}` and trace span hierarchy tree `/api/metrics/request/span/{id}/heirarchy`.
    * Updated the route handlers to validate keys using the centralized `resolveDbConfigId` helper and correctly forward the resolved `databaseConfigId` down to the ClickHouse `dataCollector`.
-   * Added the two telemetry endpoints to the dashboard's interactive API Reference explorer (`query-traces` and `query-exceptions`).
+   * Added the telemetry endpoints to the dashboard's interactive API Reference explorer.
 
 2. **Edge-Compatible Middleware Authorization**:
    * Intercepts requests containing an `Authorization: Bearer <API_KEY>` header inside the Next.js auth middleware (`check-auth.ts`).
@@ -18,11 +19,12 @@ This PR implements client-wide OpenAPI specification documentation, centralizes 
 
 3. **Unified Page Header Height & Tabs Removal**:
    * Removed the API Keys sub-route tabs block completely, solving the header height discrepancy. The API keys settings page now matches the exact same header height and styling as all other playground pages.
+   * Normalised the header eyebrow text element in `FeaturePageHeader` with the `leading-none` class to prevent custom or inherited browser line heights from causing height mismatches across different pages.
    * Added a clean link button with a `BookOpen` icon in the API keys page header actions section that points directly to `/openapi-spec`.
 
 4. **Simplified and Unified Route Handlers**:
    * Implemented a unified `resolveDbConfigId` utility function in `auth.ts` to handle DB config resolution from headers/session.
-   * Updated all 9 telemetry API handlers (under `src/client/src/app/api/telemetry/`) and the rule engine evaluate handler (`evaluate/route.ts`) to use the unified helper, removing duplicate auth checking code.
+   * Updated all 9 telemetry API handlers (under `src/client/src/app/api/telemetry/`), the rule engine evaluate handler (`evaluate/route.ts`), and the span details/hierarchy route handlers to use the unified helper, removing duplicate auth checking code.
    * Optimized the controller poll handler (`poll/route.ts`) to read the middleware header directly, avoiding redundant database lookup queries.
 
 5. **Correct Config Script Loading Order**:

@@ -262,13 +262,13 @@ export async function getRequestViaSpanId(spanId: string, dbConfigId?: string) {
 	};
 }
 
-export async function getRequestViaTraceId(traceId: string) {
+export async function getRequestViaTraceId(traceId: string, dbConfigId?: string) {
 	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
 	)}='${safeTraceId}'`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
