@@ -152,8 +152,11 @@ describe("toDescriptor", () => {
 });
 
 describe("resolveTelemetrySourceDescriptor precedence", () => {
-	it("1. resolves an explicit sourceId override", async () => {
-		mockFindUnique.mockResolvedValue({
+	it("1. resolves an explicit sourceId override within the current project", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		// First findFirst is the project-scoped sourceId lookup; no default needed.
+		mockFindFirst.mockResolvedValueOnce({
 			id: "src-1",
 			projectId: "proj-1",
 			name: "Prod Tempo",
@@ -170,14 +173,44 @@ describe("resolveTelemetrySourceDescriptor precedence", () => {
 		const d = await resolveTelemetrySourceDescriptor({ sourceId: "src-1" });
 		expect(d.type).toBe("tempo");
 		expect(d.id).toBe("src-1");
-		expect(mockFindFirst).not.toHaveBeenCalled();
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "src-1", projectId: "proj-1" },
+		});
+		expect(mockFindUnique).not.toHaveBeenCalled();
+	});
+
+	it("denies a sourceId that belongs to another project (IDOR)", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		// Project-scoped lookup misses (source lives in proj-2).
+		mockFindFirst
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce({
+				id: "src-default",
+				projectId: "proj-1",
+				name: "Default NR",
+				type: "newrelic",
+				signals: "traces,logs,metrics",
+				settings: "{}",
+				secretRef: "vault-2",
+				isDefault: true,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				createdByUserId: null,
+			});
+
+		const d = await resolveTelemetrySourceDescriptor({
+			sourceId: "foreign-src",
+		});
+		expect(d.id).toBe("src-default");
+		expect(d.type).toBe("newrelic");
+		expect(mockFindFirst).toHaveBeenNthCalledWith(1, {
+			where: { id: "foreign-src", projectId: "proj-1" },
+		});
 	});
 
 	it("falls through to project default when sourceId is missing", async () => {
-		mockFindUnique.mockResolvedValue(null);
-		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
-		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
-		mockFindFirst.mockResolvedValue({
+		mockFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
 			id: "src-default",
 			projectId: "proj-1",
 			name: "Default NR",
@@ -190,6 +223,8 @@ describe("resolveTelemetrySourceDescriptor precedence", () => {
 			updatedAt: new Date(),
 			createdByUserId: null,
 		});
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
 
 		const d = await resolveTelemetrySourceDescriptor({ sourceId: "nope" });
 		expect(d.type).toBe("newrelic");
@@ -322,6 +357,23 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		});
 		const d = await resolveTelemetrySourceDescriptor({ signal: "logs" });
 		expect(d.id).toBe("loki-1");
+	});
+
+	it("denies a signal override sourceId from another project", async () => {
+		mockFindFirst.mockResolvedValue(null);
+		mockBindingFindUnique.mockResolvedValue(null);
+		mockFindMany.mockResolvedValue([]);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		const res = await resolveSignalSource("traces", {
+			sourceId: "foreign-src",
+		});
+		expect(res.via).toBe("builtin");
+		expect(res.descriptor.type).toBe("clickhouse");
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "foreign-src", projectId: "proj-1" },
+		});
+		expect(mockFindUnique).not.toHaveBeenCalled();
 	});
 });
 

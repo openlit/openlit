@@ -1,15 +1,14 @@
 /**
  * Telemetry source resolution (CE).
  *
- * Resolves which raw-telemetry source powers a read, following the precedence:
- *   1. An explicit source id (e.g. a dashboard widget's `sourceId`).
- *   2. The current project's default `TelemetrySource`.
+ * Resolves which raw-telemetry source should power a read:
+ *   1. An explicit source id (must belong to the caller's current project).
+ *   2. The project's per-signal binding / default `TelemetrySource`.
  *   3. The implicit built-in ClickHouse source (the project `DatabaseConfig`).
  *
- * In CE only the built-in ClickHouse source has a registered adapter, so
- * default deployments always resolve to ClickHouse (zero behavior change).
- * The enterprise repo registers external adapters and configures
- * `TelemetrySource` rows to route reads elsewhere.
+ * Adapters for external vendors are registered in CE. Product surfaces still
+ * need to call into this resolver (and the adapter) to leave ClickHouse —
+ * configuring a source alone does not reroute Telemetry/Agents/Evals.
  */
 
 import prisma from "./prisma";
@@ -171,23 +170,42 @@ function descriptorServesSignal(
 }
 
 /**
+ * Load a TelemetrySource by id only when it belongs to `projectId`.
+ * Cross-project ids must never resolve — that would be an IDOR on the
+ * source's endpoint + vault secret.
+ */
+async function findSourceInProject(
+	sourceId: string,
+	projectId: string | null | undefined
+): Promise<TelemetrySource | null> {
+	if (!projectId) return null;
+	return prisma.telemetrySource.findFirst({
+		where: { id: sourceId, projectId },
+	});
+}
+
+/**
  * Signal-aware resolution following Grafana's per-signal datasource model:
- *   1. explicit sourceId override
+ *   1. explicit sourceId override (must belong to the current project)
  *   2. the project's per-signal binding (if it serves the signal)
  *   3. any project source that advertises the signal (default first)
  *   4. the built-in ClickHouse source (serves all signals)
  *   5. a typed "no source" state
- * It never returns a source that lacks the requested signal.
+ * It never returns a source that lacks the requested signal, and never
+ * returns a source from another project.
  */
 export async function resolveSignalSource(
 	signal: Signal,
 	options: ResolveTelemetrySourceOptions = {}
 ): Promise<SignalSourceResolution> {
-	// 1. Explicit override.
+	const projectId =
+		options.projectId !== undefined
+			? options.projectId
+			: await getCurrentProjectId();
+
+	// 1. Explicit override — project-scoped only.
 	if (options.sourceId) {
-		const row = await prisma.telemetrySource.findUnique({
-			where: { id: options.sourceId },
-		});
+		const row = await findSourceInProject(options.sourceId, projectId);
 		if (row) {
 			const descriptor = toDescriptor(row);
 			return {
@@ -198,14 +216,9 @@ export async function resolveSignalSource(
 			};
 		}
 		consoleLog(
-			`resolveSignalSource: sourceId ${options.sourceId} not found; continuing`
+			`resolveSignalSource: sourceId ${options.sourceId} not found in project; continuing`
 		);
 	}
-
-	const projectId =
-		options.projectId !== undefined
-			? options.projectId
-			: await getCurrentProjectId();
 
 	if (projectId) {
 		// 2. Per-signal binding.
@@ -281,23 +294,21 @@ export async function resolveTelemetrySourceDescriptor(
 		return resolution.descriptor;
 	}
 
-	// 1. Explicit source id override.
-	if (options.sourceId) {
-		const row = await prisma.telemetrySource.findUnique({
-			where: { id: options.sourceId },
-		});
-		if (row) return toDescriptor(row);
-		consoleLog(
-			`resolveTelemetrySource: sourceId ${options.sourceId} not found; falling back to default`
-		);
-	}
-
-	// 2. Current project's default TelemetrySource.
 	const projectId =
 		options.projectId !== undefined
 			? options.projectId
 			: await getCurrentProjectId();
 
+	// 1. Explicit source id override — project-scoped only (no cross-project IDOR).
+	if (options.sourceId) {
+		const row = await findSourceInProject(options.sourceId, projectId);
+		if (row) return toDescriptor(row);
+		consoleLog(
+			`resolveTelemetrySource: sourceId ${options.sourceId} not found in project; falling back to default`
+		);
+	}
+
+	// 2. Current project's default TelemetrySource.
 	if (projectId) {
 		const row = await prisma.telemetrySource.findFirst({
 			where: { projectId, isDefault: true },
