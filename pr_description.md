@@ -7,7 +7,8 @@ This PR implements client-wide OpenAPI specification documentation, centralizes 
 #### Key Enhancements:
 1. **Traces & Exceptions Telemetry in OpenAPI Spec**:
    * Added OpenAPI definitions and schema documentation for the traces retrieval API `/api/metrics/request` and the exceptions retrieval API `/api/metrics/exception`.
-   * Added OpenAPI definitions for individual span detail `/api/metrics/request/span/{id}` and trace span hierarchy tree `/api/metrics/request/span/{id}/heirarchy`.
+   * Added OpenAPI definitions for individual span detail `/api/metrics/request/span/{id}`, trace span hierarchy tree `/api/metrics/request/span/{id}/heirarchy`, and trace detail by Trace ID `/api/metrics/request/trace/{id}`.
+   * Grouped all endpoints in the OpenAPI spec using standard `tags` so that the Scalar OpenAPI Spec UI automatically groups the endpoints neatly into sidebar categories (Telemetry, Prompt Hub, Secret Vault, Rule Engine, Controller, Evaluation Engine, API Keys).
    * Updated the route handlers to validate keys using the centralized `resolveDbConfigId` helper and correctly forward the resolved `databaseConfigId` down to the ClickHouse `dataCollector`.
    * Added the telemetry endpoints to the dashboard's interactive API Reference explorer.
 
@@ -24,7 +25,7 @@ This PR implements client-wide OpenAPI specification documentation, centralizes 
 
 4. **Simplified and Unified Route Handlers**:
    * Implemented a unified `resolveDbConfigId` utility function in `auth.ts` to handle DB config resolution from headers/session.
-   * Updated all 9 telemetry API handlers (under `src/client/src/app/api/telemetry/`), the rule engine evaluate handler (`evaluate/route.ts`), and the span details/hierarchy route handlers to use the unified helper, removing duplicate auth checking code.
+   * Updated all 9 telemetry API handlers (under `src/client/src/app/api/telemetry/`), the rule engine evaluate handler (`evaluate/route.ts`), span details/hierarchy route handlers, and the trace detail route handler to use the unified helper, removing duplicate auth checking code.
    * Optimized the controller poll handler (`poll/route.ts`) to read the middleware header directly, avoiding redundant database lookup queries.
 
 5. **Correct Config Script Loading Order**:

@@ -377,4 +377,46 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
     "limit": 10
   }'`,
 	},
+	{
+		id: "get-span-detail",
+		method: "GET",
+		path: "/api/metrics/request/span/{id}",
+		summary: "Get span detail by ID",
+		description: "Retrieve details of a specific trace span by its ID (along with optional evaluation summary data).",
+		requestBody: ``,
+		responseBody: `{
+  "err": null,
+  "record": {}
+}`,
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/span/some-span-id \\
+  -H "Authorization: Bearer ${apiKey}"`,
+	},
+	{
+		id: "get-trace-detail",
+		method: "GET",
+		path: "/api/metrics/request/trace/{id}",
+		summary: "Get trace detail by Trace ID",
+		description: "Retrieve details of a trace (such as its root span or transaction info) using the Trace ID.",
+		requestBody: ``,
+		responseBody: `{
+  "err": null,
+  "record": {}
+}`,
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/trace/some-trace-id \\
+  -H "Authorization: Bearer ${apiKey}"`,
+	},
+	{
+		id: "get-span-hierarchy",
+		method: "GET",
+		path: "/api/metrics/request/span/{id}/heirarchy",
+		summary: "Get trace span hierarchy tree",
+		description: "Retrieve the tree hierarchy representation of all related spans associated with a trace span.",
+		requestBody: ``,
+		responseBody: `{
+  "err": null,
+  "record": {}
+}`,
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/span/some-span-id/heirarchy \\
+  -H "Authorization: Bearer ${apiKey}"`,
+	},
 ];
