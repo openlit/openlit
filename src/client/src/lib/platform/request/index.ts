@@ -250,12 +250,12 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
-export async function getRequestViaSpanId(spanId: string) {
+export async function getRequestViaSpanId(spanId: string, dbConfigId?: string) {
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE SpanId='${safeSpanId}'`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
@@ -275,7 +275,7 @@ export async function getRequestViaTraceId(traceId: string) {
 	};
 }
 
-export async function getHeirarchyViaSpanId(spanId: string) {
+export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string) {
 	// Step 1: resolve the source span. We need:
 	//   - TraceId (the usual "show every span in the trace" path)
 	//   - coding_agent.session.id (so coding-agent sessions whose CLI
@@ -299,9 +299,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
-	const { data: sourceData, err: sourceErr } = await dataCollector({
-		query: sourceSpanQuery,
-	});
+	const { data: sourceData, err: sourceErr } = await dataCollector(
+		{ query: sourceSpanQuery },
+		"query",
+		dbConfigId
+	);
 
 	if (sourceErr || !Array.isArray(sourceData) || sourceData.length === 0) {
 		return { err: "Span not found", record: {} };
@@ -358,9 +360,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		ORDER BY Timestamp ASC
 		LIMIT 5000`;
 
-	const { data: allSpans, err: allSpansErr } = await dataCollector({
-		query: allSpansQuery,
-	});
+	const { data: allSpans, err: allSpansErr } = await dataCollector(
+		{ query: allSpansQuery },
+		"query",
+		dbConfigId
+	);
 
 	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
 		return { err: "Failed to fetch trace spans", record: {} };

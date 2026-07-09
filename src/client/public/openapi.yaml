@@ -421,6 +421,58 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
+  /api/metrics/request/span/{id}:
+    get:
+      summary: Get span detail by ID
+      description: Retrieve details of a specific trace span by its ID (along with optional evaluation summary data).
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the span.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Span details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/metrics/request/span/{id}/heirarchy:
+    get:
+      summary: Get trace span hierarchy tree
+      description: Retrieve the tree hierarchy representation of all related spans (e.g. parents, subagents, child operations) associated with a trace span.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the root/anchor span.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Span hierarchy tree.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
   /api/api-key:
     get:
       summary: List all API Keys
