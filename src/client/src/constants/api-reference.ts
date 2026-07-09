@@ -315,4 +315,66 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
     "tags": ["production"]
   }'`,
 	},
+	{
+		id: "query-traces",
+		method: "POST",
+		path: "/api/metrics/request",
+		summary: "Query traces list",
+		description: "Retrieve a paginated list of telemetry trace spans matching the provided filters.",
+		requestBody: `{
+  "timeLimit": {
+    "type": "24H",
+    "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
+    "end": "${new Date().toISOString()}"
+  },
+  "limit": 10,
+  "offset": 0
+}`,
+		responseBody: `{
+  "records": [],
+  "total": 0
+}`,
+		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/metrics/request \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "timeLimit": {
+      "type": "24H",
+      "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
+      "end": "${new Date().toISOString()}"
+    },
+    "limit": 10
+  }'`,
+	},
+	{
+		id: "query-exceptions",
+		method: "POST",
+		path: "/api/metrics/exception",
+		summary: "Query exceptions list",
+		description: "Retrieve a paginated list of telemetry exception spans matching the provided filters.",
+		requestBody: `{
+  "timeLimit": {
+    "type": "24H",
+    "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
+    "end": "${new Date().toISOString()}"
+  },
+  "limit": 10,
+  "offset": 0
+}`,
+		responseBody: `{
+  "records": [],
+  "total": 0
+}`,
+		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/metrics/exception \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "timeLimit": {
+      "type": "24H",
+      "start": "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}",
+      "end": "${new Date().toISOString()}"
+    },
+    "limit": 10
+  }'`,
+	},
 ];

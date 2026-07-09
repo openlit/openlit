@@ -357,6 +357,70 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
+  /api/metrics/request:
+    post:
+      summary: Query traces list
+      description: Retrieve a paginated list of trace spans matching the provided filters. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of traces and total count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/metrics/exception:
+    post:
+      summary: Query exceptions list
+      description: Retrieve a paginated list of exceptions matching the provided filters. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of exceptions and total count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
   /api/api-key:
     get:
       summary: List all API Keys

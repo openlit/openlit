@@ -4,8 +4,14 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { getRequests } from "@/lib/platform/request";
+import { resolveDbConfigId } from "@/helpers/server/auth";
 
 export async function POST(request: Request) {
+	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
+	if (authErr) {
+		return Response.json({ err: authErr }, { status: 401 });
+	}
+
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 	const limit = formData.limit || 10;
@@ -20,6 +26,7 @@ export async function POST(request: Request) {
 		selectedConfig,
 		sorting,
 		statusCode: ["STATUS_CODE_ERROR", "Error"],
+		databaseConfigId,
 	};
 
 	const validationParam = validateMetricsRequest(

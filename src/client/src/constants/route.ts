@@ -27,6 +27,7 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
 	"/api/controller/",
 	"/api/prompt/",
 	"/api/vault/",
+	"/api/metrics/",
 ];
 
 export const CRON_JOB_ROUTES = [

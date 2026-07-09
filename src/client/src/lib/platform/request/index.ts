@@ -218,9 +218,11 @@ export async function getRequests(params: MetricParams) {
 	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}`;
 
-	const { data: dataTotal, err: errTotal } = await dataCollector({
-		query: countQuery,
-	});
+	const { data: dataTotal, err: errTotal } = await dataCollector(
+		{ query: countQuery },
+		"query",
+		params.databaseConfigId
+	);
 	if (errTotal) {
 		return {
 			err: errTotal,
@@ -240,7 +242,7 @@ export async function getRequests(params: MetricParams) {
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
 	return {
 		err,
 		records: data,
