@@ -18,6 +18,59 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 	const messages = getMessage();
 
+	const getEndpointGroup = (endpoint: ApiEndpoint): string => {
+		const path = endpoint.path;
+		if (path.startsWith("/api/telemetry") || path.startsWith("/api/metrics")) {
+			return "Telemetry";
+		}
+		if (path.startsWith("/api/prompt")) {
+			return "Prompt Hub";
+		}
+		if (path.startsWith("/api/vault")) {
+			return "Secret Vault";
+		}
+		if (path.startsWith("/api/rule-engine")) {
+			return "Rule Engine";
+		}
+		if (path.startsWith("/api/controller")) {
+			return "Controller";
+		}
+		if (path.startsWith("/api/evaluation")) {
+			return "Evaluation Engine";
+		}
+		if (path.startsWith("/api/api-key")) {
+			return "API Keys";
+		}
+		return "Other";
+	};
+
+	const groups = [
+		"Telemetry",
+		"Prompt Hub",
+		"Secret Vault",
+		"Rule Engine",
+		"Controller",
+		"Evaluation Engine",
+		"API Keys"
+	];
+
+	const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+		"Telemetry": true,
+		"Prompt Hub": true,
+		"Secret Vault": true,
+		"Rule Engine": true,
+		"Controller": true,
+		"Evaluation Engine": true,
+		"API Keys": true,
+	});
+
+	const toggleGroup = (group: string) => {
+		setExpandedGroups(prev => ({
+			...prev,
+			[group]: !prev[group]
+		}));
+	};
+
 	const handleCopy = (text: string, fieldId: string) => {
 		copy(text);
 		setCopiedField(fieldId);
@@ -51,36 +104,58 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			<div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-stone-200 dark:divide-stone-800 min-h-[450px] h-full overflow-hidden">
 				{/* Sidebar list */}
 				<div className="w-full lg:w-80 shrink-0 bg-stone-50/50 dark:bg-stone-950/20 py-2 overflow-y-auto h-full">
-					<div className="px-3 py-1.5 text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider">
+					<div className="px-3 py-1.5 text-xs font-semibold text-stone-400 dark:text-stone-505 uppercase tracking-wider">
 						{messages.AVAILABLE_ENDPOINTS}
 					</div>
-					<div className="space-y-0.5 px-2">
-						{API_REFERENCE_ENDPOINTS.map((endpoint) => (
-							<button
-								key={endpoint.id}
-								onClick={() => setSelectedEndpoint(endpoint)}
-								className={`w-full flex items-center text-left px-3 py-2.5 rounded-md text-xs transition-colors ${
-									selectedEndpoint.id === endpoint.id
-										? "bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-medium"
-										: "text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900/50 hover:text-stone-900 dark:hover:text-stone-200"
-								}`}
-							>
-								<Badge
-									variant="outline"
-									className={`mr-2.5 text-[9px] px-1 py-0 rounded font-bold shrink-0 ${getMethodColor(
-										endpoint.method
-									)}`}
-								>
-									{endpoint.method}
-								</Badge>
-								<span className="truncate flex-1">{endpoint.summary}</span>
-								<ChevronRight
-									className={`h-3 w-3 text-stone-400 dark:text-stone-500 transition-transform ${
-										selectedEndpoint.id === endpoint.id ? "rotate-90" : ""
-									}`}
-								/>
-							</button>
-						))}
+					<div className="space-y-2 px-2">
+						{groups.map((group) => {
+							const endpointsInGroup = API_REFERENCE_ENDPOINTS.filter(
+								(ep) => getEndpointGroup(ep) === group
+							);
+							if (endpointsInGroup.length === 0) return null;
+							const isExpanded = expandedGroups[group] ?? true;
+
+							return (
+								<div key={group} className="flex flex-col">
+									<button
+										onClick={() => toggleGroup(group)}
+										className="flex items-center justify-between w-full px-3 py-1.5 text-left text-[11px] font-semibold text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors uppercase tracking-wider"
+									>
+										<span>{group}</span>
+										<ChevronRight
+											className={`h-3 w-3 text-stone-400 dark:text-stone-505 transition-transform ${
+												isExpanded ? "rotate-90" : ""
+											}`}
+										/>
+									</button>
+									{isExpanded && (
+										<div className="mt-1 space-y-0.5 pl-2 border-l border-stone-200 dark:border-stone-800 ml-3">
+											{endpointsInGroup.map((endpoint) => (
+												<button
+													key={endpoint.id}
+													onClick={() => setSelectedEndpoint(endpoint)}
+													className={`w-full flex items-center text-left px-3 py-2 rounded-md text-xs transition-colors ${
+														selectedEndpoint.id === endpoint.id
+															? "bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-medium"
+															: "text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900/50 hover:text-stone-900 dark:hover:text-stone-200"
+													}`}
+												>
+													<Badge
+														variant="outline"
+														className={`mr-2.5 text-[9px] px-1 py-0 rounded font-bold shrink-0 ${getMethodColor(
+															endpoint.method
+														)}`}
+													>
+														{endpoint.method}
+													</Badge>
+													<span className="truncate flex-1">{endpoint.summary}</span>
+												</button>
+											))}
+										</div>
+									)}
+								</div>
+							);
+						})}
 					</div>
 				</div>
 
