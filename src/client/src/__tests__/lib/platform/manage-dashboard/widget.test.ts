@@ -10,7 +10,18 @@ jest.mock("@/constants/messages", () => ({
 	default: jest.fn(() => ({
 		WIDGET_FETCH_FAILED: "Widget fetch failed",
 		WIDGET_RUN_FAILED: "Widget run failed",
+		WIDGET_STRUCTURED_QUERY_FAILED: "Structured widget query failed.",
+		WIDGET_NO_STRUCTURED_QUERY: "No structured query.",
+		WIDGET_RAW_SQL_SOURCE_ONLY: (source: string) => `raw-sql-only:${source}`,
 	})),
+}));
+const mockResolveDescriptor = jest.fn();
+const mockSourceSupportsNativeSql = jest.fn();
+const mockGetTelemetryAdapter = jest.fn();
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveTelemetrySourceDescriptor: (...a: unknown[]) => mockResolveDescriptor(...a),
+	sourceSupportsNativeSql: (...a: unknown[]) => mockSourceSupportsNativeSql(...a),
+	getTelemetryAdapter: (...a: unknown[]) => mockGetTelemetryAdapter(...a),
 }));
 jest.mock("@/utils/sanitizer", () => ({
 	__esModule: true,
@@ -137,11 +148,101 @@ describe("runWidgetQuery", () => {
 
 		expect(result).toEqual({ data: [{ count: 1 }] });
 		expect(dataCollector).toHaveBeenLastCalledWith(
-			{ query: "SELECT count() FROM otel_traces", enable_readonly: true }
+			{ query: "SELECT count() FROM otel_traces", enable_readonly: true },
+			"query",
+			undefined
 		);
 	});
 
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
+	});
+});
+
+describe("runWidgetQuery source routing", () => {
+	it("rejects raw SQL on an external source", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({ query: "SELECT 1", sourceId: "src-dd" }),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "datadog", name: "Prod DD" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT count() FROM otel_traces",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "raw-sql-only:Prod DD" });
+		// Only the widget fetch hit ClickHouse; no query execution.
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("executes a structured query against the external adapter", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						sourceId: "src-tempo",
+						structuredQuery: {
+							mode: "timeseries",
+							query: { signal: "traces" },
+						},
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "tempo", name: "Prod Tempo" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const spanTimeSeries = jest
+			.fn()
+			.mockResolvedValue({ fields: [], rows: [{ bucket: "t0", agg0: 5 }] });
+		mockGetTelemetryAdapter.mockResolvedValue({ spanTimeSeries });
+
+		const result = await runWidgetQuery("w1", {
+			filter: { timeLimit: { start: "2026-07-01", end: "2026-07-02" } } as any,
+		});
+
+		expect(result).toEqual({ data: [{ bucket: "t0", agg0: 5 }] });
+		expect(spanTimeSeries).toHaveBeenCalledTimes(1);
+	});
+
+	it("threads the resolved dbConfigId for a built-in source override", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [
+					{
+						id: "w1",
+						config: JSON.stringify({
+							query: "SELECT count() FROM otel_traces",
+							sourceId: "src-ch2",
+						}),
+					},
+				],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ count: 2 }], err: null });
+		mockResolveDescriptor.mockResolvedValue({
+			type: "clickhouse",
+			name: "Other CH",
+			dbConfigId: "db-9",
+		});
+		mockSourceSupportsNativeSql.mockReturnValue(true);
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [{ count: 2 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{ query: "SELECT count() FROM otel_traces", enable_readonly: true },
+			"query",
+			"db-9"
+		);
 	});
 });

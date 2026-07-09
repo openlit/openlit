@@ -261,6 +261,17 @@ export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY =
 	"Board layout updated successfully!";
 export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
 export const WIDGET_RUN_FAILED = "Widget run failed!";
+export const WIDGET_RAW_SQL_SOURCE_ONLY = (source: string) =>
+	`Raw SQL widgets run only on the built-in ClickHouse source. This widget targets "${source}", so configure a structured query instead.`;
+export const WIDGET_NO_STRUCTURED_QUERY =
+	"This widget has no structured query configured for its data source.";
+export const WIDGET_STRUCTURED_QUERY_FAILED = "Structured widget query failed.";
+export const WIDGET_SOURCE_SIGNAL_UNSUPPORTED = (signal: string, source: string) =>
+	`The data source "${source}" does not serve ${signal}.`;
+export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
+export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse (built-in)";
+export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
+	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
 export const BOARD_DELETE_FAILED = "Board delete failed!";
 export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
 export const FOLDER_DELETE_FAILED =
@@ -1712,3 +1723,120 @@ export const TRACE_AI_EMPTY_DESCRIPTION =
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
+
+// Telemetry Sources (pluggable observability backends)
+export const TELEMETRY_SOURCE_BUILTIN_NAME = "ClickHouse (built-in)";
+export const TELEMETRY_SOURCE_NOT_CONFIGURED =
+	"No telemetry source is configured for this project.";
+export const TELEMETRY_SOURCE_NOT_SUPPORTED_IN_CE =
+	"External telemetry sources are an enterprise feature. This deployment reads telemetry from the built-in ClickHouse source.";
+export const TELEMETRY_SOURCE_CAPABILITY_UNSUPPORTED = (
+	capability: string,
+	source: string
+) => `"${capability}" is not supported by the "${source}" data source.`;
+export const TELEMETRY_SOURCE_SIGNAL_UNSUPPORTED = (
+	signal: string,
+	source: string
+) => `This data source ("${source}") does not serve ${signal}.`;
+export const TELEMETRY_SOURCE_HEALTHCHECK_OK = "Data source is reachable.";
+export const TELEMETRY_SOURCE_HEALTHCHECK_FAILED = (reason: string) =>
+	`Data source is unreachable: ${reason}`;
+export const TELEMETRY_SOURCE_NO_AI_SIGNAL =
+	"No AI telemetry was found in the probe window for this data source. Confirm your apps emit gen_ai.* / coding_agent.* attributes or the OpenLIT SDK.";
+export const TELEMETRY_SOURCE_CHAT_NATIVE_ONLY = (source: string) =>
+	`Natural-language SQL chat runs only on the built-in ClickHouse source. This project reads telemetry from "${source}", so use the Telemetry, trace, and dashboard views instead.`;
+export const TELEMETRY_SOURCE_NAME_REQUIRED =
+	"A telemetry source name is required.";
+export const TELEMETRY_SOURCE_TYPE_UNKNOWN = (type: string) =>
+	`Unknown telemetry source type "${type}".`;
+export const TELEMETRY_SOURCE_INVALID_JSON =
+	"Request body is not valid JSON.";
+export const TELEMETRY_SOURCE_NO_PROJECT =
+	"No current project is selected.";
+export const TELEMETRY_SOURCE_NOT_FOUND =
+	"Telemetry source not found in the current project.";
+export const TELEMETRY_SOURCE_INVALID_SETTINGS =
+	"Telemetry source settings must be a JSON object.";
+export const TELEMETRY_SOURCE_SIGNAL_NOT_IN_TYPE = (
+	signals: string,
+	type: string
+) => `Source type "${type}" cannot serve these signals: ${signals}.`;
+export const TELEMETRY_SOURCE_NO_SIGNALS =
+	"A telemetry source must serve at least one signal.";
+export const TELEMETRY_SOURCE_INVALID_SIGNAL = (signal: string) =>
+	`Unknown telemetry signal "${signal}". Expected one of traces, logs, metrics.`;
+export const TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED = (
+	signal: string,
+	source: string
+) => `The bound source "${source}" does not serve ${signal}.`;
+export const TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL = (signal: string) =>
+	`No telemetry source in this project serves ${signal}.`;
+export const TELEMETRY_SOURCE_STACK_TYPE_UNKNOWN = (type: string) =>
+	`Unknown telemetry stack template "${type}".`;
+export const TELEMETRY_SOURCE_STACK_NO_MEMBERS =
+	"A telemetry stack must define at least one member source.";
+
+// ---- Data sources UI (project "Data sources" tab) ------------------------
+export const PROJECT_DATA_SOURCES = "Data sources";
+export const PROJECT_DATA_SOURCES_DESCRIPTION =
+	"Point each telemetry signal at the observability backend where it lives. OpenLIT reads raw traces, logs, and metrics from these sources and runs its intelligence on top.";
+export const DATA_SOURCE_BUILTIN_TITLE = "OpenLIT ClickHouse (built-in)";
+export const DATA_SOURCE_BUILTIN_DERIVED =
+	"Evaluations, agent summaries, dashboard metadata, and recomputed costs always run on the built-in ClickHouse. This cannot be moved to an external backend.";
+export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluations";
+export const DATA_SOURCE_SIGNAL_ROUTING_TITLE = "Signal routing";
+export const DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION =
+	"Choose which source serves each signal for this project. Only the built-in ClickHouse correlates all signals; splitting signals across backends limits cross-signal features to best-effort.";
+export const DATA_SOURCE_SIGNAL_TRACES = "Traces";
+export const DATA_SOURCE_SIGNAL_LOGS = "Logs";
+export const DATA_SOURCE_SIGNAL_METRICS = "Metrics";
+export const DATA_SOURCE_SIGNAL_BUILTIN_OPTION = "ClickHouse (built-in)";
+export const DATA_SOURCE_SOURCES_TITLE = "External sources";
+export const DATA_SOURCE_SOURCES_DESCRIPTION =
+	"Connect Datadog, Grafana (Tempo/Loki/Mimir), Prometheus, New Relic, Jaeger, or the Victoria stack.";
+export const DATA_SOURCE_ADD = "Add source";
+export const DATA_SOURCE_ADD_STACK = "Add a stack";
+export const DATA_SOURCE_EDIT = "Edit source";
+export const DATA_SOURCE_EMPTY_TITLE = "No external sources yet";
+export const DATA_SOURCE_EMPTY_DESCRIPTION =
+	"Add a source to read telemetry from your existing observability backend. Until then, everything reads from the built-in ClickHouse.";
+export const DATA_SOURCE_FIELD_NAME = "Name";
+export const DATA_SOURCE_FIELD_TYPE = "Type";
+export const DATA_SOURCE_FIELD_SIGNALS = "Signals served";
+export const DATA_SOURCE_FIELD_DEFAULT = "Set as project default";
+export const DATA_SOURCE_FIELD_ENDPOINT = "Endpoint URL";
+export const DATA_SOURCE_FIELD_ALLOW_HTTP = "Allow plain HTTP (self-hosted)";
+export const DATA_SOURCE_FIELD_SITE = "Datadog site";
+export const DATA_SOURCE_FIELD_REGION = "Region";
+export const DATA_SOURCE_FIELD_ACCOUNT_ID = "Account ID";
+export const DATA_SOURCE_FIELD_API_KEY = "API key";
+export const DATA_SOURCE_FIELD_APP_KEY = "Application key";
+export const DATA_SOURCE_FIELD_TOKEN = "Bearer token";
+export const DATA_SOURCE_FIELD_USERNAME = "Username (basic auth)";
+export const DATA_SOURCE_FIELD_PASSWORD = "Password (basic auth)";
+export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
+export const DATA_SOURCE_CREDENTIALS_TITLE = "Credentials";
+export const DATA_SOURCE_CREDENTIALS_HELP =
+	"Stored encrypted in the OpenLIT vault and only decrypted server-side. Leave blank to keep existing credentials.";
+export const DATA_SOURCE_CREDENTIALS_SET = "Credentials are set.";
+export const DATA_SOURCE_TEST = "Test connection";
+export const DATA_SOURCE_TESTING = "Testing connection…";
+export const DATA_SOURCE_TEST_OK = "Data source is reachable.";
+export const DATA_SOURCE_TEST_AI_OK = (count: number) =>
+	`Reachable, and ${count} AI telemetry record${count === 1 ? "" : "s"} found in the last hour.`;
+export const DATA_SOURCE_TEST_AI_NONE =
+	"Reachable, but no AI telemetry was found in the last hour.";
+export const DATA_SOURCE_SAVED = "Data source saved.";
+export const DATA_SOURCE_SAVE_FAILED = "Failed to save data source.";
+export const DATA_SOURCE_DELETED = "Data source deleted.";
+export const DATA_SOURCE_DELETE_FAILED = "Failed to delete data source.";
+export const DATA_SOURCE_DELETE_CONFIRM = (name: string) =>
+	`Delete data source "${name}"? Signals bound to it will fall back to the built-in ClickHouse.`;
+export const DATA_SOURCE_BINDING_SAVED = "Signal routing updated.";
+export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
+export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
+export const DATA_SOURCE_STACK_TITLE = "Connect a stack";
+export const DATA_SOURCE_STACK_DESCRIPTION =
+	"Create the per-signal sources for a full stack in one step, and bind each signal automatically.";
+export const DATA_SOURCE_STACK_CREATE = "Create stack";
+export const DATA_SOURCE_STACK_SAVED = "Stack connected.";

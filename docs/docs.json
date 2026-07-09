@@ -62,7 +62,8 @@
                 "pages": [
                   "latest/openlit/organisation/overview",
                   "latest/openlit/organisation/projects",
-                  "latest/openlit/organisation/database-config"
+                  "latest/openlit/organisation/database-config",
+                  "latest/openlit/organisation/telemetry-sources"
                 ]
               }
             ]

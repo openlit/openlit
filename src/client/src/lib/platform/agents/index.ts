@@ -8,7 +8,6 @@
  * current within seconds of a click without racing the materializer's tick.
  */
 
-import { createHash } from "crypto";
 import { dataCollector } from "@/lib/platform/common";
 import {
 	CONTROLLER_ACTIONS_TABLE,
@@ -21,7 +20,7 @@ import type {
 	AgentSource,
 	UnifiedAgent,
 } from "@/types/agents";
-import { invalidate, POLICY_DETAIL, POLICY_LIST, swr } from "./cache";
+import { POLICY_DETAIL, POLICY_LIST, swr } from "./cache";
 import { agentsLogger } from "./logger";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
@@ -526,24 +525,7 @@ async function loadAgent(
 	return rowToAgent(rows[0]);
 }
 
-/** Drop the cached detail row for an agent so the next read is fresh. */
-export function invalidateAgent(agentKey: string, dbConfigId?: string) {
-	invalidate(`agents:detail:${dbConfigId || "default"}:${agentKey}`);
-}
-
-/**
- * Compute the deterministic agent_key used as the URL slug + primary key.
- * Matches the formula used by the materializer.
- */
-export function computeAgentKey(
-	clusterId: string,
-	environment: string,
-	serviceName: string
-): string {
-	const cluster = clusterId || "default";
-	const env = environment || "default";
-	return createHash("sha1")
-		.update(`${cluster}|${env}|${serviceName}`)
-		.digest("hex")
-		.slice(0, 16);
-}
+// `computeAgentKey` + `invalidateAgent` now live in the leaf `./agent-key`
+// module so `snapshot`/`materialize` can use them without importing `./index`
+// (which would re-form an import cycle). Re-exported here for existing callers.
+export { computeAgentKey, invalidateAgent } from "./agent-key";

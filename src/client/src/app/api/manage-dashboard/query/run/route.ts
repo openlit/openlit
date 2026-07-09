@@ -8,11 +8,15 @@ export async function POST(request: NextRequest) {
 		widgetId,
 		userQuery,
 		filter,
+		sourceId,
+		signal,
 	} = await request.json();
 	const startTimestamp = Date.now();
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
 		filter,
+		sourceId,
+		signal,
 	});
 	PostHogServer.fireEvent({
 		event: res.err ? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE : SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,

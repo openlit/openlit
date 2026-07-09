@@ -1,0 +1,174 @@
+---
+title: 'Telemetry Sources'
+sidebarTitle: 'Telemetry Sources'
+description: 'Point OpenLIT at your existing observability backend and run AI intelligence on telemetry wherever it already lives'
+icon: 'plug'
+---
+
+OpenLIT is the AI intelligence layer for your telemetry. By default it reads raw traces, logs, and metrics from its built-in ClickHouse store, but you can point a project at an external observability backend instead. OpenLIT then renders the same Telemetry pages, trace-detail chat view, per-trace and aggregate agent graphs, agent and cluster inventory, evaluations, and dashboards on top of data that already lives in your existing stack.
+
+<Info>
+Only raw telemetry reads are pluggable. Derived intelligence that OpenLIT computes — evaluations, agent summaries, dashboard metadata, and the controller — always stays in OpenLIT's own store, so switching a source never loses your OpenLIT-generated insights.
+</Info>
+
+## The source model
+
+OpenLIT follows the same model Grafana uses for datasources:
+
+- **A source is atomic.** Each source points at exactly one backend with one set of credentials — Tempo, Loki, Prometheus, Datadog, and so on. A single source is never a multi-backend blob.
+- **Signals are bound per project.** A project binds each signal (traces, logs, metrics) to a source independently. You can read traces from Jaeger, logs from Loki, and metrics from Prometheus in the same project.
+- **Dashboards can mix sources.** Each widget can optionally target its own source and signal, so one board can render panels from several backends at once.
+- **Stack templates are a convenience.** The Grafana (Tempo + Loki + Mimir) and Victoria (VictoriaLogs + VictoriaMetrics) options are templates that create the atomic sources and their per-signal bindings for you in one action — they are not a single umbrella source.
+
+## Supported sources
+
+<CardGroup cols={2}>
+  <Card title="ClickHouse (built-in)" icon="database">
+    The default. Serves traces, logs, and metrics with full support for every capability and zero configuration.
+  </Card>
+  <Card title="Datadog" icon="dog">
+    Spans, Aggregate Spans, Logs, and Metrics APIs with AI-only pushdown.
+  </Card>
+  <Card title="Grafana Tempo" icon="diagram-project">
+    Traces with trace tree and span events; aggregate graphs are reconstructed in-process.
+  </Card>
+  <Card title="Grafana Loki" icon="scroll">
+    Logs, correlatable to traces by trace id and service.
+  </Card>
+  <Card title="Prometheus / Mimir" icon="chart-line">
+    Metrics with PromQL server-side aggregation.
+  </Card>
+  <Card title="New Relic" icon="chart-simple">
+    NerdGraph + NRQL for traces, logs, metrics, and FACET aggregation.
+  </Card>
+  <Card title="Jaeger" icon="sitemap">
+    Traces with in-process AI filtering and sampled-trace aggregate graphs.
+  </Card>
+  <Card title="Victoria stack" icon="layer-group">
+    VictoriaMetrics (metrics) and VictoriaLogs (logs) as atomic per-signal sources.
+  </Card>
+</CardGroup>
+
+## How OpenLIT finds AI telemetry
+
+Your observability backend holds all of your telemetry — HTTP, database, infrastructure — not just AI. OpenLIT pushes a single, layered **AI selector** down to every source so only AI-relevant telemetry is read. A record qualifies when any of these is true:
+
+- Resource `telemetry.sdk.name = openlit` (OpenLIT SDK and controller OBI).
+- Resource `telemetry.distro.name = openlit-cli` (the coding-agent CLI).
+- Any `gen_ai.*` semantic-convention attribute is present.
+- `coding_agent.session.id` is present.
+- `service.name = claude-code` together with `session.id` (native Claude Code).
+- The span name is one of the `coding_agent.*` spans.
+
+<Tip>
+Because OpenLIT's own SDKs, CLI, and controller self-stamp these markers, telemetry emitted through OpenLIT is always identified reliably across every backend.
+</Tip>
+
+## Add a telemetry source
+
+<Steps>
+  <Step title="Open the project">
+    Select **Organisation**, then the project that should read from the external backend.
+  </Step>
+  <Step title="Add a source">
+    Add a telemetry source, choose its type, and enter the connection settings (endpoint URL, site/region, account id, and so on).
+  </Step>
+  <Step title="Store credentials">
+    API keys and tokens are stored encrypted in OpenLIT's vault and only ever decrypted server-side. They are never returned to the browser or written to logs.
+  </Step>
+  <Step title="Test and validate">
+    Run the health check to confirm the endpoint is reachable, and validate the AI signal to confirm the backend actually carries AI telemetry in a recent window.
+  </Step>
+  <Step title="Bind signals">
+    Bind each signal you want this source to serve (traces, logs, and/or metrics) to it. A source can only be bound to signals its type actually serves — a metrics-only source can never be bound to traces.
+  </Step>
+</Steps>
+
+<Tip>
+To wire up a full external stack in one step, use a stack template (Grafana or Victoria). It creates the atomic sources and binds each signal to the right one for you.
+</Tip>
+
+## How a read is resolved
+
+For every signal OpenLIT needs, it resolves the source in this order and never returns a source that does not serve the requested signal:
+
+<Steps>
+  <Step title="Explicit override">
+    A per-widget `sourceId` (mixed dashboards) wins when present.
+  </Step>
+  <Step title="Per-signal binding">
+    The project's binding for that signal.
+  </Step>
+  <Step title="Capability match">
+    Any project source that advertises the signal, preferring the default.
+  </Step>
+  <Step title="Built-in ClickHouse">
+    Falls back to the built-in store, which serves all signals when configured.
+  </Step>
+</Steps>
+
+If none of these serves the signal, OpenLIT reports a first-class "no source for this signal" state rather than silently reading the wrong backend.
+
+## Capabilities and honest gating
+
+Not every backend can serve every capability. Each source type declares what it supports, and OpenLIT renders a first-class, explained state instead of failing silently when a capability is unavailable:
+
+- **Trace tree and span events** power the chat view and evaluations. Sources without span events read prompt/completion from span attributes first.
+- **Server-side aggregation** powers summaries and cost/token rollups. Sources without it (for example Tempo and Jaeger) reconstruct aggregate agent graphs in-process from a bounded sample of full traces.
+- **Raw SQL** (the natural-language chat and raw-SQL widgets) is available only on the built-in ClickHouse source. External sources use structured queries instead.
+- **Signals** (traces, logs, metrics) are gated per source. A metrics-only source cleanly reports that it does not serve traces.
+
+### Capability matrix
+
+| Source | Signals | Trace tree | Span events | Server aggregation | Raw SQL | Cross-signal correlation |
+| --- | --- | --- | --- | --- | --- | --- |
+| ClickHouse (built-in) | traces, logs, metrics | Yes | Yes | Yes | Yes | Yes (full) |
+| Datadog | traces, logs, metrics | Yes | No | Yes | No | Yes (trace id, span id, service) |
+| New Relic | traces, logs, metrics | Yes | No | Yes | No | Yes (trace id, span id, service) |
+| Grafana Tempo | traces | Yes | Yes | No | No | Yes (trace id, span id, service) |
+| Grafana Loki | logs | No | No | No | No | Yes (trace id, service) |
+| Prometheus / Mimir | metrics | No | No | Yes | Yes | No |
+| Jaeger | traces | Yes | Yes | No | No | Yes (trace id, span id, service) |
+| VictoriaLogs | logs | No | No | No | No | Yes (trace id, service) |
+| VictoriaMetrics | metrics | No | No | Yes | No | No |
+
+## Correlation boundary
+
+Only the built-in ClickHouse holds every signal in one store, so it is the only source that gives fully-correlated intelligence across traces, logs, and metrics.
+
+When signals are split across different backends, cross-signal features degrade honestly to best-effort using a declared correlation key — `service.name`, trace/span id, and `coding_agent.session.id`:
+
+- Each source type declares whether it can satisfy a correlation join and on which keys (see the matrix above).
+- Features that join across signals — for example enriching a trace-derived agent snapshot with tool definitions from logs — run only when the bound logs source can be correlated to the traces. When logs live in a non-correlatable backend, the feature no-ops gracefully (it returns nothing rather than an error or wrong data).
+- The UI surfaces a "connect a correlatable logs/metrics source to enable this" state instead of silently returning incorrect results.
+
+## Natural-language chat
+
+The natural-language SQL chat generates and runs raw ClickHouse SQL, so it is available only when the project reads from the built-in ClickHouse source. On external sources, use the Telemetry, trace, and dashboard views instead — chat surfaces an explained, finished state rather than a broken query.
+
+## Mirror only AI telemetry into ClickHouse
+
+If you would rather keep OpenLIT on ClickHouse but only store AI-relevant data, use the OTel Collector recipe that reuses the same AI selector to filter telemetry before it reaches OpenLIT's ClickHouse. See [`assets/otel-collector-ai-filter.yaml`](https://github.com/openlit/openlit/blob/main/assets/otel-collector-ai-filter.yaml).
+
+## Reliability and rate limits
+
+External backends are shared, rate-limited systems, so OpenLIT applies Grafana-style pull hardening on top of every source:
+
+- **Per-source concurrency cap** — a semaphore bounds in-flight requests per source so a busy dashboard cannot overwhelm a rate-limited backend such as Datadog.
+- **Query budgets** — every read is clamped to a maximum row count and time range before it leaves OpenLIT, so an over-wide query cannot fan out unbounded.
+- **Shared cache with in-flight de-duplication** — identical concurrent reads on one source are coalesced and share a short-lived cache.
+- **Standardized backoff** — transient `429`/`5xx` responses are retried with exponential backoff.
+
+## Security
+
+- User-supplied endpoints are validated before every request: only `http`/`https` is allowed, credentials in the URL are rejected, and hosts that resolve to loopback, private, or link-local addresses are blocked (SSRF protection).
+- Secrets live only in the vault, are redacted from any error message, and are never logged.
+
+<CardGroup cols={2}>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Configure the built-in ClickHouse source for a project.
+  </Card>
+  <Card title="Projects" href="/latest/openlit/organisation/projects" icon="folder">
+    Understand how sources are scoped to the active project.
+  </Card>
+</CardGroup>

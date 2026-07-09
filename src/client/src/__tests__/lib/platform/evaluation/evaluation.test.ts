@@ -75,7 +75,7 @@ jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
   getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback } from '@/lib/platform/evaluation/index';
+import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback, extractEvalPromptCompletion } from '@/lib/platform/evaluation/index';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
@@ -829,5 +829,59 @@ describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
       expect.arrayContaining([{ ruleId: 'r-legacy', priority: 2 }]),
       'db-1'
     );
+  });
+});
+
+describe('extractEvalPromptCompletion (attribute-first extraction)', () => {
+  it('prefers span attributes (gen_ai.input/output.messages)', () => {
+    const trace = {
+      SpanAttributes: {
+        'gen_ai.input.messages': 'attr-prompt',
+        'gen_ai.output.messages': 'attr-response',
+      },
+      // events would resolve via the mocked SpanAttributes.<key> path
+      prompt: 'event-prompt',
+      response: 'event-response',
+    };
+    expect(extractEvalPromptCompletion(trace)).toEqual({
+      prompt: 'attr-prompt',
+      response: 'attr-response',
+    });
+  });
+
+  it('falls back through legacy attribute keys', () => {
+    const trace = {
+      SpanAttributes: {
+        'gen_ai.prompt': 'legacy-prompt',
+        'gen_ai.completion': 'legacy-completion',
+      },
+    };
+    expect(extractEvalPromptCompletion(trace)).toEqual({
+      prompt: 'legacy-prompt',
+      response: 'legacy-completion',
+    });
+  });
+
+  it('falls back to span events when no span attributes are present', () => {
+    // The mocked getTraceMappingKeyFullPath returns `SpanAttributes.<key>`,
+    // so the events fallback resolves trace.SpanAttributes.prompt/.response.
+    const trace = {
+      SpanAttributes: { prompt: 'event-prompt', response: 'event-response' },
+    };
+    expect(extractEvalPromptCompletion(trace)).toEqual({
+      prompt: 'event-prompt',
+      response: 'event-response',
+    });
+  });
+
+  it('returns empty strings when nothing is available', () => {
+    expect(extractEvalPromptCompletion({ SpanAttributes: {} })).toEqual({
+      prompt: '',
+      response: '',
+    });
+    expect(extractEvalPromptCompletion(undefined)).toEqual({
+      prompt: '',
+      response: '',
+    });
   });
 });

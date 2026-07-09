@@ -2,12 +2,24 @@ import { getCurrentUser } from "@/lib/session";
 import { dataCollector } from "@/lib/platform/common";
 import { validateSQL } from "@/lib/platform/chat/sql-validator";
 import { updateMessage } from "@/lib/platform/chat/conversation";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
+import { TELEMETRY_SOURCE_CHAT_NATIVE_ONLY } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) {
 		return Response.json("Unauthorized", { status: 401 });
+	}
+
+	// Natural-language SQL chat runs raw ClickHouse SQL, so it is only
+	// available when the project reads from the built-in ClickHouse source.
+	const chatSource = await isNativeSqlChatAvailable();
+	if (!chatSource.available) {
+		return Response.json(
+			{ err: TELEMETRY_SOURCE_CHAT_NATIVE_ONLY(chatSource.sourceName) },
+			{ status: 409 }
+		);
 	}
 
 	const body = await request.json();

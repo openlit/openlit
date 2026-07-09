@@ -429,14 +429,64 @@ export async function setEvaluationsForSpanId(spanId: string) {
 	);
 }
 
+/**
+ * Extract prompt/completion for evaluation, attribute-first for portability.
+ *
+ * The trace-detail chat view reads prompt/completion from span *attributes*
+ * (`gen_ai.input.messages` / `gen_ai.output.messages` + legacy variants), but
+ * evals historically read them from OTel span *events*
+ * (`Events.Attributes[0]['gen_ai.prompt']` / `[1]['gen_ai.completion']`).
+ * External observability backends (Datadog, New Relic, ...) do not reliably
+ * expose OTel span events, so we prefer span attributes and fall back to
+ * events. This also makes evals consistent with what the chat view renders.
+ */
+export function extractEvalPromptCompletion(trace: unknown): {
+	prompt: string;
+	response: string;
+} {
+	const attrs =
+		((trace as { SpanAttributes?: Record<string, string> })?.SpanAttributes ||
+			{}) as Record<string, string>;
+	const firstNonEmpty = (keys: string[]): string => {
+		for (const k of keys) {
+			const v = attrs[k];
+			if (typeof v === "string" && v.trim() !== "") return v;
+		}
+		return "";
+	};
+	const promptFromAttr = firstNonEmpty([
+		"gen_ai.input.messages",
+		"gen_ai.prompt",
+		"gen_ai.content.prompt",
+		"gen_ai.request.input",
+	]);
+	const responseFromAttr = firstNonEmpty([
+		"gen_ai.output.messages",
+		"gen_ai.completion",
+		"gen_ai.content.completion",
+		"gen_ai.response.output",
+	]);
+	const promptFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("prompt", true)
+	) as string | undefined;
+	const responseFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("response", true)
+	) as string | undefined;
+	return {
+		prompt: promptFromAttr || promptFromEvent || "",
+		response: responseFromAttr || responseFromEvent || "",
+	};
+}
+
 async function getEvaluationConfigForTrace(
 	trace: TraceRow,
 	evaluationConfig: EvaluationConfigWithSecret,
 	dbConfigId?: string,
 	source: "manual" | "auto" = "auto"
 ) {
-	const response = get(trace, getTraceMappingKeyFullPath("response", true));
-	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
+	const { prompt, response } = extractEvalPromptCompletion(trace);
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
 	const evaluationTypes =

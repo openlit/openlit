@@ -101,6 +101,8 @@ model Project {
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
   databaseConfigs DatabaseConfig[]
+  telemetrySources TelemetrySource[]
+  telemetrySourceBindings TelemetrySourceBinding[]
   currentForUsers OrganisationUser[]        @relation("CurrentOrganisationProject")
   members         ProjectUser[]
 
@@ -177,6 +179,54 @@ model DatabaseConfig {
 
   @@unique([name, projectId])
   @@map("databaseconfig")
+}
+
+// A pluggable raw-telemetry source for a project. The implicit built-in
+// source is the project's ClickHouse (DatabaseConfig) and is NOT stored here;
+// rows in this table describe external observability backends (Datadog,
+// Tempo/Loki/Mimir, New Relic, Jaeger, Victoria, ...). Secrets live in the
+// vault (secretRef); only non-secret settings are stored inline as JSON text.
+model TelemetrySource {
+  id              String   @id @default(cuid())
+  projectId       String?  @map("project_id")
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  // Source type, e.g. "clickhouse" | "datadog" | "tempo" | "loki" | "mimir" |
+  // "prometheus" | "newrelic" | "jaeger" | "victoriametrics" | ...
+  type            String   @default("clickhouse")
+  // Comma-separated subset of "traces,logs,metrics" this source serves.
+  signals         String   @default("traces,logs,metrics")
+  // JSON text of non-secret settings (URLs, site, orgId, headers).
+  settings        String?
+  // Vault secret id holding credentials (API/app keys), if any.
+  secretRef       String?  @map("secret_ref")
+  isDefault       Boolean  @default(false) @map("is_default")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByUserId String?  @map("user_id")
+  bindings        TelemetrySourceBinding[]
+
+  @@unique([name, projectId])
+  @@map("telemetry_source")
+}
+
+// Per-signal routing: which TelemetrySource serves a given signal in a project
+// (Grafana-style per-signal datasource binding). At most one binding per
+// (project, signal). Cascades on both project and source deletion so routing
+// never dangles.
+model TelemetrySourceBinding {
+  id        String          @id @default(cuid())
+  projectId String          @map("project_id")
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // One of "traces" | "logs" | "metrics".
+  signal    String
+  sourceId  String          @map("source_id")
+  source    TelemetrySource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([projectId, signal])
+  @@map("telemetry_source_binding")
 }
 
 model DatabaseConfigUser {

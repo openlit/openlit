@@ -42,6 +42,20 @@ import { ColorSelector } from "./color-selector";
 import MarkdownWidgetComponent from "../widgets/markdown-widget";
 import { Tooltip, TooltipTrigger, TooltipPortal, TooltipContent } from "@/components/ui/tooltip";
 import { DEFAULT_PRIMARY_COLOR, SUPPORTED_WIDGETS } from "../constants";
+import {
+	WIDGET_DATA_SOURCE_LABEL,
+	WIDGET_DATA_SOURCE_BUILTIN,
+	WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED,
+} from "@/constants/messages/en";
+
+const BUILTIN_SOURCE_VALUE = "builtin";
+
+interface TelemetrySourceOption {
+	id: string;
+	name: string;
+	type: string;
+	signals: string;
+}
 
 interface NonMarkdownConfig {
 	query: string;
@@ -75,6 +89,37 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	const [queryResult, setQueryResult] = React.useState<any>(null);
 	const [queryError, setQueryError] = React.useState<string | null>(null);
 	const [isQueryLoading, setIsQueryLoading] = React.useState(false);
+	const [sources, setSources] = React.useState<TelemetrySourceOption[]>([]);
+
+	useEffect(() => {
+		let active = true;
+		fetch("/api/telemetry-source")
+			.then((r) => (r.ok ? r.json() : null))
+			.then((j) => {
+				if (active && j?.sources) setSources(j.sources as TelemetrySourceOption[]);
+			})
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	const currentConfig = (currentWidget?.config || {}) as Record<string, any>;
+	const selectedSourceId =
+		(currentConfig.sourceId as string | undefined) || BUILTIN_SOURCE_VALUE;
+	const selectedSource = sources.find((s) => s.id === selectedSourceId);
+	const isExternalSource = !!selectedSource && selectedSource.type !== "clickhouse";
+	const hasStructuredQuery = !!currentConfig.structuredQuery;
+
+	const handleSourceChange = (value: string) => {
+		if (!currentWidget) return;
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				sourceId: value === BUILTIN_SOURCE_VALUE ? null : value,
+			},
+		});
+	};
 
 	// if (!currentWidget) return null;
 
@@ -109,12 +154,17 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	};
 
 	const handleRunQuery = async () => {
-		if (currentWidget?.type !== WidgetType.MARKDOWN && currentWidget?.config && 'query' in currentWidget.config) {
+		const cfg = (currentWidget?.config || {}) as Record<string, any>;
+		if (
+			currentWidget?.type !== WidgetType.MARKDOWN &&
+			currentWidget?.config &&
+			("query" in currentWidget.config || "structuredQuery" in currentWidget.config)
+		) {
 			setIsQueryLoading(true);
 			setQueryError(null);
 			try {
 				const result = await runQuery(currentWidget.id, {
-					userQuery: (currentWidget.config as NonMarkdownConfig).query,
+					userQuery: cfg.query,
 				});
 				setQueryResult(result.data);
 				setQueryError(result.err);
@@ -558,6 +608,39 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 									{currentWidget.type !== WidgetType.MARKDOWN ? (
 										<>
 											<div className="space-y-2">
+												<Label htmlFor="widget-source" className="text-stone-900 dark:text-white">
+													{WIDGET_DATA_SOURCE_LABEL}
+												</Label>
+												<Select
+													value={selectedSourceId}
+													onValueChange={handleSourceChange}
+												>
+													<SelectTrigger
+														id="widget-source"
+														className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white"
+													>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
+														<SelectItem value={BUILTIN_SOURCE_VALUE} className="dark:text-white">
+															{WIDGET_DATA_SOURCE_BUILTIN}
+														</SelectItem>
+														{sources.map((s) => (
+															<SelectItem key={s.id} value={s.id} className="dark:text-white">
+																{s.name} ({s.type})
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												{isExternalSource && (
+													<p className="text-xs text-stone-500 dark:text-stone-400 flex items-start gap-1">
+														<Info className="h-3 w-3 mt-0.5 shrink-0" />
+														{WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED}
+													</p>
+												)}
+											</div>
+
+											<div className="space-y-2">
 												<div className="flex justify-between items-center">
 													<Label htmlFor="query" className="text-stone-900 dark:text-white">Query</Label>
 												</div>
@@ -566,6 +649,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 														value={currentWidget.config && 'query' in currentWidget.config ? (currentWidget.config as NonMarkdownConfig).query : ""}
 														onChange={handleEditorChange}
 														language={editorLanguage}
+														readOnly={isExternalSource}
 													/>
 												</div>
 											</div>
@@ -574,6 +658,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Button
 													size="sm"
 													onClick={handleRunQuery}
+													disabled={isExternalSource && !hasStructuredQuery}
 													className="bg-primary hover:bg-primary/90 text-white"
 												>
 													Run Query

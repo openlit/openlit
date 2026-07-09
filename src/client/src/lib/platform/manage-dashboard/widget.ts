@@ -11,6 +11,19 @@ import {
 import mustache from "mustache";
 
 import { jsonStringify } from "@/utils/json";
+// NOTE: `@/lib/telemetry-source` is imported lazily inside `runWidgetQuery`
+// (see below). `widget.ts` sits in a pre-existing common <-> board <-> widget
+// import cycle; importing telemetry-source eagerly here would pull the
+// datasource adapter graph (-> clickhouse/adapter -> @/lib/platform/common and
+// -> observability) into that cycle's scope-hoisting group and reintroduce a
+// "Cannot access X before initialization" TDZ in production builds.
+import type {
+	DataSourceAdapter,
+	OpenLITQuery,
+	Signal,
+} from "@/lib/platform/datasource/types";
+import { UnsupportedCapabilityError } from "@/lib/platform/datasource/types";
+import { clampQueryBudget } from "@/lib/platform/datasource/http/limits";
 
 export async function getWidgetById(id: string) {
 	const query = `
@@ -234,26 +247,12 @@ function validateFilterValues(value: unknown): { valid: boolean; error?: string 
 	return { valid: true };
 }
 
-export async function runWidgetQuery(
-	widgetId: string,
-	{
-		userQuery,
-		filter,
-	}: {
-		userQuery?: string;
-		filter: MetricParams;
-	}
+/** Run raw ClickHouse SQL for a widget (built-in source path). */
+async function runRawClickHouseWidgetQuery(
+	query: string,
+	filter: MetricParams,
+	dbConfigId?: string
 ) {
-	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
-
-	if (widgetErr || !widget) {
-		return { err: getMessage().WIDGET_FETCH_FAILED };
-	}
-
-	const query = userQuery
-		? userQuery
-		: widget.config?.query || "";
-
 	const filterValidation = validateFilterValues(filter);
 	if (!filterValidation.valid) {
 		return { err: filterValidation.error || "Invalid filter" };
@@ -266,11 +265,142 @@ export async function runWidgetQuery(
 		return { err: validation.error || "Invalid query" };
 	}
 
-	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
+	const { data, err } = await dataCollector(
+		{ query: exactQuery, enable_readonly: true },
+		"query",
+		dbConfigId
+	);
 
 	if (err) {
 		return { err: "Query execution failed" };
 	}
 
 	return { data };
+}
+
+/** Build an OpenLITQuery time range from the dashboard filter's time limit. */
+function timeRangeFromFilter(filter: MetricParams): { start: Date; end: Date } {
+	const limit = (filter as { timeLimit?: { start?: unknown; end?: unknown } })
+		?.timeLimit;
+	const end = limit?.end ? new Date(limit.end as string) : new Date();
+	const start = limit?.start
+		? new Date(limit.start as string)
+		: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+	return { start, end };
+}
+
+/**
+ * Execute a structured widget query against an external adapter, dispatching by
+ * signal + mode. Returns the DataFrame rows in the flat array shape the widget
+ * renderers already consume.
+ */
+async function executeStructuredWidgetQuery(
+	adapter: DataSourceAdapter,
+	structured: NonNullable<Widget["config"]["structuredQuery"]>,
+	filter: MetricParams
+) {
+	const base = (structured.query || {}) as Partial<OpenLITQuery>;
+	const signal = (base.signal || "traces") as Signal;
+	const rawQuery: OpenLITQuery = {
+		...base,
+		signal,
+		timeRange: timeRangeFromFilter(filter),
+	} as OpenLITQuery;
+	// Enforce per-query budgets so a widget can never ask a vendor for an
+	// unbounded scan (max rows + max time range).
+	const { query } = clampQueryBudget(rawQuery);
+
+	const mode = structured.mode || "timeseries";
+	try {
+		if (signal === "logs") {
+			const frame =
+				mode === "list"
+					? await adapter.listLogs(query)
+					: await adapter.logTimeSeries(query);
+			return { data: frame.rows };
+		}
+		if (signal === "metrics") {
+			const frame = await adapter.metricTimeSeries(query);
+			return { data: frame.rows };
+		}
+		// traces
+		const frame =
+			mode === "aggregate"
+				? await adapter.aggregateSpans(query)
+				: mode === "list"
+					? await adapter.listSpans(query)
+					: await adapter.spanTimeSeries(query);
+		return { data: frame.rows };
+	} catch (e) {
+		if (e instanceof UnsupportedCapabilityError) {
+			return { err: e.message };
+		}
+		return { err: getMessage().WIDGET_STRUCTURED_QUERY_FAILED };
+	}
+}
+
+export async function runWidgetQuery(
+	widgetId: string,
+	{
+		userQuery,
+		filter,
+		sourceId: sourceIdOverride,
+		signal: signalOverride,
+	}: {
+		userQuery?: string;
+		filter: MetricParams;
+		sourceId?: string | null;
+		signal?: Signal;
+	}
+) {
+	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
+
+	if (widgetErr || !widget) {
+		return { err: getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	const config = widget.config || {};
+	const sourceId = sourceIdOverride ?? config.sourceId ?? null;
+	const signal = (signalOverride ?? config.signal) as Signal | undefined;
+	const structured = config.structuredQuery;
+
+	// Legacy fast path: no source ref and no structured query -> raw SQL on the
+	// caller's current ClickHouse config (zero behavior change for old widgets).
+	if (!sourceId && !signal && !structured) {
+		return runRawClickHouseWidgetQuery(
+			userQuery ? userQuery : config.query || "",
+			filter
+		);
+	}
+
+	// Lazy import breaks the common <-> board <-> widget cycle (see top-of-file
+	// note): the datasource graph is only pulled in at call time, off the
+	// static concatenation path.
+	const {
+		getTelemetryAdapter,
+		resolveTelemetrySourceDescriptor,
+		sourceSupportsNativeSql,
+	} = await import("@/lib/telemetry-source");
+
+	const descriptor = await resolveTelemetrySourceDescriptor({ sourceId, signal });
+
+	// Built-in ClickHouse: raw SQL allowed; thread the resolved dbConfigId.
+	if (sourceSupportsNativeSql(descriptor)) {
+		return runRawClickHouseWidgetQuery(
+			userQuery ? userQuery : config.query || "",
+			filter,
+			descriptor.dbConfigId
+		);
+	}
+
+	// External source: raw SQL is not supported; require a structured query.
+	if (userQuery || (config.query && !structured)) {
+		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
+	}
+	if (!structured) {
+		return { err: getMessage().WIDGET_NO_STRUCTURED_QUERY };
+	}
+
+	const adapter = await getTelemetryAdapter({ sourceId, signal });
+	return executeStructuredWidgetQuery(adapter, structured, filter);
 }

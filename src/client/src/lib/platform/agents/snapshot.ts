@@ -41,7 +41,7 @@ import type {
 	AgentTool,
 	AgentVersion,
 } from "@/types/agents";
-import { computeAgentKey } from "./index";
+import { computeAgentKey } from "./agent-key";
 import { AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
@@ -162,6 +162,14 @@ export interface DeriveSnapshotParams {
 	clusterId?: string;
 	lookbackMinutes?: number;
 	dbConfigId?: string;
+	/**
+	 * Correlation boundary (Grafana-style): whether the project's `logs` signal
+	 * is served by the same built-in ClickHouse store these traces live in. When
+	 * false, the trace->logs tool-definition enrichment is skipped (best-effort),
+	 * because the logs live in a different backend and cannot be correlated by
+	 * this ClickHouse-native query. Defaults to true (built-in store).
+	 */
+	logsCorrelatable?: boolean;
 }
 
 interface SnapshotRow {
@@ -319,7 +327,11 @@ export async function deriveSnapshot(
 	//   3. trace per-tool aggregation (tools_fallback) — names + descriptions
 	//      only, no schema. Last-ditch.
 	let tools = parseToolDefinitions(row.tool_definitions_json || "");
-	if (!tools.length) {
+	// Correlation boundary: only consult otel_logs when the project's logs
+	// signal lives in this same built-in ClickHouse store. When logs are routed
+	// to a different backend the trace->logs join is not possible here, so we
+	// degrade gracefully (empty tool defs) rather than query the wrong store.
+	if (!tools.length && params.logsCorrelatable !== false) {
 		const logTools = await fetchToolDefinitionsFromLogs(
 			params.serviceName,
 			lookback,

@@ -14,7 +14,7 @@ import {
 	CONTROLLER_SERVICES_TABLE,
 } from "@/lib/platform/controller/table-details";
 import type { AgentSource, CodingAgentVendor } from "@/types/agents";
-import { computeAgentKey, invalidateAgent } from "./index";
+import { computeAgentKey, invalidateAgent } from "./agent-key";
 import { invalidatePrefix } from "./cache";
 import { agentsLogger } from "./logger";
 import {
@@ -1012,6 +1012,24 @@ export async function materializeAgents(
 		dbConfigId
 	);
 
+	// Correlation boundary: resolve once whether the project's logs signal lives
+	// in this built-in ClickHouse store. When it doesn't, deriveSnapshot skips
+	// the trace->logs tool-definition enrichment instead of querying the wrong
+	// store. Never fails materialization; defaults to correlatable on error.
+	let logsCorrelatable = true;
+	try {
+		// Dynamic import keeps the auth/session (jose) chain out of the agents
+		// module graph; it is only pulled at materialization time.
+		const { isSignalServedByBuiltInClickHouse } = await import(
+			"@/lib/telemetry-source"
+		);
+		logsCorrelatable = await isSignalServedByBuiltInClickHouse("logs", {
+			dbConfigId,
+		});
+	} catch {
+		logsCorrelatable = true;
+	}
+
 	let processed = 0;
 	let newVersions = 0;
 	let errors = 0;
@@ -1032,6 +1050,7 @@ export async function materializeAgents(
 					clusterId: agent.cluster_id,
 					lookbackMinutes,
 					dbConfigId,
+					logsCorrelatable,
 				});
 
 			let versionHash = "";

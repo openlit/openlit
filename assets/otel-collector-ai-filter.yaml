@@ -1,0 +1,111 @@
+# OpenLIT "AI-only mirror" OTel Collector recipe.
+#
+# Use this when your apps already export all telemetry to an existing
+# observability backend, but you also want OpenLIT to run its AI intelligence
+# (dashboards, chat view, graphs, agents, evals) on a *copy* of just the
+# AI-relevant telemetry stored in OpenLIT's ClickHouse.
+#
+# It reuses the exact AI-telemetry selector OpenLIT applies at query time
+# (see src/client/src/lib/platform/datasource/ai-selector.ts):
+#   telemetry.sdk.name == "openlit"                (OpenLIT SDK + controller OBI)
+#   telemetry.distro.name == "openlit-cli"         (coding CLI)
+#   any gen_ai.* semconv attribute present         (generic GenAI)
+#   coding_agent.session.id present                (coding agents)
+#   service.name == "claude-code" + session.id     (native Claude Code)
+#   span name in the coding_agent.* set
+#
+# The `filter` processor here KEEPS only telemetry matching the selector and
+# drops everything else, so OpenLIT's ClickHouse only ever stores AI data.
+#
+# Note: span-level filtering can prune non-AI spans from an otherwise mixed
+# trace. That is intentional for an AI-only store; if you need full trace trees,
+# point OpenLIT directly at your backend via a TelemetrySource instead of
+# mirroring.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+  memory_limiter:
+    limit_mib: 1500
+    spike_limit_mib: 512
+    check_interval: 5s
+
+  # Keep only AI-relevant spans. The filter processor DROPS spans whose OTTL
+  # condition evaluates true, so each condition is the negation of the AI
+  # selector: "drop this span when it is NOT AI-relevant".
+  filter/ai_traces:
+    error_mode: ignore
+    traces:
+      span:
+        - >-
+          not (
+            resource.attributes["telemetry.sdk.name"] == "openlit" or
+            resource.attributes["telemetry.distro.name"] == "openlit-cli" or
+            attributes["gen_ai.operation.name"] != nil or
+            attributes["gen_ai.request.model"] != nil or
+            attributes["gen_ai.system"] != nil or
+            attributes["gen_ai.provider.name"] != nil or
+            attributes["gen_ai.tool.name"] != nil or
+            attributes["coding_agent.session.id"] != nil or
+            resource.attributes["coding_agent.session.id"] != nil or
+            (resource.attributes["service.name"] == "claude-code" and attributes["session.id"] != nil) or
+            IsMatch(name, "^coding_agent\\.")
+          )
+
+  # Keep only AI-relevant logs (identity markers + gen_ai/coding attributes).
+  filter/ai_logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - >-
+          not (
+            resource.attributes["telemetry.sdk.name"] == "openlit" or
+            resource.attributes["telemetry.distro.name"] == "openlit-cli" or
+            attributes["gen_ai.operation.name"] != nil or
+            attributes["coding_agent.session.id"] != nil
+          )
+
+  # Keep only gen_ai.* / coding-agent metrics by metric name prefix.
+  filter/ai_metrics:
+    error_mode: ignore
+    metrics:
+      metric:
+        - 'not (IsMatch(name, "^gen_ai\\.") or IsMatch(name, "^coding_agent\\."))'
+
+exporters:
+  clickhouse:
+    endpoint: tcp://${env:INIT_DB_HOST}:9000?dial_timeout=10s
+    database: ${env:INIT_DB_DATABASE}
+    username: ${env:INIT_DB_USERNAME}
+    password: ${env:INIT_DB_PASSWORD}
+    ttl: 730h
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/ai_traces, batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/ai_logs, batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/ai_metrics, batch]
+      exporters: [clickhouse]

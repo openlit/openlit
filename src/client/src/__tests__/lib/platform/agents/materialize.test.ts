@@ -35,6 +35,9 @@ jest.mock("@/lib/platform/agents/snapshot", () => ({
 	upsertVersion: jest.fn(),
 	getLatestVersionsBatch: jest.fn().mockResolvedValue(new Map()),
 }));
+jest.mock("@/lib/telemetry-source", () => ({
+	isSignalServedByBuiltInClickHouse: jest.fn().mockResolvedValue(true),
+}));
 
 import { dataCollector } from "@/lib/platform/common";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
