@@ -3,7 +3,7 @@ import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
-import { getRequests } from "@/lib/platform/request";
+import { listTraceRecords } from "@/lib/platform/traces/read";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
@@ -32,6 +32,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getRequests(params);
+	const res: any = await listTraceRecords(params);
 	return Response.json(res);
 }

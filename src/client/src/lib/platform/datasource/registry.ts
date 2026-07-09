@@ -1,11 +1,10 @@
 /**
  * Telemetry data source adapter registry (CE).
  *
- * Holds adapter factories keyed by source type. CE always registers the
- * ClickHouse factory (the reference/default). External vendor factories are
- * contributed by the enterprise repo through the neutral
- * `getExternalDataSourceAdapters()` hook, so no `@/ee/**` import ever appears
- * in CE.
+ * Holds adapter factories keyed by source type. `bootstrap.ts` registers
+ * ClickHouse plus the atomic vendor factories. Extra private factories can
+ * still be contributed through `getExternalDataSourceAdapters()` without an
+ * `@/ee/**` import in CE.
  */
 
 import type {

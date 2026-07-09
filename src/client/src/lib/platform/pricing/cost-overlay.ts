@@ -1,14 +1,13 @@
 /**
  * Cost overlay: read-time cost application for immutable telemetry sources.
  *
- * ClickHouse-native telemetry backfills cost in place (see `pricing/index.ts`
- * `ALTER TABLE otel_traces UPDATE ...`). External sources are read-only, so we
- * persist recomputed per-span cost in OpenLIT's own app store keyed by
- * (source_id, span_id) and apply it when normalizing spans for a surface.
+ * STATUS: library + migration exist; not yet applied on external adapter read
+ * paths. Keep until pricing for external sources is wired — do not treat as a
+ * shipped product feature.
  *
- * The overlay table (`openlit_cost_overlay`) is part of the derived/app tier
- * and always lives in OpenLIT's ClickHouse, independent of where raw telemetry
- * is read from.
+ * ClickHouse-native telemetry backfills cost in place (see `pricing/index.ts`).
+ * External sources are read-only, so recomputed per-span cost will live in
+ * `openlit_cost_overlay` and be applied at read time when that path lands.
  */
 
 import { dataCollector } from "@/lib/platform/common";

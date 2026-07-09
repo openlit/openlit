@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getGroupedRequests } from "@/lib/platform/request";
+import { getTraceGrouped } from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -29,6 +29,6 @@ export async function POST(request: Request) {
 	if (!validationParam.success)
 		return Response.json(validationParam.err, { status: 400 });
 
-	const res = await getGroupedRequests(params, groupBy);
+	const res = await getTraceGrouped(params, groupBy);
 	return Response.json(res);
 }

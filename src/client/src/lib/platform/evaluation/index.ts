@@ -16,7 +16,7 @@ import {
 	EvaluationResponse,
 } from "@/types/evaluation";
 import { consoleLog } from "@/utils/log";
-import { getRequestViaSpanId } from "../request";
+import { getTraceSpanRecord } from "../traces/read";
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	getContextFromRuleEngineForTrace,
@@ -174,7 +174,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		}
 
 		// Include rule context that would be applied (for UI to show before running)
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
+		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId);
 		const trace = traceRecord as TraceRow;
 		let ruleContext: {
 			matchingRuleIds: string[];
@@ -237,7 +237,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		contextEntityIds: [],
 	};
 	if (!evaluationConfigErr && evaluationConfigTyped?.id) {
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
+		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId);
 		const trace = traceRecord as TraceRow;
 		if (trace?.SpanId) {
 			const { matchingRuleIds, contextEntityIds } =
@@ -347,8 +347,8 @@ export async function storeManualFeedback(
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	const { record: spanData } = await getTraceSpanRecord(sanitizedSpanId);
+	throwIfError(!(spanData as any)?.SpanId, getMessage().TRACE_NOT_FOUND);
 
 	const meta: Record<string, string> = {
 		source: "manual_feedback",
@@ -415,10 +415,10 @@ export async function setEvaluationsForSpanId(spanId: string) {
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	let { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
+	const { record: spanData } = await getTraceSpanRecord(sanitizedSpanId);
 	const spanDataTyped = spanData as TraceRow;
 
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	throwIfError(!(spanData as any)?.SpanId, getMessage().TRACE_NOT_FOUND);
 
 	const evaluationConfig = await getEvaluationConfig(undefined, false);
 	return await getEvaluationConfigForTrace(

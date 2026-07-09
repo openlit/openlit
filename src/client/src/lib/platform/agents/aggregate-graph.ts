@@ -24,6 +24,10 @@ import { buildVersionWhereClause } from "./version-filter";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import { resolveSignalReadContext } from "@/lib/platform/datasource/facade";
+import { buildAggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
+import type { AggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
+import type { OpenLITQuery } from "@/lib/platform/datasource/types";
 
 const escape = escapeClickHouseString;
 
@@ -86,10 +90,85 @@ const HEALTHY_STATUS_VALUES = [
  * supplied the function falls back to a recent 24h window so the call-site
  * still has something to render.
  */
+/**
+ * Convert the vendor-agnostic `AggregateDag` (built in-process from sampled
+ * external traces) into the `AggregateGraph` shape the detail page renders.
+ * External trace backends lack ClickHouse's self-join, so we sample bounded
+ * full traces and reconstruct nodes/edges here (see `buildAggregateDag`).
+ */
+function dagToAggregateGraph(dag: AggregateDag): AggregateGraph {
+	const nodes: AggregateNode[] = dag.nodes.map((n) => ({
+		id: n.name,
+		spanName: n.name,
+		spanCount: n.count,
+		p50Ms: n.p50DurationMs,
+		errorRate: n.count ? n.errorCount / n.count : 0,
+		depth: 0,
+		kind: "span",
+	}));
+	const edges: AggregateEdge[] = dag.edges
+		.filter((e) => e.from !== e.to)
+		.map((e) => ({ from: e.from, to: e.to, count: e.count, p50Ms: 0, errorRate: 0 }));
+	assignDepths(nodes, edges);
+	const spanCount = nodes.reduce((s, n) => s + n.spanCount, 0);
+	return { nodes, edges, traceCount: dag.sampledTraces, spanCount };
+}
+
+/**
+ * External trace sources (Tempo, Jaeger, …) cannot express the ClickHouse
+ * self-join. When traces resolve to a non-built-in source, sample a bounded
+ * set of full traces via the adapter and reconstruct the DAG in-process.
+ * Returns `null` when the source is built-in (caller keeps the SQL path) or
+ * when the adapter cannot sample.
+ */
+async function getExternalAggregateGraph(
+	params: AggregateGraphParams,
+	maxTraces: number
+): Promise<AggregateGraph | null> {
+	let adapter;
+	try {
+		const ctx = await resolveSignalReadContext("traces");
+		if (ctx.isBuiltIn) return null;
+		adapter = ctx.adapter;
+	} catch {
+		// Source resolution failed — keep the built-in ClickHouse SQL path.
+		return null;
+	}
+
+	const end = new Date();
+	const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+	const query: OpenLITQuery = {
+		signal: "traces",
+		timeRange: { start, end },
+		filters: [
+			{
+				target: "attribute",
+				scope: "resource",
+				key: "service.name",
+				op: "eq",
+				value: params.serviceName,
+			},
+		],
+		aiSelector: true,
+	};
+	try {
+		const spans = await adapter.sampleTracesForGraph(query, maxTraces);
+		return dagToAggregateGraph(buildAggregateDag(spans));
+	} catch (err) {
+		agentsLogger.error("aggregate_graph_external_failed", { err });
+		return { nodes: [], edges: [], traceCount: 0, spanCount: 0 };
+	}
+}
+
 export async function getAggregateGraph(
 	params: AggregateGraphParams
 ): Promise<AggregateGraph> {
 	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
+
+	// External trace sources reconstruct the DAG in-process from sampled traces.
+	const external = await getExternalAggregateGraph(params, maxTraces);
+	if (external) return external;
+
 	const env = params.environment || "default";
 	const envPredicate =
 		env === "default"

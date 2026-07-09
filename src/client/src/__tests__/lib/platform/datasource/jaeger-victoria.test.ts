@@ -13,13 +13,11 @@ jest.mock("@/lib/platform/datasource/http/secret", () => ({
 
 import { JaegerAdapter } from "@/lib/platform/datasource/jaeger/adapter";
 import { VictoriaLogsAdapter, parseNdjsonLogs } from "@/lib/platform/datasource/victoria/logs";
-import { VictoriaAdapter } from "@/lib/platform/datasource/victoria/umbrella";
 import {
 	spanMatchesAISelector,
 	traceMatchesAISelector,
 } from "@/lib/platform/datasource/selector-match";
 import { __clearCache } from "@/lib/platform/datasource/http/cache";
-import { UnsupportedCapabilityError } from "@/lib/platform/datasource/types";
 import type {
 	NormalizedSpan,
 	TelemetrySourceDescriptor,
@@ -262,40 +260,5 @@ describe("VictoriaLogsAdapter", () => {
 		const url = mockSafeFetch.mock.calls[0][0] as string;
 		expect(url).toContain("/select/logsql/query");
 		expect(decodeURIComponent(url)).toContain("gen_ai.operation.name");
-	});
-});
-
-describe("VictoriaAdapter (umbrella)", () => {
-	it("unions metrics + logs and gates traces", async () => {
-		const adapter = new VictoriaAdapter({
-			type: "victoria",
-			id: "src-v",
-			isBuiltIn: false,
-			settings: {
-				metrics: { url: "https://vm.example.com" },
-				logs: { url: "https://vl.example.com" },
-			},
-			signals: ["metrics", "logs"],
-			name: "Victoria",
-		});
-		expect(adapter.capabilities().signals).toEqual(["metrics", "logs"]);
-		expect(adapter.capabilities().traceTree).toBe(false);
-		await expect(
-			adapter.listSpans({ signal: "traces", timeRange: window })
-		).rejects.toBeInstanceOf(UnsupportedCapabilityError);
-	});
-
-	it("throws for an unconfigured signal", async () => {
-		const adapter = new VictoriaAdapter({
-			type: "victoria",
-			id: "src-v",
-			isBuiltIn: false,
-			settings: { metrics: { url: "https://vm.example.com" } },
-			signals: ["metrics"],
-			name: "Victoria",
-		});
-		await expect(
-			adapter.listLogs({ signal: "logs", timeRange: window })
-		).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 	});
 });

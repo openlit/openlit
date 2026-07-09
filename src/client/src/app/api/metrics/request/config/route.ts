@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequestsConfig } from "@/lib/platform/request";
+import { getTraceFilterConfig } from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -28,6 +28,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getRequestsConfig(params);
+	const res: any = await getTraceFilterConfig(params);
 	return Response.json(res);
 }

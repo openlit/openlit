@@ -59,23 +59,24 @@ describe("datasource bootstrap", () => {
 		expect(createAdapter(descriptor)).toBeInstanceOf(ClickHouseAdapter);
 	});
 
-	it("registers every built-in vendor factory", () => {
+	it("registers every atomic vendor factory (no stack umbrellas)", () => {
 		ensureAdaptersRegistered();
 		for (const type of [
 			"clickhouse",
 			"datadog",
-			"grafana",
 			"tempo",
 			"loki",
 			"prometheus",
 			"mimir",
 			"newrelic",
 			"jaeger",
-			"victoria",
 			"victoriametrics",
 			"victorialogs",
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);
 		}
+		// Stack templates expand into atomic rows; umbrellas are not registered.
+		expect(hasAdapterFactory("grafana")).toBe(false);
+		expect(hasAdapterFactory("victoria")).toBe(false);
 	});
 });

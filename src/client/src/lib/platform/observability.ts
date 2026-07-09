@@ -57,7 +57,7 @@ function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
-function getSummaryBucket(params: MetricParams) {
+export function getSummaryBucket(params: MetricParams) {
 	const start = new Date(params.timeLimit.start as Date | string);
 	const end = new Date(params.timeLimit.end as Date | string);
 	const days = Math.max(1, (end.getTime() - start.getTime()) / 86400000);

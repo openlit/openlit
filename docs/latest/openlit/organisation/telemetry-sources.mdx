@@ -5,11 +5,15 @@ description: 'Point OpenLIT at your existing observability backend and run AI in
 icon: 'plug'
 ---
 
-OpenLIT is the AI intelligence layer for your telemetry. By default it reads raw traces, logs, and metrics from its built-in ClickHouse store, but you can point a project at an external observability backend instead. OpenLIT then renders the same Telemetry pages, trace-detail chat view, per-trace and aggregate agent graphs, agent and cluster inventory, evaluations, and dashboards on top of data that already lives in your existing stack.
+OpenLIT is the AI intelligence layer for your telemetry. By default it reads raw traces, logs, and metrics from its built-in ClickHouse store. You can also configure external observability backends (Tempo, Datadog, Jaeger, and others) per project and bind each signal independently.
 
 <Info>
-Only raw telemetry reads are pluggable. Derived intelligence that OpenLIT computes — evaluations, agent summaries, dashboard metadata, and the controller — always stays in OpenLIT's own store, so switching a source never loses your OpenLIT-generated insights.
+**What is wired today:** Telemetry traces list, span detail, and hierarchy resolve through the project's traces binding (built-in ClickHouse or an external traces source). Dashboard widgets can target a source when they use a structured query. Derived intelligence — evaluations, agent summaries, dashboard metadata, and the controller — always stays in OpenLIT's own ClickHouse.
 </Info>
+
+<Warning>
+Logs, metrics, agents inventory, evaluations, and most dashboard SQL widgets still read the built-in ClickHouse today. Binding those signals to an external source configures routing for the next surfaces; it does not yet move every page off ClickHouse.
+</Warning>
 
 ## The source model
 
@@ -156,8 +160,8 @@ External backends are shared, rate-limited systems, so OpenLIT applies Grafana-s
 
 - **Per-source concurrency cap** — a semaphore bounds in-flight requests per source so a busy dashboard cannot overwhelm a rate-limited backend such as Datadog.
 - **Query budgets** — every read is clamped to a maximum row count and time range before it leaves OpenLIT, so an over-wide query cannot fan out unbounded.
-- **Shared cache with in-flight de-duplication** — identical concurrent reads on one source are coalesced and share a short-lived cache.
-- **Standardized backoff** — transient `429`/`5xx` responses are retried with exponential backoff.
+- **Process-local cache with in-flight de-duplication** — identical concurrent reads on one Node process are coalesced and share a short-lived, size-capped cache (not shared across replicas).
+- **Standardized backoff** — transient `429`/`5xx` responses are retried with exponential backoff (applied on rate-limited vendors such as Datadog).
 
 ## Security
 

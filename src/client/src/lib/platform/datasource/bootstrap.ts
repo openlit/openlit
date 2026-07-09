@@ -1,16 +1,17 @@
 /**
  * Adapter bootstrap. Registers the built-in ClickHouse reference factory plus
- * the external vendor factories (Datadog, Grafana/Tempo/Loki/Mimir, New Relic,
- * Jaeger, Victoria stack) exactly once. These are a fundamental part of the
- * pluggable-telemetry structure and live in the shared codebase; the neutral
- * `getExternalDataSourceAdapters()` hook remains available for the enterprise
- * repo to contribute additional, private factories on top.
+ * the atomic external vendor factories (Datadog, Tempo, Loki, Mimir/Prometheus,
+ * New Relic, Jaeger, VictoriaLogs, VictoriaMetrics) exactly once.
+ *
+ * Multi-backend "stack" umbrellas (grafana/victoria) are intentionally not
+ * registered — stack templates in `telemetry-source-crud` expand into atomic
+ * per-signal sources instead. The neutral `getExternalDataSourceAdapters()`
+ * hook remains available for additional private factories.
  */
 
 import { registerAdapterFactory } from "./registry";
 import { clickHouseAdapterFactory } from "./clickhouse/adapter";
 import { datadogAdapterFactory } from "./datadog/adapter";
-import { grafanaAdapterFactory } from "./grafana/umbrella";
 import { tempoAdapterFactory } from "./grafana/tempo";
 import { lokiAdapterFactory } from "./grafana/loki";
 import {
@@ -19,22 +20,18 @@ import {
 } from "./grafana/prometheus";
 import { newrelicAdapterFactory } from "./newrelic/adapter";
 import { jaegerAdapterFactory } from "./jaeger/adapter";
-import {
-	victoriaAdapterFactory,
-	victoriaMetricsAdapterFactory,
-} from "./victoria/umbrella";
+import { victoriaMetricsAdapterFactory } from "./victoria/metrics";
 import { victoriaLogsAdapterFactory } from "./victoria/logs";
+import { getExternalDataSourceAdapters } from "./enterprise";
 
 const VENDOR_FACTORIES = [
 	datadogAdapterFactory,
-	grafanaAdapterFactory,
 	tempoAdapterFactory,
 	lokiAdapterFactory,
 	prometheusAdapterFactory,
 	mimirAdapterFactory,
 	newrelicAdapterFactory,
 	jaegerAdapterFactory,
-	victoriaAdapterFactory,
 	victoriaMetricsAdapterFactory,
 	victoriaLogsAdapterFactory,
 ];
@@ -46,6 +43,9 @@ export function ensureAdaptersRegistered(): void {
 	registered = true;
 	registerAdapterFactory(clickHouseAdapterFactory);
 	for (const factory of VENDOR_FACTORIES) {
+		registerAdapterFactory(factory);
+	}
+	for (const factory of getExternalDataSourceAdapters()) {
 		registerAdapterFactory(factory);
 	}
 }

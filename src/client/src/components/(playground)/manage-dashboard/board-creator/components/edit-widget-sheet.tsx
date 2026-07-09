@@ -38,6 +38,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDashboard } from "../context/dashboard-context";
 import QueryDebugger from "./query-debugger";
+import {
+	StructuredQueryBuilder,
+	type StructuredQueryValue,
+} from "./structured-query-builder";
 import { ColorSelector } from "./color-selector";
 import MarkdownWidgetComponent from "../widgets/markdown-widget";
 import { Tooltip, TooltipTrigger, TooltipPortal, TooltipContent } from "@/components/ui/tooltip";
@@ -55,6 +59,24 @@ interface TelemetrySourceOption {
 	name: string;
 	type: string;
 	signals: string;
+}
+
+interface TelemetrySourceTypeDescriptor {
+	type: string;
+	declaredSignals?: string[];
+	capabilities?: { serverAggregation?: boolean };
+}
+
+type Signal = "traces" | "logs" | "metrics";
+
+function parseSignalList(raw: string | undefined): Signal[] {
+	const valid: Signal[] = ["traces", "logs", "metrics"];
+	if (!raw) return valid;
+	const parsed = raw
+		.split(",")
+		.map((s) => s.trim())
+		.filter((s): s is Signal => (valid as string[]).includes(s));
+	return parsed.length ? parsed : valid;
 }
 
 interface NonMarkdownConfig {
@@ -90,13 +112,22 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	const [queryError, setQueryError] = React.useState<string | null>(null);
 	const [isQueryLoading, setIsQueryLoading] = React.useState(false);
 	const [sources, setSources] = React.useState<TelemetrySourceOption[]>([]);
+	const [typeDescriptors, setTypeDescriptors] = React.useState<
+		TelemetrySourceTypeDescriptor[]
+	>([]);
 
 	useEffect(() => {
 		let active = true;
 		fetch("/api/telemetry-source")
 			.then((r) => (r.ok ? r.json() : null))
 			.then((j) => {
-				if (active && j?.sources) setSources(j.sources as TelemetrySourceOption[]);
+				if (!active || !j) return;
+				if (j.sources) setSources(j.sources as TelemetrySourceOption[]);
+				if (j.availableTypeDescriptors) {
+					setTypeDescriptors(
+						j.availableTypeDescriptors as TelemetrySourceTypeDescriptor[]
+					);
+				}
 			})
 			.catch(() => {});
 		return () => {
@@ -110,6 +141,19 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	const selectedSource = sources.find((s) => s.id === selectedSourceId);
 	const isExternalSource = !!selectedSource && selectedSource.type !== "clickhouse";
 	const hasStructuredQuery = !!currentConfig.structuredQuery;
+	const selectedTypeDescriptor = selectedSource
+		? typeDescriptors.find((d) => d.type === selectedSource.type)
+		: undefined;
+	const sourceSignals = parseSignalList(selectedSource?.signals);
+	const sourceSupportsAggregation =
+		selectedTypeDescriptor?.capabilities?.serverAggregation !== false;
+	const structuredValue: StructuredQueryValue | undefined =
+		currentConfig.structuredQuery
+			? {
+					mode: currentConfig.structuredQuery.mode || "timeseries",
+					query: currentConfig.structuredQuery.query || {},
+				}
+			: undefined;
 
 	const handleSourceChange = (value: string) => {
 		if (!currentWidget) return;
@@ -117,6 +161,17 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 			config: {
 				...currentConfig,
 				sourceId: value === BUILTIN_SOURCE_VALUE ? null : value,
+			},
+		});
+	};
+
+	const handleStructuredChange = (next: StructuredQueryValue) => {
+		if (!currentWidget) return;
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				signal: (next.query.signal as Signal) || "traces",
+				structuredQuery: { mode: next.mode, query: next.query },
 			},
 		});
 	};
@@ -163,8 +218,12 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 			setIsQueryLoading(true);
 			setQueryError(null);
 			try {
+				const externalSource =
+					!!cfg.sourceId &&
+					sources.find((s) => s.id === cfg.sourceId)?.type !== "clickhouse";
 				const result = await runQuery(currentWidget.id, {
-					userQuery: cfg.query,
+					// External sources reject raw SQL; run their structured query.
+					userQuery: externalSource ? undefined : cfg.query,
 				});
 				setQueryResult(result.data);
 				setQueryError(result.err);
@@ -640,19 +699,28 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												)}
 											</div>
 
-											<div className="space-y-2">
-												<div className="flex justify-between items-center">
-													<Label htmlFor="query" className="text-stone-900 dark:text-white">Query</Label>
+											{isExternalSource ? (
+												<StructuredQueryBuilder
+													signals={sourceSignals}
+													supportsAggregation={sourceSupportsAggregation}
+													value={structuredValue}
+													onChange={handleStructuredChange}
+												/>
+											) : (
+												<div className="space-y-2">
+													<div className="flex justify-between items-center">
+														<Label htmlFor="query" className="text-stone-900 dark:text-white">Query</Label>
+													</div>
+													<div className="border rounded-md h-[calc(100vh-400px)] bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
+														<CodeEditor
+															value={currentWidget.config && 'query' in currentWidget.config ? (currentWidget.config as NonMarkdownConfig).query : ""}
+															onChange={handleEditorChange}
+															language={editorLanguage}
+															readOnly={false}
+														/>
+													</div>
 												</div>
-												<div className="border rounded-md h-[calc(100vh-400px)] bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-													<CodeEditor
-														value={currentWidget.config && 'query' in currentWidget.config ? (currentWidget.config as NonMarkdownConfig).query : ""}
-														onChange={handleEditorChange}
-														language={editorLanguage}
-														readOnly={isExternalSource}
-													/>
-												</div>
-											</div>
+											)}
 
 											<div className="flex justify-end">
 												<Button

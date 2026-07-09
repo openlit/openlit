@@ -1,4 +1,4 @@
-import { getRequestViaTraceId } from "@/lib/platform/request";
+import { getTraceRecordByTraceId } from "@/lib/platform/traces/read";
 
 export async function GET(_: Request, context: any) {
 	const { id } = context.params || {};
@@ -8,6 +8,6 @@ export async function GET(_: Request, context: any) {
 			status: 400,
 		});
 
-	const res: any = await getRequestViaTraceId(id);
+	const res: any = await getTraceRecordByTraceId(id);
 	return Response.json(res);
 }

@@ -1,12 +1,10 @@
 /**
  * Pluggable telemetry source contract (CE).
  *
- * Every raw-telemetry read (traces, logs, metrics) in OpenLIT flows through a
- * `DataSourceAdapter`. ClickHouse is the reference/default implementation and
- * lives in CE; external vendor adapters (Datadog, Grafana/Tempo/Loki/Mimir,
- * New Relic, Jaeger, Victoria stack) live in the private enterprise repo under
- * `src/client/src/ee/**` and are registered via the neutral extension hook in
- * `./enterprise`.
+ * Raw-telemetry reads that have been wired through the adapter layer use a
+ * `DataSourceAdapter`. ClickHouse is the reference/default implementation.
+ * Atomic vendor adapters (Datadog, Tempo, Loki, Mimir, New Relic, Jaeger,
+ * VictoriaLogs, VictoriaMetrics) are registered in CE via `bootstrap.ts`.
  *
  * Derived/app data (evals, agent summaries, dashboards metadata, controller,
  * vault, rules, prompts) is NOT part of this contract — it always stays in

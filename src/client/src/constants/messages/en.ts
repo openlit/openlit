@@ -272,6 +272,27 @@ export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
 export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse (built-in)";
 export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
 	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
+export const WIDGET_STRUCTURED_BUILDER_TITLE = "Structured Query";
+export const WIDGET_STRUCTURED_SIGNAL_LABEL = "Signal";
+export const WIDGET_STRUCTURED_MODE_LABEL = "Mode";
+export const WIDGET_STRUCTURED_MODE_LIST = "List rows";
+export const WIDGET_STRUCTURED_MODE_AGGREGATE = "Aggregate (group by)";
+export const WIDGET_STRUCTURED_MODE_TIMESERIES = "Time series";
+export const WIDGET_STRUCTURED_LIMIT_LABEL = "Row limit";
+export const WIDGET_STRUCTURED_INTERVAL_LABEL = "Interval (e.g. 1m, 1h)";
+export const WIDGET_STRUCTURED_GROUP_BY_LABEL = "Group by (attribute keys)";
+export const WIDGET_STRUCTURED_GROUP_BY_PLACEHOLDER =
+	"gen_ai.request.model, service.name";
+export const WIDGET_STRUCTURED_AGGREGATIONS_LABEL = "Aggregations";
+export const WIDGET_STRUCTURED_ADD_AGGREGATION = "Add aggregation";
+export const WIDGET_STRUCTURED_ADD_FILTER = "Add filter";
+export const WIDGET_STRUCTURED_FILTERS_LABEL = "Filters";
+export const WIDGET_STRUCTURED_FIELD_PLACEHOLDER = "field (optional for count)";
+export const WIDGET_STRUCTURED_ALIAS_PLACEHOLDER = "alias";
+export const WIDGET_STRUCTURED_KEY_PLACEHOLDER = "attribute key";
+export const WIDGET_STRUCTURED_VALUE_PLACEHOLDER = "value";
+export const WIDGET_STRUCTURED_AGGREGATION_UNSUPPORTED =
+	"This source cannot aggregate server-side. Use list mode, or pick a source that supports aggregation.";
 export const BOARD_DELETE_FAILED = "Board delete failed!";
 export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
 export const FOLDER_DELETE_FAILED =

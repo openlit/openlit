@@ -1,6 +1,10 @@
 /**
  * Build an aggregate agent DAG in-process from sampled full traces.
  *
+ * The agent aggregate-graph (`getAggregateGraph`) uses ClickHouse's self-join
+ * for the built-in source and this in-process reconstruction for external
+ * trace sources, fed by `adapter.sampleTracesForGraph`.
+ *
  * ClickHouse builds this via a self-join on `ParentSpanId` within `TraceId`
  * plus `GROUP BY SpanName` + `quantile`/`countIf`. Vendors without server-side
  * aggregation (Tempo, Jaeger) cannot express that, so their adapters fetch a

@@ -1,4 +1,4 @@
-import { getRequestViaSpanId } from "@/lib/platform/request";
+import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
 
 export async function GET(_: Request, context: any) {
@@ -10,7 +10,7 @@ export async function GET(_: Request, context: any) {
 		});
 
 	const [spanRes, evalSummary] = await Promise.all([
-		getRequestViaSpanId(id),
+		getTraceSpanRecord(id),
 		getEvaluationSummaryForSpanId(id),
 	]);
 

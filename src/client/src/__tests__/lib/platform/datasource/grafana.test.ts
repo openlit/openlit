@@ -14,10 +14,8 @@ jest.mock("@/lib/platform/datasource/http/secret", () => ({
 import { TempoAdapter, tempoAISelectorQuery } from "@/lib/platform/datasource/grafana/tempo";
 import { LokiAdapter } from "@/lib/platform/datasource/grafana/loki";
 import { PrometheusAdapter } from "@/lib/platform/datasource/grafana/prometheus";
-import { GrafanaAdapter } from "@/lib/platform/datasource/grafana/umbrella";
 import { __clearCache } from "@/lib/platform/datasource/http/cache";
 import { buildAggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
-import { UnsupportedCapabilityError } from "@/lib/platform/datasource/types";
 import type {
 	NormalizedSpan,
 	TelemetrySourceDescriptor,
@@ -206,38 +204,6 @@ describe("PrometheusAdapter", () => {
 	it("metricNames reads __name__ label values", async () => {
 		mockSafeFetch.mockResolvedValue({ data: ["a", "b"] });
 		expect(await adapter.metricNames(window)).toEqual(["a", "b"]);
-	});
-});
-
-describe("GrafanaAdapter (umbrella)", () => {
-	it("unions capabilities of configured sub-sources", () => {
-		const adapter = new GrafanaAdapter({
-			type: "grafana",
-			id: "src-grafana",
-			isBuiltIn: false,
-			settings: {
-				tempo: { url: "https://tempo.example.com" },
-				metrics: { url: "https://prom.example.com" },
-			},
-			signals: ["traces", "metrics"],
-			name: "Grafana",
-		});
-		expect(adapter.capabilities().signals).toEqual(["traces", "metrics"]);
-		expect(adapter.capabilities().traceTree).toBe(true);
-	});
-
-	it("throws UnsupportedCapabilityError for an unconfigured signal", async () => {
-		const adapter = new GrafanaAdapter({
-			type: "grafana",
-			id: "src-grafana",
-			isBuiltIn: false,
-			settings: { tempo: { url: "https://tempo.example.com" } },
-			signals: ["traces"],
-			name: "Grafana",
-		});
-		await expect(
-			adapter.listLogs({ signal: "logs", timeRange: window })
-		).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 	});
 });
 

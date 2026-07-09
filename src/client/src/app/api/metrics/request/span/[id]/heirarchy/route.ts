@@ -1,4 +1,4 @@
-import { getHeirarchyViaSpanId } from "@/lib/platform/request";
+import { getTraceHierarchy } from "@/lib/platform/traces/read";
 
 export async function GET(_: Request, context: any) {
 	const { id } = context.params || {};
@@ -9,6 +9,6 @@ export async function GET(_: Request, context: any) {
 		});
 	}
 
-	const res: any = await getHeirarchyViaSpanId(id);
+	const res: any = await getTraceHierarchy(id);
 	return Response.json(res);
 }

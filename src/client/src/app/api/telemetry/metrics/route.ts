@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getMetrics } from "@/lib/platform/observability";
+import { listMetricRecords } from "@/lib/platform/metrics/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -20,5 +20,5 @@ export async function POST(request: Request) {
 	);
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(await getMetrics(params));
+	return Response.json(await listMetricRecords(params));
 }

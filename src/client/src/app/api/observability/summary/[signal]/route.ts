@@ -1,11 +1,20 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getSignalSummary } from "@/lib/platform/observability";
+import { getTraceSummary } from "@/lib/platform/traces/read";
+import { getLogsSummary } from "@/lib/platform/logs/read";
+import { getMetricsSummary } from "@/lib/platform/metrics/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
+
+/** Route each signal's summary through its per-signal read facade. */
+function summaryForSignal(signal: string, params: MetricParams) {
+	if (signal === "logs") return getLogsSummary(params);
+	if (signal === "metrics") return getMetricsSummary(params);
+	return getTraceSummary(params, signal as "traces" | "exceptions");
+}
 
 export async function POST(
 	request: Request,
@@ -27,10 +36,5 @@ export async function POST(
 	);
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(
-		await getSignalSummary(
-			metricParams,
-			params.signal as "traces" | "exceptions" | "logs" | "metrics"
-		)
-	);
+	return Response.json(await summaryForSignal(params.signal, metricParams));
 }

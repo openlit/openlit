@@ -1,18 +1,14 @@
 /**
- * Neutral extension hook for external telemetry data source adapters.
+ * Neutral extension hook for additional telemetry data source adapters.
  *
- * CE returns an empty list (no external adapters). The private enterprise repo
- * overrides this module from `src/client/src/ee/**` (via its path aliases /
- * thin wrappers) to register vendor adapter factories such as Datadog,
- * Tempo/Loki/Mimir, New Relic, Jaeger, and the Victoria stack.
- *
- * Mirrors the `enterpriseStoreSlices = {}` and `route-access` no-op pattern.
- * Never import `@/ee/**` from this file — it lives in CE.
+ * Atomic vendor adapters (Datadog, Tempo, Loki, etc.) are registered in CE via
+ * `bootstrap.ts`. This hook stays empty in CE so a private fork can contribute
+ * extra factories without importing `@/ee/**` from shared code.
  */
 
 import type { DataSourceAdapterFactory } from "./types";
 
-/** CE no-op: no external telemetry sources are available in open source. */
+/** CE no-op: no extra private adapters beyond the CE bootstrap set. */
 export function getExternalDataSourceAdapters(): DataSourceAdapterFactory[] {
 	return [];
 }

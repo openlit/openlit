@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getMetricDetail } from "@/lib/platform/observability";
+import { getMetricDetailRecord } from "@/lib/platform/metrics/read";
 
 export async function POST(
 	request: Request,
@@ -15,6 +15,6 @@ export async function POST(
 	};
 
 	return Response.json(
-		await getMetricDetail(metricName, metricType, serviceName, metricParams)
+		await getMetricDetailRecord(metricName, metricType, serviceName, metricParams)
 	);
 }

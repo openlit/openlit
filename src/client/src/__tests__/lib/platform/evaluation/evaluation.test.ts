@@ -50,6 +50,12 @@ jest.mock('@/lib/db-config', () => ({
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
 }));
+// Evals fetch the span via the traces facade; delegate to the request mock so
+// existing `getRequestViaSpanId` expectations keep driving the eval flows.
+jest.mock('@/lib/platform/traces/read', () => ({
+  getTraceSpanRecord: (...args: unknown[]) =>
+    require('@/lib/platform/request').getRequestViaSpanId(...args),
+}));
 jest.mock('@/helpers/server/platform', () => ({
   getFilterPreviousParams: jest.fn((p) => ({ ...p, timeLimit: { start: '2024-01-01', end: '2024-01-07' } })),
 }));
