@@ -8,6 +8,15 @@ import getMessage from "@/constants/messages";
 
 import { ApiEndpoint, API_REFERENCE_ENDPOINTS } from "@/constants/api-reference";
 
+interface ParameterDoc {
+	name: string;
+	type: string;
+	required: boolean;
+	description: string;
+	allowedValues?: string[];
+	example?: string;
+}
+
 interface ApiReferenceProps {
 	userApiKey?: string;
 }
@@ -17,6 +26,198 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 	const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint>(API_REFERENCE_ENDPOINTS[0]);
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 	const messages = getMessage();
+
+	const getParameterDocs = (endpointId: string): ParameterDoc[] => {
+		if (
+			endpointId === "query-traces" ||
+			endpointId === "query-exceptions" ||
+			endpointId === "query-logs" ||
+			endpointId === "query-metrics" ||
+			endpointId === "get-metric-detail"
+		) {
+			const isLog = endpointId === "query-logs";
+			const isMetric = endpointId === "query-metrics" || endpointId === "get-metric-detail";
+			const docs: ParameterDoc[] = [
+				{
+					name: "timeLimit",
+					type: "object",
+					required: true,
+					description: "Specifies the time range window to query telemetry.",
+				},
+				{
+					name: "timeLimit.type",
+					type: "string",
+					required: true,
+					description: "Predefined relative duration or custom time range.",
+					allowedValues: ["24H", "7D", "1M", "3M", "CUSTOM"],
+					example: "24H",
+				},
+				{
+					name: "timeLimit.start",
+					type: "string",
+					required: false,
+					description: "ISO-8601 start timestamp. Required if type is CUSTOM.",
+					example: "2026-07-09T13:08:52.311Z",
+				},
+				{
+					name: "timeLimit.end",
+					type: "string",
+					required: false,
+					description: "ISO-8601 end timestamp. Required if type is CUSTOM.",
+					example: "2026-07-10T13:09:17.114Z",
+				},
+				{
+					name: "limit",
+					type: "number",
+					required: false,
+					description: `Pagination limit. Defaults to ${isLog || isMetric ? 25 : 10}.`,
+					example: "50",
+				},
+				{
+					name: "offset",
+					type: "number",
+					required: false,
+					description: "Pagination offset index. Defaults to 0.",
+					example: "0",
+				},
+				{
+					name: "selectedConfig",
+					type: "object",
+					required: false,
+					description: "Structured filter properties for telemetry queries.",
+				},
+				{
+					name: "selectedConfig.models",
+					type: "string[]",
+					required: false,
+					description: "Filter records by specific AI model names.",
+					example: '["gpt-4o", "claude-3-5-sonnet"]',
+				},
+				{
+					name: "selectedConfig.providers",
+					type: "string[]",
+					required: false,
+					description: "Filter records by specific LLM providers.",
+					example: '["openai", "anthropic"]',
+				},
+				{
+					name: "selectedConfig.serviceNames",
+					type: "string[]",
+					required: false,
+					description: "Filter records by specific client service names.",
+					example: '["web-app"]',
+				},
+				{
+					name: "selectedConfig.environments",
+					type: "string[]",
+					required: false,
+					description: "Filter records by deployment environment.",
+					example: '["production"]',
+				},
+			];
+
+			if (isLog) {
+				docs.push({
+					name: "selectedConfig.severities",
+					type: "string[]",
+					required: false,
+					description: "Filter logs by severity levels.",
+					allowedValues: ["INFO", "WARN", "ERROR", "DEBUG", "FATAL"],
+					example: '["ERROR", "WARN"]',
+				});
+			}
+
+			if (endpointId !== "get-metric-detail" && endpointId !== "query-metrics") {
+				docs.push(
+					{
+						name: "sorting",
+						type: "object",
+						required: false,
+						description: "Database sorting order rules.",
+					},
+					{
+						name: "sorting.type",
+						type: "string",
+						required: false,
+						description: "Field name to sort by (e.g. Timestamp, cost, duration, prompt_tokens, completion_tokens).",
+						example: "Timestamp",
+					},
+					{
+						name: "sorting.direction",
+						type: "string",
+						required: false,
+						description: "Sorting direction.",
+						allowedValues: ["asc", "desc"],
+						example: "desc",
+					}
+				);
+			}
+
+			docs.push({
+				name: "includeFilters",
+				type: "boolean",
+				required: false,
+				description: "If true, appends the pagination and dynamic filter metadata inline in the response.",
+				example: "true",
+			});
+
+			return docs;
+		}
+
+		if (endpointId === "vault-create") {
+			return [
+				{
+					name: "key",
+					type: "string",
+					required: true,
+					description: "Secret name key stored in the vault.",
+					example: "OPENAI_API_KEY",
+				},
+				{
+					name: "value",
+					type: "string",
+					required: true,
+					description: "Unencrypted secret value that will be encrypted on write.",
+					example: "sk-proj-...",
+				},
+				{
+					name: "tags",
+					type: "string[]",
+					required: false,
+					description: "Tags associated with this vault secret.",
+					example: '["production"]',
+				},
+			];
+		}
+
+		if (endpointId === "prompt-create") {
+			return [
+				{
+					name: "name",
+					type: "string",
+					required: true,
+					description: "Unique prompt identification name.",
+					example: "rag-generation-prompt",
+				},
+				{
+					name: "prompt",
+					type: "string",
+					required: true,
+					description: "Prompt body text with support for variable placeholders.",
+					example: "Answer the query: {{query}} using the context: {{context}}",
+				},
+				{
+					name: "version",
+					type: "string",
+					required: false,
+					description: "Optional semantic version for this prompt release.",
+					example: "1.0.0",
+				},
+			];
+		}
+
+		return [];
+	};
 
 	const getEndpointGroup = (endpoint: ApiEndpoint): string => {
 		const path = endpoint.path;
@@ -189,6 +390,64 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					<p className="text-xs text-stone-500 dark:text-stone-400 mb-6 leading-relaxed">
 						{selectedEndpoint.description}
 					</p>
+
+					{/* Parameters Reference */}
+					{getParameterDocs(selectedEndpoint.id).length > 0 && (
+						<div className="mb-6">
+							<details className="group border border-stone-200 dark:border-stone-800 rounded-md bg-stone-50/50 dark:bg-stone-900/30">
+								<summary className="flex items-center justify-between p-3 font-semibold text-xs text-stone-700 dark:text-stone-300 cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-900/60 select-none">
+									<span>Parameters Reference ({getParameterDocs(selectedEndpoint.id).length})</span>
+									<ChevronRight className="h-4 w-4 text-stone-400 transition-transform group-open:rotate-90" />
+								</summary>
+								<div className="p-3 border-t border-stone-200 dark:border-stone-800 overflow-x-auto">
+									<table className="w-full text-left text-xs border-collapse">
+										<thead>
+											<tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 font-medium">
+												<th className="pb-2 pr-4 font-mono text-[10px]">Parameter</th>
+												<th className="pb-2 pr-4 font-mono text-[10px]">Type</th>
+												<th className="pb-2 pr-4 font-mono text-[10px]">Required</th>
+												<th className="pb-2">Description</th>
+											</tr>
+										</thead>
+										<tbody>
+											{getParameterDocs(selectedEndpoint.id).map((doc) => (
+												<tr key={doc.name} className="border-b border-stone-100 dark:border-stone-900/40 last:border-0 hover:bg-stone-50/50 dark:hover:bg-stone-900/20">
+													<td className="py-2.5 pr-4 font-mono text-[11px] font-semibold text-stone-800 dark:text-stone-200">
+														{doc.name}
+													</td>
+													<td className="py-2.5 pr-4 font-mono text-[11px] text-stone-500">
+														{doc.type}
+													</td>
+													<td className="py-2.5 pr-4">
+														{doc.required ? (
+															<Badge className="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/30 text-[9px] px-1.5 py-0 font-bold">Required</Badge>
+														) : (
+															<span className="text-[10px] text-stone-400 font-medium">Optional</span>
+														)}
+													</td>
+													<td className="py-2.5 text-stone-600 dark:text-stone-400 leading-relaxed text-[11px]">
+														<div>{doc.description}</div>
+														{doc.allowedValues && (
+															<div className="mt-1 text-[10px] text-stone-500 flex flex-wrap gap-1 items-center">
+																<span className="font-semibold text-stone-400">Allowed: </span>
+																{doc.allowedValues.map(val => <code key={val} className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-[10px] text-stone-600 dark:text-stone-300">{val}</code>)}
+															</div>
+														)}
+														{doc.example && (
+															<div className="mt-1 text-[10px] text-stone-500">
+																<span className="font-semibold text-stone-400">Example: </span>
+																<code className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-[10px] text-stone-600 dark:text-stone-300">{doc.example}</code>
+															</div>
+														)}
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</details>
+						</div>
+					)}
 
 					{/* CURL Example Section */}
 					<div className="mb-6">
