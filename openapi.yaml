@@ -391,7 +391,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
-  /api/metrics/request:
+  /api/telemetry/trace:
     post:
       tags:
         - Telemetry
@@ -425,7 +425,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
-  /api/metrics/exception:
+  /api/telemetry/exception:
     post:
       tags:
         - Telemetry
@@ -459,7 +459,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
-  /api/metrics/request/span/{id}:
+  /api/telemetry/trace/span/{id}:
     get:
       tags:
         - Telemetry
@@ -487,7 +487,35 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequestError'
 
-  /api/metrics/request/span/{id}/heirarchy:
+  /api/telemetry/trace/trace/{id}:
+    get:
+      tags:
+        - Telemetry
+      summary: Get trace detail by Trace ID
+      description: Retrieve details of a trace (such as its root span or transaction info) using the Trace ID.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the trace (Trace ID).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trace details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/trace/span/{id}/heirarchy:
     get:
       tags:
         - Telemetry
@@ -778,31 +806,49 @@ components:
           example: 0
         selectedConfig:
           type: object
+          description: "Filters telemetry records by matching key-value criteria."
           properties:
             models:
               type: array
+              description: "Filter telemetry by model names (e.g. ['gpt-4o', 'claude-3-5-sonnet'])."
               items:
                 type: string
+              example: ["gpt-4o", "claude-3-5-sonnet"]
             providers:
               type: array
+              description: "Filter telemetry by provider names (e.g. ['openai', 'anthropic', 'cohere', 'ollama'])."
               items:
                 type: string
+              example: ["openai", "anthropic"]
             serviceNames:
               type: array
+              description: "Filter telemetry by service names (e.g. ['web-app', 'backend-api'])."
               items:
                 type: string
+              example: ["web-app"]
             environments:
               type: array
+              description: "Filter telemetry by deployment environment names (e.g. ['production', 'staging'])."
               items:
                 type: string
+              example: ["production"]
+            severities:
+              type: array
+              description: "Filter logs by severity levels (e.g. ['INFO', 'ERROR', 'WARN'])."
+              items:
+                type: string
+              example: ["ERROR", "WARN"]
         sorting:
           type: object
+          description: "Defines the sorting column and order for returned records."
           properties:
             type:
               type: string
+              description: "Field name to sort by (e.g. Timestamp, cost, duration, prompt_tokens, completion_tokens, total_tokens)."
               example: Timestamp
             direction:
               type: string
+              description: "Sort order direction."
               enum: [asc, desc]
               example: desc
 

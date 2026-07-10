@@ -3,7 +3,7 @@ import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
-import { getRequests } from "@/lib/platform/request";
+import { getRequests, getRequestsConfig } from "@/lib/platform/request";
 import { resolveDbConfigId } from "@/helpers/server/auth";
 
 export async function POST(request: Request) {
@@ -41,9 +41,19 @@ export async function POST(request: Request) {
 			});
 
 		const res: any = await getRequests(params);
+
+		const { searchParams } = new URL(request.url);
+		const includeFilters = (searchParams.get("includeFilters") === "true") || (formData.includeFilters === true);
+
+		if (includeFilters && !res.err) {
+			const configRes = await getRequestsConfig(params);
+			res.pagination = { limit, offset, total: res.total || 0 };
+			res.filters = (configRes.data as any)?.[0] || {};
+		}
+
 		return Response.json(res);
 	} catch (error: any) {
-		console.error("Error in metrics exception route:", error);
+		console.error("Error in telemetry exception route:", error);
 		return Response.json({ err: error.message || "Internal Server Error" }, { status: 500 });
 	}
 }

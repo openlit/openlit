@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequests } from "@/lib/platform/request";
+import { getRequests, getRequestsConfig } from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -40,9 +40,19 @@ export async function POST(request: Request) {
 			});
 
 		const res: any = await getRequests(params);
+
+		const { searchParams } = new URL(request.url);
+		const includeFilters = (searchParams.get("includeFilters") === "true") || (formData.includeFilters === true);
+
+		if (includeFilters && !res.err) {
+			const configRes = await getRequestsConfig(params);
+			res.pagination = { limit, offset, total: res.total || 0 };
+			res.filters = (configRes.data as any)?.[0] || {};
+		}
+
 		return Response.json(res);
 	} catch (error: any) {
-		console.error("Error in metrics request route:", error);
+		console.error("Error in telemetry trace route:", error);
 		return Response.json({ err: error.message || "Internal Server Error" }, { status: 500 });
 	}
 }

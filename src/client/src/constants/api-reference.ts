@@ -318,9 +318,9 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 	{
 		id: "query-traces",
 		method: "POST",
-		path: "/api/metrics/request",
+		path: "/api/telemetry/trace",
 		summary: "Query traces list",
-		description: "Retrieve a paginated list of telemetry trace spans matching the provided filters.",
+		description: "Retrieve a paginated list of telemetry trace spans matching the provided filters. Pass `includeFilters=true` as a query parameter or `includeFilters: true` in the JSON body to retrieve inline pagination and dynamic filter metadata.",
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
@@ -328,13 +328,37 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
     "end": "${new Date().toISOString()}"
   },
   "limit": 10,
-  "offset": 0
+  "offset": 0,
+  "selectedConfig": {
+    "models": ["gpt-4o", "claude-3-5-sonnet"],
+    "providers": ["openai", "anthropic"],
+    "serviceNames": ["web-app"],
+    "environments": ["production"]
+  },
+  "sorting": {
+    "type": "Timestamp",
+    "direction": "desc"
+  },
+  "includeFilters": true
 }`,
 		responseBody: `{
   "records": [],
-  "total": 0
+  "total": 0,
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "total": 0
+  },
+  "filters": {
+    "models": ["gpt-4o", "claude-3-5-sonnet"],
+    "providers": ["openai", "anthropic"],
+    "serviceNames": ["web-app"],
+    "environments": ["production"],
+    "maxCost": 0.05,
+    "totalRows": 150
+  }
 }`,
-		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/metrics/request \\
+		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/telemetry/trace?includeFilters=true \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -349,9 +373,9 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 	{
 		id: "query-exceptions",
 		method: "POST",
-		path: "/api/metrics/exception",
+		path: "/api/telemetry/exception",
 		summary: "Query exceptions list",
-		description: "Retrieve a paginated list of telemetry exception spans matching the provided filters.",
+		description: "Retrieve a paginated list of telemetry exception spans matching the provided filters. Pass `includeFilters=true` as a query parameter or `includeFilters: true` in the JSON body to retrieve inline pagination and dynamic filter metadata.",
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
@@ -359,13 +383,37 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
     "end": "${new Date().toISOString()}"
   },
   "limit": 10,
-  "offset": 0
+  "offset": 0,
+  "selectedConfig": {
+    "models": ["gpt-4o", "claude-3-5-sonnet"],
+    "providers": ["openai", "anthropic"],
+    "serviceNames": ["web-app"],
+    "environments": ["production"]
+  },
+  "sorting": {
+    "type": "Timestamp",
+    "direction": "desc"
+  },
+  "includeFilters": true
 }`,
 		responseBody: `{
   "records": [],
-  "total": 0
+  "total": 0,
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "total": 0
+  },
+  "filters": {
+    "models": ["gpt-4o", "claude-3-5-sonnet"],
+    "providers": ["openai", "anthropic"],
+    "serviceNames": ["web-app"],
+    "environments": ["production"],
+    "maxCost": 0.05,
+    "totalRows": 12
+  }
 }`,
-		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/metrics/exception \\
+		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/telemetry/exception?includeFilters=true \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -380,7 +428,7 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 	{
 		id: "get-span-detail",
 		method: "GET",
-		path: "/api/metrics/request/span/{id}",
+		path: "/api/telemetry/trace/span/{id}",
 		summary: "Get span detail by ID",
 		description: "Retrieve details of a specific trace span by its ID (along with optional evaluation summary data).",
 		requestBody: ``,
@@ -388,13 +436,13 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   "err": null,
   "record": {}
 }`,
-		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/span/some-span-id \\
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/telemetry/trace/span/some-span-id \\
   -H "Authorization: Bearer ${apiKey}"`,
 	},
 	{
 		id: "get-trace-detail",
 		method: "GET",
-		path: "/api/metrics/request/trace/{id}",
+		path: "/api/telemetry/trace/trace/{id}",
 		summary: "Get trace detail by Trace ID",
 		description: "Retrieve details of a trace (such as its root span or transaction info) using the Trace ID.",
 		requestBody: ``,
@@ -402,13 +450,13 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   "err": null,
   "record": {}
 }`,
-		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/trace/some-trace-id \\
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/telemetry/trace/trace/some-trace-id \\
   -H "Authorization: Bearer ${apiKey}"`,
 	},
 	{
 		id: "get-span-hierarchy",
 		method: "GET",
-		path: "/api/metrics/request/span/{id}/heirarchy",
+		path: "/api/telemetry/trace/span/{id}/heirarchy",
 		summary: "Get trace span hierarchy tree",
 		description: "Retrieve the tree hierarchy representation of all related spans associated with a trace span.",
 		requestBody: ``,
@@ -416,7 +464,7 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   "err": null,
   "record": {}
 }`,
-		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/metrics/request/span/some-span-id/heirarchy \\
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/telemetry/trace/span/some-span-id/heirarchy \\
   -H "Authorization: Bearer ${apiKey}"`,
 	},
 ];

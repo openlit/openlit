@@ -209,7 +209,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
 			WHERE ${getFilterWhereCondition(params, true)}`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getRequests(params: MetricParams) {
