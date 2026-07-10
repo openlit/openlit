@@ -196,6 +196,17 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   }'`,
 	},
 	{
+		id: "rule-list",
+		method: "GET",
+		path: "/api/rule-engine/rules",
+		summary: "List rules",
+		description: "Retrieve a list of all defined rules in the rule engine.",
+		requestBody: ``,
+		responseBody: `[]`,
+		curlExample: (apiKey) => `curl -X GET http://localhost:3000/api/rule-engine/rules \\
+  -H "Authorization: Bearer ${apiKey}"`,
+	},
+	{
 		id: "controller-poll",
 		method: "POST",
 		path: "/api/controller/poll",
@@ -289,6 +300,17 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
   -d '{
     "name": "summarize-prompt"
   }'`,
+	},
+	{
+		id: "list-prompts",
+		method: "POST",
+		path: "/api/prompt/get",
+		summary: "List prompts",
+		description: "Retrieve a list of all prompt configurations saved in the Prompt Hub.",
+		requestBody: ``,
+		responseBody: `[]`,
+		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/prompt/get \\
+  -H "Authorization: Bearer ${apiKey}"`,
 	},
 	{
 		id: "upsert-secret",

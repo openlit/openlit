@@ -164,33 +164,102 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			return docs;
 		}
 
-		if (endpointId === "vault-create") {
+		if (endpointId === "get-log") {
 			return [
 				{
-					name: "key",
+					name: "id",
 					type: "string",
 					required: true,
-					description: "Secret name key stored in the vault.",
-					example: "OPENAI_API_KEY",
-				},
-				{
-					name: "value",
-					type: "string",
-					required: true,
-					description: "Unencrypted secret value that will be encrypted on write.",
-					example: "sk-proj-...",
-				},
-				{
-					name: "tags",
-					type: "string[]",
-					required: false,
-					description: "Tags associated with this vault secret.",
-					example: '["production"]',
+					description: "Path parameter. Unique hash/row identifier of the log record.",
+					example: "18446744073709551615",
 				},
 			];
 		}
 
-		if (endpointId === "prompt-create") {
+		if (endpointId === "get-compiled-prompt") {
+			return [
+				{
+					name: "name",
+					type: "string",
+					required: true,
+					description: "Query parameter. Prompt template identifier name.",
+					example: "summarize-prompt",
+				},
+			];
+		}
+
+		if (endpointId === "get-secrets") {
+			return [
+				{
+					name: "keys",
+					type: "string",
+					required: false,
+					description: "Query parameter. Comma-separated list of keys to fetch from the vault.",
+					example: "OPENAI_API_KEY,ANTHROPIC_API_KEY",
+				},
+			];
+		}
+
+		if (endpointId === "evaluate-rules") {
+			return [
+				{
+					name: "entity_type",
+					type: "string",
+					required: true,
+					description: "Type of rule engine entity to evaluate.",
+					allowedValues: ["prompt", "span"],
+					example: "prompt",
+				},
+				{
+					name: "fields",
+					type: "object",
+					required: true,
+					description: "Input fields to run redaction, guardrail, or format rules against.",
+					example: "{ \"input_text\": \"...\" }",
+				},
+			];
+		}
+
+		if (endpointId === "controller-poll") {
+			return [
+				{
+					name: "instance_id",
+					type: "string",
+					required: true,
+					description: "Unique identifier for the polling client agent instance.",
+					example: "client-instance-xyz-123",
+				},
+				{
+					name: "config_hash",
+					type: "string",
+					required: false,
+					description: "MD5 hash of the cached controller config on the client side.",
+					example: "88863aa992efcc3c48bc625d97f26c51",
+				},
+			];
+		}
+
+		if (endpointId === "evaluation-offline") {
+			return [
+				{
+					name: "evalType",
+					type: "string",
+					required: true,
+					description: "Off-line LLM evaluation scorer type.",
+					allowedValues: ["toxicity", "bias", "sentiment", "pii"],
+					example: "toxicity",
+				},
+				{
+					name: "inputText",
+					type: "string",
+					required: true,
+					description: "Text input string to run the offline evaluation against.",
+					example: "Evaluation string goes here...",
+				},
+			];
+		}
+
+		if (endpointId === "create-prompt") {
 			return [
 				{
 					name: "name",
@@ -203,8 +272,8 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					name: "prompt",
 					type: "string",
 					required: true,
-					description: "Prompt body text with support for variable placeholders.",
-					example: "Answer the query: {{query}} using the context: {{context}}",
+					description: "Prompt template string with support for variable placeholders.",
+					example: "Answer the query: {{query}} using context: {{context}}",
 				},
 				{
 					name: "version",
@@ -212,6 +281,81 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					required: false,
 					description: "Optional semantic version for this prompt release.",
 					example: "1.0.0",
+				},
+				{
+					name: "status",
+					type: "string",
+					required: false,
+					description: "Release status of the prompt.",
+					allowedValues: ["active", "draft", "retired"],
+					example: "active",
+				},
+				{
+					name: "tags",
+					type: "string[]",
+					required: false,
+					description: "Labels to categorize the prompt.",
+					example: '["production", "rag"]',
+				},
+				{
+					name: "metaProperties",
+					type: "object",
+					required: false,
+					description: "Arbitrary key-value metadata properties dict.",
+				},
+			];
+		}
+
+		if (endpointId === "get-prompt") {
+			return [
+				{
+					name: "name",
+					type: "string",
+					required: true,
+					description: "Prompt identifier name to retrieve detail configurations for.",
+					example: "summarize-prompt",
+				},
+			];
+		}
+
+		if (endpointId === "upsert-secret") {
+			return [
+				{
+					name: "key",
+					type: "string",
+					required: true,
+					description: "Secret key name stored in the vault.",
+					example: "OPENAI_API_KEY",
+				},
+				{
+					name: "value",
+					type: "string",
+					required: true,
+					description: "Unencrypted credentials value that will be encrypted on write.",
+					example: "sk-proj-...",
+				},
+				{
+					name: "tags",
+					type: "string[]",
+					required: false,
+					description: "Secret classification labels.",
+					example: '["production"]',
+				},
+			];
+		}
+
+		if (
+			endpointId === "get-span-detail" ||
+			endpointId === "get-trace-detail" ||
+			endpointId === "get-span-hierarchy"
+		) {
+			return [
+				{
+					name: "id",
+					type: "string",
+					required: true,
+					description: "Path parameter. Span ID, Trace ID, or Anchor Span ID to fetch.",
+					example: "557a2bd43ff129ad",
 				},
 			];
 		}
