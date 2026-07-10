@@ -231,7 +231,7 @@ export async function getRequests(params: MetricParams) {
 
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}
-		${params.sorting
+		${params.sorting && params.sorting.type && params.sorting.direction
 			? params.sorting.type.includes("cost")
 				? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
 				: params.sorting.type.includes("tokens")

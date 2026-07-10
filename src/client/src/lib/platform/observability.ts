@@ -225,7 +225,7 @@ export async function getLogs(params: MetricParams) {
 	const { data: countData, err: countErr } = await dataCollector({ query: countQuery }, "query", params.databaseConfigId);
 	if (countErr) return { err: countErr };
 
-	const orderBy = params.sorting?.type
+	const orderBy = params.sorting?.type && params.sorting?.direction
 		? `${params.sorting.type.replace(/[^A-Za-z0-9_.]/g, "")} ${params.sorting.direction}`
 		: "Timestamp desc";
 	const query = `
