@@ -17,7 +17,6 @@ export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
 export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
 export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
 export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
-export const AVAILABLE_ENDPOINTS = "Available Endpoints";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
 export const COPIED = "Copied";

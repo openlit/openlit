@@ -104,9 +104,6 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			<div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-stone-200 dark:divide-stone-800 min-h-[450px] h-full overflow-hidden">
 				{/* Sidebar list */}
 				<div className="w-full lg:w-80 shrink-0 bg-stone-50/50 dark:bg-stone-950/20 py-2 overflow-y-auto h-full">
-					<div className="px-3 py-1.5 text-xs font-semibold text-stone-400 dark:text-stone-505 uppercase tracking-wider">
-						{messages.AVAILABLE_ENDPOINTS}
-					</div>
 					<div className="space-y-2 px-2">
 						{groups.map((group) => {
 							const endpointsInGroup = API_REFERENCE_ENDPOINTS.filter(
