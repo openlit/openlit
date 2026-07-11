@@ -15,7 +15,11 @@ import {
 	getCurrentProjectForOrganisation,
 } from "./organisation";
 import { upsertSecret } from "./platform/vault";
-import { parseSignals, toDescriptor } from "./telemetry-source";
+import {
+	parseSignals,
+	toDescriptor,
+	resolveTelemetrySourceDescriptor,
+} from "./telemetry-source";
 import { ensureAdaptersRegistered } from "./platform/datasource/bootstrap";
 import {
 	createAdapter,
@@ -29,7 +33,9 @@ import type {
 	HealthCheckResult,
 	QueryTimeRange,
 	Signal,
+	SourceCapabilities,
 } from "./platform/datasource/types";
+import { UnsupportedCapabilityError } from "./platform/datasource/types";
 import {
 	TELEMETRY_SOURCE_NAME_REQUIRED,
 	TELEMETRY_SOURCE_TYPE_UNKNOWN,
@@ -41,6 +47,7 @@ import {
 	TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED,
 	TELEMETRY_SOURCE_INVALID_SIGNAL,
 	TELEMETRY_SOURCE_STACK_NO_MEMBERS,
+	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
 
 const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics"];
@@ -202,6 +209,53 @@ export function availableSourceTypeDescriptors() {
 	return listSourceTypeDescriptors();
 }
 
+/** Resolved per-signal capabilities for the active project's routed sources. */
+export interface ResolvedSignalCapability {
+	sourceType: string;
+	sourceName: string;
+	isBuiltIn: boolean;
+	capabilities: Omit<SourceCapabilities, "signals"> | null;
+}
+
+/**
+ * Resolve the concrete, per-signal capability profile for the current project's
+ * routed sources. The UI uses this to gate surfaces honestly (Grafana-style):
+ * e.g. hide the trace tree or aggregation ops a bound source cannot serve
+ * rather than erroring. Resolution mirrors query routing (binding -> default ->
+ * built-in) and never throws for a single signal — an unresolvable signal is
+ * reported as `null` capabilities.
+ */
+export async function resolveProjectSignalCapabilities(): Promise<
+	Record<Signal, ResolvedSignalCapability | null>
+> {
+	ensureAdaptersRegistered();
+	const out = {} as Record<Signal, ResolvedSignalCapability | null>;
+	for (const signal of ALL_SIGNALS) {
+		try {
+			const descriptor = await resolveTelemetrySourceDescriptor({ signal });
+			const adapter = createAdapter(descriptor);
+			const caps = adapter ? adapter.capabilities() : null;
+			out[signal] = {
+				sourceType: descriptor.type,
+				sourceName: descriptor.name,
+				isBuiltIn:
+					descriptor.isBuiltIn || descriptor.type === "clickhouse",
+				capabilities: caps
+					? (() => {
+							// Drop the per-instance `signals` list; the UI keys off
+							// the capability booleans only.
+							const { signals: _signals, ...rest } = caps;
+							return rest;
+						})()
+					: null,
+			};
+		} catch {
+			out[signal] = null;
+		}
+	}
+	return out;
+}
+
 /** Create a project-scoped telemetry source. */
 export async function createTelemetrySource(input: TelemetrySourceInput) {
 	const projectId = await requireCurrentProjectId();
@@ -344,10 +398,27 @@ export async function validateTelemetrySourceAISignal(
 			ok: false,
 			sampleCount: 0,
 			missingAttributes: [],
+			supported: false,
 			message: TELEMETRY_SOURCE_TYPE_UNKNOWN(row.type),
 		};
 	}
-	return adapter.validateAISignal(window);
+	try {
+		const result = await adapter.validateAISignal(window);
+		return { supported: true, ...result };
+	} catch (err) {
+		// Logs/metrics-only sources (Loki, Mimir, …) correctly refuse AI-span
+		// validation. Test-connection must still succeed on health alone.
+		if (err instanceof UnsupportedCapabilityError) {
+			return {
+				ok: true,
+				sampleCount: 0,
+				missingAttributes: [],
+				supported: false,
+				message: TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED(row.type),
+			};
+		}
+		throw err;
+	}
 }
 
 // ---- Per-signal bindings (Grafana-style per-signal routing) --------------
@@ -411,42 +482,22 @@ export async function deleteTelemetrySourceBinding(signalInput: unknown) {
 	return { signal };
 }
 
-// ---- Stack templates (demoted umbrellas -> "create N rows" convenience) ---
+// ---- Stack templates (descriptor-driven umbrellas -> "create N rows") ------
 
 /**
- * Convenience templates that expand a multi-backend "stack" into atomic
- * per-signal source rows plus bindings. This replaces the old umbrella
- * adapters (grafana/victoria) as the *creation* path: the umbrella types stay
- * internal-only and are never stored as a single row.
+ * List available stack templates for the UI. Derived from the internal
+ * umbrella descriptors (grafana/victoria) that declare a `stackTemplate`, so a
+ * new umbrella needs only a descriptor in `stacks.ts` — no edits here.
  */
-export const TELEMETRY_STACK_TEMPLATES: Record<
-	string,
-	{ displayName: string; slots: { key: string; type: string; signal: Signal }[] }
-> = {
-	grafana: {
-		displayName: "Grafana stack (Tempo + Loki + Mimir)",
-		slots: [
-			{ key: "tempo", type: "tempo", signal: "traces" },
-			{ key: "loki", type: "loki", signal: "logs" },
-			{ key: "mimir", type: "mimir", signal: "metrics" },
-		],
-	},
-	victoria: {
-		displayName: "Victoria stack (VictoriaLogs + VictoriaMetrics)",
-		slots: [
-			{ key: "logs", type: "victorialogs", signal: "logs" },
-			{ key: "metrics", type: "victoriametrics", signal: "metrics" },
-		],
-	},
-};
-
-/** List available stack templates for the UI. */
 export function listStackTemplates() {
-	return Object.entries(TELEMETRY_STACK_TEMPLATES).map(([key, tpl]) => ({
-		template: key,
-		displayName: tpl.displayName,
-		slots: tpl.slots,
-	}));
+	ensureAdaptersRegistered();
+	return listSourceTypeDescriptors({ includeInternal: true })
+		.filter((d) => d.internal && d.stackTemplate)
+		.map((d) => ({
+			template: d.type,
+			displayName: d.stackTemplate!.displayName,
+			slots: d.stackTemplate!.slots,
+		}));
 }
 
 export interface StackMemberInput {

@@ -75,11 +75,15 @@ describe("listMetricRecords", () => {
 		expect(listMetricSeries).toHaveBeenCalled();
 		expect(res.err).toBeNull();
 		expect(res.records).toHaveLength(1);
-		expect(res.records?.[0]).toMatchObject({
-			metricName: "m",
-			latestValue: 20,
-			avgValue: 15,
-		});
+		expect(res.records).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					metricName: "m",
+					latestValue: 20,
+					avgValue: 15,
+				}),
+			])
+		);
 		expect(mockGetMetrics).not.toHaveBeenCalled();
 	});
 });

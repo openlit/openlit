@@ -17,7 +17,10 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
-import { safeFetch } from "../http/safe-fetch";
+import { applyHttpAuthCredentials } from "../http/auth-headers";
+import { httpVendorFields } from "../config-fields";
+import getMessage from "@/constants/messages";
+import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 
@@ -29,8 +32,8 @@ export class LokiAdapter extends BaseExternalAdapter {
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
 	}
-	private get allowHttp(): boolean {
-		return this.descriptor.settings.allowHttp !== false;
+	private get networkOpts() {
+		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 	private get baseSelector(): string {
 		return (
@@ -44,19 +47,12 @@ export class LokiAdapter extends BaseExternalAdapter {
 			this.descriptor.secretRef,
 			this.descriptor.dbConfigId
 		);
-		const headers: Record<string, string> = {};
-		if (secret.credentials.token) {
-			headers.Authorization = `Bearer ${secret.credentials.token}`;
-		} else if (secret.credentials.username) {
-			const basic = Buffer.from(
-				`${secret.credentials.username}:${secret.credentials.password || ""}`
-			).toString("base64");
-			headers.Authorization = `Basic ${basic}`;
-		}
-		if (secret.credentials.tenant) {
-			headers["X-Scope-OrgID"] = secret.credentials.tenant;
-		}
-		return { headers, redact: redactableSecretValues(secret) };
+		return {
+			headers: applyHttpAuthCredentials(secret.credentials, {
+				tenantHeader: "X-Scope-OrgID",
+			}),
+			redact: redactableSecretValues(secret),
+		};
 	}
 
 	capabilities(): SourceCapabilities {
@@ -77,7 +73,7 @@ export class LokiAdapter extends BaseExternalAdapter {
 			const { headers, redact } = await this.authHeaders();
 			await safeFetch(`${this.baseUrl}/loki/api/v1/labels`, {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
 				timeoutMs: 8000,
 			});
@@ -98,7 +94,8 @@ export class LokiAdapter extends BaseExternalAdapter {
 		url.searchParams.set("query", expr);
 		url.searchParams.set("start", `${query.timeRange.start.getTime()}000000`);
 		url.searchParams.set("end", `${query.timeRange.end.getTime()}000000`);
-		url.searchParams.set("limit", String(Math.min(query.limit || 100, 5000)));
+		const effectiveLimit = Math.min(query.limit || 100, 5000);
+		url.searchParams.set("limit", String(effectiveLimit));
 		url.searchParams.set("direction", "backward");
 
 		const key = cacheKey(this.descriptor.id, ["logs", url.toString()]);
@@ -111,9 +108,12 @@ export class LokiAdapter extends BaseExternalAdapter {
 					}[];
 				};
 			}>(url.toString(), {
-				headers,
-				allowHttp: this.allowHttp,
+				headers: { ...headers, "X-Query-Tags": "source=openlit,type=logs" },
+				...this.networkOpts,
 				redactValues: redact,
+				concurrencyKey: this.descriptor.id,
+				retry: true,
+				timeoutMs: 20_000,
 			})
 		);
 
@@ -131,7 +131,15 @@ export class LokiAdapter extends BaseExternalAdapter {
 				});
 			}
 		}
-		return { fields: [], rows, meta: { latencyMs: Date.now() - start } };
+		return {
+			fields: [],
+			rows,
+			meta: {
+				latencyMs: Date.now() - start,
+				truncated: rows.length >= effectiveLimit,
+				freshness: "live",
+			},
+		};
 	}
 }
 
@@ -155,5 +163,11 @@ export const lokiAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "service"],
 		},
+		configFields: httpVendorFields({
+			placeholder: "https://logs-prod-xxx.grafana.net",
+			tenant: true,
+		}),
+		authStyle: "http",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	}),
 };

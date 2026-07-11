@@ -6,6 +6,7 @@ import {
 	availableSourceTypeDescriptors,
 	createTelemetrySource,
 	listTelemetrySources,
+	resolveProjectSignalCapabilities,
 } from "@/lib/telemetry-source-crud";
 import { TELEMETRY_SOURCE_INVALID_JSON } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
@@ -16,10 +17,12 @@ export async function GET() {
 
 	const [err, sources] = await asaw(listTelemetrySources());
 	if (err) return errorResponse(err, "Failed to list telemetry sources");
+	const [, signalCapabilities] = await asaw(resolveProjectSignalCapabilities());
 	return Response.json({
 		sources,
 		availableTypes: availableSourceTypes(),
 		availableTypeDescriptors: availableSourceTypeDescriptors(),
+		signalCapabilities: signalCapabilities ?? null,
 	});
 }
 

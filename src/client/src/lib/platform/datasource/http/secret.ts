@@ -34,6 +34,10 @@ export async function resolveSourceSecret(
 
 	let credentials: Record<string, string> = {};
 	if (raw) {
+		// decryptValue returns the ciphertext unchanged when decryption fails.
+		if (raw.startsWith("enc:v1:")) {
+			return { raw: "", credentials: {} };
+		}
 		try {
 			const parsed = JSON.parse(raw);
 			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {

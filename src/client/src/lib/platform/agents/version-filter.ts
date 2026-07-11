@@ -70,6 +70,52 @@ interface AttributeProbeParams {
 async function probeAttributeStamping(
 	params: AttributeProbeParams
 ): Promise<boolean> {
+	if (params.dbConfigId) {
+		try {
+			const { getTelemetryAdapterForDbConfig } = await import(
+				"@/lib/telemetry-source"
+			);
+			const resolved = await getTelemetryAdapterForDbConfig(
+				params.dbConfigId,
+				"traces"
+			);
+			if (!resolved.isBuiltIn) {
+				const first = new Date(params.firstSeen);
+				const last = new Date(params.lastSeen);
+				const frame = await resolved.adapter.listSpans({
+					signal: "traces",
+					timeRange: {
+						start: Number.isNaN(first.getTime())
+							? new Date(Date.now() - 24 * 60 * 60 * 1000)
+							: first,
+						end: Number.isNaN(last.getTime()) ? new Date() : last,
+					},
+					aiSelector: true,
+					limit: 1,
+					filters: [
+						{
+							target: "attribute",
+							scope: "resource",
+							key: "service.name",
+							op: "eq",
+							value: params.serviceName,
+						},
+						{
+							target: "attribute",
+							scope: "span",
+							key: "openlit.agent.version_hash",
+							op: "eq",
+							value: params.versionHash,
+						},
+					],
+				});
+				return frame.rows.length > 0;
+			}
+		} catch {
+			// Fall through to ClickHouse probe.
+		}
+	}
+
 	const first = toClickHouseDateTime(params.firstSeen);
 	const last = toClickHouseDateTime(params.lastSeen);
 	const env = params.environment || "default";

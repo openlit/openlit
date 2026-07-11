@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/openlit/openlit/openlit-controller/internal/config"
@@ -104,5 +106,63 @@ func TestBuildInstrumentConfigEmpty(t *testing.T) {
 		g.Qwen.Enabled || g.Bedrock.Enabled || g.Retrieval.Enabled ||
 		g.Custom.Enabled || g.Ollama.Enabled {
 		t.Fatalf("no providers should enable nothing: %+v", g)
+	}
+}
+
+// Export OTLP headers must ride on OBIConfig so OBIManager.Start can set
+// OTEL_EXPORTER_OTLP_HEADERS (Grafana Cloud / authenticated gateways).
+func TestBuildInstrumentConfigOTLPHeaders(t *testing.T) {
+	cfg := BuildInstrumentConfig(
+		ExportConfig{
+			OTLPEndpoint: "https://otlp-gateway.example/otlp",
+			OTLPHeaders: map[string]string{
+				"Authorization": "Basic abc123",
+			},
+		},
+		nil,
+		nil,
+		nil,
+		config.DeployLinux,
+		"default",
+	)
+	if cfg.OTLPHeaders["Authorization"] != "Basic abc123" {
+		t.Fatalf("OTLP headers not threaded into OBI config: %+v", cfg.OTLPHeaders)
+	}
+	if cfg.OTELTraces.Endpoint != "https://otlp-gateway.example/otlp" {
+		t.Fatalf("unexpected traces endpoint: %q", cfg.OTELTraces.Endpoint)
+	}
+}
+
+func TestFormatOTLPHeadersEncodesEquals(t *testing.T) {
+	got := formatOTLPHeaders(map[string]string{
+		"Authorization": "Basic dXNlcjpwYXNzPQ==",
+	})
+	if !strings.Contains(got, "Authorization=") {
+		t.Fatalf("missing key: %q", got)
+	}
+	// Space must be %20 (not '+'): Go OTel PathUnescape leaves '+' literal.
+	if strings.Contains(got, "Basic+") || !strings.Contains(got, "Basic%20") {
+		t.Fatalf("expected space percent-encoded as %%20, got %q", got)
+	}
+	// '=' in the value must be percent-encoded for the OTel env-var format.
+	if strings.Contains(got, "PQ==") {
+		t.Fatalf("expected '=' in value to be percent-encoded, got %q", got)
+	}
+	decoded, err := url.PathUnescape(strings.TrimPrefix(got, "Authorization="))
+	if err != nil {
+		t.Fatalf("PathUnescape: %v", err)
+	}
+	if decoded != "Basic dXNlcjpwYXNzPQ==" {
+		t.Fatalf("round-trip mismatch: %q", decoded)
+	}
+}
+
+func TestFormatOBIOTLPHeadersKeepsRawBasicAuth(t *testing.T) {
+	got := formatOBIOTLPHeaders(map[string]string{
+		"Authorization": "Basic dXNlcjpwYXNzPQ==",
+	})
+	// OBI does not percent-decode — raw "Basic …" must be preserved.
+	if got != "Authorization=Basic dXNlcjpwYXNzPQ==" {
+		t.Fatalf("expected raw Basic auth header, got %q", got)
 	}
 }

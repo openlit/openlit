@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getAverageRequestDuration } from "@/lib/platform/request";
+import { getTraceAverageDuration } from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -27,6 +27,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageRequestDuration(params);
+	const res: any = await getTraceAverageDuration(params);
 	return Response.json(res);
 }

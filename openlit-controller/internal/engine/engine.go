@@ -456,7 +456,7 @@ func (e *Engine) ControllerCapabilities() []string {
 }
 
 // UpdateExportConfig replaces the runtime export settings. If OBI-relevant
-// fields (endpoint, protocol) changed and OBI is running, it triggers a
+// fields (endpoint, protocol, headers) changed and OBI is running, it triggers a
 // rebuildOBI so the new config takes effect immediately.
 func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
 	e.mu.Lock()
@@ -464,7 +464,8 @@ func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
 
 	obiChanged := cfg.OTLPEndpoint != e.exportCfg.OTLPEndpoint ||
 		cfg.OTLPProtocol != e.exportCfg.OTLPProtocol ||
-		cfg.OTLPTracesEndpoint != e.exportCfg.OTLPTracesEndpoint
+		cfg.OTLPTracesEndpoint != e.exportCfg.OTLPTracesEndpoint ||
+		!stringMapEqual(cfg.OTLPHeaders, e.exportCfg.OTLPHeaders)
 
 	e.exportCfg = cfg
 	e.logger.Info("export config updated",
@@ -473,6 +474,7 @@ func (e *Engine) UpdateExportConfig(cfg ExportConfig) {
 		zap.String("otlp_traces_endpoint", cfg.OTLPTracesEndpoint),
 		zap.String("otlp_metrics_endpoint", cfg.OTLPMetricsEndpoint),
 		zap.String("otlp_logs_endpoint", cfg.OTLPLogsEndpoint),
+		zap.Int("otlp_header_count", len(cfg.OTLPHeaders)),
 	)
 
 	if obiChanged && e.obi.IsRunning() {
@@ -518,6 +520,18 @@ func stringSliceEqual(a, b []string) bool {
 	}
 	for i := range a {
 		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func stringMapEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
 			return false
 		}
 	}

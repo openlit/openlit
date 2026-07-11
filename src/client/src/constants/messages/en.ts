@@ -217,6 +217,9 @@ export const OBSERVABILITY_AUTO = "Auto";
 export const OBSERVABILITY_METRIC_POINTS = "Metric points";
 export const OBSERVABILITY_LOG_EVENTS = "Log events";
 export const OBSERVABILITY_SPANS = "Spans";
+export const OBSERVABILITY_FRESHNESS_LIVE = "Live";
+export const OBSERVABILITY_FRESHNESS_SAMPLED = "Sampled";
+export const OBSERVABILITY_FRESHNESS_ACCELERATED = "Accelerated";
 export const OBSERVABILITY_TOTAL = "Total";
 export const OBSERVABILITY_PEAK = "Peak";
 export const OBSERVABILITY_SPAN_HIERARCHY = "Span Hierarchy";
@@ -272,6 +275,11 @@ export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
 export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse (built-in)";
 export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
 	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
+export const WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT = (
+	name: string,
+	type: string
+) =>
+	`This widget stores ClickHouse SQL for compatibility. At query time it runs against your project traces source: ${name} (${type}).`;
 export const WIDGET_STRUCTURED_BUILDER_TITLE = "Structured Query";
 export const WIDGET_STRUCTURED_SIGNAL_LABEL = "Signal";
 export const WIDGET_STRUCTURED_MODE_LABEL = "Mode";
@@ -293,6 +301,18 @@ export const WIDGET_STRUCTURED_KEY_PLACEHOLDER = "attribute key";
 export const WIDGET_STRUCTURED_VALUE_PLACEHOLDER = "value";
 export const WIDGET_STRUCTURED_AGGREGATION_UNSUPPORTED =
 	"This source cannot aggregate server-side. Use list mode, or pick a source that supports aggregation.";
+export const WIDGET_STRUCTURED_FILTER_TARGET_LABEL = "Target";
+export const WIDGET_STRUCTURED_SORT_LABEL = "Sort";
+export const WIDGET_STRUCTURED_SORT_FIELD_PLACEHOLDER = "sort field";
+export const WIDGET_STRUCTURED_SORT_ASC = "Ascending";
+export const WIDGET_STRUCTURED_SORT_DESC = "Descending";
+export const WIDGET_STRUCTURED_PREVIOUS_PERIOD_LABEL =
+	"Compare with previous period";
+export const WIDGET_STRUCTURED_DURATION_PLACEHOLDER = "nanoseconds";
+export const WIDGET_STRUCTURED_STATUS_PLACEHOLDER =
+	"STATUS_CODE_OK, STATUS_CODE_ERROR";
+export const WIDGET_STRUCTURED_SPAN_NAME_PLACEHOLDER = "span name";
+export const WIDGET_STRUCTURED_VIEW_GENERATED_QUERY = "View generated query";
 export const BOARD_DELETE_FAILED = "Board delete failed!";
 export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
 export const FOLDER_DELETE_FAILED =
@@ -1764,8 +1784,12 @@ export const TELEMETRY_SOURCE_HEALTHCHECK_FAILED = (reason: string) =>
 	`Data source is unreachable: ${reason}`;
 export const TELEMETRY_SOURCE_NO_AI_SIGNAL =
 	"No AI telemetry was found in the probe window for this data source. Confirm your apps emit gen_ai.* / coding_agent.* attributes or the OpenLIT SDK.";
+export const TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED = (type: string) =>
+	`AI signal validation is not applicable for "${type}" (logs/metrics sources). Connection health is enough for this source.`;
 export const TELEMETRY_SOURCE_CHAT_NATIVE_ONLY = (source: string) =>
 	`Natural-language SQL chat runs only on the built-in ClickHouse source. This project reads telemetry from "${source}", so use the Telemetry, trace, and dashboard views instead.`;
+export const DATA_SOURCE_AUTH_401_HINT =
+	"Authentication failed. For Grafana Cloud, use Basic auth: Username = instance ID, Password = access policy token (leave Bearer blank).";
 export const TELEMETRY_SOURCE_NAME_REQUIRED =
 	"A telemetry source name is required.";
 export const TELEMETRY_SOURCE_TYPE_UNKNOWN = (type: string) =>
@@ -1792,6 +1816,8 @@ export const TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED = (
 ) => `The bound source "${source}" does not serve ${signal}.`;
 export const TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL = (signal: string) =>
 	`No telemetry source in this project serves ${signal}.`;
+export const TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE = (type: string) =>
+	`No adapter is registered for telemetry source type "${type}".`;
 export const TELEMETRY_SOURCE_STACK_TYPE_UNKNOWN = (type: string) =>
 	`Unknown telemetry stack template "${type}".`;
 export const TELEMETRY_SOURCE_STACK_NO_MEMBERS =
@@ -1832,14 +1858,24 @@ export const DATA_SOURCE_FIELD_REGION = "Region";
 export const DATA_SOURCE_FIELD_ACCOUNT_ID = "Account ID";
 export const DATA_SOURCE_FIELD_API_KEY = "API key";
 export const DATA_SOURCE_FIELD_APP_KEY = "Application key";
-export const DATA_SOURCE_FIELD_TOKEN = "Bearer token";
-export const DATA_SOURCE_FIELD_USERNAME = "Username (basic auth)";
-export const DATA_SOURCE_FIELD_PASSWORD = "Password (basic auth)";
+export const DATA_SOURCE_FIELD_TOKEN = "Bearer token (optional)";
+export const DATA_SOURCE_FIELD_USERNAME = "Username / Instance ID";
+export const DATA_SOURCE_FIELD_USERNAME_PLACEHOLDER = "e.g. Grafana Cloud instance ID";
+export const DATA_SOURCE_FIELD_PASSWORD = "Password / Access policy token";
+export const DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER = "Basic-auth password or Cloud access policy token";
 export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
+export const DATA_SOURCE_FIELD_TENANT_PLACEHOLDER = "X-Scope-OrgID or Victoria AccountID";
 export const DATA_SOURCE_CREDENTIALS_TITLE = "Credentials";
 export const DATA_SOURCE_CREDENTIALS_HELP =
 	"Stored encrypted in the OpenLIT vault and only decrypted server-side. Leave blank to keep existing credentials.";
+export const DATA_SOURCE_AUTH_HELP_HTTP =
+	"Grafana Cloud query APIs use Basic auth (Instance ID + access policy token). Self-hosted LGTM often needs no auth, or Basic/Bearer via your reverse proxy. Fill Basic fields for Cloud; use Bearer only when your backend expects it.";
+export const DATA_SOURCE_AUTH_HELP_DATADOG =
+	"Datadog requires an API key and Application key for Spans, Logs, and Metrics APIs.";
+export const DATA_SOURCE_AUTH_HELP_NEWRELIC =
+	"New Relic uses a user or ingest API key with NerdGraph / NRQL access for the account.";
 export const DATA_SOURCE_CREDENTIALS_SET = "Credentials are set.";
+export const DATA_SOURCE_DOCS_LINK = "View connection docs";
 export const DATA_SOURCE_TEST = "Test connection";
 export const DATA_SOURCE_TESTING = "Testing connection…";
 export const DATA_SOURCE_TEST_OK = "Data source is reachable.";

@@ -3,10 +3,12 @@
  * the atomic external vendor factories (Datadog, Tempo, Loki, Mimir/Prometheus,
  * New Relic, Jaeger, VictoriaLogs, VictoriaMetrics) exactly once.
  *
- * Multi-backend "stack" umbrellas (grafana/victoria) are intentionally not
- * registered — stack templates in `telemetry-source-crud` expand into atomic
- * per-signal sources instead. The neutral `getExternalDataSourceAdapters()`
- * hook remains available for additional private factories.
+ * Multi-backend "stack" umbrellas (grafana/victoria) register as internal,
+ * descriptor-only factories that carry a `stackTemplate` (see `stacks.ts`);
+ * they are never bound to a concrete adapter but drive the stack builder so a
+ * new umbrella needs only a descriptor. The neutral
+ * `getExternalDataSourceAdapters()` hook remains available for additional
+ * private factories.
  */
 
 import { registerAdapterFactory } from "./registry";
@@ -22,6 +24,7 @@ import { newrelicAdapterFactory } from "./newrelic/adapter";
 import { jaegerAdapterFactory } from "./jaeger/adapter";
 import { victoriaMetricsAdapterFactory } from "./victoria/metrics";
 import { victoriaLogsAdapterFactory } from "./victoria/logs";
+import { STACK_UMBRELLA_FACTORIES } from "./stacks";
 import { getExternalDataSourceAdapters } from "./enterprise";
 
 const VENDOR_FACTORIES = [
@@ -43,6 +46,9 @@ export function ensureAdaptersRegistered(): void {
 	registered = true;
 	registerAdapterFactory(clickHouseAdapterFactory);
 	for (const factory of VENDOR_FACTORIES) {
+		registerAdapterFactory(factory);
+	}
+	for (const factory of STACK_UMBRELLA_FACTORIES) {
 		registerAdapterFactory(factory);
 	}
 	for (const factory of getExternalDataSourceAdapters()) {

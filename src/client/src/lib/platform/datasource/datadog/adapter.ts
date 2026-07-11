@@ -26,6 +26,7 @@ import type {
 	SourceTypeDescriptor,
 } from "../types";
 import { safeFetch } from "../http/safe-fetch";
+import getMessage from "@/constants/messages";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { datadogAISelectorQuery } from "./selector";
@@ -348,6 +349,7 @@ export class DatadogAdapter extends BaseExternalAdapter {
 			sort: "-timestamp",
 			page: { limit: Math.min(query.limit || 100, 1000) },
 		};
+		const effectiveLimit = body.page.limit;
 		const key = cacheKey(this.descriptor.id, ["logs", body]);
 		const response = await cachedQuery(key, SPANS_CACHE_TTL_MS, () =>
 			safeFetch<{ data?: { attributes?: Record<string, unknown> }[] }>(
@@ -374,7 +376,15 @@ export class DatadogAdapter extends BaseExternalAdapter {
 				resourceAttributes: {},
 			};
 		});
-		return { fields: [], rows, meta: { latencyMs: Date.now() - start } };
+		return {
+			fields: [],
+			rows,
+			meta: {
+				latencyMs: Date.now() - start,
+				truncated: rows.length >= effectiveLimit,
+				freshness: "live",
+			},
+		};
 	}
 
 	async listMetricSeries(query: OpenLITQuery) {
@@ -489,5 +499,29 @@ export const datadogAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service"],
 		},
+		configFields: [
+			{
+				key: "site",
+				label: getMessage().DATA_SOURCE_FIELD_SITE,
+				kind: "text",
+				group: "settings",
+				placeholder: "datadoghq.com",
+				defaultValue: "datadoghq.com",
+			},
+			{
+				key: "apiKey",
+				label: getMessage().DATA_SOURCE_FIELD_API_KEY,
+				kind: "password",
+				group: "credentials",
+			},
+			{
+				key: "appKey",
+				label: getMessage().DATA_SOURCE_FIELD_APP_KEY,
+				kind: "password",
+				group: "credentials",
+			},
+		],
+		authStyle: "api-key",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_DATADOG,
 	}),
 };

@@ -3,8 +3,10 @@
  * (Prometheus, Loki, Tempo, Grafana, Jaeger, Victoria, Datadog, New Relic).
  *
  * Enforces rule F4: never treat URLs as strings, only allow http/https, reject
- * `javascript:`/`data:` and credentials-in-URL, and block requests that
- * resolve to internal / loopback / link-local ranges. DNS lookup and fetch are
+ * `javascript:`/`data:` and credentials-in-URL. By default, private / loopback
+ * / link-local ranges are blocked. Self-hosted OSS backends (Tempo/Loki/…)
+ * may opt in via `allowPrivateNetwork` so in-cluster RFC1918 endpoints work;
+ * cloud metadata endpoints stay blocked even then. DNS lookup and fetch are
  * injectable so this is unit-testable without real network access.
  */
 
@@ -24,12 +26,17 @@ export class SourceResponseError extends Error {
 	}
 }
 
-const BLOCKED_HOSTNAMES = new Set([
-	"localhost",
+/** Always blocked — cloud instance-metadata SSRF targets. */
+const METADATA_HOSTNAMES = new Set([
 	"metadata.google.internal",
 	"metadata.goog",
 	"169.254.169.254",
+	"metadata.azure.com",
+	"instance-data",
 ]);
+
+/** Loopback hostnames: blocked unless `allowPrivateNetwork` is set. */
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
 /** HTTP redirect status codes we follow manually (with per-hop re-validation). */
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -76,8 +83,28 @@ export class SsrfError extends Error {
 export interface AssertUrlOptions {
 	/** Permit plain http (self-hosted OSS backends). Default false (https only). */
 	allowHttp?: boolean;
+	/**
+	 * Permit RFC1918 / loopback / ULA targets for self-hosted observability
+	 * stacks living next to OpenLIT. Default false. Cloud metadata endpoints
+	 * (169.254.169.254, metadata.google.internal, …) stay blocked either way.
+	 */
+	allowPrivateNetwork?: boolean;
 	/** Injectable DNS resolver for tests. */
 	lookup?: LookupFn;
+}
+
+/**
+ * Network options for self-hosted OSS backends. Defaults `allowHttp` and
+ * `allowPrivateNetwork` to true unless the source settings explicitly disable
+ * them — matching how operators run Tempo/Loki/Victoria beside OpenLIT.
+ */
+export function selfHostedNetworkOptions(
+	settings: Record<string, unknown> = {}
+): Pick<AssertUrlOptions, "allowHttp" | "allowPrivateNetwork"> {
+	return {
+		allowHttp: settings.allowHttp !== false,
+		allowPrivateNetwork: settings.allowPrivateNetwork !== false,
+	};
 }
 
 const defaultLookup: LookupFn = async (hostname) => {
@@ -120,13 +147,22 @@ export async function assertPublicUrl(
 	}
 
 	const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-	if (BLOCKED_HOSTNAMES.has(hostname)) {
+	if (METADATA_HOSTNAMES.has(hostname)) {
+		throw new SsrfError(`Host "${hostname}" is not allowed`);
+	}
+	if (!options.allowPrivateNetwork && LOOPBACK_HOSTNAMES.has(hostname)) {
 		throw new SsrfError(`Host "${hostname}" is not allowed`);
 	}
 
+	const allowPrivate = !!options.allowPrivateNetwork;
+
 	// Literal IP host: validate directly.
 	if (net.isIP(hostname)) {
-		if (isPrivateAddress(hostname)) {
+		// Link-local / cloud metadata range stays blocked even with private allow.
+		if (isCloudMetadataAddress(hostname)) {
+			throw new SsrfError(`Host "${hostname}" is not allowed`);
+		}
+		if (!allowPrivate && isPrivateAddress(hostname)) {
 			throw new SsrfError(
 				"Refusing to connect to a private/loopback/link-local address"
 			);
@@ -146,7 +182,12 @@ export async function assertPublicUrl(
 		throw new SsrfError(`Host "${hostname}" did not resolve to any address`);
 	}
 	for (const { address } of addresses) {
-		if (isPrivateAddress(address)) {
+		if (isCloudMetadataAddress(address)) {
+			throw new SsrfError(
+				`Host "${hostname}" resolves to a cloud metadata address`
+			);
+		}
+		if (!allowPrivate && isPrivateAddress(address)) {
 			throw new SsrfError(
 				`Host "${hostname}" resolves to a private/loopback/link-local address`
 			);
@@ -154,6 +195,25 @@ export async function assertPublicUrl(
 	}
 
 	return url;
+}
+
+/** Cloud metadata / link-local IPs that must never be reachable via SSRF. */
+export function isCloudMetadataAddress(ip: string): boolean {
+	const version = net.isIP(ip);
+	if (version === 4) {
+		const p = ip.split(".").map(Number);
+		if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
+		// AWS/GCP/Azure link-local metadata
+		if (p[0] === 169 && p[1] === 254) return true;
+		return false;
+	}
+	if (version === 6) {
+		const lower = ip.toLowerCase().replace(/^\[|\]$/g, "");
+		const mapped = lower.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+		if (mapped) return isCloudMetadataAddress(mapped[1]);
+		return false;
+	}
+	return false;
 }
 
 export interface SafeFetchOptions extends AssertUrlOptions {
@@ -199,6 +259,7 @@ export async function safeFetch<T = unknown>(
 	const redactValues = options.redactValues || [];
 	const url = await assertPublicUrl(rawUrl, {
 		allowHttp: options.allowHttp,
+		allowPrivateNetwork: options.allowPrivateNetwork,
 		lookup: options.lookup,
 	});
 	const fetchImpl = options.fetchImpl || fetch;
@@ -257,6 +318,7 @@ export async function safeFetch<T = unknown>(
 				// Re-validate the redirect target; throws SsrfError if internal.
 				currentUrl = await assertPublicUrl(next.toString(), {
 					allowHttp: options.allowHttp,
+					allowPrivateNetwork: options.allowPrivateNetwork,
 					lookup: options.lookup,
 				});
 				continue;

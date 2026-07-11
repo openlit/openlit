@@ -1,9 +1,29 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import {
+	createContext,
+	useContext,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useRootStore } from "@/store";
 import { getUpdateFilter, getFilterDetails } from "@/selectors/filter";
 import type { VersionFilter } from "@/types/store/filter";
+import { Loader2 } from "lucide-react";
+
+/**
+ * True for any subtree rendered inside an agent-detail scope lock. The shared
+ * observability surfaces (Telemetry list/summary) read this to tell an
+ * intentional per-agent `serviceNames` scope apart from a stale lock leaking
+ * into the global page, and strip the latter before querying.
+ */
+const AgentScopeContext = createContext(false);
+
+export function useIsAgentScoped(): boolean {
+	return useContext(AgentScopeContext);
+}
 
 interface AgentScopeProviderProps {
 	serviceName: string;
@@ -54,6 +74,10 @@ function versionFilterEqual(
  * (e.g. the user switches time range, which the store resets
  * `selectedConfig` for). Restores the previous scope on unmount so
  * navigating away doesn't leak the lock.
+ *
+ * Children are gated behind `scopeReady` so widget effects cannot fire an
+ * unscoped request before the lock is applied (React runs child effects
+ * before parent effects).
  */
 export default function AgentScopeProvider({
 	serviceName,
@@ -64,6 +88,7 @@ export default function AgentScopeProvider({
 	const updateFilter = useRootStore(getUpdateFilter);
 	const filterDetails = useRootStore(getFilterDetails);
 	const previousScopeRef = useRef<PreviousScope | null>(null);
+	const [lockApplied, setLockApplied] = useState(false);
 
 	const currentServiceNames =
 		filterDetails.selectedConfig?.serviceNames;
@@ -74,13 +99,27 @@ export default function AgentScopeProvider({
 	const currentVersionFilter =
 		filterDetails.selectedConfig?.versionFilter;
 
-	useEffect(() => {
+	// Capture-on-mount / restore-on-unmount. This MUST be a layout effect: its
+	// cleanup runs synchronously during the unmount commit, before the next
+	// route's passive effects fire. A plain `useEffect` cleanup is a passive
+	// effect that can run *after* the destination page (e.g. Telemetry) has
+	// already issued its first request, leaking the `serviceNames` lock into a
+	// global query and collapsing the list to this one agent's service.
+	useLayoutEffect(() => {
 		if (previousScopeRef.current === null) {
+			// COPY the arrays — never hold the live store reference. The store's
+			// `updateFilter` merges via lodash `merge`, which mutates arrays in
+			// place; since an empty array is truthy, `serviceNames || []` would
+			// otherwise capture the store's own array and the subsequent lock
+			// apply would mutate this "previous" snapshot into the agent's
+			// service. Restore would then write the agent scope back instead of
+			// clearing it — a leak that compounds on every agent visit.
 			previousScopeRef.current = {
-				serviceNames: filterDetails.selectedConfig?.serviceNames || [],
-				applicationNames:
-					filterDetails.selectedConfig?.applicationNames || [],
-				environments: filterDetails.selectedConfig?.environments || [],
+				serviceNames: [...(filterDetails.selectedConfig?.serviceNames || [])],
+				applicationNames: [
+					...(filterDetails.selectedConfig?.applicationNames || []),
+				],
+				environments: [...(filterDetails.selectedConfig?.environments || [])],
 				versionFilter: filterDetails.selectedConfig?.versionFilter,
 			};
 		}
@@ -103,7 +142,8 @@ export default function AgentScopeProvider({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	useEffect(() => {
+	// Apply the lock synchronously before child paint/effects.
+	useLayoutEffect(() => {
 		const target = [serviceName];
 		if (!arraysEqual(currentServiceNames, target)) {
 			updateFilter("selectedConfig.serviceNames", target);
@@ -123,6 +163,7 @@ export default function AgentScopeProvider({
 				versionFilter || undefined
 			);
 		}
+		setLockApplied(true);
 	}, [
 		serviceName,
 		environment,
@@ -134,5 +175,36 @@ export default function AgentScopeProvider({
 		updateFilter,
 	]);
 
-	return <>{children}</>;
+	const scopeReady = useMemo(() => {
+		if (!lockApplied) return false;
+		if (!arraysEqual(currentServiceNames, [serviceName])) return false;
+		if (environment && !arraysEqual(currentEnvironments, [environment])) {
+			return false;
+		}
+		if (!versionFilterEqual(currentVersionFilter, versionFilter)) return false;
+		return true;
+	}, [
+		lockApplied,
+		currentServiceNames,
+		currentEnvironments,
+		currentVersionFilter,
+		serviceName,
+		environment,
+		versionFilter,
+	]);
+
+	if (!scopeReady) {
+		return (
+			<div className="flex items-center justify-center py-12 text-sm text-stone-500 dark:text-stone-400 gap-2">
+				<Loader2 className="w-4 h-4 animate-spin" />
+				Loading agent scope…
+			</div>
+		);
+	}
+
+	return (
+		<AgentScopeContext.Provider value={true}>
+			{children}
+		</AgentScopeContext.Provider>
+	);
 }

@@ -323,9 +323,9 @@ export async function resolveTelemetrySourceDescriptor(
 
 /**
  * Resolve and bind a concrete telemetry adapter for the current request.
- * Always returns a usable adapter: if a project is configured with an external
- * source whose adapter is not registered in this build (e.g. an enterprise
- * source type running on CE), it falls back to the built-in ClickHouse source.
+ * Always returns a usable adapter for the built-in ClickHouse path. For an
+ * explicitly configured external source, fails closed when no factory is
+ * registered — never silently reads the wrong store.
  */
 export async function getTelemetryAdapter(
 	options: ResolveTelemetrySourceOptions = {}
@@ -334,6 +334,13 @@ export async function getTelemetryAdapter(
 	const descriptor = await resolveTelemetrySourceDescriptor(options);
 	const adapter = createAdapter(descriptor);
 	if (adapter) return adapter;
+
+	if (!descriptor.isBuiltIn && descriptor.type !== "clickhouse") {
+		const { TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE } = await import(
+			"@/constants/messages/en"
+		);
+		throw new Error(TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE(descriptor.type));
+	}
 
 	consoleLog(
 		`getTelemetryAdapter: no adapter registered for source type "${descriptor.type}"; falling back to built-in ClickHouse`
@@ -346,6 +353,60 @@ export async function getTelemetryAdapter(
 		);
 	}
 	return fallback;
+}
+
+/**
+ * Resolve the traces adapter for a DatabaseConfig (cron / materializer path).
+ * Uses the config's project bindings rather than the interactive session.
+ */
+export async function getTelemetryAdapterForDbConfig(
+	dbConfigId: string,
+	signal: Signal = "traces"
+): Promise<{
+	adapter: DataSourceAdapter;
+	descriptor: TelemetrySourceDescriptor;
+	isBuiltIn: boolean;
+}> {
+	ensureAdaptersRegistered();
+	const dbConfig = await getDBConfigById({ id: dbConfigId });
+	const projectId = dbConfig?.projectId ?? null;
+	const resolution = await resolveSignalSource(signal, {
+		projectId,
+		dbConfigId,
+	});
+	const adapter = createAdapter(resolution.descriptor);
+	if (!adapter) {
+		if (
+			!resolution.descriptor.isBuiltIn &&
+			resolution.descriptor.type !== "clickhouse"
+		) {
+			const { TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE } = await import(
+				"@/constants/messages/en"
+			);
+			throw new Error(
+				TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE(resolution.descriptor.type)
+			);
+		}
+		const builtin = await resolveBuiltInDescriptor(dbConfigId);
+		const fallback = createAdapter(builtin);
+		if (!fallback) {
+			throw new Error(
+				"No telemetry adapter available (built-in ClickHouse factory missing)."
+			);
+		}
+		return {
+			adapter: fallback,
+			descriptor: builtin,
+			isBuiltIn: true,
+		};
+	}
+	return {
+		adapter,
+		descriptor: resolution.descriptor,
+		isBuiltIn:
+			resolution.descriptor.isBuiltIn ||
+			resolution.descriptor.type === "clickhouse",
+	};
 }
 
 /**

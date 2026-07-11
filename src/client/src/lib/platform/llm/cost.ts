@@ -4,8 +4,17 @@ import {
 } from "@/helpers/server/platform";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
+import {
+	externalAverageCost,
+	externalCostByApplication,
+	externalCostByEnvironment,
+	externalTotalCost,
+} from "./external";
 
 export async function getTotalCost(params: MetricParams) {
+	const external = await externalTotalCost(params);
+	if (external) return external;
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
 	const currentWhereParams = { ...params, notEmpty: [{ key: keyPath }] };
 	const previousWhereParams = getFilterPreviousParams(currentWhereParams);
@@ -38,6 +47,9 @@ export async function getTotalCost(params: MetricParams) {
 }
 
 export async function getAverageCost(params: MetricParams) {
+	const external = await externalAverageCost(params);
+	if (external) return external;
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
 
 	const currentWhereParams = { ...params, notEmpty: [{ key: keyPath }] };
@@ -71,6 +83,17 @@ export async function getAverageCost(params: MetricParams) {
 }
 
 export async function getCostByApplication(params: MetricParams) {
+	const external = await externalCostByApplication(params);
+	if (external) {
+		return {
+			err: external.err,
+			data: (external.data || []).map((row: any) => ({
+				applicationName: row.application,
+				cost: row.total_cost,
+			})),
+		};
+	}
+
 	const keyPathApplicationName = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"applicationName"
 	)}']`;
@@ -90,8 +113,9 @@ export async function getCostByApplication(params: MetricParams) {
 }
 
 export async function getCostByEnvironment(params: MetricParams) {
-	// See `helpers/server/platform.ts` — environment lives at
-	// `ResourceAttributes['deployment.environment']` (OTel standard).
+	const external = await externalCostByEnvironment(params);
+	if (external) return external;
+
 	const keyPathEnvironment = `ResourceAttributes['deployment.environment']`;
 	const keyPathCost = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
 	const query = `SELECT 

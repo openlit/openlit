@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
 		filter?: unknown;
 		sourceId?: string | null;
 		signal?: string;
+		structuredQuery?: unknown;
 	};
 	try {
 		body = await request.json();
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
-	const { widgetId, userQuery, filter, sourceId, signal } = body;
+	const { widgetId, userQuery, filter, sourceId, signal, structuredQuery } = body;
 	if (!widgetId || typeof widgetId !== "string") {
 		return Response.json(
 			{ err: messages.WIDGET_FETCH_FAILED },
@@ -40,6 +41,9 @@ export async function POST(request: NextRequest) {
 		filter: filter as Parameters<typeof runWidgetQuery>[1]["filter"],
 		sourceId,
 		signal: signal as Parameters<typeof runWidgetQuery>[1]["signal"],
+		structuredQuery: structuredQuery as Parameters<
+			typeof runWidgetQuery
+		>[1]["structuredQuery"],
 	});
 	PostHogServer.fireEvent({
 		event: res.err

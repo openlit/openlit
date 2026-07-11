@@ -158,6 +158,14 @@ export interface OpenLITQuery {
 	 * Adapters map this to their native bucketing.
 	 */
 	interval?: string;
+	/**
+	 * Target maximum number of data points for a series (Grafana `maxDataPoints`,
+	 * typically the panel pixel width). Adapters compute a step of
+	 * `max((end-start)/maxDataPoints, minInterval)` so a wide time range never
+	 * returns more points than the surface can render. When unset, adapters use a
+	 * sensible default.
+	 */
+	maxDataPoints?: number;
 }
 
 /** A normalized columnar result. */
@@ -183,6 +191,11 @@ export interface DataFrameMeta {
 	latencyMs?: number;
 	/** Number of rows scanned/returned by the vendor where reported. */
 	rowsScanned?: number;
+	/**
+	 * How the result was produced for UI freshness badges:
+	 * live (vendor native), sampled (L1), accelerated (L2 rollup/cache).
+	 */
+	freshness?: "live" | "sampled" | "accelerated";
 }
 
 /**
@@ -230,6 +243,40 @@ export interface SourceCorrelation {
 	keys: CorrelationKey[];
 }
 
+/** Grouping for a source config field: connection settings vs secrets. */
+export type FieldGroup = "settings" | "credentials";
+
+/**
+ * A single self-describing config field for a source type's add/edit form.
+ * Adapters declare their own fields in `describe()` so the shared form needs
+ * no per-vendor knowledge (Grafana-style plugin config schema).
+ */
+export interface FieldDef {
+	key: string;
+	label: string;
+	kind: "text" | "password" | "url" | "switch" | "select";
+	group: FieldGroup;
+	placeholder?: string;
+	options?: { value: string; label: string }[];
+	defaultValue?: string | boolean;
+}
+
+/**
+ * How a source type authenticates. Used only for presentation hints (e.g. the
+ * HTTP 401 troubleshooting nudge); the actual auth wiring lives in the adapter.
+ */
+export type AuthStyle = "none" | "http" | "api-key" | "custom";
+
+/**
+ * A multi-signal "stack" template that expands into atomic per-signal sources.
+ * Declared on an internal umbrella descriptor (e.g. grafana, victoria) so a new
+ * stack needs no CRUD edits — just a descriptor.
+ */
+export interface StackTemplate {
+	displayName: string;
+	slots: { key: string; type: string; signal: Signal }[];
+}
+
 /**
  * Static, type-level description of a source type (Grafana-style plugin
  * descriptor). Unlike `SourceCapabilities`, which is resolved per configured
@@ -254,6 +301,23 @@ export interface SourceTypeDescriptor {
 	 * only as convenience templates that expand into atomic per-signal rows.
 	 */
 	internal?: boolean;
+	/**
+	 * Self-describing config schema for the add/edit form. The single source of
+	 * truth for what a source of this type needs — the shared form renders these
+	 * directly, so a new type needs zero UI edits.
+	 */
+	configFields: FieldDef[];
+	/** How this type authenticates (presentation hints only). */
+	authStyle?: AuthStyle;
+	/** Optional resolved help text shown under the credentials section. */
+	authHelp?: string;
+	/** Optional documentation URL for connecting this source type. */
+	docsUrl?: string;
+	/**
+	 * For internal umbrella types only: the stack expansion template. Lets a new
+	 * multi-signal umbrella be added with just a descriptor (no CRUD edits).
+	 */
+	stackTemplate?: StackTemplate;
 }
 
 /** Result of a health check against a configured source. */
@@ -271,6 +335,11 @@ export interface AISignalValidation {
 	/** Missing-but-recommended attributes found absent during the probe. */
 	missingAttributes: string[];
 	message?: string;
+	/**
+	 * False when the source type cannot validate AI spans (e.g. Loki/Mimir).
+	 * Connectivity can still be confirmed via healthCheck alone.
+	 */
+	supported?: boolean;
 }
 
 /** A discovered service/workload row used by agent materialization. */

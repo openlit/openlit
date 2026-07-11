@@ -29,7 +29,17 @@ jest.mock('@/utils/sanitizer', () => ({
   __esModule: true,
   default: {
     sanitizeValue: jest.fn((v: string) => v),
-    sanitizeObject: jest.fn((o: object) => o),
+    // Mimic sqlString.escape corrupting JSON quotes — upsertSecret must
+    // preserve the raw value before this runs.
+    sanitizeObject: jest.fn((o: object) => {
+      const out: Record<string, unknown> = { ...o };
+      for (const [k, v] of Object.entries(out)) {
+        if (typeof v === 'string' && v.includes('"')) {
+          out[k] = v.replace(/"/g, '\\"');
+        }
+      }
+      return out;
+    }),
   },
 }));
 jest.mock('@/helpers/server/vault', () => ({
@@ -55,6 +65,8 @@ import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecret
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getAPIKeyInfo } from '@/lib/platform/api-keys';
+import { encryptValue } from '@/utils/crypto';
+import { verifySecretInput, normalizeSecretDataForSDK } from '@/helpers/server/vault';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -191,8 +203,6 @@ describe('getSecretById', () => {
   });
 });
 
-import { verifySecretInput, normalizeSecretDataForSDK } from '@/helpers/server/vault';
-
 describe('upsertSecret', () => {
   describe('INSERT path (no id provided)', () => {
     it('inserts a new secret and returns success message', async () => {
@@ -217,6 +227,21 @@ describe('upsertSecret', () => {
         id: insertParams.values[0].id,
         message: 'Secret saved!',
       });
+    });
+
+    it('preserves JSON credential payloads that SQL sanitization would corrupt', async () => {
+      (dataCollector as jest.Mock)
+        .mockResolvedValueOnce({ data: [], err: null })
+        .mockResolvedValueOnce({ err: null });
+      const json = JSON.stringify({
+        username: '1628208',
+        password: 'glc_token',
+      });
+      await upsertSecret({ key: 'telemetry-source/tempo/x', value: json });
+      expect(encryptValue).toHaveBeenCalledWith(json);
+      const [insertParams] = (dataCollector as jest.Mock).mock.calls[1];
+      expect(insertParams.values[0].value).toBe(`enc:v1:${json}`);
+      expect(insertParams.values[0].value).not.toContain('\\"');
     });
 
     it('throws UNAUTHORIZED_USER when no user', async () => {

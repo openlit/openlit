@@ -18,7 +18,16 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
-import { safeFetch } from "../http/safe-fetch";
+import { applyHttpAuthCredentials } from "../http/auth-headers";
+import { httpVendorFields } from "../config-fields";
+import {
+	computeIntervalMs,
+	clampStepMs,
+	intervalMsToSeconds,
+	alignRangeToStep,
+} from "../downsample";
+import getMessage from "@/constants/messages";
+import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 
@@ -35,8 +44,8 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
 	}
-	private get allowHttp(): boolean {
-		return this.descriptor.settings.allowHttp !== false;
+	private get networkOpts() {
+		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 
 	private async authHeaders() {
@@ -44,19 +53,12 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 			this.descriptor.secretRef,
 			this.descriptor.dbConfigId
 		);
-		const headers: Record<string, string> = {};
-		if (secret.credentials.token) {
-			headers.Authorization = `Bearer ${secret.credentials.token}`;
-		} else if (secret.credentials.username) {
-			const basic = Buffer.from(
-				`${secret.credentials.username}:${secret.credentials.password || ""}`
-			).toString("base64");
-			headers.Authorization = `Basic ${basic}`;
-		}
-		if (secret.credentials.tenant) {
-			headers["X-Scope-OrgID"] = secret.credentials.tenant;
-		}
-		return { headers, redact: redactableSecretValues(secret) };
+		return {
+			headers: applyHttpAuthCredentials(secret.credentials, {
+				tenantHeader: "X-Scope-OrgID",
+			}),
+			redact: redactableSecretValues(secret),
+		};
 	}
 
 	capabilities(): SourceCapabilities {
@@ -77,7 +79,7 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 			const { headers, redact } = await this.authHeaders();
 			await safeFetch(`${this.baseUrl}/api/v1/query?query=1`, {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
 				timeoutMs: 8000,
 			});
@@ -100,17 +102,15 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 	): Promise<DataFrame<NormalizedMetricPoint>> {
 		const start = Date.now();
 		const { headers, redact } = await this.authHeaders();
+		const stepSeconds = stepSecondsForQuery(query);
+		// Align the range to the step so identical windows within a poll cycle
+		// hash to the same cache key (Grafana rounds range to interval).
+		const aligned = alignRangeToStep(query.timeRange, stepSeconds * 1000);
 		const url = new URL(`${this.baseUrl}/api/v1/query_range`);
 		url.searchParams.set("query", this.promExpr(query));
-		url.searchParams.set(
-			"start",
-			String(Math.floor(query.timeRange.start.getTime() / 1000))
-		);
-		url.searchParams.set(
-			"end",
-			String(Math.floor(query.timeRange.end.getTime() / 1000))
-		);
-		url.searchParams.set("step", stepForInterval(query.interval));
+		url.searchParams.set("start", String(Math.floor(aligned.start.getTime() / 1000)));
+		url.searchParams.set("end", String(Math.floor(aligned.end.getTime() / 1000)));
+		url.searchParams.set("step", String(stepSeconds));
 		const key = cacheKey(this.descriptor.id, ["range", url.toString()]);
 		const response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{
@@ -122,7 +122,7 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 				};
 			}>(url.toString(), {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
 			})
 		);
@@ -160,20 +160,23 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 		url.searchParams.set("end", String(Math.floor(window.end.getTime() / 1000)));
 		const response = await safeFetch<{ data?: string[] }>(url.toString(), {
 			headers,
-			allowHttp: this.allowHttp,
+			...this.networkOpts,
 			redactValues: redact,
 		});
 		return response?.data || [];
 	}
 }
 
-function stepForInterval(interval?: string): string {
-	if (!interval) return "60";
-	const m = interval.match(/^(\d+)([smhd])$/);
-	if (!m) return "60";
-	const n = Number(m[1]);
-	const unit = { s: 1, m: 60, h: 3600, d: 86400 }[m[2]] || 60;
-	return String(n * unit);
+/**
+ * Pixel-bounded PromQL `step` in seconds. Derives the resolution from the range
+ * and `maxDataPoints` (Grafana math) or an explicit interval, then clamps the
+ * point count so a wide range never returns an unbounded series.
+ */
+function stepSecondsForQuery(query: OpenLITQuery): number {
+	const rangeMs =
+		query.timeRange.end.getTime() - query.timeRange.start.getTime();
+	const stepMs = clampStepMs(rangeMs, computeIntervalMs(query));
+	return intervalMsToSeconds(stepMs);
 }
 
 function promStyleDescriptor(
@@ -197,6 +200,12 @@ function promStyleDescriptor(
 			crossSignal: false,
 			keys: ["service"],
 		},
+		configFields: httpVendorFields({
+			placeholder: "https://prometheus-prod-xxx.grafana.net/api/prom",
+			tenant: true,
+		}),
+		authStyle: "http",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	};
 }
 

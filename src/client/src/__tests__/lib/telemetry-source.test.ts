@@ -44,6 +44,7 @@ jest.mock("@/utils/log", () => ({
 
 import {
 	builtInDescriptor,
+	getTelemetryAdapter,
 	isNativeSqlChatAvailable,
 	parseSettings,
 	parseSignals,
@@ -377,21 +378,30 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 	});
 });
 
-describe("sourceSupportsNativeSql", () => {
-	it("is true only for the built-in ClickHouse source", () => {
-		expect(sourceSupportsNativeSql(builtInDescriptor(dbConfig))).toBe(true);
-		expect(
-			sourceSupportsNativeSql({
-				type: "datadog",
-				id: "src-1",
-				isBuiltIn: false,
-				settings: {},
-				signals: ["traces"],
-				name: "DD",
-			})
-		).toBe(false);
+describe("getTelemetryAdapter fail-closed", () => {
+	it("throws when an external source type has no registered adapter", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue({
+			id: "src-unknown",
+			projectId: "proj-1",
+			name: "Unknown Vendor",
+			type: "not-a-real-adapter-type",
+			signals: "traces",
+			settings: "{}",
+			secretRef: null,
+			isDefault: true,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			createdByUserId: null,
+		});
+
+		await expect(getTelemetryAdapter()).rejects.toThrow(
+			/No adapter is registered/
+		);
 	});
 });
+
 
 describe("isNativeSqlChatAvailable", () => {
 	it("is available on the built-in ClickHouse source", async () => {

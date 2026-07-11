@@ -27,10 +27,17 @@ export async function GET(
 		const versionFilter = versionHash
 			? await getVersionWindow(agentKey, versionHash)
 			: null;
+		const startParam = url.searchParams.get("start");
+		const endParam = url.searchParams.get("end");
+		const timeRange =
+			startParam && endParam
+				? { start: new Date(startParam), end: new Date(endParam) }
+				: undefined;
 		const graph = await getAggregateGraph({
 			serviceName: agent.service_name,
 			environment: agent.environment,
 			versionFilter,
+			timeRange,
 		});
 		return { agent, graph, versionFilter };
 	});

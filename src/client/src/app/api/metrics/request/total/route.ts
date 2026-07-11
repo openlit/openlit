@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getTotalRequests } from "@/lib/platform/request";
+import { getTraceTotalRequests } from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -27,6 +27,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getTotalRequests(params);
+	const res: any = await getTraceTotalRequests(params);
 	return Response.json(res);
 }

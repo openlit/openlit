@@ -18,6 +18,15 @@ jest.mock("@/lib/platform/request", () => ({
 	getRequestsConfig: (...a: unknown[]) => mockGetRequestsConfig(...a),
 	getGroupedRequests: (...a: unknown[]) => mockGetGroupedRequests(...a),
 	getAttributeKeys: (...a: unknown[]) => mockGetAttributeKeys(...a),
+	getTotalRequests: jest.fn(),
+	getRequestPerTime: jest.fn(),
+	getAverageRequestDuration: jest.fn(),
+	getRequestExist: jest.fn(),
+}));
+
+jest.mock("@/helpers/server/platform", () => ({
+	getFilterPreviousParams: (p: unknown) => p,
+	dateTruncGroupingLogic: () => "hour",
 }));
 
 jest.mock("@/lib/platform/observability", () => ({
@@ -36,10 +45,31 @@ jest.mock("@/helpers/server/trace", () => ({
 		rows.length ? { SpanId: (rows[0] as { SpanId: string }).SpanId, children: [] } : null,
 }));
 
+jest.mock("@/lib/platform/datasource/http/cache", () => ({
+	cacheKey: (...parts: unknown[]) => parts.join(":"),
+	cachedQuery: (_key: string, _ttl: number, loader: () => unknown) => loader(),
+	__clearCache: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/telemetry/rollups", () => ({
+	readSignalBucketRollup: jest.fn().mockResolvedValue(null),
+	readLlmRollup: jest.fn().mockResolvedValue(null),
+	readSpanHotCache: jest.fn().mockResolvedValue(null),
+	materializeTelemetryRollups: jest.fn(),
+	SIGNAL_BUCKETS_TABLE: "openlit_signal_buckets",
+	LLM_ROLLUPS_TABLE: "openlit_llm_rollups",
+	SPAN_HOT_CACHE_TABLE: "openlit_external_span_cache",
+	ROLLUP_FRESHNESS_MS: 300000,
+}));
+
 import {
+	getTraceAverageDuration,
+	getTraceExist,
 	getTraceHierarchy,
 	getTraceRecordByTraceId,
+	getTraceRequestPerTime,
 	getTraceSpanRecord,
+	getTraceTotalRequests,
 	listTraceRecords,
 } from "@/lib/platform/traces/read";
 
@@ -88,31 +118,28 @@ describe("listTraceRecords", () => {
 		expect(mockGetAdapter).toHaveBeenCalledWith({ signal: "traces" });
 	});
 
-	it("lists via the external adapter and denormalizes rows", async () => {
+	it("lists via stratified sample (not raw listSpans) and denormalizes rows", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
-		const listSpans = jest.fn().mockResolvedValue({
-			fields: [],
-			rows: [
-				{
-					traceId: "t1",
-					spanId: "s1",
-					parentSpanId: "",
-					name: "chat",
-					serviceName: "api",
-					timestamp: "2026-07-01T00:00:00.000Z",
-					durationNs: 1_000_000,
-					statusCode: "STATUS_CODE_OK",
-					spanAttributes: { "gen_ai.request.model": "gpt-4o" },
-					resourceAttributes: { "service.name": "api" },
-				},
-			],
-		});
-		mockGetAdapter.mockResolvedValue({ listSpans });
+		const sampleTracesForGraph = jest.fn().mockResolvedValue([
+			{
+				traceId: "t1",
+				spanId: "s1",
+				parentSpanId: "",
+				name: "chat",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1_000_000,
+				statusCode: "STATUS_CODE_OK",
+				spanAttributes: { "gen_ai.request.model": "gpt-4o" },
+				resourceAttributes: { "service.name": "api" },
+			},
+		]);
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph });
 
 		const res = await listTraceRecords(params as never);
-		expect(listSpans).toHaveBeenCalled();
+		expect(sampleTracesForGraph).toHaveBeenCalled();
 		expect(res.err).toBeNull();
-		expect(res.records?.[0]).toMatchObject({
+		expect((res as { records?: unknown[] }).records?.[0]).toMatchObject({
 			TraceId: "t1",
 			SpanId: "s1",
 			SpanName: "chat",
@@ -141,6 +168,30 @@ describe("getTraceSpanRecord", () => {
 		});
 
 		const res = await getTraceSpanRecord("s1");
+		expect(res.record).toMatchObject({ SpanId: "s1", TraceId: "t1" });
+	});
+
+	it("falls back to getTraceSpans when TraceId is provided and getSpan misses", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getSpan = jest.fn().mockResolvedValue(null);
+		const getTraceSpans = jest.fn().mockResolvedValue([
+			{
+				traceId: "t1",
+				spanId: "s1",
+				parentSpanId: "",
+				name: "chat",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: {},
+				resourceAttributes: {},
+			},
+		]);
+		mockGetAdapter.mockResolvedValue({ getSpan, getTraceSpans });
+
+		const res = await getTraceSpanRecord("s1", { traceId: "t1" });
+		expect(getTraceSpans).toHaveBeenCalledWith("t1");
 		expect(res.record).toMatchObject({ SpanId: "s1", TraceId: "t1" });
 	});
 });
@@ -220,5 +271,60 @@ describe("getTraceHierarchy", () => {
 		const res = await getTraceHierarchy("s1");
 		expect(mockGetHeirarchyViaSpanId).toHaveBeenCalledWith("s1");
 		expect(res.record).toMatchObject({ SpanId: "s1" });
+	});
+});
+
+describe("dashboard graph facades", () => {
+	it("aggregates total requests via the external adapter", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			aggregateSpans: jest
+				.fn()
+				.mockResolvedValueOnce({ rows: [{ total_requests: 12 }] })
+				.mockResolvedValueOnce({ rows: [{ total_requests: 4 }] }),
+		});
+
+		const res = await getTraceTotalRequests(params as any);
+		expect(res.err).toBeNull();
+		expect(res.data).toEqual([
+			{ total_requests: 12, previous_total_requests: 4 },
+		]);
+	});
+
+	it("builds request-per-time series via spanTimeSeries", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			spanTimeSeries: jest.fn().mockResolvedValue({
+				rows: [{ total: 3, request_time: "2026/07/01 00:00" }],
+			}),
+		});
+
+		const res = await getTraceRequestPerTime(params as any);
+		expect(res.data).toEqual([{ total: 3, request_time: "2026/07/01 00:00" }]);
+	});
+
+	it("aggregates average duration via the external adapter", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			aggregateSpans: jest
+				.fn()
+				.mockResolvedValueOnce({ rows: [{ average_duration: 1.5 }] })
+				.mockResolvedValueOnce({ rows: [{ average_duration: 0.5 }] }),
+		});
+
+		const res = await getTraceAverageDuration(params as any);
+		expect(res.data).toEqual([
+			{ average_duration: 1.5, previous_average_duration: 0.5 },
+		]);
+	});
+
+	it("probes existence via listSpans(limit=1)", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest.fn().mockResolvedValue({ rows: [{ spanId: "s1" }] }),
+		});
+
+		const res = await getTraceExist();
+		expect(res.data).toEqual([{ total_requests: 1 }]);
 	});
 });

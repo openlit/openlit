@@ -2,6 +2,10 @@ const mockSafeFetch = jest.fn();
 
 jest.mock("@/lib/platform/datasource/http/safe-fetch", () => ({
 	safeFetch: (...args: unknown[]) => mockSafeFetch(...args),
+	selfHostedNetworkOptions: () => ({
+		allowHttp: true,
+		allowPrivateNetwork: true,
+	}),
 }));
 jest.mock("@/lib/platform/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn().mockResolvedValue({

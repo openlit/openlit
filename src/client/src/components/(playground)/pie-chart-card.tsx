@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Sector, ResponsiveContainer } from "recharts";
 import { COLORS } from "../../../styles/colors";
 import IntermediateState from "./intermediate-state";
-import { Skeleton } from "../ui/skeleton";
+import { Loader2 } from "lucide-react";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 const renderActiveShape = (props: any) => {
@@ -154,8 +154,11 @@ const PieChartCard = memo(
 				<CardContent className="h-60">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
 						<IntermediateState type="loading">
-							<div className="flex w-full h-full items-center justify-center">
-								<Skeleton className={`h-9 w-1/3 rounded`} />
+							<div className="flex w-full h-full items-center justify-center gap-2">
+								<Loader2 className="h-5 w-5 animate-spin text-stone-500 dark:text-stone-400" />
+								<span className="text-sm text-stone-500 dark:text-stone-400">
+									Loading...
+								</span>
 							</div>
 						</IntermediateState>
 					) : updatedData?.length > 0 ? (

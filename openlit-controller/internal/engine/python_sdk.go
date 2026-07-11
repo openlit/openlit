@@ -1102,8 +1102,12 @@ func removePythonSDKContainerSettings(container map[string]any) {
 
 // formatOTLPHeaders converts a map of headers to the format specified by the
 // OTel spec for OTEL_EXPORTER_OTLP_HEADERS: "key1=value1,key2=value2".
-// Values containing ',' or '=' are percent-encoded per the spec. Keys are
-// sorted for deterministic output.
+// Values that contain ',', '=', or whitespace are percent-encoded per the
+// spec. Encoding must use %XX (e.g. space -> %20), not application/x-www-form-
+// urlencoded (+ for space): the Go OTel SDK decodes with url.PathUnescape,
+// which leaves '+' literal. That turns "Basic <token>" into "Basic+<token>"
+// and Grafana Cloud rejects it as "no credentials provided".
+// Keys are sorted for deterministic output.
 func formatOTLPHeaders(headers map[string]string) string {
 	keys := make([]string, 0, len(headers))
 	for k := range headers {
@@ -1114,10 +1118,40 @@ func formatOTLPHeaders(headers map[string]string) string {
 	parts := make([]string, 0, len(keys))
 	for _, k := range keys {
 		v := headers[k]
-		if strings.ContainsAny(v, ",=") {
-			v = url.QueryEscape(v)
+		if strings.ContainsAny(v, ",= \t") {
+			v = encodeOTLPHeaderValue(v)
 		}
 		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, ",")
+}
+
+// encodeOTLPHeaderValue percent-encodes an OTLP header value for env vars.
+// Prefer %20 for spaces (PathEscape) over QueryEscape's '+', then escape
+// '=' and ',' which PathEscape leaves alone but OTel list parsing requires.
+func encodeOTLPHeaderValue(v string) string {
+	v = url.PathEscape(v)
+	v = strings.ReplaceAll(v, "=", "%3D")
+	v = strings.ReplaceAll(v, ",", "%2C")
+	return v
+}
+
+// formatOBIOTLPHeaders formats headers for OBI's OTEL_EXPORTER_OTLP_HEADERS.
+// OBI parses with attributes.ParseOTELResourceVariable, which splits on the
+// first '=' and does not percent-decode. Passing Spec-encoded values (Basic%20…)
+// makes Grafana see a literal "Basic%20…" Authorization and return
+// "no credentials provided". Raw values are required; '=' inside the value is
+// fine because only the first '=' separates key from value.
+func formatOBIOTLPHeaders(headers map[string]string) string {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+"="+headers[k])
 	}
 	return strings.Join(parts, ",")
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { BarChart3, DollarSign, GitBranch, MessageSquareText, Network, Sparkles } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { useSignalCapabilities } from "@/utils/hooks/useSignalCapabilities";
 import { TraceHeirarchySpan } from "@/types/trace";
 import {
 	RequestProvider,
@@ -84,11 +85,13 @@ function isCodingAgentTree(span?: TraceHeirarchySpan): boolean {
 function SpanHierarchyExplorerInner({
 	hierarchySpanId,
 	selectedSpanId,
+	traceId,
 	onSelectSpan,
 	fill = false,
 }: {
 	hierarchySpanId: string;
 	selectedSpanId: string;
+	traceId?: string;
 	onSelectSpan?: (spanId: string) => void;
 	fill?: boolean;
 }) {
@@ -100,17 +103,29 @@ function SpanHierarchyExplorerInner({
 	// snapping back to "chat" every time the trace data refreshes.
 	const userPickedViewRef = useRef(false);
 	const { data, fireRequest, isLoading } = useFetchWrapper();
+	const { capabilities } = useSignalCapabilities();
+
+	// The Chat view renders OTel span events (prompts/completions). Sources that
+	// don't carry span events (e.g. Datadog, New Relic) can't populate it, so we
+	// hide the tab and never auto-switch to it — honest capability gating.
+	const supportsSpanEvents =
+		capabilities?.traces?.capabilities?.spanEvents !== false;
+	const availableViewModes = useMemo(
+		() => VIEW_MODES.filter((v) => v.key !== "chat" || supportsSpanEvents),
+		[supportsSpanEvents]
+	);
 
 	useEffect(() => {
 		updateRequest({ spanId: selectedSpanId } as any);
 	}, [selectedSpanId, updateRequest]);
 
 	useEffect(() => {
+		const qs = traceId ? `?traceId=${encodeURIComponent(traceId)}` : "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/metrics/request/span/${hierarchySpanId}/heirarchy`,
+			url: `/api/metrics/request/span/${hierarchySpanId}/heirarchy${qs}`,
 		});
-	}, [fireRequest, hierarchySpanId]);
+	}, [fireRequest, hierarchySpanId, traceId]);
 
 	const typedData = (data as { record?: TraceHeirarchySpan; err?: string }) || {};
 	const record = typedData.record;
@@ -125,10 +140,17 @@ function SpanHierarchyExplorerInner({
 	// surface that renders the conversational signal (prompts, thinking,
 	// tools, edits, subagents). Plain LLM traces stay on the Tree view.
 	useEffect(() => {
-		if (isCodingAgent && !userPickedViewRef.current) {
+		if (isCodingAgent && supportsSpanEvents && !userPickedViewRef.current) {
 			setViewMode("chat");
 		}
-	}, [isCodingAgent]);
+	}, [isCodingAgent, supportsSpanEvents]);
+
+	// If the active view is no longer available for this source, fall back.
+	useEffect(() => {
+		if (!availableViewModes.some((v) => v.key === viewMode)) {
+			setViewMode("tree");
+		}
+	}, [availableViewModes, viewMode]);
 
 	return (
 		<section
@@ -144,7 +166,7 @@ function SpanHierarchyExplorerInner({
 			<div className="flex flex-wrap items-center gap-2 border-b border-stone-200 bg-stone-50 px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
 				
 			<div className="flex rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-0.5">
-					{VIEW_MODES.map((mode) => (
+					{availableViewModes.map((mode) => (
 						<button
 							key={mode.key}
 							onClick={() => {
@@ -234,11 +256,13 @@ function SpanHierarchyExplorerInner({
 export default function SpanHierarchyExplorer({
 	hierarchySpanId,
 	selectedSpanId,
+	traceId,
 	onSelectSpan,
 	fill,
 }: {
 	hierarchySpanId: string;
 	selectedSpanId: string;
+	traceId?: string;
 	onSelectSpan?: (spanId: string) => void;
 	fill?: boolean;
 }) {
@@ -247,6 +271,7 @@ export default function SpanHierarchyExplorer({
 			<SpanHierarchyExplorerInner
 				hierarchySpanId={hierarchySpanId}
 				selectedSpanId={selectedSpanId}
+				traceId={traceId}
 				onSelectSpan={onSelectSpan}
 				fill={fill}
 			/>

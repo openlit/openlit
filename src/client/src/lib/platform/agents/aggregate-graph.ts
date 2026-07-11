@@ -74,9 +74,16 @@ export interface AggregateGraphParams {
 	dbConfigId?: string;
 	/** Cap aggregated traces. Higher = more accurate p50 but heavier query. */
 	maxTraces?: number;
+	/** Absolute window for external sampling (defaults to last 24h). */
+	timeRange?: { start: Date; end: Date };
 }
 
 const DEFAULT_MAX_TRACES = 500;
+/** External vendors download full OTLP per trace — keep this small. */
+const EXTERNAL_DEFAULT_MAX_TRACES = 30;
+const EXTERNAL_HARD_CAP = 40;
+/** Cap external DAG windows so version first→last doesn't scan months. */
+const EXTERNAL_MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const HEALTHY_STATUS_VALUES = [
 	"STATUS_CODE_OK",
@@ -135,20 +142,49 @@ async function getExternalAggregateGraph(
 		return null;
 	}
 
-	const end = new Date();
-	const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+	let end =
+		params.timeRange?.end ||
+		(params.versionFilter?.lastSeen
+			? new Date(params.versionFilter.lastSeen)
+			: new Date());
+	let start =
+		params.timeRange?.start ||
+		(params.versionFilter?.firstSeen
+			? new Date(params.versionFilter.firstSeen)
+			: new Date(end.getTime() - EXTERNAL_MAX_WINDOW_MS));
+	if (end.getTime() - start.getTime() > EXTERNAL_MAX_WINDOW_MS) {
+		start = new Date(end.getTime() - EXTERNAL_MAX_WINDOW_MS);
+	}
+	const filters: OpenLITQuery["filters"] = [
+		{
+			target: "attribute",
+			scope: "resource",
+			key: "service.name",
+			op: "eq",
+			value: params.serviceName,
+		},
+	];
+	if (params.environment && params.environment !== "default") {
+		filters.push({
+			target: "attribute",
+			scope: "resource",
+			key: "deployment.environment",
+			op: "eq",
+			value: params.environment,
+		});
+	}
+	if (params.versionFilter?.versionHash) {
+		filters.push({
+			target: "attribute",
+			key: "openlit.agent.version_hash",
+			op: "eq",
+			value: params.versionFilter.versionHash,
+		});
+	}
 	const query: OpenLITQuery = {
 		signal: "traces",
 		timeRange: { start, end },
-		filters: [
-			{
-				target: "attribute",
-				scope: "resource",
-				key: "service.name",
-				op: "eq",
-				value: params.serviceName,
-			},
-		],
+		filters,
 		aiSelector: true,
 	};
 	try {
@@ -163,11 +199,15 @@ async function getExternalAggregateGraph(
 export async function getAggregateGraph(
 	params: AggregateGraphParams
 ): Promise<AggregateGraph> {
-	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
-
-	// External trace sources reconstruct the DAG in-process from sampled traces.
-	const external = await getExternalAggregateGraph(params, maxTraces);
+	// External path first with a tighter sample budget (full OTLP downloads).
+	const externalMax = Math.min(
+		params.maxTraces || EXTERNAL_DEFAULT_MAX_TRACES,
+		EXTERNAL_HARD_CAP
+	);
+	const external = await getExternalAggregateGraph(params, externalMax);
 	if (external) return external;
+
+	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
 
 	const env = params.environment || "default";
 	const envPredicate =

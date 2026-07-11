@@ -94,6 +94,25 @@ interface DiscoveredAgent {
 
 const SDK_DISCOVERY_LOOKBACK_MINUTES = 30;
 
+/** Resolve an external traces adapter for this dbConfig, or null when built-in. */
+async function resolveExternalTracesAdapter(dbConfigId?: string) {
+	if (!dbConfigId) return null;
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(dbConfigId, "traces");
+		if (resolved.isBuiltIn) return null;
+		return resolved.adapter;
+	} catch (err) {
+		agentsLogger.error("materializer_external_adapter_resolve_failed", {
+			err,
+			dbConfigId,
+		});
+		return null;
+	}
+}
+
 async function discoverAgents(
 	dbConfigId?: string,
 	clusterFilter?: string
@@ -202,13 +221,7 @@ async function discoverAgents(
 		FROM sdk_seen
 	`;
 
-	const sdkRes = await dataCollector({ query: sdkQuery }, "query", dbConfigId);
-	if (sdkRes.err) {
-		agentsLogger.error("materializer_sdk_discovery_failed", {
-			err: sdkRes.err,
-		});
-	}
-	const sdkRows = (sdkRes.data as Array<{
+	let sdkRows: Array<{
 		service_name: string;
 		environment: string;
 		cluster_id: string;
@@ -217,7 +230,34 @@ async function discoverAgents(
 		sdk_language: string;
 		first_seen: string;
 		last_seen: string;
-	}>) || [];
+	}> = [];
+
+	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
+	if (externalAdapter) {
+		const { discoverSdkRowsFromAdapter } = await import("./external-discovery");
+		sdkRows = await discoverSdkRowsFromAdapter(
+			externalAdapter,
+			SDK_DISCOVERY_LOOKBACK_MINUTES
+		);
+	} else {
+		const sdkRes = await dataCollector({ query: sdkQuery }, "query", dbConfigId);
+		if (sdkRes.err) {
+			agentsLogger.error("materializer_sdk_discovery_failed", {
+				err: sdkRes.err,
+			});
+		}
+		sdkRows =
+			(sdkRes.data as Array<{
+				service_name: string;
+				environment: string;
+				cluster_id: string;
+				workload_key: string;
+				sdk_version: string;
+				sdk_language: string;
+				first_seen: string;
+				last_seen: string;
+			}>) || [];
+	}
 
 	// The materializer needs to keep stopped workloads in agents_summary
 	// even after their last heartbeat aged out of the 24h window. We do
@@ -507,6 +547,49 @@ async function discoverCodingAgents(
 	dbConfigId?: string,
 	window?: CodingAgentDiscoveryWindow
 ): Promise<DiscoveredAgent[]> {
+	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
+	if (externalAdapter) {
+		const { discoverCodingRowsFromAdapter } = await import(
+			"./external-discovery"
+		);
+		const rows = await discoverCodingRowsFromAdapter(externalAdapter);
+		return rows.map((row) => {
+			const vendor = row.vendor;
+			const cluster = "coding";
+			const env = "default";
+			const serviceName = vendor;
+			const key = computeAgentKey(cluster, env, serviceName);
+			return {
+				agent_key: key,
+				service_name: serviceName,
+				environment: env,
+				cluster_id: cluster,
+				workload_key: "",
+				source: "coding" as const,
+				controller_service_id: "",
+				controller_instance_id: "",
+				sdk_version: row.client_version || "",
+				sdk_language: "",
+				first_seen: row.first_seen,
+				last_seen: row.last_seen,
+				instrumentation_status: "instrumented",
+				controller_llm_providers: [],
+				coding_agent_vendor: vendor,
+				coding_session_count_24h: row.session_count_24h,
+				coding_cost_usd_24h: row.cost_usd_24h,
+				coding_active_users_24h: row.active_users_24h,
+				coding_lines_added_24h: row.lines_added_24h,
+				coding_lines_removed_24h: row.lines_removed_24h,
+				coding_lines_accepted_24h: row.lines_accepted_24h,
+				coding_lines_rejected_24h: row.lines_rejected_24h,
+				coding_edit_accept_24h: row.edit_accept_24h,
+				coding_edit_reject_24h: row.edit_reject_24h,
+				coding_commit_count_24h: row.commit_count_24h,
+				coding_pr_count_24h: row.pr_count_24h,
+			};
+		});
+	}
+
 	// Cost rollup notes:
 	//   * `coding_agent.session.cost_usd` is only stamped on the
 	//     session-root span at sessionEnd. Active / still-running
@@ -799,6 +882,14 @@ async function fetchRequestCounts(
 ): Promise<Map<string, number>> {
 	if (!agents.length) return new Map();
 
+	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
+	if (externalAdapter) {
+		const { fetchRequestCountsFromAdapter } = await import(
+			"./external-discovery"
+		);
+		return fetchRequestCountsFromAdapter(externalAdapter, agents);
+	}
+
 	// Split coding agents from the rest. Their request_count is the
 	// total number of spans observed under the vendor in the last 24h
 	// (rolled up at discovery time as `session_count_24h`); the
@@ -1044,14 +1135,30 @@ export async function materializeAgents(
 			// agent_versions with rows that have no system_prompt.
 			const snapshot = agent.source === "coding"
 				? null
-				: await deriveSnapshot({
-					serviceName: agent.service_name,
-					environment: agent.environment,
-					clusterId: agent.cluster_id,
-					lookbackMinutes,
-					dbConfigId,
-					logsCorrelatable,
-				});
+				: await (async () => {
+					const externalAdapter = await resolveExternalTracesAdapter(
+						dbConfigId
+					);
+					if (externalAdapter) {
+						const { deriveSnapshotFromAdapter } = await import(
+							"./external-discovery"
+						);
+						return deriveSnapshotFromAdapter(externalAdapter, {
+							serviceName: agent.service_name,
+							environment: agent.environment,
+							clusterId: agent.cluster_id,
+							lookbackMinutes,
+						});
+					}
+					return deriveSnapshot({
+						serviceName: agent.service_name,
+						environment: agent.environment,
+						clusterId: agent.cluster_id,
+						lookbackMinutes,
+						dbConfigId,
+						logsCorrelatable,
+					});
+				})();
 
 			let versionHash = "";
 			let versionNumber = 0;

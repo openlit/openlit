@@ -19,7 +19,10 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
-import { safeFetch } from "../http/safe-fetch";
+import { applyHttpAuthCredentials } from "../http/auth-headers";
+import { httpVendorFields } from "../config-fields";
+import getMessage from "@/constants/messages";
+import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 
@@ -32,8 +35,8 @@ export class VictoriaLogsAdapter extends BaseExternalAdapter {
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
 	}
-	private get allowHttp(): boolean {
-		return this.descriptor.settings.allowHttp !== false;
+	private get networkOpts() {
+		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 	private get baseQuery(): string {
 		return (this.descriptor.settings.logsQL as string) || "*";
@@ -44,19 +47,12 @@ export class VictoriaLogsAdapter extends BaseExternalAdapter {
 			this.descriptor.secretRef,
 			this.descriptor.dbConfigId
 		);
-		const headers: Record<string, string> = {};
-		if (secret.credentials.token) {
-			headers.Authorization = `Bearer ${secret.credentials.token}`;
-		} else if (secret.credentials.username) {
-			const basic = Buffer.from(
-				`${secret.credentials.username}:${secret.credentials.password || ""}`
-			).toString("base64");
-			headers.Authorization = `Basic ${basic}`;
-		}
-		if (secret.credentials.tenant) {
-			headers.AccountID = secret.credentials.tenant;
-		}
-		return { headers, redact: redactableSecretValues(secret) };
+		return {
+			headers: applyHttpAuthCredentials(secret.credentials, {
+				tenantHeader: "AccountID",
+			}),
+			redact: redactableSecretValues(secret),
+		};
 	}
 
 	capabilities(): SourceCapabilities {
@@ -77,7 +73,7 @@ export class VictoriaLogsAdapter extends BaseExternalAdapter {
 			const { headers, redact } = await this.authHeaders();
 			await safeFetch(`${this.baseUrl}/select/logsql/query?query=*&limit=1`, {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
 				timeoutMs: 8000,
 			});
@@ -100,18 +96,27 @@ export class VictoriaLogsAdapter extends BaseExternalAdapter {
 		url.searchParams.set("query", this.buildQuery(query));
 		url.searchParams.set("start", query.timeRange.start.toISOString());
 		url.searchParams.set("end", query.timeRange.end.toISOString());
-		url.searchParams.set("limit", String(Math.min(query.limit || 100, 5000)));
+		const effectiveLimit = Math.min(query.limit || 100, 5000);
+		url.searchParams.set("limit", String(effectiveLimit));
 
 		const key = cacheKey(this.descriptor.id, ["logs", url.toString()]);
 		const text = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<string>(url.toString(), {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
 			})
 		);
 		const rows = parseNdjsonLogs(text);
-		return { fields: [], rows, meta: { latencyMs: Date.now() - start } };
+		return {
+			fields: [],
+			rows,
+			meta: {
+				latencyMs: Date.now() - start,
+				truncated: rows.length >= effectiveLimit,
+				freshness: "live",
+			},
+		};
 	}
 }
 
@@ -179,5 +184,11 @@ export const victoriaLogsAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "service"],
 		},
+		configFields: httpVendorFields({
+			placeholder: "https://vl.example.com",
+			tenant: true,
+		}),
+		authStyle: "http",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	}),
 };

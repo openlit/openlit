@@ -64,11 +64,41 @@ describe("assertPublicUrl", () => {
 		).rejects.toThrow(/Credentials/);
 	});
 
-	it("blocks localhost and cloud metadata hostnames", async () => {
-		await expect(assertPublicUrl("https://localhost")).rejects.toThrow(SsrfError);
+	it("allows private RFC1918 targets when allowPrivateNetwork is set", async () => {
+		const url = await assertPublicUrl("http://10.0.0.5:3200", {
+			allowHttp: true,
+			allowPrivateNetwork: true,
+		});
+		expect(url.hostname).toBe("10.0.0.5");
+	});
+
+	it("allows localhost when allowPrivateNetwork is set", async () => {
+		const url = await assertPublicUrl("http://localhost:3200", {
+			allowHttp: true,
+			allowPrivateNetwork: true,
+		});
+		expect(url.hostname).toBe("localhost");
+	});
+
+	it("still blocks cloud metadata even with allowPrivateNetwork", async () => {
 		await expect(
-			assertPublicUrl("https://169.254.169.254")
+			assertPublicUrl("http://169.254.169.254/latest/meta-data", {
+				allowHttp: true,
+				allowPrivateNetwork: true,
+			})
 		).rejects.toThrow(SsrfError);
+		await expect(
+			assertPublicUrl("http://metadata.google.internal/", {
+				allowHttp: true,
+				allowPrivateNetwork: true,
+			})
+		).rejects.toThrow(SsrfError);
+	});
+
+	it("rejects private targets by default", async () => {
+		await expect(
+			assertPublicUrl("http://10.0.0.5:3200", { allowHttp: true })
+		).rejects.toThrow(/private/);
 	});
 
 	it("blocks hostnames that resolve to private addresses", async () => {

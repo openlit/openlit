@@ -110,6 +110,29 @@ function normalizeEvents(span: OtlpSpan): NormalizedSpanEvent[] {
 	}));
 }
 
+/**
+ * Tempo `/api/traces/{id}` often encodes binary IDs as base64 in OTLP/JSON,
+ * while TraceQL search and `/api/traces/{hex}` expect lowercase hex. Normalize
+ * so list rows, detail lookups, and TraceQL `{ span:id = … }` stay aligned.
+ */
+export function normalizeOtlpId(raw?: string): string {
+	if (!raw) return "";
+	const value = String(raw).trim();
+	if (!value) return "";
+	if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) {
+		return value.toLowerCase();
+	}
+	try {
+		const buf = Buffer.from(value, "base64");
+		if (buf.length === 8 || buf.length === 16) {
+			return buf.toString("hex");
+		}
+	} catch {
+		// keep original
+	}
+	return value;
+}
+
 /** Parse an OTLP/JSON trace payload into normalized spans. */
 export function parseOtlpTrace(payload: unknown): NormalizedSpan[] {
 	const trace = (payload || {}) as OtlpTrace;
@@ -122,9 +145,9 @@ export function parseOtlpTrace(payload: unknown): NormalizedSpan[] {
 		for (const scope of scopes) {
 			for (const span of scope.spans || []) {
 				out.push({
-					traceId: String(span.traceId || ""),
-					spanId: String(span.spanId || ""),
-					parentSpanId: String(span.parentSpanId || ""),
+					traceId: normalizeOtlpId(span.traceId),
+					spanId: normalizeOtlpId(span.spanId),
+					parentSpanId: normalizeOtlpId(span.parentSpanId),
 					name: String(span.name || ""),
 					serviceName,
 					timestamp: nanoToIso(span.startTimeUnixNano),

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
+import { materializeTelemetryRollups } from "@/lib/platform/telemetry/rollups";
 
 /**
  * Cron-triggered endpoint that refreshes openlit_agents_summary +
@@ -139,6 +140,25 @@ export async function POST(request: Request) {
 						try {
 							const result = await materializeAgents({ dbConfigId: config.id });
 							summary[config.id] = result;
+							try {
+								const { getTelemetryAdapterForDbConfig } = await import(
+									"@/lib/telemetry-source"
+								);
+								const { adapter, descriptor, isBuiltIn } =
+									await getTelemetryAdapterForDbConfig(config.id, "traces");
+								if (!isBuiltIn && descriptor.type !== "clickhouse") {
+									await materializeTelemetryRollups({
+										adapter,
+										sourceId: descriptor.id,
+										dbConfigId: config.id,
+									});
+								}
+							} catch (rollupErr) {
+								console.error(
+									"[agents materialize] telemetry rollups failed",
+									rollupErr
+								);
+							}
 						} catch (e) {
 							summary[config.id] = { error: String(e) };
 						} finally {

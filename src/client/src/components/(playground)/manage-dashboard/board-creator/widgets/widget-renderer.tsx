@@ -1,5 +1,5 @@
 import React, { useMemo, memo, useEffect } from "react";
-import { Edit, Trash } from "lucide-react";
+import { Edit, Trash, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetType, type WidgetRendererProps } from "../types";
 import { SUPPORTED_WIDGETS } from "../constants";
@@ -20,12 +20,15 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	onRemove,
 	runFilters,
 }) => {
-	const { widgetData, loadWidgetData } = useDashboard();
+	const { widgetData, widgetLoading, widgetError, loadWidgetData } =
+		useDashboard();
 
-	// Load data when not in edit mode
+	// Load data when not in edit mode (SQL or structured-only widgets).
 	useEffect(() => {
-		// @ts-ignore TODO: fix this
-		if (widget?.config?.query) {
+		const cfg = widget?.config as
+			| { query?: string; structuredQuery?: unknown }
+			| undefined;
+		if (cfg?.query || cfg?.structuredQuery) {
 			loadWidgetData(widget.id);
 		}
 	}, [runFilters]);
@@ -38,6 +41,11 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	};
 
 	const widgetEvaluatedData = widgetData[widget.id];
+	const isWidgetLoading = !!widgetLoading[widget.id];
+	const widgetLoadError = widgetError[widget.id];
+	// Show the skeleton only on the first load (no data yet); on refetch keep
+	// the last result visible and revalidate in the background.
+	const showLoader = isWidgetLoading && widgetEvaluatedData === undefined;
 
 	const WidgetComponent = useMemo(() => {
 		switch (widget.type) {
@@ -96,9 +104,28 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 					</div>
 				)}
 			</CardHeader>
-			<CardContent className="flex-grow overflow-auto">
-				{WidgetComponent && (
-					<WidgetComponent data={widgetEvaluatedData} widget={widget as any} />
+			<CardContent className="flex-grow overflow-auto relative">
+				{showLoader ? (
+					<div className="flex h-full min-h-16 items-center justify-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Loading…
+					</div>
+				) : widgetLoadError && widgetEvaluatedData === undefined ? (
+					<div className="flex h-full min-h-16 items-center justify-center px-2 text-center text-xs text-error">
+						{widgetLoadError}
+					</div>
+				) : (
+					WidgetComponent && (
+						<>
+							<WidgetComponent
+								data={widgetEvaluatedData}
+								widget={widget as any}
+							/>
+							{isWidgetLoading && (
+								<Loader2 className="absolute right-2 top-2 h-3 w-3 animate-spin text-stone-400" />
+							)}
+						</>
+					)
 				)}
 			</CardContent>
 		</Card>

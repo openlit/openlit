@@ -53,6 +53,12 @@ import { escapeSingleQuotes } from "@/helpers/server/widget";
 beforeEach(() => {
 	jest.clearAllMocks();
 	(dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+	mockResolveDescriptor.mockResolvedValue({
+		type: "clickhouse",
+		name: "Built-in",
+		isBuiltIn: true,
+	});
+	mockSourceSupportsNativeSql.mockReturnValue(true);
 });
 
 describe("runWidgetQuery", () => {
@@ -204,7 +210,11 @@ describe("runWidgetQuery source routing", () => {
 		const spanTimeSeries = jest
 			.fn()
 			.mockResolvedValue({ fields: [], rows: [{ bucket: "t0", agg0: 5 }] });
-		mockGetTelemetryAdapter.mockResolvedValue({ spanTimeSeries });
+		mockGetTelemetryAdapter.mockResolvedValue({
+			type: "tempo",
+			capabilities: () => ({ serverAggregation: true }),
+			spanTimeSeries,
+		});
 
 		const result = await runWidgetQuery("w1", {
 			filter: { timeLimit: { start: "2026-07-01", end: "2026-07-02" } } as any,
@@ -244,5 +254,55 @@ describe("runWidgetQuery source routing", () => {
 			"query",
 			"db-9"
 		);
+	});
+
+	it("bridges legacy otel_traces SQL to the project external traces source", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						query: `SELECT CAST(countIf(Timestamp >= start_time) AS INTEGER) AS total_request,
+							CAST(countIf(Timestamp >= prev_start_time) AS INTEGER) AS total_request_previous
+							FROM otel_traces WHERE 1=1`,
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({
+			type: "tempo",
+			name: "Grafana Tempo",
+			isBuiltIn: false,
+		});
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const aggregateSpans = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [{ total_request: 12, count: 12 }],
+		});
+		mockGetTelemetryAdapter.mockResolvedValue({ aggregateSpans });
+
+		const result = await runWidgetQuery("w1", {
+			filter: {
+				timeLimit: {
+					start: "2026-07-01T00:00:00.000Z",
+					end: "2026-07-02T00:00:00.000Z",
+				},
+				selectedConfig: { serviceNames: ["demo-openai-app"] },
+			} as any,
+		});
+
+		expect(result.err).toBeUndefined();
+		expect(result.data).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					total_request: expect.any(Number),
+					total_request_previous: expect.any(Number),
+				}),
+			])
+		);
+		// Widget fetch only — no ClickHouse SQL execution for the metric.
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+		expect(mockGetTelemetryAdapter).toHaveBeenCalled();
 	});
 });

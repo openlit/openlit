@@ -975,7 +975,8 @@ function loadFilterFromStorage(storageKey: string): PersistedFilter | null {
 function applyStoredFilter(
 	saved: PersistedFilter,
 	updateFilter: (key: string, value: any, extraParams?: any) => void,
-	validTimeRanges: Set<string>
+	validTimeRanges: Set<string>,
+	currentFilter?: FilterType
 ) {
 	// Time limit first (it resets selectedConfig, so must come before selectedConfig)
 	if (saved.timeLimitType === "CUSTOM" && saved.timeLimitStart && saved.timeLimitEnd) {
@@ -984,7 +985,17 @@ function applyStoredFilter(
 			end: new Date(saved.timeLimitEnd),
 		});
 	} else if (validTimeRanges.has(saved.timeLimitType)) {
-		updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+		// Skip re-stamping relative ranges when the store already holds the same
+		// type with a recent end — remounts would otherwise bust the telemetry
+		// request cache by changing end=now() every navigation.
+		const sameType = currentFilter?.timeLimit?.type === saved.timeLimitType;
+		const endMs = currentFilter?.timeLimit?.end
+			? new Date(currentFilter.timeLimit.end).getTime()
+			: 0;
+		const recentEnough = endMs > 0 && Date.now() - endMs < 30_000;
+		if (!(sameType && recentEnough)) {
+			updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+		}
 	}
 	if (saved.limit) updateFilter("limit", saved.limit);
 	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
@@ -1037,7 +1048,14 @@ function useFilterUrlSync(
 						});
 					}
 				} else {
-					updateFilter("timeLimit.type", tr);
+					const sameType = filter.timeLimit?.type === tr;
+					const endMs = filter.timeLimit?.end
+						? new Date(filter.timeLimit.end).getTime()
+						: 0;
+					const recentEnough = endMs > 0 && Date.now() - endMs < 30_000;
+					if (!(sameType && recentEnough)) {
+						updateFilter("timeLimit.type", tr);
+					}
 				}
 			}
 			const limitParam = params.get("limit");
@@ -1059,7 +1077,7 @@ function useFilterUrlSync(
 		} else {
 			// ── Fall back to localStorage ─────────────────────────────────────
 			const saved = loadFilterFromStorage(storageKey);
-			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
+			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES, filter);
 		}
 
 		// Signal that the initial filter read (URL / localStorage) is complete.

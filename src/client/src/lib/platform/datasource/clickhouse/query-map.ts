@@ -120,6 +120,29 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		});
 	}
 
+	const environments = stringList(cfg.environments);
+	if (environments.length) {
+		filters.push({
+			target: "attribute",
+			scope: "resource",
+			key: "deployment.environment",
+			op: "in",
+			value: environments,
+		});
+	}
+
+	const versionFilter = cfg.versionFilter as
+		| { versionHash?: string; firstSeen?: string; lastSeen?: string }
+		| undefined;
+	if (versionFilter?.versionHash) {
+		filters.push({
+			target: "attribute",
+			key: "openlit.agent.version_hash",
+			op: "eq",
+			value: String(versionFilter.versionHash),
+		});
+	}
+
 	const customFilters = Array.isArray(cfg.customFilters)
 		? (cfg.customFilters as Array<Record<string, unknown>>)
 		: [];
@@ -254,7 +277,8 @@ function metricsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
  */
 export function metricParamsToOpenLITQuery(
 	params: MetricParams,
-	signal: Signal = "traces"
+	signal: Signal = "traces",
+	opts: { maxDataPoints?: number; interval?: string } = {}
 ): OpenLITQuery {
 	const now = new Date();
 	const start = asDate(
@@ -267,6 +291,25 @@ export function metricParamsToOpenLITQuery(
 
 	if (signal === "traces" && params.statusCode?.length) {
 		filters.push({ target: "status", op: "in", value: params.statusCode });
+	}
+
+	// Mirror ClickHouse `operationType` (llm vs vectordb) onto gen_ai.operation.name.
+	if (signal === "traces" && params.operationType === "vectordb") {
+		filters.push({
+			target: "attribute",
+			scope: "span",
+			key: "gen_ai.operation.name",
+			op: "eq",
+			value: "vectordb",
+		});
+	} else if (signal === "traces" && params.operationType === "llm") {
+		filters.push({
+			target: "attribute",
+			scope: "span",
+			key: "gen_ai.operation.name",
+			op: "neq",
+			value: "vectordb",
+		});
 	}
 
 	if (signal === "traces") filters.push(...tracesFilters(cfg));
@@ -291,5 +334,7 @@ export function metricParamsToOpenLITQuery(
 		limit: params.limit,
 		offset: params.offset,
 		aiSelector: signal === "traces",
+		interval: opts.interval,
+		maxDataPoints: opts.maxDataPoints,
 	};
 }

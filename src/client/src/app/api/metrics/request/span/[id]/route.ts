@@ -1,7 +1,7 @@
 import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
 
-export async function GET(_: Request, context: any) {
+export async function GET(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -9,8 +9,10 @@ export async function GET(_: Request, context: any) {
 			status: 400,
 		});
 
+	const traceId = new URL(request.url).searchParams.get("traceId") || undefined;
+
 	const [spanRes, evalSummary] = await Promise.all([
-		getTraceSpanRecord(id),
+		getTraceSpanRecord(id, { traceId }),
 		getEvaluationSummaryForSpanId(id),
 	]);
 

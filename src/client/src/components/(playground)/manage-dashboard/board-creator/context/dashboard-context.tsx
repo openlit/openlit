@@ -43,6 +43,8 @@ interface DashboardContextType {
 	) => Promise<{ data: any; err: string | null }>;
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
 	widgetData: Record<string, any>;
+	widgetLoading: Record<string, boolean>;
+	widgetError: Record<string, string | null>;
 	updateWidgetData: (widgetId: string, data: any) => void;
 	clearWidgetData: (widgetId: string) => void;
 	loadWidgetData: (widgetId: string) => Promise<void>;
@@ -84,24 +86,46 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 		initialConfig?.widgets || {}
 	);
 	const [widgetData, setWidgetData] = useState<Record<string, any>>({});
+	const [widgetLoading, setWidgetLoading] = useState<Record<string, boolean>>(
+		{}
+	);
+	const [widgetError, setWidgetError] = useState<Record<string, string | null>>(
+		{}
+	);
 	const [editingWidget, setEditingWidget] = useState<string | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const posthog = usePostHog();
 
-	// Load widget data
+	// Load widget data. Tracks per-widget loading/error so the renderer can show
+	// a spinner while querying and surface failures instead of a misleading `0`.
 	const loadWidgetData = async (widgetId: string) => {
 		const widget = widgets[widgetId] as StatCardWidget | BarChartWidget | LineChartWidget | PieChartWidget | TableWidget;
-		if (widget.type === WidgetType.MARKDOWN || !widget?.config?.query) return;
+		const hasQuery =
+			!!(widget?.config as { query?: string } | undefined)?.query ||
+			!!(widget?.config as { structuredQuery?: unknown } | undefined)
+				?.structuredQuery;
+		if (widget.type === WidgetType.MARKDOWN || !hasQuery) return;
+		if (!runQuery) return;
 
+		setWidgetLoading((prev) => ({ ...prev, [widgetId]: true }));
+		setWidgetError((prev) => ({ ...prev, [widgetId]: null }));
 		try {
-			if (runQuery) {
-			const { data } = await runQuery(widgetId, {});
-			updateWidgetData(widgetId, data);
+			const { data, err } = await runQuery(widgetId, {});
+			if (err) {
+				setWidgetError((prev) => ({ ...prev, [widgetId]: String(err) }));
+			} else {
+				updateWidgetData(widgetId, data);
+			}
+		} catch (error) {
+			// Use separate parameters to prevent log injection
+			console.error("Failed to load data for widget:", widgetId, error);
+			setWidgetError((prev) => ({
+				...prev,
+				[widgetId]: error instanceof Error ? error.message : String(error),
+			}));
+		} finally {
+			setWidgetLoading((prev) => ({ ...prev, [widgetId]: false }));
 		}
-	} catch (error) {
-		// Use separate parameters to prevent log injection
-		console.error('Failed to load data for widget:', widgetId, error);
-	}
 	};
 
 	// Update widget data
@@ -118,6 +142,16 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 			const newData = { ...prev };
 			delete newData[widgetId];
 			return newData;
+		});
+		setWidgetLoading((prev) => {
+			const next = { ...prev };
+			delete next[widgetId];
+			return next;
+		});
+		setWidgetError((prev) => {
+			const next = { ...prev };
+			delete next[widgetId];
+			return next;
 		});
 	};
 
@@ -294,6 +328,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 		runQuery: handleRunQuery,
 		handleWidgetCrud,
 		widgetData,
+		widgetLoading,
+		widgetError,
 		updateWidgetData,
 		clearWidgetData,
 		loadWidgetData,

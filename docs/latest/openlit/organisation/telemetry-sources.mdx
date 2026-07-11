@@ -8,11 +8,11 @@ icon: 'plug'
 OpenLIT is the AI intelligence layer for your telemetry. By default it reads raw traces, logs, and metrics from its built-in ClickHouse store. You can also configure external observability backends (Tempo, Datadog, Jaeger, and others) per project and bind each signal independently.
 
 <Info>
-**What is wired today:** Telemetry traces list, span detail, and hierarchy resolve through the project's traces binding (built-in ClickHouse or an external traces source). Dashboard widgets can target a source when they use a structured query. Derived intelligence — evaluations, agent summaries, dashboard metadata, and the controller — always stays in OpenLIT's own ClickHouse.
+**What is wired today:** Telemetry traces, logs, and metrics (list/detail/summary), dashboard overview graphs, structured dashboard widgets, agent materialization (discovery + snapshots via the traces adapter), and auto-evaluation candidate discovery all resolve through the project's per-signal bindings. Derived intelligence — evaluation results, agent summaries, dashboard metadata, rules, and the controller — always stays in OpenLIT's own ClickHouse app store.
 </Info>
 
 <Warning>
-Logs, metrics, agents inventory, evaluations, and most dashboard SQL widgets still read the built-in ClickHouse today. Binding those signals to an external source configures routing for the next surfaces; it does not yet move every page off ClickHouse.
+OpenLIT still requires a ClickHouse database config as its app store for derived data (evals, agents summaries, boards, rules, vault). Raw telemetry can live entirely in an external backend. Self-hosted Tempo/Loki/Victoria/Jaeger endpoints on private networks are allowed by default; cloud metadata endpoints remain blocked.
 </Warning>
 
 ## The source model
@@ -89,8 +89,24 @@ Because OpenLIT's own SDKs, CLI, and controller self-stamp these markers, teleme
 </Steps>
 
 <Tip>
-To wire up a full external stack in one step, use a stack template (Grafana or Victoria). It creates the atomic sources and binds each signal to the right one for you.
+To wire up a full external stack in one step, use a stack template (Grafana or Victoria). It creates the atomic sources and binds each signal to the right one for you. Stack forms expose the same auth fields as single sources (Basic auth, Bearer token, and tenant/org ID where applicable).
 </Tip>
+
+## Authentication by vendor
+
+Credentials are stored encrypted in the OpenLIT vault and only decrypted server-side.
+
+| Backend | Typical auth | What to enter |
+| --- | --- | --- |
+| **Grafana Cloud** (Tempo / Loki / Mimir) | **Basic auth** | Username = Cloud instance ID for that signal; Password = access policy token with `traces:read` / `logs:read` / `metrics:read`. Use the query URLs from the Cloud Portal (not the OTLP write gateway). |
+| **Self-hosted Grafana LGTM** | Often none, or Basic/Bearer via reverse proxy | Leave credentials blank for open clusters. Otherwise fill Basic or Bearer to match your proxy. Multi-tenant Mimir/Loki may need **Tenant / Org ID** (`X-Scope-OrgID`). |
+| **Prometheus / Mimir (OSS)** | Basic, Bearer, or none | Same HTTP auth fields; tenant header when multi-tenancy is enabled. |
+| **Jaeger** | Basic, Bearer, or none | Same HTTP auth fields as Tempo. |
+| **VictoriaLogs / VictoriaMetrics** | Basic, Bearer, or none | Tenant maps to VictoriaLogs `AccountID` or Prometheus-style `X-Scope-OrgID` for VictoriaMetrics. |
+| **Datadog** | API key + Application key | Site (for example `datadoghq.com`) plus both keys. |
+| **New Relic** | API key | Region, account ID, and a key with NerdGraph/NRQL access. |
+
+For Grafana Cloud, prefer the **Username / Instance ID** and **Password / Access policy token** fields. Bearer token is optional and mainly for self-hosted proxies that expect `Authorization: Bearer`.
 
 ## How a read is resolved
 

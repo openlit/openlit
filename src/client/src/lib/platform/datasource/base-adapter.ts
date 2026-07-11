@@ -34,6 +34,11 @@ export abstract class BaseExternalAdapter implements DataSourceAdapter {
 		this.descriptor = descriptor;
 	}
 
+	/** Used by L1 sample cache so summary/grouped/config share one download. */
+	get sampleCacheKey(): string {
+		return this.descriptor.id;
+	}
+
 	abstract capabilities(): SourceCapabilities;
 	abstract healthCheck(): Promise<HealthCheckResult>;
 

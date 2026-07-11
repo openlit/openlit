@@ -72,6 +72,128 @@ function estimateEvaluationCost(
 	);
 }
 
+/** Span ids already handled by auto-eval (evaluated or sampling-skipped). */
+async function loadAutoHandledSpanIds(
+	databaseConfigId: string
+): Promise<Set<string>> {
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const query = `
+		SELECT DISTINCT span_id
+		FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+		WHERE meta['source'] IN (${autoHandledSources})
+	`;
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return new Set();
+	return new Set(
+		((data as { span_id?: string }[]) || [])
+			.map((r) => r.span_id)
+			.filter((id): id is string => !!id)
+	);
+}
+
+/**
+ * Candidate spans for auto-evaluation. Built-in ClickHouse keeps the
+ * historical JOIN against otel_traces; external sources list via the
+ * traces adapter and exclude already-handled ids from the app-store eval table.
+ */
+async function fetchAutoEvalCandidateSpans({
+	databaseConfigId,
+	lastRunTime,
+}: {
+	databaseConfigId: string;
+	lastRunTime?: string | Date | null;
+}): Promise<{ data: TraceRow[]; err?: string }> {
+	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const lastRunIso =
+		lastRunTime instanceof Date
+			? lastRunTime.toISOString()
+			: lastRunTime || null;
+
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const { denormalizeSpanToTraceRow } = await import(
+			"@/lib/platform/datasource/clickhouse/normalize"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(
+			databaseConfigId,
+			"traces"
+		);
+		if (!resolved.isBuiltIn) {
+			const end = new Date();
+			const start = lastRunIso
+				? new Date(lastRunIso)
+				: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+			const handled = await loadAutoHandledSpanIds(databaseConfigId);
+			const frame = await resolved.adapter.listSpans({
+				signal: "traces",
+				timeRange: { start, end },
+				aiSelector: true,
+				limit: 500,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: "gen_ai.operation.name",
+						op: "in",
+						value: [...SUPPORTED_EVALUATION_OPERATIONS],
+					},
+				],
+			});
+			const rows = frame.rows
+				.filter((span) => !handled.has(span.spanId))
+				.map(
+					(span) =>
+						denormalizeSpanToTraceRow(span) as unknown as TraceRow
+				);
+			return { data: rows };
+		}
+	} catch (err) {
+		consoleLog(
+			`fetchAutoEvalCandidateSpans: external path failed (${String(
+				(err as Error)?.message || err
+			)}); trying ClickHouse`
+		);
+	}
+
+	const query = `
+		SELECT t.*
+		FROM ${OTEL_TRACES_TABLE_NAME} AS t
+		LEFT JOIN (
+			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+			WHERE meta['source'] IN (${autoHandledSources})
+		) AS e ON t.SpanId = e.span_id
+		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
+		(operation) => `'${operation}'`
+	).join(", ")})
+		AND (e.span_id = '' OR e.span_id IS NULL)
+		${
+			lastRunIso
+				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunIso}')`
+				: ""
+		}
+		ORDER BY t.Timestamp;
+	`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return { data: [], err: String(err) };
+	return { data: (data as TraceRow[]) || [] };
+}
+
 export async function getEvaluationSummaryForSpanId(spanId: string) {
 	const user = await getCurrentUser();
 	if (!user) return null;
@@ -325,6 +447,14 @@ async function storeAutoEvaluationSkip(
 	sampleRate: number,
 	dbConfigId: string
 ) {
+	const serviceName =
+		String(
+			trace.ServiceName ||
+				(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+					"service.name"
+				] ||
+				""
+		) || "";
 	return storeEvaluation(
 		trace.SpanId,
 		[],
@@ -332,6 +462,7 @@ async function storeAutoEvaluationSkip(
 			source: EVALUATION_SOURCE.AUTO_SKIPPED,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
 			sampleRate: String(sampleRate),
+			...(serviceName ? { "service.name": serviceName } : {}),
 		},
 		dbConfigId
 	);
@@ -575,6 +706,14 @@ async function getEvaluationConfigForTrace(
 			return { success: false, error: data.error };
 		}
 
+		const serviceName =
+			String(
+				trace.ServiceName ||
+					(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+						"service.name"
+					] ||
+					""
+			) || "";
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
@@ -582,6 +721,7 @@ async function getEvaluationConfigForTrace(
 			contextIds: contextEntityIds.join(","),
 			contextApplied: contextContents.length > 0 ? "yes" : "no",
 			source,
+			...(serviceName ? { "service.name": serviceName } : {}),
 		};
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
@@ -646,37 +786,10 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 		autoEvaluationConfig.cronId
 	);
 
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
-
-	// Exclude spans already handled by auto evaluation (evaluated or sampling-skipped).
-	// Manual feedback does not block auto evaluation. Manual runs are always allowed.
-	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
-		(source) => `'${source}'`
-	).join(", ");
-	const query = `
-		SELECT t.*
-		FROM ${OTEL_TRACES_TABLE_NAME} AS t
-		LEFT JOIN (
-			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
-			WHERE meta['source'] IN (${autoHandledSources})
-		) AS e ON t.SpanId = e.span_id
-		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
-		(operation) => `'${operation}'`
-	).join(", ")})
-		AND (e.span_id = '' OR e.span_id IS NULL)
-		${
-			lastRunTime
-				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
-				: ""
-		}
-		ORDER BY t.Timestamp;
-	`;
-
-	const { data, err } = await dataCollector(
-		{ query },
-		"query",
-		databaseConfig.id
-	);
+	const { data, err } = await fetchAutoEvalCandidateSpans({
+		databaseConfigId: databaseConfig.id,
+		lastRunTime,
+	});
 
 	if (err) {
 		const finishedAt = new Date();
@@ -795,6 +908,22 @@ export async function getEvaluationDetectedByType(
 	const currentWhereParams = params;
 	const previousWhereParams = getFilterPreviousParams(currentWhereParams);
 
+	const serviceNames = Array.isArray(
+		(params.selectedConfig as { serviceNames?: unknown } | undefined)
+			?.serviceNames
+	)
+		? (
+				(params.selectedConfig as { serviceNames?: string[] }).serviceNames ||
+				[]
+			).filter((s): s is string => typeof s === "string" && s.length > 0)
+		: [];
+	const serviceScopeSql =
+		serviceNames.length > 0
+			? `AND meta['service.name'] IN (${serviceNames
+					.map((s) => `'${Sanitizer.sanitizeValue(s)}'`)
+					.join(", ")})`
+			: "";
+
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(DISTINCT span_id) AS total_evaluation_detected,
@@ -806,6 +935,7 @@ export async function getEvaluationDetectedByType(
 			AND evaluationData.verdict = 'yes'
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) >= parseDateTimeBestEffort('${parameters.timeLimit.start}') 
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
+			${serviceScopeSql}
 	`;
 
 	const query = `

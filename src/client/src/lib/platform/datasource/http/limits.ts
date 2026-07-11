@@ -21,6 +21,12 @@ export interface QueryBudget {
 	maxRows: number;
 	/** Hard cap on the query time range (ms). */
 	maxRangeMs: number;
+	/**
+	 * Hard cap on how far back `start` may reach from `end` (ms). Sourced from a
+	 * source's `capabilities().maxLookbackMs` (e.g. a vendor's retention window)
+	 * so we never ask for data older than the vendor keeps.
+	 */
+	maxLookbackMs?: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -51,13 +57,21 @@ export function clampQueryBudget(
 	}
 
 	const { start, end } = next.timeRange;
+	// Effective range ceiling is the tighter of the absolute range cap and the
+	// vendor lookback/retention window.
+	const effectiveMaxRangeMs =
+		budget.maxLookbackMs !== undefined
+			? Math.min(budget.maxRangeMs, budget.maxLookbackMs)
+			: budget.maxRangeMs;
 	const rangeMs = end.getTime() - start.getTime();
-	if (rangeMs > budget.maxRangeMs) {
+	if (rangeMs > effectiveMaxRangeMs) {
 		next.timeRange = {
-			start: new Date(end.getTime() - budget.maxRangeMs),
+			start: new Date(end.getTime() - effectiveMaxRangeMs),
 			end,
 		};
-		clamped.push("timeRange");
+		clamped.push(
+			rangeMs > budget.maxRangeMs ? "timeRange" : "maxLookback"
+		);
 	}
 
 	return { query: next, clamped };

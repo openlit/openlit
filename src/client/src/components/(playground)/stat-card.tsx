@@ -5,8 +5,7 @@ import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
+import { LucideIcon, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import IntermediateState from "./intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
@@ -95,7 +94,12 @@ const StatCard = memo(
 				<CardContent>
 					{isLoadingData ? (
 						<IntermediateState type="loading">
-							<Skeleton className={`h-4 w-full rounded-xl ${loadingClass}`} />
+							<div className="flex items-center gap-2">
+								<Loader2 className="h-4 w-4 animate-spin text-stone-500 dark:text-stone-400" />
+								<span className="text-sm text-stone-500 dark:text-stone-400">
+									Loading...
+								</span>
+							</div>
 						</IntermediateState>
 					) : (
 						<div

@@ -28,6 +28,7 @@ import type {
 } from "../types";
 import { UnsupportedCapabilityError } from "../types";
 import { safeFetch } from "../http/safe-fetch";
+import getMessage from "@/constants/messages";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { newrelicAISelectorWhere } from "./selector";
@@ -105,9 +106,13 @@ export class NewRelicAdapter extends BaseExternalAdapter {
 				errors?: { message?: string }[];
 			}>(this.endpoint, {
 				method: "POST",
-				headers,
+				headers: { ...headers, "X-Query-Tags": "source=openlit,type=nrql" },
 				body: JSON.stringify(graphql),
 				redactValues: redact,
+				concurrencyKey: this.descriptor.id,
+				maxConcurrent: 2,
+				retry: true,
+				timeoutMs: 35_000,
 			})
 		);
 		if (response?.errors?.length) {
@@ -334,7 +339,15 @@ export class NewRelicAdapter extends BaseExternalAdapter {
 				resourceAttributes: {},
 			};
 		});
-		return { fields: [], rows: logs, meta: { latencyMs: Date.now() - start } };
+		return {
+			fields: [],
+			rows: logs,
+			meta: {
+				latencyMs: Date.now() - start,
+				truncated: logs.length >= limit,
+				freshness: "live",
+			},
+		};
 	}
 
 	async logTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
@@ -478,5 +491,33 @@ export const newrelicAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service"],
 		},
+		configFields: [
+			{
+				key: "region",
+				label: getMessage().DATA_SOURCE_FIELD_REGION,
+				kind: "select",
+				group: "settings",
+				defaultValue: "US",
+				options: [
+					{ value: "US", label: "US" },
+					{ value: "EU", label: "EU" },
+				],
+			},
+			{
+				key: "accountId",
+				label: getMessage().DATA_SOURCE_FIELD_ACCOUNT_ID,
+				kind: "text",
+				group: "settings",
+				placeholder: "1234567",
+			},
+			{
+				key: "apiKey",
+				label: getMessage().DATA_SOURCE_FIELD_API_KEY,
+				kind: "password",
+				group: "credentials",
+			},
+		],
+		authStyle: "api-key",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_NEWRELIC,
 	}),
 };

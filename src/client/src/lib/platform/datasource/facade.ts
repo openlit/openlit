@@ -7,6 +7,15 @@
  * the ClickHouse-shaped rows the UI already consumes. Signal resolution stays
  * behind a dynamic import so these modules never pull the Prisma/adapter graph
  * into surfaces that only need the built-in path.
+ *
+ * FOLLOW-UP (columnar end-to-end): adapters already produce the normalized
+ * columnar contract (`DataFrame` / `NormalizedSpan|Log|MetricPoint`), but these
+ * facades denormalize back to ClickHouse-shaped rows so the existing UI tables
+ * keep working unchanged. That denormalization is the one place a new adapter
+ * inherits CH-shaped assumptions. When the UI tables are migrated to consume
+ * `DataFrame` directly, drop the `denormalize*` calls here and pass frames
+ * through — no adapter changes required. Tracked as a known follow-up; not a
+ * blocker for adding new datasources (which only touch adapter + descriptor).
  */
 
 import type { DataSourceAdapter, Signal } from "./types";

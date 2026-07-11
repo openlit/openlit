@@ -29,6 +29,7 @@ import { Maximize2, X } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
+import { useIsAgentScoped } from "@/components/(playground)/agents/agent-scope-provider";
 
 const DETAIL_SHEET_CONTENT_CLASS =
 	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
@@ -96,6 +97,10 @@ export default function ObservabilitySignalList({
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
 	const pingStatus = useRootStore(getPingStatus);
+	// `serviceNames` is the agent-detail scope lock, owned exclusively by
+	// AgentScopeProvider. When this list renders OUTSIDE that provider (the
+	// global Telemetry page), a leftover lock must never scope the query.
+	const isAgentScoped = useIsAgentScoped();
 	const visibilityColumns = useRootStore((state) =>
 		getVisibilityColumnsOfPage(state, config.visibilityPage)
 	);
@@ -168,6 +173,20 @@ export default function ObservabilitySignalList({
 	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest]);
 
 	useEffect(() => {
+		// Defensively strip a leaked agent scope before any request fires. On
+		// the global Telemetry surface (`isAgentScoped === false`) a lingering
+		// `serviceNames` lock — e.g. left in the shared store by the agent
+		// Monitoring tab during a route transition — would otherwise collapse the
+		// list to a single service. Clearing it re-runs this effect with an empty
+		// scope, so the very first query already covers every service.
+		if (
+			!isAgentScoped &&
+			Array.isArray(filter.selectedConfig?.serviceNames) &&
+			filter.selectedConfig.serviceNames.length > 0
+		) {
+			updateFilter("selectedConfig.serviceNames", []);
+			return;
+		}
 		if (
 			effectiveFilter.filterReady &&
 			effectiveFilter.timeLimit.start &&
@@ -178,7 +197,7 @@ export default function ObservabilitySignalList({
 			if (showFlatList) fetchData();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [effectiveFilter, pingStatus, showFlatList]);
+	}, [effectiveFilter, pingStatus, showFlatList, isAgentScoped]);
 
 	const rows = useMemo(() => {
 		const records = (data as any)?.records || [];
@@ -195,12 +214,18 @@ export default function ObservabilitySignalList({
 	const isSessionSignal = config.key === "sessions";
 
 	const setSelectedInUrl = useCallback(
-		(id: string | null) => {
+		(id: string | null, traceId?: string | null) => {
 			const params = new URLSearchParams(searchParams.toString());
 			if (id) {
 				params.set("selected", id);
+				if (traceId) {
+					params.set("traceId", String(traceId));
+				} else if (traceId === null) {
+					params.delete("traceId");
+				}
 			} else {
 				params.delete("selected");
+				params.delete("traceId");
 			}
 			const query = params.toString();
 			router.replace(`${pathname}${query ? `?${query}` : ""}`, {
@@ -252,7 +277,7 @@ export default function ObservabilitySignalList({
 		if (isTraceSignal) {
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(row.spanId);
-			setSelectedInUrl(row.spanId);
+			setSelectedInUrl(row.spanId, row.traceId);
 			return;
 		}
 		if (isSessionSignal) {

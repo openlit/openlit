@@ -132,11 +132,35 @@ beforeEach(() => {
 		},
 		correlation: { crossSignal: true, keys: ["traceId", "service"] },
 	}));
-	mockListSourceTypeDescriptors.mockReturnValue([
-		{ type: "clickhouse" },
-		{ type: "datadog" },
-		{ type: "tempo" },
-	]);
+	mockListSourceTypeDescriptors.mockImplementation(
+		(opts: { includeInternal?: boolean } = {}) => {
+			const atomic = [
+				{ type: "clickhouse" },
+				{ type: "datadog" },
+				{ type: "tempo" },
+			];
+			if (!opts.includeInternal) return atomic;
+			return [
+				...atomic,
+				{
+					type: "grafana",
+					internal: true,
+					stackTemplate: {
+						displayName: "Grafana stack",
+						slots: [{ key: "tempo", type: "tempo", signal: "traces" }],
+					},
+				},
+				{
+					type: "victoria",
+					internal: true,
+					stackTemplate: {
+						displayName: "Victoria stack",
+						slots: [{ key: "logs", type: "victorialogs", signal: "logs" }],
+					},
+				},
+			];
+		}
+	);
 });
 
 describe("listTelemetrySources", () => {
@@ -339,7 +363,25 @@ describe("validateTelemetrySourceAISignal", () => {
 			start: new Date("2026-07-01"),
 			end: new Date("2026-07-02"),
 		});
-		expect(res).toMatchObject({ ok: true, sampleCount: 3 });
+		expect(res).toMatchObject({ ok: true, sampleCount: 3, supported: true });
+	});
+
+	it("soft-succeeds when the adapter does not support AI validation", async () => {
+		const { UnsupportedCapabilityError } = jest.requireActual(
+			"@/lib/platform/datasource/types"
+		) as typeof import("@/lib/platform/datasource/types");
+		mockFindFirst.mockResolvedValue(row({ type: "loki" }));
+		mockCreateAdapter.mockReturnValue({
+			validateAISignal: jest
+				.fn()
+				.mockRejectedValue(new UnsupportedCapabilityError("loki", "validateAISignal")),
+		});
+		const res = await validateTelemetrySourceAISignal("src-1", {
+			start: new Date("2026-07-01"),
+			end: new Date("2026-07-02"),
+		});
+		expect(res.supported).toBe(false);
+		expect(res.ok).toBe(true);
 	});
 });
 

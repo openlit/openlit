@@ -19,11 +19,19 @@ type SummaryData = {
 	total?: number;
 	peak?: number;
 	buckets?: Array<Record<string, any>>;
+	freshness?: "live" | "sampled" | "accelerated";
 };
 
 function formatBucket(bucket?: string) {
 	if (!bucket) return m.OBSERVABILITY_AUTO;
 	return bucket.charAt(0).toUpperCase() + bucket.slice(1);
+}
+
+function freshnessLabel(freshness?: SummaryData["freshness"]) {
+	if (freshness === "live") return m.OBSERVABILITY_FRESHNESS_LIVE;
+	if (freshness === "accelerated") return m.OBSERVABILITY_FRESHNESS_ACCELERATED;
+	if (freshness === "sampled") return m.OBSERVABILITY_FRESHNESS_SAMPLED;
+	return null;
 }
 
 function chartColor(signal: ObservabilitySignalConfig["key"]) {
@@ -49,6 +57,7 @@ export default function SignalSummary({
 			: config.key === "logs"
 				? m.OBSERVABILITY_LOG_EVENTS
 				: m.OBSERVABILITY_SPANS;
+	const freshness = freshnessLabel(data?.freshness);
 
 	return (
 		<section className="rounded-md border border-stone-200 bg-stone-50/80 p-3 dark:border-stone-800 dark:bg-stone-900/40">
@@ -62,9 +71,16 @@ export default function SignalSummary({
 							{metricLabel}
 						</h2>
 					</div>
-					<span className={`rounded-full border px-2 py-1 text-xs font-medium ${config.tone}`}>
-						{isLoading ? m.OBSERVABILITY_LOADING : `${buckets.length} buckets`}
-					</span>
+					<div className="flex flex-wrap items-center gap-1.5">
+						{freshness ? (
+							<span className="rounded-full border border-stone-300 px-2 py-1 text-xs font-medium text-stone-600 dark:border-stone-700 dark:text-stone-300">
+								{freshness}
+							</span>
+						) : null}
+						<span className={`rounded-full border px-2 py-1 text-xs font-medium ${config.tone}`}>
+							{isLoading ? m.OBSERVABILITY_LOADING : `${buckets.length} buckets`}
+						</span>
+					</div>
 				</div>
 				<div className="h-28 min-w-0">
 					<ResponsiveContainer width="100%" height="100%">

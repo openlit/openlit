@@ -10,6 +10,8 @@ import type {
 	TelemetrySourceDescriptor,
 } from "../types";
 import { PrometheusAdapter } from "../grafana/prometheus";
+import { httpVendorFields } from "../config-fields";
+import getMessage from "@/constants/messages";
 
 export const victoriaMetricsAdapterFactory = {
 	type: "victoriametrics",
@@ -29,5 +31,11 @@ export const victoriaMetricsAdapterFactory = {
 			rawQuery: false,
 		},
 		correlation: { crossSignal: false, keys: ["service"] },
+		configFields: httpVendorFields({
+			placeholder: "https://vm.example.com",
+			tenant: true,
+		}),
+		authStyle: "http",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	}),
 };

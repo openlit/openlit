@@ -35,6 +35,13 @@ export interface MetricParams {
 	sorting?: any;
 	operationType?: OPERATION_TYPE;
 	statusCode?: string[];
+	/**
+	 * Explicit telemetry source id (e.g. a dashboard widget's bound `sourceId`).
+	 * When set, read facades resolve metadata against this source instead of the
+	 * project's default routing, so the query builder sees the fields that the
+	 * widget's actual source can serve.
+	 */
+	sourceId?: string;
 }
 
 export type GPU_TYPE_KEY =

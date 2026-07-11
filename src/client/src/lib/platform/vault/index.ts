@@ -76,7 +76,21 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	const secretInput = Sanitizer.sanitizeObject(secretInputParams);
+	// Preserve the secret value before SQL sanitization. `sqlString.escape`
+	// turns JSON quotes into \" which survives encryption and then fails
+	// JSON.parse on read — adapters see empty credentials and Grafana returns
+	// "authentication error: no credentials provided".
+	const rawValue =
+		typeof secretInputParams.value === "string"
+			? secretInputParams.value
+			: undefined;
+	const secretInput = Sanitizer.sanitizeObject({
+		...secretInputParams,
+		value: undefined,
+	}) as Partial<SecretInput>;
+	if (rawValue !== undefined) {
+		secretInput.value = rawValue;
+	}
 
 	const verifiedSecretObj = verifySecretInput(secretInput);
 	throwIfError(!verifiedSecretObj.success, verifiedSecretObj.err!);

@@ -487,5 +487,9 @@ export const clickHouseAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service", "session"],
 		},
+		// Built-in source: connection comes from the project's DB config, so the
+		// external add/edit form needs no config fields.
+		configFields: [],
+		authStyle: "none",
 	}),
 };

@@ -311,6 +311,7 @@ export function TraceDetailView({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const from = searchParams.get("from");
+	const urlTraceId = searchParams.get("traceId") || undefined;
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
 	// Per-session code-impact rollups (lines added / removed,
@@ -369,12 +370,22 @@ export function TraceDetailView({
 		fireRequest: fireListRequest,
 		isLoading: isListLoading,
 	} = useFetchWrapper<any>();
+	const listHintTraceId = useMemo(() => {
+		const row = (navigationRows || []).find(
+			(r: any) => r.spanId === selectedSpanId || r.spanId === activeListSpanId
+		);
+		return (row?.traceId as string | undefined) || undefined;
+	}, [navigationRows, selectedSpanId, activeListSpanId]);
+	const knownTraceId = urlTraceId || listHintTraceId;
 	const fetchData = useCallback(() => {
+		const qs = knownTraceId
+			? `?traceId=${encodeURIComponent(knownTraceId)}`
+			: "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/metrics/request/span/${selectedSpanId}`,
+			url: `/api/metrics/request/span/${selectedSpanId}${qs}`,
 		});
-	}, [fireRequest, selectedSpanId]);
+	}, [fireRequest, selectedSpanId, knownTraceId]);
 
 	useEffect(() => {
 		hierarchySpanIdRef.current = spanId;
@@ -918,6 +929,7 @@ export function TraceDetailView({
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
 										selectedSpanId={selectedSpanId}
+										traceId={knownTraceId || trace?.id}
 										onSelectSpan={selectSpanInCurrentTrace}
 										fill
 									/>
@@ -939,6 +951,7 @@ export function TraceDetailView({
 						<SpanHierarchyExplorer
 							hierarchySpanId={hierarchySpanIdRef.current}
 							selectedSpanId={selectedSpanId}
+							traceId={knownTraceId || trace?.id}
 							onSelectSpan={selectSpanInCurrentTrace}
 						/>
 						<DetailObjectTabs

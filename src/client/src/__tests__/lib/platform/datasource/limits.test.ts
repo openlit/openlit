@@ -49,6 +49,33 @@ describe("clampQueryBudget", () => {
 		expect(query.limit).toBe(100);
 		expect(clamped).toHaveLength(0);
 	});
+
+	it("clamps start to the vendor lookback window when tighter than maxRangeMs", () => {
+		const end = new Date("2026-07-10T00:00:00Z");
+		const start = new Date(end.getTime() - 20 * 24 * 60 * 60 * 1000); // 20d
+		const maxLookbackMs = 7 * 24 * 60 * 60 * 1000; // 7d retention
+		const { query, clamped } = clampQueryBudget(
+			baseQuery({ timeRange: { start, end } }),
+			{ ...DEFAULT_QUERY_BUDGET, maxLookbackMs }
+		);
+		expect(query.timeRange.end).toEqual(end);
+		expect(end.getTime() - query.timeRange.start.getTime()).toBe(maxLookbackMs);
+		// Range was inside maxRangeMs (30d) but outside the 7d lookback.
+		expect(clamped).toContain("maxLookback");
+		expect(clamped).not.toContain("timeRange");
+	});
+
+	it("keeps an in-lookback range untouched", () => {
+		const end = new Date("2026-07-10T00:00:00Z");
+		const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000); // 3d
+		const maxLookbackMs = 7 * 24 * 60 * 60 * 1000;
+		const { query, clamped } = clampQueryBudget(
+			baseQuery({ timeRange: { start, end } }),
+			{ ...DEFAULT_QUERY_BUDGET, maxLookbackMs }
+		);
+		expect(query.timeRange.start).toEqual(start);
+		expect(clamped).not.toContain("maxLookback");
+	});
 });
 
 describe("Semaphore", () => {

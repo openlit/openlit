@@ -28,6 +28,12 @@ describe("metricParamsToOpenLITQuery", () => {
 				providers: ["openai"],
 				spanNames: ["chat"],
 				serviceNames: ["api"],
+				environments: ["production"],
+				versionFilter: {
+					versionHash: "v1",
+					firstSeen: "2026-07-01T00:00:00.000Z",
+					lastSeen: "2026-07-01T01:00:00.000Z",
+				},
 				customFilters: [
 					{ key: "gen_ai.operation.name", value: "chat", operator: "eq" },
 				],
@@ -58,8 +64,48 @@ describe("metricParamsToOpenLITQuery", () => {
 					scope: "resource",
 				}),
 				expect.objectContaining({
+					key: "deployment.environment",
+					scope: "resource",
+					value: ["production"],
+				}),
+				expect.objectContaining({
+					key: "openlit.agent.version_hash",
+					value: "v1",
+				}),
+				expect.objectContaining({
 					key: "gen_ai.operation.name",
 					value: "chat",
+				}),
+			])
+		);
+	});
+
+	it("maps operationType llm/vectordb onto gen_ai.operation.name", () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const end = new Date("2026-07-01T01:00:00.000Z");
+		const llm = metricParamsToOpenLITQuery({
+			timeLimit: { start, end, type: "CUSTOM" },
+			operationType: "llm",
+		} as any);
+		expect(llm.filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					key: "gen_ai.operation.name",
+					op: "neq",
+					value: "vectordb",
+				}),
+			])
+		);
+		const vectordb = metricParamsToOpenLITQuery({
+			timeLimit: { start, end, type: "CUSTOM" },
+			operationType: "vectordb",
+		} as any);
+		expect(vectordb.filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					key: "gen_ai.operation.name",
+					op: "eq",
+					value: "vectordb",
 				}),
 			])
 		);

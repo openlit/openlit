@@ -16,18 +16,29 @@ import type {
 	DataFrame,
 	DiscoveredService,
 	HealthCheckResult,
+	NormalizedFilter,
 	NormalizedSpan,
 	NormalizedSpanEvent,
 	OpenLITQuery,
 	QueryTimeRange,
+	ServiceRollup,
 	SourceCapabilities,
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
-import { safeFetch } from "../http/safe-fetch";
+import { applyHttpAuthCredentials } from "../http/auth-headers";
+import { httpVendorFields } from "../config-fields";
+import getMessage from "@/constants/messages";
+import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { spanMatchesAISelector, traceMatchesAISelector } from "../selector-match";
+import {
+	computeAggregateSpansL1,
+	computeDistinctValuesL1,
+	computeSpanTimeSeriesL1,
+} from "../l1-compute";
+import { spanFieldValue } from "../graph/sample-aggregate";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
@@ -67,6 +78,44 @@ interface JaegerTrace {
 	processes?: Record<string, JaegerProcess>;
 }
 
+function spanMatchesFilters(
+	span: NormalizedSpan,
+	filters?: NormalizedFilter[]
+): boolean {
+	if (!filters?.length) return true;
+	return filters.every((filter) => {
+		if (filter.target === "spanName") {
+			const values = Array.isArray(filter.value)
+				? filter.value.map(String)
+				: [String(filter.value || "")];
+			return values.includes(span.name);
+		}
+		if (filter.target === "status") {
+			const values = Array.isArray(filter.value)
+				? filter.value.map(String)
+				: [String(filter.value || "")];
+			const wantsError = values.some(
+				(v) => /error/i.test(v) || v === "STATUS_CODE_ERROR"
+			);
+			const isError = /error/i.test(span.statusCode || "");
+			return wantsError ? isError : !isError;
+		}
+		if (filter.target === "attribute" && filter.key) {
+			const raw = spanFieldValue(span, filter.key);
+			const value = raw === undefined ? undefined : String(raw);
+			if (filter.op === "exists") return !!value;
+			if (filter.op === "eq") return value === String(filter.value ?? "");
+			if (filter.op === "in") {
+				const values = Array.isArray(filter.value)
+					? filter.value.map(String)
+					: [String(filter.value || "")];
+				return value !== undefined && values.includes(value);
+			}
+		}
+		return true;
+	});
+}
+
 function tagsToMap(tags?: JaegerTag[]): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const t of tags || []) {
@@ -77,12 +126,14 @@ function tagsToMap(tags?: JaegerTag[]): Record<string, string> {
 
 export class JaegerAdapter extends BaseExternalAdapter {
 	readonly type = "jaeger";
+	/** Jaeger already fans out `/api/traces?service=` per service. */
+	readonly samplesAreServiceStratified = true;
 
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
 	}
-	private get allowHttp(): boolean {
-		return this.descriptor.settings.allowHttp !== false;
+	private get networkOpts() {
+		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 	private get configuredServices(): string[] | undefined {
 		const s = this.descriptor.settings.services;
@@ -97,16 +148,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			this.descriptor.secretRef,
 			this.descriptor.dbConfigId
 		);
-		const headers: Record<string, string> = {};
-		if (secret.credentials.token) {
-			headers.Authorization = `Bearer ${secret.credentials.token}`;
-		} else if (secret.credentials.username) {
-			const basic = Buffer.from(
-				`${secret.credentials.username}:${secret.credentials.password || ""}`
-			).toString("base64");
-			headers.Authorization = `Basic ${basic}`;
-		}
-		return { headers, redact: redactableSecretValues(secret) };
+		return {
+			headers: applyHttpAuthCredentials(secret.credentials),
+			redact: redactableSecretValues(secret),
+		};
 	}
 
 	capabilities(): SourceCapabilities {
@@ -116,7 +161,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			spanEvents: true,
 			serverAggregation: false,
 			spanMutation: false,
-			distinctValues: false,
+			distinctValues: true,
 			crossTraceSession: false,
 			rawQuery: false,
 		};
@@ -139,8 +184,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{ data?: string[] }>(`${this.baseUrl}/api/services`, {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
+				concurrencyKey: this.descriptor.id,
+				retry: true,
 			})
 		);
 		return (response?.data || []).slice(0, MAX_SERVICES);
@@ -207,8 +254,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{ data?: JaegerTrace[] }>(url.toString(), {
 				headers,
-				allowHttp: this.allowHttp,
+				...this.networkOpts,
 				redactValues: redact,
+				concurrencyKey: this.descriptor.id,
+				retry: true,
 			})
 		);
 		return response?.data || [];
@@ -233,7 +282,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 					this.normalizeSpan(s, trace.processes || {})
 				);
 				if (query.aiSelector === false || traceMatchesAISelector(spans)) {
-					out.push(...spans);
+					const filtered = spans.filter((s) =>
+						spanMatchesFilters(s, query.filters)
+					);
+					out.push(...(filtered.length ? filtered : spans));
 				}
 				if (out.length >= maxSpans) break;
 			}
@@ -261,7 +313,13 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{ data?: JaegerTrace[] }>(
 				`${this.baseUrl}/api/traces/${encodeURIComponent(traceId)}`,
-				{ headers, allowHttp: this.allowHttp, redactValues: redact }
+				{
+					headers,
+					...this.networkOpts,
+					redactValues: redact,
+					concurrencyKey: this.descriptor.id,
+					retry: true,
+				}
 			)
 		);
 		const trace = response?.data?.[0];
@@ -284,6 +342,18 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		return this.collectSpans(query, Math.min((maxTraces || 100) * 20, 5000));
 	}
 
+	async aggregateSpans(query: OpenLITQuery): Promise<DataFrame> {
+		return computeAggregateSpansL1(this, query);
+	}
+
+	async spanTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
+		return computeSpanTimeSeriesL1(this, query);
+	}
+
+	async distinctValues(key: string, query: OpenLITQuery): Promise<string[]> {
+		return computeDistinctValuesL1(this, key, query);
+	}
+
 	async discoverServices(window: QueryTimeRange): Promise<DiscoveredService[]> {
 		const services = await this.listServices();
 		const discovered: DiscoveredService[] = [];
@@ -304,6 +374,34 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			}
 		}
 		return discovered;
+	}
+
+	async aggregateByService(window: QueryTimeRange): Promise<ServiceRollup[]> {
+		const discovered = await this.discoverServices(window);
+		const rollups: ServiceRollup[] = [];
+		for (const svc of discovered) {
+			const traces = await this.fetchServiceTraces(svc.serviceName, window, 20);
+			const spans = traces.flatMap((t) =>
+				(t.spans || []).map((s) => this.normalizeSpan(s, t.processes || {}))
+			);
+			const models = new Set<string>();
+			const providers = new Set<string>();
+			for (const span of spans) {
+				const model = span.spanAttributes["gen_ai.request.model"];
+				const provider = span.spanAttributes["gen_ai.system"];
+				if (model) models.add(model);
+				if (provider) providers.add(provider);
+			}
+			rollups.push({
+				serviceName: svc.serviceName,
+				environment: svc.environment || "default",
+				clusterId: svc.clusterId || "default",
+				requestCount: spans.length,
+				models: Array.from(models),
+				providers: Array.from(providers),
+			});
+		}
+		return rollups;
 	}
 
 	async validateAISignal(window: QueryTimeRange): Promise<AISignalValidation> {
@@ -340,7 +438,7 @@ export const jaegerAdapterFactory = {
 			spanEvents: true,
 			serverAggregation: false,
 			spanMutation: false,
-			distinctValues: false,
+			distinctValues: true,
 			crossTraceSession: false,
 			rawQuery: false,
 		},
@@ -348,5 +446,10 @@ export const jaegerAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service"],
 		},
+		configFields: httpVendorFields({
+			placeholder: "https://jaeger.example.com",
+		}),
+		authStyle: "http",
+		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	}),
 };

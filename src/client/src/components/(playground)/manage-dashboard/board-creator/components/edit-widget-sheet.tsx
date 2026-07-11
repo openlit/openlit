@@ -50,7 +50,15 @@ import {
 	WIDGET_DATA_SOURCE_LABEL,
 	WIDGET_DATA_SOURCE_BUILTIN,
 	WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED,
+	WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT,
+	WIDGET_STRUCTURED_VIEW_GENERATED_QUERY,
 } from "@/constants/messages/en";
+import {
+	inferStructuredFromClickHouseSql,
+	inferredToStructuredQuery,
+	isLegacyOtelTracesSql,
+	openLITQueryToClickHouseSql,
+} from "@/lib/platform/manage-dashboard/widget-sql-bridge";
 
 const BUILTIN_SOURCE_VALUE = "builtin";
 
@@ -115,19 +123,38 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	const [typeDescriptors, setTypeDescriptors] = React.useState<
 		TelemetrySourceTypeDescriptor[]
 	>([]);
+	const [tracesBindingSourceId, setTracesBindingSourceId] = React.useState<
+		string | null
+	>(null);
+	const [showGeneratedQuery, setShowGeneratedQuery] = React.useState(false);
+	const inferredForWidgetRef = React.useRef<string | null>(null);
 
 	useEffect(() => {
 		let active = true;
-		fetch("/api/telemetry-source")
-			.then((r) => (r.ok ? r.json() : null))
-			.then((j) => {
-				if (!active || !j) return;
-				if (j.sources) setSources(j.sources as TelemetrySourceOption[]);
-				if (j.availableTypeDescriptors) {
+		Promise.all([
+			fetch("/api/telemetry-source").then((r) => (r.ok ? r.json() : null)),
+			fetch("/api/telemetry-source/binding").then((r) =>
+				r.ok ? r.json() : null
+			),
+		])
+			.then(([sourcesJson, bindingsJson]) => {
+				if (!active) return;
+				if (sourcesJson?.sources) {
+					setSources(sourcesJson.sources as TelemetrySourceOption[]);
+				}
+				if (sourcesJson?.availableTypeDescriptors) {
 					setTypeDescriptors(
-						j.availableTypeDescriptors as TelemetrySourceTypeDescriptor[]
+						sourcesJson.availableTypeDescriptors as TelemetrySourceTypeDescriptor[]
 					);
 				}
+				const bindings = Array.isArray(bindingsJson?.bindings)
+					? (bindingsJson.bindings as Array<{
+							signal?: string;
+							sourceId?: string;
+						}>)
+					: [];
+				const traces = bindings.find((b) => b.signal === "traces");
+				setTracesBindingSourceId(traces?.sourceId || null);
 			})
 			.catch(() => {});
 		return () => {
@@ -140,13 +167,37 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		(currentConfig.sourceId as string | undefined) || BUILTIN_SOURCE_VALUE;
 	const selectedSource = sources.find((s) => s.id === selectedSourceId);
 	const isExternalSource = !!selectedSource && selectedSource.type !== "clickhouse";
+	const projectTracesSource = tracesBindingSourceId
+		? sources.find((s) => s.id === tracesBindingSourceId)
+		: undefined;
+	const usesProjectExternalTraces =
+		selectedSourceId === BUILTIN_SOURCE_VALUE &&
+		!!projectTracesSource &&
+		projectTracesSource.type !== "clickhouse" &&
+		typeof currentConfig.query === "string" &&
+		/\botel_traces\b/i.test(currentConfig.query) &&
+		!/\bopenlit_evaluation\b/i.test(currentConfig.query);
 	const hasStructuredQuery = !!currentConfig.structuredQuery;
+	const isOtelTracesSql =
+		typeof currentConfig.query === "string" &&
+		isLegacyOtelTracesSql(currentConfig.query);
+	const showStructuredBuilder =
+		isExternalSource ||
+		usesProjectExternalTraces ||
+		hasStructuredQuery ||
+		isOtelTracesSql ||
+		(selectedSourceId === BUILTIN_SOURCE_VALUE && !currentConfig.query);
 	const selectedTypeDescriptor = selectedSource
 		? typeDescriptors.find((d) => d.type === selectedSource.type)
 		: undefined;
-	const sourceSignals = parseSignalList(selectedSource?.signals);
+	const sourceSignals = parseSignalList(
+		selectedSource?.signals ||
+			(usesProjectExternalTraces ? projectTracesSource?.signals : undefined)
+	);
 	const sourceSupportsAggregation =
-		selectedTypeDescriptor?.capabilities?.serverAggregation !== false;
+		selectedTypeDescriptor?.capabilities?.serverAggregation !== false ||
+		usesProjectExternalTraces ||
+		selectedSourceId === BUILTIN_SOURCE_VALUE;
 	const structuredValue: StructuredQueryValue | undefined =
 		currentConfig.structuredQuery
 			? {
@@ -154,6 +205,41 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 					query: currentConfig.structuredQuery.query || {},
 				}
 			: undefined;
+
+	// Seed builder from legacy ClickHouse SQL when opening a seeded LLM widget.
+	React.useEffect(() => {
+		if (!currentWidget || currentWidget.type === WidgetType.MARKDOWN) return;
+		if (inferredForWidgetRef.current === currentWidget.id) return;
+		inferredForWidgetRef.current = currentWidget.id;
+		if (currentConfig.structuredQuery) return;
+		if (
+			typeof currentConfig.query !== "string" ||
+			!isLegacyOtelTracesSql(currentConfig.query)
+		) {
+			return;
+		}
+		const inferred = inferStructuredFromClickHouseSql(currentConfig.query);
+		if (!inferred) return;
+		const structured = inferredToStructuredQuery(inferred);
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				signal: "traces",
+				structuredQuery: structured,
+			},
+		});
+	}, [currentWidget?.id]);
+
+	const generatedQueryPreview = React.useMemo(() => {
+		if (!structuredValue) return "";
+		if (isExternalSource || usesProjectExternalTraces) {
+			return JSON.stringify(structuredValue, null, 2);
+		}
+		return openLITQueryToClickHouseSql(
+			structuredValue.query as any,
+			structuredValue.mode
+		);
+	}, [structuredValue, isExternalSource, usesProjectExternalTraces]);
 
 	const handleSourceChange = (value: string) => {
 		if (!currentWidget) return;
@@ -218,12 +304,16 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 			setIsQueryLoading(true);
 			setQueryError(null);
 			try {
-				const externalSource =
-					!!cfg.sourceId &&
-					sources.find((s) => s.id === cfg.sourceId)?.type !== "clickhouse";
+				const useStructured =
+					!!cfg.structuredQuery &&
+					(isExternalSource ||
+						usesProjectExternalTraces ||
+						showStructuredBuilder);
 				const result = await runQuery(currentWidget.id, {
-					// External sources reject raw SQL; run their structured query.
-					userQuery: externalSource ? undefined : cfg.query,
+					userQuery: useStructured ? undefined : cfg.query,
+					structuredQuery: useStructured ? cfg.structuredQuery : undefined,
+					sourceId: cfg.sourceId ?? null,
+					signal: cfg.signal,
 				});
 				setQueryResult(result.data);
 				setQueryError(result.err);
@@ -681,9 +771,11 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-														<SelectItem value={BUILTIN_SOURCE_VALUE} className="dark:text-white">
-															{WIDGET_DATA_SOURCE_BUILTIN}
-														</SelectItem>
+													<SelectItem value={BUILTIN_SOURCE_VALUE} className="dark:text-white">
+														{usesProjectExternalTraces && projectTracesSource
+															? `${projectTracesSource.name} (${projectTracesSource.type}) · via project binding`
+															: WIDGET_DATA_SOURCE_BUILTIN}
+													</SelectItem>
 														{sources.map((s) => (
 															<SelectItem key={s.id} value={s.id} className="dark:text-white">
 																{s.name} ({s.type})
@@ -697,15 +789,57 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 														{WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED}
 													</p>
 												)}
+												{usesProjectExternalTraces && projectTracesSource && (
+													<p className="text-xs text-stone-500 dark:text-stone-400 flex items-start gap-1">
+														<Info className="h-3 w-3 mt-0.5 shrink-0" />
+														{WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT(
+															projectTracesSource.name,
+															projectTracesSource.type
+														)}
+													</p>
+												)}
 											</div>
 
-											{isExternalSource ? (
-												<StructuredQueryBuilder
-													signals={sourceSignals}
-													supportsAggregation={sourceSupportsAggregation}
-													value={structuredValue}
-													onChange={handleStructuredChange}
-												/>
+											{showStructuredBuilder ? (
+												<div className="space-y-3">
+													<StructuredQueryBuilder
+														signals={sourceSignals}
+														supportsAggregation={sourceSupportsAggregation}
+														capabilityAware={
+															isExternalSource || usesProjectExternalTraces
+														}
+														sourceId={
+															isExternalSource ? selectedSourceId : undefined
+														}
+														value={structuredValue}
+														onChange={handleStructuredChange}
+													/>
+													<label className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+														<input
+															type="checkbox"
+															checked={showGeneratedQuery}
+															onChange={(e) =>
+																setShowGeneratedQuery(e.target.checked)
+															}
+															className="rounded border-stone-300 dark:border-stone-600"
+														/>
+														{WIDGET_STRUCTURED_VIEW_GENERATED_QUERY}
+													</label>
+													{showGeneratedQuery && (
+														<div className="border rounded-md h-48 bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
+															<CodeEditor
+																value={generatedQueryPreview}
+																onChange={() => {}}
+																language={
+																	isExternalSource || usesProjectExternalTraces
+																		? "json"
+																		: editorLanguage
+																}
+																readOnly={true}
+															/>
+														</div>
+													)}
+												</div>
 											) : (
 												<div className="space-y-2">
 													<div className="flex justify-between items-center">
@@ -726,7 +860,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Button
 													size="sm"
 													onClick={handleRunQuery}
-													disabled={isExternalSource && !hasStructuredQuery}
+													disabled={showStructuredBuilder && !hasStructuredQuery && !structuredValue}
 													className="bg-primary hover:bg-primary/90 text-white"
 												>
 													Run Query

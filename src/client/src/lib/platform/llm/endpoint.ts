@@ -1,8 +1,12 @@
 import { getFilterWhereCondition } from "@/helpers/server/platform";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
+import { externalGenerationByProvider } from "./external";
 
 export async function getResultGenerationByEndpoint(params: MetricParams) {
+	const external = await externalGenerationByProvider(params);
+	if (external) return external;
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("provider")}']`;
 	const query = `
     SELECT 

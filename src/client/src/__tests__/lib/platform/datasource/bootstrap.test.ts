@@ -29,6 +29,7 @@ import {
 	__resetRegistryForTests,
 	createAdapter,
 	hasAdapterFactory,
+	listSourceTypeDescriptors,
 } from "@/lib/platform/datasource/registry";
 import { ClickHouseAdapter } from "@/lib/platform/datasource/clickhouse/adapter";
 import type { TelemetrySourceDescriptor } from "@/lib/platform/datasource/types";
@@ -59,7 +60,7 @@ describe("datasource bootstrap", () => {
 		expect(createAdapter(descriptor)).toBeInstanceOf(ClickHouseAdapter);
 	});
 
-	it("registers every atomic vendor factory (no stack umbrellas)", () => {
+	it("registers every atomic vendor factory", () => {
 		ensureAdaptersRegistered();
 		for (const type of [
 			"clickhouse",
@@ -75,8 +76,48 @@ describe("datasource bootstrap", () => {
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);
 		}
-		// Stack templates expand into atomic rows; umbrellas are not registered.
-		expect(hasAdapterFactory("grafana")).toBe(false);
-		expect(hasAdapterFactory("victoria")).toBe(false);
+	});
+
+	it("registers stack umbrellas as internal-only (hidden from atomic pickers)", () => {
+		ensureAdaptersRegistered();
+		// Umbrellas ARE registered so their descriptor/stackTemplate is available,
+		// but they are excluded from the atomic type list the source picker uses.
+		expect(hasAdapterFactory("grafana")).toBe(true);
+		expect(hasAdapterFactory("victoria")).toBe(true);
+		const atomic = listSourceTypeDescriptors().map((d) => d.type);
+		expect(atomic).not.toContain("grafana");
+		expect(atomic).not.toContain("victoria");
+		const all = listSourceTypeDescriptors({ includeInternal: true }).map(
+			(d) => d.type
+		);
+		expect(all).toContain("grafana");
+		expect(all).toContain("victoria");
+	});
+
+	it("every registered atomic type exposes a valid config schema", () => {
+		ensureAdaptersRegistered();
+		const descriptors = listSourceTypeDescriptors({ includeInternal: true });
+		expect(descriptors.length).toBeGreaterThan(0);
+		for (const d of descriptors) {
+			// configFields is the single source of truth for the form — it must
+			// always be an array (empty for built-in/internal), and every field
+			// must be self-describing (key + label + type).
+			expect(Array.isArray(d.configFields)).toBe(true);
+			for (const f of d.configFields) {
+				expect(typeof f.key).toBe("string");
+				expect(f.key.length).toBeGreaterThan(0);
+				expect(typeof f.label).toBe("string");
+				expect(f.label.length).toBeGreaterThan(0);
+				expect(["text", "password", "url", "switch", "select"]).toContain(
+					f.kind
+				);
+				expect(["settings", "credentials"]).toContain(f.group);
+			}
+			// Atomic (non-internal) vendor sources must declare an auth style so
+			// the form can render the right credential hints without per-type code.
+			if (!d.internal && d.type !== "clickhouse") {
+				expect(d.authStyle).toBeDefined();
+			}
+		}
 	});
 });

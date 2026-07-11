@@ -1,5 +1,6 @@
 import { useRootStore } from "@/store";
 import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
+import { withTelemetryRequestCache } from "@/utils/telemetry-request-cache";
 
 type GET_DATA = {
 	body?: string;
@@ -40,22 +41,28 @@ function getRequestHeaders(headers?: Record<string, string>) {
 }
 
 export async function getData({ body, method = "POST", url, data }: GET_DATA) {
-	const hasBody = !!(body || data);
-	const res = await fetch(url, {
-		body: body || (data ? JSON.stringify(data) : undefined),
-		method,
-		headers: getRequestHeaders(
-			hasBody ? { "Content-Type": "application/json" } : undefined
-		),
-	});
-	if (!res.ok) {
-		const error = await res.json();
-		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
-		);
-	}
+	const payload = body || (data ? JSON.stringify(data) : undefined);
+	const hasBody = !!payload;
 
-	return res.json();
+	return withTelemetryRequestCache(url, payload, async () => {
+		const res = await fetch(url, {
+			body: payload,
+			method,
+			headers: getRequestHeaders(
+				hasBody ? { "Content-Type": "application/json" } : undefined
+			),
+		});
+		if (!res.ok) {
+			const error = await res.json();
+			throw new Error(
+				typeof error === "string"
+					? error
+					: error?.error || error?.message || `Request failed (${res.status})`
+			);
+		}
+
+		return res.json();
+	});
 }
 
 type POST_DATA = {

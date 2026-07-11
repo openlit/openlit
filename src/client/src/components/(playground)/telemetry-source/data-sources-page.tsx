@@ -34,6 +34,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
+import type { FieldDef } from "@/lib/platform/datasource/types";
 
 type Signal = "traces" | "logs" | "metrics";
 const SIGNALS: Signal[] = ["traces", "logs", "metrics"];
@@ -44,6 +45,18 @@ interface TypeDescriptor {
 	displayName: string;
 	declaredSignals: Signal[];
 	correlation?: { crossSignal: boolean; keys: string[] };
+	configFields?: FieldDef[];
+	authStyle?: "none" | "http" | "api-key" | "custom";
+	authHelp?: string;
+	docsUrl?: string;
+}
+
+/** Config fields for a type from the fetched descriptors (descriptor-driven). */
+function fieldsForType(
+	descriptors: TypeDescriptor[],
+	type: string
+): FieldDef[] {
+	return descriptors.find((d) => d.type === type)?.configFields ?? [];
 }
 
 interface SourceRow {
@@ -67,123 +80,6 @@ interface StackTemplate {
 	template: string;
 	displayName: string;
 	slots: { key: string; type: string; signal: Signal }[];
-}
-
-type FieldKind = "text" | "url" | "password" | "switch" | "select";
-interface FieldDef {
-	key: string;
-	label: string;
-	kind: FieldKind;
-	group: "settings" | "credentials";
-	placeholder?: string;
-	options?: { value: string; label: string }[];
-	defaultValue?: string | boolean;
-}
-
-function typeFields(type: string): FieldDef[] {
-	const messages = getMessage();
-	const url: FieldDef = {
-		key: "url",
-		label: messages.DATA_SOURCE_FIELD_ENDPOINT,
-		kind: "url",
-		group: "settings",
-		placeholder: "https://tempo.example.com",
-	};
-	const allowHttp: FieldDef = {
-		key: "allowHttp",
-		label: messages.DATA_SOURCE_FIELD_ALLOW_HTTP,
-		kind: "switch",
-		group: "settings",
-		defaultValue: true,
-	};
-	const token: FieldDef = {
-		key: "token",
-		label: messages.DATA_SOURCE_FIELD_TOKEN,
-		kind: "password",
-		group: "credentials",
-	};
-	const username: FieldDef = {
-		key: "username",
-		label: messages.DATA_SOURCE_FIELD_USERNAME,
-		kind: "text",
-		group: "credentials",
-	};
-	const password: FieldDef = {
-		key: "password",
-		label: messages.DATA_SOURCE_FIELD_PASSWORD,
-		kind: "password",
-		group: "credentials",
-	};
-	const tenant: FieldDef = {
-		key: "tenant",
-		label: messages.DATA_SOURCE_FIELD_TENANT,
-		kind: "text",
-		group: "credentials",
-	};
-	const httpAuth = [token, username, password];
-
-	switch (type) {
-		case "datadog":
-			return [
-				{
-					key: "site",
-					label: messages.DATA_SOURCE_FIELD_SITE,
-					kind: "text",
-					group: "settings",
-					placeholder: "datadoghq.com",
-					defaultValue: "datadoghq.com",
-				},
-				{
-					key: "apiKey",
-					label: messages.DATA_SOURCE_FIELD_API_KEY,
-					kind: "password",
-					group: "credentials",
-				},
-				{
-					key: "appKey",
-					label: messages.DATA_SOURCE_FIELD_APP_KEY,
-					kind: "password",
-					group: "credentials",
-				},
-			];
-		case "newrelic":
-			return [
-				{
-					key: "region",
-					label: messages.DATA_SOURCE_FIELD_REGION,
-					kind: "select",
-					group: "settings",
-					defaultValue: "US",
-					options: [
-						{ value: "US", label: "US" },
-						{ value: "EU", label: "EU" },
-					],
-				},
-				{
-					key: "accountId",
-					label: messages.DATA_SOURCE_FIELD_ACCOUNT_ID,
-					kind: "text",
-					group: "settings",
-					placeholder: "1234567",
-				},
-				{
-					key: "apiKey",
-					label: messages.DATA_SOURCE_FIELD_API_KEY,
-					kind: "password",
-					group: "credentials",
-				},
-			];
-		case "loki":
-		case "prometheus":
-		case "mimir":
-		case "victorialogs":
-		case "victoriametrics":
-			return [url, allowHttp, ...httpAuth, tenant];
-		case "tempo":
-		case "jaeger":
-		default:
-			return [url, allowHttp, ...httpAuth];
-	}
 }
 
 function parseSignals(csv: string): Signal[] {
@@ -300,9 +196,22 @@ export default function DataSourcesPage({
 			const health = res?.health;
 			const validation = res?.validation;
 			if (!health?.ok) {
-				toast.error(health?.message || messages.DATA_SOURCE_SAVE_FAILED, {
-					id: "ds-test",
-				});
+				const raw = String(health?.message || "");
+				const usesHttpAuth =
+					descriptors.find((d) => d.type === row.type)?.authStyle === "http";
+				const hint =
+					/401|no credentials|unauthorized/i.test(raw) && usesHttpAuth
+						? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
+						: "";
+				toast.error(
+					(health?.message || messages.DATA_SOURCE_SAVE_FAILED) + hint,
+					{ id: "ds-test" }
+				);
+				return;
+			}
+			// Loki/Mimir (and other non-trace sources) skip AI-span validation.
+			if (validation?.supported === false) {
+				toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
 				return;
 			}
 			if (validation?.ok && validation.sampleCount > 0) {
@@ -532,6 +441,7 @@ export default function DataSourcesPage({
 			{stackOpen && (
 				<StackDialog
 					templates={templates}
+					descriptors={descriptors}
 					onClose={() => setStackOpen(false)}
 					onSaved={async () => {
 						setStackOpen(false);
@@ -615,7 +525,10 @@ function SourceFormDialog({
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
 
-	const fields = useMemo(() => typeFields(type), [type]);
+	const fields = useMemo(
+		() => fieldsForType(descriptors, type),
+		[descriptors, type]
+	);
 
 	// Seed defaults + stored settings whenever the type (or source) changes.
 	useEffect(() => {
@@ -628,7 +541,7 @@ function SourceFormDialog({
 				stored = {};
 			}
 		}
-		for (const f of typeFields(type)) {
+		for (const f of fieldsForType(descriptors, type)) {
 			if (f.group === "settings") {
 				next[f.key] =
 					stored[f.key] !== undefined
@@ -639,7 +552,7 @@ function SourceFormDialog({
 			}
 		}
 		setValues(next);
-	}, [type, source]);
+	}, [type, source, descriptors]);
 
 	const settingsFields = fields.filter((f) => f.group === "settings");
 	const credentialFields = fields.filter((f) => f.group === "credentials");
@@ -762,6 +675,21 @@ function SourceFormDialog({
 										? messages.DATA_SOURCE_CREDENTIALS_SET
 										: messages.DATA_SOURCE_CREDENTIALS_HELP}
 								</p>
+								{activeDescriptor?.authHelp && (
+									<p className="mt-1 text-xs text-muted-foreground">
+										{activeDescriptor.authHelp}
+									</p>
+								)}
+								{activeDescriptor?.docsUrl && (
+									<a
+										href={activeDescriptor.docsUrl}
+										target="_blank"
+										rel="noreferrer noopener"
+										className="mt-1 inline-block text-xs text-primary underline"
+									>
+										{messages.DATA_SOURCE_DOCS_LINK}
+									</a>
+								)}
 							</div>
 							{credentialFields.map((f) => (
 								<FieldInput
@@ -799,10 +727,12 @@ function SourceFormDialog({
 
 function StackDialog({
 	templates,
+	descriptors,
 	onClose,
 	onSaved,
 }: {
 	templates: StackTemplate[];
+	descriptors: TypeDescriptor[];
 	onClose: () => void;
 	onSaved: () => void;
 }) {
@@ -810,22 +740,24 @@ function StackDialog({
 	const [templateKey, setTemplateKey] = useState(templates[0]?.template || "");
 	const [name, setName] = useState("");
 	const [slotValues, setSlotValues] = useState<
-		Record<string, { url: string; allowHttp: boolean; token: string }>
+		Record<string, Record<string, string | boolean>>
 	>({});
 	const [saving, setSaving] = useState(false);
 
 	const template = templates.find((t) => t.template === templateKey);
 
 	useEffect(() => {
-		const next: Record<
-			string,
-			{ url: string; allowHttp: boolean; token: string }
-		> = {};
+		const next: Record<string, Record<string, string | boolean>> = {};
 		for (const slot of template?.slots || []) {
-			next[slot.key] = { url: "", allowHttp: true, token: "" };
+			const values: Record<string, string | boolean> = {};
+			for (const f of fieldsForType(descriptors, slot.type)) {
+				values[f.key] =
+					f.defaultValue ?? (f.kind === "switch" ? false : "");
+			}
+			next[slot.key] = values;
 		}
 		setSlotValues(next);
-	}, [templateKey, template]);
+	}, [templateKey, template, descriptors]);
 
 	const submit = async () => {
 		if (!name.trim()) {
@@ -833,12 +765,23 @@ function StackDialog({
 			return;
 		}
 		const members = (template?.slots || []).map((slot) => {
-			const v = slotValues[slot.key] || { url: "", allowHttp: true, token: "" };
+			const fields = fieldsForType(descriptors, slot.type);
+			const v = slotValues[slot.key] || {};
+			const settings: Record<string, unknown> = {};
 			const credentials: Record<string, string> = {};
-			if (v.token.trim()) credentials.token = v.token.trim();
+			for (const f of fields) {
+				if (f.group === "settings") {
+					settings[f.key] = v[f.key];
+				} else {
+					const raw = v[f.key];
+					if (typeof raw === "string" && raw.trim() !== "") {
+						credentials[f.key] = raw.trim();
+					}
+				}
+			}
 			return {
 				type: slot.type,
-				settings: { url: v.url.trim(), allowHttp: v.allowHttp },
+				settings,
 				credentials,
 				bind: true,
 			};
@@ -900,14 +843,23 @@ function StackDialog({
 						</Select>
 					</div>
 
+					{descriptors.find(
+						(d) => d.type === (template?.slots?.[0]?.type || "")
+					)?.authStyle === "http" && (
+						<p className="text-xs text-muted-foreground">
+							{messages.DATA_SOURCE_AUTH_HELP_HTTP}
+						</p>
+					)}
+
 					<Separator />
 
 					{(template?.slots || []).map((slot) => {
-						const v = slotValues[slot.key] || {
-							url: "",
-							allowHttp: true,
-							token: "",
-						};
+						const fields = fieldsForType(descriptors, slot.type);
+						const v = slotValues[slot.key] || {};
+						const settingsFields = fields.filter((f) => f.group === "settings");
+						const credentialFields = fields.filter(
+							(f) => f.group === "credentials"
+						);
 						return (
 							<div
 								key={slot.key}
@@ -921,43 +873,32 @@ function StackDialog({
 										{slot.signal}
 									</Badge>
 								</div>
-								<Input
-									value={v.url}
-									placeholder="https://tempo.example.com"
-									onChange={(e) =>
-										setSlotValues((p) => ({
-											...p,
-											[slot.key]: { ...v, url: e.target.value },
-										}))
-									}
-									className="bg-white dark:bg-stone-900"
-								/>
-								<Input
-									type="password"
-									value={v.token}
-									placeholder={messages.DATA_SOURCE_FIELD_TOKEN}
-									onChange={(e) =>
-										setSlotValues((p) => ({
-											...p,
-											[slot.key]: { ...v, token: e.target.value },
-										}))
-									}
-									className="bg-white dark:bg-stone-900"
-								/>
-								<div className="flex items-center justify-between">
-									<Label className="text-xs">
-										{messages.DATA_SOURCE_FIELD_ALLOW_HTTP}
-									</Label>
-									<Switch
-										checked={v.allowHttp}
-										onCheckedChange={(c) =>
+								{settingsFields.map((f) => (
+									<FieldInput
+										key={f.key}
+										field={f}
+										value={v[f.key] ?? ""}
+										onChange={(next) =>
 											setSlotValues((p) => ({
 												...p,
-												[slot.key]: { ...v, allowHttp: c },
+												[slot.key]: { ...v, [f.key]: next },
 											}))
 										}
 									/>
-								</div>
+								))}
+								{credentialFields.map((f) => (
+									<FieldInput
+										key={f.key}
+										field={f}
+										value={v[f.key] ?? ""}
+										onChange={(next) =>
+											setSlotValues((p) => ({
+												...p,
+												[slot.key]: { ...v, [f.key]: next },
+											}))
+										}
+									/>
+								))}
 							</div>
 						);
 					})}

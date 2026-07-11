@@ -80,6 +80,23 @@ func (m *OBIManager) Start(ctx context.Context, cfg OBIConfig) error {
 		}
 		m.cmd.Env = append(m.cmd.Env, "OTEL_RESOURCE_ATTRIBUTES="+strings.Join(parts, ","))
 	}
+	// Grafana Cloud / authenticated OTLP backends require headers on the OBI
+	// exporter. The YAML otel_traces_export block only carries endpoint+protocol,
+	// so auth must ride as OTEL_EXPORTER_OTLP_HEADERS (same as SDK injection).
+	// Also pin OTEL_EXPORTER_OTLP_ENDPOINT to the configured traces endpoint so a
+	// compose-default like http://openlit:4318 cannot override the YAML target.
+	if ep := strings.TrimSpace(cfg.OTELTraces.Endpoint); ep != "" {
+		m.cmd.Env = append(m.cmd.Env, "OTEL_EXPORTER_OTLP_ENDPOINT="+ep)
+	}
+	if len(cfg.OTLPHeaders) > 0 {
+		// OBI's HeadersFromEnv splits on ',' / first '=' and does NOT
+		// percent-decode (unlike the Go/Python OTel SDKs). Spec-encoded
+		// values like Basic%20… are sent literally and Grafana rejects them.
+		m.cmd.Env = append(
+			m.cmd.Env,
+			"OTEL_EXPORTER_OTLP_HEADERS="+formatOBIOTLPHeaders(cfg.OTLPHeaders),
+		)
+	}
 	m.cmd.Stdout = newLogWriter(m.logger, "[obi]", false)
 	m.cmd.Stderr = newLogWriter(m.logger, "[obi]", true)
 
@@ -262,6 +279,10 @@ type OBIConfig struct {
 	// ResourceAttrs are passed as OTEL_RESOURCE_ATTRIBUTES env var to the OBI process.
 	// Not serialized to YAML; used by OBIManager.Start.
 	ResourceAttrs map[string]string `yaml:"-"`
+	// OTLPHeaders are passed as OTEL_EXPORTER_OTLP_HEADERS so authenticated
+	// backends (Grafana Cloud, etc.) work. Not in YAML — OBI's otel_traces_export
+	// schema only exposes endpoint/protocol.
+	OTLPHeaders map[string]string `yaml:"-"`
 }
 
 type obiEBPF struct {
@@ -439,6 +460,13 @@ func BuildInstrumentConfig(
 	cfg.ResourceAttrs = map[string]string{
 		"deployment.environment": environment,
 		"telemetry.sdk.name":     "openlit",
+	}
+	if len(expCfg.OTLPHeaders) > 0 {
+		headers := make(map[string]string, len(expCfg.OTLPHeaders))
+		for k, v := range expCfg.OTLPHeaders {
+			headers[k] = v
+		}
+		cfg.OTLPHeaders = headers
 	}
 
 	return cfg
