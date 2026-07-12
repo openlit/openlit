@@ -3,33 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import {
-	Activity,
-	BookText,
-	LayoutDashboard,
-	LayoutGrid,
-	Loader2,
-	Settings,
-} from "lucide-react";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/components/ui/tabs";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import getMessage from "@/constants/messages";
 import type { AgentVersion, UnifiedAgent } from "@/types/agents";
 import type { VersionFilter } from "@/types/store/filter";
 import { useAgentIntent } from "@/selectors/agents-instrumentation";
 import { getObservabilityView } from "@/lib/platform/agents/observability-view";
-import AgentHeader from "@/components/(playground)/agents/agent-header";
+import AgentHeader, {
+	AgentPillTab,
+} from "@/components/(playground)/agents/agent-header";
 import AgentScopeProvider from "@/components/(playground)/agents/agent-scope-provider";
 import AgentOverviewTab from "@/components/(playground)/agents/agent-overview-tab";
 import LifecycleActions from "@/components/(playground)/agents/lifecycle-actions";
-import VersionTimeline, {
-	VersionChooser,
-} from "@/components/(playground)/agents/version-timeline";
+import { VersionChooser } from "@/components/(playground)/agents/version-timeline";
 
 // Heavy tabs are dynamically imported so the initial detail-page payload
 // only loads what the Overview tab needs. LLMDashboard pulls echarts +
@@ -323,9 +311,14 @@ export default function AgentDetailPage() {
 
 	if (loading && !agent) {
 		return (
-			<div className="flex items-center justify-center h-full text-stone-500 dark:text-stone-400 text-sm gap-2">
-				<Loader2 className="w-4 h-4 animate-spin" />
-				{getMessage().AGENTS_LOADING_SERVICE_DETAILS}
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<div className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+					<div className="h-8 w-48 animate-pulse rounded bg-stone-100 dark:bg-stone-800" />
+				</div>
+				<div className="flex flex-1 items-center justify-center gap-2 p-4 text-sm text-stone-500 dark:text-stone-400">
+					<Loader2 className="h-4 w-4 animate-spin" />
+					{getMessage().AGENTS_LOADING_SERVICE_DETAILS}
+				</div>
 			</div>
 		);
 	}
@@ -342,14 +335,20 @@ export default function AgentDetailPage() {
 					? "/agents?tab=controllers"
 					: "/agents";
 		return (
-			<div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 text-sm gap-3">
-				<div>{error || "Agent not found"}</div>
-				<button
-					onClick={() => router.push(backHref)}
-					className="text-stone-700 dark:text-stone-200 underline"
-				>
-					{getMessage().AGENTS_BACK_TO_HUB}
-				</button>
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<div className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+					<button
+						onClick={() => router.push(backHref)}
+						className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+						title={getMessage().AGENTS_BACK_TO_HUB}
+						aria-label={getMessage().AGENTS_BACK_TO_HUB}
+					>
+						<ArrowLeft className="h-3.5 w-3.5" />
+					</button>
+				</div>
+				<div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-sm text-stone-500 dark:text-stone-400">
+					<div>{error || "Agent not found"}</div>
+				</div>
 			</div>
 		);
 	}
@@ -369,16 +368,69 @@ export default function AgentDetailPage() {
 		(agent.request_count_24h ?? 0) === 0 &&
 		versions.length === 0;
 
+	const traditionalTabs = (
+		<div className="flex flex-wrap items-center gap-2">
+			{(
+				[
+					{ id: "overview", label: getMessage().AGENTS_TAB_OVERVIEW },
+					{ id: "dashboard", label: getMessage().AGENTS_TAB_DASHBOARD },
+					{ id: "monitoring", label: getMessage().AGENTS_TAB_MONITORING },
+					{ id: "definition", label: getMessage().AGENTS_TAB_DEFINITION },
+					{
+						id: "configuration",
+						label: getMessage().AGENTS_TAB_CONFIGURATION,
+						indicator: needsInstrumentation,
+						indicatorTooltip:
+							getMessage().AGENTS_TAB_CONFIGURATION_NEEDS_INSTRUMENTATION,
+					},
+				] as const
+			).map((tab) => (
+				<AgentPillTab
+					key={tab.id}
+					active={urlTab === tab.id}
+					label={tab.label}
+					onClick={() => handleTabChange(tab.id)}
+					indicator={"indicator" in tab ? tab.indicator : undefined}
+					indicatorTooltip={
+						"indicatorTooltip" in tab ? tab.indicatorTooltip : undefined
+					}
+				/>
+			))}
+		</div>
+	);
+
+	const codingTabs = (
+		<div className="flex flex-wrap items-center gap-2">
+			{(
+				[
+					{ id: "overview", label: getMessage().AGENTS_TAB_OVERVIEW },
+					{ id: "sessions", label: getMessage().AGENTS_CODING_TAB_SESSIONS },
+					{ id: "users", label: getMessage().AGENTS_CODING_USERS_SHORT_LABEL },
+				] as const
+			).map((tab) => (
+				<AgentPillTab
+					key={tab.id}
+					active={urlTab === tab.id}
+					label={tab.label}
+					onClick={() => handleTabChange(tab.id)}
+				/>
+			))}
+		</div>
+	);
+
 	return (
 		<AgentScopeProvider
 			serviceName={agent.service_name}
 			environment={agent.environment}
 			versionFilter={scopedVersionFilter}
 		>
-			<div className="flex flex-col w-full h-full gap-5 overflow-y-auto p-1 pb-8">
+			{/* Match the agents hub chrome: FeaturePageHeader (full-bleed
+			    top bar with pill tabs) + p-4 padded content below. */}
+			<div className="flex h-full w-full flex-col overflow-hidden">
 				<AgentHeader
 					agent={agent}
 					onRefresh={fetchAgent}
+					tabs={isCodingAgent ? codingTabs : traditionalTabs}
 					rightSlot={
 						isCodingAgent ? null : (
 							<div className="flex items-center gap-2">
@@ -398,19 +450,14 @@ export default function AgentDetailPage() {
 					}
 				/>
 
-				{isCodingAgent ? (
-					<CodingAgentDetail
-						agent={agent}
-						tab={urlTab}
-						onTabChange={handleTabChange}
-					/>
-				) : (
-					<>
-						<VersionTimeline
-							agentKey={agent.agent_key}
-							versions={versions}
-							selectedHash={urlVersionHash}
+				<section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+					{isCodingAgent ? (
+						<CodingAgentDetail
+							agent={agent}
+							tab={urlTab}
+							onTabChange={handleTabChange}
 						/>
+					) : (
 						<TraditionalAgentTabs
 							agent={agent}
 							versions={versions}
@@ -419,13 +466,12 @@ export default function AgentDetailPage() {
 							handleTabChange={handleTabChange}
 							effectiveVersionHash={effectiveVersionHash}
 							activeVersion={activeVersion}
-							needsInstrumentation={needsInstrumentation}
 							fetchAgent={fetchAgent}
 							versionsOpen={versionsOpen}
 							setVersionsOpen={setVersionsOpen}
 						/>
-					</>
-				)}
+					)}
+				</section>
 			</div>
 		</AgentScopeProvider>
 	);
@@ -439,7 +485,6 @@ interface TraditionalAgentTabsProps {
 	handleTabChange: (value: string) => void;
 	effectiveVersionHash: string | null;
 	activeVersion: AgentVersion | null;
-	needsInstrumentation: boolean;
 	fetchAgent: () => Promise<void>;
 	versionsOpen: boolean;
 	setVersionsOpen: (open: boolean) => void;
@@ -452,83 +497,52 @@ function TraditionalAgentTabs({
 	handleTabChange,
 	effectiveVersionHash,
 	activeVersion,
-	needsInstrumentation,
 	fetchAgent,
 	versionsOpen,
 	setVersionsOpen,
 }: TraditionalAgentTabsProps) {
+	// Tab pills live in FeaturePageHeader (same surface as the agents
+	// hub). This component only owns the tab panels.
 	return (
 		<>
 			<Tabs
-					value={urlTab}
-					onValueChange={handleTabChange}
-					className="w-full"
-				>
-					<TabsList className="h-auto rounded-none border-b border-stone-200 dark:border-stone-800 bg-transparent p-0 w-full justify-start gap-1">
-						<UnderlineTab
-							value="overview"
-							icon={<LayoutGrid className="w-3.5 h-3.5" />}
-							label={getMessage().AGENTS_TAB_OVERVIEW}
-						/>
-						<UnderlineTab
-							value="dashboard"
-							icon={<LayoutDashboard className="w-3.5 h-3.5" />}
-							label={getMessage().AGENTS_TAB_DASHBOARD}
-						/>
-						<UnderlineTab
-							value="monitoring"
-							icon={<Activity className="w-3.5 h-3.5" />}
-							label={getMessage().AGENTS_TAB_MONITORING}
-						/>
-						<UnderlineTab
-							value="definition"
-							icon={<BookText className="w-3.5 h-3.5" />}
-							label={getMessage().AGENTS_TAB_DEFINITION}
-						/>
-						<UnderlineTab
-							value="configuration"
-							icon={<Settings className="w-3.5 h-3.5" />}
-							label={getMessage().AGENTS_TAB_CONFIGURATION}
-							indicator={needsInstrumentation}
-							indicatorTooltip={
-								getMessage().AGENTS_TAB_CONFIGURATION_NEEDS_INSTRUMENTATION
-							}
-						/>
-					</TabsList>
+				value={urlTab}
+				onValueChange={handleTabChange}
+				className="w-full"
+			>
+				<TabsContent value="overview" className="mt-0">
+					<AgentOverviewTab
+						agent={agent}
+						versionHash={effectiveVersionHash}
+					/>
+				</TabsContent>
 
-					<TabsContent value="overview" className="mt-4">
-						<AgentOverviewTab
-							agent={agent}
-							versionHash={effectiveVersionHash}
-						/>
-					</TabsContent>
+				<TabsContent value="dashboard" className="mt-0">
+					<div className="space-y-3">
+						<Filter />
+						<LLMDashboard />
+					</div>
+				</TabsContent>
 
-					<TabsContent value="dashboard" className="mt-4">
-						<div className="space-y-3">
-							<Filter />
-							<LLMDashboard />
+				<TabsContent value="monitoring" className="mt-0">
+					<RequestsPage />
+				</TabsContent>
+
+				<TabsContent value="definition" className="mt-0">
+					{activeVersion ? (
+						<div className="space-y-4">
+							<SystemPromptCard prompt={activeVersion.system_prompt} />
+							<ToolsCard tools={activeVersion.tools} />
 						</div>
-					</TabsContent>
+					) : (
+						<EmptyVersion />
+					)}
+				</TabsContent>
 
-					<TabsContent value="monitoring" className="mt-4">
-						<RequestsPage />
-					</TabsContent>
-
-					<TabsContent value="definition" className="mt-4">
-						{activeVersion ? (
-							<div className="space-y-4">
-								<SystemPromptCard prompt={activeVersion.system_prompt} />
-								<ToolsCard tools={activeVersion.tools} />
-							</div>
-						) : (
-							<EmptyVersion />
-						)}
-					</TabsContent>
-
-					<TabsContent value="configuration" className="mt-4">
-						<AgentConfigurationTab agent={agent} onRefresh={fetchAgent} />
-					</TabsContent>
-				</Tabs>
+				<TabsContent value="configuration" className="mt-0">
+					<AgentConfigurationTab agent={agent} onRefresh={fetchAgent} />
+				</TabsContent>
+			</Tabs>
 
 			<VersionDrawer
 				agentKey={agent.agent_key}
@@ -537,38 +551,6 @@ function TraditionalAgentTabs({
 				initialVersions={versions}
 			/>
 		</>
-	);
-}
-
-function UnderlineTab({
-	value,
-	icon,
-	label,
-	indicator,
-	indicatorTooltip,
-}: {
-	value: string;
-	icon: React.ReactNode;
-	label: string;
-	indicator?: boolean;
-	indicatorTooltip?: string;
-}) {
-	return (
-		<TabsTrigger
-			value={value}
-			className="rounded-none border-b-2 border-transparent bg-transparent shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-stone-900 dark:data-[state=active]:text-stone-100 data-[state=active]:shadow-none px-3 py-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 -mb-px flex items-center gap-1.5 relative"
-		>
-			{icon}
-			{label}
-			{indicator && (
-				<span
-					role="status"
-					aria-label={indicatorTooltip}
-					title={indicatorTooltip}
-					className="ml-1 inline-flex w-2 h-2 rounded-full bg-orange-500 motion-safe:animate-pulse"
-				/>
-			)}
-		</TabsTrigger>
 	);
 }
 

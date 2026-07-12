@@ -96,6 +96,14 @@ def handle_not_given(value, default=None):
     return value
 
 
+def extract_reasoning_content(payload):
+    """Return OpenAI-compatible reasoning text from a message or delta payload."""
+    if not isinstance(payload, dict):
+        return ""
+    reasoning = payload.get("reasoning_content") or payload.get("reasoning")
+    return reasoning if isinstance(reasoning, str) else ""
+
+
 def format_content(messages):
     """
     Format the messages into a string for span events.
@@ -676,6 +684,12 @@ def process_chat_chunk(scope, chunk):
         content = delta.get("content")
         if content:
             scope._llmresponse += content
+
+        reasoning_content = extract_reasoning_content(delta)
+        if reasoning_content:
+            if not hasattr(scope, "_reasoning_content"):
+                scope._reasoning_content = ""
+            scope._reasoning_content += reasoning_content
 
         # Handle tool calls in streaming - optimized
         delta_tools = delta.get("tool_calls")
@@ -1583,6 +1597,11 @@ def common_chat_logic(
     # capture is enabled.
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if hasattr(scope, "_reasoning_content") and scope._reasoning_content:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_CONTENT_REASONING,
+                scope._reasoning_content,
+            )
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -1734,6 +1753,13 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
+    reasoning_parts = [
+        extract_reasoning_content(choice.get("message", {}))
+        for choice in response_dict.get("choices", [])
+    ]
+    reasoning_content = " ".join(part for part in reasoning_parts if part)
+    if reasoning_content:
+        scope._reasoning_content = reasoning_content
     scope._response_id = response_dict.get("id", "")
     scope._response_model = response_dict.get("model", "")
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)

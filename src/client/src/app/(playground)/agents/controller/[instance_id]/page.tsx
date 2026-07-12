@@ -178,13 +178,14 @@ export default function ControllerDetailPage() {
 
 	if (instanceError || !instance) {
 		return (
-			<div className="flex flex-col w-full gap-4 p-1">
+			<div className="flex flex-col w-full gap-4 p-4">
 				<button
 					onClick={() => router.push("/agents?tab=controllers")}
-					className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
+					className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+					title={getMessage().AGENTS_BACK_TO_HUB}
+					aria-label={getMessage().AGENTS_BACK_TO_HUB}
 				>
-					<ArrowLeft className="w-4 h-4" />
-					{getMessage().AGENTS_BACK_TO_HUB}
+					<ArrowLeft className="h-3.5 w-3.5" />
 				</button>
 				<div className="text-center py-16 text-stone-500 dark:text-stone-400">
 					Controller not found or failed to load.
@@ -194,13 +195,14 @@ export default function ControllerDetailPage() {
 	}
 
 	return (
-		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
+		<div className="flex flex-col w-full gap-4 overflow-y-auto p-4">
 			<button
 				onClick={() => router.push("/agents?tab=controllers")}
-				className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 w-fit transition-colors"
+				className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+				title={getMessage().AGENTS_BACK_TO_HUB}
+				aria-label={getMessage().AGENTS_BACK_TO_HUB}
 			>
-				<ArrowLeft className="w-4 h-4" />
-				{getMessage().AGENTS_BACK_TO_HUB}
+				<ArrowLeft className="h-3.5 w-3.5" />
 			</button>
 			<ControllerHeader instance={instance} />
 			<ControllerConfigEditor instance={instance} />

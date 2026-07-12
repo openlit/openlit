@@ -9,10 +9,12 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    append_scope_reasoning,
     apply_agent_version_attributes,
     build_system_instructions_from_messages,
     build_tool_definitions,
     calculate_ttft,
+    extract_reasoning_content,
     response_as_dict,
     calculate_tbt,
     general_tokens,
@@ -22,6 +24,7 @@ from openlit.__helpers import (
     record_audio_metrics,
     record_completion_metrics,
     otel_event,
+    set_span_reasoning_content,
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
@@ -274,15 +277,15 @@ def process_chunk(scope, chunk):
 
     chunked = response_as_dict(chunk)
 
-    # Collect message IDs and aggregated response from events
-    if (
-        len(chunked.get("choices", [])) > 0
-        and "delta" in chunked.get("choices")[0]
-        and "content" in chunked.get("choices")[0].get("delta", {})
-    ):
-        content = chunked.get("choices")[0].get("delta").get("content")
+    # Collect content + reasoning from streaming deltas (Groq reasoning models
+    # emit chain-of-thought on delta.reasoning when reasoning_format=parsed).
+    choices = chunked.get("choices") or []
+    if choices and isinstance(choices[0], dict) and "delta" in choices[0]:
+        delta = choices[0].get("delta") or {}
+        content = delta.get("content")
         if content:
             scope._llmresponse += content
+        append_scope_reasoning(scope, extract_reasoning_content(delta, "reasoning"))
 
     if chunked.get("x_groq") is not None:
         if chunked.get("x_groq").get("usage") is not None:
@@ -476,6 +479,7 @@ def common_chat_logic(
     # Span Attributes for Content
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        set_span_reasoning_content(scope._span, scope, capture_message_content=True)
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -619,6 +623,16 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
+    # Handle reasoning content from a non-streaming response (Groq reasoning
+    # models). Aggregate across all choices to stay consistent with how
+    # scope._llmresponse concatenates content when n > 1.
+    reasoning_parts = [
+        extract_reasoning_content(choice.get("message", {}), "reasoning")
+        for choice in response_dict.get("choices", [])
+    ]
+    reasoning = " ".join(part for part in reasoning_parts if part).strip()
+    if reasoning:
+        scope._reasoning_content = reasoning
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model") or request_model
     # Handle token usage including reasoning tokens and cached tokens

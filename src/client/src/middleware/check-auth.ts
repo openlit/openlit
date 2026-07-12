@@ -17,11 +17,18 @@ import {
 } from "@/constants/route";
 
 function isValidCronJobRequest(request: NextRequest) {
-	const expectedToken = process.env.CRON_JOB_SECRET;
+	// Self-hosted / dev installs run the cron in the same container and do
+	// not set CRON_JOB_SECRET. Fall back to the literal "true" the cron
+	// scripts send so the materialize / evaluation / pricing crons work out
+	// of the box (this matches the documented `-H 'X-CRON-JOB: true'` call).
+	// When an operator DOES set CRON_JOB_SECRET, both this check and the cron
+	// scripts use it, so the endpoints require the secret and can't be
+	// triggered without it.
+	const expectedToken = process.env.CRON_JOB_SECRET || "true";
 	const cronJobToken =
 		request.headers.get("X-CRON-JOB") ?? request.headers.get("x-cron-job");
 
-	return Boolean(expectedToken && cronJobToken === expectedToken);
+	return cronJobToken === expectedToken;
 }
 
 const rateLimitWindows = new Map<string, { count: number; resetAt: number }>();
@@ -88,7 +95,15 @@ export default function checkAuth(next: NextMiddleware) {
 				pathname.startsWith("/static") ||
 				pathname.startsWith("/images")
 			) {
-				return next(request, _next);
+				// Static assets: skip all auth logic and let the request
+				// continue to the underlying resource. We must return a
+				// pass-through response directly here — this middleware is the
+				// chain terminus, so its `next` is `NextResponse.next` itself,
+				// and calling it as `next(request, event)` uses the request as
+				// the response init and throws ("middleware accepts an async
+				// API directly"), which surfaces as a 500 on every /images/*
+				// (and /static) request.
+				return NextResponse.next();
 			}
 
 			try {
