@@ -1709,6 +1709,30 @@ export const TRACE_AI_DURATION_MS = (duration: number | string) => `${duration}m
 export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
 export const TRACE_AI_EMPTY_DESCRIPTION =
 	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";
+export const TRACE_AI_STRENGTHS_EMPTY_SUMMARY =
+	"No explicit strengths were identified in this run.";
+export const TRACE_AI_STRENGTHS_EMPTY_DETAIL =
+	"The analysis did not find a concrete positive pattern worth calling out. This does not mean the trace failed; it means the model did not see a specific strength with enough evidence.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY =
+	"No general improvements are required right now.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL =
+	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, or wrong-turn categories.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_SUMMARY =
+	"No wrong turns were detected.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_DETAIL =
+	"The trace did not show clear retries, off-task branches, unnecessary rework, or agent decisions that caused a detour.";
+export const TRACE_AI_COST_EMPTY_SUMMARY =
+	"Cost looks acceptable for this trace.";
+export const TRACE_AI_COST_EMPTY_DETAIL =
+	"No span stood out as clearly over budget or using a model that was obviously too expensive for the observed subtask.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_SUMMARY =
+	"Token usage looks acceptable for this trace.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_DETAIL =
+	"The analysis did not find obvious prompt bloat, repeated context, oversized tool outputs, or duplicate retrieval payloads.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_SUMMARY =
+	"The execution path looks reasonable.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_DETAIL =
+	"The trace did not show clear routing loops, missed branches, unnecessary tool hops, or inappropriate tool choices.";
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
