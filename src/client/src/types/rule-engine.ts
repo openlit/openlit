@@ -21,7 +21,8 @@ export type RuleEntityType =
 	| "prompt"
 	// | "dataset"
 	// | "meta_config"
-	| "evaluation";
+	| "evaluation"
+	| "alert";
 
 export interface Rule {
 	id: string;

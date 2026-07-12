@@ -32,6 +32,10 @@ import {
 import ComboDropdown from "@/components/(playground)/filter/combo-dropdown";
 import Filter from "@/components/(playground)/filter";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import {
+	AgentPillTab,
+	AGENTS_HEADER_TONE,
+} from "@/components/(playground)/agents/agent-header";
 import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
 import NoCodingAgents from "./no-coding-agents";
@@ -604,10 +608,16 @@ export default function AgentsPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow="Monitoring"
-				title={getMessage().FEATURE_AGENTS}
-				icon={<Bot className="h-4 w-4" />}
-				tone="border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/70 dark:bg-teal-950/40 dark:text-teal-300"
+				eyebrow={getMessage().FEATURE_AGENTS}
+				title={
+					activeTab === "coding"
+						? getMessage().AGENTS_TAB_CODING
+						: activeTab === "controllers"
+							? getMessage().AGENTS_TAB_CONTROLLERS
+							: getMessage().AGENTS_TAB_SERVICES
+				}
+				icon={<Bot className="h-5 w-5" />}
+				tone={AGENTS_HEADER_TONE}
 				actions={(
 					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
 						<div className="flex flex-wrap items-center gap-2">
@@ -618,24 +628,19 @@ export default function AgentsPage() {
 									{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
 								] as const
 							).map((tab) => (
-								<button
+								<AgentPillTab
 									key={tab.id}
+									active={activeTab === tab.id}
+									label={tab.label}
 									onClick={() => setActiveTab(tab.id)}
-									className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition ${
-										activeTab === tab.id
-											? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/70 dark:bg-teal-950/40 dark:text-teal-300"
-											: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
-									}`}
-								>
-									<span className="font-medium">{tab.label}</span>
-								</button>
+								/>
 							))}
 						</div>
 						{activeTab === "controllers" && (
 							<Button
-								variant="outline"
+								variant="secondary"
 								size="sm"
-								className="h-8"
+								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("controller")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
@@ -644,9 +649,9 @@ export default function AgentsPage() {
 						)}
 						{activeTab === "coding" && (
 							<Button
-								variant="outline"
+								variant="secondary"
 								size="sm"
-								className="h-8"
+								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("coding")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
@@ -781,78 +786,78 @@ export default function AgentsPage() {
 						   tab switch — number + label only, no
 						   subtitle line. Order is Total Coding
 						   agents → Total users → Total cost. */
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-3 gap-2">
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{codingVendorsUsed}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_VENDORS}
 								</div>
 							</button>
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+								<div className="text-lg font-semibold leading-tight tabular-nums text-stone-900 dark:text-stone-100">
 									{codingTotalUsers.toLocaleString()}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_USERS}
 								</div>
 							</button>
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+								<div className="text-lg font-semibold leading-tight tabular-nums text-stone-900 dark:text-stone-100">
 									${codingTotalCost.toFixed(2)}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_COST}
 								</div>
 							</button>
 						</div>
 					) : (
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-3 gap-2">
 							<button
 								onClick={() => handleLegacyStatClick("controllers")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{activeControllers.length}
 									{staleCount > 0 && (
-										<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
+										<span className="ml-1.5 text-xs font-normal text-stone-400 dark:text-stone-500">
 											({staleCount} stale)
 										</span>
 									)}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CONTROLLERS}
 								</div>
 							</button>
 							<button
 								onClick={() => handleLegacyStatClick("discovered")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{totalServices}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
 								</div>
 							</button>
 							<button
 								onClick={() => handleLegacyStatClick("instrumented")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{instrumentedServices}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
 								</div>
 							</button>
