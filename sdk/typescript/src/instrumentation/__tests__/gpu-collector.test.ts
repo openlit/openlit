@@ -1,9 +1,12 @@
 import { GpuMetricsCollector, CommandRunner, GpuStats } from '../gpu';
 import SemanticConvention from '../../semantic-convention';
 
+// Columns match NVIDIA_SMI_FIELDS order:
+// index, uuid, name, util.gpu, util.encoder, util.decoder, temp, fan,
+// mem.total, mem.used, mem.free, power.draw, enforced.power.limit, power.limit
 const NVIDIA_CSV =
-  '0, GPU-11111111-2222-3333-4444-555555555555, NVIDIA A100-SXM4-40GB, 87, 65, 30, 40960, 30000, 10960, 250.50, 400.00\n' +
-  '1, GPU-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee, NVIDIA A100-SXM4-40GB, 12, 40, 25, 40960, 1024, 39936, 60.25, 400.00\n';
+  '0, GPU-11111111-2222-3333-4444-555555555555, NVIDIA A100-SXM4-40GB, 87, 15, 5, 65, 30, 40960, 30000, 10960, 250.50, 400.00, 400.00\n' +
+  '1, GPU-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee, NVIDIA A100-SXM4-40GB, 12, 0, 0, 40, 25, 40960, 1024, 39936, 60.25, 0, 400.00\n';
 
 const ROCM_JSON = JSON.stringify({
   card0: {
@@ -49,7 +52,11 @@ interface FakeObservation {
 function makeFakeMeter() {
   const gauges: Array<{ name: string; token: object }> = [];
   const observations: FakeObservation[] = [];
-  let callback: ((result: { observe: (g: unknown, v: number, a: Record<string, unknown>) => void }) => Promise<void>) | null = null;
+  let callback:
+    | ((result: {
+        observe: (g: unknown, v: number, a: Record<string, unknown>) => void;
+      }) => Promise<void>)
+    | null = null;
 
   const meter = {
     createObservableGauge: (name: string) => {
@@ -88,7 +95,11 @@ describe('GpuMetricsCollector', () => {
   it('setup registers all 11 gauges with Python-matching metric names', async () => {
     const { meter, gauges } = makeFakeMeter();
     const collector = new GpuMetricsCollector(nvidiaRunner());
-    const gpuType = await collector.setup({ meter, environment: 'staging', applicationName: 'my-app' });
+    const gpuType = await collector.setup({
+      meter,
+      environment: 'staging',
+      applicationName: 'my-app',
+    });
 
     expect(gpuType).toBe('nvidia');
     expect(gauges.map((g) => g.name)).toEqual([
@@ -139,10 +150,14 @@ describe('GpuMetricsCollector', () => {
 
     const valueOf = (metric: string, index: string) =>
       observations.find(
-        (o) => (o.gauge as { name: string }).name === metric && o.attributes[SemanticConvention.GPU_INDEX] === index
+        (o) =>
+          (o.gauge as { name: string }).name === metric &&
+          o.attributes[SemanticConvention.GPU_INDEX] === index
       )?.value;
 
     expect(valueOf('gpu.utilization', '0')).toBe(87);
+    expect(valueOf('gpu.enc.utilization', '0')).toBe(15);
+    expect(valueOf('gpu.dec.utilization', '0')).toBe(5);
     expect(valueOf('gpu.temperature', '0')).toBe(65);
     expect(valueOf('gpu.fan_speed', '0')).toBe(30);
     expect(valueOf('gpu.memory.total', '0')).toBe(40960);
@@ -151,9 +166,11 @@ describe('GpuMetricsCollector', () => {
     expect(valueOf('gpu.memory.available', '0')).toBe(10960);
     expect(valueOf('gpu.power.draw', '0')).toBe(250.5);
     expect(valueOf('gpu.power.limit', '0')).toBe(400);
-    expect(valueOf('gpu.enc.utilization', '0')).toBe(0);
-    expect(valueOf('gpu.dec.utilization', '0')).toBe(0);
     expect(valueOf('gpu.utilization', '1')).toBe(12);
+    // GPU 1: enforced.power.limit is 0 / N/A → fall back to power.limit
+    expect(valueOf('gpu.power.limit', '1')).toBe(400);
+    expect(valueOf('gpu.enc.utilization', '1')).toBe(0);
+    expect(valueOf('gpu.dec.utilization', '1')).toBe(0);
   });
 
   it('observes amd stats from rocm-smi JSON', async () => {
@@ -164,16 +181,22 @@ describe('GpuMetricsCollector', () => {
 
     expect(observations).toHaveLength(11);
     const attrs = observations[0].attributes;
+    expect(attrs[SemanticConvention.GPU_INDEX]).toBe('0');
     expect(attrs[SemanticConvention.GPU_NAME]).toBe('AMD Instinct MI210');
     expect(attrs[SemanticConvention.GPU_UUID]).toBe('0x123456789abcdef');
 
     const valueOf = (metric: string) =>
       observations.find((o) => (o.gauge as { name: string }).name === metric)?.value;
     expect(valueOf('gpu.utilization')).toBe(42);
+    expect(valueOf('gpu.enc.utilization')).toBe(0);
+    expect(valueOf('gpu.dec.utilization')).toBe(0);
     expect(valueOf('gpu.temperature')).toBe(55);
+    expect(valueOf('gpu.fan_speed')).toBe(35);
     expect(valueOf('gpu.memory.total')).toBe(64 * 1024);
     expect(valueOf('gpu.memory.used')).toBe(16 * 1024);
     expect(valueOf('gpu.memory.free')).toBe(48 * 1024);
+    // Python AMD memory_available == total (not free)
+    expect(valueOf('gpu.memory.available')).toBe(64 * 1024);
     expect(valueOf('gpu.power.draw')).toBe(180);
     expect(valueOf('gpu.power.limit')).toBe(300);
   });
@@ -193,19 +216,40 @@ describe('GpuMetricsCollector', () => {
     expect(observations).toHaveLength(0);
   });
 
+  it('swallows invalid AMD JSON without throwing from the callback', async () => {
+    const badJsonRunner: CommandRunner = async (cmd, args) => {
+      if (cmd === 'nvidia-smi') throw new Error('not found');
+      if (cmd !== 'rocm-smi') throw new Error('not found');
+      if (args.includes('--showid') && args.length === 2) return '{}';
+      return 'not-json{';
+    };
+    const { meter, observations, runCallback } = makeFakeMeter();
+    const collector = new GpuMetricsCollector(badJsonRunner);
+    await collector.setup({ meter, environment: 'default', applicationName: 'default' });
+    await expect(runCallback()).resolves.toBeUndefined();
+    expect(observations).toHaveLength(0);
+  });
+
   it('parses malformed numeric fields as 0', async () => {
     const badCsvRunner: CommandRunner = async (cmd, args) => {
       if (cmd !== 'nvidia-smi') throw new Error('not found');
       if (args[0] === '-L') return 'GPU 0: NVIDIA A100';
-      return '0, GPU-uuid, NVIDIA A100, [N/A], 65, [N/A], 40960, 30000, 10960, [N/A], 400.00\n';
+      return '0, GPU-uuid, NVIDIA A100, [N/A], [N/A], [N/A], 65, [N/A], 40960, 30000, 10960, [N/A], [N/A], 400.00\n';
     };
     const collector = new GpuMetricsCollector(badCsvRunner);
     const { meter, runCallback, observations } = makeFakeMeter();
     await collector.setup({ meter, environment: 'default', applicationName: 'default' });
     await runCallback();
 
-    const stats = observations.find((o) => (o.gauge as { name: string }).name === 'gpu.utilization');
-    expect(stats?.value).toBe(0);
+    const valueOf = (metric: string) =>
+      observations.find((o) => (o.gauge as { name: string }).name === metric)?.value;
+
+    expect(valueOf('gpu.utilization')).toBe(0);
+    expect(valueOf('gpu.enc.utilization')).toBe(0);
+    expect(valueOf('gpu.dec.utilization')).toBe(0);
+    expect(valueOf('gpu.power.draw')).toBe(0);
+    // enforced N/A → fall back to power.limit
+    expect(valueOf('gpu.power.limit')).toBe(400);
   });
 });
 

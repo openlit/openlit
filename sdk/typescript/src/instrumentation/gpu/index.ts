@@ -52,19 +52,27 @@ const GPU_METRICS: Array<{ semconv: string; key: GpuMetricKey; description: stri
   { semconv: SemanticConvention.GPU_POWER_LIMIT, key: 'power_limit', description: 'GPU Power Limit' },
 ];
 
+/**
+ * Field order must stay aligned with the CSV column indices in collectNvidiaStats.
+ * `enforced.power.limit` matches Python's nvmlDeviceGetEnforcedPowerLimit;
+ * `power.limit` is a fallback when enforced is N/A.
+ */
 const NVIDIA_SMI_FIELDS = [
   'index',
   'uuid',
   'name',
   'utilization.gpu',
+  'utilization.encoder',
+  'utilization.decoder',
   'temperature.gpu',
   'fan.speed',
   'memory.total',
   'memory.used',
   'memory.free',
   'power.draw',
+  'enforced.power.limit',
   'power.limit',
-];
+] as const;
 
 export type CommandRunner = (cmd: string, args: string[]) => Promise<string>;
 
@@ -123,24 +131,28 @@ export class GpuMetricsCollector {
       .filter((line) => line.length > 0)
       .map((line) => {
         const parts = line.split(',').map((p) => p.trim());
-        const memoryFree = toNumber(parts[8]);
+        const memoryFree = toNumber(parts[10]);
+        // Prefer enforced power limit (Python NVML parity); fall back to power.limit.
+        const powerLimit = toNumber(parts[12]) || toNumber(parts[13]);
         return {
           index: parts[0] ?? '0',
           uuid: parts[1] ?? '',
           name: parts[2] ?? '',
           utilization: toNumber(parts[3]),
-          // Encoder/decoder utilization is not exposed by `--query-gpu`;
-          // report 0 (Python reports 0 for fan_speed on NVIDIA similarly).
-          utilization_enc: 0,
-          utilization_dec: 0,
-          temperature: toNumber(parts[4]),
-          fan_speed: toNumber(parts[5]),
-          memory_total: toNumber(parts[6]),
-          memory_used: toNumber(parts[7]),
+          utilization_enc: toNumber(parts[4]),
+          utilization_dec: toNumber(parts[5]),
+          temperature: toNumber(parts[6]),
+          // Python NVML path always reports 0 for NVIDIA fan_speed (many
+          // datacenter cards have no fan sensor). nvidia-smi exposes the value
+          // when present; [N/A] becomes 0 via toNumber, matching Python.
+          fan_speed: toNumber(parts[7]),
+          memory_total: toNumber(parts[8]),
+          memory_used: toNumber(parts[9]),
           memory_free: memoryFree,
+          // Python NVIDIA: memory_available == memory_free
           memory_available: memoryFree,
-          power_draw: toNumber(parts[9]),
-          power_limit: toNumber(parts[10]),
+          power_draw: toNumber(parts[11]),
+          power_limit: powerLimit,
         };
       });
   }
@@ -158,7 +170,14 @@ export class GpuMetricsCollector {
       '--showpower',
       '--json',
     ]);
-    const parsed = JSON.parse(stdout) as Record<string, Record<string, unknown>>;
+
+    let parsed: Record<string, Record<string, unknown>>;
+    try {
+      parsed = JSON.parse(stdout) as Record<string, Record<string, unknown>>;
+    } catch (e) {
+      throw new Error(`rocm-smi returned invalid JSON: ${e}`);
+    }
+
     const megaBytes = 1024 * 1024;
 
     return Object.entries(parsed)
@@ -167,11 +186,14 @@ export class GpuMetricsCollector {
         const memoryTotal = toNumber(data['VRAM Total Memory (B)']) / megaBytes;
         const memoryUsed = toNumber(data['VRAM Total Used Memory (B)']) / megaBytes;
         const memoryFree = memoryTotal - memoryUsed;
+        // Prefer ordinal from "card0" / "card1" (Python uses xgmi index 0..N).
+        const cardIndex = card.replace(/^card/i, '');
         return {
-          index: String(data['GPU ID'] ?? card.replace(/^card/i, '') ?? i),
+          index: String(cardIndex !== '' ? cardIndex : i),
           uuid: String(data['Unique ID'] ?? ''),
           name: String(data['Card series'] ?? data['Card SKU'] ?? ''),
           utilization: toNumber(data['GPU use (%)']),
+          // Python AMD stubs encoder/decoder utilization to 0
           utilization_enc: 0,
           utilization_dec: 0,
           temperature: toNumber(data['Temperature (Sensor edge) (C)']),
@@ -179,9 +201,11 @@ export class GpuMetricsCollector {
           memory_total: memoryTotal,
           memory_used: memoryUsed,
           memory_free: memoryFree,
+          // Python AMD sets memory_available to total (not free) — keep parity
           memory_available: memoryTotal,
           power_draw: toNumber(
-            data['Average Graphics Package Power (W)'] ?? data['Current Socket Graphics Package Power (W)']
+            data['Average Graphics Package Power (W)'] ??
+              data['Current Socket Graphics Package Power (W)']
           ),
           power_limit: toNumber(data['Max Graphics Package Power (W)']),
         };
@@ -199,8 +223,10 @@ export class GpuMetricsCollector {
   }): Promise<GpuType | null> {
     this.gpuType = await this.detectGpuType();
     if (!this.gpuType) {
-      diag.error(
-        'OpenLIT GPU Instrumentation Error: No supported GPUs found. ' +
+      // Match Python openlit.init(): skip quietly-ish when no GPU is present.
+      // Use warn because OpenLIT sets DiagLogLevel.WARN (info is filtered).
+      diag.warn(
+        'OpenLIT: No supported GPUs found; skipping GPU metrics collection. ' +
           'If this is a non-GPU host, set `collectGpuStats: false` to disable GPU stats.'
       );
       return null;

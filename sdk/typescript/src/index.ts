@@ -212,15 +212,18 @@ class Openlit extends BaseOpenlit {
           exportIntervalMillis,
         });
 
-        // GPU metrics are registered only when a supported GPU is detected
+        // GPU metrics: only register gauges when a supported GPU is detected
+        // (mirrors Python openlit.init collect_gpu_stats path).
         if (resolved.collectGpuStats && meter) {
-          new GpuMetricsCollector().setup({
-            meter,
-            environment: resolved.environment,
-            applicationName: resolved.applicationName,
-          }).catch((e) => {
-            console.error('OpenLIT GPU metrics setup failed:', e);
-          });
+          new GpuMetricsCollector()
+            .setup({
+              meter,
+              environment: resolved.environment,
+              applicationName: resolved.applicationName,
+            })
+            .catch((e) => {
+              diag.error(`OpenLIT GPU metrics setup failed: ${e}`);
+            });
         }
       }
 
