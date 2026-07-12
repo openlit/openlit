@@ -10,11 +10,12 @@ const SERVER_ADDRESS = 'api.firecrawl.dev';
 const SERVER_PORT = 443;
 
 /**
- * Maps the Python endpoint identifiers to a short operation name. Mirrors
- * FIRECRAWL_OPERATION_MAP in the Python reference (sdk/python/.../firecrawl/utils.py),
- * with the extra `firecrawl.crawl_status` key that the Python instrumentor actually
- * passes for `check_crawl_status` so the status check resolves to `crawl_status`
- * rather than falling back to the `scrape` default.
+ * Maps Python-style endpoint identifiers to short operation names.
+ * Mirrors `FIRECRAWL_OPERATION_MAP` in the Python reference, plus intentional
+ * fixes Python still has as bugs:
+ * - `firecrawl.crawl_status` (what Python actually passes for check_crawl_status)
+ * - `firecrawl.extract` / `firecrawl.async_extract` (instrumented but unmapped in Python)
+ * - `firecrawl.get_extract_status` / `firecrawl.cancel_crawl` with correct op names
  */
 const FIRECRAWL_OPERATION_MAP: Record<string, string> = {
   'firecrawl.scrape_url': SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE,
@@ -24,12 +25,19 @@ const FIRECRAWL_OPERATION_MAP: Record<string, string> = {
   'firecrawl.get_crawl_status': SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL_STATUS,
   'firecrawl.crawl_status': SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL_STATUS,
   'firecrawl.get_scrape_status': SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE_STATUS,
+  'firecrawl.async_get_scrape_status': SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE_STATUS,
   'firecrawl.map_url': SemanticConvention.GEN_AI_OPERATION_TYPE_MAP,
   'firecrawl.async_map_url': SemanticConvention.GEN_AI_OPERATION_TYPE_MAP,
   'firecrawl.search': SemanticConvention.GEN_AI_OPERATION_TYPE_SEARCH,
   'firecrawl.async_search': SemanticConvention.GEN_AI_OPERATION_TYPE_SEARCH,
+  'firecrawl.extract': SemanticConvention.GEN_AI_OPERATION_TYPE_EXTRACT,
+  'firecrawl.async_extract': SemanticConvention.GEN_AI_OPERATION_TYPE_EXTRACT,
+  'firecrawl.get_extract_status': SemanticConvention.GEN_AI_OPERATION_TYPE_EXTRACT_STATUS,
   'firecrawl.batch_scrape_urls': SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE,
   'firecrawl.async_batch_scrape_urls': SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE,
+  // Python maps cancel → "crawl"; use dedicated cancel op (semcov already defines it).
+  'firecrawl.cancel_crawl': SemanticConvention.GEN_AI_OPERATION_TYPE_CANCEL,
+  'firecrawl.async_cancel_crawl': SemanticConvention.GEN_AI_OPERATION_TYPE_CANCEL,
 };
 
 function truncateContent(content: string, maxLength?: number): string {
@@ -46,15 +54,11 @@ function formatContent(content: unknown, maxLength: number): string {
   return str.length > maxLength ? `${str.slice(0, maxLength)}...` : str;
 }
 
-/**
- * Resolves the operation name for an endpoint. Defaults to `scrape`, matching the
- * Python `get_operation_name` fallback.
- */
 function getOperationName(endpoint: string): string {
   return FIRECRAWL_OPERATION_MAP[endpoint] ?? SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE;
 }
 
-/** Primary URL for a single-target operation (first positional arg or `url` option). */
+/** Primary URL / query / job id for a single-target operation. */
 function resolveUrl(args: any[]): string {
   if (args.length > 0 && typeof args[0] === 'string') {
     return args[0];
@@ -65,7 +69,10 @@ function resolveUrl(args: any[]): string {
   return 'unknown';
 }
 
-/** URL list for batch operations (first positional array or `urls` option). */
+/**
+ * URL list for batch / extract operations.
+ * Supports positional `string[]` and `{ urls: string[] }` option bags.
+ */
 function resolveUrls(args: any[]): string[] {
   if (Array.isArray(args[0])) {
     return args[0].map((url: unknown) => String(url));
@@ -73,15 +80,19 @@ function resolveUrls(args: any[]): string[] {
   if (args[0] && typeof args[0] === 'object' && Array.isArray(args[0].urls)) {
     return args[0].urls.map((url: unknown) => String(url));
   }
+  // extract / asyncExtract may pass urls as the first arg; also accept second-arg urls
+  if (args[1] && typeof args[1] === 'object' && Array.isArray(args[1].urls)) {
+    return args[1].urls.map((url: unknown) => String(url));
+  }
   return [];
 }
 
 /**
- * Builds the span name in the `{operation} {target}` shape used by the Python
- * reference. Batch operations list a bounded sample of URLs.
+ * Builds `{operation} {target}` span names matching the Python reference.
+ * Multi-URL ops (batch scrape, extract) list a bounded sample of URLs.
  */
-function getSpanName(operation: string, endpoint: string, url: string, urls: string[]): string {
-  if (endpoint.includes('batch') && urls.length > 0) {
+function getSpanName(operation: string, url: string, urls: string[]): string {
+  if (urls.length > 0) {
     if (urls.length <= 3) {
       const urlsStr = urls.join(', ');
       if (urlsStr.length <= 80) {
@@ -100,11 +111,9 @@ class FirecrawlWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_FIRECRAWL;
 
   /**
-   * Wraps a Promise-returning Firecrawl method (`scrapeUrl`, `crawlUrl`, `mapUrl`,
-   * `search`, `extract`, `batchScrapeUrls`, `checkCrawlStatus`, ...) into a single
-   * CLIENT span named `{operation} {target}`. `endpoint` is the Python endpoint
-   * identifier that drives the operation name, matching the Python reference
-   * (sdk/python/src/openlit/instrumentation/firecrawl).
+   * Wraps a Promise-returning Firecrawl method into a CLIENT span named
+   * `{operation} {target}`. `endpoint` is the Python-style endpoint id that
+   * drives the operation name.
    */
   static _patchOperation(tracer: Tracer, endpoint: string, version?: string): any {
     const sdkVersion = version || 'unknown';
@@ -116,10 +125,10 @@ class FirecrawlWrapper {
         }
 
         const operation = getOperationName(endpoint);
-        const url = resolveUrl(args);
         const urls = resolveUrls(args);
-        const isBatch = endpoint.includes('batch');
-        const spanName = getSpanName(operation, endpoint, url, urls);
+        const url = urls.length > 0 ? urls[0] : resolveUrl(args);
+        const isMultiUrl = urls.length > 0;
+        const spanName = getSpanName(operation, url, urls);
 
         const span = tracer.startSpan(spanName, {
           kind: SpanKind.CLIENT,
@@ -130,7 +139,7 @@ class FirecrawlWrapper {
         });
         const startTime = Date.now();
 
-        FirecrawlWrapper._setSpanAttributes(span, operation, sdkVersion, url, urls, isBatch);
+        FirecrawlWrapper._setSpanAttributes(span, operation, sdkVersion, url, urls, isMultiUrl);
         applyCustomSpanAttributes(span);
 
         return context.with(trace.setSpan(context.active(), span), async () => {
@@ -159,14 +168,14 @@ class FirecrawlWrapper {
     };
   }
 
-  /** Sets the framework + request attributes, mirroring Python `set_span_attributes`. */
+  /** Framework + request attributes (Python `set_span_attributes` parity). */
   static _setSpanAttributes(
     span: Span,
     operation: string,
     sdkVersion: string,
     url: string,
     urls: string[],
-    isBatch: boolean
+    isMultiUrl: boolean
   ): void {
     span.setAttribute(ATTR_TELEMETRY_SDK_NAME, SDK_NAME);
     span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, FirecrawlWrapper.aiSystem);
@@ -183,7 +192,7 @@ class FirecrawlWrapper {
       SemanticConvention.GEN_AI_AGENT_TYPE_BROWSER
     );
 
-    if (isBatch && urls.length > 0) {
+    if (isMultiUrl) {
       span.setAttribute(SemanticConvention.GEN_AI_CRAWL_URL_COUNT, urls.length);
       span.setAttribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL, urls[0]);
     } else if (url && url !== 'unknown') {
@@ -191,7 +200,7 @@ class FirecrawlWrapper {
     }
   }
 
-  /** Extracts business-intelligence attributes from the response, matching Python. */
+  /** Response business-intelligence attributes (Python `process_response` parity). */
   static _processResponse(span: Span, response: any, url: string): void {
     if (response === undefined || response === null) return;
 
@@ -202,9 +211,9 @@ class FirecrawlWrapper {
       const successCount = response.filter(
         (item: any) => item && typeof item === 'object' && (item.success ?? true)
       ).length;
-      span.setAttribute('gen_ai.crawl.result.success_count', successCount);
+      span.setAttribute(SemanticConvention.GEN_AI_CRAWL_RESULT_SUCCESS_COUNT, successCount);
       span.setAttribute(
-        'gen_ai.crawl.result.success_rate',
+        SemanticConvention.GEN_AI_CRAWL_RESULT_SUCCESS_RATE,
         response.length ? successCount / response.length : 0
       );
 
@@ -222,7 +231,7 @@ class FirecrawlWrapper {
       return;
     }
 
-    span.setAttribute('gen_ai.response.type', typeof response);
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_TYPE, typeof response);
   }
 
   private static _processSingleResponse(span: Span, response: any, url: string): void {
@@ -230,25 +239,25 @@ class FirecrawlWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_CRAWL_RESULT_SUCCESS, success);
 
     if (response.warning) {
-      span.setAttribute('gen_ai.response.warning', String(response.warning));
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_WARNING, String(response.warning));
     }
     if (response.error) {
-      span.setAttribute('gen_ai.response.error', String(response.error));
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ERROR, String(response.error));
     }
 
     const metadata = response.metadata;
     if (metadata && typeof metadata === 'object') {
       if (metadata.title) {
-        span.setAttribute('gen_ai.response.title', String(metadata.title));
+        span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_TITLE, String(metadata.title));
       }
       if (metadata.description) {
-        span.setAttribute('gen_ai.response.description', String(metadata.description));
+        span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_DESCRIPTION, String(metadata.description));
       }
       if (metadata.statusCode !== undefined) {
         span.setAttribute(SemanticConvention.GEN_AI_CRAWL_RESULT_STATUS_CODE, metadata.statusCode);
       }
       if (metadata.error) {
-        span.setAttribute('gen_ai.response.error', String(metadata.error));
+        span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ERROR, String(metadata.error));
       }
     }
 
@@ -274,28 +283,28 @@ class FirecrawlWrapper {
     }
 
     if (response.screenshot) {
-      span.setAttribute('gen_ai.response.has_screenshot', true);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_HAS_SCREENSHOT, true);
     }
 
     if (response.completed !== undefined && response.completed !== null) {
-      span.setAttribute('gen_ai.response.progress_completed', response.completed);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_PROGRESS_COMPLETED, response.completed);
     }
     if (response.total !== undefined && response.total !== null) {
-      span.setAttribute('gen_ai.response.progress_total', response.total);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_PROGRESS_TOTAL, response.total);
       if (
         response.completed !== undefined &&
         response.completed !== null &&
         response.total > 0
       ) {
         span.setAttribute(
-          'gen_ai.response.completion_rate',
+          SemanticConvention.GEN_AI_RESPONSE_COMPLETION_RATE,
           (response.completed / response.total) * 100
         );
       }
     }
 
     if (response.creditsUsed !== undefined && response.creditsUsed !== null) {
-      span.setAttribute('gen_ai.response.credits_used', response.creditsUsed);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_CREDITS_USED, response.creditsUsed);
     }
 
     if (response.status) {
@@ -303,14 +312,14 @@ class FirecrawlWrapper {
     }
 
     if (response.id) {
-      span.setAttribute('gen_ai.response.job_id', String(response.id));
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_JOB_ID, String(response.id));
     }
     if (response.expiresAt) {
-      span.setAttribute('gen_ai.response.expires_at', String(response.expiresAt));
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_EXPIRES_AT, String(response.expiresAt));
     }
 
     if (Array.isArray(response.data)) {
-      span.setAttribute('gen_ai.response.data_count', response.data.length);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_DATA_COUNT, response.data.length);
 
       let totalLinks = 0;
       let totalContentLength = 0;
@@ -328,13 +337,16 @@ class FirecrawlWrapper {
       }
 
       if (totalLinks > 0) {
-        span.setAttribute('gen_ai.response.total_links_count', totalLinks);
+        span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_TOTAL_LINKS_COUNT, totalLinks);
       }
       if (totalContentLength > 0) {
-        span.setAttribute('gen_ai.response.total_content_length', totalContentLength);
+        span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_TOTAL_CONTENT_LENGTH, totalContentLength);
       }
       if (response.data.length > 0) {
-        span.setAttribute('gen_ai.response.success_rate', successCount / response.data.length);
+        span.setAttribute(
+          SemanticConvention.GEN_AI_RESPONSE_SUCCESS_RATE,
+          successCount / response.data.length
+        );
       }
     }
 
@@ -371,22 +383,21 @@ class FirecrawlWrapper {
   }
 
   /**
-   * Sets Firecrawl-specific error attributes (message, category, HTTP status).
-   * `OpenLitHelper.handleException` still records the exception, ERROR status and
-   * `error.type` on the caller side.
+   * Firecrawl-specific error attributes. `OpenLitHelper.handleException` still
+   * records the exception, ERROR status, and `error.type`.
    */
   static _handleError(span: Span, error: any): void {
-    span.setAttribute('error.message', String(error?.message ?? error));
+    span.setAttribute(SemanticConvention.ERROR_MESSAGE, String(error?.message ?? error));
 
     const httpResponse = error?.response;
     if (httpResponse && typeof httpResponse === 'object') {
       if (httpResponse.status_code !== undefined) {
-        span.setAttribute('http.status_code', httpResponse.status_code);
+        span.setAttribute(SemanticConvention.HTTP_STATUS_CODE, httpResponse.status_code);
       } else if (httpResponse.status !== undefined) {
-        span.setAttribute('http.status_code', httpResponse.status);
+        span.setAttribute(SemanticConvention.HTTP_STATUS_CODE, httpResponse.status);
       }
       if (typeof httpResponse.text === 'string') {
-        span.setAttribute('error.response_text', truncateContent(httpResponse.text));
+        span.setAttribute(SemanticConvention.ERROR_RESPONSE_TEXT, truncateContent(httpResponse.text));
       }
     }
 
@@ -401,7 +412,7 @@ class FirecrawlWrapper {
     } else if (message.includes('not found')) {
       category = 'not_found';
     }
-    span.setAttribute('error.category', category);
+    span.setAttribute(SemanticConvention.ERROR_CATEGORY, category);
   }
 }
 

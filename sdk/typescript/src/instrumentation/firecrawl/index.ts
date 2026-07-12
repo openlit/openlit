@@ -12,10 +12,18 @@ import FirecrawlWrapper from './wrapper';
 export interface FirecrawlInstrumentationConfig extends InstrumentationConfig {}
 
 /**
- * Firecrawl JS method name -> Python endpoint identifier. The endpoint string drives
- * the operation name and span name so TS and Python emit identical telemetry. The JS
- * SDK exposes a single Promise-returning class (`FirecrawlApp`), so the sync and async
- * Python methods collapse onto their camelCase JS equivalents here.
+ * Firecrawl JS method name -> Python endpoint identifier.
+ *
+ * The endpoint string drives the operation name and span name so TS and Python
+ * emit aligned telemetry. The JS SDK (`@mendable/firecrawl-js` v1) exposes a
+ * single Promise-returning `FirecrawlApp` class, so Python's sync/async pairs
+ * collapse onto their camelCase JS equivalents here.
+ *
+ * Intentionally not wrapped:
+ * - `crawlUrlAndWatch` / `batchScrapeUrlsAndWatch` — they call
+ *   `asyncCrawlUrl` / `asyncBatchScrapeUrls`, which are already instrumented.
+ * - Internal helpers (`prepareHeaders`, `postRequest`, `getRequest`, …).
+ * - Newer product surfaces (deepResearch, generateLLMsText) — no Python parity yet.
  */
 const FIRECRAWL_METHODS: Array<[string, string]> = [
   ['scrapeUrl', 'firecrawl.scrape_url'],
@@ -24,9 +32,13 @@ const FIRECRAWL_METHODS: Array<[string, string]> = [
   ['mapUrl', 'firecrawl.map_url'],
   ['search', 'firecrawl.search'],
   ['extract', 'firecrawl.extract'],
+  ['asyncExtract', 'firecrawl.async_extract'],
+  ['getExtractStatus', 'firecrawl.get_extract_status'],
   ['batchScrapeUrls', 'firecrawl.batch_scrape_urls'],
   ['asyncBatchScrapeUrls', 'firecrawl.async_batch_scrape_urls'],
   ['checkCrawlStatus', 'firecrawl.crawl_status'],
+  ['checkBatchScrapeStatus', 'firecrawl.get_scrape_status'],
+  ['cancelCrawl', 'firecrawl.cancel_crawl'],
 ];
 
 export default class OpenlitFirecrawlInstrumentation extends InstrumentationBase {
@@ -57,9 +69,6 @@ export default class OpenlitFirecrawlInstrumentation extends InstrumentationBase
   protected _patch(moduleExports: any, moduleVersion?: string) {
     try {
       const sdkVersion = moduleVersion ? String(moduleVersion) : undefined;
-      // The package has shipped the client under a few export names across versions
-      // (`FirecrawlApp` default, plus `AsyncFirecrawlApp` / `Firecrawl`). Patch every
-      // class it exposes; the isWrapped guard keeps this idempotent.
       for (const target of this._resolveClasses(moduleExports)) {
         this._patchClass(target, sdkVersion);
       }
@@ -90,9 +99,8 @@ export default class OpenlitFirecrawlInstrumentation extends InstrumentationBase
 
     for (const [method, endpoint] of FIRECRAWL_METHODS) {
       if (typeof proto[method] !== 'function') continue;
-      if (isWrapped(proto[method])) {
-        this._unwrap(proto, method);
-      }
+      // Already wrapped — skip to avoid unwrap/rewrap churn on re-patch.
+      if (isWrapped(proto[method])) continue;
       this._wrap(proto, method, FirecrawlWrapper._patchOperation(this.tracer, endpoint, sdkVersion));
     }
   }
