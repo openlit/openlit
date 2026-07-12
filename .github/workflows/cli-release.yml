@@ -219,7 +219,7 @@ jobs:
         # `brew install openlit` resolves to. Pinning to a SHA is the
         # whole point — a tag repoint here directly compromises every
         # user who runs `brew upgrade`.
-        uses: dawidd6/action-homebrew-bump-formula@baf2b60c51fc1f8453c884b0c61052668a71bd1d # v3.11.0
+        uses: dawidd6/action-homebrew-bump-formula@a0e064e08103c01870c6d1b05168d1b726aab119 # v8
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           tap: openlit/homebrew-openlit
