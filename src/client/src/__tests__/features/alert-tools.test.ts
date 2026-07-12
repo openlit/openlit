@@ -38,7 +38,10 @@ describe("CE alert Otter tool fallbacks", () => {
 	});
 
 	it("listAlertsTool returns an empty list instead of failing", async () => {
-		await expect(listAlertsTool()).resolves.toEqual({ success: true, alerts: [] });
+		await expect(listAlertsTool()).resolves.toEqual({
+			success: false,
+			error: UNAVAILABLE_ERROR,
+		});
 	});
 
 	it("getAlertTool returns an unavailable error", async () => {
@@ -77,8 +80,8 @@ describe("CE alert Otter tool fallbacks", () => {
 
 	it("listAlertDestinationsTool returns an empty list instead of failing", async () => {
 		await expect(listAlertDestinationsTool()).resolves.toEqual({
-			success: true,
-			destinations: [],
+			success: false,
+			error: UNAVAILABLE_ERROR,
 		});
 	});
 

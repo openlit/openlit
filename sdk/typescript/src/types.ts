@@ -45,6 +45,7 @@ export interface OpenlitConfigInterface {
  *   Python: pricing_json         → JS: pricingJson
  *   Python: max_content_length   → JS: maxContentLength
  *   Python: custom_span_attributes → JS: customSpanAttributes
+ *   Python: collect_gpu_stats     → JS: collectGpuStats
  */
 export type OpenlitOptions = {
   environment?: string;
@@ -65,6 +66,7 @@ export type OpenlitOptions = {
   openlitUrl?: string;
   guards?: Guard[];
   guardFailOpen?: boolean;
+  collectGpuStats?: boolean;
 };
 
 /**
@@ -89,6 +91,7 @@ export interface ResolvedOptions {
   openlitUrl?: string;
   guards?: Guard[];
   guardFailOpen: boolean;
+  collectGpuStats: boolean;
 }
 
 export type SetupTracerOptions = ResolvedOptions & {
