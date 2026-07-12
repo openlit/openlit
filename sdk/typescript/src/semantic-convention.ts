@@ -215,6 +215,37 @@ export default class SemanticConvention {
   static GEN_AI_ACTION_TYPE = 'gen_ai.action.type';
   static GEN_AI_ACTION_INDEX = 'gen_ai.action.index';
 
+  // Web crawling / scraping (Firecrawl)
+  static GEN_AI_CRAWL_URL_COUNT = 'gen_ai.crawl.url_count';
+  static GEN_AI_CRAWL_RESULT_SUCCESS = 'gen_ai.crawl.result.success';
+  static GEN_AI_CRAWL_RESULT_SUCCESS_COUNT = 'gen_ai.crawl.result.success_count';
+  static GEN_AI_CRAWL_RESULT_SUCCESS_RATE = 'gen_ai.crawl.result.success_rate';
+  static GEN_AI_CRAWL_RESULT_STATUS_CODE = 'gen_ai.crawl.result.status_code';
+  static GEN_AI_CRAWL_RESULT_HTML_LENGTH = 'gen_ai.crawl.result.html_length';
+  static GEN_AI_CRAWL_RESULT_MARKDOWN_LENGTH = 'gen_ai.crawl.result.markdown_length';
+  static GEN_AI_CRAWL_RESULT_LINKS_COUNT = 'gen_ai.crawl.result.links_count';
+  static GEN_AI_MONITOR_TASK_STATUS = 'gen_ai.monitor.task_status';
+  static GEN_AI_RESPONSE_WARNING = 'gen_ai.response.warning';
+  static GEN_AI_RESPONSE_ERROR = 'gen_ai.response.error';
+  static GEN_AI_RESPONSE_TITLE = 'gen_ai.response.title';
+  static GEN_AI_RESPONSE_DESCRIPTION = 'gen_ai.response.description';
+  static GEN_AI_RESPONSE_HAS_SCREENSHOT = 'gen_ai.response.has_screenshot';
+  static GEN_AI_RESPONSE_PROGRESS_COMPLETED = 'gen_ai.response.progress_completed';
+  static GEN_AI_RESPONSE_PROGRESS_TOTAL = 'gen_ai.response.progress_total';
+  static GEN_AI_RESPONSE_COMPLETION_RATE = 'gen_ai.response.completion_rate';
+  static GEN_AI_RESPONSE_CREDITS_USED = 'gen_ai.response.credits_used';
+  static GEN_AI_RESPONSE_JOB_ID = 'gen_ai.response.job_id';
+  static GEN_AI_RESPONSE_EXPIRES_AT = 'gen_ai.response.expires_at';
+  static GEN_AI_RESPONSE_DATA_COUNT = 'gen_ai.response.data_count';
+  static GEN_AI_RESPONSE_TOTAL_LINKS_COUNT = 'gen_ai.response.total_links_count';
+  static GEN_AI_RESPONSE_TOTAL_CONTENT_LENGTH = 'gen_ai.response.total_content_length';
+  static GEN_AI_RESPONSE_SUCCESS_RATE = 'gen_ai.response.success_rate';
+  static GEN_AI_RESPONSE_TYPE = 'gen_ai.response.type';
+  static ERROR_MESSAGE = 'error.message';
+  static ERROR_CATEGORY = 'error.category';
+  static ERROR_RESPONSE_TEXT = 'error.response_text';
+  static HTTP_STATUS_CODE = 'http.status_code';
+
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
   static GEN_AI_WORKFLOW_OUTPUT = 'gen_ai.workflow.output';
@@ -243,6 +274,15 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
+  static GEN_AI_OPERATION_TYPE_SCRAPE = 'scrape';
+  static GEN_AI_OPERATION_TYPE_CRAWL = 'crawl';
+  static GEN_AI_OPERATION_TYPE_MAP = 'map';
+  static GEN_AI_OPERATION_TYPE_SEARCH = 'search';
+  static GEN_AI_OPERATION_TYPE_EXTRACT = 'extract';
+  static GEN_AI_OPERATION_TYPE_EXTRACT_STATUS = 'extract_status';
+  static GEN_AI_OPERATION_TYPE_CRAWL_STATUS = 'crawl_status';
+  static GEN_AI_OPERATION_TYPE_SCRAPE_STATUS = 'scrape_status';
+  static GEN_AI_OPERATION_TYPE_CANCEL = 'cancel';
 
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
@@ -282,6 +322,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
   static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
+  static GEN_AI_SYSTEM_FIRECRAWL = 'firecrawl';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
