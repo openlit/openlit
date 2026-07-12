@@ -3,9 +3,16 @@ package vllm
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+)
+
+const (
+	defaultBaseURL       = "http://127.0.0.1:8000/v1"
+	defaultServerAddress = "127.0.0.1"
+	defaultServerPort    = 8000
 )
 
 // InstrumentedClient wraps an HTTP client with vLLM instrumentation.
@@ -23,13 +30,13 @@ type InstrumentedClient struct {
 // apiKey is optional for local vLLM deployments — pass an empty string if not needed.
 func NewClient(baseURL string, opts ...ClientOption) *InstrumentedClient {
 	if baseURL == "" {
-		baseURL = "http://127.0.0.1:8000/v1"
+		baseURL = defaultBaseURL
 	}
 
 	client := &InstrumentedClient{
 		httpClient: &http.Client{},
 		tracer:     otel.Tracer("openlit.vllm"),
-		baseURL:    baseURL,
+		baseURL:    strings.TrimRight(baseURL, "/"),
 		apiKey:     "",
 	}
 
@@ -37,11 +44,15 @@ func NewClient(baseURL string, opts ...ClientOption) *InstrumentedClient {
 		opt(client)
 	}
 
-	// Wrap the HTTP client with instrumentation
+	// Re-trim in case WithBaseURL-style options ever appear; keep path stable.
+	client.baseURL = strings.TrimRight(client.baseURL, "/")
+
 	client.httpClient.Transport = NewInstrumentedTransport(
 		client.httpClient.Transport,
 		client.tracer,
 	)
+
+	ensureMetrics()
 
 	return client
 }
@@ -66,6 +77,10 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 // GetHTTPClient returns the instrumented HTTP client
 func (c *InstrumentedClient) GetHTTPClient() *http.Client {
 	return c.httpClient
+}
+
+func (c *InstrumentedClient) chatCompletionsURL() string {
+	return c.baseURL + "/chat/completions"
 }
 
 // CreateChatCompletion sends a chat completion request to vLLM

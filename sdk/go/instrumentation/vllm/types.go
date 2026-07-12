@@ -1,14 +1,20 @@
 package vllm
 
-import "io"
+import (
+	"io"
+	"sync"
+)
 
-// ChatCompletionRequest represents a chat completion request to vLLM
-// vLLM uses the OpenAI-compatible API so this mirrors the OpenAI request shape
+const defaultModel = "facebook/opt-125m"
+
+// ChatCompletionRequest represents a chat completion request to vLLM.
+// vLLM uses the OpenAI-compatible API so this mirrors the OpenAI request shape.
 type ChatCompletionRequest struct {
 	Model            string         `json:"model"`
 	Messages         []ChatMessage  `json:"messages"`
 	Temperature      float64        `json:"temperature,omitempty"`
 	TopP             float64        `json:"top_p,omitempty"`
+	TopK             int            `json:"top_k,omitempty"`
 	N                int            `json:"n,omitempty"`
 	Stream           bool           `json:"stream,omitempty"`
 	Stop             []string       `json:"stop,omitempty"`
@@ -110,10 +116,12 @@ type Usage struct {
 
 // ChatCompletionStream represents a streaming response from vLLM
 type ChatCompletionStream struct {
-	reader chan ChatCompletionChunk
-	body   io.ReadCloser
-	err    error
-	done   bool
+	reader    chan ChatCompletionChunk
+	body      io.ReadCloser
+	err       error
+	done      bool
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // Recv receives the next chunk from the stream.
@@ -129,7 +137,12 @@ func (s *ChatCompletionStream) Recv() (ChatCompletionChunk, error) {
 	return chunk, nil
 }
 
-// Close closes the underlying HTTP response body.
+// Close closes the underlying HTTP response body (safe to call multiple times).
 func (s *ChatCompletionStream) Close() error {
-	return s.body.Close()
+	s.closeOnce.Do(func() {
+		if s.body != nil {
+			s.closeErr = s.body.Close()
+		}
+	})
+	return s.closeErr
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	openlit "github.com/openlit/openlit/sdk/go"
 	"github.com/openlit/openlit/sdk/go/helpers"
 	"github.com/openlit/openlit/sdk/go/semconv"
 	"go.opentelemetry.io/otel"
@@ -19,24 +20,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
-	// defaultServerAddress is the default vLLM server address
-	defaultServerAddress = "127.0.0.1"
-	// defaultServerPort is the default vLLM server port
-	defaultServerPort = 8000
-)
-
 // createChatCompletion handles non-streaming chat completions
 func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatCompletionRequest) (result *ChatCompletionResponse, retErr error) {
-	tracer := otel.Tracer("openlit.vllm")
-	meter := otel.Meter("openlit.vllm")
+	ensureMetrics()
 
-	tokenUsageHistogram, _ := meter.Int64Histogram(semconv.GenAIClientTokenUsage,
-		metric.WithDescription("Number of tokens used in GenAI operations"),
-		metric.WithUnit("{token}"))
-	operationDurationHistogram, _ := meter.Float64Histogram(semconv.GenAIClientOperationDuration,
-		metric.WithDescription("Duration of GenAI operations"),
-		metric.WithUnit("s"))
+	if req.Model == "" {
+		req.Model = defaultModel
+	}
+
+	tracer := c.tracer
+	if tracer == nil {
+		tracer = otel.Tracer("openlit.vllm")
+	}
 
 	spanName := fmt.Sprintf("%s %s", semconv.GenAIOperationTypeChat, req.Model)
 	ctx, span := tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindClient))
@@ -52,6 +47,7 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 			operationDurationHistogram.Record(ctx, time.Since(startTime).Seconds(),
 				metric.WithAttributes(
 					attribute.String(semconv.GenAISystem, semconv.GenAISystemVLLM),
+					attribute.String(semconv.GenAIProviderName, semconv.GenAISystemVLLM),
 					attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeChat),
 					attribute.String(semconv.GenAIRequestModel, req.Model),
 					attribute.String(semconv.ErrorType, errType),
@@ -59,7 +55,7 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 		}
 	}()
 
-	setRequestAttributes(span, req)
+	setRequestAttributes(span, req, c.baseURL)
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
@@ -67,7 +63,7 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.chatCompletionsURL(), bytes.NewReader(reqBody))
 	if err != nil {
 		helpers.RecordError(span, err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -100,39 +96,47 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 	}
 
 	duration := time.Since(startTime)
+	setResponseAttributes(span, &resp)
 
-	setResponseAttributes(span, &resp, req.Model, duration)
+	attrs := []attribute.KeyValue{
+		attribute.String(semconv.GenAISystem, semconv.GenAISystemVLLM),
+		attribute.String(semconv.GenAIProviderName, semconv.GenAISystemVLLM),
+		attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeChat),
+		attribute.String(semconv.GenAIRequestModel, req.Model),
+		attribute.String(semconv.GenAIResponseModel, resp.Model),
+	}
+
+	// Always record operation duration on success (even without usage).
+	operationDurationHistogram.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
 
 	if resp.Usage != nil {
 		cost := helpers.CalculateGlobalCost(resp.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens)
 		semconv.SetFloat64Attribute(span, semconv.GenAIUsageCost, cost)
 
-		attrs := []attribute.KeyValue{
-			attribute.String(semconv.GenAISystem, semconv.GenAISystemVLLM),
-			attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeChat),
-			attribute.String(semconv.GenAIRequestModel, req.Model),
-			attribute.String(semconv.GenAIResponseModel, resp.Model),
-		}
 		tokenUsageHistogram.Record(ctx, int64(resp.Usage.PromptTokens),
 			metric.WithAttributes(append(attrs, attribute.String(semconv.GenAITokenType, "input"))...))
 		tokenUsageHistogram.Record(ctx, int64(resp.Usage.CompletionTokens),
 			metric.WithAttributes(append(attrs, attribute.String(semconv.GenAITokenType, "output"))...))
-		operationDurationHistogram.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
+		usageCostHistogram.Record(ctx, cost, metric.WithAttributes(attrs...))
 	}
+
+	emitInferenceEvent(span, req, resp.ID, resp.Model, resp.Usage, finishReasonsFromChoices(resp.Choices), c.baseURL)
 
 	span.SetStatus(codes.Ok, "")
 	return &resp, nil
 }
 
-// setRequestAttributes sets common request attributes on a span
-func setRequestAttributes(span trace.Span, req ChatCompletionRequest) {
+func setRequestAttributes(span trace.Span, req ChatCompletionRequest, baseURL string) {
 	semconv.SetStringAttribute(span, semconv.GenAIOperationName, semconv.GenAIOperationTypeChat)
 	semconv.SetStringAttribute(span, semconv.GenAISystem, semconv.GenAISystemVLLM)
 	semconv.SetStringAttribute(span, semconv.GenAIProviderName, semconv.GenAISystemVLLM)
 	semconv.SetStringAttribute(span, semconv.GenAIRequestModel, req.Model)
-	semconv.SetStringAttribute(span, semconv.ServerAddress, defaultServerAddress)
-	semconv.SetIntAttribute(span, semconv.ServerPort, defaultServerPort)
+	semconv.SetStringAttribute(span, semconv.OpenLITSDKVersion, openlit.Version)
 	semconv.SetBoolAttribute(span, semconv.GenAIRequestIsStream, req.Stream)
+
+	addr, port := helpers.SetServerAddressAndPort(baseURL, defaultServerAddress, defaultServerPort)
+	semconv.SetStringAttribute(span, semconv.ServerAddress, addr)
+	semconv.SetIntAttribute(span, semconv.ServerPort, port)
 
 	if req.User != "" {
 		semconv.SetStringAttribute(span, semconv.GenAIRequestUser, req.User)
@@ -142,6 +146,9 @@ func setRequestAttributes(span trace.Span, req ChatCompletionRequest) {
 	}
 	if req.TopP > 0 {
 		semconv.SetFloat64Attribute(span, semconv.GenAIRequestTopP, req.TopP)
+	}
+	if req.TopK > 0 {
+		semconv.SetIntAttribute(span, semconv.GenAIRequestTopK, req.TopK)
 	}
 	if req.MaxTokens > 0 {
 		semconv.SetIntAttribute(span, semconv.GenAIRequestMaxTokens, req.MaxTokens)
@@ -162,7 +169,6 @@ func setRequestAttributes(span trace.Span, req ChatCompletionRequest) {
 		semconv.SetIntAttribute(span, semconv.GenAIRequestChoiceCount, req.N)
 	}
 
-	// Capture message content if enabled
 	if helpers.GetCaptureMessageContent() {
 		messages := make([]semconv.Message, 0, len(req.Messages))
 		for _, msg := range req.Messages {
@@ -172,55 +178,40 @@ func setRequestAttributes(span trace.Span, req ChatCompletionRequest) {
 			})
 		}
 		if len(messages) > 0 {
-			semconv.SetMessagesAttribute(span, semconv.GenAIInputMessages, messages) //nolint:errcheck
+			_ = semconv.SetMessagesAttribute(span, semconv.GenAIInputMessages, messages)
 		}
+	}
+
+	if len(req.Tools) > 0 {
+		tools := make([]semconv.ToolDefinition, len(req.Tools))
+		for i, tool := range req.Tools {
+			tools[i] = semconv.ToolDefinition{Type: tool.Type}
+			if tools[i].Type == "" {
+				tools[i].Type = "function"
+			}
+			tools[i].Function.Name = tool.Function.Name
+			tools[i].Function.Description = tool.Function.Description
+			tools[i].Function.Parameters = tool.Function.Parameters
+		}
+		_ = semconv.SetToolDefinitionsAttribute(span, semconv.GenAIToolDefinitions, tools)
 	}
 }
 
-// setResponseAttributes sets common response attributes on a span
-func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse, requestModel string, duration time.Duration) {
+func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse) {
 	semconv.SetStringAttribute(span, semconv.GenAIResponseID, resp.ID)
 	semconv.SetStringAttribute(span, semconv.GenAIResponseModel, resp.Model)
+	semconv.SetStringAttribute(span, semconv.GenAIOutputType, semconv.GenAIOutputTypeText)
 
 	if len(resp.Choices) > 0 {
-		finishReasons := make([]string, 0, len(resp.Choices))
-		for _, choice := range resp.Choices {
-			if choice.FinishReason != "" {
-				finishReasons = append(finishReasons, choice.FinishReason)
-			}
-		}
+		finishReasons := finishReasonsFromChoices(resp.Choices)
 		if len(finishReasons) > 0 {
 			semconv.SetStringSliceAttribute(span, semconv.GenAIResponseFinishReasons, finishReasons)
 		}
 
-		// Extract tool calls from the model response
 		if len(resp.Choices[0].Message.ToolCalls) > 0 {
-			toolCalls := resp.Choices[0].Message.ToolCalls
-			names := make([]string, 0, len(toolCalls))
-			ids := make([]string, 0, len(toolCalls))
-			args := make([]string, 0, len(toolCalls))
-			types := make([]string, 0, len(toolCalls))
-			for _, tc := range toolCalls {
-				if tc.Function.Name != "" {
-					names = append(names, tc.Function.Name)
-				}
-				if tc.ID != "" {
-					ids = append(ids, tc.ID)
-				}
-				if tc.Function.Arguments != "" {
-					args = append(args, tc.Function.Arguments)
-				}
-				if tc.Type != "" {
-					types = append(types, tc.Type)
-				}
-			}
-			semconv.SetStringAttribute(span, semconv.GenAIToolName, strings.Join(names, ", "))
-			semconv.SetStringAttribute(span, semconv.GenAIToolCallID, strings.Join(ids, ", "))
-			semconv.SetStringSliceAttribute(span, semconv.GenAIToolCallArguments, args)
-			semconv.SetStringAttribute(span, semconv.GenAIToolType, strings.Join(types, ", "))
+			setToolCallAttributes(span, resp.Choices[0].Message.ToolCalls)
 		}
 
-		// Capture completion content if enabled
 		if helpers.GetCaptureMessageContent() {
 			outputMessages := make([]semconv.Message, 0, len(resp.Choices))
 			for _, choice := range resp.Choices {
@@ -229,7 +220,7 @@ func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse, reques
 					Content: choice.Message.Content,
 				})
 			}
-			semconv.SetMessagesAttribute(span, semconv.GenAIOutputMessages, outputMessages) //nolint:errcheck
+			_ = semconv.SetMessagesAttribute(span, semconv.GenAIOutputMessages, outputMessages)
 		}
 	}
 
@@ -238,4 +229,68 @@ func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse, reques
 		semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, resp.Usage.CompletionTokens)
 		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, resp.Usage.TotalTokens)
 	}
+}
+
+func setToolCallAttributes(span trace.Span, toolCalls []ToolCall) {
+	names := make([]string, 0, len(toolCalls))
+	ids := make([]string, 0, len(toolCalls))
+	args := make([]string, 0, len(toolCalls))
+	types := make([]string, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		if tc.Function.Name != "" {
+			names = append(names, tc.Function.Name)
+		}
+		if tc.ID != "" {
+			ids = append(ids, tc.ID)
+		}
+		if tc.Function.Arguments != "" {
+			args = append(args, tc.Function.Arguments)
+		}
+		if tc.Type != "" {
+			types = append(types, tc.Type)
+		}
+	}
+	semconv.SetStringAttribute(span, semconv.GenAIToolName, strings.Join(names, ", "))
+	semconv.SetStringAttribute(span, semconv.GenAIToolCallID, strings.Join(ids, ", "))
+	semconv.SetStringSliceAttribute(span, semconv.GenAIToolCallArguments, args)
+	semconv.SetStringAttribute(span, semconv.GenAIToolType, strings.Join(types, ", "))
+}
+
+func finishReasonsFromChoices(choices []ChatCompletionChoice) []string {
+	finishReasons := make([]string, 0, len(choices))
+	for _, choice := range choices {
+		if choice.FinishReason != "" {
+			finishReasons = append(finishReasons, choice.FinishReason)
+		}
+	}
+	return finishReasons
+}
+
+func emitInferenceEvent(span trace.Span, req ChatCompletionRequest, responseID, responseModel string, usage *Usage, finishReasons []string, baseURL string) {
+	addr, port := helpers.SetServerAddressAndPort(baseURL, defaultServerAddress, defaultServerPort)
+	attrs := []attribute.KeyValue{
+		attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeChat),
+		attribute.String(semconv.GenAISystem, semconv.GenAISystemVLLM),
+		attribute.String(semconv.GenAIProviderName, semconv.GenAISystemVLLM),
+		attribute.String(semconv.GenAIRequestModel, req.Model),
+		attribute.String(semconv.GenAIResponseModel, responseModel),
+		attribute.String(semconv.ServerAddress, addr),
+		attribute.Int(semconv.ServerPort, port),
+		attribute.String(semconv.GenAIOutputType, semconv.GenAIOutputTypeText),
+		attribute.String(semconv.OpenLITSDKVersion, openlit.Version),
+	}
+	if responseID != "" {
+		attrs = append(attrs, attribute.String(semconv.GenAIResponseID, responseID))
+	}
+	if len(finishReasons) > 0 {
+		attrs = append(attrs, attribute.StringSlice(semconv.GenAIResponseFinishReasons, finishReasons))
+	}
+	if usage != nil {
+		attrs = append(attrs,
+			attribute.Int(semconv.GenAIUsageInputTokens, usage.PromptTokens),
+			attribute.Int(semconv.GenAIUsageOutputTokens, usage.CompletionTokens),
+			attribute.Int(semconv.GenAIUsageTotalTokens, usage.TotalTokens),
+		)
+	}
+	helpers.EmitInferenceEvent(span, attrs)
 }

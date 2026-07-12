@@ -7,10 +7,18 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/helpers"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -110,6 +118,9 @@ func TestChatCompletion_WithParams(t *testing.T) {
 		if req.TopP != 0.9 {
 			t.Errorf("want top_p=0.9, got %v", req.TopP)
 		}
+		if req.TopK != 40 {
+			t.Errorf("want top_k=40, got %d", req.TopK)
+		}
 
 		resp := ChatCompletionResponse{
 			ID:    "chatcmpl-vllm-002",
@@ -133,6 +144,7 @@ func TestChatCompletion_WithParams(t *testing.T) {
 		Temperature: 0.7,
 		MaxTokens:   100,
 		TopP:        0.9,
+		TopK:        40,
 	})
 	if err != nil {
 		t.Fatalf("CreateChatCompletion: %v", err)
@@ -462,5 +474,254 @@ func TestChatCompletion_Streaming_Error(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "503") {
 		t.Errorf("expected 503 in error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry attribute / span assertions
+// ---------------------------------------------------------------------------
+
+func setupSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	helpers.SetCaptureMessageContent(true)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+		helpers.SetCaptureMessageContent(true)
+	})
+	return sr
+}
+
+func attrString(span sdktrace.ReadOnlySpan, key string) string {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsString()
+		}
+	}
+	return ""
+}
+
+func attrInt(span sdktrace.ReadOnlySpan, key string) int64 {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsInt64()
+		}
+	}
+	return 0
+}
+
+func attrFloat(span sdktrace.ReadOnlySpan, key string) float64 {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsFloat64()
+		}
+	}
+	return 0
+}
+
+func hasEvent(span sdktrace.ReadOnlySpan, name string) bool {
+	for _, e := range span.Events() {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func TestChatCompletion_TelemetryAttributes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := ChatCompletionResponse{
+			ID:    "chatcmpl-telem-1",
+			Model: "facebook/opt-125m",
+			Choices: []ChatCompletionChoice{
+				{Message: ChatMessage{Role: "assistant", Content: "hi"}, FinishReason: "stop"},
+			},
+			Usage: &Usage{PromptTokens: 3, CompletionTokens: 1, TotalTokens: 4},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient(srv.URL)
+
+	_, err := client.CreateChatCompletion(context.Background(), ChatCompletionRequest{
+		Model:       "facebook/opt-125m",
+		Messages:    []ChatMessage{{Role: "user", Content: "Hello"}},
+		Temperature: 0.5,
+		TopK:        20,
+		Tools: []Tool{{
+			Type: "function",
+			Function: Function{
+				Name:        "get_weather",
+				Description: "Get weather",
+				Parameters:  map[string]interface{}{"type": "object"},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("CreateChatCompletion: %v", err)
+	}
+
+	spans := sr.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("want 1 span, got %d", len(spans))
+	}
+	span := spans[0]
+
+	if span.Name() != "chat facebook/opt-125m" {
+		t.Errorf("want span name chat facebook/opt-125m, got %s", span.Name())
+	}
+	if got := attrString(span, semconv.GenAISystem); got != semconv.GenAISystemVLLM {
+		t.Errorf("gen_ai.system: want %s, got %s", semconv.GenAISystemVLLM, got)
+	}
+	if got := attrString(span, semconv.GenAIProviderName); got != semconv.GenAISystemVLLM {
+		t.Errorf("gen_ai.provider.name: want %s, got %s", semconv.GenAISystemVLLM, got)
+	}
+	if got := attrString(span, semconv.GenAIResponseID); got != "chatcmpl-telem-1" {
+		t.Errorf("response id: want chatcmpl-telem-1, got %s", got)
+	}
+	if got := attrInt(span, semconv.GenAIUsageInputTokens); got != 3 {
+		t.Errorf("input tokens: want 3, got %d", got)
+	}
+	if got := attrInt(span, semconv.GenAIRequestTopK); got != 20 {
+		t.Errorf("top_k: want 20, got %d", got)
+	}
+	if got := attrFloat(span, semconv.GenAIRequestTemperature); got != 0.5 {
+		t.Errorf("temperature: want 0.5, got %v", got)
+	}
+	if got := attrString(span, semconv.GenAIInputMessages); got == "" {
+		t.Error("expected gen_ai.input.messages to be set")
+	}
+	if got := attrString(span, semconv.GenAIOutputMessages); got == "" {
+		t.Error("expected gen_ai.output.messages to be set")
+	}
+	if got := attrString(span, semconv.GenAIToolDefinitions); got == "" || !strings.Contains(got, "get_weather") {
+		t.Errorf("expected tool definitions containing get_weather, got %q", got)
+	}
+	if got := attrString(span, semconv.OpenLITSDKVersion); got == "" {
+		t.Error("expected openlit.sdk.version to be set")
+	}
+	if !hasEvent(span, semconv.GenAIClientInferenceOperationDetails) {
+		t.Error("expected inference operation details event")
+	}
+
+	// server.address/port must come from the httptest baseURL, not hard-coded 8000
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("parse srv.URL: %v", err)
+	}
+	if got := attrString(span, semconv.ServerAddress); got != u.Hostname() {
+		t.Errorf("server.address: want %s, got %s", u.Hostname(), got)
+	}
+	wantPort, _ := strconv.Atoi(u.Port())
+	if got := attrInt(span, semconv.ServerPort); got != int64(wantPort) {
+		t.Errorf("server.port: want %d, got %d", wantPort, got)
+	}
+}
+
+func TestChatCompletion_TelemetryCustomBaseURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		resp := ChatCompletionResponse{
+			ID:    "chatcmpl-url",
+			Model: "m",
+			Choices: []ChatCompletionChoice{
+				{Message: ChatMessage{Role: "assistant", Content: "ok"}, FinishReason: "stop"},
+			},
+			Usage: &Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient(srv.URL + "/v1")
+
+	if _, err := client.CreateChatCompletion(context.Background(), ChatCompletionRequest{
+		Model:    "m",
+		Messages: []ChatMessage{{Role: "user", Content: "x"}},
+	}); err != nil {
+		t.Fatalf("CreateChatCompletion: %v", err)
+	}
+
+	spans := sr.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("want 1 span, got %d", len(spans))
+	}
+	u, _ := url.Parse(srv.URL)
+	span := spans[0]
+	if got := attrString(span, semconv.ServerAddress); got != u.Hostname() {
+		t.Errorf("server.address: want %s, got %s", u.Hostname(), got)
+	}
+	wantPort, _ := strconv.Atoi(u.Port())
+	if got := attrInt(span, semconv.ServerPort); got != int64(wantPort) {
+		t.Errorf("server.port: want %d, got %d", wantPort, got)
+	}
+}
+
+func TestChatCompletion_StreamingOutputMessages(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "data: {\"id\":\"s1\",\"model\":\"facebook/opt-125m\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hi\"},\"finish_reason\":null}]}\n\n")
+		fmt.Fprintf(w, "data: {\"id\":\"s1\",\"model\":\"facebook/opt-125m\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"total_tokens\":3}}\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		w.(http.Flusher).Flush()
+	}))
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient(srv.URL)
+	stream, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+		Model:    "facebook/opt-125m",
+		Messages: []ChatMessage{{Role: "user", Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateChatCompletionStream: %v", err)
+	}
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Recv: %v", err)
+		}
+	}
+	_ = stream.Close()
+
+	// Allow readStream goroutine to finish
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(sr.Ended()) >= 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	spans := sr.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("want 1 span, got %d", len(spans))
+	}
+	span := spans[0]
+	out := attrString(span, semconv.GenAIOutputMessages)
+	if out == "" || !strings.Contains(out, "Hi!") {
+		t.Errorf("expected gen_ai.output.messages with Hi!, got %q", out)
+	}
+	if attrString(span, semconv.GenAICompletion) != "" {
+		t.Error("streaming should not set legacy gen_ai.completion when using output.messages")
+	}
+	if !hasEvent(span, semconv.GenAIClientInferenceOperationDetails) {
+		t.Error("expected inference event on streaming span")
+	}
+	if attrFloat(span, semconv.GenAIServerTimeToFirstToken) <= 0 {
+		t.Error("expected TTFT > 0 on streaming span")
 	}
 }
