@@ -11,11 +11,16 @@ import { OPENLIT_CONTEXTS_TABLE_NAME } from "../context/table-details";
 import { getCompiledPromptByDbConfig } from "../prompt/compiled";
 import Sanitizer from "@/utils/sanitizer";
 
+const VALID_EVALUATE_ENTITY_TYPES = new Set(["context", "prompt", "evaluation", "alert"]);
+
 export async function evaluateRules(
 	{ fields, entity_type, include_entity_data, entity_inputs }: EvaluateInput,
 	databaseConfigId?: string
 ): Promise<EvaluateResult> {
 	if (!fields || Object.keys(fields).length === 0) {
+		return { matchingRuleIds: [], entities: [] };
+	}
+	if (!VALID_EVALUATE_ENTITY_TYPES.has(entity_type)) {
 		return { matchingRuleIds: [], entities: [] };
 	}
 
@@ -29,6 +34,8 @@ export async function evaluateRules(
 			return `SELECT '${ek}' AS field_name, '${ev}' AS field_value_str`;
 		})
 		.join("\n  UNION ALL\n  ");
+
+	const safeEntityType = sqlString.escape(entity_type);
 
 	const query = `
 WITH
@@ -96,7 +103,7 @@ SELECT
 FROM rule_matches rm
 INNER JOIN ${OPENLIT_RULE_ENTITIES_TABLE_NAME} re ON re.rule_id = rm.rule_id
 WHERE rm.rule_match = 1
-  AND re.entity_type = '${entity_type}'
+  AND re.entity_type = ${safeEntityType}
 ORDER BY rm.rule_id, re.entity_type;
   `;
 

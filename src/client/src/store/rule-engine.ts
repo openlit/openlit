@@ -4,6 +4,7 @@ import { RuleEngineStore } from "@/types/store/rule-engine";
 export const ruleEngineStoreSlice: RuleEngineStore = lens((setStore, getStore) => ({
 	fieldValuesCache: {},
 	fieldValuesLoading: {},
+	fieldLabelsCache: {},
 	setFieldValues: (field: string, values: string[]) => {
 		setStore(() => ({
 			...getStore(),
@@ -19,6 +20,15 @@ export const ruleEngineStoreSlice: RuleEngineStore = lens((setStore, getStore) =
 			fieldValuesLoading: {
 				...getStore().fieldValuesLoading,
 				[field]: loading,
+			},
+		}));
+	},
+	setFieldLabels: (field: string, labels: Record<string, string>) => {
+		setStore(() => ({
+			...getStore(),
+			fieldLabelsCache: {
+				...getStore().fieldLabelsCache,
+				[field]: labels,
 			},
 		}));
 	},

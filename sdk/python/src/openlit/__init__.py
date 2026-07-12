@@ -78,6 +78,7 @@ CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS = [
     "cohere",
     "mistral",
     "bedrock",
+    "oci",
     "vertexai",
     "groq",
     "ollama",

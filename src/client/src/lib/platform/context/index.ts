@@ -6,6 +6,7 @@ import { throwIfError } from "@/utils/error";
 import Sanitizer from "@/utils/sanitizer";
 import { OPENLIT_CONTEXTS_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
+import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 
 export async function getContexts(databaseConfigId?: string) {
 	const user = await getCurrentUser();
@@ -69,6 +70,23 @@ export async function createContext(contextInputParams: Partial<ContextInput>) {
 			: (err as string) || getMessage().CONTEXT_NOT_CREATED
 	);
 
+	emitManagementAlertSignalSafe({
+		triggerType: "context_change",
+		event: "context_created",
+		message: `Context ${contextInput.name || contextId} was created.`,
+		sourceId: contextId,
+		fields: {
+			context_id: contextId,
+			name: contextInput.name || "",
+			status: contextInput.status || "ACTIVE",
+		},
+		payloadSummary: {
+			contextId,
+			name: contextInput.name,
+			status: contextInput.status || "ACTIVE",
+		},
+	});
+
 	return { message: getMessage().CONTEXT_CREATED, id: contextId };
 }
 
@@ -106,6 +124,23 @@ export async function updateContext(id: string, contextInputParams: Partial<Cont
 			: (err as string) || getMessage().CONTEXT_NOT_UPDATED
 	);
 
+	emitManagementAlertSignalSafe({
+		triggerType: "context_change",
+		event: "context_updated",
+		message: `Context ${contextInput.name || safeId} was updated.`,
+		sourceId: safeId,
+		fields: {
+			context_id: safeId,
+			name: contextInput.name || "",
+			status: contextInput.status || "",
+		},
+		payloadSummary: {
+			contextId: safeId,
+			name: contextInput.name,
+			status: contextInput.status,
+		},
+	});
+
 	return { message: getMessage().CONTEXT_UPDATED };
 }
 
@@ -123,6 +158,19 @@ export async function deleteContext(id: string) {
 	if (err) {
 		return [getMessage().CONTEXT_NOT_DELETED];
 	}
+
+	emitManagementAlertSignalSafe({
+		triggerType: "context_change",
+		event: "context_deleted",
+		message: `Context ${safeId} was deleted.`,
+		sourceId: safeId,
+		fields: {
+			context_id: safeId,
+		},
+		payloadSummary: {
+			contextId: safeId,
+		},
+	});
 
 	return [undefined, getMessage().CONTEXT_DELETED];
 }
