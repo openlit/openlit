@@ -304,6 +304,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_GROQ = "groq"
     GEN_AI_SYSTEM_IBM_WATSON = "ibm.watson.ai"
     GEN_AI_SYSTEM_MISTRAL = "mistral_ai"
+    GEN_AI_SYSTEM_OCI_GENAI = "oci_genai"
     GEN_AI_SYSTEM_OPENAI = "openai"
     GEN_AI_SYSTEM_PERPLEXITY = "perplexity"
     GEN_AI_SYSTEM_VERTEXAI = "vertex_ai"
