@@ -22,7 +22,10 @@ async function tick() {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"X-CRON-JOB": "true",
+				// Matches the middleware cron-auth check: send the configured
+				// secret when present, else the literal "true" the keyless
+				// self-hosted path accepts.
+				"X-CRON-JOB": process.env.CRON_JOB_SECRET || "true",
 				"X-CRON-ID": CRON_ID,
 			},
 			body: JSON.stringify({ cronId: CRON_ID }),

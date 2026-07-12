@@ -11,10 +11,12 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from openlit.instrumentation.openai.async_openai import async_chat_completions
 from openlit.instrumentation.openai.openai import chat_completions
+from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
 
 def _tracer_and_exporter():
+    OpenlitConfig.reset_to_defaults()
     exporter = InMemorySpanExporter()
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))

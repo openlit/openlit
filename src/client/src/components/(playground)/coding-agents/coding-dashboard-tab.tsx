@@ -20,13 +20,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowUpRight, HelpCircle, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import Dashboard from "@/components/(playground)/manage-dashboard/board-creator";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
 import {
 	DashboardConfig,
 	Widget,
@@ -85,7 +80,6 @@ export default function CodingDashboardTab({
 	// page navigation. Falls back to the pinned prop (used by the
 	// dedicated `/coding-agents/users/[userId]` page).
 	const activeUser = searchParams?.get("user") || pinnedUser || null;
-	const [boardId, setBoardId] = useState<string | null>(null);
 	const [config, setConfig] = useState<DashboardConfig | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -108,7 +102,6 @@ export default function CodingDashboardTab({
 					setError("not_seeded");
 					return;
 				}
-				setBoardId(match.id);
 				const { response: layoutRes, error: layoutErr } = await fireRequest({
 					url: `/api/manage-dashboard/board/${match.id}/layout`,
 					requestType: "GET",
@@ -214,30 +207,18 @@ export default function CodingDashboardTab({
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center justify-between gap-2">
-				<div className="flex items-center gap-3">
-					<ClassificationHelpPopover />
-					{showUserPill && (
-						<Link
-							href={typeof window !== "undefined" ? window.location.pathname : "."}
-							className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40"
-							title="Clear user filter"
-						>
-							<span className="font-mono">@{activeUser}</span>
-							<X className="h-3 w-3" />
-						</Link>
-					)}
-				</div>
-				{boardId && (
+			{showUserPill ? (
+				<div className="flex items-center gap-2">
 					<Link
-						href={`/d/${boardId}`}
-						className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+						href={typeof window !== "undefined" ? window.location.pathname : "."}
+						className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40"
+						title="Clear user filter"
 					>
-						{getMessage().AGENTS_CODING_DASHBOARD_OPEN}
-						<ArrowUpRight className="w-3.5 h-3.5" />
+						<span className="font-mono">@{activeUser}</span>
+						<X className="h-3 w-3" />
 					</Link>
-				)}
-			</div>
+				</div>
+			) : null}
 			<Dashboard
 				className="overflow-visible"
 				initialConfig={config}
@@ -249,93 +230,5 @@ export default function CodingDashboardTab({
 				runFilters={runFilters}
 			/>
 		</div>
-	);
-}
-
-/**
- * Inline explainer for the "Personal vs work classification" donut on
- * the Coding Agents dashboard. Users (rightly) ask "how was this
- * decided?" — the answer is below. The rules mirror
- * `cli/internal/coding/classify/classify.go`; if that file's branch
- * order changes, update this copy.
- */
-function ClassificationHelpPopover() {
-	return (
-		<Popover>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
-				>
-					<HelpCircle className="w-3.5 h-3.5" />
-					How is classification computed?
-				</button>
-			</PopoverTrigger>
-			<PopoverContent
-				align="start"
-				className="w-[420px] text-xs leading-relaxed"
-			>
-				<div className="space-y-3">
-					<div className="font-medium text-stone-900 dark:text-stone-100 text-sm">
-						Work vs personal classification
-					</div>
-					<p className="text-stone-600 dark:text-stone-400">
-						Each session is labelled <code>work</code>,{" "}
-						<code>personal</code>, or <code>unknown</code> based on two
-						high-confidence signals — never on keystroke timing or
-						hours-of-day.
-					</p>
-					<ol className="list-decimal pl-4 space-y-1.5 text-stone-600 dark:text-stone-400">
-						<li>
-							<strong>Repo origin.</strong> The session&rsquo;s git
-							remote is matched against{" "}
-							<code>OPENLIT_CODING_REPO_ALLOWLIST</code> (a
-							comma-separated list of substring patterns).
-						</li>
-						<li>
-							<strong>API-key allowlist.</strong> The OpenLit org can
-							register which API keys are work identities. v1 ships
-							without that surface, so currently the repo signal
-							carries the call.
-						</li>
-					</ol>
-					<div className="rounded border border-stone-200 dark:border-stone-800 p-2 space-y-1.5">
-						<div className="font-medium text-stone-900 dark:text-stone-100">
-							Decision rules (in order)
-						</div>
-						<ul className="text-stone-600 dark:text-stone-400 space-y-1">
-							<li>
-								<span className="text-emerald-600 dark:text-emerald-400">
-									work
-								</span>{" "}
-								— repo on allowlist (with or without API-key signal).
-							</li>
-							<li>
-								<span className="text-amber-600 dark:text-amber-400">
-									personal
-								</span>{" "}
-								— allowlist exists and repo is not on it; or
-								API-key is positively not on the org allowlist while
-								the repo is.
-							</li>
-							<li>
-								<span className="text-stone-500 dark:text-stone-400">
-									unknown
-								</span>{" "}
-								— no allowlist configured, or signals conflict (e.g.
-								work API-key on a non-allowlisted repo). Surfaces in
-								the dispute UI.
-							</li>
-						</ul>
-					</div>
-					<p className="text-stone-500 dark:text-stone-500 text-[11px]">
-						Disagree with a classification? File a dispute via the
-						platform API — surfacing it from the Sessions tab is
-						planned for the next release. Disputes survive future
-						re-classifications.
-					</p>
-				</div>
-			</PopoverContent>
-		</Popover>
 	);
 }

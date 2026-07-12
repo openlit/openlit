@@ -687,6 +687,7 @@ PROVIDER_DEFAULT_ENDPOINTS = {
     "perplexity": ("api.perplexity.ai", 443),
     "deepinfra": ("api.deepinfra.com", 443),
     "aws.bedrock": ("bedrock-runtime.amazonaws.com", 443),
+    "oci_genai": ("inference.generativeai.us-chicago-1.oci.oraclecloud.com", 443),
     "azure": ("openai.azure.com", 443),
     "azure.ai.openai": ("openai.azure.com", 443),
     "azure.ai.inference": ("inference.ai.azure.com", 443),

@@ -48,4 +48,32 @@ describe('middleware', () => {
     expect(config.matcher).not.toContain('/audit-logs');
     expect(config.matcher).not.toContain('/audit-logs/:path*');
   });
+
+  it('matches the agents routes', () => {
+    expect(config.matcher).toContain('/agents');
+    expect(config.matcher).toContain('/agents/:path*');
+  });
+
+  // Regression guard for the `^/.*$` fallback: Next.js can't statically
+  // analyze a spread of an imported binding in `config.matcher`, so it
+  // silently matches every route — which made middleware run on static
+  // assets (/images, /static → 500) and public files (/robots.txt →
+  // redirect to /login). The matcher must stay a literal list of explicit
+  // route patterns with no catch-all entry.
+  it('has no catch-all matcher entry', () => {
+    const catchAlls = ['/', '/:path*', '/(.*)', '/:path', '/*'];
+    for (const entry of config.matcher) {
+      expect(typeof entry).toBe('string');
+      expect(catchAlls).not.toContain(entry);
+    }
+  });
+
+  it('does not match static asset or public-file prefixes', () => {
+    const shouldNeverMatch = ['/images', '/static', '/_next', '/favicon.ico', '/robots.txt'];
+    for (const entry of config.matcher) {
+      for (const asset of shouldNeverMatch) {
+        expect(entry.startsWith(asset)).toBe(false);
+      }
+    }
+  });
 });
