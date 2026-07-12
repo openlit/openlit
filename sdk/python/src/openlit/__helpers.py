@@ -198,6 +198,45 @@ def truncate_content(text):
     return s
 
 
+def extract_reasoning_content(payload, *field_names):
+    """Return the first non-empty string reasoning field from *payload*.
+
+    Defaults to OpenAI-compatible keys ``reasoning_content`` then ``reasoning``.
+    Pass alternate keys (e.g. ``\"thinking\"``) for providers like Ollama.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    keys = field_names or ("reasoning_content", "reasoning")
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def append_scope_reasoning(scope, text):
+    """Append reasoning/thinking text onto ``scope._reasoning_content``."""
+    if not text or not isinstance(text, str):
+        return
+    current = getattr(scope, "_reasoning_content", None)
+    if not current:
+        scope._reasoning_content = text
+    else:
+        scope._reasoning_content = current + text
+
+
+def set_span_reasoning_content(span, scope, capture_message_content=True):
+    """Set ``gen_ai.content.reasoning`` when content capture is enabled."""
+    if not capture_message_content or span is None:
+        return
+    reasoning = getattr(scope, "_reasoning_content", None)
+    if reasoning:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_REASONING,
+            truncate_content(reasoning),
+        )
+
+
 def truncate_message_content(messages):
     """Apply truncation to text content fields within OTel message structures.
 

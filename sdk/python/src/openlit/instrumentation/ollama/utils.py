@@ -9,9 +9,11 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    append_scope_reasoning,
     apply_agent_version_attributes,
     build_system_instructions_from_messages,
     calculate_ttft,
+    extract_reasoning_content,
     response_as_dict,
     calculate_tbt,
     general_tokens,
@@ -21,6 +23,7 @@ from openlit.__helpers import (
     record_completion_metrics,
     record_embedding_metrics,
     otel_event,
+    set_span_reasoning_content,
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
@@ -274,20 +277,24 @@ def process_chunk(self, chunk):
         self._ttft = calculate_ttft(self._timestamps, self._start_time)
 
     chunked = response_as_dict(chunk)
-    self._llmresponse += chunked.get("message", {}).get("content", "")
 
-    # Handle reasoning content (Ollama streams it on message.thinking when think=True)
-    thinking = chunked.get("message", {}).get("thinking")
-    if thinking:
-        if not hasattr(self, "_reasoning_content"):
-            self._reasoning_content = ""
-        self._reasoning_content += thinking
+    # Chat streaming uses message.content / message.thinking.
+    # Generate streaming uses top-level response / thinking.
+    message = chunked.get("message") or {}
+    content = message.get("content") or chunked.get("response") or ""
+    if content:
+        self._llmresponse += content
 
-    if chunked.get("message", {}).get("tool_calls"):
-        self._tools = chunked["message"]["tool_calls"]
+    thinking = extract_reasoning_content(message, "thinking") or extract_reasoning_content(
+        chunked, "thinking"
+    )
+    append_scope_reasoning(self, thinking)
+
+    if message.get("tool_calls"):
+        self._tools = message["tool_calls"]
 
     if chunked.get("eval_count"):
-        self._response_role = chunked.get("message", {}).get("role", "")
+        self._response_role = message.get("role", "")
         # Handle token usage including reasoning tokens and cached tokens
         self._input_tokens = chunked.get("prompt_eval_count", 0)
         self._output_tokens = chunked.get("eval_count", 0)
@@ -436,11 +443,7 @@ def common_chat_logic(
 
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-        if hasattr(scope, "_reasoning_content") and scope._reasoning_content:
-            scope._span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_REASONING,
-                scope._reasoning_content,
-            )
+        set_span_reasoning_content(scope._span, scope, capture_message_content=True)
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -640,6 +643,7 @@ def common_generate_logic(
             scope._llmresponse, scope._finish_reason, scope._tools
         )
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        set_span_reasoning_content(scope._span, scope, capture_message_content=True)
 
         # Emit inference event
         if event_provider:
@@ -876,8 +880,10 @@ def process_chat_response(
     scope._span = span
     scope._llmresponse = response_dict.get("message", {}).get("content", "")
     scope._response_role = response_dict.get("message", {}).get("role", "assistant")
-    # Handle reasoning content from a non-streaming response (Ollama think=True)
-    thinking = response_dict.get("message", {}).get("thinking")
+    # Handle reasoning content from a non-streaming chat response (think=True)
+    thinking = extract_reasoning_content(
+        response_dict.get("message") or {}, "thinking"
+    )
     if thinking:
         scope._reasoning_content = thinking
     # Handle token usage including reasoning tokens and cached tokens
@@ -971,6 +977,10 @@ def process_generate_response(
     scope._span = span
     scope._llmresponse = response_dict.get("response", "")
     scope._response_role = response_dict.get("message", {}).get("role", "assistant")
+    # Generate responses put thinking at the top level when think=True
+    thinking = extract_reasoning_content(response_dict, "thinking")
+    if thinking:
+        scope._reasoning_content = thinking
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = response_dict.get("prompt_eval_count", 0)
     scope._output_tokens = response_dict.get("eval_count", 0)
