@@ -17,6 +17,7 @@ anthropic
 mistralai
 boto3
 botocore
+oci
 google-genai
 azure-ai-inference
 assemblyai
