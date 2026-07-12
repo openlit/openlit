@@ -122,7 +122,11 @@
         "eleven_english_sts_v2": 0.24,
         "eleven_multilingual_sts_v2": 0.24,
         "best": 0.00010277777,
-        "nano": 0.00003333333
+        "nano": 0.00003333333,
+        "whisper-large-v3": 0.00003083333,
+        "whisper-large-v3-turbo": 0.00001111111,
+        "canopylabs/orpheus-v1-english": 0.022,
+        "canopylabs/orpheus-arabic-saudi": 0.040
     },
     "chat": {
         "gpt-4.1-nano-2025-04-14": {

@@ -44,6 +44,6 @@ describe('fetchAndPopulateCurrentUserStore', () => {
 
     await fetchAndPopulateCurrentUserStore();
 
-    expect(signOut).toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledWith({ callbackUrl: '/login' });
   });
 });

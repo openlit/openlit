@@ -52,7 +52,19 @@ export default class Cron {
 			(line) => !line.includes(`CRON_ID=${job.cronId}`)
 		);
 
-		const envVars = Object.entries(job.cronEnvVars)
+		// Cron runs with a minimal environment and does NOT inherit the
+		// container's env vars, so the API auth secret has to be written into
+		// the crontab entry itself. We inject CRON_JOB_SECRET centrally here
+		// (rather than in every cron config) so the materialize / evaluation /
+		// pricing scripts can send it on the X-CRON-JOB header and clear the
+		// middleware's cron-auth check. When it isn't set we omit it and the
+		// scripts fall back to the literal "true" (see check-auth.ts).
+		const cronEnvVars: Record<string, string> = { ...job.cronEnvVars };
+		if (process.env.CRON_JOB_SECRET) {
+			cronEnvVars.CRON_JOB_SECRET = process.env.CRON_JOB_SECRET;
+		}
+
+		const envVars = Object.entries(cronEnvVars)
 			.map(([key, value]) => `${key}=${value}`)
 			.join(" ");
 
