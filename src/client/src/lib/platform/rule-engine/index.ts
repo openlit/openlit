@@ -19,6 +19,15 @@ import {
 	OPENLIT_RULES_TABLE_NAME,
 } from "./table-details";
 import { dataCollector } from "../common";
+import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
+
+type RuleMutationOptions = {
+	emitAlert?: boolean;
+};
+
+function shouldEmitAlert(options?: RuleMutationOptions) {
+	return options?.emitAlert !== false;
+}
 
 export async function getRules(databaseConfigId?: string) {
 	const user = await getCurrentUser();
@@ -79,7 +88,7 @@ export async function getRuleById(id: string, databaseConfigId?: string) {
 	};
 }
 
-export async function createRule(ruleInputParams: Partial<RuleInput>) {
+export async function createRule(ruleInputParams: Partial<RuleInput>, options?: RuleMutationOptions) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -103,10 +112,29 @@ export async function createRule(ruleInputParams: Partial<RuleInput>) {
 		typeof err?.toString === "function" ? err.toString() : (err as string) || getMessage().RULE_NOT_CREATED
 	);
 
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_created",
+			message: `Rule ${ruleInput.name || ruleId} was created.`,
+			sourceId: ruleId,
+			fields: {
+				rule_id: ruleId,
+				name: ruleInput.name || "",
+				status: ruleInput.status || "ACTIVE",
+			},
+			payloadSummary: {
+				ruleId,
+				name: ruleInput.name,
+				status: ruleInput.status || "ACTIVE",
+			},
+		});
+	}
+
 	return { message: getMessage().RULE_CREATED, id: ruleId };
 }
 
-export async function updateRule(id: string, ruleInputParams: Partial<RuleInput>) {
+export async function updateRule(id: string, ruleInputParams: Partial<RuleInput>, options?: RuleMutationOptions) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -138,10 +166,29 @@ export async function updateRule(id: string, ruleInputParams: Partial<RuleInput>
 			: (err as string) || getMessage().RULE_NOT_UPDATED
 	);
 
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_updated",
+			message: `Rule ${ruleInput.name || safeId} was updated.`,
+			sourceId: safeId,
+			fields: {
+				rule_id: safeId,
+				name: ruleInput.name || "",
+				status: ruleInput.status || "",
+			},
+			payloadSummary: {
+				ruleId: safeId,
+				name: ruleInput.name,
+				status: ruleInput.status,
+			},
+		});
+	}
+
 	return { message: getMessage().RULE_UPDATED };
 }
 
-export async function deleteRule(id: string) {
+export async function deleteRule(id: string, options?: RuleMutationOptions) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -171,12 +218,28 @@ export async function deleteRule(id: string) {
 		return [getMessage().RULE_NOT_DELETED];
 	}
 
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_deleted",
+			message: `Rule ${safeId} was deleted.`,
+			sourceId: safeId,
+			fields: {
+				rule_id: safeId,
+			},
+			payloadSummary: {
+				ruleId: safeId,
+			},
+		});
+	}
+
 	return [undefined, getMessage().RULE_DELETED];
 }
 
 export async function addConditionGroupsToRule(
 	ruleId: string,
-	conditionGroups: RuleConditionGroupInput[]
+	conditionGroups: RuleConditionGroupInput[],
+	options?: RuleMutationOptions
 ) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -248,10 +311,27 @@ export async function addConditionGroupsToRule(
 		}
 	}
 
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_conditions_updated",
+			message: `Rule conditions for ${safeRuleId} were updated.`,
+			sourceId: safeRuleId,
+			fields: {
+				rule_id: safeRuleId,
+				condition_group_count: conditionGroups.length,
+			},
+			payloadSummary: {
+				ruleId: safeRuleId,
+				conditionGroupCount: conditionGroups.length,
+			},
+		});
+	}
+
 	return { message: getMessage().RULE_CONDITION_GROUP_ADDED };
 }
 
-export async function addRuleEntity(entityInputParams: Partial<RuleEntityInput>) {
+export async function addRuleEntity(entityInputParams: Partial<RuleEntityInput>, options?: RuleMutationOptions) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -281,10 +361,29 @@ export async function addRuleEntity(entityInputParams: Partial<RuleEntityInput>)
 			: (err as string) || getMessage().RULE_ENTITY_NOT_ASSOCIATED
 	);
 
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_entity_created",
+			message: `Rule entity ${entityInput.entity_type || "entity"} was associated.`,
+			sourceId: entityInput.rule_id || null,
+			fields: {
+				rule_id: entityInput.rule_id || "",
+				entity_type: entityInput.entity_type || "",
+				entity_id: entityInput.entity_id || "",
+			},
+			payloadSummary: {
+				ruleId: entityInput.rule_id,
+				entityType: entityInput.entity_type,
+				entityId: entityInput.entity_id,
+			},
+		});
+	}
+
 	return { message: getMessage().RULE_ENTITY_ASSOCIATED };
 }
 
-export async function deleteRuleEntity(id: string) {
+export async function deleteRuleEntity(id: string, options?: RuleMutationOptions) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -297,6 +396,21 @@ export async function deleteRuleEntity(id: string) {
 
 	if (err) {
 		return [getMessage().RULE_ENTITY_NOT_DELETED];
+	}
+
+	if (shouldEmitAlert(options)) {
+		emitManagementAlertSignalSafe({
+			triggerType: "rule_engine_change",
+			event: "rule_entity_deleted",
+			message: `Rule entity ${safeId} was deleted.`,
+			sourceId: safeId,
+			fields: {
+				entity_id: safeId,
+			},
+			payloadSummary: {
+				entityId: safeId,
+			},
+		});
 	}
 
 	return [undefined, getMessage().RULE_ENTITY_DELETED];
