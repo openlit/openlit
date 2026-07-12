@@ -461,8 +461,8 @@ describe("syncRuleEntitiesFromConfig", () => {
 
 		await syncRuleEntitiesFromConfig();
 
-		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("entity-stale");
-		expect(mockDeleteRuleEntity).not.toHaveBeenCalledWith("entity-valid");
+		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("entity-stale", { emitAlert: false });
+		expect(mockDeleteRuleEntity).not.toHaveBeenCalledWith("entity-valid", { emitAlert: false });
 	});
 
 	it("deletes entities whose type is not in config", async () => {
@@ -479,7 +479,7 @@ describe("syncRuleEntitiesFromConfig", () => {
 
 		await syncRuleEntitiesFromConfig();
 
-		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("entity-1");
+		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("entity-1", { emitAlert: false });
 	});
 
 	it("adds rule entities that are missing from ClickHouse", async () => {
@@ -495,11 +495,14 @@ describe("syncRuleEntitiesFromConfig", () => {
 
 		await syncRuleEntitiesFromConfig();
 
-		expect(mockAddRuleEntity).toHaveBeenCalledWith({
-			rule_id: "rule-1",
-			entity_type: "evaluation",
-			entity_id: "type-1",
-		});
+		expect(mockAddRuleEntity).toHaveBeenCalledWith(
+			{
+				rule_id: "rule-1",
+				entity_type: "evaluation",
+				entity_id: "type-1",
+			},
+			{ emitAlert: false }
+		);
 	});
 
 	it("does not add rule entities that already exist", async () => {
@@ -576,7 +579,8 @@ describe("syncRuleEntitiesFromConfig", () => {
 
 		expect(mockAddRuleEntity).toHaveBeenCalledTimes(1);
 		expect(mockAddRuleEntity).toHaveBeenCalledWith(
-			expect.objectContaining({ rule_id: "rule-valid" })
+			expect.objectContaining({ rule_id: "rule-valid" }),
+			{ emitAlert: false }
 		);
 	});
 
@@ -621,16 +625,19 @@ describe("syncRuleEntitiesFromConfig", () => {
 
 		await syncRuleEntitiesFromConfig();
 
-		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("e2");
-		expect(mockDeleteRuleEntity).not.toHaveBeenCalledWith("e1");
+		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("e2", { emitAlert: false });
+		expect(mockDeleteRuleEntity).not.toHaveBeenCalledWith("e1", { emitAlert: false });
 		expect(mockAddRuleEntity).toHaveBeenCalledWith(
-			expect.objectContaining({ rule_id: "rule-b", entity_id: "type-1" })
+			expect.objectContaining({ rule_id: "rule-b", entity_id: "type-1" }),
+			{ emitAlert: false }
 		);
 		expect(mockAddRuleEntity).toHaveBeenCalledWith(
-			expect.objectContaining({ rule_id: "rule-a", entity_id: "type-2" })
+			expect.objectContaining({ rule_id: "rule-a", entity_id: "type-2" }),
+			{ emitAlert: false }
 		);
 		expect(mockAddRuleEntity).not.toHaveBeenCalledWith(
-			expect.objectContaining({ rule_id: "rule-a", entity_id: "type-1" })
+			expect.objectContaining({ rule_id: "rule-a", entity_id: "type-1" }),
+			{ emitAlert: false }
 		);
 	});
 });

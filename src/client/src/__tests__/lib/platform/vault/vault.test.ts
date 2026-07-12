@@ -47,6 +47,9 @@ jest.mock('@/utils/crypto', () => ({
   decryptValue: jest.fn((value: string) => value.replace(/^enc:v1:/, '')),
   isEncrypted: jest.fn((value: string) => value.startsWith('enc:v1:')),
 }));
+jest.mock('@/lib/platform/alerts/signals', () => ({
+  emitManagementAlertSignalSafe: jest.fn(),
+}));
 
 import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
