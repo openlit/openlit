@@ -121,7 +121,7 @@ jobs:
             exit 1
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { path: artifacts }
       - name: Flatten artifacts
         run: |
