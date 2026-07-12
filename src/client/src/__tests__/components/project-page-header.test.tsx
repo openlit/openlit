@@ -3,8 +3,9 @@ import ProjectPageHeader from "@/components/(playground)/organisation/project-pa
 
 jest.mock("@/components/(playground)/feature-page-header", () => ({
 	__esModule: true,
-	default: ({ title, description, actions }: any) => (
+	default: ({ title, description, leading, actions }: any) => (
 		<div>
+			{leading}
 			<h1>{title}</h1>
 			<p>{description}</p>
 			{actions}
@@ -13,7 +14,7 @@ jest.mock("@/components/(playground)/feature-page-header", () => ({
 }));
 
 describe("ProjectPageHeader", () => {
-	it("renders project identity, navigation, and status badges", () => {
+	it("renders project identity, left back control, and status badges", () => {
 		render(<ProjectPageHeader project={{ name: "Production", isCurrent: true, isDefault: true }} />);
 
 		expect(screen.getByRole("heading", { name: "Production" })).toBeInTheDocument();

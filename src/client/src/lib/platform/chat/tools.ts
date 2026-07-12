@@ -39,6 +39,20 @@ import {
 import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
 import { dataCollector } from "../common";
 import Sanitizer from "@/utils/sanitizer";
+import {
+	createAlertDestinationTool,
+	createAlertTool,
+	deleteAlertDestinationTool,
+	deleteAlertTool,
+	getAlertDestinationTool,
+	getAlertTool,
+	listAlertDestinationsTool,
+	listAlertsTool,
+	testAlertDestinationTool,
+	testAlertTool,
+	updateAlertDestinationTool,
+	updateAlertTool,
+} from "@/features/alert-tools";
 
 type OtterTraceAnalysisScope = "trace" | "span";
 
@@ -403,6 +417,181 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 					return { success: false, error: e.message };
 				}
 			},
+		}),
+
+		// ==================== ALERTS ====================
+
+		create_alert: tool<any, any>({
+			description: "Create an alert with trigger types, optional Rule Engine condition groups, and destination IDs.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					name: { type: "string" },
+					description: { type: "string" },
+					severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+					status: { type: "string", enum: ["active", "paused"] },
+					triggerTypes: {
+						type: "array",
+						items: {
+							type: "string",
+							enum: [
+								"access_update",
+								"invite",
+								"prompt_version_update",
+								"fleet_hub_config_update",
+								"vault_secret_change",
+								"context_change",
+								"rule_engine_change",
+							],
+						},
+					},
+					destinationIds: { type: "array", items: { type: "string" } },
+					ruleId: { type: "string" },
+					conditionGroups: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								condition_operator: { type: "string", enum: ["AND", "OR"] },
+								conditions: {
+									type: "array",
+									items: {
+										type: "object",
+										properties: {
+											field: { type: "string" },
+											operator: { type: "string" },
+											value: { type: "string" },
+											data_type: { type: "string", enum: ["string", "number", "boolean"] },
+										},
+										required: ["field", "operator", "value"],
+									},
+								},
+							},
+						},
+					},
+				},
+				required: ["name"],
+			}) as any,
+			execute: async (params: any) => createAlertTool(params),
+		}),
+
+		update_alert: tool<any, any>({
+			description: "Update an alert.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string" },
+					name: { type: "string" },
+					description: { type: "string" },
+					severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+					status: { type: "string", enum: ["active", "paused"] },
+					triggerTypes: { type: "array", items: { type: "string" } },
+					destinationIds: { type: "array", items: { type: "string" } },
+				},
+				required: ["id"],
+			}) as any,
+			execute: async ({ id, ...params }: any) => updateAlertTool(id, params),
+		}),
+
+		delete_alert: tool<any, any>({
+			description: "Delete an alert.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => deleteAlertTool(params.id),
+		}),
+
+		list_alerts: tool<any, any>({
+			description: "List alerts.",
+			inputSchema: jsonSchema({ type: "object" as const, properties: {} }) as any,
+			execute: async () => listAlertsTool(),
+		}),
+
+		get_alert: tool<any, any>({
+			description: "Get an alert by ID.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => getAlertTool(params.id),
+		}),
+
+		create_alert_destination: tool<any, any>({
+			description: "Create a reusable alert destination such as Slack, email, webhook, Datadog Event, Microsoft Teams, PagerDuty, Opsgenie, or Discord.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					name: { type: "string" },
+					providerType: { type: "string", enum: ["slack", "email", "webhook", "datadog", "teams", "pagerduty", "opsgenie", "discord"] },
+					config: { type: "object" },
+				},
+				required: ["name", "providerType", "config"],
+			}) as any,
+			execute: async (params: any) => createAlertDestinationTool(params),
+		}),
+
+		update_alert_destination: tool<any, any>({
+			description: "Update an existing alert destination's name, status, or provider config.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string" },
+					name: { type: "string" },
+					status: { type: "string", enum: ["active", "paused"] },
+					config: { type: "object" },
+				},
+				required: ["id"],
+			}) as any,
+			execute: async ({ id, ...params }: any) => updateAlertDestinationTool(id, params),
+		}),
+
+		delete_alert_destination: tool<any, any>({
+			description: "Delete an alert destination.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => deleteAlertDestinationTool(params.id),
+		}),
+
+		list_alert_destinations: tool<any, any>({
+			description: "List alert destinations.",
+			inputSchema: jsonSchema({ type: "object" as const, properties: {} }) as any,
+			execute: async () => listAlertDestinationsTool(),
+		}),
+
+		get_alert_destination: tool<any, any>({
+			description: "Get an alert destination by ID.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => getAlertDestinationTool(params.id),
+		}),
+
+		test_alert: tool<any, any>({
+			description: "Send a test notification for an alert.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => testAlertTool(params.id),
+		}),
+
+		test_alert_destination: tool<any, any>({
+			description: "Send a test notification directly to an alert destination.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: { id: { type: "string" } },
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => testAlertDestinationTool(params.id),
 		}),
 
 		// ==================== CONTEXT ====================

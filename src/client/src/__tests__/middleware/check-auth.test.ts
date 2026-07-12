@@ -40,25 +40,33 @@ describe('checkAuth', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.CRON_JOB_SECRET = 'secret-token';
     middleware = checkAuth(nextHandler as any);
   });
 
-  it('passes through _next static routes', async () => {
+  // Static assets must short-circuit with a direct NextResponse.next()
+  // pass-through, NOT by invoking the chain terminus as next(request, event)
+  // — the terminus IS NextResponse.next, and calling it with the request as
+  // the response init throws and 500s every /images and /static request.
+  it('passes through _next static routes with NextResponse.next()', async () => {
     const req = makeRequest('GET', '/_next/static/chunk.js');
     await middleware(req as any, makeFetchEvent());
-    expect(nextHandler).toHaveBeenCalledWith(req, expect.anything());
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(nextHandler).not.toHaveBeenCalled();
   });
 
-  it('passes through /static routes', async () => {
+  it('passes through /static routes with NextResponse.next()', async () => {
     const req = makeRequest('GET', '/static/logo.png');
     await middleware(req as any, makeFetchEvent());
-    expect(nextHandler).toHaveBeenCalledWith(req, expect.anything());
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(nextHandler).not.toHaveBeenCalled();
   });
 
-  it('passes through /images routes', async () => {
+  it('passes through /images routes with NextResponse.next()', async () => {
     const req = makeRequest('GET', '/images/banner.png');
     await middleware(req as any, makeFetchEvent());
-    expect(nextHandler).toHaveBeenCalledWith(req, expect.anything());
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(nextHandler).not.toHaveBeenCalled();
   });
 
   describe('auth page (/login)', () => {
@@ -106,6 +114,35 @@ describe('checkAuth', () => {
     it('allows CRON job route with valid token header', async () => {
       (getToken as jest.Mock).mockResolvedValue(null);
       const req = makeRequest('GET', '/api/evaluation/auto', '', { 'X-CRON-JOB': 'secret-token' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('rejects CRON job route with 403 when token does not match configured secret', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      // With a secret configured, the keyless "true" sentinel must NOT pass.
+      const req = makeRequest('GET', '/api/evaluation/auto', '', { 'X-CRON-JOB': 'true' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.any(String) }),
+        { status: 403 }
+      );
+      expect(NextResponse.next).not.toHaveBeenCalled();
+    });
+
+    it('accepts CRON job route with "true" sentinel when no secret is configured', async () => {
+      // Self-hosted/dev default: CRON_JOB_SECRET unset, scripts send "true".
+      delete process.env.CRON_JOB_SECRET;
+      middleware = checkAuth(nextHandler as any);
+      (getToken as jest.Mock).mockResolvedValue(null);
+      const req = makeRequest('GET', '/api/evaluation/auto', '', { 'X-CRON-JOB': 'true' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('reads the lowercase x-cron-job header', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      const req = makeRequest('GET', '/api/evaluation/auto', '', { 'x-cron-job': 'secret-token' });
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
     });

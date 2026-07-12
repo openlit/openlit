@@ -188,12 +188,24 @@ export default function RuleDetailPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
-			<FeaturePageHeader eyebrow="Resources" title={r.name} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} actions={(
-				<Button variant="outline" size="sm" className="h-8" onClick={() => router.push("/rule-engine")}>
-					<ArrowLeftIcon className="mr-1.5 size-3.5" />
-					{getMessage().BACK}
-				</Button>
-			)} />
+			<FeaturePageHeader
+				eyebrow="Resources"
+				title={r.name}
+				icon={<SlidersHorizontal className="h-4 w-4" />}
+				tone={ruleHeaderTone}
+				leading={(
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8 w-8 shrink-0 p-0"
+						onClick={() => router.push("/rule-engine")}
+						title={getMessage().BACK}
+						aria-label={getMessage().BACK}
+					>
+						<ArrowLeftIcon className="size-3.5" />
+					</Button>
+				)}
+			/>
 			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 				{/* Left: Rule info + condition builder */}
 				<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
