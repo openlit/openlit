@@ -9,17 +9,22 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    append_scope_reasoning,
     apply_agent_version_attributes,
     build_system_instructions_from_messages,
     build_tool_definitions,
     calculate_ttft,
+    extract_reasoning_content,
     response_as_dict,
     calculate_tbt,
     general_tokens,
+    get_audio_model_cost,
     get_chat_model_cost,
     common_span_attributes,
+    record_audio_metrics,
     record_completion_metrics,
     otel_event,
+    set_span_reasoning_content,
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
@@ -272,15 +277,15 @@ def process_chunk(scope, chunk):
 
     chunked = response_as_dict(chunk)
 
-    # Collect message IDs and aggregated response from events
-    if (
-        len(chunked.get("choices", [])) > 0
-        and "delta" in chunked.get("choices")[0]
-        and "content" in chunked.get("choices")[0].get("delta", {})
-    ):
-        content = chunked.get("choices")[0].get("delta").get("content")
+    # Collect content + reasoning from streaming deltas (Groq reasoning models
+    # emit chain-of-thought on delta.reasoning when reasoning_format=parsed).
+    choices = chunked.get("choices") or []
+    if choices and isinstance(choices[0], dict) and "delta" in choices[0]:
+        delta = choices[0].get("delta") or {}
+        content = delta.get("content")
         if content:
             scope._llmresponse += content
+        append_scope_reasoning(scope, extract_reasoning_content(delta, "reasoning"))
 
     if chunked.get("x_groq") is not None:
         if chunked.get("x_groq").get("usage") is not None:
@@ -474,6 +479,7 @@ def common_chat_logic(
     # Span Attributes for Content
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        set_span_reasoning_content(scope._span, scope, capture_message_content=True)
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -617,6 +623,16 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
+    # Handle reasoning content from a non-streaming response (Groq reasoning
+    # models). Aggregate across all choices to stay consistent with how
+    # scope._llmresponse concatenates content when n > 1.
+    reasoning_parts = [
+        extract_reasoning_content(choice.get("message", {}), "reasoning")
+        for choice in response_dict.get("choices", [])
+    ]
+    reasoning = " ".join(part for part in reasoning_parts if part).strip()
+    if reasoning:
+        scope._reasoning_content = reasoning
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model") or request_model
     # Handle token usage including reasoning tokens and cached tokens
@@ -656,6 +672,366 @@ def process_chat_response(
         disable_metrics,
         version,
         is_stream=False,
+        event_provider=event_provider,
+    )
+
+    return response
+
+
+def handle_not_given(value, default=None):
+    """
+    Handle Groq's NotGiven/Omit sentinel values and None by converting them to defaults.
+    """
+    if hasattr(value, "__class__") and value.__class__.__name__ in ("NotGiven", "Omit"):
+        return default
+    if value is None:
+        return default
+    return value
+
+
+def common_audio_logic(
+    scope,
+    request_model,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    event_provider=None,
+):
+    """
+    Common logic for processing audio operations.
+    """
+
+    # Calculate cost
+    input_text = scope._kwargs.get("input", "")
+    cost = get_audio_model_cost(request_model, pricing_info, input_text)
+
+    # Common Span Attributes
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+        SemanticConvention.GEN_AI_SYSTEM_GROQ,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        request_model,
+        environment,
+        application_name,
+        False,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
+
+    # Span Attributes for Request parameters
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE,
+        handle_not_given(scope._kwargs.get("voice"), "troy"),
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
+        handle_not_given(scope._kwargs.get("response_format"), "wav"),
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED,
+        handle_not_given(scope._kwargs.get("speed"), 1.0),
+    )
+
+    # Span Attributes for Cost
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # Span Attributes for Content (OTel: array structure)
+    if capture_message_content:
+        input_text = scope._kwargs.get("input", "")
+        input_msgs = (
+            [{"role": "user", "parts": [{"type": "text", "content": input_text}]}]
+            if input_text
+            else []
+        )
+        output_msgs = [
+            {
+                "role": "assistant",
+                "parts": [{"type": "text", "content": "[audio generated]"}],
+                "finish_reason": "stop",
+            }
+        ]
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+
+        if event_provider:
+            try:
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    # Record metrics
+    if not disable_metrics:
+        record_audio_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+            SemanticConvention.GEN_AI_SYSTEM_GROQ,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            request_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            cost,
+        )
+
+
+def process_audio_response(
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    end_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    event_provider=None,
+    **kwargs,
+):
+    """
+    Process audio generation response and generate telemetry.
+    """
+
+    scope = type("GenericScope", (), {})()
+
+    scope._start_time = start_time
+    scope._end_time = end_time
+    scope._span = span
+    scope._timestamps = []
+    scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
+    scope._server_address, scope._server_port = server_address, server_port
+    scope._kwargs = kwargs
+
+    common_audio_logic(
+        scope,
+        request_model,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+        event_provider=event_provider,
+    )
+
+    return response
+
+
+def common_transcription_logic(
+    scope,
+    request_model,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    event_provider=None,
+):
+    """Common logic for processing audio transcription/translation operations."""
+
+    cost = get_audio_model_cost(
+        request_model, pricing_info, None, duration=getattr(scope, "_duration", 0)
+    )
+
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+        SemanticConvention.GEN_AI_SYSTEM_GROQ,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        request_model,
+        environment,
+        application_name,
+        False,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
+
+    language = scope._kwargs.get("language")
+    if language:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_AUDIO_LANGUAGE, language
+        )
+    response_format = scope._kwargs.get("response_format")
+    if response_format:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
+            str(response_format),
+        )
+    temperature = handle_not_given(scope._kwargs.get("temperature"))
+    if temperature is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature
+        )
+
+    if hasattr(scope, "_duration") and scope._duration:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_AUDIO_DURATION, scope._duration
+        )
+
+    if hasattr(scope, "_input_tokens") and scope._input_tokens:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+            scope._input_tokens + scope._output_tokens,
+        )
+
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    if capture_message_content:
+        file_obj = scope._kwargs.get("file")
+        if isinstance(file_obj, (tuple, list)) and file_obj:
+            # Groq accepts (filename, fileobj[, content_type]) tuples for uploads.
+            file_name = file_obj[0]
+        elif file_obj is not None:
+            file_name = getattr(file_obj, "name", "unknown")
+        else:
+            file_name = "unknown"
+        input_msgs = [
+            {
+                "role": "user",
+                "parts": [{"type": "text", "content": f"[audio file: {file_name}]"}],
+            }
+        ]
+        output_msgs = None
+        if hasattr(scope, "_transcription_text") and scope._transcription_text:
+            output_msgs = [
+                {
+                    "role": "assistant",
+                    "parts": [{"type": "text", "content": scope._transcription_text}],
+                    "finish_reason": "stop",
+                }
+            ]
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+
+        if event_provider:
+            try:
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    if not disable_metrics:
+        record_audio_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+            SemanticConvention.GEN_AI_SYSTEM_GROQ,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            request_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            cost,
+        )
+
+
+def process_transcription_response(
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    end_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    event_provider=None,
+    **kwargs,
+):
+    """Process audio transcription/translation response and generate telemetry."""
+
+    scope = type("GenericScope", (), {})()
+    response_dict = response_as_dict(response)
+
+    scope._start_time = start_time
+    scope._end_time = end_time
+    scope._span = span
+    scope._timestamps = []
+    scope._ttft, scope._tbt = end_time - start_time, 0
+    scope._server_address, scope._server_port = server_address, server_port
+    scope._kwargs = kwargs
+
+    usage = response_dict.get("usage", {})
+    if isinstance(usage, dict):
+        usage_type = usage.get("type", "duration")
+        if usage_type == "tokens":
+            scope._input_tokens = usage.get("input_tokens", 0)
+            scope._output_tokens = usage.get("output_tokens", 0)
+        else:
+            scope._input_tokens = 0
+            scope._output_tokens = 0
+    else:
+        scope._input_tokens = 0
+        scope._output_tokens = 0
+
+    scope._transcription_text = response_dict.get("text", "")
+    scope._language = response_dict.get("language", "")
+    scope._duration = response_dict.get("duration", 0)
+
+    common_transcription_logic(
+        scope,
+        request_model,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
         event_provider=event_provider,
     )
 
