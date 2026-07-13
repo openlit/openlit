@@ -1,16 +1,34 @@
 import {
 	TRACE_AI_COST_EMPTY_DETAIL,
 	TRACE_AI_COST_EMPTY_SUMMARY,
+	TRACE_AI_COST_GUIDANCE,
+	TRACE_AI_COST_STREAM_LABEL,
+	TRACE_AI_COST_UI_LABEL,
 	TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL,
 	TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY,
+	TRACE_AI_IMPROVEMENTS_GUIDANCE,
+	TRACE_AI_IMPROVEMENTS_STREAM_LABEL,
+	TRACE_AI_IMPROVEMENTS_UI_LABEL,
 	TRACE_AI_PATH_ANALYSIS_EMPTY_DETAIL,
 	TRACE_AI_PATH_ANALYSIS_EMPTY_SUMMARY,
+	TRACE_AI_PATH_ANALYSIS_GUIDANCE,
+	TRACE_AI_PATH_ANALYSIS_STREAM_LABEL,
+	TRACE_AI_PATH_ANALYSIS_UI_LABEL,
 	TRACE_AI_STRENGTHS_EMPTY_DETAIL,
 	TRACE_AI_STRENGTHS_EMPTY_SUMMARY,
+	TRACE_AI_STRENGTHS_GUIDANCE,
+	TRACE_AI_STRENGTHS_STREAM_LABEL,
+	TRACE_AI_STRENGTHS_UI_LABEL,
 	TRACE_AI_TOKEN_EFFICIENCY_EMPTY_DETAIL,
 	TRACE_AI_TOKEN_EFFICIENCY_EMPTY_SUMMARY,
+	TRACE_AI_TOKEN_EFFICIENCY_GUIDANCE,
+	TRACE_AI_TOKEN_EFFICIENCY_STREAM_LABEL,
+	TRACE_AI_TOKEN_EFFICIENCY_UI_LABEL,
 	TRACE_AI_WRONG_TURNS_EMPTY_DETAIL,
 	TRACE_AI_WRONG_TURNS_EMPTY_SUMMARY,
+	TRACE_AI_WRONG_TURNS_GUIDANCE,
+	TRACE_AI_WRONG_TURNS_STREAM_LABEL,
+	TRACE_AI_WRONG_TURNS_UI_LABEL,
 } from "@/constants/messages/en";
 
 type TraceAnalysisSpanSource = {
@@ -108,10 +126,9 @@ function defineDimension<const T extends DimensionDefinitionSource>(definition: 
 export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	defineDimension({
 		key: "strengths",
-		uiLabel: "Strengths",
-		streamLabel: "Strengths",
-		guidance:
-			"Find concrete things that worked well: efficient prompts, good model choice, useful tool use, clean path, low cost, fast execution, useful context handling. Do not put problems here.",
+		uiLabel: TRACE_AI_STRENGTHS_UI_LABEL,
+		streamLabel: TRACE_AI_STRENGTHS_STREAM_LABEL,
+		guidance: TRACE_AI_STRENGTHS_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_STRENGTHS_EMPTY_SUMMARY,
 			detail: TRACE_AI_STRENGTHS_EMPTY_DETAIL,
@@ -136,10 +153,9 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	}),
 	defineDimension({
 		key: "improvements",
-		uiLabel: "Improvements",
-		streamLabel: "Improvements",
-		guidance:
-			"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, or path_analysis. Avoid generic advice; cite spans.",
+		uiLabel: TRACE_AI_IMPROVEMENTS_UI_LABEL,
+		streamLabel: TRACE_AI_IMPROVEMENTS_STREAM_LABEL,
+		guidance: TRACE_AI_IMPROVEMENTS_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY,
 			detail: TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL,
@@ -169,10 +185,9 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	}),
 	defineDimension({
 		key: "wrong_turns",
-		uiLabel: "Wrong turns",
-		streamLabel: "Wrong turns",
-		guidance:
-			"Find retries, rework, off-task branches, tool failures followed by repeated work, user-blocked steps, self-correction, or decisions that created unnecessary work.",
+		uiLabel: TRACE_AI_WRONG_TURNS_UI_LABEL,
+		streamLabel: TRACE_AI_WRONG_TURNS_STREAM_LABEL,
+		guidance: TRACE_AI_WRONG_TURNS_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_WRONG_TURNS_EMPTY_SUMMARY,
 			detail: TRACE_AI_WRONG_TURNS_EMPTY_DETAIL,
@@ -195,10 +210,9 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	}),
 	defineDimension({
 		key: "cost",
-		uiLabel: "Cost",
-		streamLabel: "Cost",
-		guidance:
-			"Analyze absolute spend, cost concentration, model choice, expensive spans, cost per call, and whether cheaper routing would have been appropriate. Do not discuss token waste unless it directly explains spend.",
+		uiLabel: TRACE_AI_COST_UI_LABEL,
+		streamLabel: TRACE_AI_COST_STREAM_LABEL,
+		guidance: TRACE_AI_COST_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_COST_EMPTY_SUMMARY,
 			detail: TRACE_AI_COST_EMPTY_DETAIL,
@@ -222,10 +236,9 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	}),
 	defineDimension({
 		key: "token_efficiency",
-		uiLabel: "Token efficiency",
-		streamLabel: "Token efficiency",
-		guidance:
-			"Analyze input/output/cache/reasoning token waste, repeated context, repeated prompts, oversized tool results, duplicate retrieval/tool inputs, and largest context spans. This is about waste, not absolute spend.",
+		uiLabel: TRACE_AI_TOKEN_EFFICIENCY_UI_LABEL,
+		streamLabel: TRACE_AI_TOKEN_EFFICIENCY_STREAM_LABEL,
+		guidance: TRACE_AI_TOKEN_EFFICIENCY_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_TOKEN_EFFICIENCY_EMPTY_SUMMARY,
 			detail: TRACE_AI_TOKEN_EFFICIENCY_EMPTY_DETAIL,
@@ -261,10 +274,9 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 	}),
 	defineDimension({
 		key: "path_analysis",
-		uiLabel: "Path",
-		streamLabel: "Path analysis",
-		guidance:
-			"Analyze routing and execution path: whether the trace picked the right tools, avoided loops, used the right branches, and kept orchestration efficient.",
+		uiLabel: TRACE_AI_PATH_ANALYSIS_UI_LABEL,
+		streamLabel: TRACE_AI_PATH_ANALYSIS_STREAM_LABEL,
+		guidance: TRACE_AI_PATH_ANALYSIS_GUIDANCE,
 		emptyStateCopy: {
 			summary: TRACE_AI_PATH_ANALYSIS_EMPTY_SUMMARY,
 			detail: TRACE_AI_PATH_ANALYSIS_EMPTY_DETAIL,
