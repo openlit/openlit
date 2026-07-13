@@ -25,10 +25,14 @@ else
     echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET will not be persisted there." >&2
 fi
 
-if [ -z "${NEXTAUTH_URL}" ]; then
-    export NEXTAUTH_URL="http://localhost:${DOCKER_PORT:-3000}"
+# Do NOT pin NEXTAUTH_URL to localhost. When it is unset, NextAuth derives the
+# origin from the incoming request host (and X-Forwarded-* behind a proxy), so
+# the app works on any URL (localhost, LoadBalancer, Ingress) with no config.
+# Only export it when the operator explicitly set it, which is required for
+# OAuth providers whose redirect URIs must match a fixed public URL.
+if [ -n "${NEXTAUTH_URL}" ]; then
+    echo "NEXTAUTH_URL=${NEXTAUTH_URL}" >> /etc/environment
 fi
-echo "NEXTAUTH_URL=${NEXTAUTH_URL}" >> /etc/environment
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 echo "PATH=./node_modules/.bin:$PATH" >> /etc/environment
 
