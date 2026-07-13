@@ -108,7 +108,7 @@ function SpanHierarchyExplorerInner({
 	useEffect(() => {
 		fireRequest({
 			requestType: "GET",
-			url: `/api/metrics/request/span/${hierarchySpanId}/heirarchy`,
+			url: `/api/telemetry/trace/span/${hierarchySpanId}/heirarchy`,
 		});
 	}, [fireRequest, hierarchySpanId]);
 

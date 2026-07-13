@@ -151,6 +151,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				link: "/settings/api-keys",
 				type: "action",
 			},
+			{
+				icon: <BookOpen className={ICON_CLASSES} />,
+				text: "OpenAPI Spec",
+				link: "/openapi-spec",
+				type: "action",
+			},
 		],
 	},
 	{

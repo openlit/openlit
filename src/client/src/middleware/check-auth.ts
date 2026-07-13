@@ -10,6 +10,8 @@ import {
 	DEFAULT_LOGGED_IN_ROUTE,
 	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
 	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN,
+	ALLOWED_OPENLIT_ROUTES_WITH_TOKEN,
+	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN,
 	CRON_JOB_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
 	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
@@ -86,6 +88,8 @@ function isRateLimited(request: NextRequest) {
 	return window.count > SENSITIVE_API_RATE_LIMIT;
 }
 
+
+
 export default function checkAuth(next: NextMiddleware) {
 	return withAuth(
 		async function middleware(request: NextRequest, _next: NextFetchEvent) {
@@ -93,7 +97,8 @@ export default function checkAuth(next: NextMiddleware) {
 			if (
 				pathname.startsWith("/_next") ||
 				pathname.startsWith("/static") ||
-				pathname.startsWith("/images")
+				pathname.startsWith("/images") ||
+				pathname === "/api/auth/verify-key"
 			) {
 				// Static assets: skip all auth logic and let the request
 				// continue to the underlying resource. We must return a
@@ -104,6 +109,51 @@ export default function checkAuth(next: NextMiddleware) {
 				// API directly"), which surfaces as a 500 on every /images/*
 				// (and /static) request.
 				return NextResponse.next();
+			}
+
+			const isWithTokenRoute =
+				ALLOWED_OPENLIT_ROUTES_WITH_TOKEN.includes(pathname) ||
+				ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN.some((prefix) =>
+					pathname.startsWith(prefix)
+				);
+
+			const authHeader = request.headers.get("Authorization") || "";
+			if (authHeader.startsWith("Bearer ")) {
+				if (!isWithTokenRoute) {
+					return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+				}
+
+				const apiKey = authHeader.replace(/^Bearer /, "").trim();
+				if (!apiKey) {
+					return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+				}
+
+				try {
+					const verifyUrl = new URL("/api/auth/verify-key", request.url);
+					const res = await fetch(verifyUrl, {
+						headers: {
+							Authorization: authHeader,
+						},
+					});
+
+					if (res.ok) {
+						const data = await res.json();
+						if (data.valid && data.databaseConfigId) {
+							const requestHeaders = new Headers(request.headers);
+							requestHeaders.set("x-database-config-id", data.databaseConfigId);
+							return next(
+								new NextRequest(request, {
+									headers: requestHeaders,
+								}),
+								_next
+							);
+						}
+					}
+				} catch (e) {
+					console.error("Middleware API key validation error:", e);
+				}
+
+				return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
 			}
 
 			try {
@@ -198,6 +248,9 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				if (!isAuth) {
+					if (isApiPage) {
+						return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+					}
 					let from = pathname;
 					if (request.nextUrl.search) {
 						from += request.nextUrl.search;

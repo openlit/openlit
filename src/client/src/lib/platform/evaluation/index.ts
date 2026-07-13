@@ -72,9 +72,11 @@ function estimateEvaluationCost(
 	);
 }
 
-export async function getEvaluationSummaryForSpanId(spanId: string) {
-	const user = await getCurrentUser();
-	if (!user) return null;
+export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?: string) {
+	if (!dbConfigId) {
+		const user = await getCurrentUser();
+		if (!user) return null;
+	}
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
 	const query = `
@@ -86,7 +88,7 @@ export async function getEvaluationSummaryForSpanId(spanId: string) {
 		WHERE span_id = '${sanitizedSpanId}' AND meta['source'] NOT IN ('${EVALUATION_SOURCE.MANUAL_FEEDBACK}', '${EVALUATION_SOURCE.AUTO_SKIPPED}');
 	`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
 	if (err || !(data as any[])?.[0]) return null;
 
 	const row = (data as any[])[0];
