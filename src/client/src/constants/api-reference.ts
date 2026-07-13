@@ -240,20 +240,50 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 		summary: "Offline LLM evaluation",
 		description: "Run LLM evaluation on historical or external data.",
 		requestBody: `{
-  "evalType": "toxicity",
-  "inputText": "Evaluate this prompt"
+  "prompt": "I need to reset my password, my email is admin@gmail.com",
+  "response": "I can help with that. Please verify your identity.",
+  "contexts": [
+    "User password reset procedure document."
+  ],
+  "eval_types": [
+    "toxicity",
+    "pii"
+  ],
+  "threshold_score": 0.5,
+  "store_results": true,
+  "run_id": "run-998877",
+  "metadata": {
+    "environment": "production"
+  }
 }`,
 		responseBody: `{
   "success": true,
-  "score": 0.1,
-  "verdict": "passed"
+  "evaluations": [
+    {
+      "type": "toxicity",
+      "score": 0.1,
+      "verdict": "passed",
+      "classification": "safe",
+      "explanation": "No toxic language detected."
+    }
+  ],
+  "context_applied": false,
+  "metadata": {}
 }`,
 		curlExample: (apiKey) => `curl -X POST http://localhost:3000/api/evaluation/offline \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "evalType": "toxicity",
-    "inputText": "Evaluate this prompt"
+    "prompt": "I need to reset my password, my email is admin@gmail.com",
+    "response": "I can help with that. Please verify your identity.",
+    "contexts": ["User password reset procedure document."],
+    "eval_types": ["toxicity", "pii"],
+    "threshold_score": 0.5,
+    "store_results": true,
+    "run_id": "run-998877",
+    "metadata": {
+      "environment": "production"
+    }
   }'`,
 	},
 	{

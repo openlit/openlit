@@ -242,19 +242,65 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 		if (endpointId === "evaluation-offline") {
 			return [
 				{
-					name: "evalType",
+					name: "prompt",
 					type: "string",
 					required: true,
-					description: "Off-line LLM evaluation scorer type.",
-					allowedValues: ["toxicity", "bias", "sentiment", "pii"],
-					example: "toxicity",
+					description: "The prompt text to evaluate.",
+					example: "I need to reset my password, my email is admin@gmail.com",
 				},
 				{
-					name: "inputText",
+					name: "response",
 					type: "string",
 					required: true,
-					description: "Text input string to run the offline evaluation against.",
-					example: "Evaluation string goes here...",
+					description: "The LLM generated response to evaluate.",
+					example: "I can help with that. Please verify your identity.",
+				},
+				{
+					name: "contexts",
+					type: "string[]",
+					required: false,
+					description: "Retrieved context document texts used by the LLM.",
+					example: '["User password reset procedure document."]',
+				},
+				{
+					name: "eval_types",
+					type: "string[]",
+					required: false,
+					description: "Scorers to execute. Can be toxicity, hallucination, bias, pii.",
+					example: '["toxicity", "pii"]',
+				},
+				{
+					name: "threshold_score",
+					type: "number",
+					required: false,
+					description: "Minimum score required to trigger validation flags. Defaults to 0.5.",
+					example: "0.5",
+				},
+				{
+					name: "store_results",
+					type: "boolean",
+					required: false,
+					description: "Persist the evaluation metrics run results to ClickHouse. Defaults to true.",
+					example: "true",
+				},
+				{
+					name: "run_id",
+					type: "string",
+					required: false,
+					description: "Optional external execution or batch tracking ID.",
+					example: "run-998877",
+				},
+				{
+					name: "metadata",
+					type: "object",
+					required: false,
+					description: "Custom metadata key-value properties dictionary (max 20 entries).",
+				},
+				{
+					name: "attributes",
+					type: "object",
+					required: false,
+					description: "Custom payload attributes dictionary.",
 				},
 			];
 		}

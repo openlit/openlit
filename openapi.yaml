@@ -743,6 +743,33 @@ paths:
         '200':
           description: Rules evaluated.
 
+  /api/evaluation/offline:
+    post:
+      tags:
+        - Evaluation Engine
+      summary: Run offline LLM evaluation
+      description: Run LLM evaluation (e.g. toxicity, hallucination, bias, pii) on user-provided prompt and response. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfflineEvaluationInput'
+      responses:
+        '200':
+          description: Evaluation results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineEvaluationResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
   /api/controller/poll:
     post:
       tags:
@@ -885,6 +912,88 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    OfflineEvaluationInput:
+      type: object
+      required:
+        - prompt
+        - response
+      properties:
+        prompt:
+          type: string
+          description: "The prompt text to evaluate."
+          example: "I need to reset my password, my email is admin@gmail.com"
+        response:
+          type: string
+          description: "The LLM generated response to evaluate."
+          example: "I can help with that. Please verify your identity."
+        contexts:
+          type: array
+          description: "Retrieved context document texts used by the LLM."
+          items:
+            type: string
+          example: ["User password reset procedure document."]
+        eval_types:
+          type: array
+          description: "Scorers to execute. Can be toxicity, hallucination, bias, pii."
+          items:
+            type: string
+          example: ["toxicity", "pii"]
+        threshold_score:
+          type: number
+          default: 0.5
+          description: "Minimum score required to trigger validation flags."
+          example: 0.5
+        store_results:
+          type: boolean
+          default: true
+          description: "Persist the evaluation metrics run results to ClickHouse."
+          example: true
+        run_id:
+          type: string
+          description: "Optional external execution or batch tracking ID."
+          example: "run-998877"
+        metadata:
+          type: object
+          description: "Custom metadata key-value properties dictionary (max 20 entries)."
+          additionalProperties:
+            type: string
+          example: { "environment": "production", "version": "1.0" }
+        attributes:
+          type: object
+          description: "Custom payload attributes dictionary."
+
+    OfflineEvaluationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        evaluations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                example: toxicity
+              score:
+                type: number
+                example: 0.1
+              verdict:
+                type: string
+                example: passed
+              classification:
+                type: string
+                example: safe
+              explanation:
+                type: string
+                example: "No toxic language detected in the input."
+        context_applied:
+          type: boolean
+          example: false
+        metadata:
+          type: object
 
   responses:
     UnauthorizedError:
