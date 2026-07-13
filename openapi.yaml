@@ -1,0 +1,1015 @@
+openapi: 3.0.3
+info:
+  title: OpenLIT Client API
+  description: |
+    API specification for the OpenLIT client application.
+    This includes telemetry retrieval APIs (authorized via browser session or `OPENLIT_API_KEY`), prompt hub management, rule engine evaluation, and other controller/platform APIs.
+  version: 1.23.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+tags:
+  - name: Telemetry
+    description: Telemetry retrieval and observability querying APIs
+  - name: Prompt Hub
+    description: Manage and compile prompt templates
+  - name: Secret Vault
+    description: Manage credentials and secrets inside Vault
+  - name: Rule Engine
+    description: Evaluate guardrails and redaction rules
+  - name: Controller
+    description: Sync state and heartbeat polling for OpenLIT controllers
+  - name: Evaluation Engine
+    description: Offline LLM evaluations
+  - name: API Keys
+    description: Manage browser/SDK access keys
+
+paths:
+  /api/telemetry/logs:
+    post:
+      tags:
+        - Telemetry
+      summary: Query logs
+      description: Retrieve a paginated list of telemetry logs matching the provided filters. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of logs and total count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                    example: 150
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/logs/{id}:
+    get:
+      tags:
+        - Telemetry
+      summary: Get log detail by row ID
+      description: Retrieve detail of a specific log entry by its hash/row ID.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The cityHash64 row ID of the log.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  record:
+                    type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/telemetry/logs/attribute-keys:
+    post:
+      tags:
+        - Telemetry
+      summary: Query log attribute keys
+      description: Retrieve unique attribute keys for log attributes, resource attributes, and scope attributes.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+      responses:
+        '200':
+          description: Unique attribute keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+                  resourceAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+                  scopeAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/logs/config:
+    post:
+      tags:
+        - Telemetry
+      summary: Query logs config options
+      description: Retrieve configuration metadata such as available service names, severities, and total log rows.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+      responses:
+        '200':
+          description: Configuration metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      type: string
+                  severities:
+                    type: array
+                    items:
+                      type: string
+                  totalRows:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/telemetry/metrics:
+    post:
+      tags:
+        - Telemetry
+      summary: Query metrics list
+      description: Retrieve a list of aggregated metrics matching the filters.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of metrics.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/metrics/{name}:
+    post:
+      tags:
+        - Telemetry
+      summary: Get metric detail
+      description: Retrieve time-series graph points and detail records for a specific metric name.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name of the metric.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+                metricType:
+                  type: string
+                serviceName:
+                  type: string
+                selectedConfig:
+                  type: object
+      responses:
+        '200':
+          description: Metric graph and data points.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  series:
+                    type: array
+                    items:
+                      type: object
+                  points:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/telemetry/metrics/attribute-keys:
+    post:
+      tags:
+        - Telemetry
+      summary: Query metric attribute keys
+      description: Retrieve unique attribute keys for metrics.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+      responses:
+        '200':
+          description: Metric attributes keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metricAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+                  resourceAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+                  scopeAttributeKeys:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/telemetry/metrics/config:
+    post:
+      tags:
+        - Telemetry
+      summary: Query metrics configuration metadata
+      description: Retrieve list of available services, metric names, types, and counts.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+      responses:
+        '200':
+          description: Config metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      type: string
+                  metricNames:
+                    type: array
+                    items:
+                      type: string
+                  metricTypes:
+                    type: array
+                    items:
+                      type: string
+                  totalRows:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/telemetry/summary/{signal}:
+    post:
+      tags:
+        - Telemetry
+      summary: Query signal summary data
+      description: Retrieve aggregated time-series summary bucketed counts and metrics (e.g. costs, latency, or token counts) for traces, exceptions, logs, or metrics.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: signal
+          in: path
+          required: true
+          description: The telemetry signal type.
+          schema:
+            type: string
+            enum: [traces, exceptions, logs, metrics]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeLimit:
+                  $ref: '#/components/schemas/TimeLimit'
+                selectedConfig:
+                  type: object
+      responses:
+        '200':
+          description: Aggregated summary stats bucketed by time interval.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bucket:
+                    type: string
+                    example: hour
+                  buckets:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                  peak:
+                    type: number
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/trace:
+    post:
+      tags:
+        - Telemetry
+      summary: Query traces list
+      description: Retrieve a paginated list of trace spans matching the provided filters. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of traces and total count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/exception:
+    post:
+      tags:
+        - Telemetry
+      summary: Query exceptions list
+      description: Retrieve a paginated list of exceptions matching the provided filters. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricParams'
+      responses:
+        '200':
+          description: A list of exceptions and total count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/trace/span/{id}:
+    get:
+      tags:
+        - Telemetry
+      summary: Get span detail by ID
+      description: Retrieve details of a specific trace span by its ID (along with optional evaluation summary data).
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the span.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Span details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/trace/trace/{id}:
+    get:
+      tags:
+        - Telemetry
+      summary: Get trace detail by Trace ID
+      description: Retrieve details of a trace (such as its root span or transaction info) using the Trace ID.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the trace (Trace ID).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trace details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/telemetry/trace/span/{id}/heirarchy:
+    get:
+      tags:
+        - Telemetry
+      summary: Get trace span hierarchy tree
+      description: Retrieve the tree hierarchy representation of all related spans (e.g. parents, subagents, child operations) associated with a trace span.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the root/anchor span.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Span hierarchy tree.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/api-key:
+    get:
+      tags:
+        - API Keys
+      summary: List all API Keys
+      description: Retrieve all API keys associated with the user's active database configuration.
+      security:
+        - CookieAuth: []
+      responses:
+        '200':
+          description: A list of API Keys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+    post:
+      tags:
+        - API Keys
+      summary: Generate an API Key
+      description: Create a new API key prefixed with `openlit-` linked to the active database configuration.
+      security:
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: my-sdk-key
+      responses:
+        '200':
+          description: API key created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    type: string
+                    example: openlit-uHpx834Jsa...
+                  databaseConfigId:
+                    type: string
+                    example: db-config-id
+        '400':
+          description: Bad Request.
+
+  /api/api-key/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Delete an API Key
+      description: Mark an API key as deleted.
+      security:
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Bad request or key not found.
+
+  /api/db-config:
+    get:
+      summary: List database configurations
+      description: Retrieve database configurations the current user has access to.
+      security:
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Database configurations list.
+    post:
+      summary: Save database configuration
+      description: Create or update a ClickHouse database configuration connection parameters.
+      security:
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - host
+                - port
+                - username
+                - password
+              properties:
+                host:
+                  type: string
+                port:
+                  type: integer
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Saved successfully.
+
+  /api/prompt:
+    post:
+      tags:
+        - Prompt Hub
+      summary: Create a prompt
+      description: Create a new prompt entry or version.
+      security:
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptInput'
+      responses:
+        '200':
+          description: Prompt created successfully.
+
+  /api/prompt/get:
+    post:
+      tags:
+        - Prompt Hub
+      summary: Retrieve a prompt by name or ID
+      description: Retrieve details of a prompt version.
+      security:
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Prompt details.
+
+  /api/prompt/get-compiled:
+    get:
+      tags:
+        - Prompt Hub
+      summary: Fetch compiled prompt
+      description: Fetch and compile a prompt by name with dynamic variable interpolation. Does not require browser session cookie if authenticated by API key.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Compiled prompt text.
+
+  /api/vault/get-secrets:
+    get:
+      tags:
+        - Secret Vault
+      summary: Fetch secrets from Vault
+      description: Safely retrieve API keys or credentials stored in the OpenLIT Vault.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Key-value secrets retrieved.
+
+  /api/rule-engine/evaluate:
+    post:
+      tags:
+        - Rule Engine
+      summary: Evaluate rule engine config
+      description: Evaluate rules (e.g. redaction, prompts, guardrails) against inputs.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Rules evaluated.
+
+  /api/evaluation/offline:
+    post:
+      tags:
+        - Evaluation Engine
+      summary: Run offline LLM evaluation
+      description: Run LLM evaluation (e.g. toxicity, hallucination, bias, pii) on user-provided prompt and response. Can be authenticated using session cookies or an API key.
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfflineEvaluationInput'
+      responses:
+        '200':
+          description: Evaluation results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineEvaluationResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/controller/poll:
+    post:
+      tags:
+        - Controller
+      summary: Controller poll heartbeat
+      description: Heartbeat and state synchronization endpoint for OpenLIT controllers.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Acknowledged.
+
+components:
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Standard NextAuth browser session token cookie.
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: OPENLIT_API_KEY
+      description: Bearer token format (`Authorization: Bearer openlit-...`).
+
+  schemas:
+    TimeLimit:
+      type: object
+      required:
+        - start
+        - end
+        - type
+      properties:
+        start:
+          type: string
+          format: date-time
+          example: '2026-07-01T00:00:00.000Z'
+        end:
+          type: string
+          format: date-time
+          example: '2026-07-02T00:00:00.000Z'
+        type:
+          type: string
+          enum: [24H, 7D, 1M, 3M, CUSTOM]
+          example: 24H
+
+    MetricParams:
+      type: object
+      required:
+        - timeLimit
+      properties:
+        timeLimit:
+          $ref: '#/components/schemas/TimeLimit'
+        limit:
+          type: integer
+          default: 25
+          example: 50
+        offset:
+          type: integer
+          default: 0
+          example: 0
+        selectedConfig:
+          type: object
+          description: "Filters telemetry records by matching key-value criteria."
+          properties:
+            models:
+              type: array
+              description: "Filter telemetry by model names (e.g. ['gpt-4o', 'claude-3-5-sonnet'])."
+              items:
+                type: string
+              example: ["gpt-4o", "claude-3-5-sonnet"]
+            providers:
+              type: array
+              description: "Filter telemetry by provider names (e.g. ['openai', 'anthropic', 'cohere', 'ollama'])."
+              items:
+                type: string
+              example: ["openai", "anthropic"]
+            serviceNames:
+              type: array
+              description: "Filter telemetry by service names (e.g. ['web-app', 'backend-api'])."
+              items:
+                type: string
+              example: ["web-app"]
+            environments:
+              type: array
+              description: "Filter telemetry by deployment environment names (e.g. ['production', 'staging'])."
+              items:
+                type: string
+              example: ["production"]
+            severities:
+              type: array
+              description: "Filter logs by severity levels (e.g. ['INFO', 'ERROR', 'WARN'])."
+              items:
+                type: string
+              example: ["ERROR", "WARN"]
+        sorting:
+          type: object
+          description: "Defines the sorting column and order for returned records."
+          properties:
+            type:
+              type: string
+              description: "Field name to sort by (e.g. Timestamp, cost, duration, prompt_tokens, completion_tokens, total_tokens)."
+              example: Timestamp
+            direction:
+              type: string
+              description: "Sort order direction."
+              enum: [asc, desc]
+              example: desc
+
+    PromptInput:
+      type: object
+      required:
+        - name
+        - prompt
+      properties:
+        name:
+          type: string
+        prompt:
+          type: string
+        version:
+          type: string
+        status:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        metaProperties:
+          type: object
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        apiKey:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    OfflineEvaluationInput:
+      type: object
+      required:
+        - prompt
+        - response
+      properties:
+        prompt:
+          type: string
+          description: "The prompt text to evaluate."
+          example: "I need to reset my password, my email is admin@gmail.com"
+        response:
+          type: string
+          description: "The LLM generated response to evaluate."
+          example: "I can help with that. Please verify your identity."
+        contexts:
+          type: array
+          description: "Retrieved context document texts used by the LLM."
+          items:
+            type: string
+          example: ["User password reset procedure document."]
+        eval_types:
+          type: array
+          description: "Scorers to execute. Can be toxicity, hallucination, bias, pii."
+          items:
+            type: string
+          example: ["toxicity", "pii"]
+        threshold_score:
+          type: number
+          default: 0.5
+          description: "Minimum score required to trigger validation flags."
+          example: 0.5
+        store_results:
+          type: boolean
+          default: true
+          description: "Persist the evaluation metrics run results to ClickHouse."
+          example: true
+        run_id:
+          type: string
+          description: "Optional external execution or batch tracking ID."
+          example: "run-998877"
+        metadata:
+          type: object
+          description: "Custom metadata key-value properties dictionary (max 20 entries)."
+          additionalProperties:
+            type: string
+          example: { "environment": "production", "version": "1.0" }
+        attributes:
+          type: object
+          description: "Custom payload attributes dictionary."
+
+    OfflineEvaluationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        evaluations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                example: toxicity
+              score:
+                type: number
+                example: 0.1
+              verdict:
+                type: string
+                example: passed
+              classification:
+                type: string
+                example: safe
+              explanation:
+                type: string
+                example: "No toxic language detected in the input."
+        context_applied:
+          type: boolean
+          example: false
+        metadata:
+          type: object
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed or credentials missing.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+    BadRequestError:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            type: string
+            example: Start date or End date missing!
