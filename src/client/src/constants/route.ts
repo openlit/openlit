@@ -13,6 +13,23 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN = [
 	"/api/evaluation/offline/",
 ];
 
+export const ALLOWED_OPENLIT_ROUTES_WITH_TOKEN = [
+	"/api/prompt/get-compiled",
+	"/api/vault/get-secrets",
+	"/api/rule-engine/evaluate",
+	"/api/controller/poll",
+];
+
+export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
+	"/api/telemetry/",
+	"/api/rule-engine/",
+	"/api/evaluation/",
+	"/api/controller/",
+	"/api/prompt/",
+	"/api/vault/",
+	"/api/metrics/",
+];
+
 export const CRON_JOB_ROUTES = [
 	"/api/evaluation/auto",
 	"/api/pricing/auto",

@@ -13,8 +13,7 @@ export default function APIKeys() {
 
 	return (
 		<div className="flex w-full flex-1 overflow-hidden">
-			<div className="flex flex-col grow w-full rounded overflow-auto text-sm text-stone-900 dark:text-stone-300 gap-4">
-				
+			<div className="flex flex-col grow w-full rounded overflow-auto text-stone-900 dark:text-stone-300 gap-4">
 				<ManageKeys />
 			</div>
 		</div>
