@@ -26,7 +26,10 @@ async function callApi() {
 			body: payload,
 			headers: {
 				"Content-Type": "application/json",
-				"X-CRON-JOB": "true",
+				// Matches the middleware cron-auth check: send the configured
+				// secret when present, else the literal "true" the keyless
+				// self-hosted path accepts.
+				"X-CRON-JOB": process.env.CRON_JOB_SECRET || "true",
 			},
 		});
 
