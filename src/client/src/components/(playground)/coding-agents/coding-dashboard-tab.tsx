@@ -328,7 +328,7 @@ function ClassificationHelpPopover() {
 							</li>
 						</ul>
 					</div>
-					<p className="text-stone-500 dark:text-stone-500 text-[11px]">
+					<p className="text-stone-500 dark:text-stone-400 text-[11px]">
 						Disagree with a classification? File a dispute via the
 						platform API — surfacing it from the Sessions tab is
 						planned for the next release. Disputes survive future

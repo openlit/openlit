@@ -186,7 +186,7 @@ function ChatStepTimeline({
 									{step.label}
 								</div>
 								{step.detail ? (
-									<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+									<div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
 										{step.detail}
 									</div>
 								) : null}

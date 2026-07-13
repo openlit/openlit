@@ -173,7 +173,7 @@ export default function NewPromptPage() {
 						<div className="flex flex-col gap-1.5 flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 								{m.NAME}
-								<span className="text-stone-400 dark:text-stone-500 font-normal ml-1 text-xs">
+								<span className="text-stone-500 dark:text-stone-400 font-normal ml-1 text-xs">
 									{m.PROMPT_HUB_NAME_HINT}
 								</span>
 							</Label>
@@ -194,7 +194,7 @@ export default function NewPromptPage() {
 								<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 									{m.PROMPT}
 								</Label>
-								<span className="text-xs text-stone-400 dark:text-stone-500">
+								<span className="text-xs text-stone-500 dark:text-stone-400">
 									{m.PROMPT_HUB_VARIABLE_HINT}
 								</span>
 							</div>
@@ -265,7 +265,7 @@ export default function NewPromptPage() {
 									</button>
 								))}
 							</div>
-							<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+							<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
 								{versionOptions.find((o) => o.value === selectedVersion)?.description}
 							</p>
 						</CardContent>

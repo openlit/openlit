@@ -231,7 +231,7 @@ export default function ChatSettingsForm() {
 								))}
 							</SelectContent>
 						</Select>
-						<p className="text-xs text-stone-400 dark:text-stone-500">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
 							{m.CHAT_SETTINGS_MODEL_HINT}{" "}
 							<a
 								href="/manage-models"
@@ -259,7 +259,7 @@ export default function ChatSettingsForm() {
 								))}
 							</SelectContent>
 						</Select>
-						<div className="flex flex-wrap items-center gap-1 text-xs text-stone-400 dark:text-stone-500">
+						<div className="flex flex-wrap items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
 							{m.CHAT_SETTINGS_API_KEY_HINT_PREFIX}{" "}
 							<a
 								href="/vault"

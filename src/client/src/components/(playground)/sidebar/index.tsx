@@ -154,7 +154,7 @@ function SectionPanel({ section, pathname, currentUrl, onClose }: { section: Sid
 					<div className="space-y-3">
 						{groups.map((group) => (
 							<div key={group.title} className="space-y-0.5">
-									<p className="px-2.5 pb-0.5 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500">{group.title}</p>
+									<p className="px-2.5 pb-0.5 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{group.title}</p>
 								{group.children.map((item) => <NavigationLink key={item.text} item={item} active={isActive(pathname, item, currentUrl)} onNavigate={onClose} />)}
 							</div>
 						))}

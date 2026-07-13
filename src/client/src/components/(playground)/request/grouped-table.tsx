@@ -199,7 +199,7 @@ export default function GroupedTable({
 
 			{/* Empty state */}
 			{isFetched && !isLoading && groups.length === 0 && (
-				<div className="flex items-center justify-center py-16 text-sm text-stone-400 dark:text-stone-500">
+				<div className="flex items-center justify-center py-16 text-sm text-stone-500 dark:text-stone-400">
 					No data found for the selected filters.
 				</div>
 			)}

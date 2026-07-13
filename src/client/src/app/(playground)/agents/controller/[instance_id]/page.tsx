@@ -285,7 +285,7 @@ function ResourceAttributesPanel({
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
 					{entries.map(([key, value]) => (
 						<div key={key} className="flex flex-col min-w-0">
-							<span className="text-[11px] text-stone-400 dark:text-stone-500 font-mono break-all">
+							<span className="text-[11px] text-stone-500 dark:text-stone-400 font-mono break-all">
 								{key}
 							</span>
 							<span className="text-sm text-stone-700 dark:text-stone-300 break-all">

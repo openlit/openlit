@@ -135,7 +135,7 @@ export default function RuleInfoSection({
 
 			{/* Metadata row */}
 			{!isEditing && rule.created_by && (
-				<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+				<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
 					{messages.RULE_CREATED_BY} {rule.created_by}
 					{rule.created_at && (
 						<> · {format(new Date(rule.created_at), "MMM do, y")}</>

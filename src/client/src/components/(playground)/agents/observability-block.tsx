@@ -130,7 +130,7 @@ export default function ObservabilityBlock({
 					{kindDescription(kind)}
 				</div>
 				{isStatic && (
-					<div className="text-xs text-stone-400 dark:text-stone-500 mt-1.5">
+					<div className="text-xs text-stone-500 dark:text-stone-400 mt-1.5">
 						{getMessage().AGENTS_SOURCE_SDK_LABEL}
 					</div>
 				)}

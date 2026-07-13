@@ -230,7 +230,7 @@ function FeedbackList({ feedbacks }: { feedbacks: ManualFeedback[] }) {
 									{fb.comment}
 								</span>
 							)}
-							<span className="block text-stone-400 dark:text-stone-500 text-[10px] mt-0.5">
+							<span className="block text-stone-500 dark:text-stone-400 text-[10px] mt-0.5">
 								{fb.createdAt ? format(new Date(fb.createdAt), "MMM d, yyyy HH:mm") : "—"}
 							</span>
 						</div>
@@ -384,7 +384,7 @@ function EvaluationRunCard({
 						{dateStr}
 					</span>
 					{model && (
-						<span className="text-[10px] text-stone-400 dark:text-stone-500 truncate max-w-[120px]">
+						<span className="text-[10px] text-stone-500 dark:text-stone-400 truncate max-w-[120px]">
 							{model}
 						</span>
 					)}
