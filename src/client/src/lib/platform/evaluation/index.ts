@@ -57,6 +57,28 @@ const EVAL_COST_PER_1K: Record<string, { prompt: number; completion: number }> =
 	"claude-3-opus": { prompt: 0.015, completion: 0.075 },
 };
 
+function applyPerTypeThresholds(
+	results: Evaluation[],
+	enabledTypes: Array<{ id: string; label?: string; thresholdScore?: number }>,
+	fallbackThreshold: number
+): Evaluation[] {
+	return results.map((evaluation) => {
+		const type = enabledTypes.find(
+			(t) =>
+				t.id.toLowerCase() === evaluation.evaluation.toLowerCase() ||
+				t.label?.toLowerCase() === evaluation.evaluation.toLowerCase()
+		);
+		const threshold =
+			typeof type?.thresholdScore === "number"
+				? type.thresholdScore
+				: fallbackThreshold;
+		return {
+			...evaluation,
+			verdict: evaluation.score > threshold ? "yes" : "no",
+		};
+	});
+}
+
 function estimateEvaluationCost(
 	model: string,
 	promptTokens: number,
@@ -830,17 +852,10 @@ export async function runOfflineEvaluation(
 		priority?: number;
 		prompt?: string;
 		defaultPrompt?: string;
+		thresholdScore?: number;
 	}>;
 
-	let enabledTypes = requestedTypes?.length
-		? allTypes.filter((t) => requestedTypes.includes(t.id))
-		: allTypes.filter((t) => t.enabled);
-
-	if (enabledTypes.length === 0) {
-		enabledTypes = allTypes
-			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
-			.map((t) => ({ ...t, enabled: true }));
-	}
+	let enabledTypes: typeof allTypes;
 
 	if (requestedTypes?.length) {
 		const allTypeIds = new Set(allTypes.map((t) => t.id));
@@ -850,6 +865,27 @@ export async function runOfflineEvaluation(
 				success: false,
 				error: `Unknown eval types: ${unknown.join(", ")}`,
 			};
+		}
+
+		const disabled = requestedTypes.filter((id) => {
+			const type = allTypes.find((t) => t.id === id);
+			return type && !type.enabled;
+		});
+		if (disabled.length > 0) {
+			return {
+				success: false,
+				error: `Disabled eval types: ${disabled.join(", ")}`,
+			};
+		}
+
+		enabledTypes = allTypes.filter((t) => requestedTypes.includes(t.id));
+	} else {
+		enabledTypes = allTypes.filter((t) => t.enabled);
+
+		if (enabledTypes.length === 0) {
+			enabledTypes = allTypes
+				.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+				.map((t) => ({ ...t, enabled: true }));
 		}
 	}
 
@@ -915,6 +951,12 @@ export async function runOfflineEvaluation(
 			return { success: false, error: data.error };
 		}
 
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			thresholdScore
+		);
+
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			ruleIds: matchingRuleIds.join(","),
@@ -945,7 +987,7 @@ export async function runOfflineEvaluation(
 			const spanId = `offline_${crypto.randomUUID()}`;
 			const storeResult = await storeEvaluation(
 				spanId,
-				data.result || [],
+				evaluations,
 				metaBase,
 				databaseConfigId
 			);
@@ -956,7 +998,7 @@ export async function runOfflineEvaluation(
 
 		return {
 			success: true,
-			evaluations: data.result || [],
+			evaluations,
 			contextApplied: {
 				ruleMatched: matchingRuleIds.length > 0,
 				matchingRuleIds,
