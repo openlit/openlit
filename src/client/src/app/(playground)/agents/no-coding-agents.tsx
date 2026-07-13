@@ -481,7 +481,7 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 							Full reference (env vars, content-capture modes,
 							marketplace install):{" "}
 							<a
-								href="https://docs.openlit.io/latest/features/coding-agents/onboarding"
+								href="https://docs.openlit.io/latest/openlit/coding-agents/onboarding"
 								target="_blank"
 								rel="noreferrer"
 								className="text-primary hover:underline"

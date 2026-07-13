@@ -210,14 +210,23 @@ export default function PromptHub() {
 
 	return (
 		<div className="flex flex-col w-full h-full">
-			<PromptHubHeader createNew={false} title={`Prompt : ${data.name}`} promptUsage={false} extraButtons={(
-				<>
-					<Button variant="outline" size="sm" className="h-8" onClick={() => router.push("/prompt-hub")}>
-						<ArrowLeftIcon className="mr-1.5 size-3.5" />
-						{getMessage().BACK}
+			<PromptHubHeader
+				createNew={false}
+				title={`Prompt : ${data.name}`}
+				promptUsage={false}
+				leading={(
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8 w-8 shrink-0 p-0"
+						onClick={() => router.push("/prompt-hub")}
+						title={getMessage().BACK}
+						aria-label={getMessage().BACK}
+					>
+						<ArrowLeftIcon className="size-3.5" />
 					</Button>
-				</>
-			)} />
+				)}
+			/>
 			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 				{/* Left: prompt details */}
 				<Card className="grow col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">

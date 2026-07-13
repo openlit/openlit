@@ -1,8 +1,9 @@
 "use client"
 
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, HeartPulse, Package, Server } from "lucide-react"
+import { ArrowLeft, Clock, HeartPulse, Package, Server } from "lucide-react"
+import Link from "next/link"
 import { Agent } from "@/types/fleet-hub"
 import { formatDate } from "@/utils/date"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -20,6 +21,7 @@ import { CLIENT_EVENTS } from "@/constants/events"
 import { toast } from "sonner"
 import FeaturePageHeader from "@/components/(playground)/feature-page-header"
 import OpenTelemetrySvg from "@/components/svg/opentelemetry"
+import getMessage from "@/constants/messages"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -44,47 +46,59 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
     })
   }, [agent, setHeader]);
 
+  const backLabel = getMessage().FLEET_HUB_BACK_TO_LIST;
+  const serviceName = getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name");
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <FeaturePageHeader
-        eyebrow="Monitoring"
-        title={getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")}
-        icon={<OpenTelemetrySvg className="h-4 w-4" />}
+        eyebrow={getMessage().FEATURE_FLEET_HUB}
+        title={serviceName}
+        icon={<OpenTelemetrySvg className="h-5 w-5" />}
         tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300"
+        leading={(
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 shrink-0 p-0"
+          >
+            <Link href="/fleet-hub" title={backLabel} aria-label={backLabel}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        )}
       />
-      <div className="space-y-6 overflow-auto w-full flex flex-col grow p-4">
+      <div className="space-y-4 overflow-auto w-full flex flex-col grow p-4">
       <Card>
-        <CardHeader className="flex flex-row items-center gap-8 space-y-0 p-4">
-          <CardTitle>{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
-              <Package className="h-4 w-4 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Version</p>
-                <p className="font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.version")}</p>
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-2 dark:border-stone-800 dark:bg-stone-900/40">
+              <Package className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-[11px] leading-none text-muted-foreground">Version</p>
+                <p className="truncate font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.version")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
-              <Clock className="h-4 w-4 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Started At</p>
-                <p className="font-mono text-sm font-medium">{formatDate(agent.StartedAt, { time: true })}</p>
+            <div className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-2 dark:border-stone-800 dark:bg-stone-900/40">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-[11px] leading-none text-muted-foreground">Started At</p>
+                <p className="truncate font-mono text-sm font-medium">{formatDate(agent.StartedAt, { time: true })}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
-              <Server className="h-4 w-4 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Host Name</p>
-                <p className="font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.non_identifying_attributes", "host.name")}</p>
+            <div className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-2 dark:border-stone-800 dark:bg-stone-900/40">
+              <Server className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-[11px] leading-none text-muted-foreground">Host Name</p>
+                <p className="truncate font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.non_identifying_attributes", "host.name")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
-              <HeartPulse className="h-4 w-4 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Health Status</p>
-                <p className={`font-mono text-xs font-medium px-2 text-center ${agent.Status.health.healthy ? "bg-green-500 text-white dark:bg-green-500 dark:text-white" : "bg-red-500 text-white dark:bg-red-500 dark:text-white"}`}>{agent.Status.health.status || "Error"}</p>
+            <div className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-2 dark:border-stone-800 dark:bg-stone-900/40">
+              <HeartPulse className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-[11px] leading-none text-muted-foreground">Health Status</p>
+                <p className={`mt-0.5 inline-block font-mono text-xs font-medium px-1.5 ${agent.Status.health.healthy ? "bg-green-500 text-white dark:bg-green-500 dark:text-white" : "bg-red-500 text-white dark:bg-red-500 dark:text-white"}`}>{agent.Status.health.status || "Error"}</p>
               </div>
             </div>
             {

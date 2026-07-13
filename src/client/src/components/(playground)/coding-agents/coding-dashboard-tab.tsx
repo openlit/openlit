@@ -20,13 +20,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowUpRight, HelpCircle, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import Dashboard from "@/components/(playground)/manage-dashboard/board-creator";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
 import {
 	DashboardConfig,
 	Widget,
@@ -85,7 +80,6 @@ export default function CodingDashboardTab({
 	// page navigation. Falls back to the pinned prop (used by the
 	// dedicated `/coding-agents/users/[userId]` page).
 	const activeUser = searchParams?.get("user") || pinnedUser || null;
-	const [boardId, setBoardId] = useState<string | null>(null);
 	const [config, setConfig] = useState<DashboardConfig | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -108,7 +102,6 @@ export default function CodingDashboardTab({
 					setError("not_seeded");
 					return;
 				}
-				setBoardId(match.id);
 				const { response: layoutRes, error: layoutErr } = await fireRequest({
 					url: `/api/manage-dashboard/board/${match.id}/layout`,
 					requestType: "GET",
@@ -214,30 +207,18 @@ export default function CodingDashboardTab({
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center justify-between gap-2">
-				<div className="flex items-center gap-3">
-					<ClassificationHelpPopover />
-					{showUserPill && (
-						<Link
-							href={typeof window !== "undefined" ? window.location.pathname : "."}
-							className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40"
-							title="Clear user filter"
-						>
-							<span className="font-mono">@{activeUser}</span>
-							<X className="h-3 w-3" />
-						</Link>
-					)}
-				</div>
-				{boardId && (
+			{showUserPill ? (
+				<div className="flex items-center gap-2">
 					<Link
-						href={`/d/${boardId}`}
-						className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+						href={typeof window !== "undefined" ? window.location.pathname : "."}
+						className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40"
+						title="Clear user filter"
 					>
-						{getMessage().AGENTS_CODING_DASHBOARD_OPEN}
-						<ArrowUpRight className="w-3.5 h-3.5" />
+						<span className="font-mono">@{activeUser}</span>
+						<X className="h-3 w-3" />
 					</Link>
-				)}
-			</div>
+				</div>
+			) : null}
 			<Dashboard
 				className="overflow-visible"
 				initialConfig={config}
