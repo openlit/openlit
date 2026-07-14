@@ -10,6 +10,7 @@ from openlit.__helpers import (
     set_server_address_and_port,
     record_completion_metrics,
     is_framework_llm_active,
+    safe_detach,
 )
 from openlit.instrumentation.anthropic.utils import (
     process_chunk,
@@ -137,10 +138,10 @@ def async_messages(
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
                 handle_exception(span, e)
-                context_api.detach(token)
+                safe_detach(token)
                 span.end()
                 raise
-            context_api.detach(token)
+            safe_detach(token)
 
             return TracedAsyncStream(
                 awaited_wrapped,
@@ -372,7 +373,7 @@ def async_messages_stream(
             Detaches context and handles exceptions occurring inside the 'async with' block.
             """
             if self._token:
-                context_api.detach(self._token)
+                safe_detach(self._token)
 
             if exc_type:
                 handle_exception(self._span, exc_val)

@@ -20,6 +20,7 @@ from opentelemetry.sdk.resources import (
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
 )
+from opentelemetry import context as context_api
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
@@ -499,6 +500,21 @@ def handle_exception(span, e):
     except Exception:
         error_type = "_OTHER"
     span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
+
+
+def safe_detach(token):
+    """Detach an OTel context token, ignoring cross-Task/Context mismatches.
+
+    A streaming wrapper's async generator can be finalized (GeneratorExit)
+    by asyncio's GC hook in a different Task than the one that attached the
+    token, which makes contextvars.Token.reset() raise ValueError. That's
+    not a real error for us, so swallow it here instead of letting it
+    surface as an ERROR-level log.
+    """
+    try:
+        context_api.detach(token)
+    except ValueError:
+        pass
 
 
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:
