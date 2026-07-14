@@ -832,16 +832,6 @@ export async function runOfflineEvaluation(
 		defaultPrompt?: string;
 	}>;
 
-	let enabledTypes = requestedTypes?.length
-		? allTypes.filter((t) => requestedTypes.includes(t.id))
-		: allTypes.filter((t) => t.enabled);
-
-	if (enabledTypes.length === 0) {
-		enabledTypes = allTypes
-			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
-			.map((t) => ({ ...t, enabled: true }));
-	}
-
 	if (requestedTypes?.length) {
 		const allTypeIds = new Set(allTypes.map((t) => t.id));
 		const unknown = requestedTypes.filter((id) => !allTypeIds.has(id));
@@ -851,6 +841,26 @@ export async function runOfflineEvaluation(
 				error: `Unknown eval types: ${unknown.join(", ")}`,
 			};
 		}
+
+		const disabled = allTypes
+			.filter((t) => requestedTypes.includes(t.id) && !t.enabled)
+			.map((t) => t.id);
+		if (disabled.length > 0) {
+			return {
+				success: false,
+				error: `Disabled eval types: ${disabled.join(", ")}`,
+			};
+		}
+	}
+
+	let enabledTypes = requestedTypes?.length
+		? allTypes.filter((t) => requestedTypes.includes(t.id))
+		: allTypes.filter((t) => t.enabled);
+
+	if (!requestedTypes?.length && enabledTypes.length === 0) {
+		enabledTypes = allTypes
+			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+			.map((t) => ({ ...t, enabled: true }));
 	}
 
 	let contextContents: string[] = [];

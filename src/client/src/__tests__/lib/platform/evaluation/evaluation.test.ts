@@ -75,7 +75,7 @@ jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
   getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback } from '@/lib/platform/evaluation/index';
+import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback, runOfflineEvaluation } from '@/lib/platform/evaluation/index';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
@@ -829,5 +829,35 @@ describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
       expect.arrayContaining([{ ruleId: 'r-legacy', priority: 2 }]),
       'db-1'
     );
+  });
+});
+
+describe('runOfflineEvaluation — configured evaluation types', () => {
+  it('rejects explicitly requested evaluation types that are disabled for the tenant', async () => {
+    const result = await runOfflineEvaluation(
+      {
+        prompt: 'What is the capital of France?',
+        response: 'Paris',
+        evalTypes: ['toxicity'],
+        storeResults: false,
+      },
+      {
+        id: 'cfg-1',
+        provider: 'openai',
+        model: 'gpt-4',
+        secret: { value: 'sk-1' },
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true },
+          { id: 'toxicity', enabled: false },
+        ],
+      } as any,
+      'db-1'
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Disabled eval types: toxicity',
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
   });
 });
