@@ -502,15 +502,34 @@ def handle_exception(span, e):
     span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
 
 
-def safe_detach(token):
-    """Detach an OTel context token, ignoring cross-Task/Context mismatches.
+def safe_detach(token, attaching_task=None):
+    """Detach an OTel context token only when it is safe to do so.
 
-    A streaming wrapper's async generator can be finalized (GeneratorExit)
-    by asyncio's GC hook in a different Task than the one that attached the
-    token, which makes contextvars.Token.reset() raise ValueError. That's
-    not a real error for us, so swallow it here instead of letting it
-    surface as an ERROR-level log.
+    A streaming wrapper's `__aexit__`/`__anext__` can run inside a *different*
+    asyncio Task than the one that called `attach()` - e.g. when the caller
+    abandons an async generator mid-iteration and asyncio's asyncgen GC hook
+    later drives its `aclose()` in a fresh finalizer Task. `Token.reset()`
+    requires the exact Context it was created in, so detaching from the wrong
+    Task always raises ValueError - and there is nothing correct to do at
+    that point: the attaching Task's Context object (and the stack frame we'd
+    need to pop the token from) is not reachable from here. Skip the detach
+    instead of attempting and swallowing the error, so this is a deliberate
+    no-op rather than exception-driven control flow. The attaching Task's
+    context reverts on its own once that Task completes, since contextvars
+    are scoped per-Task and never shared across Tasks.
+
+    Pass `attaching_task` (the Task active when `attach()` was called) to
+    enable this check for async code paths. Sync callers can omit it - the
+    try/except below is a defensive fallback for any other mismatch.
     """
+    if attaching_task is not None:
+        try:
+            current_task = asyncio.current_task()
+        except RuntimeError:
+            current_task = None
+        if current_task is not attaching_task:
+            return
+
     try:
         context_api.detach(token)
     except ValueError:

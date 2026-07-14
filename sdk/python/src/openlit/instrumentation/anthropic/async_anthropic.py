@@ -2,6 +2,7 @@
 Module for monitoring Anthropic API calls.
 """
 
+import asyncio
 import time
 from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
@@ -134,14 +135,15 @@ def async_messages(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
             ctx = trace_api.set_span_in_context(span)
             token = context_api.attach(ctx)
+            attaching_task = asyncio.current_task()
             try:
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
                 handle_exception(span, e)
-                safe_detach(token)
+                safe_detach(token, attaching_task)
                 span.end()
                 raise
-            safe_detach(token)
+            safe_detach(token, attaching_task)
 
             return TracedAsyncStream(
                 awaited_wrapped,
@@ -348,6 +350,7 @@ def async_messages_stream(
             self._server_port = server_port
             self._event_provider = event_provider
             self._token = None
+            self._attaching_task = None
 
         async def __aenter__(self):
             """
@@ -355,6 +358,7 @@ def async_messages_stream(
             """
             ctx = trace_api.set_span_in_context(self._span)
             self._token = context_api.attach(ctx)
+            self._attaching_task = asyncio.current_task()
 
             stream = await self._original_manager.__aenter__()
 
@@ -373,7 +377,7 @@ def async_messages_stream(
             Detaches context and handles exceptions occurring inside the 'async with' block.
             """
             if self._token:
-                safe_detach(self._token)
+                safe_detach(self._token, self._attaching_task)
 
             if exc_type:
                 handle_exception(self._span, exc_val)
