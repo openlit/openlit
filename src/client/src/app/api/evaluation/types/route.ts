@@ -1,61 +1,19 @@
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
-import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
+import {
+	normalizeTypeConfig,
+	persistEvaluationTypes,
+} from "@/lib/platform/evaluation/type-config";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
-import { jsonParse, jsonStringify } from "@/utils/json";
 import getMessage from "@/constants/messages";
 
-export interface RuleWithPriority {
-	ruleId: string;
-	priority: number;
-}
-
-export interface EvaluationTypeConfig {
-	id: string;
-	enabled: boolean;
-	isCustom?: boolean;
-	label?: string;
-	description?: string;
-	rules?: RuleWithPriority[];
-	ruleId?: string;
-	priority?: number;
-	defaultPrompt?: string;
-	prompt?: string;
-	thresholdScore?: number;
-}
-
-function normalizeTypeConfig(
-	t: any,
-	thresholdScore: number | undefined
-): EvaluationTypeConfig {
-	const rules = t.rules?.length
-		? t.rules.filter((r: any) => r?.ruleId).map((r: any) => ({
-				ruleId: r.ruleId,
-				priority: Number(r.priority) || 0,
-			}))
-		: t.ruleId
-		? [{ ruleId: t.ruleId, priority: Number(t.priority) || 0 }]
-		: [];
-	const config: EvaluationTypeConfig = {
-		id: t.id,
-		enabled: !!t.enabled,
-		rules,
-	};
-	if (thresholdScore !== undefined) config.thresholdScore = thresholdScore;
-	// Preserve custom type metadata
-	if (t.isCustom) {
-		config.isCustom = true;
-		if (t.label) config.label = String(t.label).trim();
-		if (t.description) config.description = String(t.description).trim();
-		if (t.prompt) config.prompt = String(t.prompt).trim();
-	} else if (t.prompt) {
-		config.prompt = String(t.prompt).trim();
-	}
-	return config;
-}
+export type {
+	RuleWithPriority,
+	EvaluationTypeConfig,
+} from "@/lib/platform/evaluation/type-config";
 
 export async function GET(_: NextRequest) {
 	const startTimestamp = Date.now();
@@ -125,16 +83,7 @@ export async function POST(request: NextRequest) {
 		normalizeTypeConfig(t, thresholdScores[i])
 	);
 
-	const prisma = (await import("@/lib/prisma")).default;
-	const meta = jsonParse((config as any).meta || "{}") as Record<string, any>;
-	meta.evaluationTypes = normalizedTypes;
-
-	await prisma.evaluationConfigs.update({
-		where: { id: config.id },
-		data: { meta: jsonStringify(meta) },
-	});
-
-	await syncRuleEntitiesFromConfig();
+	await persistEvaluationTypes(config.id, (config as any).meta, normalizedTypes);
 
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.EVALUATION_TYPE_CREATE_SUCCESS,

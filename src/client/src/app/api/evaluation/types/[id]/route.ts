@@ -1,39 +1,22 @@
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
-import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
+import {
+	normalizeRules,
+	mergeTypeIntoList,
+	persistEvaluationTypes,
+	EvaluationTypeConfig,
+} from "@/lib/platform/evaluation/type-config";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
-import { jsonParse, jsonStringify } from "@/utils/json";
+import { jsonParse } from "@/utils/json";
 import getMessage from "@/constants/messages";
 
-export interface RuleWithPriority {
-	ruleId: string;
-	priority: number;
-}
-
-export interface EvaluationTypeConfig {
-	id: string;
-	enabled: boolean;
-	isCustom?: boolean;
-	label?: string;
-	description?: string;
-	rules?: RuleWithPriority[];
-	prompt?: string;
-	defaultPrompt?: string;
-	thresholdScore?: number;
-}
-
-function normalizeRules(rules: any[]): RuleWithPriority[] {
-	if (!Array.isArray(rules)) return [];
-	return rules
-		.filter((r: any) => r?.ruleId)
-		.map((r: any) => ({
-			ruleId: r.ruleId,
-			priority: Number(r.priority) || 0,
-		}));
-}
+export type {
+	RuleWithPriority,
+	EvaluationTypeConfig,
+} from "@/lib/platform/evaluation/type-config";
 
 export async function GET(
 	_: NextRequest,
@@ -110,9 +93,8 @@ export async function PATCH(
 			{ status: 400 }
 		);
 	}
-	const prisma = (await import("@/lib/prisma")).default;
 	const meta = jsonParse((config as any).meta || "{}") as Record<string, any>;
-	let types: EvaluationTypeConfig[] =
+	const types: EvaluationTypeConfig[] =
 		(meta.evaluationTypes as EvaluationTypeConfig[]) || [];
 	const idx = types.findIndex((t: any) => t.id === typeId);
 	const existing = idx >= 0 ? types[idx] : { id: typeId, enabled: false, rules: [] };
@@ -132,17 +114,13 @@ export async function PATCH(
 		updated.label = body.label ?? (existing as any).label ?? typeId;
 		updated.description = body.description ?? (existing as any).description ?? "";
 	}
-	if (idx >= 0) {
-		types[idx] = updated;
-	} else {
-		types = [...types, updated];
-	}
-	meta.evaluationTypes = types;
-	await prisma.evaluationConfigs.update({
-		where: { id: config.id },
-		data: { meta: jsonStringify(meta) },
-	});
-	await syncRuleEntitiesFromConfig();
+
+	await persistEvaluationTypes(
+		config.id,
+		(config as any).meta,
+		mergeTypeIntoList(types, updated)
+	);
+
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.EVALUATION_TYPE_UPDATE_SUCCESS,
 		startTimestamp,
@@ -167,7 +145,6 @@ export async function DELETE(
 			{ status: 400 }
 		);
 	}
-	const prisma = (await import("@/lib/prisma")).default;
 	const meta = jsonParse((config as any).meta || "{}") as Record<string, any>;
 	const types: EvaluationTypeConfig[] =
 		(meta.evaluationTypes as EvaluationTypeConfig[]) || [];
@@ -184,12 +161,12 @@ export async function DELETE(
 		);
 	}
 
-	meta.evaluationTypes = types.filter((t) => t.id !== typeId);
-	await prisma.evaluationConfigs.update({
-		where: { id: config.id },
-		data: { meta: jsonStringify(meta) },
-	});
-	await syncRuleEntitiesFromConfig();
+	await persistEvaluationTypes(
+		config.id,
+		(config as any).meta,
+		types.filter((t) => t.id !== typeId)
+	);
+
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.EVALUATION_TYPE_DELETE_SUCCESS,
 		startTimestamp,
