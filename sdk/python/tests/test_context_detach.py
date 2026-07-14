@@ -35,6 +35,28 @@ def test_safe_detach_swallows_cross_context_token():
 
     assert result["raised"] is False
 
+    # The token was never actually detached in the original context (only in
+    # the throwaway one above) - clean it up so "k" doesn't leak into later tests.
+    context_api.detach(token)
+
+
+def test_safe_detach_attaching_task_hint_with_no_running_loop_skips_detach():
+    """
+    A non-None attaching_task with no running event loop makes
+    asyncio.current_task() raise RuntimeError. There is no way to prove
+    we're in the attaching Task in that case, so this is treated like a
+    foreign-Task mismatch: skip, don't attempt the detach.
+    """
+    token = context_api.attach(context_api.set_value("k", "v"))
+    fake_task = object()  # no real Task exists outside a running loop
+
+    safe_detach(token, fake_task)
+
+    # Skipped, not detached.
+    assert context_api.get_value("k") == "v"
+
+    context_api.detach(token)
+
 
 def test_safe_detach_same_task_still_detaches():
     """The common, well-behaved case must be unaffected: same Task -> real detach happens."""

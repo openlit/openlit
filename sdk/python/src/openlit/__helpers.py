@@ -531,6 +531,14 @@ def safe_detach(token, attaching_task=None):
         except RuntimeError:
             current_task = None
         if current_task is not attaching_task:
+            logger.debug(
+                "safe_detach: skipping detach - called from Task %r but "
+                "attach() ran in Task %r (likely an abandoned/GC-finalized "
+                "stream); the attaching Task's context will revert on its "
+                "own once that Task completes.",
+                current_task,
+                attaching_task,
+            )
             return
 
     try:
