@@ -520,7 +520,10 @@ def safe_detach(token, attaching_task=None):
 
     Pass `attaching_task` (the Task active when `attach()` was called) to
     enable this check for async code paths. Sync callers can omit it - the
-    try/except below is a defensive fallback for any other mismatch.
+    try/except below is a defensive fallback for any other mismatch, logged
+    at debug level since it means the mismatch wasn't caught by the
+    attaching_task check above (either no Task was passed, or the failure
+    has a cause other than the cross-Task scenario this helper targets).
     """
     if attaching_task is not None:
         try:
@@ -533,7 +536,12 @@ def safe_detach(token, attaching_task=None):
     try:
         context_api.detach(token)
     except ValueError:
-        pass
+        logger.debug(
+            "safe_detach: context token detach failed outside the "
+            "attaching_task check (attaching_task=%r); the token's "
+            "originating Context was not the active one.",
+            attaching_task,
+        )
 
 
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:

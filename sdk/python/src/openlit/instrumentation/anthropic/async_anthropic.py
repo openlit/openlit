@@ -378,6 +378,8 @@ def async_messages_stream(
             """
             if self._token:
                 safe_detach(self._token, self._attaching_task)
+                self._token = None
+                self._attaching_task = None
 
             if exc_type:
                 handle_exception(self._span, exc_val)
