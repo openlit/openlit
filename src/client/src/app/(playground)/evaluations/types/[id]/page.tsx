@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -22,6 +24,7 @@ import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 interface RuleWithPriority {
 	ruleId: string;
@@ -37,6 +40,7 @@ interface EvaluationTypeConfig {
 	rules: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
+	thresholdScore?: number;
 }
 
 export default function EvaluationTypeDetailPage() {
@@ -88,6 +92,7 @@ export default function EvaluationTypeDetailPage() {
 				rules: data.rules || [],
 				prompt: data.prompt,
 				defaultPrompt: data.defaultPrompt,
+				thresholdScore: data.thresholdScore,
 			});
 		} else if (et) {
 			setConfig({
@@ -96,6 +101,7 @@ export default function EvaluationTypeDetailPage() {
 				rules: [],
 				prompt: data?.prompt,
 				defaultPrompt: data?.defaultPrompt,
+				thresholdScore: data?.thresholdScore,
 			});
 		}
 	}, [typeResponse, et]);
@@ -148,6 +154,7 @@ export default function EvaluationTypeDetailPage() {
 			enabled: config.enabled,
 			rules: config.rules.filter((r) => r.ruleId),
 			prompt: config.prompt?.trim() || undefined,
+			thresholdScore: config.thresholdScore,
 		};
 		if (config.isCustom) {
 			payload.isCustom = true;
@@ -269,6 +276,45 @@ export default function EvaluationTypeDetailPage() {
 							</CardContent>
 						</Card>
 					)}
+
+					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+						<CardHeader className="pb-2">
+							<CardTitle className="text-base">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+							</CardTitle>
+							<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_DESCRIPTION}
+							</p>
+						</CardHeader>
+						<CardContent>
+							<div className="max-w-[160px]">
+								<Label className="sr-only">
+									{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+								</Label>
+								<Input
+									type="number"
+									min={0}
+									max={1}
+									step={0.05}
+									placeholder="0.5 (default)"
+									value={config?.thresholdScore ?? ""}
+									onChange={(e) =>
+										setConfig((prev) =>
+											prev
+												? {
+													...prev,
+													thresholdScore:
+														e.target.value === ""
+															? undefined
+															: Number(e.target.value),
+												}
+												: null
+										)
+									}
+								/>
+							</div>
+						</CardContent>
+					</Card>
 
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-3">

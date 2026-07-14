@@ -60,6 +60,8 @@ jest.mock('@/helpers/server/trace', () => ({
 jest.mock('@/lib/platform/evaluation/rule-engine-context', () => ({
   getContextFromRuleEngineForTrace: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
   getContextFromRulesWithPriority: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+  getContextFromFields: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+  getContextFromRulesWithPriorityForFields: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
 }));
 jest.mock('@/constants/traces', () => ({
   SUPPORTED_EVALUATION_OPERATIONS: ['llm', 'chat'],
@@ -74,12 +76,8 @@ jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
   getEvaluationTypeDefaultPrompts: jest.fn().mockResolvedValue({}),
   getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/lib/platform/rule-engine/evaluate', () => ({
-  evaluateRules: jest.fn().mockResolvedValue({ matchingRuleIds: [], entity_data: {} }),
-}));
 
 import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback, runOfflineEvaluation } from '@/lib/platform/evaluation/index';
-import { evaluateRules } from '@/lib/platform/rule-engine/evaluate';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
@@ -846,7 +844,10 @@ describe('runOfflineEvaluation', () => {
   };
 
   beforeEach(() => {
-    (evaluateRules as jest.Mock).mockResolvedValue({ matchingRuleIds: [], entity_data: {} });
+    const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+      require('@/lib/platform/evaluation/rule-engine-context');
+    (getContextFromFields as jest.Mock).mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+    (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
   });
 
   it('rejects unknown eval types without calling runEvaluation', async () => {
@@ -1074,5 +1075,108 @@ describe('runOfflineEvaluation', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Model error');
+  });
+
+  describe('rule-priority context consistency with the real-time path', () => {
+    it('collects rules from enabled types and resolves context via getContextFromRulesWithPriorityForFields, matching the real-time path', async () => {
+      const { getContextFromRulesWithPriorityForFields, getContextFromFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({
+        contextContents: ['linked rule context'],
+        matchingRuleIds: ['r1'],
+        contextEntityIds: ['e1'],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, rules: [{ ruleId: 'r1', priority: 5 }] },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      const result = await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromRulesWithPriorityForFields).toHaveBeenCalledWith(
+        { 'service.name': 'my-app' },
+        [{ ruleId: 'r1', priority: 5 }],
+        'db-1'
+      );
+      expect(getContextFromFields).not.toHaveBeenCalled();
+      expect(result.contextApplied?.matchingRuleIds).toEqual(['r1']);
+    });
+
+    it('collects legacy ruleId/priority fields into rulesWithPriority, same as the real-time path', async () => {
+      const { getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({
+        contextContents: [], matchingRuleIds: [], contextEntityIds: [],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, ruleId: 'r-legacy', priority: 2 },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromRulesWithPriorityForFields).toHaveBeenCalledWith(
+        { 'service.name': 'my-app' },
+        [{ ruleId: 'r-legacy', priority: 2 }],
+        'db-1'
+      );
+    });
+
+    it('falls back to getContextFromFields when no enabled type has linked rules', async () => {
+      const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromFields as jest.Mock).mockResolvedValue({
+        contextContents: ['generic context'], matchingRuleIds: [], contextEntityIds: [],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [{ id: 'hallucination', enabled: true }],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromFields).toHaveBeenCalledWith({ 'service.name': 'my-app' }, 'db-1');
+      expect(getContextFromRulesWithPriorityForFields).not.toHaveBeenCalled();
+    });
+
+    it('does not call the rule engine at all when no attributes are provided', async () => {
+      const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, rules: [{ ruleId: 'r1', priority: 5 }] },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r' },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromFields).not.toHaveBeenCalled();
+      expect(getContextFromRulesWithPriorityForFields).not.toHaveBeenCalled();
+    });
   });
 });

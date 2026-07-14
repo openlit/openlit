@@ -1,10 +1,12 @@
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
+import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 import { jsonParse, jsonStringify } from "@/utils/json";
+import getMessage from "@/constants/messages";
 
 export interface RuleWithPriority {
 	ruleId: string;
@@ -20,6 +22,7 @@ export interface EvaluationTypeConfig {
 	rules?: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
+	thresholdScore?: number;
 }
 
 function normalizeRules(rules: any[]): RuleWithPriority[] {
@@ -74,7 +77,28 @@ export async function PATCH(
 ) {
 	const startTimestamp = Date.now();
 	const typeId = params.id;
-	const body = await request.json();
+	let body: any;
+	try {
+		body = await request.json();
+	} catch {
+		return Response.json({ err: "Invalid JSON body" }, { status: 400 });
+	}
+
+	const thresholdScore =
+		body.thresholdScore !== undefined
+			? normalizeThresholdScore(body.thresholdScore)
+			: undefined;
+	if (Number.isNaN(thresholdScore)) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.EVALUATION_TYPE_UPDATE_FAILURE,
+			startTimestamp,
+		});
+		return Response.json(
+			{ err: getMessage().EVALUATION_THRESHOLD_SCORE_INVALID },
+			{ status: 400 }
+		);
+	}
+
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
 		PostHogServer.fireEvent({
@@ -97,6 +121,10 @@ export async function PATCH(
 		enabled: body.enabled ?? existing.enabled,
 		rules: body.rules !== undefined ? normalizeRules(body.rules) : existing.rules || [],
 		prompt: body.prompt !== undefined ? body.prompt : existing.prompt,
+		thresholdScore:
+			body.thresholdScore !== undefined
+				? thresholdScore
+				: (existing as any).thresholdScore,
 	};
 	// Preserve or update custom type metadata
 	if (body.isCustom || (existing as any).isCustom) {
