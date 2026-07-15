@@ -5,21 +5,12 @@ import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 export async function GET(_: Request, context: any) {
-	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const { err, data }: any = await getContextById(id);
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.CONTEXT_GET_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.CONTEXT_GET_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 

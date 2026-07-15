@@ -17,7 +17,6 @@ import * as messages from "@/constants/messages/en";
  * Get all provider configurations for the current user
  */
 export async function GET(request: NextRequest) {
-	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -38,23 +37,11 @@ export async function GET(request: NextRequest) {
 		const { data, err } = await getOpenGroundConfigs(user.id, dbConfig.id);
 
 		if (err) {
-			PostHogServer.fireEvent({
-				event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_FAILURE,
-				startTimestamp,
-			});
 			return NextResponse.json({ error: err }, { status: 500 });
 		}
 
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_SUCCESS,
-			startTimestamp,
-		});
 		return NextResponse.json(data);
 	} catch (error: any) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.OPENGROUND_CONFIG_GET_FAILURE,
-			startTimestamp,
-		});
 		console.error("Config GET error:", error);
 		return NextResponse.json(
 			{ error: messages.OPERATION_FAILED },

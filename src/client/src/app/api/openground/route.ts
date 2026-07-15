@@ -8,7 +8,6 @@ import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
 
 export async function GET() {
-	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) {
 		return Response.json({ error: getMessage().UNAUTHORIZED_USER }, { status: 401 });
@@ -28,17 +27,9 @@ export async function GET() {
 	});
 
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.OPENGROUND_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json({ error: err }, { status: 500 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.OPENGROUND_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 

@@ -5,20 +5,11 @@ import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 export async function GET() {
-	const startTimestamp = Date.now();
 	const { err, data }: any = await getContexts();
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.CONTEXT_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.CONTEXT_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 

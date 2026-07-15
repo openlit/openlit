@@ -69,8 +69,8 @@ export default function SecretForm({
 				);
 				posthog?.capture(
 					payload.id
-						? CLIENT_EVENTS.VAULT_SECRET_UPDATE_SUCCESS
-						: CLIENT_EVENTS.VAULT_SECRET_ADD_SUCCESS
+						? CLIENT_EVENTS.VAULT_SECRET_UPDATE_FAILURE
+						: CLIENT_EVENTS.VAULT_SECRET_ADD_FAILURE
 				);
 			},
 		});
