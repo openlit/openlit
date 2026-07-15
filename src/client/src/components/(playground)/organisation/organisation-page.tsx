@@ -254,6 +254,11 @@ export default function OrganisationSettingsPage() {
 		toast.success(messages.ORGANISATION_PROJECT_CREATED, {
 			id: "project-create",
 		});
+		posthog?.group("project", data.id);
+		posthog?.capture(CLIENT_EVENTS.PROJECT_CREATED, {
+			organisation_id: currentOrg.id,
+			project_id: data.id,
+		});
 		setProjectName("");
 		await fetchProjects();
 	};

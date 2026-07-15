@@ -34,6 +34,7 @@ export const CRON_JOB_ROUTES = [
 	"/api/evaluation/auto",
 	"/api/pricing/auto",
 	"/api/agents/materialize",
+	"/api/telemetry-snapshot",
 ];
 
 // Non-API routes that are accessible without completing onboarding

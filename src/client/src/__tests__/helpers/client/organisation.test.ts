@@ -14,7 +14,8 @@ jest.mock('sonner', () => ({
 }));
 jest.mock('posthog-js', () => ({
   capture: jest.fn(),
-  default: { capture: jest.fn() },
+  group: jest.fn(),
+  default: { capture: jest.fn(), group: jest.fn() },
 }));
 jest.mock('@/constants/messages', () => ({
   __esModule: true,

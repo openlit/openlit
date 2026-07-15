@@ -27,26 +27,15 @@ function getScope(request: Request) {
 }
 
 export async function GET(request: Request, context: any) {
-	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) {
 		logRoute("get_unauthorized", {});
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
-			startTimestamp,
-			properties: { reason: "unauthorized" },
-		});
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
 	const { spanId } = context.params || {};
 	if (!spanId) {
 		logRoute("get_missing_span", {});
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
-			startTimestamp,
-			properties: { reason: "missing_span" },
-		});
 		return Response.json("No span id provided", { status: 400 });
 	}
 
@@ -56,11 +45,6 @@ export async function GET(request: Request, context: any) {
 	const { data, err } = await getTraceImprovement(spanId, databaseConfigId, scope);
 	if (err) {
 		logRoute("get_failed", { spanId, scope, err });
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
-			startTimestamp,
-			properties: { spanId, scope, databaseConfigId, error: err },
-		});
 		return Response.json(err, { status: 400 });
 	}
 	logRoute("get_done", {
@@ -68,17 +52,6 @@ export async function GET(request: Request, context: any) {
 		scope,
 		rootSpanId: data?.rootSpanId,
 		runCount: data?.runs?.length || 0,
-	});
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.AI_ANALYSIS_GET_SUCCESS,
-		startTimestamp,
-		properties: {
-			spanId,
-			scope,
-			databaseConfigId,
-			rootSpanId: data?.rootSpanId,
-			runCount: data?.runs?.length || 0,
-		},
 	});
 
 	return Response.json({ data: data || null });

@@ -29,7 +29,7 @@ export default function UserActions() {
 		if (user?.id) {
 			posthog?.identify(user.id);
 		}
-	}, [user]);
+	}, [user?.id, posthog]);
 
 	if (!user) return null;
 	const displayEmail = escapeEmailForDisplay(user.email);
