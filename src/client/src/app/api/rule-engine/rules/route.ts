@@ -12,20 +12,11 @@ export async function GET(request: Request) {
 		return Response.json({ err: authErr }, { status: 401 });
 	}
 
-	const startTimestamp = Date.now();
 	const { err, data }: any = await getRules(databaseConfigId);
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.RULE_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.RULE_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 

@@ -51,13 +51,8 @@ function normalizeTypeConfig(t: any): EvaluationTypeConfig {
 }
 
 export async function GET(_: NextRequest) {
-	const startTimestamp = Date.now();
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation config not found", data: [] },
 			{ status: 200 }
@@ -65,10 +60,6 @@ export async function GET(_: NextRequest) {
 	}
 
 	const types = (config as any).evaluationTypes ?? [];
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.EVALUATION_TYPE_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json({ data: types });
 }
 

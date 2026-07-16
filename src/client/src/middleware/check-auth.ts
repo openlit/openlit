@@ -212,7 +212,7 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				if (isApiPage) {
-					if (isRateLimitedApi && isRateLimited(request)) {
+					if (isRateLimitedApi && !isCronJobRoute && isRateLimited(request)) {
 						return NextResponse.json(
 							{ error: "Too many requests" },
 							{ status: 429 }

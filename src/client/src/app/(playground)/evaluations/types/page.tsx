@@ -50,6 +50,14 @@ export default function EvaluationTypesPage() {
 			requestType: "GET",
 			url: "/api/evaluation/types",
 			responseDataKey: "data",
+			successCb: (response: EvaluationTypeDisplay[] | { data?: any[] }) => {
+				const list = Array.isArray(response)
+					? response
+					: response?.data;
+				posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPES_LIST, {
+					count: Array.isArray(list) ? list.length : 0,
+				});
+			},
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
 		getEvalEntities({

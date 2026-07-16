@@ -33,14 +33,6 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET() {
-	const startTimestamp = Date.now();
 	const res = await getFolders();
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.FOLDER_GET_FAILURE : SERVER_EVENTS.FOLDER_GET_SUCCESS,
-		startTimestamp,
-		properties: {
-			totalFolders: (res.data as Folder[])?.length || 0,
-		},
-	});
 	return Response.json(res);
 }

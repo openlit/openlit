@@ -9,12 +9,7 @@ import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 
 export async function GET(_: NextRequest) {
-	const startTimestamp = Date.now();
 	const res: any = await getEvaluationConfig(undefined, true, false);
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.EVALUATION_CONFIG_GET_FAILURE : SERVER_EVENTS.EVALUATION_CONFIG_GET_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(res);
 }
 

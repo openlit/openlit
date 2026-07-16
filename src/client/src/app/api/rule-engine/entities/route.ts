@@ -9,7 +9,6 @@ import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 export async function GET(request: Request) {
-	const startTimestamp = Date.now();
 	const { searchParams } = new URL(request.url);
 	const filters = {
 		rule_id: searchParams.get("rule_id") || undefined,
@@ -19,17 +18,9 @@ export async function GET(request: Request) {
 
 	const { err, data }: any = await getRuleEntities(filters);
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.RULE_ENTITIES_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.RULE_ENTITIES_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 
