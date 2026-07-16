@@ -1,9 +1,11 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getEvaluationsForSpanId, setEvaluationsForSpanId } from "@/lib/platform/evaluation";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 
-export async function GET(
+async function GETHandler(
 	_: NextRequest,
 	{ params }: { params: { spanId: string } }
 ) {
@@ -13,7 +15,7 @@ export async function GET(
 	return Response.json(res);
 }
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: { spanId: string } }
 ) {
@@ -28,3 +30,6 @@ export async function POST(
 	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:run", POSTHandler));

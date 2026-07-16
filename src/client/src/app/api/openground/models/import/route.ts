@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
@@ -41,7 +43,7 @@ interface SessionWithId {
  *   ...
  * }
  */
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -232,3 +234,5 @@ export async function POST(request: NextRequest) {
 		providersSkipped,
 	});
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));

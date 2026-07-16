@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { evaluate } from "@/lib/platform/openground/evaluate";
 import { getOpengroundEvaluations } from "@/lib/platform/openground-clickhouse";
@@ -7,7 +9,7 @@ import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
 
-export async function GET() {
+async function GETHandler() {
 	const user = await getCurrentUser();
 	if (!user) {
 		return Response.json({ error: getMessage().UNAUTHORIZED_USER }, { status: 401 });
@@ -33,7 +35,7 @@ export async function GET() {
 	return Response.json(data);
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) {
@@ -79,3 +81,6 @@ export async function POST(request: Request) {
 	});
 	return Response.json(data);
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
