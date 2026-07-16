@@ -14,6 +14,11 @@ import {
 	TRACE_AI_PATH_ANALYSIS_GUIDANCE,
 	TRACE_AI_PATH_ANALYSIS_STREAM_LABEL,
 	TRACE_AI_PATH_ANALYSIS_UI_LABEL,
+	TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL,
+	TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY,
+	TRACE_AI_PROMPT_INJECTION_GUIDANCE,
+	TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+	TRACE_AI_PROMPT_INJECTION_UI_LABEL,
 	TRACE_AI_STRENGTHS_EMPTY_DETAIL,
 	TRACE_AI_STRENGTHS_EMPTY_SUMMARY,
 	TRACE_AI_STRENGTHS_GUIDANCE,
@@ -299,6 +304,26 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 			"httpCallCount",
 		],
 	}),
+	defineDimension({
+		key: "prompt_injection",
+		uiLabel: TRACE_AI_PROMPT_INJECTION_UI_LABEL,
+		streamLabel: TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+		guidance: TRACE_AI_PROMPT_INJECTION_GUIDANCE,
+		emptyStateCopy: {
+			summary: TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY,
+			detail: TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL,
+		},
+		spanFields: [
+			"systemPrompt",
+			"prompt",
+			"response",
+			"toolName",
+			"toolCallId",
+			"toolArgs",
+			"toolResult",
+		],
+		metricFields: [],
+	}),
 ] as const);
 
 export type TraceAnalysisDimensionKey =
@@ -306,6 +331,9 @@ export type TraceAnalysisDimensionKey =
 
 export type TraceAnalysisDimensionDefinition =
 	(typeof TRACE_ANALYSIS_DIMENSION_DEFINITIONS)[number];
+
+const EMPTY_EVIDENCE_DIMENSIONS: ReadonlySet<TraceAnalysisDimensionKey> =
+	new Set<TraceAnalysisDimensionKey>(["prompt_injection"]);
 
 export const TRACE_ANALYSIS_DIMENSION_REGISTRY = Object.freeze(
 	Object.fromEntries(
@@ -330,10 +358,18 @@ export function getTraceAnalysisDimensionDefinition(
 
 function selectFields(
 	source: object,
-	fields: readonly string[]
+	fields: readonly string[],
+	normalizeMissingToEmpty = false
 ): Record<string, unknown> {
 	const values = source as Record<string, unknown>;
-	return Object.fromEntries(fields.map((field) => [field, values[field]]));
+	return Object.fromEntries(
+		fields.map((field) => [
+			field,
+			values[field] === undefined && normalizeMissingToEmpty
+				? ""
+				: values[field],
+		])
+	);
 }
 
 export function selectTraceAnalysisSpan(
@@ -356,7 +392,11 @@ export function selectTraceAnalysisSpan(
 
 	return {
 		...base,
-		...selectFields(span, definition.spanFields),
+		...selectFields(
+			span,
+			definition.spanFields,
+			EMPTY_EVIDENCE_DIMENSIONS.has(dimension)
+		),
 	};
 }
 
