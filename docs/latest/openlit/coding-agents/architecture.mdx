@@ -52,7 +52,7 @@ lives in the session-state cache at
 | ------- | -------------- | ------------- |
 | `session.id` | Span + resource attr `coding_agent.session.id` | One process / hook invocation |
 | `conversation.id` | Resource attr `gen_ai.conversation.id` | Multiple sessions when the vendor reports a stable chat id |
-| `chat_id` (UI) | Derived: `coalesce(parent_id, session_id)` | One chat thread including its subagents |
+| `chat_id` (UI) | Derived: foreign `parent_id` → else `conversation.id` → else `session.id` (self-parent echoes ignored) | One chat thread including its linked subagents |
 | `agent_key` | Computed `computeAgentKey(cluster, env, vendor)` | One per vendor per environment |
 | `user` | Resource attr `gen_ai.user.name` | One developer per machine |
 
@@ -123,13 +123,30 @@ gate already covers `cached.CWD != ""`.
 
 ### One chat appears as N sessions
 
-Cause: a subagent is reporting its own `session_id` but not the
+Cause: a subagent / Task run reports its own `session_id` but not the
 parent's `parent_conversation_id`, so the chat-thread coalesce falls
-through to per-process session_id.
+through to per-process session_id. Cursor often omits
+`parent_conversation_id` on short Task sessions, so they show as
+orphan rows next to the main chat. Linked subagents (foreign
+`coding_agent.agent.parent_id`) fold under the parent and surface as a
+subagent badge on that row.
 
 Fix: confirm `peekContext` is picking the vendor's parent-id field,
-and that it's promoted to the `coding_agent.agent.parent_id` resource
-attribute in the `sessionAttrs` block of `hook.go`.
+and that `foreignParentID` in `hook.go` promotes only a *foreign*
+parent (never `parent_id == conversation.id`, which Cursor echoes on
+parent-chat hooks). OpenLIT will not invent parent links when the
+vendor does not send them.
+
+### Overview shows N sessions but Sessions lists N−1
+
+Cause: Cursor stamped `parent_conversation_id` equal to the chat's own
+id on parent-chat hooks ("self-parent"). The Sessions list used to
+treat any non-empty `parent_id` as `is_subagent=1`, which hid the
+main chat while Overview still counted every folded `chat_id`.
+
+Fix: `is_subagent` ignores self-parent; a group stays visible when it
+has any owner spans. Linked subagent activity shows as a violet badge
+on the parent row.
 
 ### Double session-root span
 

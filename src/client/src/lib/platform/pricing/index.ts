@@ -19,9 +19,11 @@ import asaw from "@/utils/asaw";
 
 const COST_KEY = getTraceMappingKeyFullPath("cost") as string; // gen_ai.usage.cost
 const MODEL_KEY = getTraceMappingKeyFullPath("model") as string; // gen_ai.request.model
-const PROVIDER_KEY = getTraceMappingKeyFullPath("provider") as string; // gen_ai.system
+const PROVIDER_KEYS = getTraceMappingKeyFullPaths("provider") as string[]; // gen_ai.provider.name, gen_ai.system
 const TYPE_KEY = getTraceMappingKeyFullPath("type") as string; // gen_ai.operation.name
-const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths("promptTokens") as string[];
+const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"promptTokens"
+) as string[];
 const COMPLETION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
 	"completionTokens"
 ) as string[];
@@ -34,6 +36,14 @@ interface TraceRow {
 
 function getAttr(trace: TraceRow, key: string): string {
 	return (trace.SpanAttributes || {})[key] ?? "";
+}
+
+function getFirstAttr(trace: TraceRow, keys: string[]): string {
+	for (const key of keys) {
+		const value = getAttr(trace, key);
+		if (value) return value;
+	}
+	return "";
 }
 
 function getNumericAttr(trace: TraceRow, keys: string[]): number {
@@ -63,7 +73,7 @@ async function computeCostForTrace(
 	trace: TraceRow,
 	databaseConfigId: string
 ): Promise<{ cost: number | null; reason?: string }> {
-	const provider = getAttr(trace, PROVIDER_KEY);
+	const provider = getFirstAttr(trace, PROVIDER_KEYS);
 	const model = getAttr(trace, MODEL_KEY);
 	const promptTokens = getNumericAttr(trace, PROMPT_TOKENS_KEYS);
 	const completionTokens = getNumericAttr(trace, COMPLETION_TOKENS_KEYS);

@@ -13,6 +13,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 export default function CreateCustomEvaluationTypePage() {
 	const posthog = usePostHog();
@@ -98,7 +99,7 @@ export default function CreateCustomEvaluationTypePage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow="Configuration"
+				eyebrow={getMessage().SIDEBAR_CONFIGURATION}
 				title="Create Custom Evaluation Type"
 				icon={<Sparkles className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"

@@ -68,7 +68,7 @@ export default function OpengroundHeader({
 
 	return (
 		<FeaturePageHeader
-			eyebrow="Resources"
+			eyebrow={getMessage().SIDEBAR_DEVELOP}
 			title={pageHeaderTitle}
 			icon={<MonitorPlay className="size-4" />}
 			tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300"

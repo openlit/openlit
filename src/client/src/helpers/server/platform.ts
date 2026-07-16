@@ -6,7 +6,10 @@ import {
 	differenceInDays,
 	differenceInYears,
 } from "date-fns";
-import { getTraceMappingKeyFullPath } from "../server/trace";
+import {
+	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
+} from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
 import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
 
@@ -199,21 +202,22 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.providers?.length) {
 				// Mirror of the provider DISTINCT fold in
 				// lib/platform/request/index.ts: the dropdown shows
-				// values from gen_ai.system + db.system +
-				// coding_agent.client, so the WHERE check must
-				// match across the same three attributes — otherwise
-				// unticking e.g. "cursor" would have no effect on
-				// the rendered rows.
+				// values from gen_ai.provider.name (+ gen_ai.system
+				// fallback) + db.system + coding_agent.client, so the
+				// WHERE check must match across the same attributes —
+				// otherwise unticking e.g. "cursor" would have no
+				// effect on the rendered rows.
 				const providerList = filter.selectedConfig.providers
 					.map((provider) => `'${provider}'`)
 					.join(", ");
-				whereArray.push(
-					`(SpanAttributes['${getTraceMappingKeyFullPath(
-						"system"
-					)}'] IN (${providerList}) OR SpanAttributes['${getTraceMappingKeyFullPath(
-						"provider"
-					)}'] IN (${providerList}) OR SpanAttributes['coding_agent.client'] IN (${providerList}))`
+				const providerClauses = [
+					...(getTraceMappingKeyFullPaths("provider") as string[]),
+					getTraceMappingKeyFullPath("system") as string,
+					"coding_agent.client",
+				].map(
+					(path) => `SpanAttributes['${path}'] IN (${providerList})`
 				);
+				whereArray.push(`(${providerClauses.join(" OR ")})`);
 			}
 
 			if (filter.selectedConfig.traceTypes?.length) {
@@ -247,6 +251,21 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.serviceNames?.length) {
 				whereArray.push(
 					`ServiceName IN (${filter.selectedConfig.serviceNames
+						.map((serviceName: string) => `'${escapeClickHouseString(serviceName)}'`)
+						.join(", ")})`
+				);
+			}
+
+			// UI ComboDropdown persists the selection as `services`
+			// (see traces-filter.tsx / URL `services=`). `serviceNames`
+			// is the agent-detail scope lock. Honor both so a Services
+			// filter on Traces/Exceptions actually reaches ClickHouse —
+			// especially important on Exceptions where failed LLM spans
+			// often lack gen_ai.provider.name and ServiceName is the
+			// only useful discriminator.
+			if (filter.selectedConfig.services?.length) {
+				whereArray.push(
+					`ServiceName IN (${filter.selectedConfig.services
 						.map((serviceName: string) => `'${escapeClickHouseString(serviceName)}'`)
 						.join(", ")})`
 				);

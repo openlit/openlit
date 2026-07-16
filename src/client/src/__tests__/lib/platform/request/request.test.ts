@@ -46,7 +46,7 @@ describe('getRequestPerTime', () => {
 describe('getGroupByExpression', () => {
   it('returns predefined group-by expressions', () => {
     expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.system']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
   });
 
   it('builds safe span/resource/field group-by expressions', () => {
@@ -93,6 +93,10 @@ describe('getRequestsConfig', () => {
     expect(query).toContain('providers');
     expect(query).toContain('models');
     expect(query).toContain('totalRows');
+    expect(query).toContain('services');
+    // Provider dropdown folds the current OTel key and the legacy fallback.
+    expect(query).toContain("gen_ai.provider.name");
+    expect(query).toContain("gen_ai.system");
   });
 });
 
@@ -265,6 +269,11 @@ describe('getHeirarchyViaSpanId', () => {
     const allSpansQuery = secondCall[0].query as string;
     expect(allSpansQuery).toContain("SpanAttributes['coding_agent.session.id'] = 'parent-1'");
     expect(allSpansQuery).toContain("ResourceAttributes['coding_agent.agent.parent_id'] = 'parent-1'");
+    // Coding sessions take the newest window (DESC) and UNION prompt/response
+    // turns so Chat view cannot lose user inputs outside a 5k ASC slice.
+    expect(allSpansQuery).toContain('ORDER BY Timestamp DESC');
+    expect(allSpansQuery).toContain("gen_ai.input.messages");
+    expect(allSpansQuery).toContain('UNION DISTINCT');
     expect(result.err).toBeNull();
   });
 
@@ -351,7 +360,7 @@ describe('getAttributeKeys', () => {
 describe('getGroupedRequests', () => {
   it('returns predefined and attribute group expressions', () => {
     expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.system']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
     expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
     expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
     expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(

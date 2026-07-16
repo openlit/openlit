@@ -25,6 +25,17 @@ describe("buildSessionsHaving", () => {
 		expect(out).toContain("is_subagent = 0");
 	});
 
+	it("documents that parent chats with folded subagents stay visible", () => {
+		// Regression lock: is_subagent = 0 must remain the default hide
+		// predicate. The SQL that *computes* is_subagent (in queries.ts)
+		// ignores Cursor self-parent_id echoes so a parent chat that
+		// absorbed Task/subagent spans is NOT classified as is_subagent=1.
+		// This HAVING clause is what the Sessions tab applies after that.
+		const out = buildSessionsHaving({ vendor: "cursor" });
+		expect(out).toMatch(/HAVING[\s\S]*is_subagent = 0/);
+		expect(out).toContain("vendor = 'cursor'");
+	});
+
 	it("includes subagent rows when explicitly opted in", () => {
 		const out = buildSessionsHaving({ includeSubagents: true });
 		// When the operator opts in AND no other filters apply,

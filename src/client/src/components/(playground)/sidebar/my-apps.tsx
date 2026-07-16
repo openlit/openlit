@@ -240,7 +240,7 @@ export default function MyApps({
 
 				return (
 					<div key={group.title} className="mb-1.5">
-							<p className="px-2.5 pb-0.5 pt-1 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+							<p className="px-2.5 pb-0.5 pt-1 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
 							{group.title}
 						</p>
 						{visible.map((item) =>

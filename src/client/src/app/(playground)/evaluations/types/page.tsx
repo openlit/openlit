@@ -12,6 +12,7 @@ import { Layers, CheckCircle2, ChevronRight, Settings2, Plus, Sparkles } from "l
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 interface EvaluationTypeDisplay {
 	id: string;
@@ -164,7 +165,7 @@ export default function EvaluationTypesPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow="Configuration"
+				eyebrow={getMessage().SIDEBAR_CONFIGURATION}
 				title="Evaluation Types"
 				icon={<Layers className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"

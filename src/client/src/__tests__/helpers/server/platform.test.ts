@@ -211,6 +211,19 @@ describe('getFilterWhereCondition', () => {
     );
     expect(result).toContain("'openai'");
     expect(result).toContain("'anthropic'");
+    // Folds current OTel key, legacy fallback, vector-DB and coding-agent.
+    expect(result).toContain("SpanAttributes['gen_ai.provider.name'] IN");
+    expect(result).toContain("SpanAttributes['gen_ai.system'] IN");
+    expect(result).toContain("SpanAttributes['db.system'] IN");
+    expect(result).toContain("SpanAttributes['coding_agent.client'] IN");
+  });
+
+  it('honors UI services filter as ServiceName (not only serviceNames)', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { services: ['anthropic-chat-app'] } } as any,
+      true
+    );
+    expect(result).toContain("ServiceName IN ('anthropic-chat-app')");
   });
 
   it('adds traceType filter when filterSelectedConfig is true', () => {

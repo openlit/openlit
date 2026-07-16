@@ -167,8 +167,15 @@ describe('generatePageHeader', () => {
   it('generates breadcrumbs for /evaluations/settings', () => {
     const header = generatePageHeader('/evaluations/settings');
     expect(header.title).toBe('Evaluation Settings');
-    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evals', href: '/evaluations' });
     expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/evaluations/settings' });
+  });
+
+  it('generates breadcrumbs for /organisation under Settings', () => {
+    const header = generatePageHeader('/organisation');
+    expect(header.title).toBe('Organisation');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Organisation', href: '/organisation' });
   });
 
   it('generates breadcrumbs for /settings/database-config', () => {

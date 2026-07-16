@@ -52,6 +52,15 @@ describe("computeAgentKey", () => {
 		);
 	});
 
+	it("collapses local into default", () => {
+		expect(computeAgentKey("c1", "local", "svc")).toBe(
+			computeAgentKey("c1", "default", "svc")
+		);
+		expect(computeAgentKey("c1", "LOCAL", "svc")).toBe(
+			computeAgentKey("c1", "", "svc")
+		);
+	});
+
 	it("uses defaults when fields are empty", () => {
 		// Should not throw, and produce a 16-hex slug.
 		const key = computeAgentKey("", "", "svc");
@@ -176,6 +185,15 @@ describe("listAgents", () => {
 		const issuedQuery = (mockedDataCollector.mock.calls[0][0] as any).query as string;
 		expect(issuedQuery).toMatch(/FROM\s+\S+\s+AS\s+s\s+FINAL/);
 		expect(issuedQuery).not.toMatch(/\sFINAL\s+AS\s+s/);
+	});
+
+	it("excludes placeholder local-dev environment rows from the listing", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ data: [makeRow()] });
+		await listAgents();
+		const issuedQuery = (mockedDataCollector.mock.calls[0][0] as any).query as string;
+		expect(issuedQuery).toMatch(
+			/lower\(s\.environment\)\s+NOT IN\s*\(\s*'local'\s*,\s*'default_environment'\s*\)/
+		);
 	});
 
 	it("[REGRESSION] pod_action_latest does not shadow the updated_at column with an alias", async () => {

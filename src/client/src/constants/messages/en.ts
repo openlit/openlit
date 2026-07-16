@@ -243,6 +243,18 @@ export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
 	"Span hierarchy is not available for this span.";
 export const OBSERVABILITY_TREE = "Tree";
 export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_CHAT_FILTER_CONVERSATION = "Conversation";
+export const OBSERVABILITY_CHAT_FILTER_ALL = "All activity";
+export const OBSERVABILITY_CHAT_SUMMARY = (
+	messages: number,
+	thoughts: number,
+	tools: number
+) => `${messages} messages · ${thoughts} thoughts · ${tools} tools`;
+export const OBSERVABILITY_CHAT_EMPTY = "No chat messages found in this trace";
+export const OBSERVABILITY_CHAT_EMPTY_HINT =
+	"This view works with LLM spans that have prompt/response data";
+export const OBSERVABILITY_CHAT_MODEL_CHANGES = (count: number) =>
+	count === 1 ? "1 model change" : `${count} model changes`;
 export const OBSERVABILITY_TIMELINE = "Timeline";
 export const OBSERVABILITY_GRAPH = "Graph";
 export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
@@ -379,7 +391,7 @@ export const OPENGROUND_CUSTOM_MODEL = "Custom Model";
 export const OPENGROUND_ENTER_CUSTOM_MODEL_NAME = "Enter custom model name";
 export const OPENGROUND_USE_CUSTOM_MODEL = "Use Custom Model";
 export const OPENGROUND_OR_ENTER_CUSTOM = "or enter custom";
-export const OPENGROUND_MANAGE_MODELS = "Manage Models";
+export const OPENGROUND_MANAGE_MODELS = "Manage models";
 export const OPENGROUND_ADD_NEW_MODEL = "Add New Model";
 export const OPENGROUND_EDIT_MODEL = "Edit Model";
 export const OPENGROUND_MODEL_ID = "Model ID";
@@ -507,6 +519,13 @@ export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
+export const FEATURE_EVALS = "Evals";
+export const FEATURE_MANAGE_MODELS = "Manage models";
+
+export const SIDEBAR_MONITOR = "Monitor";
+export const SIDEBAR_DEVELOP = "Develop";
+export const SIDEBAR_CONFIGURATION = "Configure";
+export const SIDEBAR_PROJECTS = "Projects";
 
 // Agents
 export const AGENTS_FILTER_SYSTEM = "System";
@@ -545,6 +564,10 @@ export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the insta
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND =
 	"openlit configure --content-capture full";
+export const CODING_AGENT_SESSION_SUBAGENTS = (count: number) =>
+	count === 1 ? "1 subagent" : `${count} subagents`;
+export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
+	"Linked Task / background worker activity folded under this chat";
 
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
@@ -573,6 +596,7 @@ export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
 	`Pods: ${ack}/${total} acknowledged`;
 export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
+export const AGENTS_COLUMN_RUNTIME = "Runtime";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
 // Coding-agent stat / column labels intentionally omit a window
 // suffix (no "24h"). The underlying data is always evaluated

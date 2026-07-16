@@ -263,7 +263,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/evaluations\/settings$/,
 		getTitle: () => "Evaluation Settings",
 		getBreadcrumbs: () => [
-			{ title: "Evaluations", href: "/evaluations" },
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
 			{ title: "Settings", href: "/evaluations/settings" }
 		],
 	},
@@ -271,7 +271,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/evaluations\/types$/,
 		getTitle: () => "Evaluation Types",
 		getBreadcrumbs: () => [
-			{ title: "Evaluations", href: "/evaluations" },
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
 			{ title: "Evaluation Types", href: "/evaluations/types" }
 		],
 	},
@@ -279,15 +279,15 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		regex: /^\/evaluations\/manual$/,
 		getTitle: () => "Manual Marking",
 		getBreadcrumbs: () => [
-			{ title: "Evaluations", href: "/evaluations" },
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
 			{ title: "Manual Marking", href: "/evaluations/manual" }
 		],
 	},
 	{
 		regex: /^\/evaluations\/?$/,
-		getTitle: () => "Evaluations",
+		getTitle: () => getMessage().FEATURE_EVALS,
 		getBreadcrumbs: () => [
-			{ title: "Evaluations", href: "/evaluations" }
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" }
 		],
 	},
 	
@@ -298,7 +298,25 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 			{ title: "Settings", href: "/settings" }
 		],
 	},
-	
+
+	{
+		regex: /^\/organisation\/?$/,
+		getTitle: () => getMessage().ORGANISATION,
+		getBreadcrumbs: () => [
+			{ title: "Settings", href: "/settings" },
+			{ title: getMessage().ORGANISATION, href: "/organisation" },
+		],
+	},
+	{
+		regex: /^\/organisation\/project\/[^/]+$/,
+		getTitle: () => "",
+		getBreadcrumbs: () => [
+			{ title: "Settings", href: "/settings" },
+			{ title: getMessage().ORGANISATION, href: "/organisation" },
+			{ title: getMessage().PROJECTS, href: "/organisation?tab=projects" },
+		],
+	},
+
 	{
 		regex: /^\/settings\/api-keys$/,
 		getTitle: () => "Api Keys",

@@ -22,6 +22,7 @@ import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 interface RuleWithPriority {
 	ruleId: string;
@@ -196,7 +197,7 @@ export default function EvaluationTypeDetailPage() {
 
 	const header = (
 		<FeaturePageHeader
-			eyebrow="Configuration"
+			eyebrow={getMessage().SIDEBAR_CONFIGURATION}
 			title={displayLabel}
 			icon={<Layers className="h-4 w-4" />}
 			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
