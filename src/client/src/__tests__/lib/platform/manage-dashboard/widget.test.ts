@@ -141,6 +141,61 @@ describe("runWidgetQuery", () => {
 		);
 	});
 
+	it("allows attribute keys whose names embed blocklisted keywords", async () => {
+		// `gen_ai.system` is a data key, not the SYSTEM command. The
+		// `system` substring is word-bounded by `.` and `'`, so a naive
+		// keyword scan would wrongly reject this safe SELECT.
+		const query =
+			"SELECT if(notEmpty(SpanAttributes['gen_ai.provider.name']), SpanAttributes['gen_ai.provider.name'], SpanAttributes['gen_ai.system']) AS provider, COUNT(*) AS count FROM otel_traces GROUP BY provider";
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({
+				data: [{ provider: "openai", count: 5 }],
+				err: null,
+			});
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [{ provider: "openai", count: 5 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query,
+			enable_readonly: true,
+		});
+	});
+
+	it("does not flag blocklisted keywords that appear only inside string literals", async () => {
+		const query =
+			"SELECT ServiceName FROM otel_traces WHERE ServiceName = 'drop-table-service'";
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [] });
+	});
+
+	it("still blocks real SYSTEM commands outside string literals", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT 1 FROM otel_traces WHERE x = 'ok'; SYSTEM RELOAD DICTIONARIES",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "Query contains disallowed operations" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
 	});

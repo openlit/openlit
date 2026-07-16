@@ -382,6 +382,17 @@ describe('getFilterWhereCondition', () => {
       operationType: 'llm',
     } as any);
     expect(result).toContain("!= 'vectordb'");
+    expect(result).toContain("coding_agent.client");
+    expect(result).toContain("openlit-cli");
+    expect(result).toContain("NOT startsWith(SpanName, 'coding_agent.')");
+  });
+
+  it('does not exclude coding agents for vectordb operationType', () => {
+    const result = getFilterWhereCondition({
+      operationType: 'vectordb',
+    } as any);
+    expect(result).toContain("= 'vectordb'");
+    expect(result).not.toContain("openlit-cli");
   });
 
   it('joins multiple conditions with AND', () => {

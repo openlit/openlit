@@ -17,6 +17,22 @@ function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+/**
+ * Exclude coding-agent / openlit-cli hook telemetry from LLM / request
+ * dashboards. Those spans belong on the Coding Agents dashboard only.
+ *
+ * Matches the materializer barriers: coding_agent.* attrs, distro name,
+ * and coding_agent.* span names.
+ */
+export const EXCLUDE_CODING_AGENT_WHERE = [
+	"empty(SpanAttributes['coding_agent.client'])",
+	"empty(ResourceAttributes['coding_agent.client'])",
+	"empty(SpanAttributes['coding_agent.session.id'])",
+	"empty(ResourceAttributes['coding_agent.session.id'])",
+	"(empty(ResourceAttributes['telemetry.distro.name']) OR ResourceAttributes['telemetry.distro.name'] != 'openlit-cli')",
+	"NOT startsWith(SpanName, 'coding_agent.')",
+].join(" AND ");
+
 export const validateMetricsRequestType = {
 	// Request
 	REQUEST_PER_TIME: "REQUEST_PER_TIME",
@@ -365,6 +381,9 @@ export const getFilterWhereCondition = (
 						"type"
 					)}'] != 'vectordb'`
 				);
+				// LLM / request dashboards must not mix in coding-agent
+				// hook telemetry (separate Coding Agents dashboard).
+				whereArray.push(EXCLUDE_CODING_AGENT_WHERE);
 			}
 		}
 	} catch {}

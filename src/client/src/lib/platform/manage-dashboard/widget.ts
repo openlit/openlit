@@ -185,12 +185,27 @@ function validateQuery(query: string): { valid: boolean; error?: string } {
 	return validateSafeQueryContent(trimmed);
 }
 
+/**
+ * Blank out the contents of single-quoted string literals so keyword /
+ * table / function scanning only inspects executable SQL. Attribute keys
+ * and values such as `SpanAttributes['gen_ai.system']` or
+ * `'openlit-cli'` are data, not SQL — without this a literal like
+ * `gen_ai.system` would false-positive on the `SYSTEM` keyword blocklist
+ * (word-bounded by `.` and `'`) and reject an otherwise safe SELECT.
+ * Handles both backslash (`\'`) and doubled (`''`) quote escapes.
+ */
+function stripStringLiterals(value: string): string {
+	return value.replace(/'(?:\\.|''|[^'])*'/g, "''");
+}
+
 function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
-	if (/\bsystem\./i.test(value)) {
+	const scannable = stripStringLiterals(value);
+
+	if (/\bsystem\./i.test(scannable)) {
 		return { valid: false, error: "Access to system tables is not allowed" };
 	}
 
-	if (/\binformation_schema\./i.test(value)) {
+	if (/\binformation_schema\./i.test(scannable)) {
 		return {
 			valid: false,
 			error: "Access to information_schema tables is not allowed",
@@ -199,13 +214,13 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 
 	const dangerousFunctions =
 		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
-	if (dangerousFunctions.test(value)) {
+	if (dangerousFunctions.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed functions" };
 	}
 
 	const dangerousKeywords =
 		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
-	if (dangerousKeywords.test(value)) {
+	if (dangerousKeywords.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed operations" };
 	}
 
