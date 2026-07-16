@@ -6,9 +6,8 @@ import {
 	getPendingInvitationsCount,
 } from "@/selectors/organisation";
 import { useRootStore } from "@/store";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { changeActiveOrganisation } from "@/helpers/client/organisation";
-import { usePostHog } from "posthog-js/react";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -22,7 +21,6 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CreateOrganisationDialog from "./create-organisation-dialog";
 import getMessage from "@/constants/messages";
-import { CLIENT_EVENTS } from "@/constants/events";
 import { cn } from "@/lib/utils";
 import { headerScopeTriggerClassName } from "../header-scope-pill";
 
@@ -39,7 +37,6 @@ export default function OrganisationSwitch({
 	contentAlign = "start",
 	contentSide = "right",
 }: OrganisationSwitchProps) {
-	const posthog = usePostHog();
 	const messages = getMessage();
 	const list = useRootStore(getOrganisationList) || [];
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -48,9 +45,7 @@ export default function OrganisationSwitch({
 
 	const onClickItem = (id: string) => {
 		if (id === currentOrg?.id) return;
-		changeActiveOrganisation(id, () => {
-			posthog?.capture(CLIENT_EVENTS.ORGANISATION_SWITCHED);
-		});
+		changeActiveOrganisation(id);
 	};
 
 	if (!currentOrg) return null;

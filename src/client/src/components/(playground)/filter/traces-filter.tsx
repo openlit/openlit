@@ -32,8 +32,6 @@ import {
 	FilterType,
 	TIME_RANGES,
 } from "@/types/store/filter";
-import { usePostHog } from "posthog-js/react";
-import { CLIENT_EVENTS } from "@/constants/events";
 import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
@@ -249,7 +247,6 @@ const DynamicFilters = ({
 	attributeKeysUrl: string;
 	customAttributeTypes: CustomFilterAttributeType[];
 }) => {
-	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
 	const pingStatus = useRootStore(getPingStatus);
 	const filterDetails = useRootStore(getFilterDetails);
@@ -417,13 +414,11 @@ const DynamicFilters = ({
 			customFilters:
 				validCustomFilters.length > 0 ? validCustomFilters : undefined,
 		});
-		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_APPLIED);
 	};
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
 		setCustomFilters([]);
-		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 		updateFilter("selectedConfig", {}, { clearFilter: true });
 	};
 

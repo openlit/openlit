@@ -100,13 +100,18 @@ export default function RuleEnginePage() {
 		fireRequest({
 			requestType: "GET",
 			url: `/api/rule-engine/rules`,
+			successCb: (response: Rule[]) => {
+				posthog?.capture(CLIENT_EVENTS.RULE_ENGINE_LIST, {
+					count: Array.isArray(response) ? response.length : 0,
+				});
+			},
 			failureCb: (err?: string) => {
 				toast.error(err || getMessage().CANNOT_CONNECT_TO_SERVER, {
 					id: "rule-engine",
 				});
 			},
 		});
-	}, []);
+	}, [posthog]);
 
 	const deleteRule = useCallback(
 		async ({ id }: { id: string }) => {

@@ -6,22 +6,32 @@ description: 'Details about OpenLIT anonymous usage metrics reporting'
 ## Why? 
 To enhance and improve the OpenLIT experience, we have introduced a telemetry feature that collects anonymous usage data. This data helps us understand how users interact with OpenLIT and identify areas for improvement. We assure you that all collected data is completely anonymous and is used solely for the purpose of enhancing our services.
 
+## What identifies you?
+
+Telemetry is anonymous by design:
+
+- **User (MAU)**: an opaque, randomly generated user id via `identify` (never your email, name, or password). PostHog Active Users = DAU / WAU / MAU.
+- **Organisation (MAO)**: an opaque organisation id via PostHog Groups (`organisation`). PostHog Active Groups for that type = DAO / WAO / MAO. Project scope uses a second group (`project`) the same way.
+- **Install**: a stable, random `install_id` generated per OpenLIT installation so we can distinguish deployments without identifying you.
+- **Environment**: standard analytics context such as browser, operating system, and IP-derived country. We do not track personal identity.
+
 ## What do we track?
 
-OpenLIT collects anonymous events from both the OpenLIT and the OpenLIT SDK to analyze usage. Events include:
+OpenLIT collects anonymous events from both OpenLIT and the OpenLIT SDK to analyze usage. We deliberately avoid high-noise, per-request events. Events include:
 
-- **User Interactions**: Counts of login attempts, registrations, and page visits.
-- **Database Configurations**: Counts of additions, updates, and action changes.
-- **Profile Management**: Counts of profile updates, whether successful or failed.
-- **API Key Management**: Counts of added API keys and any failures.
-- **Prompt Operations**: Success/failure count on prompt additions and versioning.
-- **Vault Actions**: Counts of secret additions and updates.
-- **Openground Evaluations**: Counts of the success and failure of evaluations.
-- **SDK Operations**: Success/failure count in fetching prompts and vault secrets.
+- **Active usage**: opaque user id for DAU/WAU/MAU; organisation and project Groups for active-org / active-project counts; login and registration; named page visits (by page name, not full URLs).
+- **Organisations & projects**: create / switch / list inventory counts (`organisation_id` / `project_id` only — never names or member emails).
+- **Feature adoption**: create/update/delete counts for prompts, rules, evaluations, dashboards, contexts, openground, and database configurations.
+- **Inventory counts**: how many of each entity exist (for example orgs, projects, prompts, rules, evaluation types, dashboards, fleet agents connected, application and coding agents) — counts only, never names or contents.
+- **Auto features**: whether auto pricing and auto evaluation are enabled, and their run outcomes.
+- **SDK operations**: success/failure counts for fetching prompts and vault secrets.
+- **Daily instance snapshot**: once per day, per install, we send an aggregate `INSTANCE_TELEMETRY_SNAPSHOT` with anonymous totals — including OpenLIT version, `users_total` / `organisations_total` / `projects_total`, other entity inventory counts, and world-total ingestion volume (`spans_total`, `traces_total`, and 24h deltas). This lets us understand OpenLIT usage at scale without ever sending your telemetry data itself.
+
+We never send emails, names, passwords, secrets, API keys, span/trace contents, or per-span ingestion events.
 
 ## How to disable the collection of usage metrics
 
-Usage metrics collection in OpenLIT is enabled by default, but you can opt-out at any time. To disable usage metrics collection, set the `TELEMETRY_ENABLED=false` environment variable when starting OpenLIT.
+Usage metrics collection in OpenLIT is enabled by default, but you can opt-out at any time. To disable usage metrics collection (including the daily instance snapshot), set the `TELEMETRY_ENABLED=false` environment variable when starting OpenLIT.
 
 ## Where are usage metrics stored?
 

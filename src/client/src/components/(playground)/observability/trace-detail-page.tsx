@@ -359,7 +359,7 @@ export function TraceDetailView({
 		total?: number;
 	} | null>(null);
 	const fromRef = useRef(from);
-	const listUrlRef = useRef(type === "exceptions" ? "/api/metrics/exception" : "/api/metrics/request");
+	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/trace");
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
@@ -372,7 +372,7 @@ export function TraceDetailView({
 	const fetchData = useCallback(() => {
 		fireRequest({
 			requestType: "GET",
-			url: `/api/metrics/request/span/${selectedSpanId}`,
+			url: `/api/telemetry/trace/span/${selectedSpanId}`,
 		});
 	}, [fireRequest, selectedSpanId]);
 

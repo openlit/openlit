@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Bot, RefreshCw, Plus } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
@@ -54,6 +56,7 @@ function coerceTab(value: string | null): Tab {
 export default function AgentsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
+	const posthog = usePostHog();
 	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
 	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
@@ -99,6 +102,9 @@ export default function AgentsPage() {
 	//   - while the apps view is empty AND the coding view has rows,
 	//   - exactly once after data first lands.
 	const didAutoRouteRef = useRef(false);
+	// Fire the anonymous inventory-on-view event only once per mount so the
+	// 30s background poll doesn't spam PostHog with duplicate counts.
+	const inventoryFiredRef = useRef(false);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -495,6 +501,33 @@ export default function AgentsPage() {
 		(sum, r) => sum + (r.coding_active_users_24h ?? 0),
 		0
 	);
+
+	// Anonymous inventory-on-view: once the first fetch settles, report how
+	// many application agents / coding vendors / sessions this install has.
+	// Counts only — no service names, hostnames, or user identities.
+	useEffect(() => {
+		if (!servicesFetched || inventoryFiredRef.current) return;
+		inventoryFiredRef.current = true;
+		const codingSessionsTotal = codingRows.reduce(
+			(sum, r) => sum + (r.coding_session_count_24h ?? 0),
+			0
+		);
+		posthog?.capture(CLIENT_EVENTS.AGENTS_HUB_VIEWED, {
+			count: applicationRows.length,
+			controllers: activeControllers.length,
+		});
+		posthog?.capture(CLIENT_EVENTS.CODING_AGENTS_VIEWED, {
+			count: codingVendorsUsed,
+			sessions_total: codingSessionsTotal,
+		});
+	}, [
+		servicesFetched,
+		applicationRows.length,
+		activeControllers.length,
+		codingVendorsUsed,
+		codingRows,
+		posthog,
+	]);
 
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();

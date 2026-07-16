@@ -92,13 +92,18 @@ export default function PromptHub() {
 		fireRequest({
 			requestType: "POST",
 			url: `/api/prompt/get`,
+			successCb: (response: PromptList[]) => {
+				posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_LIST, {
+					count: Array.isArray(response) ? response.length : 0,
+				});
+			},
 			failureCb: (err?: string) => {
 				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "prompt-hub",
 				});
 			},
 		});
-	}, []);
+	}, [posthog]);
 
 	const deletePrompt = useCallback(
 		async ({ id }: { id: string }) => {

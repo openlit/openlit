@@ -15,6 +15,7 @@ export default class PostHogServer {
 	static async capture(options: {
 		event: string,
 		timestamp?: Date,
+		distinctId?: string,
 		properties?: Record<string, unknown>,
 	}) {
 		const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
@@ -30,8 +31,12 @@ export default class PostHogServer {
 						},
 						body: jsonStringify({
 							api_key: POSTHOG_API_KEY,
-							...options,
-							distinct_id: this.distinctId,
+							event: options.event,
+							timestamp: options.timestamp,
+							// Prefer an explicit distinctId (e.g. stable install_id
+							// for daily snapshots) so server restarts don't look
+							// like new "persons" for install-scoped events.
+							distinct_id: options.distinctId || this.distinctId,
 							properties: {
 								...(options.properties || {}),
 								isServer: true,

@@ -213,7 +213,7 @@ function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
 			return;
 		}
 		try {
-			const res = await fetch(`/api/metrics/request/trace/${ref.id}`);
+			const res = await fetch(`/api/telemetry/trace/trace/${ref.id}`);
 			const result = await res.json();
 			const record = result?.record || result?.data?.record || result?.data;
 			const spanId = record?.SpanId || record?.spanId;

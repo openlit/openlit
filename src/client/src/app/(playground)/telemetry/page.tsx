@@ -8,6 +8,7 @@ import {
 	getSignalConfig,
 } from "@/components/(playground)/observability/registry";
 import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { stripFilterParams } from "@/helpers/client/filter-persistence";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
@@ -25,7 +26,7 @@ export default function TelemetryPage() {
 	const ActiveIcon = activeConfig.icon;
 
 	useEffect(() => {
-		posthog?.capture("OBSERVABILITY_PAGE_VISITED", {
+		posthog?.capture(CLIENT_EVENTS.OBSERVABILITY_PAGE_VISITED, {
 			tab: activeConfig.key,
 		});
 	}, [activeConfig.key, posthog]);

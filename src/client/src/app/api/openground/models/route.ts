@@ -22,7 +22,6 @@ interface SessionWithId {
 
 // GET: List all custom models for a provider (or all providers if no provider specified)
 export async function GET(request: NextRequest) {
-	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -69,10 +68,6 @@ export async function GET(request: NextRequest) {
 		);
 
 		if (err) {
-			PostHogServer.fireEvent({
-				event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_FAILURE,
-				startTimestamp,
-			});
 			return NextResponse.json(
 				{ error: getMessage().OPERATION_FAILED },
 				{ status: 500 }
@@ -89,10 +84,6 @@ export async function GET(request: NextRequest) {
 			grouped[model.provider].push(model);
 		});
 
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_SUCCESS,
-			startTimestamp,
-		});
 		return NextResponse.json(grouped);
 	}
 
@@ -121,20 +112,12 @@ export async function GET(request: NextRequest) {
 	);
 
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_FAILURE,
-			startTimestamp,
-		});
 		return NextResponse.json(
 			{ error: getMessage().OPERATION_FAILED },
 			{ status: 500 }
 		);
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.OPENGROUND_MODELS_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return NextResponse.json(data || []);
 }
 

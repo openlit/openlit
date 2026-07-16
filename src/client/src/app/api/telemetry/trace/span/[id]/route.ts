@@ -1,7 +1,13 @@
 import { getRequestViaSpanId } from "@/lib/platform/request";
 import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
+import { resolveDbConfigId } from "@/helpers/server/auth";
 
-export async function GET(_: Request, context: any) {
+export async function GET(request: Request, context: any) {
+	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
+	if (authErr) {
+		return Response.json({ err: authErr }, { status: 401 });
+	}
+
 	const { id } = context.params || {};
 
 	if (!id)
@@ -10,8 +16,8 @@ export async function GET(_: Request, context: any) {
 		});
 
 	const [spanRes, evalSummary] = await Promise.all([
-		getRequestViaSpanId(id),
-		getEvaluationSummaryForSpanId(id),
+		getRequestViaSpanId(id, databaseConfigId),
+		getEvaluationSummaryForSpanId(id, databaseConfigId),
 	]);
 
 	const res: any = { ...spanRes };

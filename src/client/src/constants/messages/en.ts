@@ -8,6 +8,21 @@ export const OPERATION_FAILED = "Operation failed!";
 
 // API Keys
 export const NO_API_KEY = "No such apiKey exists!";
+export const MANAGE_API_KEYS = "Manage API Keys";
+export const OPENAI_SPEC = "OpenAPI Specification";
+export const GENERATE_NEW_API_KEY = "Generate New API Key";
+export const CREATE_NEW_KEY = "Create a new api key";
+export const SETTINGS = "Settings";
+export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
+export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
+export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
+export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
+export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
+export const COPY_SNIPPET = "Copy Snippet";
+export const COPIED = "Copied";
+export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
+export const RESPONSE_BODY_JSON = "Response Body (JSON)";
+export const COPIED_TO_CLIPBOARD = "Copied to clipboard!";
 
 // Prompts
 export const PROMPT_NAME_TAKEN = "Prompt name is already taken!";
@@ -1709,6 +1724,54 @@ export const TRACE_AI_DURATION_MS = (duration: number | string) => `${duration}m
 export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
 export const TRACE_AI_EMPTY_DESCRIPTION =
 	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";
+export const TRACE_AI_STRENGTHS_UI_LABEL = "Strengths";
+export const TRACE_AI_STRENGTHS_STREAM_LABEL = "Strengths";
+export const TRACE_AI_STRENGTHS_GUIDANCE =
+	"Find concrete things that worked well: efficient prompts, good model choice, useful tool use, clean path, low cost, fast execution, useful context handling. Do not put problems here.";
+export const TRACE_AI_STRENGTHS_EMPTY_SUMMARY =
+	"No explicit strengths were identified in this run.";
+export const TRACE_AI_STRENGTHS_EMPTY_DETAIL =
+	"The analysis did not find a concrete positive pattern worth calling out. This does not mean the trace failed; it means the model did not see a specific strength with enough evidence.";
+export const TRACE_AI_IMPROVEMENTS_UI_LABEL = "Improvements";
+export const TRACE_AI_IMPROVEMENTS_STREAM_LABEL = "Improvements";
+export const TRACE_AI_IMPROVEMENTS_GUIDANCE =
+	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, or path_analysis. Avoid generic advice; cite spans.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY =
+	"No general improvements are required right now.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL =
+	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, or wrong-turn categories.";
+export const TRACE_AI_WRONG_TURNS_UI_LABEL = "Wrong turns";
+export const TRACE_AI_WRONG_TURNS_STREAM_LABEL = "Wrong turns";
+export const TRACE_AI_WRONG_TURNS_GUIDANCE =
+	"Find retries, rework, off-task branches, tool failures followed by repeated work, user-blocked steps, self-correction, or decisions that created unnecessary work.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_SUMMARY =
+	"No wrong turns were detected.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_DETAIL =
+	"The trace did not show clear retries, off-task branches, unnecessary rework, or agent decisions that caused a detour.";
+export const TRACE_AI_COST_UI_LABEL = "Cost";
+export const TRACE_AI_COST_STREAM_LABEL = "Cost";
+export const TRACE_AI_COST_GUIDANCE =
+	"Analyze absolute spend, cost concentration, model choice, expensive spans, cost per call, and whether cheaper routing would have been appropriate. Do not discuss token waste unless it directly explains spend.";
+export const TRACE_AI_COST_EMPTY_SUMMARY =
+	"Cost looks acceptable for this trace.";
+export const TRACE_AI_COST_EMPTY_DETAIL =
+	"No span stood out as clearly over budget or using a model that was obviously too expensive for the observed subtask.";
+export const TRACE_AI_TOKEN_EFFICIENCY_UI_LABEL = "Token efficiency";
+export const TRACE_AI_TOKEN_EFFICIENCY_STREAM_LABEL = "Token efficiency";
+export const TRACE_AI_TOKEN_EFFICIENCY_GUIDANCE =
+	"Analyze input/output/cache/reasoning token waste, repeated context, repeated prompts, oversized tool results, duplicate retrieval/tool inputs, and largest context spans. This is about waste, not absolute spend.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_SUMMARY =
+	"Token usage looks acceptable for this trace.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_DETAIL =
+	"The analysis did not find obvious prompt bloat, repeated context, oversized tool outputs, or duplicate retrieval payloads.";
+export const TRACE_AI_PATH_ANALYSIS_UI_LABEL = "Path";
+export const TRACE_AI_PATH_ANALYSIS_STREAM_LABEL = "Path analysis";
+export const TRACE_AI_PATH_ANALYSIS_GUIDANCE =
+	"Analyze routing and execution path: whether the trace picked the right tools, avoided loops, used the right branches, and kept orchestration efficient.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_SUMMARY =
+	"The execution path looks reasonable.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_DETAIL =
+	"The trace did not show clear routing loops, missed branches, unnecessary tool hops, or inappropriate tool choices.";
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
