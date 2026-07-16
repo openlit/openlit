@@ -50,6 +50,14 @@ export default function EvaluationTypesPage() {
 			requestType: "GET",
 			url: "/api/evaluation/types",
 			responseDataKey: "data",
+			successCb: (response: EvaluationTypeDisplay[] | { data?: any[] }) => {
+				const list = Array.isArray(response)
+					? response
+					: response?.data;
+				posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPES_LIST, {
+					count: Array.isArray(list) ? list.length : 0,
+				});
+			},
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
 		getEvalEntities({
@@ -154,51 +162,52 @@ export default function EvaluationTypesPage() {
 	};
 
 	return (
-		<div className="flex flex-1 h-full w-full overflow-auto">
-			<div className="w-full space-y-4">
-				<FeaturePageHeader
-					eyebrow="Configuration"
-					title="Evaluation Types"
-					description="Shape what quality means for your AI system with built-in checks, custom judges, and rule-driven context."
-					icon={<Layers className="h-4 w-4" />}
-					tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
-					actions={
-						<div className="flex flex-wrap items-center gap-2">
-							<Button asChild variant="outline" size="sm" className="h-8">
-								<Link href="/evaluations/settings">
-									<Settings2 className="mr-1.5 h-3.5 w-3.5" />
-									Settings
-								</Link>
-							</Button>
-							<Button asChild size="sm" className="h-8">
-								<Link href="/evaluations/types/new">
-									<Plus className="mr-1.5 h-3.5 w-3.5" />
-									Create Custom Type
-								</Link>
-							</Button>
-						</div>
-					}
-				/>
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader
+				eyebrow="Configuration"
+				title="Evaluation Types"
+				icon={<Layers className="h-4 w-4" />}
+				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+				actions={
+					<div className="flex flex-wrap items-center gap-2">
+						<Button asChild variant="outline" size="sm" className="h-8">
+							<Link href="/evaluations/settings">
+								<Settings2 className="mr-1.5 h-3.5 w-3.5" />
+								Settings
+							</Link>
+						</Button>
+						<Button asChild size="sm" className="h-8">
+							<Link href="/evaluations/types/new">
+								<Plus className="mr-1.5 h-3.5 w-3.5" />
+								Create Custom Type
+							</Link>
+						</Button>
+					</div>
+				}
+			/>
 
-				{/* Built-in types */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					{displayBuiltIn.map((et) => renderTypeCard(et, false))}
+			<div className="flex-1 w-full overflow-auto p-4">
+				<div className="w-full space-y-4">
+					{/* Built-in types */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{displayBuiltIn.map((et) => renderTypeCard(et, false))}
+					</div>
+
+					{/* Custom types */}
+					{customTypes.length > 0 && (
+						<>
+							<div className="flex items-center gap-2 pt-2">
+								<Sparkles className="size-4 text-primary" />
+								<h3 className="text-sm font-semibold text-stone-700 dark:text-stone-300">
+									Custom Evaluation Types
+								</h3>
+							</div>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								{customTypes.map((ct) => renderTypeCard(ct, true))}
+							</div>
+						</>
+					)}
 				</div>
-
-				{/* Custom types */}
-				{customTypes.length > 0 && (
-					<>
-						<div className="flex items-center gap-2 pt-2">
-							<Sparkles className="size-4 text-primary" />
-							<h3 className="text-sm font-semibold text-stone-700 dark:text-stone-300">
-								Custom Evaluation Types
-							</h3>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{customTypes.map((ct) => renderTypeCard(ct, true))}
-						</div>
-					</>
-				)}
 			</div>
 		</div>
 	);

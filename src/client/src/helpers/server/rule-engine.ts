@@ -6,6 +6,7 @@ const VALID_ENTITY_TYPES: RuleEntityType[] = [
 	// "dataset",
 	// "meta_config",
 	"evaluation",
+	"alert",
 ];
 const VALID_OPERATORS = [
 	"equals", "not_equals", "contains", "not_contains",
@@ -41,7 +42,10 @@ export function verifyConditionInput(input: Partial<RuleConditionInput>) {
 	return { success: true };
 }
 
-export function verifyConditionGroupInput(input: { conditions?: RuleConditionInput[] }) {
+export function verifyConditionGroupInput(input: { condition_operator?: string; conditions?: RuleConditionInput[] }) {
+	if (input.condition_operator && !VALID_GROUP_OPERATORS.includes(input.condition_operator)) {
+		return { success: false, err: "condition_operator must be AND or OR!" };
+	}
 	if (!input.conditions || !Array.isArray(input.conditions) || input.conditions.length === 0) {
 		return { success: false, err: "At least one condition is required in each group!" };
 	}

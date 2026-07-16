@@ -255,6 +255,7 @@
                   "latest/sdk/integrations/azure-ai-inference",
                   "latest/sdk/integrations/huggingface",
                   "latest/sdk/integrations/bedrock",
+                  "latest/sdk/integrations/oci",
                   "latest/sdk/integrations/vertexai",
                   "latest/sdk/integrations/google-ai-studio",
                   "latest/sdk/integrations/groq",

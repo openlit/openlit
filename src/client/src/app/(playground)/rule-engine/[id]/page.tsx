@@ -4,7 +4,8 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, SlidersHorizontal } from "lucide-react";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -19,6 +20,7 @@ import RulePreviewSection from "@/components/(playground)/rule-engine/rule-previ
 import RuleEntitiesCard from "@/components/(playground)/rule-engine/rule-entities-card";
 import { usePageHeader } from "@/selectors/page";
 import getMessage from "@/constants/messages";
+import { useRouter } from "next/navigation";
 
 type RuleDetail = Rule & { condition_groups?: RuleConditionGroup[] };
 
@@ -35,6 +37,7 @@ const DEFAULT_CONDITION_GROUP: ConditionGroupState = {
 };
 
 export default function RuleDetailPage() {
+	const router = useRouter()
 	const posthog = usePostHog();
 	const params = useParams();
 	const ruleId = params.id as string;
@@ -71,9 +74,7 @@ export default function RuleDetailPage() {
 				});
 				setHeader({
 					title: data.name,
-					breadcrumbs: [
-						{ title: messages.RULE_ENGINE_BREADCRUMB, href: "/rule-engine" },
-					],
+					breadcrumbs: [],
 				});
 				const groups: ConditionGroupState[] = (data.condition_groups || []).map(
 					(g: any) => ({
@@ -166,12 +167,17 @@ export default function RuleDetailPage() {
 		});
 	}, [ruleId, conditionGroups]);
 
+	const ruleHeaderTone = "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-300";
+
 	if (isLoading && !rule) {
 		return (
-			<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
-				<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
-				<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<FeaturePageHeader eyebrow="Resources" title={messages.LOADING} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} />
+				<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
+					<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+					<div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
+				</div>
 			</div>
 		);
 	}
@@ -181,51 +187,71 @@ export default function RuleDetailPage() {
 	const r = rule as any;
 
 	return (
-		<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
-			{/* Left: Rule info + condition builder */}
-			<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
-				<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800">
-					<RuleInfoSection
-						rule={r}
-						isEditing={isEditingInfo}
-						editValues={editValues}
-						isSaving={isUpdating}
-						onChange={handleInfoChange}
-						onEdit={handleInfoEdit}
-						onCancel={handleInfoCancel}
-						onSave={handleInfoSave}
-					/>
-				</CardHeader>
-
-				<CardContent className="flex flex-col gap-5 p-4 overflow-y-auto scrollbar-hidden flex-1">
-					<div className="flex flex-col gap-3">
-						<div className="flex items-center justify-between">
-							<CardTitle className="text-sm font-semibold text-stone-700 dark:text-stone-300">
-								{messages.RULE_CONDITION_GROUPS_TITLE}
-							</CardTitle>
-							<Button
-								size="sm"
-								onClick={saveConditions}
-								disabled={isSavingConditions}
-								className={`h-7 text-xs ${isSavingConditions ? "animate-pulse" : ""}`}
-							>
-								<CheckIcon className="w-3 h-3 mr-1" />
-								{messages.RULE_SAVE_CONDITIONS}
-							</Button>
-						</div>
-						<ConditionBuilder
-							groups={conditionGroups}
-							onChange={setConditionGroups}
-							groupOperator={editValues.groupOperator}
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader
+				eyebrow="Resources"
+				title={r.name}
+				icon={<SlidersHorizontal className="h-4 w-4" />}
+				tone={ruleHeaderTone}
+				leading={(
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8 w-8 shrink-0 p-0"
+						onClick={() => router.push("/rule-engine")}
+						title={getMessage().BACK}
+						aria-label={getMessage().BACK}
+					>
+						<ArrowLeftIcon className="size-3.5" />
+					</Button>
+				)}
+			/>
+			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
+				{/* Left: Rule info + condition builder */}
+				<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
+					<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800">
+						<RuleInfoSection
+							rule={r}
+							isEditing={isEditingInfo}
+							editValues={editValues}
+							isSaving={isUpdating}
+							onChange={handleInfoChange}
+							onEdit={handleInfoEdit}
+							onCancel={handleInfoCancel}
+							onSave={handleInfoSave}
 						/>
-					</div>
-				</CardContent>
-			</Card>
+					</CardHeader>
 
-			{/* Right: Preview + Entities */}
-			<div className="grid grid-flow-row grid-rows-2 gap-4 overflow-hidden scrollbar-hidden">
-				<RulePreviewSection ruleId={ruleId} />
-				<RuleEntitiesCard ruleId={ruleId} />
+					<CardContent className="flex flex-col gap-5 p-4 overflow-y-auto scrollbar-hidden flex-1">
+						<div className="flex flex-col gap-3">
+							<div className="flex items-center justify-between">
+								<CardTitle className="text-sm font-semibold text-stone-700 dark:text-stone-300">
+									{messages.RULE_CONDITION_GROUPS_TITLE}
+								</CardTitle>
+								<Button
+									size="sm"
+									onClick={saveConditions}
+									disabled={isSavingConditions}
+									className={`h-7 text-xs ${isSavingConditions ? "animate-pulse" : ""}`}
+								>
+									<CheckIcon className="w-3 h-3 mr-1" />
+									{messages.RULE_SAVE_CONDITIONS}
+								</Button>
+							</div>
+							<ConditionBuilder
+								groups={conditionGroups}
+								onChange={setConditionGroups}
+								groupOperator={editValues.groupOperator}
+							/>
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Right: Preview + Entities */}
+				<div className="grid grid-flow-row grid-rows-2 gap-4 overflow-hidden scrollbar-hidden">
+					<RulePreviewSection ruleId={ruleId} />
+					<RuleEntitiesCard ruleId={ruleId} />
+				</div>
 			</div>
 		</div>
 	);

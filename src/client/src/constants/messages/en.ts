@@ -8,6 +8,21 @@ export const OPERATION_FAILED = "Operation failed!";
 
 // API Keys
 export const NO_API_KEY = "No such apiKey exists!";
+export const MANAGE_API_KEYS = "Manage API Keys";
+export const OPENAI_SPEC = "OpenAPI Specification";
+export const GENERATE_NEW_API_KEY = "Generate New API Key";
+export const CREATE_NEW_KEY = "Create a new api key";
+export const SETTINGS = "Settings";
+export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
+export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
+export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
+export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
+export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
+export const COPY_SNIPPET = "Copy Snippet";
+export const COPIED = "Copied";
+export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
+export const RESPONSE_BODY_JSON = "Response Body (JSON)";
+export const COPIED_TO_CLIPBOARD = "Copied to clipboard!";
 
 // Prompts
 export const PROMPT_NAME_TAKEN = "Prompt name is already taken!";
@@ -95,6 +110,13 @@ export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
 export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
 export const EVALUATION_CRON_HELP =
 	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAMPLE_RATE_LABEL = "Sample rate (%)";
+export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
+	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost. Traces not selected are marked as skipped and are not re-queried on future cron runs; manual evaluation is always available.";
+export const EVALUATION_SAMPLE_RATE_INVALID =
+	"Sample rate must be a number between 0 and 1.";
+export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
+	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";
 export const EVALUATION_SAVE_CHANGES = "Save Changes";
 export const EVALUATION_CREATE_CONFIG = "Create Config";
@@ -107,7 +129,7 @@ export const EVALUATION_MANUAL_STEP_2 =
 	"Click the Evaluation tab in the trace details";
 export const EVALUATION_MANUAL_STEP_3 =
 	'Click "Run Evaluation" to evaluate the trace';
-export const EVALUATION_GO_TO_REQUESTS = "Go to Requests";
+export const EVALUATION_GO_TO_TRACES = "Go to Traces";
 export const EVALUATION_MANUAL_AND_AUTO = "Manual & Auto";
 export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
 	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
@@ -448,7 +470,7 @@ export const PRICING_MANUAL_STEP_2 =
 	'Click "Recalculate Cost" in the trace detail panel.';
 export const PRICING_MANUAL_STEP_3 =
 	"The gen_ai.usage.cost attribute is updated using the latest model pricing.";
-export const PRICING_GO_TO_REQUESTS = "Go to Requests";
+export const PRICING_GO_TO_TRACES = "Go to Traces";
 export const PRICING_SAVE = "Save";
 export const PRICING_UPDATE = "Update";
 export const PRICING_CONFIG_SAVED = "Pricing config saved";
@@ -483,6 +505,8 @@ export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
+export const FEATURE_AGENTS = "Agents";
 
 // Agents
 export const AGENTS_FILTER_SYSTEM = "System";
@@ -821,7 +845,7 @@ export const AGENTS_CONFIG_AUTO_DISCOVER_DESCRIPTION = "Automatically scan for a
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS = "Custom LLM Hosts";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_HELP = "Add custom hostnames for self-hosted LLM proxies (e.g. LiteLLM, Ollama, Azure per-deployment endpoints). Comma-separated. The controller will resolve these and monitor traffic to them.";
 export const AGENTS_CONFIG_CUSTOM_LLM_HOSTS_PLACEHOLDER = "litellm.internal:4000, ollama.internal:11434, my-azure.openai.azure.com";
-export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (LLM Providers)";
+export const AGENTS_CONFIG_PAYLOAD_EXTRACTION = "Payload Extraction (AI Providers)";
 export const AGENTS_CONFIG_PAYLOAD_EXTRACTION_HELP = "Enable payload extraction to capture GenAI span attributes (prompts, completions, tokens) for each provider.";
 export const AGENTS_CONFIG_OTLP_HEADERS = "OTLP Headers";
 export const AGENTS_CONFIG_HEADER_NAME_PLACEHOLDER = "Header name";
@@ -841,6 +865,7 @@ export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";
 export const AGENTS_PROVIDER_BEDROCK = "AWS Bedrock";
+export const AGENTS_PROVIDER_RETRIEVAL = "Vector Retrieval";
 export const AGENTS_PROVIDER_QWEN = "Qwen";
 export const AGENTS_PROVIDER_OLLAMA = "Ollama";
 export const AGENTS_PROVIDER_CUSTOM = "Custom LLM Gateway";
@@ -960,6 +985,7 @@ export const VARIABLES = "Variables";
 export const PROMPT = "Prompt";
 export const PROMPT_PREVIEW = "Prompt Preview";
 export const PROMPT_HUB = "Prompt Hub";
+export const NAV_APP_PROMPTS = "Prompts";
 export const PROVIDERS = "Providers";
 export const NO_DATA_FOUND = "No data found!";
 export const CANNOT_CONNECT_TO_SERVER = "Cannot connect to server!";
@@ -1698,6 +1724,54 @@ export const TRACE_AI_DURATION_MS = (duration: number | string) => `${duration}m
 export const TRACE_AI_EMPTY_TITLE = "No analysis yet";
 export const TRACE_AI_EMPTY_DESCRIPTION =
 	"Run an AI improvement analysis to review prompts, responses, cost, tokens, latency, and hierarchy-level failure patterns.";
+export const TRACE_AI_STRENGTHS_UI_LABEL = "Strengths";
+export const TRACE_AI_STRENGTHS_STREAM_LABEL = "Strengths";
+export const TRACE_AI_STRENGTHS_GUIDANCE =
+	"Find concrete things that worked well: efficient prompts, good model choice, useful tool use, clean path, low cost, fast execution, useful context handling. Do not put problems here.";
+export const TRACE_AI_STRENGTHS_EMPTY_SUMMARY =
+	"No explicit strengths were identified in this run.";
+export const TRACE_AI_STRENGTHS_EMPTY_DETAIL =
+	"The analysis did not find a concrete positive pattern worth calling out. This does not mean the trace failed; it means the model did not see a specific strength with enough evidence.";
+export const TRACE_AI_IMPROVEMENTS_UI_LABEL = "Improvements";
+export const TRACE_AI_IMPROVEMENTS_STREAM_LABEL = "Improvements";
+export const TRACE_AI_IMPROVEMENTS_GUIDANCE =
+	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, or path_analysis. Avoid generic advice; cite spans.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY =
+	"No general improvements are required right now.";
+export const TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL =
+	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, or wrong-turn categories.";
+export const TRACE_AI_WRONG_TURNS_UI_LABEL = "Wrong turns";
+export const TRACE_AI_WRONG_TURNS_STREAM_LABEL = "Wrong turns";
+export const TRACE_AI_WRONG_TURNS_GUIDANCE =
+	"Find retries, rework, off-task branches, tool failures followed by repeated work, user-blocked steps, self-correction, or decisions that created unnecessary work.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_SUMMARY =
+	"No wrong turns were detected.";
+export const TRACE_AI_WRONG_TURNS_EMPTY_DETAIL =
+	"The trace did not show clear retries, off-task branches, unnecessary rework, or agent decisions that caused a detour.";
+export const TRACE_AI_COST_UI_LABEL = "Cost";
+export const TRACE_AI_COST_STREAM_LABEL = "Cost";
+export const TRACE_AI_COST_GUIDANCE =
+	"Analyze absolute spend, cost concentration, model choice, expensive spans, cost per call, and whether cheaper routing would have been appropriate. Do not discuss token waste unless it directly explains spend.";
+export const TRACE_AI_COST_EMPTY_SUMMARY =
+	"Cost looks acceptable for this trace.";
+export const TRACE_AI_COST_EMPTY_DETAIL =
+	"No span stood out as clearly over budget or using a model that was obviously too expensive for the observed subtask.";
+export const TRACE_AI_TOKEN_EFFICIENCY_UI_LABEL = "Token efficiency";
+export const TRACE_AI_TOKEN_EFFICIENCY_STREAM_LABEL = "Token efficiency";
+export const TRACE_AI_TOKEN_EFFICIENCY_GUIDANCE =
+	"Analyze input/output/cache/reasoning token waste, repeated context, repeated prompts, oversized tool results, duplicate retrieval/tool inputs, and largest context spans. This is about waste, not absolute spend.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_SUMMARY =
+	"Token usage looks acceptable for this trace.";
+export const TRACE_AI_TOKEN_EFFICIENCY_EMPTY_DETAIL =
+	"The analysis did not find obvious prompt bloat, repeated context, oversized tool outputs, or duplicate retrieval payloads.";
+export const TRACE_AI_PATH_ANALYSIS_UI_LABEL = "Path";
+export const TRACE_AI_PATH_ANALYSIS_STREAM_LABEL = "Path analysis";
+export const TRACE_AI_PATH_ANALYSIS_GUIDANCE =
+	"Analyze routing and execution path: whether the trace picked the right tools, avoided loops, used the right branches, and kept orchestration efficient.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_SUMMARY =
+	"The execution path looks reasonable.";
+export const TRACE_AI_PATH_ANALYSIS_EMPTY_DETAIL =
+	"The trace did not show clear routing loops, missed branches, unnecessary tool hops, or inappropriate tool choices.";
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;

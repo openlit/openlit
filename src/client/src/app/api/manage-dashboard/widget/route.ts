@@ -16,11 +16,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-	const startTimestamp = Date.now();
 	const res = await getWidgets();
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_WIDGET_LIST_FAILURE : SERVER_EVENTS.DASHBOARD_WIDGET_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(res);
 }

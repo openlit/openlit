@@ -16,9 +16,11 @@ import { useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { FieldProps, FormBuilderEvent } from "@/types/form";
+import getMessage from "@/constants/messages";
 
 export default function Generate({ refresh }: { refresh: () => void }) {
 	const posthog = usePostHog();
+	const messages = getMessage();
 	const [isOpen, setIsOpen] = useState(false);
 	const { fireRequest: fireCreateRequest, isLoading: isCreating } =
 		useFetchWrapper();
@@ -77,15 +79,16 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 			<DialogTrigger asChild>
 				<Button
 					variant="secondary"
-					className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 py-1 h-8 self-end"
+					size={"sm"}
+					className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-8 self-end"
 				>
-					Generate New API Key
+					{messages.GENERATE_NEW_API_KEY}
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="max-w-lg">
 				<DialogHeader>
 					<DialogTitle className="dark:text-stone-200 text-stone-800">
-						Create a new api key
+						{messages.CREATE_NEW_KEY}
 					</DialogTitle>
 				</DialogHeader>
 				<div className="flex items-center overflow-y-auto">
@@ -94,7 +97,7 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 						fields={formFields}
 						isLoading={isCreating}
 						onSubmit={isCreating ? noop : handleCreation}
-						submitButtonText="Create"
+						submitButtonText={messages.CREATE}
 					/>
 				</div>
 			</DialogContent>

@@ -7,14 +7,9 @@ export async function GET(
 	_: NextRequest,
 	{ params }: { params: { spanId: string } }
 ) {
-	const startTimestamp = Date.now();
 	const { spanId } = params;
 
 	const res: any = await getEvaluationsForSpanId(spanId);
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.EVALUATION_GET_FAILURE : SERVER_EVENTS.EVALUATION_GET_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(res);
 }
 

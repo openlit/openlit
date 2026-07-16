@@ -100,13 +100,18 @@ export default function RuleEnginePage() {
 		fireRequest({
 			requestType: "GET",
 			url: `/api/rule-engine/rules`,
+			successCb: (response: Rule[]) => {
+				posthog?.capture(CLIENT_EVENTS.RULE_ENGINE_LIST, {
+					count: Array.isArray(response) ? response.length : 0,
+				});
+			},
 			failureCb: (err?: string) => {
 				toast.error(err || getMessage().CANNOT_CONNECT_TO_SERVER, {
 					id: "rule-engine",
 				});
 			},
 		});
-	}, []);
+	}, [posthog]);
 
 	const deleteRule = useCallback(
 		async ({ id }: { id: string }) => {
@@ -138,28 +143,30 @@ export default function RuleEnginePage() {
 	}, [pingStatus]);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
+		<div className="flex flex-col w-full h-full">
 			<RuleEngineHeader successCallback={fetchData} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus === "failure"}
-				isLoading={isLoading || isDeleting}
-				visibilityColumns={{
-					name: true,
-					description: true,
-					groupOperator: true,
-					status: true,
-					createdBy: true,
-					createdAt: true,
-					actions: true,
-				}}
-				onClick={(row: Rule) => router.push(`/rule-engine/${row.id}`)}
-				extraFunctions={{
-					handleDelete: deleteRule,
-					successCallback: fetchData,
-				}}
-			/>
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched || pingStatus === "failure"}
+					isLoading={isLoading || isDeleting}
+					visibilityColumns={{
+						name: true,
+						description: true,
+						groupOperator: true,
+						status: true,
+						createdBy: true,
+						createdAt: true,
+						actions: true,
+					}}
+					onClick={(row: Rule) => router.push(`/rule-engine/${row.id}`)}
+					extraFunctions={{
+						handleDelete: deleteRule,
+						successCallback: fetchData,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

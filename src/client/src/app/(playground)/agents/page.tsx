@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { RefreshCw, Plus } from "lucide-react";
+import { Bot, RefreshCw, Plus } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
@@ -31,6 +33,11 @@ import {
 } from "@/components/ui/dialog";
 import ComboDropdown from "@/components/(playground)/filter/combo-dropdown";
 import Filter from "@/components/(playground)/filter";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import {
+	AgentPillTab,
+	AGENTS_HEADER_TONE,
+} from "@/components/(playground)/agents/agent-header";
 import getMessage from "@/constants/messages";
 import NoController from "./no-controller";
 import NoCodingAgents from "./no-coding-agents";
@@ -49,6 +56,7 @@ function coerceTab(value: string | null): Tab {
 export default function AgentsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
+	const posthog = usePostHog();
 	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
 	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
@@ -94,6 +102,9 @@ export default function AgentsPage() {
 	//   - while the apps view is empty AND the coding view has rows,
 	//   - exactly once after data first lands.
 	const didAutoRouteRef = useRef(false);
+	// Fire the anonymous inventory-on-view event only once per mount so the
+	// 30s background poll doesn't spam PostHog with duplicate counts.
+	const inventoryFiredRef = useRef(false);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -491,6 +502,33 @@ export default function AgentsPage() {
 		0
 	);
 
+	// Anonymous inventory-on-view: once the first fetch settles, report how
+	// many application agents / coding vendors / sessions this install has.
+	// Counts only — no service names, hostnames, or user identities.
+	useEffect(() => {
+		if (!servicesFetched || inventoryFiredRef.current) return;
+		inventoryFiredRef.current = true;
+		const codingSessionsTotal = codingRows.reduce(
+			(sum, r) => sum + (r.coding_session_count_24h ?? 0),
+			0
+		);
+		posthog?.capture(CLIENT_EVENTS.AGENTS_HUB_VIEWED, {
+			count: applicationRows.length,
+			controllers: activeControllers.length,
+		});
+		posthog?.capture(CLIENT_EVENTS.CODING_AGENTS_VIEWED, {
+			count: codingVendorsUsed,
+			sessions_total: codingSessionsTotal,
+		});
+	}, [
+		servicesFetched,
+		applicationRows.length,
+		activeControllers.length,
+		codingVendorsUsed,
+		codingRows,
+		posthog,
+	]);
+
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
 		for (const svc of serviceRows) {
@@ -601,7 +639,62 @@ export default function AgentsPage() {
 	}, []);
 
 	return (
-		<div className="flex flex-col w-full gap-4 p-1 overflow-y-auto">
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<FeaturePageHeader
+				eyebrow={getMessage().FEATURE_AGENTS}
+				title={
+					activeTab === "coding"
+						? getMessage().AGENTS_TAB_CODING
+						: activeTab === "controllers"
+							? getMessage().AGENTS_TAB_CONTROLLERS
+							: getMessage().AGENTS_TAB_SERVICES
+				}
+				icon={<Bot className="h-5 w-5" />}
+				tone={AGENTS_HEADER_TONE}
+				actions={(
+					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+						<div className="flex flex-wrap items-center gap-2">
+							{(
+								[
+									{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
+									{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
+									{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
+								] as const
+							).map((tab) => (
+								<AgentPillTab
+									key={tab.id}
+									active={activeTab === tab.id}
+									label={tab.label}
+									onClick={() => setActiveTab(tab.id)}
+								/>
+							))}
+						</div>
+						{activeTab === "controllers" && (
+							<Button
+								variant="secondary"
+								size="sm"
+								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								onClick={() => setSetupModal("controller")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CONTROLLER}
+							</Button>
+						)}
+						{activeTab === "coding" && (
+							<Button
+								variant="secondary"
+								size="sm"
+								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								onClick={() => setSetupModal("coding")}
+							>
+								<Plus className="w-3 h-3 mr-1.5" />
+								{getMessage().AGENTS_ADD_CODING_AGENT}
+							</Button>
+						)}
+					</div>
+				)}
+			/>
+			<section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
 			{/* Toolbar */}
 			<div className="flex items-center w-full gap-4">
 				<Filter />
@@ -726,138 +819,83 @@ export default function AgentsPage() {
 						   tab switch — number + label only, no
 						   subtitle line. Order is Total Coding
 						   agents → Total users → Total cost. */
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-3 gap-2">
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{codingVendorsUsed}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_VENDORS}
 								</div>
 							</button>
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+								<div className="text-lg font-semibold leading-tight tabular-nums text-stone-900 dark:text-stone-100">
 									{codingTotalUsers.toLocaleString()}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_USERS}
 								</div>
 							</button>
 							<button
 								onClick={handleCodingStatClick}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100 tabular-nums">
+								<div className="text-lg font-semibold leading-tight tabular-nums text-stone-900 dark:text-stone-100">
 									${codingTotalCost.toFixed(2)}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CODING_COST}
 								</div>
 							</button>
 						</div>
 					) : (
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-3 gap-2">
 							<button
 								onClick={() => handleLegacyStatClick("controllers")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{activeControllers.length}
 									{staleCount > 0 && (
-										<span className="text-sm font-normal text-stone-400 dark:text-stone-500 ml-1.5">
+										<span className="ml-1.5 text-xs font-normal text-stone-400 dark:text-stone-500">
 											({staleCount} stale)
 										</span>
 									)}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_CONTROLLERS}
 								</div>
 							</button>
 							<button
 								onClick={() => handleLegacyStatClick("discovered")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{totalServices}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_DISCOVERED_SERVICES}
 								</div>
 							</button>
 							<button
 								onClick={() => handleLegacyStatClick("instrumented")}
-								className="border dark:border-stone-800 rounded-lg p-4 text-left transition-colors hover:bg-stone-50 dark:hover:bg-stone-800/50"
+								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
 							>
-								<div className="text-2xl font-semibold text-stone-900 dark:text-stone-100">
+								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{instrumentedServices}
 								</div>
-								<div className="text-sm text-stone-500 dark:text-stone-400">
+								<div className="text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().AGENTS_STAT_INSTRUMENTED_SERVICES}
 								</div>
 							</button>
 						</div>
 					)}
-
-					{/* Tab switcher. Ordering reflects expected
-					    usage frequency: most teams will spend most
-					    of their time on Applications and Coding
-					    Agents; Controllers is a setup-time tab. We
-					    drop the count badge from Coding Agents
-					    intentionally — the tab name carries the
-					    affordance and the row count is already on
-					    the table itself; the badge was creating
-					    visual noise on the most-clicked tab. */}
-					<div className="flex items-center border-b border-stone-200 dark:border-stone-700">
-						{(
-							[
-								{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
-								{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
-								{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
-							] as const
-						).map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => {
-									setActiveTab(tab.id);
-								}}
-								className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 inline-flex items-center gap-1.5 ${
-									activeTab === tab.id
-										? "border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100"
-										: "border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300"
-								}`}
-							>
-								{tab.label}
-							</button>
-						))}
-						{activeTab === "controllers" && (
-							<Button
-								variant="outline"
-								size="default"
-								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setSetupModal("controller")}
-							>
-								<Plus className="w-3 h-3 mr-1.5" />
-								{getMessage().AGENTS_ADD_CONTROLLER}
-							</Button>
-						)}
-						{activeTab === "coding" && (
-							<Button
-								variant="outline"
-								size="default"
-								className="ml-auto text-xs h-auto py-1.5 px-3"
-								onClick={() => setSetupModal("coding")}
-							>
-								<Plus className="w-3 h-3 mr-1.5" />
-								{getMessage().AGENTS_ADD_CODING_AGENT}
-							</Button>
-						)}
-					</div>
 
 					{/* Content. Each tab owns its own empty state so
 					    the install instructions match the tab — a
@@ -932,6 +970,7 @@ export default function AgentsPage() {
 					)}
 				</>
 			)}
+			</section>
 
 			<Dialog
 				open={setupModal !== null}

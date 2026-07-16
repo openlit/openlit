@@ -8,11 +8,13 @@ import CohereInstrumentation from './cohere';
 import GroqInstrumentation from './groq';
 import AI21Instrumentation from './ai21';
 import GradientInstrumentation from './gradient';
+import BrowserUseInstrumentation from './browser-use';
 import MistralInstrumentation from './mistral';
 import GoogleAIInstrumentation from './google-ai';
 import VertexAIInstrumentation from './vertexai';
 import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
+import VllmInstrumentation from './vllm';
 import VercelAIInstrumentation from './vercel-ai';
 import LangChainInstrumentation from './langchain';
 import LangGraphInstrumentation from './langgraph';
@@ -34,7 +36,10 @@ import AstraInstrumentation from './astra';
 import MCPInstrumentation from './mcp';
 import Mem0Instrumentation from './mem0';
 import ElevenLabsInstrumentation from './elevenlabs';
+import AssemblyAIInstrumentation from './assemblyai';
 import TransformersInstrumentation from './transformers';
+import PgInstrumentation from './pg';
+import FirecrawlInstrumentation from './firecrawl';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -85,11 +90,13 @@ export default class Instrumentations {
     groq: new GroqInstrumentation(),
     ai21: new AI21Instrumentation(),
     gradient: new GradientInstrumentation(),
+    'browser-use': new BrowserUseInstrumentation(),
     mistral: new MistralInstrumentation(),
     'google-ai': new GoogleAIInstrumentation(),
     vertexai: new VertexAIInstrumentation(),
     together: new TogetherInstrumentation(),
     ollama: new OllamaInstrumentation(),
+    vllm: new VllmInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),
     langchain: new LangChainInstrumentation(),
     langgraph: new LangGraphInstrumentation(),
@@ -111,7 +118,10 @@ export default class Instrumentations {
     mcp: new MCPInstrumentation(),
     mem0: new Mem0Instrumentation(),
     elevenlabs: new ElevenLabsInstrumentation(),
+    assemblyai: new AssemblyAIInstrumentation(),
     transformers: new TransformersInstrumentation(),
+    pg: new PgInstrumentation(),
+    firecrawl: new FirecrawlInstrumentation(),
   };
 
   static setup(

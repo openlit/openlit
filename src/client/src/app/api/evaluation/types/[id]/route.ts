@@ -36,14 +36,9 @@ export async function GET(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
-	const startTimestamp = Date.now();
 	const typeId = params.id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation config not found" },
 			{ status: 404 }
@@ -52,19 +47,11 @@ export async function GET(
 	const types = (config as any).evaluationTypes ?? [];
 	const typeConfig = types.find((t: any) => t.id === typeId);
 	if (!typeConfig) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation type not found" },
 			{ status: 404 }
 		);
 	}
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.EVALUATION_TYPE_GET_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json({ data: typeConfig });
 }
 

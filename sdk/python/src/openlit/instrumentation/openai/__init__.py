@@ -141,12 +141,12 @@ def _standard_args(
 
 
 def _safe_wrap(module, class_method, wrapper):
-    """Wrap a function, silently skipping if the module doesn't exist in this SDK version."""
+    """Wrap a function, silently skipping if the module or attribute doesn't exist in this SDK version."""
     try:
         wrap_function_wrapper(module, class_method, wrapper)
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, AttributeError):
         logger.debug(
-            "Skipping %s.%s — module not in this openai version", module, class_method
+            "Skipping %s.%s — not in this openai version", module, class_method
         )
 
 

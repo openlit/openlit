@@ -9,6 +9,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { getTimeLimitObject, TIME_RANGE_TYPE } from "@/store/filter";
 import { TIME_RANGES } from "@/types/store/filter";
 import getMessage from "@/constants/messages";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
 type UsageItem = {
 	id: string;
@@ -191,44 +192,41 @@ export default function OtterUsageView() {
 
 	return (
 		<div className="flex h-full flex-col bg-white dark:bg-stone-950">
-			<div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
-				<div className="min-w-0">
-					<div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
-						<BarChart3 className="h-4 w-4 text-primary" />
-						{m.CHAT_OTTER_USAGE}
+			<FeaturePageHeader
+				eyebrow={m.CHAT_OTTER_USAGE}
+				title={m.CHAT_OTTER_USAGE_DESCRIPTION}
+				icon={<BarChart3 className="h-4 w-4" />}
+				tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
+				actions={(
+					<div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+						<Tabs value={timeRange} onValueChange={onTimeRangeChange}>
+							<TabsList className="h-[30px] border border-stone-200 p-0 dark:border-stone-800">
+								{TIME_RANGE_TABS.map(({ key, label }) => (
+									<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
+										{label}
+									</TabsTrigger>
+								))}
+							</TabsList>
+						</Tabs>
+						{timeRange === "CUSTOM" && (
+							<DatePickerWithRange
+								selectedDate={selectedDate}
+								onCustomDateChange={onCustomDateChange}
+							/>
+						)}
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={fetchUsage}
+							disabled={isLoading}
+							className="shrink-0 gap-1.5 h-8"
+						>
+							<RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+							{m.CHAT_REFRESH}
+						</Button>
 					</div>
-					<div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
-						{m.CHAT_OTTER_USAGE_DESCRIPTION}
-					</div>
-				</div>
-				<div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-					<Tabs value={timeRange} onValueChange={onTimeRangeChange}>
-						<TabsList className="h-[30px] border border-stone-200 p-0 dark:border-stone-800">
-							{TIME_RANGE_TABS.map(({ key, label }) => (
-								<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
-									{label}
-								</TabsTrigger>
-							))}
-						</TabsList>
-					</Tabs>
-					{timeRange === "CUSTOM" && (
-						<DatePickerWithRange
-							selectedDate={selectedDate}
-							onCustomDateChange={onCustomDateChange}
-						/>
-					)}
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={fetchUsage}
-						disabled={isLoading}
-						className="shrink-0 gap-1.5"
-					>
-						<RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-						{m.CHAT_REFRESH}
-					</Button>
-				</div>
-			</div>
+				)}
+			/>
 
 			<div className="min-h-0 flex-1 overflow-auto px-4 py-4">
 				{isLoading ? (

@@ -92,13 +92,18 @@ export default function PromptHub() {
 		fireRequest({
 			requestType: "POST",
 			url: `/api/prompt/get`,
+			successCb: (response: PromptList[]) => {
+				posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_LIST, {
+					count: Array.isArray(response) ? response.length : 0,
+				});
+			},
 			failureCb: (err?: string) => {
 				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "prompt-hub",
 				});
 			},
 		});
-	}, []);
+	}, [posthog]);
 
 	const deletePrompt = useCallback(
 		async ({ id }: { id: string }) => {
@@ -140,26 +145,28 @@ export default function PromptHub() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
+		<div className="flex flex-col w-full h-full">
 			<PromptHubHeader createNew />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus === "failure"}
-				isLoading={isLoading || isDeleting}
-				visibilityColumns={{
-					name: true,
-					createdBy: true,
-					latestVersion: true,
-					downloads: true,
-					lastReleasedOn: true,
-					actions: true,
-				}}
-				onClick={(row: PromptList) => router.push(`/prompt-hub/${row.promptId}`)}
-				extraFunctions={{
-					handleDelete: deletePrompt,
-				}}
-			/>
+			<div className="flex flex-col w-full h-full p-4">
+				<DataTable
+					columns={columns}
+					data={data || []}
+					isFetched={isFetched || pingStatus === "failure"}
+					isLoading={isLoading || isDeleting}
+					visibilityColumns={{
+						name: true,
+						createdBy: true,
+						latestVersion: true,
+						downloads: true,
+						lastReleasedOn: true,
+						actions: true,
+					}}
+					onClick={(row: PromptList) => router.push(`/prompt-hub/${row.promptId}`)}
+					extraFunctions={{
+						handleDelete: deletePrompt,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }

@@ -1,0 +1,52 @@
+---
+title: 'Monitor OCI Generative AI using OpenTelemetry'
+sidebarTitle: 'OCI GenAI'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from Oracle Cloud Infrastructure (OCI) Generative AI. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- OCI Python SDK `oci >= 2.100.0`
+
+It instruments the `GenerativeAiInferenceClient` `chat`, `generate_text`, and `embed_text` calls, covering both the direct OCI SDK and LangChain's `ChatOCIGenAI` / `OCIGenAI` wrappers.
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
+<Card
+    title="Zero-code observability with the OpenLIT Controller"
+    icon="tower-broadcast"
+    href="/latest/controller/overview"
+  >
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  </Card>

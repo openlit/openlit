@@ -49,7 +49,7 @@ interface RecordedInsert {
 
 function captureInsertedRows(): RecordedInsert[] {
 	const inserts: RecordedInsert[] = [];
-	mockedDC.mockImplementation(async (config: any, op: string) => {
+	mockedDC.mockImplementation(async (config: any, op?: string) => {
 		if (op === "insert") {
 			inserts.push({
 				table: String(config.table),
@@ -135,7 +135,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// `res.err`. The implementation here short-circuits every non-
 		// insert call with `{ data: [] }` so the conflict query sees
 		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op: string) => {
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -200,7 +200,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// `res.err`. The implementation here short-circuits every non-
 		// insert call with `{ data: [] }` so the conflict query sees
 		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op: string) => {
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -234,7 +234,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// the workload_key dedup cannot merge them with the controller row
 		// (their workload_key is empty) and the agent shows up twice.
 		const queries: string[] = [];
-		mockedDC.mockImplementation(async (config: any, op: string) => {
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
 			if (op === "query") {
 				queries.push(String(config.query));
 				return { data: [] } as any;
@@ -296,7 +296,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// `res.err`. The implementation here short-circuits every non-
 		// insert call with `{ data: [] }` so the conflict query sees
 		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op: string) => {
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -351,7 +351,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// `res.err`. The implementation here short-circuits every non-
 		// insert call with `{ data: [] }` so the conflict query sees
 		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op: string) => {
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
 			if (op === "insert") {
 				inserts.push({
 					table: String(c.table),
@@ -379,7 +379,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// provider logos disappear even when the controller has detected
 		// imports.
 		const queries: string[] = [];
-		mockedDC.mockImplementation(async (config: any, op: string) => {
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
 			if (op === "query") {
 				queries.push(String(config.query));
 				return { data: [] } as any;

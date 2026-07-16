@@ -4,21 +4,19 @@ import { getRules, createRule } from "@/lib/platform/rule-engine";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
-export async function GET() {
-	const startTimestamp = Date.now();
-	const { err, data }: any = await getRules();
+import { resolveDbConfigId } from "@/helpers/server/auth";
+
+export async function GET(request: Request) {
+	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
+	if (authErr) {
+		return Response.json({ err: authErr }, { status: 401 });
+	}
+
+	const { err, data }: any = await getRules(databaseConfigId);
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.RULE_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.RULE_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 

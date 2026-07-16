@@ -86,6 +86,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
   static GEN_AI_REQUEST_AUDIO_SETTINGS = 'gen_ai.request.audio_settings';
+  static GEN_AI_REQUEST_AUDIO_DURATION = 'gen_ai.request.audio_duration';
   static GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = 'gen_ai.request.audio_response_format';
   static GEN_AI_REQUEST_AUDIO_SPEED = 'gen_ai.request.audio_speed';
   static GEN_AI_REQUEST_FINETUNE_STATUS = 'gen_ai.request.fine_tune_status';
@@ -185,6 +186,65 @@ export default class SemanticConvention {
   static GEN_AI_AGENT_ACTION_LOG = 'gen_ai.agent.action.log';
   static GEN_AI_AGENT_FINISH_OUTPUT = 'gen_ai.agent.finish.output';
   static GEN_AI_AGENT_FINISH_LOG = 'gen_ai.agent.finish.log';
+  static GEN_AI_OPERATION_TYPE = 'gen_ai.operation.type';
+  static GEN_AI_AGENT_TYPE = 'gen_ai.agent.type';
+  static GEN_AI_AGENT_TYPE_BROWSER = 'browser';
+  static GEN_AI_AGENT_BROWSE_URL = 'gen_ai.agent.browse_url';
+  static GEN_AI_AGENT_STEP_COUNT = 'gen_ai.agent.step_count';
+  static GEN_AI_AGENT_MAX_STEPS = 'gen_ai.agent.max_steps';
+  static GEN_AI_BROWSER_AGENT_TASK_ID = 'gen_ai.agent.task_id';
+  static GEN_AI_AGENT_SESSION_ID = 'gen_ai.agent.session_id';
+  static GEN_AI_AGENT_USE_VISION = 'gen_ai.agent.use_vision';
+  static GEN_AI_AGENT_HEADLESS = 'gen_ai.agent.headless';
+  static GEN_AI_AGENT_ALLOWED_DOMAINS = 'gen_ai.agent.allowed_domains';
+  static GEN_AI_AGENT_TOTAL_ACTIONS = 'gen_ai.agent.total_actions';
+  static GEN_AI_AGENT_SUCCESSFUL_STEPS = 'gen_ai.agent.successful_steps';
+  static GEN_AI_AGENT_FAILED_STEPS = 'gen_ai.agent.failed_steps';
+  static GEN_AI_AGENT_SUCCESS_RATE = 'gen_ai.agent.success_rate';
+  static GEN_AI_AGENT_FINAL_RESULT = 'gen_ai.agent.final_result';
+  static GEN_AI_AGENT_EXECUTION_TIME = 'gen_ai.agent.execution_time';
+  static GEN_AI_AGENT_THINKING = 'gen_ai.agent.thinking';
+  static GEN_AI_AGENT_MEMORY = 'gen_ai.agent.memory';
+  static GEN_AI_AGENT_NEXT_GOAL = 'gen_ai.agent.next_goal';
+  static GEN_AI_AGENT_EVALUATION = 'gen_ai.agent.evaluation';
+  static GEN_AI_AGENT_ACTIONS = 'gen_ai.agent.actions';
+  static GEN_AI_AGENT_ACTIONS_COUNT = 'gen_ai.agent.actions_count';
+  static GEN_AI_AGENT_PAGE_TITLE = 'gen_ai.agent.page_title';
+  static GEN_AI_ACTION_SUCCESS = 'gen_ai.action.success';
+  static GEN_AI_ACTION_ERROR = 'gen_ai.action.error';
+  static GEN_AI_ACTION_TYPE = 'gen_ai.action.type';
+  static GEN_AI_ACTION_INDEX = 'gen_ai.action.index';
+
+  // Web crawling / scraping (Firecrawl)
+  static GEN_AI_CRAWL_URL_COUNT = 'gen_ai.crawl.url_count';
+  static GEN_AI_CRAWL_RESULT_SUCCESS = 'gen_ai.crawl.result.success';
+  static GEN_AI_CRAWL_RESULT_SUCCESS_COUNT = 'gen_ai.crawl.result.success_count';
+  static GEN_AI_CRAWL_RESULT_SUCCESS_RATE = 'gen_ai.crawl.result.success_rate';
+  static GEN_AI_CRAWL_RESULT_STATUS_CODE = 'gen_ai.crawl.result.status_code';
+  static GEN_AI_CRAWL_RESULT_HTML_LENGTH = 'gen_ai.crawl.result.html_length';
+  static GEN_AI_CRAWL_RESULT_MARKDOWN_LENGTH = 'gen_ai.crawl.result.markdown_length';
+  static GEN_AI_CRAWL_RESULT_LINKS_COUNT = 'gen_ai.crawl.result.links_count';
+  static GEN_AI_MONITOR_TASK_STATUS = 'gen_ai.monitor.task_status';
+  static GEN_AI_RESPONSE_WARNING = 'gen_ai.response.warning';
+  static GEN_AI_RESPONSE_ERROR = 'gen_ai.response.error';
+  static GEN_AI_RESPONSE_TITLE = 'gen_ai.response.title';
+  static GEN_AI_RESPONSE_DESCRIPTION = 'gen_ai.response.description';
+  static GEN_AI_RESPONSE_HAS_SCREENSHOT = 'gen_ai.response.has_screenshot';
+  static GEN_AI_RESPONSE_PROGRESS_COMPLETED = 'gen_ai.response.progress_completed';
+  static GEN_AI_RESPONSE_PROGRESS_TOTAL = 'gen_ai.response.progress_total';
+  static GEN_AI_RESPONSE_COMPLETION_RATE = 'gen_ai.response.completion_rate';
+  static GEN_AI_RESPONSE_CREDITS_USED = 'gen_ai.response.credits_used';
+  static GEN_AI_RESPONSE_JOB_ID = 'gen_ai.response.job_id';
+  static GEN_AI_RESPONSE_EXPIRES_AT = 'gen_ai.response.expires_at';
+  static GEN_AI_RESPONSE_DATA_COUNT = 'gen_ai.response.data_count';
+  static GEN_AI_RESPONSE_TOTAL_LINKS_COUNT = 'gen_ai.response.total_links_count';
+  static GEN_AI_RESPONSE_TOTAL_CONTENT_LENGTH = 'gen_ai.response.total_content_length';
+  static GEN_AI_RESPONSE_SUCCESS_RATE = 'gen_ai.response.success_rate';
+  static GEN_AI_RESPONSE_TYPE = 'gen_ai.response.type';
+  static ERROR_MESSAGE = 'error.message';
+  static ERROR_CATEGORY = 'error.category';
+  static ERROR_RESPONSE_TEXT = 'error.response_text';
+  static HTTP_STATUS_CODE = 'http.status_code';
 
   // Workflow / framework
   static GEN_AI_WORKFLOW_INPUT = 'gen_ai.workflow.input';
@@ -210,9 +270,19 @@ export default class SemanticConvention {
   static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
   static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'invoke_workflow';
   static GEN_AI_OPERATION_TYPE_AGENT = 'invoke_agent';
+  static GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = 'execute_task';
   static GEN_AI_OPERATION_TYPE_TOOLS = 'execute_tool';
   static GEN_AI_OPERATION_TYPE_RETRIEVE = 'retrieval';
   static GEN_AI_OPERATION_TYPE_MEMORY = 'memory';
+  static GEN_AI_OPERATION_TYPE_SCRAPE = 'scrape';
+  static GEN_AI_OPERATION_TYPE_CRAWL = 'crawl';
+  static GEN_AI_OPERATION_TYPE_MAP = 'map';
+  static GEN_AI_OPERATION_TYPE_SEARCH = 'search';
+  static GEN_AI_OPERATION_TYPE_EXTRACT = 'extract';
+  static GEN_AI_OPERATION_TYPE_EXTRACT_STATUS = 'extract_status';
+  static GEN_AI_OPERATION_TYPE_CRAWL_STATUS = 'crawl_status';
+  static GEN_AI_OPERATION_TYPE_SCRAPE_STATUS = 'scrape_status';
+  static GEN_AI_OPERATION_TYPE_CANCEL = 'cancel';
 
   // GenAI Output Types
   static GEN_AI_OUTPUT_TYPE_TEXT = 'text';
@@ -232,6 +302,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_LANGCHAIN = 'langchain';
   static GEN_AI_SYSTEM_VERCEL_AI = 'vercel_ai';
   static GEN_AI_SYSTEM_OLLAMA = 'ollama';
+  static GEN_AI_SYSTEM_VLLM = 'vllm';
   static GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = 'gcp.gemini';
   static GEN_AI_SYSTEM_GROQ = 'groq';
   static GEN_AI_SYSTEM_AI21 = 'ai21';
@@ -247,8 +318,11 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_STRANDS = 'strands_agents';
   static GEN_AI_SYSTEM_CURSOR = 'cursor';
   static GEN_AI_SYSTEM_ELEVENLABS = 'elevenlabs';
+  static GEN_AI_SYSTEM_ASSEMBLYAI = 'assemblyai';
   static GEN_AI_SYSTEM_MCP = 'mcp';
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
+  static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
+  static GEN_AI_SYSTEM_FIRECRAWL = 'firecrawl';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types
@@ -502,6 +576,30 @@ export default class SemanticConvention {
   static DB_WITH_PAYLOAD = 'db.with_payload';
   static DB_OUTPUT_FIELDS = 'db.output_fields';
 
+  // ----- PostgreSQL (pg) instrumentation -----
+  // Mirrors Python SDK psycopg instrumentation (sdk/python/src/openlit/instrumentation/psycopg).
+  static DB_SYSTEM_POSTGRESQL = 'postgresql';
+  // OTel database namespace (database name). Python psycopg uses "db.namespace";
+  // the existing TS DB_NAMESPACE = "db.query.namespace" is a vector-DB attribute,
+  // so a dedicated constant keeps parity with the Python attribute value.
+  static DB_NAMESPACE_POSTGRESQL = 'db.namespace';
+  // SQL operation names (statement verbs) — values mirror Python semcov.
+  static DB_OPERATION_COMMIT = 'COMMIT';
+  static DB_OPERATION_ROLLBACK = 'ROLLBACK';
+  static DB_OPERATION_COPY = 'COPY';
+  static DB_OPERATION_CREATE = 'CREATE';
+  static DB_OPERATION_ALTER = 'ALTER';
+  static DB_OPERATION_DROP = 'DROP';
+  static DB_OPERATION_TRUNCATE = 'TRUNCATE';
+  static DB_OPERATION_CALL = 'CALL';
+  // pgvector similarity metric (set when a similarity operator is present).
+  static DB_SEARCH_SIMILARITY_METRIC = 'db.search.similarity_metric';
+  // PostgreSQL-specific extras (mirror Python semcov).
+  static DB_POSTGRESQL_ROWS_AFFECTED = 'db.postgresql.rows_affected';
+  static DB_POSTGRESQL_PLAN = 'db.postgresql.plan';
+  // Batch size attribute used by executemany-style batched queries.
+  static DB_BATCH_SIZE = 'db.batch.size';
+
   // ----- Mem0 (memory layer) instrumentation -----
   // Session scope (mirrors Python semcov; stamped on memory spans when present)
   static GEN_AI_USER_ID = 'gen_ai.user.id';
@@ -539,4 +637,20 @@ export default class SemanticConvention {
   static GEN_AI_EVALUATION_SCORE_LABEL = 'gen_ai.evaluation.score.label';
   static GEN_AI_EVALUATION_EXPLANATION = 'gen_ai.evaluation.explanation';
   static OPENLIT_SCORE_IDEMPOTENCY_KEY = 'openlit.score.idempotency_key';
+
+  // ----- GPU (matches Python semcov) -----
+  static GPU_INDEX = 'gpu.index';
+  static GPU_UUID = 'gpu.uuid';
+  static GPU_NAME = 'gpu.name';
+  static GPU_UTILIZATION = 'gpu.utilization';
+  static GPU_UTILIZATION_ENC = 'gpu.enc.utilization';
+  static GPU_UTILIZATION_DEC = 'gpu.dec.utilization';
+  static GPU_TEMPERATURE = 'gpu.temperature';
+  static GPU_FAN_SPEED = 'gpu.fan_speed';
+  static GPU_MEMORY_AVAILABLE = 'gpu.memory.available';
+  static GPU_MEMORY_TOTAL = 'gpu.memory.total';
+  static GPU_MEMORY_USED = 'gpu.memory.used';
+  static GPU_MEMORY_FREE = 'gpu.memory.free';
+  static GPU_POWER_DRAW = 'gpu.power.draw';
+  static GPU_POWER_LIMIT = 'gpu.power.limit';
 }

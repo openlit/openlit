@@ -32,16 +32,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-	const startTimestamp = Date.now();
 	const isHome = request.nextUrl.searchParams.get("home") === "true";
 	const res = await getBoards(isHome);
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_GET_FAILURE : SERVER_EVENTS.DASHBOARD_GET_SUCCESS,
-		startTimestamp,
-		properties: {
-			isHome,
-			totalBoards: (res.data as Board[])?.length || 0,
-		},
-	});
 	return Response.json(res);
 }

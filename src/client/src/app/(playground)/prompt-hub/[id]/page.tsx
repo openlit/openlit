@@ -1,7 +1,6 @@
 "use client";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 import RuleForm from "@/components/(playground)/rule-engine/form";
 import getMessage from "@/constants/messages";
 import { Badge } from "@/components/ui/badge";
@@ -28,29 +27,39 @@ import { useRootStore } from "@/store";
 import { Prompt, PromptVersion, PromptVersionStatus } from "@/types/prompt";
 import { Rule, RuleEntity } from "@/types/rule-engine";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { unescapeString } from "@/utils/string";
 import { format, formatDistance } from "date-fns";
-import { CalendarDays, CloudDownload, LinkIcon, PlusIcon, Rocket, SlidersHorizontal } from "lucide-react";
+import { ArrowLeftIcon, CalendarDays, CloudDownload, Component, LinkIcon, PlusIcon, Rocket, SlidersHorizontal } from "lucide-react";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import {
 	useParams,
+	useRouter,
 	useSearchParams,
 } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 
 const m = getMessage();
 
 export default function PromptHub() {
+	const router = useRouter();
 	const posthog = usePostHog();
 	const pingStatus = useRootStore(getPingStatus);
 	const params = useParams();
 	const searchParams = useSearchParams();
 	const version = searchParams.get("version") || undefined;
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<Prompt>();
+
+	useDynamicBreadcrumbs(
+		{ title: (data as Prompt | undefined)?.name || (isLoading ? m.LOADING : "") },
+		[(data as Prompt | undefined)?.name, isLoading]
+	);
 
 	const [selectedRuleId, setSelectedRuleId] = useState("");
 	const [isLinkingOpen, setIsLinkingOpen] = useState(false);
@@ -137,21 +146,29 @@ export default function PromptHub() {
 		(r: any) => !linkedRuleIds.has(r.id)
 	);
 
+	const promptHeaderTone = "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900/70 dark:bg-pink-950/40 dark:text-pink-300";
+
 	if (!isFetched || (!(data as any)?.promptId && isLoading)) {
 		return (
-			<div className="flex flex-col w-full h-full overflow-hidden gap-6 items-center justify-center">
-				<div className="h-4 w-1/5 bg-secondary/[0.9] rounded" />
-				<div className="h-4 w-3/5 bg-secondary/[0.9] rounded" />
-				<div className="h-4 w-2/3 bg-secondary/[0.9] rounded" />
-				<div className="h-4 w-1/3 bg-secondary/[0.9] rounded" />
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<FeaturePageHeader eyebrow="Resources" title={m.LOADING} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<div className="flex flex-col w-full h-full overflow-hidden gap-6 items-center justify-center">
+					<div className="h-4 w-1/5 bg-secondary/[0.9] rounded" />
+					<div className="h-4 w-3/5 bg-secondary/[0.9] rounded" />
+					<div className="h-4 w-2/3 bg-secondary/[0.9] rounded" />
+					<div className="h-4 w-1/3 bg-secondary/[0.9] rounded" />
+				</div>
 			</div>
 		);
 	}
 
 	if (!data || !(data as any)?.promptId) {
 		return (
-			<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
-				{m.PROMPT_HUB_NO_PROMPT_EXISTS}
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
+					{m.PROMPT_HUB_NO_PROMPT_EXISTS}
+				</div>
 			</div>
 		);
 	}
@@ -163,13 +180,16 @@ export default function PromptHub() {
 		!isLoading
 	) {
 		return (
-			<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
-				{m.PROMPT_HUB_NO_VERSION_EXISTS}{" "}
-				<span className="bg-secondary text-primary px-2 text-sm mx-3">
-					{" "}
-					{(data as any).name}{" "}
-				</span>{" "}
-				{m.PROMPT_HUB_EXISTS}
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				<FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
+					{m.PROMPT_HUB_NO_VERSION_EXISTS}{" "}
+					<span className="bg-secondary text-primary px-2 text-sm mx-3">
+						{" "}
+						{(data as any).name}{" "}
+					</span>{" "}
+					{m.PROMPT_HUB_EXISTS}
+				</div>
 			</div>
 		);
 	}
@@ -189,9 +209,25 @@ export default function PromptHub() {
 	const promptText = unescapeString((data as any).prompt);
 
 	return (
-		<div className="flex flex-col w-full h-full gap-4">
-			<PromptHubHeader />
-			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
+		<div className="flex flex-col w-full h-full">
+			<PromptHubHeader
+				createNew={false}
+				title={`Prompt : ${data.name}`}
+				promptUsage={false}
+				leading={(
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8 w-8 shrink-0 p-0"
+						onClick={() => router.push("/prompt-hub")}
+						title={getMessage().BACK}
+						aria-label={getMessage().BACK}
+					>
+						<ArrowLeftIcon className="size-3.5" />
+					</Button>
+				)}
+			/>
+			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 				{/* Left: prompt details */}
 				<Card className="grow col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
 					<CardHeader className="p-4 border-b border-stone-200 dark:border-stone-800">

@@ -100,6 +100,33 @@ describe('verifyConditionGroupInput', () => {
     ).toMatchObject({ success: false });
   });
 
+  it('returns error for an invalid condition operator', () => {
+    expect(
+      verifyConditionGroupInput({
+        condition_operator: 'INVALID',
+        conditions: [{ field: 'cost', operator: 'gt' as any, value: '5' }],
+      })
+    ).toEqual({ success: false, err: 'condition_operator must be AND or OR!' });
+  });
+
+  it('returns success for AND condition operator', () => {
+    expect(
+      verifyConditionGroupInput({
+        condition_operator: 'AND',
+        conditions: [{ field: 'cost', operator: 'gt' as any, value: '5' }],
+      })
+    ).toEqual({ success: true });
+  });
+
+  it('returns success for OR condition operator', () => {
+    expect(
+      verifyConditionGroupInput({
+        condition_operator: 'OR',
+        conditions: [{ field: 'cost', operator: 'gt' as any, value: '5' }],
+      })
+    ).toEqual({ success: true });
+  });
+
   it('returns success for a group with one valid condition', () => {
     expect(
       verifyConditionGroupInput({ conditions: [{ field: 'cost', operator: 'gt' as any, value: '5' }] })

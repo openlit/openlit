@@ -51,7 +51,7 @@ func main() {
 		zap.String("proc_root", cfg.ProcRoot),
 	)
 
-	eng := engine.New(logger, cfg.OBIBinaryPath, cfg.OTLPEndpoint, cfg.ProcRoot, cfg.Environment, cfg.SDKVersion, cfg.DeployMode)
+	eng := engine.New(logger, cfg.OBIBinaryPath, cfg.OTLPEndpoint, cfg.ProcRoot, cfg.Environment, cfg.SDKVersion, cfg.NodeSDKVersion, cfg.DeployMode)
 	client := openlit.NewClient(cfg.OpenlitURL, cfg.APIKey, logger)
 
 	var mode openlit.ControllerMode
@@ -330,14 +330,14 @@ func executeAction(eng *engine.Engine, action openlit.PendingAction, logger *zap
 		execErr = eng.InstrumentService(action.ServiceKey)
 	case openlit.ActionUninstrument:
 		execErr = eng.UninstrumentService(action.ServiceKey)
-	case openlit.ActionEnablePythonSDK:
+	case openlit.ActionEnableSDK, openlit.ActionEnablePythonSDK:
 		payload, err := parsePythonSDKPayload(action.Payload)
 		if err != nil {
 			execErr = err
 			break
 		}
 		execErr = eng.EnablePythonSDK(action.ServiceKey, payload)
-	case openlit.ActionDisablePythonSDK:
+	case openlit.ActionDisableSDK, openlit.ActionDisablePythonSDK:
 		payload, err := parsePythonSDKPayload(action.Payload)
 		if err != nil {
 			execErr = err

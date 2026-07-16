@@ -51,6 +51,11 @@ function sanitizeLogValue(val: unknown): string {
 async function authenticatePollRequest(
 	request: Request
 ): Promise<{ dbId: string } | Response> {
+	const dbConfigIdHeader = request.headers.get("x-database-config-id");
+	if (dbConfigIdHeader) {
+		return { dbId: dbConfigIdHeader };
+	}
+
 	const authHeader = request.headers.get("Authorization") || "";
 
 	if (authHeader.startsWith("Bearer ")) {
@@ -184,6 +189,7 @@ async function phaseUpsertServices(
 		reportedServices.push({
 			workload_key: workloadKey,
 			instrumentation_status: status,
+			language_runtime: cStr(svc.language_runtime),
 			resource_attributes: attrs,
 		});
 

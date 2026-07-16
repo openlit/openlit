@@ -6,6 +6,7 @@ import type {
 export interface ReportedService {
 	workload_key: string;
 	instrumentation_status: string;
+	language_runtime?: string;
 	resource_attributes?: Record<string, string>;
 }
 

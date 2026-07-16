@@ -12,7 +12,8 @@ export const fetchAndPopulateCurrentUserStore = async () => {
 	);
 
 	if (err) {
-		signOut();
+		signOut({ callbackUrl: "/login" });
+		return;
 	}
 
 	useRootStore.getState().user.set(user);
