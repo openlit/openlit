@@ -14,6 +14,7 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { dataCollector } from "@/lib/platform/common";
 import {
 	CODING_AGENT_ATTR,
@@ -55,7 +56,7 @@ function pickBucket(start: Date | null, end: Date | null) {
 	return { bucket: "month", label: "%Y/%m" };
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	try {
 		await requireCodingAgentAuth();
 	} catch (err) {
@@ -148,3 +149,5 @@ export async function POST(request: Request) {
 
 	return Response.json({ bucket, buckets, total, peak });
 }
+
+export const POST = withCurrentOrganisationPermission("coding_agents:read", POSTHandler);
