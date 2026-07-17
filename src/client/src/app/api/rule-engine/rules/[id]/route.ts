@@ -1,10 +1,12 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { RuleInput } from "@/types/rule-engine";
 import { getRuleById, updateRule, deleteRule } from "@/lib/platform/rule-engine";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
-export async function GET(_: Request, context: any) {
+async function GETHandler(_: Request, context: any) {
 	const { id } = context.params;
 	const { err, data }: any = await getRuleById(id);
 	if (err) {
@@ -14,7 +16,7 @@ export async function GET(_: Request, context: any) {
 	return Response.json(data);
 }
 
-export async function PUT(request: Request, context: any) {
+async function PUTHandler(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const formData = await request.json();
@@ -42,7 +44,7 @@ export async function PUT(request: Request, context: any) {
 	return Response.json(res);
 }
 
-export async function DELETE(_: Request, context: any) {
+async function DELETEHandler(_: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const [err, res] = await deleteRule(id);
@@ -60,3 +62,7 @@ export async function DELETE(_: Request, context: any) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("rule_engine:read", GETHandler);
+export const PUT = withAudit(withCurrentOrganisationPermission("rule_engine:configure", PUTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("rule_engine:configure", DELETEHandler));

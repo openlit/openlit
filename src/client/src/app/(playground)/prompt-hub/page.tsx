@@ -147,7 +147,7 @@ export default function PromptHub() {
 	return (
 		<div className="flex flex-col w-full h-full">
 			<PromptHubHeader createNew />
-			<div className="flex flex-col w-full h-full p-4">
+			<div className="flex flex-col w-full h-full p-4 overflow-hidden">
 				<DataTable
 					columns={columns}
 					data={data || []}

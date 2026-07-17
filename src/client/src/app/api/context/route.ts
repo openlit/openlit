@@ -1,10 +1,12 @@
+import { withAudit } from "@/lib/audit/route";
 import { SERVER_EVENTS } from "@/constants/events";
 import { ContextInput } from "@/types/context";
 import { getContexts, createContext } from "@/lib/platform/context";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET() {
+async function GETHandler() {
 	const { err, data }: any = await getContexts();
 	if (err) {
 		return Response.json(err, { status: 400 });
@@ -13,7 +15,7 @@ export async function GET() {
 	return Response.json(data);
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 
@@ -41,3 +43,6 @@ export async function POST(request: Request) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withRouteAccess("context.read", GETHandler);
+export const POST = withAudit(withRouteAccess("context.create", POSTHandler));

@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { SERVER_EVENTS } from "@/constants/events";
@@ -21,7 +23,7 @@ interface SessionWithId {
 }
 
 // GET: List all custom models for a provider (or all providers if no provider specified)
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Create or update a custom model
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
@@ -270,7 +272,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE: Remove a custom model
-export async function DELETE(request: NextRequest) {
+async function DELETEHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
@@ -339,3 +341,7 @@ export async function DELETE(request: NextRequest) {
 	});
 	return NextResponse.json({ success: true, deleted: true });
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("openground:configure", DELETEHandler));
