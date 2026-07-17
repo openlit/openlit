@@ -13,11 +13,12 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getCodingUserDigest } from "@/lib/platform/coding-agents/queries";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	context: { params: { userId: string } }
 ) {
@@ -78,3 +79,5 @@ export async function GET(
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const GET = withCurrentOrganisationPermission("coding_agents:read", GETHandler);

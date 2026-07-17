@@ -4,6 +4,10 @@ import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
 } from "@/lib/platform/chat/improvement";
+import {
+	withOtterDbChatAccess,
+	withOtterDbReadAccess,
+} from "@/lib/chat/access";
 import { getCurrentUser } from "@/lib/session";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
@@ -26,7 +30,7 @@ function getScope(request: Request) {
 	return scope === "span" ? "span" : "trace";
 }
 
-export async function GET(request: Request, context: any) {
+async function getHandler(request: Request, context: any) {
 	const user = await getCurrentUser();
 	if (!user) {
 		logRoute("get_unauthorized", {});
@@ -57,7 +61,7 @@ export async function GET(request: Request, context: any) {
 	return Response.json({ data: data || null });
 }
 
-export async function POST(request: Request, context: any) {
+async function postHandler(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) {
@@ -118,3 +122,6 @@ export async function POST(request: Request, context: any) {
 
 	return response;
 }
+
+export const GET = withOtterDbReadAccess(getHandler);
+export const POST = withOtterDbChatAccess(postHandler);

@@ -2,7 +2,7 @@ import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
-import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
+import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import {
 	OPENLIT_PROVIDERS_TABLE_NAME,
 	OPENLIT_PROVIDER_MODELS_TABLE_NAME,
@@ -31,7 +31,7 @@ const MIGRATION_ID = "create-providers-and-provider-models-tables";
 export default async function CreateProvidersMigration(databaseConfigId?: string) {
 	const [, dbConfig] = await asaw(
 		databaseConfigId
-			? getDBConfigById({ id: databaseConfigId })
+			? getDBConfigByIdInternal({ id: databaseConfigId })
 			: getDBConfigByUser(true)
 	);
 

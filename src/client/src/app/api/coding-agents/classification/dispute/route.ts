@@ -15,6 +15,7 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import {
 	DisputeError,
 	submitClassificationDispute,
@@ -27,7 +28,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -82,3 +83,5 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const POST = withCurrentOrganisationPermission("coding_agents:dispute", POSTHandler);

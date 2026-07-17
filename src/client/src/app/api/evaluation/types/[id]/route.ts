@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
 import { SERVER_EVENTS } from "@/constants/events";
@@ -32,7 +34,7 @@ function normalizeRules(rules: any[]): RuleWithPriority[] {
 		}));
 }
 
-export async function GET(
+async function GETHandler(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -55,7 +57,7 @@ export async function GET(
 	return Response.json({ data: typeConfig });
 }
 
-export async function PATCH(
+async function PATCHHandler(
 	request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -109,7 +111,7 @@ export async function PATCH(
 	return Response.json({ data: updated });
 }
 
-export async function DELETE(
+async function DELETEHandler(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -155,3 +157,7 @@ export async function DELETE(
 	});
 	return Response.json({ data: { deleted: typeId } });
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const PATCH = withAudit(withCurrentOrganisationPermission("evaluation:configure", PATCHHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("evaluation:configure", DELETEHandler));
