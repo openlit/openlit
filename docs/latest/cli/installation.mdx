@@ -34,11 +34,11 @@ go install github.com/openlit/openlit/cli/cmd/openlit@latest
 |---|---|---|
 | **Homebrew** | Managed by Homebrew | Automatic |
 | **Linux script** | `~/.openlit/bin/openlit` | Prints a PATH-add hint if the directory isn't on `$PATH` |
-| **Windows script** | `%USERPROFILE%\.openlit\bin\openlit.exe` | Updates user-scope PATH automatically — open a new terminal to pick it up |
+| **Windows script** | `%USERPROFILE%\.openlit\bin\openlit.exe` | Updates user-scope PATH automatically - open a new terminal to pick it up |
 | **`go install`** | `$(go env GOPATH)/bin/openlit` | Add `GOPATH/bin` to `$PATH` if not already |
 
 <Tip>
-The CLI binary **must be on `$PATH`** for the vendor plugin installs to work. The `openlit coding install` command rewrites the `openlit` token in each generated hook manifest to the absolute path of the running binary, which sidesteps the minimal PATH that GUI-launched agents (like Cursor) inherit — but the binary still has to be found at install time.
+The CLI binary **must be on `$PATH`** for the vendor plugin installs to work. The `openlit coding install` command rewrites the `openlit` token in each generated hook manifest to the absolute path of the running binary, which sidesteps the minimal PATH that GUI-launched agents (like Cursor) inherit - but the binary still has to be found at install time.
 </Tip>
 
 ### Linux/macOS script options

@@ -1,5 +1,6 @@
 ---
 title: 'Monitor ElevenLabs using OpenTelemetry'
+description: "OpenLIT auto-instruments ElevenLabs' voice and speech models via OpenTelemetry, offering AI observability with cost tracking across voice generation calls."
 sidebarTitle: 'ElevenLabs'
 ---
 
@@ -49,7 +50,7 @@ const audio = await client.textToSpeech.convert("voice-id", {
 |--------|----------|
 | `captureMessageContent` | Gates `gen_ai.input.messages` / `gen_ai.output.messages` on spans and in events |
 | `disableEvents` | Suppresses all inference events |
-| `disableMetrics` | Global — metrics instruments are not set up |
+| `disableMetrics` | Global - metrics instruments are not set up |
 | `disabledInstrumentors: ['elevenlabs']` | Disables this instrumentation |
 
 <Note>
@@ -97,5 +98,5 @@ On the Python SDK, inference events are only emitted when `capture_message_conte
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>

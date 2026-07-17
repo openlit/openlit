@@ -55,12 +55,12 @@ OpenLIT provides **11 evaluation types** that can be used to evaluate the output
 </CardGroup>
 
 <Info>
-**Context is the source of truth**: When context is provided, evaluations judge the LLM response against the provided context — not against real-world knowledge. If the context says "2+2=5" and the LLM says "2+2=4", the evaluation flags it as a factual inaccuracy because it contradicts the provided context.
+**Context is the source of truth**: When context is provided, evaluations judge the LLM response against the provided context - not against real-world knowledge. If the context says "2+2=5" and the LLM says "2+2=4", the evaluation flags it as a factual inaccuracy because it contradicts the provided context.
 </Info>
 
 ## Running evaluations
 
-OpenLIT provides two ways to configure evaluation settings — from the Settings page or directly from a trace.
+OpenLIT provides two ways to configure evaluation settings - from the Settings page or directly from a trace.
 
 ### Configure from Settings
 
@@ -105,7 +105,7 @@ In addition to the 11 built-in types, you can create your own evaluation types t
 - **Description**: A brief explanation of what this evaluation checks
 - **Evaluation Prompt**: The prompt used by the LLM judge. It should start with a `[Label evaluation context]` header describing the evaluation criteria
 
-Custom types work exactly like built-in types — they can be enabled or disabled, linked to Rule Engine rules, and run in both auto and manual evaluations. The only difference is that custom types can be deleted when they are no longer needed, while built-in types cannot.
+Custom types work exactly like built-in types - they can be enabled or disabled, linked to Rule Engine rules, and run in both auto and manual evaluations. The only difference is that custom types can be deleted when they are no longer needed, while built-in types cannot.
 
 ### Run from a trace
 
@@ -141,7 +141,7 @@ Once evaluations are running, OpenLIT continuously analyzes your LLM responses a
 </Frame>
 
 1. Go to the Requests page to see all your LLM traces
-2. Click on any LLM trace to view details — the trace ID and span ID are reflected in the URL for easy sharing
+2. Click on any LLM trace to view details - the trace ID and span ID are reflected in the URL for easy sharing
 
 <Frame caption="Trace and span IDs in URL for shareable links">
   <img src="/images/trace-url-params.png" />

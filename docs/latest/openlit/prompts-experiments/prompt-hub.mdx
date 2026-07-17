@@ -1,9 +1,9 @@
 ---
 title: 'Prompt Hub'
-description: 'Manage prompts centrally, fetch versions, and use variables for dynamic prompts'
+description: 'Prompt engineering platform for versioning, deploying, and fetching prompts with dynamic variables'
 ---
 
-The Prompt-Hub allows you to manage prompts, fetch specific versions of the prompt, and compile prompts with variables.
+Prompt Hub is OpenLIT's prompt engineering platform for managing prompts as versioned artifacts - create, edit, fetch specific versions, and compile prompts with variables at runtime.
 
 ## Key features
 
@@ -22,7 +22,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       1. Navigate to the Prompt Hub in OpenLIT.
       2. Explore the available prompts listed.
     <Frame>
-      <img src="/images/docs-prompt-hub-list.png" />
+      <img src="/images/docs-prompt-hub-list.png" alt="List of prompts in Prompt Hub" />
     </Frame>
   </Step>
   <Step title="Create or edit a prompt">
@@ -32,13 +32,13 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       3. Specify major, minor, or patch updates for versioning as you create or modify prompts.
       4. Click the Otter action next to the prompt editor to review and improve the prompt before saving.
     <Frame>
-      <img src="/images/docs-prompt-hub-create.png" />
+      <img src="/images/docs-prompt-hub-create.png" alt="Create or edit a prompt editor in Prompt Hub" />
     </Frame>
   </Step>
   <Step title="View prompt details" stepNumber=" ">
     Once the prompt is creaetd, You can see information about the prompt along with details on all past versions.
     <Frame>
-      <img src="/images/docs-prompt-hub-details.png" />
+      <img src="/images/docs-prompt-hub-details.png" alt="Prompt details page showing past versions" />
     </Frame>
   </Step>
   <Step title="Retrieve the prompt">
@@ -217,5 +217,19 @@ For review-only requests, Otter loads the prompt and suggests improvements witho
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is prompt engineering with Prompt Hub?">
+    Prompt Hub lets you treat prompts as versioned artifacts - edit, version (major/minor/patch), and deploy prompts to any environment without code changes, then fetch them at runtime via SDK or API.
+  </Accordion>
+  <Accordion title="Can I roll back a prompt version?">
+    Yes. Every edit creates a new version, and all versions are retained, so you can fetch or roll back to any prior version instantly.
+  </Accordion>
+  <Accordion title="How do dynamic variables work in prompts?">
+    Use `{{variableName}}` placeholders in a prompt, then pass a `variables` map when fetching it via the SDK or API - OpenLIT compiles the final prompt text at request time.
+  </Accordion>
+</AccordionGroup>

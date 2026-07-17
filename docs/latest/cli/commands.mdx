@@ -24,7 +24,7 @@ Coding-agent observability for Claude Code, Cursor, and Codex. See the [Coding A
 
 ### openlit coding install
 
-Install the per-vendor host plugin manifest. Idempotent — re-running drops prior `openlit` entries before re-writing, leaving any third-party entries in place.
+Install the per-vendor host plugin manifest. Idempotent - re-running drops prior `openlit` entries before re-writing, leaving any third-party entries in place.
 
 ```bash
 openlit coding install --vendor=claude-code
@@ -46,7 +46,7 @@ openlit coding install --vendor=all --dry-run   # preview without writing
 
 ### openlit coding launch
 
-Bootstrap the plugin for an agent and exec it — telemetry on from the first turn. Auto-installs the manifest if needed.
+Bootstrap the plugin for an agent and exec it - telemetry on from the first turn. Auto-installs the manifest if needed.
 
 ```bash
 openlit coding launch claude-code
@@ -87,7 +87,7 @@ openlit coding hook --vendor=claude-code --event=SessionStart < payload.json
 | `--vendor` *(required)* | `cc` \| `claude-code` \| `cursor` \| `codex` |
 | `--event` | Hook event name (vendor-specific; e.g. `SessionStart`, `PreToolUse`) |
 
-The hook is crash-isolated: a 5-second hard timeout (~3s reserved for OTLP flush) and it **always exits 0** even when telemetry fails — a broken pipeline never blocks your coding session. It never writes to stdout (agents like Claude Code parse stdout for JSON). Set `OPENLIT_DEBUG_PAYLOAD_DIR` to tee raw payloads for debugging.
+The hook is crash-isolated: a 5-second hard timeout (~3s reserved for OTLP flush) and it **always exits 0** even when telemetry fails - a broken pipeline never blocks your coding session. It never writes to stdout (agents like Claude Code parse stdout for JSON). Set `OPENLIT_DEBUG_PAYLOAD_DIR` to tee raw payloads for debugging.
 
 ## openlit configure
 
@@ -126,9 +126,9 @@ The CLI is built to grow into OpenLIT's full control plane. These command groups
 | `openlit prompts` | `pull`, `push`, `list`, `diff` |
 | `openlit traces` | `tail`, `query`, `export` |
 | `openlit eval` | `run`, `list` |
-| `openlit migrate` | — |
+| `openlit migrate` | - |
 | `openlit fleet` | `status`, `list` |
 
 <Info>
-These are not available yet. They are documented here only to signal the CLI's direction — new groups plug in by registering on the root command without breaking the coding-agent integration.
+These are not available yet. They are documented here only to signal the CLI's direction - new groups plug in by registering on the root command without breaking the coding-agent integration.
 </Info>

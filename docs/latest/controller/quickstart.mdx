@@ -6,7 +6,7 @@ description: "Get zero-code LLM and Agent observability running in under 5 minut
 
 import ControllerQuickstart from '/snippets/quickstart-controller.mdx';
 
-The OpenLIT Controller uses eBPF to automatically discover and instrument LLM traffic across Kubernetes, Docker, and Linux — no SDK, code changes, or image rebuilds required.
+The OpenLIT Controller uses eBPF to automatically discover and instrument LLM traffic across Kubernetes, Docker, and Linux - no SDK, code changes, or image rebuilds required.
 
 Deploy OpenLIT with the Controller on your platform, then enable observability from the **Agents** page.
 
@@ -30,9 +30,9 @@ On a fresh install with no API keys, the Controller can connect without authenti
 
 Once services are discovered, use the **Agents** page to:
 
-1. **Enable LLM Observability** — Click **Enable** next to any service to start capturing LLM metrics via eBPF
-2. **Enable Agent Observability** — For Python services, click **Enable** to inject the OpenLIT SDK for agent framework traces
-3. **View traces and metrics** — Head to the **Requests** and **Dashboards** sections to see your data
+1. **Enable LLM Observability** - Click **Enable** next to any service to start capturing LLM metrics via eBPF
+2. **Enable Agent Observability** - For Python services, click **Enable** to inject the OpenLIT SDK for agent framework traces
+3. **View traces and metrics** - Head to the **Requests** and **Dashboards** sections to see your data
 
 <Tip>
 The Controller automatically reconciles desired state. If a pod restarts, a container is recreated, or a process bounces, the Controller will re-enable the observability you configured.

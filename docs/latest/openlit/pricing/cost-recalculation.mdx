@@ -1,10 +1,10 @@
 ---
 title: 'Cost Recalculation'
-description: 'Recalculate the cost of LLM traces using current model pricing — manually or on a schedule'
+description: 'AI cost tracking: recalculate the cost of LLM traces using current model pricing - manually or on a schedule'
 sidebarTitle: 'Cost Recalculation'
 ---
 
-The Pricing feature recalculates the `gen_ai.usage.cost` attribute on existing LLM traces using the per-model pricing stored in [Manage Models](/latest/openlit/pricing/manage-models). This is useful when:
+The Pricing feature is OpenLIT's AI cost tracking engine - it recalculates the `gen_ai.usage.cost` attribute on existing LLM traces using the per-model pricing stored in [Manage Models](/latest/openlit/pricing/manage-models). This is useful when:
 
 - Your SDK didn't send cost data (or sent `0`).
 - Model pricing has changed and you want historical traces to reflect the new prices.
@@ -29,7 +29,7 @@ For each trace, OpenLIT:
    ```
 
 <Info>
-Traces with missing provider, model, or zero tokens are **skipped** — they are not counted as errors.
+Traces with missing provider, model, or zero tokens are **skipped** - they are not counted as errors.
 If the model is not found in Manage Models, the trace is also skipped. Add the model first, then recalculate.
 </Info>
 
@@ -51,7 +51,7 @@ Recalculate the cost for a single trace directly from the trace detail panel.
   </Step>
 </Steps>
 
-**API**: `POST /api/pricing/{spanId}` — returns `{ success, data: { spanId, cost } }` or `{ success: false, err: "..." }`.
+**API**: `POST /api/pricing/{spanId}` - returns `{ success, data: { spanId, cost } }` or `{ success: false, err: "..." }`.
 
 ## Auto recalculation (cron-based)
 
@@ -66,9 +66,9 @@ Automatically recompute pricing on a schedule for all newly ingested LLM traces.
   </Step>
   <Step title="Set the cron schedule">
     Enter a standard cron expression. For example:
-    - `*/15 * * * *` — every 15 minutes
-    - `0 * * * *` — every hour
-    - `0 0 * * *` — once a day at midnight
+    - `*/15 * * * *` - every 15 minutes
+    - `0 * * * *` - every hour
+    - `0 0 * * *` - once a day at midnight
   </Step>
   <Step title="Save">
     Click **Save** (or **Update** if editing). OpenLIT installs a cron job that runs the pricing recalculation on the schedule you defined.
@@ -119,3 +119,17 @@ The pricing config is stored in the SQLite `PricingConfigs` table (managed by Pr
 | `auto` | Boolean | Whether auto pricing is enabled |
 | `recurringTime` | String | Cron schedule (e.g. `*/15 * * * *`) |
 | `meta` | String (JSON) | Internal metadata including `cronJobId` |
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Why is a trace's cost missing or zero?">
+    Usually because the SDK didn't send cost data, or the model wasn't in Manage Models at ingest time. Add the model, then recalculate manually or wait for the next auto-pricing cron run.
+  </Accordion>
+  <Accordion title="Does auto pricing ever overwrite an existing cost?">
+    No. Auto pricing only fills in missing or zero-cost spans - it never overwrites a cost your SDK or an upstream vendor already set, so backfilled and vendor-reported costs never conflict.
+  </Accordion>
+  <Accordion title="What happens to auto pricing cron jobs after a restart?">
+    They're automatically restored from the database on server startup - no manual re-setup is needed after a redeploy or container restart.
+  </Accordion>
+</AccordionGroup>

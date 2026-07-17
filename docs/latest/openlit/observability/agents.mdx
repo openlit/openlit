@@ -1,0 +1,70 @@
+---
+title: "Agents"
+description: "AI agent observability: discover every agent in production, inspect its trace-derived call graph, and track config changes across versions"
+---
+
+The **Agents** page (`127.0.0.1:3000/agents`) gives you a single view of every agent OpenLIT has observed, built entirely from your OpenTelemetry trace data - there's nothing to declare or register up front. As soon as an agent's spans (including tool calls, model calls, and system prompts) show up in your traces, OpenLIT surfaces it here.
+
+## Agents list
+
+The list page groups discovered agents into three tabs:
+
+- **Applications / Services**: Agents and services instrumented directly with the OpenLIT SDK, discovered from `service.name` and `gen_ai.*` span attributes.
+- **Coding Agents**: Coding-assistant clients such as Claude Code, Cursor, Codex, and Windsurf, discovered the same way as [Coding Agents](/latest/openlit/coding-agents/onboarding) elsewhere in OpenLIT.
+- **Controllers**: Agent instances managed by the [OpenLIT Controller](/latest/controller/overview) - Docker, Kubernetes, or systemd workloads that the controller can discover and instrument without code changes.
+
+Click any row to open its detail view.
+
+## Agent detail view
+
+The detail view for an SDK-instrumented agent has five tabs: **Overview**, **Dashboard**, **Monitoring**, **Definition**, and **Configuration**. (Coding-agent rows use a simpler Overview / Sessions / Users layout instead, since those are IDE/CLI clients rather than deployed agents.)
+
+### Overview and the agent graph
+
+The Overview tab renders a **DAG (directed acyclic graph)** of the agent's call flow - nodes for span names and tool calls (derived from `gen_ai.tool.name` and function-call attributes on LLM spans), edges annotated with call count, p50 latency, and error rate.
+
+This graph is computed live from ClickHouse: OpenLIT samples up to 500 recent traces for the agent and self-joins the spans to build an aggregate call graph. It is **entirely trace-derived** - there's no static or declared workflow definition behind it, so the graph always reflects what the agent actually did, not what it was designed to do.
+
+### Agent versions
+
+Every agent has a **version chooser** in the header and a **version drawer** listing all versions observed so far. Unlike a code or deployment version, an OpenLIT agent version is a **trace-derived config snapshot**: whenever the observed combination of system prompt, tools, models/providers, or runtime config (temperature, top_p, max_tokens) changes in incoming traces, OpenLIT fingerprints it into a new version (keyed by a `version_hash`) and captures a snapshot of that configuration.
+
+Selecting a version from the drawer scopes the Overview graph and other tabs to that version's observed time window, so you can compare how the agent behaved before and after a prompt or tool change - without needing to instrument version tracking yourself.
+
+### Definition: system prompt and tools
+
+The Definition tab shows the **System Prompt** captured for the currently selected version, alongside a **Tools** card listing every tool the agent called during that version's traces. Each tool entry shows its name, description, and JSON schema, captured directly from `gen_ai.tool.*` / function-call attributes - so the tool list always matches what was actually invoked, not a static registry.
+
+### Dashboard, Monitoring, and Configuration
+
+- **Dashboard**: agent-scoped metrics (latency, cost, token usage, error rate) over time.
+- **Monitoring**: health and recent-activity view for the agent.
+- **Configuration**: agent-level settings surfaced from the observed runtime config.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Telemetry" href="/latest/openlit/observability/telemetry" icon='chart-line'>
+    View the underlying traces, metrics, and logs that power the agent graph and versions
+  </Card>
+  <Card title="Coding Agents" href="/latest/openlit/coding-agents/onboarding" icon='code'>
+    Onboard Claude Code, Cursor, Codex, and Windsurf for coding-agent observability
+  </Card>
+  <Card title="OpenLIT Controller" href="/latest/controller/overview" icon='tower-broadcast'>
+    Discover and instrument agent workloads across Kubernetes, Docker, and Linux with zero code changes
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Do I need to register or declare my agents?">
+    No. Every agent, its call graph, tools, and versions are discovered automatically from OpenTelemetry trace data - there's nothing to register up front.
+  </Accordion>
+  <Accordion title="What counts as a new agent version?">
+    A new version is created whenever the observed system prompt, tools, models, or runtime config (temperature, top_p, max_tokens) changes in incoming traces - it's a config snapshot, not a code or deployment version.
+  </Accordion>
+  <Accordion title="How is the agent graph built?">
+    OpenLIT samples up to 500 recent traces for the agent and self-joins the spans into an aggregate call graph, with nodes for span names and tool calls and edges annotated with call count, latency, and error rate.
+  </Accordion>
+</AccordionGroup>

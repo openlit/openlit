@@ -1,7 +1,7 @@
 ---
 title: "CLI Configuration"
 sidebarTitle: "Configuration"
-description: "Configure the openlit CLI — endpoint, API key, content capture, and precedence rules"
+description: "Configure the openlit CLI - endpoint, API key, content capture, and precedence rules"
 ---
 
 The CLI reads its settings from flags, environment variables, and a config file. The fastest way to set it up is `openlit configure`.
@@ -16,12 +16,12 @@ openlit configure \
 
 This writes a `KEY=VALUE` file to:
 
-- **Linux / macOS** — `~/.config/openlit/config.env` (honors `$XDG_CONFIG_HOME`)
-- **Windows** — `%APPDATA%\openlit\config.env`
+- **Linux / macOS** - `~/.config/openlit/config.env` (honors `$XDG_CONFIG_HOME`)
+- **Windows** - `%APPDATA%\openlit\config.env`
 
 The file is written with mode `0600` (owner-readable only).
 
-To inspect the effective configuration without writing anything — including which source each value came from — use `--show`:
+To inspect the effective configuration without writing anything - including which source each value came from - use `--show`:
 
 ```bash
 openlit configure --show
@@ -36,7 +36,7 @@ openlit configure --show
 | `--environment` | `OPENLIT_ENVIRONMENT` | Deployment environment (e.g. `production`, `staging`) |
 | `--application-name` | `OPENLIT_APPLICATION_NAME` | Application name (default `openlit-cli`) |
 | `--content-capture` | `OPENLIT_CODING_CONTENT_CAPTURE` | Coding-agent content capture: `minimal` \| `metadata_only` \| `full` |
-| `--show` | — | Print resolved config (and its source) without writing |
+| `--show` | - | Print resolved config (and its source) without writing |
 
 ## Precedence
 
@@ -48,26 +48,26 @@ Settings resolve highest-to-lowest:
 4. **Config file** (`~/.config/openlit/config.env`, allow-listed keys only)
 5. **Built-in defaults**
 
-For headless / fleet rollouts, prefer environment variables or flags — they take precedence over the file. Existing OpenTelemetry users can reuse their standard `OTEL_EXPORTER_OTLP_*` setup.
+For headless / fleet rollouts, prefer environment variables or flags - they take precedence over the file. Existing OpenTelemetry users can reuse their standard `OTEL_EXPORTER_OTLP_*` setup.
 
 ## Environment variables
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP base URL | `http://127.0.0.1:4318` |
-| `OPENLIT_API_KEY` | Authenticates the OTLP exporter (`Authorization: Bearer <key>`) | — |
+| `OPENLIT_API_KEY` | Authenticates the OTLP exporter (`Authorization: Bearer <key>`) | - |
 | `OPENLIT_ENVIRONMENT` | Deployment environment label | `default` |
 | `OPENLIT_APPLICATION_NAME` | App name for OTel resource attributes | `openlit-cli` |
 | `OPENLIT_CODING_CONTENT_CAPTURE` | Coding-agent content capture mode | `full` |
-| `OPENLIT_CODING_REPO_ALLOWLIST` | Comma/newline-separated repo patterns for personal-vs-work classification | — |
+| `OPENLIT_CODING_REPO_ALLOWLIST` | Comma/newline-separated repo patterns for personal-vs-work classification | - |
 | `OPENLIT_USER` | Override the resolved user identity (`gen_ai.user.name`) | auto |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Standard OTel endpoint (fallback) | — |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Extra headers as comma-separated `k=v` pairs | — |
-| `OTEL_RESOURCE_ATTRIBUTES` | Standard OTel resource attributes | — |
-| `OPENLIT_DEBUG_PAYLOAD_DIR` | Tee raw hook payloads to JSONL for debugging | — |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Standard OTel endpoint (fallback) | - |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Extra headers as comma-separated `k=v` pairs | - |
+| `OTEL_RESOURCE_ATTRIBUTES` | Standard OTel resource attributes | - |
+| `OPENLIT_DEBUG_PAYLOAD_DIR` | Tee raw hook payloads to JSONL for debugging | - |
 
 <Warning>
-The `OPENLIT_API_KEY` value is never promoted into a launched agent's child-process environment, and the config file is written `0600`. The CLI never reads your shell rc files (`~/.zshrc`, `~/.bashrc`) — if you set `OPENLIT_*` vars in a shell rc, source them before launching the agent.
+The `OPENLIT_API_KEY` value is never promoted into a launched agent's child-process environment, and the config file is written `0600`. The CLI never reads your shell rc files (`~/.zshrc`, `~/.bashrc`) - if you set `OPENLIT_*` vars in a shell rc, source them before launching the agent.
 </Warning>
 
 ## Content capture modes
@@ -76,7 +76,7 @@ The `OPENLIT_API_KEY` value is never promoted into a launched agent's child-proc
 
 | Mode | What's captured |
 |---|---|
-| `minimal` | Session bookends and counters only — good for cost + activity dashboards |
+| `minimal` | Session bookends and counters only - good for cost + activity dashboards |
 | `metadata_only` | Per-event spans **without** prompt bodies or tool-arg bodies |
 | `full` *(default)* | Complete prompt + response bodies and tool I/O, secret-scrubbed on the way out |
 

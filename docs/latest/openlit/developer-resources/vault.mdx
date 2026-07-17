@@ -41,7 +41,7 @@ Server-to-server SDK and REST calls usually do not require CORS configuration be
       1. Navigate to the Vault in OpenLIT.
       2. Explore the available secrets listed.
     <Frame>
-      <img src="/images/docs-vault-list.png" />
+      <img src="/images/docs-vault-list.png" alt="List of secrets in the Vault" />
     </Frame>
   </Step>
   <Step title="Create or edit a secret">
@@ -49,7 +49,7 @@ Server-to-server SDK and REST calls usually do not require CORS configuration be
       1. Click on **Create new** button to create a new secret
       2. In the secret form, add the secret key, secret value and add tags to easily manage and access the secrets via sdk.
     <Frame>
-      <img src="/images/docs-vault-create.png" />
+      <img src="/images/docs-vault-create.png" alt="Create or edit a secret form in the Vault" />
     </Frame>
   </Step>
   <Step title="Retrieve the secrets">
@@ -153,3 +153,17 @@ Server-to-server SDK and REST calls usually do not require CORS configuration be
     Compare cost, duration, and response tokens across different LLMs to find the most efficient model
   </Card>
 </CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is Vault used for?">
+    Vault centrally stores secrets like LLM API keys, encrypted at rest with AES-256-GCM, so applications can retrieve them remotely via SDK or API instead of embedding keys in code or environment files.
+  </Accordion>
+  <Accordion title="Can secrets be rotated without redeploying?">
+    Yes. Since applications fetch secrets from Vault at runtime, rotating a key in Vault takes effect on the next fetch - no restarts or redeploys needed.
+  </Accordion>
+  <Accordion title="Is Vault safe to call from a browser?">
+    Vault enforces API-key authentication and CORS. Browser-based cross-origin calls require adding your app's origin to `OPENLIT_ALLOWED_CORS_ORIGINS`; server-to-server calls are unaffected.
+  </Accordion>
+</AccordionGroup>

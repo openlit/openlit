@@ -1,28 +1,196 @@
 ---
 title: 'Monitor vLLM using OpenTelemetry'
+description: 'Monitor vLLM inference server applications with OpenTelemetry auto-instrumentation, gaining AI observability into performance and token usage tracking.'
 sidebarTitle: 'vLLM'
 ---
 
 import IntegrationMethods from '/snippets/integration-methods.mdx';
 
-OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from vLLM. This includes tracking performance, token usage, and how users interact with the application.
+OpenLIT uses OpenTelemetry instrumentation to help you monitor applications built using models served by vLLM. This includes tracking performance, token usage, and how users interact with the application.
 
-Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+The integration is compatible with:
+- vLLM Python SDK client `>=0.5.4`
+- vLLM's OpenAI-compatible API, via OpenLIT's Go SDK `InstrumentedClient` wrapper
 
-The integration is compatible with  
-- vLLM Python SDK client `>=0.5.4` 
+## Get started
 
-## Get started 
+<Tabs>
+  <Tab title="Python / TypeScript">
+    Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-<Steps>
-  <Step title="Install OpenLIT">
-    Open your command line or terminal and run:
-    ```shell
-    pip install openlit
-    ```
-  </Step>
-  <IntegrationMethods />
-</Steps>
+    <Steps>
+      <Step title="Install OpenLIT">
+        Open your command line or terminal and run:
+        ```shell
+        pip install openlit
+        ```
+      </Step>
+      <IntegrationMethods />
+    </Steps>
+  </Tab>
+
+  <Tab title="Go">
+    vLLM exposes an OpenAI-compatible API, so the Go SDK wraps an HTTP client pointed at your vLLM server with an `InstrumentedClient` that automatically emits traces and metrics for every request - with zero changes to your application logic.
+
+    The integration supports:
+    - Chat completions (standard and streaming)
+
+    <Steps>
+      <Step title="Install the Go SDK">
+        Open your terminal and run:
+
+        <Tabs>
+          <Tab title="Latest Version">
+            ```shell
+            go get github.com/openlit/openlit/sdk/go
+            ```
+          </Tab>
+          <Tab title="Specific Version">
+            ```shell
+            go get github.com/openlit/openlit/sdk/go@v1.2.3
+            ```
+            Replace `v1.2.3` with the version you want to install.
+          </Tab>
+        </Tabs>
+      </Step>
+
+      <Step title="Initialize OpenLIT">
+        Add this once at the start of your application (e.g. in `main()`):
+
+        <Tabs>
+          <Tab title="Via Config Struct">
+            ```go
+            import (
+                "context"
+                openlit "github.com/openlit/openlit/sdk/go"
+            )
+
+            if err := openlit.Init(openlit.Config{
+                OtlpEndpoint:    "YOUR_OTEL_ENDPOINT",
+                ApplicationName: "my-ai-app",
+                Environment:     "production",
+            }); err != nil {
+                log.Fatal(err)
+            }
+            defer openlit.Shutdown(context.Background())
+            ```
+          </Tab>
+          <Tab title="Via Environment Variable">
+            ```go
+            import (
+                "context"
+                openlit "github.com/openlit/openlit/sdk/go"
+            )
+
+            if err := openlit.Init(openlit.Config{
+                ApplicationName: "my-ai-app",
+            }); err != nil {
+                log.Fatal(err)
+            }
+            defer openlit.Shutdown(context.Background())
+            ```
+
+            Then set your OTLP endpoint via environment variable:
+            ```shell
+            export OTEL_EXPORTER_OTLP_ENDPOINT=YOUR_OTEL_ENDPOINT
+            ```
+          </Tab>
+        </Tabs>
+
+        **Replace** `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` for a local OpenLIT deployment.
+      </Step>
+
+      <Step title="Create an instrumented client">
+        Point the OpenLIT instrumented client at your vLLM server:
+
+        ```go
+        import "github.com/openlit/openlit/sdk/go/instrumentation/vllm"
+
+        client := vllm.NewClient("http://127.0.0.1:8000/v1")
+        ```
+
+        Optional configuration:
+        ```go
+        // If your vLLM deployment requires an API key
+        client := vllm.NewClient("http://127.0.0.1:8000/v1",
+            vllm.WithAPIKey("your-api-key"),
+        )
+        ```
+      </Step>
+
+      <Step title="Use the client">
+        Use the instrumented client to call your vLLM server's OpenAI-compatible chat endpoint:
+
+        **Chat completion:**
+        ```go
+        resp, err := client.CreateChatCompletion(ctx, vllm.ChatCompletionRequest{
+            Model: "facebook/opt-125m",
+            Messages: []vllm.ChatMessage{
+                {Role: "system", Content: "You are a helpful assistant."},
+                {Role: "user", Content: "What is OpenTelemetry?"},
+            },
+            MaxTokens:   256,
+            Temperature: 0.7,
+        })
+        if err != nil {
+            return err
+        }
+        fmt.Println(resp.Choices[0].Message.Content)
+        ```
+
+        **Streaming:**
+        ```go
+        stream, err := client.CreateChatCompletionStream(ctx, vllm.ChatCompletionRequest{
+            Model: "facebook/opt-125m",
+            Messages: []vllm.ChatMessage{
+                {Role: "user", Content: "Tell me a story."},
+            },
+        })
+        if err != nil {
+            return err
+        }
+        defer stream.Close()
+
+        for {
+            chunk, err := stream.Recv()
+            if err == io.EOF {
+                break
+            }
+            if err != nil {
+                return err
+            }
+            if len(chunk.Choices) > 0 {
+                fmt.Print(chunk.Choices[0].Delta.Content)
+            }
+        }
+        ```
+      </Step>
+    </Steps>
+
+    ### What gets collected
+
+    Every call to the instrumented client automatically records:
+
+    | Data | Attribute |
+    |------|-----------|
+    | Operation name | `gen_ai.operation.name` |
+    | Model requested | `gen_ai.request.model` |
+    | Model used | `gen_ai.response.model` |
+    | Input tokens | `gen_ai.usage.input_tokens` |
+    | Output tokens | `gen_ai.usage.output_tokens` |
+    | Finish reason | `gen_ai.response.finish_reasons` |
+    | Tool calls | `gen_ai.tool.name`, `gen_ai.tool.call.id` |
+    | Time to first token | `gen_ai.server.time_to_first_token` (streaming) |
+    | Time per output token | `gen_ai.server.time_per_output_token` (streaming) |
+
+    Metrics emitted:
+    - `gen_ai.client.token.usage` - token usage histogram (input/output)
+    - `gen_ai.client.operation.duration` - total operation duration
+    - `gen_ai.server.time_to_first_token` - TTFT for streaming
+    - `gen_ai.client.operation.time_to_first_chunk` - client-side TTFT
+    - `gen_ai.client.operation.time_per_output_chunk` - per-chunk latency
+  </Tab>
+</Tabs>
 
 ---
 
@@ -42,5 +210,5 @@ The integration is compatible with
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>

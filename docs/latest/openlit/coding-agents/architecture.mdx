@@ -1,12 +1,12 @@
 ---
-title: "Coding Agents — Architecture & Vendor Authoring"
+title: "Coding Agents - Architecture & Vendor Authoring"
 sidebarTitle: "Architecture"
-description: "How OpenLit ingests, normalises, and rolls up coding-agent telemetry — and how to add a new vendor without breaking what's already there."
+description: "How OpenLit ingests, normalises, and rolls up coding-agent telemetry - and how to add a new vendor without breaking what's already there."
 ---
 
 This page is for contributors. If you just want to send Claude Code or
 Cursor telemetry into OpenLit, the
-[Onboarding](/latest/features/coding-agents/onboarding) page is what you
+[Onboarding](/latest/openlit/coding-agents/onboarding) page is what you
 want. Read on if you're:
 
 - Adding a new vendor adapter (Claude Code, Codex, Windsurf, …).
@@ -85,12 +85,12 @@ for:
 1. Parsing the vendor's JSON payload into Go structs.
 2. Picking the **session id** (vendor-specific key name).
 3. Mapping the vendor's event semantics onto our `normalize` types:
-   - `Session` — sessionStart / sessionEnd lifecycle.
-   - `LLMTurn` — one LLM call (prompt + completion).
-   - `ToolCall` — one tool invocation by the agent.
-   - `EditDecision` — accept / reject / undo of a code edit.
-   - `ShellRequest` — agent-issued shell command.
-   - `Event` — generic counter or "something happened" marker.
+   - `Session` - sessionStart / sessionEnd lifecycle.
+   - `LLMTurn` - one LLM call (prompt + completion).
+   - `ToolCall` - one tool invocation by the agent.
+   - `EditDecision` - accept / reject / undo of a code edit.
+   - `ShellRequest` - agent-issued shell command.
+   - `Event` - generic counter or "something happened" marker.
 4. Calling the matching `emit.Emit*` method on the OTLP emitter.
 
 The adapter does **not** decide what to redact, what to drop, or what
@@ -154,7 +154,7 @@ Cause: `EmitSession` is emitting a root span on both `sessionStart`
 ("started") and `sessionEnd` (outcome="completed" / "errored").
 
 Fix: only emit on `End` events. The `started` / `in_progress` outcomes
-are no-ops in `EmitSession` — they only update the session-state cache.
+are no-ops in `EmitSession` - they only update the session-state cache.
 
 ### `coding_active_users_24h` is always 0 on a single-user install
 
@@ -186,12 +186,12 @@ Configuration tabs from the SDK/Controller detail page. Refresh a few
 times and the layout flips back.
 
 Cause: two rows exist in `openlit_agents_summary` with the **same
-agent_key** but different `source` — one `coding` and one `sdk`.
+agent_key** but different `source` - one `coding` and one `sdk`.
 The CLI sets `service.name = '<vendor>'` and emits through the
 openlit-go SDK, so the SDK discovery in `materialize.ts:discoverAgents`
 picks the same `service.name` up unless explicitly excluded. The
 summary table is a `ReplacingMergeTree(updated_at)`, so `FINAL` on
-read picks whichever row was written most recently — and the detail
+read picks whichever row was written most recently - and the detail
 page chooses its layout from `agent.source`.
 
 Fix: the SDK discovery query must filter out CLI rows by checking
@@ -210,7 +210,7 @@ GROUP BY agent_key, source;
 
 A single row with `source='coding'` is correct. Two rows
 (`coding` + anything else) means the exclusion isn't catching the
-vendor's spans — usually because the vendor's CLI is emitting some
+vendor's spans - usually because the vendor's CLI is emitting some
 spans before the session id is stamped as a resource attribute.
 
 ## Claude Code: dual-path coalesce
@@ -229,7 +229,7 @@ OpenLit through **two independent paths** at the same time:
 2. **Native OTel path** (optional, complementary). When the user
    exports `CLAUDE_CODE_ENABLE_TELEMETRY=1` (plus the usual OTLP
    endpoint / headers), Claude Code itself emits metrics, events,
-   and — with `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` — spans, all
+   and - with `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` - spans, all
    under `service.name=claude-code` and the `claude_code.*`
    attribute namespace.
 
@@ -300,13 +300,13 @@ inline in `queries.ts` next to the `E1 deferral note`.
 The Cursor, Claude Code, and Codex adapters are the three reference
 implementations. Each one models a different vendor shape:
 
-- **Cursor** — IDE extension; 13+ named hook events, no per-session
+- **Cursor** - IDE extension; 13+ named hook events, no per-session
   transcript file, prompt/response/thought arrive as separate hooks.
-- **Claude Code** — CLI / IDE plugin; richer hook events plus a
+- **Claude Code** - CLI / IDE plugin; richer hook events plus a
   per-session JSONL transcript that's the authoritative source for
   per-turn LLM content + token usage. The adapter streams the
   transcript with byte-offset bookkeeping.
-- **Codex** — CLI; per-turn hook protocol with `turn_id` on every
+- **Codex** - CLI; per-turn hook protocol with `turn_id` on every
   event and a separate rollout JSONL under
   `~/.codex/sessions/YYYY/MM/DD/` that carries the `token_count`
   events. The adapter accumulates a per-turn fragment in
@@ -314,18 +314,17 @@ implementations. Each one models a different vendor shape:
 
 To add another vendor (Windsurf / OpenCode / …):
 
-1. **Read the convention rule** — `.cursor/rules/coding-agents-convention.mdc`.
+1. **Read the convention rule** - `.cursor/rules/coding-agents-convention.mdc`.
    It defines the strict attribute matrix every adapter must follow.
    New vendors must NOT introduce a new namespace for facts that
    already have a canonical key.
 2. **Create the adapter package** under `cli/internal/coding/hook/<vendor>/`.
    Map the vendor's hook payload keys onto the canonical `coding_agent.*`
-   / `gen_ai.*` schema. Use `setStr(..., scrub)` for any string —
-   never bypass the redaction layer.
+   / `gen_ai.*` schema. Use `setStr(..., scrub)` for any string - never bypass the redaction layer.
 3. **Extend `peekContext`** in `hook.go` so the vendor's session id,
    user, cwd, permission mode, model, and parent-conversation id
    resolve from the payload. The function is intentionally a thin
-   string-pick — add new key names to the `pickString` calls.
+   string-pick - add new key names to the `pickString` calls.
 4. **Wire the plugin manifest** under `plugins/<vendor>/`. Mirror
    `plugins/claude-code/` for Anthropic-style hooks or `plugins/cursor/`
    for IDE-extension-style hooks. Add a marketplace entry in
@@ -336,7 +335,7 @@ To add another vendor (Windsurf / OpenCode / …):
 6. **Stamp `gen_ai.system`** correctly: `anthropic` for Claude Code,
    `openai` for Codex, `google` for Gemini-backed agents.
    Use the `inferProvider(model, vendor)` helper.
-7. **Honor capture modes** — drop bodies in `minimal` and
+7. **Honor capture modes** - drop bodies in `minimal` and
    `metadata_only`. The `bodyAllowed(mode)` and `setStr(..., scrub)`
    helpers in `cli/internal/otlp/attrs.go` are mandatory.
 8. **Add UI icon + label**: register an inline SVG in
@@ -364,8 +363,7 @@ To add another vendor (Windsurf / OpenCode / …):
 
 The CLI runs **on the developer's machine** alongside the coding
 agent. Anyone who can run `openlit coding hook` on that machine can
-emit arbitrary `coding_agent.*` spans into the configured collector
-— including spans claiming to be from a different session, vendor,
+emit arbitrary `coding_agent.*` spans into the configured collector - including spans claiming to be from a different session, vendor,
 or user. We accept this:
 
 - **Spoofing scope is bounded by who already has shell access.** A
@@ -376,7 +374,7 @@ or user. We accept this:
   Authorization header carries an org-scoped API key, so spans
   reaching the backend are at least "from some machine our org
   authorised". Per-event signing is intentionally out of scope for
-  v1 — the cost (key distribution, rotation, hook-latency budget)
+  v1 - the cost (key distribution, rotation, hook-latency budget)
   outweighs the benefit for the threat model of in-org telemetry.
 - **Materialization runs k=5 cohort floors** so a single user
   cannot inflate their own visible metrics by spamming events; the
@@ -397,19 +395,19 @@ fleet) should:
 
 ## Where to read next
 
-- `.cursor/rules/coding-agents-convention.mdc` — the strict schema
+- `.cursor/rules/coding-agents-convention.mdc` - the strict schema
   contract every vendor must follow. The attribute matrix, the
   Cursor + Claude Code inbound mappings, and the dual-path coalesce
   rules all live here.
-- `.cursor/rules/coding-agents-hook.mdc` — canonical authoring rules
+- `.cursor/rules/coding-agents-hook.mdc` - canonical authoring rules
   + failure modes, auto-loaded by Cursor when editing hook code.
-- `cli/internal/coding/hook/cursor/handle.go` — reference adapter.
-- `cli/internal/coding/hook/claudecode/handle.go` — second reference
+- `cli/internal/coding/hook/cursor/handle.go` - reference adapter.
+- `cli/internal/coding/hook/claudecode/handle.go` - second reference
   adapter, demonstrates dual-path-aware design.
-- `cli/internal/coding/normalize/normalize.go` — schema all adapters
+- `cli/internal/coding/normalize/normalize.go` - schema all adapters
   emit into.
-- `cli/internal/otlp/attrs.go` — capture-mode gating and scrubbing.
-- `src/client/src/lib/platform/agents/materialize.ts` — rollup that
+- `cli/internal/otlp/attrs.go` - capture-mode gating and scrubbing.
+- `src/client/src/lib/platform/agents/materialize.ts` - rollup that
   populates `openlit_agents_summary`.
-- `src/client/src/lib/platform/coding-agents/queries.ts` — Sessions,
+- `src/client/src/lib/platform/coding-agents/queries.ts` - Sessions,
   Users, Overview query layer.

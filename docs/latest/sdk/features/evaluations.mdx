@@ -1,11 +1,11 @@
 ---
 title: 'Evaluations'
-description: 'Evaluate your LLM responses for hallucination, bias, toxicity, and more — using the same evals for dev and prod'
+description: 'Evaluate your LLM responses for hallucination, bias, toxicity, and more - using the same evals for dev and prod'
 ---
 
 ## Overview
 
-The OpenLIT SDK provides server-side evaluations via `openlit.eval()` (Python) and `openlit.eval()` (JS/TS). Evaluations use the same engine, rules, contexts, and custom eval types configured in the OpenLIT dashboard — working identically for development (offline) and production (online) stages.
+The OpenLIT SDK provides server-side evaluations via `openlit.eval()` (Python) and `openlit.eval()` (JS/TS). Evaluations use the same engine, rules, contexts, and custom eval types configured in the OpenLIT dashboard - working identically for development (offline) and production (online) stages.
 
 <CardGroup cols={2}>
   <Card title="Quick Start" href="#quick-start">
@@ -83,7 +83,7 @@ const result = await openlit.eval({
 
 // Use in assertions
 console.log(result.success);       // true
-console.log(isPassed(result));     // false — hallucination detected
+console.log(isPassed(result));     // false - hallucination detected
 console.log(getFailedEvals(result)); // [{ type: 'hallucination', ... }]
 ```
 
@@ -112,8 +112,8 @@ export OPENLIT_API_KEY="openlit-xxxxx"
 <Tab title="Python">
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `prompt` | `str` | The user prompt sent to the LLM. **Required.** | — |
-| `response` | `str` | The LLM's response to evaluate. **Required.** | — |
+| `prompt` | `str` | The user prompt sent to the LLM. **Required.** | - |
+| `response` | `str` | The LLM's response to evaluate. **Required.** | - |
 | `contexts` | `list[str]` | Ground truth context for the evaluation. | `None` |
 | `eval_types` | `list[str]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `None` |
 | `attributes` | `dict` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `None` |
@@ -128,8 +128,8 @@ export OPENLIT_API_KEY="openlit-xxxxx"
 <Tab title="TypeScript / JavaScript">
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `prompt` | `string` | The user prompt sent to the LLM. **Required.** | — |
-| `response` | `string` | The LLM's response to evaluate. **Required.** | — |
+| `prompt` | `string` | The user prompt sent to the LLM. **Required.** | - |
+| `response` | `string` | The LLM's response to evaluate. **Required.** | - |
 | `contexts` | `string[]` | Ground truth context for the evaluation. | `undefined` |
 | `evalTypes` | `string[]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `undefined` |
 | `attributes` | `Record<string, string \| number \| boolean>` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `undefined` |
@@ -281,7 +281,7 @@ console.log(`All passed: ${isAllPassed(batchResult)}`);
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `dataset` | `list[dict]` | List of items with `prompt` and `response` keys. **Required.** | — |
+| `dataset` | `list[dict]` | List of items with `prompt` and `response` keys. **Required.** | - |
 | `eval_types` | `list[str]` | Default eval types (can be overridden per item). | `None` |
 | `attributes` | `dict` | Default attributes (can be overridden per item). | `None` |
 | `threshold_score` | `float` | Default threshold score. | `0.5` |
@@ -441,5 +441,5 @@ For `openlit_api_key` and `openlit_url`, the resolution order is:
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>

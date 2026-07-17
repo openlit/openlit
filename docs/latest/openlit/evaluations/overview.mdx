@@ -1,9 +1,9 @@
 ---
 title: "Overview"
-description: "Automated Eval scoring with 11 evaluation types — hallucination, bias, toxicity, safety, and more"
+description: "Automated Eval scoring with 11 evaluation types - hallucination, bias, toxicity, safety, and more"
 ---
 
-OpenLIT provides automated evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
+OpenLIT provides automated AI evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
 
 <video
       autoPlay
@@ -12,6 +12,7 @@ OpenLIT provides automated evaluation that helps you assess and monitor the qual
       controls
       className="w-full aspect-video rounded-xl"
       src="/images/evaluations.mp4"
+      alt="Demo of OpenLIT's automated evaluation scoring"
     >
     </video>
 
@@ -44,7 +45,7 @@ OpenLIT includes 11 evaluation types out of the box. Each can be independently e
 | **Sensitivity** | Detects PII leakage, credentials, and confidential data exposure | Disabled |
 
 <Info>
-**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context — not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
+**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context - not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
 </Info>
 
 ### Custom evaluation types
@@ -76,6 +77,9 @@ Programmatic AI evaluation tools for custom testing workflows and development pi
 ---
 
 <CardGroup cols={3}>
+  <Card title="Auto Evaluation" href="/latest/openlit/evaluations/auto-evaluation" icon='clock'>
+    Run evaluations automatically on a schedule, with sampling to control cost
+  </Card>
   <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
     Use advanced LLMs to evaluate AI application quality with automated scoring
   </Card>
@@ -86,3 +90,17 @@ Programmatic AI evaluation tools for custom testing workflows and development pi
     Define conditional rules to provide context and control which evaluations run
   </Card>
 </CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is AI evaluation?">
+    AI evaluation is the process of scoring LLM outputs for quality, safety, and correctness - either automatically with an LLM-as-a-judge or with custom rule-based checks - so you can catch issues before or after they reach users.
+  </Accordion>
+  <Accordion title="What's the difference between online and offline evaluation?">
+    Online evaluation runs automatically against live production traces (auto or manual, no code changes). Offline evaluation runs programmatically via the SDK, typically in CI/CD, against a fixed dataset before you ship a change.
+  </Accordion>
+  <Accordion title="Can I create custom evaluation types?">
+    Yes. Beyond the 11 built-in types (hallucination, bias, toxicity, and more), you can define custom evaluation types with your own prompts under Evaluations &gt; Settings &gt; Evaluation Types.
+  </Accordion>
+</AccordionGroup>

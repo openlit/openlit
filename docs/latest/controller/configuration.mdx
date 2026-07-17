@@ -35,12 +35,12 @@ api_listen: ":4321"
 | `environment` | `OPENLIT_ENVIRONMENT` | `default` | Deployment environment label (e.g., `production`, `staging`). Falls back to `OTEL_DEPLOYMENT_ENVIRONMENT`. |
 | `api_listen` | `OPENLIT_API_LISTEN` | `:4321` | Address for the Controller's REST API |
 | `cluster_id` | `OPENLIT_CLUSTER_ID` | `default` | Identifier for multi-cluster setups |
-| `api_key` | `OPENLIT_API_KEY` | — | API key for authenticating with the dashboard |
+| `api_key` | `OPENLIT_API_KEY` | - | API key for authenticating with the dashboard |
 | `obi_binary_path` | `OPENLIT_OBI_PATH` | `/usr/local/bin/obi` | Path to the bundled OBI (eBPF) binary |
 | `proc_root` | `OPENLIT_PROC_ROOT` | `/proc` | Root of the `/proc` filesystem to scan. Set to `/host/proc` when `/proc` is mounted there (e.g., the Kubernetes DaemonSet). |
 | `sdk_version` | `OPENLIT_SDK_VERSION` | (auto) | Pin a specific OpenLIT Python SDK version (validated against the PEP 440 version grammar before injection) |
-| — | `OPENLIT_DEPLOY_MODE` | (auto) | Force the deployment mode: `kubernetes`, `docker`, or `linux` |
-| — | `OPENLIT_INSTANCE_ID` | (auto) | Override the controller's identity. By default, the instance ID is derived automatically (hostname on Linux, host hostname on Docker, `NODE_NAME` on K8s). Set this to force a stable, custom identity — useful when the automatic ID is not stable across restarts |
+| - | `OPENLIT_DEPLOY_MODE` | (auto) | Force the deployment mode: `kubernetes`, `docker`, or `linux` |
+| - | `OPENLIT_INSTANCE_ID` | (auto) | Override the controller's identity. By default, the instance ID is derived automatically (hostname on Linux, host hostname on Docker, `NODE_NAME` on K8s). Set this to force a stable, custom identity - useful when the automatic ID is not stable across restarts |
 
 Environment variables take precedence over config file values.
 
@@ -48,9 +48,9 @@ Environment variables take precedence over config file values.
 
 The Controller auto-detects its deployment mode on startup:
 
-- **Kubernetes** — Detected when the in-cluster service account is mounted at `/var/run/secrets/kubernetes.io/serviceaccount`
-- **Docker** — Detected when `/var/run/docker.sock` is accessible
-- **Linux** — Default fallback when neither Kubernetes nor Docker is detected
+- **Kubernetes** - Detected when the in-cluster service account is mounted at `/var/run/secrets/kubernetes.io/serviceaccount`
+- **Docker** - Detected when `/var/run/docker.sock` is accessible
+- **Linux** - Default fallback when neither Kubernetes nor Docker is detected
 
 You can override auto-detection with the `OPENLIT_DEPLOY_MODE` environment variable:
 
@@ -75,9 +75,9 @@ rules:
     verbs: ["get", "list", "watch", "update", "patch"]
 ```
 
-- `get/list/watch` on pods — for service discovery
-- `delete/create` on pods — for naked pod Agent Observability (requires pod restart)
-- `update/patch` on deployments/daemonsets/statefulsets — for Agent Observability SDK injection
+- `get/list/watch` on pods - for service discovery
+- `delete/create` on pods - for naked pod Agent Observability (requires pod restart)
+- `update/patch` on deployments/daemonsets/statefulsets - for Agent Observability SDK injection
 
 ### Volume Mounts
 
@@ -85,7 +85,7 @@ rules:
 |---|---|---|
 | `/host/proc` | `/proc` (read-only) | Scans `/proc/net/tcp` to discover processes with connections to LLM APIs, reads `/proc/<pid>/cgroup` for container metadata |
 | `/sys/kernel/debug` | `/sys/kernel/debug` (read-only) | Required by the kernel for attaching eBPF kprobes to `tcp_connect` |
-| `/sys/fs/bpf` | `/sys/fs/bpf` (read-write) | eBPF map pinning — allows the OBI engine to persist eBPF maps across probe reloads |
+| `/sys/fs/bpf` | `/sys/fs/bpf` (read-write) | eBPF map pinning - allows the OBI engine to persist eBPF maps across probe reloads |
 | `/etc/openlit-controller` | ConfigMap | Configuration file (managed by Helm chart) |
 
 ### Security Context
@@ -104,9 +104,9 @@ volumes:
   - /var/run/docker.sock:/var/run/docker.sock  # Container discovery + SDK injection
 ```
 
-- **`/proc`** — Scan process network connections to detect LLM API calls
-- **`/sys/kernel/debug`** + **`/sys/fs/bpf`** — Required for eBPF operation (LLM traffic interception)
-- **Docker socket** — Discover running containers, read labels/metadata, and inject the Python SDK for Agent Observability
+- **`/proc`** - Scan process network connections to detect LLM API calls
+- **`/sys/kernel/debug`** + **`/sys/fs/bpf`** - Required for eBPF operation (LLM traffic interception)
+- **Docker socket** - Discover running containers, read labels/metadata, and inject the Python SDK for Agent Observability
 
 ## Linux Configuration
 
@@ -127,9 +127,9 @@ Each controller registers itself in the dashboard with a unique `instance_id`. T
 
 | Platform | Default `instance_id` | Behavior on restart |
 |---|---|---|
-| **Linux** | Machine hostname | Stable — hostname persists across restarts |
+| **Linux** | Machine hostname | Stable - hostname persists across restarts |
 | **Docker** | Host hostname + container hash | Stable across `docker restart` / `stop+start`. New entry on `docker rm && run` (old entry auto-detected as stale) |
-| **Kubernetes** | `NODE_NAME` (downward API) | Stable — same node, same ID across pod restarts |
+| **Kubernetes** | `NODE_NAME` (downward API) | Stable - same node, same ID across pod restarts |
 
 To override the automatic identity on any platform, set `OPENLIT_INSTANCE_ID`:
 
@@ -137,7 +137,7 @@ To override the automatic identity on any platform, set `OPENLIT_INSTANCE_ID`:
 OPENLIT_INSTANCE_ID="my-controller-1" openlit-controller
 ```
 
-The dashboard automatically detects stale controllers by checking heartbeat age — controllers that haven't reported in over 10 minutes are marked as stale and dimmed in the UI.
+The dashboard automatically detects stale controllers by checking heartbeat age - controllers that haven't reported in over 10 minutes are marked as stale and dimmed in the UI.
 
 ## Multi-Cluster Setup
 

@@ -20,12 +20,12 @@ Telemetry is anonymous by design:
 OpenLIT collects anonymous events from both OpenLIT and the OpenLIT SDK to analyze usage. We deliberately avoid high-noise, per-request events. Events include:
 
 - **Active usage**: opaque user id for DAU/WAU/MAU; organisation and project Groups for active-org / active-project counts; login and registration; named page visits (by page name, not full URLs).
-- **Organisations & projects**: create / switch / list inventory counts (`organisation_id` / `project_id` only — never names or member emails).
+- **Organisations & projects**: create / switch / list inventory counts (`organisation_id` / `project_id` only - never names or member emails).
 - **Feature adoption**: create/update/delete counts for prompts, rules, evaluations, dashboards, contexts, openground, and database configurations.
-- **Inventory counts**: how many of each entity exist (for example orgs, projects, prompts, rules, evaluation types, dashboards, fleet agents connected, application and coding agents) — counts only, never names or contents.
+- **Inventory counts**: how many of each entity exist (for example orgs, projects, prompts, rules, evaluation types, dashboards, fleet agents connected, application and coding agents) - counts only, never names or contents.
 - **Auto features**: whether auto pricing and auto evaluation are enabled, and their run outcomes.
 - **SDK operations**: success/failure counts for fetching prompts and vault secrets.
-- **Daily instance snapshot**: once per day, per install, we send an aggregate `INSTANCE_TELEMETRY_SNAPSHOT` with anonymous totals — including OpenLIT version, `users_total` / `organisations_total` / `projects_total`, other entity inventory counts, and world-total ingestion volume (`spans_total`, `traces_total`, and 24h deltas). This lets us understand OpenLIT usage at scale without ever sending your telemetry data itself.
+- **Daily instance snapshot**: once per day, per install, we send an aggregate `INSTANCE_TELEMETRY_SNAPSHOT` with anonymous totals - including OpenLIT version, `users_total` / `organisations_total` / `projects_total`, other entity inventory counts, and world-total ingestion volume (`spans_total`, `traces_total`, and 24h deltas). This lets us understand OpenLIT usage at scale without ever sending your telemetry data itself.
 
 We never send emails, names, passwords, secrets, API keys, span/trace contents, or per-span ingestion events.
 
@@ -55,5 +55,5 @@ We use Posthog to securely store and visualize usage metrics, providing essentia
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>

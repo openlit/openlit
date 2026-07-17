@@ -1,21 +1,21 @@
 ---
-title: 'Otter — AI Chat Copilot'
+title: 'Otter - AI Chat Copilot'
 description: 'Meet Otter, your AI copilot for querying data, managing resources, and creating dashboards'
 ---
 
-Meet **Otter** 🦦 — your AI-powered observability copilot built into OpenLIT. Otter lets you interact with your observability platform using natural language. It can query your telemetry data, create and manage platform resources, and generate complete dashboards — all through conversation.
+Meet **Otter** 🦦 - your AI-powered observability copilot built into OpenLIT. Otter lets you interact with your observability platform using natural language. It can query your telemetry data, create and manage platform resources, and generate complete dashboards - all through conversation.
 
 ## Meet Otter
 
 Otter is always just a click away via the floating chat button (bottom-right corner of every page) or from the **Chat** entry in the sidebar. Otter paddles through your traces, metrics, and logs so you don't have to.
 
 <Frame>
-  <img src="/images/otter.svg" width="80" />
+  <img src="/images/otter.svg" width="80" alt="Otter, the OpenLIT AI chat copilot" />
 </Frame>
 
 ## Key Features
 
-- **Natural Language Queries**: Ask questions about your traces, metrics, costs, and tokens — the AI converts them to ClickHouse SQL and executes them
+- **Natural Language Queries**: Ask questions about your traces, metrics, costs, and tokens - the AI converts them to ClickHouse SQL and executes them
 - **Trace and Span Analysis**: Run structured AI analysis on a full trace hierarchy or an individual span, with findings grouped by performance, reliability, cost, token efficiency, and execution path
 - **Prompt Improvement**: Ask Otter to review an existing Prompt Hub prompt and suggest improvements without automatically saving changes
 - **Resource Management**: Create and manage rules, contexts, prompts, vault secrets, and custom models through conversation
@@ -28,9 +28,9 @@ Otter is always just a click away via the floating chat button (bottom-right cor
 <Steps>
   <Step title="Configure AI Provider">
     Navigate to **Chat → Settings** (gear icon in chat sidebar) and configure:
-    1. **Provider** — Select from 14 supported providers (OpenAI, Anthropic, Google, etc.)
-    2. **Model** — Choose a model from the provider's list (includes custom models from Manage Models)
-    3. **API Key** — Select a vault secret containing your provider's API key
+    1. **Provider** - Select from 14 supported providers (OpenAI, Anthropic, Google, etc.)
+    2. **Model** - Choose a model from the provider's list (includes custom models from Manage Models)
+    3. **API Key** - Select a vault secret containing your provider's API key
 
     <Info>
       Store your API key in the **Vault** first, then select it in Chat Settings.
@@ -232,7 +232,7 @@ OpenAI, Anthropic, Google, Mistral, Cohere, Groq, Perplexity, Azure OpenAI, Toge
 
 ## Security
 
-- All SQL queries execute with `readonly` mode — no write operations possible
+- All SQL queries execute with `readonly` mode - no write operations possible
 - Queries are validated against an allowlist of tables (`otel_traces`, `otel_metrics_*`)
 - DDL/DML statements (INSERT, UPDATE, DELETE, DROP, etc.) are rejected
 - API keys are stored in the Vault and never sent to the client

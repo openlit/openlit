@@ -8,7 +8,7 @@ The OpenLIT Controller is a lightweight agent that discovers and instruments AI 
 
 ## Why the Controller?
 
-Traditional observability requires adding SDKs to every service — changing code, rebuilding images, and redeploying. The Controller eliminates all of that:
+Traditional observability requires adding SDKs to every service - changing code, rebuilding images, and redeploying. The Controller eliminates all of that:
 
 | | SDK approach | Controller approach |
 |---|---|---|
@@ -29,7 +29,7 @@ The Controller provides two types of observability:
 
 ### LLM Observability (eBPF-based)
 
-Uses eBPF to intercept LLM API calls at the network level — no application changes required. Captures:
+Uses eBPF to intercept LLM API calls at the network level - no application changes required. Captures:
 - Model name, provider, and endpoint
 - Token usage (prompt + completion)
 - Request latency and error rates
@@ -93,11 +93,11 @@ flowchart LR
     UI -->|Controls| Scanner
 ```
 
-1. **Service Discovery** — The Controller scans for processes making LLM API calls (OpenAI, Anthropic, Gemini, Bedrock, etc.)
-2. **Agents** — Discovered services appear in the OpenLIT dashboard where you can enable/disable observability
-3. **LLM Observability** — One-click eBPF instrumentation for LLM traffic metrics
-4. **Agent Observability** — One-click SDK injection for agent framework traces
-5. **Reconciliation** — The Controller automatically restores your desired state after pod restarts, container recreates, or process restarts
+1. **Service Discovery** - The Controller scans for processes making LLM API calls (OpenAI, Anthropic, Gemini, Bedrock, etc.)
+2. **Agents** - Discovered services appear in the OpenLIT dashboard where you can enable/disable observability
+3. **LLM Observability** - One-click eBPF instrumentation for LLM traffic metrics
+4. **Agent Observability** - One-click SDK injection for agent framework traces
+5. **Reconciliation** - The Controller automatically restores your desired state after pod restarts, container recreates, or process restarts
 
 ## The Agents Page
 
@@ -120,25 +120,25 @@ The main view shows every service the Controller has discovered across your infr
 
 Click **Enable** next to any service. The Controller will:
 
-1. **LLM Observability** — Attach eBPF probes to intercept LLM API traffic. Takes effect within seconds, no restart required.
-2. **Agent Observability** — Inject the OpenLIT Python SDK. In Kubernetes this triggers a rolling update; in Docker the container is recreated; on Linux the systemd service is restarted.
+1. **LLM Observability** - Attach eBPF probes to intercept LLM API traffic. Takes effect within seconds, no restart required.
+2. **Agent Observability** - Inject the OpenLIT Python SDK. In Kubernetes this triggers a rolling update; in Docker the container is recreated; on Linux the systemd service is restarted.
 
 ### Disabling observability
 
 Click **Disable** to remove instrumentation:
 
-- **LLM Observability** — eBPF probes are detached immediately. No application restart.
-- **Agent Observability** — The injected SDK environment variables are removed. In Kubernetes a rolling update restores the original pod spec. In Docker the container is recreated without the SDK. On Linux the systemd drop-in is removed and the service is restarted.
+- **LLM Observability** - eBPF probes are detached immediately. No application restart.
+- **Agent Observability** - The injected SDK environment variables are removed. In Kubernetes a rolling update restores the original pod spec. In Docker the container is recreated without the SDK. On Linux the systemd drop-in is removed and the service is restarted.
 
 ### Service detail page
 
 Click on a service name to see its detail page:
 
-- **Controller instance** — Which Controller node is managing this service
-- **Workload info** — Namespace, deployment name, container image (Kubernetes), container ID (Docker), or PID/executable (Linux)
-- **Instrumentation status** — Current state for both LLM and Agent Observability
-- **SDK version** — The OpenLIT Python SDK version injected (for Agent Observability)
-- **Last seen** — When the Controller last reported this service
+- **Controller instance** - Which Controller node is managing this service
+- **Workload info** - Namespace, deployment name, container image (Kubernetes), container ID (Docker), or PID/executable (Linux)
+- **Instrumentation status** - Current state for both LLM and Agent Observability
+- **SDK version** - The OpenLIT Python SDK version injected (for Agent Observability)
+- **Last seen** - When the Controller last reported this service
 
 ### Controller instances
 

@@ -1,14 +1,14 @@
 ---
 title: 'Manage Models'
-description: 'View, edit, and add LLM models with per-model pricing across all providers'
+description: 'AI cost tracking foundation: view, edit, and add LLM models with per-model pricing across all providers'
 sidebarTitle: 'Manage Models'
 ---
 
-Manage Models is an independent feature for managing LLM provider metadata and per-model pricing. It is used across OpenLIT — including Chat, Evaluations, OpenGround, and Pricing — to look up model details and compute costs.
+Manage Models is the AI cost tracking foundation for OpenLIT - it manages LLM provider metadata and per-model pricing, and is used across Chat, Evaluations, OpenGround, and Pricing to look up model details and compute costs.
 
 ## Overview
 
-Every ClickHouse database connected to OpenLIT automatically gets a pre-populated set of **14 providers and 45+ models** with default pricing. All models are fully editable — you can update pricing, add new models, or delete ones you don't use.
+Every ClickHouse database connected to OpenLIT automatically gets a pre-populated set of **14 providers and 45+ models** with default pricing. All models are fully editable - you can update pricing, add new models, or delete ones you don't use.
 
 ### Supported providers (out of the box)
 
@@ -36,10 +36,10 @@ Providers (e.g. OpenAI, Anthropic) are the top-level grouping for models. OpenLI
 <Steps>
   <Step title="Add a new provider">
     Click the **Add Provider** button (`+` icon) in the header toolbar. Fill in:
-    - **Provider ID** — a lowercase slug (e.g. `my-llm`). As you type, special characters are automatically replaced with hyphens. This must match the value your SDK sends in `gen_ai.system`.
-    - **Display Name** — the label shown in the UI (e.g. "My LLM").
-    - **Description** — optional, shown in provider lists.
-    - **Requires API Key** — toggle on if the provider needs a Vault secret.
+    - **Provider ID** - a lowercase slug (e.g. `my-llm`). As you type, special characters are automatically replaced with hyphens. This must match the value your SDK sends in `gen_ai.system`.
+    - **Display Name** - the label shown in the UI (e.g. "My LLM").
+    - **Description** - optional, shown in provider lists.
+    - **Requires API Key** - toggle on if the provider needs a Vault secret.
   </Step>
   <Step title="Edit an existing provider">
     Hover over a provider name in the sidebar and click the pencil icon. You can change the display name, description, and vault requirement. The Provider ID cannot be changed after creation.
@@ -57,16 +57,16 @@ Providers (e.g. OpenAI, Anthropic) are the top-level grouping for models. OpenLI
   </Step>
   <Step title="Browse providers and models">
     The left sidebar lists all providers. Click a provider to expand its models. Each model shows its context window and input price.
-    - **Default** badge — a model that was pre-populated by OpenLIT.
-    - **Custom** badge — a model you added manually.
+    - **Default** badge - a model that was pre-populated by OpenLIT.
+    - **Custom** badge - a model you added manually.
   </Step>
   <Step title="Edit a model">
     Click any model to open the editor panel on the right. You can change:
-    - **Display Name** — the human-readable name shown in dropdowns.
-    - **Model Type** — chat, embeddings, images, or audio.
-    - **Context Window** — the maximum token context length.
-    - **Input / Output Price per 1M Tokens** — used by the Pricing feature to compute costs.
-    - **Capabilities** — comma-separated list (e.g. `function-calling, vision, streaming`).
+    - **Display Name** - the human-readable name shown in dropdowns.
+    - **Model Type** - chat, embeddings, images, or audio.
+    - **Context Window** - the maximum token context length.
+    - **Input / Output Price per 1M Tokens** - used by the Pricing feature to compute costs.
+    - **Capabilities** - comma-separated list (e.g. `function-calling, vision, streaming`).
   </Step>
   <Step title="Add a new model">
     Click the **+** button next to any provider header to add a new model. Fill in the Model ID (the identifier your SDK sends, e.g. `gpt-4o-2024-08-06`), display name, and pricing.
@@ -106,7 +106,7 @@ Click the **Export Pricing** button in the top-right corner of the Manage Models
 
 ## Public SDK Pricing URL
 
-Each database config has a **public, unauthenticated** pricing URL that you can pass directly to the OpenLIT SDK. This lets your SDK load pricing from the same models you manage in the UI — no manual JSON files needed.
+Each database config has a **public, unauthenticated** pricing URL that you can pass directly to the OpenLIT SDK. This lets your SDK load pricing from the same models you manage in the UI - no manual JSON files needed.
 
 The URL is shown in a bar below the header on the Manage Models page. Click **Copy** to copy it to your clipboard.
 
@@ -149,7 +149,7 @@ func main() {
 
 **Endpoint:** `GET /api/pricing/export/{dbConfigId}`
 
-- No authentication required — safe to embed in application configs.
+- No authentication required - safe to embed in application configs.
 - Returns the same SDK-compatible pricing JSON format as the export button.
 - Responses are cached for 5 minutes (`Cache-Control: public, max-age=300`).
 
@@ -209,7 +209,7 @@ You can bulk-import providers and models from a JSON file. This is useful for sy
     }
     ```
 
-    **SDK pricing_json format** (provider defaults to `"unknown"` — edit after import):
+    **SDK pricing_json format** (provider defaults to `"unknown"` - edit after import):
     ```json
     {
       "chat": {
@@ -219,9 +219,9 @@ You can bulk-import providers and models from a JSON file. This is useful for sy
     ```
   </Step>
   <Step title="Import">
-    Click **Import Pricing JSON**. Providers and models that already exist are automatically **skipped** — no duplicates are created. The response shows counts for both:
-    - `imported` / `skipped` — models
-    - `providersImported` / `providersSkipped` — providers
+    Click **Import Pricing JSON**. Providers and models that already exist are automatically **skipped** - no duplicates are created. The response shows counts for both:
+    - `imported` / `skipped` - models
+    - `providersImported` / `providersSkipped` - providers
   </Step>
 </Steps>
 
@@ -245,7 +245,21 @@ You can bulk-import providers and models from a JSON file. This is useful for sy
 ## Architecture
 
 - **ClickHouse tables**: `openlit_provider_metadata` (provider definitions), `openlit_providers` (API key configs), and `openlit_provider_models` (all models with pricing).
-- **No `database_config_id` column** — each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default providers and models.
-- **Fully dynamic** — both providers and models are stored in ClickHouse and editable via the UI or API. No hardcoded provider list.
-- **Platform library**: `src/lib/platform/providers/` — `provider-registry.ts`, `models-service.ts`, `config.ts`, `default-models.ts`.
+- **No `database_config_id` column** - each ClickHouse instance is its own scope. When you connect a new ClickHouse database, the migration automatically creates the tables and seeds all default providers and models.
+- **Fully dynamic** - both providers and models are stored in ClickHouse and editable via the UI or API. No hardcoded provider list.
+- **Platform library**: `src/lib/platform/providers/` - `provider-registry.ts`, `models-service.ts`, `config.ts`, `default-models.ts`.
 - **Seeding**: `default-models.ts` contains the initial 14 providers and 45+ models used only by the migration for first-run seeding.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="How does OpenLIT calculate AI cost tracking?">
+    OpenLIT multiplies input and output token counts from each trace by the per-model pricing stored in Manage Models, giving you cost per request, model, and provider automatically.
+  </Accordion>
+  <Accordion title="Can I add a custom or self-hosted model?">
+    Yes. Add any provider and model with your own pricing, or bulk-import via an SDK-compatible `pricing.json` - this covers self-hosted, fine-tuned, or niche provider models not in the built-in list.
+  </Accordion>
+  <Accordion title="Does my SDK need to know about pricing changes?">
+    No manual sync is required if you use the public pricing URL - the SDK fetches it on startup, so pricing edits in Manage Models propagate automatically on restart or refresh.
+  </Accordion>
+</AccordionGroup>

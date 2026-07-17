@@ -1,0 +1,46 @@
+---
+title: 'Monitor smolagents using OpenTelemetry'
+description: 'OpenLIT auto-instruments Hugging Face smolagents via OpenTelemetry, tracing agent runs, planning steps, and tool calls for AI observability.'
+sidebarTitle: 'smolagents'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor AI agents built with Hugging Face's smolagents framework. This includes tracing agent runs, planning steps, code and tool-calling steps, and individual tool calls, giving you AI observability into multi-step agent execution.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up. LLM calls made by the underlying model client (OpenAI, and others) are traced by their own dedicated instrumentors, so you get a complete trace from agent run down to individual model calls.
+
+The integration is compatible with `smolagents >= 1.0.0`.
+
+## Get started
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
+<Card
+    title="Zero-code observability with the OpenLIT Controller"
+    icon="tower-broadcast"
+    href="/latest/controller/overview"
+  >
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
+  </Card>

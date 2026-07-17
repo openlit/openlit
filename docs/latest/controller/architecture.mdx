@@ -40,11 +40,11 @@ flowchart TB
 
 The Controller continuously scans for processes that communicate with known LLM API endpoints. It inspects:
 
-- **Network connections** — Identifies TCP connections to known LLM provider domains (OpenAI, Anthropic, Google AI, AWS Bedrock, etc.)
-- **Process metadata** — Extracts PID, executable path, command line, and language runtime
-- **Kubernetes metadata** — Resolves pod name, namespace, deployment/daemonset/statefulset ownership
-- **Docker metadata** — Reads container name, ID, and labels
-- **Workload key** — Generates a stable identifier (e.g., `k8s:namespace:deployment:service`) that persists across pod restarts
+- **Network connections** - Identifies TCP connections to known LLM provider domains (OpenAI, Anthropic, Google AI, AWS Bedrock, etc.)
+- **Process metadata** - Extracts PID, executable path, command line, and language runtime
+- **Kubernetes metadata** - Resolves pod name, namespace, deployment/daemonset/statefulset ownership
+- **Docker metadata** - Reads container name, ID, and labels
+- **Workload key** - Generates a stable identifier (e.g., `k8s:namespace:deployment:service`) that persists across pod restarts
 
 ### LLM Observability (OBI Engine)
 
@@ -113,18 +113,18 @@ When a user enables observability for a service, the dashboard stores the **desi
 | `none` (agent) | `enabled` | Queue `disable_python_sdk` action |
 
 This reconciliation ensures that:
-- **Pod restarts** — New pods are automatically re-instrumented
-- **Container recreates** — Docker containers regain their instrumentation
-- **Process restarts** — Linux services are re-instrumented via systemd
-- **Controller restarts** — The Controller reads desired state from ClickHouse and re-applies it
-- **Node failures** — When a node recovers, the Controller on that node reconciles all services
+- **Pod restarts** - New pods are automatically re-instrumented
+- **Container recreates** - Docker containers regain their instrumentation
+- **Process restarts** - Linux services are re-instrumented via systemd
+- **Controller restarts** - The Controller reads desired state from ClickHouse and re-applies it
+- **Node failures** - When a node recovers, the Controller on that node reconciles all services
 
 ## Security Model
 
 | Concern | Approach |
 |---|---|
 | **Privileged access** | Required for eBPF probes (`hostPID: true`, `privileged: true` in K8s) |
-| **Blast radius** | Controller failure does not affect application behavior — eBPF probes are read-only, SDK injection is reversible |
+| **Blast radius** | Controller failure does not affect application behavior - eBPF probes are read-only, SDK injection is reversible |
 | **Network** | Controller only makes outbound HTTP calls to the dashboard. No inbound ports |
 | **RBAC (K8s)** | Controller needs `get/list/watch` on pods and `update/patch` on deployments/daemonsets for SDK injection |
 | **Docker socket** | Required in Docker mode for container inspection and SDK injection |

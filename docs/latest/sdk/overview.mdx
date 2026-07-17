@@ -3,8 +3,8 @@ title: 'Overview'
 description: 'Production-ready AI observability with zero code changes. Monitor LLM applications, track token usage, detect hallucinations, and optimize costs with OpenTelemetry-native instrumentation.'
 ---
 
-The OpenLIT SDK is an **open-source**, **OpenTelemetry-native** LLM observability platform 
-that enables production-ready AI application and agent monitoring **without any code changes**. 
+The OpenLIT SDK is an **open-source**, **OpenTelemetry-native** AI observability platform
+that enables production-ready LLM application and agent monitoring **without any code changes**. 
 
 It includes upstream OpenTelemetry instrumentations for HTTP frameworks, clients, and system components, delivering **complete visibility across your entire AI infrastructure**.
 
@@ -104,5 +104,19 @@ Select from the following guides to learn more about production AI monitoring:
     icon="tower-broadcast"
     href="/latest/controller/overview"
   >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
+  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
   </Card>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is the OpenLIT SDK?">
+    The OpenLIT SDK is an open-source, OpenTelemetry-native library that auto-instruments LLM providers, agent frameworks, and vector databases for AI observability - tracing, cost tracking, and evaluation - without code changes.
+  </Accordion>
+  <Accordion title="Does the SDK require changing my code?">
+    No. Run `openlit-instrument python your_app.py` for zero-code instrumentation, or call `openlit.init()` once if you prefer manual setup - both produce the same OpenTelemetry traces.
+  </Accordion>
+  <Accordion title="Can I send data to my existing observability stack?">
+    Yes. Since the SDK emits standard OpenTelemetry data, you can export to Datadog, Grafana, New Relic, Dash0, or any OTLP-compatible backend - see [Destinations](/latest/sdk/destinations/overview).
+  </Accordion>
+</AccordionGroup>
