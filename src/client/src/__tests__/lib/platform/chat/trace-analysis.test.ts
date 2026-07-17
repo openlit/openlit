@@ -1,11 +1,16 @@
-import fixture from "@/__tests__/fixtures/trace-analysis.example.json";
+import exampleFixture from "@/__tests__/fixtures/trace-analysis.example.json";
 import {
 	TRACE_ANALYSIS_DIMENSIONS,
 	emptyTraceAnalysis,
 } from "@/types/trace-analysis";
 
+const fixture = {
+	...exampleFixture,
+	prompt_injection: [],
+};
+
 describe("trace analysis schema fixture", () => {
-	it("has all six dimensions and span refs on findings", () => {
+	it("has all seven dimensions and span refs on findings", () => {
 		expect(Object.keys(fixture).filter((key) =>
 			(TRACE_ANALYSIS_DIMENSIONS as readonly string[]).includes(key)
 		)).toMatchSnapshot();
@@ -21,7 +26,7 @@ describe("trace analysis schema fixture", () => {
 });
 
 describe("emptyTraceAnalysis", () => {
-	it("returns all six dimension arrays as empty", () => {
+	it("returns all seven dimension arrays as empty", () => {
 		const analysis = emptyTraceAnalysis("trace-123");
 		expect(analysis.trace_id).toBe("trace-123");
 		expect(analysis.summary).toBe("");
