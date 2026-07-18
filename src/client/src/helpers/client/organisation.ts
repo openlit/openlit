@@ -25,6 +25,9 @@ export const fetchOrganisationList = async () => {
 	}
 
 	useRootStore.getState().organisation.setList(data || []);
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_LIST, {
+		count: Array.isArray(data) ? data.length : 0,
+	});
 };
 
 export const fetchPendingInvitations = async () => {
@@ -72,6 +75,11 @@ export const changeActiveOrganisation = async (
 		id: "organisation-switch",
 	});
 
+	posthog?.group("organisation", organisationId);
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_SWITCHED, {
+		organisation_id: organisationId,
+	});
+
 	// Refetch database configs for the new organisation
 	await fetchProjectList(organisationId);
 	await fetchDatabaseConfigList(() => {});
@@ -104,8 +112,11 @@ export const createOrganisation = async (
 		id: "organisation-create",
 	});
 
-	// Track event
-	posthog?.capture(CLIENT_EVENTS.ORGANISATION_CREATED);
+	// Track event — opaque organisation_id only (no name).
+	posthog?.group("organisation", data.id);
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_CREATED, {
+		organisation_id: data.id,
+	});
 
 	// Refetch organisation list
 	await fetchOrganisationList();
@@ -145,8 +156,10 @@ export const updateOrganisation = async (
 		id: "organisation-update",
 	});
 
-	// Track event
-	posthog?.capture(CLIENT_EVENTS.ORGANISATION_UPDATED);
+	// Track event — opaque organisation_id only (no name).
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_UPDATED, {
+		organisation_id: id,
+	});
 
 	// Refetch organisation list
 	await fetchOrganisationList();
@@ -175,8 +188,10 @@ export const deleteOrganisation = async (
 		id: "organisation-delete",
 	});
 
-	// Track event
-	posthog?.capture(CLIENT_EVENTS.ORGANISATION_DELETED);
+	// Track event — opaque organisation_id only (no name).
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_DELETED, {
+		organisation_id: id,
+	});
 
 	// Refetch organisation list
 	await fetchOrganisationList();
@@ -220,6 +235,7 @@ export const inviteToOrganisation = async (
 		);
 		// Track partial success
 		posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_INVITED, {
+			organisation_id: organisationId,
 			success_count: successCount,
 			fail_count: failCount,
 			status: "partial"
@@ -236,6 +252,7 @@ export const inviteToOrganisation = async (
 		});
 		// Track success
 		posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_INVITED, {
+			organisation_id: organisationId,
 			count: successCount,
 			status: "success"
 		});
@@ -268,7 +285,9 @@ export const acceptInvitation = async (
 	});
 
 	// Track event
-	posthog?.capture(CLIENT_EVENTS.ORGANISATION_INVITATION_ACCEPTED);
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_INVITATION_ACCEPTED, {
+		organisation_id: data?.organisationId || data?.organisation_id,
+	});
 
 	// Refetch organisations and invitations
 	await fetchOrganisationList();
@@ -331,7 +350,9 @@ export const removeOrganisationMember = async (
 	});
 
 	// Track event
-	posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_REMOVED);
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_REMOVED, {
+		organisation_id: organisationId,
+	});
 
 	successCb?.();
 };
@@ -392,7 +413,8 @@ export const updateMemberRole = async (
 
 	// Track event
 	posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_ROLE_UPDATED, {
-		new_role: role
+		organisation_id: organisationId,
+		new_role: role,
 	});
 
 	successCb?.();

@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import {
@@ -18,18 +20,13 @@ export type {
 	EvaluationTypeConfig,
 } from "@/lib/platform/evaluation/type-config";
 
-export async function GET(
+async function GETHandler(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
-	const startTimestamp = Date.now();
 	const typeId = params.id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation config not found" },
 			{ status: 404 }
@@ -38,23 +35,15 @@ export async function GET(
 	const types = (config as any).evaluationTypes ?? [];
 	const typeConfig = types.find((t: any) => t.id === typeId);
 	if (!typeConfig) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_GET_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation type not found" },
 			{ status: 404 }
 		);
 	}
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.EVALUATION_TYPE_GET_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json({ data: typeConfig });
 }
 
-export async function PATCH(
+async function PATCHHandler(
 	request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -128,7 +117,7 @@ export async function PATCH(
 	return Response.json({ data: updated });
 }
 
-export async function DELETE(
+async function DELETEHandler(
 	_: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -173,3 +162,7 @@ export async function DELETE(
 	});
 	return Response.json({ data: { deleted: typeId } });
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const PATCH = withAudit(withCurrentOrganisationPermission("evaluation:configure", PATCHHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("evaluation:configure", DELETEHandler));

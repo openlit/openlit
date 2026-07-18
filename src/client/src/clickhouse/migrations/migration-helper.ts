@@ -1,5 +1,5 @@
 import getMessage from "@/constants/messages";
-import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
+import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import { dataCollector } from "@/lib/platform/common";
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
@@ -20,7 +20,7 @@ export default async function migrationHelper({
 }) {
 	let err, dbConfig;
 	if (databaseConfigId) {
-		[err, dbConfig] = await asaw(getDBConfigById({ id: databaseConfigId }));
+		[err, dbConfig] = await asaw(getDBConfigByIdInternal({ id: databaseConfigId }));
 	} else {
 		[err, dbConfig] = await asaw(getDBConfigByUser(true));
 	}

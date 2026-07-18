@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import {
@@ -15,14 +17,9 @@ export type {
 	EvaluationTypeConfig,
 } from "@/lib/platform/evaluation/type-config";
 
-export async function GET(_: NextRequest) {
-	const startTimestamp = Date.now();
+async function GETHandler(_: NextRequest) {
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.EVALUATION_TYPE_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(
 			{ err: "Evaluation config not found", data: [] },
 			{ status: 200 }
@@ -30,14 +27,10 @@ export async function GET(_: NextRequest) {
 	}
 
 	const types = (config as any).evaluationTypes ?? [];
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.EVALUATION_TYPE_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json({ data: types });
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	let body: any;
 	try {
@@ -91,3 +84,6 @@ export async function POST(request: NextRequest) {
 	});
 	return Response.json({ data: normalizedTypes });
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:configure", POSTHandler));

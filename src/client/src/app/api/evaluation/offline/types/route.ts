@@ -1,4 +1,3 @@
-import { SERVER_EVENTS } from "@/constants/events";
 import { getAPIKeyInfo } from "@/lib/platform/api-keys";
 import { getEvaluationConfigByDbConfigId } from "@/lib/platform/evaluation/config";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
@@ -7,13 +6,10 @@ import {
 	persistEvaluationTypes,
 } from "@/lib/platform/evaluation/type-config";
 import getMessage from "@/constants/messages";
-import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import { errorResponse } from "@/helpers/server/response";
 
 export async function GET(request: Request) {
-	const startTimestamp = Date.now();
-
 	const authorizationHeader = request.headers.get("Authorization") || "";
 	if (!authorizationHeader.startsWith("Bearer ")) {
 		return errorResponse(getMessage().NO_API_KEY, 401);
@@ -46,10 +42,6 @@ export async function GET(request: Request) {
 		is_custom: !!t.isCustom,
 	}));
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.EVALUATION_OFFLINE_TYPES_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json({ eval_types: types });
 }
 

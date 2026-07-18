@@ -4,6 +4,8 @@ import { getData, postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
+import posthog from "posthog-js";
 import { fetchDatabaseConfigList, pingActiveDatabaseConfig } from "./database-config";
 
 const inFlightProjectListRequests = new Map<string, Promise<ProjectWithMeta[]>>();
@@ -36,6 +38,10 @@ export const fetchProjectList = async (organisationId?: string) => {
 		}
 
 		useRootStore.getState().project.setList(data);
+		posthog?.capture(CLIENT_EVENTS.PROJECT_LIST, {
+			organisation_id: currentOrgId,
+			count: data.length,
+		});
 		return data as ProjectWithMeta[];
 	})();
 
@@ -76,6 +82,12 @@ export const changeActiveProject = async (
 	if (nextProject) {
 		useRootStore.getState().project.setCurrent(nextProject);
 	}
+
+	posthog?.group("project", projectId);
+	posthog?.capture(CLIENT_EVENTS.PROJECT_SWITCHED, {
+		organisation_id: currentOrgId,
+		project_id: projectId,
+	});
 
 	await fetchDatabaseConfigList(() => {});
 	await pingActiveDatabaseConfig();

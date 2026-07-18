@@ -45,7 +45,7 @@ jest.mock('@/lib/platform/cron-log', () => ({
   insertCronLog: jest.fn(),
 }));
 jest.mock('@/lib/db-config', () => ({
-  getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
 }));
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
@@ -82,7 +82,6 @@ import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
 import { getLastRunCronLogByCronId, getLastFailureCronLogBySpanId, insertCronLog } from '@/lib/platform/cron-log';
-import { getDBConfigById } from '@/lib/db-config';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
 import { runEvaluation } from '@/lib/platform/evaluation/run-evaluation';
