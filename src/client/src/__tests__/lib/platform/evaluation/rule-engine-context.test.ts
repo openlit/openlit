@@ -316,4 +316,22 @@ describe('getContextFromRulesWithPriorityForFields', () => {
     const result = await getContextFromRulesWithPriorityForFields({}, [{ ruleId: 'r1', priority: 5 }]);
     expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
   });
+
+  it('returns the original (unordered) result instead of throwing when the priority re-fetch fails', async () => {
+    (evaluateRules as jest.Mock)
+      .mockResolvedValueOnce({
+        matchingRuleIds: ['r1'],
+        entities: [],
+        entity_data: { 'context:ctx-x': { content: 'fallback content' } },
+      })
+      .mockRejectedValueOnce(new Error('second fetch failed'));
+
+    const result = await getContextFromRulesWithPriorityForFields(
+      { 'service.name': 'my-app' },
+      [{ ruleId: 'r1', priority: 5 }]
+    );
+
+    expect(result.matchingRuleIds).toContain('r1');
+    expect(result.contextContents).toEqual(['fallback content']);
+  });
 });

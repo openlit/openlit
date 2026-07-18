@@ -1,40 +1,33 @@
-import { getAPIKeyInfo } from "@/lib/platform/api-keys";
-import { getEvaluationConfigByDbConfigId } from "@/lib/platform/evaluation/config";
+import { SERVER_EVENTS } from "@/constants/events";
+import {
+	authenticateOfflineApiKey,
+	loadOfflineEvaluationConfig,
+	EVALUATION_NOT_CONFIGURED_MESSAGE,
+} from "@/lib/platform/evaluation/offline-auth";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import {
 	normalizeTypeConfig,
 	persistEvaluationTypes,
 } from "@/lib/platform/evaluation/type-config";
 import getMessage from "@/constants/messages";
-import asaw from "@/utils/asaw";
+import PostHogServer from "@/lib/posthog";
 import { errorResponse } from "@/helpers/server/response";
 
 export async function GET(request: Request) {
-	const authorizationHeader = request.headers.get("Authorization") || "";
-	if (!authorizationHeader.startsWith("Bearer ")) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
-	if (!apiKey) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-	if (keyErr || !apiInfo?.databaseConfigId) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
+	const startTimestamp = Date.now();
 
-	const [configErr, config] = await asaw(
-		getEvaluationConfigByDbConfigId(apiInfo.databaseConfigId, true)
+	const auth = await authenticateOfflineApiKey(request);
+	if ("error" in auth) return auth.error;
+
+	const loaded = await loadOfflineEvaluationConfig(auth.databaseConfigId, () =>
+		errorResponse(EVALUATION_NOT_CONFIGURED_MESSAGE, 200, {
+			eval_types: [],
+			configured: false,
+		})
 	);
-	if (configErr || !config?.id) {
-		return errorResponse(
-			"Evaluation not configured. Set up evaluation in the OpenLIT dashboard first.",
-			200,
-			{ eval_types: [], configured: false }
-		);
-	}
+	if ("error" in loaded) return loaded.error;
 
-	const types = ((config as any).evaluationTypes || []).map((t: any) => ({
+	const types = (loaded.config.evaluationTypes || []).map((t: any) => ({
 		id: t.id,
 		label: t.label || t.id,
 		description: t.description || "",
@@ -42,24 +35,18 @@ export async function GET(request: Request) {
 		is_custom: !!t.isCustom,
 	}));
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.EVALUATION_OFFLINE_TYPES_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json({ eval_types: types });
 }
 
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
 
-	const authorizationHeader = request.headers.get("Authorization") || "";
-	if (!authorizationHeader.startsWith("Bearer ")) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
-	if (!apiKey) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-	if (keyErr || !apiInfo?.databaseConfigId) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
+	const auth = await authenticateOfflineApiKey(request);
+	if ("error" in auth) return auth.error;
 
 	let body: any;
 	try {
@@ -89,25 +76,24 @@ export async function POST(request: Request) {
 		thresholdScores.push(normalized);
 	}
 
-	const [configErr, config] = await asaw(
-		getEvaluationConfigByDbConfigId(apiInfo.databaseConfigId, true)
-	);
-	if (configErr || !config?.id) {
+	const loaded = await loadOfflineEvaluationConfig(auth.databaseConfigId, () => {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.EVALUATION_OFFLINE_TYPE_CREATE_FAILURE,
 			startTimestamp,
 		});
-		return errorResponse(
-			"Evaluation not configured. Set up evaluation in the OpenLIT dashboard first.",
-			400
-		);
-	}
+		return errorResponse(EVALUATION_NOT_CONFIGURED_MESSAGE, 400);
+	});
+	if ("error" in loaded) return loaded.error;
 
 	const normalizedTypes = types.map((t, i) =>
 		normalizeTypeConfig(t, thresholdScores[i])
 	);
 
-	await persistEvaluationTypes(config.id, (config as any).meta, normalizedTypes);
+	await persistEvaluationTypes(
+		loaded.config.id,
+		(loaded.config as any).meta,
+		normalizedTypes
+	);
 
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.EVALUATION_OFFLINE_TYPE_CREATE_SUCCESS,

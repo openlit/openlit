@@ -1,6 +1,9 @@
 import { SERVER_EVENTS } from "@/constants/events";
-import { getAPIKeyInfo } from "@/lib/platform/api-keys";
-import { getEvaluationConfigByDbConfigId } from "@/lib/platform/evaluation/config";
+import {
+	authenticateOfflineApiKey,
+	loadOfflineEvaluationConfig,
+	EVALUATION_NOT_CONFIGURED_MESSAGE,
+} from "@/lib/platform/evaluation/offline-auth";
 import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import {
 	normalizeRules,
@@ -10,7 +13,6 @@ import {
 } from "@/lib/platform/evaluation/type-config";
 import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
-import asaw from "@/utils/asaw";
 import { jsonParse } from "@/utils/json";
 import { errorResponse } from "@/helpers/server/response";
 
@@ -21,18 +23,8 @@ export async function PATCH(
 	const startTimestamp = Date.now();
 	const typeId = params.id;
 
-	const authorizationHeader = request.headers.get("Authorization") || "";
-	if (!authorizationHeader.startsWith("Bearer ")) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
-	if (!apiKey) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
-	const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-	if (keyErr || !apiInfo?.databaseConfigId) {
-		return errorResponse(getMessage().NO_API_KEY, 401);
-	}
+	const auth = await authenticateOfflineApiKey(request);
+	if ("error" in auth) return auth.error;
 
 	let body: any;
 	try {
@@ -53,21 +45,16 @@ export async function PATCH(
 		return errorResponse(getMessage().EVALUATION_THRESHOLD_SCORE_INVALID, 400);
 	}
 
-	const [configErr, config] = await asaw(
-		getEvaluationConfigByDbConfigId(apiInfo.databaseConfigId, true)
-	);
-	if (configErr || !config?.id) {
+	const loaded = await loadOfflineEvaluationConfig(auth.databaseConfigId, () => {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.EVALUATION_OFFLINE_TYPE_UPDATE_FAILURE,
 			startTimestamp,
 		});
-		return errorResponse(
-			"Evaluation not configured. Set up evaluation in the OpenLIT dashboard first.",
-			400
-		);
-	}
+		return errorResponse(EVALUATION_NOT_CONFIGURED_MESSAGE, 400);
+	});
+	if ("error" in loaded) return loaded.error;
 
-	const meta = jsonParse((config as any).meta || "{}") as Record<string, any>;
+	const meta = jsonParse((loaded.config as any).meta || "{}") as Record<string, any>;
 	const types: EvaluationTypeConfig[] =
 		(meta.evaluationTypes as EvaluationTypeConfig[]) || [];
 	const idx = types.findIndex((t: any) => t.id === typeId);
@@ -89,8 +76,8 @@ export async function PATCH(
 	}
 
 	await persistEvaluationTypes(
-		config.id,
-		(config as any).meta,
+		loaded.config.id,
+		(loaded.config as any).meta,
 		mergeTypeIntoList(types, updated)
 	);
 

@@ -298,19 +298,34 @@ export default function EvaluationTypeDetailPage() {
 									step={0.05}
 									placeholder="0.5 (default)"
 									value={config?.thresholdScore ?? ""}
-									onChange={(e) =>
-										setConfig((prev) =>
-											prev
-												? {
-													...prev,
-													thresholdScore:
-														e.target.value === ""
-															? undefined
-															: Number(e.target.value),
-												}
-												: null
-										)
-									}
+									onChange={(e) => {
+										const raw = e.target.value;
+										setConfig((prev) => {
+											if (!prev) return prev;
+											if (raw === "") {
+												return { ...prev, thresholdScore: undefined };
+											}
+											const nextValue = Number(raw);
+											// Ignore unparseable partial input (e.g. "-", "1..2",
+											// "abc") instead of propagating NaN into config and
+											// on to the API — keep the last valid value until the
+											// user types something parseable.
+											if (Number.isNaN(nextValue)) return prev;
+											return { ...prev, thresholdScore: nextValue };
+										});
+									}}
+									onBlur={(e) => {
+										const raw = e.target.value;
+										if (raw === "") return;
+										const parsed = Number(raw);
+										if (Number.isNaN(parsed)) return;
+										const clamped = Math.min(1, Math.max(0, parsed));
+										if (clamped !== parsed) {
+											setConfig((prev) =>
+												prev ? { ...prev, thresholdScore: clamped } : prev
+											);
+										}
+									}}
 								/>
 							</div>
 						</CardContent>
