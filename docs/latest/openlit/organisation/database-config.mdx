@@ -4,7 +4,7 @@ description: 'Add and manage ClickHouse database configurations for an OpenLIT p
 icon: 'database'
 ---
 
-Database configurations connect OpenLIT to ClickHouse. They are scoped to the active project, so each project can use its own database connection.
+A database configuration is the ClickHouse connection - host, port, database, and credentials - that a project reads and writes data through. Every project needs at least one before it can show traces, dashboards, or any other data.
 
 ## Add a database configuration
 
@@ -16,7 +16,7 @@ Database configurations connect OpenLIT to ClickHouse. They are scoped to the ac
     Choose the project that should own the database configuration.
   </Step>
   <Step title="Add config">
-    Click **Add database config** and enter the ClickHouse connection details.
+    Click **Add database config** and enter a name, environment label, and the ClickHouse connection details (host, port, database, username, password).
   </Step>
   <Step title="Test and save">
     Test the connection, then save the configuration.
@@ -28,12 +28,33 @@ Database configurations connect OpenLIT to ClickHouse. They are scoped to the ac
 
 ## Selection behavior
 
-The active database configuration is scoped to the current user and project. Switching projects updates the available database configurations. If a project does not have a database configuration, OpenLIT guides you through onboarding before showing data pages.
+The active database configuration is scoped to the current user and project - it's not a global setting, so two people can be looking at different database configurations inside the same project at the same time. Switching projects updates the list of available database configurations to only those that belong to the newly selected project; a configuration created under one project is never selectable from another. If a project has no database configuration yet, OpenLIT guides you through onboarding before showing any data pages.
 
 ## Multiple databases
 
-A project can have multiple database configurations. Use multiple configurations when you need to switch between environments or ClickHouse clusters without changing the organisation.
+A project can have multiple database configurations - for example, one per ClickHouse cluster or one per data retention tier. Use multiple configurations when you need to switch between them without changing projects or organisations.
 
 <Card title="Multiple database guide" href="/latest/openlit/developer-resources/multiple-db" icon="database">
   Learn more about using multiple ClickHouse database configurations in OpenLIT.
 </Card>
+
+## Sharing a database configuration
+
+A database configuration can be shared directly with specific teammates by email, independent of broader project membership - each share grants its own **edit**, **delete**, and **re-share** permissions, so you can give someone read-only-equivalent access to a connection without letting them modify or share it further.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Can I use the same database configuration across two projects?">
+    No. A database configuration belongs to the project it was created in and can't be selected from a different project - create a new configuration (pointing at the same or a different ClickHouse instance) in each project that needs one.
+  </Accordion>
+  <Accordion title="Do I need a new ClickHouse instance for every database configuration?">
+    No. Multiple configurations can point at the same ClickHouse cluster using different database names, or at entirely different clusters - whichever fits your infrastructure.
+  </Accordion>
+  <Accordion title="What happens if I open a project with no database configuration?">
+    OpenLIT detects the missing configuration and walks you through adding one before showing any data pages for that project.
+  </Accordion>
+  <Accordion title="Is my ClickHouse password visible after I save a configuration?">
+    No. The password is masked in the API and UI after saving - only entering a new value overwrites it.
+  </Accordion>
+</AccordionGroup>

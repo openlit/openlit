@@ -68,6 +68,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/fleet-hub",
 						type: "action",
 					},
+					{
+						icon: <MonitorCog className={ICON_CLASSES} />,
+						text: m.FEATURE_EVALS,
+						link: "/evaluations",
+						type: "action",
+					},
 				],
 			},
 			{
@@ -108,12 +114,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			{
 				title: m.SIDEBAR_CONFIGURATION,
 				children: [
-					{
-						icon: <MonitorCog className={ICON_CLASSES} />,
-						text: m.FEATURE_EVALS,
-						link: "/evaluations",
-						type: "action",
-					},
 					{
 						icon: <CircleDollarSign className={ICON_CLASSES} />,
 						text: m.PRICING_TITLE,

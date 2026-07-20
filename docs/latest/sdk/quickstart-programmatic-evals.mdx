@@ -11,20 +11,22 @@ import EvalsQuickstart from '/snippets/quickstart-programmatic-evals.mdx';
 ---
 
 <CardGroup cols={3}>
-  <Card title="Quickstart: LLM Guardrails" href="/latest/sdk/quickstart-guard" icon='bolt'>
+  <Card title="Full SDK reference" href="/latest/sdk/features/evaluations" icon='book'>
+    Parameters, result objects, batch evaluation, and Rule Engine attribute resolution in depth
+  </Card>
+  <Card title="CI/CD integration" href="/latest/sdk/features/evaluations#ci-cd-integration" icon='code-branch'>
+    Use evaluations as quality gates in your test suite or pipeline
+  </Card>
+  <Card title="Online evaluations" href="/latest/openlit/quickstart-evals" icon='bolt'>
+    Auto-evaluate every production trace instead of calling evaluations yourself
+  </Card>
+  <Card title="Quickstart: LLM Guardrails" href="/latest/sdk/quickstart-guard" icon='shield'>
     Protect and secure your LLM responses in 2 simple steps
   </Card>
   <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
     60+ AI integrations with automatic instrumentation and performance tracking
   </Card>
   <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
-    Send elemetry to Datadog, Grafana, New Relic, and other observability stacks
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
-  </Card>

@@ -48,9 +48,11 @@ export default function EvaluationTypeDetailPage() {
 	const et = EVALUATION_TYPES.find((e) => e.id === typeId);
 
 	const [config, setConfig] = useState<EvaluationTypeConfig | null>(null);
-	const { fireRequest: getType, data: typeResponse } = useFetchWrapper<{
-		data?: EvaluationTypeConfig;
-	}>();
+	const [notFound, setNotFound] = useState(false);
+	const { fireRequest: getType, data: typeResponse, error: typeError, isFetched: typeFetched } =
+		useFetchWrapper<{
+			data?: EvaluationTypeConfig;
+		}>();
 	const { fireRequest: getRules, data: rules } = useFetchWrapper<Rule[]>();
 	const { fireRequest: getEvalEntities, data: evalEntities } = useFetchWrapper<
 		Array<{ rule_id: string; entity_id: string }>
@@ -63,10 +65,12 @@ export default function EvaluationTypeDetailPage() {
 		.map((e) => e.rule_id);
 
 	useEffect(() => {
+		setNotFound(false);
+		setConfig(null);
 		posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPE_EDIT_PAGE_VISITED);
 		getType({
 			requestType: "GET",
-			url: `/api/evaluation/types/${typeId}`,
+			url: `/api/evaluation/types/${encodeURIComponent(typeId)}`,
 			responseDataKey: "data",
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
@@ -80,6 +84,7 @@ export default function EvaluationTypeDetailPage() {
 		const res = typeResponse as { data?: EvaluationTypeConfig } | undefined;
 		const data = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
 		if (data?.id) {
+			setNotFound(false);
 			setConfig({
 				id: data.id,
 				enabled: data.enabled ?? false,
@@ -90,7 +95,11 @@ export default function EvaluationTypeDetailPage() {
 				prompt: data.prompt,
 				defaultPrompt: data.defaultPrompt,
 			});
-		} else if (et) {
+			return;
+		}
+
+		if (et) {
+			setNotFound(false);
 			setConfig({
 				id: et.id,
 				enabled: et.enabledByDefault,
@@ -98,8 +107,13 @@ export default function EvaluationTypeDetailPage() {
 				prompt: data?.prompt,
 				defaultPrompt: data?.defaultPrompt,
 			});
+			return;
 		}
-	}, [typeResponse, et]);
+
+		if (typeFetched && (typeError || !data?.id)) {
+			setNotFound(true);
+		}
+	}, [typeResponse, et, typeFetched, typeError]);
 
 	const handleToggle = (enabled: boolean) => {
 		setConfig((prev) => (prev ? { ...prev, enabled } : null));
@@ -184,7 +198,7 @@ export default function EvaluationTypeDetailPage() {
 			responseDataKey: "data",
 			successCb: () => {
 				toast.success("Custom evaluation type deleted");
-				router.push("/evaluations/types");
+				router.push("/evaluations?tab=evaluators");
 			},
 			failureCb: (err?: string) => toast.error(err || "Failed to delete"),
 		});
@@ -195,30 +209,58 @@ export default function EvaluationTypeDetailPage() {
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
 
+	const evaluatorsHref = "/evaluations?tab=evaluators";
+	const backLabel = getMessage().EVALUATION_BACK_TO_TYPES;
+
 	const header = (
 		<FeaturePageHeader
-			eyebrow={getMessage().SIDEBAR_CONFIGURATION}
+			eyebrow={getMessage().FEATURE_EVALS}
 			title={displayLabel}
 			icon={<Layers className="h-4 w-4" />}
 			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			leading={
+				<Button
+					asChild
+					variant="outline"
+					size="sm"
+					className="h-7 w-7 shrink-0 p-0"
+				>
+					<Link href={evaluatorsHref} title={backLabel} aria-label={backLabel}>
+						<ArrowLeft className="h-3.5 w-3.5" />
+					</Link>
+				</Button>
+			}
 			actions={
-				<div className="flex flex-wrap items-center gap-2">
-					{isCustom && (
-						<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
-							<Sparkles className="size-3" />
-							Custom
-						</Badge>
-					)}
-					<Button asChild variant="outline" size="sm" className="h-8">
-						<Link href="/evaluations/types">
-							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-							Evaluation Types
-						</Link>
-					</Button>
-				</div>
+				isCustom ? (
+					<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
+						<Sparkles className="size-3" />
+						Custom
+					</Badge>
+				) : null
 			}
 		/>
 	);
+
+	if (notFound) {
+		return (
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full flex-col items-center justify-center gap-3 p-4 text-center">
+					<p className="text-base font-medium text-stone-800 dark:text-stone-200">
+						{getMessage().EVALUATION_TYPE_NOT_FOUND}
+					</p>
+					<p className="max-w-md text-sm text-stone-500 dark:text-stone-400">
+						{getMessage().EVALUATION_TYPE_NOT_FOUND_DESCRIPTION}
+					</p>
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations?tab=evaluators">
+							{getMessage().EVALUATION_BACK_TO_TYPES}
+						</Link>
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	if (!et && !config) {
 		return (

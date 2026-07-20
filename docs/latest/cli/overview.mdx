@@ -9,7 +9,7 @@ The **`openlit` CLI** is a single Go binary that connects your local tooling to 
 It talks **only** to your OpenLIT endpoint. There is no managed cloud - your telemetry stays on your infrastructure.
 
 <Note>
-The CLI is the future control plane for OpenLIT. It's built so new command groups can plug in over time - `prompts`, `traces`, `eval`, `migrate`, and `fleet` are already reserved in the codebase and will light up in subsequent releases without breaking the coding-agent integration. Today, the CLI is focused on **coding-agent observability**.
+The CLI is the future control plane for OpenLIT. It's built so new command groups can plug in over time - `prompts`, `traces`, `eval`, and `migrate` are already reserved in the codebase and will light up in subsequent releases without breaking the coding-agent integration. Today, the CLI is focused on **coding-agent observability**.
 </Note>
 
 ## What you can do today
@@ -55,10 +55,6 @@ OTLP/HTTP --> your OpenLIT collector --> /agents page
 ```
 
 The hook is the CLI's hot path - invoked once per agent event. It is crash-isolated: a 5-second hard timeout with ~3 seconds reserved for OTLP flush, and it **always exits 0** even when telemetry fails, so a broken pipeline never blocks your coding session.
-
-<Tip>
-The CLI and the [OpenLIT Controller](/latest/controller/overview) are complementary. Use the **CLI** for developer-machine coding-agent telemetry, and the **Controller** for zero-code LLM and agent observability across your servers via eBPF and SDK injection.
-</Tip>
 
 ## Get started
 

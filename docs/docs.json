@@ -65,23 +65,10 @@
                 "pages": [
                   "latest/openlit/quickstart-ai-observability",
                   "latest/openlit/quickstart-evals",
-                  "latest/openlit/quickstart-guard",
-                  "latest/openlit/quickstart-gpu",
-                  "latest/openlit/quickstart-vectordb-observability",
-                  "latest/openlit/quickstart-mcp-observability"
+                  "latest/openlit/prompts-experiments/prompt-hub"
                 ]
               },
-              "latest/openlit/configuration",
-              "latest/openlit/oauth",
-              {
-                "group": "Organisation",
-                "icon": "building",
-                "pages": [
-                  "latest/openlit/organisation/overview",
-                  "latest/openlit/organisation/projects",
-                  "latest/openlit/organisation/database-config"
-                ]
-              }
+              "latest/openlit/configuration"
             ]
           },
           {
@@ -89,7 +76,6 @@
             "pages": [
               "latest/openlit/observability/telemetry",
               "latest/openlit/observability/agents",
-              "latest/openlit/observability/fleet-hub",
               {
                 "group": "Coding Agents",
                 "icon": "code",
@@ -111,18 +97,25 @@
             ]
           },
           {
-            "group": "Configure",
+            "group": "Evaluation",
             "pages": [
               "latest/openlit/evaluations/overview",
+              "latest/openlit/evaluations/core-concepts",
               "latest/openlit/evaluations/auto-evaluation",
               {
                 "group": "Evaluation Methods",
                 "icon": "ruler",
                 "pages": [
                   "latest/openlit/evaluations/llm-as-a-judge",
-                  "latest/openlit/evaluations/programmatic-evals"
+                  "latest/openlit/evaluations/programmatic-evals",
+                  "latest/openlit/evaluations/manual-feedback"
                 ]
-              },
+              }
+            ]
+          },
+          {
+            "group": "Configure",
+            "pages": [
               "latest/openlit/pricing/cost-recalculation",
               "latest/openlit/pricing/manage-models"
             ]
@@ -183,8 +176,24 @@
             ]
           },
           {
-            "group": "Developer Resources",
+            "group": "Platform",
             "pages": [
+              {
+                "group": "Administration",
+                "icon": "user-shield",
+                "pages": [
+                  "latest/openlit/oauth",
+                  {
+                    "group": "Organisation",
+                    "icon": "building",
+                    "pages": [
+                      "latest/openlit/organisation/overview",
+                      "latest/openlit/organisation/projects",
+                      "latest/openlit/organisation/database-config"
+                    ]
+                  }
+                ]
+              },
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
@@ -419,25 +428,6 @@
               "latest/gpu-collector/gpus/nvidia",
               "latest/gpu-collector/gpus/amd",
               "latest/gpu-collector/gpus/intel"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Controller",
-        "groups": [
-          {
-            "group": "Getting Started",
-            "pages": [
-              "latest/controller/overview",
-              "latest/controller/quickstart"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
-              "latest/controller/architecture",
-              "latest/controller/configuration"
             ]
           }
         ]

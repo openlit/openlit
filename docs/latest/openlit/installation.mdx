@@ -1,10 +1,11 @@
 ---
-title: 'Self-hosting'
-description: 'Guide to help you deploy your own instance of OpenLIT'
+title: "Self-Host OpenLIT"
+sidebarTitle: Self Host
+description: "Self-host OpenLIT with Docker or Kubernetes. Deploy OpenLIT, ClickHouse, and an OpenTelemetry Collector on your own infrastructure."
 icon: 'circle-down'
 ---
 
-OpenLIT is open source and is very easy and lightweight to self-host as it needs only 3 componets to run:
+OpenLIT is open source and is very easy and lightweight to self-host as it needs only 3 components to run:
 1. OpenLIT itself
 2. ClickHouse for storage
 3. OpenTelemetry Collector for telemetry collection. 
@@ -71,26 +72,30 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Open
   </Step>
 </Steps>
 
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What do I need to self-host OpenLIT?">
+    Just Docker and Docker Compose for the quickest path, or a Kubernetes cluster with Helm if you're deploying at scale. Both methods deploy the same 3 components: OpenLIT, ClickHouse, and an OpenTelemetry Collector.
+  </Accordion>
+  <Accordion title="Can I reuse my existing ClickHouse or OpenTelemetry Collector?">
+    Yes. OpenLIT can connect to infrastructure you already run instead of deploying its own ClickHouse or OTel Collector. See [Connect Multiple Databases](/latest/openlit/developer-resources/multiple-db) for setup.
+  </Accordion>
+  <Accordion title="Is OpenLIT free to self-host?">
+    Yes. OpenLIT is licensed under Apache-2.0 - every feature in this documentation is free to self-host, with no license key or usage limits.
+  </Accordion>
+</AccordionGroup>
+
 ---
 
-<CardGroup cols={2}>
-  <Card title="Quickstart: LLM Observability" href="/latest/openlit/quickstart-ai-observability" icon='bolt'>
+<CardGroup cols={3}>
+  <Card title="Start tracing" href="/latest/openlit/quickstart-ai-observability" icon='bolt'>
     Production-ready AI monitoring setup in 2 simple steps with zero code changes
   </Card>
-  <Card title="Configuration" href="/latest/openlit/configuration" icon='sliders'>
-    Configure OpenLIT deployment settings, environment variables, and database connections
-  </Card>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
-  </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+  <Card title="Use prompt management" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
     Version, deploy, and collaborate on prompts with centralized management and tracking
   </Card>
-</CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
+  <Card title="Set up evals" href="/latest/openlit/evaluations/llm-as-a-judge" icon='clipboard-check'>
+    Score live traces automatically with prebuilt LLM-as-a-judge evaluators
   </Card>
+</CardGroup>

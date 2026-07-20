@@ -167,8 +167,25 @@ describe('generatePageHeader', () => {
   it('generates breadcrumbs for /evaluations/settings', () => {
     const header = generatePageHeader('/evaluations/settings');
     expect(header.title).toBe('Evaluation Settings');
-    expect(header.breadcrumbs).toContainEqual({ title: 'Evals', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
     expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/evaluations/settings' });
+  });
+
+  it('generates breadcrumbs for /evaluations/evaluators/:id', () => {
+    const header = generatePageHeader('/evaluations/evaluators/bias');
+    expect(header.title).toBe('Evaluator');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluator', href: '/evaluations' });
+  });
+
+  it('generates breadcrumbs for /evaluations/types/:id', () => {
+    const header = generatePageHeader('/evaluations/types/bias');
+    expect(header.title).toBe('Evaluation Type');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({
+      title: 'Evaluators',
+      href: '/evaluations?tab=evaluators',
+    });
   });
 
   it('generates breadcrumbs for /organisation under Settings', () => {

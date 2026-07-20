@@ -224,16 +224,15 @@ describe('runEvaluation — generateText and response parsing', () => {
     expect(callArgs.temperature).toBe(0);
   });
 
-  it('system prompt uses generic TypeA/TypeB examples, not hardcoded eval type names', async () => {
+  it('system prompt uses placeholder evaluation names, not TypeA/TypeB or hardcoded types', async () => {
     await runEvaluation(BASE_PARAMS);
     const [{ prompt }] = (generateText as jest.Mock).mock.calls[0];
 
-    // The JSON example in the prompt should use generic placeholders
-    expect(prompt).toContain('TypeA');
-    expect(prompt).toContain('TypeB');
+    // Placeholders must not look like real evaluator ids — LLMs copy examples into CH.
+    expect(prompt).toContain('<TypeNameFromContextHeader>');
+    expect(prompt).not.toContain('"TypeA"');
+    expect(prompt).not.toContain('"TypeB"');
 
-    // The prompt template itself should NOT hardcode specific evaluation type names
-    // (the actual type names come from contexts, not from the template)
     const templateWithoutContexts = prompt.split('Contexts:')[0];
     expect(templateWithoutContexts).not.toContain('"Hallucination"');
     expect(templateWithoutContexts).not.toContain('"Bias"');

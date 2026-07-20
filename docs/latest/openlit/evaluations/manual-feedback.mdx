@@ -1,0 +1,39 @@
+---
+title: "Manual Feedback"
+description: "Add human feedback - good, bad, or neutral, with an optional comment - directly on a trace"
+---
+
+Not every quality signal needs an LLM judge. Manual Feedback lets a human rate a specific trace directly, alongside the automated evaluations already running on it.
+
+## How it works
+
+1. Open any LLM trace in the **Requests** page and click its **Evaluation** tab.
+2. In the **Feedback** panel, rate the response **Good**, **Bad**, or **Neutral**.
+3. Optionally add a comment explaining the rating.
+4. Click **Submit Feedback**.
+
+Your feedback is stored as its own evaluation entry (`manual_feedback`) in the same evaluation pipeline as the automated evaluators - so it appears in the trace's evaluation list right alongside Hallucination, Bias, and any other evaluator results, and rolls up into the same **Evaluations dashboard** stats.
+
+<Info>
+Score follows the same convention as the automated evaluators (low score = no issue): **Good** stores `0`, **Neutral** stores `0.5`, and **Bad** stores `1`. Your comment is saved as the entry's explanation.
+</Info>
+
+## When to use it
+
+- Spot-checking responses an automated evaluator didn't flag, or disagreeing with one that did
+- Collecting reviewer or subject-matter-expert sign-off on specific traces
+- Capturing qualitative notes that don't fit a built-in or custom evaluation type
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Core Concepts" href="/latest/openlit/evaluations/core-concepts" icon='book'>
+    Evaluation types, custom evaluators, and online vs. offline evaluation
+  </Card>
+  <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
+    Automated scoring for hallucination, bias, toxicity, and 8 more evaluation types
+  </Card>
+  <Card title="Auto Evaluation" href="/latest/openlit/evaluations/auto-evaluation" icon='clock'>
+    Run evaluations automatically on a schedule, with sampling to control cost
+  </Card>
+</CardGroup>

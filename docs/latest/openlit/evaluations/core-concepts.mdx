@@ -1,0 +1,60 @@
+---
+title: "Core Concepts"
+description: "Evaluation types, custom evaluators, and online vs. offline evaluation"
+---
+
+## Why evaluations?
+
+Evaluation is crucial for improving the accuracy and robustness of language models, ultimately enhancing user experience and trust in your AI applications. Here are the key benefits:
+
+- **Quality & Safety Assurance**: Detect hallucinations, bias, toxicity, safety issues, and ensure consistent, reliable AI outputs
+- **Performance Monitoring**: Track model performance degradation and measure response quality across different scenarios
+- **Risk Mitigation**: Catch potential issues before they reach users and ensure compliance with safety standards
+- **Cost Optimization**: Monitor cost-effectiveness and ROI of different AI configurations and model choices
+- **Continuous Improvement**: Build data-driven insights for A/B testing, optimization, and iterative development
+
+## 11 built-in evaluation types
+
+OpenLIT includes 11 evaluation types out of the box. Each can be independently enabled, customized with custom prompts, and linked to Rule Engine rules for conditional evaluation.
+
+| Evaluation Type | Description | Default |
+|----------------|-------------|---------|
+| **Hallucination** | Detects factual inaccuracies, contradictions, and fabricated information | Enabled |
+| **Bias** | Monitors for discriminatory patterns across gender, ethnicity, age, religion | Enabled |
+| **Toxicity** | Screens for harmful, offensive, threatening, or hateful language | Enabled |
+| **Relevance** | Evaluates how well the response addresses the prompt | Disabled |
+| **Coherence** | Assesses logical flow and internal consistency | Disabled |
+| **Faithfulness** | Measures alignment with provided context or source material | Disabled |
+| **Safety** | Detects jailbreak attempts, prompt injection, and unsafe content generation | Disabled |
+| **Instruction Following** | Evaluates adherence to instructions, constraints, and formatting | Disabled |
+| **Completeness** | Assesses whether all parts of the query are fully addressed | Disabled |
+| **Conciseness** | Evaluates whether the response avoids unnecessary verbosity | Disabled |
+| **Sensitivity** | Detects PII leakage, credentials, and confidential data exposure | Disabled |
+
+<Info>
+**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context - not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
+</Info>
+
+### Custom evaluation types
+
+Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
+
+## Online vs. offline evaluation
+
+- **Online evaluation** runs automatically against live production traces - either on an [Auto Evaluation](/latest/openlit/evaluations/auto-evaluation) schedule or manually from a trace's Evaluation tab. No code changes required.
+- **Offline evaluation** runs [programmatically via the SDK](/latest/sdk/quickstart-programmatic-evals), typically in CI/CD, against a fixed dataset before you ship a change.
+- **Human-in-the-loop evaluation** skips the LLM judge entirely - [Manual Feedback](/latest/openlit/evaluations/manual-feedback) lets a reviewer rate any trace Good / Bad / Neutral with a comment, stored alongside the automated evaluation results.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is AI evaluation?">
+    AI evaluation is the process of scoring LLM outputs for quality, safety, and correctness - either automatically with an LLM-as-a-judge or with custom rule-based checks - so you can catch issues before or after they reach users.
+  </Accordion>
+  <Accordion title="What's the difference between online and offline evaluation?">
+    Online evaluation runs automatically against live production traces (auto or manual, no code changes). Offline evaluation runs programmatically via the SDK, typically in CI/CD, against a fixed dataset before you ship a change.
+  </Accordion>
+  <Accordion title="Can I create custom evaluation types?">
+    Yes. Beyond the 11 built-in types (hallucination, bias, toxicity, and more), you can define custom evaluation types with your own prompts under Evaluations &gt; Settings &gt; Evaluation Types.
+  </Accordion>
+</AccordionGroup>

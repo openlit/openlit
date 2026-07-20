@@ -1,9 +1,9 @@
 ---
 title: "Overview"
-description: "Automated Eval scoring with 11 evaluation types - hallucination, bias, toxicity, safety, and more"
+description: "Score AI outputs automatically for hallucination, bias, toxicity, and more - or add your own human feedback"
 ---
 
-OpenLIT provides automated AI evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
+Automated AI evaluation to assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments. For evaluation types, custom evaluators, and online vs. offline concepts, see [Core Concepts](/latest/openlit/evaluations/core-concepts).
 
 <video
       autoPlay
@@ -16,67 +16,41 @@ OpenLIT provides automated AI evaluation that helps you assess and monitor the q
     >
     </video>
 
-## Why evaluations?
+```mermaid
+flowchart TB;
+    subgraph Online["Online evaluation - production traces"]
+        direction LR;
+        A[LLM / Agent call] -->|creates| B[Trace in OpenLIT];
+        B -->|Auto Eval schedule or manual Run Evaluation| C[LLM Judge];
+        C -->|score + classification + reasoning| D[Trace detail & Dashboard];
+    end
+    subgraph Offline["Offline evaluation - CI/CD"]
+        direction LR;
+        E[Dataset] -->|SDK evaluate call| F[LLM Judge];
+        F -->|score| G[Pass / fail gate];
+    end
+```
 
-Evaluation is crucial for improving the accuracy and robustness of language models, ultimately enhancing user experience and trust in your AI applications. Here are the key benefits:
+## Find the right feature
 
-- **Quality & Safety Assurance**: Detect hallucinations, bias, toxicity, safety issues, and ensure consistent, reliable AI outputs
-- **Performance Monitoring**: Track model performance degradation and measure response quality across different scenarios
-- **Risk Mitigation**: Catch potential issues before they reach users and ensure compliance with safety standards
-- **Cost Optimization**: Monitor cost-effectiveness and ROI of different AI configurations and model choices
-- **Continuous Improvement**: Build data-driven insights for A/B testing, optimization, and iterative development
-
-## 11 built-in evaluation types
-
-OpenLIT includes 11 evaluation types out of the box. Each can be independently enabled, customized with custom prompts, and linked to Rule Engine rules for conditional evaluation.
-
-| Evaluation Type | Description | Default |
-|----------------|-------------|---------|
-| **Hallucination** | Detects factual inaccuracies, contradictions, and fabricated information | Enabled |
-| **Bias** | Monitors for discriminatory patterns across gender, ethnicity, age, religion | Enabled |
-| **Toxicity** | Screens for harmful, offensive, threatening, or hateful language | Enabled |
-| **Relevance** | Evaluates how well the response addresses the prompt | Disabled |
-| **Coherence** | Assesses logical flow and internal consistency | Disabled |
-| **Faithfulness** | Measures alignment with provided context or source material | Disabled |
-| **Safety** | Detects jailbreak attempts, prompt injection, and unsafe content generation | Disabled |
-| **Instruction Following** | Evaluates adherence to instructions, constraints, and formatting | Disabled |
-| **Completeness** | Assesses whether all parts of the query are fully addressed | Disabled |
-| **Conciseness** | Evaluates whether the response avoids unnecessary verbosity | Disabled |
-| **Sensitivity** | Detects PII leakage, credentials, and confidential data exposure | Disabled |
-
-<Info>
-**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context - not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
-</Info>
-
-### Custom evaluation types
-
-Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
-
-## AI evaluation methods
-
-OpenLIT provides automated LLM evaluation and testing capabilities for production AI applications:
-
-### Automated LLM-as-a-Judge
-
-Zero-setup AI quality monitoring that automatically evaluates your LLM responses:
-
-- **Production Monitoring**: Auto-evaluate every LLM response for quality and safety issues
-- **Smart Scheduling**: Configure evaluation frequency with cron schedules for cost optimization
-- **Real-time Scoring**: Instant evaluation results visible in trace details and dashboards
-- **Rule Engine Integration**: Link evaluation types to rules for conditional evaluation based on trace attributes (model, provider, service, environment)
-- **Context-Aware**: Evaluations use context from the Rule Engine as ground truth for judging responses
-
-### Programmatic evaluations
-
-Programmatic AI evaluation tools for custom testing workflows and development pipelines:
-
-- **Code Integration**: Call LLM evaluators directly in your application code via the SDK
-- **CI/CD Quality Gates**: Automated testing for model improvements and regression detection
-- **Rule Engine SDK**: Use `evaluate_rule()` to fetch matching contexts and evaluation configs at runtime
+| If you want to... | Use this OpenLIT feature |
+|---|---|
+| Automatically score every production trace | [Auto Evaluation](/latest/openlit/evaluations/auto-evaluation) with a cron schedule |
+| Score one specific trace on demand | [Run Evaluation](/latest/openlit/evaluations/llm-as-a-judge#run-from-a-trace) from that trace's Evaluation tab |
+| Rate a trace yourself instead of an LLM judge | [Manual Feedback](/latest/openlit/evaluations/manual-feedback) - Good / Bad / Neutral plus a comment |
+| Judge responses against your own ground truth, not just the model's knowledge | [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) + [Context](/latest/openlit/prompts-experiments/context) - applies to Auto, Manual, and Programmatic evaluations |
+| Evaluate on criteria beyond the 11 built-in types | [Custom evaluation types](/latest/openlit/evaluations/core-concepts#custom-evaluation-types) |
+| Only run certain evaluators for certain models, providers, or environments | [Rule Engine conditional linking](/latest/openlit/evaluations/llm-as-a-judge#configure-evaluation-types) |
+| Test prompt or model changes before shipping | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) via the SDK |
+| Block a deploy on a quality regression | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) in a CI/CD pipeline |
+| See detection-rate trends across models and time | [Evaluations dashboard](/latest/openlit/evaluations/llm-as-a-judge#aggregate-statistics-in-dashboard) |
 
 ---
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
+  <Card title="Core Concepts" href="/latest/openlit/evaluations/core-concepts" icon='book'>
+    Evaluation types, custom evaluators, and online vs. offline evaluation
+  </Card>
   <Card title="Auto Evaluation" href="/latest/openlit/evaluations/auto-evaluation" icon='clock'>
     Run evaluations automatically on a schedule, with sampling to control cost
   </Card>
@@ -86,21 +60,4 @@ Programmatic AI evaluation tools for custom testing workflows and development pi
   <Card title="Programmatic evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
     Quick start guide for implementing custom evaluations in your code
   </Card>
-  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine" icon='gears'>
-    Define conditional rules to provide context and control which evaluations run
-  </Card>
 </CardGroup>
-
-## Frequently asked questions
-
-<AccordionGroup>
-  <Accordion title="What is AI evaluation?">
-    AI evaluation is the process of scoring LLM outputs for quality, safety, and correctness - either automatically with an LLM-as-a-judge or with custom rule-based checks - so you can catch issues before or after they reach users.
-  </Accordion>
-  <Accordion title="What's the difference between online and offline evaluation?">
-    Online evaluation runs automatically against live production traces (auto or manual, no code changes). Offline evaluation runs programmatically via the SDK, typically in CI/CD, against a fixed dataset before you ship a change.
-  </Accordion>
-  <Accordion title="Can I create custom evaluation types?">
-    Yes. Beyond the 11 built-in types (hallucination, bias, toxicity, and more), you can define custom evaluation types with your own prompts under Evaluations &gt; Settings &gt; Evaluation Types.
-  </Accordion>
-</AccordionGroup>

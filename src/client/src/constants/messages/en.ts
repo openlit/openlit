@@ -85,7 +85,7 @@ export const EVALUATION_NO_RESULTS = "No evaluations";
 // Evaluation Settings page
 export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
 export const EVALUATION_CREATE_NEW = "Create new";
-export const EVALUATION_ENGINE_TITLE = "Evaluation Engine";
+export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
@@ -144,6 +144,70 @@ export const EVALUATION_FEEDBACK_NEUTRAL = "Neutral";
 export const EVALUATION_FEEDBACK_COMMENT_PLACEHOLDER = "Optional comment...";
 export const EVALUATION_FEEDBACK_SUBMIT = "Submit Feedback";
 export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
+
+// Evaluation Analytics
+export const EVALUATION_TAB_ANALYTICS = "Analytics";
+export const EVALUATION_TAB_EVALUATORS = "Evaluators";
+export const EVALUATION_TAB_CONFIGURATION = "Configuration";
+export const EVALUATION_STAT_EVALUATIONS = "Evaluations";
+export const EVALUATION_STAT_ACTIVE = "Active";
+export const EVALUATION_STAT_TRACES_EVALUATED = "Traces evaluated";
+export const EVALUATION_STAT_EXECUTIONS = "Executions";
+export const EVALUATION_STAT_TOTAL_COST = "Total cost";
+export const EVALUATION_STAT_AVG_PASS_RATE = "Avg pass rate";
+export const EVALUATION_STAT_FAILED_SCORES = "Scores marked as failed";
+export const EVALUATION_STAT_AUTO_EXECUTIONS = "Auto executions";
+export const EVALUATION_STAT_EVALUATORS = "Evaluators";
+export const EVALUATION_CHART_PASS_RATE = "Pass rate";
+export const EVALUATION_CHART_EXECUTIONS = "Executions";
+export const EVALUATION_TABLE_EVALUATION = "Evaluation";
+export const EVALUATION_TABLE_MATCHER = "Matcher";
+export const EVALUATION_TABLE_MATCHER_DEFAULT = "*";
+export const EVALUATION_TABLE_EXECUTIONS = "Executions";
+export const EVALUATION_TABLE_PASS_RATE = "Pass rate";
+export const EVALUATION_TABLE_PASS_RATE_TREND = "Pass rate trend";
+export const EVALUATION_TABLE_EMPTY = "No evaluation results in this time range.";
+export const EVALUATION_TABLE_EVALUATORS_TITLE = "Evaluators";
+export const EVALUATION_DETAIL_CONFIGURE = "Configure";
+export const EVALUATION_DETAIL_ENABLED = "Enabled";
+export const EVALUATION_DETAIL_DISABLED = "Disabled";
+export const EVALUATION_DETAIL_RESULTS = "Results";
+export const EVALUATION_DETAIL_RESULTS_DESCRIPTION =
+	"Evaluation results for this evaluator, including pass rates and recent runs.";
+export const EVALUATION_DETAIL_NO_RESULTS = "No recent results for this evaluator.";
+export const EVALUATION_DETAIL_PASS_RATE_BY_EVALUATOR = "Pass rate";
+export const EVALUATION_DETAIL_SAMPLE_META = "sample";
+export const EVALUATION_DETAIL_PASS = "Pass";
+export const EVALUATION_DETAIL_FAIL = "Fail";
+export const EVALUATION_SCORE = "Score";
+export const EVALUATION_BACK_TO_ANALYTICS = "Back to Analytics";
+export const EVALUATION_ONBOARDING_TITLE = "Set up Evaluations";
+export const EVALUATION_ONBOARDING_DESCRIPTION =
+	"Configure an evaluation engine to score traces for hallucination, bias, toxicity, and custom criteria.";
+export const EVALUATION_ONBOARDING_STEP_1 =
+	"Choose a provider, model, and vault API key under Configuration.";
+export const EVALUATION_ONBOARDING_STEP_2 =
+	"Enable built-in types or create custom evaluators.";
+export const EVALUATION_ONBOARDING_STEP_3 =
+	"Turn on auto evaluation or run evaluations manually from Telemetry.";
+export const EVALUATION_ONBOARDING_CTA = "Open Configuration";
+export const EVALUATION_POWERED_BY_VERCEL = "Powered by";
+export const EVALUATION_POWERED_BY_VERCEL_SDK = "Vercel AI SDK";
+export const EVALUATION_TYPES_SECTION_TITLE = "Evaluation types";
+export const EVALUATION_TYPES_SECTION_DESCRIPTION =
+	"Enable built-in evaluators or create custom ones for your use case.";
+export const EVALUATION_CREATE_CUSTOM_TYPE = "Create custom evaluator";
+export const EVALUATION_CUSTOM_TYPES_HEADING = "Custom evaluation types";
+export const EVALUATION_TYPES_LINKED_FROM_RULES = "Linked from rules:";
+export const EVALUATION_TYPE_ENABLED = "Enabled";
+export const EVALUATION_TYPE_DISABLED = "Disabled";
+export const EVALUATION_TYPE_CUSTOM_BADGE = "Custom";
+export const EVALUATION_TYPE_RULE_ENGINE_BADGE = "Rule engine";
+
+export const EVALUATION_TYPE_NOT_FOUND = "Evaluation type not found";
+export const EVALUATION_TYPE_NOT_FOUND_DESCRIPTION =
+	"This evaluator id does not match a built-in or custom evaluation type. Open Configuration to manage evaluators.";
+export const EVALUATION_BACK_TO_TYPES = "Back to evaluation types";
 
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
@@ -519,7 +583,7 @@ export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
-export const FEATURE_EVALS = "Evals";
+export const FEATURE_EVALS = "Evaluations";
 export const FEATURE_MANAGE_MODELS = "Manage models";
 
 export const SIDEBAR_MONITOR = "Monitor";

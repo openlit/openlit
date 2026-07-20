@@ -1,5 +1,6 @@
 ---
 title: 'Prompt Hub'
+sidebarTitle: 'Use Prompt Management'
 description: 'Prompt engineering platform for versioning, deploying, and fetching prompts with dynamic variables'
 ---
 
@@ -87,20 +88,7 @@ Prompt Hub is OpenLIT's prompt engineering platform for managing prompts as vers
                 }
               }
               ```
-              ### SDK parameters
-
-              Below are the parameters for use with the SDK, formatted to indicate whether each is required or optional:
-
-              | Parameter         | Description                                                                                                                        |
-              |-------------------|------------------------------------------------------------------------------------------------------------------------------------|
-              | `url`             | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
-              | `api_key`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
-              | `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
-              | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
-              | `version`         | Set to `True` to get the prompt with variable substitution.. Optional                                                              |
-              | `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
-              | `variables`       | Sets the variables for prompt compilation. Optional                                                                                |
-              | `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                             |
+              `url`, `api_key`, `name`, `prompt_id`, `version`, `should_compile`, `variables`, and `meta_properties` are all available parameters - see the [GET Prompt API reference](/latest/openlit/developer-resources/api-reference/endpoint/prompt-hub/get) for the full list.
 
             </Tab>
             <Tab title="Typescript">
@@ -134,20 +122,7 @@ Prompt Hub is OpenLIT's prompt engineering platform for managing prompts as vers
                 }
               }
               ```
-              ### SDK parameters
-
-              Below are the parameters for use with the SDK, formatted to indicate whether each is required or optional:
-
-              | Parameter        | Description                                                                                                                        |
-              |------------------|------------------------------------------------------------------------------------------------------------------------------------|
-              | `url`            | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
-              | `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
-              | `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
-              | `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
-              | `version`        | Sets the version to retrieve a specific prompt. Optional                                                                           | 
-              | `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
-              | `variables`      | Sets the variables for prompt compilation. Optional                                                                                | 
-              | `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | 
+              `url`, `apiKey`, `name`, `promptId`, `version`, `shouldCompile`, `variables`, and `metaProperties` are all available parameters - see the [GET Prompt API reference](/latest/openlit/developer-resources/api-reference/endpoint/prompt-hub/get) for the full list.
 
           </Tab>
           <Tab title="API">
@@ -158,6 +133,20 @@ Prompt Hub is OpenLIT's prompt engineering platform for managing prompts as vers
     </Steps>
   </Step>
 </Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Manage LLM secrets" href="/latest/openlit/developer-resources/vault" icon='vault'>
+    Centrally store LLM API keys that applications can retrieve remotely without restarts
+  </Card>
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  </Card>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
+    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  </Card>
+</CardGroup>
 
 ## AI prompt improvement
 
@@ -198,27 +187,6 @@ You can also ask Otter to review an existing Prompt Hub prompt by name or ID:
 ```
 
 For review-only requests, Otter loads the prompt and suggests improvements without updating the saved version. It only saves changes when you explicitly ask it to save, apply, update, publish, or create a new version.
-
----
-
-<CardGroup cols={3}>
-  <Card title="Manage LLM secrets" href="/latest/openlit/developer-resources/vault" icon='vault'>
-    Centrally store LLM API keys that applications can retrieve remotely without restarts
-  </Card>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
-  </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
-    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
-  </Card>
-</CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF - no code changes required.
-  </Card>
 
 ## Frequently asked questions
 

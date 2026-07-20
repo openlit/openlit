@@ -15,7 +15,10 @@ import { CLIENT_EVENTS } from "@/constants/events";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
 
+const EVALUATORS_HREF = "/evaluations?tab=evaluators";
+
 export default function CreateCustomEvaluationTypePage() {
+	const m = getMessage();
 	const posthog = usePostHog();
 	const router = useRouter();
 	const [typeId, setTypeId] = useState("");
@@ -99,15 +102,23 @@ export default function CreateCustomEvaluationTypePage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow={getMessage().SIDEBAR_CONFIGURATION}
+				eyebrow={m.FEATURE_EVALS}
 				title="Create Custom Evaluation Type"
 				icon={<Sparkles className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
-				actions={
-					<Button asChild variant="outline" size="sm" className="h-8">
-						<Link href="/evaluations/types">
-							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-							Evaluation Types
+				leading={
+					<Button
+						asChild
+						variant="outline"
+						size="sm"
+						className="h-7 w-7 shrink-0 p-0"
+					>
+						<Link
+							href={EVALUATORS_HREF}
+							title={m.EVALUATION_BACK_TO_TYPES}
+							aria-label={m.EVALUATION_BACK_TO_TYPES}
+						>
+							<ArrowLeft className="h-3.5 w-3.5" />
 						</Link>
 					</Button>
 				}

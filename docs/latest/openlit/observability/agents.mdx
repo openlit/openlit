@@ -7,11 +7,10 @@ The **Agents** page (`127.0.0.1:3000/agents`) gives you a single view of every a
 
 ## Agents list
 
-The list page groups discovered agents into three tabs:
+The list page groups discovered agents into two tabs:
 
 - **Applications / Services**: Agents and services instrumented directly with the OpenLIT SDK, discovered from `service.name` and `gen_ai.*` span attributes.
 - **Coding Agents**: Coding-assistant clients such as Claude Code, Cursor, Codex, and Windsurf, discovered the same way as [Coding Agents](/latest/openlit/coding-agents/onboarding) elsewhere in OpenLIT.
-- **Controllers**: Agent instances managed by the [OpenLIT Controller](/latest/controller/overview) - Docker, Kubernetes, or systemd workloads that the controller can discover and instrument without code changes.
 
 Click any row to open its detail view.
 
@@ -43,15 +42,12 @@ The Definition tab shows the **System Prompt** captured for the currently select
 
 ---
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Telemetry" href="/latest/openlit/observability/telemetry" icon='chart-line'>
     View the underlying traces, metrics, and logs that power the agent graph and versions
   </Card>
   <Card title="Coding Agents" href="/latest/openlit/coding-agents/onboarding" icon='code'>
     Onboard Claude Code, Cursor, Codex, and Windsurf for coding-agent observability
-  </Card>
-  <Card title="OpenLIT Controller" href="/latest/controller/overview" icon='tower-broadcast'>
-    Discover and instrument agent workloads across Kubernetes, Docker, and Linux with zero code changes
   </Card>
 </CardGroup>
 

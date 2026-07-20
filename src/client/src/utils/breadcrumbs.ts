@@ -260,6 +260,32 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	},
 	
 	{
+		regex: /^\/evaluations\/evaluators\/[^/]+$/,
+		getTitle: () => "Evaluator",
+		getBreadcrumbs: () => [
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
+			{ title: "Evaluator", href: "/evaluations" },
+		],
+	},
+	{
+		regex: /^\/evaluations\/types\/[^/]+$/,
+		getTitle: () => "Evaluation Type",
+		getBreadcrumbs: () => [
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
+			{ title: "Evaluators", href: "/evaluations?tab=evaluators" },
+			{ title: "Evaluation Type", href: "/evaluations/types" },
+		],
+	},
+	{
+		regex: /^\/evaluations\/types\/new$/,
+		getTitle: () => "Create Evaluation Type",
+		getBreadcrumbs: () => [
+			{ title: getMessage().FEATURE_EVALS, href: "/evaluations" },
+			{ title: "Evaluators", href: "/evaluations?tab=evaluators" },
+			{ title: "Create", href: "/evaluations/types/new" },
+		],
+	},
+	{
 		regex: /^\/evaluations\/settings$/,
 		getTitle: () => "Evaluation Settings",
 		getBreadcrumbs: () => [
@@ -360,7 +386,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	// under `/agents/<key>` like the per-vendor detail page) because it
 	// rolls up across vendors. Without an explicit route config the
 	// breadcrumb generator falls through to the path-tail fallback,
-	// which yields "Home › ishan.jain@grafana.com" — useless context for
+	// which yields "Home › username — useless context for
 	// the operator. We thread back through the Coding Agents tab on
 	// the unified Agents hub so the user can backtrack out.
 	{

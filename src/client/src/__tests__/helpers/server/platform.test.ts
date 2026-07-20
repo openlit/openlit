@@ -39,6 +39,7 @@ describe('validateMetricsRequest', () => {
       'GENERATION_BY_ENVIRONMENT',
       'GENERATION_BY_APPLICATION',
       'GET_TOTAL_EVALUATION_DETECTED',
+      'GET_EVALUATION_ANALYTICS',
     ] as const;
 
     timeLimitTypes.forEach((type) => {

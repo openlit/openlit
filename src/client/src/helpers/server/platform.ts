@@ -83,6 +83,7 @@ export const validateMetricsRequestType = {
 	GENERATION_BY_APPLICATION: "GENERATION_BY_APPLICATION",
 	// evaluation
 	GET_TOTAL_EVALUATION_DETECTED: "GET_TOTAL_EVALUATION_DETECTED",
+	GET_EVALUATION_ANALYTICS: "GET_EVALUATION_ANALYTICS",
 };
 
 export const validateMetricsRequest = (
@@ -130,6 +131,7 @@ export const validateMetricsRequest = (
 
 		// Evaluation
 		case validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED:
+		case validateMetricsRequestType.GET_EVALUATION_ANALYTICS:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,
