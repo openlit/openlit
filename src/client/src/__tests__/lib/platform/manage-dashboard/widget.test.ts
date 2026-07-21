@@ -232,6 +232,50 @@ describe("runWidgetQuery", () => {
 		expect(dataCollector).toHaveBeenCalledTimes(1);
 	});
 
+	it("interpolates {{filter.*}} placeholders without a template engine", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ n: 1 }], err: null });
+
+		const result = await runWidgetQuery("w1", {
+			userQuery:
+				"SELECT 1 WHERE ts >= '{{filter.timeLimit.start}}' AND env = '{{filter.env}}'",
+			filter: {
+				timeLimit: { start: "2024-01-01", end: "2024-01-02" },
+				env: "prod",
+			} as any,
+		});
+
+		expect(result).toEqual({ data: [{ n: 1 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
+			enable_readonly: true,
+		});
+	});
+
+	it("ignores non-filter mustache-like tags so they cannot run as code", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT '{{#evil}}{{/evil}}' AS x, '{{filter.ok}}' AS y",
+			filter: { ok: "safe" } as any,
+		});
+
+		expect(result).toEqual({ data: [] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
+			enable_readonly: true,
+		});
+	});
+
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
 	});

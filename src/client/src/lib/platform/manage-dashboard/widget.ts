@@ -8,9 +8,54 @@ import {
 	sanitizeWidget,
 	escapeSingleQuotes,
 } from "@/helpers/server/widget";
-import mustache from "mustache";
-
 import { jsonStringify } from "@/utils/json";
+
+/**
+ * Resolve a dotted path under the filter object (e.g. `timeLimit.start`).
+ * Returns undefined when any segment is missing — callers treat that as "".
+ */
+function getFilterPathValue(filter: unknown, path: string): unknown {
+	const parts = path.split(".");
+	let current: unknown = filter;
+	for (const part of parts) {
+		if (current == null || typeof current !== "object") {
+			return undefined;
+		}
+		current = (current as Record<string, unknown>)[part];
+	}
+	return current;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ *
+ * Intentionally does **not** use Mustache (or any template engine): the
+ * query string is user-controlled on the widget preview path, and treating
+ * it as an executable template is a code-injection sink (CodeQL
+ * js/code-injection / alert #126). Path lookup + stringification is enough
+ * for dashboard filter interpolation, and filter values are validated
+ * separately before substitution.
+ */
+function renderFilterPlaceholders(
+	template: string,
+	filter: MetricParams
+): string {
+	return template.replace(
+		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
+		(
+			_match,
+			unescapedPath: string | undefined,
+			escapedPath: string | undefined
+		) => {
+			const path = unescapedPath || escapedPath;
+			if (!path) return "";
+			const value = getFilterPathValue(filter, path);
+			if (value == null) return "";
+			if (typeof value === "object") return JSON.stringify(value);
+			return String(value);
+		}
+	);
+}
 
 export async function getWidgetById(id: string) {
 	const query = `
@@ -317,7 +362,7 @@ export async function runWidgetQuery(
 		return { err: filterValidation.error || "Invalid filter" };
 	}
 
-	const exactQuery = mustache.render(query, { filter });
+	const exactQuery = renderFilterPlaceholders(query, filter);
 
 	const validation = validateQuery(exactQuery);
 	if (!validation.valid) {
