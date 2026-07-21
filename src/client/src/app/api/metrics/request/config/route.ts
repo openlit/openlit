@@ -17,6 +17,7 @@ async function POSTHandler(request: Request) {
 		limit,
 		offset,
 		selectedConfig: formData.selectedConfig,
+		statusCode: formData.statusCode,
 	};
 
 	const validationParam = validateMetricsRequest(

@@ -1,0 +1,34 @@
+---
+title: "Rules"
+description: "Link a prompt to Rule Engine rules so it's returned automatically when a rule matches at evaluation time"
+---
+
+The prompt detail page has a **Rules** tab, labeled with a badge showing how many rules are already linked. Linking a rule to a prompt means that when the rule matches at evaluation time, the prompt is returned as one of the rule's linked resources.
+
+## Linking a rule
+
+You can link a rule to the current prompt two ways:
+
+- **New Rule** - opens a dialog to create a brand-new rule that's automatically linked to this prompt.
+- **Link existing rule** - a toggle that opens a dropdown of rules not yet linked to this prompt (or "All rules already linked" if there are none left to add), plus an **Associate** button to confirm the link.
+
+Each linked rule is listed with its name, description, and status. Clicking a linked rule opens that rule's own detail page. If nothing is linked yet, the tab shows "No rules linked yet."
+
+## Learn more about the Rule Engine
+
+Rules themselves - conditions, matching logic, and what else can be linked besides prompts - are covered in the Rule Engine docs:
+
+<CardGroup cols={2}>
+  <Card title="Rule Engine Overview" href="/latest/openlit/prompts-experiments/rule-engine/overview" icon='gavel'>
+    How rules, conditions, and matching work
+  </Card>
+  <Card title="Linked Entities" href="/latest/openlit/prompts-experiments/rule-engine/linked-entities" icon='link'>
+    Everything a rule can return when it matches, prompts included
+  </Card>
+</CardGroup>
+
+---
+
+<Card title="Manage Prompts" href="/latest/openlit/prompts-experiments/prompt-hub/manage-prompts" icon='file-lines'>
+  Back to the prompt list, create, and detail pages
+</Card>

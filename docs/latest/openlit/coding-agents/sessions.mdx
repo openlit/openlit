@@ -1,0 +1,26 @@
+---
+title: "Sessions"
+description: "Every coding session for a vendor, with a full conversational drill-in per session"
+---
+
+The **Sessions** tab on a coding agent's detail page lists every individual coding session for that vendor, one row per `coding_agent.session.id` (folded up to its chat thread when subagents are linked in).
+
+## Sessions list
+
+Columns: Session, User, Started, Duration, Model, Tool calls, Code changed (`+added/-removed`, with accepted/rejected broken out in a tooltip), Acceptance %, Commits, Pull Requests, Tokens, Cost, and Outcome.
+
+## Session detail
+
+Clicking a session opens the same trace detail view used for [Traces](/latest/openlit/observability/telemetry/traces), rooted at that session. It defaults to the **Chat** view since a conversational read fits an IDE/CLI session better than a span tree - you'll see prompts, tool calls, and edits laid out like a transcript, with the [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis), Timeline, and Graph views still available if you want a different angle.
+
+The header adds session-specific meta pills on top of the usual Duration, Tokens, Cost, and Model stats: Coding Agent (vendor), User, Working Folder, Repository, Branch, Terminal, Commits, Lines added/deleted, Acceptance, Pull Requests, and Outcome. Use **Prev / Next** to step through sessions without returning to the list.
+
+<Note>
+If a session was captured under the `minimal` or `metadata_only` content-capture mode, the detail view shows a banner explaining that prompt bodies and tool I/O weren't recorded for that session - see [Privacy & Governance](/latest/openlit/coding-agents/privacy-and-governance).
+</Note>
+
+---
+
+<Card title="Analytics" href="/latest/openlit/coding-agents/analytics" icon='chart-line'>
+  Zoom back out to vendor-wide trends and breakdowns
+</Card>

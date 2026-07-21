@@ -1,45 +1,66 @@
 ---
-title: 'Connect Multiple Databases'
-description: 'Connect and switch between multiple ClickHouse databases in OpenLIT'
-sidebarTitle: 'Connect Multiple Databases'
+title: "Connect Multiple Databases"
+sidebarTitle: "Connect Multiple Databases"
+description: "Connect multiple ClickHouse database configurations in one OpenLIT project and switch which one powers traces, dashboards, Prompt Hub, and Vault"
+icon: "database"
 ---
 
-OpenLIT allows you to add and switch between multiple ClickHouse databases, which helps manage observability data, prompts, and secrets separately for various environments. This feature enables users to maintain distinct databases tailored to specific environments or tenants, all while using a single OpenLIT deployment for efficient data analysis. The active database you select will power the data displayed across different sections of the application.
+OpenLIT lets a single project hold **multiple database configurations** - each one is a ClickHouse connection (host, port, database, credentials) that you can select as the active source for observability and platform data. The active configuration powers traces, dashboards, Prompt Hub, Vault, Manage Models, and the rest of the app for your session.
 
-## When to use this feature
+Managing those connections lives under **Organisation → Project → Database configurations**. There is no standalone “database configuration” settings page - `/settings/database-config` redirects to Organisation.
 
-This feature is particularly useful in the following scenarios:
+## When to use multiple databases
 
-- **Different Environments**: If you're running multiple environments, such as development, testing, and production, you can keep their data separate and easily switch between them as needed.
+- **Environments** - keep development, staging, and production data on separate ClickHouse databases and switch between them without changing projects.
+- **Isolation** - give different tenants or teams their own database configurations inside the same organisation structure.
+- **One OpenLIT, many stores** - analyze several ClickHouse backends from a single OpenLIT deployment.
 
-- **Multi-Tenancy**: When supporting multiple tenants, this feature allows you to maintain isolated datasets for each tenant, ensuring data privacy and organization.
+Search interest for niche phrases like "multi-tenant observability platform" is too thin and noisy to lean on - the product job is simply: connect and switch multiple databases from one place.
 
-- **Centralized Management**: Manage all your ClickHouse databases from a single OpenLIT deployment, simplifying your AI Engineering data architecture and reducing overhead.
+## Add and switch configurations
 
-## Get started
+<Steps>
+  <Step title="Open Organisation">
+    Select **Organisation** (or **Projects**) from the sidebar under Settings.
+  </Step>
+  <Step title="Open a project">
+    Open the project that should own the configuration, then switch to the **Database configurations** tab. Configurations are project-scoped - one created under project A is never selectable from project B.
+  </Step>
+  <Step title="Add New Config">
+    Click **Add New Config** (or **Add database config** from the empty state). Fill in **Config Name**, **Environment**, **Username**, **Password**, **Host**, **Port**, **Database**, and optional **Query params**, then **Save**.
+  </Step>
+  <Step title="Mark it active">
+    Use the checkbox on the list row (tooltip: **Mark … as the active database config**) or pick the config from the header **Databases** switcher. Only one is active for your user in that project at a time - teammates can select a different one.
+  </Step>
+</Steps>
 
-<Frame>
-  <img src="/images/multiple-db.png" />
-</Frame>
+There is no **Test connection** button on the form - OpenLIT checks connectivity after a config is set active. The active database configuration drives what you see across the product, including dashboards, Telemetry, Prompt Hub, and Vault.
 
-1. **Log in** to the OpenLIT.
-2. Go to the **database configuration** page.
-3. Click on the **Add new** option.
-4. Enter the ClickHouse database configuration details.
-5. Click **Save** to confirm.
-6. Simply **enable** the desired database to view its data. 
-7. The selected active database will power data shown on the dashboards, requests page, Prompt Hub, and Vault secrets.
+## Sharing and project boundaries
+
+You can share a database configuration with specific teammates by email, with separate edit / delete / re-share permissions. For the full field list, selection behavior, and FAQs, see [Database Config](/latest/openlit/organisation/database-config) under Organisation.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Can two projects share one database configuration?">
+    No. A configuration belongs to the project it was created in. Point another project at the same ClickHouse instance by creating a new configuration there.
+  </Accordion>
+  <Accordion title="Do I need a new ClickHouse cluster for every configuration?">
+    No. Multiple configurations can target the same cluster with different database names, or entirely different clusters.
+  </Accordion>
+  <Accordion title="Where did the Database Config settings page go?">
+    `/settings/database-config` redirects to Organisation - open a project and use the **Database configurations** tab.
+  </Accordion>
+</AccordionGroup>
 
 ---
 
-<CardGroup cols={3}>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+<CardGroup cols={2}>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Field-level guide for adding and selecting ClickHouse configs
   </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
-    Version, deploy, and collaborate on prompts with centralized management and tracking
-  </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
-    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  <Card title="Organisation" href="/latest/openlit/organisation/overview" icon="building">
+    Organisations, projects, and how database configs fit the hierarchy
   </Card>
 </CardGroup>

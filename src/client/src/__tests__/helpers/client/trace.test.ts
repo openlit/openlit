@@ -68,9 +68,9 @@ describe('getTraceMappingKeyFullPath', () => {
   });
 
   it('returns joined dot-path for a prefixed key', () => {
-    // 'provider' has path: "system", prefix: "gen_ai"
+    // 'provider' has path: "provider.name", prefix: "gen_ai"
     const result = getTraceMappingKeyFullPath('provider');
-    expect(result).toBe('gen_ai.system');
+    expect(result).toBe('gen_ai.provider.name');
   });
 
   it('joins array paths with dots when no prefix', () => {

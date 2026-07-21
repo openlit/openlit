@@ -29,7 +29,7 @@ jobs:
     name: go test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: cli/go.mod
@@ -59,7 +59,7 @@ jobs:
           - { os: windows, arch: amd64 }
           - { os: darwin,  arch: arm64 }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: cli/go.mod
@@ -78,7 +78,7 @@ jobs:
     name: .claude-plugin/ + plugins/ in-sync with cli/internal/coding/install/marketplace
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Sync into a temp dir and diff
         run: |
           set -euo pipefail

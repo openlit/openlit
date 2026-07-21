@@ -1,0 +1,32 @@
+---
+title: "Preview"
+description: "Use the Rule Preview card on a rule's detail page to test its saved conditions against recent traces before relying on it"
+---
+
+Before you wire a rule into your application, you can sanity-check it against real, recent activity. The **Rule Preview** card sits on a rule's detail page, next to the **Associated Entities** card.
+
+## Running a preview
+
+Click **Run Preview** to test the rule's current *saved* conditions - so save your conditions first, or the preview will run against whatever was last saved rather than your unsaved edits. The button shows "Running…" while it works.
+
+A preview checks your last 100 traces and shows up to the top 5 that matched, each with its service name, span name, trace ID, and a **Matched** / **No Match** badge.
+
+## States you'll see
+
+- Before running it for the first time: "Click 'Run Preview' to test your saved rule conditions against recent traces."
+- If none of the last 100 traces matched: "No matching traces found in the last 100 records."
+
+## What preview is - and isn't - for
+
+Preview is a sanity check for building and tuning a rule. It isn't connected to your live application traffic, and running it doesn't affect anything downstream. When your application actually needs to use a rule, it calls the separate [evaluate API](/latest/openlit/prompts-experiments/rule-engine/evaluate-api) - preview is only there to help you confirm a rule's conditions look right before you rely on that API.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Conditions" href="/latest/openlit/prompts-experiments/rule-engine/conditions" icon='filter'>
+    Build the condition groups you're previewing
+  </Card>
+  <Card title="Evaluate API" href="/latest/openlit/prompts-experiments/rule-engine/evaluate-api" icon='code'>
+    Use the rule from your application, once you're happy with it
+  </Card>
+</CardGroup>
