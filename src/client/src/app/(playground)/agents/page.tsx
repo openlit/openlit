@@ -641,7 +641,7 @@ export default function AgentsPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow={getMessage().FEATURE_AGENTS}
+				eyebrow={getMessage().SIDEBAR_MONITOR}
 				title={
 					activeTab === "coding"
 						? getMessage().AGENTS_TAB_CODING
@@ -649,7 +649,7 @@ export default function AgentsPage() {
 							? getMessage().AGENTS_TAB_CONTROLLERS
 							: getMessage().AGENTS_TAB_SERVICES
 				}
-				icon={<Bot className="h-5 w-5" />}
+				icon={<Bot className="h-4 w-4" />}
 				tone={AGENTS_HEADER_TONE}
 				actions={(
 					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -673,7 +673,7 @@ export default function AgentsPage() {
 							<Button
 								variant="secondary"
 								size="sm"
-								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								className="h-7 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("controller")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
@@ -684,7 +684,7 @@ export default function AgentsPage() {
 							<Button
 								variant="secondary"
 								size="sm"
-								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								className="h-7 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("coding")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />

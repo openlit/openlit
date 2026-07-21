@@ -1,6 +1,8 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { deletePrompt } from "@/lib/platform/prompt";
 
-export async function DELETE(_: Request, context: any) {
+async function DELETEHandler(_: Request, context: any) {
 	const { id } = context.params;
 	const [err, res] = await deletePrompt(id);
 	if (err) {
@@ -11,3 +13,5 @@ export async function DELETE(_: Request, context: any) {
 
 	return Response.json(res);
 }
+
+export const DELETE = withAudit(withCurrentOrganisationPermission("prompt:delete", DELETEHandler));

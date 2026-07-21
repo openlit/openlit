@@ -1,10 +1,12 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { RuleConditionGroupInput } from "@/types/rule-engine";
 import { addConditionGroupsToRule } from "@/lib/platform/rule-engine";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
-export async function POST(request: Request, context: any) {
+async function POSTHandler(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const formData = await request.json();
@@ -26,3 +28,5 @@ export async function POST(request: Request, context: any) {
 	});
 	return Response.json(res);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("rule_engine:configure", POSTHandler));

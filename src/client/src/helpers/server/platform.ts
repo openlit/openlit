@@ -6,13 +6,32 @@ import {
 	differenceInDays,
 	differenceInYears,
 } from "date-fns";
-import { getTraceMappingKeyFullPath } from "../server/trace";
+import {
+	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
+} from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
 import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
+
+/**
+ * Exclude coding-agent / openlit-cli hook telemetry from LLM / request
+ * dashboards. Those spans belong on the Coding Agents dashboard only.
+ *
+ * Matches the materializer barriers: coding_agent.* attrs, distro name,
+ * and coding_agent.* span names.
+ */
+export const EXCLUDE_CODING_AGENT_WHERE = [
+	"empty(SpanAttributes['coding_agent.client'])",
+	"empty(ResourceAttributes['coding_agent.client'])",
+	"empty(SpanAttributes['coding_agent.session.id'])",
+	"empty(ResourceAttributes['coding_agent.session.id'])",
+	"(empty(ResourceAttributes['telemetry.distro.name']) OR ResourceAttributes['telemetry.distro.name'] != 'openlit-cli')",
+	"NOT startsWith(SpanName, 'coding_agent.')",
+].join(" AND ");
 
 export const validateMetricsRequestType = {
 	// Request
@@ -27,6 +46,11 @@ export const validateMetricsRequestType = {
 	AVERAGE_REQUEST_COST: "AVERAGE_REQUEST_COST",
 	COST_BY_APPLICATION: "COST_BY_APPLICATION",
 	COST_BY_ENVIRONMENT: "COST_BY_ENVIRONMENT",
+	COST_BY_PROVIDER: "COST_BY_PROVIDER",
+	COST_BY_MODEL: "COST_BY_MODEL",
+	COST_PER_TIME: "COST_PER_TIME",
+	COST_SUMMARY: "COST_SUMMARY",
+	OPENGROUND_COST_ANALYTICS: "OPENGROUND_COST_ANALYTICS",
 	// Model
 	TOP_MODELS: "TOP_MODELS",
 	MODEL_PER_TIME: "MODEL_PER_TIME",
@@ -64,6 +88,7 @@ export const validateMetricsRequestType = {
 	GENERATION_BY_APPLICATION: "GENERATION_BY_APPLICATION",
 	// evaluation
 	GET_TOTAL_EVALUATION_DETECTED: "GET_TOTAL_EVALUATION_DETECTED",
+	GET_EVALUATION_ANALYTICS: "GET_EVALUATION_ANALYTICS",
 };
 
 export const validateMetricsRequest = (
@@ -80,6 +105,11 @@ export const validateMetricsRequest = (
 		case validateMetricsRequestType.AVERAGE_REQUEST_COST:
 		case validateMetricsRequestType.COST_BY_APPLICATION:
 		case validateMetricsRequestType.COST_BY_ENVIRONMENT:
+		case validateMetricsRequestType.COST_BY_PROVIDER:
+		case validateMetricsRequestType.COST_BY_MODEL:
+		case validateMetricsRequestType.COST_PER_TIME:
+		case validateMetricsRequestType.COST_SUMMARY:
+		case validateMetricsRequestType.OPENGROUND_COST_ANALYTICS:
 
 		// Models
 		case validateMetricsRequestType.MODEL_PER_TIME:
@@ -111,6 +141,7 @@ export const validateMetricsRequest = (
 
 		// Evaluation
 		case validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED:
+		case validateMetricsRequestType.GET_EVALUATION_ANALYTICS:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,
@@ -199,21 +230,22 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.providers?.length) {
 				// Mirror of the provider DISTINCT fold in
 				// lib/platform/request/index.ts: the dropdown shows
-				// values from gen_ai.system + db.system +
-				// coding_agent.client, so the WHERE check must
-				// match across the same three attributes — otherwise
-				// unticking e.g. "cursor" would have no effect on
-				// the rendered rows.
+				// values from gen_ai.provider.name (+ gen_ai.system
+				// fallback) + db.system + coding_agent.client, so the
+				// WHERE check must match across the same attributes —
+				// otherwise unticking e.g. "cursor" would have no
+				// effect on the rendered rows.
 				const providerList = filter.selectedConfig.providers
 					.map((provider) => `'${provider}'`)
 					.join(", ");
-				whereArray.push(
-					`(SpanAttributes['${getTraceMappingKeyFullPath(
-						"system"
-					)}'] IN (${providerList}) OR SpanAttributes['${getTraceMappingKeyFullPath(
-						"provider"
-					)}'] IN (${providerList}) OR SpanAttributes['coding_agent.client'] IN (${providerList}))`
+				const providerClauses = [
+					...(getTraceMappingKeyFullPaths("provider") as string[]),
+					getTraceMappingKeyFullPath("system") as string,
+					"coding_agent.client",
+				].map(
+					(path) => `SpanAttributes['${path}'] IN (${providerList})`
 				);
+				whereArray.push(`(${providerClauses.join(" OR ")})`);
 			}
 
 			if (filter.selectedConfig.traceTypes?.length) {
@@ -247,6 +279,21 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.serviceNames?.length) {
 				whereArray.push(
 					`ServiceName IN (${filter.selectedConfig.serviceNames
+						.map((serviceName: string) => `'${escapeClickHouseString(serviceName)}'`)
+						.join(", ")})`
+				);
+			}
+
+			// UI ComboDropdown persists the selection as `services`
+			// (see traces-filter.tsx / URL `services=`). `serviceNames`
+			// is the agent-detail scope lock. Honor both so a Services
+			// filter on Traces/Exceptions actually reaches ClickHouse —
+			// especially important on Exceptions where failed LLM spans
+			// often lack gen_ai.provider.name and ServiceName is the
+			// only useful discriminator.
+			if (filter.selectedConfig.services?.length) {
+				whereArray.push(
+					`ServiceName IN (${filter.selectedConfig.services
 						.map((serviceName: string) => `'${escapeClickHouseString(serviceName)}'`)
 						.join(", ")})`
 				);
@@ -346,6 +393,9 @@ export const getFilterWhereCondition = (
 						"type"
 					)}'] != 'vectordb'`
 				);
+				// LLM / request dashboards must not mix in coding-agent
+				// hook telemetry (separate Coding Agents dashboard).
+				whereArray.push(EXCLUDE_CODING_AGENT_WHERE);
 			}
 		}
 	} catch {}
