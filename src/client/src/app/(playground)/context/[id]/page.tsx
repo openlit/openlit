@@ -309,7 +309,7 @@ export default function ContextDetailPage() {
 						</div>
 					</div>
 					{!isEditing && ctx.created_by && (
-						<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+						<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
 							{m.CREATED_BY} {ctx.created_by}
 							{ctx.created_at && <> · {format(ctx.created_at, "MMM do, y")}</>}
 						</p>
@@ -419,7 +419,7 @@ export default function ContextDetailPage() {
 								))}
 							</div>
 						) : (
-							<span className="text-xs text-stone-400 dark:text-stone-500 italic">{m.CONTEXT_NONE}</span>
+							<span className="text-xs text-stone-500 dark:text-stone-400 italic">{m.CONTEXT_NONE}</span>
 						)}
 					</div>
 
@@ -481,7 +481,7 @@ export default function ContextDetailPage() {
 								))}
 							</div>
 						) : (
-							<span className="text-xs text-stone-400 dark:text-stone-500 italic">{m.CONTEXT_NONE}</span>
+							<span className="text-xs text-stone-500 dark:text-stone-400 italic">{m.CONTEXT_NONE}</span>
 						)}
 					</div>
 
@@ -572,7 +572,7 @@ export default function ContextDetailPage() {
 					{linkedRules.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-6 gap-2">
 							<SlidersHorizontal className="w-7 h-7 text-stone-300 dark:text-stone-600" />
-							<p className="text-sm text-stone-400 dark:text-stone-500 text-center">
+							<p className="text-sm text-stone-500 dark:text-stone-400 text-center">
 								{m.CONTEXT_NO_RULES}
 							</p>
 						</div>
@@ -589,7 +589,7 @@ export default function ContextDetailPage() {
 											{rule.name}
 										</span>
 										{rule.description && (
-											<span className="text-xs text-stone-400 dark:text-stone-500 truncate">
+											<span className="text-xs text-stone-500 dark:text-stone-400 truncate">
 												{rule.description}
 											</span>
 										)}
@@ -624,7 +624,7 @@ export default function ContextDetailPage() {
 									</SelectTrigger>
 									<SelectContent>
 										{unlinkdRules.length === 0 ? (
-											<div className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
+											<div className="px-3 py-2 text-xs text-stone-500 dark:text-stone-400">
 												{m.CONTEXT_ALL_RULES_LINKED}
 											</div>
 										) : (

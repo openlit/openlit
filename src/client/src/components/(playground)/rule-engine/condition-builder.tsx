@@ -265,7 +265,7 @@ function ConditionValueInput({
 						<span className="text-xs truncate flex-1">
 							{value
 								? <span className="text-stone-700 dark:text-stone-300">{labels?.[value] ?? value}</span>
-								: <span className="text-stone-400 dark:text-stone-500">{messages.RULE_VALUE_PLACEHOLDER}</span>
+								: <span className="text-stone-500 dark:text-stone-400">{messages.RULE_VALUE_PLACEHOLDER}</span>
 							}
 						</span>
 					)}
@@ -294,7 +294,7 @@ function ConditionValueInput({
 							<>
 								<div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-stone-100 dark:border-stone-800">
 									<InfoIcon className="w-3 h-3 text-stone-400 flex-shrink-0" />
-									<span className="text-[10px] text-stone-400 dark:text-stone-500 leading-tight">
+									<span className="text-[10px] text-stone-500 dark:text-stone-400 leading-tight">
 										{messages.RULE_FIELD_VALUES_INFO}
 									</span>
 								</div>
@@ -429,7 +429,7 @@ export default function ConditionBuilder({
 	if (groups.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-6 border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-lg">
-				<p className="text-sm text-stone-400 dark:text-stone-500">
+				<p className="text-sm text-stone-500 dark:text-stone-400">
 					{messages.RULE_NO_CONDITION_GROUPS}
 				</p>
 				<Button variant="outline" size="sm" type="button" onClick={addGroup}
@@ -463,7 +463,7 @@ export default function ConditionBuilder({
 						{/* Group header */}
 						<div className="flex items-center justify-between mb-3">
 							<div className="flex items-center gap-2">
-								<span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+								<span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">
 									Group {groupIdx + 1}
 								</span>
 								<Select
@@ -478,7 +478,7 @@ export default function ConditionBuilder({
 										<SelectItem value="OR">{messages.OR}</SelectItem>
 									</SelectContent>
 								</Select>
-								<span className="text-[10px] text-stone-400 dark:text-stone-500">
+								<span className="text-[10px] text-stone-500 dark:text-stone-400">
 									{messages.RULE_WITHIN_GROUP}
 								</span>
 							</div>
@@ -496,7 +496,7 @@ export default function ConditionBuilder({
 										<div className="flex items-center gap-2 py-1 px-1">
 											<div className="flex-1 border-t border-dashed border-stone-200 dark:border-stone-700" />
 											<Badge variant="outline"
-												className="text-[9px] px-1.5 py-0 h-4 border-stone-300 dark:border-stone-600 text-stone-400 dark:text-stone-500 flex-shrink-0">
+												className="text-[9px] px-1.5 py-0 h-4 border-stone-300 dark:border-stone-600 text-stone-500 dark:text-stone-400 flex-shrink-0">
 												{group.condition_operator}
 											</Badge>
 											<div className="flex-1 border-t border-dashed border-stone-200 dark:border-stone-700" />

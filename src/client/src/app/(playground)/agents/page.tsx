@@ -863,7 +863,7 @@ export default function AgentsPage() {
 								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{activeControllers.length}
 									{staleCount > 0 && (
-										<span className="ml-1.5 text-xs font-normal text-stone-400 dark:text-stone-500">
+										<span className="ml-1.5 text-xs font-normal text-stone-500 dark:text-stone-500">
 											({staleCount} stale)
 										</span>
 									)}

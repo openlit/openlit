@@ -101,7 +101,7 @@ function MiniMeta({
 	return (
 		<span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300">
 			{icon}
-			<span className="text-stone-400 dark:text-stone-500">{label}</span>
+			<span className="text-stone-500 dark:text-stone-400">{label}</span>
 			<span className="truncate font-medium tabular-nums text-stone-900 dark:text-stone-100">
 				{value || "-"}
 			</span>
@@ -330,7 +330,7 @@ function MetricRecord({
 				<div className="h-1.5 rounded-full bg-stone-100 dark:bg-stone-900">
 					<div className="h-full rounded-full bg-emerald-500" style={{ width }} />
 				</div>
-				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-400 dark:text-stone-500">
+				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
 					<span>latest compared to max in this window</span>
 					<div className="flex gap-2">
 						<span>min {Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>

@@ -458,7 +458,7 @@ export default function PromptHub() {
 								{linkedRules.length === 0 ? (
 									<div className="flex flex-col items-center justify-center py-6 gap-2">
 										<SlidersHorizontal className="w-7 h-7 text-stone-300 dark:text-stone-600" />
-										<p className="text-sm text-stone-400 dark:text-stone-500 text-center">
+										<p className="text-sm text-stone-500 dark:text-stone-400 text-center">
 											{m.PROMPT_HUB_NO_RULES}
 										</p>
 									</div>
@@ -475,7 +475,7 @@ export default function PromptHub() {
 														{rule.name}
 													</span>
 													{rule.description && (
-														<span className="text-xs text-stone-400 dark:text-stone-500 truncate">
+														<span className="text-xs text-stone-500 dark:text-stone-400 truncate">
 															{rule.description}
 														</span>
 													)}
@@ -513,7 +513,7 @@ export default function PromptHub() {
 												</SelectTrigger>
 												<SelectContent>
 													{unlinkedRules.length === 0 ? (
-														<div className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
+														<div className="px-3 py-2 text-xs text-stone-500 dark:text-stone-400">
 															{m.PROMPT_HUB_ALL_RULES_LINKED}
 														</div>
 													) : (

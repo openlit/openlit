@@ -884,7 +884,7 @@ function GroupByDropdown({
 
 				{/* Custom attribute section */}
 				<div className="border-t dark:border-stone-700 mt-1 pt-2 px-1 pb-1">
-					<p className="text-xs text-stone-400 dark:text-stone-500 mb-1.5">
+					<p className="text-xs text-stone-500 dark:text-stone-400 mb-1.5">
 						Custom attribute
 						{isCustomActive && <span className="ml-1.5 text-primary">✓</span>}
 					</p>

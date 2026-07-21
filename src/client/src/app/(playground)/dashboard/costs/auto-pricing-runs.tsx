@@ -133,7 +133,7 @@ export default function AutoPricingRuns({
 							</p>
 							{totalRuns === 0 ? (
 								<>
-									<p className="max-w-md text-xs text-stone-400 dark:text-stone-500">
+									<p className="max-w-md text-xs text-stone-500 dark:text-stone-400">
 										{m.COSTS_CRON_TABLE_EMPTY_HINT}
 									</p>
 									<Button size="sm" onClick={onConfigure}>

@@ -587,12 +587,12 @@ function ToolIndicator({
 						</span>
 					)}
 					{item.meta && (
-						<span className="truncate font-mono text-[9px] text-stone-400 dark:text-stone-500">
+						<span className="truncate font-mono text-[9px] text-stone-500 dark:text-stone-400">
 							{item.meta}
 						</span>
 					)}
 				</div>
-				<span className="shrink-0 text-[9px] tabular-nums text-stone-400 dark:text-stone-500">
+				<span className="shrink-0 text-[9px] tabular-nums text-stone-500 dark:text-stone-400">
 					{getSpanDurationDisplay(item.span)}
 				</span>
 			</div>
@@ -601,7 +601,7 @@ function ToolIndicator({
 			{displayArgs && (
 				<div className="border-t border-stone-200 dark:border-stone-700">
 					<button
-						className="flex w-full items-center gap-1 px-2.5 py-1 text-[10px] text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+						className="flex w-full items-center gap-1 px-2.5 py-1 text-[10px] text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300"
 						onClick={(e) => {
 							e.stopPropagation();
 							setArgsExpanded(!argsExpanded);
@@ -626,7 +626,7 @@ function ToolIndicator({
 			{displayResult && (
 				<div className="border-t border-stone-200 dark:border-stone-700">
 					<button
-						className="flex w-full items-center gap-1 px-2.5 py-1 text-[10px] text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+						className="flex w-full items-center gap-1 px-2.5 py-1 text-[10px] text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300"
 						onClick={(e) => {
 							e.stopPropagation();
 							setResultExpanded(!resultExpanded);
@@ -680,7 +680,7 @@ function ThoughtIndicator({
 							Thinking
 						</span>
 						{item.meta && (
-							<span className="text-[10px] text-stone-400 dark:text-stone-500">
+							<span className="text-[10px] text-stone-500 dark:text-stone-400">
 								{item.meta}
 							</span>
 						)}
@@ -813,7 +813,7 @@ function SubagentIndicator({
 						</>
 					)}
 				</div>
-				<span className="shrink-0 text-[9px] tabular-nums text-stone-400 dark:text-stone-500">
+				<span className="shrink-0 text-[9px] tabular-nums text-stone-500 dark:text-stone-400">
 					{getSpanDurationDisplay(item.span)}
 				</span>
 			</div>
@@ -865,7 +865,7 @@ function TransitionPill({
 					</span>
 				)}
 				{suffix && (
-					<span className="text-stone-400 dark:text-stone-500">
+					<span className="text-stone-500 dark:text-stone-400">
 						{suffix}
 					</span>
 				)}
@@ -1066,7 +1066,7 @@ export default function ChatView({
 
 	if (collapsed.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center h-full text-stone-400 dark:text-stone-500 gap-2 py-12">
+			<div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 gap-2 py-12">
 				<MessageSquare className="h-8 w-8" />
 				<p className="text-sm">{m.OBSERVABILITY_CHAT_EMPTY}</p>
 				<p className="text-xs">{m.OBSERVABILITY_CHAT_EMPTY_HINT}</p>
@@ -1217,11 +1217,11 @@ export default function ChatView({
 								{item.label}
 							</span>
 							{item.meta && (
-								<span className="text-[10px] text-stone-400 dark:text-stone-500">
+								<span className="text-[10px] text-stone-500 dark:text-stone-400">
 									({item.meta})
 								</span>
 							)}
-							<span className="ml-auto text-[9px] tabular-nums text-stone-400 dark:text-stone-500 shrink-0">
+							<span className="ml-auto text-[9px] tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
 								{getSpanDurationDisplay(item.span)}
 							</span>
 						</div>
@@ -1240,7 +1240,7 @@ export default function ChatView({
 						className={`flex flex-col gap-0.5 px-2 ${config.align} ${indentClass}`}
 					>
 						<div
-							className={`flex items-center gap-1.5 px-1 text-[10px] text-stone-400 dark:text-stone-500 ${
+							className={`flex items-center gap-1.5 px-1 text-[10px] text-stone-500 dark:text-stone-400 ${
 								role === "user" ? "flex-row-reverse" : ""
 							}`}
 						>
@@ -1270,7 +1270,7 @@ export default function ChatView({
 						</div>
 
 						{role === "assistant" && (
-							<div className="flex items-center gap-2 text-[9px] text-stone-400 dark:text-stone-500 px-1 mt-0.5">
+							<div className="flex items-center gap-2 text-[9px] text-stone-500 dark:text-stone-400 px-1 mt-0.5">
 								<span className="flex items-center gap-0.5">
 									<Clock className="h-2.5 w-2.5" />
 									{durationDisplay}

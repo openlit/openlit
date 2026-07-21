@@ -61,7 +61,7 @@ type ServiceColumnKey =
 
 function StaticDash({ title }: { title?: string }) {
 	return (
-		<span className="text-xs text-stone-400 dark:text-stone-500" title={title}>
+		<span className="text-xs text-stone-500 dark:text-stone-400" title={title}>
 			—
 		</span>
 	);
