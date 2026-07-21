@@ -28,7 +28,7 @@ const expectedUiLabels = {
 	cost: "Cost",
 	token_efficiency: "Token efficiency",
 	path_analysis: "Path",
-	prompt_injection: "Prompt injection",
+	prompt_injection: messages.TRACE_AI_PROMPT_INJECTION_UI_LABEL,
 };
 
 const expectedStreamLabels = {
@@ -38,7 +38,7 @@ const expectedStreamLabels = {
 	cost: "Cost",
 	token_efficiency: "Token efficiency",
 	path_analysis: "Path analysis",
-	prompt_injection: "Prompt injection",
+	prompt_injection: messages.TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
 };
 
 describe("trace analysis dimension registry", () => {
@@ -91,8 +91,13 @@ describe("trace analysis dimension registry", () => {
 
 		expect(definition).toMatchObject({
 			key: "prompt_injection",
-			uiLabel: "Prompt injection",
-			streamLabel: "Prompt injection",
+			uiLabel: messages.TRACE_AI_PROMPT_INJECTION_UI_LABEL,
+			streamLabel: messages.TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+			guidance: messages.TRACE_AI_PROMPT_INJECTION_GUIDANCE,
+			emptyStateCopy: {
+				summary: messages.TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY,
+				detail: messages.TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL,
+			},
 			spanFields: [
 				"systemPrompt",
 				"prompt",
@@ -193,7 +198,7 @@ describe("trace analysis dimension registry", () => {
 		);
 	});
 
-	it("normalizes missing prompt-injection content fields to empty evidence", () => {
+	it("leaves missing prompt-injection span fields undefined like other dimensions", () => {
 		const selected = selectTraceAnalysisSpan(
 			{
 				spanId: "missing-content",
@@ -205,13 +210,15 @@ describe("trace analysis dimension registry", () => {
 		);
 
 		expect(selected).toMatchObject({
-			systemPrompt: "",
-			prompt: "",
-			response: "",
-			toolName: "",
-			toolCallId: "",
-			toolArgs: "",
-			toolResult: "",
+			spanId: "missing-content",
+			spanName: "agent.empty",
+			systemPrompt: undefined,
+			prompt: undefined,
+			response: undefined,
+			toolName: undefined,
+			toolCallId: undefined,
+			toolArgs: undefined,
+			toolResult: undefined,
 		});
 	});
 

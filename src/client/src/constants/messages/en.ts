@@ -1735,11 +1735,11 @@ export const TRACE_AI_STRENGTHS_EMPTY_DETAIL =
 export const TRACE_AI_IMPROVEMENTS_UI_LABEL = "Improvements";
 export const TRACE_AI_IMPROVEMENTS_STREAM_LABEL = "Improvements";
 export const TRACE_AI_IMPROVEMENTS_GUIDANCE =
-	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, or path_analysis. Avoid generic advice; cite spans.";
+	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, path_analysis, or prompt_injection. Avoid generic advice; cite spans.";
 export const TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY =
 	"No general improvements are required right now.";
 export const TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL =
-	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, or wrong-turn categories.";
+	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, wrong-turn, or prompt-injection categories.";
 export const TRACE_AI_WRONG_TURNS_UI_LABEL = "Wrong turns";
 export const TRACE_AI_WRONG_TURNS_STREAM_LABEL = "Wrong turns";
 export const TRACE_AI_WRONG_TURNS_GUIDANCE =

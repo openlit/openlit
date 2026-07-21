@@ -1,13 +1,9 @@
-import exampleFixture from "@/__tests__/fixtures/trace-analysis.example.json";
+import fixture from "@/__tests__/fixtures/trace-analysis.example.json";
 import {
 	TRACE_ANALYSIS_DIMENSIONS,
 	emptyTraceAnalysis,
+	ensureTraceAnalysisDimensions,
 } from "@/types/trace-analysis";
-
-const fixture = {
-	...exampleFixture,
-	prompt_injection: [],
-};
 
 describe("trace analysis schema fixture", () => {
 	it("has all seven dimensions and span refs on findings", () => {
@@ -48,6 +44,30 @@ describe("emptyTraceAnalysis", () => {
 		const b = emptyTraceAnalysis("t2");
 		a.improvements.push({ id: "x", severity: "info", summary: "s", detail: "d", span_refs: [] });
 		expect(b.improvements).toHaveLength(0);
+	});
+});
+
+describe("ensureTraceAnalysisDimensions", () => {
+	it("fills prompt_injection as empty when reading older stored analyses", () => {
+		const legacyStored = {
+			trace_id: "legacy-trace",
+			summary: "pre-security-dimension run",
+			strengths: fixture.strengths,
+			improvements: [],
+			wrong_turns: [],
+			cost: [],
+			token_efficiency: [],
+			path_analysis: [],
+			totals: fixture.totals,
+		};
+
+		const dimensions = ensureTraceAnalysisDimensions(legacyStored);
+
+		expect(dimensions.prompt_injection).toEqual([]);
+		expect(dimensions.strengths).toEqual(fixture.strengths);
+		expect(Object.keys(dimensions).sort()).toEqual(
+			[...TRACE_ANALYSIS_DIMENSIONS].sort()
+		);
 	});
 });
 

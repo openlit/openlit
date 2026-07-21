@@ -332,9 +332,6 @@ export type TraceAnalysisDimensionKey =
 export type TraceAnalysisDimensionDefinition =
 	(typeof TRACE_ANALYSIS_DIMENSION_DEFINITIONS)[number];
 
-const EMPTY_EVIDENCE_DIMENSIONS: ReadonlySet<TraceAnalysisDimensionKey> =
-	new Set<TraceAnalysisDimensionKey>(["prompt_injection"]);
-
 export const TRACE_ANALYSIS_DIMENSION_REGISTRY = Object.freeze(
 	Object.fromEntries(
 		TRACE_ANALYSIS_DIMENSION_DEFINITIONS.map((definition) => [
@@ -358,18 +355,10 @@ export function getTraceAnalysisDimensionDefinition(
 
 function selectFields(
 	source: object,
-	fields: readonly string[],
-	normalizeMissingToEmpty = false
+	fields: readonly string[]
 ): Record<string, unknown> {
 	const values = source as Record<string, unknown>;
-	return Object.fromEntries(
-		fields.map((field) => [
-			field,
-			values[field] === undefined && normalizeMissingToEmpty
-				? ""
-				: values[field],
-		])
-	);
+	return Object.fromEntries(fields.map((field) => [field, values[field]]));
 }
 
 export function selectTraceAnalysisSpan(
@@ -392,11 +381,7 @@ export function selectTraceAnalysisSpan(
 
 	return {
 		...base,
-		...selectFields(
-			span,
-			definition.spanFields,
-			EMPTY_EVIDENCE_DIMENSIONS.has(dimension)
-		),
+		...selectFields(span, definition.spanFields),
 	};
 }
 
