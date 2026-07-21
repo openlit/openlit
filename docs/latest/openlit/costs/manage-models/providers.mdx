@@ -1,0 +1,37 @@
+---
+title: "Providers"
+description: "Add and edit LLM providers in Manage Models - Provider ID, display name, description, and Requires API Key (Vault)"
+---
+
+Providers are the top-level grouping for models on **Manage Models** (`/costs?tab=models`). OpenLIT ships 14 built-in providers; you can add your own for self-hosted or niche APIs.
+
+## Add a provider
+
+<Steps>
+  <Step title="Open Add Provider">
+    In the Manage Models header, click the **+** control (tooltip: **Add Provider**).
+  </Step>
+  <Step title="Fill in the fields">
+    - **Provider ID** - lowercase identifier (e.g. `my-provider`). Spaces become hyphens; other special characters are stripped. This must match what your SDK sends in `gen_ai.system`.
+    - **Display Name** - label shown in the UI.
+    - **Description** - optional.
+    - **Requires API Key (Vault)** - toggle on if callers need a Vault secret for this provider.
+  </Step>
+  <Step title="Save">
+    Click **Add Provider**. The provider appears in the left sidebar.
+  </Step>
+</Steps>
+
+## Edit a provider
+
+Hover a provider in the sidebar and use the edit control to open **Edit Provider**. You can change display name, description, and the Vault requirement. **Provider ID cannot be changed** after creation.
+
+## Delete a provider
+
+There is no delete button in the Manage Models UI today. To remove a provider and all of its models, use the [Providers API](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/providers) `DELETE` operation.
+
+## API
+
+<Card title="Providers API" href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/providers" icon="code">
+  List, create, update, and delete providers
+</Card>

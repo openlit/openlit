@@ -13,6 +13,7 @@ async function POSTHandler(request: Request) {
 	const params: MetricParams = {
 		timeLimit,
 		selectedConfig: formData.selectedConfig,
+		statusCode: formData.statusCode,
 	};
 
 	const validationParam = validateMetricsRequest(

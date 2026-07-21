@@ -1,0 +1,41 @@
+---
+title: "Privacy & Governance"
+description: "Content capture modes, redaction, and attribution safeguards for coding-agent telemetry"
+---
+
+Coding-agent sessions can carry sensitive material - prompts, file contents, proprietary code. OpenLIT gives you control over how much of that gets captured, and applies redaction regardless of the mode you choose.
+
+## Content capture modes
+
+`OPENLIT_CODING_CONTENT_CAPTURE` controls what lands on spans:
+
+| Mode | Identifiers | Tool names + paths | File diffs / message bodies |
+|---|---|---|---|
+| `minimal` | ✅ | ❌ | ❌ |
+| `metadata_only` | ✅ | ✅ | ❌ |
+| `full` (default) | ✅ | ✅ | ✅ |
+
+Set it once via `openlit configure` or the `OPENLIT_CODING_CONTENT_CAPTURE` environment variable - see [Setup & Configure](/latest/openlit/coding-agents/setup-and-configure). `full` is the default so the trace detail view is useful out of the box; switch to `metadata_only` when rolling out across a team where prompts may carry confidential material, or `minimal` if you only need cost and activity dashboards and not the per-event timeline. Sessions captured under `minimal` or `metadata_only` show a banner in their [session detail view](/latest/openlit/coding-agents/sessions) explaining what wasn't recorded.
+
+## Redaction
+
+Two redaction tiers run on every export, regardless of capture mode:
+
+- **Tier 1** - a token-pattern scrubber that always runs, stripping API keys, tokens, and known secret patterns without breaking JSON structure.
+- **Tier 2** - a body-scope scrubber, active only in `full` mode, that applies the same scrubbing to file diffs and message bodies before they're exported.
+
+The active capture mode is stamped as a resource attribute (`coding_agent.content_capture_mode`) on every span, so you can audit what a given session was recorded under after the fact.
+
+## Attribution safeguards
+
+Per-user attribution is capped by a cohort floor: viewer-tier accounts cannot see per-user metrics for a user with fewer than five sessions in the selected window. Admin-tier accounts see the full breakdown. This prevents singling out an individual developer from a small sample on the [Users](/latest/openlit/coding-agents/users) tab.
+
+## Threat model
+
+The `openlit` CLI runs on the developer's own machine, alongside the coding agent, and authenticates to your collector with an org-scoped API key - the header proves the event came from a machine your org authorized, not that a specific event wasn't spoofed by anyone with shell access on that machine. In practice this is the same trust boundary as any other locally-run developer tool: someone who can run the hook can equally well run any other process under their own user. If you need a stricter guarantee for an untrusted developer fleet, front the OTLP endpoint with a collector that validates the authenticated key's owner against the event's user attribute, or disable the hook tier entirely and rely on a vendor's native OTel exporter (where the vendor signs its own egress) instead.
+
+---
+
+<Card title="Troubleshooting" href="/latest/openlit/coding-agents/troubleshooting" icon='wrench'>
+  Diagnose missing rows, silent hooks, or a stale database config
+</Card>

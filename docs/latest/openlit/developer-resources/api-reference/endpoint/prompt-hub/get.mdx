@@ -2,3 +2,74 @@
 title: 'Get Prompt'
 openapi: 'POST /api/prompt/get-compiled'
 ---
+
+## SDK usage
+
+`url` and `api_key` (or `apiKey`) default to the `OPENLIT_URL` and `OPENLIT_API_KEY` environment variables if you don't pass them explicitly.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    response = openlit.get_prompt(
+      name="prompt_name",
+      should_compile=True,
+      variables={
+        "name": "John",
+      },
+    )
+
+    print(response)
+    ```
+
+    ```shell Output
+    {
+      err: null,
+      res: {
+          promptId: '88c4cbcd-87f9-4957-a37b-b41066e17471',
+          name: 'prompt_name',
+          version: '3.3.3',
+          tags: [ 'user', 'greeting' ],
+          metaProperties: { model: 'gpt4' },
+          prompt: 'Hello {{name}}, how are you today?',
+          compiledPrompt: 'Hello John, how are you today?'
+      }
+    }
+    ```
+
+    `url`, `api_key`, `name`, `prompt_id`, `version`, `should_compile`, `variables`, and `meta_properties` are all available parameters, matching the request body above.
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Openlit from 'openlit';
+
+    const response = await Openlit.getPrompts({
+      name: "prompt_name",
+      shouldCompile: true,
+      variables: {
+        name: "John",
+      }
+    });
+
+    console.log(response);
+    ```
+
+    ```shell Output
+    {
+      err: null,
+      res: {
+          promptId: '88c4cbcd-87f9-4957-a37b-b41066e17471',
+          name: 'prompt_name',
+          version: '3.3.3',
+          tags: [ 'user', 'greeting' ],
+          metaProperties: { model: 'gpt4' },
+          prompt: 'Hello {{name}}, how are you today?',
+          compiledPrompt: 'Hello John, how are you today?'
+      }
+    }
+    ```
+
+    `url`, `apiKey`, `name`, `promptId`, `version`, `shouldCompile`, `variables`, and `metaProperties` are all available parameters, matching the request body above.
+  </Tab>
+</Tabs>

@@ -4,16 +4,18 @@ description: 'Create and manage project boundaries inside an OpenLIT organisatio
 icon: 'folder'
 ---
 
-Projects group database configurations and resources inside an organisation. They are useful when one organisation needs multiple isolated environments without creating separate workspaces.
+A project is a database boundary inside an organisation. Every project connects to its own ClickHouse database configuration, so one organisation can run several isolated environments - production, staging, per-customer, or per-team - without needing separate organisations or separate OpenLIT installations.
 
 ## When to create a project
 
 Create a project for:
 
-- Production, staging, and development environments.
-- Separate teams that share the same organisation.
-- Customer-specific deployments.
-- Workloads that should use different ClickHouse database configurations.
+| Scenario | Why a project helps |
+|---|---|
+| Production and staging | Keep live traces and test traces in separate ClickHouse databases. |
+| Multiple teams, one organisation | Each team gets its own project without splitting membership across organisations. |
+| Customer-specific deployments | Isolate a customer's data in its own database configuration while keeping shared org-level billing and membership. |
+| Different ClickHouse clusters | Route one workload to a different ClickHouse host or cluster than another, under the same organisation. |
 
 ## Create a project
 
@@ -32,11 +34,33 @@ Create a project for:
   </Step>
 </Steps>
 
+Every organisation always has exactly one **default project**, created automatically the moment the organisation itself is created. If an organisation has no other database configuration set up yet, OpenLIT falls back to the default project so there's always a working project to land in.
+
 ## Project details
 
 Project details show the project name, status, and database configurations attached to that project. Open a project from the Organisation page to review or update its configuration.
 
+## Switching projects
+
+The project selector in the top navigation scopes everything you see - traces, dashboards, prompts, evaluations - to the currently active project's database configuration. Switching projects re-fetches the active database configuration for the new project; if that project has none configured yet, OpenLIT walks you through adding one before showing data pages.
+
 ## Member access
 
-Project access controls which organisation members can use a project. Existing organisation members are assigned to existing projects during migration so current installations continue to work. New members can be invited to the organisation first and then granted access to specific projects as needed.
+Project access controls which organisation members can use a project. Existing organisation members are assigned to existing projects during migration so current installations continue to work. New members can be invited to the organisation first and then granted access to specific projects as needed. A member without access to a project can't select it or see its database configurations, even if they're a member of the parent organisation.
 
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Do I need multiple projects if I only have one environment?">
+    No. Every organisation ships with a default project, and most single-environment setups never need to create another one.
+  </Accordion>
+  <Accordion title="Can a project use more than one database configuration?">
+    Yes. See [Database Config](/latest/openlit/organisation/database-config) for adding and switching between multiple ClickHouse configurations inside the same project.
+  </Accordion>
+  <Accordion title="What happens if I switch to a project with no database configured?">
+    OpenLIT detects the missing configuration and guides you through adding one before showing any data pages for that project.
+  </Accordion>
+  <Accordion title="Can every organisation member see every project?">
+    No. Project access is assigned per member. A member only sees and can select the projects they've been granted access to.
+  </Accordion>
+</AccordionGroup>

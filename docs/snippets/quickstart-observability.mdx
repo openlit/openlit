@@ -29,17 +29,13 @@ flowchart TB;
         ```shell
         docker compose up -d
         ```
+        <Tip>
+        Prefer Kubernetes, or already have ClickHouse/OpenTelemetry Collector running? See [Self-Host OpenLIT](/latest/openlit/installation) for Helm charts and other deployment options.
+        </Tip>
         </Step>
       </Steps>
     </Step>
     <Step title="Install OpenLIT SDK">
-        <Card
-            title="Want zero-code observability? Try the OpenLIT Controller"
-            icon="tower-broadcast"
-            href="/latest/controller/quickstart"
-          >
-          The Controller uses eBPF to automatically discover and instrument LLM traffic across Kubernetes, Docker, and Linux — no SDK required. Use SDKs for deeper application-level tracing.
-        </Card>
         <Tabs>
         <Tab title="Python">
            ```shell
@@ -57,9 +53,6 @@ flowchart TB;
     <Step title="Instrument your AI application">
       <Tabs>
         <Tab title="Python">
-          <Tip>
-          Not sure which method to choose? Check out [Instrumentation Methods](/latest/sdk/instrumentation-methods) to understand the differences.
-          </Tip>
           <Tabs>
             <Tab title="Manual instrumentation">
               <Tabs>
@@ -358,54 +351,147 @@ flowchart TB;
                   Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
                   ```
 
-                  Example Usage for monitoring `OpenAI` Usage:
+                  Examples:
 
-                  ```typescript
+                  <CodeGroup>
+
+                  ```typescript OpenAI
                   import Openlit from "openlit"
 
                   Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
 
                   async function main() {
-                        const OpenAI = await import("openai").then((e) => e.default);
-                        const openai = new OpenAI({
-                            apiKey: YOUR_OPENAI_KEY,
-                        });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo",
-                            messages: [{ role: "system", content: "Who are you ?" }],
-                        });
+                    const OpenAI = await import("openai").then((e) => e.default);
+                    const openai = new OpenAI({
+                        apiKey: process.env.OPENAI_API_KEY,
+                    });
+                    const completion = await openai.chat.completions.create({
+                        model: "gpt-3.5-turbo",
+                        messages: [{ role: "user", content: "What is LLM Observability?" }],
+                    });
 
-                        console.log(completion?.choices?.[0]);
-                    }
+                    console.log(completion?.choices?.[0]);
+                  }
 
-                    main();
+                  main();
                   ```
-                  OR
+
+                  ```typescript Anthropic
+                  import Openlit from "openlit"
+
+                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+                  async function main() {
+                    const Anthropic = await import("@anthropic-ai/sdk").then((e) => e.default);
+                    const anthropic = new Anthropic({
+                        apiKey: process.env.ANTHROPIC_API_KEY,
+                    });
+                    const message = await anthropic.messages.create({
+                        max_tokens: 1024,
+                        messages: [{ role: "user", content: "Hello, What is LLM Observability?" }],
+                        model: "claude-3-opus-20240229",
+                    });
+
+                    console.log(message);
+                  }
+
+                  main();
+                  ```
+
+                  ```typescript Cohere
+                  import Openlit from "openlit"
+
+                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+                  async function main() {
+                    const { CohereClient } = await import("cohere-ai");
+                    const cohere = new CohereClient({
+                        token: process.env.COHERE_API_KEY,
+                    });
+                    const chat = await cohere.chat({
+                        message: "hello world!",
+                        model: "command",
+                    });
+
+                    console.log(chat);
+                  }
+
+                  main();
+                  ```
+
+                  ```typescript Langchain
+                  import Openlit from "openlit"
+
+                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+                  async function main() {
+                    const { ChatOpenAI } = await import("@langchain/openai");
+                    const { HumanMessage, SystemMessage } = await import("@langchain/core/messages");
+
+                    const model = new ChatOpenAI({ model: "gpt-4o-mini" });
+
+                    const messages = [
+                        new SystemMessage("Translate the following from English into Italian"),
+                        new HumanMessage("hi!"),
+                    ];
+
+                    await model.invoke(messages);
+                  }
+
+                  main();
+                  ```
+
+                  ```typescript Ollama
+                  import Openlit from "openlit"
+
+                  Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+                  async function main() {
+                    const ollama = await import("ollama").then((e) => e.default);
+                    const response = await ollama.chat({
+                        model: "llama3.1",
+                        messages: [{ role: "user", content: "Why is the sky blue?" }],
+                    });
+
+                    console.log(response);
+                  }
+
+                  main();
+                  ```
+
+                  </CodeGroup>
+
+                  <Tip>
+                  Using static top-level imports instead (e.g. `import OpenAI from "openai"`)? Static imports are hoisted and run before `Openlit.init()`, so the automatic patch can miss the module. Pass it into `instrumentations` so OpenLIT patches it directly:
+
                   ```typescript
                   import openlit from "openlit"
                   import OpenAI from "openai"
 
-                  openlit.init({ 
-                    otlpEndpoint: "http://127.0.0.1:4318", 
+                  openlit.init({
+                    otlpEndpoint: "http://127.0.0.1:4318",
                     instrumentations: {
                       openai: OpenAI,
-                    } 
+                    }
                   })
 
                   async function main() {
-                        const openai = new OpenAI({
-                            apiKey: YOUR_OPENAI_KEY,
-                        });
-                        const completion = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo",
-                            messages: [{ role: "system", content: "Who are you ?" }],
-                        });
+                    const openai = new OpenAI({
+                        apiKey: process.env.OPENAI_API_KEY,
+                    });
+                    const completion = await openai.chat.completions.create({
+                        model: "gpt-3.5-turbo",
+                        messages: [{ role: "user", content: "What is LLM Observability?" }],
+                    });
 
-                        console.log(completion?.choices?.[0]);
-                    }
+                    console.log(completion?.choices?.[0]);
+                  }
 
-                    main();
+                  main();
                   ```
+
+                  The same pattern works for `anthropic`, `cohere`, and `ollama`. LangChain always uses the dynamic-import pattern above, since it patches via a different hook.
+                  </Tip>
                 </Tab>
                 <Tab title="Via environment variables">
                    Add the following two lines to your application code:
@@ -420,29 +506,119 @@ flowchart TB;
               export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
               ```
 
-              Example Usage for monitoring `OpenAI` Usage:
+              Examples:
 
-              ```typescript
+              <CodeGroup>
+
+              ```typescript OpenAI
               import openlit from "openlit"
 
               openlit.init()
 
               async function main() {
-                    const OpenAI = await import("openai").then((e) => e.default);
-                    const openai = new OpenAI({
-                        apiKey: YOUR_OPENAI_KEY,
-                    });
-                    const completion = await openai.chat.completions.create({
-                        model: "gpt-3.5-turbo",
-                        messages: [{ role: "system", content: "Who are you ?" }],
-                    });
+                const OpenAI = await import("openai").then((e) => e.default);
+                const openai = new OpenAI({
+                    apiKey: process.env.OPENAI_API_KEY,
+                });
+                const completion = await openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
+                    messages: [{ role: "user", content: "What is LLM Observability?" }],
+                });
 
-                    console.log(completion?.choices?.[0]);
-                }
+                console.log(completion?.choices?.[0]);
+              }
 
-                main();
+              main();
               ```
-                OR
+
+              ```typescript Anthropic
+              import openlit from "openlit"
+
+              openlit.init()
+
+              async function main() {
+                const Anthropic = await import("@anthropic-ai/sdk").then((e) => e.default);
+                const anthropic = new Anthropic({
+                    apiKey: process.env.ANTHROPIC_API_KEY,
+                });
+                const message = await anthropic.messages.create({
+                    max_tokens: 1024,
+                    messages: [{ role: "user", content: "Hello, What is LLM Observability?" }],
+                    model: "claude-3-opus-20240229",
+                });
+
+                console.log(message);
+              }
+
+              main();
+              ```
+
+              ```typescript Cohere
+              import openlit from "openlit"
+
+              openlit.init()
+
+              async function main() {
+                const { CohereClient } = await import("cohere-ai");
+                const cohere = new CohereClient({
+                    token: process.env.COHERE_API_KEY,
+                });
+                const chat = await cohere.chat({
+                    message: "hello world!",
+                    model: "command",
+                });
+
+                console.log(chat);
+              }
+
+              main();
+              ```
+
+              ```typescript Langchain
+              import openlit from "openlit"
+
+              openlit.init()
+
+              async function main() {
+                const { ChatOpenAI } = await import("@langchain/openai");
+                const { HumanMessage, SystemMessage } = await import("@langchain/core/messages");
+
+                const model = new ChatOpenAI({ model: "gpt-4o-mini" });
+
+                const messages = [
+                    new SystemMessage("Translate the following from English into Italian"),
+                    new HumanMessage("hi!"),
+                ];
+
+                await model.invoke(messages);
+              }
+
+              main();
+              ```
+
+              ```typescript Ollama
+              import openlit from "openlit"
+
+              openlit.init()
+
+              async function main() {
+                const ollama = await import("ollama").then((e) => e.default);
+                const response = await ollama.chat({
+                    model: "llama3.1",
+                    messages: [{ role: "user", content: "Why is the sky blue?" }],
+                });
+
+                console.log(response);
+              }
+
+              main();
+              ```
+
+              </CodeGroup>
+
+              <Tip>
+              Using static top-level imports instead (e.g. `import OpenAI from "openai"`)? Static imports are hoisted and run before `openlit.init()`, so the automatic patch can miss the module. Pass it into `instrumentations` so OpenLIT patches it directly:
+
               ```typescript
               import openlit from "openlit"
               import OpenAI from "openai"
@@ -450,23 +626,26 @@ flowchart TB;
               openlit.init({
                 instrumentations: {
                   openai: OpenAI,
-                } 
+                }
               })
 
               async function main() {
-                    const openai = new OpenAI({
-                        apiKey: YOUR_OPENAI_KEY,
-                    });
-                    const completion = await openai.chat.completions.create({
-                        model: "gpt-3.5-turbo",
-                        messages: [{ role: "system", content: "Who are you ?" }],
-                    });
+                const openai = new OpenAI({
+                    apiKey: process.env.OPENAI_API_KEY,
+                });
+                const completion = await openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
+                    messages: [{ role: "user", content: "What is LLM Observability?" }],
+                });
 
-                    console.log(completion?.choices?.[0]);
-                }
+                console.log(completion?.choices?.[0]);
+              }
 
-                main();
+              main();
               ```
+
+              The same pattern works for `anthropic`, `cohere`, and `ollama`. LangChain always uses the dynamic-import pattern above, since it patches via a different hook.
+              </Tip>
                 </Tab>
               </Tabs>
             </Tab>
