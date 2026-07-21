@@ -410,13 +410,16 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
-
-    # Common Span Attributes
-    common_span_attributes(
-        scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-        SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+    # Bedrock reports inputTokens exclusive of cache read/write tokens.
+    cost = get_chat_model_cost(
+        request_model,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=False,
+    )
         scope._server_address,
         scope._server_port,
         request_model,

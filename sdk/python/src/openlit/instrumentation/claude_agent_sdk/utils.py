@@ -321,7 +321,20 @@ def set_chat_span_attributes(
         output_tokens = usage_attrs.get(
             SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 0
         )
-        cost = _calculate_cost(model_str, pricing_info, input_tokens, output_tokens)
+        cache_read_tokens = usage_attrs.get(
+            SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, 0
+        )
+        cache_creation_tokens = usage_attrs.get(
+            SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, 0
+        )
+        cost = _calculate_cost(
+            model_str,
+            pricing_info,
+            input_tokens,
+            output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_creation_tokens=cache_creation_tokens,
+        )
         span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
         output_messages = None
@@ -427,11 +440,30 @@ def _build_output_messages(message, mapped_finish_reason):
         return None
 
 
-def _calculate_cost(model_str, pricing_info, input_tokens, output_tokens):
-    """Estimate cost using the shared OpenLIT pricing helper."""
+def _calculate_cost(
+    model_str,
+    pricing_info,
+    input_tokens,
+    output_tokens,
+    cache_read_tokens=0,
+    cache_creation_tokens=0,
+):
+    """Estimate cost using the shared OpenLIT pricing helper.
+
+    ``extract_usage`` sums cache read/creation into ``input_tokens``, so the
+    prompt total is cache-inclusive.
+    """
     if not pricing_info or not model_str:
         return 0
-    return get_chat_model_cost(model_str, pricing_info, input_tokens, output_tokens)
+    return get_chat_model_cost(
+        model_str,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=cache_read_tokens or 0,
+        cache_creation_tokens=cache_creation_tokens or 0,
+        prompt_tokens_include_cache=True,
+    )
 
 
 def _emit_chat_inference_event(

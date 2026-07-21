@@ -83,6 +83,8 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 			context_window UInt32 DEFAULT 4096,
 			input_price_per_m_token Float64 DEFAULT 0,
 			output_price_per_m_token Float64 DEFAULT 0,
+			cache_read_price_per_m_token Float64 DEFAULT 0,
+			cache_creation_price_per_m_token Float64 DEFAULT 0,
 			capabilities Array(String) DEFAULT [],
 			is_default Boolean DEFAULT false,
 
@@ -152,6 +154,9 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 				context_window: model.contextWindow,
 				input_price_per_m_token: model.inputPricePerMToken,
 				output_price_per_m_token: model.outputPricePerMToken,
+				cache_read_price_per_m_token: model.cacheReadPricePerMToken || 0,
+				cache_creation_price_per_m_token:
+					model.cacheCreationPricePerMToken || 0,
 				capabilities: model.capabilities || [],
 				is_default: true,
 				created_by_user_id: "",

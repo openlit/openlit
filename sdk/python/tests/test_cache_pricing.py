@@ -5,8 +5,8 @@ Unit tests for cache-aware cost calculation in ``get_chat_model_cost``.
 These cover the two token-accounting conventions used by the instrumentations
 that forward cache token counts:
 
-* Anthropic native API -> ``prompt_tokens`` is *exclusive* of cache tokens.
-* LangChain ``usage_metadata`` -> ``prompt_tokens`` is *inclusive* of cache
+* Anthropic native API / Bedrock -> ``prompt_tokens`` is *exclusive* of cache tokens.
+* LangChain / LiteLLM / OpenAI-style -> ``prompt_tokens`` is *inclusive* of cache
   tokens (sum of all input token types).
 
 The same cached tokens must never be billed twice, and models without cache
@@ -16,6 +16,7 @@ pricing must produce exactly the legacy cost regardless of convention.
 import pytest
 
 from openlit.__helpers import get_chat_model_cost
+from openlit.instrumentation.litellm.utils import _extract_litellm_cache_tokens
 
 
 PRICING_WITH_CACHE = {
@@ -83,6 +84,26 @@ class TestAnthropicConvention:
             cache_creation_tokens=100,
         )
         assert cost == _approx((800 / 1000) * 0.003 + (500 / 1000) * 0.015)
+
+    def test_bedrock_style_exclusive_cache_fields(self):
+        # Bedrock Converse: inputTokens exclusive; cacheReadInputTokens /
+        # cacheWriteInputTokens passed as read / creation with include=False.
+        cost = get_chat_model_cost(
+            MODEL,
+            PRICING_WITH_CACHE,
+            prompt_tokens=800,
+            completion_tokens=200,
+            cache_read_tokens=150,
+            cache_creation_tokens=50,
+            prompt_tokens_include_cache=False,
+        )
+        expected = (
+            (800 / 1000) * 0.003
+            + (200 / 1000) * 0.015
+            + (150 / 1000) * 0.0003
+            + (50 / 1000) * 0.00375
+        )
+        assert cost == _approx(expected)
 
 
 class TestLangChainConvention:
@@ -167,6 +188,27 @@ class TestLangChainConvention:
         expected = (600 / 1000) * 0.0025 + (200 / 1000) * 0.01 + (400 / 1000) * 0.00125
         assert cost == _approx(expected)
 
+    def test_litellm_style_inclusive_with_creation(self):
+        # LiteLLM-normalized Anthropic/OpenAI usage: prompt_tokens already
+        # include cache buckets; creation comes from cache_creation_input_tokens
+        # / prompt_tokens_details.cache_write_tokens (never completion details).
+        cost = get_chat_model_cost(
+            MODEL,
+            PRICING_WITH_CACHE,
+            prompt_tokens=1200,
+            completion_tokens=100,
+            cache_read_tokens=200,
+            cache_creation_tokens=200,
+            prompt_tokens_include_cache=True,
+        )
+        expected = (
+            (800 / 1000) * 0.003
+            + (100 / 1000) * 0.015
+            + (200 / 1000) * 0.0003
+            + (200 / 1000) * 0.00375
+        )
+        assert cost == _approx(expected)
+
     def test_cache_exceeding_prompt_does_not_go_negative(self):
         # Defensive: malformed data where cache tokens exceed reported input.
         cost = get_chat_model_cost(
@@ -181,6 +223,52 @@ class TestLangChainConvention:
         # billable prompt clamps to 0; only cache costs remain.
         expected = (200 / 1000) * 0.0003 + (200 / 1000) * 0.00375
         assert cost == _approx(expected)
+
+
+class TestLiteLLMCacheExtraction:
+    def test_prefers_cache_creation_input_tokens(self):
+        read, creation = _extract_litellm_cache_tokens(
+            {
+                "prompt_tokens_details": {
+                    "cached_tokens": 10,
+                    "cache_write_tokens": 99,
+                },
+                "cache_creation_input_tokens": 42,
+                "completion_tokens_details": {"cached_tokens": 999},
+            }
+        )
+        assert read == 10
+        assert creation == 42
+
+    def test_falls_back_to_prompt_details_write_tokens(self):
+        read, creation = _extract_litellm_cache_tokens(
+            {
+                "prompt_tokens_details": {
+                    "cached_tokens": 5,
+                    "cache_write_tokens": 7,
+                },
+                "completion_tokens_details": {"cached_tokens": 999},
+            }
+        )
+        assert read == 5
+        assert creation == 7
+
+    def test_anthropic_top_level_fields(self):
+        read, creation = _extract_litellm_cache_tokens(
+            {
+                "cache_read_input_tokens": 11,
+                "cache_creation_input_tokens": 13,
+            }
+        )
+        assert read == 11
+        assert creation == 13
+
+    def test_ignores_completion_tokens_details_cached_tokens(self):
+        read, creation = _extract_litellm_cache_tokens(
+            {"completion_tokens_details": {"cached_tokens": 999}}
+        )
+        assert read == 0
+        assert creation == 0
 
 
 class TestBundledPricingFile:

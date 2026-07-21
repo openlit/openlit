@@ -711,8 +711,21 @@ function createRunProxy(
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
     const effectiveModel = responseModel || requestModel;
+    // Cursor reports cache write separately; treat it as cache-creation for pricing.
+    // Prefer inclusive accounting when input already covers the cache sum.
+    const cacheTotal = (usage.cacheReadTokens || 0) + (usage.cacheWriteTokens || 0);
+    const promptTokensIncludeCache =
+      cacheTotal > 0 && usage.inputTokens >= cacheTotal;
     const cost = effectiveModel
-      ? OpenLitHelper.getChatModelCost(effectiveModel, pricingInfo, usage.inputTokens, usage.outputTokens)
+      ? OpenLitHelper.getChatModelCost(
+          effectiveModel,
+          pricingInfo,
+          usage.inputTokens,
+          usage.outputTokens,
+          usage.cacheReadTokens,
+          usage.cacheWriteTokens,
+          promptTokensIncludeCache
+        )
       : 0;
     if (cost) span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
 
