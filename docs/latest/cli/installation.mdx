@@ -1,0 +1,104 @@
+---
+title: "Install the CLI"
+sidebarTitle: "Installation"
+description: "Install the openlit CLI on macOS, Linux, Windows, Docker, or from source"
+---
+
+All install paths produce the same `openlit` binary. Pick the one that matches your OS.
+
+<CodeGroup>
+```bash macOS
+brew install openlit/openlit/openlit
+```
+
+```bash Linux
+curl -fsSL https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.sh | sh
+```
+
+```powershell Windows
+iwr -useb https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.ps1 | iex
+```
+
+```bash Docker
+docker run --rm -it ghcr.io/openlit/openlit-cli:latest --help
+```
+
+```bash From source
+go install github.com/openlit/openlit/cli/cmd/openlit@latest
+```
+</CodeGroup>
+
+## Install locations & PATH
+
+| Method | Install location | PATH handling |
+|---|---|---|
+| **Homebrew** | Managed by Homebrew | Automatic |
+| **Linux script** | `~/.openlit/bin/openlit` | Prints a PATH-add hint if the directory isn't on `$PATH` |
+| **Windows script** | `%USERPROFILE%\.openlit\bin\openlit.exe` | Updates user-scope PATH automatically - open a new terminal to pick it up |
+| **`go install`** | `$(go env GOPATH)/bin/openlit` | Add `GOPATH/bin` to `$PATH` if not already |
+
+<Tip>
+The CLI binary **must be on `$PATH`** for the vendor plugin installs to work. The `openlit coding install` command rewrites the `openlit` token in each generated hook manifest to the absolute path of the running binary, which sidesteps the minimal PATH that GUI-launched agents (like Cursor) inherit - but the binary still has to be found at install time.
+</Tip>
+
+### Linux/macOS script options
+
+The `install.sh` script downloads the matching tarball from the latest `cli-*.*.*` GitHub Release of `openlit/openlit`, verifies its `.sha256` sidecar (best-effort), and installs to `~/.openlit/bin/openlit`. It detects your OS (macOS, Linux) and architecture (amd64, arm64).
+
+| Environment variable | Purpose | Default |
+|---|---|---|
+| `OPENLIT_INSTALL_DIR` | Target install directory | `$HOME/.openlit/bin` |
+| `OPENLIT_VERSION` | Release tag **without** the `cli-` prefix (e.g. `1.2.3`) | latest release |
+
+```bash
+# Pin a specific version into a custom directory
+OPENLIT_INSTALL_DIR=/usr/local/bin OPENLIT_VERSION=1.2.3 \
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.sh)"
+```
+
+## Build from source
+
+If you have the repository checked out and Go installed, build a local binary:
+
+```bash
+sh cli/scripts/install-local.sh
+```
+
+This builds with `go build -trimpath -ldflags "-s -w"` from `cli/cmd/openlit` and installs to `~/.openlit/bin/openlit`.
+
+## Verify the install
+
+```bash
+openlit version
+# openlit v1.2.3 (abc1234)
+
+openlit doctor
+# Prints resolved config, dials your OTLP endpoint, lists installed plugins
+```
+
+## Uninstall
+
+The `openlit` binary is never touched by `openlit coding uninstall` (which only removes vendor plugin manifests). Remove the binary the way you installed it:
+
+```bash
+brew uninstall openlit                # Homebrew
+rm ~/.openlit/bin/openlit             # curl|sh installer (Linux/macOS)
+rm $(go env GOPATH)/bin/openlit       # go install
+```
+
+On Windows, run the uninstall script:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/uninstall.ps1 | iex
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" href="/latest/cli/configuration" icon="sliders">
+    Point the CLI at your OpenLIT collector
+  </Card>
+  <Card title="Wire your coding agents" href="/latest/openlit/coding-agents/setup-and-configure" icon="code">
+    Claude Code, Cursor, and Codex in under a minute
+  </Card>
+</CardGroup>

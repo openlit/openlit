@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
@@ -210,3 +211,125 @@ func TestCursorSessionIDPrefersConversation(t *testing.T) {
 			em.sessions[0].SessionID, "convo-stable")
 	}
 }
+
+// TestCursorAfterAgentResponsePrefersRealTokens:
+// when Cursor ships input_tokens / output_tokens / cache_* on
+// afterAgentResponse, those counters are authoritative and must beat
+// the char-heuristic estimate derived from `text`.
+func TestCursorAfterAgentResponsePrefersRealTokens(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	// Long text would estimate to thousands of tokens; real counters
+	// below are tiny so a regression to the heuristic is obvious.
+	longText := strings.Repeat("word ", 2000)
+	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
+		"hook_event_name":    "afterAgentResponse",
+		"conversation_id":    "convo-1",
+		"generation_id":      "gen-1",
+		"model":              "composer-2.5",
+		"text":               longText,
+		"input_tokens":       int64(1200),
+		"output_tokens":      int64(340),
+		"cache_read_tokens":  int64(800),
+		"cache_write_tokens": int64(100),
+	})); err != nil {
+		t.Fatalf("afterAgentResponse: %v", err)
+	}
+	if len(em.llmTurns) != 1 {
+		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
+	}
+	got := em.llmTurns[0]
+	if got.InputTokens != 1200 {
+		t.Errorf("InputTokens = %d, want 1200 (real payload)", got.InputTokens)
+	}
+	if got.OutputTokens != 340 {
+		t.Errorf("OutputTokens = %d, want 340 (real payload)", got.OutputTokens)
+	}
+	if got.CacheReadTokens != 800 {
+		t.Errorf("CacheReadTokens = %d, want 800", got.CacheReadTokens)
+	}
+	if got.CacheCreationTokens != 100 {
+		t.Errorf("CacheCreationTokens = %d, want 100", got.CacheCreationTokens)
+	}
+	if got.TotalTokens != 1540 {
+		t.Errorf("TotalTokens = %d, want 1540", got.TotalTokens)
+	}
+	if got.CostUSD <= 0 {
+		t.Errorf("CostUSD = %v, want > 0 from real token pricing", got.CostUSD)
+	}
+}
+
+// TestCursorAfterAgentResponseFallsBackToEstimate covers older Cursor
+// builds that omit token fields — we still estimate from response text.
+func TestCursorAfterAgentResponseFallsBackToEstimate(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	text := "hello world from cursor" // short, deterministic estimate
+	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
+		"hook_event_name": "afterAgentResponse",
+		"conversation_id": "convo-2",
+		"model":           "composer-2.5",
+		"text":            text,
+	})); err != nil {
+		t.Fatalf("afterAgentResponse: %v", err)
+	}
+	if len(em.llmTurns) != 1 {
+		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
+	}
+	got := em.llmTurns[0]
+	if got.InputTokens != 0 {
+		t.Errorf("InputTokens = %d, want 0 when no real counters", got.InputTokens)
+	}
+	if got.OutputTokens <= 0 {
+		t.Errorf("OutputTokens = %d, want estimated > 0", got.OutputTokens)
+	}
+	if got.CacheReadTokens != 0 || got.CacheCreationTokens != 0 {
+		t.Errorf("cache tokens should be 0 on estimate path; got read=%d write=%d",
+			got.CacheReadTokens, got.CacheCreationTokens)
+	}
+}
+
+// TestCursorStopStampsRealTokenAttrs ensures stop surfaces token counters on the loop event.
+func TestCursorStopStampsRealTokenAttrs(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	if err := handle(context.Background(), in("stop", map[string]any{
+		"hook_event_name":    "stop",
+		"conversation_id":    "convo-3",
+		"status":             "completed",
+		"loop_count":         2,
+		"model":              "composer-2.5",
+		"input_tokens":       int64(500),
+		"output_tokens":      int64(100),
+		"cache_read_tokens":  int64(200),
+		"cache_write_tokens": int64(50),
+	})); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	if len(em.events) != 1 {
+		t.Fatalf("expected one stop event; got %d", len(em.events))
+	}
+	attrs := em.events[0].Attrs
+	if attrs["gen_ai.usage.input_tokens"] != int64(500) {
+		t.Errorf("input_tokens attr = %v, want 500", attrs["gen_ai.usage.input_tokens"])
+	}
+	if attrs["gen_ai.usage.output_tokens"] != int64(100) {
+		t.Errorf("output_tokens attr = %v, want 100", attrs["gen_ai.usage.output_tokens"])
+	}
+	if attrs["gen_ai.usage.cache.read_input_tokens"] != int64(200) {
+		t.Errorf("cache read attr = %v, want 200", attrs["gen_ai.usage.cache.read_input_tokens"])
+	}
+	if attrs["gen_ai.usage.cost"] == nil {
+		t.Errorf("expected gen_ai.usage.cost on stop when model + tokens present")
+	}
+}
+

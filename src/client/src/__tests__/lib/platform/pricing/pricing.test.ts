@@ -27,7 +27,7 @@ jest.mock('@/helpers/server/trace', () => ({
     const map: Record<string, string> = {
       cost: 'gen_ai.usage.cost',
       model: 'gen_ai.request.model',
-      provider: 'gen_ai.system',
+      provider: 'gen_ai.provider.name',
       promptTokens: 'gen_ai.usage.input_tokens',
       completionTokens: 'gen_ai.usage.output_tokens',
       type: 'gen_ai.operation.name',
@@ -36,6 +36,7 @@ jest.mock('@/helpers/server/trace', () => ({
   }),
   getTraceMappingKeyFullPaths: jest.fn((key: string) => {
     const map: Record<string, string[]> = {
+      provider: ['gen_ai.provider.name', 'gen_ai.system'],
       promptTokens: ['gen_ai.usage.input_tokens', 'input_tokens', 'prompt_tokens'],
       completionTokens: ['gen_ai.usage.output_tokens', 'output_tokens', 'completion_tokens'],
     };

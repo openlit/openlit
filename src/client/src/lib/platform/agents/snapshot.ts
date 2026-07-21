@@ -41,7 +41,7 @@ import type {
 	AgentTool,
 	AgentVersion,
 } from "@/types/agents";
-import { computeAgentKey } from "./index";
+import { computeAgentKey, deploymentEnvironmentSqlPredicate, normalizeDeploymentEnvironment } from "./index";
 import { AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
@@ -241,7 +241,7 @@ export async function deriveSnapshot(
 		1,
 		Math.min(params.lookbackMinutes ?? DEFAULT_LOOKBACK_MINUTES, 60 * 24)
 	);
-	const env = params.environment || "default";
+	const env = normalizeDeploymentEnvironment(params.environment);
 	const cluster = params.clusterId || "default";
 
 	const query = `
@@ -659,11 +659,10 @@ export async function getVersionTimeline(
 		(a, b) => a.version_number - b.version_number
 	);
 
-	const env = agentRow.environment || "default";
-	const envPredicate =
-		env === "default"
-			? `(ResourceAttributes['deployment.environment'] = 'default' OR ResourceAttributes['deployment.environment'] = '')`
-			: `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+	const envPredicate = deploymentEnvironmentSqlPredicate(
+		agentRow.environment,
+		escape
+	);
 
 	// Count every span tied to the agent's ServiceName, not just LLM
 	// chat-completions. Agent-framework workloads (CrewAI, LangGraph,

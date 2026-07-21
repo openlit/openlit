@@ -85,7 +85,7 @@ export const EVALUATION_NO_RESULTS = "No evaluations";
 // Evaluation Settings page
 export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
 export const EVALUATION_CREATE_NEW = "Create new";
-export const EVALUATION_ENGINE_TITLE = "Evaluation Engine";
+export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
@@ -115,6 +115,12 @@ export const EVALUATION_SAMPLE_RATE_DESCRIPTION =
 	"Percentage of traces to auto-evaluate. Uses deterministic sampling per trace to reduce LLM cost. Traces not selected are marked as skipped and are not re-queried on future cron runs; manual evaluation is always available.";
 export const EVALUATION_SAMPLE_RATE_INVALID =
 	"Sample rate must be a number between 0 and 1.";
+export const EVALUATION_THRESHOLD_SCORE_INVALID =
+	"Threshold score must be a number between 0 and 1.";
+export const EVALUATION_TYPE_THRESHOLD_LABEL = "Verdict threshold";
+export const EVALUATION_TYPE_THRESHOLD_DESCRIPTION =
+	"Score above which this type's verdict is flagged as \"yes\". Applies to dashboard, auto, and offline evaluations. Leave blank to use the default threshold (0.5).";
+export const EVALUATION_TYPE_THRESHOLD_PLACEHOLDER = "0.5 (default)";
 export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
 	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";
@@ -144,6 +150,70 @@ export const EVALUATION_FEEDBACK_NEUTRAL = "Neutral";
 export const EVALUATION_FEEDBACK_COMMENT_PLACEHOLDER = "Optional comment...";
 export const EVALUATION_FEEDBACK_SUBMIT = "Submit Feedback";
 export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
+
+// Evaluation Analytics
+export const EVALUATION_TAB_ANALYTICS = "Analytics";
+export const EVALUATION_TAB_EVALUATORS = "Evaluators";
+export const EVALUATION_TAB_CONFIGURATION = "Configuration";
+export const EVALUATION_STAT_EVALUATIONS = "Evaluations";
+export const EVALUATION_STAT_ACTIVE = "Active";
+export const EVALUATION_STAT_TRACES_EVALUATED = "Traces evaluated";
+export const EVALUATION_STAT_EXECUTIONS = "Executions";
+export const EVALUATION_STAT_TOTAL_COST = "Total cost";
+export const EVALUATION_STAT_AVG_PASS_RATE = "Avg pass rate";
+export const EVALUATION_STAT_FAILED_SCORES = "Scores marked as failed";
+export const EVALUATION_STAT_AUTO_EXECUTIONS = "Auto executions";
+export const EVALUATION_STAT_EVALUATORS = "Evaluators";
+export const EVALUATION_CHART_PASS_RATE = "Pass rate";
+export const EVALUATION_CHART_EXECUTIONS = "Executions";
+export const EVALUATION_TABLE_EVALUATION = "Evaluation";
+export const EVALUATION_TABLE_MATCHER = "Matcher";
+export const EVALUATION_TABLE_MATCHER_DEFAULT = "*";
+export const EVALUATION_TABLE_EXECUTIONS = "Executions";
+export const EVALUATION_TABLE_PASS_RATE = "Pass rate";
+export const EVALUATION_TABLE_PASS_RATE_TREND = "Pass rate trend";
+export const EVALUATION_TABLE_EMPTY = "No evaluation results in this time range.";
+export const EVALUATION_TABLE_EVALUATORS_TITLE = "Evaluators";
+export const EVALUATION_DETAIL_CONFIGURE = "Configure";
+export const EVALUATION_DETAIL_ENABLED = "Enabled";
+export const EVALUATION_DETAIL_DISABLED = "Disabled";
+export const EVALUATION_DETAIL_RESULTS = "Results";
+export const EVALUATION_DETAIL_RESULTS_DESCRIPTION =
+	"Evaluation results for this evaluator, including pass rates and recent runs.";
+export const EVALUATION_DETAIL_NO_RESULTS = "No recent results for this evaluator.";
+export const EVALUATION_DETAIL_PASS_RATE_BY_EVALUATOR = "Pass rate";
+export const EVALUATION_DETAIL_SAMPLE_META = "sample";
+export const EVALUATION_DETAIL_PASS = "Pass";
+export const EVALUATION_DETAIL_FAIL = "Fail";
+export const EVALUATION_SCORE = "Score";
+export const EVALUATION_BACK_TO_ANALYTICS = "Back to Analytics";
+export const EVALUATION_ONBOARDING_TITLE = "Set up Evaluations";
+export const EVALUATION_ONBOARDING_DESCRIPTION =
+	"Configure an evaluation engine to score traces for hallucination, bias, toxicity, and custom criteria.";
+export const EVALUATION_ONBOARDING_STEP_1 =
+	"Choose a provider, model, and vault API key under Configuration.";
+export const EVALUATION_ONBOARDING_STEP_2 =
+	"Enable built-in types or create custom evaluators.";
+export const EVALUATION_ONBOARDING_STEP_3 =
+	"Turn on auto evaluation or run evaluations manually from Telemetry.";
+export const EVALUATION_ONBOARDING_CTA = "Open Configuration";
+export const EVALUATION_POWERED_BY_VERCEL = "Powered by";
+export const EVALUATION_POWERED_BY_VERCEL_SDK = "Vercel AI SDK";
+export const EVALUATION_TYPES_SECTION_TITLE = "Evaluation types";
+export const EVALUATION_TYPES_SECTION_DESCRIPTION =
+	"Enable built-in evaluators or create custom ones for your use case.";
+export const EVALUATION_CREATE_CUSTOM_TYPE = "Create custom evaluator";
+export const EVALUATION_CUSTOM_TYPES_HEADING = "Custom evaluation types";
+export const EVALUATION_TYPES_LINKED_FROM_RULES = "Linked from rules:";
+export const EVALUATION_TYPE_ENABLED = "Enabled";
+export const EVALUATION_TYPE_DISABLED = "Disabled";
+export const EVALUATION_TYPE_CUSTOM_BADGE = "Custom";
+export const EVALUATION_TYPE_RULE_ENGINE_BADGE = "Rule engine";
+
+export const EVALUATION_TYPE_NOT_FOUND = "Evaluation type not found";
+export const EVALUATION_TYPE_NOT_FOUND_DESCRIPTION =
+	"This evaluator id does not match a built-in or custom evaluation type. Open Configuration to manage evaluators.";
+export const EVALUATION_BACK_TO_TYPES = "Back to evaluation types";
 
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
@@ -243,6 +313,18 @@ export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
 	"Span hierarchy is not available for this span.";
 export const OBSERVABILITY_TREE = "Tree";
 export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_CHAT_FILTER_CONVERSATION = "Conversation";
+export const OBSERVABILITY_CHAT_FILTER_ALL = "All activity";
+export const OBSERVABILITY_CHAT_SUMMARY = (
+	messages: number,
+	thoughts: number,
+	tools: number
+) => `${messages} messages · ${thoughts} thoughts · ${tools} tools`;
+export const OBSERVABILITY_CHAT_EMPTY = "No chat messages found in this trace";
+export const OBSERVABILITY_CHAT_EMPTY_HINT =
+	"This view works with LLM spans that have prompt/response data";
+export const OBSERVABILITY_CHAT_MODEL_CHANGES = (count: number) =>
+	count === 1 ? "1 model change" : `${count} model changes`;
 export const OBSERVABILITY_TIMELINE = "Timeline";
 export const OBSERVABILITY_GRAPH = "Graph";
 export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
@@ -379,7 +461,7 @@ export const OPENGROUND_CUSTOM_MODEL = "Custom Model";
 export const OPENGROUND_ENTER_CUSTOM_MODEL_NAME = "Enter custom model name";
 export const OPENGROUND_USE_CUSTOM_MODEL = "Use Custom Model";
 export const OPENGROUND_OR_ENTER_CUSTOM = "or enter custom";
-export const OPENGROUND_MANAGE_MODELS = "Manage Models";
+export const OPENGROUND_MANAGE_MODELS = "Manage models";
 export const OPENGROUND_ADD_NEW_MODEL = "Add New Model";
 export const OPENGROUND_EDIT_MODEL = "Edit Model";
 export const OPENGROUND_MODEL_ID = "Model ID";
@@ -446,7 +528,51 @@ export const MANAGE_PROVIDERS_DISPLAY_NAME = "Display Name";
 export const MANAGE_PROVIDERS_DESCRIPTION = "Description";
 export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
 
-// Pricing
+// Costs
+export const COSTS_TITLE = "Costs";
+export const COSTS_TAB_ANALYTICS = "Analytics";
+export const COSTS_TAB_MODELS = "Manage models";
+export const COSTS_TAB_CONFIGURATION = "Configuration";
+export const COSTS_USAGE_SECTION = "Cost usage";
+export const COSTS_OPTIMIZATION_SECTION = "Cost optimization";
+export const COSTS_AUTO_PRICING_SECTION = "Auto pricing runs";
+export const COSTS_STAT_TOTAL_PLATFORM = "Total AI cost";
+export const COSTS_STAT_LLM = "App LLM cost";
+export const COSTS_STAT_CODING_AGENTS = "Coding agents";
+export const COSTS_STAT_OTTER = "Otter";
+export const COSTS_STAT_EVALUATIONS = "Evaluations cost";
+export const COSTS_STAT_OPENGROUND = "Openground cost";
+export const COSTS_STAT_AVG_REQUEST = "Avg cost per request";
+export const COSTS_STAT_TOTAL_REQUESTS = "Total LLM requests";
+export const COSTS_STAT_CRON_RUNS = "Cron runs";
+export const COSTS_STAT_CRON_SUCCESS = "Successful runs";
+export const COSTS_STAT_PRICING_APPLIED = "Costs applied";
+export const COSTS_STAT_SPANS_SCANNED = "Spans scanned";
+export const COSTS_CRON_TABLE_STARTED = "Started";
+export const COSTS_CRON_TABLE_STATUS = "Status";
+export const COSTS_CRON_TABLE_DURATION = "Duration";
+export const COSTS_CRON_TABLE_UPDATED = "Costs applied";
+export const COSTS_CRON_TABLE_SCANNED = "Scanned";
+export const COSTS_CRON_TABLE_SKIPPED = "Skipped";
+export const COSTS_CRON_TABLE_FAILED = "Failed";
+export const COSTS_CRON_TABLE_EMPTY =
+	"No Auto Pricing runs applied costs in this time range.";
+export const COSTS_CRON_TABLE_EMPTY_CTA = "Enable Auto Pricing";
+export const COSTS_CRON_TABLE_EMPTY_HINT =
+	"Turn on Auto Pricing to backfill missing LLM costs on a schedule.";
+export const COSTS_BACKFILL_BANNER_TITLE = "Some LLM traces are missing cost";
+export const COSTS_BACKFILL_BANNER_DESCRIPTION =
+	"Auto Pricing can backfill gen_ai.usage.cost for spans that arrived without a price. Existing spend charts still work for costs already on your traces.";
+export const COSTS_BACKFILL_BANNER_CTA = "Configure Auto Pricing";
+export const COSTS_BACKFILL_BANNER_COUNT = "spans missing cost in this range";
+export const COSTS_CHART_BY_PROVIDER = "Cost by provider";
+export const COSTS_CHART_BY_MODEL = "Cost by model";
+export const COSTS_CHART_BY_ENVIRONMENT = "Cost by environment";
+export const COSTS_CHART_BY_APPLICATION = "Cost by application";
+export const COSTS_CHART_OVER_TIME = "Cost over time";
+export const COSTS_CHART_OPENGROUND_BY_PROVIDER = "Openground spend by provider";
+
+// Pricing (configuration tab copy)
 export const PRICING_TITLE = "Pricing";
 export const PRICING_PAGE_DESCRIPTION =
 	"Recalculate the cost of LLM traces using the current model pricing in Manage Models. Updates the `gen_ai.usage.cost` attribute on existing traces.";
@@ -507,6 +633,13 @@ export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
+export const FEATURE_EVALS = "Evaluations";
+export const FEATURE_MANAGE_MODELS = "Manage models";
+
+export const SIDEBAR_MONITOR = "Monitor";
+export const SIDEBAR_DEVELOP = "Develop";
+export const SIDEBAR_CONFIGURATION = "Configure";
+export const SIDEBAR_PROJECTS = "Projects";
 
 // Agents
 export const AGENTS_FILTER_SYSTEM = "System";
@@ -545,6 +678,10 @@ export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the insta
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND =
 	"openlit configure --content-capture full";
+export const CODING_AGENT_SESSION_SUBAGENTS = (count: number) =>
+	count === 1 ? "1 subagent" : `${count} subagents`;
+export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
+	"Linked Task / background worker activity folded under this chat";
 
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
@@ -573,6 +710,7 @@ export const AGENTS_PODS_ACK_PROGRESS = (ack: number, total: number) =>
 	`Pods: ${ack}/${total} acknowledged`;
 export const AGENTS_COLUMN_SERVICE = "Name";
 export const AGENTS_COLUMN_SYSTEM = "System";
+export const AGENTS_COLUMN_RUNTIME = "Runtime";
 export const AGENTS_COLUMN_PROVIDERS = "Providers";
 // Coding-agent stat / column labels intentionally omit a window
 // suffix (no "24h"). The underlying data is always evaluated

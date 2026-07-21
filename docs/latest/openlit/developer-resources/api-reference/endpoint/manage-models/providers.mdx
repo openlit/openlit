@@ -1,0 +1,43 @@
+---
+title: "Providers"
+openapi: "GET /api/openground/providers"
+---
+
+Session-authenticated provider APIs for Manage Models.
+
+## Operations
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/openground/providers` | List providers (optional `?provider=` or `?search=`) |
+| `POST` | `/api/openground/providers` | Create a provider |
+| `PUT` | `/api/openground/providers` | Update provider metadata |
+| `DELETE` | `/api/openground/providers?provider=` | Delete a provider and all its models |
+
+## Examples
+
+<Tabs>
+  <Tab title="Create">
+    ```bash
+    curl -X POST "/api/openground/providers" \
+      -H "Content-Type: application/json" \
+      -H "Cookie: <signed-in-session-cookie>" \
+      -d '{
+        "providerId": "my-provider",
+        "displayName": "My Provider",
+        "description": "Custom LLM provider",
+        "requiresVault": true
+      }'
+    ```
+  </Tab>
+  <Tab title="Delete">
+    ```bash
+    curl -X DELETE "/api/openground/providers?provider=my-provider" \
+      -H "Cookie: <signed-in-session-cookie>"
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Provider delete is available on this API only - the Manage Models UI does not expose a delete button for providers.
+</Note>

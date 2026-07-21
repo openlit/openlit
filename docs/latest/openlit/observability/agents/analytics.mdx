@@ -1,0 +1,16 @@
+---
+title: "Analytics"
+description: "The Dashboard tab - an agent's own latency, cost, token usage, and error rate over time"
+---
+
+The **Dashboard** tab on an agent's detail page reuses OpenLIT's standard LLM dashboard, scoped down to just this agent: latency, cost, token usage, and error rate over time, with its own time-range filter.
+
+## Version scoping
+
+Unlike the [Overview tab's DAG](/latest/openlit/observability/agents/overview#overview-and-the-agent-graph), the Dashboard tab shows **all-versions, aggregate data by default** - it only narrows to a single version's traffic once you explicitly pick one from the [version chooser or drawer](/latest/openlit/observability/agents/versioning). This is intentional: cost and latency trends are usually most useful viewed across the agent's whole history, with the option to isolate a specific version when you're comparing before/after a prompt or model change.
+
+---
+
+<Card title="Monitoring" href="/latest/openlit/observability/agents/monitoring" icon='activity'>
+  Drill from an aggregate trend down to the individual traces behind it
+</Card>

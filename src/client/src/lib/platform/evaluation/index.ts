@@ -7,7 +7,6 @@ import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import { runEvaluation } from "./run-evaluation";
 import { getEvaluationConfig, getEvaluationConfigById } from "./config";
 import asaw from "@/utils/asaw";
-import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
 import {
 	AutoEvaluationConfig,
 	Evaluation,
@@ -21,6 +20,8 @@ import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	getContextFromRuleEngineForTrace,
 	getContextFromRulesWithPriority,
+	getContextFromFields,
+	getContextFromRulesWithPriorityForFields,
 } from "./rule-engine-context";
 import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
@@ -44,32 +45,114 @@ import {
 import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import {
+	resolveEvaluationType,
+	type EvaluationTypeRef,
+} from "@/helpers/client/evaluation-type";
 
-/** Approximate cost per 1K tokens (USD) for common models. Fallback for evaluation cost. */
-const EVAL_COST_PER_1K: Record<string, { prompt: number; completion: number }> = {
-	"gpt-4o": { prompt: 0.0025, completion: 0.01 },
-	"gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
-	"gpt-4": { prompt: 0.03, completion: 0.06 },
-	"gpt-4-turbo": { prompt: 0.01, completion: 0.03 },
-	"gpt-3.5-turbo": { prompt: 0.0005, completion: 0.0015 },
-	"claude-3-5-sonnet": { prompt: 0.003, completion: 0.015 },
-	"claude-3-haiku": { prompt: 0.00025, completion: 0.00125 },
-	"claude-3-opus": { prompt: 0.015, completion: 0.075 },
-};
+/**
+ * Collects rule links (with priority) across a set of enabled evaluation
+ * types. Shared by the real-time/auto and offline evaluation paths so both
+ * resolve rule-engine context identically for the same configured types.
+ */
+function collectRulesWithPriority(
+	types: Array<{
+		rules?: Array<{ ruleId: string; priority: number }>;
+		ruleId?: string;
+		priority?: number;
+	}>
+): Array<{ ruleId: string; priority: number }> {
+	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
+	for (const t of types) {
+		if (t.rules?.length) {
+			rulesWithPriority.push(
+				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
+			);
+		} else if (t.ruleId) {
+			rulesWithPriority.push({
+				ruleId: t.ruleId,
+				priority: t.priority ?? 0,
+			});
+		}
+	}
+	return rulesWithPriority;
+}
 
-function estimateEvaluationCost(
+function applyPerTypeThresholds(
+	results: Evaluation[],
+	enabledTypes: Array<{ id: string; label?: string; thresholdScore?: number }>,
+	fallbackThreshold: number
+): Evaluation[] {
+	return results.map((evaluation) => {
+		const type = enabledTypes.find(
+			(t) =>
+				t.id.toLowerCase() === evaluation.evaluation.toLowerCase() ||
+				t.label?.toLowerCase() === evaluation.evaluation.toLowerCase()
+		);
+		const threshold =
+			typeof type?.thresholdScore === "number"
+				? type.thresholdScore
+				: fallbackThreshold;
+		return {
+			...evaluation,
+			verdict: evaluation.score > threshold ? "yes" : "no",
+		};
+	});
+}
+
+/**
+ * Cost from Manage Models (`openlit_provider_models`) — same source as
+ * Pricing / Openground. Returns 0 if the model is not configured.
+ */
+async function estimateEvaluationCost(
+	provider: string,
 	model: string,
 	promptTokens: number,
-	completionTokens: number
-): number {
-	const modelKey = Object.keys(EVAL_COST_PER_1K).find(
-		(k) => model.toLowerCase().includes(k) || k.includes(model.toLowerCase())
-	);
-	const rates = modelKey ? EVAL_COST_PER_1K[modelKey] : { prompt: 0.001, completion: 0.002 };
-	return (
-		(promptTokens / 1000) * rates.prompt +
-		(completionTokens / 1000) * rates.completion
-	);
+	completionTokens: number,
+	databaseConfigId: string
+): Promise<number> {
+	if (!provider || !model || !databaseConfigId) return 0;
+	if (promptTokens === 0 && completionTokens === 0) return 0;
+
+	try {
+		const modelMeta = await ProviderRegistry.getModel(
+			provider,
+			model,
+			databaseConfigId
+		);
+		if (!modelMeta) {
+			consoleLog(
+				`Evaluation cost: model '${model}' not found under provider '${provider}' in Manage Models`
+			);
+			return 0;
+		}
+
+		return (
+			(promptTokens / 1_000_000) * modelMeta.inputPricePerMToken +
+			(completionTokens / 1_000_000) * modelMeta.outputPricePerMToken
+		);
+	} catch (e) {
+		consoleLog("Evaluation cost lookup failed:", e);
+		return 0;
+	}
+}
+
+/**
+ * Remap judge output names to configured type labels when possible so
+ * ClickHouse stores canonical names (Hallucination) instead of variants
+ * or inventons that still resolve (e.g. "Hallucination evaluation context").
+ * Unmapped labels (TypeA) are left as-is and filtered from analytics.
+ */
+function normalizeEvaluationResults(
+	evaluation: Evaluation[],
+	customTypes: EvaluationTypeRef[] = []
+): Evaluation[] {
+	return evaluation.map((item) => {
+		const resolved = resolveEvaluationType(item.evaluation, customTypes);
+		if (!resolved) return item;
+		return { ...item, evaluation: resolved.label };
+	});
 }
 
 export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?: string) {
@@ -278,10 +361,12 @@ async function storeEvaluation(
 	spanId: string,
 	evaluation: Evaluation[],
 	meta: any,
-	dbConfigId?: string
+	dbConfigId?: string,
+	customTypes: EvaluationTypeRef[] = []
 ) {
 	const now = new Date();
 	const createdAt = toClickHouseDateTime(now);
+	const normalized = normalizeEvaluationResults(evaluation, customTypes);
 	// Ensure meta values are strings (Map(LowCardinality(String), String))
 	const metaStrings =
 		meta && typeof meta === "object"
@@ -298,13 +383,13 @@ async function storeEvaluation(
 					span_id: spanId,
 					created_at: createdAt,
 					meta: metaStrings,
-					"evaluationData.evaluation": evaluation.map((e) => e.evaluation),
-					"evaluationData.classification": evaluation.map(
+					"evaluationData.evaluation": normalized.map((e) => e.evaluation),
+					"evaluationData.classification": normalized.map(
 						(e) => e.classification
 					),
-					"evaluationData.explanation": evaluation.map((e) => e.explanation),
-					"evaluationData.verdict": evaluation.map((e) => e.verdict),
-					scores: evaluation.reduce((acc: Record<string, number>, e) => {
+					"evaluationData.explanation": normalized.map((e) => e.explanation),
+					"evaluationData.verdict": normalized.map((e) => e.verdict),
+					scores: normalized.reduce((acc: Record<string, number>, e) => {
 						acc[e.evaluation] = e.score;
 						return acc;
 					}, {}),
@@ -441,15 +526,18 @@ async function getEvaluationConfigForTrace(
 	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
+	const DEFAULT_THRESHOLD = 0.5;
 	const evaluationTypes =
 		((evaluationConfig as any).evaluationTypes || []) as Array<{
 			id: string;
 			enabled: boolean;
+			label?: string;
 			rules?: Array<{ ruleId: string; priority: number }>;
 			ruleId?: string;
 			priority?: number;
 			prompt?: string;
 			defaultPrompt?: string;
+			thresholdScore?: number;
 		}>;
 
 	// Default: Hallucination, Bias, Toxicity enabled
@@ -464,19 +552,7 @@ async function getEvaluationConfigForTrace(
 				).map((t) => ({ ...t, enabled: true }));
 
 	// Collect rules with priority from enabled types
-	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
-	for (const t of enabledTypes) {
-		if (t.rules?.length) {
-			rulesWithPriority.push(
-				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
-			);
-		} else if (t.ruleId) {
-			rulesWithPriority.push({
-				ruleId: t.ruleId,
-				priority: t.priority ?? 0,
-			});
-		}
-	}
+	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
 
 	let contextContents: string[];
 	let matchingRuleIds: string[];
@@ -519,13 +595,21 @@ async function getEvaluationConfigForTrace(
 			prompt: prompt ?? "",
 			contexts: finalContextString,
 			response: response ?? "",
-			thresholdScore: 0.5,
+			thresholdScore: DEFAULT_THRESHOLD,
 		});
 
 
 		if (!data.success) {
 			return { success: false, error: data.error };
 		}
+
+		// Recompute verdicts with per-type thresholds, matching the offline
+		// path so dashboard/auto/manual and SDK runs honor the same config.
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			DEFAULT_THRESHOLD
+		);
 
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
@@ -538,19 +622,22 @@ async function getEvaluationConfigForTrace(
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			const cost = estimateEvaluationCost(
+			const cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				dbConfig
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}
 
 		const storeResult = await storeEvaluation(
 			trace.SpanId,
-			data.result || [],
+			evaluations,
 			metaBase,
-			dbConfig
+			dbConfig,
+			evaluationTypes.map((t) => ({ id: t.id, label: (t as any).label || t.id }))
 		);
 		if (storeResult.err) {
 			consoleLog(storeResult.err);
@@ -830,17 +917,10 @@ export async function runOfflineEvaluation(
 		priority?: number;
 		prompt?: string;
 		defaultPrompt?: string;
+		thresholdScore?: number;
 	}>;
 
-	let enabledTypes = requestedTypes?.length
-		? allTypes.filter((t) => requestedTypes.includes(t.id))
-		: allTypes.filter((t) => t.enabled);
-
-	if (enabledTypes.length === 0) {
-		enabledTypes = allTypes
-			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
-			.map((t) => ({ ...t, enabled: true }));
-	}
+	let enabledTypes: typeof allTypes;
 
 	if (requestedTypes?.length) {
 		const allTypeIds = new Set(allTypes.map((t) => t.id));
@@ -851,39 +931,50 @@ export async function runOfflineEvaluation(
 				error: `Unknown eval types: ${unknown.join(", ")}`,
 			};
 		}
+
+		const disabled = requestedTypes.filter((id) => {
+			const type = allTypes.find((t) => t.id === id);
+			return type && !type.enabled;
+		});
+		if (disabled.length > 0) {
+			return {
+				success: false,
+				error: `Disabled eval types: ${disabled.join(", ")}`,
+			};
+		}
+
+		enabledTypes = allTypes.filter((t) => requestedTypes.includes(t.id));
+	} else {
+		enabledTypes = allTypes.filter((t) => t.enabled);
+
+		if (enabledTypes.length === 0) {
+			enabledTypes = allTypes
+				.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+				.map((t) => ({ ...t, enabled: true }));
+		}
 	}
+
+	// Collect rules with priority from enabled types, same as the real-time/
+	// auto path, so offline evals resolve rule-engine context identically for
+	// the same configured evaluation types.
+	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
 
 	let contextContents: string[] = [];
 	let matchingRuleIds: string[] = [];
 	let contextEntityIds: string[] = [];
 
 	if (attributes && Object.keys(attributes).length > 0) {
-		try {
-			const ruleResult = await evaluateRules(
-				{
-					fields: attributes,
-					entity_type: "context" as any,
-					include_entity_data: true,
-				},
-				databaseConfigId
-			);
-
-			matchingRuleIds = ruleResult.matchingRuleIds || [];
-
-			if (ruleResult.entity_data) {
-				for (const [key, entityData] of Object.entries(
-					ruleResult.entity_data
-				)) {
-					if (entityData?.content) {
-						contextContents.push(String(entityData.content));
-						const match = key.match(/^context:(.+)$/);
-						if (match) contextEntityIds.push(match[1]);
-					}
-				}
-			}
-		} catch (e) {
-			consoleLog("Rule engine evaluation failed for offline eval:", e);
-		}
+		const result =
+			rulesWithPriority.length > 0
+				? await getContextFromRulesWithPriorityForFields(
+						attributes,
+						rulesWithPriority,
+						databaseConfigId
+					)
+				: await getContextFromFields(attributes, databaseConfigId);
+		contextContents = result.contextContents;
+		matchingRuleIds = result.matchingRuleIds;
+		contextEntityIds = result.contextEntityIds || [];
 	}
 
 	const userContextsCount = userContexts?.length || 0;
@@ -915,6 +1006,12 @@ export async function runOfflineEvaluation(
 			return { success: false, error: data.error };
 		}
 
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			thresholdScore
+		);
+
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			ruleIds: matchingRuleIds.join(","),
@@ -933,21 +1030,28 @@ export async function runOfflineEvaluation(
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			cost = estimateEvaluationCost(
+			cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				databaseConfigId
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}
 
 		if (storeResults) {
 			const spanId = `offline_${crypto.randomUUID()}`;
+			const customTypes = allTypes.map((t) => ({
+				id: t.id,
+				label: (t as any).label || t.id,
+			}));
 			const storeResult = await storeEvaluation(
 				spanId,
-				data.result || [],
+				evaluations,
 				metaBase,
-				databaseConfigId
+				databaseConfigId,
+				customTypes
 			);
 			if (storeResult?.err) {
 				consoleLog("Failed to store offline eval results:", storeResult.err);
@@ -956,7 +1060,7 @@ export async function runOfflineEvaluation(
 
 		return {
 			success: true,
-			evaluations: data.result || [],
+			evaluations,
 			contextApplied: {
 				ruleMatched: matchingRuleIds.length > 0,
 				matchingRuleIds,

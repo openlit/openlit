@@ -1,0 +1,40 @@
+---
+title: "Analytics"
+description: "LLM evaluation analytics - pass rates, executions, total cost, and per-evaluator results under Monitor → Evaluations"
+---
+
+The **Analytics** tab on **Evaluations** (`/evaluations`) shows how your AI evals are performing over the selected time range. Use the filter bar to change the window.
+
+If no evaluation engine is configured yet, you see **Set up Evaluations** with steps to open Configuration, enable evaluators, and turn on Auto Evaluation or run evals from Telemetry. CTA: **Open Configuration**.
+
+## Summary tiles
+
+| Tile | Meaning |
+|------|---------|
+| **Evaluations** / **Active** | Activity in the selected range |
+| **Traces evaluated** | How many traces received evaluation results |
+| **Executions** | Total evaluator runs |
+| **Total cost** | Spend attributed to evaluations |
+| **Avg pass rate** | Average pass rate across evaluators |
+| **Scores marked as failed** | Failed scores in the range |
+| **Auto executions** | Runs tagged from Auto Evaluation |
+| **Evaluators** | Count of evaluators in play |
+
+Charts include **Pass rate** and **Executions** over time (via the embedded evaluations dashboard).
+
+## Evaluators table
+
+Section title: **Evaluators**. Columns include **Evaluation**, **Matcher**, **Executions**, **Pass rate**, and **Pass rate trend**. Matcher shows linked Rule Engine rules when present, or `*` for default.
+
+Empty copy: *No evaluation results in this time range.*
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon="list-check">
+    Enable or create the types behind these rows
+  </Card>
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon="gear">
+    Set the judge model and Auto Evaluation schedule
+  </Card>
+</CardGroup>

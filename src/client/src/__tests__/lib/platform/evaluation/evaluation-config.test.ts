@@ -65,6 +65,7 @@ jest.mock('path', () => ({
 }));
 
 import { getEvaluationConfig, setEvaluationConfig, getEvaluationConfigById, restoreEvaluationCronJobs } from '@/lib/platform/evaluation/config';
+import { normalizeThresholdScore } from '@/lib/platform/evaluation/threshold';
 import { getEvaluationTypeDefaultPrompts } from '@/lib/platform/evaluation/evaluation-type-defaults';
 import { getDBConfigByUser } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
@@ -765,6 +766,79 @@ describe('buildEvaluationTypesWithPrompts — custom evaluation types', () => {
     const hallucination = result.evaluationTypes!.find((t) => t.id === 'hallucination');
     expect(hallucination!.rules).toHaveLength(1);
     expect(hallucination!.rules![0].ruleId).toBe('rule-hal-1');
+  });
+
+  it('built-in type overrides carry a configured thresholdScore through', async () => {
+    const config = makeConfigWithMeta([
+      { id: 'toxicity', enabled: true, thresholdScore: 0.75 },
+    ]);
+    (asaw as jest.Mock).mockResolvedValueOnce([null, config]);
+
+    const result = await getEvaluationConfigById('eval-cfg-1');
+
+    const toxicity = result.evaluationTypes!.find((t) => t.id === 'toxicity');
+    expect(toxicity!.thresholdScore).toBe(0.75);
+  });
+
+  it('built-in types default to an undefined thresholdScore when not overridden', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+
+    const result = await getEvaluationConfigById('eval-cfg-1');
+
+    const hallucination = result.evaluationTypes!.find((t) => t.id === 'hallucination');
+    expect(hallucination!.thresholdScore).toBeUndefined();
+  });
+
+  it('custom types carry a configured thresholdScore through', async () => {
+    const config = makeConfigWithMeta([
+      { id: 'brand_voice', enabled: true, label: 'Brand Voice', thresholdScore: 0.3 },
+    ]);
+    (asaw as jest.Mock).mockResolvedValueOnce([null, config]);
+
+    const result = await getEvaluationConfigById('eval-cfg-1');
+
+    const brandVoice = result.evaluationTypes!.find((t) => t.id === 'brand_voice');
+    expect(brandVoice!.thresholdScore).toBe(0.3);
+  });
+
+  it('ignores a non-numeric thresholdScore stored in meta and leaves it undefined', async () => {
+    const config = makeConfigWithMeta([
+      { id: 'toxicity', enabled: true, thresholdScore: 'not-a-number' as any },
+    ]);
+    (asaw as jest.Mock).mockResolvedValueOnce([null, config]);
+
+    const result = await getEvaluationConfigById('eval-cfg-1');
+
+    const toxicity = result.evaluationTypes!.find((t) => t.id === 'toxicity');
+    expect(toxicity!.thresholdScore).toBeUndefined();
+  });
+});
+
+describe('normalizeThresholdScore', () => {
+  it('returns undefined for undefined, null, and empty string', () => {
+    expect(normalizeThresholdScore(undefined)).toBeUndefined();
+    expect(normalizeThresholdScore(null)).toBeUndefined();
+    expect(normalizeThresholdScore('')).toBeUndefined();
+  });
+
+  it('returns NaN for a non-numeric value', () => {
+    expect(Number.isNaN(normalizeThresholdScore('not-a-number'))).toBe(true);
+  });
+
+  it('passes through an in-range number unchanged', () => {
+    expect(normalizeThresholdScore(0.42)).toBe(0.42);
+  });
+
+  it('clamps values above 1 down to 1', () => {
+    expect(normalizeThresholdScore(1.5)).toBe(1);
+  });
+
+  it('clamps values below 0 up to 0', () => {
+    expect(normalizeThresholdScore(-0.5)).toBe(0);
+  });
+
+  it('accepts numeric strings', () => {
+    expect(normalizeThresholdScore('0.6')).toBe(0.6);
   });
 });
 
