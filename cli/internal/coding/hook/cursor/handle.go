@@ -46,6 +46,17 @@ type cursorPayload struct {
 	Text       string `json:"text"`
 	DurationMs int64  `json:"duration_ms"`
 
+	// Token usage — Cursor ships these on afterAgentResponse and stop.
+	// Absent on older builds and
+	// on beforeSubmitPrompt; when present they are authoritative and
+	// supersede the char-heuristic estimate. Pointers so we can tell
+	// "missing" from an explicit zero.
+	InputTokens      *int64 `json:"input_tokens"`
+	OutputTokens     *int64 `json:"output_tokens"`
+	CacheReadTokens  *int64 `json:"cache_read_tokens"`
+	CacheWriteTokens *int64 `json:"cache_write_tokens"`
+	Provider         string `json:"provider"`
+
 	// preToolUse / postToolUse / postToolUseFailure
 	ToolName     string          `json:"tool_name"`
 	ToolUseID    string          `json:"tool_use_id"`
@@ -196,16 +207,36 @@ func handle(ctx context.Context, in normalize.Input) error {
 		// Cursor's `stop` fires when the agent loop terminates. We
 		// emit a small event so dashboards can count loop turns; the
 		// authoritative session end span comes from sessionEnd.
+		//
+		// When Cursor attaches token counts on stop, stamp them on the event so the UI can show
+		// authoritative usage even if afterAgentResponse omitted them.
+		attrs := map[string]any{
+			"coding_agent.client":              in.Vendor,
+			"coding_agent.hook.event":          event,
+			"coding_agent.session.loop.status": p.Status,
+			"coding_agent.session.loop.count":  p.LoopCount,
+		}
+		if inTok, outTok, cacheRead, cacheWrite, ok := realTokenUsage(p); ok {
+			attrs["gen_ai.usage.input_tokens"] = inTok
+			attrs["gen_ai.usage.output_tokens"] = outTok
+			attrs["gen_ai.usage.total_tokens"] = inTok + outTok
+			if cacheRead > 0 {
+				attrs["gen_ai.usage.cache.read_input_tokens"] = cacheRead
+			}
+			if cacheWrite > 0 {
+				attrs["gen_ai.usage.cache.creation_input_tokens"] = cacheWrite
+			}
+			if p.Model != "" {
+				attrs["gen_ai.request.model"] = p.Model
+				rate := pricing.Lookup(p.Model)
+				attrs["gen_ai.usage.cost"] = rate.Cost(inTok, outTok, cacheRead, cacheWrite)
+			}
+		}
 		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: sessionID,
 			Name:      "coding_agent.session.loop.stop",
 			At:        time.Now(),
-			Attrs: map[string]any{
-				"coding_agent.client":              in.Vendor,
-				"coding_agent.hook.event":          event,
-				"coding_agent.session.loop.status": p.Status,
-				"coding_agent.session.loop.count":  p.LoopCount,
-			},
+			Attrs:     attrs,
 		})
 
 	case "beforeSubmitPrompt":
@@ -510,10 +541,11 @@ func buildPromptTurn(in normalize.Input, p cursorPayload, sessionID string) norm
 		}
 	}
 	now := time.Now()
-	// Cursor doesn't expose token counts on hook payloads, so we
-	// estimate from prompt length and apply the static pricing table.
-	// This is intentionally a lower bound — when the model surfaces
-	// real usage (Codex rollout, Claude transcript), prefer that.
+	// beforeSubmitPrompt does not carry token counts (we observes
+	// the same). Stamp a char-heuristic input estimate so the prompt
+	// half isn't empty; cost for this half is the input-only estimate
+	// and acts as the fallback when afterAgentResponse/stop never
+	// report real usage.
 	inputTokens := pricing.EstimateTokens(p.Prompt)
 	rate := pricing.Lookup(p.Model)
 	cost := rate.Cost(inputTokens, 0, 0, 0)
@@ -536,9 +568,31 @@ func buildPromptTurn(in normalize.Input, p cursorPayload, sessionID string) norm
 
 func buildResponseTurn(in normalize.Input, p cursorPayload, sessionID string) normalize.LLMTurn {
 	now := time.Now()
-	outputTokens := pricing.EstimateTokens(p.Text)
 	rate := pricing.Lookup(p.Model)
-	cost := rate.Cost(0, outputTokens, 0, 0)
+
+	// Prefer Cursor's real token fields when present (same source). These cover the full generation — input,
+	// output, and cache — so we bill the complete turn here.
+	//
+	// Cost note: the matching beforeSubmitPrompt span already billed
+	// an input-only estimate. To avoid double-counting input, we bill
+	// output + cache from the real counters here and still stamp the
+	// real input token count for accurate token dashboards. When real
+	// counters are absent we fall back to the char-heuristic on the
+	// response text (output only), same as before.
+	var (
+		inputTokens, outputTokens int64
+		cacheRead, cacheWrite     int64
+		cost                      float64
+	)
+	if inTok, outTok, cr, cw, ok := realTokenUsage(p); ok {
+		inputTokens, outputTokens = inTok, outTok
+		cacheRead, cacheWrite = cr, cw
+		cost = rate.Cost(0, outputTokens, cacheRead, cacheWrite)
+	} else {
+		outputTokens = pricing.EstimateTokens(p.Text)
+		cost = rate.Cost(0, outputTokens, 0, 0)
+	}
+
 	return normalize.LLMTurn{
 		SessionID:            sessionID,
 		ConversationID:       p.ConversationID,
@@ -549,10 +603,35 @@ func buildResponseTurn(in normalize.Input, p cursorPayload, sessionID string) no
 		EndedAt:              now,
 		Response:             p.Text,
 		AssistantMessageOnly: true,
+		InputTokens:          inputTokens,
 		OutputTokens:         outputTokens,
-		TotalTokens:          outputTokens,
+		TotalTokens:          inputTokens + outputTokens,
+		CacheReadTokens:      cacheRead,
+		CacheCreationTokens:  cacheWrite,
 		CostUSD:              cost,
 	}
+}
+
+// realTokenUsage returns Cursor's authoritative token counters when any
+// of the usage fields are present on the payload.
+func realTokenUsage(p cursorPayload) (input, output, cacheRead, cacheWrite int64, ok bool) {
+	if p.InputTokens == nil && p.OutputTokens == nil &&
+		p.CacheReadTokens == nil && p.CacheWriteTokens == nil {
+		return 0, 0, 0, 0, false
+	}
+	if p.InputTokens != nil {
+		input = *p.InputTokens
+	}
+	if p.OutputTokens != nil {
+		output = *p.OutputTokens
+	}
+	if p.CacheReadTokens != nil {
+		cacheRead = *p.CacheReadTokens
+	}
+	if p.CacheWriteTokens != nil {
+		cacheWrite = *p.CacheWriteTokens
+	}
+	return input, output, cacheRead, cacheWrite, true
 }
 
 func buildToolCallSuccess(in normalize.Input, p cursorPayload, sessionID string) normalize.ToolCall {

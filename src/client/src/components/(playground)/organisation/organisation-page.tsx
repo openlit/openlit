@@ -356,10 +356,12 @@ export default function OrganisationSettingsPage() {
 							</span>
 							<div>
 								<p className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
-									{messages.ORGANISATION}
+									{messages.SETTINGS}
 								</p>
 								<h1 className="text-sm font-semibold leading-tight text-stone-950 dark:text-stone-50">
-									{messages.ORGANISATION_SETTINGS}
+									{selectedTab === "projects"
+										? messages.PROJECTS
+										: messages.ORGANISATION}
 								</h1>
 							</div>
 						</div>

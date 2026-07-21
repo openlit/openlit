@@ -27,5 +27,10 @@ describe('getResultGenerationByEndpoint', () => {
     expect(query).toContain('provider');
     expect(query).toContain('GROUP BY');
     expect(query).toContain('otel_traces');
+    expect(query).toContain('gen_ai.provider.name');
+    // Coding-agent telemetry belongs on the Coding Agents dashboard.
+    expect(query).toContain("coding_agent.client");
+    expect(query).toContain('openlit-cli');
+    expect(query).not.toContain('multiIf');
   });
 });

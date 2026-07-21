@@ -20,14 +20,14 @@ The collector is configured entirely via environment variables. All variables fo
 
 ## Common configurations
 
-### Minimal — send to a local OTel Collector
+### Minimal - send to a local OTel Collector
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 ./opentelemetry-gpu-collector
 ```
 
-### Production — with service name, environment, and auth header
+### Production - with service name, environment, and auth header
 
 ```bash
 OTEL_SERVICE_NAME=gpu-worker \
