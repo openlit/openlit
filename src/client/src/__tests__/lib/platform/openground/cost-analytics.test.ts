@@ -52,10 +52,13 @@ describe("openground cost analytics", () => {
 
 	it("queries total openground cost for the active database", async () => {
 		await getOpengroundTotalCost(params);
+		const query = mockedDataCollector.mock.calls[0][0].query as string;
+		expect(query).toContain("openlit_openground_providers");
+		// Float64 cost columns must not use toFloat64OrZero (ClickHouse rejects it).
+		expect(query).not.toContain("toFloat64OrZero");
+		expect(query).toContain("sum(ifNull(p.cost, 0))");
 		expect(mockedDataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("openlit_openground_providers"),
-			}),
+			expect.objectContaining({ query }),
 			"query",
 			"db-1"
 		);
@@ -63,10 +66,12 @@ describe("openground cost analytics", () => {
 
 	it("queries openground cost by provider", async () => {
 		await getOpengroundCostByProvider(params);
+		const query = mockedDataCollector.mock.calls[0][0].query as string;
+		expect(query).toContain("AS provider");
+		expect(query).not.toContain("toFloat64OrZero");
+		expect(query).toContain("SUM(ifNull(p.cost, 0))");
 		expect(mockedDataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("AS provider"),
-			}),
+			expect.objectContaining({ query }),
 			"query",
 			"db-1"
 		);

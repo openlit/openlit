@@ -236,7 +236,7 @@ describe("coding agent query service", () => {
 			sortBy: "not-a-real-column" as any,
 		});
 		expect(mockDataCollector.mock.calls[1][0].query).toMatch(
-			/ORDER BY\s+last_seen\s+DESC/
+			/ORDER BY\s+user_last_ts\s+DESC/
 		);
 	});
 

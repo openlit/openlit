@@ -18,16 +18,18 @@ function timeWhere(params: MetricParams) {
 
 async function sumPeriod(params: MetricParams): Promise<number> {
 	const where = timeWhere(params);
+	// Cost columns are already Float64 — do not wrap with toFloat64OrZero
+	// (ClickHouse OrZero/OrNull converters only accept String).
 	const query = `
 		SELECT
 			CAST((
-				(SELECT sum(toFloat64OrZero(total_cost)) FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
+				(SELECT sum(ifNull(total_cost, 0)) FROM ${OPENLIT_CHAT_CONVERSATION_TABLE}
 					WHERE conversation_type = 'chat' AND ${where})
 				+
-				(SELECT sum(toFloat64OrZero(cost)) FROM ${OPENLIT_TRACE_ANALYSIS_TABLE}
+				(SELECT sum(ifNull(cost, 0)) FROM ${OPENLIT_TRACE_ANALYSIS_TABLE}
 					WHERE analysis_type IN ('trace_analysis', 'span_analysis') AND ${where})
 				+
-				(SELECT sum(toFloat64OrZero(cost)) FROM ${OPENLIT_OTTER_RUNS_TABLE}
+				(SELECT sum(ifNull(cost, 0)) FROM ${OPENLIT_OTTER_RUNS_TABLE}
 					WHERE run_type IN ('prompt_improvement') AND ${where})
 			) AS FLOAT) AS total_cost
 	`;

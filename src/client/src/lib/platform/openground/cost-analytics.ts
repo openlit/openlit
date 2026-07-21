@@ -34,9 +34,10 @@ export async function getOpengroundTotalCost(params: MetricParams) {
 	// still returns a row when current vs previous window starts differ.
 	const joinKey = Sanitizer.sanitizeValue(String(params.timeLimit.start));
 
+	// p.cost is Float64 — toFloat64OrZero only accepts String and fails the query.
 	const periodQuery = (periodParams: MetricParams) => `
 		SELECT
-			sum(toFloat64OrZero(p.cost)) AS total_cost,
+			sum(ifNull(p.cost, 0)) AS total_cost,
 			'${joinKey}' AS start_date
 		FROM ${OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME} AS p
 		INNER JOIN ${OPENLIT_OPENGROUND_TABLE_NAME} AS o
@@ -67,7 +68,7 @@ export async function getOpengroundCostByProvider(params: MetricParams) {
 	const query = `
 		SELECT
 			p.provider AS provider,
-			SUM(toFloat64OrZero(p.cost)) AS cost
+			SUM(ifNull(p.cost, 0)) AS cost
 		FROM ${OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME} AS p
 		INNER JOIN ${OPENLIT_OPENGROUND_TABLE_NAME} AS o
 			ON p.openground_id = o.id

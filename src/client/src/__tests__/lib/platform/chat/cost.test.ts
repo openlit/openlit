@@ -57,6 +57,13 @@ describe("getOtterTotalCost", () => {
 		expect(mockedDataCollector.mock.calls[0][0].query).toContain(
 			"openlit_otter_runs"
 		);
+		// Float64 cost columns must not use toFloat64OrZero (ClickHouse rejects it).
+		expect(mockedDataCollector.mock.calls[0][0].query).not.toContain(
+			"toFloat64OrZero"
+		);
+		expect(mockedDataCollector.mock.calls[0][0].query).toContain(
+			"sum(ifNull(total_cost, 0))"
+		);
 		expect(res).toEqual({
 			data: [{ total_cost: 1.25, previous_total_cost: 0.5 }],
 		});

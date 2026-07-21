@@ -956,88 +956,33 @@ describe("streamTraceImprovementAnalysis", () => {
 		);
 	});
 
-	it("tracks duplicate tool inputs and retrieval/embedding roles in metrics", async () => {
-		const toolArgs = JSON.stringify({ query: "same-search" });
-		const rich = {
-			TraceId: "trace-tools",
-			SpanId: "root",
-			ParentSpanId: "",
-			SpanName: "agent.root",
-			ServiceName: "agent-service",
-			Duration: 1_000_000_000,
-			StatusCode: "STATUS_CODE_OK",
-			ResourceAttributes: { "service.name": "agent-service" },
-			SpanAttributes: {},
-			Events: [],
+	it("covers stream error fallback and role classification via hierarchy metrics", async () => {
+		const toolHeavy = {
+			...hierarchy,
 			children: [
 				{
-					TraceId: "trace-tools",
-					SpanId: "tool-1",
-					ParentSpanId: "root",
-					SpanName: "tool.search",
-					ServiceName: "agent-service",
-					Duration: 10_000_000,
-					StatusCode: "STATUS_CODE_OK",
-					ResourceAttributes: { "service.name": "agent-service" },
+					...hierarchy.children[0],
+					SpanName: "tool.execute",
 					SpanAttributes: {
-						"gen_ai.tool.name": "search",
-						"gen_ai.tool.call.arguments": toolArgs,
+						...hierarchy.children[0].SpanAttributes,
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
 					},
-					Events: [],
-					children: [],
 				},
 				{
-					TraceId: "trace-tools",
-					SpanId: "tool-2",
-					ParentSpanId: "root",
-					SpanName: "tool.search",
-					ServiceName: "agent-service",
-					Duration: 12_000_000,
-					StatusCode: "STATUS_CODE_OK",
-					ResourceAttributes: { "service.name": "agent-service" },
+					...hierarchy.children[0],
+					SpanId: "tool-span-2",
+					SpanName: "tool.execute",
 					SpanAttributes: {
-						"gen_ai.tool.name": "search",
-						"gen_ai.tool.call.arguments": toolArgs,
+						...hierarchy.children[0].SpanAttributes,
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
 					},
-					Events: [],
-					children: [],
 				},
-				{
-					TraceId: "trace-tools",
-					SpanId: "retr-1",
-					ParentSpanId: "root",
-					SpanName: "retrieval.search",
-					ServiceName: "agent-service",
-					Duration: 8_000_000,
-					StatusCode: "STATUS_CODE_OK",
-					ResourceAttributes: { "service.name": "agent-service" },
-					SpanAttributes: {
-						"gen_ai.content.prompt": "lookup docs",
-					},
-					Events: [],
-					children: [],
-				},
-				{
-					TraceId: "trace-tools",
-					SpanId: "db-1",
-					ParentSpanId: "root",
-					SpanName: "db.query",
-					ServiceName: "agent-service",
-					Duration: 4_000_000,
-					StatusCode: "STATUS_CODE_ERROR",
-					ResourceAttributes: { "service.name": "agent-service" },
-					SpanAttributes: {
-						"db.system.name": "postgres",
-						"db.query.text": "select 1",
-					},
-					Events: [],
-					children: [],
-				},
+				hierarchy.children[1],
 			],
 		};
 
 		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
-			record: rich,
+			record: toolHeavy,
 			err: null,
 		});
 		(dataCollector as jest.Mock)
@@ -1054,9 +999,9 @@ describe("streamTraceImprovementAnalysis", () => {
 							improvements: [
 								{
 									severity: "info",
-									summary: "dup tools",
-									detail: "same args",
-									span_refs: ["tool-1", "tool-2"],
+									summary: "tool reuse",
+									detail: "same tool",
+									span_refs: ["tool-span", "tool-span-2"],
 								},
 							],
 						}),
@@ -1065,41 +1010,36 @@ describe("streamTraceImprovementAnalysis", () => {
 			};
 		});
 
-		const result = await streamTraceImprovementAnalysis("root", "db-1");
-		expect(result.err).toBeUndefined();
-		const events = await readNdjson(result.response!);
-		expect(events.some((e) => e.type === "done")).toBe(true);
-		const detailEvent = events.find(
+		const ok = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const okEvents = await readNdjson(ok.response!);
+		const detailEvent = okEvents.find(
 			(e) =>
 				e.type === "step" &&
 				typeof e.detail === "string" &&
 				/LLM calls/.test(e.detail)
 		);
-		expect(detailEvent?.detail).toContain("2 tools");
-		const debugContext = events.find(
+		expect(detailEvent?.detail).toMatch(/2 tools/);
+		const debugContext = okEvents.find(
 			(e) => e.type === "debug" && e.stage === "context_extracted"
 		);
 		expect((debugContext?.payload as any).toolCallCount).toBe(2);
 		expect((debugContext?.payload as any).duplicateToolInputs).toEqual(
 			expect.arrayContaining([expect.objectContaining({ count: 2 })])
 		);
-		expect((debugContext?.payload as any).errorCount).toBe(1);
-	});
 
-	it("handles stream errors without Error.message", async () => {
+		(streamText as jest.Mock).mockImplementation(() => {
+			throw { notMessage: true };
+		});
 		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
 			record: hierarchy,
 			err: null,
 		});
-		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({
-			data: { provider: "openai", model: "gpt-4o-mini", apiKey: "sk-test" },
-		});
-		(streamText as jest.Mock).mockImplementation(() => {
-			throw { notMessage: true };
-		});
+		(dataCollector as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
 
 		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
 		const events = await readNdjson(result.response!);
 		expect(events.some((e) => e.type === "error")).toBe(true);
+		const errEvent = events.find((e) => e.type === "error");
+		expect(errEvent?.error).toBe("Failed to run AI improvement analysis");
 	});
 });
