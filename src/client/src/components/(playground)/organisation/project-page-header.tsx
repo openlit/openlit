@@ -26,7 +26,7 @@ export default function ProjectPageHeader({
 					asChild
 					variant="outline"
 					size="sm"
-					className="h-8 w-8 shrink-0 p-0"
+					className="h-7 w-7 shrink-0 p-0"
 				>
 					<Link href="/organisation" title={backLabel} aria-label={backLabel}>
 						<ArrowLeft className="h-3.5 w-3.5" />

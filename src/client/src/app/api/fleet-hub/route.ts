@@ -1,13 +1,9 @@
-import { SERVER_EVENTS } from "@/constants/events";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getAllAgents } from "@/lib/platform/fleet-hub";
-import PostHogServer from "@/lib/posthog";
 
-export async function GET() {
-	const startTimestamp = Date.now();
+async function GETHandler() {
 	const res: any = await getAllAgents();
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.FLEET_HUB_LIST_FAILURE : SERVER_EVENTS.FLEET_HUB_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("fleet_hub:read", GETHandler);

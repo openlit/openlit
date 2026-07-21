@@ -52,9 +52,9 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <FeaturePageHeader
-        eyebrow={getMessage().FEATURE_FLEET_HUB}
+        eyebrow={getMessage().SIDEBAR_MONITOR}
         title={serviceName}
-        icon={<OpenTelemetrySvg className="h-5 w-5" />}
+        icon={<OpenTelemetrySvg className="h-4 w-4" />}
         tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300"
         leading={(
           <Button
@@ -111,7 +111,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
         <CardFooter className="p-0">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1" className="flex flex-col-reverse w-full border-0">
-              <AccordionTrigger className="p-0 flex w-full items-center gap-2 justify-center py-1 bg-stone-200/60 dark:bg-stone-800 text-xs text-stone-500 dark:text-stone-500">Show more</AccordionTrigger>
+              <AccordionTrigger className="p-0 flex w-full items-center gap-2 justify-center py-1 bg-stone-200/60 dark:bg-stone-800 text-xs text-stone-500 dark:text-stone-400">Show more</AccordionTrigger>
               <AccordionContent className="p-4 pt-0">
                 <div className="pt-4 border-t border-stone-200 dark:border-stone-700 space-y-4">
                   <h4 className="font-semibold text-sm">Detailed Information</h4>

@@ -113,6 +113,7 @@ class EvalType(BaseModel):
     description: str = ""
     enabled: bool = False
     is_custom: bool = False
+    threshold_score: Optional[float] = None
 
 
 class BatchEvalResult(BaseModel):

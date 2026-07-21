@@ -1,0 +1,38 @@
+---
+title: 'What is AI Evaluation?'
+description: 'AI evaluation explained: how LLM-as-a-judge scoring works, online vs. offline evaluation, and how to catch quality regressions'
+sidebarTitle: 'AI Evaluation'
+---
+
+AI evaluation is the process of scoring LLM outputs for quality, safety, and correctness - using an LLM-as-a-judge, rule-based checks, or human review - so you can catch bad responses before or after they reach users.
+
+## Why does AI evaluation matter?
+
+An LLM can produce a fluent, confident-sounding response that's factually wrong, biased, or off-topic, without ever raising an error. AI evaluation gives you a quality signal traditional monitoring can't: a score for hallucination, bias, toxicity, relevance, and more, attached to the exact prompt version and model that produced the response.
+
+## What is LLM-as-a-judge?
+
+LLM-as-a-judge uses a separate LLM call to grade a response against a rubric - for example, "does this response contain a hallucinated fact?" - and returns a score and explanation. It scales further than human review and can run automatically on every response in production.
+
+## What's the difference between online and offline evaluation?
+
+- **Online evaluation** runs automatically against live production traces - manually triggered, or on an automatic schedule with sampling to control cost.
+- **Offline evaluation** runs programmatically, typically in CI/CD, against a fixed dataset before you ship a prompt or model change - catching regressions before they reach production.
+
+## How does OpenLIT provide AI evaluation?
+
+OpenLIT includes 11 built-in evaluation types (hallucination, bias, toxicity, and more), runs them automatically in production from [Configuration](/latest/openlit/evaluations/configuration) (Auto Evaluation), and exposes the same evaluators [programmatically via the SDK](/latest/sdk/features/evaluations) for offline testing in CI/CD.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Evaluations overview" href="/latest/openlit/evaluations/overview" icon='gavel'>
+    The 11 built-in evaluation types and how automated scoring works
+  </Card>
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon='gear'>
+    Auto Evaluation schedule and judge model under Monitor
+  </Card>
+  <Card title="Offline evaluations (SDK)" href="/latest/sdk/features/evaluations" icon='code'>
+    Run evaluations programmatically in CI/CD and development pipelines
+  </Card>
+</CardGroup>

@@ -88,7 +88,9 @@ export default function DataTable({
 	const noData = !data?.length && !isLoading;
 
 	const style: CSSProperties = {
-		gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))`,
+		gridTemplateColumns: visibleColumns
+			.map((column) => columns[column]?.width || "minmax(0, 1fr)")
+			.join(" "),
 	};
 
 	const onClickHandler = (rowItem: any) =>
@@ -100,7 +102,7 @@ export default function DataTable({
 				{visibleColumns.map((column) => (
 					<ColumnRowItem
 						key={column}
-						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm overflow-hidden text-ellipsis whitespace-nowrap`}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm whitespace-nowrap`}
 					>
 						{columns[column]?.header()}
 					</ColumnRowItem>

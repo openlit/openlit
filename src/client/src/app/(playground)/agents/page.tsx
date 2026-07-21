@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Bot, RefreshCw, Plus } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
@@ -54,6 +56,7 @@ function coerceTab(value: string | null): Tab {
 export default function AgentsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
+	const posthog = usePostHog();
 	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
 	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
@@ -99,6 +102,9 @@ export default function AgentsPage() {
 	//   - while the apps view is empty AND the coding view has rows,
 	//   - exactly once after data first lands.
 	const didAutoRouteRef = useRef(false);
+	// Fire the anonymous inventory-on-view event only once per mount so the
+	// 30s background poll doesn't spam PostHog with duplicate counts.
+	const inventoryFiredRef = useRef(false);
 
 	const pathname = usePathname();
 	const filter = useRootStore(getFilterDetails);
@@ -496,6 +502,33 @@ export default function AgentsPage() {
 		0
 	);
 
+	// Anonymous inventory-on-view: once the first fetch settles, report how
+	// many application agents / coding vendors / sessions this install has.
+	// Counts only — no service names, hostnames, or user identities.
+	useEffect(() => {
+		if (!servicesFetched || inventoryFiredRef.current) return;
+		inventoryFiredRef.current = true;
+		const codingSessionsTotal = codingRows.reduce(
+			(sum, r) => sum + (r.coding_session_count_24h ?? 0),
+			0
+		);
+		posthog?.capture(CLIENT_EVENTS.AGENTS_HUB_VIEWED, {
+			count: applicationRows.length,
+			controllers: activeControllers.length,
+		});
+		posthog?.capture(CLIENT_EVENTS.CODING_AGENTS_VIEWED, {
+			count: codingVendorsUsed,
+			sessions_total: codingSessionsTotal,
+		});
+	}, [
+		servicesFetched,
+		applicationRows.length,
+		activeControllers.length,
+		codingVendorsUsed,
+		codingRows,
+		posthog,
+	]);
+
 	const allProviders = useMemo(() => {
 		const set = new Set<string>();
 		for (const svc of serviceRows) {
@@ -608,7 +641,7 @@ export default function AgentsPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow={getMessage().FEATURE_AGENTS}
+				eyebrow={getMessage().SIDEBAR_MONITOR}
 				title={
 					activeTab === "coding"
 						? getMessage().AGENTS_TAB_CODING
@@ -616,7 +649,7 @@ export default function AgentsPage() {
 							? getMessage().AGENTS_TAB_CONTROLLERS
 							: getMessage().AGENTS_TAB_SERVICES
 				}
-				icon={<Bot className="h-5 w-5" />}
+				icon={<Bot className="h-4 w-4" />}
 				tone={AGENTS_HEADER_TONE}
 				actions={(
 					<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -640,7 +673,7 @@ export default function AgentsPage() {
 							<Button
 								variant="secondary"
 								size="sm"
-								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								className="h-7 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("controller")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
@@ -651,7 +684,7 @@ export default function AgentsPage() {
 							<Button
 								variant="secondary"
 								size="sm"
-								className="h-8 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
+								className="h-7 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
 								onClick={() => setSetupModal("coding")}
 							>
 								<Plus className="w-3 h-3 mr-1.5" />
@@ -830,7 +863,7 @@ export default function AgentsPage() {
 								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
 									{activeControllers.length}
 									{staleCount > 0 && (
-										<span className="ml-1.5 text-xs font-normal text-stone-400 dark:text-stone-500">
+										<span className="ml-1.5 text-xs font-normal text-stone-500 dark:text-stone-500">
 											({staleCount} stale)
 										</span>
 									)}

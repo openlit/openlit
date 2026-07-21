@@ -29,6 +29,8 @@ export type FilterWhereConditionType = {
 		traceTypes: string[];
 		applicationNames: string[];
 		serviceNames: string[];
+		/** UI ComboDropdown key — same semantics as serviceNames for ServiceName WHERE. */
+		services: string[];
 		spanNames: string[];
 		environments: string[];
 		customFilters: { attributeType: string; key: string; value: string }[];

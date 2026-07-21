@@ -1,88 +1,62 @@
 ---
 title: "Overview"
-description: "Automated Eval scoring with 11 evaluation types — hallucination, bias, toxicity, safety, and more"
+description: "LLM evaluation in OpenLIT - AI evals for hallucination, bias, toxicity, and custom criteria under Monitor → Evaluations"
 ---
 
-OpenLIT provides automated evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
+**Evaluations** (`/evaluations`) is OpenLIT's LLM evaluation surface under **Monitor**. Score production traces with an LLM-as-a-judge, enable built-in or custom evaluators, schedule Auto Evaluation, and review pass-rate analytics - or run the same criteria [programmatically via the SDK](/latest/sdk/quickstart-programmatic-evals) for offline CI/CD gates.
 
-<video
-      autoPlay
-      muted
-      loop
-      controls
-      className="w-full aspect-video rounded-xl"
-      src="/images/evaluations.mp4"
-    >
-    </video>
-
-## Why evaluations?
-
-Evaluation is crucial for improving the accuracy and robustness of language models, ultimately enhancing user experience and trust in your AI applications. Here are the key benefits:
-
-- **Quality & Safety Assurance**: Detect hallucinations, bias, toxicity, safety issues, and ensure consistent, reliable AI outputs
-- **Performance Monitoring**: Track model performance degradation and measure response quality across different scenarios
-- **Risk Mitigation**: Catch potential issues before they reach users and ensure compliance with safety standards
-- **Cost Optimization**: Monitor cost-effectiveness and ROI of different AI configurations and model choices
-- **Continuous Improvement**: Build data-driven insights for A/B testing, optimization, and iterative development
-
-## 11 built-in evaluation types
-
-OpenLIT includes 11 evaluation types out of the box. Each can be independently enabled, customized with custom prompts, and linked to Rule Engine rules for conditional evaluation.
-
-| Evaluation Type | Description | Default |
-|----------------|-------------|---------|
-| **Hallucination** | Detects factual inaccuracies, contradictions, and fabricated information | Enabled |
-| **Bias** | Monitors for discriminatory patterns across gender, ethnicity, age, religion | Enabled |
-| **Toxicity** | Screens for harmful, offensive, threatening, or hateful language | Enabled |
-| **Relevance** | Evaluates how well the response addresses the prompt | Disabled |
-| **Coherence** | Assesses logical flow and internal consistency | Disabled |
-| **Faithfulness** | Measures alignment with provided context or source material | Disabled |
-| **Safety** | Detects jailbreak attempts, prompt injection, and unsafe content generation | Disabled |
-| **Instruction Following** | Evaluates adherence to instructions, constraints, and formatting | Disabled |
-| **Completeness** | Assesses whether all parts of the query are fully addressed | Disabled |
-| **Conciseness** | Evaluates whether the response avoids unnecessary verbosity | Disabled |
-| **Sensitivity** | Detects PII leakage, credentials, and confidential data exposure | Disabled |
-
-<Info>
-**Context is the source of truth**: When context is provided (via the Rule Engine), evaluations judge the LLM response against the provided context — not against real-world knowledge. This enables domain-specific evaluation where your custom knowledge is authoritative.
-</Info>
-
-### Custom evaluation types
-
-Beyond the 11 built-in types, you can create custom evaluation types with your own prompts. Navigate to **Evaluations > Settings > Evaluation Types** and click **Create Custom Type**. Each custom type requires an id (lowercase with underscores), a label, a description, and an evaluation prompt. Custom types run alongside built-in types in both auto and manual evaluations, and can be linked to Rule Engine rules just like built-in types. Unlike built-in types, custom types can be deleted when no longer needed.
-
-## AI evaluation methods
-
-OpenLIT provides automated LLM evaluation and testing capabilities for production AI applications:
-
-### Automated LLM-as-a-Judge
-
-Zero-setup AI quality monitoring that automatically evaluates your LLM responses:
-
-- **Production Monitoring**: Auto-evaluate every LLM response for quality and safety issues
-- **Smart Scheduling**: Configure evaluation frequency with cron schedules for cost optimization
-- **Real-time Scoring**: Instant evaluation results visible in trace details and dashboards
-- **Rule Engine Integration**: Link evaluation types to rules for conditional evaluation based on trace attributes (model, provider, service, environment)
-- **Context-Aware**: Evaluations use context from the Rule Engine as ground truth for judging responses
-
-### Programmatic evaluations
-
-Programmatic AI evaluation tools for custom testing workflows and development pipelines:
-
-- **Code Integration**: Call LLM evaluators directly in your application code via the SDK
-- **CI/CD Quality Gates**: Automated testing for model improvements and regression detection
-- **Rule Engine SDK**: Use `evaluate_rule()` to fetch matching contexts and evaluation configs at runtime
-
----
+Open it from **Monitor → Evaluations**. The page has three tabs:
 
 <CardGroup cols={3}>
-  <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
-    Use advanced LLMs to evaluate AI application quality with automated scoring
+  <Card title="Analytics" href="/latest/openlit/evaluations/analytics" icon="chart-line">
+    Pass rates, executions, cost, and evaluator results over time
   </Card>
-  <Card title="Programmatic evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
-    Quick start guide for implementing custom evaluations in your code
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon="list-check">
+    Enable built-in types or create custom evaluators
   </Card>
-  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine" icon='gears'>
-    Define conditional rules to provide context and control which evaluations run
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon="gear">
+    Judge model, Vault API key, Auto Evaluation schedule and sampling
+  </Card>
+</CardGroup>
+
+Default tab is **Analytics**. Use `?tab=evaluators` or `?tab=configuration` for the others.
+
+## Find the right feature
+
+| If you want to... | Use this |
+|---|---|
+| See pass rates and spend for evals | [Analytics](/latest/openlit/evaluations/analytics) |
+| Turn on hallucination, bias, toxicity, or a custom type | [Evaluators](/latest/openlit/evaluations/evaluators) |
+| Schedule Auto Evaluation or set the judge model | [Configuration](/latest/openlit/evaluations/configuration) |
+| Score one trace on demand | [LLM-as-a-Judge](/latest/openlit/evaluations/llm-as-a-judge) from the trace Evaluation tab |
+| Rate a trace yourself | [Manual Feedback](/latest/openlit/evaluations/manual-feedback) |
+| Gate CI/CD on quality | [Programmatic evaluations](/latest/openlit/evaluations/programmatic-evals) |
+
+```mermaid
+flowchart TB;
+    subgraph Online["Online evaluation - production traces"]
+        direction LR;
+        A[LLM / Agent call] -->|creates| B[Trace in OpenLIT];
+        B -->|Auto Eval schedule or manual Run Evaluation| C[LLM Judge];
+        C -->|score + classification + reasoning| D[Analytics and trace detail];
+    end
+    subgraph Offline["Offline evaluation - CI/CD"]
+        direction LR;
+        E[Dataset] -->|SDK evaluate call| F[LLM Judge];
+        F -->|score| G[Pass / fail gate];
+    end
+```
+
+## Methods
+
+<CardGroup cols={3}>
+  <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon="gavel">
+    Automated scoring on live traces
+  </Card>
+  <Card title="Programmatic evals" href="/latest/openlit/evaluations/programmatic-evals" icon="bolt">
+    SDK / CI offline evaluation
+  </Card>
+  <Card title="Manual Feedback" href="/latest/openlit/evaluations/manual-feedback" icon="thumbs-up">
+    Good / Bad / Neutral human ratings
   </Card>
 </CardGroup>

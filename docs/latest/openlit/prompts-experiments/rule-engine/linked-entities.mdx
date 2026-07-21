@@ -1,0 +1,55 @@
+---
+title: "Linked Entities"
+description: "Connect a rule to a Context, Prompt, or Evaluation Type so matching returns real resources"
+---
+
+A rule only becomes useful once it's connected to something worth returning. The **Associated Entities** card on a rule's detail page lets you link the rule to resources that should come back when it matches.
+
+## Entity types
+
+The entity types you can link today are:
+
+- **Context** - reusable knowledge or system instructions, from the [Context](/latest/openlit/prompts-experiments/context/overview) feature.
+- **Prompt** - a versioned prompt, from [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview).
+- **Evaluation** - an Evaluation Type, from the Evaluations feature.
+
+## Linking an entity
+
+1. In the **Associated Entities** card, choose an **Entity Type**.
+2. Pick from a dropdown of existing entities of that type - Context, Prompt, and Evaluation each have their own picker, populated from what already exists.
+3. Click **Associate**.
+
+If the list is empty, you'll see "No entities associated yet."
+
+## Removing a link
+
+Click the remove (X) icon next to a linked entity. You'll be asked to confirm:
+
+> Remove entity association?
+> This will remove the link between the rule and this entity.
+
+This only removes the link between the rule and the entity - it doesn't delete the Context, Prompt, or Evaluation Type itself.
+
+## What happens when a rule matches
+
+When a rule matches at evaluation time, all of its linked entities are returned. If the caller asks for it, their full data is included too - for example, a Context's content, or a Prompt's compiled text. See the [Evaluate API](/latest/openlit/prompts-experiments/rule-engine/evaluate-api) page for the exact response shape.
+
+## Linking from the other side
+
+You can also start the link from a Context or Prompt's own page instead of from the rule:
+
+- From a Context, see [Linking rules to a Context](/latest/openlit/prompts-experiments/context/link-rules).
+- From a Prompt, see [Linking rules to a Prompt](/latest/openlit/prompts-experiments/prompt-hub/rules).
+
+Both flows open the same "Create rule and link to..." dialog described in [Create & Manage Rules](/latest/openlit/prompts-experiments/rule-engine/create-and-manage-rules), pre-filled with the link back to that Context or Prompt.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Preview" href="/latest/openlit/prompts-experiments/rule-engine/preview" icon='flask-vial'>
+    Confirm your conditions match before relying on the linked entities
+  </Card>
+  <Card title="Evaluate API" href="/latest/openlit/prompts-experiments/rule-engine/evaluate-api" icon='code'>
+    Retrieve linked entities - and their full data - from your application
+  </Card>
+</CardGroup>

@@ -1,0 +1,42 @@
+---
+title: "Retrieve a Prompt"
+description: "Fetch a saved prompt by name or ID, optionally a specific version, and compile it with dynamic variables via the SDK or API"
+---
+
+Once a prompt exists in Prompt Hub, your application fetches it at runtime instead of hardcoding the text. You can look it up by name or by ID, and optionally ask for a specific version - if you don't, you get the latest available content. If you don't ask for compilation, you get the raw prompt text back untouched, including any `{{variableName}}` placeholders still in place.
+
+## Dynamic variables
+
+Any `{{variableName}}` placeholder in a prompt's content is replaced with the value you pass at fetch time when compilation is enabled. It's plain text substitution - there's no escaping, no nested variables, and no default values, so make sure you pass a value for every placeholder the prompt uses.
+
+Every fetch is counted, so the Downloads column on the prompt list and the per-version counts on the [Versions tab](/latest/openlit/prompts-experiments/prompt-hub/versioning) reflect real usage from your application.
+
+## Create an API key
+
+To authenticate SDK or API requests, you need an API key:
+
+<Steps>
+  <Step title="Create an API Key">
+    - Go to OpenLIT and navigate to the **API Keys** page.
+    - Click **Create API Key**.
+    - Enter a name for your API key.
+    - Save the key displayed - store it securely, since you'll pass it to the SDK for authentication.
+  </Step>
+</Steps>
+
+## Get a prompt using the SDK or API
+
+<Card title="GET Prompt API reference" href="/latest/openlit/developer-resources/api-reference/endpoint/prompt-hub/get" icon='cloud-arrow-down'>
+  Full request/response schema, plus Python and TypeScript SDK examples for fetching and compiling a prompt
+</Card>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Versioning" href="/latest/openlit/prompts-experiments/prompt-hub/versioning" icon='code-branch'>
+    Fetch a specific version by number instead of always getting the latest
+  </Card>
+  <Card title="Manage Prompts" href="/latest/openlit/prompts-experiments/prompt-hub/manage-prompts" icon='file-lines'>
+    Where prompts, names, and IDs come from in the first place
+  </Card>
+</CardGroup>

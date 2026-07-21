@@ -78,3 +78,20 @@ export function emptyTraceAnalysis(traceId: string): TraceAnalysis {
 		},
 	};
 }
+
+/**
+ * Ensures every registered dimension key exists when reading stored analysis JSON.
+ * Older runs remain readable when new dimensions are appended to the registry.
+ */
+export function ensureTraceAnalysisDimensions(
+	value: Partial<Record<TraceAnalysisDimension, unknown>> | null | undefined
+): Record<TraceAnalysisDimension, TraceAnalysisFinding[]> {
+	return Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [
+			dimension,
+			Array.isArray(value?.[dimension])
+				? (value[dimension] as TraceAnalysisFinding[])
+				: [],
+		])
+	) as Record<TraceAnalysisDimension, TraceAnalysisFinding[]>;
+}

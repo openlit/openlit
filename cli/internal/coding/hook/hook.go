@@ -331,8 +331,8 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	// subagent that knows its parent's chat id, stamp it so the UI
 	// can fold the subagent's spans under the parent's chat row
 	// instead of listing the subagent as a separate session.
-	if cached.ParentConversationID != "" {
-		sessionAttrs["coding_agent.agent.parent_id"] = cached.ParentConversationID
+	if parentID := foreignParentID(cached.ParentConversationID, cached.ConversationID, sessionID); parentID != "" {
+		sessionAttrs["coding_agent.agent.parent_id"] = parentID
 	}
 	// Subagent flag — toggled by Cursor's is_background_agent /
 	// is_parallel_worker on subagent payloads. Used by the Sessions
@@ -459,6 +459,21 @@ func pickAdapter(vendor string) (normalize.Adapter, error) {
 	default:
 		return nil, fmt.Errorf("unknown --vendor %q", vendor)
 	}
+}
+
+// foreignParentID returns a parent conversation id worth stamping as
+// coding_agent.agent.parent_id, or "" when the probe is empty / a
+// Cursor self-parent echo (parent_conversation_id == this chat's own
+// id). Stamping self-parent made the Sessions list treat the parent
+// chat as a subagent and hide it.
+func foreignParentID(parentID, conversationID, sessionID string) string {
+	if parentID == "" {
+		return ""
+	}
+	if parentID == conversationID || parentID == sessionID {
+		return ""
+	}
+	return parentID
 }
 
 // isClaudeCodeVendor returns true when the vendor key resolves to the
