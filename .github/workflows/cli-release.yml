@@ -29,7 +29,7 @@ jobs:
           - { os: windows, arch: amd64,  ext: ".exe" }
           - { os: windows, arch: arm64,  ext: ".exe" }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
         with:
@@ -103,7 +103,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Resolve version
         id: ver
@@ -148,7 +148,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # The three Docker actions below are pinned to commit SHAs (instead
       # of `@v3` / `@v5`) so a future repoint of the tag can't slip a
       # backdoored buildx or login step into the GHCR push pipeline. The
