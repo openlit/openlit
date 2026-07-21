@@ -870,9 +870,10 @@ describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
     );
     expect(insertCall).toBeDefined();
     const stored = insertCall![0].values[0];
-    expect(stored['evaluationData.evaluation']).toEqual(['toxicity']);
+    // storeEvaluation remaps ids to configured labels (main normalizeEvaluationResults).
+    expect(stored['evaluationData.evaluation']).toEqual(['Toxicity']);
     expect(stored['evaluationData.verdict']).toEqual(['no']);
-    expect(stored.scores).toEqual({ toxicity: 0.6 });
+    expect(stored.scores).toEqual({ Toxicity: 0.6 });
   });
 });
 

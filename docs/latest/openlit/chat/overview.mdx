@@ -1,0 +1,58 @@
+---
+title: "Overview"
+description: "Otter is OpenLIT's AI chat assistant for observability - ask natural language questions about traces, costs, and tokens, and manage resources through conversation"
+---
+
+**Otter** is OpenLIT's AI chat assistant for observability data. Ask questions in plain language about traces, costs, and tokens; create dashboards, rules, prompts, and Vault secrets through conversation; and run the same AI analysis you get from the telemetry detail views. Product copy describes it as: *Ask questions about your observability data using natural language*.
+
+Open Otter from the **Otter** mode toggle in the sidebar (`/chat`), or from the floating Otter button on other playground pages (hidden while you are already on `/chat*`). Configure a provider first under [Chat Settings](/latest/openlit/chat/settings), then start chatting. Track spend on the [Otter usage](/latest/openlit/chat/usage) page.
+
+Trends for narrow phrases like "AI copilot for observability" are low-volume; broader interest sits around AI chat assistants and natural-language querying - Otter is the observability-native version of that workflow.
+
+<CardGroup cols={2}>
+  <Card title="Chat with Otter" href="/latest/openlit/chat/conversations" icon="comment">
+    Conversations, SQL results, widgets, and resource actions
+  </Card>
+  <Card title="Chat Settings" href="/latest/openlit/chat/settings" icon="gear">
+    Pick AI Provider, Model, and a Vault API key
+  </Card>
+  <Card title="Otter usage" href="/latest/openlit/chat/usage" icon="chart-column">
+    Token and cost attribution by feature, provider, model, and date
+  </Card>
+  <Card title="AI Analysis" href="/latest/openlit/observability/telemetry/ai-analysis" icon="wand-magic-sparkles">
+    Trace and span analysis Otter can also run from chat
+  </Card>
+</CardGroup>
+
+## What Otter can do
+
+- **Natural language data questions** - Otter turns questions into read-only SQL against your telemetry tables and shows results as tables or charts.
+- **Save as Widget** - turn a query result into a dashboard widget.
+- **Resource management** - create and manage rules, contexts, prompts, Vault secrets, and custom models through conversation.
+- **Dashboard generation** - describe a dashboard and import the generated layout.
+- **Trace / span analysis and prompt improvement** - same capabilities as the telemetry AI Analysis and Prompt Hub Otter flows, reachable from chat.
+
+## Get started
+
+<Steps>
+  <Step title="Configure Chat Settings">
+    Open `/chat/settings` (gear in the Otter sidebar). Choose **AI Provider**, **Model**, and **API Key (from Vault)**, then **Save Configuration** (or **Update Configuration** if one already exists). Store the key in [Vault](/latest/openlit/developer-resources/vault/overview) first, or use **Create new** on the settings form.
+  </Step>
+  <Step title="Start a conversation">
+    Open `/chat`, click **New Chat**, and try an empty-state example such as analyzing slow traces from the last 24 hours or breaking down token usage and cost by model.
+  </Step>
+  <Step title="Review usage">
+    Open **Otter usage** (`/chat/usage`) to see tokens and cost by provider, model, and where Otter was used (chat, trace analysis, span analysis, prompt improvement).
+  </Step>
+</Steps>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Do I need Chat Settings before I can talk to Otter?">
+    Yes. Until a provider, model, and Vault API key are saved, Otter prompts you to configure Chat Settings.
+  </Accordion>
+  <Accordion title="Can Otter change my data or run destructive SQL?">
+    Query tools run read-only against an allowlisted set of telemetry tables. Resource tools only change platform entities (prompts, rules, and so on) when you ask Otter to create or update them.
+  </Accordion>
+</AccordionGroup>

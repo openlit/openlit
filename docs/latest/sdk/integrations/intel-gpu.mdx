@@ -1,5 +1,6 @@
 ---
 title: 'Monitor Intel GPUs using OpenTelemetry'
+description: 'Monitor Intel GPU hardware with OpenTelemetry, capturing temperature, power draw, energy use, and clock frequency via the Linux i915/Xe kernel driver.'
 sidebarTitle: 'Intel GPUs'
 ---
 
@@ -8,7 +9,7 @@ import IntegrationMethods from '/snippets/integration-methods.mdx';
 OpenLIT uses OpenTelemetry to help you monitor Intel GPUs. This includes tracking GPU metrics like temperature, power consumption, energy usage, and clock frequency via the Linux i915/Xe kernel driver.
 
 <Note>
-Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kernel 5.10+). Metrics are read directly from the kernel's sysfs/hwmon interface — no additional software or libraries are required. Utilization and memory metrics are not available via this interface; use [Intel GPU Top](https://github.com/intel/igt-gpu-tools) or [XPUManager](https://github.com/intel/xpumanager) for those.
+Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kernel 5.10+). Metrics are read directly from the kernel's sysfs/hwmon interface - no additional software or libraries are required. Utilization and memory metrics are not available via this interface; use [Intel GPU Top](https://github.com/intel/igt-gpu-tools) or [XPUManager](https://github.com/intel/xpumanager) for those.
 </Note>
 
 ## Collected Metrics
@@ -118,7 +119,7 @@ Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kern
   </Accordion>
 </AccordionGroup>
 
-<Card title="Collected Metrics" href="/latest/openlit/observability/metrics#gpu-metrics" icon='table'>
+<Card title="Collected Metrics" href="/latest/openlit/observability/telemetry#metrics" icon='table'>
 Details on the types of metrics collected and their descriptions.
 </Card>
 

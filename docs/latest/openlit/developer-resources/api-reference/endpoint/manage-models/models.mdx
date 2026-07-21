@@ -1,0 +1,55 @@
+---
+title: "Models"
+openapi: "GET /api/openground/models"
+---
+
+Session-authenticated APIs used by the Manage Models UI for the active database configuration.
+
+## Operations
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/openground/models` | List models (optional `?provider=`) |
+| `POST` | `/api/openground/models` | Create or update a model |
+| `DELETE` | `/api/openground/models?model_id=&provider=` | Delete a model |
+
+## Examples
+
+<Tabs>
+  <Tab title="List">
+    ```bash
+    curl -X GET "/api/openground/models" \
+      -H "Cookie: <signed-in-session-cookie>"
+    ```
+  </Tab>
+  <Tab title="Create or update">
+    ```bash
+    curl -X POST "/api/openground/models" \
+      -H "Content-Type: application/json" \
+      -H "Cookie: <signed-in-session-cookie>" \
+      -d '{
+        "provider": "openai",
+        "model": {
+          "id": "gpt-4o-custom",
+          "model_id": "gpt-4o-custom",
+          "displayName": "GPT-4o Custom",
+          "modelType": "chat",
+          "contextWindow": 128000,
+          "inputPricePerMToken": 2.5,
+          "outputPricePerMToken": 10,
+          "capabilities": ["function-calling"]
+        }
+      }'
+    ```
+  </Tab>
+  <Tab title="Delete">
+    ```bash
+    curl -X DELETE "/api/openground/models?model_id=gpt-4o-custom&provider=openai" \
+      -H "Cookie: <signed-in-session-cookie>"
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  These routes require a signed-in OpenLIT browser session. They are not the same as API-key authenticated SDK endpoints such as Prompt Hub or Vault.
+</Note>

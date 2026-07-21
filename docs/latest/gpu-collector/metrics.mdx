@@ -14,19 +14,19 @@ Collected for each detected GPU on Linux. Availability depends on vendor and GPU
 
 | Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
 |---|---|---|---|:---:|:---:|:---:|
-| `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | — |
-| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | — |
-| `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | — |
-| `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | — |
-| `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | — |
+| `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | - |
+| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | - |
+| `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | - |
+| `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | - |
+| `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | - |
 | `hw.gpu.temperature` | Gauge | `Cel` | Die or memory temperature | Yes | Yes | Yes |
 | `hw.gpu.fan_speed` | Gauge | `{rpm}` | Fan speed | Yes | Yes | Yes* |
 | `hw.gpu.power.draw` | Gauge | `W` | Current power draw | Yes | Yes | Yes |
 | `hw.gpu.power.limit` | Gauge | `W` | Power limit/cap | Yes | Yes | Yes |
 | `hw.gpu.energy.consumed` | Counter | `J` | Cumulative energy consumed | Yes | Yes | Yes |
 | `hw.gpu.clock.graphics` | Gauge | `MHz` | Graphics/SM clock frequency | Yes | Yes | Yes* |
-| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | — |
-| `hw.errors` | Counter | `{error}` | ECC and PCIe error count | Yes | — | — |
+| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | - |
+| `hw.errors` | Counter | `{error}` | ECC and PCIe error count | Yes | - | - |
 
 \* Intel fan speed requires Linux kernel 6.16+. Intel graphics clock requires the Xe driver.
 

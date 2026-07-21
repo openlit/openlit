@@ -124,9 +124,140 @@ For detailed OAuth setup instructions, see the [OAuth Authentication Setup](/lat
   ```
 </ResponseField>
 
+## Server variables
+
+<ResponseField name="PORT">
+  Sets the port the OpenLIT server listens on. For **Docker Compose** deployments, set this in the `.env` file next to `docker-compose.yml` - Compose maps it to both the host port and the container's internal `DOCKER_PORT` for you. For **Kubernetes** or a raw container run, set `DOCKER_PORT` directly instead (see below); the container's entrypoint always derives its actual listening port from `DOCKER_PORT`, defaulting to `3000` if unset.
+
+  **Example** (Docker Compose `.env`):
+  ```yaml
+  PORT=3000
+  ```
+</ResponseField>
+
+<ResponseField name="DOCKER_PORT">
+  Sets the port the OpenLIT container listens on internally. Only relevant for Kubernetes or a raw container run where there's no Docker Compose translating `PORT` for you.
+
+  **Example**:
+  ```yaml
+  export DOCKER_PORT=3000
+  ```
+</ResponseField>
+
+<ResponseField name="API_URL">
+  Sets the base URL OpenLIT uses to call back into its own API - required by the Auto Evaluation, Auto Pricing, Agents materialization, and telemetry-snapshot cron jobs, which run as separate processes and call this URL directly. Defaults to `http://localhost:$PORT`. Set this if you run behind a reverse proxy, a non-default host, or a different container/pod hostname - otherwise these background jobs will fail silently after every restart.
+
+  **Example**:
+  ```yaml
+  export API_URL=https://openlit.internal.example.com
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_EDITION">
+  Sets which OpenLIT build is running. Defaults to `oss` if unset.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_EDITION=oss
+  ```
+</ResponseField>
+
+## Agents variables
+
+Tune the background job that materializes the [Agents](/latest/openlit/observability/agents/overview) page's call graphs and versions from trace data.
+
+<ResponseField name="AGENTS_MATERIALIZE_SCHEDULE">
+  Cron schedule for the Agents materialization job. Defaults to `* * * * *` (every minute); the job self-throttles when there's no new trace data to process.
+
+  **Example**:
+  ```yaml
+  export AGENTS_MATERIALIZE_SCHEDULE="* * * * *"
+  ```
+</ResponseField>
+
+<ResponseField name="AGENTS_MATERIALIZE_MAX_PER_TICK">
+  Maximum number of agents materialized per scheduled run. Defaults to `100`.
+
+  **Example**:
+  ```yaml
+  export AGENTS_MATERIALIZE_MAX_PER_TICK=100
+  ```
+</ResponseField>
+
+<ResponseField name="AGENTS_MATERIALIZE_PARALLEL">
+  Maximum number of agents materialized concurrently per run. Defaults to `4`.
+
+  **Example**:
+  ```yaml
+  export AGENTS_MATERIALIZE_PARALLEL=4
+  ```
+</ResponseField>
+
+<ResponseField name="AGENTS_LOG_LEVEL">
+  Log level for the Agents materialization job (`debug`, `info`, `warn`, `error`). Defaults to `info`.
+
+  **Example**:
+  ```yaml
+  export AGENTS_LOG_LEVEL=info
+  ```
+</ResponseField>
+
+<ResponseField name="AGENTS_LOG_STACK">
+  Set to `false` to omit stack traces from Agents materialization error logs. Defaults to including them.
+
+  **Example**:
+  ```yaml
+  export AGENTS_LOG_STACK=false
+  ```
+</ResponseField>
+
+## Telemetry variables
+
+<Note>
+See [Anonymous Telemetry](/latest/openlit/developer-resources/anonymous-telemetry) for what OpenLIT's own usage telemetry collects and why.
+</Note>
+
+<ResponseField name="TELEMETRY_ENABLED">
+  Set to `false` to disable OpenLIT's anonymous usage telemetry, including the daily instance snapshot.
+
+  **Example**:
+  ```yaml
+  export TELEMETRY_ENABLED=false
+  ```
+</ResponseField>
+
+<ResponseField name="TELEMETRY_SNAPSHOT_SCHEDULE">
+  Cron schedule for the daily anonymous instance telemetry snapshot. Defaults to `17 3 * * *`.
+
+  **Example**:
+  ```yaml
+  export TELEMETRY_SNAPSHOT_SCHEDULE="17 3 * * *"
+  ```
+</ResponseField>
+
 ## Security variables
 
 OpenLIT enables stricter API protections by default, including security response headers, CSRF checks for browser session API requests, vault secret encryption, and restricted CORS for the vault secrets API.
+
+<ResponseField name="CRON_JOB_SECRET">
+  Token required to trigger internal cron-driven endpoints (Auto Evaluation, Auto Pricing, Agents materialization, telemetry snapshot). **Optional for typical self-hosted installs** - when unset, both the cron scripts and the endpoint check fall back to the same shared default, so scheduled jobs work out of the box with no configuration. Set it only if your instance is exposed such that an untrusted party could otherwise call these endpoints directly.
+
+  Changing this takes effect on the next restart, since cron entries are re-created from the current environment on every server startup.
+
+  **Example**:
+  ```yaml
+  export CRON_JOB_SECRET=your-cron-secret
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_REQUIRE_ORG_FILTER">
+  Set to `true` to enforce organisation-scoped isolation on coding-agent telemetry queries in multi-organisation deployments.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_REQUIRE_ORG_FILTER=true
+  ```
+</ResponseField>
 
 <ResponseField name="OPENLIT_VAULT_ENCRYPTION_KEY">
   Secret used to encrypt Vault values at rest with AES-256-GCM. If this is not set, OpenLIT falls back to `NEXTAUTH_SECRET`.
@@ -207,6 +338,12 @@ Environment variables can be configured in multiple ways depending on your deplo
 
 For production deployments, set environment variables directly in your hosting platform or container orchestration system (Kubernetes, Docker Swarm, etc.).
 
+### Applying changes at runtime
+
+OpenLIT reads environment variables once when the server process starts - there's no hot-reload, so a config change (editing a `.env` file, updating a Kubernetes Secret, etc.) only takes effect after you restart the container or process.
+
+A restart is also all you need for the cron-driven features (Auto Evaluation, Auto Pricing, Agents materialization, telemetry snapshot): their scheduled jobs are re-created from the current environment on every startup, so there's no separate step to "re-save" settings after changing something like `API_URL`, `CRON_JOB_SECRET`, or `AGENTS_MATERIALIZE_SCHEDULE`.
+
 ## Sample environment file (.env)
 
 ```.env.example .env
@@ -228,9 +365,21 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
 
+# Server Configuration (Optional)
+# PORT is for Docker Compose; use DOCKER_PORT instead for Kubernetes or a raw container run
+PORT="3000"
+API_URL="http://localhost:3000"
+
+# Agents Materialization (Optional)
+AGENTS_MATERIALIZE_SCHEDULE="* * * * *"
+
+# Telemetry (Optional)
+TELEMETRY_ENABLED="true"
+
 # Security Configuration (Optional)
 OPENLIT_VAULT_ENCRYPTION_KEY="your-vault-encryption-key"
 OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
+CRON_JOB_SECRET="your-cron-secret"
 ```
 
 ---
@@ -239,17 +388,10 @@ OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
   <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
     Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
   </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
     Version, deploy, and collaborate on prompts with centralized management and tracking
   </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground/overview" icon='flask'>
     Compare cost, duration, and response tokens across different LLMs to find the most efficient model
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
-  </Card>
