@@ -522,7 +522,51 @@ export const MANAGE_PROVIDERS_DISPLAY_NAME = "Display Name";
 export const MANAGE_PROVIDERS_DESCRIPTION = "Description";
 export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
 
-// Pricing
+// Costs
+export const COSTS_TITLE = "Costs";
+export const COSTS_TAB_ANALYTICS = "Analytics";
+export const COSTS_TAB_MODELS = "Manage models";
+export const COSTS_TAB_CONFIGURATION = "Configuration";
+export const COSTS_USAGE_SECTION = "Cost usage";
+export const COSTS_OPTIMIZATION_SECTION = "Cost optimization";
+export const COSTS_AUTO_PRICING_SECTION = "Auto pricing runs";
+export const COSTS_STAT_TOTAL_PLATFORM = "Total AI cost";
+export const COSTS_STAT_LLM = "App LLM cost";
+export const COSTS_STAT_CODING_AGENTS = "Coding agents";
+export const COSTS_STAT_OTTER = "Otter";
+export const COSTS_STAT_EVALUATIONS = "Evaluations cost";
+export const COSTS_STAT_OPENGROUND = "Openground cost";
+export const COSTS_STAT_AVG_REQUEST = "Avg cost per request";
+export const COSTS_STAT_TOTAL_REQUESTS = "Total LLM requests";
+export const COSTS_STAT_CRON_RUNS = "Cron runs";
+export const COSTS_STAT_CRON_SUCCESS = "Successful runs";
+export const COSTS_STAT_PRICING_APPLIED = "Costs applied";
+export const COSTS_STAT_SPANS_SCANNED = "Spans scanned";
+export const COSTS_CRON_TABLE_STARTED = "Started";
+export const COSTS_CRON_TABLE_STATUS = "Status";
+export const COSTS_CRON_TABLE_DURATION = "Duration";
+export const COSTS_CRON_TABLE_UPDATED = "Costs applied";
+export const COSTS_CRON_TABLE_SCANNED = "Scanned";
+export const COSTS_CRON_TABLE_SKIPPED = "Skipped";
+export const COSTS_CRON_TABLE_FAILED = "Failed";
+export const COSTS_CRON_TABLE_EMPTY =
+	"No Auto Pricing runs applied costs in this time range.";
+export const COSTS_CRON_TABLE_EMPTY_CTA = "Enable Auto Pricing";
+export const COSTS_CRON_TABLE_EMPTY_HINT =
+	"Turn on Auto Pricing to backfill missing LLM costs on a schedule.";
+export const COSTS_BACKFILL_BANNER_TITLE = "Some LLM traces are missing cost";
+export const COSTS_BACKFILL_BANNER_DESCRIPTION =
+	"Auto Pricing can backfill gen_ai.usage.cost for spans that arrived without a price. Existing spend charts still work for costs already on your traces.";
+export const COSTS_BACKFILL_BANNER_CTA = "Configure Auto Pricing";
+export const COSTS_BACKFILL_BANNER_COUNT = "spans missing cost in this range";
+export const COSTS_CHART_BY_PROVIDER = "Cost by provider";
+export const COSTS_CHART_BY_MODEL = "Cost by model";
+export const COSTS_CHART_BY_ENVIRONMENT = "Cost by environment";
+export const COSTS_CHART_BY_APPLICATION = "Cost by application";
+export const COSTS_CHART_OVER_TIME = "Cost over time";
+export const COSTS_CHART_OPENGROUND_BY_PROVIDER = "Openground spend by provider";
+
+// Pricing (configuration tab copy)
 export const PRICING_TITLE = "Pricing";
 export const PRICING_PAGE_DESCRIPTION =
 	"Recalculate the cost of LLM traces using the current model pricing in Manage Models. Updates the `gen_ai.usage.cost` attribute on existing traces.";

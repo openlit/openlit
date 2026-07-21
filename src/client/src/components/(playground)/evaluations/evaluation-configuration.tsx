@@ -222,20 +222,10 @@ export default function EvaluationConfiguration() {
 							</p>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							<div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 rounded-md px-3 py-2">
-								<Info className="size-3.5 shrink-0" />
-								<span>
-									{m.EVALUATION_POWERED_BY_VERCEL}{" "}
-									<span className="font-medium text-stone-700 dark:text-stone-300">
-										{m.EVALUATION_POWERED_BY_VERCEL_SDK}
-									</span>
-								</span>
-							</div>
-
 							<div className="grid gap-3">
 								<div className="flex items-center justify-between">
 									<Label>{m.EVALUATION_PROVIDER_LABEL}</Label>
-									<Link href="/manage-models">
+									<Link href="/costs?tab=models">
 										<Button
 											variant="ghost"
 											size="sm"

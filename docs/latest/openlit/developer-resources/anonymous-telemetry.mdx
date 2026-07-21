@@ -1,52 +1,67 @@
 ---
-title: 'Anonymous Usage Metrics'
-description: 'Details about OpenLIT anonymous usage metrics reporting'
+title: "Anonymous Usage Metrics"
+sidebarTitle: "Anonymous Usage Metrics"
+description: "How OpenLIT's anonymous usage metrics work, what is collected, and how to opt out of telemetry with TELEMETRY_ENABLED=false"
+icon: "chart-column"
 ---
 
-## Why? 
-To enhance and improve the OpenLIT experience, we have introduced a telemetry feature that collects anonymous usage data. This data helps us understand how users interact with OpenLIT and identify areas for improvement. We assure you that all collected data is completely anonymous and is used solely for the purpose of enhancing our services.
+OpenLIT collects anonymous usage metrics by default so we can see which features are used and where to improve the product. Nothing here is meant to identify you personally - there is no email, name, password, secret, or span/trace content in what we send.
 
-## What identifies you?
+There is **no in-app settings toggle** for this. Opt out with an environment variable on the OpenLIT deployment, then restart so the change takes effect.
 
-Telemetry is anonymous by design:
+## How to opt out of telemetry
 
-- **User (MAU)**: an opaque, randomly generated user id via `identify` (never your email, name, or password). PostHog Active Users = DAU / WAU / MAU.
-- **Organisation (MAO)**: an opaque organisation id via PostHog Groups (`organisation`). PostHog Active Groups for that type = DAO / WAO / MAO. Project scope uses a second group (`project`) the same way.
-- **Install**: a stable, random `install_id` generated per OpenLIT installation so we can distinguish deployments without identifying you.
-- **Environment**: standard analytics context such as browser, operating system, and IP-derived country. We do not track personal identity.
+Set:
 
-## What do we track?
+```bash
+TELEMETRY_ENABLED=false
+```
 
-OpenLIT collects anonymous events from both OpenLIT and the OpenLIT SDK to analyze usage. We deliberately avoid high-noise, per-request events. Events include:
+That disables browser analytics, server-side usage events, and the daily install snapshot. Omit the variable (or set it to anything other than `false`) to leave collection on - Compose and `.env` examples ship with it enabled.
 
-- **Active usage**: opaque user id for DAU/WAU/MAU; organisation and project Groups for active-org / active-project counts; login and registration; named page visits (by page name, not full URLs).
-- **Organisations & projects**: create / switch / list inventory counts (`organisation_id` / `project_id` only - never names or member emails).
-- **Feature adoption**: create/update/delete counts for prompts, rules, evaluations, dashboards, contexts, openground, and database configurations.
-- **Inventory counts**: how many of each entity exist (for example orgs, projects, prompts, rules, evaluation types, dashboards, fleet agents connected, application and coding agents) - counts only, never names or contents.
-- **Auto features**: whether auto pricing and auto evaluation are enabled, and their run outcomes.
-- **SDK operations**: success/failure counts for fetching prompts and vault secrets.
-- **Daily instance snapshot**: once per day, per install, we send an aggregate `INSTANCE_TELEMETRY_SNAPSHOT` with anonymous totals - including OpenLIT version, `users_total` / `organisations_total` / `projects_total`, other entity inventory counts, and world-total ingestion volume (`spans_total`, `traces_total`, and 24h deltas). This lets us understand OpenLIT usage at scale without ever sending your telemetry data itself.
+## What identifies an install (anonymously)
 
-We never send emails, names, passwords, secrets, API keys, span/trace contents, or per-span ingestion events.
+| Signal | What it is |
+|--------|------------|
+| **User** | An opaque user id - never your email, name, or password |
+| **Organisation / project** | Opaque organisation and project group ids - never names or member emails |
+| **Install** | A stable random `install_id` per OpenLIT deployment |
+| **Environment** | Ordinary analytics context such as browser, OS, and approximate location |
 
-## How to disable the collection of usage metrics
+## What we track
 
-Usage metrics collection in OpenLIT is enabled by default, but you can opt-out at any time. To disable usage metrics collection (including the daily instance snapshot), set the `TELEMETRY_ENABLED=false` environment variable when starting OpenLIT.
+When enabled, OpenLIT sends:
 
-## Where are usage metrics stored?
+- **Active usage** - opaque user / organisation / project activity, login and registration, and page path visits as people use the UI
+- **Feature adoption** - create/update/delete-style signals for prompts, rules, evaluations, dashboards, contexts, OpenGround, and database configurations (ids and counts, not names or contents)
+- **Auto features** - whether Auto Pricing and auto evaluation are turned on, and run outcomes
+- **SDK-facing API use** - success/failure when applications fetch prompts or Vault secrets through OpenLIT (the OpenLIT server records this; the SDK packages do not phone home on their own)
+- **Daily install snapshot** - once per day, aggregate totals for that install: OpenLIT version, counts of users / organisations / projects / database configs, whether auto pricing or auto evaluation is configured, and high-level ingestion volume counts
 
-We use Posthog to securely store and visualize usage metrics, providing essential insights into how OpenLIT is used.
+We never send emails, names, passwords, secrets, API keys, prompt or rule text, or the contents of your spans and traces.
+
+## Where metrics are stored
+
+Usage metrics are sent to PostHog for secure storage and product analytics.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Is there a UI switch to disable this?">
+    No. Opt out only via `TELEMETRY_ENABLED=false` on the OpenLIT process, then restart.
+  </Accordion>
+  <Accordion title="Does disabling this stop my own OpenTelemetry traces?">
+    No. This only controls OpenLIT's anonymous product usage metrics. Your application's OTLP traces, metrics, and logs are separate.
+  </Accordion>
+</AccordionGroup>
 
 ---
 
-<CardGroup cols={3}>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+<CardGroup cols={2}>
+  <Card title="Configuration" href="/latest/openlit/configuration" icon="gears">
+    Full environment variable reference, including TELEMETRY_ENABLED
   </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
-    Version, deploy, and collaborate on prompts with centralized management and tracking
-  </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
-    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  <Card title="Installation" href="/latest/openlit/installation" icon="download">
+    Deploy OpenLIT and set environment variables for your setup
   </Card>
 </CardGroup>

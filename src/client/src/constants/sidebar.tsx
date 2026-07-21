@@ -12,7 +12,6 @@ import {
 	Building2,
 	CircleDollarSign,
 	Component,
-	Cpu,
 	FolderKanban,
 	Home,
 	Key,
@@ -74,6 +73,13 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/evaluations",
 						type: "action",
 					},
+					{
+						icon: <CircleDollarSign className={ICON_CLASSES} />,
+						text: m.COSTS_TITLE,
+						link: "/costs",
+						type: "action",
+					},
+					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
 				],
 			},
 			{
@@ -109,24 +115,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/openground",
 						type: "action",
 					},
-				],
-			},
-			{
-				title: m.SIDEBAR_CONFIGURATION,
-				children: [
-					{
-						icon: <CircleDollarSign className={ICON_CLASSES} />,
-						text: m.PRICING_TITLE,
-						link: "/pricing",
-						type: "action",
-					},
-					{
-						icon: <Cpu className={ICON_CLASSES} />,
-						text: m.FEATURE_MANAGE_MODELS,
-						link: "/manage-models",
-						type: "action",
-					},
-					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
 				],
 			},
 		],

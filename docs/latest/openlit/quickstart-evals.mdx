@@ -4,7 +4,7 @@ sidebarTitle: "Set Up Evals"
 description: "Score AI outputs automatically for hallucination, bias, toxicity, and more - or add your own human feedback"
 ---
 
-Automated AI evaluation to assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments. For evaluation types, custom evaluators, and online vs. offline concepts, see [Core Concepts](/latest/openlit/evaluations/core-concepts).
+Automated AI evaluation to assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments. Open **Monitor → Evaluations** for Analytics, Evaluators, and Configuration. For evaluation types and custom evaluators, see [Evaluators](/latest/openlit/evaluations/evaluators).
 
 <video
       autoPlay
@@ -21,15 +21,15 @@ Automated AI evaluation to assess and monitor the quality, safety, and performan
 
 | If you want to... | Use this OpenLIT feature |
 |---|---|
-| Automatically score every production trace | [Auto Evaluation](/latest/openlit/evaluations/auto-evaluation) with a cron schedule |
-| Score one specific trace on demand | [Run Evaluation](/latest/openlit/evaluations/llm-as-a-judge#run-from-a-trace) from that trace's Evaluation tab |
+| Automatically score every production trace | [Configuration](/latest/openlit/evaluations/configuration) (Auto Evaluation) |
+| Score one specific trace on demand | [LLM-as-a-Judge](/latest/openlit/evaluations/llm-as-a-judge) from that trace's Evaluation tab |
 | Rate a trace yourself instead of an LLM judge | [Manual Feedback](/latest/openlit/evaluations/manual-feedback) - Good / Bad / Neutral plus a comment |
-| Judge responses against your own ground truth, not just the model's knowledge | [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) + [Context](/latest/openlit/prompts-experiments/context) - applies to Auto, Manual, and Programmatic evaluations |
-| Evaluate on criteria beyond the 11 built-in types | [Custom evaluation types](/latest/openlit/evaluations/core-concepts#custom-evaluation-types) |
-| Only run certain evaluators for certain models, providers, or environments | [Rule Engine conditional linking](/latest/openlit/evaluations/llm-as-a-judge#configure-evaluation-types) |
+| Judge responses against your own ground truth, not just the model's knowledge | [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) + [Context](/latest/openlit/prompts-experiments/context/overview) |
+| Evaluate on criteria beyond the 11 built-in types | [Custom evaluators](/latest/openlit/evaluations/evaluators#custom-evaluators) |
+| Only run certain evaluators for certain models, providers, or environments | [Evaluators](/latest/openlit/evaluations/evaluators) + [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) |
 | Test prompt or model changes before shipping | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) via the SDK |
 | Block a deploy on a quality regression | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) in a CI/CD pipeline |
-| See detection-rate trends across models and time | [Evaluations dashboard](/latest/openlit/evaluations/llm-as-a-judge#aggregate-statistics-in-dashboard) |
+| See pass-rate trends across evaluators and time | [Analytics](/latest/openlit/evaluations/analytics) |
 
 ## Setup
 
@@ -44,7 +44,7 @@ Automated AI evaluation to assess and monitor the quality, safety, and performan
 
     <Steps>
       <Step title="Pick a judge model">
-        Go to **Evaluations → Settings**, choose a provider and model to act as the judge (OpenAI, Anthropic, Google, Mistral, and 7+ others), and add its API key from [Vault](/latest/openlit/developer-resources/vault).
+        Go to **Evaluations → Settings**, choose a provider and model to act as the judge (OpenAI, Anthropic, Google, Mistral, and 7+ others), and add its API key from [Vault](/latest/openlit/developer-resources/vault/overview).
       </Step>
       <Step title="Enable evaluators">
         Switch to the **Evaluation Types** tab and turn on the evaluators you want. Hallucination, Bias, and Toxicity are enabled by default; Relevance, Coherence, Safety, and 5 others are opt-in.
@@ -116,11 +116,11 @@ Automated AI evaluation to assess and monitor the quality, safety, and performan
 ---
 
 <CardGroup cols={2}>
-  <Card title="Core Concepts" href="/latest/openlit/evaluations/core-concepts" icon='book'>
-    Evaluation types, custom evaluators, and online vs. offline evaluation
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon='list-check'>
+    Built-in and custom evaluation types
   </Card>
-  <Card title="Auto Evaluation" href="/latest/openlit/evaluations/auto-evaluation" icon='clock'>
-    Run evaluations automatically on a schedule, with sampling to control cost
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon='gear'>
+    Auto Evaluation schedule and judge model
   </Card>
   <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
     Use advanced LLMs to evaluate AI application quality with automated scoring

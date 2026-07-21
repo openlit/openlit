@@ -1,0 +1,32 @@
+---
+title: "Models"
+description: "Browse and edit LLM model pricing in Manage Models - Model ID, type, context window, and input/output price per 1M tokens"
+---
+
+The left sidebar on **Manage Models** lists providers and their models. Each row shows context window and input price. Badges mark **Default** (seeded) vs **Custom** (added by you). Click a model to open the editor on the right, or use **+** on a provider to add one.
+
+## Edit or add a model
+
+| Field | Notes |
+|-------|--------|
+| **Model ID** | Identifier your SDK sends (e.g. `gpt-4o-2024-08-06`). Normalized to lowercase; only editable when adding. |
+| **Display Name** | Human-readable name in dropdowns. |
+| **Model Type** | Chat, Embeddings, Images, or Audio - controls how export JSON is shaped. |
+| **Context Window** | Max context length in tokens. |
+| **Input Price (per 1M tokens)** / **Output Price (per 1M tokens)** | Used for AI cost tracking and recalculation. |
+| **Capabilities (comma separated)** | Optional list (e.g. `function-calling, vision, streaming`). |
+
+Click **Save Model** to persist. For an existing model, **Delete** opens a confirmation titled **Delete Model**.
+
+Empty state copy when nothing is selected: **Select a model to view details**.
+
+## Tips
+
+- Model ID should match `gen_ai.request.model` on your spans so [Configuration](/latest/openlit/costs/configuration) and ingest-time pricing can resolve it.
+- After changing prices, use Auto Pricing or the Cost tile refresh icon on a trace for historical spans; the [SDK Pricing URL](/latest/openlit/costs/manage-models/sdk-pricing) applies to future tracing.
+
+## API
+
+<Card title="Models API" href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models" icon="code">
+  List, create/update, and delete models
+</Card>

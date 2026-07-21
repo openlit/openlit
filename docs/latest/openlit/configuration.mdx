@@ -164,7 +164,7 @@ For detailed OAuth setup instructions, see the [OAuth Authentication Setup](/lat
 
 ## Agents variables
 
-Tune the background job that materializes the [Agents](/latest/openlit/observability/agents) page's call graphs and versions from trace data.
+Tune the background job that materializes the [Agents](/latest/openlit/observability/agents/overview) page's call graphs and versions from trace data.
 
 <ResponseField name="AGENTS_MATERIALIZE_SCHEDULE">
   Cron schedule for the Agents materialization job. Defaults to `* * * * *` (every minute); the job self-throttles when there's no new trace data to process.
@@ -388,10 +388,10 @@ CRON_JOB_SECRET="your-cron-secret"
   <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
     Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
   </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
     Version, deploy, and collaborate on prompts with centralized management and tracking
   </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground/overview" icon='flask'>
     Compare cost, duration, and response tokens across different LLMs to find the most efficient model
   </Card>
 </CardGroup>

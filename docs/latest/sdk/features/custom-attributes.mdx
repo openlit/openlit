@@ -54,7 +54,7 @@ result = openlit.inject_additional_attributes(
 
 ## Tag spans with agent identity
 
-`agent_context()` and `agent_version_context()` tag spans and metrics with `gen_ai.agent.name` and `gen_ai.agent.version` respectively. These are what power the [Agents page's](/latest/openlit/observability/agents) per-agent grouping and version snapshots - use them if you want explicit control over agent identity instead of relying on inferred grouping from `service.name`.
+`agent_context()` and `agent_version_context()` tag spans and metrics with `gen_ai.agent.name` and `gen_ai.agent.version` respectively. These are what power the [Agents page's](/latest/openlit/observability/agents/overview) per-agent grouping and version snapshots - use them if you want explicit control over agent identity instead of relying on inferred grouping from `service.name`.
 
 ```python
 import openlit
@@ -81,7 +81,7 @@ with openlit.start_trace(name="checkout-flow") as trace:
   <Card title="Tracing" href="/latest/sdk/features/tracing" icon='route'>
     Custom tracers, resource attributes, and manual tracing
   </Card>
-  <Card title="Agents" href="/latest/openlit/observability/agents" icon='robot'>
+  <Card title="Agents" href="/latest/openlit/observability/agents/overview" icon='robot'>
     How agent identity and versions surface in the product from these attributes
   </Card>
   <Card title="Guardrails" href="/latest/sdk/features/guardrails" icon='shield-halved'>

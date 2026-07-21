@@ -1,0 +1,55 @@
+---
+title: "AI Analysis"
+description: "Turn a trace or span into a structured, AI-generated review of performance, reliability, cost, and token efficiency"
+---
+
+Every trace and span in the [Traces detail view](/latest/openlit/observability/telemetry/traces) has an **AI Analysis** tab. Use it to turn raw OpenTelemetry data into a structured review instead of reading spans by hand.
+
+Analysis runs at two scopes:
+
+- **Trace hierarchy analysis** (the AI Analysis tab in the left-hand view-mode row): reviews the root span and every child span together, so you can understand the full request - agent path, tool calls, model calls, retries, errors, and cost drivers.
+- **Individual span analysis** (the AI Analysis tab in the right-hand attributes panel): focuses on the single span currently selected, for when you need to inspect one model call, tool execution, retrieval step, error, or latency hotspot.
+
+## Analysis dimensions
+
+Each run is broken into dimension tabs:
+
+- **Strengths**: what the trace did well - efficient paths, good cache usage, appropriate model choice.
+- **Improvements**: concrete, actionable changes, each with a severity, an explanation, and a suggested fix shown as a word-diff preview.
+- **Wrong turns**: retries, repeated span names, and other signs the agent backtracked or looped.
+- **Cost**: cost per call, the most expensive span, and where spend concentrates.
+- **Token efficiency**: input/output/cache/reasoning token usage, duplicate tool or retrieval inputs, and repeated context.
+- **Path**: the request's execution path across services, tools, databases, and HTTP calls.
+
+## Run analysis from trace details
+
+1. Open a trace from the Traces page or from a trace widget.
+2. Select the **AI Analysis** tab - in the left panel for the whole trace, or in the right panel for the currently selected span.
+3. Click **Analyze**. Progress streams in as the analysis runs.
+4. When the run completes, it's saved to a run history tab so you can revisit it without re-running. Use **Re-run** only when the trace data or your investigation question has changed.
+
+Each finding card includes a **Try in Chat** button that hands the finding off to Otter with context pre-filled, so you can keep investigating conversationally instead of staying in the panel.
+
+## Run analysis from Otter
+
+You can also ask [Otter](/latest/openlit/chat/overview) to analyze traces or spans by natural language - Otter has dedicated tools for running or retrieving AI Analysis runs, including by session, user, or any custom span attribute:
+
+```
+"Analyze this trace hierarchy"
+"Review span <span_id> for token waste"
+"Find cost optimization opportunities for traces where session.id is dc7b1ba1-..."
+"Analyze the slowest traces from the last 24 hours"
+```
+
+When Otter references a trace or span in its answer, OpenLIT renders clickable trace/span pills so you can jump back into the trace detail view.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Traces & Exceptions" href="/latest/openlit/observability/telemetry/traces" icon='diagram-project'>
+    Where the AI Analysis tab lives inside the trace detail view
+  </Card>
+  <Card title="Chat with Otter" href="/latest/openlit/chat/conversations" icon='comment'>
+    Ask Otter to run analysis, find traces, or explain findings in natural language
+  </Card>
+</CardGroup>

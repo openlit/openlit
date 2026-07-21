@@ -19,9 +19,9 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
     </video>
 
     Prompt management, prompt versioning, and model testing tools for teams building AI applications:
-    - **Prompt versioning and deployment** - [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub) treats prompts as versioned artifacts. Edit, version, and deploy to any environment without code changes. Roll back instantly when needed.
+    - **Prompt versioning and deployment** - [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview) treats prompts as versioned artifacts. Edit, version, and deploy to any environment without code changes. Roll back instantly when needed.
     - **Collaborate on prompts** - Edit prompts as a team with full change history. Every version is tracked and linked to the evaluations and traces it produced, giving you full traceability from prompt to output.
-    - **Model comparison and A/B testing** - [OpenGround](/latest/openlit/prompts-experiments/openground) runs side-by-side LLM prompt testing across models, comparing cost, latency, and output quality so you pick the right model before you ship.
+    - **Model comparison and A/B testing** - [OpenGround](/latest/openlit/prompts-experiments/openground/overview) runs side-by-side LLM prompt testing across models, comparing cost, latency, and output quality so you pick the right model before you ship.
   </Tab>
 
   <Tab title="Observe" icon="bars-staggered">
@@ -55,7 +55,7 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
     </video>
 
     Coding agent observability for Claude Code, Cursor, and Codex. Understand token consumption, AI spend, and developer productivity across your entire engineering team:
-    - [One-command setup](/latest/openlit/coding-agents/onboarding) - Install the `openlit` CLI and wire any vendor in under a minute. No SDK, no code changes in your repos.
+    - [One-command setup](/latest/openlit/coding-agents/setup-and-configure) - Install the `openlit` CLI and wire any vendor in under a minute. No SDK, no code changes in your repos.
     - **Session monitoring** - Track cost per session, token usage, lines added and removed, model acceptance rate, commits, and PRs per user and per team.
     - **AI spend visibility** - See exactly how much each developer, team, and project spends on AI coding tools. Break down cost by model and vendor across Claude Code, Cursor, and Codex in one place.
     - **Privacy controls** - Automatic secret redaction, usage breakdowns by repo, and cohort-floor anonymization so individual data stays protected.
@@ -93,15 +93,15 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
 
     Manage the agents, keys, and pricing behind your AI stack from one place:
     - **Track and manage agents** - See every agent version running in production, monitor health, and manage deployments from the `/agents` page.
-    - **Vault** - [Centrally store and rotate](/latest/openlit/developer-resources/vault) LLM API keys that agents retrieve at runtime. No restarts, no code changes, no secrets in your codebase.
-    - **Model pricing** - [Manage Models](/latest/openlit/pricing/manage-models) lets you configure cost per token for any model. OpenLIT ships with pricing for popular models built in and applies it automatically across traces, dashboards, and cost reports.
+    - **Vault** - [Centrally store and rotate](/latest/openlit/developer-resources/vault/overview) LLM API keys that agents retrieve at runtime. No restarts, no code changes, no secrets in your codebase.
+    - **AI cost tracking** - [Costs](/latest/openlit/costs/overview) under Monitor combines spend analytics, [Manage models](/latest/openlit/costs/manage-models/overview), and Auto Pricing. OpenLIT ships with pricing for popular models and applies it across traces, dashboards, and cost reports.
   </Tab>
 
   <Tab title="Otter" icon="message-bot">
     <img src="/images/otter.svg" width="60" className="mb-4" alt="Otter, the OpenLIT AI chat copilot" />
 
     **Otter** is a built-in AI copilot that works across all of OpenLIT. Query your telemetry, analyze traces, improve prompts, and generate dashboards through natural language:
-    - [Natural language queries](/latest/openlit/chat) - Ask questions about traces, costs, and tokens. Otter converts them to SQL and runs them inline.
+    - [Natural language queries](/latest/openlit/chat/overview) - Ask questions about traces, costs, and tokens. Otter converts them to SQL and runs them inline.
     - **Trace and span analysis** - Get structured AI analysis across performance, reliability, cost, token efficiency, and execution path.
     - **Prompt improvement** - Ask Otter to review and suggest improvements to any Prompt Hub prompt.
     - **Dashboard generation** - Describe the dashboard you want and Otter generates a complete importable layout with working queries.
@@ -115,7 +115,7 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
   <Card title="Instrument an AI Agent" href="/latest/openlit/quickstart-ai-observability" icon="bolt">
     Production-ready AI Observability in 2 steps with zero code changes
   </Card>
-  <Card title="Observe coding agents" href="/latest/openlit/coding-agents/onboarding" icon="code">
+  <Card title="Observe coding agents" href="/latest/openlit/coding-agents/setup-and-configure" icon="code">
     Track spend and usage for Claude Code, Cursor, & more across teams
   </Card>
   <Card title="Deploy OpenLIT" href="/latest/openlit/installation" icon="circle-down">

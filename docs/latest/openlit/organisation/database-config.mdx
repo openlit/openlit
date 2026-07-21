@@ -8,21 +8,20 @@ A database configuration is the ClickHouse connection - host, port, database, an
 
 ## Add a database configuration
 
+Configs live on the project page under the **Database configurations** tab (`/organisation/project/[projectId]?tab=database`). `/settings/database-config` redirects to Organisation.
+
 <Steps>
   <Step title="Open Organisation">
-    Select **Organisation** from the sidebar.
+    Select **Organisation** or **Projects** from the sidebar under Settings.
   </Step>
   <Step title="Open a project">
-    Choose the project that should own the database configuration.
+    Choose the project that should own the database configuration, then open the **Database configurations** tab.
   </Step>
-  <Step title="Add config">
-    Click **Add database config** and enter a name, environment label, and the ClickHouse connection details (host, port, database, username, password).
+  <Step title="Add New Config">
+    Click **Add New Config** and enter **Config Name**, **Environment**, **Username**, **Password**, **Host**, **Port**, **Database**, and optional **Query params**. Click **Save** (or **Update** when editing).
   </Step>
-  <Step title="Test and save">
-    Test the connection, then save the configuration.
-  </Step>
-  <Step title="Select config">
-    Select the database configuration from the project page or the top navigation selector.
+  <Step title="Mark it active">
+    Check the list row to **Mark … as the active database config**, or choose it from the header **Databases** switcher. Connectivity is checked after the config becomes active - there is no separate test-connection button on the form.
   </Step>
 </Steps>
 

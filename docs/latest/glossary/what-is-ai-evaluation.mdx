@@ -21,7 +21,7 @@ LLM-as-a-judge uses a separate LLM call to grade a response against a rubric - f
 
 ## How does OpenLIT provide AI evaluation?
 
-OpenLIT includes 11 built-in evaluation types (hallucination, bias, toxicity, and more), runs them automatically in production with [Auto Evaluation](/latest/openlit/evaluations/auto-evaluation), and exposes the same evaluators [programmatically via the SDK](/latest/sdk/features/evaluations) for offline testing in CI/CD.
+OpenLIT includes 11 built-in evaluation types (hallucination, bias, toxicity, and more), runs them automatically in production from [Configuration](/latest/openlit/evaluations/configuration) (Auto Evaluation), and exposes the same evaluators [programmatically via the SDK](/latest/sdk/features/evaluations) for offline testing in CI/CD.
 
 ---
 
@@ -29,8 +29,8 @@ OpenLIT includes 11 built-in evaluation types (hallucination, bias, toxicity, an
   <Card title="Evaluations overview" href="/latest/openlit/evaluations/overview" icon='gavel'>
     The 11 built-in evaluation types and how automated scoring works
   </Card>
-  <Card title="Auto Evaluation" href="/latest/openlit/evaluations/auto-evaluation" icon='clock'>
-    Run evaluations automatically on a schedule, with sampling to control cost
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon='gear'>
+    Auto Evaluation schedule and judge model under Monitor
   </Card>
   <Card title="Offline evaluations (SDK)" href="/latest/sdk/features/evaluations" icon='code'>
     Run evaluations programmatically in CI/CD and development pipelines

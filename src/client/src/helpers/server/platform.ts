@@ -46,6 +46,11 @@ export const validateMetricsRequestType = {
 	AVERAGE_REQUEST_COST: "AVERAGE_REQUEST_COST",
 	COST_BY_APPLICATION: "COST_BY_APPLICATION",
 	COST_BY_ENVIRONMENT: "COST_BY_ENVIRONMENT",
+	COST_BY_PROVIDER: "COST_BY_PROVIDER",
+	COST_BY_MODEL: "COST_BY_MODEL",
+	COST_PER_TIME: "COST_PER_TIME",
+	COST_SUMMARY: "COST_SUMMARY",
+	OPENGROUND_COST_ANALYTICS: "OPENGROUND_COST_ANALYTICS",
 	// Model
 	TOP_MODELS: "TOP_MODELS",
 	MODEL_PER_TIME: "MODEL_PER_TIME",
@@ -100,6 +105,11 @@ export const validateMetricsRequest = (
 		case validateMetricsRequestType.AVERAGE_REQUEST_COST:
 		case validateMetricsRequestType.COST_BY_APPLICATION:
 		case validateMetricsRequestType.COST_BY_ENVIRONMENT:
+		case validateMetricsRequestType.COST_BY_PROVIDER:
+		case validateMetricsRequestType.COST_BY_MODEL:
+		case validateMetricsRequestType.COST_PER_TIME:
+		case validateMetricsRequestType.COST_SUMMARY:
+		case validateMetricsRequestType.OPENGROUND_COST_ANALYTICS:
 
 		// Models
 		case validateMetricsRequestType.MODEL_PER_TIME:
