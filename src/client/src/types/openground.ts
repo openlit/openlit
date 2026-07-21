@@ -35,6 +35,10 @@ export interface ModelMetadata {
 	contextWindow: number;
 	inputPricePerMToken: number; // Price per million tokens
 	outputPricePerMToken: number;
+	/** Optional USD per million cache-read tokens (prompt cache hits). */
+	cacheReadPricePerMToken?: number;
+	/** Optional USD per million cache-creation / cache-write tokens. */
+	cacheCreationPricePerMToken?: number;
 	capabilities?: string[]; // e.g., ["function-calling", "vision", "streaming"]
 }
 
@@ -78,6 +82,8 @@ export interface CustomModelInput {
 	contextWindow?: number;
 	inputPricePerMToken?: number;
 	outputPricePerMToken?: number;
+	cacheReadPricePerMToken?: number;
+	cacheCreationPricePerMToken?: number;
 	capabilities?: string[];
 }
 

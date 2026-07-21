@@ -46,6 +46,7 @@ import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
 import {
 	resolveEvaluationType,
 	type EvaluationTypeRef,
@@ -128,9 +129,15 @@ async function estimateEvaluationCost(
 			return 0;
 		}
 
-		return (
-			(promptTokens / 1_000_000) * modelMeta.inputPricePerMToken +
-			(completionTokens / 1_000_000) * modelMeta.outputPricePerMToken
+		return getChatModelCostPerM(
+			{
+				inputPricePerMToken: modelMeta.inputPricePerMToken,
+				outputPricePerMToken: modelMeta.outputPricePerMToken,
+				cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
+				cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
+			},
+			{ promptTokens, completionTokens },
+			{ promptTokensIncludeCache: true }
 		);
 	} catch (e) {
 		consoleLog("Evaluation cost lookup failed:", e);

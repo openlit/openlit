@@ -41,7 +41,9 @@ export async function GET(
 			model_id,
 			model_type,
 			input_price_per_m_token as inputPrice,
-			output_price_per_m_token as outputPrice
+			output_price_per_m_token as outputPrice,
+			cache_read_price_per_m_token as cacheReadPrice,
+			cache_creation_price_per_m_token as cacheCreationPrice
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		ORDER BY model_type, model_id
 	`;
@@ -71,10 +73,17 @@ export async function GET(
 		}
 
 		if (type === "chat") {
-			pricing[type][model.model_id] = {
+			const entry: Record<string, number> = {
 				promptPrice: model.inputPrice / 1000,
 				completionPrice: model.outputPrice / 1000,
 			};
+			if (model.cacheReadPrice > 0) {
+				entry.cacheReadPrice = model.cacheReadPrice / 1000;
+			}
+			if (model.cacheCreationPrice > 0) {
+				entry.cacheCreationPrice = model.cacheCreationPrice / 1000;
+			}
+			pricing[type][model.model_id] = entry;
 		} else if (type === "embeddings") {
 			pricing[type][model.model_id] = model.inputPrice / 1000;
 		} else if (type === "audio") {

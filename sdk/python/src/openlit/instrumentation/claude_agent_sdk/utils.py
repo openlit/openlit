@@ -332,8 +332,8 @@ def set_chat_span_attributes(
             pricing_info,
             input_tokens,
             output_tokens,
-            cache_read_tokens,
-            cache_creation_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_creation_tokens=cache_creation_tokens,
         )
         span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
@@ -454,8 +454,7 @@ def _calculate_cost(
     (uncached input + cache-read + cache-creation), so the cache token counts
     are forwarded with ``prompt_tokens_include_cache=True``. This re-prices the
     cached tokens at their dedicated cache rates instead of the full prompt
-    rate; without it, cache-read tokens (billed at 1/10th of prompt price for
-    Claude models) are charged at full prompt price.
+    rate.
     """
     if not pricing_info or not model_str:
         return 0
@@ -464,8 +463,8 @@ def _calculate_cost(
         pricing_info,
         input_tokens,
         output_tokens,
-        cache_read_tokens=cache_read_tokens,
-        cache_creation_tokens=cache_creation_tokens,
+        cache_read_tokens=cache_read_tokens or 0,
+        cache_creation_tokens=cache_creation_tokens or 0,
         prompt_tokens_include_cache=True,
     )
 

@@ -469,6 +469,10 @@ export const OPENGROUND_MODEL_DISPLAY_NAME = "Display Name";
 export const OPENGROUND_CONTEXT_WINDOW = "Context Window";
 export const OPENGROUND_INPUT_PRICE_PER_M_TOKENS = "Input Price (per 1M tokens)";
 export const OPENGROUND_OUTPUT_PRICE_PER_M_TOKENS = "Output Price (per 1M tokens)";
+export const OPENGROUND_CACHE_READ_PRICE_PER_M_TOKENS =
+	"Cache Read Price (per 1M tokens)";
+export const OPENGROUND_CACHE_CREATION_PRICE_PER_M_TOKENS =
+	"Cache Creation Price (per 1M tokens)";
 export const OPENGROUND_MODEL_CAPABILITIES = "Capabilities (comma separated)";
 export const OPENGROUND_SAVE_MODEL = "Save Model";
 export const OPENGROUND_MODEL_SAVED_SUCCESS = "Model saved successfully!";
@@ -610,7 +614,7 @@ export const PRICING_HOW_AUTO_WORKS_STEP_2 =
 export const PRICING_HOW_AUTO_WORKS_STEP_3 =
 	"Looks up the model: for each span, reads gen_ai.system (provider) + gen_ai.request.model and finds the matching row in openlit_provider_models.";
 export const PRICING_HOW_AUTO_WORKS_STEP_4 =
-	"Computes cost: (input_tokens / 1M) × input_price_per_m_token + (output_tokens / 1M) × output_price_per_m_token.";
+	"Computes cost from input/output tokens plus optional cache-read and cache-creation tokens at their Manage Models rates (inclusive vs exclusive prompt accounting by provider).";
 export const PRICING_HOW_AUTO_WORKS_STEP_5 =
 	"Writes back: ALTER TABLE otel_traces UPDATE SpanAttributes['gen_ai.usage.cost'] for each processed span. Spans with missing provider/model/tokens or an unknown model are skipped (not errors).";
 export const PRICING_HOW_AUTO_WORKS_STEP_6 =
@@ -1782,7 +1786,7 @@ export const CHAT_SETTINGS_CONFIG_OUTPUT = "Output";
 export const CHAT_SETTINGS_CONFIG_CONTEXT = "Context";
 export const CHAT_SETTINGS_CONFIG_COST_CALCULATION = "Cost calculation";
 export const CHAT_SETTINGS_CONFIG_COST_FORMULA =
-	"cost = (input_tokens / 1M) x input_price + (output_tokens / 1M) x output_price";
+	"cost = (billable_input / 1M) x input_price + (output / 1M) x output_price + (cache_read / 1M) x cache_read_price + (cache_creation / 1M) x cache_creation_price";
 export const CHAT_SETTINGS_OR = "or";
 export const CHAT_FAILED_TO_CREATE_CONVERSATION = "Failed to create conversation";
 export const CHAT_FAILED_TO_DELETE_CONVERSATION = "Failed to delete conversation";

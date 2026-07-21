@@ -16,6 +16,10 @@ import { CronRunStatus, CronType } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import Sanitizer from "@/utils/sanitizer";
 import asaw from "@/utils/asaw";
+import {
+	getChatModelCostPerM,
+	promptTokensIncludeCache,
+} from "./chat-cost";
 
 const COST_KEY = getTraceMappingKeyFullPath("cost") as string; // gen_ai.usage.cost
 const MODEL_KEY = getTraceMappingKeyFullPath("model") as string; // gen_ai.request.model
@@ -26,6 +30,12 @@ const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths(
 ) as string[];
 const COMPLETION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
 	"completionTokens"
+) as string[];
+const CACHE_READ_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"cacheReadTokens"
+) as string[];
+const CACHE_CREATION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"cacheCreationTokens"
 ) as string[];
 
 interface TraceRow {
@@ -99,11 +109,35 @@ async function computeCostForTrace(
 		return { cost: null, reason };
 	}
 
-	const inputCost = (promptTokens / 1_000_000) * modelMeta.inputPricePerMToken;
-	const outputCost =
-		(completionTokens / 1_000_000) * modelMeta.outputPricePerMToken;
+	const cacheReadTokens = getNumericAttr(trace, CACHE_READ_TOKENS_KEYS);
+	const cacheCreationTokens = getNumericAttr(
+		trace,
+		CACHE_CREATION_TOKENS_KEYS
+	);
+	const inclusive = promptTokensIncludeCache(
+		provider,
+		promptTokens,
+		cacheReadTokens,
+		cacheCreationTokens
+	);
 
-	return { cost: inputCost + outputCost };
+	const cost = getChatModelCostPerM(
+		{
+			inputPricePerMToken: modelMeta.inputPricePerMToken,
+			outputPricePerMToken: modelMeta.outputPricePerMToken,
+			cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
+			cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
+		},
+		{
+			promptTokens,
+			completionTokens,
+			cacheReadTokens,
+			cacheCreationTokens,
+		},
+		{ promptTokensIncludeCache: inclusive }
+	);
+
+	return { cost };
 }
 
 /**
