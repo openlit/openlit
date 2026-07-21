@@ -7,7 +7,6 @@ import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import { runEvaluation } from "./run-evaluation";
 import { getEvaluationConfig, getEvaluationConfigById } from "./config";
 import asaw from "@/utils/asaw";
-import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
 import {
 	AutoEvaluationConfig,
 	Evaluation,
@@ -21,6 +20,8 @@ import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	getContextFromRuleEngineForTrace,
 	getContextFromRulesWithPriority,
+	getContextFromFields,
+	getContextFromRulesWithPriorityForFields,
 } from "./rule-engine-context";
 import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
@@ -49,6 +50,56 @@ import {
 	resolveEvaluationType,
 	type EvaluationTypeRef,
 } from "@/helpers/client/evaluation-type";
+
+/**
+ * Collects rule links (with priority) across a set of enabled evaluation
+ * types. Shared by the real-time/auto and offline evaluation paths so both
+ * resolve rule-engine context identically for the same configured types.
+ */
+function collectRulesWithPriority(
+	types: Array<{
+		rules?: Array<{ ruleId: string; priority: number }>;
+		ruleId?: string;
+		priority?: number;
+	}>
+): Array<{ ruleId: string; priority: number }> {
+	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
+	for (const t of types) {
+		if (t.rules?.length) {
+			rulesWithPriority.push(
+				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
+			);
+		} else if (t.ruleId) {
+			rulesWithPriority.push({
+				ruleId: t.ruleId,
+				priority: t.priority ?? 0,
+			});
+		}
+	}
+	return rulesWithPriority;
+}
+
+function applyPerTypeThresholds(
+	results: Evaluation[],
+	enabledTypes: Array<{ id: string; label?: string; thresholdScore?: number }>,
+	fallbackThreshold: number
+): Evaluation[] {
+	return results.map((evaluation) => {
+		const type = enabledTypes.find(
+			(t) =>
+				t.id.toLowerCase() === evaluation.evaluation.toLowerCase() ||
+				t.label?.toLowerCase() === evaluation.evaluation.toLowerCase()
+		);
+		const threshold =
+			typeof type?.thresholdScore === "number"
+				? type.thresholdScore
+				: fallbackThreshold;
+		return {
+			...evaluation,
+			verdict: evaluation.score > threshold ? "yes" : "no",
+		};
+	});
+}
 
 /**
  * Cost from Manage Models (`openlit_provider_models`) — same source as
@@ -475,15 +526,18 @@ async function getEvaluationConfigForTrace(
 	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
+	const DEFAULT_THRESHOLD = 0.5;
 	const evaluationTypes =
 		((evaluationConfig as any).evaluationTypes || []) as Array<{
 			id: string;
 			enabled: boolean;
+			label?: string;
 			rules?: Array<{ ruleId: string; priority: number }>;
 			ruleId?: string;
 			priority?: number;
 			prompt?: string;
 			defaultPrompt?: string;
+			thresholdScore?: number;
 		}>;
 
 	// Default: Hallucination, Bias, Toxicity enabled
@@ -498,19 +552,7 @@ async function getEvaluationConfigForTrace(
 				).map((t) => ({ ...t, enabled: true }));
 
 	// Collect rules with priority from enabled types
-	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
-	for (const t of enabledTypes) {
-		if (t.rules?.length) {
-			rulesWithPriority.push(
-				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
-			);
-		} else if (t.ruleId) {
-			rulesWithPriority.push({
-				ruleId: t.ruleId,
-				priority: t.priority ?? 0,
-			});
-		}
-	}
+	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
 
 	let contextContents: string[];
 	let matchingRuleIds: string[];
@@ -553,13 +595,21 @@ async function getEvaluationConfigForTrace(
 			prompt: prompt ?? "",
 			contexts: finalContextString,
 			response: response ?? "",
-			thresholdScore: 0.5,
+			thresholdScore: DEFAULT_THRESHOLD,
 		});
 
 
 		if (!data.success) {
 			return { success: false, error: data.error };
 		}
+
+		// Recompute verdicts with per-type thresholds, matching the offline
+		// path so dashboard/auto/manual and SDK runs honor the same config.
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			DEFAULT_THRESHOLD
+		);
 
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
@@ -584,7 +634,7 @@ async function getEvaluationConfigForTrace(
 
 		const storeResult = await storeEvaluation(
 			trace.SpanId,
-			data.result || [],
+			evaluations,
 			metaBase,
 			dbConfig,
 			evaluationTypes.map((t) => ({ id: t.id, label: (t as any).label || t.id }))
@@ -867,17 +917,10 @@ export async function runOfflineEvaluation(
 		priority?: number;
 		prompt?: string;
 		defaultPrompt?: string;
+		thresholdScore?: number;
 	}>;
 
-	let enabledTypes = requestedTypes?.length
-		? allTypes.filter((t) => requestedTypes.includes(t.id))
-		: allTypes.filter((t) => t.enabled);
-
-	if (enabledTypes.length === 0) {
-		enabledTypes = allTypes
-			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
-			.map((t) => ({ ...t, enabled: true }));
-	}
+	let enabledTypes: typeof allTypes;
 
 	if (requestedTypes?.length) {
 		const allTypeIds = new Set(allTypes.map((t) => t.id));
@@ -888,39 +931,50 @@ export async function runOfflineEvaluation(
 				error: `Unknown eval types: ${unknown.join(", ")}`,
 			};
 		}
+
+		const disabled = requestedTypes.filter((id) => {
+			const type = allTypes.find((t) => t.id === id);
+			return type && !type.enabled;
+		});
+		if (disabled.length > 0) {
+			return {
+				success: false,
+				error: `Disabled eval types: ${disabled.join(", ")}`,
+			};
+		}
+
+		enabledTypes = allTypes.filter((t) => requestedTypes.includes(t.id));
+	} else {
+		enabledTypes = allTypes.filter((t) => t.enabled);
+
+		if (enabledTypes.length === 0) {
+			enabledTypes = allTypes
+				.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+				.map((t) => ({ ...t, enabled: true }));
+		}
 	}
+
+	// Collect rules with priority from enabled types, same as the real-time/
+	// auto path, so offline evals resolve rule-engine context identically for
+	// the same configured evaluation types.
+	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
 
 	let contextContents: string[] = [];
 	let matchingRuleIds: string[] = [];
 	let contextEntityIds: string[] = [];
 
 	if (attributes && Object.keys(attributes).length > 0) {
-		try {
-			const ruleResult = await evaluateRules(
-				{
-					fields: attributes,
-					entity_type: "context" as any,
-					include_entity_data: true,
-				},
-				databaseConfigId
-			);
-
-			matchingRuleIds = ruleResult.matchingRuleIds || [];
-
-			if (ruleResult.entity_data) {
-				for (const [key, entityData] of Object.entries(
-					ruleResult.entity_data
-				)) {
-					if (entityData?.content) {
-						contextContents.push(String(entityData.content));
-						const match = key.match(/^context:(.+)$/);
-						if (match) contextEntityIds.push(match[1]);
-					}
-				}
-			}
-		} catch (e) {
-			consoleLog("Rule engine evaluation failed for offline eval:", e);
-		}
+		const result =
+			rulesWithPriority.length > 0
+				? await getContextFromRulesWithPriorityForFields(
+						attributes,
+						rulesWithPriority,
+						databaseConfigId
+					)
+				: await getContextFromFields(attributes, databaseConfigId);
+		contextContents = result.contextContents;
+		matchingRuleIds = result.matchingRuleIds;
+		contextEntityIds = result.contextEntityIds || [];
 	}
 
 	const userContextsCount = userContexts?.length || 0;
@@ -951,6 +1005,12 @@ export async function runOfflineEvaluation(
 		if (!data.success) {
 			return { success: false, error: data.error };
 		}
+
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			thresholdScore
+		);
 
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
@@ -988,7 +1048,7 @@ export async function runOfflineEvaluation(
 			}));
 			const storeResult = await storeEvaluation(
 				spanId,
-				data.result || [],
+				evaluations,
 				metaBase,
 				databaseConfigId,
 				customTypes
@@ -1000,7 +1060,7 @@ export async function runOfflineEvaluation(
 
 		return {
 			success: true,
-			evaluations: data.result || [],
+			evaluations,
 			contextApplied: {
 				ruleMatched: matchingRuleIds.length > 0,
 				matchingRuleIds,

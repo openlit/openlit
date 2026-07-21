@@ -69,6 +69,10 @@ export default function CreateCustomEvaluationTypePage() {
 						description: t.isCustom ? t.description : undefined,
 						prompt: t.prompt,
 						rules: t.rules,
+						// Preserve per-type thresholds across create-and-replace.
+						// POST /api/evaluation/types replaces the full meta list;
+						// omitting thresholdScore would wipe every saved override.
+						thresholdScore: t.thresholdScore,
 					})),
 					{
 						id,

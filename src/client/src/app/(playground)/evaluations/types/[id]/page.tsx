@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -38,6 +40,7 @@ interface EvaluationTypeConfig {
 	rules: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
+	thresholdScore?: number;
 }
 
 export default function EvaluationTypeDetailPage() {
@@ -94,6 +97,7 @@ export default function EvaluationTypeDetailPage() {
 				rules: data.rules || [],
 				prompt: data.prompt,
 				defaultPrompt: data.defaultPrompt,
+				thresholdScore: data.thresholdScore,
 			});
 			return;
 		}
@@ -106,6 +110,7 @@ export default function EvaluationTypeDetailPage() {
 				rules: [],
 				prompt: data?.prompt,
 				defaultPrompt: data?.defaultPrompt,
+				thresholdScore: data?.thresholdScore,
 			});
 			return;
 		}
@@ -163,6 +168,7 @@ export default function EvaluationTypeDetailPage() {
 			enabled: config.enabled,
 			rules: config.rules.filter((r) => r.ruleId),
 			prompt: config.prompt?.trim() || undefined,
+			thresholdScore: config.thresholdScore,
 		};
 		if (config.isCustom) {
 			payload.isCustom = true;
@@ -312,6 +318,62 @@ export default function EvaluationTypeDetailPage() {
 							</CardContent>
 						</Card>
 					)}
+
+					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+						<CardHeader className="pb-2">
+							<CardTitle className="text-base">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+							</CardTitle>
+							<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_DESCRIPTION}
+							</p>
+						</CardHeader>
+						<CardContent>
+							<div className="max-w-[160px]">
+								<Label className="sr-only">
+									{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+								</Label>
+								<Input
+									type="number"
+									min={0}
+									max={1}
+									step={0.05}
+									placeholder={
+										getMessage().EVALUATION_TYPE_THRESHOLD_PLACEHOLDER
+									}
+									value={config?.thresholdScore ?? ""}
+									onChange={(e) => {
+										const raw = e.target.value;
+										setConfig((prev) => {
+											if (!prev) return prev;
+											if (raw === "") {
+												return { ...prev, thresholdScore: undefined };
+											}
+											const nextValue = Number(raw);
+											// Ignore unparseable partial input (e.g. "-", "1..2",
+											// "abc") instead of propagating NaN into config and
+											// on to the API — keep the last valid value until the
+											// user types something parseable.
+											if (Number.isNaN(nextValue)) return prev;
+											return { ...prev, thresholdScore: nextValue };
+										});
+									}}
+									onBlur={(e) => {
+										const raw = e.target.value;
+										if (raw === "") return;
+										const parsed = Number(raw);
+										if (Number.isNaN(parsed)) return;
+										const clamped = Math.min(1, Math.max(0, parsed));
+										if (clamped !== parsed) {
+											setConfig((prev) =>
+												prev ? { ...prev, thresholdScore: clamped } : prev
+											);
+										}
+									}}
+								/>
+							</div>
+						</CardContent>
+					</Card>
 
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-3">
