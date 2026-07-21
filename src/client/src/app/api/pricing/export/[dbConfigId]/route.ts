@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dataCollector } from "@/lib/platform/common";
-import { getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
 import asaw from "@/utils/asaw";
 
@@ -27,7 +27,7 @@ export async function GET(
 	}
 
 	// Validate the dbConfigId exists
-	const [err, dbConfig] = await asaw(getDBConfigById({ id: dbConfigId }));
+	const [err, dbConfig] = await asaw(getDBConfigByIdInternal({ id: dbConfigId }));
 
 	if (err || !dbConfig?.id) {
 		return NextResponse.json(

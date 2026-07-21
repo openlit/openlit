@@ -1,9 +1,11 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { autoEvaluate } from "@/lib/platform/evaluation";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 	const result = await autoEvaluate(formData);
@@ -15,3 +17,5 @@ export async function POST(request: NextRequest) {
 	});
 	return Response.json(result);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:run", POSTHandler));

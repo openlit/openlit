@@ -63,7 +63,7 @@ jest.mock('@/lib/platform/cron-log', () => ({
   insertCronLog: jest.fn().mockResolvedValue({ err: null }),
 }));
 jest.mock('@/lib/db-config', () => ({
-  getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
   getDBConfigByUser: jest.fn(),
 }));
 jest.mock('date-fns', () => ({
@@ -85,7 +85,6 @@ import { dataCollector } from '@/lib/platform/common';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import { ProviderRegistry } from '@/lib/platform/providers/provider-registry';
 import { getPricingConfigById } from '@/lib/platform/pricing/config';
-import { getDBConfigById } from '@/lib/db-config';
 import { insertCronLog } from '@/lib/platform/cron-log';
 import getMessage from '@/constants/messages';
 import { throwIfError } from '@/utils/error';
