@@ -49,11 +49,16 @@ openlit coding install --vendor=all --dry-run   # preview without writing
 Bootstrap the plugin for an agent and exec it - telemetry on from the first turn. Auto-installs the manifest if needed.
 
 ```bash
-openlit coding launch claude-code
+openlit coding launch claude
 openlit coding launch cursor -- <agent-args...>   # pass args through after --
+openlit coding launch codex
 ```
 
-Accepts the agent name (`claude`, `cursor`, `codex`) plus any arguments to forward after `--`.
+| Argument | Description |
+|---|---|
+| `<agent>` *(required)* | `claude` \| `claude-code` \| `cc` \| `cursor` \| `codex` (`claude-code` and `cc` are aliases for `claude`) |
+
+Any arguments after `--` are forwarded to the agent's own CLI.
 
 ### openlit coding uninstall
 

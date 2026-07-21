@@ -181,6 +181,42 @@ describe("runWidgetQuery", () => {
 		expect(result).toEqual({ data: [] });
 	});
 
+	it("strips literals with backslash and doubled-quote escapes without ReDoS", async () => {
+		// Pathological closed literal that previously triggered CodeQL
+		// js/redos on /'(?:\\.|''|[^'])*'/. Must complete in linear time.
+		const evilLiteral = "'" + "\\&".repeat(40) + "'";
+		const query = `SELECT 1 WHERE x = ${evilLiteral} OR y = 'it''s fine' OR z = 'a\\'b'`;
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ ok: 1 }], err: null });
+
+		const started = Date.now();
+		const result = await runWidgetQuery("w1", {
+			userQuery: query,
+			filter: {} as any,
+		});
+		expect(Date.now() - started).toBeLessThan(500);
+		expect(result).toEqual({ data: [{ ok: 1 }] });
+	});
+
+	it("still sees keywords when a string literal is left unclosed", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT 1 WHERE x = 'unclosed DROP TABLE otel_traces",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "Query contains disallowed operations" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
 	it("still blocks real SYSTEM commands outside string literals", async () => {
 		(dataCollector as jest.Mock).mockResolvedValueOnce({
 			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],

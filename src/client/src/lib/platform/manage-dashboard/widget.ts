@@ -193,9 +193,52 @@ function validateQuery(query: string): { valid: boolean; error?: string } {
  * `gen_ai.system` would false-positive on the `SYSTEM` keyword blocklist
  * (word-bounded by `.` and `'`) and reject an otherwise safe SELECT.
  * Handles both backslash (`\'`) and doubled (`''`) quote escapes.
+ *
+ * Implemented as a linear scan (not a regex) to avoid ReDoS from
+ * overlapping alternatives in patterns like `'(?:\\.|''|[^'])*'`.
+ * Unclosed literals are left unchanged, matching the previous regex.
  */
 function stripStringLiterals(value: string): string {
-	return value.replace(/'(?:\\.|''|[^'])*'/g, "''");
+	let result = "";
+	let i = 0;
+	while (i < value.length) {
+		if (value[i] !== "'") {
+			result += value[i];
+			i += 1;
+			continue;
+		}
+
+		const start = i;
+		i += 1; // skip opening quote
+		let closed = false;
+		while (i < value.length) {
+			const ch = value[i];
+			if (ch === "\\" && i + 1 < value.length) {
+				i += 2;
+				continue;
+			}
+			if (ch === "'") {
+				if (i + 1 < value.length && value[i + 1] === "'") {
+					i += 2; // doubled-quote escape
+					continue;
+				}
+				i += 1; // closing quote
+				closed = true;
+				break;
+			}
+			i += 1;
+		}
+
+		if (closed) {
+			result += "''";
+		} else {
+			// No closing quote — leave the remainder intact so keyword
+			// scanners can still see executable SQL after the opener.
+			result += value.slice(start);
+			break;
+		}
+	}
+	return result;
 }
 
 function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
