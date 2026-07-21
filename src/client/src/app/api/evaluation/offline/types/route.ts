@@ -8,10 +8,13 @@ import { normalizeThresholdScore } from "@/lib/platform/evaluation/threshold";
 import {
 	normalizeTypeConfig,
 	persistEvaluationTypes,
+	upsertEvaluationTypes,
+	EvaluationTypeConfig,
 } from "@/lib/platform/evaluation/type-config";
 import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
 import { errorResponse } from "@/helpers/server/response";
+import { jsonParse } from "@/utils/json";
 
 export async function GET(request: Request) {
 	const startTimestamp = Date.now();
@@ -33,6 +36,9 @@ export async function GET(request: Request) {
 		description: t.description || "",
 		enabled: !!t.enabled,
 		is_custom: !!t.isCustom,
+		...(typeof t.thresholdScore === "number"
+			? { threshold_score: t.thresholdScore }
+			: {}),
 	}));
 
 	PostHogServer.fireEvent({
@@ -89,10 +95,21 @@ export async function POST(request: Request) {
 		normalizeTypeConfig(t, thresholdScores[i])
 	);
 
+	// Upsert into the existing meta list. Unlike the dashboard POST (which
+	// always sends the full UI list), API-key clients may post a partial
+	// array — a full replace would wipe unrelated types and thresholds.
+	const meta = jsonParse((loaded.config as any).meta || "{}") as Record<
+		string,
+		any
+	>;
+	const existingTypes: EvaluationTypeConfig[] =
+		(meta.evaluationTypes as EvaluationTypeConfig[]) || [];
+	const nextTypes = upsertEvaluationTypes(existingTypes, normalizedTypes);
+
 	await persistEvaluationTypes(
 		loaded.config.id,
 		(loaded.config as any).meta,
-		normalizedTypes
+		nextTypes
 	);
 
 	PostHogServer.fireEvent({

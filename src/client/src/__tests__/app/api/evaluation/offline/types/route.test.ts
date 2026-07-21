@@ -156,7 +156,19 @@ describe("GET /api/evaluation/offline/types", () => {
 		(getEvaluationConfigByDbConfigId as jest.Mock).mockResolvedValue({
 			id: "cfg-1",
 			evaluationTypes: [
-				{ id: "hallucination", label: "Hallucination", enabled: true, isCustom: false },
+				{
+					id: "hallucination",
+					label: "Hallucination",
+					enabled: true,
+					isCustom: false,
+					thresholdScore: 0.7,
+				},
+				{
+					id: "toxicity",
+					label: "Toxicity",
+					enabled: true,
+					isCustom: false,
+				},
 			],
 		});
 
@@ -164,7 +176,21 @@ describe("GET /api/evaluation/offline/types", () => {
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.eval_types).toEqual([
-			{ id: "hallucination", label: "Hallucination", description: "", enabled: true, is_custom: false },
+			{
+				id: "hallucination",
+				label: "Hallucination",
+				description: "",
+				enabled: true,
+				is_custom: false,
+				threshold_score: 0.7,
+			},
+			{
+				id: "toxicity",
+				label: "Toxicity",
+				description: "",
+				enabled: true,
+				is_custom: false,
+			},
 		]);
 	});
 });
@@ -228,11 +254,15 @@ describe("POST /api/evaluation/offline/types", () => {
 		);
 	});
 
-	it("normalizes and persists types scoped to the API key's own database config", async () => {
+	it("normalizes and upserts types scoped to the API key's own database config", async () => {
 		(getAPIKeyInfo as jest.Mock).mockResolvedValue([null, { databaseConfigId: "db-1" }]);
 		(getEvaluationConfigByDbConfigId as jest.Mock).mockResolvedValue({
 			id: "cfg-1",
-			meta: "{}",
+			meta: JSON.stringify({
+				evaluationTypes: [
+					{ id: "bias", enabled: true, rules: [], thresholdScore: 0.4 },
+				],
+			}),
 		});
 
 		const response = await POST(
@@ -251,6 +281,15 @@ describe("POST /api/evaluation/offline/types", () => {
 		expect(getEvaluationConfigByDbConfigId).toHaveBeenCalledWith("db-1", true);
 		const updateCall = (prisma.evaluationConfigs.update as jest.Mock).mock.calls[0][0];
 		expect(updateCall.where).toEqual({ id: "cfg-1" });
+		const persistedMeta = JSON.parse(updateCall.data.meta);
+		// Partial POST upserts without wiping unrelated types/thresholds.
+		expect(persistedMeta.evaluationTypes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: "bias", thresholdScore: 0.4 }),
+				expect.objectContaining({ id: "toxicity", thresholdScore: 1 }),
+			])
+		);
+		expect(persistedMeta.evaluationTypes).toHaveLength(2);
 	});
 });
 

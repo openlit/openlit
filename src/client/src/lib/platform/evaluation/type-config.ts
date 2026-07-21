@@ -85,6 +85,21 @@ export function mergeTypeIntoList(
 }
 
 /**
+ * Upserts a batch of types into an existing list by id. Used by the
+ * API-key offline create endpoint so posting a partial list cannot wipe
+ * unrelated types (and their thresholdScore / rules) already in meta.
+ */
+export function upsertEvaluationTypes(
+	existing: EvaluationTypeConfig[],
+	incoming: EvaluationTypeConfig[]
+): EvaluationTypeConfig[] {
+	return incoming.reduce(
+		(acc, type) => mergeTypeIntoList(acc, type),
+		existing
+	);
+}
+
+/**
  * Persists an evaluationTypes array into an evaluation config's meta JSON
  * and re-syncs rule-engine entities. Shared by every route (dashboard and
  * API-key-authed) that creates or updates evaluation types, so the

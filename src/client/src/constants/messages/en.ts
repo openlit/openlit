@@ -119,7 +119,8 @@ export const EVALUATION_THRESHOLD_SCORE_INVALID =
 	"Threshold score must be a number between 0 and 1.";
 export const EVALUATION_TYPE_THRESHOLD_LABEL = "Verdict threshold";
 export const EVALUATION_TYPE_THRESHOLD_DESCRIPTION =
-	"Score above which this type's verdict is flagged as \"yes\". Leave blank to use the run's default threshold (0.5).";
+	"Score above which this type's verdict is flagged as \"yes\". Applies to dashboard, auto, and offline evaluations. Leave blank to use the default threshold (0.5).";
+export const EVALUATION_TYPE_THRESHOLD_PLACEHOLDER = "0.5 (default)";
 export const EVALUATION_SAMPLE_RATE_PERCENT_INVALID =
 	"Sample rate must be a number between 0 and 100.";
 export const EVALUATION_SAVING = "Saving...";

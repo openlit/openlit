@@ -20,6 +20,7 @@ import {
   normalizeRules,
   normalizeTypeConfig,
   mergeTypeIntoList,
+  upsertEvaluationTypes,
   persistEvaluationTypes,
 } from '@/lib/platform/evaluation/type-config';
 import { syncRuleEntitiesFromConfig } from '@/lib/platform/evaluation/sync-rule-entities';
@@ -109,6 +110,33 @@ describe('mergeTypeIntoList', () => {
     const original = [{ id: 'a', enabled: true }];
     mergeTypeIntoList(original, { id: 'a', enabled: false });
     expect(original).toEqual([{ id: 'a', enabled: true }]);
+  });
+});
+
+describe('upsertEvaluationTypes', () => {
+  it('upserts incoming types without dropping unrelated existing entries', () => {
+    const result = upsertEvaluationTypes(
+      [
+        { id: 'bias', enabled: true, thresholdScore: 0.4 },
+        { id: 'toxicity', enabled: false },
+      ],
+      [{ id: 'toxicity', enabled: true, thresholdScore: 0.9 }]
+    );
+    expect(result).toEqual([
+      { id: 'bias', enabled: true, thresholdScore: 0.4 },
+      { id: 'toxicity', enabled: true, thresholdScore: 0.9 },
+    ]);
+  });
+
+  it('appends types that are not already present', () => {
+    const result = upsertEvaluationTypes(
+      [{ id: 'bias', enabled: true }],
+      [{ id: 'toxicity', enabled: true }]
+    );
+    expect(result).toEqual([
+      { id: 'bias', enabled: true },
+      { id: 'toxicity', enabled: true },
+    ]);
   });
 });
 

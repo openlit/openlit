@@ -831,6 +831,49 @@ describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
       'db-1'
     );
   });
+
+  it('applies per-type thresholdScore when storing dashboard/manual evaluation verdicts', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: { SpanId: 'span-1', SpanAttributes: {} },
+    });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [
+        { id: 'toxicity', enabled: true, label: 'Toxicity', thresholdScore: 0.8 },
+      ],
+    });
+    // Raw LLM verdict would be "yes" under the default 0.5 threshold; the
+    // per-type threshold of 0.8 must recompute it to "no" before storage.
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [
+        {
+          evaluation: 'toxicity',
+          score: 0.6,
+          verdict: 'yes',
+          classification: 'mild',
+          explanation: 'borderline',
+        },
+      ],
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toMatchObject({ success: true });
+
+    const insertCall = (dataCollector as jest.Mock).mock.calls.find(
+      (call) => call[1] === 'insert'
+    );
+    expect(insertCall).toBeDefined();
+    const stored = insertCall![0].values[0];
+    expect(stored['evaluationData.evaluation']).toEqual(['toxicity']);
+    expect(stored['evaluationData.verdict']).toEqual(['no']);
+    expect(stored.scores).toEqual({ toxicity: 0.6 });
+  });
 });
 
 describe('runOfflineEvaluation', () => {

@@ -492,15 +492,18 @@ async function getEvaluationConfigForTrace(
 	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
+	const DEFAULT_THRESHOLD = 0.5;
 	const evaluationTypes =
 		((evaluationConfig as any).evaluationTypes || []) as Array<{
 			id: string;
 			enabled: boolean;
+			label?: string;
 			rules?: Array<{ ruleId: string; priority: number }>;
 			ruleId?: string;
 			priority?: number;
 			prompt?: string;
 			defaultPrompt?: string;
+			thresholdScore?: number;
 		}>;
 
 	// Default: Hallucination, Bias, Toxicity enabled
@@ -558,13 +561,21 @@ async function getEvaluationConfigForTrace(
 			prompt: prompt ?? "",
 			contexts: finalContextString,
 			response: response ?? "",
-			thresholdScore: 0.5,
+			thresholdScore: DEFAULT_THRESHOLD,
 		});
 
 
 		if (!data.success) {
 			return { success: false, error: data.error };
 		}
+
+		// Recompute verdicts with per-type thresholds, matching the offline
+		// path so dashboard/auto/manual and SDK runs honor the same config.
+		const evaluations = applyPerTypeThresholds(
+			data.result || [],
+			enabledTypes,
+			DEFAULT_THRESHOLD
+		);
 
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
@@ -587,7 +598,7 @@ async function getEvaluationConfigForTrace(
 
 		const storeResult = await storeEvaluation(
 			trace.SpanId,
-			data.result || [],
+			evaluations,
 			metaBase,
 			dbConfig
 		);

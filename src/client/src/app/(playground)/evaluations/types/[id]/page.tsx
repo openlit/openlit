@@ -296,7 +296,9 @@ export default function EvaluationTypeDetailPage() {
 									min={0}
 									max={1}
 									step={0.05}
-									placeholder="0.5 (default)"
+									placeholder={
+										getMessage().EVALUATION_TYPE_THRESHOLD_PLACEHOLDER
+									}
 									value={config?.thresholdScore ?? ""}
 									onChange={(e) => {
 										const raw = e.target.value;
