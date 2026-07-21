@@ -450,8 +450,11 @@ def _calculate_cost(
 ):
     """Estimate cost using the shared OpenLIT pricing helper.
 
-    ``extract_usage`` sums cache read/creation into ``input_tokens``, so the
-    prompt total is cache-inclusive.
+    ``input_tokens`` is the inclusive total built by ``extract_usage``
+    (uncached input + cache-read + cache-creation), so the cache token counts
+    are forwarded with ``prompt_tokens_include_cache=True``. This re-prices the
+    cached tokens at their dedicated cache rates instead of the full prompt
+    rate.
     """
     if not pricing_info or not model_str:
         return 0
