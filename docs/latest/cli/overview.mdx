@@ -1,0 +1,74 @@
+---
+title: "OpenLIT CLI"
+sidebarTitle: "Overview"
+description: "The command-line interface for OpenLIT - observe coding agents today, control the whole platform tomorrow"
+---
+
+The **`openlit` CLI** is a single Go binary that connects your local tooling to an OpenLIT instance. Today it ships first-class observability for AI **coding agents** - Claude Code, Cursor, and Codex - by wiring into each vendor's hook system, normalizing events onto OpenTelemetry's `gen_ai.*` and OpenLIT's `coding_agent.*` semantic conventions, and exporting them via OTLP to your collector.
+
+It talks **only** to your OpenLIT endpoint. There is no managed cloud - your telemetry stays on your infrastructure.
+
+<Note>
+The CLI is the future control plane for OpenLIT. It's built so new command groups can plug in over time - `prompts`, `traces`, `eval`, and `migrate` are already reserved in the codebase and will light up in subsequent releases without breaking the coding-agent integration. Today, the CLI is focused on **coding-agent observability**.
+</Note>
+
+## What you can do today
+
+<CardGroup cols={2}>
+  <Card title="Observe coding agents" icon="code">
+    Wire Claude Code, Cursor, or Codex into OpenLIT with one idempotent command per vendor - no SDK, no code changes in your repos.
+  </Card>
+  <Card title="Configure once" icon="gear">
+    Set your OTLP endpoint, API key, environment, and content-capture mode in a single config file or via environment variables.
+  </Card>
+  <Card title="Launch agents instrumented" icon="rocket">
+    `openlit coding launch` bootstraps the plugin and execs your agent in one step - telemetry on from the first turn.
+  </Card>
+  <Card title="Diagnose your setup" icon="stethoscope">
+    `openlit doctor` prints the resolved config, dials your OTLP endpoint, and lists installed plugins so you can confirm everything is wired up.
+  </Card>
+</CardGroup>
+
+## Command groups
+
+| Command | Purpose |
+|---|---|
+| [`openlit coding`](/latest/cli/commands#openlit-coding) | Install, launch, and manage coding-agent telemetry (Claude Code, Cursor, Codex) |
+| [`openlit configure`](/latest/cli/commands#openlit-configure) | Write persistent settings to `~/.config/openlit/config.env` |
+| [`openlit doctor`](/latest/cli/commands#openlit-doctor) | Diagnose config, OTLP reachability, and installed plugins |
+| [`openlit version`](/latest/cli/commands#openlit-version) | Print the CLI version and build commit |
+
+## How it works
+
+```
+Coding agent (Claude Code / Cursor / Codex)
+    +-- fires hook events (SessionStart, PreToolUse, Stop, ...)
+            |
+            v
+openlit coding hook --vendor=<v> --event=<name>   (invoked by the host plugin manifest)
+    +-- normalizes to gen_ai.* / coding_agent.* semantic conventions
+    +-- tier-1 secret redaction
+    +-- 5s hard timeout, always exits 0 (never blocks the developer)
+            |
+            v
+OTLP/HTTP --> your OpenLIT collector --> /agents page
+```
+
+The hook is the CLI's hot path - invoked once per agent event. It is crash-isolated: a 5-second hard timeout with ~3 seconds reserved for OTLP flush, and it **always exits 0** even when telemetry fails, so a broken pipeline never blocks your coding session.
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Install the CLI" href="/latest/cli/installation" icon="circle-down">
+    macOS, Linux, Windows, Docker, or build from source
+  </Card>
+  <Card title="Configuration" href="/latest/cli/configuration" icon="sliders">
+    Endpoint, API key, content capture, and precedence rules
+  </Card>
+  <Card title="Command reference" href="/latest/cli/commands" icon="terminal">
+    Every command, subcommand, and flag
+  </Card>
+  <Card title="Coding agents setup" href="/latest/openlit/coding-agents/setup-and-configure" icon="code">
+    The end-to-end guide to wiring each vendor
+  </Card>
+</CardGroup>

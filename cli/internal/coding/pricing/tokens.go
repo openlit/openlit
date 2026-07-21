@@ -7,11 +7,13 @@ import "strings"
 // aware floor (so we never under-bill multi-word prompts).
 //
 // This is a fallback for vendors that don't expose token counts on
-// their hooks (Cursor's beforeSubmitPrompt / afterAgentResponse give us
-// only the text). When the vendor does report usage (Claude Code's
-// transcript JSONL, Codex rollout JSONL), prefer that authoritative
-// number — this estimator is intentionally conservative so we never
-// silently inflate cost.
+// every hook event (Cursor's beforeSubmitPrompt still gives us only
+// the text; afterAgentResponse / stop may carry real
+// input_tokens / output_tokens / cache_* — prefer those when present).
+// When the vendor does report usage (Claude Code's transcript JSONL,
+// Codex rollout JSONL, Cursor stop/afterAgentResponse), prefer that
+// authoritative number — this estimator is intentionally conservative
+// so we never silently inflate cost.
 //
 // Heuristic chosen to match what Anthropic's tokenizer roughly produces
 // on English/code prompts (their actual ratio runs 3.5–4.5 chars/tok

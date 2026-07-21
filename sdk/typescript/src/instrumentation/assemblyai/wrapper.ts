@@ -202,10 +202,15 @@ class AssemblyAIWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
+    // AssemblyAI bills per second of audio (pricing.json best/nano rates).
+    // Do not pass audio_url as the prompt — getAudioModelCost treats a
+    // truthy prompt as character-length pricing (TTS-style), which made
+    // gen_ai.usage.cost track URL length instead of duration. Match Python
+    // assemblyai/utils.py: pass an empty prompt and the duration.
     const cost = OpenLitHelper.getAudioModelCost(
       requestModel,
       pricingInfo,
-      prompt,
+      '',
       audioDuration
     );
 

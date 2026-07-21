@@ -33,7 +33,7 @@ describe('TraceMapping', () => {
 
   it('has a "provider" key with prefix "gen_ai"', () => {
     expect(TraceMapping.provider.prefix).toBe('gen_ai');
-    expect(TraceMapping.provider.path).toBe('system');
+    expect(TraceMapping.provider.path).toBe('provider.name');
   });
 
   it('has a "model" key with prefix "gen_ai" and path "request.model"', () => {
@@ -64,9 +64,8 @@ describe('ReverseTraceMapping', () => {
     expect(ReverseTraceMapping['Timestamp']).toBe('time');
   });
 
-  it('maps "system" (gen_ai.system → key "system") back to a TraceMapping key', () => {
-    // The reverse mapping uses the path value as key
-    expect(ReverseTraceMapping['system']).toBeDefined();
+  it('maps "provider.name" (gen_ai.provider.name → key path) back to a TraceMapping key', () => {
+    expect(ReverseTraceMapping['provider.name']).toBe('provider');
   });
 
   it('all values are valid keys in TraceMapping', () => {

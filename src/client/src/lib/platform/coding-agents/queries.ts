@@ -162,12 +162,12 @@ export interface CodingAgentSessionRow {
 	acceptance_pct: number;
 	commit_count: number;
 	pr_count: number;
-	// True when the chat is a subagent of another chat — i.e. any span
-	// in the rollup has `coding_agent.agent.parent_id` set or the CLI
-	// stamped `coding_agent.session.is_subagent`. listSessions hides
-	// these by default; they fold under the parent chat via the
-	// CHAT_ID_EXPR coalesce.
+	// True when this rollup is a subagent-only chat (no owner spans).
+	// listSessions hides these by default; linked subagents fold under
+	// the parent via CHAT_ID_EXPR and the parent row stays visible.
 	is_subagent: 0 | 1;
+	/** Count of `coding_agent.subagent` spans folded under this chat. */
+	subagent_event_count: number;
 }
 
 /**
@@ -278,10 +278,44 @@ const VENDOR_EXPR = `
 // launched inside a Cursor terminal) fold into TWO rows so each
 // agent's chat shows up under its own vendor regardless of which
 // editor hosted it.
+// CHAT_ID_EXPR folds linked subagent spans under their parent chat.
+// Only a *foreign* parent_id counts — Cursor often echoes
+// parent_conversation_id == conversation.id on the parent chat itself
+// ("self-parent"); treating that as a fold key is harmless for the
+// id value but we skip it so chat_id matches conversation/session
+// identity the same way is_subagent / the CLI foreignParentID do.
 const CHAT_ID_EXPR = `
 	coalesce(
-		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
-		nullIf(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
+		nullIf(
+			if(
+				notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+				AND ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+					nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					''
+				),
+				ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'],
+				''
+			),
+			''
+		),
+		nullIf(
+			if(
+				notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+				AND SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+					nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					''
+				),
+				SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'],
+				''
+			),
+			''
+		),
 		nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
 		nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
 		nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
@@ -584,24 +618,55 @@ const SESSION_BASE_COLUMNS = `
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 	)                                                                  AS pr_count,
-	-- Is this chat a subagent of another chat? True when ANY span in
-	-- the group has a non-empty parent_id (resource OR span attr) OR
-	-- the CLI explicitly stamped coding_agent.session.is_subagent
-	-- on the session-root resource. listSessions hides these by
-	-- default - they fold under the parent chat via CHAT_ID_EXPR.
-	-- The check is intentionally lenient so a partial linkage (e.g.
-	-- parent_id only on a few spans, missing on the root) still
-	-- classifies the chat as a subagent.
+	-- Is this chat a subagent-only row (hide from Sessions by default)?
+	--
+	-- Historical bug: we used max(notEmpty(parent_id)), which also fired
+	-- when Cursor echoed parent_conversation_id == conversation_id on
+	-- parent-chat hooks ("self-parent"). Folded true subagents then
+	-- marked the WHOLE parent group as is_subagent=1 and the Sessions
+	-- tab hid the user's main chat while Overview still counted it.
+	--
+	-- Contract now:
+	--   • Explicit coding_agent.session.is_subagent='true' ⇒ subagent
+	--   • Foreign parent_id (differs from this span's own conversation
+	--     / session id) ⇒ subagent span
+	--   • Self-parent (parent_id == own conversation/session id) ⇒ ignore
+	--   • Group is_subagent=1 only when there are ZERO owner spans
+	--     (every span is flagged or has a foreign parent). Parent chats
+	--     that absorbed linked subagents still have owner spans and stay
+	--     visible; orphan subagent-only groups stay hidden.
 	if(
-		max(
-			notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
-			notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
-			ResourceAttributes['coding_agent.session.is_subagent'] = 'true' OR
-			SpanAttributes['coding_agent.session.is_subagent'] = 'true'
-		),
+		countIf(
+			NOT (
+				ResourceAttributes['coding_agent.session.is_subagent'] = 'true'
+				OR SpanAttributes['coding_agent.session.is_subagent'] = 'true'
+				OR (
+					notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+					AND ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+						nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						''
+					)
+				)
+				OR (
+					notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+					AND SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+						nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						''
+					)
+				)
+			)
+		) = 0,
 		1,
 		0
-	) AS is_subagent
+	) AS is_subagent,
+	-- Linked subagent activity folded under this chat (for UI badge).
+	toInt64(countIf(SpanName = 'coding_agent.subagent')) AS subagent_event_count
 `;
 
 /**
