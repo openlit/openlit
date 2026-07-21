@@ -6,6 +6,24 @@ description: "OpenLIT is an open-source AI Engineering platform for LLM observab
 Understand what your AI agents are doing, measure their performance, and improve them in production. 
 With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on prompts, detect regressions, and optimize cost and performance using real production data. 
 <Tabs>
+  <Tab title="Observe" icon="bars-staggered">
+    <video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/observe.mp4"
+      alt="Demo of viewing trace details in OpenLIT"
+    >
+    </video>
+
+    LLM observability and AI agent observability for agents built with CrewAI, LangGraph, or any agent framework. OpenLIT brings OpenTelemetry-native instrumentation so you can analyze how your agents perform in production with full stack visibility:
+    - **Tracing** - Instrument once via [OpenTelemetry-native SDKs](/latest/sdk/overview) for 90+ LLMs and agent frameworks to produce OpenTelemetry traces.
+    - **Lowest level transparency** - [Exceptions Monitoring](/latest/openlit/observability/telemetry#exceptions) surfaces errors with full stack traces and span context so you know exactly where and why something failed. All telemetry is automatically redacted for sensitive data before it leaves your stack.
+    - **Understand cost and latency** - Track token consumption, spend per model, provider, and request. Monitor GPU utilization alongside LLM call latency in [custom dashboards](/latest/openlit/dashboards/overview) built on your raw telemetry.
+  </Tab>
+
   <Tab title="Develop" icon="code-branch">
     <video
       autoPlay
@@ -22,24 +40,6 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
     - **Prompt versioning and deployment** - [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview) treats prompts as versioned artifacts. Edit, version, and deploy to any environment without code changes. Roll back instantly when needed.
     - **Collaborate on prompts** - Edit prompts as a team with full change history. Every version is tracked and linked to the evaluations and traces it produced, giving you full traceability from prompt to output.
     - **Model comparison and A/B testing** - [OpenGround](/latest/openlit/prompts-experiments/openground/overview) runs side-by-side LLM prompt testing across models, comparing cost, latency, and output quality so you pick the right model before you ship.
-  </Tab>
-
-  <Tab title="Observe" icon="bars-staggered">
-    <video
-      autoPlay
-      muted
-      loop
-      controls
-      className="w-full aspect-video rounded-xl"
-      src="/images/trace-details.mp4"
-      alt="Demo of viewing trace details in OpenLIT"
-    >
-    </video>
-
-    LLM observability and AI agent observability for agents built with CrewAI, LangGraph, or any agent framework. OpenLIT brings OpenTelemetry-native instrumentation so you can analyze how your agents perform in production with full stack visibility:
-    - **Tracing** - Instrument once via [OpenTelemetry-native SDKs](/latest/sdk/overview) for 90+ LLMs and agent frameworks to produce OpenTelemetry traces.
-    - **Lowest level transparency** - [Exceptions Monitoring](/latest/openlit/observability/telemetry#exceptions) surfaces errors with full stack traces and span context so you know exactly where and why something failed. All telemetry is automatically redacted for sensitive data before it leaves your stack.
-    - **Understand cost and latency** - Track token consumption, spend per model, provider, and request. Monitor GPU utilization alongside LLM call latency in [custom dashboards](/latest/openlit/dashboards/overview) built on your raw telemetry.
   </Tab>
 
   <Tab title="Coding Agents" icon="laptop-code">
@@ -98,7 +98,16 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
   </Tab>
 
   <Tab title="Otter" icon="message-bot">
-    <img src="/images/otter.svg" width="60" className="mb-4" alt="Otter, the OpenLIT AI chat copilot" />
+    <video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/otter.mp4"
+      alt="Demo of Otter, the OpenLIT AI chat copilot"
+    >
+    </video>
 
     **Otter** is a built-in AI copilot that works across all of OpenLIT. Query your telemetry, analyze traces, improve prompts, and generate dashboards through natural language:
     - [Natural language queries](/latest/openlit/chat/overview) - Ask questions about traces, costs, and tokens. Otter converts them to SQL and runs them inline.
