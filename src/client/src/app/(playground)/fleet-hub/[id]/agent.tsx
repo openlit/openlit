@@ -52,9 +52,9 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <FeaturePageHeader
-        eyebrow={getMessage().FEATURE_FLEET_HUB}
+        eyebrow={getMessage().SIDEBAR_MONITOR}
         title={serviceName}
-        icon={<OpenTelemetrySvg className="h-5 w-5" />}
+        icon={<OpenTelemetrySvg className="h-4 w-4" />}
         tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300"
         leading={(
           <Button

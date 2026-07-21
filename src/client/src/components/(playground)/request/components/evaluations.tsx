@@ -533,7 +533,7 @@ export default function Evaluations({
 					{getMessage().EVALUATION_CONFIG_NOT_SET}
 				</div>
 				<Button variant="destructive" className="w-fit">
-					<Link href="/evaluations/settings">
+					<Link href="/evaluations?tab=configuration">
 						{getMessage().EVALUATION_CONFIG_SET}
 					</Link>
 				</Button>

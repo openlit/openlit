@@ -234,7 +234,7 @@ export default function ChatSettingsForm() {
 						<p className="text-xs text-stone-500 dark:text-stone-400">
 							{m.CHAT_SETTINGS_MODEL_HINT}{" "}
 							<a
-								href="/manage-models"
+								href="/costs?tab=models"
 								className="underline hover:text-stone-600 dark:hover:text-stone-300"
 							>
 								{m.CHAT_SETTINGS_MANAGE_MODELS}

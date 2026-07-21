@@ -3,6 +3,71 @@ title: 'Get Secret(s)'
 openapi: 'POST /api/vault/get-secrets'
 ---
 
+## SDK usage
+
+`url` and `api_key` (or `apiKey`) default to the `OPENLIT_URL` and `OPENLIT_API_KEY` environment variables if you don't pass them explicitly.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    response = openlit.get_secrets(
+      should_set_env=True
+    )
+
+    print(response)
+    ```
+
+    ```shell Output
+    {
+      err: null,
+      res: { ANTHROPIC_API_KEY: 'ANTHROPIC_API_VALUE', OPENAI_API_KEY: 'OPENAI_API_VALUE' }
+    }
+    ```
+
+    | Parameter        | Description                                                                                                      |
+    |------------------|-------------------------------------------------------------------------------------------------------------------|
+    | `url`            | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                         |
+    | `api_key`        | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                    |
+    | `key`            | Sets the key to fetch a specific secret. Optional                                                                  |
+    | `should_set_env` | Boolean value that sets all the secrets as environment variables for the application. Optional                    |
+    | `tags`           | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                       |
+
+    `should_set_env` is client-side only: it doesn't change what's sent to OpenLIT, or what comes back in the response. It only controls whether the SDK, after receiving the secrets, also sets them directly as environment variables in your running process.
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Openlit from 'openlit';
+
+    const response = await Openlit.getSecrets({
+      shouldSetEnv: true,
+    });
+
+    console.log(response);
+    ```
+
+    ```shell Output
+    {
+      err: null,
+      res: { ANTHROPIC_API_KEY: 'ANTHROPIC_API_VALUE', OPENAI_API_KEY: 'OPENAI_API_VALUE' }
+    }
+    ```
+
+    | Parameter       | Description                                                                                                       |
+    |-----------------|---------------------------------------------------------------------------------------------------------------------|
+    | `url`           | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                          |
+    | `apiKey`        | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                     |
+    | `key`           | Sets the key to fetch a specific secret. Optional                                                                   |
+    | `tags`          | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                         |
+    | `shouldSetEnv`  | Boolean value that sets all the secrets as environment variables for the application. Optional                     |
+  </Tab>
+</Tabs>
+
+<Note>
+  This endpoint always responds successfully (HTTP 200), even for an invalid API key. Check the `err` field in the response body rather than relying on the HTTP status code alone to know whether the request actually succeeded.
+</Note>
+
 ## Cross-origin browser requests
 
 `POST /api/vault/get-secrets` is an API-key authenticated endpoint for retrieving Vault secrets. Browser requests from a different origin are blocked unless the calling origin is explicitly allowed.

@@ -1,0 +1,36 @@
+---
+title: "Setup"
+description: "What it takes for an agent to show up on the Agents page - zero code by default, explicit identity when you want it"
+---
+
+<Steps>
+  <Step title="Instrument your application">
+    The [OpenLIT SDK](/latest/openlit/quickstart-ai-observability) auto-instruments 90+ LLMs, agent frameworks, and vector databases with zero code changes. Any process emitting `gen_ai.*` spans under a given `service.name` shows up as its own row on the Applications tab - there's no separate agent registration step.
+  </Step>
+  <Step title="(Optional) Tag explicit agent identity and version">
+    By default, OpenLIT infers agent identity from `service.name`. If you want explicit control - for example, multiple agents running in the same service - wrap the relevant code in `agent_context()` and `agent_version_context()`:
+
+    ```python
+    import openlit
+
+    with openlit.agent_context(name="support-agent"):
+        with openlit.agent_version_context(version="v3"):
+            completion = client.chat.completions.create(...)
+    ```
+
+    These stamp `gen_ai.agent.name` and `gen_ai.agent.version` on every span inside the block, and are what power per-agent grouping and version fingerprints when you don't want to rely on inferred grouping from `service.name` alone. See [Custom Attributes](/latest/sdk/features/custom-attributes#tag-spans-with-agent-identity) for the full API.
+  </Step>
+  <Step title="Check the Agents page">
+    Once spans land, the agent appears automatically on the Applications tab - refresh the [Agents page](/latest/openlit/observability/agents/overview) after a request or two. No restart or manual sync is needed.
+  </Step>
+</Steps>
+
+## Enabling or disabling observability for an agent
+
+Once an agent is discovered, whether LLM Observability and Agent Observability are actively capturing data for it is controlled per-agent from its own [Configuration tab](/latest/openlit/observability/agents/configuration) - not from a setup step here.
+
+---
+
+<Card title="Configuration" href="/latest/openlit/observability/agents/configuration" icon='sliders'>
+  Toggle LLM / Agent Observability for an already-discovered agent
+</Card>

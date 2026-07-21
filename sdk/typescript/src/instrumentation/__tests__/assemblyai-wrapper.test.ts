@@ -172,6 +172,14 @@ describe('AssemblyAIWrapper', () => {
         ])
       );
 
+      // Cost must use duration, not audio_url character length (Python parity).
+      expect(OpenLitHelper.getAudioModelCost).toHaveBeenCalledWith(
+        'best',
+        {},
+        '',
+        42
+      );
+
       expect(metricParams).toEqual({
         genAIEndpoint: 'assemblyai.transcripts.transcribe',
         model: 'best',
@@ -296,6 +304,34 @@ describe('AssemblyAIWrapper', () => {
         'nano'
       );
       expect(metricParams.model).toBe('nano');
+    });
+
+    it('should compute cost from audio duration even when audio_url is present', () => {
+      (OpenlitConfig as any).pricingInfo = { audio: { best: 0.001 } };
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = false;
+      const costSpy = jest.spyOn(OpenLitHelper, 'getAudioModelCost').mockReturnValue(0.06);
+
+      AssemblyAIWrapper._commonAudioSetter({
+        args: [{ audio: 'https://cdn.example.com/upload/' + 'q'.repeat(200) }],
+        genAIEndpoint: 'assemblyai.transcripts.transcribe',
+        response: {
+          id: 'transcript-long-url',
+          text: 'done',
+          speech_model: 'best',
+          audio_url: 'https://cdn.example.com/upload/' + 'q'.repeat(200),
+          audio_duration: 60,
+        },
+        span,
+        isStream: false,
+      });
+
+      expect(costSpy).toHaveBeenCalledWith(
+        'best',
+        { audio: { best: 0.001 } },
+        '',
+        60
+      );
     });
 
     it('should pass audio duration to getAudioModelCost when audio_url is absent', () => {

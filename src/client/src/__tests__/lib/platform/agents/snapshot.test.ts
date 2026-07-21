@@ -16,6 +16,10 @@ import {
 	upsertVersion,
 	deriveSnapshot,
 	getVersionTimeline,
+	getLatestVersion,
+	getLatestVersionsBatch,
+	getVersion,
+	getVersions,
 	_internals,
 } from "@/lib/platform/agents/snapshot";
 
@@ -377,6 +381,72 @@ describe("deriveSnapshot — providers attribute coalesce", () => {
 	});
 });
 
+describe("getLatestVersion / getLatestVersionsBatch", () => {
+	const versionRow = {
+		agent_key: "abc123",
+		version_hash: "hash-1",
+		version_number: 3,
+		system_prompt: "You are helpful",
+		tools: "[]",
+		primary_model: "gpt-4o",
+		models: ["gpt-4o"],
+		providers: ["openai"],
+		runtime_config: "{}",
+		first_seen: "2026-05-11 22:00:00",
+		last_seen: "2026-05-11 22:10:00",
+		request_count: 12,
+		updated_at: "2026-05-11 22:10:00",
+	};
+
+	it("returns the latest version row for an agent", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ data: [versionRow] });
+
+		const version = await getLatestVersion("abc123", "db-1");
+
+		expect(version).toEqual(
+			expect.objectContaining({
+				agent_key: "abc123",
+				version_number: 3,
+				primary_model: "gpt-4o",
+			})
+		);
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("agent_key = 'abc123'"),
+			}),
+			"query",
+			"db-1"
+		);
+	});
+
+	it("returns null on query error or empty rows", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ err: "db failed" });
+		await expect(getLatestVersion("abc123")).resolves.toBeNull();
+
+		mockedDataCollector.mockResolvedValueOnce({ data: [] });
+		await expect(getLatestVersion("abc123")).resolves.toBeNull();
+	});
+
+	it("returns an empty map for empty key lists", async () => {
+		await expect(getLatestVersionsBatch([])).resolves.toEqual(new Map());
+		expect(mockedDataCollector).not.toHaveBeenCalled();
+	});
+
+	it("batches latest versions and returns an empty map on error", async () => {
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [versionRow, { ...versionRow, agent_key: "def456", version_number: 1 }],
+		});
+
+		const map = await getLatestVersionsBatch(["abc123", "def456"], "db-1");
+		expect(map.size).toBe(2);
+		expect(map.get("abc123")?.version_number).toBe(3);
+		expect(map.get("def456")?.version_number).toBe(1);
+
+		mockedDataCollector.mockResolvedValueOnce({ err: "batch failed" });
+		await expect(getLatestVersionsBatch(["abc123"])).resolves.toEqual(new Map());
+	});
+});
+
 describe("getVersionTimeline", () => {
 	it("[REGRESSION] counts all spans per ServiceName instead of filtering to gen_ai.operation.name='chat'", async () => {
 		// Agent-framework workloads (CrewAI, LangGraph, etc.) emit
@@ -408,5 +478,197 @@ describe("getVersionTimeline", () => {
 			/ServiceName\s*=\s*'demo-crewai-app'/
 		);
 		expect(timelineQuery).not.toContain("gen_ai.operation.name");
+	});
+
+	it("returns empty buckets when the agent summary row is missing", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ data: [] });
+		await expect(getVersionTimeline("missing")).resolves.toEqual({
+			bucketSeconds: 3600,
+			start: "",
+			end: "",
+			buckets: [],
+		});
+	});
+
+	it("returns empty buckets when the timeline query errors", async () => {
+		mockedDataCollector
+			.mockResolvedValueOnce({
+				data: [{ service_name: "svc", environment: "prod", cluster_id: "c1" }],
+			})
+			.mockResolvedValueOnce({ data: [] })
+			.mockResolvedValueOnce({ err: "timeline failed" });
+
+		await expect(getVersionTimeline("key")).resolves.toEqual({
+			bucketSeconds: 3600,
+			start: "",
+			end: "",
+			buckets: [],
+		});
+	});
+
+	it("attributes empty direct_hash buckets via version first_seen fallback", async () => {
+		mockedDataCollector
+			.mockResolvedValueOnce({
+				data: [
+					{
+						service_name: "svc",
+						environment: "staging",
+						cluster_id: "default",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				data: [
+					{
+						agent_key: "abc123",
+						version_hash: "hash-old",
+						version_number: 1,
+						system_prompt: "",
+						tools: "[]",
+						primary_model: "",
+						models: [],
+						providers: [],
+						runtime_config: "{}",
+						first_seen: "2026-05-11 20:00:00",
+						last_seen: "2026-05-11 21:00:00",
+						request_count: 1,
+						updated_at: "2026-05-11 21:00:00",
+					},
+					{
+						agent_key: "abc123",
+						version_hash: "hash-new",
+						version_number: 2,
+						system_prompt: "",
+						tools: "[]",
+						primary_model: "",
+						models: [],
+						providers: [],
+						runtime_config: "{}",
+						first_seen: "2026-05-11 21:30:00",
+						last_seen: "2026-05-11 22:00:00",
+						request_count: 2,
+						updated_at: "2026-05-11 22:00:00",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				data: [
+					{
+						bucket: "2026-05-11 21:00:00",
+						direct_hash: "",
+						requests: 3,
+					},
+					{
+						bucket: "2026-05-11 22:00:00",
+						direct_hash: "hash-new",
+						requests: 4,
+					},
+					{
+						bucket: "not-a-date",
+						direct_hash: "",
+						requests: 1,
+					},
+					{
+						bucket: "2026-05-11 22:00:00",
+						direct_hash: "hash-new",
+						requests: 1,
+					},
+				],
+			});
+
+		const timeline = await getVersionTimeline("abc123", {
+			bucketSeconds: 60,
+			windowHours: 24,
+		});
+
+		expect(timeline.bucketSeconds).toBe(60);
+		expect(timeline.buckets).toEqual(
+			expect.arrayContaining([
+				{ ts: "2026-05-11 21:00:00", versionHash: "hash-old", requests: 3 },
+				{ ts: "2026-05-11 22:00:00", versionHash: "hash-new", requests: 5 },
+				{ ts: "not-a-date", versionHash: "", requests: 1 },
+			])
+		);
+		const issued = (mockedDataCollector.mock.calls[2][0] as any).query as string;
+		expect(issued).toContain(
+			"ResourceAttributes['deployment.environment'] = 'staging'"
+		);
+	});
+});
+
+describe("getVersion / getVersions", () => {
+	const versionRow = {
+		agent_key: "abc123",
+		version_hash: "hash-1",
+		version_number: 3,
+		system_prompt: "You are helpful",
+		tools: "[]",
+		primary_model: "gpt-4o",
+		models: ["gpt-4o"],
+		providers: ["openai"],
+		runtime_config: "{}",
+		first_seen: "2026-05-11 22:00:00",
+		last_seen: "2026-05-11 22:10:00",
+		request_count: 12,
+		updated_at: "2026-05-11 22:10:00",
+	};
+
+	it("returns a version by hash and null on miss/error", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ data: [versionRow] });
+		await expect(getVersion("abc123", "hash-1", "db-1")).resolves.toEqual(
+			expect.objectContaining({ version_hash: "hash-1", version_number: 3 })
+		);
+
+		mockedDataCollector.mockResolvedValueOnce({ data: [] });
+		await expect(getVersion("abc123", "missing")).resolves.toBeNull();
+
+		mockedDataCollector.mockResolvedValueOnce({ err: "boom" });
+		await expect(getVersion("abc123", "hash-1")).resolves.toBeNull();
+	});
+
+	it("returns [] when getVersions errors", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ err: "boom" });
+		await expect(getVersions("abc123")).resolves.toEqual([]);
+	});
+});
+
+describe("deriveSnapshot / upsertVersion error paths", () => {
+	it("returns null when the aggregate query errors", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ err: "aggregate failed" });
+		await expect(
+			deriveSnapshot({ serviceName: "svc", environment: "prod" })
+		).resolves.toBeNull();
+	});
+
+	it("falls back when logs tool-definition fetch errors", async () => {
+		mockedDataCollector
+			.mockResolvedValueOnce({
+				data: [
+					{
+						system_prompt: "You are helpful",
+						tool_definitions_json: "",
+						tools_fallback: [["search", "Search", "function"]],
+						primary_model: "gpt-4o",
+						models: ["gpt-4o"],
+						providers: ["openai"],
+						temperature: 0.7,
+						top_p: 1,
+						max_tokens: 1024,
+						request_count: 2,
+						first_seen: "2026-05-11 22:00:00",
+						last_seen: "2026-05-11 22:10:00",
+					},
+				],
+			})
+			.mockResolvedValueOnce({ err: "logs failed" });
+
+		const result = await deriveSnapshot({ serviceName: "svc" });
+		expect(result?.tools).toHaveLength(1);
+		expect(result?.tools[0].name).toBe("search");
+	});
+
+	it("throws when upsertVersion insert errors", async () => {
+		mockedDataCollector.mockResolvedValueOnce({ err: "insert failed" });
+		await expect(upsertVersion(baseSnapshot)).rejects.toEqual("insert failed");
 	});
 });

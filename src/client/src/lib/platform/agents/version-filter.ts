@@ -24,7 +24,7 @@ import type { VersionFilter } from "@/types/platform";
 import { swr, POLICY_VERSIONS } from "./cache";
 import { agentsLogger } from "./logger";
 import { getVersion } from "./snapshot";
-import { getAgent } from "./index";
+import { getAgent, deploymentEnvironmentSqlPredicate } from "./index";
 // Re-export the pure SQL builder so existing callers that import it from
 // `./version-filter` keep working. The actual implementation lives in
 // `version-where.ts` (zero side-effect imports) so leaf consumers don't
@@ -72,11 +72,10 @@ async function probeAttributeStamping(
 ): Promise<boolean> {
 	const first = toClickHouseDateTime(params.firstSeen);
 	const last = toClickHouseDateTime(params.lastSeen);
-	const env = params.environment || "default";
-	const envPredicate =
-		env === "default"
-			? `(ResourceAttributes['deployment.environment'] = 'default' OR ResourceAttributes['deployment.environment'] = '')`
-			: `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+	const envPredicate = deploymentEnvironmentSqlPredicate(
+		params.environment,
+		escape
+	);
 	const query = `
 		SELECT 1 AS stamped
 		FROM ${OTEL_TRACES_TABLE_NAME}

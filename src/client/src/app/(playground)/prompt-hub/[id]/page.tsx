@@ -151,7 +151,7 @@ export default function PromptHub() {
 	if (!isFetched || (!(data as any)?.promptId && isLoading)) {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<FeaturePageHeader eyebrow="Resources" title={m.LOADING} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<FeaturePageHeader eyebrow={getMessage().SIDEBAR_DEVELOP} title={m.LOADING} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
 				<div className="flex flex-col w-full h-full overflow-hidden gap-6 items-center justify-center">
 					<div className="h-4 w-1/5 bg-secondary/[0.9] rounded" />
 					<div className="h-4 w-3/5 bg-secondary/[0.9] rounded" />
@@ -165,7 +165,7 @@ export default function PromptHub() {
 	if (!data || !(data as any)?.promptId) {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<FeaturePageHeader eyebrow={getMessage().SIDEBAR_DEVELOP} title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
 				<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
 					{m.PROMPT_HUB_NO_PROMPT_EXISTS}
 				</div>
@@ -181,7 +181,7 @@ export default function PromptHub() {
 	) {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<FeaturePageHeader eyebrow="Resources" title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
+				<FeaturePageHeader eyebrow={getMessage().SIDEBAR_DEVELOP} title={m.FEATURE_PROMPTS} icon={<Component className="h-4 w-4" />} tone={promptHeaderTone} />
 				<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
 					{m.PROMPT_HUB_NO_VERSION_EXISTS}{" "}
 					<span className="bg-secondary text-primary px-2 text-sm mx-3">

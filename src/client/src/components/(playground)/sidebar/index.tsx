@@ -39,6 +39,14 @@ import { useSidebarLayout } from "../sidebar-layout-context";
 const isActive = (pathname: string, item: SidebarActionItem, currentUrl: string) => {
 	if (!item.link) return false;
 	if (item.link.includes("?")) return currentUrl.startsWith(item.link);
+	// Organisation owns `/organisation` except the Projects tab, which has its
+	// own Settings entry (`/organisation?tab=projects`).
+	if (item.link === "/organisation") {
+		return (
+			pathname.startsWith("/organisation") &&
+			!currentUrl.includes("tab=projects")
+		);
+	}
 	if (item.link === "/dashboards") return pathname.startsWith("/dashboards") || pathname.startsWith("/d/");
 	if (item.link === "/dashboard") return pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboards");
 	return pathname.startsWith(item.link);
@@ -70,7 +78,7 @@ function NavigationLink({
 		<span className={cn("min-w-0 truncate", compact && "sr-only")}>{item.text}</span>
 	</>;
 	const className = cn(
-		"flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
+		"flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-stone-300 dark:focus-visible:ring-offset-stone-950",
 		compact && "justify-center px-2",
 		active
 			? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white"
@@ -154,7 +162,7 @@ function SectionPanel({ section, pathname, currentUrl, onClose }: { section: Sid
 					<div className="space-y-3">
 						{groups.map((group) => (
 							<div key={group.title} className="space-y-0.5">
-									<p className="px-2.5 pb-0.5 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{group.title}</p>
+									<p className="px-2.5 pb-0.5 pt-1 text-xs font-semibold tracking-wide text-stone-500 dark:text-stone-400">{group.title}</p>
 								{group.children.map((item) => <NavigationLink key={item.text} item={item} active={isActive(pathname, item, currentUrl)} onNavigate={onClose} />)}
 							</div>
 						))}
@@ -246,7 +254,7 @@ export default function Sidebar() {
 						<Button variant="ghost" className={cn("h-8 rounded-md px-2 text-[13px] text-stone-600 hover:bg-white/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800/70 dark:hover:text-white", !openSection && !pathname.startsWith("/chat") && "bg-white text-stone-950 shadow-sm dark:bg-stone-800 dark:text-white")} onClick={() => { setOpenSection(null); router.push("/home"); }} aria-label="Browse">
 							<span>Browse</span>
 						</Button>
-						<Link href="/chat" className={cn("flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-stone-600 hover:bg-white/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800/70 dark:hover:text-white", !openSection && isOtterActive && "bg-white text-stone-950 shadow-sm dark:bg-stone-800 dark:text-white")}><Otter className="size-4 shrink-0" />Otter</Link>
+						<Link href="/chat" className={cn("flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-stone-600 hover:bg-white/70 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800/70 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-stone-300 dark:focus-visible:ring-offset-stone-950", !openSection && isOtterActive && "bg-white text-stone-950 shadow-sm dark:bg-stone-800 dark:text-white")}><Otter className="size-4 shrink-0" />Otter</Link>
 					</div>
 				)}
 

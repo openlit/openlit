@@ -31,6 +31,7 @@ import {
 	TraceAnalysisDimension,
 	TraceAnalysisFinding,
 	emptyTraceAnalysis,
+	ensureTraceAnalysisDimensions,
 } from "@/types/trace-analysis";
 import { TRACE_ANALYSIS_DIMENSION_REGISTRY } from "@/lib/platform/chat/trace-analysis-registry";
 import { useRequest } from "../request-context";
@@ -245,6 +246,7 @@ function normalizeFindings(value: unknown): TraceAnalysisFinding[] {
 function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	const base = emptyTraceAnalysis(String(value?.trace_id || value?.traceId || ""));
 	const totals = value?.totals && typeof value.totals === "object" ? value.totals : {};
+	const dimensionFindings = ensureTraceAnalysisDimensions(value);
 	const normalized: TraceAnalysis = {
 		...base,
 		...value,
@@ -259,7 +261,7 @@ function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	};
 
 	for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
-		normalized[dimension] = normalizeFindings(value?.[dimension]);
+		normalized[dimension] = normalizeFindings(dimensionFindings[dimension]);
 	}
 
 	return normalized;

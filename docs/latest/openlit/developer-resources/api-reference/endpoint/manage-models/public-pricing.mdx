@@ -1,0 +1,57 @@
+---
+title: "Public pricing export"
+openapi: "GET /api/pricing/export/{dbConfigId}"
+---
+
+Public endpoint behind the **SDK Pricing URL** on Manage Models. No API key or session required.
+
+Copy the URL from Manage Models (it includes your database config id), or call:
+
+```bash
+curl -X GET "/api/pricing/export/<your-db-config-id>"
+```
+
+## SDK usage
+
+Replace the host and database config id with values from your OpenLIT deployment and the Manage Models **SDK Pricing URL** bar.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+
+    openlit.init(
+        otlp_endpoint="http://<otel-collector-host>:4318",
+        pricing_json="https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import openlit from "openlit";
+
+    openlit.init({
+      otlpEndpoint: "http://<otel-collector-host>:4318",
+      pricingJson: "https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
+    });
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    package main
+
+    import openlit "github.com/openlit/openlit/sdk/go"
+
+    func main() {
+        openlit.Init(openlit.Config{
+            OtlpEndpoint: "http://<otel-collector-host>:4318",
+            PricingJson:  "https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
+        })
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  The path contains your database config id. The response is pricing only (no secrets or traces), but share the URL only with systems that should read your model prices.
+</Warning>
