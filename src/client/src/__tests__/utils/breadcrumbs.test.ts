@@ -270,3 +270,35 @@ describe('updatePageHeaderWithData', () => {
     expect(updated.breadcrumbs).toEqual(baseHeader.breadcrumbs);
   });
 });
+
+describe('ROUTE_CONFIGS handlers', () => {
+  it('invokes every route title/breadcrumb/description handler', () => {
+    const { ROUTE_CONFIGS } = require('@/utils/breadcrumbs') as typeof import('@/utils/breadcrumbs');
+    const params = { id: 'abc', userId: encodeURIComponent('a@b.com') };
+
+    expect(ROUTE_CONFIGS.length).toBeGreaterThan(10);
+
+    for (const config of ROUTE_CONFIGS) {
+      expect(typeof config.getTitle('/sample', params)).toBe('string');
+      const crumbs = config.getBreadcrumbs('/sample', params);
+      expect(Array.isArray(crumbs)).toBe(true);
+      if (config.getDescription) {
+        expect(typeof config.getDescription('/sample', params)).toBe('string');
+      }
+    }
+  });
+
+  it('extracts coding-agents user id params', () => {
+    const result = extractRouteParams(
+      '/coding-agents/users/alice%40example.com',
+      /^\/coding-agents\/users\/[^/]+$/
+    );
+    expect(result.userId).toBe('alice%40example.com');
+  });
+
+  it('falls back for unknown routes', () => {
+    const header = generatePageHeader('/totally-unknown-page');
+    expect(header.title).toBe('Totally unknown page');
+    expect(header.breadcrumbs).toEqual([]);
+  });
+});

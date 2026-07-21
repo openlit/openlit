@@ -5,34 +5,39 @@ jest.mock("@/lib/session", () => ({
 import { getCurrentUser } from "@/lib/session";
 import { resolveDbConfigId } from "@/helpers/server/auth";
 
+function makeRequest(headers: Record<string, string> = {}) {
+	return {
+		headers: {
+			get: (name: string) => headers[name.toLowerCase()] ?? headers[name] ?? null,
+		},
+	} as unknown as Request;
+}
+
 describe("resolveDbConfigId", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 	});
 
-	it("returns the header value when x-database-config-id is present", async () => {
-		const request = new Request("http://localhost/api", {
-			headers: { "x-database-config-id": "db-123" },
-		});
-
-		await expect(resolveDbConfigId(request)).resolves.toEqual([null, "db-123"]);
+	it("prefers the x-database-config-id header", async () => {
+		await expect(
+			resolveDbConfigId(makeRequest({ "x-database-config-id": "db-header" }))
+		).resolves.toEqual([null, "db-header"]);
 		expect(getCurrentUser).not.toHaveBeenCalled();
 	});
 
-	it("returns Unauthorized when header is missing and user is absent", async () => {
+	it("returns unauthorized when there is no header and no user", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue(null);
-		const request = new Request("http://localhost/api");
-
-		await expect(resolveDbConfigId(request)).resolves.toEqual([
+		await expect(resolveDbConfigId(makeRequest())).resolves.toEqual([
 			"Unauthorized",
 			undefined,
 		]);
 	});
 
-	it("returns null error and undefined id when user is authenticated without header", async () => {
+	it("returns null error with undefined id when user is present without header", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
-		const request = new Request("http://localhost/api");
-
-		await expect(resolveDbConfigId(request)).resolves.toEqual([null, undefined]);
+		await expect(resolveDbConfigId(makeRequest())).resolves.toEqual([
+			null,
+			undefined,
+		]);
 	});
 });

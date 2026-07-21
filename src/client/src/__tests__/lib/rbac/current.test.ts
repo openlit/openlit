@@ -1,3 +1,15 @@
+beforeAll(() => {
+	Object.defineProperty(global, "Response", {
+		value: {
+			json: (body: unknown, init?: ResponseInit) => ({
+				status: init?.status ?? 200,
+				json: jest.fn().mockResolvedValue(body),
+			}),
+		},
+		configurable: true,
+	});
+});
+
 import {
 	requireCurrentOrganisationPermission,
 	requireCurrentOrganisationEntitledPermission,

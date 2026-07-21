@@ -237,6 +237,15 @@ describe("getTraceAnalysisRuns", () => {
 			"db-config-1"
 		);
 	});
+
+	it("defaults null data to an empty array and filters by analysis type", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({ data: null });
+		const { data } = await getTraceAnalysisRuns("span-abc", undefined, "span_analysis");
+		expect(data).toEqual([]);
+		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
+			"analysis_type = 'span_analysis'"
+		);
+	});
 });
 
 // ─── getTraceImprovement ─────────────────────────────────────────────────────
@@ -294,6 +303,29 @@ describe("getTraceImprovement", () => {
 		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
 			"analysis_type = 'span_analysis'"
 		);
+	});
+
+	it("returns hierarchy-not-found when the record has no SpanId", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: {},
+			err: null,
+		});
+
+		await expect(getTraceImprovement("missing")).resolves.toEqual({
+			err: "Trace hierarchy not found",
+		});
+	});
+
+	it("returns empty runs when the runs query errors", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock).mockResolvedValue({ err: "runs failed" });
+
+		const result = await getTraceImprovement("root-span", "db-1");
+
+		expect(result).toEqual({ data: { rootSpanId: "root-span", runs: [] } });
 	});
 });
 
@@ -368,6 +400,45 @@ describe("saveTraceAnalysisRun", () => {
 		const insertValues = (dataCollector as jest.Mock).mock.calls[0][0].values[0];
 		expect(insertValues.run_number).toBe(2);
 		expect(data!.runNumber).toBe(2);
+	});
+
+	it("computes worst severity and stores span analysis type", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({ err: null });
+		const analysis = {
+			...emptyTraceAnalysis("t1"),
+			summary: "",
+			improvements: [
+				{
+					id: "f1",
+					severity: "critical" as const,
+					summary: "bad",
+					detail: "worse",
+					span_refs: ["root-1"],
+				},
+			],
+			cost: [
+				{
+					id: "f2",
+					severity: "minor" as const,
+					summary: "pricey",
+					detail: "ok",
+					span_refs: ["root-1"],
+				},
+			],
+		};
+
+		const { data } = await saveTraceAnalysisRun({
+			...baseArgs,
+			analysis,
+			analysisType: "span_analysis",
+		});
+		const insertValues = (dataCollector as jest.Mock).mock.calls[0][0].values[0];
+
+		expect(insertValues.worst_severity).toBe("critical");
+		expect(insertValues.analysis_type).toBe("span_analysis");
+		expect(insertValues.summary).toBe("");
+		expect(data!.worstSeverity).toBe("critical");
+		expect(data!.summary).toBe("");
 	});
 });
 
@@ -883,5 +954,152 @@ describe("streamTraceImprovementAnalysis", () => {
 				],
 			})
 		);
+	});
+
+	it("tracks duplicate tool inputs and retrieval/embedding roles in metrics", async () => {
+		const toolArgs = JSON.stringify({ query: "same-search" });
+		const rich = {
+			TraceId: "trace-tools",
+			SpanId: "root",
+			ParentSpanId: "",
+			SpanName: "agent.root",
+			ServiceName: "agent-service",
+			Duration: 1_000_000_000,
+			StatusCode: "STATUS_CODE_OK",
+			ResourceAttributes: { "service.name": "agent-service" },
+			SpanAttributes: {},
+			Events: [],
+			children: [
+				{
+					TraceId: "trace-tools",
+					SpanId: "tool-1",
+					ParentSpanId: "root",
+					SpanName: "tool.search",
+					ServiceName: "agent-service",
+					Duration: 10_000_000,
+					StatusCode: "STATUS_CODE_OK",
+					ResourceAttributes: { "service.name": "agent-service" },
+					SpanAttributes: {
+						"gen_ai.tool.name": "search",
+						"gen_ai.tool.call.arguments": toolArgs,
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-tools",
+					SpanId: "tool-2",
+					ParentSpanId: "root",
+					SpanName: "tool.search",
+					ServiceName: "agent-service",
+					Duration: 12_000_000,
+					StatusCode: "STATUS_CODE_OK",
+					ResourceAttributes: { "service.name": "agent-service" },
+					SpanAttributes: {
+						"gen_ai.tool.name": "search",
+						"gen_ai.tool.call.arguments": toolArgs,
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-tools",
+					SpanId: "retr-1",
+					ParentSpanId: "root",
+					SpanName: "retrieval.search",
+					ServiceName: "agent-service",
+					Duration: 8_000_000,
+					StatusCode: "STATUS_CODE_OK",
+					ResourceAttributes: { "service.name": "agent-service" },
+					SpanAttributes: {
+						"gen_ai.content.prompt": "lookup docs",
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-tools",
+					SpanId: "db-1",
+					ParentSpanId: "root",
+					SpanName: "db.query",
+					ServiceName: "agent-service",
+					Duration: 4_000_000,
+					StatusCode: "STATUS_CODE_ERROR",
+					ResourceAttributes: { "service.name": "agent-service" },
+					SpanAttributes: {
+						"db.system.name": "postgres",
+						"db.query.text": "select 1",
+					},
+					Events: [],
+					children: [],
+				},
+			],
+		};
+
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: rich,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+		(streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+			onFinish({ usage: { inputTokens: 1, outputTokens: 1 } });
+			return {
+				fullStream: (async function* () {
+					yield {
+						type: "text-delta",
+						delta: JSON.stringify({
+							summary: "ok",
+							improvements: [
+								{
+									severity: "info",
+									summary: "dup tools",
+									detail: "same args",
+									span_refs: ["tool-1", "tool-2"],
+								},
+							],
+						}),
+					};
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("root", "db-1");
+		expect(result.err).toBeUndefined();
+		const events = await readNdjson(result.response!);
+		expect(events.some((e) => e.type === "done")).toBe(true);
+		const detailEvent = events.find(
+			(e) =>
+				e.type === "step" &&
+				typeof e.detail === "string" &&
+				/LLM calls/.test(e.detail)
+		);
+		expect(detailEvent?.detail).toContain("2 tools");
+		const debugContext = events.find(
+			(e) => e.type === "debug" && e.stage === "context_extracted"
+		);
+		expect((debugContext?.payload as any).toolCallCount).toBe(2);
+		expect((debugContext?.payload as any).duplicateToolInputs).toEqual(
+			expect.arrayContaining([expect.objectContaining({ count: 2 })])
+		);
+		expect((debugContext?.payload as any).errorCount).toBe(1);
+	});
+
+	it("handles stream errors without Error.message", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({
+			data: { provider: "openai", model: "gpt-4o-mini", apiKey: "sk-test" },
+		});
+		(streamText as jest.Mock).mockImplementation(() => {
+			throw { notMessage: true };
+		});
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+		expect(events.some((e) => e.type === "error")).toBe(true);
 	});
 });

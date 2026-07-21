@@ -1,7 +1,8 @@
 import { ENTERPRISE_MIDDLEWARE_MATCHERS } from "@/middleware/enterprise-matchers";
 
-describe("enterprise middleware matchers CE fallback", () => {
-	it("exports an empty matcher list in CE", () => {
+describe("ENTERPRISE_MIDDLEWARE_MATCHERS", () => {
+	it("is an empty CE placeholder array", () => {
 		expect(ENTERPRISE_MIDDLEWARE_MATCHERS).toEqual([]);
+		expect(Array.isArray(ENTERPRISE_MIDDLEWARE_MATCHERS)).toBe(true);
 	});
 });
