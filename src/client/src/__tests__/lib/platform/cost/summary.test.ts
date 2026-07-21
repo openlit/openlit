@@ -127,12 +127,12 @@ describe("getCostSummary", () => {
 			data: [{ total_cost: null, previous_total_cost: Number.NaN }],
 		});
 		mockedGetOtterTotalCost.mockResolvedValue({
-			data: [{}],
+			data: [{} as { total_cost: number; previous_total_cost: number }],
 		});
 		mockedGetEvaluationAnalytics.mockResolvedValue({
 			configured: true,
-			data: [{ total_cost: "", previous_total_cost: "x" }],
-		} as Awaited<ReturnType<typeof getEvaluationAnalytics>>);
+			data: [{ total_cost: "" as unknown as number, previous_total_cost: "x" as unknown as number }],
+		} as unknown as Awaited<ReturnType<typeof getEvaluationAnalytics>>);
 		mockedGetOpengroundTotalCost.mockResolvedValue({
 			data: [{ total_cost: 0, previous_total_cost: false as unknown as number }],
 		});

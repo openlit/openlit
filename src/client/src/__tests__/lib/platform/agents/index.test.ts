@@ -500,7 +500,7 @@ describe("normalizeDeploymentEnvironment / deploymentEnvironmentSqlPredicate", (
 	});
 
 	it("builds equality predicates for non-default environments", () => {
-		const escape = (v: string) => v.replace(/'/g, "\\'");
+		const escape = (v: string) => v.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 		expect(deploymentEnvironmentSqlPredicate("staging", escape)).toBe(
 			"ResourceAttributes['deployment.environment'] = 'staging'"
 		);
