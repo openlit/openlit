@@ -10,6 +10,7 @@ openlit/instrumentation/anthropic/async_anthropic.py.
 
 import asyncio
 import contextvars
+import logging
 
 import pytest
 from opentelemetry import trace as trace_api, context as context_api
@@ -18,25 +19,22 @@ from openlit.__helpers import safe_detach
 from openlit.instrumentation.anthropic.async_anthropic import async_messages_stream
 
 
-def test_safe_detach_swallows_cross_context_token():
-    """Without an attaching_task hint, a bare Context mismatch must not raise."""
+def test_safe_detach_cross_context_without_task_hint_does_not_error_log(caplog):
+    """
+    Without attaching_task, a bare Context mismatch must not raise and must
+    not emit the public API's ERROR ``Failed to detach context`` log.
+    """
     token = context_api.attach(context_api.set_value("k", "v"))
 
-    result = {}
+    with caplog.at_level(logging.ERROR, logger="opentelemetry.context"):
+        contextvars.Context().run(lambda: safe_detach(token))
 
-    def detach_in_foreign_context():
-        try:
-            safe_detach(token)
-            result["raised"] = False
-        except ValueError:
-            result["raised"] = True
+    assert not any(
+        "Failed to detach context" in record.getMessage() for record in caplog.records
+    )
 
-    contextvars.Context().run(detach_in_foreign_context)
-
-    assert result["raised"] is False
-
-    # The token was never actually detached in the original context (only in
-    # the throwaway one above) - clean it up so "k" doesn't leak into later tests.
+    # The token was never actually detached in the original context - clean
+    # it up so "k" doesn't leak into later tests.
     context_api.detach(token)
 
 
@@ -73,12 +71,11 @@ def test_safe_detach_same_task_still_detaches():
     asyncio.run(main())
 
 
-def test_safe_detach_skips_foreign_task_without_attempting_detach():
+def test_safe_detach_skips_foreign_task_without_error_log(caplog):
     """
     Foreign Task -> the mismatch is detected up front and detach is skipped
-    entirely (not attempted-then-caught). This is the deterministic fix:
-    it must behave identically whether or not context_api.detach() would
-    have raised.
+    entirely (not attempted-then-caught). Must not emit ERROR from
+    ``opentelemetry.context``.
     """
 
     async def main():
@@ -92,9 +89,15 @@ def test_safe_detach_skips_foreign_task_without_attempting_detach():
 
         await asyncio.create_task(attach_only())
 
-        # Runs in main()'s task, which never attached anything - mirrors the
-        # asyncgen finalizer Task in the real bug.
-        safe_detach(token_holder["token"], token_holder["task"])
+        with caplog.at_level(logging.ERROR, logger="opentelemetry.context"):
+            # Runs in main()'s task, which never attached anything - mirrors
+            # the asyncgen finalizer Task in the real bug.
+            safe_detach(token_holder["token"], token_holder["task"])
+
+        assert not any(
+            "Failed to detach context" in record.getMessage()
+            for record in caplog.records
+        )
 
     asyncio.run(main())
 
@@ -139,11 +142,11 @@ def _make_stream_manager():
 
 
 @pytest.mark.asyncio
-async def test_stream_manager_aexit_in_foreign_task_does_not_raise():
+async def test_stream_manager_aexit_in_foreign_task_does_not_raise(caplog):
     """
     End-to-end: enter the manager in one Task, exit it (as the asyncgen
-    finalizer would) from a different Task. Must not raise, matching the
-    abandoned-stream production traceback this fix addresses.
+    finalizer would) from a different Task. Must not raise and must not
+    emit ERROR ``Failed to detach context``.
     """
     manager = _make_stream_manager()
 
@@ -155,4 +158,10 @@ async def test_stream_manager_aexit_in_foreign_task_does_not_raise():
     async def exit_from_foreign_task():
         await manager.__aexit__(None, None, None)
 
-    await asyncio.create_task(exit_from_foreign_task())
+    with caplog.at_level(logging.ERROR, logger="opentelemetry.context"):
+        await asyncio.create_task(exit_from_foreign_task())
+
+    assert not any(
+        "Failed to detach context" in record.getMessage() for record in caplog.records
+    )
+    assert manager._token is None

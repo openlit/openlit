@@ -518,12 +518,15 @@ def safe_detach(token, attaching_task=None):
     context reverts on its own once that Task completes, since contextvars
     are scoped per-Task and never shared across Tasks.
 
-    Pass `attaching_task` (the Task active when `attach()` was called) to
-    enable this check for async code paths. Sync callers can omit it - the
-    try/except below is a defensive fallback for any other mismatch, logged
-    at debug level since it means the mismatch wasn't caught by the
-    attaching_task check above (either no Task was passed, or the failure
-    has a cause other than the cross-Task scenario this helper targets).
+    Pass ``attaching_task`` (the Task active when ``attach()`` was called) to
+    short-circuit async cross-Task exits before any detach is attempted.
+
+    Important: ``opentelemetry.context.detach()`` catches all exceptions and
+    logs them at ERROR (``Failed to detach context``), so it never re-raises
+    ``ValueError`` to callers. This helper therefore detaches via the runtime
+    context (``_RUNTIME_CONTEXT``) when available, so a genuine Context
+    mismatch can be handled at DEBUG without polluting application logs.
+    Sync callers may omit ``attaching_task`` and still avoid the ERROR path.
     """
     if attaching_task is not None:
         try:
@@ -541,15 +544,21 @@ def safe_detach(token, attaching_task=None):
             )
             return
 
-    try:
-        context_api.detach(token)
-    except ValueError:
-        logger.debug(
-            "safe_detach: context token detach failed outside the "
-            "attaching_task check (attaching_task=%r); the token's "
-            "originating Context was not the active one.",
-            attaching_task,
-        )
+    # Public context_api.detach() swallows exceptions and logs ERROR; use the
+    # runtime Context so we can treat cross-Context Tokens as a quiet no-op.
+    runtime = getattr(context_api, "_RUNTIME_CONTEXT", None)
+    if runtime is not None:
+        try:
+            runtime.detach(token)
+        except ValueError:
+            logger.debug(
+                "safe_detach: skipped detach; token was created in a "
+                "different Context (attaching_task=%r).",
+                attaching_task,
+            )
+        return
+
+    context_api.detach(token)
 
 
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:
