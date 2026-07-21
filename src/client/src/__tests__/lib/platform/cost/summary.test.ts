@@ -90,4 +90,97 @@ describe("getCostSummary", () => {
 			previous_openground_cost: 0.5,
 		});
 	});
+
+	it("zeros every bucket when data rows are empty", async () => {
+		mockedGetTotalCost.mockResolvedValue({ data: [] });
+		mockedGetCodingAgentsTotalCost.mockResolvedValue({ data: [] });
+		mockedGetOtterTotalCost.mockResolvedValue({ data: [] });
+		mockedGetEvaluationAnalytics.mockResolvedValue({
+			configured: true,
+			data: [],
+		} as Awaited<ReturnType<typeof getEvaluationAnalytics>>);
+		mockedGetOpengroundTotalCost.mockResolvedValue({ data: [] });
+
+		const res = await getCostSummary(params);
+
+		expect(res.data[0]).toEqual({
+			total_platform_cost: 0,
+			previous_total_platform_cost: 0,
+			llm_cost: 0,
+			previous_llm_cost: 0,
+			coding_agents_cost: 0,
+			previous_coding_agents_cost: 0,
+			otter_cost: 0,
+			previous_otter_cost: 0,
+			evaluations_cost: 0,
+			previous_evaluations_cost: 0,
+			openground_cost: 0,
+			previous_openground_cost: 0,
+		});
+	});
+
+	it("treats missing and NaN cost fields as zero", async () => {
+		mockedGetTotalCost.mockResolvedValue({
+			data: [{ total_usage_cost: "bad", previous_total_usage_cost: undefined }],
+		});
+		mockedGetCodingAgentsTotalCost.mockResolvedValue({
+			data: [{ total_cost: null, previous_total_cost: Number.NaN }],
+		});
+		mockedGetOtterTotalCost.mockResolvedValue({
+			data: [{}],
+		});
+		mockedGetEvaluationAnalytics.mockResolvedValue({
+			configured: true,
+			data: [{ total_cost: "", previous_total_cost: "x" }],
+		} as Awaited<ReturnType<typeof getEvaluationAnalytics>>);
+		mockedGetOpengroundTotalCost.mockResolvedValue({
+			data: [{ total_cost: 0, previous_total_cost: false as unknown as number }],
+		});
+
+		const res = await getCostSummary(params);
+
+		expect(res.data[0].total_platform_cost).toBe(0);
+		expect(res.data[0].previous_total_platform_cost).toBe(0);
+		expect(res.data[0].llm_cost).toBe(0);
+		expect(res.data[0].coding_agents_cost).toBe(0);
+		expect(res.data[0].otter_cost).toBe(0);
+		expect(res.data[0].evaluations_cost).toBe(0);
+		expect(res.data[0].openground_cost).toBe(0);
+	});
+
+	it("falls back when firstRow data is non-array or non-object", async () => {
+		mockedGetTotalCost.mockResolvedValue({
+			data: null as unknown as never[],
+		});
+		mockedGetCodingAgentsTotalCost.mockResolvedValue({
+			data: [null] as unknown as never[],
+		});
+		mockedGetOtterTotalCost.mockResolvedValue({
+			data: ["not-an-object"] as unknown as never[],
+		});
+		mockedGetEvaluationAnalytics.mockResolvedValue({
+			configured: false,
+			data: undefined as unknown as never[],
+		} as Awaited<ReturnType<typeof getEvaluationAnalytics>>);
+		mockedGetOpengroundTotalCost.mockResolvedValue({
+			data: { total_cost: 99 } as unknown as never[],
+		});
+
+		const res = await getCostSummary(params);
+
+		expect(res.data[0]).toEqual({
+			total_platform_cost: 0,
+			previous_total_platform_cost: 0,
+			llm_cost: 0,
+			previous_llm_cost: 0,
+			coding_agents_cost: 0,
+			previous_coding_agents_cost: 0,
+			otter_cost: 0,
+			previous_otter_cost: 0,
+			evaluations_cost: 0,
+			previous_evaluations_cost: 0,
+			openground_cost: 0,
+			previous_openground_cost: 0,
+		});
+	});
 });

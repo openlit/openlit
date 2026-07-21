@@ -1,10 +1,20 @@
+jest.mock("@/constants/messages", () => ({
+	__esModule: true,
+	default: jest.fn(() => ({
+		USER_PROFILE: "User Profile",
+		API_KEYS: "API Keys",
+	})),
+}));
+
 import { getSettingsTabs } from "@/constants/settings";
 
-describe("settings constants", () => {
-	it("returns profile and api-keys tabs", () => {
+describe("getSettingsTabs", () => {
+	it("returns CE settings tabs with expected paths", () => {
 		const tabs = getSettingsTabs();
-		expect(tabs.map((tab) => tab.value)).toEqual(["profile", "api-keys"]);
-		expect(tabs.every((tab) => tab.path.startsWith("/settings/"))).toBe(true);
-		expect(tabs.every((tab) => tab.label.length > 0)).toBe(true);
+
+		expect(tabs).toEqual([
+			{ value: "profile", label: "User Profile", path: "/settings/profile" },
+			{ value: "api-keys", label: "API Keys", path: "/settings/api-keys" },
+		]);
 	});
 });
