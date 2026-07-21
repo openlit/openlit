@@ -420,6 +420,12 @@ def common_chat_logic(
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=False,
     )
+
+    # Common Span Attributes
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
         scope._server_address,
         scope._server_port,
         request_model,

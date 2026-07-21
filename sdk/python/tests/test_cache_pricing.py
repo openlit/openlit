@@ -386,8 +386,6 @@ class TestLiteLLMAdapter:
     }
 
     def test_extract_cache_tokens_reads_prompt_tokens_details(self):
-        from openlit.instrumentation.litellm.utils import _extract_litellm_cache_tokens
-
         cache_read, cache_creation = _extract_litellm_cache_tokens(self.USAGE)
         assert cache_read == _CACHE_READ
         # Was always 0 when read from completion_tokens_details.cached_tokens.
