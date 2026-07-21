@@ -1,4 +1,3 @@
-import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
@@ -59,12 +58,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <Bot className={ICON_CLASSES} />,
 						text: "Agents",
 						link: "/agents",
-						type: "action",
-					},
-					{
-						icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
-						text: "Fleet Hub",
-						link: "/fleet-hub",
 						type: "action",
 					},
 					{
