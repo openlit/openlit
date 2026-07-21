@@ -328,6 +328,23 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _extract_cache_tokens(usage):
+    """Return ``(cache_read, cache_creation)`` from a litellm usage payload.
+
+    litellm normalizes both cache counts into ``prompt_tokens_details``: the
+    OpenAI-style ``cached_tokens`` is the cache-read count and, for Anthropic,
+    ``cache_creation_tokens`` is the cache-write count. The cache-creation count
+    was previously read from ``completion_tokens_details.cached_tokens``, a
+    field litellm never populates, so it was always 0.
+    """
+    prompt_tokens_details = (
+        usage.get("prompt_tokens_details", usage.get("input_tokens_details", {})) or {}
+    )
+    cache_read = prompt_tokens_details.get("cached_tokens", 0) or 0
+    cache_creation = prompt_tokens_details.get("cache_creation_tokens", 0) or 0
+    return cache_read, cache_creation
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -400,14 +417,10 @@ def process_chunk(scope, chunk):
         usage = chunked.get("usage", {})
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
-        prompt_tokens_details = (
-            usage.get("prompt_tokens_details", usage.get("input_tokens_details", {}))
-            or {}
-        )
-        scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-        scope._cache_creation_input_tokens = (
-            usage.get("completion_tokens_details") or {}
-        ).get("cached_tokens", 0)
+        (
+            scope._cache_read_input_tokens,
+            scope._cache_creation_input_tokens,
+        ) = _extract_cache_tokens(usage)
         scope._end_time = time.time()
 
 
@@ -433,8 +446,18 @@ def common_chat_logic(
 
     request_model = scope._kwargs.get("model", "openai/gpt-4o")
 
+    # litellm normalizes ``prompt_tokens`` to include cache-read and
+    # cache-creation tokens (OpenAI convention), so forward the cache counts
+    # with ``prompt_tokens_include_cache=True`` to re-price them at their cache
+    # rates instead of the full prompt rate.
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        prompt_tokens_include_cache=True,
     )
 
     # Common Span Attributes
@@ -761,13 +784,10 @@ def process_chat_response(
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
-    prompt_tokens_details = (
-        usage.get("prompt_tokens_details", usage.get("input_tokens_details", {})) or {}
-    )
-    scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-    scope._cache_creation_input_tokens = (
-        usage.get("completion_tokens_details") or {}
-    ).get("cached_tokens", 0)
+    (
+        scope._cache_read_input_tokens,
+        scope._cache_creation_input_tokens,
+    ) = _extract_cache_tokens(usage)
     scope._response_id = response_dict.get("id") or ""
     scope._response_model = response_dict.get("model") or ""
     choices = response_dict.get("choices", [])

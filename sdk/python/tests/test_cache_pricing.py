@@ -210,3 +210,127 @@ class TestBundledPricingFile:
         # cache read should be cheaper than prompt; cache write pricier.
         assert entry["cacheReadPrice"] < entry["promptPrice"]
         assert entry["cacheCreationPrice"] > entry["promptPrice"]
+
+
+# 200 uncached input + 5000 cache-read + 1000 cache-creation + 300 output.
+_RAW_INPUT, _CACHE_READ, _CACHE_CREATION, _OUTPUT = 200, 5000, 1000, 300
+_INCLUSIVE_INPUT = _RAW_INPUT + _CACHE_READ + _CACHE_CREATION  # 6200
+
+
+def _ground_truth():
+    return (
+        (_RAW_INPUT / 1000) * 0.003
+        + (_OUTPUT / 1000) * 0.015
+        + (_CACHE_READ / 1000) * 0.0003
+        + (_CACHE_CREATION / 1000) * 0.00375
+    )
+
+
+class TestClaudeAgentSDKAdapter:
+    """The claude_agent_sdk adapter builds an inclusive input total in
+    ``extract_usage`` (uncached + cache-read + cache-creation) and must re-price
+    the cache tokens at their cache rates instead of the full prompt rate."""
+
+    USAGE = {
+        "input_tokens": _RAW_INPUT,
+        "cache_read_input_tokens": _CACHE_READ,
+        "cache_creation_input_tokens": _CACHE_CREATION,
+        "output_tokens": _OUTPUT,
+    }
+
+    def test_extract_usage_total_is_inclusive(self):
+        from openlit.instrumentation.claude_agent_sdk.utils import extract_usage
+        from openlit.semcov import SemanticConvention as SC
+
+        attrs = extract_usage(self.USAGE)
+        assert attrs[SC.GEN_AI_USAGE_INPUT_TOKENS] == _INCLUSIVE_INPUT
+        assert attrs[SC.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] == _CACHE_READ
+        assert attrs[SC.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] == _CACHE_CREATION
+
+    def test_cost_reprices_cache_tokens(self):
+        from openlit.instrumentation.claude_agent_sdk.utils import (
+            extract_usage,
+            _calculate_cost,
+        )
+        from openlit.semcov import SemanticConvention as SC
+
+        attrs = extract_usage(self.USAGE)
+        cost = _calculate_cost(
+            MODEL,
+            PRICING_WITH_CACHE,
+            attrs[SC.GEN_AI_USAGE_INPUT_TOKENS],
+            attrs[SC.GEN_AI_USAGE_OUTPUT_TOKENS],
+            attrs[SC.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS],
+            attrs[SC.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS],
+        )
+        assert cost == _approx(_ground_truth())
+
+    def test_billing_inclusive_total_at_prompt_price_overcharges(self):
+        # Documents the pre-fix behaviour: billing the inclusive total at prompt
+        # price charges cache-read tokens ~10x their real rate.
+        overcharged = get_chat_model_cost(
+            MODEL, PRICING_WITH_CACHE, _INCLUSIVE_INPUT, _OUTPUT
+        )
+        assert overcharged == _approx(
+            (_INCLUSIVE_INPUT / 1000) * 0.003 + (_OUTPUT / 1000) * 0.015
+        )
+        assert overcharged > _ground_truth()
+
+
+class TestLiteLLMAdapter:
+    """litellm normalizes ``prompt_tokens`` to include cache tokens and reports
+    both cache counts under ``prompt_tokens_details``. The adapter must read
+    cache-creation from there (not the never-populated
+    ``completion_tokens_details.cached_tokens``) and forward the cache counts to
+    the cost helper."""
+
+    # Shape of ``response["usage"]`` as litellm emits it (litellm 1.92.0).
+    USAGE = {
+        "prompt_tokens": _INCLUSIVE_INPUT,
+        "completion_tokens": _OUTPUT,
+        "prompt_tokens_details": {
+            "cached_tokens": _CACHE_READ,
+            "cache_creation_tokens": _CACHE_CREATION,
+            "text_tokens": _RAW_INPUT,
+        },
+        # litellm never sets a cache count here; the old code read it anyway.
+        "completion_tokens_details": {"text_tokens": _OUTPUT, "reasoning_tokens": 0},
+    }
+
+    def test_extract_cache_tokens_reads_prompt_tokens_details(self):
+        from openlit.instrumentation.litellm.utils import _extract_cache_tokens
+
+        cache_read, cache_creation = _extract_cache_tokens(self.USAGE)
+        assert cache_read == _CACHE_READ
+        # Was always 0 when read from completion_tokens_details.cached_tokens.
+        assert cache_creation == _CACHE_CREATION
+
+    def test_dead_field_source_yields_zero(self):
+        # Confirms why the old source was wrong: litellm puts no cache count in
+        # completion_tokens_details, so the previous read was always 0.
+        assert (self.USAGE.get("completion_tokens_details") or {}).get(
+            "cached_tokens", 0
+        ) == 0
+
+    def test_cost_prices_cache_tokens_at_cache_rate(self):
+        cache_read, cache_creation = (_CACHE_READ, _CACHE_CREATION)
+        cost = get_chat_model_cost(
+            MODEL,
+            PRICING_WITH_CACHE,
+            self.USAGE["prompt_tokens"],
+            self.USAGE["completion_tokens"],
+            cache_read_tokens=cache_read,
+            cache_creation_tokens=cache_creation,
+            prompt_tokens_include_cache=True,
+        )
+        assert cost == _approx(_ground_truth())
+
+    def test_missing_cache_forward_overcharges(self):
+        # Pre-fix: the whole inclusive prompt total is billed at prompt price.
+        buggy = get_chat_model_cost(
+            MODEL,
+            PRICING_WITH_CACHE,
+            self.USAGE["prompt_tokens"],
+            self.USAGE["completion_tokens"],
+        )
+        assert buggy > _ground_truth()
