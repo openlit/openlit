@@ -459,11 +459,22 @@ class AzureAIInferenceWrapper extends BaseWrapper {
     const pricingInfo = OpenlitConfig.pricingInfo || {};
     const inputTokens = result.usage?.prompt_tokens || 0;
     const outputTokens = result.usage?.completion_tokens || 0;
+    // Azure AI Inference follows OpenAI-style inclusive prompt_tokens.
+    const cacheReadTokens =
+      Number(result.usage?.prompt_tokens_details?.cached_tokens) || 0;
+    const cacheCreationTokens =
+      Number(result.usage?.input_tokens_details?.cache_creation_tokens) ||
+      Number(result.usage?.prompt_tokens_details?.cache_creation_tokens) ||
+      Number(result.usage?.prompt_tokens_details?.cache_write_tokens) ||
+      0;
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       inputTokens,
-      outputTokens
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      true
     );
 
     AzureAIInferenceWrapper.setBaseSpanAttributes(span, {
@@ -480,16 +491,16 @@ class AzureAIInferenceWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
 
-    if (result.usage?.prompt_tokens_details?.cached_tokens) {
+    if (cacheReadTokens) {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
-        result.usage.prompt_tokens_details.cached_tokens
+        cacheReadTokens
       );
     }
-    if (result.usage?.input_tokens_details?.cache_creation_tokens) {
+    if (cacheCreationTokens) {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
-        result.usage.input_tokens_details.cache_creation_tokens
+        cacheCreationTokens
       );
     }
 

@@ -6,6 +6,8 @@ import {
   extractRuleEngineFieldsFromTrace,
   getContextFromRuleEngineForTrace,
   getContextFromRulesWithPriority,
+  getContextFromFields,
+  getContextFromRulesWithPriorityForFields,
 } from '@/lib/platform/evaluation/rule-engine-context';
 import { evaluateRules } from '@/lib/platform/rule-engine/evaluate';
 
@@ -230,4 +232,106 @@ describe('getContextFromRulesWithPriority', () => {
     expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
   });
 
+});
+
+// getContextFromFields / getContextFromRulesWithPriorityForFields are the
+// shared, trace-independent primitives behind the trace-based functions
+// above — used directly by the offline/SDK evaluation path so it resolves
+// rule-engine context identically to the real-time/auto path for the same
+// input fields.
+describe('getContextFromFields', () => {
+  it('returns empty result and skips evaluateRules when fields is empty', async () => {
+    const result = await getContextFromFields({});
+    expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+    expect(evaluateRules).not.toHaveBeenCalled();
+  });
+
+  it('calls evaluateRules with the given fields', async () => {
+    await getContextFromFields({ 'service.name': 'my-app' }, 'db-1');
+    expect(evaluateRules).toHaveBeenCalledWith(
+      { fields: { 'service.name': 'my-app' }, entity_type: 'context', include_entity_data: true },
+      'db-1'
+    );
+  });
+
+  it('extracts context content from entity_data', async () => {
+    (evaluateRules as jest.Mock).mockResolvedValue({
+      matchingRuleIds: ['r1'],
+      entities: [{ rule_id: 'r1', entity_type: 'context', entity_id: 'ctx-1' }],
+      entity_data: { 'context:ctx-1': { content: 'field-based content' } },
+    });
+    const result = await getContextFromFields({ 'service.name': 'my-app' });
+    expect(result.contextContents).toEqual(['field-based content']);
+    expect(result.contextEntityIds).toEqual(['ctx-1']);
+    expect(result.matchingRuleIds).toEqual(['r1']);
+  });
+
+  it('returns empty result when evaluateRules throws', async () => {
+    (evaluateRules as jest.Mock).mockRejectedValue(new Error('boom'));
+    const result = await getContextFromFields({ 'service.name': 'my-app' });
+    expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+  });
+});
+
+describe('getContextFromRulesWithPriorityForFields', () => {
+  it('returns raw result when rulesWithPriority is empty', async () => {
+    (evaluateRules as jest.Mock).mockResolvedValue({
+      matchingRuleIds: ['r1'],
+      entities: [],
+      entity_data: { 'context:ctx-1': { content: 'base content' } },
+    });
+    const result = await getContextFromRulesWithPriorityForFields({ 'service.name': 'my-app' }, []);
+    expect(result.matchingRuleIds).toContain('r1');
+  });
+
+  it('orders context by priority across the given fields, same as the trace-based path', async () => {
+    (evaluateRules as jest.Mock)
+      .mockResolvedValueOnce({ matchingRuleIds: ['r1', 'r2'], entities: [], entity_data: {} })
+      .mockResolvedValueOnce({
+        matchingRuleIds: ['r1', 'r2'],
+        entities: [
+          { rule_id: 'r1', entity_type: 'context', entity_id: 'ctx-1' },
+          { rule_id: 'r2', entity_type: 'context', entity_id: 'ctx-2' },
+        ],
+        entity_data: {
+          'context:ctx-1': { content: 'low priority content' },
+          'context:ctx-2': { content: 'high priority content' },
+        },
+      });
+
+    const result = await getContextFromRulesWithPriorityForFields(
+      { 'service.name': 'my-app' },
+      [
+        { ruleId: 'r1', priority: 1 },
+        { ruleId: 'r2', priority: 10 },
+      ]
+    );
+
+    expect(result.contextContents[0]).toBe('high priority content');
+    expect(result.contextContents[1]).toBe('low priority content');
+    expect(result.matchingRuleIds).toEqual(['r2', 'r1']);
+  });
+
+  it('returns empty when fields is empty (even with priority rules)', async () => {
+    const result = await getContextFromRulesWithPriorityForFields({}, [{ ruleId: 'r1', priority: 5 }]);
+    expect(result).toEqual({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+  });
+
+  it('returns the original (unordered) result instead of throwing when the priority re-fetch fails', async () => {
+    (evaluateRules as jest.Mock)
+      .mockResolvedValueOnce({
+        matchingRuleIds: ['r1'],
+        entities: [],
+        entity_data: { 'context:ctx-x': { content: 'fallback content' } },
+      })
+      .mockRejectedValueOnce(new Error('second fetch failed'));
+
+    const result = await getContextFromRulesWithPriorityForFields(
+      { 'service.name': 'my-app' },
+      [{ ruleId: 'r1', priority: 5 }]
+    );
+
+    expect(result.matchingRuleIds).toContain('r1');
+    expect(result.contextContents).toEqual(['fallback content']);
+  });
 });

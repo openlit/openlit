@@ -1,0 +1,39 @@
+---
+title: "Overview"
+description: "OpenLIT ships first-class observability for AI coding agents - Claude Code, Cursor, Codex, and Windsurf - with no SDK and no code changes"
+---
+
+OpenLIT ships first-class observability for AI coding agents. The `openlit` CLI ingests events from each vendor's hook system, normalizes them onto OpenTelemetry's `gen_ai.*` and OpenLIT's `coding_agent.*` semantic conventions, and ships them to your existing OpenLIT collector. The [Agents page](/latest/openlit/observability/agents/overview)'s Coding Agents tab detects them automatically - no controller, no SDK, no code change in your repos.
+
+<Note>
+You only need an OpenLIT instance and the `openlit` CLI on each developer's machine. The CLI talks **only** to your OpenLIT endpoint. There is no managed cloud for coding-agent telemetry.
+</Note>
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="Setup & Configure" href="/latest/openlit/coding-agents/setup-and-configure" icon='download'>
+    Install the CLI, wire Claude Code, Cursor, or Codex, and stop tracking when you need to
+  </Card>
+  <Card title="Analytics" href="/latest/openlit/coding-agents/analytics" icon='chart-line'>
+    The seeded dashboard - sessions, cost, acceptance, top tools and repos, session outcomes
+  </Card>
+  <Card title="Sessions" href="/latest/openlit/coding-agents/sessions" icon='list'>
+    Every coding session, with a full conversational drill-in per session
+  </Card>
+  <Card title="Users" href="/latest/openlit/coding-agents/users" icon='users'>
+    Per-developer rollups of activity, cost, and code impact
+  </Card>
+  <Card title="Privacy & Governance" href="/latest/openlit/coding-agents/privacy-and-governance" icon='shield'>
+    Content capture modes, redaction tiers, and attribution safeguards
+  </Card>
+  <Card title="Troubleshooting" href="/latest/openlit/coding-agents/troubleshooting" icon='wrench'>
+    Diagnose a missing row, silent hooks, or a stale database config
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+- A running OpenLIT instance - see [Installation](/latest/openlit/installation) if you don't have one.
+- An OpenLIT API key (Settings → API Keys).
+- The OTLP endpoint of your OpenLIT collector (defaults to `http://localhost:4318` for local installs).

@@ -11,6 +11,13 @@ type FeaturePageHeaderProps = {
 	actions?: ReactNode;
 };
 
+/**
+ * Shared page title bar for playground surfaces (Telemetry, Agents,
+ * Dashboards, Resources, …). Keep this compact: Telemetry is the
+ * visual reference. Call sites should pass `h-4 w-4` (or `size-4`)
+ * icons; tone should be color classes only (border/bg/text) — padding
+ * and rounding live here so every page matches.
+ */
 export default function FeaturePageHeader({
 	eyebrow,
 	title,
@@ -26,7 +33,9 @@ export default function FeaturePageHeader({
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">
 						{leading ? <div className="shrink-0">{leading}</div> : null}
-						<span className={`inline-flex shrink-0 items-center justify-center rounded-md border p-2 ${tone}`}>
+						<span
+							className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md border p-1.5 ${tone}`}
+						>
 							{icon}
 						</span>
 						<div className="min-w-0">
@@ -44,7 +53,11 @@ export default function FeaturePageHeader({
 						</div>
 					</div>
 				</div>
-				{actions ? <div className="shrink-0">{actions}</div> : null}
+				{actions ? (
+					<div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+						{actions}
+					</div>
+				) : null}
 			</div>
 		</section>
 	);

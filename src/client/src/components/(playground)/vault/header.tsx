@@ -33,5 +33,5 @@ export default function VaultHeader({
 		</div>
 	);
 
-	return <FeaturePageHeader eyebrow="Resources" title={messages.FEATURE_VAULT} icon={<BookKey className="h-4 w-4" />} tone="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300" actions={actions} />;
+	return <FeaturePageHeader eyebrow={getMessage().SIDEBAR_DEVELOP} title={messages.FEATURE_VAULT} icon={<BookKey className="h-4 w-4" />} tone="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300" actions={actions} />;
 }

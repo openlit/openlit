@@ -28,6 +28,43 @@ from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
 
+
+def _extract_litellm_cache_tokens(usage):
+    """
+    Extract cache read / creation token counts from LiteLLM usage.
+
+    LiteLLM normalizes OpenAI- and Anthropic-shaped usage. Cache creation must
+    never be taken from ``completion_tokens_details.cached_tokens`` (that field
+    is unrelated). Prefer, in order: top-level ``cache_creation_input_tokens``,
+    ``prompt_tokens_details.cache_creation_tokens`` / ``cache_write_tokens``,
+    then Anthropic ``cache_write_input_tokens``.
+    """
+    usage = usage or {}
+    prompt_details = (
+        usage.get("prompt_tokens_details")
+        or usage.get("input_tokens_details")
+        or {}
+    )
+    if not isinstance(prompt_details, dict):
+        prompt_details = {}
+
+    cache_read = (
+        prompt_details.get("cached_tokens")
+        or usage.get("cache_read_input_tokens")
+        or 0
+    ) or 0
+
+    cache_creation = (
+        usage.get("cache_creation_input_tokens")
+        or prompt_details.get("cache_creation_tokens")
+        or prompt_details.get("cache_write_tokens")
+        or usage.get("cache_write_input_tokens")
+        or 0
+    ) or 0
+
+    return cache_read, cache_creation
+
+
 LITELLM_PROVIDER_HOSTS = {
     "openai": "api.openai.com",
     "azure": "azure.openai.com",
@@ -400,14 +437,10 @@ def process_chunk(scope, chunk):
         usage = chunked.get("usage", {})
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
-        prompt_tokens_details = (
-            usage.get("prompt_tokens_details", usage.get("input_tokens_details", {}))
-            or {}
-        )
-        scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-        scope._cache_creation_input_tokens = (
-            usage.get("completion_tokens_details") or {}
-        ).get("cached_tokens", 0)
+        (
+            scope._cache_read_input_tokens,
+            scope._cache_creation_input_tokens,
+        ) = _extract_litellm_cache_tokens(usage)
         scope._end_time = time.time()
 
 
@@ -433,8 +466,16 @@ def common_chat_logic(
 
     request_model = scope._kwargs.get("model", "openai/gpt-4o")
 
+    # LiteLLM prompt_tokens are inclusive of cache tokens (OpenAI-style /
+    # normalized Anthropic totals), so subtract when re-pricing cache.
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
     )
 
     # Common Span Attributes
@@ -761,13 +802,10 @@ def process_chat_response(
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
-    prompt_tokens_details = (
-        usage.get("prompt_tokens_details", usage.get("input_tokens_details", {})) or {}
-    )
-    scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
-    scope._cache_creation_input_tokens = (
-        usage.get("completion_tokens_details") or {}
-    ).get("cached_tokens", 0)
+    (
+        scope._cache_read_input_tokens,
+        scope._cache_creation_input_tokens,
+    ) = _extract_litellm_cache_tokens(usage)
     scope._response_id = response_dict.get("id") or ""
     scope._response_model = response_dict.get("model") or ""
     choices = response_dict.get("choices", [])

@@ -1,22 +1,131 @@
 ---
 title: "Evaluations"
-description: "Use LLMs to evaluate AI application quality, safety, and performance with automated scoring and detailed analysis"
+sidebarTitle: "Set Up Evals"
+description: "Score AI outputs automatically for hallucination, bias, toxicity, and more - or add your own human feedback"
 ---
 
-import LLMJudge from '/snippets/llm-as-a-judge.mdx';
+Automated AI evaluation to assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments. Open **Monitor → Evaluations** for Analytics, Evaluators, and Configuration. For evaluation types and custom evaluators, see [Evaluators](/latest/openlit/evaluations/evaluators).
 
-<LLMJudge />
+<video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/evaluations.mp4"
+      alt="Demo of OpenLIT's automated evaluation scoring"
+    >
+    </video>
+
+## Find the right feature
+
+| If you want to... | Use this OpenLIT feature |
+|---|---|
+| Automatically score every production trace | [Configuration](/latest/openlit/evaluations/configuration) (Auto Evaluation) |
+| Score one specific trace on demand | [LLM-as-a-Judge](/latest/openlit/evaluations/llm-as-a-judge) from that trace's Evaluation tab |
+| Rate a trace yourself instead of an LLM judge | [Manual Feedback](/latest/openlit/evaluations/manual-feedback) - Good / Bad / Neutral plus a comment |
+| Judge responses against your own ground truth, not just the model's knowledge | [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) + [Context](/latest/openlit/prompts-experiments/context/overview) |
+| Evaluate on criteria beyond the 11 built-in types | [Custom evaluators](/latest/openlit/evaluations/evaluators#custom-evaluators) |
+| Only run certain evaluators for certain models, providers, or environments | [Evaluators](/latest/openlit/evaluations/evaluators) + [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) |
+| Test prompt or model changes before shipping | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) via the SDK |
+| Block a deploy on a quality regression | [Programmatic evaluations](/latest/sdk/quickstart-programmatic-evals) in a CI/CD pipeline |
+| See pass-rate trends across evaluators and time | [Analytics](/latest/openlit/evaluations/analytics) |
+
+## Setup
+
+<Tabs>
+  <Tab title="Online">
+    ```mermaid
+    flowchart LR;
+        A[LLM / Agent call] -->|creates| B[Trace in OpenLIT];
+        B -->|Auto Eval schedule or manual Run Evaluation| C[LLM Judge];
+        C -->|score + classification + reasoning| D[Trace detail & Dashboard];
+    ```
+
+    <Steps>
+      <Step title="Pick a judge model">
+        Go to **Evaluations → Settings**, choose a provider and model to act as the judge (OpenAI, Anthropic, Google, Mistral, and 7+ others), and add its API key from [Vault](/latest/openlit/developer-resources/vault/overview).
+      </Step>
+      <Step title="Enable evaluators">
+        Switch to the **Evaluation Types** tab and turn on the evaluators you want. Hallucination, Bias, and Toxicity are enabled by default; Relevance, Coherence, Safety, and 5 others are opt-in.
+      </Step>
+      <Step title="Turn on Auto Evaluation">
+        Back in Settings, enable **Auto Evaluation** with a cron schedule so every new trace gets scored automatically - or skip this and click **Run Evaluation** from any trace's Evaluation tab to score it on demand.
+      </Step>
+      <Step title="Review results">
+        Open any trace's **Evaluation** tab for its score, classification, and reasoning, or check the **Evaluations** dashboard for aggregate trends across models and time.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Offline">
+    ```mermaid
+    flowchart LR;
+        E[Dataset] -->|SDK evaluate call| F[LLM Judge];
+        F -->|score| G[Pass / fail gate];
+    ```
+
+    <Steps>
+      <Step title="Get an API key">
+        In OpenLIT, go to **Settings → API Keys** and create a key. Offline evaluations call your OpenLIT server, so you'll need this key plus your OpenLIT URL.
+      </Step>
+      <Step title="Run an evaluation">
+        <Tabs>
+          <Tab title="Python">
+          ```python
+          import openlit
+
+          openlit.init(
+              openlit_url="http://localhost:3000",
+              openlit_api_key="openlit-xxxxx",
+          )
+
+          result = openlit.eval(
+              prompt="What is the capital of France?",
+              response="The capital of France is Lyon.",
+              contexts=["Paris is the capital and largest city of France."],
+          )
+
+          assert result.passed, f"Evaluation failed: {result.failed_evals}"
+          ```
+          </Tab>
+          <Tab title="Typescript">
+          ```typescript
+          import openlit, { isPassed, getFailedEvals } from "openlit"
+
+          openlit.init({
+            openlitUrl: "http://localhost:3000",
+            openlitApiKey: "openlit-xxxxx",
+          })
+
+          const result = await openlit.eval({
+            prompt: "What is the capital of France?",
+            response: "The capital of France is Lyon.",
+            contexts: ["Paris is the capital and largest city of France."],
+          })
+
+          console.log(isPassed(result), getFailedEvals(result))
+          ```
+          </Tab>
+        </Tabs>
+        This uses the exact same evaluators, custom types, and Rule Engine context matching configured in your dashboard - see the [Programmatic evaluations quickstart](/latest/sdk/quickstart-programmatic-evals) for batch runs and CI/CD gating.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
 ---
 
-<CardGroup cols={3}>
-  <Card title="Quickstart: LLM Guardrails" href="/latest/openlit/quickstart-guard" icon='bolt'>
-    Protect and secure your LLM responses in 2 simple steps
+<CardGroup cols={2}>
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon='list-check'>
+    Built-in and custom evaluation types
   </Card>
-  <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
-    60+ AI integrations with automatic instrumentation and performance tracking
+  <Card title="Configuration" href="/latest/openlit/evaluations/configuration" icon='gear'>
+    Auto Evaluation schedule and judge model
   </Card>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
+    Use advanced LLMs to evaluate AI application quality with automated scoring
+  </Card>
+  <Card title="Programmatic evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
+    Quick start guide for implementing custom evaluations in your code
   </Card>
 </CardGroup>

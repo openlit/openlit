@@ -414,8 +414,44 @@ class StrandsSpanProcessor(SpanProcessor):
                 input_tokens
             ) + int(output_tokens)
         if self._pricing_info and model_name:
+            cache_read = (
+                attrs.get(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS)
+                or attrs.get("gen_ai.usage.cache_read_input_tokens")
+                or 0
+            )
+            cache_creation = (
+                attrs.get(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS)
+                or attrs.get("gen_ai.usage.cache_write_input_tokens")
+                or 0
+            )
+            try:
+                cache_read = int(cache_read or 0)
+            except (TypeError, ValueError):
+                cache_read = 0
+            try:
+                cache_creation = int(cache_creation or 0)
+            except (TypeError, ValueError):
+                cache_creation = 0
+            try:
+                input_tokens_int = int(input_tokens or 0)
+            except (TypeError, ValueError):
+                input_tokens_int = 0
+            try:
+                output_tokens_int = int(output_tokens or 0)
+            except (TypeError, ValueError):
+                output_tokens_int = 0
+            # Strands may expose Anthropic-exclusive or OpenAI-inclusive totals.
+            prompt_tokens_include_cache = input_tokens_int >= (
+                cache_read + cache_creation
+            )
             cost = get_chat_model_cost(
-                model_name, self._pricing_info, input_tokens, output_tokens
+                model_name,
+                self._pricing_info,
+                input_tokens_int,
+                output_tokens_int,
+                cache_read_tokens=cache_read,
+                cache_creation_tokens=cache_creation,
+                prompt_tokens_include_cache=prompt_tokens_include_cache,
             )
             enrichments[SemanticConvention.GEN_AI_USAGE_COST] = cost
 

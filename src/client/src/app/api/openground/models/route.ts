@@ -57,6 +57,8 @@ async function GETHandler(request: NextRequest) {
 				context_window as contextWindow,
 				input_price_per_m_token as inputPricePerMToken,
 				output_price_per_m_token as outputPricePerMToken,
+				cache_read_price_per_m_token as cacheReadPricePerMToken,
+				cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 				capabilities,
 				is_default as isDefault
 			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -100,6 +102,8 @@ async function GETHandler(request: NextRequest) {
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -170,6 +174,10 @@ async function POSTHandler(request: NextRequest) {
 				context_window = ${model.contextWindow || 4096},
 				input_price_per_m_token = ${model.inputPricePerMToken || 0},
 				output_price_per_m_token = ${model.outputPricePerMToken || 0},
+				cache_read_price_per_m_token = ${model.cacheReadPricePerMToken || 0},
+				cache_creation_price_per_m_token = ${
+					model.cacheCreationPricePerMToken || 0
+				},
 				capabilities = [${capabilitiesArray}],
 				updated_at = now()
 			WHERE model_id = '${Sanitizer.sanitizeValue(modelId)}'
@@ -213,6 +221,9 @@ async function POSTHandler(request: NextRequest) {
 					context_window: model.contextWindow || 4096,
 					input_price_per_m_token: model.inputPricePerMToken || 0,
 					output_price_per_m_token: model.outputPricePerMToken || 0,
+					cache_read_price_per_m_token: model.cacheReadPricePerMToken || 0,
+					cache_creation_price_per_m_token:
+						model.cacheCreationPricePerMToken || 0,
 					capabilities: model.capabilities || [],
 					is_default: false,
 					created_by_user_id: session.user.id,
@@ -245,6 +256,8 @@ async function POSTHandler(request: NextRequest) {
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}

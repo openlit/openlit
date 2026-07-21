@@ -145,6 +145,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 128000,
 			inputPricePerMToken: 2.5,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -153,6 +154,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 128000,
 			inputPricePerMToken: 0.15,
 			outputPricePerMToken: 0.6,
+			cacheReadPricePerMToken: 0.075,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -184,6 +186,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -192,6 +195,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -200,6 +204,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 0.25,
 			outputPricePerMToken: 2.0,
+			cacheReadPricePerMToken: 0.025,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -208,6 +213,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 0.05,
 			outputPricePerMToken: 0.4,
+			cacheReadPricePerMToken: 0.005,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -224,6 +230,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -232,6 +239,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -240,6 +248,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -248,6 +257,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.75,
 			outputPricePerMToken: 14.0,
+			cacheReadPricePerMToken: 0.175,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -256,6 +266,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.75,
 			outputPricePerMToken: 14.0,
+			cacheReadPricePerMToken: 0.175,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -264,6 +275,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 1.75,
 			outputPricePerMToken: 14.0,
+			cacheReadPricePerMToken: 0.175,
 			capabilities: ["function-calling", "streaming"],
 		},
 		// GPT-5.4 uses breakpoint pricing above 272K context; we seed
@@ -276,6 +288,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1100000,
 			inputPricePerMToken: 2.5,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.25,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -284,6 +297,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1100000,
 			inputPricePerMToken: 0.75,
 			outputPricePerMToken: 4.5,
+			cacheReadPricePerMToken: 0.075,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -292,6 +306,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1100000,
 			inputPricePerMToken: 0.2,
 			outputPricePerMToken: 1.25,
+			cacheReadPricePerMToken: 0.02,
 			capabilities: ["function-calling", "streaming"],
 		},
 		{
@@ -300,6 +315,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 400000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 30.0,
+			cacheReadPricePerMToken: 0.5,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -308,6 +324,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 2.0,
 			outputPricePerMToken: 8.0,
+			cacheReadPricePerMToken: 0.5,
 			capabilities: ["function-calling", "reasoning", "streaming"],
 		},
 		{
@@ -316,6 +333,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 1.1,
 			outputPricePerMToken: 4.4,
+			cacheReadPricePerMToken: 0.55,
 			capabilities: ["function-calling", "reasoning", "streaming"],
 		},
 		{
@@ -324,6 +342,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 1.1,
 			outputPricePerMToken: 4.4,
+			cacheReadPricePerMToken: 0.275,
 			capabilities: ["function-calling", "reasoning", "streaming"],
 		},
 	],
@@ -334,6 +353,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -342,6 +363,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -350,6 +373,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 0.8,
 			outputPricePerMToken: 4.0,
+			cacheReadPricePerMToken: 0.08,
+			cacheCreationPricePerMToken: 1.0,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -358,6 +383,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 0.25,
 			outputPricePerMToken: 1.25,
+			cacheReadPricePerMToken: 0.03,
+			cacheCreationPricePerMToken: 0.3,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -366,6 +393,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -374,6 +403,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		// Claude 4 family. Cursor/Claude Code stamp the bare id
@@ -389,6 +420,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 1.0,
 			outputPricePerMToken: 5.0,
+			cacheReadPricePerMToken: 0.1,
+			cacheCreationPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -397,6 +430,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 1.0,
 			outputPricePerMToken: 5.0,
+			cacheReadPricePerMToken: 0.1,
+			cacheCreationPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -405,6 +440,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -413,6 +450,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -421,6 +460,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -429,6 +470,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 3.0,
 			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			cacheCreationPricePerMToken: 3.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -437,6 +480,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 15.0,
 			outputPricePerMToken: 75.0,
+			cacheReadPricePerMToken: 1.5,
+			cacheCreationPricePerMToken: 18.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -445,6 +490,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 15.0,
 			outputPricePerMToken: 75.0,
+			cacheReadPricePerMToken: 1.5,
+			cacheCreationPricePerMToken: 18.75,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -453,6 +500,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 200000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -461,6 +510,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -469,6 +520,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		// Cursor thinking-mode SKUs — the model is still Opus 4.7
@@ -481,6 +534,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -489,6 +544,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -497,6 +554,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -505,6 +564,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 5.0,
 			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 	],
@@ -515,6 +576,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 2000000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 5.0,
+			cacheReadPricePerMToken: 0.3125,
+			cacheCreationPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -523,6 +586,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.075,
 			outputPricePerMToken: 0.3,
+			cacheReadPricePerMToken: 0.01875,
+			cacheCreationPricePerMToken: 0.075,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -544,6 +609,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.1,
 			outputPricePerMToken: 0.4,
+			cacheReadPricePerMToken: 0.01,
+			cacheCreationPricePerMToken: 0.1,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -552,6 +619,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 2000000,
 			inputPricePerMToken: 1.25,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
+			cacheCreationPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -560,6 +629,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.3,
 			outputPricePerMToken: 2.5,
+			cacheReadPricePerMToken: 0.03,
+			cacheCreationPricePerMToken: 0.3,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -568,6 +639,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.1,
 			outputPricePerMToken: 0.4,
+			cacheReadPricePerMToken: 0.01,
+			cacheCreationPricePerMToken: 0.1,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -576,6 +649,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.5,
 			outputPricePerMToken: 3.0,
+			cacheReadPricePerMToken: 0.05,
+			cacheCreationPricePerMToken: 0.5,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 		{
@@ -584,6 +659,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 1000000,
 			inputPricePerMToken: 0.25,
 			outputPricePerMToken: 1.5,
+			cacheReadPricePerMToken: 0.025,
+			cacheCreationPricePerMToken: 0.25,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -592,6 +669,8 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 2000000,
 			inputPricePerMToken: 2.0,
 			outputPricePerMToken: 12.0,
+			cacheReadPricePerMToken: 0.2,
+			cacheCreationPricePerMToken: 2.0,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 	],
@@ -654,6 +733,42 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			outputPricePerMToken: 0.2,
 			capabilities: ["streaming"],
 		},
+		{
+			id: "moonshotai/kimi-k2-instruct",
+			displayName: "Kimi K2 Instruct",
+			contextWindow: 128000,
+			inputPricePerMToken: 1.0,
+			outputPricePerMToken: 3.0,
+			cacheReadPricePerMToken: 0.5,
+			capabilities: ["streaming", "function-calling"],
+		},
+		{
+			id: "moonshotai/kimi-k2-instruct-0905",
+			displayName: "Kimi K2 Instruct (0905)",
+			contextWindow: 128000,
+			inputPricePerMToken: 1.0,
+			outputPricePerMToken: 3.0,
+			cacheReadPricePerMToken: 0.5,
+			capabilities: ["streaming", "function-calling"],
+		},
+		{
+			id: "openai/gpt-oss-20b",
+			displayName: "GPT-OSS 20B",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.075,
+			outputPricePerMToken: 0.3,
+			cacheReadPricePerMToken: 0.0375,
+			capabilities: ["streaming"],
+		},
+		{
+			id: "openai/gpt-oss-120b",
+			displayName: "GPT-OSS 120B",
+			contextWindow: 128000,
+			inputPricePerMToken: 0.15,
+			outputPricePerMToken: 0.6,
+			cacheReadPricePerMToken: 0.075,
+			capabilities: ["streaming"],
+		},
 	],
 	perplexity: [
 		{
@@ -688,6 +803,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 128000,
 			inputPricePerMToken: 2.5,
 			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 1.25,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -696,6 +812,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			contextWindow: 128000,
 			inputPricePerMToken: 0.15,
 			outputPricePerMToken: 0.6,
+			cacheReadPricePerMToken: 0.075,
 			capabilities: ["function-calling", "vision", "streaming"],
 		},
 		{
@@ -867,6 +984,33 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			inputPricePerMToken: 1.0,
 			outputPricePerMToken: 3.0,
 			capabilities: ["streaming", "real-time"],
+		},
+		{
+			id: "grok-4",
+			displayName: "Grok 4",
+			contextWindow: 256000,
+			inputPricePerMToken: 2.0,
+			outputPricePerMToken: 8.0,
+			cacheReadPricePerMToken: 0.3,
+			capabilities: ["streaming", "real-time", "function-calling"],
+		},
+		{
+			id: "grok-4.3",
+			displayName: "Grok 4.3",
+			contextWindow: 1000000,
+			inputPricePerMToken: 1.25,
+			outputPricePerMToken: 2.5,
+			cacheReadPricePerMToken: 0.2,
+			capabilities: ["streaming", "real-time", "function-calling"],
+		},
+		{
+			id: "grok-4.5",
+			displayName: "Grok 4.5",
+			contextWindow: 500000,
+			inputPricePerMToken: 2.0,
+			outputPricePerMToken: 6.0,
+			cacheReadPricePerMToken: 0.3,
+			capabilities: ["streaming", "real-time", "function-calling"],
 		},
 		{
 			id: "grok-vision-beta",
