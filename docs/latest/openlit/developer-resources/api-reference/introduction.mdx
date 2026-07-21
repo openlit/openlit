@@ -21,12 +21,20 @@ description: 'OpenAPI specification for API Endpoints in OpenLIT'
     href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
   >
   </Card>
+  <Card
+    title="Manage Models API"
+    icon="cube"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models"
+  >
+  </Card>
 </CardGroup>
 
 ## Authentication
 
-All API endpoints are authenticated using Authetication Header.
+Most SDK-facing endpoints (Prompt Hub, Vault, Rule Engine) use an Authorization header:
 
 ```yaml
 Authorization: Bearer <api-key>
 ```
+
+[Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models) UI APIs use a signed-in OpenLIT session instead. The [public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing) requires no auth.

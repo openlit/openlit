@@ -1,0 +1,36 @@
+---
+title: 'What is Prompt Engineering?'
+description: 'Prompt engineering explained: versioning, testing, and deploying prompts as managed, trackable artifacts'
+sidebarTitle: 'Prompt Engineering'
+---
+
+Prompt engineering is the practice of designing, testing, and iterating on the instructions you send to an LLM to get reliable, high-quality output. In production, that means treating prompts as versioned artifacts you can edit, test, roll back, and link to the results they produced - not just strings hardcoded in your application.
+
+## Why does prompt engineering need tooling?
+
+A prompt that works well in testing can quietly degrade after a small wording change, a model swap, or a new edge case in production traffic. Without version history and a link back to the traces and evaluations a prompt produced, it's hard to tell what changed or why quality shifted.
+
+## What does managing prompts as artifacts involve?
+
+- **Versioning**: track major, minor, and patch changes to a prompt over time.
+- **Variables**: use `{{placeholder}}` syntax so one prompt template serves many runtime inputs.
+- **Testing before shipping**: compare how a prompt performs across different models before deploying it.
+- **Traceability**: link each prompt version to the traces and evaluation scores it produced in production.
+
+## How does OpenLIT support prompt engineering?
+
+[Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview) manages prompts as versioned artifacts with variable substitution and full history, [OpenGround](/latest/openlit/prompts-experiments/openground/overview) lets you test a prompt across multiple models side-by-side before shipping, and every prompt version is linked back to the traces and evaluation results it produced in production.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Prompt Hub" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="OpenGround" href="/latest/openlit/prompts-experiments/openground/overview" icon='flask'>
+    Test the same prompt across multiple LLM providers and compare cost, speed, and quality
+  </Card>
+  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine/overview" icon='gears'>
+    Match runtime conditions to the right prompt, context, or evaluation config
+  </Card>
+</CardGroup>

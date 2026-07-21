@@ -32,8 +32,6 @@ import {
 	FilterType,
 	TIME_RANGES,
 } from "@/types/store/filter";
-import { usePostHog } from "posthog-js/react";
-import { CLIENT_EVENTS } from "@/constants/events";
 import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
@@ -241,6 +239,7 @@ const DynamicFilters = ({
 	configUrl,
 	attributeKeysUrl,
 	customAttributeTypes,
+	pageName,
 }: {
 	isVisibleFilters: boolean;
 	filter: FilterType;
@@ -248,8 +247,8 @@ const DynamicFilters = ({
 	configUrl: string;
 	attributeKeysUrl: string;
 	customAttributeTypes: CustomFilterAttributeType[];
+	pageName?: PAGE;
 }) => {
-	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
 	const pingStatus = useRootStore(getPingStatus);
 	const filterDetails = useRootStore(getFilterDetails);
@@ -345,7 +344,16 @@ const DynamicFilters = ({
 
 	const fetchConfig = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
 		fireRequest({
-			body: JSON.stringify({ timeLimit }),
+			body: JSON.stringify({
+				timeLimit,
+				// Exceptions tab must discover filter options from Error
+				// spans. The default config query only looks at OK/Unset
+				// rows, so providers/services from failing LLM calls
+				// (often the only traffic on Exceptions) never appear.
+				...(pageName === "exception"
+					? { statusCode: ["STATUS_CODE_ERROR", "Error"] }
+					: {}),
+			}),
 			requestType: "POST",
 			url: configUrl,
 			successCb: (resp) => {
@@ -358,7 +366,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [configUrl]);
+	}, [configUrl, pageName]);
 
 	// Fetch filter config when time window changes or config is cleared after a range change.
 	useEffect(() => {
@@ -375,7 +383,12 @@ const DynamicFilters = ({
 
 	const fetchAttributeKeys = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
 		fireAttrKeysRequest({
-			body: JSON.stringify({ timeLimit }),
+			body: JSON.stringify({
+				timeLimit,
+				...(pageName === "exception"
+					? { statusCode: ["STATUS_CODE_ERROR", "Error"] }
+					: {}),
+			}),
 			requestType: "POST",
 			url: attributeKeysUrl,
 			successCb: (resp) => {
@@ -394,7 +407,7 @@ const DynamicFilters = ({
 			},
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [attributeKeysUrl]);
+	}, [attributeKeysUrl, pageName]);
 
 	// Fetch attribute keys whenever the time window changes.
 	// Use leaf primitives as deps – lodash merge mutates timeLimit in-place
@@ -417,13 +430,11 @@ const DynamicFilters = ({
 			customFilters:
 				validCustomFilters.length > 0 ? validCustomFilters : undefined,
 		});
-		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_APPLIED);
 	};
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
 		setCustomFilters([]);
-		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 		updateFilter("selectedConfig", {}, { clearFilter: true });
 	};
 
@@ -1285,6 +1296,7 @@ export default function TracesFilter({
 					configUrl={configUrl}
 					attributeKeysUrl={attributeKeysUrl}
 					customAttributeTypes={customAttributeTypes}
+					pageName={pageName}
 				/>
 			)}
 		</div>

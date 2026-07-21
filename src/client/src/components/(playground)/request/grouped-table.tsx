@@ -13,7 +13,7 @@ import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const PREDEFINED_FILTER_MAP: Record<string, { attributeType: CustomFilterAttributeType; key: string }> = {
 	model: { attributeType: "SpanAttributes", key: "gen_ai.request.model" },
-	provider: { attributeType: "SpanAttributes", key: "gen_ai.system" },
+	provider: { attributeType: "SpanAttributes", key: "gen_ai.provider.name" },
 	spanName: { attributeType: "Field", key: "SpanName" },
 	applicationName: { attributeType: "ResourceAttributes", key: "service.name" },
 };

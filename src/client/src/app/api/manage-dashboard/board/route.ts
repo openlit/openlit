@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import {
 	createBoard,
@@ -8,7 +10,7 @@ import PostHogServer from "@/lib/posthog";
 import { Board } from "@/types/manage-dashboard";
 import { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const board: Board = await request.json();
 
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function PUT(request: NextRequest) {
+async function PUTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const board: Board & { updateParent?: boolean } = await request.json();
 	const res = await updateBoard(board);
@@ -31,17 +33,12 @@ export async function PUT(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function GET(request: NextRequest) {
-	const startTimestamp = Date.now();
+async function GETHandler(request: NextRequest) {
 	const isHome = request.nextUrl.searchParams.get("home") === "true";
 	const res = await getBoards(isHome);
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_GET_FAILURE : SERVER_EVENTS.DASHBOARD_GET_SUCCESS,
-		startTimestamp,
-		properties: {
-			isHome,
-			totalBoards: (res.data as Board[])?.length || 0,
-		},
-	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("dashboard:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("dashboard:create", POSTHandler));
+export const PUT = withAudit(withCurrentOrganisationPermission("dashboard:update", PUTHandler));

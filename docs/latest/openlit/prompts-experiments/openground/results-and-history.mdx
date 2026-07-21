@@ -1,0 +1,59 @@
+---
+title: "Results & History"
+description: "Read the metrics overview, response-time waterfall, and cost breakdown for a run, then find, reopen, or reload it later from history"
+---
+
+## Reading a run's results
+
+Once you click **Evaluate providers**, results appear on the same page in a few sections.
+
+### Metrics overview
+
+Four stat cards summarize the run: **Fastest Response**, **Lowest Cost**, **Most Efficient**, and **Success Rate**.
+
+### Response Time Comparison
+
+A horizontal waterfall of response times, fastest at the top with a **Fastest** badge, plus a fastest/average/slowest summary underneath.
+
+### Cost Breakdown
+
+Per-provider cost cards showing prompt, completion, and total tokens plus total cost. The lowest-cost provider gets a **Cheapest** badge, and a total/average summary sits at the bottom.
+
+### Provider Responses
+
+One card per provider, showing:
+
+- The model used
+- Response time, tokens, and cost
+- A **Success** or **Error** badge
+- The actual response text (or the error message, if it failed)
+- A collapsible **Show/Hide Raw Response Data** section with the full response payload
+
+<Tip>
+Once you've settled on a model, see [SDK pricing URL](/latest/openlit/costs/manage-models/sdk-pricing) for ready-to-paste Python, TypeScript, and Go SDK snippets - that dialog lives on Costs → Manage models, not in OpenGround.
+</Tip>
+
+## History
+
+Every run is saved automatically - there's no separate save action. Find it later on the OpenGround history page (`/openground`), where the table lists:
+
+| Column | What it shows |
+|---|---|
+| Prompt | The prompt text, with a small icon if it came from Prompt Hub |
+| Providers | Count of successful vs. failed calls |
+| Best Cost | The cheapest provider in that run |
+| Best Speed | The fastest provider in that run |
+| Best Efficiency | The most token-efficient provider in that run |
+| Created | When the run happened |
+| Actions | An eye icon and a reload/rerun icon |
+
+- Click the **eye icon** to open the run's detail page (`/openground/[id]`), titled **"Run Details"**. It shows the same metrics overview, response-time waterfall, and cost breakdown as the original run, plus which prompt and providers were used, with a link back to the Prompt Hub prompt if one was used.
+- Click the **reload/rerun icon** to load that run's exact setup into a new comparison. You'll see the note *"Evaluation loaded. Configure providers and run again."* and land on the new-comparison page, ready to tweak and re-run.
+
+If the history is empty, you'll see a **"Get Started with Openground"** message with a **Create New Playground** call to action.
+
+---
+
+<Card title="Run a Comparison" href="/latest/openlit/prompts-experiments/openground/run-a-comparison" icon='flask'>
+  Configure a prompt, pick providers and models, and evaluate
+</Card>

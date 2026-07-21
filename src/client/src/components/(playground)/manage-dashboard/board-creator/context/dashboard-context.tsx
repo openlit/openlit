@@ -264,11 +264,6 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 	const handleRunQuery = (widgetId: string, params: Record<string, unknown>) => {
 		if (runQuery) {
-			posthog?.capture(CLIENT_EVENTS.DASHBOARD_WIDGET_RUN_QUERY, {
-				id: widgetId,
-				type: widgets[widgetId]?.type,
-				title: widgets[widgetId]?.title,
-			});
 			return runQuery(widgetId, params);
 		}
 

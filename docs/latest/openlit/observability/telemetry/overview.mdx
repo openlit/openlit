@@ -1,0 +1,62 @@
+---
+title: "Overview"
+description: "LLM observability for traces, metrics, logs, and exceptions - all in one Telemetry page, built on OpenTelemetry"
+---
+
+<video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/trace-details.mp4"
+      alt="Demo of viewing trace details in OpenLIT"
+>
+</video>
+
+The **Telemetry** page is the single home for every OpenTelemetry signal OpenLIT ingests from your AI applications. Navigate to it at `/telemetry`. It has four tabs, all backed by the same ClickHouse tables (`otel_traces`, `otel_metrics_*`, `otel_logs`) populated by the OpenTelemetry Collector built into OpenLIT:
+
+<CardGroup cols={2}>
+  <Card title="Traces" href="/latest/openlit/observability/telemetry/traces" icon="diagram-project">
+    Distributed traces with grouping, a five-view trace detail explorer, and span/resource attributes
+  </Card>
+  <Card title="AI Analysis" href="/latest/openlit/observability/telemetry/ai-analysis" icon="sparkles">
+    AI-generated review of a trace or span across strengths, improvements, cost, and token efficiency
+  </Card>
+  <Card title="Metrics" href="/latest/openlit/observability/telemetry/metrics" icon="chart-line">
+    Every OTel metric OpenLIT has received, with a trend chart and data-point detail per metric
+  </Card>
+  <Card title="Logs" href="/latest/openlit/observability/telemetry/logs" icon="file-lines">
+    Searchable, filterable OTel log records with a detail view per entry
+  </Card>
+</CardGroup>
+
+The **Exceptions** tab is documented alongside Traces since it reuses the same trace detail explorer - see [Traces & Exceptions](/latest/openlit/observability/telemetry/traces).
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/openlit/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  </Card>
+  <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
+    60+ AI integrations with automatic instrumentation and performance tracking
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is AI observability?">
+    AI observability is the practice of collecting traces, metrics, and logs from LLM applications and agents so you can understand behavior, cost, latency, and errors in production - OpenLIT does this via standard OpenTelemetry data.
+  </Accordion>
+  <Accordion title="Does OpenLIT support log monitoring, not just traces?">
+    Yes. Logs have their own dedicated explorer under Telemetry, ingested the same way as traces and metrics through the built-in OpenTelemetry Collector's OTLP receiver.
+  </Accordion>
+  <Accordion title="Can I still use dashboards alongside the Metrics explorer?">
+    Yes. The Metrics explorer and Dashboard Widgets read from the same underlying data - use the explorer to inspect a single metric, and dashboards for cross-signal, trend-style visualizations.
+  </Accordion>
+</AccordionGroup>

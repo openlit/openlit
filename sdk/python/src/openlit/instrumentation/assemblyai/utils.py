@@ -214,9 +214,12 @@ def common_audio_logic(
     prompt = scope._response.audio_url
     request_model = scope._kwargs.get("speech_model", "best")
 
-    # Compute cost
+    # Compute cost. AssemblyAI bills per second of audio, not per character.
     cost = get_audio_model_cost(
-        request_model, pricing_info, prompt, scope._response.audio_duration
+        request_model,
+        pricing_info,
+        prompt=None,
+        duration=scope._response.audio_duration,
     )
 
     # Common Span Attributes

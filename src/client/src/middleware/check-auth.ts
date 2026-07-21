@@ -34,7 +34,10 @@ function isValidCronJobRequest(request: NextRequest) {
 }
 
 const rateLimitWindows = new Map<string, { count: number; resetAt: number }>();
-const SENSITIVE_API_RATE_LIMIT = 120;
+// UI pages (telemetry/agents/dashboards) fire multiple parallel reads per
+// navigation. 120/min was too low and 429'd normal tab switching; 10x keeps
+// a abuse ceiling without breaking self-hosted browsing + auto-refresh.
+const SENSITIVE_API_RATE_LIMIT = 1200;
 const SENSITIVE_API_RATE_LIMIT_WINDOW_MS = 60_000;
 const SENSITIVE_API_RATE_LIMIT_CLEANUP_MS = 60_000;
 const RATE_LIMITED_API_PREFIXES = [
@@ -212,7 +215,7 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				if (isApiPage) {
-					if (isRateLimitedApi && isRateLimited(request)) {
+					if (isRateLimitedApi && !isCronJobRoute && isRateLimited(request)) {
 						return NextResponse.json(
 							{ error: "Too many requests" },
 							{ status: 429 }

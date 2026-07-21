@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetrics } from "@/lib/platform/observability";
 import {
@@ -5,7 +6,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const params: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
@@ -22,3 +23,5 @@ export async function POST(request: Request) {
 
 	return Response.json(await getMetrics(params));
 }
+
+export const POST = withRouteAccess("observability.read", POSTHandler, { requireDbConfig: true });

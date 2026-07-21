@@ -337,12 +337,18 @@ class GoogleAIWrapper extends BaseWrapper {
     const usageMetadata = responseData.usageMetadata;
     const inputTokens = usageMetadata?.promptTokenCount || 0;
     const outputTokens = usageMetadata?.candidatesTokenCount || 0;
+    // Gemini promptTokenCount includes cached content tokens.
+    const cacheReadTokens = usageMetadata?.cachedContentTokenCount || 0;
+    const cacheCreationTokens = usageMetadata?.cacheCreationInputTokens || 0;
 
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       inputTokens,
-      outputTokens
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      true
     );
 
     GoogleAIWrapper.setBaseSpanAttributes(span, {
@@ -408,11 +414,9 @@ class GoogleAIWrapper extends BaseWrapper {
     }
 
     // Cache tokens (matches Python: cached_content_token_count, cache_creation_input_tokens)
-    const cacheReadTokens = usageMetadata?.cachedContentTokenCount || 0;
     if (cacheReadTokens) {
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
     }
-    const cacheCreationTokens = usageMetadata?.cacheCreationInputTokens || 0;
     if (cacheCreationTokens) {
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, cacheCreationTokens);
     }

@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { RuleEntityInput } from "@/types/rule-engine";
 import { getRuleEntities, addRuleEntity, deleteRuleEntity } from "@/lib/platform/rule-engine";
@@ -8,8 +10,7 @@ import {
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
-export async function GET(request: Request) {
-	const startTimestamp = Date.now();
+async function GETHandler(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const filters = {
 		rule_id: searchParams.get("rule_id") || undefined,
@@ -19,21 +20,13 @@ export async function GET(request: Request) {
 
 	const { err, data }: any = await getRuleEntities(filters);
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.RULE_ENTITIES_LIST_FAILURE,
-			startTimestamp,
-		});
 		return Response.json(err, { status: 400 });
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.RULE_ENTITIES_LIST_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(data);
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 
@@ -69,7 +62,7 @@ export async function POST(request: Request) {
 	return Response.json(res);
 }
 
-export async function DELETE(request: Request) {
+async function DELETEHandler(request: Request) {
 	const startTimestamp = Date.now();
 	const { searchParams } = new URL(request.url);
 	let id = searchParams.get("id");
@@ -108,3 +101,7 @@ export async function DELETE(request: Request) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("rule_engine:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("rule_engine:configure", POSTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("rule_engine:configure", DELETEHandler));

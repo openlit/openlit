@@ -14,6 +14,11 @@ import {
 	TRACE_AI_PATH_ANALYSIS_GUIDANCE,
 	TRACE_AI_PATH_ANALYSIS_STREAM_LABEL,
 	TRACE_AI_PATH_ANALYSIS_UI_LABEL,
+	TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL,
+	TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY,
+	TRACE_AI_PROMPT_INJECTION_GUIDANCE,
+	TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+	TRACE_AI_PROMPT_INJECTION_UI_LABEL,
 	TRACE_AI_STRENGTHS_EMPTY_DETAIL,
 	TRACE_AI_STRENGTHS_EMPTY_SUMMARY,
 	TRACE_AI_STRENGTHS_GUIDANCE,
@@ -298,6 +303,26 @@ export const TRACE_ANALYSIS_DIMENSION_DEFINITIONS = Object.freeze([
 			"databaseCallCount",
 			"httpCallCount",
 		],
+	}),
+	defineDimension({
+		key: "prompt_injection",
+		uiLabel: TRACE_AI_PROMPT_INJECTION_UI_LABEL,
+		streamLabel: TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+		guidance: TRACE_AI_PROMPT_INJECTION_GUIDANCE,
+		emptyStateCopy: {
+			summary: TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY,
+			detail: TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL,
+		},
+		spanFields: [
+			"systemPrompt",
+			"prompt",
+			"response",
+			"toolName",
+			"toolCallId",
+			"toolArgs",
+			"toolResult",
+		],
+		metricFields: [],
 	}),
 ] as const);
 
