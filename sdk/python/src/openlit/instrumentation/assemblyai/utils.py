@@ -216,7 +216,10 @@ def common_audio_logic(
 
     # Compute cost. AssemblyAI bills per second of audio, not per character.
     cost = get_audio_model_cost(
-        request_model, pricing_info, None, duration=scope._response.audio_duration
+        request_model,
+        pricing_info,
+        prompt=None,
+        duration=scope._response.audio_duration,
     )
 
     # Common Span Attributes
