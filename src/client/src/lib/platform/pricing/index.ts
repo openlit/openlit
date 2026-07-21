@@ -7,7 +7,7 @@ import {
 	getTraceMappingKeyFullPaths,
 } from "@/helpers/server/trace";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
-import { getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { getRequestViaSpanId } from "@/lib/platform/request";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getPricingConfigById } from "./config";
@@ -203,7 +203,7 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 	}
 
 	const [dbConfigErr, dbConfig] = await asaw(
-		getDBConfigById({ id: pricingConfig.databaseConfigId })
+		getDBConfigByIdInternal({ id: pricingConfig.databaseConfigId })
 	);
 
 	if (dbConfigErr || !dbConfig?.id) {

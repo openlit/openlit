@@ -1222,6 +1222,8 @@ export const CURRENT = "Current";
 export const LOADING_PROJECT = "Loading project";
 export const NO_PROJECT = "No project";
 export const PROJECT_NOT_FOUND = "Project not found";
+export const PROJECT_ACCESS_REQUIRED =
+	"Your admin has not given you access to this project";
 export const PROJECT_SWITCH_FAILED = "Failed to switch project";
 export const DB_CONFIG_NOT_IN_CURRENT_PROJECT =
 	"Database config doesn't exist in current project";

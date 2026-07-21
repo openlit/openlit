@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getEvaluationConfig } from "@/lib/platform/evaluation/config";
 import { syncRuleEntitiesFromConfig } from "@/lib/platform/evaluation/sync-rule-entities";
 import { SERVER_EVENTS } from "@/constants/events";
@@ -50,7 +52,7 @@ function normalizeTypeConfig(t: any): EvaluationTypeConfig {
 	return config;
 }
 
-export async function GET(_: NextRequest) {
+async function GETHandler(_: NextRequest) {
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
 		return Response.json(
@@ -63,7 +65,7 @@ export async function GET(_: NextRequest) {
 	return Response.json({ data: types });
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const body = await request.json();
 	const types = body.types as any[] | undefined;
@@ -103,3 +105,6 @@ export async function POST(request: NextRequest) {
 	});
 	return Response.json({ data: normalizedTypes });
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:configure", POSTHandler));

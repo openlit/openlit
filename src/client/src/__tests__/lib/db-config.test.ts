@@ -67,6 +67,8 @@ jest.mock('@/utils/log', () => ({
 import {
   getDBConfigByUser,
   getDBConfigById,
+  getDBConfigByIdInternal,
+  getDBConfigByIdForUser,
   upsertDBConfig,
   deleteDBConfig,
   setCurrentDBConfig,
@@ -168,16 +170,68 @@ describe('getDBConfigByUser', () => {
 });
 
 describe('getDBConfigById', () => {
-  it('returns the db config by id', async () => {
-    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(mockDbConfig);
+  it('throws when user is not authenticated', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    await expect(getDBConfigById({ id: 'db1' })).rejects.toThrow('Unauthorized');
+  });
+
+  it('returns the db config only when the current user has project-scoped access', async () => {
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({
+      databaseConfig: mockDbConfig,
+    });
     const result = await getDBConfigById({ id: 'db1' });
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfigUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'u1',
+          databaseConfigId: 'db1',
+          databaseConfig: { projectId: 'project1' },
+        }),
+      })
+    );
+  });
+
+  it('returns null when the user cannot access the config', async () => {
+    const result = await getDBConfigById({ id: 'nonexistent' });
+    expect(result).toBeNull();
+  });
+});
+
+describe('getDBConfigByIdInternal', () => {
+  it('returns the db config by id without user scoping for trusted internal callers', async () => {
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(mockDbConfig);
+    const result = await getDBConfigByIdInternal({ id: 'db1' });
     expect(result).toEqual(mockDbConfig);
     expect(prisma.databaseConfig.findUnique).toHaveBeenCalledWith({ where: { id: 'db1' } });
   });
+});
 
-  it('returns null when not found', async () => {
-    const result = await getDBConfigById({ id: 'nonexistent' });
+describe('getDBConfigByIdForUser', () => {
+  it('returns null when the current organisation has no accessible project', async () => {
+    (getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(null);
+    const result = await getDBConfigByIdForUser({ id: 'db1', userId: 'u1' });
     expect(result).toBeNull();
+    expect(prisma.databaseConfigUser.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('filters explicit db config access by user and current project', async () => {
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({
+      databaseConfig: mockDbConfig,
+    });
+
+    const result = await getDBConfigByIdForUser({ id: 'db1', userId: 'u1' });
+
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfigUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'u1',
+          databaseConfigId: 'db1',
+          databaseConfig: { projectId: 'project1' },
+        }),
+      })
+    );
   });
 });
 

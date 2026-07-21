@@ -1,8 +1,10 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { PromptInput } from "@/constants/prompts";
 import { createPrompt } from "@/lib/platform/prompt";
 import asaw from "@/utils/asaw";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 
 	const promptInput: PromptInput = {
@@ -24,3 +26,5 @@ export async function POST(request: Request) {
 
 	return Response.json(res);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("prompt:create", POSTHandler));

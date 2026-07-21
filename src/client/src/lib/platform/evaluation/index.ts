@@ -24,7 +24,7 @@ import {
 } from "./rule-engine-context";
 import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
-import { getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import {
 	AUTO_EVALUATION_HANDLED_SOURCES,
@@ -621,7 +621,7 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const [databaseConfigErr, databaseConfig] = await asaw(
-		getDBConfigById({ id: evaluationConfig.databaseConfigId })
+		getDBConfigByIdInternal({ id: evaluationConfig.databaseConfigId })
 	);
 
 	if (databaseConfigErr || !databaseConfig.id) {
