@@ -101,7 +101,7 @@ function MiniMeta({
 	return (
 		<span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300">
 			{icon}
-			<span className="text-stone-400 dark:text-stone-500">{label}</span>
+			<span className="text-stone-500 dark:text-stone-400">{label}</span>
 			<span className="truncate font-medium tabular-nums text-stone-900 dark:text-stone-100">
 				{value || "-"}
 			</span>
@@ -330,7 +330,7 @@ function MetricRecord({
 				<div className="h-1.5 rounded-full bg-stone-100 dark:bg-stone-900">
 					<div className="h-full rounded-full bg-emerald-500" style={{ width }} />
 				</div>
-				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-400 dark:text-stone-500">
+				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
 					<span>latest compared to max in this window</span>
 					<div className="flex gap-2">
 						<span>min {Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
@@ -485,15 +485,7 @@ function SessionRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
-	const sessionId = row.session_id || "";
-	// Cursor session ids are long UUIDs — show enough characters to disambiguate
-	// at a glance but keep the row visually compact.
-	const shortSessionId = sessionId
-		? sessionId.length > 12
-			? `${sessionId.slice(0, 12)}…`
-			: sessionId
-		: "—";
-	const vendor = (row.vendor || "").toLowerCase();
+	const sessionId = row.session_id || "—";
 	const totalTokens = Number(
 		row.total_tokens ||
 			Number(row.input_tokens || 0) + Number(row.output_tokens || 0)
@@ -522,41 +514,29 @@ function SessionRecord({
 		>
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
-					<div className="flex min-w-0 items-start gap-2">
-						{hasCodingAgentVendorIcon(vendor) ? (
-							<CodingAgentVendorIcon
-								vendor={vendor}
-								className="mt-0.5 h-4 w-4 shrink-0"
-							/>
-						) : (
-							<Bot className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+					{/* No vendor icon here — we're already on a vendor detail
+					    page, and the logo was pushing the session id / email
+					    out of alignment with the date row below. */}
+					<h3
+						className="break-all font-mono text-sm font-semibold text-stone-950 dark:text-stone-50"
+						title={sessionId}
+					>
+						{sessionId}
+					</h3>
+					<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+						{show("user") && row.user && (
+							<span className="truncate text-xs text-stone-500 dark:text-stone-400">
+								{row.user}
+							</span>
 						)}
-						<div className="min-w-0">
-							<h3
-								className="truncate font-mono text-sm font-semibold text-stone-950 dark:text-stone-50"
-								title={sessionId}
+						{row.model && (
+							<span
+								className="truncate rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+								title={row.model}
 							>
-								{shortSessionId}
-							</h3>
-							<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-								{/* Vendor pill removed — the vendor icon
-								    already sits to the left of the session id
-								    so showing "cursor" here is redundant. */}
-								{show("user") && row.user && (
-									<span className="truncate text-xs text-stone-500 dark:text-stone-400">
-										{row.user}
-									</span>
-								)}
-								{row.model && (
-									<span
-										className="truncate rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
-										title={row.model}
-									>
-										{row.model}
-									</span>
-								)}
-							</div>
-						</div>
+								{row.model}
+							</span>
+						)}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("started") && <span>{formatDate(row.started_at)}</span>}
@@ -584,6 +564,16 @@ function SessionRecord({
 						{show("outcome") && (!row.outcome || row.outcome === "unknown") && (
 							<span className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
 								running
+							</span>
+						)}
+						{Number(row.subagent_event_count || 0) > 0 && (
+							<span
+								className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+								title={m.CODING_AGENT_SESSION_SUBAGENTS_HINT}
+							>
+								{m.CODING_AGENT_SESSION_SUBAGENTS(
+									Number(row.subagent_event_count || 0)
+								)}
 							</span>
 						)}
 						{show("classification") &&

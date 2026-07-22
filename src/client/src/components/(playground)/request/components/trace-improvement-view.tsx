@@ -31,7 +31,9 @@ import {
 	TraceAnalysisDimension,
 	TraceAnalysisFinding,
 	emptyTraceAnalysis,
+	ensureTraceAnalysisDimensions,
 } from "@/types/trace-analysis";
+import { TRACE_ANALYSIS_DIMENSION_REGISTRY } from "@/lib/platform/chat/trace-analysis-registry";
 import { useRequest } from "../request-context";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -107,7 +109,7 @@ function AnalysisStepTimeline({ steps }: { steps: ImprovementStep[] }) {
 								{step.label}
 							</div>
 							{step.detail ? (
-								<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+								<div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
 									{step.detail}
 								</div>
 							) : null}
@@ -139,7 +141,7 @@ function AnalysisProgress({
 					<div className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{title}
 					</div>
-					<div className="text-[11px] text-stone-400 dark:text-stone-500">
+					<div className="text-[11px] text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</div>
 				</div>
@@ -156,7 +158,7 @@ function AnalysisProgress({
 			>
 				<AccordionTrigger className="py-2 text-xs font-semibold uppercase tracking-wide text-stone-500 hover:no-underline dark:text-stone-400">
 					<span>{title}</span>
-					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-400 dark:text-stone-500">
+					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</span>
 				</AccordionTrigger>
@@ -167,33 +169,6 @@ function AnalysisProgress({
 		</Accordion>
 	);
 }
-
-const EMPTY_DIMENSION_COPY: Record<TraceAnalysisDimension, { summary: string; detail: string }> = {
-	strengths: {
-		summary: "No explicit strengths were identified in this run.",
-		detail: "The analysis did not find a concrete positive pattern worth calling out. This does not mean the trace failed; it means the model did not see a specific strength with enough evidence.",
-	},
-	improvements: {
-		summary: "No general improvements are required right now.",
-		detail: "The trace did not show a broad improvement opportunity outside the more specific cost, token, path, or wrong-turn categories.",
-	},
-	wrong_turns: {
-		summary: "No wrong turns were detected.",
-		detail: "The trace did not show clear retries, off-task branches, unnecessary rework, or agent decisions that caused a detour.",
-	},
-	cost: {
-		summary: "Cost looks acceptable for this trace.",
-		detail: "No span stood out as clearly over budget or using a model that was obviously too expensive for the observed subtask.",
-	},
-	token_efficiency: {
-		summary: "Token usage looks acceptable for this trace.",
-		detail: "The analysis did not find obvious prompt bloat, repeated context, oversized tool outputs, or duplicate retrieval payloads.",
-	},
-	path_analysis: {
-		summary: "The execution path looks reasonable.",
-		detail: "The trace did not show clear routing loops, missed branches, unnecessary tool hops, or inappropriate tool choices.",
-	},
-};
 
 function MarkdownText({ content }: { content: string }) {
 	return (
@@ -271,6 +246,7 @@ function normalizeFindings(value: unknown): TraceAnalysisFinding[] {
 function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	const base = emptyTraceAnalysis(String(value?.trace_id || value?.traceId || ""));
 	const totals = value?.totals && typeof value.totals === "object" ? value.totals : {};
+	const dimensionFindings = ensureTraceAnalysisDimensions(value);
 	const normalized: TraceAnalysis = {
 		...base,
 		...value,
@@ -285,7 +261,7 @@ function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	};
 
 	for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
-		normalized[dimension] = normalizeFindings(value?.[dimension]);
+		normalized[dimension] = normalizeFindings(dimensionFindings[dimension]);
 	}
 
 	return normalized;
@@ -358,7 +334,7 @@ function DiffView({ patches }: { patches: FixPatch[] }) {
 							<span className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 								{patch.field}
 							</span>
-							<span className="font-mono text-[10px] text-stone-400 dark:text-stone-500">
+							<span className="font-mono text-[10px] text-stone-500 dark:text-stone-400">
 								· {patch.span_ref.slice(0, 8)}…
 							</span>
 						</div>
@@ -879,7 +855,7 @@ export default function TraceImprovementView({
 								</p>
 							</div>
 
-							<Tabs defaultValue="strengths" className="w-full">
+							<Tabs defaultValue={TRACE_ANALYSIS_DIMENSIONS[0]} className="w-full">
 								<TabsList className="h-auto flex w-full justify-start overflow-auto rounded-none bg-transparent p-0 dark:bg-transparent shrink-0 openlit-scrollbar">
 									{TRACE_ANALYSIS_DIMENSIONS.map((dimension) => (
 										<TabsTrigger
@@ -899,7 +875,7 @@ export default function TraceImprovementView({
 										{getDimensionFindings(parsedAnalysis, dimension).length === 0 ? (
 											<div className="rounded-md border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-900/60">
 												<div className="text-sm font-semibold text-stone-800 dark:text-stone-100">
-													{EMPTY_DIMENSION_COPY[dimension].summary}
+													{TRACE_ANALYSIS_DIMENSION_REGISTRY[dimension].emptyStateCopy.summary}
 												</div>
 												<Accordion type="single" collapsible className="mt-2">
 													<AccordionItem value="detail" className="border-0">
@@ -907,7 +883,7 @@ export default function TraceImprovementView({
 															{m.TRACE_AI_DETAILS}
 														</AccordionTrigger>
 														<AccordionContent className="pb-0 text-sm text-stone-600 dark:text-stone-300">
-															{EMPTY_DIMENSION_COPY[dimension].detail}
+															{TRACE_ANALYSIS_DIMENSION_REGISTRY[dimension].emptyStateCopy.detail}
 														</AccordionContent>
 													</AccordionItem>
 												</Accordion>

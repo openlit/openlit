@@ -2,7 +2,7 @@
 title: 'Go SDK Overview'
 sidebarTitle: 'Go SDK Overview'
 icon: 'golang'
-description: 'OpenTelemetry-native observability for Go AI applications. Monitor OpenAI and Anthropic with automatic token tracking, cost calculation, and distributed tracing.'
+description: 'OpenTelemetry-native observability for Go AI applications. Monitor OpenAI, Anthropic, and vLLM with automatic token tracking, cost calculation, and distributed tracing.'
 ---
 
 The OpenLIT Go SDK provides **OpenTelemetry-native observability** for Go applications using LLM APIs. It wraps your provider clients with lightweight instrumentation that automatically collects traces, metrics, and cost data without requiring any changes to your application logic.
@@ -11,10 +11,13 @@ The OpenLIT Go SDK provides **OpenTelemetry-native observability** for Go applic
 
 <CardGroup cols={2}>
   <Card title="OpenAI" icon="robot">
-    Chat completions, streaming, embeddings, and image generation — with full token usage and cost tracking.
+    Chat completions, streaming, embeddings, and image generation - with full token usage and cost tracking.
   </Card>
   <Card title="Anthropic" icon="robot">
-    Claude messages and streaming — with cache token tracking and full OpenTelemetry semantic conventions.
+    Claude messages and streaming - with cache token tracking and full OpenTelemetry semantic conventions.
+  </Card>
+  <Card title="vLLM" icon="robot">
+    Chat completions and streaming against vLLM's OpenAI-compatible API - with full token usage tracking.
   </Card>
 </CardGroup>
 
@@ -22,10 +25,10 @@ The OpenLIT Go SDK provides **OpenTelemetry-native observability** for Go applic
 
 Every instrumented call automatically records:
 
-- **Distributed traces** — spans with request/response details, model name, token counts, and cost
-- **OTel metrics** — `gen_ai.client.token.usage`, `gen_ai.client.operation.duration`, `gen_ai.server.time_to_first_token`, `gen_ai.server.time_per_output_token`, `gen_ai.server.request.duration`
-- **Streaming metrics** — time-to-first-chunk and per-chunk latency observations
-- **Cost tracking** — automatic cost calculation using the built-in pricing data
+- **Distributed traces** - spans with request/response details, model name, token counts, and cost
+- **OTel metrics** - `gen_ai.client.token.usage`, `gen_ai.client.operation.duration`, `gen_ai.server.time_to_first_token`, `gen_ai.server.time_per_output_token`, `gen_ai.server.request.duration`
+- **Streaming metrics** - time-to-first-chunk and per-chunk latency observations
+- **Cost tracking** - automatic cost calculation using the built-in pricing data
 
 ## Installation
 
@@ -96,21 +99,21 @@ Pass a `Config` struct to `openlit.Init()`:
 | Field | Environment Variable | Description | Default |
 |-------|---------------------|-------------|---------|
 | `OtlpEndpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP backend URL | `http://127.0.0.1:4318` |
-| `OtlpHeaders` | — | Additional HTTP headers for OTLP requests | `{}` |
-| `ApplicationName` | — | Name of your application | `default` |
-| `Environment` | — | Deployment environment label | `default` |
-| `ServiceVersion` | — | Service version string | `""` |
-| `DisableTracing` | — | Disable trace collection | `false` |
-| `DisableMetrics` | — | Disable metrics collection | `false` |
-| `DisableBatch` | — | Disable batch export (useful for testing) | `false` |
-| `DisableCaptureMessageContent` | — | Omit prompt/completion text from spans | `false` |
-| `DetailedTracing` | — | Enable component-level tracing detail | `false` |
-| `DisablePricingFetch` | — | Skip fetching remote pricing data | `false` |
-| `PricingEndpoint` | — | URL for custom pricing JSON | built-in |
-| `PricingInfo` | — | In-process pricing overrides | `{}` |
-| `TraceExporterTimeout` | — | Timeout for trace exports | `10s` |
-| `MetricExporterTimeout` | — | Timeout for metric exports | `10s` |
-| `MetricExportInterval` | — | Interval for metric exports | `30s` |
+| `OtlpHeaders` | - | Additional HTTP headers for OTLP requests | `{}` |
+| `ApplicationName` | - | Name of your application | `default` |
+| `Environment` | - | Deployment environment label | `default` |
+| `ServiceVersion` | - | Service version string | `""` |
+| `DisableTracing` | - | Disable trace collection | `false` |
+| `DisableMetrics` | - | Disable metrics collection | `false` |
+| `DisableBatch` | - | Disable batch export (useful for testing) | `false` |
+| `DisableCaptureMessageContent` | - | Omit prompt/completion text from spans | `false` |
+| `DetailedTracing` | - | Enable component-level tracing detail | `false` |
+| `DisablePricingFetch` | - | Skip fetching remote pricing data | `false` |
+| `PricingEndpoint` | - | URL for custom pricing JSON | built-in |
+| `PricingInfo` | - | In-process pricing overrides | `{}` |
+| `TraceExporterTimeout` | - | Timeout for trace exports | `10s` |
+| `MetricExporterTimeout` | - | Timeout for metric exports | `10s` |
+| `MetricExportInterval` | - | Interval for metric exports | `30s` |
 
 ### Via environment variable
 
@@ -128,11 +131,14 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
 ## Getting started
 
 <CardGroup cols={2}>
-  <Card title="OpenAI Integration" href="/latest/sdk/integrations/go-openai" icon="robot">
+  <Card title="OpenAI Integration" href="/latest/sdk/integrations/openai" icon="robot">
     Monitor chat completions, streaming, embeddings, and image generation
   </Card>
-  <Card title="Anthropic Integration" href="/latest/sdk/integrations/go-anthropic" icon="robot">
+  <Card title="Anthropic Integration" href="/latest/sdk/integrations/anthropic" icon="robot">
     Monitor Claude messages and streaming with cache token tracking
+  </Card>
+  <Card title="vLLM Integration" href="/latest/sdk/integrations/vllm" icon="robot">
+    Monitor chat completions and streaming against your vLLM server
   </Card>
   <Card title="Destinations" href="/latest/sdk/destinations/overview" icon="link">
     Send telemetry to Datadog, Grafana, New Relic, and other observability stacks

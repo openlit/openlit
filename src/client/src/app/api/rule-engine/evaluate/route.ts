@@ -1,37 +1,16 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import { EvaluateInput } from "@/types/rule-engine";
 import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
-import { getAPIKeyInfo } from "@/lib/platform/api-keys";
-import { getCurrentUser } from "@/lib/session";
-import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { resolveDbConfigId } from "@/helpers/server/auth";
 
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
 	// --- Authentication ---
-	// Prefer Bearer token (external API usage); fall back to session auth.
-	const authorizationHeader = request.headers.get("Authorization") || "";
-	let databaseConfigId: string | undefined;
-
-	if (authorizationHeader.startsWith("Bearer ")) {
-		const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
-		if (!apiKey) {
-			return Response.json({ err: getMessage().NO_API_KEY }, { status: 401 });
-		}
-
-		const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-		if (keyErr || !apiInfo?.databaseConfigId) {
-			return Response.json({ err: getMessage().NO_API_KEY }, { status: 401 });
-		}
-
-		databaseConfigId = apiInfo.databaseConfigId;
-	} else {
-		// Session-based auth (dashboard usage)
-		const user = await getCurrentUser();
-		if (!user) {
-			return Response.json({ err: getMessage().UNAUTHORIZED_USER }, { status: 401 });
-		}
+	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
+	if (authErr) {
+		return Response.json({ err: authErr }, { status: 401 });
 	}
 
 	// --- Parse request body ---

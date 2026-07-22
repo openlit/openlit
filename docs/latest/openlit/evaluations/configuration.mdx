@@ -1,0 +1,71 @@
+---
+title: "Configuration"
+description: "Configure the LLM evaluation engine, Vault API key, Auto Evaluation schedule, and sample rate under Monitor → Evaluations"
+---
+
+The **Configuration** tab on **Evaluations** (`/evaluations?tab=configuration`) sets the judge model and Auto Evaluation schedule used for online LLM evaluation. The page opens with a **Manual & Auto** info card explaining both paths. (`/evaluations/settings` and `/settings/evaluation` redirect here.)
+
+## Evaluation engine
+
+Under the **Configuration** card, choose:
+
+| Field | Label | Notes |
+|-------|-------|--------|
+| Provider | **Provider** | From [Costs → Manage models](/latest/openlit/costs/manage-models/overview) |
+| Model | **Model** | List from the selected provider, or a custom model name (`e.g. gpt-4o-mini or custom model name`) |
+| API key | **API Key (Vault)** | Select a Vault secret, or **Create new** |
+
+Save with **Save Changes** or **Create Config** depending on whether a config already exists.
+
+## Auto Evaluation
+
+**Auto Evaluation** runs enabled [evaluators](/latest/openlit/evaluations/evaluators) against newly ingested LLM traces on a schedule - no manual click or SDK call required.
+
+| | Manual | Auto |
+|---|---|---|
+| Trigger | **Run Evaluation** on a trace, or SDK | Cron schedule |
+| Scope | One trace (or one SDK call) | New LLM traces since the last run |
+| Sampling | None | Configurable sample rate |
+| Result tagging | `source: manual` | `source: auto` (or skipped when sampled out) |
+
+<Steps>
+  <Step title="Open Configuration">
+    Go to **Monitor → Evaluations → Configuration**.
+  </Step>
+  <Step title="Choose the judge model">
+    Select **Provider**, **Model**, and **API Key (Vault)**.
+  </Step>
+  <Step title="Enable auto evaluation">
+    Toggle **Enable auto evaluation**.
+  </Step>
+  <Step title="Set sample rate">
+    Enter **Sample rate (%)** - the percentage of eligible traces to evaluate (e.g. `10` for 10%). Sampling is deterministic for a given trace.
+  </Step>
+  <Step title="Set Cron schedule">
+    Enter a standard cron expression (e.g. `*/15 * * * *` every 15 minutes).
+  </Step>
+  <Step title="Save">
+    Click **Save Changes** / **Create Config**.
+  </Step>
+</Steps>
+
+Which types actually run is controlled on the **Evaluators** tab (and via Rule Engine links). Manual evaluation from a trace still uses this same configured judge.
+
+### After a restart
+
+Active Auto Evaluation schedules are restored when OpenLIT starts again - no manual re-setup after a redeploy.
+
+## Manual evaluation reminder
+
+The **Manual Evaluation** card points you to Telemetry: open a trace and run evaluation from its Evaluation tab, or use **Go to Traces**. See [LLM-as-a-Judge](/latest/openlit/evaluations/llm-as-a-judge).
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon="list-check">
+    Choose which types Auto Evaluation runs
+  </Card>
+  <Card title="Analytics" href="/latest/openlit/evaluations/analytics" icon="chart-line">
+    Review pass rates and auto execution volume
+  </Card>
+</CardGroup>

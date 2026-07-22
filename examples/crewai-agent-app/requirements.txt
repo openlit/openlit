@@ -1,2 +1,4 @@
-crewai[tools]
+crewai==1.15.4
 openai
+python-dotenv
+openlit

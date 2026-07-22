@@ -44,8 +44,8 @@ Return JSON in format:
 {
   "success": true,
   "result": [
-    {"score": 0.8, "evaluation": "TypeA", "classification": "specific_issue", "explanation": "Score 0.8 because the response contradicts the provided context on key facts", "verdict": "yes"},
-    {"score": 0, "evaluation": "TypeB", "classification": "none", "explanation": "Score 0 because no issues were found — the response aligns with the provided context", "verdict": "no"}
+    {"score": 0.8, "evaluation": "<TypeNameFromContextHeader>", "classification": "factual_inaccuracy", "explanation": "Score 0.8 because the response contradicts the provided context on key facts", "verdict": "yes"},
+    {"score": 0, "evaluation": "<TypeNameFromContextHeader>", "classification": "none", "explanation": "Score 0 because no issues were found — the response aligns with the provided context", "verdict": "no"}
   ]
 }
 

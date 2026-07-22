@@ -113,7 +113,7 @@ rm /usr/local/bin/opentelemetry-gpu-collector
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="No GPU metrics — collector starts but reports no hw.gpu.* metrics">
+  <Accordion title="No GPU metrics - collector starts but reports no hw.gpu.* metrics">
     - Confirm the host has a supported GPU: `lspci | grep -E 'VGA|3D|Display'`
     - For NVIDIA: verify `libnvidia-ml.so` is present: `ldconfig -p | grep nvidia-ml`
     - For Docker: ensure `--gpus all` (NVIDIA) or `--device /dev/dri` (AMD/Intel) is passed

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import ClickhouseConnectivityWrapper from "@/components/(playground)/clickhouse-connectivity-wrapper";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import CustomPostHogProvider from "@/components/(playground)/posthog";
+import PostHogScope from "@/components/(playground)/posthog-scope";
 import NavigationEvents from "@/components/common/navigation-events";
 import AppInit from "@/components/common/app-init";
 import { PortalProvider } from "@/components/(playground)/header-portal";
@@ -40,6 +41,7 @@ export default async function PlaygroundLayout({
 			<Suspense fallback={null}>
 				<NavigationEvents />
 				<AppInit />
+				<PostHogScope />
 			</Suspense>
 		</CustomPostHogProvider>
 	);

@@ -186,7 +186,7 @@ function ChatStepTimeline({
 									{step.label}
 								</div>
 								{step.detail ? (
-									<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+									<div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
 										{step.detail}
 									</div>
 								) : null}
@@ -213,7 +213,7 @@ function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
 			return;
 		}
 		try {
-			const res = await fetch(`/api/metrics/request/trace/${ref.id}`);
+			const res = await fetch(`/api/telemetry/trace/trace/${ref.id}`);
 			const result = await res.json();
 			const record = result?.record || result?.data?.record || result?.data;
 			const spanId = record?.SpanId || record?.spanId;

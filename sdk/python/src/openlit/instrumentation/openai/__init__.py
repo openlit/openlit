@@ -141,12 +141,12 @@ def _standard_args(
 
 
 def _safe_wrap(module, class_method, wrapper):
-    """Wrap a function, silently skipping if the module doesn't exist in this SDK version."""
+    """Wrap a function, silently skipping if the module or attribute doesn't exist in this SDK version."""
     try:
         wrap_function_wrapper(module, class_method, wrapper)
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, AttributeError):
         logger.debug(
-            "Skipping %s.%s — module not in this openai version", module, class_method
+            "Skipping %s.%s — not in this openai version", module, class_method
         )
 
 
@@ -214,6 +214,22 @@ class OpenAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "openai.resources.responses.responses",
             "AsyncResponses.create",
+            async_responses(*sa),
+        )
+
+        # responses parse (may not exist in older SDK versions).
+        # parse() posts to /responses directly instead of delegating to
+        # create(), so it needs its own wrapper. ParsedResponse subclasses
+        # Response and parse() never streams, so the create wrapper's
+        # non-streaming path handles it unchanged.
+        _safe_wrap(
+            "openai.resources.responses.responses",
+            "Responses.parse",
+            responses(*sa),
+        )
+        _safe_wrap(
+            "openai.resources.responses.responses",
+            "AsyncResponses.parse",
             async_responses(*sa),
         )
 

@@ -75,6 +75,16 @@ export type AlertSignalInput = {
 	payloadSummary?: Record<string, unknown>;
 };
 
+export type ManagementAlertInput = {
+	triggerType: AlertTriggerType;
+	event: string;
+	message: string;
+	sourceId?: string | null;
+	fields?: Record<string, string | number | boolean | undefined | null>;
+	payloadSummary?: Record<string, unknown>;
+	databaseConfigId?: string | null;
+};
+
 export type ProviderFieldDefinition = {
 	key: string;
 	label: string;

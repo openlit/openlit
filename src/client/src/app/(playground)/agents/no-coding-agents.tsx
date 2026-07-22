@@ -477,11 +477,11 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 							</ol>
 						</div>
 
-						<p className="text-xs text-stone-500 dark:text-stone-500">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
 							Full reference (env vars, content-capture modes,
 							marketplace install):{" "}
 							<a
-								href="https://docs.openlit.io/latest/features/coding-agents/onboarding"
+								href="https://docs.openlit.io/latest/openlit/coding-agents/onboarding"
 								target="_blank"
 								rel="noreferrer"
 								className="text-primary hover:underline"

@@ -107,7 +107,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 
 	if (!data || data.length === 0) {
 		return (
-			<div className="px-4 py-6 text-center text-sm text-stone-400 dark:text-stone-500">
+			<div className="px-4 py-6 text-center text-sm text-stone-500 dark:text-stone-400">
 				{m.CHAT_NO_DATA_RETURNED}
 			</div>
 		);
@@ -134,7 +134,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 				</div>
 				<div className="flex items-center gap-3">
 					{stats && (
-						<span className="text-xs text-stone-400 dark:text-stone-500">
+						<span className="text-xs text-stone-500 dark:text-stone-400">
 							{data.length} {m.CHAT_ROWS}
 							{stats.executionTimeMs ? ` in ${stats.executionTimeMs}ms` : ""}
 						</span>

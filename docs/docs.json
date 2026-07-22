@@ -9,6 +9,23 @@
     "dark": "#FFA500"
   },
   "favicon": "favicon.png",
+  "seo": {
+    "indexing": "navigable",
+    "metatags": {
+      "og:image": "/images/docs-main-banner.jpeg"
+    },
+    "organization": {
+      "name": "OpenLIT",
+      "url": "https://openlit.io",
+      "logo": "https://docs.openlit.io/images/rectangular-light-bg-logo.jpg",
+      "sameAs": [
+        "https://github.com/openlit/",
+        "https://twitter.com/openlit_io",
+        "https://www.linkedin.com/company/openlit/",
+        "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
+      ]
+    }
+  },
   "feedback": {
     "thumbsRating": true,
     "suggestEdit": true
@@ -48,62 +65,147 @@
                 "pages": [
                   "latest/openlit/quickstart-ai-observability",
                   "latest/openlit/quickstart-evals",
-                  "latest/openlit/quickstart-guard",
-                  "latest/openlit/quickstart-gpu",
-                  "latest/openlit/quickstart-vectordb-observability",
-                  "latest/openlit/quickstart-mcp-observability"
+                  "latest/openlit/prompts-experiments/prompt-hub/overview"
                 ]
               },
-              "latest/openlit/configuration",
-              "latest/openlit/oauth",
-              {
-                "group": "Organisation",
-                "icon": "building",
-                "pages": [
-                  "latest/openlit/organisation/overview",
-                  "latest/openlit/organisation/projects",
-                  "latest/openlit/organisation/database-config"
-                ]
-              }
+              "latest/openlit/configuration"
             ]
           },
           {
-            "group": "Observability",
+            "group": "Monitor",
             "pages": [
-              "latest/openlit/observability/tracing",
-              "latest/openlit/observability/metrics",
-              "latest/openlit/observability/error",
-              "latest/openlit/observability/fleet-hub",
+              {
+                "group": "Telemetry",
+                "icon": "wave-pulse",
+                "pages": [
+                  "latest/openlit/observability/telemetry/overview",
+                  "latest/openlit/observability/telemetry/traces",
+                  "latest/openlit/observability/telemetry/ai-analysis",
+                  "latest/openlit/observability/telemetry/metrics",
+                  "latest/openlit/observability/telemetry/logs"
+                ]
+              },
               {
                 "group": "Agents",
-                "icon": "radar",
+                "icon": "robot",
                 "pages": [
-                  "latest/controller/overview",
-                  "latest/controller/quickstart",
-                  "latest/controller/architecture",
-                  "latest/controller/configuration"
+                  "latest/openlit/observability/agents/overview",
+                  "latest/openlit/observability/agents/setup",
+                  "latest/openlit/observability/agents/analytics",
+                  "latest/openlit/observability/agents/monitoring",
+                  "latest/openlit/observability/agents/definition",
+                  "latest/openlit/observability/agents/configuration",
+                  "latest/openlit/observability/agents/versioning"
                 ]
               },
               {
                 "group": "Coding Agents",
                 "icon": "code",
                 "pages": [
-                  "latest/openlit/coding-agents/onboarding",
-                  "latest/openlit/coding-agents/architecture"
+                  "latest/openlit/coding-agents/overview",
+                  "latest/openlit/coding-agents/setup-and-configure",
+                  "latest/openlit/coding-agents/analytics",
+                  "latest/openlit/coding-agents/sessions",
+                  "latest/openlit/coding-agents/users",
+                  "latest/openlit/coding-agents/privacy-and-governance",
+                  "latest/openlit/coding-agents/troubleshooting"
+                ]
+              },
+              {
+                "group": "Evaluations",
+                "icon": "display",
+                "pages": [
+                  "latest/openlit/evaluations/overview",
+                  "latest/openlit/evaluations/analytics",
+                  "latest/openlit/evaluations/evaluators",
+                  "latest/openlit/evaluations/configuration",
+                  {
+                    "group": "Evaluation Methods",
+                    "icon": "ruler",
+                    "pages": [
+                      "latest/openlit/evaluations/llm-as-a-judge",
+                      "latest/openlit/evaluations/programmatic-evals",
+                      "latest/openlit/evaluations/manual-feedback"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Costs",
+                "icon": "circle-dollar",
+                "pages": [
+                  "latest/openlit/costs/overview",
+                  "latest/openlit/costs/analytics",
+                  {
+                    "group": "Manage models",
+                    "icon": "sliders",
+                    "pages": [
+                      "latest/openlit/costs/manage-models/overview",
+                      "latest/openlit/costs/manage-models/providers",
+                      "latest/openlit/costs/manage-models/models",
+                      "latest/openlit/costs/manage-models/import-and-export",
+                      "latest/openlit/costs/manage-models/sdk-pricing"
+                    ]
+                  },
+                  "latest/openlit/costs/configuration"
                 ]
               }
             ]
           },
           {
-            "group": "Evaluations",
+            "group": "Develop",
             "pages": [
-              "latest/openlit/evaluations/overview",
               {
-                "group": "Evaluation Methods",
-                "icon": "ruler",
+                "group": "Prompt Hub",
+                "icon": "shapes",
                 "pages": [
-                  "latest/openlit/evaluations/llm-as-a-judge",
-                  "latest/openlit/evaluations/programmatic-evals"
+                  "latest/openlit/prompts-experiments/prompt-hub/overview",
+                  "latest/openlit/prompts-experiments/prompt-hub/manage-prompts",
+                  "latest/openlit/prompts-experiments/prompt-hub/versioning",
+                  "latest/openlit/prompts-experiments/prompt-hub/ai-improvement",
+                  "latest/openlit/prompts-experiments/prompt-hub/rules",
+                  "latest/openlit/prompts-experiments/prompt-hub/retrieve-a-prompt"
+                ]
+              },
+              {
+                "group": "Vault",
+                "icon": "book",
+                "pages": [
+                  "latest/openlit/developer-resources/vault/overview",
+                  "latest/openlit/developer-resources/vault/manage-secrets",
+                  "latest/openlit/developer-resources/vault/security",
+                  "latest/openlit/developer-resources/vault/retrieve-secrets"
+                ]
+              },
+              {
+                "group": "Context",
+                "icon": "book-open",
+                "pages": [
+                  "latest/openlit/prompts-experiments/context/overview",
+                  "latest/openlit/prompts-experiments/context/manage-contexts",
+                  "latest/openlit/prompts-experiments/context/link-rules",
+                  "latest/openlit/prompts-experiments/context/retrieve-context"
+                ]
+              },
+              {
+                "group": "Rule Engine",
+                "icon": "sliders",
+                "pages": [
+                  "latest/openlit/prompts-experiments/rule-engine/overview",
+                  "latest/openlit/prompts-experiments/rule-engine/create-and-manage-rules",
+                  "latest/openlit/prompts-experiments/rule-engine/conditions",
+                  "latest/openlit/prompts-experiments/rule-engine/preview",
+                  "latest/openlit/prompts-experiments/rule-engine/linked-entities",
+                  "latest/openlit/prompts-experiments/rule-engine/evaluate-api"
+                ]
+              },
+              {
+                "group": "OpenGround",
+                "icon": "display",
+                "pages": [
+                  "latest/openlit/prompts-experiments/openground/overview",
+                  "latest/openlit/prompts-experiments/openground/run-a-comparison",
+                  "latest/openlit/prompts-experiments/openground/results-and-history"
                 ]
               }
             ]
@@ -127,7 +229,7 @@
                 "pages": [
                   "latest/openlit/dashboards/widgets/overview",
                   "latest/openlit/dashboards/widgets/area-chart-widget",
-                  "latest/openlit/dashboards/widgets/bar-chart-widget", 
+                  "latest/openlit/dashboards/widgets/bar-chart-widget",
                   "latest/openlit/dashboards/widgets/line-chart-widget",
                   "latest/openlit/dashboards/widgets/pie-chart-widget",
                   "latest/openlit/dashboards/widgets/stat-widget",
@@ -152,29 +254,31 @@
           {
             "group": "Otter (AI Copilot)",
             "pages": [
-              "latest/openlit/chat"
+              "latest/openlit/chat/overview",
+              "latest/openlit/chat/conversations",
+              "latest/openlit/chat/settings",
+              "latest/openlit/chat/usage"
             ]
           },
           {
-            "group": "Pricing & Models",
+            "group": "Platform",
             "pages": [
-              "latest/openlit/pricing/manage-models",
-              "latest/openlit/pricing/cost-recalculation"
-            ]
-          },
-          {
-            "group": "Prompts and Experiments",
-            "pages": [
-              "latest/openlit/prompts-experiments/prompt-hub",
-              "latest/openlit/prompts-experiments/openground",
-              "latest/openlit/prompts-experiments/context",
-              "latest/openlit/prompts-experiments/rule-engine"
-            ]
-          },
-          {
-            "group": "Developer Resources",
-            "pages": [
-              "latest/openlit/developer-resources/vault",
+              {
+                "group": "Administration",
+                "icon": "user-shield",
+                "pages": [
+                  "latest/openlit/oauth",
+                  {
+                    "group": "Organisation",
+                    "icon": "building",
+                    "pages": [
+                      "latest/openlit/organisation/overview",
+                      "latest/openlit/organisation/projects",
+                      "latest/openlit/organisation/database-config"
+                    ]
+                  }
+                ]
+              },
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
@@ -199,9 +303,27 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
                     ]
+                  },
+                  {
+                    "group": "Manage Models",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/models",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/providers",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/export",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/import",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing"
+                    ]
                   }
                 ]
               }
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "latest/glossary/what-is-ai-observability",
+              "latest/glossary/what-is-ai-evaluation",
+              "latest/glossary/what-is-prompt-engineering"
             ]
           }
         ]
@@ -239,6 +361,7 @@
               "latest/sdk/features/pricing",
               "latest/sdk/features/evaluations",
               "latest/sdk/features/guardrails",
+              "latest/sdk/features/custom-attributes",
               "latest/sdk/features/rule-engine"
             ]
           },
@@ -251,10 +374,8 @@
                 "icon": "robot",
                 "pages": [
                   "latest/sdk/integrations/openai",
-                  "latest/sdk/integrations/go-openai",
                   "latest/sdk/integrations/ollama",
                   "latest/sdk/integrations/anthropic",
-                  "latest/sdk/integrations/go-anthropic",
                   "latest/sdk/integrations/deepseek",
                   "latest/sdk/integrations/gpt4all",
                   "latest/sdk/integrations/cohere",
@@ -265,6 +386,7 @@
                   "latest/sdk/integrations/azure-ai-inference",
                   "latest/sdk/integrations/huggingface",
                   "latest/sdk/integrations/bedrock",
+                  "latest/sdk/integrations/oci",
                   "latest/sdk/integrations/vertexai",
                   "latest/sdk/integrations/google-ai-studio",
                   "latest/sdk/integrations/groq",
@@ -325,7 +447,10 @@
                   "latest/sdk/integrations/strands",
                   "latest/sdk/integrations/google-adk",
                   "latest/sdk/integrations/claude-agent-sdk",
-                  "latest/sdk/integrations/vercel-ai"
+                  "latest/sdk/integrations/vercel-ai",
+                  "latest/sdk/integrations/smolagents",
+                  "latest/sdk/integrations/agent-framework",
+                  "latest/sdk/integrations/mcp"
                 ]
               },
               {
@@ -409,9 +534,170 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "CLI",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/cli/overview",
+              "latest/cli/installation",
+              "latest/cli/configuration"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "latest/cli/commands"
+            ]
+          }
+        ]
       }
     ]
   },
+  "redirects": [
+    {
+      "source": "/latest/openlit/prompts-experiments/prompt-hub",
+      "destination": "/latest/openlit/prompts-experiments/prompt-hub/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/developer-resources/vault",
+      "destination": "/latest/openlit/developer-resources/vault/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/context",
+      "destination": "/latest/openlit/prompts-experiments/context/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/rule-engine",
+      "destination": "/latest/openlit/prompts-experiments/rule-engine/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/openground",
+      "destination": "/latest/openlit/prompts-experiments/openground/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/tracing",
+      "destination": "/latest/openlit/observability/telemetry/traces",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/metrics",
+      "destination": "/latest/openlit/observability/telemetry/metrics",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/error",
+      "destination": "/latest/openlit/observability/telemetry/traces",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/telemetry",
+      "destination": "/latest/openlit/observability/telemetry/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/agents",
+      "destination": "/latest/openlit/observability/agents/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/coding-agents/onboarding",
+      "destination": "/latest/openlit/coding-agents/setup-and-configure",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/coding-agents/architecture",
+      "destination": "/latest/openlit/coding-agents/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/agents/agent-detail",
+      "destination": "/latest/openlit/observability/agents/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/agents/definition-and-versions",
+      "destination": "/latest/openlit/observability/agents/versioning",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/observability/agents/coding-agents",
+      "destination": "/latest/openlit/coding-agents/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/costs/manage-models",
+      "destination": "/latest/openlit/costs/manage-models/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/chat",
+      "destination": "/latest/openlit/chat/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/cost-recalculation",
+      "destination": "/latest/openlit/costs/configuration",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models",
+      "destination": "/latest/openlit/costs/manage-models/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models/overview",
+      "destination": "/latest/openlit/costs/manage-models/overview",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models/providers",
+      "destination": "/latest/openlit/costs/manage-models/providers",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models/models",
+      "destination": "/latest/openlit/costs/manage-models/models",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models/import-and-export",
+      "destination": "/latest/openlit/costs/manage-models/import-and-export",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models/sdk-pricing",
+      "destination": "/latest/openlit/costs/manage-models/sdk-pricing",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/evaluations/core-concepts",
+      "destination": "/latest/openlit/evaluations/evaluators",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/evaluations/auto-evaluation",
+      "destination": "/latest/openlit/evaluations/configuration",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/evaluations/settings",
+      "destination": "/latest/openlit/evaluations/configuration",
+      "permanent": true
+    },
+    {
+      "source": "/latest/openlit/evaluations/types",
+      "destination": "/latest/openlit/evaluations/evaluators",
+      "permanent": true
+    }
+  ],
   "logo": {
     "light": "/images/rectangular-light-bg-logo.jpg",
     "dark": "/images/rectangular-dark-bg-logo.jpg",
@@ -447,6 +733,10 @@
     }
   },
   "contextual": {
-    "options": ["copy", "chatgpt", "claude"]
+    "options": [
+      "copy",
+      "chatgpt",
+      "claude"
+    ]
   }
 }

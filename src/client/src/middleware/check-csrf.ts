@@ -35,11 +35,14 @@ function isSameOrigin(request: NextRequest) {
 export default function checkCsrf(next: NextMiddleware) {
 	return async (request: NextRequest, event: NextFetchEvent) => {
 		const { pathname } = request.nextUrl;
+		const authHeader = request.headers.get("Authorization") || "";
+		const hasBearerToken = authHeader.startsWith("Bearer ");
 
 		if (
 			STATE_CHANGING_METHODS.has(request.method.toUpperCase()) &&
 			pathname.startsWith("/api/") &&
 			!isExemptPath(pathname) &&
+			!hasBearerToken &&
 			!isSameOrigin(request)
 		) {
 			return NextResponse.json("Forbidden", { status: 403 });

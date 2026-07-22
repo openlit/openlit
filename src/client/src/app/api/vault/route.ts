@@ -1,8 +1,10 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SecretInput } from "@/types/vault";
 import { upsertSecret } from "@/lib/platform/vault";
 import asaw from "@/utils/asaw";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 
 	const promptInput: Partial<SecretInput> = {
@@ -22,7 +24,7 @@ export async function POST(request: Request) {
 	return Response.json(res);
 }
 
-export async function PUT(request: Request) {
+async function PUTHandler(request: Request) {
 	const formData = await request.json();
 
 	const secretInput: Partial<SecretInput> = {
@@ -42,3 +44,6 @@ export async function PUT(request: Request) {
 
 	return Response.json(res);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("vault:write", POSTHandler));
+export const PUT = withAudit(withCurrentOrganisationPermission("vault:write", PUTHandler));

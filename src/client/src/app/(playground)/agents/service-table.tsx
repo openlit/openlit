@@ -61,7 +61,7 @@ type ServiceColumnKey =
 
 function StaticDash({ title }: { title?: string }) {
 	return (
-		<span className="text-xs text-stone-400 dark:text-stone-500" title={title}>
+		<span className="text-xs text-stone-500 dark:text-stone-400" title={title}>
 			—
 		</span>
 	);
@@ -420,11 +420,13 @@ function ActionsCell({
 const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	service: {
 		header: () => getMessage().AGENTS_COLUMN_SERVICE,
+		width: "minmax(10rem, 2fr)",
 		cell: ({ row }) => (
-			<div className="flex items-center gap-2 overflow-hidden">
+			<div className="flex items-center gap-2 min-w-0">
 				<Link
 					href={`/agents/${row.agent_key}?from=services`}
 					className="font-medium text-stone-900 dark:text-stone-100 hover:underline truncate"
+					title={row.service_name}
 					onClick={(e) => e.stopPropagation()}
 				>
 					{row.service_name}
@@ -434,17 +436,13 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 						{row.cluster_id}
 					</span>
 				)}
-				{row.environment && row.environment !== "default" && (
-					<span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-400 border border-stone-200 dark:border-stone-700 flex-shrink-0">
-						{row.environment}
-					</span>
-				)}
 			</div>
 		),
 		enableHiding: false,
 	},
 	system: {
 		header: () => getMessage().AGENTS_COLUMN_SYSTEM,
+		width: "minmax(4.5rem, 0.6fr)",
 		cell: ({ row }) => {
 			if (row.isSdkOnly) {
 				return (
@@ -459,7 +457,7 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 						: getMessage().AGENTS_SYSTEM_LINUX;
 			return (
 				<div
-					className="flex items-center text-stone-600 dark:text-stone-400"
+					className="flex items-center justify-center text-stone-600 dark:text-stone-400"
 					title={title}
 				>
 					{row.mode === "kubernetes" ? (
@@ -474,7 +472,8 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 		},
 	},
 	runtime: {
-		header: () => "Runtime",
+		header: () => getMessage().AGENTS_COLUMN_RUNTIME,
+		width: "minmax(5rem, 0.6fr)",
 		cell: ({ row }) => {
 			const title = runtimeTitle(row.sdk_language);
 			if (!title) return <StaticDash />;
@@ -490,8 +489,9 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	},
 	providers: {
 		header: () => getMessage().AGENTS_COLUMN_PROVIDERS,
+		width: "minmax(5.5rem, 0.7fr)",
 		cell: ({ row }) => (
-			<div className="flex items-center gap-2">
+			<div className="flex items-center justify-center gap-1.5">
 				{row.providers && row.providers.length > 0 ? (
 					row.providers.map((p) => (
 						<span key={p} title={p}>
@@ -506,8 +506,9 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	},
 	lastSeen: {
 		header: () => getMessage().AGENTS_COLUMN_LAST_SEEN,
+		width: "minmax(9rem, 1fr)",
 		cell: ({ row }) => (
-			<span className="text-xs truncate">
+			<span className="text-xs whitespace-nowrap" title={formatBrowserDateTime(row.last_seen)}>
 				{formatBrowserDateTime(row.last_seen)}
 			</span>
 		),
@@ -518,6 +519,7 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 				{getMessage().AGENTS_COLUMN_ACTIONS}
 			</div>
 		),
+		width: "minmax(5rem, 0.7fr)",
 		cell: ({ row, extraFunctions }) => (
 			<ActionsCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),
@@ -525,12 +527,14 @@ const columns: Columns<ServiceColumnKey, EnrichedAgent> = {
 	},
 	aiObservability: {
 		header: () => getMessage().AGENTS_COLUMN_LLM_OBSERVABILITY,
+		width: "minmax(9rem, 1fr)",
 		cell: ({ row, extraFunctions }) => (
 			<AIObservabilityCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),
 	},
 	agentObservability: {
 		header: () => getMessage().AGENTS_COLUMN_AGENT_OBSERVABILITY,
+		width: "minmax(10rem, 1fr)",
 		cell: ({ row, extraFunctions }) => (
 			<AgentObservabilityCell service={row} onRefresh={extraFunctions.onRefresh} />
 		),

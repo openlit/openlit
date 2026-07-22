@@ -136,16 +136,16 @@ export default function TimelineView({
 					className="relative h-4"
 					style={{ width: `${100 - NAME_COL_PCT - STATS_COL_PCT}%` }}
 				>
-					<span className="absolute left-0 top-0 text-stone-400 dark:text-stone-500">
+					<span className="absolute left-0 top-0 text-stone-500 dark:text-stone-400">
 						0
 					</span>
 					<span
-						className="absolute top-0 -translate-x-1/2 text-stone-400 dark:text-stone-500"
+						className="absolute top-0 -translate-x-1/2 text-stone-500 dark:text-stone-400"
 						style={{ left: "50%" }}
 					>
 						{formatDuration((traceWindowMs / 2) * 1e6)}
 					</span>
-					<span className="absolute right-0 top-0 text-stone-400 dark:text-stone-500">
+					<span className="absolute right-0 top-0 text-stone-500 dark:text-stone-400">
 						{formatDuration(traceWindowMs * 1e6)}
 					</span>
 				</div>
@@ -155,7 +155,7 @@ export default function TimelineView({
 					style={{ width: `${STATS_COL_PCT}%` }}
 				>
 					<div className="leading-none text-[10px]">Duration</div>
-					<div className="leading-none text-[9px] text-stone-400 dark:text-stone-500 mt-0.5">
+					<div className="leading-none text-[9px] text-stone-500 dark:text-stone-400 mt-0.5">
 						Cost
 					</div>
 				</div>
@@ -257,7 +257,7 @@ export default function TimelineView({
 										className={`text-[9px] tabular-nums leading-tight truncate max-w-full ${
 											isSelected
 												? "text-primary/80"
-												: "text-stone-400 dark:text-stone-500"
+												: "text-stone-500 dark:text-stone-400"
 										}`}
 									>
 										{costDisplay}

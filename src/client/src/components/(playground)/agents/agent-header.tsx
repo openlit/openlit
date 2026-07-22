@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
 import type { UnifiedAgent } from "@/types/agents";
 import {
@@ -16,7 +18,9 @@ import {
 interface AgentHeaderProps {
 	agent: UnifiedAgent;
 	onRefresh: () => void;
-	rightSlot?: React.ReactNode;
+	/** Pill tab switcher — same surface as the agents hub header actions. */
+	tabs?: ReactNode;
+	rightSlot?: ReactNode;
 }
 
 // Map a `?from=<tab>` source the table click stamped on the
@@ -38,9 +42,18 @@ function buildBackHref(
 	return tab === "services" ? "/agents" : `/agents?tab=${tab}`;
 }
 
+/** Soft sky chip — matches Telemetry Traces active tone, not solid teal. */
+export const AGENTS_HEADER_TONE =
+	"border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300";
+
+/** Active pill tab — same soft sky treatment as Telemetry signal toggles. */
+export const AGENTS_PILL_TAB_ACTIVE =
+	"border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-400";
+
 export default function AgentHeader({
 	agent,
 	onRefresh,
+	tabs,
 	rightSlot,
 }: AgentHeaderProps) {
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -70,53 +83,105 @@ export default function AgentHeader({
 		}
 	}, [agent.agent_key, onRefresh]);
 
-	return (
-		<div className="space-y-2">
-			<div className="flex items-center justify-between gap-3">
-				<Link
-					href={backHref}
-					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-				>
-					<ArrowLeft className="w-4 h-4" />
-					{getMessage().AGENTS_BACK_TO_HUB}
-				</Link>
-				<button
-					onClick={handleRefresh}
-					disabled={isRefreshing}
-					className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50"
-				>
-					<RefreshCw
-						className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
-					/>
-					{isRefreshing
-						? getMessage().AGENTS_REFRESHING
-						: getMessage().AGENTS_REFRESH}
-				</button>
-			</div>
+	const isCoding = agent.source === "coding";
+	const title =
+		isCoding && hasCodingAgentVendorIcon(agent.coding_agent_vendor)
+			? codingAgentVendorLabel(agent.coding_agent_vendor)
+			: agent.service_name;
 
-			<div className="flex items-center justify-between gap-3 flex-wrap">
-				{/* For coding-agent rows we render the vendor logo + the
-				    pretty vendor label (e.g. "Claude Code" instead of
-				    the raw `claude-code` service name). For services /
-				    controllers we keep the existing service_name
-				    rendering — no logo, no transformation. */}
-				<h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 inline-flex items-center gap-2">
-					{hasCodingAgentVendorIcon(agent.coding_agent_vendor) ? (
-						<>
-							<CodingAgentVendorIcon
-								vendor={agent.coding_agent_vendor}
-								className="h-7 w-7 shrink-0"
-							/>
-							<span>
-								{codingAgentVendorLabel(agent.coding_agent_vendor)}
-							</span>
-						</>
-					) : (
-						agent.service_name
-					)}
-				</h1>
-				{rightSlot && <div className="shrink-0">{rightSlot}</div>}
-			</div>
-		</div>
+	const icon =
+		isCoding && hasCodingAgentVendorIcon(agent.coding_agent_vendor) ? (
+			<CodingAgentVendorIcon
+				vendor={agent.coding_agent_vendor}
+				className="h-4 w-4"
+			/>
+		) : (
+			<Bot className="h-4 w-4" />
+		);
+
+	const backLabel = getMessage().AGENTS_BACK_TO_HUB;
+
+	return (
+		<FeaturePageHeader
+			eyebrow={getMessage().SIDEBAR_MONITOR}
+			title={title}
+			icon={icon}
+			tone={AGENTS_HEADER_TONE}
+			leading={
+				<Button
+					asChild
+					variant="outline"
+					size="sm"
+					className="h-7 w-7 shrink-0 p-0"
+				>
+					<Link href={backHref} title={backLabel} aria-label={backLabel}>
+						<ArrowLeft className="h-3.5 w-3.5" />
+					</Link>
+				</Button>
+			}
+			actions={
+				<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+					{tabs}
+					{rightSlot}
+					<button
+						onClick={handleRefresh}
+						disabled={isRefreshing}
+						title={
+							isRefreshing
+								? getMessage().AGENTS_REFRESHING
+								: getMessage().AGENTS_REFRESH
+						}
+						aria-label={
+							isRefreshing
+								? getMessage().AGENTS_REFRESHING
+								: getMessage().AGENTS_REFRESH
+						}
+						className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 disabled:opacity-50"
+					>
+						<RefreshCw
+							className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+						/>
+					</button>
+				</div>
+			}
+		/>
+	);
+}
+
+/** Shared pill-tab button used by the agents hub and detail pages. */
+export function AgentPillTab({
+	active,
+	label,
+	onClick,
+	indicator,
+	indicatorTooltip,
+}: {
+	active: boolean;
+	label: string;
+	onClick: () => void;
+	indicator?: boolean;
+	indicatorTooltip?: string;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-pressed={active}
+			className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
+				active
+					? AGENTS_PILL_TAB_ACTIVE
+					: "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
+			}`}
+		>
+			<span>{label}</span>
+			{indicator ? (
+				<span
+					role="status"
+					aria-label={indicatorTooltip}
+					title={indicatorTooltip}
+					className="inline-flex h-2 w-2 rounded-full bg-orange-500 motion-safe:animate-pulse"
+				/>
+			) : null}
+		</button>
 	);
 }

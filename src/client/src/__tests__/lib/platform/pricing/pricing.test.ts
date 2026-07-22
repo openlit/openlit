@@ -27,7 +27,7 @@ jest.mock('@/helpers/server/trace', () => ({
     const map: Record<string, string> = {
       cost: 'gen_ai.usage.cost',
       model: 'gen_ai.request.model',
-      provider: 'gen_ai.system',
+      provider: 'gen_ai.provider.name',
       promptTokens: 'gen_ai.usage.input_tokens',
       completionTokens: 'gen_ai.usage.output_tokens',
       type: 'gen_ai.operation.name',
@@ -36,6 +36,7 @@ jest.mock('@/helpers/server/trace', () => ({
   }),
   getTraceMappingKeyFullPaths: jest.fn((key: string) => {
     const map: Record<string, string[]> = {
+      provider: ['gen_ai.provider.name', 'gen_ai.system'],
       promptTokens: ['gen_ai.usage.input_tokens', 'input_tokens', 'prompt_tokens'],
       completionTokens: ['gen_ai.usage.output_tokens', 'output_tokens', 'completion_tokens'],
     };
@@ -63,7 +64,7 @@ jest.mock('@/lib/platform/cron-log', () => ({
   insertCronLog: jest.fn().mockResolvedValue({ err: null }),
 }));
 jest.mock('@/lib/db-config', () => ({
-  getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
   getDBConfigByUser: jest.fn(),
 }));
 jest.mock('date-fns', () => ({
@@ -85,7 +86,6 @@ import { dataCollector } from '@/lib/platform/common';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import { ProviderRegistry } from '@/lib/platform/providers/provider-registry';
 import { getPricingConfigById } from '@/lib/platform/pricing/config';
-import { getDBConfigById } from '@/lib/db-config';
 import { insertCronLog } from '@/lib/platform/cron-log';
 import getMessage from '@/constants/messages';
 import { throwIfError } from '@/utils/error';

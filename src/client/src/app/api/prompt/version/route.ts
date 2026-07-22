@@ -1,8 +1,10 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { PromptUpdate } from "@/constants/prompts";
 import { upsertPromptVersion } from "@/lib/platform/prompt/version";
 import asaw from "@/utils/asaw";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 
 	const promptInput: PromptUpdate = {
@@ -25,3 +27,5 @@ export async function POST(request: Request) {
 
 	return Response.json(res);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("prompt:update", POSTHandler));

@@ -1,24 +1,33 @@
 ---
 title: 'Monitor FireCrawl using OpenTelemetry'
+description: 'Track FireCrawl web crawling agents with OpenTelemetry auto-instrumentation for AI observability into crawl performance and operation stats.'
 sidebarTitle: 'FireCrawl'
 ---
 
 import IntegrationMethods from '/snippets/integration-methods.mdx';
 
-OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor crawling Agents built using FireCrawl. This includes tracking performance and operation stats.
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor crawling agents built using FireCrawl. This includes tracking performance and operation stats.
 
 Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-The integration is compatible with  
-- FireCrawl Python SDK client `>= 1.6.3` 
+The integration is compatible with:
+- FireCrawl Python SDK client `>= 1.6.3`
+- FireCrawl TypeScript SDK (`@mendable/firecrawl-js`) `>= 1.0.0 < 4`
 
 ## Get started 
 
 <Steps>
   <Step title="Install OpenLIT">
     Open your command line or terminal and run:
+
+    **Python**
     ```shell
     pip install openlit
+    ```
+
+    **TypeScript**
+    ```shell
+    npm install openlit
     ```
   </Step>
   <IntegrationMethods />
@@ -37,10 +46,3 @@ The integration is compatible with
     Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
-  </Card>

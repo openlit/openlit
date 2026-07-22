@@ -37,10 +37,23 @@ jest.mock("@/lib/platform/agents/snapshot", () => ({
 }));
 
 import { dataCollector } from "@/lib/platform/common";
-import { materializeAgents } from "@/lib/platform/agents/materialize";
+import {
+	materializeAgents,
+	recomputeCodingAgentsForWindow,
+} from "@/lib/platform/agents/materialize";
 import { computeAgentKey } from "@/lib/platform/agents";
+import {
+	deriveSnapshot,
+	getLatestVersionsBatch,
+	upsertVersion,
+} from "@/lib/platform/agents/snapshot";
 
 const mockedDC = dataCollector as jest.MockedFunction<typeof dataCollector>;
+const mockedDerive = deriveSnapshot as jest.MockedFunction<typeof deriveSnapshot>;
+const mockedUpsert = upsertVersion as jest.MockedFunction<typeof upsertVersion>;
+const mockedGetLatest = getLatestVersionsBatch as jest.MockedFunction<
+	typeof getLatestVersionsBatch
+>;
 
 interface RecordedInsert {
 	table: string;
@@ -87,6 +100,11 @@ function queueDiscovery(
 
 beforeEach(() => {
 	mockedDC.mockReset();
+	mockedDerive.mockReset();
+	mockedUpsert.mockReset();
+	mockedDerive.mockResolvedValue(null);
+	mockedUpsert.mockResolvedValue({ versionNumber: 1, isNewVersion: false });
+	mockedGetLatest.mockResolvedValue(new Map());
 });
 
 describe("materializeAgents — workload_key dedup", () => {
@@ -400,5 +418,231 @@ describe("materializeAgents — workload_key dedup", () => {
 		expect(ctrlQuery).toBeDefined();
 		expect(ctrlQuery!).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
 		expect(ctrlQuery!).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
+	});
+});
+
+describe("recomputeCodingAgentsForWindow", () => {
+	it("builds a 24h default window and maps vendor rows", async () => {
+		mockedDC.mockResolvedValueOnce({
+			data: [
+				{
+					vendor: "cursor",
+					client_version: "1.2.3",
+					first_seen: "2026-05-11 20:00:00",
+					last_seen: "2026-05-11 22:00:00",
+					session_count_24h: 5,
+					cost_usd_24h: 1.5,
+					active_users_24h: 2,
+					lines_added_24h: 10,
+					lines_removed_24h: 1,
+					lines_accepted_24h: 8,
+					lines_rejected_24h: 0,
+					edit_accept_24h: 3,
+					edit_reject_24h: 0,
+					commit_count_24h: 1,
+					pr_count_24h: 0,
+				},
+				{ vendor: "" },
+			],
+		} as any);
+
+		const rows = await recomputeCodingAgentsForWindow({});
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			service_name: "cursor",
+			source: "coding",
+			cluster_id: "coding",
+			coding_session_count_24h: 5,
+			coding_cost_usd_24h: 1.5,
+			sdk_version: "1.2.3",
+		});
+		const query = String((mockedDC.mock.calls[0][0] as any).query);
+		expect(query).toContain("Timestamp >= now() - INTERVAL 24 HOUR");
+	});
+
+	it("escapes custom window bounds and returns [] on error", async () => {
+		mockedDC.mockResolvedValueOnce({ data: [] } as any);
+		await recomputeCodingAgentsForWindow({
+			timeStart: "2026-05-11T00:00:00Z",
+			timeEnd: "2026-05-11 23:59:59",
+		});
+		const query = String((mockedDC.mock.calls[0][0] as any).query);
+		expect(query).toContain(
+			"parseDateTimeBestEffort('2026-05-11T00:00:00Z')"
+		);
+		expect(query).toContain("parseDateTimeBestEffort('2026-05-11 23:59:59')");
+
+		mockedDC.mockResolvedValueOnce({
+			err: new Error("coding discovery failed"),
+			data: [],
+		} as any);
+		await expect(
+			recomputeCodingAgentsForWindow({
+				timeStart: "2026-05-11 00:00:00",
+			})
+		).resolves.toEqual([]);
+	});
+
+	it("escapes quotes in window timestamps", async () => {
+		mockedDC.mockResolvedValueOnce({ data: [] } as any);
+		await recomputeCodingAgentsForWindow({
+			timeStart: "2026-05-11 00:00:00'; DROP TABLE x; --",
+		});
+		const query = String((mockedDC.mock.calls[0][0] as any).query);
+		expect(query).toContain("\\'");
+	});
+});
+
+describe("materializeAgents — scope / filter / coding", () => {
+	it("returns processed:0 when scoped refresh finds no matching agent", async () => {
+		mockedDC
+			.mockResolvedValueOnce({ data: [] } as any) // SDK
+			.mockResolvedValueOnce({ data: [] } as any) // coding
+			.mockResolvedValueOnce({ data: [] } as any); // controller
+
+		await expect(
+			materializeAgents({
+				scope: {
+					serviceName: "cursor",
+					clusterId: "coding",
+					environment: "default",
+				},
+			})
+		).resolves.toEqual({ processed: 0, newVersions: 0, errors: 0 });
+	});
+
+	it("materializes a coding agent matched by agentKeyFilter without snapshot upsert", async () => {
+		const codingKey = computeAgentKey("coding", "default", "cursor");
+		mockedDC
+			// discoverAgents: SDK then controller (sequential)
+			.mockResolvedValueOnce({ data: [] } as any)
+			.mockResolvedValueOnce({ data: [] } as any)
+			// discoverCodingAgents
+			.mockResolvedValueOnce({
+				data: [
+					{
+						vendor: "cursor",
+						client_version: "9.0.0",
+						first_seen: "2026-05-11 20:00:00",
+						last_seen: "2026-05-11 22:00:00",
+						session_count_24h: 2,
+						cost_usd_24h: 0.4,
+						active_users_24h: 1,
+						lines_added_24h: 0,
+						lines_removed_24h: 0,
+						lines_accepted_24h: 0,
+						lines_rejected_24h: 0,
+						edit_accept_24h: 0,
+						edit_reject_24h: 0,
+						commit_count_24h: 0,
+						pr_count_24h: 0,
+					},
+				],
+			} as any);
+
+		const inserts: RecordedInsert[] = [];
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
+			if (op === "insert") {
+				inserts.push({
+					table: String(c.table),
+					values: (c.values || []) as any,
+				});
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		const result = await materializeAgents({ agentKeyFilter: codingKey });
+		expect(result.processed).toBe(1);
+		expect(mockedDerive).not.toHaveBeenCalled();
+		expect(mockedUpsert).not.toHaveBeenCalled();
+		expect(inserts[0].values[0]).toMatchObject({
+			agent_key: codingKey,
+			source: "coding",
+			service_name: "cursor",
+			coding_agent_vendor: "cursor",
+		});
+	});
+
+	it("returns empty when agentKeyFilter does not match", async () => {
+		mockedDC
+			.mockResolvedValueOnce({ data: [] } as any)
+			.mockResolvedValueOnce({ data: [] } as any)
+			.mockResolvedValueOnce({ data: [] } as any);
+
+		await expect(
+			materializeAgents({ agentKeyFilter: "nope" })
+		).resolves.toEqual({ processed: 0, newVersions: 0, errors: 0 });
+	});
+
+	it("tolerates SDK/controller discovery errors", async () => {
+		mockedDC
+			.mockResolvedValueOnce({ err: new Error("sdk boom"), data: [] } as any)
+			.mockResolvedValueOnce({ data: [] } as any) // coding
+			.mockResolvedValueOnce({ err: new Error("ctrl boom"), data: [] } as any);
+
+		await expect(materializeAgents()).resolves.toEqual({
+			processed: 0,
+			newVersions: 0,
+			errors: 0,
+		});
+	});
+
+	it("materializes scoped SDK matches and upserts versions when snapshot exists", async () => {
+		mockedDerive.mockResolvedValueOnce({
+			agent_key: computeAgentKey("default", "default", "scoped-app"),
+			service_name: "scoped-app",
+			environment: "default",
+			cluster_id: "default",
+			system_prompt: "hi",
+			tools: [],
+			primary_model: "gpt-4o",
+			models: ["gpt-4o"],
+			providers: ["openai"],
+			runtime_config: {},
+			request_count: 3,
+			first_seen: "2026-05-11 22:00:00",
+			last_seen: "2026-05-11 22:10:00",
+			version_hash: "snap-hash",
+		} as any);
+		mockedUpsert.mockResolvedValueOnce({ versionNumber: 2, isNewVersion: true });
+
+		mockedDC
+			.mockResolvedValueOnce({
+				data: [
+					{
+						service_name: "scoped-app",
+						environment: "default",
+						cluster_id: "default",
+						workload_key: "",
+						sdk_version: "1.0.0",
+						sdk_language: "python",
+						first_seen: "2026-05-11 22:00:00",
+						last_seen: "2026-05-11 22:10:00",
+					},
+				],
+			} as any)
+			.mockResolvedValueOnce({ data: [] } as any) // coding
+			.mockResolvedValueOnce({ data: [] } as any); // controller
+
+		const inserts: RecordedInsert[] = [];
+		mockedDC.mockImplementation(async (c: any, op?: string) => {
+			if (op === "insert") {
+				inserts.push({
+					table: String(c.table),
+					values: (c.values || []) as any,
+				});
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		const result = await materializeAgents({
+			scope: { serviceName: "scoped-app", environment: "default" },
+		});
+		expect(result.processed).toBe(1);
+		expect(result.newVersions).toBe(1);
+		expect(mockedUpsert).toHaveBeenCalled();
+		expect(inserts[0].values[0].current_version_hash).toBe("snap-hash");
 	});
 });

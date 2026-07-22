@@ -237,6 +237,15 @@ describe("getTraceAnalysisRuns", () => {
 			"db-config-1"
 		);
 	});
+
+	it("defaults null data to an empty array and filters by analysis type", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({ data: null });
+		const { data } = await getTraceAnalysisRuns("span-abc", undefined, "span_analysis");
+		expect(data).toEqual([]);
+		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
+			"analysis_type = 'span_analysis'"
+		);
+	});
 });
 
 // ─── getTraceImprovement ─────────────────────────────────────────────────────
@@ -294,6 +303,29 @@ describe("getTraceImprovement", () => {
 		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
 			"analysis_type = 'span_analysis'"
 		);
+	});
+
+	it("returns hierarchy-not-found when the record has no SpanId", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: {},
+			err: null,
+		});
+
+		await expect(getTraceImprovement("missing")).resolves.toEqual({
+			err: "Trace hierarchy not found",
+		});
+	});
+
+	it("returns empty runs when the runs query errors", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock).mockResolvedValue({ err: "runs failed" });
+
+		const result = await getTraceImprovement("root-span", "db-1");
+
+		expect(result).toEqual({ data: { rootSpanId: "root-span", runs: [] } });
 	});
 });
 
@@ -369,6 +401,45 @@ describe("saveTraceAnalysisRun", () => {
 		expect(insertValues.run_number).toBe(2);
 		expect(data!.runNumber).toBe(2);
 	});
+
+	it("computes worst severity and stores span analysis type", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({ err: null });
+		const analysis = {
+			...emptyTraceAnalysis("t1"),
+			summary: "",
+			improvements: [
+				{
+					id: "f1",
+					severity: "critical" as const,
+					summary: "bad",
+					detail: "worse",
+					span_refs: ["root-1"],
+				},
+			],
+			cost: [
+				{
+					id: "f2",
+					severity: "minor" as const,
+					summary: "pricey",
+					detail: "ok",
+					span_refs: ["root-1"],
+				},
+			],
+		};
+
+		const { data } = await saveTraceAnalysisRun({
+			...baseArgs,
+			analysis,
+			analysisType: "span_analysis",
+		});
+		const insertValues = (dataCollector as jest.Mock).mock.calls[0][0].values[0];
+
+		expect(insertValues.worst_severity).toBe("critical");
+		expect(insertValues.analysis_type).toBe("span_analysis");
+		expect(insertValues.summary).toBe("");
+		expect(data!.worstSeverity).toBe("critical");
+		expect(data!.summary).toBe("");
+	});
 });
 
 // ─── streamTraceImprovementAnalysis ──────────────────────────────────────────
@@ -397,7 +468,7 @@ describe("streamTraceImprovementAnalysis", () => {
 		expect(streamText).not.toHaveBeenCalled();
 	});
 
-		it("streams six dimension analyses with grader passes, saves the run, and emits done data", async () => {
+	it("streams seven dimension analyses with grader passes, saves the run, and emits done data", async () => {
 		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
 			record: hierarchy,
 			err: null,
@@ -415,8 +486,8 @@ describe("streamTraceImprovementAnalysis", () => {
 		const doneEvent = events.find((event) => event.type === "done");
 		const insertValues = (dataCollector as jest.Mock).mock.calls[1][0].values[0];
 
-			expect(streamText).toHaveBeenCalledTimes(12);
-			expect(getModelInstance).toHaveBeenCalledWith("openai", "sk-test", "gpt-4o-mini");
+		expect(streamText).toHaveBeenCalledTimes(14);
+		expect(getModelInstance).toHaveBeenCalledWith("openai", "sk-test", "gpt-4o-mini");
 		expect(dimensionEvents.map((event) => event.dimension)).toEqual([
 			"strengths",
 			"improvements",
@@ -424,6 +495,7 @@ describe("streamTraceImprovementAnalysis", () => {
 			"cost",
 			"token_efficiency",
 			"path_analysis",
+			"prompt_injection",
 		]);
 		expect(dimensionEvents[0].findings[0]).toEqual(
 			expect.objectContaining({
@@ -435,8 +507,8 @@ describe("streamTraceImprovementAnalysis", () => {
 		expect(insertValues.root_span_id).toBe("root-span");
 		expect(insertValues.selected_span_id).toBe("llm-span");
 		expect(insertValues.analysis_type).toBe("trace_analysis");
-			expect(insertValues.prompt_tokens).toBe(120);
-			expect(insertValues.completion_tokens).toBe(24);
+		expect(insertValues.prompt_tokens).toBe(140);
+		expect(insertValues.completion_tokens).toBe(28);
 		expect(JSON.parse(insertValues.analysis_json).totals).toEqual({
 			span_count: 3,
 			total_tokens: 170,
@@ -475,5 +547,500 @@ describe("streamTraceImprovementAnalysis", () => {
 			})
 		);
 		expect(events.find((event) => event.type === "done")).toBeDefined();
+	});
+
+	it("returns the default chat-not-configured message when config is empty", async () => {
+		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({ data: null });
+
+		const result = await streamTraceImprovementAnalysis("root-span");
+
+		expect(result.err).toMatch(/Chat not configured/);
+	});
+
+	it("returns hierarchy-not-found when the record has no SpanId", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: { SpanName: "orphan" },
+			err: null,
+		});
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+
+		expect(result).toEqual({ err: "Trace hierarchy not found" });
+	});
+
+	it("streams span-scope analysis and falls back when the grader returns unparseable JSON", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+
+		let call = 0;
+		(streamText as jest.Mock).mockImplementation(({ system, onFinish }) => {
+			call += 1;
+			onFinish({ usage: { inputTokens: 3, outputTokens: 1 } });
+			const isGrader = String(system).includes("quality grader");
+			return {
+				fullStream: (async function* () {
+					if (isGrader) {
+						yield { type: "text-delta", text: "not-json-grader" };
+						return;
+					}
+					yield {
+						type: "text-delta",
+						text: JSON.stringify({
+							summary: "first pass ok",
+							findings: [
+								{
+									severity: "bogus",
+									summary: "Needs a fix",
+									detail: "detail",
+									span_refs: ["llm-span"],
+									suggested_fix: "tighten prompt",
+									suggested_fix_patches: [
+										{
+											field: "prompt",
+											span_ref: "llm-span",
+											original: "old",
+											replacement: "new",
+										},
+										{ field: "bad", span_ref: "x" },
+										null,
+									],
+									estimated_savings: { tokens: 5 },
+								},
+							],
+						}),
+					};
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("llm-span", "db-1", "span");
+		const events = await readNdjson(result.response!);
+		const dimensionEvent = events.find((event) => event.type === "dimension");
+		const doneEvent = events.find((event) => event.type === "done");
+		const insertValues = (dataCollector as jest.Mock).mock.calls[1][0].values[0];
+
+		expect(call).toBeGreaterThanOrEqual(12);
+		expect(dimensionEvent.findings[0]).toEqual(
+			expect.objectContaining({
+				severity: "info",
+				suggested_fix: "tighten prompt",
+				suggested_fix_patches: [
+					expect.objectContaining({
+						field: "prompt",
+						original: "old",
+						replacement: "new",
+					}),
+				],
+			})
+		);
+		expect(insertValues.analysis_type).toBe("span_analysis");
+		expect(insertValues.root_span_id).toBe("llm-span");
+		expect(doneEvent).toBeDefined();
+	});
+
+	it("emits a stream error when saving the analysis run fails", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: "insert failed" });
+		mockDimensionStreams();
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+
+		expect(events.find((event) => event.type === "error")).toEqual({
+			type: "error",
+			error: "Failed to save trace analysis run",
+		});
+		expect(events.find((event) => event.type === "done")).toBeUndefined();
+	});
+
+	it("keeps first-pass findings when the grader throws", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+
+		(streamText as jest.Mock).mockImplementation(({ system, onFinish }) => {
+			onFinish({ usage: {} });
+			if (String(system).includes("quality grader")) {
+				return {
+					fullStream: (async function* () {
+						throw new Error("grader boom");
+					})(),
+				};
+			}
+			return {
+				fullStream: (async function* () {
+					yield {
+						type: "text-delta",
+						delta: JSON.stringify({
+							summary: "kept",
+							findings: [
+								{
+									severity: "major",
+									summary: "First pass finding",
+									detail: "kept after grader failure",
+									span_refs: ["root-span"],
+								},
+							],
+						}),
+					};
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+		const strengths = events.find(
+			(event) => event.type === "dimension" && event.dimension === "strengths"
+		);
+
+		expect(strengths.findings[0].summary).toBe("First pass finding");
+		expect(events.find((event) => event.type === "done")).toBeDefined();
+	});
+
+	it("covers alternate span roles, duration scales, and rule-context failures", async () => {
+		const longPrompt = `sk-abcdefghijklmnopqrstuvwxyz ${"x".repeat(900)} Bearer abcdefghijklmnop ${"y".repeat(900)}`;
+		const richHierarchy = {
+			TraceId: "trace-rich",
+			SpanId: "orch-root",
+			ParentSpanId: "",
+			SpanName: "workflow.orchestrator",
+			ServiceName: "rich-service",
+			Duration: 25_000,
+			StatusCode: "STATUS_CODE_OK",
+			ResourceAttributes: {
+				"service.name": "rich-service",
+				"deployment.environment": "prod",
+				"gen_ai.application_name": "demo",
+			},
+			SpanAttributes: {},
+			Events: [],
+			children: [
+				{
+					TraceId: "trace-rich",
+					SpanId: "embed-1",
+					ParentSpanId: "orch-root",
+					SpanName: "embeddings.create",
+					Duration: 5,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: {
+						"gen_ai.content.prompt": JSON.stringify({ text: "embed me" }),
+						"gen_ai.usage.input_tokens": 11,
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "retriev-1",
+					ParentSpanId: "orch-root",
+					SpanName: "vector.search",
+					Duration: 12,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: {
+						prompt: "find docs",
+						"gen_ai.usage.input_tokens": 4,
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "db-1",
+					ParentSpanId: "orch-root",
+					SpanName: "db.query",
+					Duration: 8,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: {
+						"db.query.text": "SELECT 1",
+						"db.system.name": "postgres",
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "http-1",
+					ParentSpanId: "orch-root",
+					SpanName: "http.request",
+					Duration: 9,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: {
+						"http.method": "GET",
+						"http.url": "https://example.com/api",
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "tool-a",
+					ParentSpanId: "orch-root",
+					SpanName: "tool.search",
+					Duration: 15,
+					StatusCode: "STATUS_CODE_ERROR",
+					StatusMessage: "boom",
+					SpanAttributes: {
+						"gen_ai.tool.name": "search",
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
+						"error.message": "temporary",
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "tool-b",
+					ParentSpanId: "orch-root",
+					SpanName: "tool.search",
+					Duration: 16,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: {
+						"gen_ai.tool.name": "search",
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
+						"gen_ai.tool.result": JSON.stringify({ result: "ok" }),
+					},
+					Events: [],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "llm-secret",
+					ParentSpanId: "orch-root",
+					SpanName: "llm.completion",
+					Duration: 2_500_000_000,
+					StatusCode: "STATUS_CODE_OK",
+					Cost: 0.02,
+					SpanAttributes: {
+						"gen_ai.request.model": "gpt-4o",
+						"gen_ai.system": "openai",
+						"gen_ai.usage.input_tokens": 200,
+						"gen_ai.usage.output_tokens": 50,
+						"gen_ai.usage.cache_read_input_tokens": 40,
+						"gen_ai.usage.cache_creation_input_tokens": 10,
+						"gen_ai.usage.reasoning_tokens": 5,
+						"gen_ai.content.prompt": longPrompt,
+						"gen_ai.content.completion": JSON.stringify({
+							content: [{ text: "answer" }],
+						}),
+						"gen_ai.system_instructions": "be careful",
+						"gen_ai.content.reasoning": "thinking",
+					},
+					Events: [
+						{
+							Name: "gen_ai.completion",
+							Attributes: { completion: "event completion" },
+						},
+					],
+					children: [],
+				},
+				{
+					TraceId: "trace-rich",
+					SpanId: "unknown-1",
+					ParentSpanId: "orch-root",
+					SpanName: "misc.work",
+					Duration: Number.NaN,
+					StatusCode: "STATUS_CODE_OK",
+					SpanAttributes: { "not.a.role": true },
+					Events: [],
+					children: [],
+				},
+			],
+		};
+
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: richHierarchy,
+			err: null,
+		});
+		(getContextFromRuleEngineForTrace as jest.Mock).mockRejectedValue(
+			new Error("rule engine down")
+		);
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [{ id: "prior" }], err: null })
+			.mockResolvedValueOnce({ err: null });
+		(streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+			onFinish({ usage: { inputTokens: 2, outputTokens: 1 } });
+			return {
+				fullStream: (async function* () {
+					yield {
+						type: "text-delta",
+						delta: "```json\n" + JSON.stringify([
+							{
+								severity: "critical",
+								summary: "Array finding",
+								detail: "parsed from array shape",
+								span_refs: ["orch-root"],
+							},
+						]) + "\n```",
+					};
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("orch-root", "db-1");
+		const events = await readNdjson(result.response!);
+		const doneEvent = events.find((event) => event.type === "done");
+		const insertValues = (dataCollector as jest.Mock).mock.calls[1][0].values[0];
+
+		expect(doneEvent.data.runs).toHaveLength(2);
+		expect(insertValues.worst_severity).toBe("critical");
+		expect(insertValues.run_number).toBe(2);
+		expect(JSON.parse(insertValues.analysis_json).totals.span_count).toBe(9);
+	});
+
+	it("parses findings nested under a dimension key and ignores non-text stream parts", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+		(streamText as jest.Mock).mockImplementation(({ system, onFinish }) => {
+			onFinish({ usage: { inputTokens: 1, outputTokens: 1 } });
+			const dimension = String(system).match(/Dimension: ([^\n]+)/)?.[1] || "improvements";
+			return {
+				fullStream: (async function* () {
+					yield { type: "reasoning-delta", delta: "ignore me" };
+					yield {
+						type: "text-delta",
+						delta: JSON.stringify({
+							summary: "dimension key shape",
+							[dimension]: [
+								{
+									id: "fixed-id",
+									severity: "minor",
+									summary: "From dimension key",
+									detail: "ok",
+									span_refs: ["root-span"],
+									suggested_fix_patches: [
+										{
+											field: "response",
+											span_ref: "root-span",
+											original: "a",
+											replacement: "b",
+										},
+									],
+								},
+							],
+						}),
+					};
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+		const first = events.find((event) => event.type === "dimension");
+
+		expect(first.findings[0]).toEqual(
+			expect.objectContaining({
+				id: "fixed-id",
+				summary: "From dimension key",
+				suggested_fix_patches: [
+					expect.objectContaining({ field: "response" }),
+				],
+			})
+		);
+	});
+
+	it("covers stream error fallback and role classification via hierarchy metrics", async () => {
+		const toolHeavy = {
+			...hierarchy,
+			children: [
+				{
+					...hierarchy.children[0],
+					SpanName: "tool.execute",
+					SpanAttributes: {
+						...hierarchy.children[0].SpanAttributes,
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
+					},
+				},
+				{
+					...hierarchy.children[0],
+					SpanId: "tool-span-2",
+					SpanName: "tool.execute",
+					SpanAttributes: {
+						...hierarchy.children[0].SpanAttributes,
+						"gen_ai.tool.call.arguments": JSON.stringify({ q: "same" }),
+					},
+				},
+				hierarchy.children[1],
+			],
+		};
+
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: toolHeavy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+		(streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+			onFinish({ usage: { inputTokens: 1, outputTokens: 1 } });
+			return {
+				fullStream: (async function* () {
+					yield {
+						type: "text-delta",
+						delta: JSON.stringify({
+							summary: "ok",
+							improvements: [
+								{
+									severity: "info",
+									summary: "tool reuse",
+									detail: "same tool",
+									span_refs: ["tool-span", "tool-span-2"],
+								},
+							],
+						}),
+					};
+				})(),
+			};
+		});
+
+		const ok = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const okEvents = await readNdjson(ok.response!);
+		const detailEvent = okEvents.find(
+			(e) =>
+				e.type === "step" &&
+				typeof e.detail === "string" &&
+				/LLM calls/.test(e.detail)
+		);
+		expect(detailEvent?.detail).toMatch(/2 tools/);
+		const debugContext = okEvents.find(
+			(e) => e.type === "debug" && e.stage === "context_extracted"
+		);
+		expect((debugContext?.payload as any).toolCallCount).toBe(2);
+		expect((debugContext?.payload as any).duplicateToolInputs).toEqual(
+			expect.arrayContaining([expect.objectContaining({ count: 2 })])
+		);
+
+		(streamText as jest.Mock).mockImplementation(() => {
+			throw { notMessage: true };
+		});
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+		expect(events.some((e) => e.type === "error")).toBe(true);
+		const errEvent = events.find((e) => e.type === "error");
+		expect(errEvent?.error).toBe("Failed to run AI improvement analysis");
 	});
 });

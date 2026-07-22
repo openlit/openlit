@@ -13,6 +13,11 @@ import {
 	TraceAnalysisFinding,
 	emptyTraceAnalysis,
 } from "@/types/trace-analysis";
+import {
+	TRACE_ANALYSIS_DIMENSION_REGISTRY,
+	selectTraceAnalysisMetrics,
+	selectTraceAnalysisSpan,
+} from "./trace-analysis-registry";
 import Sanitizer from "@/utils/sanitizer";
 
 type ImprovementSpanSummary = {
@@ -126,6 +131,7 @@ type TraceAnalysis = {
   cost: Finding[];
   token_efficiency: Finding[];
   path_analysis: Finding[];
+  prompt_injection: Finding[];
   totals: {
     span_count: number;
     total_tokens: number;
@@ -134,29 +140,23 @@ type TraceAnalysis = {
   };
 };`;
 
-const DIMENSION_GUIDANCE: Record<TraceAnalysisDimension, string> = {
-	strengths:
-		"Find concrete things that worked well: efficient prompts, good model choice, useful tool use, clean path, low cost, fast execution, useful context handling. Do not put problems here.",
-	improvements:
-		"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, or path_analysis. Avoid generic advice; cite spans.",
-	wrong_turns:
-		"Find retries, rework, off-task branches, tool failures followed by repeated work, user-blocked steps, self-correction, or decisions that created unnecessary work.",
-	cost:
-		"Analyze absolute spend, cost concentration, model choice, expensive spans, cost per call, and whether cheaper routing would have been appropriate. Do not discuss token waste unless it directly explains spend.",
-	token_efficiency:
-		"Analyze input/output/cache/reasoning token waste, repeated context, repeated prompts, oversized tool results, duplicate retrieval/tool inputs, and largest context spans. This is about waste, not absolute spend.",
-	path_analysis:
-		"Analyze routing and execution path: whether the trace picked the right tools, avoided loops, used the right branches, and kept orchestration efficient.",
-};
+const DIMENSION_GUIDANCE = Object.freeze(
+	Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [
+			dimension,
+			TRACE_ANALYSIS_DIMENSION_REGISTRY[dimension].guidance,
+		])
+	)
+) as Record<TraceAnalysisDimension, string>;
 
-const DIMENSION_LABELS: Record<TraceAnalysisDimension, string> = {
-	strengths: "Strengths",
-	improvements: "Improvements",
-	wrong_turns: "Wrong turns",
-	cost: "Cost",
-	token_efficiency: "Token efficiency",
-	path_analysis: "Path analysis",
-};
+const DIMENSION_LABELS = Object.freeze(
+	Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [
+			dimension,
+			TRACE_ANALYSIS_DIMENSION_REGISTRY[dimension].streamLabel,
+		])
+	)
+) as Record<TraceAnalysisDimension, string>;
 
 function computeWorstSeverity(analysis: TraceAnalysis): string {
 	for (const severity of ["critical", "major", "minor", "info"] as const) {
@@ -1019,179 +1019,6 @@ function contextForLogs(summary: ImprovementSpanSummary, metrics: TraceAnalysisM
 	};
 }
 
-function spanForDimension(span: ImprovementSpanSummary, dimension: TraceAnalysisDimension): Record<string, unknown> {
-	const base = {
-		spanId: span.spanId,
-		spanName: span.spanName,
-		role: span.role,
-		statusCode: span.statusCode,
-		statusMessage: span.statusMessage,
-		durationMs: span.durationMs,
-		error: span.error,
-		children: span.children.map((child) => spanForDimension(child, dimension)),
-	};
-
-	if (dimension === "cost") {
-		return {
-			...base,
-			model: span.model,
-			provider: span.provider,
-			cost: span.cost,
-			promptTokens: span.promptTokens,
-			completionTokens: span.completionTokens,
-			totalTokens: span.totalTokens,
-		};
-	}
-
-	if (dimension === "token_efficiency") {
-		return {
-			...base,
-			model: span.model,
-			promptTokens: span.promptTokens,
-			completionTokens: span.completionTokens,
-			totalTokens: span.totalTokens,
-			cacheReadTokens: span.cacheReadTokens,
-			cacheCreationTokens: span.cacheCreationTokens,
-			reasoningTokens: span.reasoningTokens,
-			systemPrompt: span.systemPrompt,
-			prompt: span.prompt,
-			response: span.response,
-			toolArgs: span.toolArgs,
-			toolResult: span.toolResult,
-		};
-	}
-
-	if (dimension === "wrong_turns") {
-		return {
-			...base,
-			toolName: span.toolName,
-			toolArgs: span.toolArgs,
-			toolResult: span.toolResult,
-			prompt: span.prompt,
-			response: span.response,
-			reasoning: span.reasoning,
-			eventSummary: span.eventSummary,
-		};
-	}
-
-	if (dimension === "path_analysis") {
-		return {
-			...base,
-			serviceName: span.serviceName,
-			toolName: span.toolName,
-			toolCallId: span.toolCallId,
-			toolArgs: span.toolArgs,
-			dbQuery: span.dbQuery,
-			httpUrl: span.httpUrl,
-			resource: span.resource,
-		};
-	}
-
-	if (dimension === "strengths") {
-		return {
-			...base,
-			model: span.model,
-			provider: span.provider,
-			cost: span.cost,
-			totalTokens: span.totalTokens,
-			toolName: span.toolName,
-			prompt: span.prompt,
-			response: span.response,
-		};
-	}
-
-	return {
-		...base,
-		model: span.model,
-		provider: span.provider,
-		cost: span.cost,
-		totalTokens: span.totalTokens,
-		prompt: span.prompt,
-		response: span.response,
-		toolName: span.toolName,
-		toolArgs: span.toolArgs,
-		toolResult: span.toolResult,
-		dbQuery: span.dbQuery,
-		httpUrl: span.httpUrl,
-		resource: span.resource,
-	};
-}
-
-function metricsForDimension(metrics: TraceAnalysisMetrics, dimension: TraceAnalysisDimension): Record<string, unknown> {
-	const common = {
-		spanCount: metrics.spanCount,
-		maxDepth: metrics.maxDepth,
-		errorCount: metrics.errorCount,
-		llmCallCount: metrics.llmCallCount,
-		toolCallCount: metrics.toolCallCount,
-		retrievalCallCount: metrics.retrievalCallCount,
-		modelsUsed: metrics.modelsUsed,
-		toolsUsed: metrics.toolsUsed,
-	};
-
-	if (dimension === "cost") {
-		return {
-			...common,
-			totalCostUsd: metrics.totalCostUsd,
-			costPerCall: metrics.costPerCall,
-			avgCostPerLlm: metrics.avgCostPerLlm,
-			mostExpensiveSpanId: metrics.mostExpensiveSpanId,
-			mostExpensiveCostUsd: metrics.mostExpensiveCostUsd,
-			totalTokens: metrics.totalTokens,
-		};
-	}
-
-	if (dimension === "token_efficiency") {
-		return {
-			...common,
-			totalInputTokens: metrics.totalInputTokens,
-			totalOutputTokens: metrics.totalOutputTokens,
-			totalTokens: metrics.totalTokens,
-			totalCacheReadTokens: metrics.totalCacheReadTokens,
-			totalCacheCreationTokens: metrics.totalCacheCreationTokens,
-			totalReasoningTokens: metrics.totalReasoningTokens,
-			cacheHitRate: metrics.cacheHitRate,
-			largestContextSpanId: metrics.largestContextSpanId,
-			largestContextTokens: metrics.largestContextTokens,
-			duplicateToolInputs: metrics.duplicateToolInputs,
-			duplicateRetrievalInputs: metrics.duplicateRetrievalInputs,
-			repeatedSpanNames: metrics.repeatedSpanNames,
-		};
-	}
-
-	if (dimension === "wrong_turns") {
-		return {
-			...common,
-			potentialRetrySequences: metrics.potentialRetrySequences,
-			repeatedSpanNames: metrics.repeatedSpanNames,
-			slowestSpanId: metrics.slowestSpanId,
-			slowestDurationMs: metrics.slowestDurationMs,
-		};
-	}
-
-	if (dimension === "path_analysis") {
-		return {
-			...common,
-			totalDurationMs: metrics.totalDurationMs,
-			maxDepth: metrics.maxDepth,
-			repeatedSpanNames: metrics.repeatedSpanNames,
-			potentialRetrySequences: metrics.potentialRetrySequences,
-			databaseCallCount: metrics.databaseCallCount,
-			httpCallCount: metrics.httpCallCount,
-		};
-	}
-
-	return {
-		...common,
-		totalCostUsd: metrics.totalCostUsd,
-		totalTokens: metrics.totalTokens,
-		totalDurationMs: metrics.totalDurationMs,
-		slowestSpanId: metrics.slowestSpanId,
-		mostExpensiveSpanId: metrics.mostExpensiveSpanId,
-		largestContextSpanId: metrics.largestContextSpanId,
-	};
-}
-
 function buildDimensionSystemPrompt(dimension: TraceAnalysisDimension) {
 	return `You are analyzing one dimension of a single OpenTelemetry trace from an LLM application.
 
@@ -1227,7 +1054,7 @@ Source span id: ${spanId}
 
 Focused deterministic metrics:
 \`\`\`json
-${JSON.stringify(metricsForDimension(metrics, dimension), null, 2)}
+${JSON.stringify(selectTraceAnalysisMetrics(metrics, dimension), null, 2)}
 \`\`\`
 
 Rule-engine context:
@@ -1241,7 +1068,7 @@ ${JSON.stringify({
 
 Focused trace tree:
 \`\`\`json
-${JSON.stringify(spanForDimension(summary, dimension), null, 2)}
+${JSON.stringify(selectTraceAnalysisSpan(summary, dimension), null, 2)}
 \`\`\`
 
 Return strict JSON: {"summary": string, "findings": Finding[]}.`;
@@ -1293,7 +1120,7 @@ ${JSON.stringify(firstPass, null, 2)}
 
 Focused deterministic metrics:
 \`\`\`json
-${JSON.stringify(metricsForDimension(metrics, dimension), null, 2)}
+${JSON.stringify(selectTraceAnalysisMetrics(metrics, dimension), null, 2)}
 \`\`\`
 
 Rule-engine context:
@@ -1307,7 +1134,7 @@ ${JSON.stringify({
 
 Focused trace tree:
 \`\`\`json
-${JSON.stringify(spanForDimension(summary, dimension), null, 2)}
+${JSON.stringify(selectTraceAnalysisSpan(summary, dimension), null, 2)}
 \`\`\`
 
 Return the improved final JSON only: {"summary": string, "findings": Finding[]}.`;
@@ -1490,7 +1317,7 @@ function buildAggregatedSummary(dimensionSummaries: Partial<Record<TraceAnalysis
 		.filter(Boolean)
 		.slice(0, 2);
 	return [
-		`Focused analysis completed across six separate dimension passes (${counts}).`,
+		`Focused analysis completed across ${TRACE_ANALYSIS_DIMENSIONS.length} separate dimension passes (${counts}).`,
 		nonEmptySummaries.length ? nonEmptySummaries.join(" ") : "No concrete issues were found beyond the populated dimension findings.",
 	].join(" ");
 }

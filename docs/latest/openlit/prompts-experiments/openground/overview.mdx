@@ -1,0 +1,52 @@
+---
+title: "Overview"
+description: "OpenGround is OpenLIT's AI model comparison tool - an LLM playground for running one prompt across many providers at once and comparing cost, speed, and quality"
+---
+
+OpenGround is OpenLIT's **AI model comparison tool** - an LLM playground built for a specific job: run **one prompt across many providers and models at once**, then compare the results side-by-side. Pick a prompt, pick the providers you want to test, click **Evaluate providers**, and see cost, speed, and quality laid out next to each other. Every run is saved automatically to a searchable history, so you can build up a record of what you've tested and reopen or reload any past run later.
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="Run a Comparison" href="/latest/openlit/prompts-experiments/openground/run-a-comparison" icon='flask'>
+    Configure a prompt, pick providers and models, tune settings, and evaluate
+  </Card>
+  <Card title="Results & History" href="/latest/openlit/prompts-experiments/openground/results-and-history" icon='chart-line'>
+    Read the metrics, response-time waterfall, and cost breakdown, then find any past run again later
+  </Card>
+</CardGroup>
+
+## Model and provider management
+
+Model and provider management itself - adding providers and editing pricing - lives on **Monitor → Costs → Manage models**. OpenGround and Manage models share the same underlying providers and models, so anything you configure in one is immediately available in the other.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Manage models" href="/latest/openlit/costs/manage-models/overview" icon='sliders'>
+    Add custom models, edit pricing, and manage providers used across OpenGround, Chat, and Pricing
+  </Card>
+  <Card title="Manage LLM secrets" href="/latest/openlit/developer-resources/vault/overview" icon='vault'>
+    Centrally store LLM API keys that applications can retrieve remotely without restarts
+  </Card>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is OpenGround used for?">
+    OpenGround runs the same prompt across multiple LLM providers and models at once, so you can compare cost, speed, and response quality side-by-side before choosing a model for production.
+  </Accordion>
+  <Accordion title="How many providers are supported out of the box?">
+    14: OpenAI, Anthropic, Google, Mistral, Groq, Perplexity, Azure, Cohere, Together AI, Fireworks, DeepSeek, xAI, Hugging Face, and Replicate. See [Run a Comparison](/latest/openlit/prompts-experiments/openground/run-a-comparison) for how to configure one.
+  </Accordion>
+  <Accordion title="Can I test a model that isn't built in?">
+    Yes. When configuring a provider in OpenGround, switch to "Use Custom Model" and type any model ID directly, with its own input/output pricing. There's no field for a custom endpoint or base URL - only the model ID and its pricing are configurable.
+  </Accordion>
+  <Accordion title="Are comparison runs saved automatically?">
+    Yes. Every run is saved to a searchable history with cost, speed, and token-efficiency summaries - there's no separate save step. See [Results & History](/latest/openlit/prompts-experiments/openground/results-and-history) for how to find and reopen past runs.
+  </Accordion>
+</AccordionGroup>

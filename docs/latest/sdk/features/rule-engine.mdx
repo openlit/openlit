@@ -5,7 +5,7 @@ description: 'Evaluate rules and retrieve matching contexts, prompts, and evalua
 
 ## Overview
 
-The OpenLIT SDKs provide a function to evaluate rules against the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) from your application code. At runtime, send trace attributes (model, provider, service name, etc.) and get back matching rules and their linked entities — contexts, prompts, or evaluation configurations.
+The OpenLIT SDKs provide a function to evaluate rules against the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) from your application code. At runtime, send trace attributes (model, provider, service name, etc.) and get back matching rules and their linked entities - contexts, prompts, or evaluation configurations.
 
 This enables dynamic, condition-driven retrieval of AI resources without hardcoding logic in your application.
 
@@ -25,13 +25,13 @@ This enables dynamic, condition-driven retrieval of AI resources without hardcod
 
 <Steps>
   <Step title="Set up OpenLIT">
-    Ensure you have an OpenLIT instance running. See [Quick Start](/latest/openlit/quickstart) for setup instructions.
+    Ensure you have an OpenLIT instance running. See [Installation](/latest/openlit/installation) for setup instructions.
   </Step>
   <Step title="Create an API Key">
     Navigate to **Settings > API Keys** in OpenLIT. Click **Create API Key** and save the key securely.
   </Step>
   <Step title="Create Rules">
-    Set up rules with conditions and linked entities in the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine) UI.
+    Set up rules with conditions and linked entities in the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) UI.
   </Step>
 </Steps>
 
@@ -290,7 +290,7 @@ Determine which evaluation types (hallucination, bias, etc.) are linked to rules
 
 ## Parameters
 
-### Python — `openlit.evaluate_rule()`
+### Python - `openlit.evaluate_rule()`
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -301,7 +301,7 @@ Determine which evaluation types (hallucination, bias, etc.) are linked to rules
 | `include_entity_data` | `bool` | No | Include full entity data in response. Default: `False` |
 | `entity_inputs` | `dict` | No | Inputs for entity resolution (e.g. prompt variables) |
 
-### TypeScript — `Openlit.evaluateRule()`
+### TypeScript - `Openlit.evaluateRule()`
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -312,7 +312,7 @@ Determine which evaluation types (hallucination, bias, etc.) are linked to rules
 | `includeEntityData` | `boolean` | No | Include full entity data. Default: `false` |
 | `entityInputs` | Object | No | Inputs for entity resolution |
 
-### Go — `openlit.EvaluateRule()`
+### Go - `openlit.EvaluateRule()`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -363,7 +363,7 @@ All SDKs return the same response structure:
     ```python
     result = openlit.evaluate_rule(entity_type="context", fields={"key": "val"})
     if result is None:
-        print("Rule evaluation failed — check logs for details")
+        print("Rule evaluation failed - check logs for details")
     ```
   </Tab>
   <Tab title="TypeScript">
@@ -391,7 +391,7 @@ All SDKs return the same response structure:
 ---
 
 <CardGroup cols={2}>
-  <Card title="Rule Engine Guide" href="/latest/openlit/prompts-experiments/rule-engine" icon="gears">
+  <Card title="Rule Engine Guide" href="/latest/openlit/prompts-experiments/rule-engine/overview" icon="gears">
     Learn how to create rules, add conditions, and link entities in the OpenLIT UI
   </Card>
   <Card title="API Reference" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon="code">

@@ -1,22 +1,22 @@
-export const TRACE_ANALYSIS_DIMENSIONS = [
-	"strengths",
-	"improvements",
-	"wrong_turns",
-	"cost",
-	"token_efficiency",
-	"path_analysis",
-] as const;
+import {
+	TRACE_ANALYSIS_DIMENSION_DEFINITIONS,
+	TraceAnalysisDimensionKey,
+} from "@/lib/platform/chat/trace-analysis-registry";
 
-export type TraceAnalysisDimension = (typeof TRACE_ANALYSIS_DIMENSIONS)[number];
+export const TRACE_ANALYSIS_DIMENSIONS = Object.freeze(
+	TRACE_ANALYSIS_DIMENSION_DEFINITIONS.map(({ key }) => key)
+) as readonly TraceAnalysisDimensionKey[];
 
-export const TRACE_ANALYSIS_DIMENSION_LABELS: Record<TraceAnalysisDimension, string> = {
-	strengths: "Strengths",
-	improvements: "Improvements",
-	wrong_turns: "Wrong turns",
-	cost: "Cost",
-	token_efficiency: "Token efficiency",
-	path_analysis: "Path",
-};
+export type TraceAnalysisDimension = TraceAnalysisDimensionKey;
+
+export const TRACE_ANALYSIS_DIMENSION_LABELS = Object.freeze(
+	Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSION_DEFINITIONS.map(({ key, uiLabel }) => [
+			key,
+			uiLabel,
+		])
+	)
+) as Record<TraceAnalysisDimension, string>;
 
 export type TraceAnalysisSeverity = "info" | "minor" | "major" | "critical";
 
@@ -58,25 +58,18 @@ export type TraceAnalysisTotals = {
 export type TraceAnalysis = {
 	trace_id: string;
 	summary: string;
-	strengths: TraceAnalysisFinding[];
-	improvements: TraceAnalysisFinding[];
-	wrong_turns: TraceAnalysisFinding[];
-	cost: TraceAnalysisFinding[];
-	token_efficiency: TraceAnalysisFinding[];
-	path_analysis: TraceAnalysisFinding[];
 	totals: TraceAnalysisTotals;
-};
+} & Record<TraceAnalysisDimension, TraceAnalysisFinding[]>;
 
 export function emptyTraceAnalysis(traceId: string): TraceAnalysis {
+	const emptyDimensions = Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [dimension, []])
+	) as unknown as Record<TraceAnalysisDimension, TraceAnalysisFinding[]>;
+
 	return {
 		trace_id: traceId,
 		summary: "",
-		strengths: [],
-		improvements: [],
-		wrong_turns: [],
-		cost: [],
-		token_efficiency: [],
-		path_analysis: [],
+		...emptyDimensions,
 		totals: {
 			span_count: 0,
 			total_tokens: 0,
@@ -84,4 +77,21 @@ export function emptyTraceAnalysis(traceId: string): TraceAnalysis {
 			duration_ms: 0,
 		},
 	};
+}
+
+/**
+ * Ensures every registered dimension key exists when reading stored analysis JSON.
+ * Older runs remain readable when new dimensions are appended to the registry.
+ */
+export function ensureTraceAnalysisDimensions(
+	value: Partial<Record<TraceAnalysisDimension, unknown>> | null | undefined
+): Record<TraceAnalysisDimension, TraceAnalysisFinding[]> {
+	return Object.fromEntries(
+		TRACE_ANALYSIS_DIMENSIONS.map((dimension) => [
+			dimension,
+			Array.isArray(value?.[dimension])
+				? (value[dimension] as TraceAnalysisFinding[])
+				: [],
+		])
+	) as Record<TraceAnalysisDimension, TraceAnalysisFinding[]>;
 }

@@ -20,6 +20,7 @@ from opentelemetry.sdk.resources import (
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
 )
+from opentelemetry import context as context_api
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
@@ -196,6 +197,45 @@ def truncate_content(text):
         if len(s) > limit:
             return s[:limit] + "..."
     return s
+
+
+def extract_reasoning_content(payload, *field_names):
+    """Return the first non-empty string reasoning field from *payload*.
+
+    Defaults to OpenAI-compatible keys ``reasoning_content`` then ``reasoning``.
+    Pass alternate keys (e.g. ``\"thinking\"``) for providers like Ollama.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    keys = field_names or ("reasoning_content", "reasoning")
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def append_scope_reasoning(scope, text):
+    """Append reasoning/thinking text onto ``scope._reasoning_content``."""
+    if not text or not isinstance(text, str):
+        return
+    current = getattr(scope, "_reasoning_content", None)
+    if not current:
+        scope._reasoning_content = text
+    else:
+        scope._reasoning_content = current + text
+
+
+def set_span_reasoning_content(span, scope, capture_message_content=True):
+    """Set ``gen_ai.content.reasoning`` when content capture is enabled."""
+    if not capture_message_content or span is None:
+        return
+    reasoning = getattr(scope, "_reasoning_content", None)
+    if reasoning:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_REASONING,
+            truncate_content(reasoning),
+        )
 
 
 def truncate_message_content(messages):
@@ -462,6 +502,65 @@ def handle_exception(span, e):
     span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
 
 
+def safe_detach(token, attaching_task=None):
+    """Detach an OTel context token only when it is safe to do so.
+
+    A streaming wrapper's `__aexit__`/`__anext__` can run inside a *different*
+    asyncio Task than the one that called `attach()` - e.g. when the caller
+    abandons an async generator mid-iteration and asyncio's asyncgen GC hook
+    later drives its `aclose()` in a fresh finalizer Task. `Token.reset()`
+    requires the exact Context it was created in, so detaching from the wrong
+    Task always raises ValueError - and there is nothing correct to do at
+    that point: the attaching Task's Context object (and the stack frame we'd
+    need to pop the token from) is not reachable from here. Skip the detach
+    instead of attempting and swallowing the error, so this is a deliberate
+    no-op rather than exception-driven control flow. The attaching Task's
+    context reverts on its own once that Task completes, since contextvars
+    are scoped per-Task and never shared across Tasks.
+
+    Pass ``attaching_task`` (the Task active when ``attach()`` was called) to
+    short-circuit async cross-Task exits before any detach is attempted.
+
+    Important: ``opentelemetry.context.detach()`` catches all exceptions and
+    logs them at ERROR (``Failed to detach context``), so it never re-raises
+    ``ValueError`` to callers. This helper therefore detaches via the runtime
+    context (``_RUNTIME_CONTEXT``) when available, so a genuine Context
+    mismatch can be handled at DEBUG without polluting application logs.
+    Sync callers may omit ``attaching_task`` and still avoid the ERROR path.
+    """
+    if attaching_task is not None:
+        try:
+            current_task = asyncio.current_task()
+        except RuntimeError:
+            current_task = None
+        if current_task is not attaching_task:
+            logger.debug(
+                "safe_detach: skipping detach - called from Task %r but "
+                "attach() ran in Task %r (likely an abandoned/GC-finalized "
+                "stream); the attaching Task's context will revert on its "
+                "own once that Task completes.",
+                current_task,
+                attaching_task,
+            )
+            return
+
+    # Public context_api.detach() swallows exceptions and logs ERROR; use the
+    # runtime Context so we can treat cross-Context Tokens as a quiet no-op.
+    runtime = getattr(context_api, "_RUNTIME_CONTEXT", None)
+    if runtime is not None:
+        try:
+            runtime.detach(token)
+        except ValueError:
+            logger.debug(
+                "safe_detach: skipped detach; token was created in a "
+                "different Context (attaching_task=%r).",
+                attaching_task,
+            )
+        return
+
+    context_api.detach(token)
+
+
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:
     """
     Calculate the time to the first tokens.
@@ -648,6 +747,7 @@ PROVIDER_DEFAULT_ENDPOINTS = {
     "perplexity": ("api.perplexity.ai", 443),
     "deepinfra": ("api.deepinfra.com", 443),
     "aws.bedrock": ("bedrock-runtime.amazonaws.com", 443),
+    "oci_genai": ("inference.generativeai.us-chicago-1.oci.oraclecloud.com", 443),
     "azure": ("openai.azure.com", 443),
     "azure.ai.openai": ("openai.azure.com", 443),
     "azure.ai.inference": ("inference.ai.azure.com", 443),

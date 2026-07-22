@@ -1,22 +1,24 @@
-import { SERVER_EVENTS } from "@/constants/events";
+import { requireRouteAccess } from "@/lib/access/route-access";
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
-import PostHogServer from "@/lib/posthog";
+import asaw from "@/utils/asaw";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
+	const [permissionErr] = await asaw(
+		requireRouteAccess("dashboard.read")
+	);
+	if (permissionErr) {
+		return Response.json({ err: String(permissionErr) }, { status: 403 });
+	}
+
 	const {
 		widgetId,
 		userQuery,
 		filter,
 	} = await request.json();
-	const startTimestamp = Date.now();
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
 		filter,
-	});
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE : SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,
-		startTimestamp,
 	});
 	return Response.json(res);
 }

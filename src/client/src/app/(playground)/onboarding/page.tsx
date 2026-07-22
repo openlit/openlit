@@ -201,6 +201,11 @@ export default function OnboardingPage() {
 		setIsCreatingProject(false);
 
 		if (err || data?.err) return;
+		posthog?.group("project", data.id);
+		posthog?.capture(CLIENT_EVENTS.PROJECT_CREATED, {
+			organisation_id: currentOrg.id,
+			project_id: data.id,
+		});
 		setProjectName("");
 		await fetchProjectList(currentOrg.id);
 	};

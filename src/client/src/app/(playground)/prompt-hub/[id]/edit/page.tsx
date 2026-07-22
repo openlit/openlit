@@ -255,7 +255,7 @@ export default function EditPromptPage() {
 								</Badge>
 							)}
 						</div>
-						<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+						<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
 							{isDraft
 								? m.PROMPT_HUB_EDITING_DRAFT
 								: m.PROMPT_HUB_CREATING_VERSION}
@@ -266,7 +266,7 @@ export default function EditPromptPage() {
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 								{m.PROMPT}
 							</Label>
-							<span className="text-xs text-stone-400 dark:text-stone-500">
+							<span className="text-xs text-stone-500 dark:text-stone-400">
 								{m.PROMPT_HUB_VARIABLE_HINT}
 							</span>
 						</div>
@@ -336,7 +336,7 @@ export default function EditPromptPage() {
 								))}
 							</div>
 							{selectedVersion && (
-								<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+								<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
 									{versionOptions.find((o) => o.value === selectedVersion)?.description}
 								</p>
 							)}

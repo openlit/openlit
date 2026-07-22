@@ -140,8 +140,8 @@ export default function List({ agents, isLoading, isFetched }: {
 
 	return (
 		<div className="flex flex-col w-full h-full">
-			<FeaturePageHeader eyebrow="Monitoring" title={getMessage().FEATURE_FLEET_HUB} icon={<OpenTelemetrySvg className="h-4 w-4" />} tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300" actions={<VisibilityColumns columns={columns} pageName={"fleethub"} />} />
-			<div className="flex flex-col w-full h-full p-4">
+			<FeaturePageHeader eyebrow={getMessage().SIDEBAR_MONITOR} title={getMessage().FEATURE_FLEET_HUB} icon={<OpenTelemetrySvg className="h-4 w-4" />} tone="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300" actions={<VisibilityColumns columns={columns} pageName={"fleethub"} />} />
+			<div className="flex flex-col w-full h-full p-4 overflow-hidden">
 				<DataTable
 					columns={columns}
 					data={agents}
