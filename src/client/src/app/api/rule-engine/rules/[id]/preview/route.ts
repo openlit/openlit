@@ -97,7 +97,7 @@ function evaluateRule(
 
 async function POSTHandler(
 	_req: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const user = await getCurrentUser();
@@ -105,7 +105,7 @@ async function POSTHandler(
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const ruleId = params.id;
+		const ruleId = (await params).id;
 
 		// getRuleById returns { data: ruleObject } (not an array)
 		const ruleResult = await getRuleById(ruleId);

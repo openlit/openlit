@@ -16,7 +16,7 @@ import { objectEntries } from "@/utils/object";
 import { unescapeString } from "@/utils/string";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { KeyboardEvent, useCallback, useState } from "react";
+import {KeyboardEvent, useCallback, useState, ReactNode} from "react";
 import { toast } from "sonner";
 
 const getVersions = (startingVersion: string) => {
@@ -44,7 +44,7 @@ export default function PromptForm({
 	successCallback,
 }: {
 	versionData?: any;
-	children: JSX.Element;
+	children: ReactNode;
 	successCallback?: () => void;
 }) {
 	const posthog = usePostHog();

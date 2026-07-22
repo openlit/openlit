@@ -15,15 +15,13 @@ async function readJson(request: Request) {
 	}
 }
 
-export async function GET(
-	_request: Request,
-	{ params }: { params: { id: string } }
-) {
-	const messages = getMessage();
-	const user = await getCurrentUser();
-	if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
+    const messages = getMessage();
+    const user = await getCurrentUser();
+    if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
 
-	const membership = await prisma.organisationUser.findUnique({
+    const membership = await prisma.organisationUser.findUnique({
 		where: {
 			organisationId_userId: {
 				organisationId: params.id,
@@ -33,19 +31,19 @@ export async function GET(
 		select: { id: true },
 	});
 
-	if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
+    if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
 
-	const [currentProjectErr, currentProject] = await asaw(
+    const [currentProjectErr, currentProject] = await asaw(
 		getCurrentProjectForOrganisation(params.id)
 	);
-	if (currentProjectErr) return Response.json(currentProjectErr, { status: 400 });
+    if (currentProjectErr) return Response.json(currentProjectErr, { status: 400 });
 
-	const projects = await prisma.project.findMany({
+    const projects = await prisma.project.findMany({
 		where: { organisationId: params.id },
 		orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
 	});
 
-	return Response.json(
+    return Response.json(
 		projects.map((project) => ({
 			...project,
 			isCurrent: project.id === currentProject?.id,
@@ -53,15 +51,13 @@ export async function GET(
 	);
 }
 
-export async function POST(
-	request: Request,
-	{ params }: { params: { id: string } }
-) {
-	const messages = getMessage();
-	const user = await getCurrentUser();
-	if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
+    const messages = getMessage();
+    const user = await getCurrentUser();
+    if (!user) return Response.json(messages.UNAUTHORIZED_USER, { status: 401 });
 
-	const membership = await prisma.organisationUser.findUnique({
+    const membership = await prisma.organisationUser.findUnique({
 		where: {
 			organisationId_userId: {
 				organisationId: params.id,
@@ -71,20 +67,20 @@ export async function POST(
 		select: { id: true },
 	});
 
-	if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
+    if (!membership) return Response.json(messages.ORGANISATION_NOT_FOUND, { status: 404 });
 
-	const formData = await readJson(request);
-	const name = formData?.name?.trim();
+    const formData = await readJson(request);
+    const name = formData?.name?.trim();
 
-	if (!name) return Response.json(messages.PROJECT_NAME_REQUIRED, { status: 400 });
-	if (name.length > 120) {
+    if (!name) return Response.json(messages.PROJECT_NAME_REQUIRED, { status: 400 });
+    if (name.length > 120) {
 		return Response.json(messages.PROJECT_NAME_LENGTH_ERROR, {
 			status: 400,
 		});
 	}
 
-	const [err, project] = await asaw(createOrganisationProject(params.id, name));
-	if (err) return Response.json(err, { status: 400 });
+    const [err, project] = await asaw(createOrganisationProject(params.id, name));
+    if (err) return Response.json(err, { status: 400 });
 
-	return Response.json(project);
+    return Response.json(project);
 }

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
-import { useCallback, useState } from "react";
+import {useCallback, useState, ReactNode} from "react";
 import { toast } from "sonner";
 import { Context } from "@/types/context";
 import getMessage from "@/constants/messages";
@@ -21,7 +21,7 @@ export default function ContextForm({
 	successCallback,
 }: {
 	contextData?: Context;
-	children: JSX.Element;
+	children: ReactNode;
 	successCallback?: () => void;
 }) {
 	const [isOpen, setIsOpen] = useState(false);

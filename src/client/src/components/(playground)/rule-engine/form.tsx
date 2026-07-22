@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { InfoIcon } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useCallback, useState } from "react";
+import {useCallback, useState, ReactNode} from "react";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
 
@@ -40,7 +40,7 @@ export default function RuleForm({
 }: {
 	entityId?: string;
 	entityType?: string;
-	children: JSX.Element;
+	children: ReactNode;
 	successCallback?: () => void;
 }) {
 	const messages = getMessage();

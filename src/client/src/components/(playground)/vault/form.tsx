@@ -12,7 +12,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { isEmpty } from "lodash";
 import { usePostHog } from "posthog-js/react";
-import { KeyboardEvent, useCallback, useState } from "react";
+import {KeyboardEvent, useCallback, useState, ReactNode} from "react";
 import { toast } from "sonner";
 
 export default function SecretForm({
@@ -21,7 +21,7 @@ export default function SecretForm({
 	successCallback,
 }: {
 	secretData?: any;
-	children: JSX.Element;
+	children: ReactNode;
 	successCallback?: () => void;
 }) {
 	const posthog = usePostHog();

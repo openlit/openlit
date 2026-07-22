@@ -31,7 +31,7 @@ const REFRESH_RATE_TABS: { key: string; label: string }[] = Object.keys(
 const RefreshRate = () => {
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
-	const refreshRateTimer = useRef<NodeJS.Timeout>();
+	const refreshRateTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 	const pathname = usePathname();
 
 	const handleChange = (key: string) => {

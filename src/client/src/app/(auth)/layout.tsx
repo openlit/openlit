@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import AuthFormContainer from "@/components/(auth)/auth-form-container";
 import AutoSignInDemoInstance from "../../components/(auth)/auto-signin-demo-instance";
 import AuthDetailsCarousel from "@/components/(auth)/auth-details-carousel";
@@ -6,7 +7,7 @@ import CustomPostHogProvider from "@/components/(playground)/posthog";
 export default function AuthLayout({
 	children,
 }: {
-	children: JSX.Element;
+	children: ReactNode;
 }) {
 	const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
 

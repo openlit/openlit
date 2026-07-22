@@ -4,7 +4,7 @@ import { CLIENT_EVENTS } from "@/constants/events";
 import OpengroundHeader, { OpengroundActions } from "@/components/(playground)/openground/header";
 import { OpengroundRecord } from "@/lib/platform/openground-clickhouse";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, use } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
@@ -17,15 +17,16 @@ import { Component, MonitorPlay } from "lucide-react";
 import getMessage from "@/constants/messages";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 
-export default function OpengroundRequest({
-	params,
-}: {
-	params: { id: string };
-}) {
-	const posthog = usePostHog();
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<OpengroundRecord>();
+export default function OpengroundRequest(
+    props: {
+        params: Promise<{ id: string }>;
+    }
+) {
+    const params = use(props.params);
+    const posthog = usePostHog();
+    const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<OpengroundRecord>();
 
-	const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async () => {
 		fireRequest({
 			requestType: "GET",
 			url: `/api/openground/${params.id}`,
@@ -37,14 +38,14 @@ export default function OpengroundRequest({
 		});
 	}, []);
 
-	useEffect(() => {
+    useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.OPENGROUND_DETAIL_PAGE_VISITED);
 		fetchData();
 	}, []);
 
-	const opengroundHeaderTone = "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300";
+    const opengroundHeaderTone = "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300";
 
-	if (isLoading || !isFetched)
+    if (isLoading || !isFetched)
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
 				<OpengroundHeader title={getMessage().LOADING} />
@@ -54,7 +55,7 @@ export default function OpengroundRequest({
 			</div>
 		);
 
-	if (!data)
+    if (!data)
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
 				<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
@@ -64,7 +65,7 @@ export default function OpengroundRequest({
 			</div>
 		);
 
-	return (
+    return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
 			<div className="flex flex-col w-full h-full gap-6 overflow-auto p-4">

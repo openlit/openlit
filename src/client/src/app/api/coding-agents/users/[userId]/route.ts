@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 async function GETHandler(
 	request: Request,
-	context: { params: { userId: string } }
+	context: { params: Promise<{ userId: string }> }
 ) {
 	let auth;
 	try {
@@ -32,7 +32,7 @@ async function GETHandler(
 		throw err;
 	}
 
-	const userId = decodeURIComponent(context.params.userId || "").trim();
+	const userId = decodeURIComponent((await context.params).userId || "").trim();
 	if (!userId) {
 		return Response.json({ error: "Missing userId" }, { status: 400 });
 	}

@@ -7,8 +7,9 @@ import { NextRequest } from "next/server";
 
 async function DELETEHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const startTimestamp = Date.now();
 	const res = await deleteFolder(id);
 	PostHogServer.fireEvent({
@@ -20,8 +21,9 @@ async function DELETEHandler(
 
 async function GETHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const res = await getFolderById(id);
 	return Response.json(res);
 }

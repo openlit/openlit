@@ -3,6 +3,7 @@
 import type React from "react";
 import { useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
+import type { editor as monacoEditor, Position } from "monaco-editor";
 import type { EditorProps } from "../types";
 import { CLICKHOUSE_LANGUAGE_CONFIG } from "../constants";
 
@@ -96,7 +97,7 @@ const CodeEditor: React.FC<EditorProps> = ({
 
 				// Register mustache binding completion provider for all languages
 				completionProviderRef.current = monaco.languages.registerCompletionItemProvider(language, {
-					provideCompletionItems: (model, position) => {
+					provideCompletionItems: (model: monacoEditor.ITextModel, position: Position) => {
 						const textUntilPosition = model.getValueInRange({
 							startLineNumber: position.lineNumber,
 							startColumn: 1,

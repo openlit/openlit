@@ -7,8 +7,9 @@ import { NextRequest } from "next/server";
 
 async function DELETEHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const startTimestamp = Date.now();
 	const res = await deleteBoard(id);
 	PostHogServer.fireEvent({
@@ -20,16 +21,18 @@ async function DELETEHandler(
 
 async function GETHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const res = await getBoardById(id);
 	return Response.json(res);
 }
 
 async function PATCHHandler(
 	request: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const startTimestamp = Date.now();
 	const body = await request.json();
 	if (body.setMain) {
