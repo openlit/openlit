@@ -13,7 +13,7 @@ func TestNewSystemCollectorInitializes(t *testing.T) {
 	provider := metric.NewMeterProvider(metric.WithReader(reader))
 	defer provider.Shutdown(t.Context())
 
-	sc, err := NewSystemCollector(provider, slog.Default())
+	sc, err := NewSystemCollector(provider, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewSystemCollector() error = %v", err)
 	}
@@ -41,7 +41,7 @@ func TestSystemCollectorInstrumentNames(t *testing.T) {
 	provider := metric.NewMeterProvider(metric.WithReader(reader))
 	defer provider.Shutdown(t.Context())
 
-	sc, err := NewSystemCollector(provider, slog.Default())
+	sc, err := NewSystemCollector(provider, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewSystemCollector() error = %v", err)
 	}
@@ -80,11 +80,59 @@ func TestSystemCollectorInstrumentNames(t *testing.T) {
 	}
 }
 
+func TestSystemCollectorFSTypeFilter(t *testing.T) {
+	fsMetrics := func(rm *metricdata.ResourceMetrics) (n int) {
+		for _, sm := range rm.ScopeMetrics {
+			for _, m := range sm.Metrics {
+				switch m.Name {
+				case "system.filesystem.usage", "system.filesystem.utilization":
+					n++
+				}
+			}
+		}
+		return n
+	}
+
+	// An allowlist matching no real filesystem type must suppress all
+	// system.filesystem.* metrics.
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	defer provider.Shutdown(t.Context())
+
+	sc, err := NewSystemCollector(provider, slog.Default(), []string{"no-such-fs"})
+	if err != nil {
+		t.Fatalf("NewSystemCollector() error = %v", err)
+	}
+	defer sc.Close()
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &rm); err != nil {
+		t.Fatalf("reader.Collect() error = %v", err)
+	}
+	if n := fsMetrics(&rm); n != 0 {
+		t.Errorf("expected no system.filesystem.* metrics with non-matching allowlist, got %d", n)
+	}
+
+	// A "*" entry disables filtering entirely.
+	readerAll := metric.NewManualReader()
+	providerAll := metric.NewMeterProvider(metric.WithReader(readerAll))
+	defer providerAll.Shutdown(t.Context())
+
+	scAll, err := NewSystemCollector(providerAll, slog.Default(), []string{"*"})
+	if err != nil {
+		t.Fatalf("NewSystemCollector() error = %v", err)
+	}
+	defer scAll.Close()
+	if scAll.fsTypes != nil {
+		t.Error(`expected fsTypes to be nil (no filtering) for allowlist ["*"]`)
+	}
+}
+
 func TestSystemCollectorCloseIdempotent(t *testing.T) {
 	provider := metric.NewMeterProvider()
 	defer provider.Shutdown(t.Context())
 
-	sc, err := NewSystemCollector(provider, slog.Default())
+	sc, err := NewSystemCollector(provider, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewSystemCollector() error = %v", err)
 	}

@@ -12,6 +12,7 @@ type Config struct {
 	ServiceName        string
 	CollectionInterval time.Duration
 	EBPFEnabled        bool
+	FSTypes            []string
 }
 
 func Load() *Config {
@@ -22,6 +23,11 @@ func Load() *Config {
 		// OTEL_EXPORTER_OTLP_PROTOCOL are read directly by the OTel SDK exporters.
 		CollectionInterval: parseIntervalMS(os.Getenv("OTEL_METRIC_EXPORT_INTERVAL"), 60*time.Second),
 		EBPFEnabled:        parseBool(envOrDefault("OTEL_GPU_EBPF_ENABLED", "false")),
+		// Filesystem types reported by system.filesystem.*. Comma-separated
+		// allowlist; "*" reports every mounted filesystem. The default excludes
+		// squashfs snap images, which are read-only, permanently 100% full, and
+		// get a fresh mountpoint (= fresh time series) on every snap refresh.
+		FSTypes: parseList(envOrDefault("OTEL_GPU_FS_TYPES", "ext4,xfs,btrfs,vfat")),
 	}
 
 	// deployment.environment comes from OTEL_RESOURCE_ATTRIBUTES per the OTel spec.
@@ -47,6 +53,17 @@ func parseIntervalMS(s string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return time.Duration(ms) * time.Millisecond
+}
+
+// parseList parses a comma-separated string into its non-empty trimmed items.
+func parseList(s string) []string {
+	var out []string
+	for _, item := range strings.Split(s, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func parseBool(s string) bool {
