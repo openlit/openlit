@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getPricingExport } from "@/lib/platform/pricing/export";
 
 /**
@@ -9,8 +11,11 @@ import { getPricingExport } from "@/lib/platform/pricing/export";
  * and can be shared / used in SDK init:
  *
  *   openlit.init(pricing_json="http://localhost:3000/api/pricing/export/<dbConfigId>")
+ *
+ * withAudit/withCurrentOrganisationPermission are no-op pass-throughs here;
+ * enterprise editions resolve them to real permission + audit checks.
  */
-export async function GET(
+async function GETHandler(
 	_request: NextRequest,
 	{ params }: { params: { dbConfigId: string } }
 ) {
@@ -27,3 +32,7 @@ export async function GET(
 		},
 	});
 }
+
+export const GET = withAudit(
+	withCurrentOrganisationPermission("pricing:export", GETHandler)
+);
