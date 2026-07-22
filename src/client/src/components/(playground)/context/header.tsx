@@ -1,4 +1,5 @@
 "use client";
+import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
@@ -15,7 +16,7 @@ export default function ContextHeader({
 }: {
 	className?: string;
 	title?: string;
-	extraButtons?: JSX.Element;
+	extraButtons?: ReactNode;
 	createNew?: boolean;
 }) {
 	const pingStatus = useRootStore(getPingStatus);

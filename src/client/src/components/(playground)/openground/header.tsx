@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { getEvaluatedResponse, resetOpenground } from "@/selectors/openground";
 import { useRootStore } from "@/store";
@@ -14,7 +15,7 @@ export function OpengroundActions({
 }: {
 	className?: string;
 	validateResponse?: boolean;
-	extraButton?: JSX.Element;
+	extraButton?: ReactNode;
 }) {
 	const evaluatedResponse = useRootStore(getEvaluatedResponse);
 	const resetOpengroundData = useRootStore(resetOpenground);
@@ -61,7 +62,7 @@ export default function OpengroundHeader({
 }: {
 	validateResponse?: boolean;
 	title?: string;
-	extraButton?: JSX.Element;
+	extraButton?: ReactNode;
 }) {
 	const messages = getMessage();
 	const pageHeaderTitle = title || messages.FEATURE_OPENGROUND

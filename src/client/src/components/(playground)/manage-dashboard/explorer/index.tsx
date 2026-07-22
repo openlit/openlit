@@ -1,9 +1,9 @@
-import { Droppable, DroppableProps } from "react-beautiful-dnd";
+import { Droppable, DroppableProps } from "@hello-pangea/dnd";
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
-import { DropResult } from "react-beautiful-dnd";
+import { DropResult } from "@hello-pangea/dnd";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DragDropContext } from "react-beautiful-dnd";
+import { DragDropContext } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import EmptyState from "../common/empty-state";
 import ExplorerItemRow from "./item-row";
@@ -20,7 +20,7 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
-// React 18 StrictMode compatibility fix for react-beautiful-dnd
+// React 18 StrictMode compatibility fix for @hello-pangea/dnd
 const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
 	const [enabled, setEnabled] = useState(false);
 	

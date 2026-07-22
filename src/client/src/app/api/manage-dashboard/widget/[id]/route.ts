@@ -13,8 +13,9 @@ import { NextRequest } from "next/server";
 // Delete widget
 async function DELETEHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const startTimestamp = Date.now();
 	const res = await deleteWidget(id);
 	PostHogServer.fireEvent({
@@ -27,8 +28,9 @@ async function DELETEHandler(
 // Get widget by id
 async function GETHandler(
 	_: NextRequest,
-	{ params: { id } }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
 	const res = await getWidgetById(id);
 	return Response.json(res);
 }

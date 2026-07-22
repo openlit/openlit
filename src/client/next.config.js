@@ -25,9 +25,6 @@ const nextConfig = {
 		],
 	},
 	reactStrictMode: false,
-	experimental: {
-		instrumentationHook: true,
-	},
 	async headers() {
 		return [
 			{

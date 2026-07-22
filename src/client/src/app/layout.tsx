@@ -18,12 +18,12 @@ export const metadata: Metadata = {
 		"Open-source tool for tracking and analyzing usage patterns of Large Language Models (LLMs).",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	const cookieStore = cookies();
+	const cookieStore = await cookies();
 	const theme = cookieStore.get("theme");
 
 	return (

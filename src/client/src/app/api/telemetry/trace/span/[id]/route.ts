@@ -8,7 +8,7 @@ export async function GET(request: Request, context: any) {
 		return Response.json({ err: authErr }, { status: 401 });
 	}
 
-	const { id } = context.params || {};
+	const { id } = (await context.params) || {};
 
 	if (!id)
 		return Response.json("No span id provided", {

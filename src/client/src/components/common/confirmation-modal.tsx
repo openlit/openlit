@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -13,7 +14,7 @@ import {
 type ConfirmationModalProps = {
 	title: string;
 	subtitle: string;
-	children: JSX.Element;
+	children: ReactNode;
 	handleYes: (p?: any) => void;
 	handleNo?: () => void;
 	params?: any;

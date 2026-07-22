@@ -6,10 +6,10 @@ import getMessage from "@/constants/messages";
 
 async function POSTHandler(
 	_request: Request,
-	{ params }: { params: { id: string; projectId: string } }
+	{ params }: { params: Promise<{ id: string; projectId: string }> }
 ) {
 	const [err, res] = await asaw(
-		setCurrentProject(params.id, params.projectId)
+		setCurrentProject((await params).id, (await params).projectId)
 	);
 
 	if (err) {

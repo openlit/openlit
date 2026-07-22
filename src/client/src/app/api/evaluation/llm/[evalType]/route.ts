@@ -10,19 +10,20 @@ import { NextRequest } from "next/server";
 
 export async function POST(
 	request: NextRequest,
-	{ params: { evalType } }: { params: { evalType: string } }
+	{ params }: { params: Promise<{ evalType: string }> }
 ) {
+	const { evalType } = await params;
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 
-	const params: MetricParams = {
+	const metricParams: MetricParams = {
 		timeLimit,
 		selectedConfig: formData.selectedConfig,
 	};
 
 	const validationParam = validateMetricsRequest(
-		params,
+		metricParams,
 		validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED
 	);
 
@@ -31,7 +32,7 @@ export async function POST(
 			status: 400,
 		});
 
-	const res: any = await getEvaluationDetectedByType(params, evalType);
+	const res: any = await getEvaluationDetectedByType(metricParams, evalType);
 	PostHogServer.fireEvent({
 		event: res.err ? SERVER_EVENTS.EVALUATION_LLM_RUN_FAILURE : SERVER_EVENTS.EVALUATION_LLM_RUN_SUCCESS,
 		startTimestamp,

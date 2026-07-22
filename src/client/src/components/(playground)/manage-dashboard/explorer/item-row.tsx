@@ -1,7 +1,7 @@
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
 import { GripVertical, ChevronRight, ChevronDown, PinIcon, HomeIcon } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Draggable, Droppable } from "react-beautiful-dnd";
+import { Draggable, Droppable } from "@hello-pangea/dnd";
 import ItemIcon from "./item-icon";
 import ItemActions from "./item-actions";
 import { Badge } from "@/components/ui/badge";

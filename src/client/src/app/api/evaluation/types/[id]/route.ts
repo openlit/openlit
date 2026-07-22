@@ -22,9 +22,9 @@ export type {
 
 async function GETHandler(
 	_: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const typeId = params.id;
+	const typeId = (await params).id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
 		return Response.json(
@@ -45,10 +45,10 @@ async function GETHandler(
 
 async function PATCHHandler(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const startTimestamp = Date.now();
-	const typeId = params.id;
+	const typeId = (await params).id;
 	let body: any;
 	try {
 		body = await request.json();
@@ -119,10 +119,10 @@ async function PATCHHandler(
 
 async function DELETEHandler(
 	_: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const startTimestamp = Date.now();
-	const typeId = params.id;
+	const typeId = (await params).id;
 	const [err, config] = await asaw(getEvaluationConfig(undefined, true, false));
 	if (err || !config?.id) {
 		PostHogServer.fireEvent({

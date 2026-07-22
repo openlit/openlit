@@ -20,7 +20,7 @@ export default function PromptHubHeader({
 	title?: string;
 	createNew?: boolean;
 	className?: string;
-	extraButtons?: JSX.Element;
+	extraButtons?: ReactNode;
 	/** Left-side control (icon-only back on detail pages). */
 	leading?: ReactNode;
 	promptUsage?: boolean;

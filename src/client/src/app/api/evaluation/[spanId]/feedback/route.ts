@@ -6,10 +6,10 @@ import PostHogServer from "@/lib/posthog";
 
 async function POSTHandler(
 	request: Request,
-	{ params }: { params: { spanId: string } }
+	{ params }: { params: Promise<{ spanId: string }> }
 ) {
 	const startTimestamp = Date.now();
-	const { spanId } = params;
+	const { spanId } = await params;
 	const body = await request.json();
 	const { rating, comment } = body as {
 		rating?: "positive" | "negative" | "neutral";

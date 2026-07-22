@@ -82,9 +82,10 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Use node:18-bullseye-slim pinned with digest
+# Final runtime image - Use node:22-bookworm-slim pinned with digest
+# Node 22 (LTS) on Debian 12 (bookworm); replaces EOL Node 18 / Debian 11 (bullseye).
 # This replaces the unsafe `curl | bash` NodeSource install pattern
-FROM node:18-bullseye-slim@sha256:d69fb189fa7765636655db043a6a9e6be5ddf94bd1a8dc33fd0bcf4664606a9e
+FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform

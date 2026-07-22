@@ -4,10 +4,10 @@ import { getMetricDetail } from "@/lib/platform/observability";
 
 async function POSTHandler(
 	request: Request,
-	{ params }: { params: { name: string } }
+	{ params }: { params: Promise<{ name: string }> }
 ) {
 	const formData = await request.json();
-	const metricName = decodeURIComponent(params.name);
+	const metricName = decodeURIComponent((await params).name);
 	const metricType = formData.metricType as string | undefined;
 	const serviceName = formData.serviceName as string | undefined;
 	const metricParams: MetricParams = {

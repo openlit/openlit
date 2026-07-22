@@ -7,27 +7,25 @@ import {
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
 
-export async function POST(
-	request: Request,
-	{ params }: { params: { signal: string } }
-) {
-	if (!VALID_SIGNALS.has(params.signal)) {
+export async function POST(request: Request, props: { params: Promise<{ signal: string }> }) {
+    const params = await props.params;
+    if (!VALID_SIGNALS.has(params.signal)) {
 		return Response.json({ err: "Invalid signal" }, { status: 400 });
 	}
 
-	const formData = await request.json();
-	const metricParams: MetricParams = {
+    const formData = await request.json();
+    const metricParams: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
 		selectedConfig: formData.selectedConfig || {},
 	};
 
-	const validation = validateMetricsRequest(
+    const validation = validateMetricsRequest(
 		metricParams,
 		validateMetricsRequestType.GET_ALL
 	);
-	if (!validation.success) return Response.json(validation.err, { status: 400 });
+    if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(
+    return Response.json(
 		await getSignalSummary(
 			metricParams,
 			params.signal as "traces" | "exceptions" | "logs" | "metrics"

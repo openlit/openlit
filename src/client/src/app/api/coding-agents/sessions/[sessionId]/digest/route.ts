@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 
 async function GETHandler(
 	_request: Request,
-	context: { params: { sessionId: string } },
+	context: { params: Promise<{ sessionId: string }> },
 ) {
 	let auth;
 	try {
@@ -42,7 +42,7 @@ async function GETHandler(
 		throw err;
 	}
 
-	const sessionId = decodeURIComponent(context.params.sessionId || "").trim();
+	const sessionId = decodeURIComponent((await context.params).sessionId || "").trim();
 	if (!sessionId) {
 		return Response.json({ error: "Missing sessionId" }, { status: 400 });
 	}

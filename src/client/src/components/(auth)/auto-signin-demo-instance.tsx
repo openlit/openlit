@@ -2,9 +2,9 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react"
-import { useEffect, useState } from "react";
+import {useEffect, useState, ReactNode} from "react";
 
-export default function AutoSignInDemoInstance({ children, demoCreds }: { children: JSX.Element, demoCreds: { email?: string, password?: string; } }) {
+export default function AutoSignInDemoInstance({ children, demoCreds }: { children: ReactNode, demoCreds: { email?: string, password?: string; } }) {
   const router = useRouter()
   const [err, setError] = useState<boolean>(false);
   const setErrorLoginDemoAccount = () => {

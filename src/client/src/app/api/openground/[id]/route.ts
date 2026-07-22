@@ -5,7 +5,7 @@ import { getDBConfigByUser } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
 
-async function GETHandler(_: Request, { params }: { params: { id: string } }) {
+async function GETHandler(_: Request, { params }: { params: Promise<{ id: string }> }) {
 	const user = await getCurrentUser();
 	if (!user) {
 		return Response.json({ error: getMessage().UNAUTHORIZED_USER }, { status: 401 });
@@ -19,7 +19,7 @@ async function GETHandler(_: Request, { params }: { params: { id: string } }) {
 		);
 	}
 
-	const { data, err } = await getOpengroundEvaluationById(params.id, dbConfig.id);
+	const { data, err } = await getOpengroundEvaluationById((await params).id, dbConfig.id);
 
 	if (err) {
 		return Response.json({ error: err }, { status: 404 });

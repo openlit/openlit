@@ -1,4 +1,5 @@
 "use client";
+import { ReactNode } from "react";
 import { MoveRightIcon } from "lucide-react";
 import { GithubIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -9,7 +10,7 @@ import getMessage from "@/constants/messages";
 export default function AuthFormContainer({
 	children,
 }: {
-	children: JSX.Element;
+	children: ReactNode;
 }) {
 	const m = getMessage();
 	return (

@@ -7,9 +7,9 @@ import { NextRequest } from "next/server";
 
 async function GETHandler(
 	_: NextRequest,
-	{ params }: { params: { spanId: string } }
+	{ params }: { params: Promise<{ spanId: string }> }
 ) {
-	const { spanId } = params;
+	const { spanId } = await params;
 
 	const res: any = await getEvaluationsForSpanId(spanId);
 	return Response.json(res);
@@ -17,11 +17,11 @@ async function GETHandler(
 
 async function POSTHandler(
 	request: Request,
-	{ params }: { params: { spanId: string } }
+	{ params }: { params: Promise<{ spanId: string }> }
 ) {
 	const startTimestamp = Date.now();
 
-	const { spanId } = params;
+	const { spanId } = await params;
 
 	const res: any = await setEvaluationsForSpanId(spanId);
 	PostHogServer.fireEvent({
