@@ -12,7 +12,7 @@ type Config struct {
 	ServiceName        string
 	CollectionInterval time.Duration
 	EBPFEnabled        bool
-	FSTypes            []string
+	FSTypesExclude     []string
 }
 
 func Load() *Config {
@@ -23,11 +23,16 @@ func Load() *Config {
 		// OTEL_EXPORTER_OTLP_PROTOCOL are read directly by the OTel SDK exporters.
 		CollectionInterval: parseIntervalMS(os.Getenv("OTEL_METRIC_EXPORT_INTERVAL"), 60*time.Second),
 		EBPFEnabled:        parseBool(envOrDefault("OTEL_GPU_EBPF_ENABLED", "false")),
-		// Filesystem types reported by system.filesystem.*. Comma-separated
-		// allowlist; "*" reports every mounted filesystem. The default excludes
-		// squashfs snap images, which are read-only, permanently 100% full, and
-		// get a fresh mountpoint (= fresh time series) on every snap refresh.
-		FSTypes: parseList(envOrDefault("OTEL_GPU_FS_TYPES", "ext4,xfs,btrfs,vfat")),
+		// Filesystem types excluded from system.filesystem.* (comma-separated).
+		// The defaults are image-based filesystems packed at creation: they
+		// report zero free blocks by definition, so their utilization is 100%
+		// forever and carries no signal. Snap squashfs mounts additionally get
+		// a fresh mountpoint (= fresh time series) on every refresh. cd9660 is
+		// the macOS/BSD ISO 9660 driver; CDFS and UDF are the Windows optical
+		// media drivers (Windows reports filesystem types in uppercase). Set
+		// the variable to an empty string to report every mounted filesystem;
+		// the default applies only when it is unset.
+		FSTypesExclude: parseList(lookupEnvOrDefault("OTEL_GPU_FS_TYPES_EXCLUDE", "squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF")),
 	}
 
 	// deployment.environment comes from OTEL_RESOURCE_ATTRIBUTES per the OTel spec.
@@ -38,6 +43,15 @@ func Load() *Config {
 
 func envOrDefault(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// lookupEnvOrDefault returns the value of key if it is set — even if set to
+// the empty string — and fallback only when the variable is unset.
+func lookupEnvOrDefault(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return fallback

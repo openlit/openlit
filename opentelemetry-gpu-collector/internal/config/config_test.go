@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"slices"
 	"testing"
 	"time"
 )
@@ -26,7 +28,6 @@ func TestParseIntervalMS(t *testing.T) {
 		}
 	}
 }
-
 
 func TestParseResourceAttr(t *testing.T) {
 	tests := []struct {
@@ -58,21 +59,13 @@ func TestParseList(t *testing.T) {
 	}{
 		{"ext4,xfs", []string{"ext4", "xfs"}},
 		{" ext4 , xfs ,", []string{"ext4", "xfs"}},
-		{"*", []string{"*"}},
+		{"squashfs", []string{"squashfs"}},
 		{"", nil},
 	}
 
 	for _, tt := range tests {
-		got := parseList(tt.input)
-		if len(got) != len(tt.want) {
+		if got := parseList(tt.input); !slices.Equal(got, tt.want) {
 			t.Errorf("parseList(%q) = %v, want %v", tt.input, got, tt.want)
-			continue
-		}
-		for i := range got {
-			if got[i] != tt.want[i] {
-				t.Errorf("parseList(%q) = %v, want %v", tt.input, got, tt.want)
-				break
-			}
 		}
 	}
 }
@@ -83,7 +76,10 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("OTEL_GPU_EBPF_ENABLED", "")
 	t.Setenv("OTEL_SERVICE_NAME", "")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
-	t.Setenv("OTEL_GPU_FS_TYPES", "")
+	// The exclude default applies only when the variable is UNSET; t.Setenv
+	// registers the restore, os.Unsetenv makes it unset for this test.
+	t.Setenv("OTEL_GPU_FS_TYPES_EXCLUDE", "")
+	os.Unsetenv("OTEL_GPU_FS_TYPES_EXCLUDE")
 
 	cfg := Load()
 
@@ -99,8 +95,19 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Environment != "default" {
 		t.Errorf("Environment = %q, want %q", cfg.Environment, "default")
 	}
-	if want := []string{"ext4", "xfs", "btrfs", "vfat"}; len(cfg.FSTypes) != len(want) {
-		t.Errorf("FSTypes = %v, want %v", cfg.FSTypes, want)
+	if want := []string{"squashfs", "erofs", "iso9660", "cramfs", "romfs", "cd9660", "CDFS", "UDF"}; !slices.Equal(cfg.FSTypesExclude, want) {
+		t.Errorf("FSTypesExclude = %v, want %v", cfg.FSTypesExclude, want)
+	}
+}
+
+func TestLoadFSTypesExcludeSetButEmpty(t *testing.T) {
+	// Explicitly set to empty means "exclude nothing", not "use the default".
+	t.Setenv("OTEL_GPU_FS_TYPES_EXCLUDE", "")
+
+	cfg := Load()
+
+	if len(cfg.FSTypesExclude) != 0 {
+		t.Errorf("FSTypesExclude = %v, want empty", cfg.FSTypesExclude)
 	}
 }
 
@@ -109,7 +116,7 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("OTEL_GPU_EBPF_ENABLED", "true")
 	t.Setenv("OTEL_SERVICE_NAME", "gpu-collector")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "deployment.environment=production,team=ml")
-	t.Setenv("OTEL_GPU_FS_TYPES", "ext4")
+	t.Setenv("OTEL_GPU_FS_TYPES_EXCLUDE", "squashfs,erofs")
 
 	cfg := Load()
 
@@ -125,7 +132,7 @@ func TestLoadFromEnv(t *testing.T) {
 	if cfg.Environment != "production" {
 		t.Errorf("Environment = %q, want %q", cfg.Environment, "production")
 	}
-	if len(cfg.FSTypes) != 1 || cfg.FSTypes[0] != "ext4" {
-		t.Errorf("FSTypes = %v, want [ext4]", cfg.FSTypes)
+	if want := []string{"squashfs", "erofs"}; !slices.Equal(cfg.FSTypesExclude, want) {
+		t.Errorf("FSTypesExclude = %v, want %v", cfg.FSTypesExclude, want)
 	}
 }

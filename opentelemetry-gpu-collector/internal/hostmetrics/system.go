@@ -21,24 +21,20 @@ import (
 // following the OpenTelemetry semantic conventions for system metrics.
 // https://opentelemetry.io/docs/specs/semconv/system/system-metrics/
 type SystemCollector struct {
-	logger  *slog.Logger
-	fsTypes map[string]bool // filesystem-type allowlist; nil means report all
-	reg     []metric.Registration
+	logger    *slog.Logger
+	fsExclude map[string]bool // filesystem types excluded from system.filesystem.*
+	reg       []metric.Registration
 }
 
 // NewSystemCollector creates system-level metric instruments and registers callbacks.
-// fsTypes is the allowlist of filesystem types reported by system.filesystem.*;
-// an empty list or a "*" entry reports every mounted filesystem.
-func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger, fsTypes []string) (*SystemCollector, error) {
+// fsTypesExclude lists filesystem types excluded from system.filesystem.*;
+// an empty list reports every mounted filesystem.
+func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger, fsTypesExclude []string) (*SystemCollector, error) {
 	sc := &SystemCollector{logger: logger}
-	if len(fsTypes) > 0 {
-		sc.fsTypes = make(map[string]bool, len(fsTypes))
-		for _, t := range fsTypes {
-			if t == "*" {
-				sc.fsTypes = nil
-				break
-			}
-			sc.fsTypes[t] = true
+	if len(fsTypesExclude) > 0 {
+		sc.fsExclude = make(map[string]bool, len(fsTypesExclude))
+		for _, t := range fsTypesExclude {
+			sc.fsExclude[t] = true
 		}
 	}
 
@@ -262,7 +258,7 @@ func (sc *SystemCollector) collectFilesystem(_ context.Context, o metric.Observe
 	}
 
 	for _, p := range partitions {
-		if sc.fsTypes != nil && !sc.fsTypes[p.Fstype] {
+		if sc.fsExclude[p.Fstype] {
 			continue
 		}
 

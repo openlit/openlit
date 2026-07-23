@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
@@ -80,51 +81,76 @@ func TestSystemCollectorInstrumentNames(t *testing.T) {
 	}
 }
 
-func TestSystemCollectorFSTypeFilter(t *testing.T) {
-	fsMetrics := func(rm *metricdata.ResourceMetrics) (n int) {
+func TestSystemCollectorFSTypeExclude(t *testing.T) {
+	// reportedFSTypes collects the system.filesystem.type attribute values
+	// present in the system.filesystem.* metrics of a collection.
+	reportedFSTypes := func(rm *metricdata.ResourceMetrics) []string {
+		seen := map[string]bool{}
 		for _, sm := range rm.ScopeMetrics {
 			for _, m := range sm.Metrics {
 				switch m.Name {
 				case "system.filesystem.usage", "system.filesystem.utilization":
-					n++
+				default:
+					continue
+				}
+				var attrSets []attribute.Set
+				switch data := m.Data.(type) {
+				case metricdata.Sum[int64]:
+					for _, dp := range data.DataPoints {
+						attrSets = append(attrSets, dp.Attributes)
+					}
+				case metricdata.Gauge[float64]:
+					for _, dp := range data.DataPoints {
+						attrSets = append(attrSets, dp.Attributes)
+					}
+				}
+				for _, attrs := range attrSets {
+					if v, ok := attrs.Value(attribute.Key("system.filesystem.type")); ok {
+						seen[v.AsString()] = true
+					}
 				}
 			}
 		}
-		return n
+		types := make([]string, 0, len(seen))
+		for fsType := range seen {
+			types = append(types, fsType)
+		}
+		return types
 	}
 
-	// An allowlist matching no real filesystem type must suppress all
-	// system.filesystem.* metrics.
-	reader := metric.NewManualReader()
-	provider := metric.NewMeterProvider(metric.WithReader(reader))
-	defer provider.Shutdown(t.Context())
+	collect := func(t *testing.T, exclude []string) []string {
+		t.Helper()
+		reader := metric.NewManualReader()
+		provider := metric.NewMeterProvider(metric.WithReader(reader))
+		defer provider.Shutdown(t.Context())
 
-	sc, err := NewSystemCollector(provider, slog.Default(), []string{"no-such-fs"})
-	if err != nil {
-		t.Fatalf("NewSystemCollector() error = %v", err)
-	}
-	defer sc.Close()
+		sc, err := NewSystemCollector(provider, slog.Default(), exclude)
+		if err != nil {
+			t.Fatalf("NewSystemCollector() error = %v", err)
+		}
+		defer sc.Close()
 
-	var rm metricdata.ResourceMetrics
-	if err := reader.Collect(t.Context(), &rm); err != nil {
-		t.Fatalf("reader.Collect() error = %v", err)
-	}
-	if n := fsMetrics(&rm); n != 0 {
-		t.Errorf("expected no system.filesystem.* metrics with non-matching allowlist, got %d", n)
+		var rm metricdata.ResourceMetrics
+		if err := reader.Collect(t.Context(), &rm); err != nil {
+			t.Fatalf("reader.Collect() error = %v", err)
+		}
+		return reportedFSTypes(&rm)
 	}
 
-	// A "*" entry disables filtering entirely.
-	readerAll := metric.NewManualReader()
-	providerAll := metric.NewMeterProvider(metric.WithReader(readerAll))
-	defer providerAll.Shutdown(t.Context())
-
-	scAll, err := NewSystemCollector(providerAll, slog.Default(), []string{"*"})
-	if err != nil {
-		t.Fatalf("NewSystemCollector() error = %v", err)
+	// With no exclusions, note which filesystem types this host reports.
+	all := collect(t, nil)
+	if len(all) == 0 {
+		t.Skip("host reports no system.filesystem.* metrics")
 	}
-	defer scAll.Close()
-	if scAll.fsTypes != nil {
-		t.Error(`expected fsTypes to be nil (no filtering) for allowlist ["*"]`)
+
+	// Excluding every reported type must suppress all system.filesystem.* metrics.
+	if got := collect(t, all); len(got) != 0 {
+		t.Errorf("expected no filesystem types with all types excluded, got %v", got)
+	}
+
+	// Excluding an unknown type must not affect the reported set.
+	if got := collect(t, []string{"no-such-fs"}); len(got) != len(all) {
+		t.Errorf("reported types changed by irrelevant exclusion: got %v, want %v", got, all)
 	}
 }
 

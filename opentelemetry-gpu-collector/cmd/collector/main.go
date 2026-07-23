@@ -54,7 +54,7 @@ func run(logger *slog.Logger) error {
 	defer shutdownProvider()
 
 	// --- Host metrics (always-on, works on all platforms) ---
-	sysColl, err := hostmetrics.NewSystemCollector(provider, logger, cfg.FSTypes)
+	sysColl, err := hostmetrics.NewSystemCollector(provider, logger, cfg.FSTypesExclude)
 	if err != nil {
 		logger.Warn("system metrics unavailable", "error", err)
 	}
