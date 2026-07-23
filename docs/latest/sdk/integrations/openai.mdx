@@ -13,6 +13,32 @@ The integration is compatible with:
 - OpenAI Typescript SDK client `>=1.13.0`
 - OpenAI Go SDK, via OpenLIT's `InstrumentedClient` wrapper
 
+## OpenAI-compatible providers
+
+Because OpenLIT instruments the official OpenAI SDKs, OpenAI-compatible providers can be monitored by configuring the
+SDK client with the provider's base URL. For example, TokenLab:
+
+```python
+import os
+
+from openai import OpenAI
+import openlit
+
+openlit.init()
+
+client = OpenAI(
+    api_key=os.environ["TOKENLAB_API_KEY"],
+    base_url="https://api.tokenlab.sh/v1",
+)
+
+response = client.chat.completions.create(
+    model="claude-sonnet-5",
+    messages=[{"role": "user", "content": "Hello from OpenLIT"}],
+)
+```
+
+In this example, `claude-sonnet-5` is a TokenLab-supported model ID; you can replace it with any model returned by TokenLab's `/v1/models` endpoint. Keep `TOKENLAB_API_KEY` in environment variables or a secret manager rather than hard-coding it in source.
+
 ## Get started
 
 <Tabs>
