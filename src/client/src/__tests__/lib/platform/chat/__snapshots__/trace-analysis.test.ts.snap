@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`trace analysis schema fixture has all seven dimensions and span refs on findings 1`] = `
+exports[`trace analysis schema fixture has all eight dimensions and span refs on findings 1`] = `
 [
   "strengths",
   "improvements",
@@ -9,5 +9,6 @@ exports[`trace analysis schema fixture has all seven dimensions and span refs on
   "token_efficiency",
   "path_analysis",
   "prompt_injection",
+  "tool_misuse",
 ]
 `;

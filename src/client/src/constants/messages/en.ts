@@ -1924,6 +1924,14 @@ export const TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY =
 	"No prompt-injection or jailbreak evidence was surfaced.";
 export const TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL =
 	"The analysis did not surface explicit instruction-override, role-confusion, or jailbreak-framing evidence in the selected span content. This does not establish that the trace is safe.";
+export const TRACE_AI_TOOL_MISUSE_UI_LABEL = "Tool misuse";
+export const TRACE_AI_TOOL_MISUSE_STREAM_LABEL = "Tool misuse";
+export const TRACE_AI_TOOL_MISUSE_GUIDANCE =
+	"Flag tool calls whose arguments or sequence diverge from the intent of the surrounding chat context. Cite the relevant spans and describe only the observed evidence; this is trace-review guidance, not a runtime guardrail.";
+export const TRACE_AI_TOOL_MISUSE_EMPTY_SUMMARY =
+	"No tool-misuse evidence was surfaced.";
+export const TRACE_AI_TOOL_MISUSE_EMPTY_DETAIL =
+	"The analysis did not surface tool-call arguments or sequences that diverged from the intent of the surrounding chat context. This does not establish that the trace is safe.";
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
