@@ -24,7 +24,7 @@ each of which is captured as its own span by OpenLIT:
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.10+ (required by mem0)
 - An OpenTelemetry-compatible backend listening on `http://localhost:4318`
   (for example, the [OpenLIT docker-compose stack](https://docs.openlit.io/latest/quickstart)).
 - A model backend for mem0. By default this example uses a local
@@ -34,6 +34,9 @@ each of which is captured as its own span by OpenLIT:
   ollama pull llama3.1
   ollama pull nomic-embed-text
   ```
+
+  The default Ollama path requires the `ollama` Python package (listed in
+  `requirements.txt`), which is installed by the `pip install` step below.
 
   Alternatively, set `MEM0_USE_DEFAULT=1` to use mem0's default OpenAI-backed
   configuration, in which case you must export `OPENAI_API_KEY`.
@@ -62,7 +65,7 @@ convention attributes, for example:
 - `gen_ai.operation.name = memory` (user-facing memory operations)
 - `gen_ai.user.id = alex-demo`
 - `service.name = mem0-agent-demo`
-- `deployment.environment = production`
+- `deployment.environment = development`
 
 Operation-specific attributes are added on top, such as:
 
@@ -78,5 +81,5 @@ captured as well.
 ## Learn more
 
 - [OpenLIT documentation](https://docs.openlit.io)
-- [OpenLIT mem0 integration](https://docs.openlit.io/latest/integrations/mem0)
+- [OpenLIT mem0 integration](https://docs.openlit.io/latest/sdk/integrations/mem0)
 - [mem0 documentation](https://docs.mem0.ai)

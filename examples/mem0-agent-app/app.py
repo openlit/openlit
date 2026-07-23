@@ -13,7 +13,7 @@ as its own span by the openlit mem0 instrumentation:
     * ``Memory.delete()``  -> span ``memory delete``
 
 Every span records provider/system attributes such as
-``gen_ai.provider.name = mem0`` and ``gen_ai.operation = memory``, plus
+``gen_ai.provider.name = mem0`` and ``gen_ai.operation.name = memory``, plus
 operation-specific attributes (search query/limit, memory counts, result
 counts, user id, and so on).
 
@@ -41,7 +41,7 @@ import openlit
 openlit.init(
     otlp_endpoint="http://localhost:4318",
     application_name="mem0-agent-demo",
-    environment="production",
+    environment=os.environ.get("OTEL_ENVIRONMENT", "development"),
 )
 
 # mem0 is imported after openlit.init() so instrumentation is in place.
@@ -129,7 +129,7 @@ def search_memories(memory, query):
     Returns:
         The raw search results returned by mem0.
     """
-    results = memory.search(query=query, user_id=USER_ID, limit=3)
+    results = memory.search(query=query, filters={"user_id": USER_ID}, top_k=3)
     print(f"[search] query={query!r} -> {results}")
     return results
 
@@ -146,7 +146,7 @@ def list_all_memories(memory):
     Returns:
         All memories stored for :data:`USER_ID`.
     """
-    all_memories = memory.get_all(user_id=USER_ID)
+    all_memories = memory.get_all(filters={"user_id": USER_ID})
     print(f"[get_all] {all_memories}")
     return all_memories
 
