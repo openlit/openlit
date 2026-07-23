@@ -25,21 +25,26 @@ func TestIsReadOnlyDevice(t *testing.T) {
 	writeRoFlag("sda1", "0\n")
 	writeRoFlag("dm-0", "garbage")
 
-	sc := &SystemCollector{sysBlockPath: sysBlock}
 	tests := []struct {
-		device string
-		want   bool
+		name         string
+		sysBlockPath string
+		device       string
+		want         bool
 	}{
-		{"loop0", true},
-		{"sda1", false},
-		{"dm-0", false},     // unparseable flag: treat as writable
-		{"nvme0n1", false},  // no sysfs entry: treat as writable
-		{"loop0/ro", false}, // path into the entry itself, not a device
+		{"ro flag set", sysBlock, "loop0", true},
+		{"ro flag unset", sysBlock, "sda1", false},
+		{"unparseable flag treated as writable", sysBlock, "dm-0", false},
+		{"missing sysfs entry treated as writable", sysBlock, "nvme0n1", false},
+		{"path into entry is not a device", sysBlock, "loop0/ro", false},
+		{"empty sysBlockPath (non-Linux) treated as writable", "", "loop0", false},
 	}
 	for _, tt := range tests {
-		if got := sc.isReadOnlyDevice(tt.device); got != tt.want {
-			t.Errorf("isReadOnlyDevice(%q) = %v, want %v", tt.device, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			sc := &SystemCollector{sysBlockPath: tt.sysBlockPath}
+			if got := sc.isReadOnlyDevice(tt.device); got != tt.want {
+				t.Errorf("isReadOnlyDevice(%q) = %v, want %v", tt.device, got, tt.want)
+			}
+		})
 	}
 }
 

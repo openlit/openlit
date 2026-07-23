@@ -31,7 +31,10 @@ type SystemCollector struct {
 
 // NewSystemCollector creates system-level metric instruments and registers callbacks.
 func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*SystemCollector, error) {
-	sc := &SystemCollector{logger: logger, sysBlockPath: "/sys/class/block"}
+	sc := &SystemCollector{logger: logger}
+	if runtime.GOOS == "linux" {
+		sc.sysBlockPath = "/sys/class/block"
+	}
 
 	meter := provider.Meter("otelcol.system",
 		metric.WithInstrumentationVersion("1.0.0"),
@@ -255,11 +258,15 @@ func (sc *SystemCollector) collectDisk(_ context.Context, o metric.Observer,
 
 // isReadOnlyDevice reports whether a block device is read-only per its sysfs
 // ro flag. Device names from disk.IOCounters match the /sys/class/block
-// entries on Linux (sda1, nvme0n1p1, loop0, dm-0). On platforms or devices
-// without a sysfs entry the read fails and the device is treated as writable.
+// entries on Linux (sda1, nvme0n1p1, loop0, dm-0). sysBlockPath is empty on
+// non-Linux platforms (sysfs does not exist there), and devices without a
+// sysfs entry fail the read; both are treated as writable.
 func (sc *SystemCollector) isReadOnlyDevice(device string) bool {
+	if sc.sysBlockPath == "" {
+		return false
+	}
 	ro, err := os.ReadFile(filepath.Join(sc.sysBlockPath, device, "ro"))
-	return err == nil && string(bytes.TrimSpace(ro)) == "1"
+	return err == nil && bytes.Equal(bytes.TrimSpace(ro), []byte("1"))
 }
 
 func (sc *SystemCollector) collectFilesystem(_ context.Context, o metric.Observer,
