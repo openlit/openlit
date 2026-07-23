@@ -21,13 +21,22 @@ import (
 // following the OpenTelemetry semantic conventions for system metrics.
 // https://opentelemetry.io/docs/specs/semconv/system/system-metrics/
 type SystemCollector struct {
-	logger *slog.Logger
-	reg    []metric.Registration
+	logger    *slog.Logger
+	fsExclude map[string]bool // filesystem types excluded from system.filesystem.*
+	reg       []metric.Registration
 }
 
 // NewSystemCollector creates system-level metric instruments and registers callbacks.
-func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*SystemCollector, error) {
+// fsTypesExclude lists filesystem types excluded from system.filesystem.*;
+// an empty list reports every mounted filesystem.
+func NewSystemCollector(provider *sdkmetric.MeterProvider, logger *slog.Logger, fsTypesExclude []string) (*SystemCollector, error) {
 	sc := &SystemCollector{logger: logger}
+	if len(fsTypesExclude) > 0 {
+		sc.fsExclude = make(map[string]bool, len(fsTypesExclude))
+		for _, t := range fsTypesExclude {
+			sc.fsExclude[t] = true
+		}
+	}
 
 	meter := provider.Meter("otelcol.system",
 		metric.WithInstrumentationVersion("1.0.0"),
@@ -249,6 +258,10 @@ func (sc *SystemCollector) collectFilesystem(_ context.Context, o metric.Observe
 	}
 
 	for _, p := range partitions {
+		if sc.fsExclude[p.Fstype] {
+			continue
+		}
+
 		stat, err := disk.Usage(p.Mountpoint)
 		if err != nil {
 			continue

@@ -140,6 +140,7 @@ All configuration uses standard OpenTelemetry environment variables.
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`deployment.environment=prod,team=ml`) |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
 | `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA kernel tracing (Linux only) |
+| `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). The default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts) on Linux, macOS, and Windows. Set to an empty string to report all types |
 
 `deployment.environment` is read from `OTEL_RESOURCE_ATTRIBUTES` and defaults to `default` if not set.
 
