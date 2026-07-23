@@ -2,11 +2,51 @@ package hostmetrics
 
 import (
 	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+func TestIsReadOnlyDevice(t *testing.T) {
+	sysBlock := t.TempDir()
+	writeRoFlag := func(device, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(sysBlock, device), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sysBlock, device, "ro"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeRoFlag("loop0", "1\n")
+	writeRoFlag("sda1", "0\n")
+	writeRoFlag("dm-0", "garbage")
+
+	tests := []struct {
+		name         string
+		sysBlockPath string
+		device       string
+		want         bool
+	}{
+		{"ro flag set", sysBlock, "loop0", true},
+		{"ro flag unset", sysBlock, "sda1", false},
+		{"unparseable flag treated as writable", sysBlock, "dm-0", false},
+		{"missing sysfs entry treated as writable", sysBlock, "nvme0n1", false},
+		{"path into entry is not a device", sysBlock, "loop0/ro", false},
+		{"empty sysBlockPath (non-Linux) treated as writable", "", "loop0", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc := &SystemCollector{sysBlockPath: tt.sysBlockPath}
+			if got := sc.isReadOnlyDevice(tt.device); got != tt.want {
+				t.Errorf("isReadOnlyDevice(%q) = %v, want %v", tt.device, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestNewSystemCollectorInitializes(t *testing.T) {
 	reader := metric.NewManualReader()

@@ -203,6 +203,8 @@ Follows the [OTel semantic conventions for system metrics](https://opentelemetry
 | `system.network.io` | Counter | By | Network I/O bytes | `network.interface.name`, `network.io.direction`={receive,transmit} |
 | `system.network.errors` | Counter | {error} | Network errors | `network.interface.name`, `network.io.direction`={receive,transmit} |
 
+On Linux, `disk.io.direction=write` series are omitted for read-only block devices (sysfs `ro` flag, e.g. loop devices backing snap images), since writes to them are impossible and the counters would stay zero. A device that becomes writable starts reporting on the next collection cycle.
+
 ### Process Metrics (all platforms)
 
 Follows the [OTel semantic conventions for process metrics](https://opentelemetry.io/docs/specs/semconv/system/process-metrics/).
