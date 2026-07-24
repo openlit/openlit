@@ -200,7 +200,7 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Anthropic (end_turn, max_tokens, stop_sequence, tool_use)
-        tool_calls: Optional tool calls dict from response
+        tool_calls: Optional list of tool calls from response
 
     Returns:
         List with single OutputMessage
@@ -212,16 +212,18 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add tool call if present
+        # Add tool calls if present -- a turn can carry multiple parallel
+        # tool_use blocks, each becomes its own part.
         if tool_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": tool_calls.get("id", ""),
-                    "name": tool_calls.get("name", ""),
-                    "arguments": tool_calls.get("input", {}),
-                }
-            )
+            for tool_call in tool_calls:
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": tool_call.get("id", ""),
+                        "name": tool_call.get("name", ""),
+                        "arguments": tool_call.get("input", {}),
+                    }
+                )
 
         # Map Anthropic finish reasons to OTel standard
         finish_reason_map = {
@@ -466,14 +468,21 @@ def process_chunk(scope, chunk):
         if delta.get("text"):
             scope._llmresponse += delta.get("text", "")
         elif delta.get("partial_json"):
-            scope._tool_arguments += delta.get("partial_json", "")
+            index = chunked.get("index", 0)
+            if index in scope._tool_calls_by_index:
+                scope._tool_calls_by_index[index]["input"] += delta.get(
+                    "partial_json", ""
+                )
 
     if chunked.get("type") == "content_block_start":
         content_block = chunked.get("content_block") or {}
-        if content_block.get("id"):
-            scope._tool_id = content_block.get("id")
-        if content_block.get("name"):
-            scope._tool_name = content_block.get("name")
+        if content_block.get("type") == "tool_use":
+            index = chunked.get("index", 0)
+            scope._tool_calls_by_index[index] = {
+                "id": content_block.get("id", ""),
+                "name": content_block.get("name", ""),
+                "input": "",
+            }
 
     # Collect output tokens and stop reason from events (message_delta: top-level usage, delta)
     if chunked.get("type") == "message_delta":
@@ -581,11 +590,14 @@ def common_chat_logic(
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    # Span Attributes for Tools
+    # Span Attributes for Tools -- GEN_AI_TOOL_* are single-value attributes,
+    # so they describe the first tool call of the turn; the full set (all
+    # parallel calls) is carried in the output messages built below.
     if hasattr(scope, "_tool_calls") and scope._tool_calls:
-        tool_name = scope._tool_calls.get("name", "")
-        tool_id = scope._tool_calls.get("id", "")
-        tool_args = scope._tool_calls.get("input", "")
+        first_tool_call = scope._tool_calls[0]
+        tool_name = first_tool_call.get("name", "")
+        tool_id = first_tool_call.get("id", "")
+        tool_args = first_tool_call.get("input", "")
 
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_name)
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_id)
@@ -744,12 +756,11 @@ def process_streaming_chat_response(
     Process streaming chat response and generate telemetry.
     """
 
-    if scope._tool_id != "":
-        scope._tool_calls = {
-            "id": scope._tool_id,
-            "name": scope._tool_name,
-            "input": scope._tool_arguments,
-        }
+    if scope._tool_calls_by_index:
+        scope._tool_calls = [
+            scope._tool_calls_by_index[index]
+            for index in sorted(scope._tool_calls_by_index)
+        ]
 
     common_chat_logic(
         scope,
@@ -811,17 +822,18 @@ def process_chat_response(
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 
-    # Handle tool calls if present
+    # Handle tool calls if present -- a turn can carry multiple parallel
+    # tool_use blocks, so collect all of them, not just the first.
     content_blocks = response_dict.get("content", [])
-    scope._tool_calls = None
-    for block in content_blocks:
-        if block.get("type") == "tool_use":
-            scope._tool_calls = {
-                "id": block.get("id", ""),
-                "name": block.get("name", ""),
-                "input": block.get("input", ""),
-            }
-            break
+    scope._tool_calls = [
+        {
+            "id": block.get("id", ""),
+            "name": block.get("name", ""),
+            "input": block.get("input", ""),
+        }
+        for block in content_blocks
+        if block.get("type") == "tool_use"
+    ] or None
 
     common_chat_logic(
         scope,
