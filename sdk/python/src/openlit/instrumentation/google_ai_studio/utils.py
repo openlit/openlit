@@ -185,7 +185,7 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Google (STOP, MAX_TOKENS, SAFETY, etc.)
-        function_calls: Optional function calls dict from response
+        function_calls: Optional list of function calls from response
 
     Returns:
         List with single OutputMessage
@@ -198,16 +198,18 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add function calls if present
+        # Add function calls if present -- a turn can carry multiple parallel
+        # function_call parts, each becomes its own part.
         if function_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": "",  # Google doesn't provide IDs
-                    "name": function_calls.get("name", ""),
-                    "arguments": function_calls.get("args", {}),
-                }
-            )
+            for function_call in function_calls:
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": "",  # Google doesn't provide IDs
+                        "name": function_call.get("name", ""),
+                        "arguments": function_call.get("args", {}),
+                    }
+                )
 
         # Map Google finish reasons to OTel standard
         finish_reason_map = {
@@ -473,10 +475,14 @@ def process_chunk(scope, chunk):
     try:
         c0 = (chunked.get("candidates") or [{}])[0]
         parts = (c0.get("content") or {}).get("parts") or []
-        fc = parts[0].get("function_call") if parts else None
-        scope._tools = fc
+        new_calls = [p.get("function_call") for p in parts if p.get("function_call")]
     except (IndexError, KeyError, TypeError):
-        scope._tools = None
+        new_calls = []
+    # Parallel function calls can be split across streamed chunks, so
+    # accumulate rather than overwrite -- each chunk only carries its own
+    # incremental parts, not the whole candidate built so far.
+    if new_calls:
+        scope._tools = (scope._tools or []) + new_calls
 
 
 def _get_config_value(config, key):
@@ -577,17 +583,19 @@ def common_chat_logic(
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    # Span Attributes for Tools
+    # Span Attributes for Tools -- GEN_AI_TOOL_* are single-value attributes,
+    # so they describe the first function call of the turn; the full set
+    # (all parallel calls) is carried in the output messages built below.
     if hasattr(scope, "_tools") and scope._tools:
-        tools = scope._tools if isinstance(scope._tools, dict) else {}
+        first_tool = scope._tools[0]
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, tools.get("name", "")
+            SemanticConvention.GEN_AI_TOOL_NAME, first_tool.get("name", "")
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(first_tool.get("id", ""))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, str(tools.get("args", ""))
+            SemanticConvention.GEN_AI_TOOL_ARGS, str(first_tool.get("args", ""))
         )
 
     # Span Attributes for Cost and Tokens
@@ -828,7 +836,9 @@ def process_chat_response(
     try:
         c0 = (response_dict.get("candidates") or [{}])[0]
         parts = (c0.get("content") or {}).get("parts") or []
-        self._tools = parts[0].get("function_call") if parts else None
+        self._tools = [
+            p.get("function_call") for p in parts if p.get("function_call")
+        ] or None
     except (IndexError, KeyError, TypeError):
         self._tools = None
 
