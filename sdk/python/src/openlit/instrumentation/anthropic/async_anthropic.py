@@ -62,9 +62,7 @@ def async_messages(
             self._output_tokens = 0
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
-            self._tool_arguments = ""
-            self._tool_id = ""
-            self._tool_name = ""
+            self._tool_calls_by_index = {}
             self._tool_calls = None
             self._response_role = ""
             self._kwargs = kwargs
@@ -248,9 +246,7 @@ def async_messages_stream(
             self._output_tokens = 0
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
-            self._tool_arguments = ""
-            self._tool_id = ""
-            self._tool_name = ""
+            self._tool_calls_by_index = {}
             self._tool_calls = None
             self._response_role = ""
             self._kwargs = kwargs
