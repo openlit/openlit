@@ -7,8 +7,9 @@ import {
 } from "@/lib/telemetry-source-crud";
 import { TELEMETRY_SOURCE_INVALID_JSON } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
+import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
 
-export async function PATCH(
+async function PATCHHandler(
 	request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -29,7 +30,7 @@ export async function PATCH(
 	return Response.json(source);
 }
 
-export async function DELETE(
+async function DELETEHandler(
 	_request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -40,3 +41,6 @@ export async function DELETE(
 	if (err) return errorResponse(err, "Failed to delete telemetry source");
 	return Response.json(res);
 }
+
+export const PATCH = withConnectorAudit(withConnectorAccess("update", PATCHHandler));
+export const DELETE = withConnectorAudit(withConnectorAccess("delete", DELETEHandler));

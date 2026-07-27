@@ -2,6 +2,7 @@ import { getDBConfigByUser, upsertDBConfig } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import { DatabaseConfig } from "@prisma/client";
 import { errorResponse } from "@/utils/api-response";
+import { createProjectEnvironment } from "@/lib/project-environment";
 
 function stripSensitiveDbFields(config: any) {
 	if (!config) return config;
@@ -42,5 +43,6 @@ export async function POST(request: Request) {
 	if (err)
 		return errorResponse(err, "Failed to save database configuration");
 
+	if (formData.environment) await createProjectEnvironment(formData.environment);
 	return Response.json(res);
 }

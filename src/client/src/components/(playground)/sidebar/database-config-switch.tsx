@@ -1,16 +1,9 @@
-import { getDatabaseConfigList } from "@/selectors/database-config";
 import { getCurrentProject } from "@/selectors/project";
 import { useRootStore } from "@/store";
-import { useEffect } from "react";
-import {
-	changeActiveDatabaseConfig,
-	fetchDatabaseConfigList,
-} from "@/helpers/client/database-config";
-import { usePostHog } from "posthog-js/react";
-import { CLIENT_EVENTS } from "@/constants/events";
+import { useEffect, useState } from "react";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { cn } from "@/lib/utils";
@@ -29,81 +22,52 @@ export default function DatabaseConfigSwitch({
 	contentAlign = "start",
 	contentSide = "right",
 }: DatabaseConfigSwitchProps) {
-	const posthog = usePostHog();
 	const router = useRouter();
 	const messages = getMessage();
-	const list = useRootStore(getDatabaseConfigList) || [];
 	const currentProject = useRootStore(getCurrentProject);
-	const activeDatabase = list.find((item) => !!item.isCurrent);
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	const [environments, setEnvironments] = useState<string[]>(["production"]);
+	const environment = searchParams.get("environment") || "production";
 	const manageDbConfigHref = currentProject?.id
-		? `/organisation/project/${currentProject.id}`
+		? `/organisation/project/${currentProject.id}/connectors?environment=${encodeURIComponent(environment)}`
 		: "/organisation";
-	const onClickItem = (id: string) => {
-		changeActiveDatabaseConfig(id, () => {
-			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
-		});
-	};
 
 	useEffect(() => {
-		fetchDatabaseConfigList((data: any[]) => {
-			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_LIST, {
-				count: data.length,
-			});
-		});
+		fetch("/api/project/environment").then((response) => response.ok ? response.json() : { environments: [] })
+			.then((body) => setEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name)]))))
+			.catch(() => undefined);
 	}, []);
-
-	// Show manage button when no database configs exist
-	if (list.length === 0) {
-		return (
-			<button
-				type="button"
-				className={cn(triggerClasses, className)}
-				onClick={() => router.push(manageDbConfigHref)}
-			>
-				<span className="min-w-0 truncate">{messages.MANAGE_DB_CONFIG}</span>
-				<ChevronDown className="size-3 shrink-0 opacity-50" />
-			</button>
-		);
-	}
-
-	const activeDatabaseId = activeDatabase?.id;
-	const displayDatabaseName = activeDatabase?.name || messages.PLEASE_SELECT;
+	const onClickEnvironment = (nextEnvironment: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("environment", nextEnvironment);
+		router.replace(`${pathname}?${params.toString()}`);
+	};
 
 	return (
 		<DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className={cn(triggerClasses, className)}>
-					<span className="min-w-0 truncate">{displayDatabaseName}</span>
+					<span className="min-w-0 truncate">{environment}</span>
 					<ChevronDown className="size-3 shrink-0 opacity-50" />
 				</button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" side={contentSide} align={contentAlign}>
-        <DropdownMenuLabel>{messages.DATABASES}</DropdownMenuLabel>
+		<DropdownMenuLabel>{messages.CONNECTOR_ENVIRONMENT}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-				{list.map((item) => (
+				{environments.map((item) => (
 					<DropdownMenuCheckboxItem
-					key={item.id}
-          checked={item.id === activeDatabaseId}
-          onCheckedChange={() => onClickItem(item.id)}
-        >
-          <div className="flex items-start text-muted-foreground ">
-							<div className="grid">
-								<p>
-									<span className="font-medium text-foreground">
-										{item.name}
-									</span>
-								</p>
-								<p className="text-xs" data-description>
-									{item.environment}
-								</p>
-							</div>
-						</div>
-        </DropdownMenuCheckboxItem>
+					key={item}
+	          checked={item === environment}
+	          onCheckedChange={() => onClickEnvironment(item)}
+	        >
+						<span className="font-medium text-foreground">{item}</span>
+	        </DropdownMenuCheckboxItem>
 				))}
         <DropdownMenuSeparator />
 				<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 					<Link href={manageDbConfigHref} className=" flex items-center">
-						{messages.ADD_NEW_CONFIG}
+						{messages.MANAGE_PROJECTS}
 					</Link>
 				</DropdownMenuItem>
       </DropdownMenuContent>

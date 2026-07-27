@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
 	Database,
@@ -9,9 +10,13 @@ import {
 	Layers,
 	Trash2,
 	Wifi,
-	Pencil,
+	Eye,
 	ShieldCheck,
+	Settings2,
+	BookOpen,
+	ExternalLink,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +40,9 @@ import {
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
 import type { FieldDef } from "@/lib/platform/datasource/types";
+import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
+import { getDatabaseConfigList } from "@/selectors/database-config";
+import { useRootStore } from "@/store";
 
 type Signal = "traces" | "logs" | "metrics";
 const SIGNALS: Signal[] = ["traces", "logs", "metrics"];
@@ -43,6 +51,8 @@ const BUILTIN = "builtin";
 interface TypeDescriptor {
 	type: string;
 	displayName: string;
+	description?: string;
+	icon?: string;
 	declaredSignals: Signal[];
 	correlation?: { crossSignal: boolean; keys: string[] };
 	configFields?: FieldDef[];
@@ -63,6 +73,7 @@ interface SourceRow {
 	id: string;
 	name: string;
 	type: string;
+	environment: string;
 	signals: string;
 	settings: string;
 	isDefault: boolean;
@@ -71,6 +82,7 @@ interface SourceRow {
 
 interface BindingRow {
 	signal: string;
+	environment?: string;
 	sourceId: string;
 	sourceName: string | null;
 	sourceType: string | null;
@@ -109,25 +121,36 @@ async function jsonFetch(url: string, init?: RequestInit) {
 
 export default function DataSourcesPage({
 	projectId,
+	showRouting = true,
+	openType,
+	onOpenTypeHandled,
 }: {
 	projectId?: string;
+	showRouting?: boolean;
+	openType?: string | null;
+	onOpenTypeHandled?: () => void;
 }) {
 	const messages = getMessage();
+	const searchParams = useSearchParams();
+	const routeEnvironment = searchParams.get("environment") || "production";
+	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
 	const [sources, setSources] = useState<SourceRow[]>([]);
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
 	const [templates, setTemplates] = useState<StackTemplate[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
+	const [newType, setNewType] = useState<string | undefined>();
 	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
+	const [environment, setEnvironment] = useState(routeEnvironment);
 
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
 			const [list, binds, stacks] = await Promise.all([
 				jsonFetch("/api/telemetry-source"),
-				jsonFetch("/api/telemetry-source/binding"),
+				jsonFetch(`/api/telemetry-source/binding?environment=${encodeURIComponent(environment)}`),
 				jsonFetch("/api/telemetry-source/stack"),
 			]);
 			setSources(list?.sources || []);
@@ -139,15 +162,30 @@ export default function DataSourcesPage({
 		} finally {
 			setLoading(false);
 		}
-	}, [messages.DATA_SOURCE_LOAD_FAILED]);
+	}, [environment, messages.DATA_SOURCE_LOAD_FAILED]);
 
 	useEffect(() => {
+		if (routeEnvironment !== environment) setEnvironment(routeEnvironment);
+	}, [environment, routeEnvironment]);
+
+	useEffect(() => {
+		if (openType) {
+			setNewType(openType);
+			setEditing("new");
+			onOpenTypeHandled?.();
+		}
+	}, [onOpenTypeHandled, openType]);
+
+	useEffect(() => {
+		fetchDatabaseConfigList(() => {});
 		load();
 	}, [load, projectId]);
 
 	const bindingForSignal = useCallback(
-		(signal: Signal) => bindings.find((b) => b.signal === signal),
-		[bindings]
+		(signal: Signal) => bindings.find(
+			(b) => b.signal === signal && (b.environment || "production") === environment
+		),
+		[bindings, environment]
 	);
 
 	const setBinding = async (signal: Signal, sourceId: string) => {
@@ -155,14 +193,14 @@ export default function DataSourcesPage({
 		try {
 			if (sourceId === BUILTIN) {
 				await jsonFetch(
-					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}`,
+					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}&environment=${encodeURIComponent(environment)}`,
 					{ method: "DELETE" }
 				);
 			} else {
 				await jsonFetch("/api/telemetry-source/binding", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ signal, sourceId }),
+					body: JSON.stringify({ signal, sourceId, environment }),
 				});
 			}
 			toast.success(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
@@ -231,7 +269,7 @@ export default function DataSourcesPage({
 	};
 
 	return (
-		<div className="flex h-full w-full flex-col gap-4 overflow-auto p-4 text-stone-700 dark:text-stone-300">
+		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
 			{/* Locked built-in / derived intelligence indicator */}
 			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 				<div className="mb-3 flex items-center gap-2">
@@ -261,6 +299,7 @@ export default function DataSourcesPage({
 			</section>
 
 			{/* Per-signal routing */}
+			{showRouting && (
 			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 				<div className="mb-1 flex items-center gap-2">
 					<Database className="h-4 w-4 text-primary" />
@@ -274,7 +313,10 @@ export default function DataSourcesPage({
 				<div className="grid gap-3 sm:grid-cols-3">
 					{SIGNALS.map((signal) => {
 						const binding = bindingForSignal(signal);
-						const value = binding?.sourceId || BUILTIN;
+						const currentDatabase = databaseConfigs.find(
+							(db) => (db.environment || "production").toLowerCase() === environment
+						);
+						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 						const options = sources.filter((s) =>
 							parseSignals(s.signals).includes(signal)
 						);
@@ -297,9 +339,14 @@ export default function DataSourcesPage({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value={BUILTIN}>
-											{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}
-										</SelectItem>
+										{databaseConfigs
+											.filter((db) => (db.environment || "production").toLowerCase() === environment)
+											.map((db) => (
+												<SelectItem key={db.id} value={`builtin:${db.id}`}>
+													{db.name} · ClickHouse
+												</SelectItem>
+											))}
+						{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === environment).length === 0 && <SelectItem value={BUILTIN}>{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}</SelectItem>}
 										{options.map((s) => (
 											<SelectItem key={s.id} value={s.id}>
 												{s.name} ({s.type})
@@ -312,6 +359,7 @@ export default function DataSourcesPage({
 					})}
 				</div>
 			</section>
+			)}
 
 			{/* External sources list */}
 			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
@@ -357,20 +405,26 @@ export default function DataSourcesPage({
 						</p>
 					</div>
 				) : (
-					<div className="divide-y divide-stone-200 dark:divide-stone-800">
+					<div className="grid gap-3 md:grid-cols-2">
 						{sources.map((s) => (
 							<div
 								key={s.id}
-								className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+								className="flex min-h-[168px] flex-col justify-between rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50"
 							>
-								<div className="flex flex-col gap-1">
+								<div>
 									<div className="flex items-center gap-2">
+										<div className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+											<Image src={descriptors.find((d) => d.type === s.type)?.icon || "/images/connect.svg"} alt="" width={24} height={24} className="h-6 w-6 object-contain" />
+										</div>
 										<span className="text-sm font-medium text-stone-950 dark:text-stone-50">
 											{s.name}
 										</span>
 										<Badge variant="outline" className="text-[10px]">
-											{s.type}
-										</Badge>
+										{s.type}
+									</Badge>
+									<Badge variant="secondary" className="text-[10px]">
+										{s.environment || "production"}
+									</Badge>
 										{s.isDefault && (
 											<Badge className="text-[10px]">default</Badge>
 										)}
@@ -383,6 +437,9 @@ export default function DataSourcesPage({
 											</span>
 										)}
 									</div>
+									<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+										{descriptors.find((d) => d.type === s.type)?.description || `${s.type} telemetry connector.`}
+									</p>
 									<div className="flex flex-wrap gap-1">
 										{parseSignals(s.signals).map((sig) => (
 											<Badge
@@ -395,7 +452,9 @@ export default function DataSourcesPage({
 										))}
 									</div>
 								</div>
-								<div className="flex items-center gap-1">
+								<div className="mt-3 flex items-center justify-between gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
+									<span className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_VIEW_DETAILS}</span>
+									<div className="flex items-center gap-1">
 									<Button
 										size="sm"
 										variant="ghost"
@@ -405,20 +464,23 @@ export default function DataSourcesPage({
 										<Wifi className="mr-1 h-3.5 w-3.5" />
 										{messages.DATA_SOURCE_TEST}
 									</Button>
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => setEditing(s)}
-									>
-										<Pencil className="h-3.5 w-3.5" />
-									</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						title="View connector details and signal routing"
+						aria-label={`View ${s.name} details`}
+						onClick={() => setEditing(s)}
+					>
+										<Eye className="h-3.5 w-3.5" />
+										</Button>
 									<Button
 										size="sm"
 										variant="ghost"
 										onClick={() => removeSource(s)}
 									>
-										<Trash2 className="h-3.5 w-3.5 text-error" />
-									</Button>
+											<Trash2 className="h-3.5 w-3.5 text-error" />
+										</Button>
+									</div>
 								</div>
 							</div>
 						))}
@@ -430,9 +492,21 @@ export default function DataSourcesPage({
 				<SourceFormDialog
 					source={editing === "new" ? null : editing}
 					descriptors={descriptors}
-					onClose={() => setEditing(null)}
+					initialType={editing === "new" ? newType : undefined}
+					showRouting={showRouting || editing !== "new"}
+					bindingForSignal={bindingForSignal}
+					onSetBinding={setBinding}
+					bindings={bindings}
+					sources={sources}
+					databaseConfigs={databaseConfigs}
+					environment={environment}
+					onClose={() => {
+						setEditing(null);
+						setNewType(undefined);
+					}}
 					onSaved={async () => {
 						setEditing(null);
+						setNewType(undefined);
 						await load();
 					}}
 				/>
@@ -506,21 +580,76 @@ function FieldInput({
 	);
 }
 
+function SignalRoutingEditor({
+	sources,
+	databaseConfigs,
+	environment: routingEnvironment,
+	bindingForSignal,
+	onSetBinding,
+	source,
+}: {
+	sources: SourceRow[];
+	databaseConfigs: any[];
+	environment: string;
+	bindingForSignal: (signal: Signal) => BindingRow | undefined;
+	onSetBinding: (signal: Signal, sourceId: string) => Promise<void>;
+	source: SourceRow;
+}) {
+	const messages = getMessage();
+	return (
+		<div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3 dark:border-primary/30 dark:bg-primary/10">
+			<div>
+				<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_SIGNAL_ROUTING_TITLE}</p>
+			<p className="text-[11px] leading-4 text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DIALOG_DESCRIPTION(routingEnvironment)}</p>
+			</div>
+			<div className="grid gap-2 sm:grid-cols-3">
+				{SIGNALS.map((signal) => {
+					const binding = bindingForSignal(signal);
+					const currentDatabase = databaseConfigs.find(
+						(db) => (db.environment || "production").toLowerCase() === routingEnvironment
+					);
+					const value = binding?.sourceId || (binding?.sourceName ? "" : currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
+					const eligibleSources = sources.filter((item) => parseSignals(item.signals).includes(signal));
+					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label><Select value={value || BUILTIN} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="bg-white dark:bg-stone-900"><SelectValue /></SelectTrigger><SelectContent>{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment).map((db) => <SelectItem key={db.id} value={`builtin:${db.id}`}>{db.name} · ClickHouse</SelectItem>)}{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment).length === 0 && <SelectItem value={BUILTIN}>{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}</SelectItem>}{eligibleSources.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} · {item.type}</SelectItem>)}</SelectContent></Select></div>;
+				})}
+			</div>
+			<p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER(source.name, routingEnvironment)}</p>
+		</div>
+	);
+}
+
 function SourceFormDialog({
 	source,
 	descriptors,
+	initialType,
+	showRouting = false,
+	bindingForSignal,
+	onSetBinding,
+	bindings,
+	sources,
+	databaseConfigs,
+	environment: routingEnvironment,
 	onClose,
 	onSaved,
 }: {
 	source: SourceRow | null;
 	descriptors: TypeDescriptor[];
+	initialType?: string;
+	showRouting?: boolean;
+	bindingForSignal?: (signal: Signal) => BindingRow | undefined;
+	onSetBinding?: (signal: Signal, sourceId: string) => Promise<void>;
+	bindings?: BindingRow[];
+	sources?: SourceRow[];
+	databaseConfigs?: any[];
+	environment?: string;
 	onClose: () => void;
 	onSaved: () => void;
 }) {
 	const messages = getMessage();
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
-	const [type, setType] = useState(source?.type || descriptors[0]?.type || "");
+	const [environment, setEnvironment] = useState(source?.environment || "production");
+	const [type, setType] = useState(source?.type || initialType || descriptors[0]?.type || "");
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
@@ -575,6 +704,7 @@ function SourceFormDialog({
 		try {
 			const payload: Record<string, unknown> = {
 				name: name.trim(),
+				environment: environment.trim().toLowerCase() || "production",
 				settings,
 				isDefault,
 			};
@@ -605,67 +735,128 @@ function SourceFormDialog({
 	};
 
 	const activeDescriptor = descriptors.find((d) => d.type === type);
+	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+			<DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[92vh] overflow-y-auto border-stone-200 bg-white text-stone-950 shadow-2xl dark:border-stone-800 dark:bg-stone-950 dark:text-stone-50 sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>
-						{isEdit ? messages.DATA_SOURCE_EDIT : messages.DATA_SOURCE_ADD}
+						{isEdit ? messages.DATA_SOURCE_DETAILS : messages.DATA_SOURCE_ADD}
 					</DialogTitle>
 					<DialogDescription>
-						{messages.PROJECT_DATA_SOURCES_DESCRIPTION}
+						{isEdit ? activeDescriptor?.description : messages.PROJECT_DATA_SOURCES_DESCRIPTION}
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-3">
-					<div className="space-y-1.5">
-						<Label className="text-xs">{messages.DATA_SOURCE_FIELD_NAME}</Label>
+				<div className="space-y-4">
+					<section className="rounded-lg border border-primary/25 bg-primary/[0.04] p-4 dark:border-primary/35 dark:bg-primary/[0.08]">
+						<div className="mb-3 flex items-center gap-2">
+							<Settings2 className="h-4 w-4 text-primary" />
+							<div>
+								<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_CONNECTOR_SECTION}</p>
+								<p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_CONNECTOR_SECTION_DESCRIPTION}</p>
+							</div>
+						</div>
+						<div className="space-y-1.5">
+							<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
+							<Select value={type} onValueChange={setType} disabled={isEdit}>
+								<SelectTrigger className="h-auto min-h-14 items-center border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
+									<SelectValue placeholder="Select a connector">
+										{activeDescriptor ? (
+											<div className="flex min-w-0 items-center gap-2.5">
+												<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+													<Image src={activeDescriptor.icon || "/images/connect.svg"} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+												</div>
+												<div className="min-w-0">
+													<p className="truncate text-sm font-medium">{activeDescriptor.displayName}</p>
+													<p className="truncate text-[11px] text-muted-foreground">{activeDescriptor.description || `${activeDescriptor.displayName} telemetry connector.`}</p>
+												</div>
+											</div>
+										) : undefined}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 gap-1 p-1 sm:min-w-[680px]">
+									{descriptors.map((d) => (
+										<SelectItem key={d.type} value={d.type} className="py-2.5">
+											<div className="flex items-start gap-2.5">
+												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+													<Image src={d.icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
+												</div>
+												<div className="min-w-0">
+													<p className="font-medium">{d.displayName}</p>
+													<p className="mt-0.5 line-clamp-2 max-w-[220px] whitespace-normal text-[10px] leading-4 text-muted-foreground">{d.description || `${d.displayName} telemetry connector.`}</p>
+												</div>
+											</div>
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{isEdit && <p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_TYPE_LOCKED}</p>}
+						</div>
+						{activeDescriptor && (
+							<div className="mt-3 flex flex-wrap items-center gap-1.5">
+								<span className="mr-1 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNALS_SECTION}:</span>
+								{activeDescriptor.declaredSignals.map((sig) => (
+									<Badge key={sig} variant="secondary" className="text-[10px]">{sig}</Badge>
+								))}
+							</div>
+						)}
+					</section>
+
+					{setupGuide && (
+						<details open className="rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
+							<summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold text-stone-950 marker:hidden dark:text-stone-50">
+								<BookOpen className="h-4 w-4 text-primary" />
+								{messages.DATA_SOURCE_SETUP_TITLE}
+							</summary>
+							<div className="mt-3 space-y-3 pl-6">
+								<p className="text-[11px] leading-4 text-muted-foreground">{setupGuide.summary}</p>
+								<ol className="list-decimal space-y-1.5 pl-4 text-[11px] leading-4 text-stone-700 dark:text-stone-300">
+									{setupGuide.steps.map((step) => <li key={step}>{step}</li>)}
+								</ol>
+								<a href={setupGuide.docsUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-[11px] font-medium text-primary underline underline-offset-2">
+									{messages.DATA_SOURCE_DOCS_LINK}<ExternalLink className="h-3 w-3" />
+								</a>
+							</div>
+						</details>
+					)}
+
+					<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+						<div>
+							<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_CONNECTION_SECTION}</p>
+							<p className="mt-0.5 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_CONNECTION_SECTION_DESCRIPTION}</p>
+						</div>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="space-y-1.5">
+								<Label className="text-xs">{messages.DATA_SOURCE_FIELD_NAME}</Label>
 						<Input
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							placeholder="prod-datadog"
-							className="bg-white dark:bg-stone-900"
-						/>
-					</div>
-
-					<div className="space-y-1.5">
-						<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
-						<Select value={type} onValueChange={setType} disabled={isEdit}>
-							<SelectTrigger className="bg-white dark:bg-stone-900">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{descriptors.map((d) => (
-									<SelectItem key={d.type} value={d.type}>
-										{d.displayName}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						{activeDescriptor && (
-							<div className="flex flex-wrap gap-1 pt-0.5">
-								{activeDescriptor.declaredSignals.map((sig) => (
-									<Badge key={sig} variant="secondary" className="text-[10px]">
-										{sig}
-									</Badge>
-								))}
+								className="bg-white dark:bg-stone-900"
+								/>
 							</div>
-						)}
-					</div>
+							<div className="space-y-1.5">
+						<Label className="text-xs">{messages.CONNECTOR_ENVIRONMENT}</Label>
+						<Input value={environment} onChange={(e) => setEnvironment(e.target.value.toLowerCase())} placeholder={messages.CONNECTOR_ENVIRONMENT_PLACEHOLDER} className="border-stone-300 bg-white text-stone-950 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50" />
+							</div>
+						</div>
+					</section>
 
-					{settingsFields.map((f) => (
+					{settingsFields.length > 0 && <section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+						<div><p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_SETTINGS_SECTION}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SETTINGS_SECTION_DESCRIPTION}</p></div>
+						<div className="grid gap-3 sm:grid-cols-2">{settingsFields.map((f) => (
 						<FieldInput
 							key={f.key}
 							field={f}
 							value={values[f.key] ?? ""}
 							onChange={(v) => setValues((p) => ({ ...p, [f.key]: v }))}
-						/>
-					))}
+						/>))}</div>
+					</section>}
 
 					{credentialFields.length > 0 && (
-						<>
-							<Separator />
+						<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
 							<div>
 								<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">
 									{messages.DATA_SOURCE_CREDENTIALS_TITLE}
@@ -691,7 +882,7 @@ function SourceFormDialog({
 									</a>
 								)}
 							</div>
-							{credentialFields.map((f) => (
+							<div className="grid gap-3 sm:grid-cols-2">{credentialFields.map((f) => (
 								<FieldInput
 									key={f.key}
 									field={f}
@@ -700,8 +891,19 @@ function SourceFormDialog({
 										setValues((p) => ({ ...p, [f.key]: v }))
 									}
 								/>
-							))}
-						</>
+							))}</div>
+						</section>
+					)}
+
+					{showRouting && source && bindingForSignal && onSetBinding && (
+						<SignalRoutingEditor
+							sources={sources || []}
+							databaseConfigs={databaseConfigs || []}
+							environment={routingEnvironment || "production"}
+							bindingForSignal={bindingForSignal}
+							onSetBinding={onSetBinding}
+							source={source}
+						/>
 					)}
 
 					<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
@@ -739,6 +941,7 @@ function StackDialog({
 	const messages = getMessage();
 	const [templateKey, setTemplateKey] = useState(templates[0]?.template || "");
 	const [name, setName] = useState("");
+	const [environment, setEnvironment] = useState("production");
 	const [slotValues, setSlotValues] = useState<
 		Record<string, Record<string, string | boolean>>
 	>({});
@@ -793,7 +996,7 @@ function StackDialog({
 			await jsonFetch("/api/telemetry-source/stack", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name: name.trim(), members, bind: true }),
+				body: JSON.stringify({ name: name.trim(), environment, members, bind: true }),
 			});
 			toast.success(messages.DATA_SOURCE_STACK_SAVED, { id: "ds-stack" });
 			onSaved();
@@ -808,13 +1011,16 @@ function StackDialog({
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+			<DialogContent className="max-h-[85vh] overflow-y-auto border-stone-200 bg-white text-stone-950 shadow-2xl dark:border-stone-800 dark:bg-stone-950 dark:text-stone-50 sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>{messages.DATA_SOURCE_STACK_TITLE}</DialogTitle>
 					<DialogDescription>
 						{messages.DATA_SOURCE_STACK_DESCRIPTION}
 					</DialogDescription>
 				</DialogHeader>
+				<div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-stone-600 dark:border-primary/30 dark:bg-primary/10 dark:text-stone-300">
+					This stack creates one connector for each signal slot and binds the complete stack to the selected environment. You can edit or reroute each connector after creation.
+				</div>
 
 				<div className="space-y-3">
 					<div className="space-y-1.5">
@@ -827,10 +1033,16 @@ function StackDialog({
 						/>
 					</div>
 
+					<div className="space-y-1.5 rounded-md border border-primary/20 bg-primary/5 p-3 dark:border-primary/30 dark:bg-primary/10">
+						<Label className="text-xs font-semibold">{messages.CONNECTOR_ENVIRONMENT}</Label>
+						<Input value={environment} onChange={(e) => setEnvironment(e.target.value.toLowerCase())} placeholder={messages.CONNECTOR_ENVIRONMENT_PLACEHOLDER} className="border-stone-300 bg-white text-stone-950 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-50" />
+						<p className="text-xs text-muted-foreground">{messages.CONNECTOR_ENVIRONMENT_DESCRIPTION}</p>
+					</div>
+
 					<div className="space-y-1.5">
 						<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
 						<Select value={templateKey} onValueChange={setTemplateKey}>
-							<SelectTrigger className="bg-white dark:bg-stone-900">
+							<SelectTrigger className="border-stone-300 bg-white text-stone-950 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -863,7 +1075,7 @@ function StackDialog({
 						return (
 							<div
 								key={slot.key}
-								className="space-y-2 rounded-md border border-stone-200 p-3 dark:border-stone-800"
+								className="space-y-2 rounded-lg border border-stone-200 bg-stone-50/70 p-3 shadow-sm dark:border-stone-800 dark:bg-stone-900/50"
 							>
 								<div className="flex items-center gap-2">
 									<Badge variant="outline" className="text-[10px]">

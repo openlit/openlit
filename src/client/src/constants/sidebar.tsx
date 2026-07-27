@@ -3,6 +3,7 @@ import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	Activity,
+	Cable,
 	BookKey,
 	BookOpen,
 	BookText,
@@ -126,6 +127,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <Building2 className={ICON_CLASSES} />,
 						text: "Organisation",
 						link: "/organisation",
+						type: "action",
+					},
+					{
+						icon: <Cable className={ICON_CLASSES} />,
+						text: "Connectors",
+						link: "/connectors",
 						type: "action",
 					},
 					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),

@@ -10,6 +10,7 @@
 
 import { randomUUID } from "crypto";
 import prisma from "./prisma";
+import { createProjectEnvironment } from "./project-environment";
 import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
@@ -36,6 +37,8 @@ import type {
 	SourceCapabilities,
 } from "./platform/datasource/types";
 import { UnsupportedCapabilityError } from "./platform/datasource/types";
+import { connectorDescription } from "./platform/connectors/descriptions";
+import { connectorIconPath } from "./platform/connectors/icons";
 import {
 	TELEMETRY_SOURCE_NAME_REQUIRED,
 	TELEMETRY_SOURCE_TYPE_UNKNOWN,
@@ -62,6 +65,7 @@ function validateSignal(signal: unknown): Signal {
 
 export interface TelemetrySourceInput {
 	name?: unknown;
+	environment?: unknown;
 	type?: unknown;
 	signals?: unknown;
 	settings?: unknown;
@@ -116,6 +120,14 @@ async function requireCurrentProjectId(): Promise<string> {
 function sanitize(row: TelemetrySource) {
 	const { secretRef, ...rest } = row;
 	return { ...rest, hasSecret: !!secretRef };
+}
+
+function normalizeEnvironment(value: unknown): string {
+	const environment = String(value || "production").trim().toLowerCase();
+	if (!/^[a-z0-9][a-z0-9._-]{0,62}$/.test(environment)) {
+		throw new Error("Environment must use letters, numbers, dots, hyphens, or underscores.");
+	}
+	return environment;
 }
 
 function rawSignals(signals: unknown): Signal[] {
@@ -206,7 +218,11 @@ export function availableSourceTypes(): string[] {
 /** Full static descriptors for the atomic source types this build can serve. */
 export function availableSourceTypeDescriptors() {
 	ensureAdaptersRegistered();
-	return listSourceTypeDescriptors();
+	return listSourceTypeDescriptors().map((descriptor) => ({
+		...descriptor,
+		description: descriptor.description || connectorDescription(descriptor.type, descriptor.displayName),
+		icon: descriptor.icon || connectorIconPath(descriptor.type),
+	}));
 }
 
 /** Resolved per-signal capabilities for the active project's routed sources. */
@@ -262,6 +278,8 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 	const name = String(input.name || "").trim();
 	if (!name) throw new Error(TELEMETRY_SOURCE_NAME_REQUIRED);
 	const type = validateType(input.type);
+	const environment = normalizeEnvironment(input.environment);
+	await createProjectEnvironment(environment);
 	const signals = normalizeSignalsForType(input.signals, type);
 	const settings = normalizeSettings(input.settings);
 	const isDefault = input.isDefault === true;
@@ -285,6 +303,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 			data: {
 				projectId,
 				name,
+				environment,
 				type,
 				signals,
 				settings,
@@ -316,6 +335,10 @@ export async function updateTelemetrySource(
 		const name = String(input.name || "").trim();
 		if (!name) throw new Error(TELEMETRY_SOURCE_NAME_REQUIRED);
 		data.name = name;
+	}
+	if (input.environment !== undefined) {
+		data.environment = normalizeEnvironment(input.environment);
+		await createProjectEnvironment(data.environment);
 	}
 	const effectiveType =
 		input.type !== undefined ? validateType(input.type) : existing.type;
@@ -424,19 +447,21 @@ export async function validateTelemetrySourceAISignal(
 // ---- Per-signal bindings (Grafana-style per-signal routing) --------------
 
 /** List the current project's per-signal source bindings. */
-export async function listTelemetrySourceBindings() {
+export async function listTelemetrySourceBindings(environmentInput?: unknown) {
 	const projectId = await requireCurrentProjectId();
+	const environment = normalizeEnvironment(environmentInput);
 	const rows = await prisma.telemetrySourceBinding.findMany({
-		where: { projectId },
-		include: { source: true },
+		where: { projectId, environment },
+		include: { source: true, databaseConfig: true },
 		orderBy: { signal: "asc" },
 	});
 	return rows.map((b) => ({
 		id: b.id,
 		signal: b.signal,
-		sourceId: b.sourceId,
-		sourceName: b.source?.name ?? null,
-		sourceType: b.source?.type ?? null,
+		sourceId: b.sourceId || (b.databaseConfigId ? `builtin:${b.databaseConfigId}` : ""),
+		sourceName: b.source?.name ?? b.databaseConfig?.name ?? null,
+		sourceType: b.source?.type ?? "clickhouse",
+		environment: b.environment,
 	}));
 }
 
@@ -447,13 +472,28 @@ export async function listTelemetrySourceBindings() {
  */
 export async function setTelemetrySourceBinding(
 	signalInput: unknown,
-	sourceId: string
+	sourceId: string,
+	environmentInput?: unknown
 ) {
 	const projectId = await requireCurrentProjectId();
 	const signal = validateSignal(signalInput);
+	const environment = normalizeEnvironment(environmentInput);
 	const source = await prisma.telemetrySource.findFirst({
 		where: { id: sourceId, projectId },
 	});
+	if (!source && sourceId.startsWith("builtin:")) {
+		const databaseConfigId = sourceId.slice("builtin:".length);
+		const databaseConfig = await prisma.databaseConfig.findFirst({
+			where: { id: databaseConfigId, projectId },
+		});
+		if (!databaseConfig) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
+		const binding = await prisma.telemetrySourceBinding.upsert({
+			where: { projectId_signal_environment: { projectId, signal, environment } },
+			create: { projectId, signal, environment, sourceId: null, databaseConfigId },
+			update: { sourceId: null, databaseConfigId },
+		});
+		return { id: binding.id, signal: binding.signal, sourceId, environment };
+	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
 	if (!parseSignals(source.signals).includes(signal)) {
 		throw new Error(
@@ -461,23 +501,25 @@ export async function setTelemetrySourceBinding(
 		);
 	}
 	const binding = await prisma.telemetrySourceBinding.upsert({
-		where: { projectId_signal: { projectId, signal } },
-		create: { projectId, signal, sourceId },
-		update: { sourceId },
+		where: { projectId_signal_environment: { projectId, signal, environment } },
+		create: { projectId, signal, environment, sourceId, databaseConfigId: null },
+		update: { sourceId, databaseConfigId: null },
 	});
 	return {
 		id: binding.id,
 		signal: binding.signal,
 		sourceId: binding.sourceId,
+		environment: binding.environment,
 	};
 }
 
 /** Remove a signal binding, reverting that signal to capability/built-in routing. */
-export async function deleteTelemetrySourceBinding(signalInput: unknown) {
+export async function deleteTelemetrySourceBinding(signalInput: unknown, environmentInput?: unknown) {
 	const projectId = await requireCurrentProjectId();
 	const signal = validateSignal(signalInput);
+	const environment = normalizeEnvironment(environmentInput);
 	await prisma.telemetrySourceBinding.deleteMany({
-		where: { projectId, signal },
+		where: { projectId, signal, environment },
 	});
 	return { signal };
 }
@@ -519,6 +561,7 @@ export interface CreateSourceStackInput {
 	members?: unknown;
 	/** Bind every member's signals as project routing (default true). */
 	bind?: unknown;
+	environment?: unknown;
 }
 
 /**
@@ -535,6 +578,8 @@ export async function createSourceStack(input: CreateSourceStackInput) {
 		throw new Error(TELEMETRY_SOURCE_STACK_NO_MEMBERS);
 	}
 	const bindDefault = input.bind !== false;
+	const environment = normalizeEnvironment(input.environment);
+	await createProjectEnvironment(environment);
 
 	// Validate/normalize every member up front (throws before any write).
 	// Credentials are persisted to the vault before the DB transaction so a
@@ -571,6 +616,7 @@ export async function createSourceStack(input: CreateSourceStackInput) {
 				data: {
 					projectId,
 					name: m.name,
+					environment,
 					type: m.type,
 					signals: m.signals,
 					settings: m.settings,
@@ -583,8 +629,8 @@ export async function createSourceStack(input: CreateSourceStackInput) {
 			if (bindDefault && m.bind) {
 				for (const signal of parseSignals(row.signals)) {
 					await tx.telemetrySourceBinding.upsert({
-						where: { projectId_signal: { projectId, signal } },
-						create: { projectId, signal, sourceId: row.id },
+						where: { projectId_signal_environment: { projectId, signal, environment } },
+						create: { projectId, signal, environment, sourceId: row.id },
 						update: { sourceId: row.id },
 					});
 				}

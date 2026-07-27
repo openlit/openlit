@@ -31,12 +31,13 @@ export interface SignalReadContext {
 
 /** Resolve the adapter + descriptor for a signal read. */
 export async function resolveSignalReadContext(
-	signal: Signal
+	signal: Signal,
+	options: { sourceId?: string; environment?: string; dbConfigId?: string; projectId?: string | null } = {}
 ): Promise<SignalReadContext> {
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
 		await import("@/lib/telemetry-source");
-	const descriptor = await resolveTelemetrySourceDescriptor({ signal });
-	const adapter = await getTelemetryAdapter({ signal });
+	const descriptor = await resolveTelemetrySourceDescriptor({ signal, ...options });
+	const adapter = await getTelemetryAdapter({ signal, ...options });
 	return {
 		adapter,
 		descriptor,

@@ -1138,6 +1138,9 @@ export const BACK_TO_ORGANISATION = "Back to Organisation";
 export const PROJECT_DETAILS = "Project details";
 export const PROJECT_DETAILS_DESCRIPTION =
 	"Review project identity, current status, and database configuration.";
+export const PROJECT_ENVIRONMENT = "Environments";
+export const PROJECT_ID = "Project ID";
+export const PROJECT_CONNECTION_COUNT = "ClickHouse connections";
 export const PROJECT_DATABASE_CONFIGS = "Database configurations";
 export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =
 	"Create, select, and update database configs scoped to this project.";
@@ -1827,6 +1830,20 @@ export const TELEMETRY_SOURCE_STACK_NO_MEMBERS =
 export const PROJECT_DATA_SOURCES = "Data sources";
 export const PROJECT_DATA_SOURCES_DESCRIPTION =
 	"Point each telemetry signal at the observability backend where it lives. OpenLIT reads raw traces, logs, and metrics from these sources and runs its intelligence on top.";
+export const PROJECT_CONNECTORS = "Connectors";
+export const PROJECT_CONNECTORS_DESCRIPTION =
+	"Manage ClickHouse databases and external integrations for this project.";
+export const GLOBAL_CONNECTORS = "Connectors";
+export const CONNECTED_CONNECTORS = "Connected connectors";
+export const NO_CONNECTED_CONNECTORS = "No connectors are connected to the active project yet.";
+export const CONNECTOR_CATALOG = "Connector catalog";
+export const CONNECTOR_CATALOG_DESCRIPTION = "Browse connector types and add more integrations to the active project.";
+export const ADD_CONNECTOR = "Add connector";
+export const MANAGE_CONNECTORS = "Manage connectors";
+export const CONNECTOR_ENVIRONMENT = "Environment";
+export const CONNECTOR_ENVIRONMENT_PLACEHOLDER = "production";
+export const CONNECTOR_ENVIRONMENT_DESCRIPTION =
+	"Keep connector assignments separate for production, staging, and other environments.";
 export const DATA_SOURCE_BUILTIN_TITLE = "OpenLIT ClickHouse (built-in)";
 export const DATA_SOURCE_BUILTIN_DERIVED =
 	"Evaluations, agent summaries, dashboard metadata, and recomputed costs always run on the built-in ClickHouse. This cannot be moved to an external backend.";
@@ -1834,6 +1851,10 @@ export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluatio
 export const DATA_SOURCE_SIGNAL_ROUTING_TITLE = "Signal routing";
 export const DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION =
 	"Choose which source serves each signal for this project. Only the built-in ClickHouse correlates all signals; splitting signals across backends limits cross-signal features to best-effort.";
+export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_DESCRIPTION = (environment: string) =>
+	`Choose which connector serves each signal in ${environment}. Changes apply immediately.`;
+export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER = (name: string, environment: string) =>
+	`${name} · routing is scoped to the ${environment} environment.`;
 export const DATA_SOURCE_SIGNAL_TRACES = "Traces";
 export const DATA_SOURCE_SIGNAL_LOGS = "Logs";
 export const DATA_SOURCE_SIGNAL_METRICS = "Metrics";
@@ -1844,6 +1865,70 @@ export const DATA_SOURCE_SOURCES_DESCRIPTION =
 export const DATA_SOURCE_ADD = "Add source";
 export const DATA_SOURCE_ADD_STACK = "Add a stack";
 export const DATA_SOURCE_EDIT = "Edit source";
+export const DATA_SOURCE_DETAILS = "Connector details";
+export const DATA_SOURCE_CONNECTOR_SECTION = "Connector";
+export const DATA_SOURCE_CONNECTION_SECTION = "Connection details";
+export const DATA_SOURCE_SETTINGS_SECTION = "Connection settings";
+export const DATA_SOURCE_SIGNALS_SECTION = "Signals served";
+export const DATA_SOURCE_TYPE_LOCKED = "Connector type cannot be changed after creation.";
+export const DATA_SOURCE_VIEW_DETAILS = "View details";
+export const DATA_SOURCE_CONNECTOR_SECTION_DESCRIPTION = "Choose the integration and identify this connection.";
+export const DATA_SOURCE_CONNECTION_SECTION_DESCRIPTION = "Use a recognizable name and keep configuration isolated by environment.";
+export const DATA_SOURCE_SETTINGS_SECTION_DESCRIPTION = "Connection-specific options for this connector.";
+export const DATA_SOURCE_SETUP_TITLE = "How to connect";
+export const DATA_SOURCE_SETUP_DESCRIPTION = "Use these steps to prepare the endpoint and credentials before saving.";
+export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: string[]; docsUrl: string }> = {
+	clickhouse: {
+		summary: "Use the project database configuration for the ClickHouse store used by OpenLIT intelligence and evaluations.",
+		steps: ["Open the ClickHouse service's Connect menu and copy the HTTPS host, database, username, and password.", "Keep TLS enabled for hosted ClickHouse services.", "Save the connection in the project's database configuration, then test the connection."],
+		docsUrl: "https://clickhouse.com/integrations/clickhouse_client",
+	},
+	datadog: {
+		summary: "Datadog read APIs require both an API key and an Application key.",
+		steps: ["In Datadog, open Organization Settings → API Keys and create or copy an API key.", "Open Application Keys and create an application key with read access to the required observability APIs.", "Set the Datadog site, then enter both keys in Credentials."],
+		docsUrl: "https://docs.datadoghq.com/account_management/api-app-keys/",
+	},
+	tempo: {
+		summary: "Grafana Cloud Tempo uses the stack endpoint with Basic authentication.",
+		steps: ["Copy the Tempo query URL from your Grafana Cloud stack, usually ending in /tempo.", "Use the Tempo instance ID as Username.", "Create a Grafana Cloud Access Policy token with traces:read and enter it as Password."],
+		docsUrl: "https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/",
+	},
+	loki: {
+		summary: "Grafana Cloud Loki uses a logs endpoint and a read-scoped Access Policy token.",
+		steps: ["Copy the Loki query URL from the Grafana Cloud stack details.", "Use the logs instance ID as Username and a token with logs:read as Password.", "For a self-hosted multi-tenant Loki deployment, provide the tenant ID."],
+		docsUrl: "https://grafana.com/docs/grafana-cloud/security-and-account-management/authentication-and-permissions/access-policies/",
+	},
+	mimir: {
+		summary: "Grafana Cloud Mimir exposes a Prometheus-compatible metrics query endpoint.",
+		steps: ["Copy the Prometheus query URL from the Grafana Cloud Metrics details page.", "Use the metrics instance ID as Username and a token with metrics:read as Password.", "Provide the tenant/account ID when the metrics service requires it."],
+		docsUrl: "https://grafana.com/docs/grafana-cloud/send-data/metrics/metrics-prometheus/query-http-api/",
+	},
+	prometheus: {
+		summary: "OpenLIT queries the Prometheus HTTP API under /api/v1.",
+		steps: ["Enter the Prometheus server base URL, without /api/v1.", "Leave credentials empty for a private unauthenticated network, or provide Basic/Bearer credentials for a protected endpoint.", "Use HTTPS whenever the endpoint is reachable outside the private network."],
+		docsUrl: "https://prometheus.io/docs/prometheus/3.5/querying/api/",
+	},
+	newrelic: {
+		summary: "New Relic queries use NerdGraph and require a User API key.",
+		steps: ["Open New Relic API Keys and create a User key for the account.", "Select US or EU and enter the account ID used by the telemetry.", "Paste the User key into Credentials; do not use an ingest-only license key."],
+		docsUrl: "https://docs.newrelic.com/docs/apis/nerdgraph/get-started/introduction-new-relic-nerdgraph/",
+	},
+	jaeger: {
+		summary: "OpenLIT reads traces from the Jaeger Query Service.",
+		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
+		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
+	},
+	victoriametrics: {
+		summary: "VictoriaMetrics provides Prometheus-compatible read APIs.",
+		steps: ["Enter the VictoriaMetrics or vmauth URL, commonly port 8428.", "Use Basic or Bearer credentials when authentication is enabled.", "For VictoriaMetrics Cloud, use the deployment access endpoint and a read-capable access token."],
+		docsUrl: "https://docs.victoriametrics.com/victoriametrics/url-examples/",
+	},
+	victorialogs: {
+		summary: "VictoriaLogs exposes LogsQL through its HTTP query API.",
+		steps: ["Enter the VictoriaLogs URL, commonly port 9428.", "Use Basic or Bearer credentials when authentication is enabled.", "Provide the tenant ID when the deployment uses multi-tenancy."],
+		docsUrl: "https://docs.victoriametrics.com/victorialogs/querying/",
+	},
+};
 export const DATA_SOURCE_EMPTY_TITLE = "No external sources yet";
 export const DATA_SOURCE_EMPTY_DESCRIPTION =
 	"Add a source to read telemetry from your existing observability backend. Until then, everything reads from the built-in ClickHouse.";

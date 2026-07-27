@@ -53,7 +53,7 @@ export function parseSettings(raw: string | null | undefined): Record<string, un
 
 /** Build the implicit built-in ClickHouse descriptor from a DatabaseConfig. */
 export function builtInDescriptor(
-	dbConfig: Pick<DatabaseConfig, "id" | "name" | "projectId">
+	dbConfig: Pick<DatabaseConfig, "id" | "name" | "projectId" | "environment">
 ): TelemetrySourceDescriptor {
 	return {
 		type: "clickhouse",
@@ -65,6 +65,7 @@ export function builtInDescriptor(
 		signals: [...ALL_SIGNALS],
 		projectId: dbConfig.projectId ?? null,
 		name: dbConfig.name,
+		environment: dbConfig.environment,
 	};
 }
 
@@ -79,6 +80,7 @@ export function toDescriptor(row: TelemetrySource): TelemetrySourceDescriptor {
 		signals: parseSignals(row.signals),
 		projectId: row.projectId ?? null,
 		name: row.name,
+		environment: row.environment,
 	};
 }
 
@@ -129,6 +131,8 @@ export function sourceSupportsNativeSql(
 }
 
 export interface ResolveTelemetrySourceOptions {
+	/** Environment partition used to select a connector and binding. */
+	environment?: string;
 	/** Explicit source id override (e.g. dashboard widget `sourceId`). */
 	sourceId?: string | null;
 	/**
@@ -141,6 +145,13 @@ export interface ResolveTelemetrySourceOptions {
 	dbConfigId?: string;
 	/** Project id override; defaults to the caller's current project. */
 	projectId?: string | null;
+}
+
+function normalizeEnvironment(value: unknown): string {
+	const environment = String(value || "production").trim().toLowerCase();
+	return /^[a-z0-9][a-z0-9._-]{0,62}$/.test(environment)
+		? environment
+		: "production";
 }
 
 /** How a signal's source was chosen (for observability / honest UI). */
@@ -176,11 +187,12 @@ function descriptorServesSignal(
  */
 async function findSourceInProject(
 	sourceId: string,
-	projectId: string | null | undefined
+	projectId: string | null | undefined,
+	environment?: string
 ): Promise<TelemetrySource | null> {
 	if (!projectId) return null;
 	return prisma.telemetrySource.findFirst({
-		where: { id: sourceId, projectId },
+		where: { id: sourceId, projectId, environment: normalizeEnvironment(environment) },
 	});
 }
 
@@ -202,10 +214,11 @@ export async function resolveSignalSource(
 		options.projectId !== undefined
 			? options.projectId
 			: await getCurrentProjectId();
+	const environment = normalizeEnvironment(options.environment);
 
 	// 1. Explicit override — project-scoped only.
 	if (options.sourceId) {
-		const row = await findSourceInProject(options.sourceId, projectId);
+		const row = await findSourceInProject(options.sourceId, projectId, environment);
 		if (row) {
 			const descriptor = toDescriptor(row);
 			return {
@@ -223,9 +236,13 @@ export async function resolveSignalSource(
 	if (projectId) {
 		// 2. Per-signal binding.
 		const binding = await prisma.telemetrySourceBinding.findUnique({
-			where: { projectId_signal: { projectId, signal } },
-			include: { source: true },
+			where: { projectId_signal_environment: { projectId, signal, environment } },
+			include: { source: true, databaseConfig: true },
 		});
+		if (binding?.databaseConfig) {
+			const descriptor = builtInDescriptor(binding.databaseConfig);
+			return { descriptor, servesSignal: true, hasSource: true, via: "binding" };
+		}
 		if (binding?.source) {
 			const descriptor = toDescriptor(binding.source);
 			if (descriptorServesSignal(descriptor, signal)) {
@@ -238,7 +255,7 @@ export async function resolveSignalSource(
 
 		// 3. Any project source that advertises the signal (default first).
 		const rows = await prisma.telemetrySource.findMany({
-			where: { projectId },
+			where: { projectId, environment },
 			orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
 		});
 		const match = rows.find((r) => parseSignals(r.signals).includes(signal));

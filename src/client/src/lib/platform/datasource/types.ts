@@ -289,6 +289,10 @@ export interface SourceTypeDescriptor {
 	type: string;
 	/** Human-readable name for source pickers. */
 	displayName: string;
+	/** Short explanation shown in connector catalogs and configuration forms. */
+	description?: string;
+	/** Local icon path used by connector pickers. */
+	icon?: string;
 	/** Maximal set of signals a source of this type can serve. */
 	declaredSignals: Signal[];
 	/** Maximal capability profile for the type (signals declared separately). */
@@ -425,6 +429,8 @@ export interface TelemetrySourceDescriptor {
 	projectId?: string | null;
 	/** Human-readable name. */
 	name: string;
+	/** Environment partition for this connector instance. */
+	environment?: string;
 }
 
 /**

@@ -191,9 +191,10 @@ export const upsertDBConfig = async (
 	// When creating with a project, use compound unique constraint
 	else if (currentProject?.id) {
 		const whereObject = {
-			name_projectId: {
+			name_projectId_environment: {
 				name: dbConfig.name,
 				projectId: currentProject.id,
+				environment: dbConfig.environment || "production",
 			},
 		};
 		const [err, result] = await asaw(

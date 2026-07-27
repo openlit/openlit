@@ -87,6 +87,7 @@ model Organisation {
   members         OrganisationUser[]
   invitedUsers    OrganisationInvitedUser[]
   projects        Project[]
+  connectorInstances ConnectorInstance[]
 
   @@map("organisations")
 }
@@ -103,11 +104,55 @@ model Project {
   databaseConfigs DatabaseConfig[]
   telemetrySources TelemetrySource[]
   telemetrySourceBindings TelemetrySourceBinding[]
+  connectorInstances ConnectorInstance[]
+  environments    ProjectEnvironment[]
   currentForUsers OrganisationUser[]        @relation("CurrentOrganisationProject")
   members         ProjectUser[]
 
   @@unique([organisationId, slug])
   @@map("projects")
+}
+
+// Generic project/organisation connector records. Existing datasource and
+// alert tables remain compatible while their repositories migrate behind the
+// connector abstraction.
+model ConnectorInstance {
+  id              String   @id @default(cuid())
+  category        String
+  type            String
+  name            String
+  environment     String   @default("production")
+  organisationId  String?  @map("organisation_id")
+  organisation    Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  projectId       String?  @map("project_id")
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  settings        String   @default("{}")
+  secretRef       String?  @map("secret_ref")
+  status          String   @default("active")
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  bindings        ConnectorBinding[]
+
+  @@unique([name, organisationId, projectId, environment])
+  @@index([category, type])
+  @@map("connector_instances")
+}
+
+model ConnectorBinding {
+  id           String            @id @default(cuid())
+  connectorId  String            @map("connector_id")
+  connector    ConnectorInstance @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  consumerType String            @map("consumer_type")
+  consumerKey  String            @map("consumer_key")
+  environment  String            @default("production")
+  metadata     String            @default("{}")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([connectorId, consumerType, consumerKey, environment])
+  @@index([consumerType, consumerKey])
+  @@map("connector_bindings")
 }
 
 model OrganisationUser {
@@ -176,8 +221,10 @@ model DatabaseConfig {
   dbInvitedUsers  DatabaseConfigInvitedUser[]
   apiKeys         APIKeys[]
   opengrounds     OpenGround[]
+  telemetryBindings TelemetrySourceBinding[]
+  environmentRef  ProjectEnvironment?          @relation("ProjectEnvironmentDatabaseConfigs", fields: [projectId, environment], references: [projectId, name], onDelete: Restrict)
 
-  @@unique([name, projectId])
+  @@unique([name, projectId, environment])
   @@map("databaseconfig")
 }
 
@@ -191,6 +238,7 @@ model TelemetrySource {
   projectId       String?  @map("project_id")
   project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name            String
+  environment     String   @default("production")
   // Source type, e.g. "clickhouse" | "datadog" | "tempo" | "loki" | "mimir" |
   // "prometheus" | "newrelic" | "jaeger" | "victoriametrics" | ...
   type            String   @default("clickhouse")
@@ -205,9 +253,24 @@ model TelemetrySource {
   updatedAt       DateTime @updatedAt
   createdByUserId String?  @map("user_id")
   bindings        TelemetrySourceBinding[]
+  environmentRef  ProjectEnvironment? @relation("ProjectEnvironmentTelemetrySources", fields: [projectId, environment], references: [projectId, name], onDelete: Restrict)
 
-  @@unique([name, projectId])
+  @@unique([name, projectId, environment])
   @@map("telemetry_source")
+}
+
+model ProjectEnvironment {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  databaseConfigs DatabaseConfig[] @relation("ProjectEnvironmentDatabaseConfigs")
+  telemetrySources TelemetrySource[] @relation("ProjectEnvironmentTelemetrySources")
+
+  @@unique([projectId, name])
+  @@map("project_environments")
 }
 
 // Per-signal routing: which TelemetrySource serves a given signal in a project
@@ -220,12 +283,15 @@ model TelemetrySourceBinding {
   project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   // One of "traces" | "logs" | "metrics".
   signal    String
-  sourceId  String          @map("source_id")
-  source    TelemetrySource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  environment String @default("production")
+  sourceId  String?         @map("source_id")
+  source    TelemetrySource? @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  databaseConfigId String?  @map("database_config_id")
+  databaseConfig DatabaseConfig? @relation(fields: [databaseConfigId], references: [id], onDelete: Cascade)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  @@unique([projectId, signal])
+  @@unique([projectId, signal, environment])
   @@map("telemetry_source_binding")
 }
 

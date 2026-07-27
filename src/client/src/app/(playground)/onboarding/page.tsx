@@ -386,7 +386,7 @@ export default function OnboardingPage() {
 							>
 								{hasProject && !hasDbConfig && currentProject?.id ? (
 									<Button asChild size="sm" className="h-9">
-										<Link href={`/organisation/project/${currentProject.id}?tab=database`}>
+										<Link href={`/organisation/project/${currentProject.id}/connectors`}>
 											<Database className="mr-1.5 h-3.5 w-3.5" />
 											{isDatabaseConfigLoading
 												? messages.LOADING

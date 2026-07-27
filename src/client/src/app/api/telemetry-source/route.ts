@@ -10,8 +10,9 @@ import {
 } from "@/lib/telemetry-source-crud";
 import { TELEMETRY_SOURCE_INVALID_JSON } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
+import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
 
-export async function GET() {
+async function GETHandler() {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 
@@ -26,7 +27,7 @@ export async function GET() {
 	});
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 
@@ -43,3 +44,6 @@ export async function POST(request: NextRequest) {
 	if (err) return errorResponse(err, "Failed to create telemetry source");
 	return Response.json(source);
 }
+
+export const GET = withConnectorAccess("read", GETHandler);
+export const POST = withConnectorAudit(withConnectorAccess("create", POSTHandler));

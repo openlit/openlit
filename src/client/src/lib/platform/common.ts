@@ -42,6 +42,8 @@ export interface MetricParams {
 	 * widget's actual source can serve.
 	 */
 	sourceId?: string;
+	/** Explicit project ClickHouse configuration selected by the request. */
+	databaseConfigId?: string;
 }
 
 export type GPU_TYPE_KEY =

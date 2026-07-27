@@ -26,6 +26,7 @@ import { victoriaMetricsAdapterFactory } from "./victoria/metrics";
 import { victoriaLogsAdapterFactory } from "./victoria/logs";
 import { STACK_UMBRELLA_FACTORIES } from "./stacks";
 import { getExternalDataSourceAdapters } from "./enterprise";
+import { registerDatasourceConnectorTypes } from "../connectors/datasource";
 
 const VENDOR_FACTORIES = [
 	datadogAdapterFactory,
@@ -54,6 +55,7 @@ export function ensureAdaptersRegistered(): void {
 	for (const factory of getExternalDataSourceAdapters()) {
 		registerAdapterFactory(factory);
 	}
+	registerDatasourceConnectorTypes();
 }
 
 /** Test-only: allow re-registration. */

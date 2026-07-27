@@ -26,7 +26,7 @@ import type { NormalizedMetricPoint } from "@/lib/platform/datasource/types";
 
 /** List grouped metric series (same shape as `getMetrics`). */
 export async function listMetricRecords(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics");
+	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
 	if (isBuiltIn) return getMetrics(params);
 
 	try {
@@ -49,7 +49,7 @@ export async function listMetricRecords(params: MetricParams) {
 
 /** Filter-bar config (services / metricNames / metricTypes). */
 export async function getMetricsFilterConfig(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics");
+	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
 	if (isBuiltIn) return getMetricsConfig(params);
 
 	const emptyRow = {
@@ -77,7 +77,7 @@ export async function getMetricsFilterConfig(params: MetricParams) {
 
 /** Attribute-key discovery for the custom-filter builder. */
 export async function getMetricAttributeKeysRecord(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics");
+	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
 	if (isBuiltIn) return getMetricAttributeKeys(params);
 
 	const empty = {
@@ -103,7 +103,7 @@ export async function getMetricDetailRecord(
 	serviceName?: string,
 	params?: MetricParams
 ) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics");
+	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
 	if (isBuiltIn) {
 		return getMetricDetail(metricName, metricType, serviceName, params);
 	}
@@ -145,7 +145,7 @@ export async function getMetricDetailRecord(
 
 /** Metrics summary bar-chart series (same shape as `getSignalSummary(_, "metrics")`). */
 export async function getMetricsSummary(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics");
+	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
 	if (isBuiltIn) return getSignalSummary(params, "metrics");
 
 	const bucket = getSummaryBucket(params);

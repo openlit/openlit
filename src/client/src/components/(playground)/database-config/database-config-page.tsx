@@ -16,7 +16,8 @@ import {
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { isNil, keyBy } from "lodash";
-import { MouseEventHandler, useCallback, useState } from "react";
+import { MouseEventHandler, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -35,8 +36,32 @@ function ModifyDatabaseConfig({
 	canUpdate?: boolean;
 }) {
 	const posthog = usePostHog();
+	const searchParams = useSearchParams();
+	const selectedEnvironment = searchParams.get("environment") || "production";
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const messages = getMessage();
+	const [environments, setEnvironments] = useState<string[]>([
+		"production",
+		dbConfig?.environment || selectedEnvironment,
+	].filter((value, index, values) => values.indexOf(value) === index));
+
+	useEffect(() => {
+		fetch("/api/project/environment")
+			.then((response) => response.ok ? response.json() : { environments: [] })
+			.then((body) => setEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name)]))))
+			.catch(() => undefined);
+	}, []);
+
+	const ensureEnvironment = (value: string) => {
+		const name = value.trim().toLowerCase();
+		if (!name || environments.includes(name)) return;
+		setEnvironments((current) => [...current, name].sort());
+		void fetch("/api/project/environment", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name }),
+		});
+	};
 
 	const modifyDetails: FormBuilderEvent = useCallback(
 		(event) => {
@@ -121,12 +146,14 @@ function ModifyDatabaseConfig({
 				{
 					label: messages.DB_CONFIG_FIELD_ENVIRONMENT,
 					inputKey: `${dbConfig?.id}-environment`,
-					fieldType: "INPUT",
+					fieldType: "SELECT",
 					fieldTypeProps: {
-						type: "text",
 						name: "environment",
 						placeholder: "production",
-						defaultValue: dbConfig?.environment,
+						options: environments.map((environment) => ({ value: environment, label: environment })),
+						defaultValue: dbConfig?.environment || selectedEnvironment,
+						hasOtherOption: true,
+						onChange: ensureEnvironment,
 						disabled: formFieldsDisabled,
 					},
 				},

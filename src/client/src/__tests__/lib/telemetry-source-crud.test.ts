@@ -397,8 +397,8 @@ describe("telemetry source bindings", () => {
 		]);
 		const bindings = await listTelemetrySourceBindings();
 		expect(mockBindingFindMany).toHaveBeenCalledWith({
-			where: { projectId: "proj-1" },
-			include: { source: true },
+			where: { projectId: "proj-1", environment: "production" },
+			include: { source: true, databaseConfig: true },
 			orderBy: { signal: "asc" },
 		});
 		expect(bindings[0]).toMatchObject({
@@ -421,9 +421,9 @@ describe("telemetry source bindings", () => {
 			where: { id: "src-1", projectId: "proj-1" },
 		});
 		expect(mockBindingUpsert).toHaveBeenCalledWith({
-			where: { projectId_signal: { projectId: "proj-1", signal: "traces" } },
-			create: { projectId: "proj-1", signal: "traces", sourceId: "src-1" },
-			update: { sourceId: "src-1" },
+			where: { projectId_signal_environment: { projectId: "proj-1", signal: "traces", environment: "production" } },
+			create: { projectId: "proj-1", signal: "traces", environment: "production", sourceId: "src-1", databaseConfigId: null },
+			update: { sourceId: "src-1", databaseConfigId: null },
 		});
 	});
 
@@ -452,7 +452,7 @@ describe("telemetry source bindings", () => {
 		mockBindingDeleteMany.mockResolvedValue({ count: 1 });
 		await deleteTelemetrySourceBinding("logs");
 		expect(mockBindingDeleteMany).toHaveBeenCalledWith({
-			where: { projectId: "proj-1", signal: "logs" },
+			where: { projectId: "proj-1", signal: "logs", environment: "production" },
 		});
 	});
 });
@@ -481,13 +481,13 @@ describe("createSourceStack", () => {
 		expect(mockCreate).toHaveBeenCalledTimes(3);
 		// tempo defaults to its declared [traces]; loki -> logs; mimir -> metrics.
 		expect(mockTxBindingUpsert).toHaveBeenCalledWith({
-			where: { projectId_signal: { projectId: "proj-1", signal: "traces" } },
-			create: { projectId: "proj-1", signal: "traces", sourceId: "src-tempo" },
+			where: { projectId_signal_environment: { projectId: "proj-1", signal: "traces", environment: "production" } },
+			create: { projectId: "proj-1", signal: "traces", environment: "production", sourceId: "src-tempo" },
 			update: { sourceId: "src-tempo" },
 		});
 		expect(mockTxBindingUpsert).toHaveBeenCalledWith({
-			where: { projectId_signal: { projectId: "proj-1", signal: "logs" } },
-			create: { projectId: "proj-1", signal: "logs", sourceId: "src-loki" },
+			where: { projectId_signal_environment: { projectId: "proj-1", signal: "logs", environment: "production" } },
+			create: { projectId: "proj-1", signal: "logs", environment: "production", sourceId: "src-loki" },
 			update: { sourceId: "src-loki" },
 		});
 		expect(res.sources).toHaveLength(3);

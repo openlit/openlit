@@ -175,7 +175,7 @@ describe("resolveTelemetrySourceDescriptor precedence", () => {
 		expect(d.type).toBe("tempo");
 		expect(d.id).toBe("src-1");
 		expect(mockFindFirst).toHaveBeenCalledWith({
-			where: { id: "src-1", projectId: "proj-1" },
+			where: { id: "src-1", projectId: "proj-1", environment: "production" },
 		});
 		expect(mockFindUnique).not.toHaveBeenCalled();
 	});
@@ -206,7 +206,7 @@ describe("resolveTelemetrySourceDescriptor precedence", () => {
 		expect(d.id).toBe("src-default");
 		expect(d.type).toBe("newrelic");
 		expect(mockFindFirst).toHaveBeenNthCalledWith(1, {
-			where: { id: "foreign-src", projectId: "proj-1" },
+			where: { id: "foreign-src", projectId: "proj-1", environment: "production" },
 		});
 	});
 
@@ -372,7 +372,7 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		expect(res.via).toBe("builtin");
 		expect(res.descriptor.type).toBe("clickhouse");
 		expect(mockFindFirst).toHaveBeenCalledWith({
-			where: { id: "foreign-src", projectId: "proj-1" },
+			where: { id: "foreign-src", projectId: "proj-1", environment: "production" },
 		});
 		expect(mockFindUnique).not.toHaveBeenCalled();
 	});

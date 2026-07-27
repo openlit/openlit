@@ -6,10 +6,11 @@ import {
 	validateTelemetrySourceAISignal,
 } from "@/lib/telemetry-source-crud";
 import { NextRequest } from "next/server";
+import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
 
 const DEFAULT_PROBE_MS = 60 * 60 * 1000;
 
-export async function GET(
+async function GETHandler(
 	request: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -32,3 +33,5 @@ export async function GET(
 
 	return Response.json({ health, validation });
 }
+
+export const GET = withConnectorAudit(withConnectorAccess("test", GETHandler));
