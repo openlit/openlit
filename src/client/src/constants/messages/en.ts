@@ -1118,6 +1118,7 @@ export const PROJECTS = "Projects";
 export const PROJECT_NAME = "Project Name";
 export const PROJECT_NAME_PLACEHOLDER = "Production";
 export const MANAGE_PROJECTS = "Manage Projects";
+export const MANAGE_DATA = "Manage Data";
 export const DEFAULT_PROJECT = "Default Project";
 export const PROJECT_NAME_REQUIRED = "Project name is required";
 export const PROJECT_NAME_LENGTH_ERROR = "Project name must be 120 characters or less";
@@ -1831,6 +1832,9 @@ export const PROJECT_DATA_SOURCES = "Data sources";
 export const PROJECT_DATA_SOURCES_DESCRIPTION =
 	"Point each telemetry signal at the observability backend where it lives. OpenLIT reads raw traces, logs, and metrics from these sources and runs its intelligence on top.";
 export const PROJECT_CONNECTORS = "Connectors";
+export const PROJECT_ENVIRONMENTS = "Manage Environments";
+export const PROJECT_ENVIRONMENTS_DESCRIPTION =
+	"Select an environment, manage its ClickHouse targets and telemetry connectors, and route traces, logs, and metrics independently.";
 export const PROJECT_CONNECTORS_DESCRIPTION =
 	"Manage ClickHouse databases and external integrations for this project.";
 export const GLOBAL_CONNECTORS = "Connectors";
@@ -1846,7 +1850,7 @@ export const CONNECTOR_ENVIRONMENT_DESCRIPTION =
 	"Keep connector assignments separate for production, staging, and other environments.";
 export const DATA_SOURCE_BUILTIN_TITLE = "OpenLIT ClickHouse (built-in)";
 export const DATA_SOURCE_BUILTIN_DERIVED =
-	"Evaluations, agent summaries, dashboard metadata, and recomputed costs always run on the built-in ClickHouse. This cannot be moved to an external backend.";
+	"ClickHouse is optional for telemetry viewing. It becomes the execution target for evaluations, AI analysis, costing, and other features that require OpenLIT-managed storage.";
 export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluations";
 export const DATA_SOURCE_SIGNAL_ROUTING_TITLE = "Signal routing";
 export const DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION =

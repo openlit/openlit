@@ -20,7 +20,7 @@ describe("ProjectPageHeader", () => {
 		expect(screen.getByRole("heading", { name: "Production" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Back to Organisation" })).toHaveAttribute("href", "/organisation");
 		expect(screen.getByRole("link", { name: /Overview/ })).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: /Connectors/ })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /Manage Environments/ })).toBeInTheDocument();
 	});
 
 	it("uses the loading title when no project is available", () => {

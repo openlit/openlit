@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeft, FolderKanban, Plug } from "lucide-react";
+import { ArrowLeft, FolderKanban, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
@@ -50,7 +50,7 @@ export default function ProjectPageHeader({
 						<Link href={`/organisation/project/${project?.id || ""}${environmentQuery}`}><FolderKanban className="h-3.5 w-3.5" />{messages.PROJECT_OVERVIEW}</Link>
 					</Button>
 					<Button asChild size="sm" variant={pathname?.endsWith("/connectors") ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
-						<Link href={`/organisation/project/${project?.id || ""}/connectors${environmentQuery}`}><Plug className="h-3.5 w-3.5" />{messages.PROJECT_CONNECTORS}</Link>
+						<Link href={`/organisation/project/${project?.id || ""}/environments${environmentQuery}`}><Settings2 className="h-3.5 w-3.5" />{messages.PROJECT_ENVIRONMENTS}</Link>
 					</Button>
 				</div>
 			}

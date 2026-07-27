@@ -144,6 +144,10 @@ export default function DataSourcesPage({
 	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const [environment, setEnvironment] = useState(routeEnvironment);
+	const visibleSources = useMemo(
+		() => sources.filter((source) => (source.environment || "production") === environment),
+		[environment, sources]
+	);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -317,7 +321,7 @@ export default function DataSourcesPage({
 							(db) => (db.environment || "production").toLowerCase() === environment
 						);
 						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
-						const options = sources.filter((s) =>
+						const options = visibleSources.filter((s) =>
 							parseSignals(s.signals).includes(signal)
 						);
 						const label =
@@ -395,7 +399,7 @@ export default function DataSourcesPage({
 					<div className="animate-pulse py-8 text-center text-sm text-muted-foreground">
 						{messages.OBSERVABILITY_LOADING}
 					</div>
-				) : sources.length === 0 ? (
+				) : visibleSources.length === 0 ? (
 					<div className="flex flex-col items-center gap-1 py-10 text-center">
 						<h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
 							{messages.DATA_SOURCE_EMPTY_TITLE}
@@ -406,7 +410,7 @@ export default function DataSourcesPage({
 					</div>
 				) : (
 					<div className="grid gap-3 md:grid-cols-2">
-						{sources.map((s) => (
+						{visibleSources.map((s) => (
 							<div
 								key={s.id}
 								className="flex min-h-[168px] flex-col justify-between rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50"
@@ -493,11 +497,12 @@ export default function DataSourcesPage({
 					source={editing === "new" ? null : editing}
 					descriptors={descriptors}
 					initialType={editing === "new" ? newType : undefined}
+					initialEnvironment={environment}
 					showRouting={showRouting || editing !== "new"}
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
 					bindings={bindings}
-					sources={sources}
+					sources={visibleSources}
 					databaseConfigs={databaseConfigs}
 					environment={environment}
 					onClose={() => {
@@ -516,6 +521,7 @@ export default function DataSourcesPage({
 				<StackDialog
 					templates={templates}
 					descriptors={descriptors}
+					initialEnvironment={environment}
 					onClose={() => setStackOpen(false)}
 					onSaved={async () => {
 						setStackOpen(false);
@@ -622,6 +628,7 @@ function SourceFormDialog({
 	source,
 	descriptors,
 	initialType,
+	initialEnvironment,
 	showRouting = false,
 	bindingForSignal,
 	onSetBinding,
@@ -635,6 +642,7 @@ function SourceFormDialog({
 	source: SourceRow | null;
 	descriptors: TypeDescriptor[];
 	initialType?: string;
+	initialEnvironment?: string;
 	showRouting?: boolean;
 	bindingForSignal?: (signal: Signal) => BindingRow | undefined;
 	onSetBinding?: (signal: Signal, sourceId: string) => Promise<void>;
@@ -648,7 +656,7 @@ function SourceFormDialog({
 	const messages = getMessage();
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
-	const [environment, setEnvironment] = useState(source?.environment || "production");
+	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
 	const [type, setType] = useState(source?.type || initialType || descriptors[0]?.type || "");
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
@@ -930,18 +938,20 @@ function SourceFormDialog({
 function StackDialog({
 	templates,
 	descriptors,
+	initialEnvironment,
 	onClose,
 	onSaved,
 }: {
 	templates: StackTemplate[];
 	descriptors: TypeDescriptor[];
+	initialEnvironment?: string;
 	onClose: () => void;
 	onSaved: () => void;
 }) {
 	const messages = getMessage();
 	const [templateKey, setTemplateKey] = useState(templates[0]?.template || "");
 	const [name, setName] = useState("");
-	const [environment, setEnvironment] = useState("production");
+	const [environment, setEnvironment] = useState(initialEnvironment || "production");
 	const [slotValues, setSlotValues] = useState<
 		Record<string, Record<string, string | boolean>>
 	>({});

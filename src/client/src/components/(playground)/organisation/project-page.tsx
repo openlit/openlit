@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import ProjectPageHeader from "./project-page-header";
 import { getCurrentOrganisation } from "@/selectors/organisation";
@@ -17,6 +17,7 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 	const projects = useRootStore(getProjectList) || [];
 	const currentProject = useRootStore(getCurrentProject);
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
+	const [projectEnvironments, setProjectEnvironments] = useState<string[]>([]);
 	const project = useMemo(
 		() => projects.find((item) => item.id === projectId) || (currentProject?.id === projectId ? currentProject : { id: projectId, organisationId: "", name: projectId, slug: "-", isDefault: false, isCurrent: false, createdAt: "" }),
 		[currentProject, projectId, projects]
@@ -26,6 +27,9 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 		if (currentOrg?.id) {
 			fetchProjectList(currentOrg.id);
 			fetchDatabaseConfigList(() => undefined);
+			fetch("/api/project/environment").then((response) => response.ok ? response.json() : { environments: [] }).then((body) => {
+				setProjectEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name)])));
+			}).catch(() => undefined);
 		}
 	}, [currentOrg?.id]);
 
@@ -41,7 +45,10 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 			)
 		: "-";
 	const environments = Array.from(
-		new Set(databaseConfigs.map((config) => config.environment || "production"))
+		new Set([
+			...projectEnvironments,
+			...databaseConfigs.map((config) => config.environment || "production"),
+		])
 	);
 
 	return (

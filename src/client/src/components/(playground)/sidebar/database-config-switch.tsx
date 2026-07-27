@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import Link from "next/link";
+import { Cable, ChevronDown, Database, FolderKanban, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { fetchDatabaseConfigList, changeActiveDatabaseConfig } from "@/helpers/client/database-config";
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { headerScopeTriggerClassName } from "../header-scope-pill";
+import getMessage from "@/constants/messages";
 
 type Environment = { name: string };
 
@@ -27,6 +29,7 @@ export default function DatabaseConfigSwitch({
   contentAlign?: "center" | "end" | "start";
   contentSide?: "bottom" | "left" | "right" | "top";
 }) {
+  const messages = getMessage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -139,6 +142,17 @@ export default function DatabaseConfigSwitch({
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Project management</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href="/organisation"><FolderKanban className="mr-2 size-3.5" />{messages.MANAGE_PROJECTS}</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/telemetry"><Database className="mr-2 size-3.5" />{messages.MANAGE_DATA}</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/connectors"><Cable className="mr-2 size-3.5" />{messages.MANAGE_CONNECTORS}</Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
               <Plus className="mr-2 size-3.5" />

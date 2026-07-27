@@ -45,7 +45,6 @@ export interface MetricParams {
 	/** Explicit project ClickHouse configuration selected by the request. */
 	databaseConfigId?: string;
 	environment?: string;
-	sourceId?: string;
 }
 
 export type GPU_TYPE_KEY =
