@@ -32,6 +32,7 @@ type ConnectorType = {
 	category?: string;
 	icon?: string;
 	declaredSignals?: string[];
+	plan?: "free" | "enterprise";
 };
 
 export default function ConnectorsPage() {
@@ -201,10 +202,17 @@ export default function ConnectorsPage() {
 												height={32}
 												className="h-8 w-8 shrink-0 object-contain"
 											/>
-											<div className="min-w-0">
-												<p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">
-													{type.displayName}
-												</p>
+												<div className="min-w-0">
+													<div className="flex items-center gap-1.5">
+														<p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">
+															{type.displayName}
+														</p>
+														{type.plan === "enterprise" ? (
+															<Badge className="shrink-0 bg-amber-100 px-1.5 py-0 text-[9px] font-semibold text-amber-800 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-950/60">
+																Premium
+															</Badge>
+														) : null}
+													</div>
 												<p className="text-[11px] text-muted-foreground">
 													{type.type}
 												</p>
