@@ -214,7 +214,8 @@ export async function resolveSignalSource(
 		options.projectId !== undefined
 			? options.projectId
 			: await getCurrentProjectId();
-	const environment = normalizeEnvironment(options.environment);
+	const activeDatabase = options.environment ? null : await getDBConfigByUser(true);
+	const environment = normalizeEnvironment(options.environment || activeDatabase?.environment || "production");
 
 	// 1. Explicit override — project-scoped only.
 	if (options.sourceId) {

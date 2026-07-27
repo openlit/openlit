@@ -8,6 +8,19 @@ import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
 import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "./organisation";
 import { validateDatabaseHost } from "@/utils/validation";
+import { createProjectEnvironment, normalizeProjectEnvironment } from "./project-environment";
+
+async function ensureEnvironmentDatabaseBindings(projectId: string, databaseConfigId: string, environment: string) {
+	if (!prisma.telemetrySourceBinding?.findUnique) return;
+	for (const signal of ["traces", "logs", "metrics"]) {
+		const existing = await prisma.telemetrySourceBinding.findUnique({
+			where: { projectId_signal_environment: { projectId, signal, environment } },
+		});
+		if (!existing) {
+			await prisma.telemetrySourceBinding.create({ data: { projectId, signal, environment, databaseConfigId } });
+		}
+	}
+}
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -19,7 +32,6 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const currentProject = currentOrg?.id
 		? await getCurrentProjectForOrganisation(currentOrg.id)
 		: null;
-
 	// Auto-migrate orphaned configs: If user has a current organisation, move any orphaned configs
 	// they have access to into its current project. This handles edge cases where migration didn't run
 	// or new orphaned configs were created.
@@ -150,11 +162,15 @@ export const upsertDBConfig = async (
 	const currentProject = currentOrg?.id
 		? await getCurrentProjectForOrganisation(currentOrg.id)
 		: null;
+	const environment = normalizeProjectEnvironment(dbConfig.environment || "production");
+	dbConfig.environment = environment;
+	if (currentProject?.id) await createProjectEnvironment(environment);
 
 	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,
 			projectId: currentProject?.id || null,
+			environment,
 			NOT: {
 				id,
 			},
@@ -194,7 +210,7 @@ export const upsertDBConfig = async (
 			name_projectId_environment: {
 				name: dbConfig.name,
 				projectId: currentProject.id,
-				environment: dbConfig.environment || "production",
+				environment,
 			},
 		};
 		const [err, result] = await asaw(
@@ -251,6 +267,9 @@ export const upsertDBConfig = async (
 			canShare: true,
 		});
 		migrations(createddbConfig.id);
+	}
+	if (createddbConfig.projectId) {
+		await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
 	}
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
