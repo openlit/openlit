@@ -11,6 +11,9 @@ func TestParseCgroupV1(t *testing.T) {
 	if info.PodUID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
 		t.Fatalf("uid=%q", info.PodUID)
 	}
+	if info.ContainerID != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
+		t.Fatalf("containerID=%q", info.ContainerID)
+	}
 }
 
 func TestParseCgroupV2(t *testing.T) {
@@ -25,8 +28,15 @@ func TestParseCgroupV2(t *testing.T) {
 	}
 }
 
-func TestParseCgroupNone(t *testing.T) {
-	if _, ok := ParseCgroup("0::/user.slice/user-1000.slice/session-1.scope"); ok {
-		t.Fatal("expected not ok")
+func TestParseCgroupBareContainerID(t *testing.T) {
+	cid := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	content := `0::/kubepods/poda1b2c3d4-e5f6-7890-abcd-ef1234567890/` + cid
+	info, ok := ParseCgroup(content)
+	if !ok {
+		t.Fatal("expected ok")
+	}
+	if info.ContainerID != cid {
+		t.Fatalf("containerID=%q", info.ContainerID)
 	}
 }
+

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/amdsmi"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/drmfdinfo"
 )
 
@@ -21,19 +22,18 @@ const (
 
 // Device implements gpu.Device for AMD GPUs via sysfs/hwmon.
 type Device struct {
-	info      gpu.DeviceInfo
-	drmPath   string // e.g. /sys/class/drm/card0/device
-	hwmonPath string // e.g. /sys/class/hwmon/hwmon3
-	logger    *slog.Logger
+	info        gpu.DeviceInfo
+	drmPath     string // e.g. /sys/class/drm/card0/device
+	hwmonPath   string // e.g. /sys/class/hwmon/hwmon3
+	vendorIndex int    // 0-based among AMD devices (for amdsmi)
+	logger      *slog.Logger
 }
 
 // DiscoverDevices scans sysfs for AMD GPU DRM cards and resolves their hwmon paths.
+// When pciAddresses is empty, all amdgpu DRM cards are discovered (PCI-less fallback).
 func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger) ([]*Device, error) {
-	if len(pciAddresses) == 0 {
-		return nil, nil
-	}
-
 	addrSet := make(map[string]bool, len(pciAddresses))
+	filter := len(pciAddresses) > 0
 	for _, a := range pciAddresses {
 		addrSet[strings.ToLower(a)] = true
 	}
@@ -45,6 +45,7 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 
 	var devices []*Device
 	idx := startIndex
+	vendorIdx := 0
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -59,7 +60,7 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 			continue
 		}
 
-		if !addrSet[strings.ToLower(pciAddr)] {
+		if filter && !addrSet[strings.ToLower(pciAddr)] {
 			continue
 		}
 
@@ -93,11 +94,13 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 				PCIAddress:    pciAddr,
 				DriverVersion: driverVersion,
 			},
-			drmPath:   devPath,
-			hwmonPath: hwmon,
-			logger:    logger.With("gpu", idx, "vendor", "amd"),
+			drmPath:     devPath,
+			hwmonPath:   hwmon,
+			vendorIndex: vendorIdx,
+			logger:      logger.With("gpu", idx, "vendor", "amd"),
 		})
 		idx++
+		vendorIdx++
 	}
 
 	return devices, nil
@@ -128,11 +131,62 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 	}
 	if s.MemoryTotalBytes != nil && s.MemoryUsedBytes != nil {
 		free := *s.MemoryTotalBytes - *s.MemoryUsedBytes
+		if free < 0 {
+			free = 0
+		}
 		s.MemoryFreeBytes = &free
 	}
 
 	if d.hwmonPath != "" {
 		d.collectHwmon(s)
+	}
+
+	if m, ok := amdsmi.Collect(d.vendorIndex); ok {
+		if m.Utilization != nil && s.Utilization == nil {
+			s.Utilization = m.Utilization
+		}
+		if m.PowerWatts != nil && s.PowerDrawWatts == nil {
+			s.PowerDrawWatts = m.PowerWatts
+		}
+		if m.TemperatureC != nil && s.TemperatureGPU == nil {
+			s.TemperatureGPU = m.TemperatureC
+		}
+		if m.MemoryTotal != nil && s.MemoryTotalBytes == nil {
+			s.MemoryTotalBytes = m.MemoryTotal
+		}
+		if m.MemoryUsed != nil && s.MemoryUsedBytes == nil {
+			s.MemoryUsedBytes = m.MemoryUsed
+		}
+		if m.PCIeRxBytesPerSec != nil {
+			s.PCIeRxBytesPerSec = m.PCIeRxBytesPerSec
+		}
+		if m.PCIeTxBytesPerSec != nil {
+			s.PCIeTxBytesPerSec = m.PCIeTxBytesPerSec
+		}
+		if m.PCIeReplayErrors != nil {
+			s.PCIeReplayErrors = m.PCIeReplayErrors
+		}
+		if m.InterconnectRxBytesPerSec != nil {
+			s.InterconnectRxBytesPerSec = m.InterconnectRxBytesPerSec
+			s.InterconnectType = "xgmi"
+		}
+		if m.InterconnectTxBytesPerSec != nil {
+			s.InterconnectTxBytesPerSec = m.InterconnectTxBytesPerSec
+			s.InterconnectType = "xgmi"
+		}
+		if m.ThrottleReasons != nil {
+			s.ThrottleReasons = m.ThrottleReasons
+		}
+		if m.Throttled != nil {
+			s.Throttled = m.Throttled
+		}
+		if m.EncoderUtilization != nil {
+			s.EncoderUtilization = m.EncoderUtilization
+		}
+	}
+	if ce, ue := amdsmi.CollectRAS(d.drmPath); ce != nil || ue != nil {
+		s.RASCE = ce
+		s.RASUE = ue
 	}
 
 	return s, nil

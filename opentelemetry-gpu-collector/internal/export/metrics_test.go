@@ -61,7 +61,7 @@ func TestNewMetricsCollectorRegisters(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, logger)
+	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, logger, nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() error = %v", err)
 	}
@@ -104,6 +104,9 @@ func TestNewMetricsCollectorRegisters(t *testing.T) {
 		"hw.gpu.clock.graphics",
 		"hw.gpu.clock.memory",
 		"hw.errors",
+		"hw.gpu.up",
+		"hw.gpu.allocated",
+		"hw.gpu.idle",
 	}
 	for _, name := range wantMetrics {
 		if !reported[name] {
@@ -138,7 +141,7 @@ func TestProcessGPUMetrics(t *testing.T) {
 		}},
 	}
 
-	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, slog.Default())
+	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector: %v", err)
 	}
@@ -172,7 +175,7 @@ func TestNewMetricsCollectorNoDevices(t *testing.T) {
 	provider := metric.NewMeterProvider()
 	defer provider.Shutdown(t.Context())
 
-	mc, err := NewMetricsCollector(provider, nil, slog.Default())
+	mc, err := NewMetricsCollector(provider, nil, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() with no devices error = %v", err)
 	}
@@ -183,7 +186,7 @@ func TestMetricsCollectorCloseIdempotent(t *testing.T) {
 	provider := metric.NewMeterProvider()
 	defer provider.Shutdown(t.Context())
 
-	mc, err := NewMetricsCollector(provider, nil, slog.Default())
+	mc, err := NewMetricsCollector(provider, nil, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() error = %v", err)
 	}

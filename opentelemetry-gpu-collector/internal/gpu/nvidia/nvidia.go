@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
@@ -56,6 +57,14 @@ type Device struct {
 	logger              *slog.Logger
 	lastUtilTimestamp   uint64
 	migMemoryOnlyLogged bool
+
+	nvlinkRxPrev uint64
+	nvlinkTxPrev uint64
+	nvlinkLast   time.Time
+	xidCount     int64
+	eventSet     *nvml.EventSet
+	closed       int32
+	xidDone      chan struct{}
 }
 
 // DiscoverDevices returns all NVIDIA GPUs detected by NVML.
@@ -75,6 +84,7 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 	}
 
 	devices := make([]*Device, 0, count)
+	idx := 0
 	for i := 0; i < count; i++ {
 		handle, ret := nvml.DeviceGetHandleByIndex(i)
 		if ret != nvml.SUCCESS {
@@ -90,19 +100,63 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 			coreCount = cores
 		}
 
-		devices = append(devices, &Device{
+		parent := &Device{
 			handle: handle,
 			info: gpu.DeviceInfo{
 				Vendor:        gpu.VendorNVIDIA,
-				Index:         i,
+				Index:         idx,
 				Name:          name,
 				UUID:          uuid,
 				PCIAddress:    pciAddressString(pciInfo),
 				DriverVersion: driverVersion,
 				CoreCount:     coreCount,
 			},
-			logger: logger.With("gpu", i, "vendor", "nvidia"),
-		})
+			logger: logger.With("gpu", idx, "vendor", "nvidia"),
+		}
+		idx++
+		parent.startXIDWatcher(parent.logger)
+		devices = append(devices, parent)
+
+		// Enumerate MIG instances as first-class devices when enabled.
+		current, pending, ret := handle.GetMigMode()
+		if ret == nvml.SUCCESS && current == nvml.DEVICE_MIG_ENABLE {
+			_ = pending
+			maxMig, ret := handle.GetMaxMigDeviceCount()
+			if ret != nvml.SUCCESS {
+				continue
+			}
+			for mi := 0; mi < maxMig; mi++ {
+				migHandle, ret := handle.GetMigDeviceHandleByIndex(mi)
+				if ret != nvml.SUCCESS {
+					continue
+				}
+				migName, _ := migHandle.GetName()
+				migUUID, _ := migHandle.GetUUID()
+				giID := -1
+				if id, ret := migHandle.GetGpuInstanceId(); ret == nvml.SUCCESS {
+					giID = id
+				}
+				migDev := &Device{
+					handle: migHandle,
+					info: gpu.DeviceInfo{
+						Vendor:         gpu.VendorNVIDIA,
+						Index:          idx,
+						Name:           migName,
+						UUID:           migUUID,
+						PCIAddress:     parent.info.PCIAddress,
+						DriverVersion:  driverVersion,
+						IsMIG:          true,
+						ParentUUID:     uuid,
+						MIGDeviceID:    migUUID,
+						MIGInstanceID:  giID,
+						MIGProfileName: migName,
+					},
+					logger: logger.With("gpu", idx, "vendor", "nvidia", "mig", true),
+				}
+				idx++
+				devices = append(devices, migDev)
+			}
+		}
 	}
 
 	return devices, nil
@@ -190,6 +244,10 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 		s.ECCDoubleBit = &v
 	}
 
+	if !d.info.IsMIG {
+		collectExtended(d, s)
+	}
+
 	return s, nil
 }
 
@@ -256,7 +314,9 @@ func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
 	return out, nil
 }
 
-func (d *Device) Close() {}
+func (d *Device) Close() {
+	d.stopXIDWatcher()
+}
 
 func pciAddressString(pci nvml.PciInfo) string {
 	// PciInfo.BusId is a fixed-size byte array; convert to string.

@@ -44,7 +44,7 @@ type engineSample struct {
 
 // clientsCacheTTL is long enough to cover one metrics callback with multiple
 // AMD/Intel devices, short enough that consecutive scrapes still re-scan.
-const clientsCacheTTL = 200 * time.Millisecond
+const clientsCacheTTL = time.Second
 
 func NewScanner() *Scanner {
 	return &Scanner{prev: make(map[string]engineSample)}

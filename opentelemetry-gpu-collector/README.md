@@ -26,7 +26,13 @@ Metric names and attributes follow the [OpenTelemetry semantic conventions for h
 - **OTel semantic conventions** — `hw.gpu.*` metric names, `hw.id` / `hw.name` / `hw.vendor` attributes
 - **Host metrics** — CPU utilization, memory, disk I/O, filesystem, network I/O (Linux, macOS, Windows)
 - **Process metrics** — self-process CPU, memory, threads, file descriptors, Go runtime stats
-- **Cross-vendor GPU support** — NVIDIA (NVML), AMD, Intel on **Linux and Windows** (Windows: NVML / DXGI+PDH)
+- **Cross-vendor GPU support** — NVIDIA (NVML), AMD, Intel on **Linux and Windows** (Windows: NVML / DXGI+PDH+ADL / Level Zero)
+- **Fleet signals** — `hw.gpu.up`, `hw.gpu.allocated`, `hw.gpu.idle` for available vs active device aggregations
+- **LLM process attribution** — cmdline, OS state (incl. zombie), owner, uptime, framework classification (`vllm`, `ollama`, …)
+- **Kubernetes enrichment** — kubelet PodResources GPU→pod join (+ auto pod API when `K8S_NODE_NAME` is set)
+- **PCIe / interconnect / health** — PCIe/NVLink/XGMI/throttle/XID/RAS when the driver exposes them (soft-omitted otherwise)
+- **MIG devices** — NVIDIA MIG instances as first-class devices (**Linux only**; MIG is not available on Windows)
+- **Encoder/decoder util** — NVIDIA NVENC/NVDEC; AMD/Intel via media engines or Windows PDH (AMD combined VCN → encoder only)
 - **eBPF CUDA tracing** (opt-in, Linux only) — kernel launch counts, grid/block sizes, memory allocations, memory copies
 - **Lightweight** — single static binary, no Python dependencies
 - **Resilient** — stays alive on systems without GPUs, retries discovery every 30s

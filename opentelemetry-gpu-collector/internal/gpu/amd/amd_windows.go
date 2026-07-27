@@ -7,17 +7,18 @@ import (
 	"log/slog"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/adlx"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/windxg"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/winpdh"
 )
 
-// Device implements gpu.Device for AMD GPUs on Windows via DXGI + PDH.
-// ADLX is not linked (cgo-free); thermals/power are omitted when unavailable.
+// Device implements gpu.Device for AMD GPUs on Windows via DXGI + PDH + ADL.
 type Device struct {
-	info    gpu.DeviceInfo
-	adapter windxg.Adapter
-	luidKey string
-	logger  *slog.Logger
+	info        gpu.DeviceInfo
+	adapter     windxg.Adapter
+	luidKey     string
+	vendorIndex int // 0-based among AMD adapters (for ADL)
+	logger      *slog.Logger
 }
 
 // DiscoverDevices discovers AMD adapters via DXGI.
@@ -29,6 +30,7 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 	}
 	var devices []*Device
 	idx := startIndex
+	vendorIdx := 0
 	for _, a := range adapters {
 		if a.VendorID != windxg.VendorAMD {
 			continue
@@ -44,11 +46,13 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 				UUID:       uuid,
 				PCIAddress: pci,
 			},
-			adapter: a,
-			luidKey: a.LUIDKey,
-			logger:  logger.With("gpu", idx, "vendor", "amd"),
+			adapter:     a,
+			luidKey:     a.LUIDKey,
+			vendorIndex: vendorIdx,
+			logger:      logger.With("gpu", idx, "vendor", "amd"),
 		})
 		idx++
+		vendorIdx++
 	}
 	return devices, nil
 }
@@ -63,8 +67,16 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 	}
 	if au, ok := winpdh.AdapterSnapshot(d.luidKey); ok {
 		if au.HasUtil {
-			u := au.Util * 100 // Snapshot utilization is percent like Linux sysfs
+			u := au.Util * 100
 			s.Utilization = &u
+		}
+		if au.HasEnc {
+			e := au.EncoderUtil * 100
+			s.EncoderUtilization = &e
+		}
+		if au.HasDec {
+			dec := au.DecoderUtil * 100
+			s.DecoderUtilization = &dec
 		}
 		if au.HasMemory {
 			used := au.MemoryUsed
@@ -76,6 +88,27 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 				}
 				s.MemoryFreeBytes = &free
 			}
+		}
+	}
+	// Enrich with ADL using vendor-local index (not global gpu.index).
+	if m, ok := adlx.Collect(d.vendorIndex); ok {
+		if m.Utilization != nil {
+			s.Utilization = m.Utilization
+		}
+		if m.TemperatureC != nil {
+			s.TemperatureGPU = m.TemperatureC
+		}
+		if m.ClockMHz != nil {
+			s.ClockGraphicsMHz = m.ClockMHz
+		}
+		if m.VRAMClockMHz != nil {
+			s.ClockMemoryMHz = m.VRAMClockMHz
+		}
+		if m.FanRPM != nil {
+			s.FanSpeedRPM = m.FanRPM
+		}
+		if m.PowerWatts != nil {
+			s.PowerDrawWatts = m.PowerWatts
 		}
 	}
 	return s, nil

@@ -50,11 +50,15 @@ type ProcessSample struct {
 
 // AdapterUsage aggregates device-level util/memory from PDH for one LUID.
 type AdapterUsage struct {
-	LUIDKey    string
-	Util       float64 // 0..1
-	MemoryUsed int64
-	HasUtil    bool
-	HasMemory  bool
+	LUIDKey     string
+	Util        float64 // 0..1
+	EncoderUtil float64 // 0..1
+	DecoderUtil float64 // 0..1
+	MemoryUsed  int64
+	HasUtil     bool
+	HasEnc      bool
+	HasDec      bool
+	HasMemory   bool
 }
 
 type cache struct {
@@ -65,6 +69,43 @@ type cache struct {
 }
 
 var shared cache
+
+// Persistent PDH query: sample across scrapes instead of sleeping 50ms in-callback.
+type pdhSession struct {
+	mu         sync.Mutex
+	query      uintptr
+	engCounter uintptr
+	memCounter uintptr
+	ready      bool // true after first CollectQueryData (rates need two samples)
+}
+
+var session pdhSession
+
+func (s *pdhSession) ensure() error {
+	if s.query != 0 {
+		return nil
+	}
+	if err := modPdh.Load(); err != nil {
+		return fmt.Errorf("pdh.dll: %w", err)
+	}
+	var query uintptr
+	if ret := pdhCall(procPdhOpenQueryW, 0, 0, uintptr(unsafe.Pointer(&query))); ret != 0 {
+		return fmt.Errorf("PdhOpenQuery: 0x%X", ret)
+	}
+	var engCounter, memCounter uintptr
+	engPath, _ := windows.UTF16PtrFromString(`\GPU Engine(*)\Utilization Percentage`)
+	memPath, _ := windows.UTF16PtrFromString(`\GPU Process Memory(*)\Dedicated Usage`)
+	if ret := pdhCall(procPdhAddEnglishCounterW, query, uintptr(unsafe.Pointer(engPath)), 0, uintptr(unsafe.Pointer(&engCounter))); ret != 0 {
+		pdhCall(procPdhCloseQuery, query)
+		return fmt.Errorf("add GPU Engine counter: 0x%X", ret)
+	}
+	_ = pdhCall(procPdhAddEnglishCounterW, query, uintptr(unsafe.Pointer(memPath)), 0, uintptr(unsafe.Pointer(&memCounter)))
+	s.query = query
+	s.engCounter = engCounter
+	s.memCounter = memCounter
+	s.ready = false
+	return nil
+}
 
 // CollectForLUID returns ProcessUsage for processes on the given adapter LUID key.
 func CollectForLUID(luidKey string) ([]gpu.ProcessUsage, error) {
@@ -148,39 +189,27 @@ func scrape() ([]ProcessSample, map[string]AdapterUsage, error) {
 }
 
 func collectPDH() ([]ProcessSample, map[string]AdapterUsage, error) {
-	if err := modPdh.Load(); err != nil {
-		return nil, nil, fmt.Errorf("pdh.dll: %w", err)
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	if err := session.ensure(); err != nil {
+		return nil, nil, err
 	}
+	q := session.query
 
-	var query uintptr
-	if ret := pdhCall(procPdhOpenQueryW, 0, 0, uintptr(unsafe.Pointer(&query))); ret != 0 {
-		return nil, nil, fmt.Errorf("PdhOpenQuery: 0x%X", ret)
-	}
-	defer pdhCall(procPdhCloseQuery, query)
-
-	var engCounter, memCounter uintptr
-	engPath, _ := windows.UTF16PtrFromString(`\GPU Engine(*)\Utilization Percentage`)
-	memPath, _ := windows.UTF16PtrFromString(`\GPU Process Memory(*)\Dedicated Usage`)
-
-	if ret := pdhCall(procPdhAddEnglishCounterW, query, uintptr(unsafe.Pointer(engPath)), 0, uintptr(unsafe.Pointer(&engCounter))); ret != 0 {
-		return nil, nil, fmt.Errorf("add GPU Engine counter: 0x%X", ret)
-	}
-	// Memory counter may be missing on some SKUs — continue without it.
-	_ = pdhCall(procPdhAddEnglishCounterW, query, uintptr(unsafe.Pointer(memPath)), 0, uintptr(unsafe.Pointer(&memCounter)))
-
-	// Two collects needed for rate-based util counters.
-	if ret := pdhCall(procPdhCollectQueryData, query); ret != 0 && ret != pdhNoData {
+	if ret := pdhCall(procPdhCollectQueryData, q); ret != 0 && ret != pdhNoData {
 		return nil, nil, fmt.Errorf("PdhCollectQueryData: 0x%X", ret)
 	}
-	time.Sleep(50 * time.Millisecond)
-	if ret := pdhCall(procPdhCollectQueryData, query); ret != 0 && ret != pdhNoData {
-		return nil, nil, fmt.Errorf("PdhCollectQueryData(2): 0x%X", ret)
+	if !session.ready {
+		// First sample primes rate counters; return empty util without sleeping.
+		session.ready = true
+		return nil, map[string]AdapterUsage{}, nil
 	}
 
-	byKey := make(map[string]*ProcessSample) // pid|luid
+	byKey := make(map[string]*ProcessSample)
 	adapters := make(map[string]AdapterUsage)
 
-	if engItems, err := formattedArray(engCounter); err == nil {
+	if engItems, err := formattedArray(session.engCounter); err == nil {
 		for _, it := range engItems {
 			inst := ParseInstance(it.Name)
 			if inst.PID <= 0 || inst.LUIDKey == "" {
@@ -216,18 +245,29 @@ func collectPDH() ([]ProcessSample, map[string]AdapterUsage, error) {
 
 			au := adapters[inst.LUIDKey]
 			au.LUIDKey = inst.LUIDKey
-			if IsPrimaryCompute(inst.EngType) {
+			switch NormalizeEngType(inst.EngType) {
+			case "3d", "compute":
 				if utilFrac > au.Util {
 					au.Util = utilFrac
 				}
 				au.HasUtil = true
+			case "encode":
+				if utilFrac > au.EncoderUtil {
+					au.EncoderUtil = utilFrac
+				}
+				au.HasEnc = true
+			case "decode":
+				if utilFrac > au.DecoderUtil {
+					au.DecoderUtil = utilFrac
+				}
+				au.HasDec = true
 			}
 			adapters[inst.LUIDKey] = au
 		}
 	}
 
-	if memCounter != 0 {
-		if memItems, err := formattedArray(memCounter); err == nil {
+	if session.memCounter != 0 {
+		if memItems, err := formattedArray(session.memCounter); err == nil {
 			for _, it := range memItems {
 				inst := ParseInstance(it.Name)
 				if inst.PID <= 0 || inst.LUIDKey == "" {

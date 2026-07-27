@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -26,6 +27,7 @@ const (
 	nvmlMemoryErrorCorrected   = 0
 	nvmlMemoryErrorUncorrected = 1
 	nvmlVolatileECC            = 0
+	nvmlFeatureEnabled         = 1
 )
 
 var (
@@ -54,6 +56,10 @@ var (
 	nvmlDeviceGetDecoderUtilization     *windows.LazyProc
 	nvmlDeviceGetNumGpuCores            *windows.LazyProc
 	nvmlSystemGetDriverVersion          *windows.LazyProc
+	nvmlDeviceGetPcieThroughput         *windows.LazyProc
+	nvmlDeviceGetCurrentClocksThrottleReasons *windows.LazyProc
+	nvmlDeviceGetNvLinkState            *windows.LazyProc
+	nvmlDeviceGetNvLinkUtilizationCounter *windows.LazyProc
 )
 
 type nvmlUtilization struct {
@@ -79,10 +85,13 @@ type nvmlPciInfo struct {
 
 // Device implements gpu.Device for NVIDIA GPUs via nvml.dll on Windows.
 type Device struct {
-	handle  uintptr
-	info    gpu.DeviceInfo
-	luidKey string
-	logger  *slog.Logger
+	handle       uintptr
+	info         gpu.DeviceInfo
+	luidKey      string
+	logger       *slog.Logger
+	nvlinkRxPrev uint64
+	nvlinkTxPrev uint64
+	nvlinkLast   time.Time
 }
 
 func loadNVML() error {
@@ -135,6 +144,10 @@ func bindProcs() {
 	nvmlDeviceGetDecoderUtilization = nvmlDLL.NewProc("nvmlDeviceGetDecoderUtilization")
 	nvmlDeviceGetNumGpuCores = nvmlDLL.NewProc("nvmlDeviceGetNumGpuCores")
 	nvmlSystemGetDriverVersion = nvmlDLL.NewProc("nvmlSystemGetDriverVersion")
+	nvmlDeviceGetPcieThroughput = nvmlDLL.NewProc("nvmlDeviceGetPcieThroughput")
+	nvmlDeviceGetCurrentClocksThrottleReasons = nvmlDLL.NewProc("nvmlDeviceGetCurrentClocksThrottleReasons")
+	nvmlDeviceGetNvLinkState = nvmlDLL.NewProc("nvmlDeviceGetNvLinkState")
+	nvmlDeviceGetNvLinkUtilizationCounter = nvmlDLL.NewProc("nvmlDeviceGetNvLinkUtilizationCounter")
 }
 
 // InitNVML initializes NVML via nvml.dll.
@@ -189,19 +202,11 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 		driverVersion = cString(drvBuf[:])
 	}
 
-	luidByPCI := map[string]string{}
+	var nvidiaLUIDs []string
 	if adapters, err := windxg.EnumAdapters(); err == nil {
 		for _, a := range adapters {
-			if a.VendorID != windxg.VendorNVIDIA {
-				continue
-			}
-			// Match later by name/index; store all NVIDIA LUIDs by index order
-			_ = a
-		}
-		// Build PCI-ish keys from DXGI is limited; match by device order + name below.
-		for _, a := range adapters {
 			if a.VendorID == windxg.VendorNVIDIA {
-				luidByPCI[a.Name] = a.LUIDKey
+				nvidiaLUIDs = append(nvidiaLUIDs, a.LUIDKey)
 			}
 		}
 	}
@@ -236,29 +241,18 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 			coreCount = int(cores)
 		}
 
-		luidKey := luidByPCI[name]
-		if luidKey == "" {
-			// Fall back: first unused NVIDIA adapter LUID by enumeration order.
-			if adapters, err := windxg.EnumAdapters(); err == nil {
-				nIdx := 0
-				for _, a := range adapters {
-					if a.VendorID != windxg.VendorNVIDIA {
-						continue
-					}
-					if uint32(nIdx) == i {
-						luidKey = a.LUIDKey
-						break
-					}
-					nIdx++
-				}
-			}
+		// Match LUID by successful NVIDIA ordinal (not display name — duplicates collide).
+		ord := len(devices)
+		luidKey := ""
+		if ord < len(nvidiaLUIDs) {
+			luidKey = nvidiaLUIDs[ord]
 		}
 
 		devices = append(devices, &Device{
 			handle: handle,
 			info: gpu.DeviceInfo{
 				Vendor:        gpu.VendorNVIDIA,
-				Index:         int(i),
+				Index:         ord,
 				Name:          name,
 				UUID:          uuid,
 				PCIAddress:    pciAddr,
@@ -266,7 +260,7 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 				CoreCount:     coreCount,
 			},
 			luidKey: luidKey,
-			logger:  logger.With("gpu", i, "vendor", "nvidia"),
+			logger:  logger.With("gpu", ord, "vendor", "nvidia"),
 		})
 	}
 	return devices, nil
@@ -354,7 +348,76 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 		s.ECCDoubleBit = &v
 	}
 
+	// PCIe throughput (KB/s)
+	const pcieUtilRX = 1
+	const pcieUtilTX = 0
+	var thr uint32
+	if ret, _, _ := nvmlDeviceGetPcieThroughput.Call(h, pcieUtilRX, uintptr(unsafe.Pointer(&thr))); ret == nvmlSuccess {
+		v := float64(thr) * 1024.0
+		s.PCIeRxBytesPerSec = &v
+	}
+	if ret, _, _ := nvmlDeviceGetPcieThroughput.Call(h, pcieUtilTX, uintptr(unsafe.Pointer(&thr))); ret == nvmlSuccess {
+		v := float64(thr) * 1024.0
+		s.PCIeTxBytesPerSec = &v
+	}
+
+	var reasons uint64
+	if ret, _, _ := nvmlDeviceGetCurrentClocksThrottleReasons.Call(h, uintptr(unsafe.Pointer(&reasons))); ret == nvmlSuccess {
+		label := fmt.Sprintf("0x%x", reasons)
+		s.ThrottleReasons = &label
+		th := 0.0
+		if reasons&(32|64|8|4|128) != 0 { // thermal/power bits
+			th = 1.0
+		}
+		s.Throttled = &th
+	}
+
+	collectNvLinkWindows(d, s)
+
 	return s, nil
+}
+
+func collectNvLinkWindows(d *Device, s *gpu.Snapshot) {
+	if nvmlDeviceGetNvLinkState == nil || nvmlDeviceGetNvLinkUtilizationCounter == nil {
+		return
+	}
+	var rxTotal, txTotal uint64
+	var links int
+	now := time.Now()
+	for link := uint32(0); link < 18; link++ {
+		var state uint32
+		ret, _, _ := nvmlDeviceGetNvLinkState.Call(d.handle, uintptr(link), uintptr(unsafe.Pointer(&state)))
+		if ret != nvmlSuccess || state != nvmlFeatureEnabled {
+			continue
+		}
+		var rx, tx uint64
+		ret, _, _ = nvmlDeviceGetNvLinkUtilizationCounter.Call(
+			d.handle, uintptr(link), 0,
+			uintptr(unsafe.Pointer(&rx)), uintptr(unsafe.Pointer(&tx)),
+		)
+		if ret != nvmlSuccess {
+			continue
+		}
+		rxTotal += rx
+		txTotal += tx
+		links++
+	}
+	if links == 0 {
+		return
+	}
+	s.InterconnectType = "nvlink"
+	if !d.nvlinkLast.IsZero() {
+		dt := now.Sub(d.nvlinkLast).Seconds()
+		if dt > 0 && rxTotal >= d.nvlinkRxPrev && txTotal >= d.nvlinkTxPrev {
+			rxRate := float64(rxTotal-d.nvlinkRxPrev) / dt
+			txRate := float64(txTotal-d.nvlinkTxPrev) / dt
+			s.InterconnectRxBytesPerSec = &rxRate
+			s.InterconnectTxBytesPerSec = &txRate
+		}
+	}
+	d.nvlinkRxPrev = rxTotal
+	d.nvlinkTxPrev = txTotal
+	d.nvlinkLast = now
 }
 
 func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {

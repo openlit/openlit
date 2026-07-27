@@ -1,4 +1,3 @@
-// Package workload resolves PIDs to Kubernetes pod identity via cgroup paths.
 package workload
 
 import (
@@ -14,19 +13,22 @@ type PodInfo struct {
 	PodName       string
 	Namespace     string
 	ContainerName string
+	ContainerID   string
+	// DeviceIDs are GPU UUIDs (or vendor device ids) from PodResources allocations.
+	DeviceIDs []string
+	// PIDs is populated by PodResources when the kubelet exposes container PIDs.
+	PIDs []int32
 }
 
 var (
 	// cgroup v1: .../kubepods/.../pod<UID>/...
-	// cgroup v2: .../kubepods.slice/kubepods-...-pod<UID>.slice/...
+	// cgroup v2: .../kubepods.slice/kubepods-...-pod<uid>.slice/...
 	podUIDRe = regexp.MustCompile(`pod([0-9a-fA-F_-]{8,})`)
-	// cri-containerd / docker container id (64 hex) often appears after pod UID
-	containerIDRe = regexp.MustCompile(`(?:cri-containerd-|docker-|crio-)([0-9a-f]{64})`)
+	// cri-containerd / docker / crio container id (64 hex), or bare 64-hex after pod path
+	containerIDRe = regexp.MustCompile(`(?:(?:cri-containerd-|docker-|crio-)|(?:pod[0-9a-fA-F_-]+[./]))([0-9a-f]{64})`)
 )
 
-// ResolvePod reads /proc/<pid>/cgroup and extracts pod UID when present.
-// Pod name/namespace require an optional lookup; without it only UID is set
-// (exported as k8s.pod.uid-compatible attribute by callers that map further).
+// ResolvePod reads /proc/<pid>/cgroup and extracts pod UID / container id when present.
 func ResolvePod(pid int32) (PodInfo, bool) {
 	if pid <= 0 {
 		return PodInfo{}, false
@@ -42,7 +44,6 @@ func ResolvePod(pid int32) (PodInfo, bool) {
 func ParseCgroup(content string) (PodInfo, bool) {
 	info := PodInfo{}
 	for _, line := range strings.Split(content, "\n") {
-		// format: hierarchy-ID:controller-list:cgroup-path
 		parts := strings.SplitN(line, ":", 3)
 		path := line
 		if len(parts) == 3 {
@@ -53,32 +54,16 @@ func ParseCgroup(content string) (PodInfo, bool) {
 			info.PodUID = uid
 		}
 		if m := containerIDRe.FindStringSubmatch(path); len(m) > 1 {
-			// Container name is not in cgroup; leave empty. Callers may enrich.
-			_ = m
-		}
-		// Best-effort: systemd style kubepods-<qos>-pod<uid>.slice
-		if info.PodName == "" {
-			if name, ns := parsePodNameFromPath(path); name != "" {
-				info.PodName = name
-				info.Namespace = ns
-			}
+			info.ContainerID = m[1]
 		}
 	}
-	if info.PodUID == "" && info.PodName == "" {
+	if info.PodUID == "" && info.PodName == "" && info.ContainerID == "" {
 		return PodInfo{}, false
 	}
 	return info, true
 }
 
-// parsePodNameFromPath looks for /.../<namespace>/<podname>/... patterns used by
-// some runtimes; often absent — returns empty.
-func parsePodNameFromPath(path string) (name, namespace string) {
-	// Downward API / annotated paths are not standard in cgroup; keep minimal.
-	_ = path
-	return "", ""
-}
-
-// Resolver caches ResolvePod results for a scrape cycle.
+// Resolver caches ResolvePod results for a scrape cycle (cgroup-only).
 type Resolver struct {
 	cache map[int32]PodInfo
 }
@@ -89,7 +74,7 @@ func NewResolver() *Resolver {
 
 func (r *Resolver) Resolve(pid int32) (PodInfo, bool) {
 	if info, ok := r.cache[pid]; ok {
-		return info, info.PodUID != "" || info.PodName != ""
+		return info, info.PodUID != "" || info.PodName != "" || info.ContainerID != ""
 	}
 	info, ok := ResolvePod(pid)
 	if ok {

@@ -53,15 +53,21 @@ func run(logger *slog.Logger) error {
 	}
 	defer shutdownProvider()
 
-	// --- Host metrics (always-on, works on all platforms) ---
-	sysColl, err := hostmetrics.NewSystemCollector(provider, logger)
-	if err != nil {
-		logger.Warn("system metrics unavailable", "error", err)
-	}
-
-	procColl, err := hostmetrics.NewProcessCollector(provider, logger)
-	if err != nil {
-		logger.Warn("process metrics unavailable", "error", err)
+	// --- Host metrics (optional; default on for auto-collect) ---
+	var sysColl *hostmetrics.SystemCollector
+	var procColl *hostmetrics.ProcessCollector
+	if cfg.HostMetricsEnabled {
+		var err error
+		sysColl, err = hostmetrics.NewSystemCollector(provider, logger)
+		if err != nil {
+			logger.Warn("system metrics unavailable", "error", err)
+		}
+		procColl, err = hostmetrics.NewProcessCollector(provider, logger)
+		if err != nil {
+			logger.Warn("process metrics unavailable", "error", err)
+		}
+	} else {
+		logger.Info("host metrics disabled")
 	}
 
 	// --- GPU device discovery with retry ---
@@ -109,6 +115,7 @@ func run(logger *slog.Logger) error {
 			for _, d := range devices {
 				d.Close()
 			}
+			nvidia.ShutdownNVML()
 			if sysColl != nil {
 				sysColl.Close()
 			}
@@ -156,7 +163,7 @@ func setupCollectors(
 	devices []gpu.Device,
 	logger *slog.Logger,
 ) (*export.MetricsCollector, *gpuebpf.Tracer, *export.OccupancyMetrics) {
-	mc, err := export.NewMetricsCollector(provider, devices, logger)
+	mc, err := export.NewMetricsCollector(provider, devices, logger, cfg)
 	if err != nil {
 		logger.Error("failed to create metrics collector", "error", err)
 		return nil, nil, nil
@@ -243,24 +250,24 @@ func discoverAllGPUsWindows(logger *slog.Logger) ([]gpu.Device, error) {
 	return allDevices, nil
 }
 
-// discoverAllGPUsLinux finds GPUs on the PCI bus and instantiates backends.
+// discoverAllGPUsLinux finds GPUs on Linux. NVIDIA is tried via NVML even when
+// PCI sysfs is incomplete (common in some containers). AMD/Intel use PCI addresses
+// when available, with DRM/Level Zero fallbacks inside their discoverers.
 func discoverAllGPUsLinux(logger *slog.Logger) ([]gpu.Device, error) {
 	pciDevices, err := discovery.Discover(logger)
 	if err != nil {
-		return nil, err
+		logger.Debug("PCI discovery incomplete", "error", err)
+		pciDevices = nil
 	}
 
 	var (
 		allDevices  []gpu.Device
-		nvidiaAddrs []string
 		amdAddrs    []string
 		intelAddrs  []string
 	)
 
 	for _, d := range pciDevices {
 		switch d.Vendor {
-		case gpu.VendorNVIDIA:
-			nvidiaAddrs = append(nvidiaAddrs, d.Address)
 		case gpu.VendorAMD:
 			amdAddrs = append(amdAddrs, d.Address)
 		case gpu.VendorIntel:
@@ -270,38 +277,33 @@ func discoverAllGPUsLinux(logger *slog.Logger) ([]gpu.Device, error) {
 
 	idx := 0
 
-	if len(nvidiaAddrs) > 0 {
-		nvDevices, err := nvidia.DiscoverDevices(logger)
-		if err != nil {
-			logger.Warn("NVIDIA discovery failed", "error", err)
-		} else {
-			for _, d := range nvDevices {
-				allDevices = append(allDevices, d)
-				idx++
-			}
+	// Always attempt NVML — do not gate on PCI class scan.
+	nvDevices, err := nvidia.DiscoverDevices(logger)
+	if err != nil {
+		logger.Warn("NVIDIA discovery failed", "error", err)
+	} else {
+		for _, d := range nvDevices {
+			allDevices = append(allDevices, d)
+			idx++
 		}
 	}
 
-	if len(amdAddrs) > 0 {
-		amdDevices, err := amd.DiscoverDevices(amdAddrs, idx, logger)
-		if err != nil {
-			logger.Warn("AMD discovery failed", "error", err)
-		} else {
-			for _, d := range amdDevices {
-				allDevices = append(allDevices, d)
-				idx++
-			}
+	amdDevices, err := amd.DiscoverDevices(amdAddrs, idx, logger)
+	if err != nil {
+		logger.Warn("AMD discovery failed", "error", err)
+	} else {
+		for _, d := range amdDevices {
+			allDevices = append(allDevices, d)
+			idx++
 		}
 	}
 
-	if len(intelAddrs) > 0 {
-		intelDevices, err := intel.DiscoverDevices(intelAddrs, idx, logger)
-		if err != nil {
-			logger.Warn("Intel discovery failed", "error", err)
-		} else {
-			for _, d := range intelDevices {
-				allDevices = append(allDevices, d)
-			}
+	intelDevices, err := intel.DiscoverDevices(intelAddrs, idx, logger)
+	if err != nil {
+		logger.Warn("Intel discovery failed", "error", err)
+	} else {
+		for _, d := range intelDevices {
+			allDevices = append(allDevices, d)
 		}
 	}
 

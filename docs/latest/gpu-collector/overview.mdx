@@ -19,10 +19,10 @@ It is fully configured via standard OpenTelemetry environment variables and foll
 
 <CardGroup cols={3}>
   <Card title="GPU Hardware Telemetry" icon="microchip">
-    Utilization, memory, temperature, power draw, energy, clock speeds, ECC errors, PCIe errors - for NVIDIA, AMD, and Intel GPUs on Linux and Windows
+    Utilization, memory, temperature, power, energy, clocks, PCIe/interconnect throughput, throttle, ECC/XID/RAS — NVIDIA, AMD, and Intel on Linux and Windows
   </Card>
-  <Card title="Host System Metrics" icon="server">
-    CPU utilization, memory usage, disk I/O, filesystem usage, and network I/O - on Linux, macOS, and Windows
+  <Card title="Process + workload attribution" icon="user">
+    Per-process VRAM/util plus cmdline, OS state (zombie), owner, uptime, and LLM framework labels (`vllm`, `ollama`, …). Kubernetes pod name/namespace via PodResources
   </Card>
   <Card title="eBPF CUDA Tracing" icon="code">
     Kernel launch counts, grid/block sizes, memory allocations, and memory copies - via uprobes on libcudart.so (opt-in, Linux only)
@@ -33,9 +33,9 @@ It is fully configured via standard OpenTelemetry environment variables and foll
 
 | Vendor | Linux | Windows |
 |---|---|---|
-| **NVIDIA** | NVML (`libnvidia-ml.so`) | NVML (`nvml.dll`) + PDH process attribution |
-| **AMD** | sysfs + hwmon + DRM fdinfo | DXGI + PDH (util/memory/process); thermals/power limited vs Linux |
-| **Intel** | sysfs + hwmon + DRM fdinfo | DXGI + PDH (util/memory/process); thermals/power limited vs Linux |
+| **NVIDIA** | NVML (+ MIG, NVLink, XID events) | NVML (`nvml.dll`, NVLink) + PDH process attribution (MIG not available on Windows) |
+| **AMD** | sysfs/hwmon/DRM + `libamd_smi` (PCIe/XGMI/throttle/RAS when present) | DXGI + PDH (incl. encode/decode) + ADL (util/temp/clocks/fan) |
+| **Intel** | DRM/hwmon + Level Zero Sysman (util/VRAM/power/media) | DXGI + PDH (incl. encode/decode) + Level Zero Sysman |
 
 ## Platform support
 
