@@ -248,13 +248,15 @@ Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires `CAP_BPF` + `CAP_PERFMON` or 
 
 ### Device Discovery
 
-The collector scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` (VGA), `0x0302` (3D controller), and `0x0380` (display controller), then maps the vendor ID:
+**Linux:** scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` / `0x0302` / `0x0380`, then maps vendor ID:
 
 | Vendor ID | Backend | Collected metrics |
 |---|---|---|
-| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — loads `libnvidia-ml.so` at runtime | Utilization, memory, temperature, power, energy, clocks, ECC errors, PCIe errors, fan speed |
-| `0x1002` (AMD) | sysfs + hwmon — zero external dependencies | Utilization, memory, temperature, power, energy, fan speed |
-| `0x8086` (Intel) | sysfs + hwmon + DRM (i915/Xe driver) — requires Linux kernel 5.10+ | Temperature, power draw/limit, cumulative energy, graphics clock, fan speed (kernel 6.16+) |
+| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — `libnvidia-ml.so` | Utilization, memory, temperature, power, energy, clocks, ECC, PCIe |
+| `0x1002` (AMD) | sysfs + hwmon + DRM fdinfo | Utilization, memory, temperature, power, energy, fan, processes |
+| `0x8086` (Intel) | sysfs + hwmon + DRM (i915/Xe) | Temperature, power, energy, clocks, fan*, processes |
+
+**Windows:** NVIDIA via `nvml.dll` (LoadLibrary); AMD/Intel via DXGI adapter enum + PDH `\GPU Engine` / `\GPU Process Memory` for util and per-process attribution. eBPF CUDA tracing is not available on Windows.
 
 ### eBPF CUDA Tracing
 

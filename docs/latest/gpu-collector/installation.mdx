@@ -43,7 +43,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 ```
 
 <Note>
-GPU metrics (NVML, sysfs) and eBPF tracing only work on Linux. On macOS and Windows the binary runs with host and process metrics only.
+GPU device and process metrics work on **Linux and Windows** (NVIDIA via NVML; AMD/Intel via sysfs on Linux or DXGI+PDH on Windows). eBPF CUDA tracing and occupancy are **Linux only**. On macOS the binary runs with host and process metrics only.
 </Note>
 
 Verify the SHA256 checksum from the `SHA256SUMS.txt` file in the release:

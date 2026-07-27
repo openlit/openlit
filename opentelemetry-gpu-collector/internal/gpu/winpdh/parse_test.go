@@ -24,11 +24,11 @@ func TestParseInstanceMemory(t *testing.T) {
 
 func TestNormalizeEngType(t *testing.T) {
 	cases := map[string]string{
-		"3D":           "3d",
-		"Compute_0":    "compute",
-		"VideoDecode":  "decode",
-		"VideoEncode":  "encode",
-		"Copy":         "copy",
+		"3D":          "3d",
+		"Compute_0":   "compute",
+		"VideoDecode": "decode",
+		"VideoEncode": "encode",
+		"Copy":        "copy",
 	}
 	for in, want := range cases {
 		if got := NormalizeEngType(in); got != want {
