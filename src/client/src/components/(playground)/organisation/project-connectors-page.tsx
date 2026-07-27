@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Database, Layers, Plug } from "lucide-react";
+import { Layers } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import DatabaseConfigPage from "@/components/(playground)/database-config/database-config-page";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
 import ProjectPageHeader from "./project-page-header";
 import getMessage from "@/constants/messages";
@@ -49,40 +48,7 @@ export default function ProjectConnectorsPage({ projectId }: { projectId?: strin
 					</div>
 				</div>
 			</section>
-			<section className="border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
-				<div className="border-b border-stone-200 p-4 dark:border-stone-800">
-					<div className="flex items-center gap-2">
-						<Database className="h-4 w-4 text-primary" />
-						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
-							{messages.PROJECT_DATABASE_CONFIGS} · ClickHouse connectors
-						</h2>
-					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
-						{messages.PROJECT_CONNECTORS_DESCRIPTION}
-					</p>
-				</div>
-				<div className="flex min-h-[360px] overflow-hidden">
-					<DatabaseConfigPage />
-				</div>
-			</section>
-
-			<section className="border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
-				<div className="border-b border-stone-200 p-4 dark:border-stone-800">
-					<div className="flex items-center gap-2">
-						<Plug className="h-4 w-4 text-primary" />
-						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
-							{messages.PROJECT_DATA_SOURCES} · {environment}
-						</h2>
-					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
-						Connect external traces, logs, and metrics providers and route each
-						signal to the connector that should serve it.
-					</p>
-				</div>
-				<div className="flex min-h-[520px] overflow-hidden">
-					<DataSourcesPage projectId={projectId} />
-				</div>
-			</section>
+			<DataSourcesPage projectId={projectId} />
 			</div>
 			</FeatureAccess>
 		</div>

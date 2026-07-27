@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import DatabaseConfigPage from "@/components/(playground)/database-config/database-config-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +100,34 @@ function parseSignals(csv: string): Signal[] {
 		.split(",")
 		.map((s) => s.trim())
 		.filter((s): s is Signal => SIGNALS.includes(s as Signal));
+}
+
+function ConnectorOption({
+	value,
+	name,
+	type,
+	icon,
+	detail,
+}: {
+	value: string;
+	name: string;
+	type: string;
+	icon?: string;
+	detail?: string;
+}) {
+	return (
+		<SelectItem value={value} className="py-2.5">
+			<div className="flex min-w-0 items-center gap-2.5">
+				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+					<Image src={icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
+				</div>
+				<div className="min-w-0 text-left">
+					<p className="truncate text-xs font-medium text-stone-950 dark:text-stone-50">{name}</p>
+					<p className="truncate text-[10px] text-muted-foreground">{type}{detail ? ` · ${detail}` : ""}</p>
+				</div>
+			</div>
+		</SelectItem>
+	);
 }
 
 async function jsonFetch(url: string, init?: RequestInit) {
@@ -191,6 +220,10 @@ export default function DataSourcesPage({
 		),
 		[bindings, environment]
 	);
+	const environmentDatabases = useMemo(
+		() => databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === environment),
+		[databaseConfigs, environment]
+	);
 
 	const setBinding = async (signal: Signal, sourceId: string) => {
 		toast.loading(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
@@ -274,6 +307,19 @@ export default function DataSourcesPage({
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
+			<section className="border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+				<div className="border-b border-stone-200 p-4 dark:border-stone-800">
+					<div className="flex items-center gap-2">
+						<Database className="h-4 w-4 text-primary" />
+						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">ClickHouse connectors · {environment}</h2>
+					</div>
+					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment can have one or more ClickHouse targets; the default target powers derived intelligence.</p>
+				</div>
+				<div className="flex min-h-[360px] overflow-hidden">
+					<DatabaseConfigPage />
+				</div>
+			</section>
+
 			{/* Locked built-in / derived intelligence indicator */}
 			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 				<div className="mb-3 flex items-center gap-2">
@@ -286,14 +332,13 @@ export default function DataSourcesPage({
 					<Label className="text-xs uppercase text-muted-foreground">
 						{messages.DATA_SOURCE_BUILTIN_FIELD_LABEL}
 					</Label>
-					<Select value={BUILTIN} disabled>
+					<Select value={environmentDatabases[0] ? `builtin:${environmentDatabases[0].id}` : BUILTIN} disabled={!environmentDatabases.length}>
 						<SelectTrigger className="w-full max-w-md bg-stone-50 dark:bg-stone-900">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value={BUILTIN}>
-								{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}
-							</SelectItem>
+							{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
+							{!environmentDatabases.length && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}
 						</SelectContent>
 					</Select>
 					<p className="text-xs text-muted-foreground">
@@ -317,9 +362,7 @@ export default function DataSourcesPage({
 				<div className="grid gap-3 sm:grid-cols-3">
 					{SIGNALS.map((signal) => {
 						const binding = bindingForSignal(signal);
-						const currentDatabase = databaseConfigs.find(
-							(db) => (db.environment || "production").toLowerCase() === environment
-						);
+						const currentDatabase = environmentDatabases[0];
 						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 						const options = visibleSources.filter((s) =>
 							parseSignals(s.signals).includes(signal)
@@ -343,19 +386,13 @@ export default function DataSourcesPage({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{databaseConfigs
-											.filter((db) => (db.environment || "production").toLowerCase() === environment)
-											.map((db) => (
-												<SelectItem key={db.id} value={`builtin:${db.id}`}>
-													{db.name} · ClickHouse
-												</SelectItem>
-											))}
-						{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === environment).length === 0 && <SelectItem value={BUILTIN}>{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}</SelectItem>}
-										{options.map((s) => (
-											<SelectItem key={s.id} value={s.id}>
-												{s.name} ({s.type})
-											</SelectItem>
-										))}
+						{environmentDatabases.map((db) => (
+							<ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />
+						))}
+						{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}
+						{options.map((s) => (
+							<ConnectorOption key={s.id} value={s.id} name={s.name} type={s.type} detail={environment} icon={descriptors.find((d) => d.type === s.type)?.icon} />
+						))}
 									</SelectContent>
 								</Select>
 							</div>
@@ -611,12 +648,13 @@ function SignalRoutingEditor({
 			<div className="grid gap-2 sm:grid-cols-3">
 				{SIGNALS.map((signal) => {
 					const binding = bindingForSignal(signal);
-					const currentDatabase = databaseConfigs.find(
-						(db) => (db.environment || "production").toLowerCase() === routingEnvironment
-					);
+											const currentDatabase = databaseConfigs.find(
+												(db) => (db.environment || "production").toLowerCase() === routingEnvironment
+											);
 					const value = binding?.sourceId || (binding?.sourceName ? "" : currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 					const eligibleSources = sources.filter((item) => parseSignals(item.signals).includes(signal));
-					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label><Select value={value || BUILTIN} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="bg-white dark:bg-stone-900"><SelectValue /></SelectTrigger><SelectContent>{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment).map((db) => <SelectItem key={db.id} value={`builtin:${db.id}`}>{db.name} · ClickHouse</SelectItem>)}{databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment).length === 0 && <SelectItem value={BUILTIN}>{messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION}</SelectItem>}{eligibleSources.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} · {item.type}</SelectItem>)}</SelectContent></Select></div>;
+					const routingDatabases = databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment);
+					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label><Select value={value || BUILTIN} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="bg-white dark:bg-stone-900"><SelectValue /></SelectTrigger><SelectContent>{routingDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={routingEnvironment} icon="/images/connectors/clickhouse.svg" />)}{routingDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}{eligibleSources.map((item) => <ConnectorOption key={item.id} value={item.id} name={item.name} type={item.type} detail={routingEnvironment} />)}</SelectContent></Select></div>;
 				})}
 			</div>
 			<p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER(source.name, routingEnvironment)}</p>
