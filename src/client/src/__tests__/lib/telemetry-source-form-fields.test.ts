@@ -11,8 +11,6 @@ import { applyHttpAuthCredentials } from "@/lib/platform/datasource/http/auth-he
 import { tempoAdapterFactory } from "@/lib/platform/datasource/grafana/tempo";
 import { lokiAdapterFactory } from "@/lib/platform/datasource/grafana/loki";
 import { mimirAdapterFactory } from "@/lib/platform/datasource/grafana/prometheus";
-import { datadogAdapterFactory } from "@/lib/platform/datasource/datadog/adapter";
-import { newrelicAdapterFactory } from "@/lib/platform/datasource/newrelic/adapter";
 import { victoriaLogsAdapterFactory } from "@/lib/platform/datasource/victoria/logs";
 import { victoriaMetricsAdapterFactory } from "@/lib/platform/datasource/victoria/metrics";
 
@@ -108,13 +106,4 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		expect(urlField(mimirAdapterFactory)).toContain("prometheus");
 	});
 
-	it("keeps Datadog / New Relic on vendor-specific keys", () => {
-		expect(datadogAdapterFactory.describe().configFields.map((f) => f.key)).toEqual(
-			expect.arrayContaining(["site", "apiKey", "appKey"])
-		);
-		expect(newrelicAdapterFactory.describe().configFields.map((f) => f.key)).toEqual(
-			expect.arrayContaining(["region", "accountId", "apiKey"])
-		);
-		expect(datadogAdapterFactory.describe().authStyle).toBe("api-key");
-	});
 });

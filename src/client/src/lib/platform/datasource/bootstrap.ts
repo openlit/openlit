@@ -1,7 +1,7 @@
 /**
  * Adapter bootstrap. Registers the built-in ClickHouse reference factory plus
- * the atomic external vendor factories (Datadog, Tempo, Loki, Mimir/Prometheus,
- * New Relic, Jaeger, VictoriaLogs, VictoriaMetrics) exactly once.
+ * the free/self-hosted external vendor factories (Tempo, Loki,
+ * Mimir/Prometheus, Jaeger, VictoriaLogs, VictoriaMetrics) exactly once.
  *
  * Multi-backend "stack" umbrellas (grafana/victoria) register as internal,
  * descriptor-only factories that carry a `stackTemplate` (see `stacks.ts`);
@@ -13,14 +13,12 @@
 
 import { registerAdapterFactory } from "./registry";
 import { clickHouseAdapterFactory } from "./clickhouse/adapter";
-import { datadogAdapterFactory } from "./datadog/adapter";
 import { tempoAdapterFactory } from "./grafana/tempo";
 import { lokiAdapterFactory } from "./grafana/loki";
 import {
 	prometheusAdapterFactory,
 	mimirAdapterFactory,
 } from "./grafana/prometheus";
-import { newrelicAdapterFactory } from "./newrelic/adapter";
 import { jaegerAdapterFactory } from "./jaeger/adapter";
 import { victoriaMetricsAdapterFactory } from "./victoria/metrics";
 import { victoriaLogsAdapterFactory } from "./victoria/logs";
@@ -29,12 +27,10 @@ import { getExternalDataSourceAdapters } from "./enterprise";
 import { registerDatasourceConnectorTypes } from "../connectors/datasource";
 
 const VENDOR_FACTORIES = [
-	datadogAdapterFactory,
 	tempoAdapterFactory,
 	lokiAdapterFactory,
 	prometheusAdapterFactory,
 	mimirAdapterFactory,
-	newrelicAdapterFactory,
 	jaegerAdapterFactory,
 	victoriaMetricsAdapterFactory,
 	victoriaLogsAdapterFactory,
