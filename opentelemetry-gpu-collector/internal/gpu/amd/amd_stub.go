@@ -1,6 +1,6 @@
-//go:build !(linux && (amd64 || arm64) && cgo) && !(windows && (amd64 || arm64))
+//go:build !linux && !windows
 
-package nvidia
+package amd
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 )
 
-// Device is a stub for platforms/builds where NVML is unavailable.
 type Device struct {
 	info gpu.DeviceInfo
 }
@@ -22,14 +21,10 @@ func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
 }
 func (d *Device) Close() {}
 
-func DiscoverDevices(_ *slog.Logger) ([]*Device, error) {
+func DiscoverDevices(_ []string, _ int, _ *slog.Logger) ([]*Device, error) {
 	return nil, errUnsupported()
 }
 
-func InitNVML() error { return errUnsupported() }
-
-func ShutdownNVML() {}
-
 func errUnsupported() error {
-	return fmt.Errorf("NVIDIA NVML support requires linux/(amd64|arm64)+cgo or windows/(amd64|arm64) (current: %s/%s)", runtime.GOOS, runtime.GOARCH)
+	return fmt.Errorf("AMD GPU monitoring requires linux or windows (current: %s/%s)", runtime.GOOS, runtime.GOARCH)
 }

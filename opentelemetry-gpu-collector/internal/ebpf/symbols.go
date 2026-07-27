@@ -41,6 +41,8 @@ func NewSymbolResolver(logger *slog.Logger) *SymbolResolver {
 	}
 }
 
+const maxSymbolCachePIDs = 512
+
 // Resolve looks up the symbol name for a given PID and virtual address.
 func (sr *SymbolResolver) Resolve(pid uint32, addr uint64) string {
 	sr.mu.RLock()
@@ -50,6 +52,13 @@ func (sr *SymbolResolver) Resolve(pid uint32, addr uint64) string {
 	if !ok {
 		st = sr.loadSymbols(pid)
 		sr.mu.Lock()
+		if len(sr.cache) >= maxSymbolCachePIDs {
+			// Drop an arbitrary entry; process churn is rare relative to launches.
+			for k := range sr.cache {
+				delete(sr.cache, k)
+				break
+			}
+		}
 		sr.cache[pid] = st
 		sr.mu.Unlock()
 	}

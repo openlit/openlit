@@ -1,3 +1,5 @@
+//go:build linux
+
 package amd
 
 import (
@@ -9,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/drmfdinfo"
 )
 
 const (
@@ -18,10 +21,10 @@ const (
 
 // Device implements gpu.Device for AMD GPUs via sysfs/hwmon.
 type Device struct {
-	info       gpu.DeviceInfo
-	drmPath    string // e.g. /sys/class/drm/card0/device
-	hwmonPath  string // e.g. /sys/class/hwmon/hwmon3
-	logger     *slog.Logger
+	info      gpu.DeviceInfo
+	drmPath   string // e.g. /sys/class/drm/card0/device
+	hwmonPath string // e.g. /sys/class/hwmon/hwmon3
+	logger    *slog.Logger
 }
 
 // DiscoverDevices scans sysfs for AMD GPU DRM cards and resolves their hwmon paths.
@@ -185,6 +188,10 @@ func (d *Device) collectHwmon(s *gpu.Snapshot) {
 }
 
 func (d *Device) Close() {}
+
+func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
+	return drmfdinfo.Shared().CollectForPCI(d.info.PCIAddress, map[string]bool{"amdgpu": true})
+}
 
 // findHwmonForDevice locates the hwmon directory associated with a DRM device path.
 func findHwmonForDevice(drmDevicePath string) string {

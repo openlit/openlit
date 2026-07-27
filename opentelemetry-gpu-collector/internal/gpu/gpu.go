@@ -18,6 +18,9 @@ type DeviceInfo struct {
 	UUID          string
 	PCIAddress    string
 	DriverVersion string
+	// CoreCount is the NVML CUDA core count when known (NVIDIA). Used by the
+	// eBPF stream-sync occupancy model for process.gpu.core.usage normalization.
+	CoreCount int
 }
 
 // Snapshot holds a point-in-time reading of all GPU metrics.
@@ -48,9 +51,23 @@ type Snapshot struct {
 	ECCDoubleBit     *int64 // uncorrectable ECC errors
 }
 
+// ProcessUsage holds per-process GPU memory and utilization for one device.
+// Nil pointer fields indicate the metric is unavailable for this process.
+type ProcessUsage struct {
+	PID            int32
+	ExecutableName string
+	MemoryBytes    *int64
+	Utilization    *float64 // 0..1 primary compute/render util
+	EncoderUtil    *float64
+	DecoderUtil    *float64
+}
+
 // Device is the interface that all vendor GPU backends implement.
 type Device interface {
 	Info() DeviceInfo
 	Collect() (*Snapshot, error)
+	// CollectProcesses returns processes currently using this GPU.
+	// Returns an empty slice (not an error) when unsupported or none are found.
+	CollectProcesses() ([]ProcessUsage, error)
 	Close()
 }

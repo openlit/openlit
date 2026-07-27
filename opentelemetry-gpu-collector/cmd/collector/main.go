@@ -68,14 +68,16 @@ func run(logger *slog.Logger) error {
 	var devices []gpu.Device
 	var mc *export.MetricsCollector
 	var ebpfTracer *gpuebpf.Tracer
+	var occMetrics *export.OccupancyMetrics
 
-	// GPU discovery only makes sense on Linux (PCI sysfs, NVML, etc.)
-	gpuCapable := runtime.GOOS == "linux"
+	// GPU discovery: Linux (PCI/sysfs/NVML) and Windows (NVML/DXGI/PDH).
+	// macOS and others keep host/process metrics only.
+	gpuCapable := runtime.GOOS == "linux" || runtime.GOOS == "windows"
 
 	if gpuCapable {
 		devices = tryDiscoverGPUs(logger)
 		if len(devices) > 0 {
-			mc, ebpfTracer = setupCollectors(ctx, cfg, provider, devices, logger)
+			mc, ebpfTracer, occMetrics = setupCollectors(ctx, cfg, provider, devices, logger)
 		} else {
 			logger.Warn("no GPUs discovered at startup; will retry periodically")
 		}
@@ -97,6 +99,9 @@ func run(logger *slog.Logger) error {
 			cancel()
 			if ebpfTracer != nil {
 				ebpfTracer.Close()
+			}
+			if occMetrics != nil {
+				occMetrics.Close()
 			}
 			if mc != nil {
 				mc.Close()
@@ -120,7 +125,7 @@ func run(logger *slog.Logger) error {
 			logger.Info("retrying GPU discovery...")
 			devices = tryDiscoverGPUs(logger)
 			if len(devices) > 0 {
-				mc, ebpfTracer = setupCollectors(ctx, cfg, provider, devices, logger)
+				mc, ebpfTracer, occMetrics = setupCollectors(ctx, cfg, provider, devices, logger)
 				logger.Info("GPUs discovered on retry", "count", len(devices))
 			}
 		}
@@ -150,35 +155,96 @@ func setupCollectors(
 	provider *sdkmetric.MeterProvider,
 	devices []gpu.Device,
 	logger *slog.Logger,
-) (*export.MetricsCollector, *gpuebpf.Tracer) {
+) (*export.MetricsCollector, *gpuebpf.Tracer, *export.OccupancyMetrics) {
 	mc, err := export.NewMetricsCollector(provider, devices, logger)
 	if err != nil {
 		logger.Error("failed to create metrics collector", "error", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var ebpfTracer *gpuebpf.Tracer
+	var occ *export.OccupancyMetrics
 	if cfg.EBPFEnabled {
 		ebpfMetrics, err := export.NewEBPFMetrics(provider, logger)
 		if err != nil {
 			logger.Warn("failed to create eBPF metrics instruments", "error", err)
 		} else {
-			tracer, err := gpuebpf.NewTracer(logger, ebpfMetrics.HandleEvent)
+			var handlers []gpuebpf.EventHandler
+			handlers = append(handlers, ebpfMetrics.HandleEvent)
+
+			occ, err = export.NewOccupancyMetrics(provider, devices, logger)
+			if err != nil {
+				logger.Warn("failed to create occupancy metrics", "error", err)
+				occ = nil
+			} else {
+				handlers = append(handlers, occ.HandleEvent)
+			}
+
+			tracer, err := gpuebpf.NewTracer(logger, gpuebpf.MultiplexHandlers(handlers...))
 			if err != nil {
 				logger.Warn("eBPF CUDA tracing unavailable", "error", err)
+				if occ != nil {
+					occ.Close()
+					occ = nil
+				}
 			} else {
 				ebpfTracer = tracer
 				go ebpfTracer.Run(ctx)
-				logger.Info("eBPF CUDA tracing started")
+				logger.Info("eBPF CUDA tracing started (activity + stream-sync occupancy)")
 			}
 		}
 	}
 
-	return mc, ebpfTracer
+	return mc, ebpfTracer, occ
 }
 
-// discoverAllGPUs finds GPUs on the PCI bus and instantiates appropriate backends.
+// discoverAllGPUs finds GPUs and instantiates appropriate backends.
 func discoverAllGPUs(logger *slog.Logger) ([]gpu.Device, error) {
+	if runtime.GOOS == "windows" {
+		return discoverAllGPUsWindows(logger)
+	}
+	return discoverAllGPUsLinux(logger)
+}
+
+// discoverAllGPUsWindows uses NVML + DXGI (no PCI sysfs).
+func discoverAllGPUsWindows(logger *slog.Logger) ([]gpu.Device, error) {
+	var allDevices []gpu.Device
+	idx := 0
+
+	nvDevices, err := nvidia.DiscoverDevices(logger)
+	if err != nil {
+		logger.Warn("NVIDIA discovery failed", "error", err)
+	} else {
+		for _, d := range nvDevices {
+			allDevices = append(allDevices, d)
+			idx++
+		}
+	}
+
+	amdDevices, err := amd.DiscoverDevices(nil, idx, logger)
+	if err != nil {
+		logger.Warn("AMD discovery failed", "error", err)
+	} else {
+		for _, d := range amdDevices {
+			allDevices = append(allDevices, d)
+			idx++
+		}
+	}
+
+	intelDevices, err := intel.DiscoverDevices(nil, idx, logger)
+	if err != nil {
+		logger.Warn("Intel discovery failed", "error", err)
+	} else {
+		for _, d := range intelDevices {
+			allDevices = append(allDevices, d)
+		}
+	}
+
+	return allDevices, nil
+}
+
+// discoverAllGPUsLinux finds GPUs on the PCI bus and instantiates backends.
+func discoverAllGPUsLinux(logger *slog.Logger) ([]gpu.Device, error) {
 	pciDevices, err := discovery.Discover(logger)
 	if err != nil {
 		return nil, err
@@ -204,7 +270,6 @@ func discoverAllGPUs(logger *slog.Logger) ([]gpu.Device, error) {
 
 	idx := 0
 
-	// NVIDIA: use NVML for all NVIDIA GPUs at once
 	if len(nvidiaAddrs) > 0 {
 		nvDevices, err := nvidia.DiscoverDevices(logger)
 		if err != nil {
@@ -217,7 +282,6 @@ func discoverAllGPUs(logger *slog.Logger) ([]gpu.Device, error) {
 		}
 	}
 
-	// AMD: use sysfs for each AMD GPU
 	if len(amdAddrs) > 0 {
 		amdDevices, err := amd.DiscoverDevices(amdAddrs, idx, logger)
 		if err != nil {
@@ -230,7 +294,6 @@ func discoverAllGPUs(logger *slog.Logger) ([]gpu.Device, error) {
 		}
 	}
 
-	// Intel: use sysfs for each Intel GPU
 	if len(intelAddrs) > 0 {
 		intelDevices, err := intel.DiscoverDevices(intelAddrs, idx, logger)
 		if err != nil {

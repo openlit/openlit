@@ -75,6 +75,100 @@ make build
 
 ---
 
+## Kubernetes DaemonSet
+
+Run one collector per GPU node. Use the OpenTelemetry-recommended pattern: downward API → `K8S_NODE_NAME` → `OTEL_RESOURCE_ATTRIBUTES` with `host.name` and `k8s.node.name`. On GKE, AKS, and EKS the collector also auto-detects `k8s.cluster.name`, `cloud.provider`, and `host.type` (instance type) from the Kubernetes Node object and/or cloud metadata.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-gpu-collector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-gpu-collector-node-get
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-gpu-collector-node-get
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-gpu-collector-node-get
+subjects:
+  - kind: ServiceAccount
+    name: otel-gpu-collector
+    namespace: default # change to your namespace
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-gpu-collector
+spec:
+  selector:
+    matchLabels:
+      app: otel-gpu-collector
+  template:
+    metadata:
+      labels:
+        app: otel-gpu-collector
+    spec:
+      serviceAccountName: otel-gpu-collector
+      hostPID: true
+      containers:
+        - name: otel-gpu-collector
+          image: ghcr.io/openlit/otel-gpu-collector:latest
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: OTEL_SERVICE_NAME
+              value: otel-gpu-collector
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4317"
+            # Optional for on-prem / self-managed clusters:
+            # - name: K8S_CLUSTER_NAME
+            #   value: my-cluster
+            # Optional eBPF CUDA activity + stream-sync occupancy:
+            # - name: OTEL_GPU_EBPF_ENABLED
+            #   value: "true"
+          volumeMounts:
+            - name: pod-resources
+              mountPath: /var/lib/kubelet/pod-resources
+              readOnly: true
+            # AMD/Intel DRM:
+            # - name: dri
+            #   mountPath: /dev/dri
+          securityContext:
+            capabilities:
+              add: ["SYS_ADMIN"] # or privileged / CAP_BPF+CAP_PERFMON for eBPF
+      volumes:
+        - name: pod-resources
+          hostPath:
+            path: /var/lib/kubelet/pod-resources
+        # - name: dri
+        #   hostPath:
+        #     path: /dev/dri
+```
+
+<Note>
+`hostPID: true` is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. The `nodes/get` ClusterRole enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1).
+</Note>
+
+See [Configuration](/latest/gpu-collector/configuration) for identity env vars and detection order.
+
+---
+
 ## Upgrade
 
 ### Docker

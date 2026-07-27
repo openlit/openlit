@@ -61,4 +61,7 @@ func TestCUDAEventInterface(t *testing.T) {
 	var _ CUDAEvent = (*KernelLaunchEvent)(nil)
 	var _ CUDAEvent = (*MallocEvent)(nil)
 	var _ CUDAEvent = (*MemcpyEvent)(nil)
+	var _ CUDAEvent = (*SyncEvent)(nil)
+	var _ CUDAEvent = (*SetDeviceEvent)(nil)
+	var _ CUDAEvent = (*FreeEvent)(nil)
 }

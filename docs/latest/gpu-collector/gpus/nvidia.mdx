@@ -21,7 +21,7 @@ The collector monitors NVIDIA GPUs via [NVML](https://developer.nvidia.com/nvidi
 | `hw.gpu.memory.usage` | Used VRAM (bytes) |
 | `hw.gpu.memory.free` | Free VRAM (bytes) |
 | `hw.gpu.temperature` | Die and memory temperature (°C) via `sensor` attribute |
-| `hw.gpu.fan_speed` | Fan speed (RPM) |
+| `hw.gpu.fan_speed` | Fan speed (RPM) — not emitted; NVML reports percent only |
 | `hw.gpu.power.draw` | Current power draw (W) |
 | `hw.gpu.power.limit` | Power cap (W) |
 | `hw.gpu.energy.consumed` | Cumulative energy (J) |
@@ -80,6 +80,7 @@ spec:
       labels:
         app: otel-gpu-collector
     spec:
+      hostPID: true
       tolerations:
         - key: nvidia.com/gpu
           operator: Exists
@@ -102,7 +103,7 @@ spec:
 ```
 
 <Note>
-The collector does not need privileged mode for NVML - just access to `libnvidia-ml.so`. eBPF tracing requires `CAP_BPF` + `CAP_PERFMON`.
+The collector does not need privileged mode for NVML device metrics — just access to `libnvidia-ml.so`. Per-process attribution needs `hostPID: true`. eBPF tracing / stream-sync occupancy requires `CAP_BPF` + `CAP_PERFMON` (or privileged).
 </Note>
 
 ---

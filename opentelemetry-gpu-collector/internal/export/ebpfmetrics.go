@@ -4,19 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/procname"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
 
 // EBPFMetrics records eBPF CUDA tracing events as OTel metrics.
 type EBPFMetrics struct {
 	logger *slog.Logger
-	mu     sync.Mutex
 
 	kernelLaunchCalls metric.Int64Counter
 	kernelGridSize    metric.Float64Histogram
@@ -57,7 +60,7 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 
 	memAlloc, err := meter.Int64Counter("gpu.memory.allocations",
 		metric.WithDescription("Total bytes allocated via cudaMalloc"),
-		metric.WithUnit("bytes"),
+		metric.WithUnit("By"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating gpu.memory.allocations: %w", err)
@@ -65,7 +68,7 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 
 	memCopies, err := meter.Float64Histogram("gpu.memory.copies",
 		metric.WithDescription("Bytes copied per cudaMemcpy operation"),
-		metric.WithUnit("bytes"),
+		metric.WithUnit("By"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating gpu.memory.copies: %w", err)
@@ -81,8 +84,83 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 	}, nil
 }
 
+func pidAttrs(pid uint32, extra ...attribute.KeyValue) metric.MeasurementOption {
+	base := cachedPIDAttrs(pid)
+	if len(extra) == 0 {
+		return metric.WithAttributes(base...)
+	}
+	attrs := make([]attribute.KeyValue, 0, len(base)+len(extra))
+	attrs = append(attrs, base...)
+	attrs = append(attrs, extra...)
+	return metric.WithAttributes(attrs...)
+}
+
+type pidAttrCacheEntry struct {
+	attrs   []attribute.KeyValue
+	expires time.Time
+}
+
+var (
+	pidAttrMu    sync.Mutex
+	pidAttrCache = make(map[uint32]pidAttrCacheEntry)
+)
+
+const (
+	pidAttrTTL     = 5 * time.Second
+	pidAttrMaxSize = 4096
+)
+
+func cachedPIDAttrs(pid uint32) []attribute.KeyValue {
+	now := time.Now()
+	pidAttrMu.Lock()
+	if e, ok := pidAttrCache[pid]; ok && now.Before(e.expires) {
+		attrs := e.attrs
+		pidAttrMu.Unlock()
+		return attrs
+	}
+	pidAttrMu.Unlock()
+
+	attrs := []attribute.KeyValue{
+		attribute.String("process.pid", strconv.FormatUint(uint64(pid), 10)),
+		attribute.String("process.executable.name", procname.ExecutableName(int32(pid))),
+	}
+	if pod, ok := workload.ResolvePod(int32(pid)); ok {
+		if pod.PodUID != "" {
+			attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
+		}
+		if pod.PodName != "" {
+			attrs = append(attrs, attribute.String("k8s.pod.name", pod.PodName))
+		}
+		if pod.Namespace != "" {
+			attrs = append(attrs, attribute.String("k8s.namespace.name", pod.Namespace))
+		}
+	}
+
+	pidAttrMu.Lock()
+	if len(pidAttrCache) >= pidAttrMaxSize {
+		// Drop expired entries; if still full, clear half.
+		for k, e := range pidAttrCache {
+			if now.After(e.expires) {
+				delete(pidAttrCache, k)
+			}
+		}
+		if len(pidAttrCache) >= pidAttrMaxSize {
+			n := 0
+			for k := range pidAttrCache {
+				delete(pidAttrCache, k)
+				n++
+				if n >= pidAttrMaxSize/2 {
+					break
+				}
+			}
+		}
+	}
+	pidAttrCache[pid] = pidAttrCacheEntry{attrs: attrs, expires: now.Add(pidAttrTTL)}
+	pidAttrMu.Unlock()
+	return attrs
+}
+
 // HandleEvent processes a single CUDA event and records it as OTel metrics.
-// This is the EventHandler passed to the eBPF Tracer.
 func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 	ctx := context.Background()
 
@@ -92,7 +170,7 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		if kernelName == "" {
 			kernelName = fmt.Sprintf("0x%x", e.KernelAddr)
 		}
-		attrs := metric.WithAttributes(attribute.String("cuda.kernel.name", kernelName))
+		attrs := pidAttrs(e.PID, attribute.String("cuda.kernel.name", kernelName))
 
 		em.kernelLaunchCalls.Add(ctx, 1, attrs)
 
@@ -103,12 +181,11 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		em.kernelBlockSize.Record(ctx, blockTotal, attrs)
 
 	case *gpuebpf.MallocEvent:
-		em.memoryAllocations.Add(ctx, int64(e.Size))
+		em.memoryAllocations.Add(ctx, int64(e.Size), pidAttrs(e.PID))
 
 	case *gpuebpf.MemcpyEvent:
-		attrs := metric.WithAttributes(
+		em.memoryCopies.Record(ctx, float64(e.Size), pidAttrs(e.PID,
 			attribute.String("cuda.memcpy.kind", gpuebpf.MemcpyKindString(e.Kind)),
-		)
-		em.memoryCopies.Record(ctx, float64(e.Size), attrs)
+		))
 	}
 }

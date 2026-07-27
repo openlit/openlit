@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
 
 // MetricsCollector registers OTel observable instruments that poll GPU devices on each collection cycle.
@@ -142,8 +144,25 @@ func NewMetricsCollector(provider *sdkmetric.MeterProvider, devices []gpu.Device
 		return nil, fmt.Errorf("creating hw.gpu.clock.memory: %w", err)
 	}
 
+	procMemUsage, err := meter.Int64ObservableUpDownCounter("process.gpu.memory.usage",
+		metric.WithDescription("GPU memory used by a process on a device"),
+		metric.WithUnit("By"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating process.gpu.memory.usage: %w", err)
+	}
+
+	procUtil, err := meter.Float64ObservableGauge("process.gpu.utilization",
+		metric.WithDescription("Per-process GPU utilization (sampled; 0.0–1.0)"),
+		metric.WithUnit("1"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating process.gpu.utilization: %w", err)
+	}
+
 	reg, err := meter.RegisterCallback(
 		func(ctx context.Context, o metric.Observer) error {
+			podResolver := workload.NewResolver()
 			for _, dev := range mc.devices {
 				snap, err := dev.Collect()
 				if err != nil {
@@ -232,6 +251,30 @@ func NewMetricsCollector(provider *sdkmetric.MeterProvider, devices []gpu.Device
 					)...)
 					o.ObserveInt64(hwErrors, *snap.ECCDoubleBit, metric.WithAttributeSet(uncorrAttrs))
 				}
+
+				procs, err := dev.CollectProcesses()
+				if err != nil {
+					mc.logger.Debug("CollectProcesses failed", "gpu", info.Index, "error", err)
+				} else {
+					for _, pu := range procs {
+						pattrs := processAttrs(info, pu, podResolver)
+						if pu.MemoryBytes != nil {
+							o.ObserveInt64(procMemUsage, *pu.MemoryBytes, metric.WithAttributeSet(pattrs))
+						}
+						if pu.Utilization != nil {
+							general := attribute.NewSet(append(pattrs.ToSlice(), attribute.String("hw.gpu.task", "general"))...)
+							o.ObserveFloat64(procUtil, *pu.Utilization, metric.WithAttributeSet(general))
+						}
+						if pu.EncoderUtil != nil {
+							enc := attribute.NewSet(append(pattrs.ToSlice(), attribute.String("hw.gpu.task", "encoder"))...)
+							o.ObserveFloat64(procUtil, *pu.EncoderUtil, metric.WithAttributeSet(enc))
+						}
+						if pu.DecoderUtil != nil {
+							dec := attribute.NewSet(append(pattrs.ToSlice(), attribute.String("hw.gpu.task", "decoder"))...)
+							o.ObserveFloat64(procUtil, *pu.DecoderUtil, metric.WithAttributeSet(dec))
+						}
+					}
+				}
 			}
 			return nil
 		},
@@ -241,6 +284,7 @@ func NewMetricsCollector(provider *sdkmetric.MeterProvider, devices []gpu.Device
 		powerDraw, powerLimit, energyConsumed,
 		clockGraphics, clockMemory,
 		hwErrors,
+		procMemUsage, procUtil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("registering callback: %w", err)
@@ -267,4 +311,33 @@ func deviceAttrs(info gpu.DeviceInfo) attribute.Set {
 		attribute.Int("gpu.index", info.Index),
 		attribute.String("gpu.pci_address", info.PCIAddress),
 	)
+}
+
+func processAttrs(info gpu.DeviceInfo, pu gpu.ProcessUsage, pods *workload.Resolver) attribute.Set {
+	attrs := []attribute.KeyValue{
+		attribute.String("hw.id", info.UUID),
+		attribute.String("hw.name", info.Name),
+		attribute.String("hw.vendor", string(info.Vendor)),
+		attribute.Int("gpu.index", info.Index),
+		attribute.String("gpu.pci_address", info.PCIAddress),
+		attribute.String("process.pid", strconv.FormatInt(int64(pu.PID), 10)),
+		attribute.String("process.executable.name", pu.ExecutableName),
+	}
+	if pods != nil {
+		if pod, ok := pods.Resolve(pu.PID); ok {
+			if pod.PodUID != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
+			}
+			if pod.PodName != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.name", pod.PodName))
+			}
+			if pod.Namespace != "" {
+				attrs = append(attrs, attribute.String("k8s.namespace.name", pod.Namespace))
+			}
+			if pod.ContainerName != "" {
+				attrs = append(attrs, attribute.String("k8s.container.name", pod.ContainerName))
+			}
+		}
+	}
+	return attribute.NewSet(attrs...)
 }

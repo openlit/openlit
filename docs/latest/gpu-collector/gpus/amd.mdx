@@ -71,6 +71,7 @@ spec:
       labels:
         app: otel-gpu-collector
     spec:
+      hostPID: true
       containers:
         - name: collector
           image: ghcr.io/openlit/otel-gpu-collector:latest
@@ -87,11 +88,20 @@ spec:
             - name: sys
               mountPath: /sys
               readOnly: true
+            - name: dri
+              mountPath: /dev/dri
       volumes:
         - name: sys
           hostPath:
             path: /sys
+        - name: dri
+          hostPath:
+            path: /dev/dri
 ```
+
+<Note>
+`hostPID: true` and `/dev/dri` are required for per-process GPU attribution via DRM fdinfo.
+</Note>
 
 ---
 

@@ -1,3 +1,5 @@
+//go:build linux
+
 package intel
 
 import (
@@ -9,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/drmfdinfo"
 )
 
 const (
@@ -151,6 +154,13 @@ func (d *Device) collectHwmon(s *gpu.Snapshot) {
 }
 
 func (d *Device) Close() {}
+
+func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
+	return drmfdinfo.Shared().CollectForPCI(d.info.PCIAddress, map[string]bool{
+		"i915": true,
+		"xe":   true,
+	})
+}
 
 func findHwmonForDevice(drmDevicePath string) string {
 	hwmonDir := filepath.Join(drmDevicePath, "hwmon")
