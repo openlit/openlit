@@ -13,7 +13,7 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "./types";
-import { getExternalDataSourceAdapters } from "./enterprise";
+import { getExternalDataSourceAdapters } from "@/lib/platform/datasource/enterprise";
 
 const factories = new Map<string, DataSourceAdapterFactory>();
 let externalLoaded = false;

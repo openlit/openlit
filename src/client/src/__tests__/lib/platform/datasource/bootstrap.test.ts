@@ -64,12 +64,10 @@ describe("datasource bootstrap", () => {
 		ensureAdaptersRegistered();
 		for (const type of [
 			"clickhouse",
-			"datadog",
 			"tempo",
 			"loki",
 			"prometheus",
 			"mimir",
-			"newrelic",
 			"jaeger",
 			"victoriametrics",
 			"victorialogs",

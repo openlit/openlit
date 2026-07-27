@@ -23,7 +23,7 @@ import { jaegerAdapterFactory } from "./jaeger/adapter";
 import { victoriaMetricsAdapterFactory } from "./victoria/metrics";
 import { victoriaLogsAdapterFactory } from "./victoria/logs";
 import { STACK_UMBRELLA_FACTORIES } from "./stacks";
-import { getExternalDataSourceAdapters } from "./enterprise";
+import { getExternalDataSourceAdapters } from "@/lib/platform/datasource/enterprise";
 import { registerDatasourceConnectorTypes } from "../connectors/datasource";
 
 const VENDOR_FACTORIES = [
