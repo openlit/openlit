@@ -145,7 +145,9 @@ export default function DatabaseConfigSwitch({
               );
             })}
             <DropdownMenuItem asChild>
-              <Link href="/connectors"><Cable className="mr-2 size-3.5" />{messages.MANAGE_CONNECTORS}</Link>
+              <Link href={project?.id ? `/organisation/project/${project.id}/environments` : "/organisation"}>
+                <Cable className="mr-2 size-3.5" />{messages.PROJECT_ENVIRONMENTS}
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
