@@ -52,17 +52,6 @@ function ModifyDatabaseConfig({
 			.catch(() => undefined);
 	}, []);
 
-	const ensureEnvironment = (value: string) => {
-		const name = value.trim().toLowerCase();
-		if (!name || environments.includes(name)) return;
-		setEnvironments((current) => [...current, name].sort());
-		void fetch("/api/project/environment", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name }),
-		});
-	};
-
 	const modifyDetails: FormBuilderEvent = useCallback(
 		(event) => {
 			event.preventDefault();
@@ -152,8 +141,6 @@ function ModifyDatabaseConfig({
 						placeholder: "production",
 						options: environments.map((environment) => ({ value: environment, label: environment })),
 						defaultValue: dbConfig?.environment || selectedEnvironment,
-						hasOtherOption: true,
-						onChange: ensureEnvironment,
 						disabled: formFieldsDisabled,
 					},
 				},

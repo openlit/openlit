@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowLeft, FolderKanban, Settings2 } from "lucide-react";
@@ -10,8 +11,10 @@ import ProjectEnvironmentSwitcher from "./project-environment-switcher";
 
 export default function ProjectPageHeader({
 	project,
+	additionalActions,
 }: {
 	project?: { id?: string; name?: string; isCurrent?: boolean; isDefault?: boolean };
+	additionalActions?: ReactNode;
 }) {
 	const messages = getMessage();
 	const pathname = usePathname();
@@ -46,7 +49,8 @@ export default function ProjectPageHeader({
 						window.history.replaceState({}, "", `${pathname}?${params.toString()}`);
 						window.dispatchEvent(new PopStateEvent("popstate"));
 					}} />
-					<Button asChild size="sm" variant={pathname?.endsWith(`/project/${project?.id}`) ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
+					{additionalActions}
+					<Button asChild size="sm" variant={pathname?.endsWith(`/project/${project?.id}`) && searchParams?.get("tab") !== "access" ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
 						<Link href={`/organisation/project/${project?.id || ""}${environmentQuery}`}><FolderKanban className="h-3.5 w-3.5" />{messages.PROJECT_OVERVIEW}</Link>
 					</Button>
 					<Button asChild size="sm" variant={pathname?.endsWith("/connectors") ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
