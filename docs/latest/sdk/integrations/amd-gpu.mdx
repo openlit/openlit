@@ -49,13 +49,15 @@ OpenLIT uses OpenTelemetry to help you monitor AMD GPUs. This includes tracking 
         Here's a quick example showing how to run the container with the required environment variables:
 
         ```sh
-        docker run --gpus all \
+        docker run --gpus all --pid=host \
             -e OTEL_SERVICE_NAME='chatbot' \
             -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=staging' \
             -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
             -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \
             ghcr.io/openlit/otel-gpu-collector:latest
         ```
+
+        `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
 
         For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/opentelemetry-gpu-collector/).
 
@@ -67,6 +69,7 @@ OpenLIT uses OpenTelemetry to help you monitor AMD GPUs. This includes tracking 
           ```yaml
           otel-gpu-collector:
             image: ghcr.io/openlit/otel-gpu-collector:latest
+            pid: host
             environment:
               OTEL_SERVICE_NAME: 'chatbot'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'

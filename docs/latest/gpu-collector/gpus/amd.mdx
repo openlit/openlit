@@ -32,11 +32,14 @@ docker run -d \
   --name otel-gpu-collector \
   --device /dev/kfd:/dev/kfd \
   --device /dev/dri:/dev/dri \
+  --pid=host \
   -e OTEL_SERVICE_NAME=my-app \
   -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 \
   ghcr.io/openlit/otel-gpu-collector:latest
 ```
+
+`--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
 
 ## Docker Compose
 
@@ -44,6 +47,7 @@ docker run -d \
 services:
   otel-gpu-collector:
     image: ghcr.io/openlit/otel-gpu-collector:latest
+    pid: host
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
@@ -100,7 +104,7 @@ spec:
 ```
 
 <Note>
-`hostPID: true` and `/dev/dri` are required for per-process GPU attribution via DRM fdinfo.
+Docker `--pid=host` (or Kubernetes `hostPID: true`) and `/dev/dri` are required for per-process GPU attribution via DRM fdinfo.
 </Note>
 
 ---

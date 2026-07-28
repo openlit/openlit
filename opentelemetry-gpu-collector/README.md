@@ -16,7 +16,7 @@ OpenTelemetry GPU Collector</h1>
 
 </div>
 
-A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and optional eBPF-based CUDA kernel tracing — all via OpenTelemetry (OTLP).
+A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
 
 Metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
 
@@ -33,7 +33,7 @@ Metric names and attributes follow the [OpenTelemetry semantic conventions for h
 - **PCIe / interconnect / health** — PCIe/NVLink/XGMI/throttle/XID/RAS when the driver exposes them (soft-omitted otherwise)
 - **MIG devices** — NVIDIA MIG instances as first-class devices (**Linux only**; MIG is not available on Windows)
 - **Encoder/decoder util** — NVIDIA NVENC/NVDEC; AMD/Intel via media engines or Windows PDH (AMD combined VCN → encoder only)
-- **eBPF CUDA tracing** (opt-in, Linux only) — kernel launch counts, grid/block sizes, memory allocations, memory copies
+- **eBPF CUDA tracing** (on by default on Linux) — kernel launch counts, grid/block sizes, memory allocations, memory copies; soft-fails without caps/CUDA
 - **Lightweight** — single static binary, no Python dependencies
 - **Resilient** — stays alive on systems without GPUs, retries discovery every 30s
 
@@ -88,12 +88,14 @@ Export
 ```sh
 docker pull ghcr.io/openlit/otel-gpu-collector:latest
 
-docker run --gpus all \
+docker run --gpus all --pid=host \
     -e OTEL_SERVICE_NAME=my-app \
     -e OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production" \
     -e OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317" \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
+
+`--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie/`process.state`, owner). Device-level `hw.gpu.*` metrics still work without it.
 
 ### Docker Compose
 
@@ -101,6 +103,7 @@ docker run --gpus all \
 services:
   otel-gpu-collector:
     image: ghcr.io/openlit/otel-gpu-collector:latest
+    pid: host
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
@@ -151,7 +154,7 @@ All configuration uses standard OpenTelemetry environment variables.
 | `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Prefer `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here; overrides auto identity |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
-| `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA kernel tracing (Linux only) |
+| `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA kernel tracing (Linux only). Soft-fails without caps/CUDA; set `false` to disable |
 | `K8S_NODE_NAME` | | Downward API node name → also accepts Operator `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` or legacy `NODE_NAME` |
 | `K8S_CLUSTER_NAME` | | Explicit cluster name (K8s only; on-prem when cloud detect fails) |
 | `OPENLIT_K8S_NODE_LOOKUP` | `true` | Set `false` to skip Node API lookup for instance type / provider |
@@ -238,9 +241,9 @@ Follows the [OTel semantic conventions for process metrics](https://opentelemetr
 | `process.runtime.go.goroutines` | Gauge | {goroutine} | Go goroutine count | |
 | `process.runtime.go.mem.heap_alloc` | Gauge | By | Go heap memory allocated | |
 
-### eBPF CUDA Tracing (opt-in, Linux only)
+### eBPF CUDA Tracing (on by default on Linux)
 
-Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires `CAP_BPF` + `CAP_PERFMON` or root, and NVIDIA CUDA runtime (`libcudart.so`).
+On by default on Linux. Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root) and NVIDIA CUDA runtime (`libcudart.so`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable.
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|

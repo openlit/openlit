@@ -12,6 +12,8 @@ The easiest way to run the collector. The image is published to GitHub Container
 docker pull ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
+For per-process GPU attribution (cmdline, PID, zombie/`process.state`, owner), run with host PID namespace access: Docker `--pid=host`, Compose `pid: host`, or Kubernetes `hostPID: true`. Device-level `hw.gpu.*` metrics work without it.
+
 ### Tags
 
 | Tag | Description |
@@ -139,9 +141,9 @@ spec:
             # Optional for on-prem / self-managed clusters:
             # - name: K8S_CLUSTER_NAME
             #   value: my-cluster
-            # Optional eBPF CUDA activity + stream-sync occupancy:
+            # eBPF CUDA tracing is on by default on Linux; set false to disable:
             # - name: OTEL_GPU_EBPF_ENABLED
-            #   value: "true"
+            #   value: "false"
           volumeMounts:
             - name: pod-resources
               mountPath: /var/lib/kubelet/pod-resources
@@ -162,7 +164,7 @@ spec:
 ```
 
 <Note>
-`hostPID: true` is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. The `nodes/get` ClusterRole enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1).
+`hostPID: true` (same role as Docker `--pid=host`) is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. The `nodes/get` ClusterRole enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1).
 </Note>
 
 See [Configuration](/latest/gpu-collector/configuration) for identity env vars and detection order.
@@ -214,7 +216,7 @@ rm /usr/local/bin/opentelemetry-gpu-collector
     - Check logs: `docker logs otel-gpu-collector` for `"discovered GPU"` entries
   </Accordion>
   <Accordion title="eBPF tracing not working">
-    - Confirm `OTEL_GPU_EBPF_ENABLED=true` is set
+    - On Linux it is enabled by default; confirm it is not disabled via `OTEL_GPU_EBPF_ENABLED=false`
     - Check kernel version: `uname -r` (requires 5.8+)
     - The process needs `CAP_BPF` and `CAP_PERFMON`, or run as root
     - For Docker: add `--privileged` or `--cap-add CAP_BPF --cap-add CAP_PERFMON`

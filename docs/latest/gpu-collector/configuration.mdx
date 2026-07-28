@@ -16,7 +16,7 @@ The collector is configured entirely via environment variables. All variables fo
 | `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`key=val,...`). Prefer setting `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here — overrides auto-detect. Org tags such as `team` or `datacenter` are not auto-detected; set them here. |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds**. For self-hosted LLM hosts, `15000` is recommended |
-| `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only) |
+| `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Soft-fails without caps/CUDA; set `false` to disable |
 | `OPENLIT_HOST_METRICS` | `true` | Collect system + collector-process host metrics. Set `false` for a GPU-only light footprint |
 | `OTEL_GPU_PROCESS_CMDLINE` | `true` | Export truncated `process.command_line` on GPU process metrics |
 | `OTEL_GPU_PROCESS_CMDLINE_MAX_LEN` | `512` | Max characters for `process.command_line` |
@@ -137,12 +137,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 ./opentelemetry-gpu-collector
 ```
 
-### Enable eBPF CUDA tracing
+### Disable eBPF CUDA tracing
 
-Requires `CAP_BPF` + `CAP_PERFMON` (or root) and NVIDIA CUDA runtime.
+On Linux, eBPF CUDA tracing is **on by default**. It soft-fails (warn + continue) without `CAP_BPF` + `CAP_PERFMON` (or root) and NVIDIA CUDA runtime (`libcudart.so*`). Set `false` to skip the attempt:
 
 ```bash
-OTEL_GPU_EBPF_ENABLED=true \
+OTEL_GPU_EBPF_ENABLED=false \
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 ./opentelemetry-gpu-collector
 ```

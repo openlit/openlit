@@ -114,7 +114,9 @@ Self-monitoring of the collector process. Follows the [OTel semantic conventions
 
 ## Per-process / per-pod GPU attribution
 
-Collected on each scrape from NVML (NVIDIA) or DRM fdinfo (AMD/Intel). Requires host PID visibility (`hostPID: true` in Kubernetes) so `/proc` shows workload PIDs.
+Collected on each scrape from NVML (NVIDIA) or DRM fdinfo (AMD/Intel). Requires host PID visibility — Docker `--pid=host` / Compose `pid: host`, or Kubernetes `hostPID: true` — so `/proc` shows workload PIDs. Without it, device-level `hw.gpu.*` metrics still work, but per-process cmdline, state (including zombies), and GPU process metrics will be missing or incomplete.
+
+These attributes support views like zombie-process triage: filter `process.state == "zombie"` and show `process.command_line`, `process.pid`, `process.owner`, and `process.uptime` (age).
 
 | Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
 |---|---|---|---|:---:|:---:|:---:|
@@ -145,9 +147,9 @@ Collected on each scrape from NVML (NVIDIA) or DRM fdinfo (AMD/Intel). Requires 
 
 ---
 
-## eBPF CUDA Metrics (opt-in)
+## eBPF CUDA Metrics
 
-Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires Linux, `CAP_BPF` + `CAP_PERFMON` (or root), and an NVIDIA CUDA runtime (`libcudart.so*`). Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`.
+On by default on Linux (`OTEL_GPU_EBPF_ENABLED=true`). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root) and an NVIDIA CUDA runtime (`libcudart.so*`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`.
 
 ### Activity metrics
 
@@ -183,4 +185,4 @@ These are **CPU-side model estimates**, not hardware SM occupancy (warps residen
 | Device `hw.gpu.*` | Yes | Yes | Partial |
 | `process.gpu.memory.usage` / `utilization` | NVML | DRM fdinfo | DRM fdinfo |
 | Pod UID on process metrics | cgroup | cgroup | cgroup |
-| eBPF activity + occupancy | Opt-in | — | — |
+| eBPF activity + occupancy | Yes (default on Linux) | — | — |

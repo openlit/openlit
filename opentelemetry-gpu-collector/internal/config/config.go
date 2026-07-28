@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -30,13 +31,15 @@ func Load() *Config {
 	}
 	// Pod API lookup auto-enables in-cluster when the node name is known.
 	defaultPodLookup := inK8s && nodeName != ""
+	// eBPF is Linux-only; default on there (soft-fails without caps/CUDA). Off elsewhere.
+	defaultEBPF := runtime.GOOS == "linux"
 	cfg := &Config{
 		ServiceName: envOrDefault("OTEL_SERVICE_NAME", "default"),
 		// OTEL_METRIC_EXPORT_INTERVAL is in milliseconds per the OTel spec.
 		// OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS, and
 		// OTEL_EXPORTER_OTLP_PROTOCOL are read directly by the OTel SDK exporters.
 		CollectionInterval: parseIntervalMS(os.Getenv("OTEL_METRIC_EXPORT_INTERVAL"), 60*time.Second),
-		EBPFEnabled:        parseBool(envOrDefault("OTEL_GPU_EBPF_ENABLED", "false")),
+		EBPFEnabled:        parseBool(envOrDefault("OTEL_GPU_EBPF_ENABLED", strconv.FormatBool(defaultEBPF))),
 		HostMetricsEnabled: parseBool(envOrDefault("OPENLIT_HOST_METRICS", "true")),
 
 		ProcessCmdline:         parseBool(envOrDefault("OTEL_GPU_PROCESS_CMDLINE", "true")),

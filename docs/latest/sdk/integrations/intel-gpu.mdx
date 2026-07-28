@@ -66,12 +66,15 @@ Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kern
         ```sh
         docker run \
             --device /dev/dri:/dev/dri \
+            --pid=host \
             -e OTEL_SERVICE_NAME='my-app' \
             -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=staging' \
             -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
             -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \
             ghcr.io/openlit/otel-gpu-collector:latest
         ```
+
+        `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
 
         For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/opentelemetry-gpu-collector/).
 
@@ -83,6 +86,7 @@ Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kern
           ```yaml
           otel-gpu-collector:
             image: ghcr.io/openlit/otel-gpu-collector:latest
+            pid: host
             environment:
               OTEL_SERVICE_NAME: 'my-app'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
