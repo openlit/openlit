@@ -6,37 +6,65 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/procname"
 )
 
 var (
-	initOnce sync.Once
+	initMu   sync.Mutex
+	initDone bool
 	initErr  error
 )
 
 // InitNVML initializes the NVML library. Safe to call multiple times.
+// Failed inits are retried on later calls so a transient driver miss during
+// early DaemonSet start does not permanently disable discovery.
 func InitNVML() error {
-	initOnce.Do(func() {
-		ret := nvml.Init()
-		if ret != nvml.SUCCESS {
-			initErr = fmt.Errorf("nvml.Init: %s", nvml.ErrorString(ret))
-		}
-	})
-	return initErr
+	initMu.Lock()
+	defer initMu.Unlock()
+	if initDone && initErr == nil {
+		return nil
+	}
+	ret := nvml.Init()
+	if ret != nvml.SUCCESS {
+		initDone = false
+		initErr = fmt.Errorf("nvml.Init: %s", nvml.ErrorString(ret))
+		return initErr
+	}
+	initDone = true
+	initErr = nil
+	return nil
 }
 
 // ShutdownNVML shuts down the NVML library.
 func ShutdownNVML() {
-	nvml.Shutdown()
+	initMu.Lock()
+	defer initMu.Unlock()
+	if initDone {
+		nvml.Shutdown()
+	}
+	initDone = false
+	initErr = nil
 }
 
 // Device implements gpu.Device for NVIDIA GPUs via NVML.
 type Device struct {
-	handle nvml.Device
-	info   gpu.DeviceInfo
-	logger *slog.Logger
+	handle              nvml.Device
+	info                gpu.DeviceInfo
+	logger              *slog.Logger
+	lastUtilTimestamp   uint64
+	migMemoryOnlyLogged bool
+
+	nvlinkRxPrev uint64
+	nvlinkTxPrev uint64
+	nvlinkLast   time.Time
+	xidCount     int64
+	eventSet     nvml.EventSet
+	closed       int32
+	xidDone      chan struct{}
 }
 
 // DiscoverDevices returns all NVIDIA GPUs detected by NVML.
@@ -56,6 +84,7 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 	}
 
 	devices := make([]*Device, 0, count)
+	idx := 0
 	for i := 0; i < count; i++ {
 		handle, ret := nvml.DeviceGetHandleByIndex(i)
 		if ret != nvml.SUCCESS {
@@ -66,19 +95,68 @@ func DiscoverDevices(logger *slog.Logger) ([]*Device, error) {
 		name, _ := handle.GetName()
 		uuid, _ := handle.GetUUID()
 		pciInfo, _ := handle.GetPciInfo()
+		coreCount := 0
+		if cores, ret := handle.GetNumGpuCores(); ret == nvml.SUCCESS {
+			coreCount = cores
+		}
 
-		devices = append(devices, &Device{
+		parent := &Device{
 			handle: handle,
 			info: gpu.DeviceInfo{
 				Vendor:        gpu.VendorNVIDIA,
-				Index:         i,
+				Index:         idx,
 				Name:          name,
 				UUID:          uuid,
 				PCIAddress:    pciAddressString(pciInfo),
 				DriverVersion: driverVersion,
+				CoreCount:     coreCount,
 			},
-			logger: logger.With("gpu", i, "vendor", "nvidia"),
-		})
+			logger: logger.With("gpu", idx, "vendor", "nvidia"),
+		}
+		idx++
+		parent.startXIDWatcher(parent.logger)
+		devices = append(devices, parent)
+
+		// Enumerate MIG instances as first-class devices when enabled.
+		current, pending, ret := handle.GetMigMode()
+		if ret == nvml.SUCCESS && current == nvml.DEVICE_MIG_ENABLE {
+			_ = pending
+			maxMig, ret := handle.GetMaxMigDeviceCount()
+			if ret != nvml.SUCCESS {
+				continue
+			}
+			for mi := 0; mi < maxMig; mi++ {
+				migHandle, ret := handle.GetMigDeviceHandleByIndex(mi)
+				if ret != nvml.SUCCESS {
+					continue
+				}
+				migName, _ := migHandle.GetName()
+				migUUID, _ := migHandle.GetUUID()
+				giID := -1
+				if id, ret := migHandle.GetGpuInstanceId(); ret == nvml.SUCCESS {
+					giID = id
+				}
+				migDev := &Device{
+					handle: migHandle,
+					info: gpu.DeviceInfo{
+						Vendor:         gpu.VendorNVIDIA,
+						Index:          idx,
+						Name:           migName,
+						UUID:           migUUID,
+						PCIAddress:     parent.info.PCIAddress,
+						DriverVersion:  driverVersion,
+						IsMIG:          true,
+						ParentUUID:     uuid,
+						MIGDeviceID:    migUUID,
+						MIGInstanceID:  giID,
+						MIGProfileName: migName,
+					},
+					logger: logger.With("gpu", idx, "vendor", "nvidia", "mig", true),
+				}
+				idx++
+				devices = append(devices, migDev)
+			}
+		}
 	}
 
 	return devices, nil
@@ -113,10 +191,7 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 		s.TemperatureGPU = &v
 	}
 
-	if fanSpeed, ret := d.handle.GetFanSpeed(); ret == nvml.SUCCESS {
-		v := float64(fanSpeed)
-		s.FanSpeedRPM = &v
-	}
+	// NVML GetFanSpeed is percent (0–100), not RPM — omit FanSpeedRPM (AMD/Intel use hwmon RPM).
 
 	if mem, ret := d.handle.GetMemoryInfo(); ret == nvml.SUCCESS {
 		total := int64(mem.Total)
@@ -169,10 +244,79 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 		s.ECCDoubleBit = &v
 	}
 
+	if !d.info.IsMIG {
+		collectExtended(d, s)
+	}
+
 	return s, nil
 }
 
-func (d *Device) Close() {}
+func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
+	procs, ret := d.handle.GetComputeRunningProcesses()
+	if ret != nvml.SUCCESS {
+		// MIG / unsupported — try empty rather than fail the scrape
+		d.logger.Debug("GetComputeRunningProcesses unavailable", "error", nvml.ErrorString(ret))
+		return nil, nil
+	}
+
+	byPID := make(map[uint32]*gpu.ProcessUsage, len(procs))
+	for _, p := range procs {
+		mem := int64(p.UsedGpuMemory)
+		pu := &gpu.ProcessUsage{
+			PID:            int32(p.Pid),
+			ExecutableName: procname.ExecutableName(int32(p.Pid)),
+			MemoryBytes:    &mem,
+		}
+		byPID[p.Pid] = pu
+	}
+
+	samples, ret := d.handle.GetProcessUtilization(d.lastUtilTimestamp)
+	if ret == nvml.SUCCESS {
+		var maxTS uint64
+		for _, s := range samples {
+			if s.TimeStamp > maxTS {
+				maxTS = s.TimeStamp
+			}
+			pu := byPID[s.Pid]
+			if pu == nil {
+				pu = &gpu.ProcessUsage{
+					PID:            int32(s.Pid),
+					ExecutableName: procname.ExecutableName(int32(s.Pid)),
+				}
+				byPID[s.Pid] = pu
+			}
+			// NVML reports percent 0–100
+			sm := float64(s.SmUtil) / 100.0
+			pu.Utilization = &sm
+			if s.EncUtil > 0 || pu.EncoderUtil == nil {
+				enc := float64(s.EncUtil) / 100.0
+				pu.EncoderUtil = &enc
+			}
+			if s.DecUtil > 0 || pu.DecoderUtil == nil {
+				dec := float64(s.DecUtil) / 100.0
+				pu.DecoderUtil = &dec
+			}
+		}
+		if maxTS > 0 {
+			d.lastUtilTimestamp = maxTS
+		}
+	} else if len(byPID) > 0 && !d.migMemoryOnlyLogged {
+		// Common on MIG: memory list works, util samples do not.
+		d.logger.Debug("GetProcessUtilization unavailable; emitting memory-only process metrics",
+			"error", nvml.ErrorString(ret))
+		d.migMemoryOnlyLogged = true
+	}
+
+	out := make([]gpu.ProcessUsage, 0, len(byPID))
+	for _, pu := range byPID {
+		out = append(out, *pu)
+	}
+	return out, nil
+}
+
+func (d *Device) Close() {
+	d.stopXIDWatcher()
+}
 
 func pciAddressString(pci nvml.PciInfo) string {
 	// PciInfo.BusId is a fixed-size byte array; convert to string.

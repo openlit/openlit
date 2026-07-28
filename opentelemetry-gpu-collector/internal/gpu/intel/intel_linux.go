@@ -1,4 +1,6 @@
-package amd
+//go:build linux
+
+package intel
 
 import (
 	"fmt"
@@ -9,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/drmfdinfo"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/levelzero"
 )
 
 const (
@@ -16,21 +20,20 @@ const (
 	hwmonClassPath = "/sys/class/hwmon"
 )
 
-// Device implements gpu.Device for AMD GPUs via sysfs/hwmon.
+// Device implements gpu.Device for Intel GPUs via sysfs/hwmon/DRM.
 type Device struct {
-	info       gpu.DeviceInfo
-	drmPath    string // e.g. /sys/class/drm/card0/device
-	hwmonPath  string // e.g. /sys/class/hwmon/hwmon3
-	logger     *slog.Logger
+	info        gpu.DeviceInfo
+	drmPath     string // e.g. /sys/class/drm/card0/device
+	hwmonPath   string
+	vendorIndex int // 0-based among Intel devices (for Level Zero)
+	logger      *slog.Logger
 }
 
-// DiscoverDevices scans sysfs for AMD GPU DRM cards and resolves their hwmon paths.
+// DiscoverDevices scans sysfs for Intel GPU DRM cards driven by i915 or xe.
+// When pciAddresses is empty, all i915/xe DRM cards are discovered (PCI-less fallback).
 func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger) ([]*Device, error) {
-	if len(pciAddresses) == 0 {
-		return nil, nil
-	}
-
 	addrSet := make(map[string]bool, len(pciAddresses))
+	filter := len(pciAddresses) > 0
 	for _, a := range pciAddresses {
 		addrSet[strings.ToLower(a)] = true
 	}
@@ -42,6 +45,7 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 
 	var devices []*Device
 	idx := startIndex
+	vendorIdx := 0
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -56,45 +60,44 @@ func DiscoverDevices(pciAddresses []string, startIndex int, logger *slog.Logger)
 			continue
 		}
 
-		if !addrSet[strings.ToLower(pciAddr)] {
+		if filter && !addrSet[strings.ToLower(pciAddr)] {
 			continue
 		}
 
 		driverLink, err := os.Readlink(filepath.Join(devPath, "driver"))
-		if err != nil || filepath.Base(driverLink) != "amdgpu" {
+		if err != nil {
+			continue
+		}
+		driverName := filepath.Base(driverLink)
+		if driverName != "i915" && driverName != "xe" {
 			continue
 		}
 
 		hwmon := findHwmonForDevice(devPath)
 
-		productName := readFileString(filepath.Join(devPath, "product_name"))
+		productName := readFileString(filepath.Join(devPath, "label"))
 		if productName == "" {
-			productName = fmt.Sprintf("AMD GPU %s", pciAddr)
+			productName = fmt.Sprintf("Intel GPU %s", pciAddr)
 		}
 
-		uniqueID := readFileString(filepath.Join(devPath, "unique_id"))
-		if uniqueID == "" {
-			uniqueID = pciAddr
-		}
-
-		driverVersion := readFileString(filepath.Join(devPath, "driver", "module", "version"))
-
-		logger.Info("discovered AMD GPU", "card", name, "pci", pciAddr, "hwmon", hwmon)
+		logger.Info("discovered Intel GPU", "card", name, "pci", pciAddr, "driver", driverName, "hwmon", hwmon)
 
 		devices = append(devices, &Device{
 			info: gpu.DeviceInfo{
-				Vendor:        gpu.VendorAMD,
+				Vendor:        gpu.VendorIntel,
 				Index:         idx,
 				Name:          productName,
-				UUID:          uniqueID,
+				UUID:          pciAddr,
 				PCIAddress:    pciAddr,
-				DriverVersion: driverVersion,
+				DriverVersion: driverName,
 			},
-			drmPath:   devPath,
-			hwmonPath: hwmon,
-			logger:    logger.With("gpu", idx, "vendor", "amd"),
+			drmPath:     devPath,
+			hwmonPath:   hwmon,
+			vendorIndex: vendorIdx,
+			logger:      logger.With("gpu", idx, "vendor", "intel"),
 		})
 		idx++
+		vendorIdx++
 	}
 
 	return devices, nil
@@ -107,77 +110,86 @@ func (d *Device) Info() gpu.DeviceInfo {
 func (d *Device) Collect() (*gpu.Snapshot, error) {
 	s := &gpu.Snapshot{}
 
-	if v, err := readSysfsInt(filepath.Join(d.drmPath, "gpu_busy_percent")); err == nil {
+	// Intel Xe driver exposes some metrics via DRM sysfs
+	if v, err := readSysfsInt(filepath.Join(d.drmPath, "gt_cur_freq_mhz")); err == nil {
 		f := float64(v)
-		s.Utilization = &f
-	}
-
-	if v, err := readSysfsInt(filepath.Join(d.drmPath, "mem_busy_percent")); err == nil {
-		f := float64(v)
-		s.MemoryUtilization = &f
-	}
-
-	if v, err := readSysfsInt(filepath.Join(d.drmPath, "mem_info_vram_total")); err == nil {
-		s.MemoryTotalBytes = &v
-	}
-	if v, err := readSysfsInt(filepath.Join(d.drmPath, "mem_info_vram_used")); err == nil {
-		s.MemoryUsedBytes = &v
-	}
-	if s.MemoryTotalBytes != nil && s.MemoryUsedBytes != nil {
-		free := *s.MemoryTotalBytes - *s.MemoryUsedBytes
-		s.MemoryFreeBytes = &free
+		s.ClockGraphicsMHz = &f
 	}
 
 	if d.hwmonPath != "" {
 		d.collectHwmon(s)
 	}
 
+	if m, ok := levelzero.Collect(d.vendorIndex); ok {
+		if m.Utilization != nil {
+			s.Utilization = m.Utilization
+		}
+		if m.MemoryTotal != nil {
+			s.MemoryTotalBytes = m.MemoryTotal
+		}
+		if m.MemoryUsed != nil {
+			s.MemoryUsedBytes = m.MemoryUsed
+			if s.MemoryTotalBytes != nil {
+				free := *s.MemoryTotalBytes - *m.MemoryUsed
+				if free < 0 {
+					free = 0
+				}
+				s.MemoryFreeBytes = &free
+			}
+		}
+		if m.TemperatureC != nil && s.TemperatureGPU == nil {
+			s.TemperatureGPU = m.TemperatureC
+		}
+		if m.PowerWatts != nil && s.PowerDrawWatts == nil {
+			s.PowerDrawWatts = m.PowerWatts
+		}
+		if m.ClockMHz != nil && s.ClockGraphicsMHz == nil {
+			s.ClockGraphicsMHz = m.ClockMHz
+		}
+		if m.Throttled != nil {
+			s.Throttled = m.Throttled
+		}
+		if m.ThrottleReasons != nil {
+			s.ThrottleReasons = m.ThrottleReasons
+		}
+		if m.EncoderUtilization != nil {
+			s.EncoderUtilization = m.EncoderUtilization
+		}
+		if m.DecoderUtilization != nil {
+			s.DecoderUtilization = m.DecoderUtilization
+		}
+	}
+
 	return s, nil
 }
 
 func (d *Device) collectHwmon(s *gpu.Snapshot) {
-	// Temperature: temp1_input is GPU edge temp in millidegrees C
+	// Temperature
 	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "temp1_input")); err == nil {
 		f := float64(v) / 1000.0
 		s.TemperatureGPU = &f
 	}
-	// temp2_input is junction/memory temp on SOC15+ dGPUs
-	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "temp2_input")); err == nil {
-		f := float64(v) / 1000.0
-		s.TemperatureMemory = &f
-	}
 
-	// Power: power1_average in microwatts
+	// Power: Xe hwmon exposes energy1_input (microjoules).
+	// Compute average power from energy delta externally or report instantaneous if available.
 	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "power1_average")); err == nil {
 		f := float64(v) / 1e6
 		s.PowerDrawWatts = &f
 	}
 
-	// Power cap: power1_cap in microwatts
-	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "power1_cap")); err == nil {
+	// Power limit (Xe: power1_max in microwatts)
+	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "power1_max")); err == nil {
 		f := float64(v) / 1e6
 		s.PowerLimitWatts = &f
 	}
 
-	// Energy: energy1_input in microjoules
+	// Cumulative energy (microjoules)
 	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "energy1_input")); err == nil {
 		f := float64(v) / 1e6
 		s.EnergyJoules = &f
 	}
 
-	// Graphics clock: freq1_input in Hz
-	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "freq1_input")); err == nil {
-		f := float64(v) / 1e6 // Hz to MHz
-		s.ClockGraphicsMHz = &f
-	}
-
-	// Memory clock: freq2_input in Hz (dGPU only)
-	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "freq2_input")); err == nil {
-		f := float64(v) / 1e6
-		s.ClockMemoryMHz = &f
-	}
-
-	// Fan speed: fan1_input in RPM
+	// Fan speed (Xe hwmon, Linux 6.16+)
 	if v, err := readSysfsInt(filepath.Join(d.hwmonPath, "fan1_input")); err == nil {
 		f := float64(v)
 		s.FanSpeedRPM = &f
@@ -186,7 +198,13 @@ func (d *Device) collectHwmon(s *gpu.Snapshot) {
 
 func (d *Device) Close() {}
 
-// findHwmonForDevice locates the hwmon directory associated with a DRM device path.
+func (d *Device) CollectProcesses() ([]gpu.ProcessUsage, error) {
+	return drmfdinfo.Shared().CollectForPCI(d.info.PCIAddress, map[string]bool{
+		"i915": true,
+		"xe":   true,
+	})
+}
+
 func findHwmonForDevice(drmDevicePath string) string {
 	hwmonDir := filepath.Join(drmDevicePath, "hwmon")
 	entries, err := os.ReadDir(hwmonDir)

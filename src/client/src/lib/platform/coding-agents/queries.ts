@@ -118,10 +118,11 @@ export interface CodingAgentSessionRow {
 	// across the session's spans). Empty when no LLM/tool span carried
 	// a model attribute.
 	model: string;
-	// Aggregate token totals — sumed across LLM-turn spans. Most CLI
-	// adapters set both halves; Cursor only emits output tokens for
-	// some events so input may be 0 when the upstream payload didn't
-	// include it.
+	// Aggregate token totals — prefer session-root gen_ai.usage.* when
+	// present, else sum non-session child spans. Cursor stamps real
+	// counters on `stop` (and drains them onto the session root at
+	// sessionEnd); older Cursor builds that omit usage fields leave
+	// these at 0 rather than inventing estimates.
 	input_tokens: number;
 	output_tokens: number;
 	total_tokens: number;
@@ -174,9 +175,10 @@ export interface CodingAgentSessionRow {
  * Cost is rolled up two ways:
  *  - the session-level `coding_agent.session.cost_usd` attribute (set by
  *    Claude Code from transcript JSONL with realized prices)
- *  - sum of `gen_ai.usage.cost` across all child spans (used by Cursor,
- *    where we estimate cost from token-length heuristics on the
- *    LLM-turn spans because Cursor's hooks don't surface tokens).
+ *  - sum of `gen_ai.usage.cost` across non-session child spans (vendors
+ *    that stamp per-turn cost). Cursor does not emit USD — only real
+ *    token counters on `stop` / sessionEnd — so Cursor sessions
+ *    typically roll up to 0 cost rather than estimates.
  *
  * We take whichever is greater so a vendor's authoritative number wins
  * when present. Tool-call counts work the same way: prefer the session
