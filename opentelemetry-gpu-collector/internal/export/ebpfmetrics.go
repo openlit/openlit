@@ -23,11 +23,12 @@ import (
 type EBPFMetrics struct {
 	logger *slog.Logger
 
-	kernelLaunchCalls metric.Int64Counter
-	kernelGridSize    metric.Float64Histogram
-	kernelBlockSize   metric.Float64Histogram
-	memoryAllocations metric.Int64Counter
-	memoryCopies      metric.Float64Histogram
+	kernelLaunchCalls  metric.Int64Counter
+	kernelGridSize     metric.Float64Histogram
+	kernelBlockSize    metric.Float64Histogram
+	kernelSharedMemory metric.Float64Histogram
+	memoryAllocations  metric.Int64Counter
+	memoryCopies       metric.Float64Histogram
 
 	devices *cudaDeviceTracker
 }
@@ -63,6 +64,14 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices []gpu.Device, log
 		return nil, fmt.Errorf("creating gpu.kernel.block.size: %w", err)
 	}
 
+	sharedMem, err := meter.Float64Histogram("gpu.kernel.shared_memory",
+		metric.WithDescription("Dynamic shared memory requested per CUDA kernel launch (cudaLaunchKernel sharedMem)"),
+		metric.WithUnit("By"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating gpu.kernel.shared_memory: %w", err)
+	}
+
 	memAlloc, err := meter.Int64Counter("gpu.memory.allocations",
 		metric.WithDescription("Total bytes allocated via cudaMalloc"),
 		metric.WithUnit("By"),
@@ -80,13 +89,14 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices []gpu.Device, log
 	}
 
 	return &EBPFMetrics{
-		logger:            logger,
-		kernelLaunchCalls: kernelCalls,
-		kernelGridSize:    gridSize,
-		kernelBlockSize:   blockSize,
-		memoryAllocations: memAlloc,
-		memoryCopies:      memCopies,
-		devices:           newCUDADeviceTracker(devices),
+		logger:             logger,
+		kernelLaunchCalls:  kernelCalls,
+		kernelGridSize:     gridSize,
+		kernelBlockSize:    blockSize,
+		kernelSharedMemory: sharedMem,
+		memoryAllocations:  memAlloc,
+		memoryCopies:       memCopies,
+		devices:            newCUDADeviceTracker(devices),
 	}, nil
 }
 
@@ -289,6 +299,8 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 
 		blockTotal := float64(e.BlockX) * float64(e.BlockY) * float64(e.BlockZ)
 		em.kernelBlockSize.Record(ctx, blockTotal, attrs)
+
+		em.kernelSharedMemory.Record(ctx, float64(e.SharedMemBytes), attrs)
 
 	case *gpuebpf.MallocEvent:
 		em.memoryAllocations.Add(ctx, int64(e.Size), em.activityAttrs(e.PID, e.TID))

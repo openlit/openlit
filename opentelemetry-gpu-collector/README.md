@@ -247,10 +247,11 @@ On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/ma
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
-| `gpu.kernel.launch.calls` | Counter | {call} | CUDA kernel launch count | `cuda.kernel.name` |
-| `gpu.kernel.grid.size` | Histogram | {thread} | Total threads in grid per launch | `cuda.kernel.name` |
-| `gpu.kernel.block.size` | Histogram | {thread} | Threads per block per launch | `cuda.kernel.name` |
-| `gpu.memory.allocations` | Counter | By | Bytes allocated via cudaMalloc | |
+| `gpu.kernel.launch.calls` | Counter | {call} | CUDA kernel launch count | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.grid.size` | Histogram | {thread} | Total threads in grid per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.block.size` | Histogram | {thread} | Threads per block per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.shared_memory` | Histogram | By | Dynamic shared memory per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.memory.allocations` | Counter | By | Bytes allocated via cudaMalloc | `hw.id` when known |
 | `gpu.memory.copies` | Histogram | By | Bytes per cudaMemcpy | `cuda.memcpy.kind`={HostToHost,HostToDevice,DeviceToHost,DeviceToDevice} |
 
 ## How It Works
