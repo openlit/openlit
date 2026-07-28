@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
 	Database,
-	Lock,
 	Plus,
 	Layers,
 	Trash2,
@@ -170,6 +169,7 @@ export default function DataSourcesPage({
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
 	const [templates, setTemplates] = useState<StackTemplate[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
+	const [openClickHouse, setOpenClickHouse] = useState(false);
 	const [newType, setNewType] = useState<string | undefined>();
 	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
@@ -209,6 +209,11 @@ export default function DataSourcesPage({
 
 	useEffect(() => {
 		if (openType) {
+			if (openType === "clickhouse") {
+				setOpenClickHouse(true);
+				onOpenTypeHandled?.();
+				return;
+			}
 			setNewType(openType);
 			setEditing("new");
 			onOpenTypeHandled?.();
@@ -319,37 +324,10 @@ export default function DataSourcesPage({
 						<Database className="h-4 w-4 text-primary" />
 						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">ClickHouse connectors · {environment}</h2>
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment can have one or more ClickHouse targets; the default target powers derived intelligence.</p>
+					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment has one ClickHouse connector used for ClickHouse-backed telemetry and derived features.</p>
 				</div>
 				<div className="flex min-h-[360px] overflow-hidden">
-					<DatabaseConfigPage />
-				</div>
-			</section>
-
-			{/* Locked built-in / derived intelligence indicator */}
-			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
-				<div className="mb-3 flex items-center gap-2">
-					<Lock className="h-4 w-4 text-primary" />
-					<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
-						{messages.DATA_SOURCE_BUILTIN_TITLE}
-					</h2>
-				</div>
-				<div className="space-y-1.5">
-					<Label className="text-xs uppercase text-muted-foreground">
-						{messages.DATA_SOURCE_BUILTIN_FIELD_LABEL}
-					</Label>
-					<Select value={environmentDatabases[0] ? `builtin:${environmentDatabases[0].id}` : BUILTIN} disabled={!environmentDatabases.length}>
-						<SelectTrigger className="w-full max-w-md bg-stone-50 dark:bg-stone-900">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
-							{!environmentDatabases.length && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}
-						</SelectContent>
-					</Select>
-					<p className="text-xs text-muted-foreground">
-						{messages.DATA_SOURCE_BUILTIN_DERIVED}
-					</p>
+					<DatabaseConfigPage openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
 				</div>
 			</section>
 
@@ -713,7 +691,8 @@ function SourceFormDialog({
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
-	const [type, setType] = useState(source?.type || initialType || descriptors[0]?.type || "");
+	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
+	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
@@ -841,7 +820,7 @@ function SourceFormDialog({
 									</SelectValue>
 								</SelectTrigger>
 								<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 gap-1 p-1 sm:min-w-[680px]">
-									{descriptors.map((d) => (
+									{externalDescriptors.map((d) => (
 										<SelectItem key={d.type} value={d.type} className="py-2.5">
 											<div className="flex items-start gap-2.5">
 												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">

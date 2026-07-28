@@ -472,7 +472,7 @@ export const clickHouseAdapterFactory = {
 		new ClickHouseAdapter(descriptor),
 	describe: (): SourceTypeDescriptor => ({
 		type: "clickhouse",
-		displayName: "ClickHouse (built-in)",
+		displayName: "ClickHouse",
 		declaredSignals: ["traces", "logs", "metrics"],
 		capabilities: {
 			traceTree: true,

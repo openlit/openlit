@@ -225,6 +225,7 @@ model DatabaseConfig {
   environmentRef  ProjectEnvironment?          @relation("ProjectEnvironmentDatabaseConfigs", fields: [projectId, environment], references: [projectId, name], onDelete: Restrict)
 
   @@unique([name, projectId, environment])
+  @@unique([projectId, environment])
   @@map("databaseconfig")
 }
 

@@ -166,6 +166,17 @@ export const upsertDBConfig = async (
 	dbConfig.environment = environment;
 	if (currentProject?.id) await createProjectEnvironment(environment);
 
+	const existingDBForEnvironment = await prisma.databaseConfig.findFirst({
+		where: {
+			projectId: currentProject?.id || null,
+			environment,
+			NOT: { id },
+		},
+	});
+	if (existingDBForEnvironment?.id) {
+		throw new Error(`Environment "${environment}" already has a ClickHouse connector.`);
+	}
+
 	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,

@@ -272,7 +272,7 @@ export const WIDGET_STRUCTURED_QUERY_FAILED = "Structured widget query failed.";
 export const WIDGET_SOURCE_SIGNAL_UNSUPPORTED = (signal: string, source: string) =>
 	`The data source "${source}" does not serve ${signal}.`;
 export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
-export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse (built-in)";
+export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse";
 export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
 	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
 export const WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT = (
@@ -1772,7 +1772,7 @@ export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
 
 // Telemetry Sources (pluggable observability backends)
-export const TELEMETRY_SOURCE_BUILTIN_NAME = "ClickHouse (built-in)";
+export const TELEMETRY_SOURCE_BUILTIN_NAME = "ClickHouse";
 export const TELEMETRY_SOURCE_NOT_CONFIGURED =
 	"No telemetry source is configured for this project.";
 export const TELEMETRY_SOURCE_NOT_SUPPORTED_IN_CE =
@@ -1850,7 +1850,7 @@ export const CONNECTOR_ENVIRONMENT = "Environment";
 export const CONNECTOR_ENVIRONMENT_PLACEHOLDER = "production";
 export const CONNECTOR_ENVIRONMENT_DESCRIPTION =
 	"Keep connector assignments separate for production, staging, and other environments.";
-export const DATA_SOURCE_BUILTIN_TITLE = "OpenLIT ClickHouse (built-in)";
+export const DATA_SOURCE_BUILTIN_TITLE = "ClickHouse connector";
 export const DATA_SOURCE_BUILTIN_DERIVED =
 	"ClickHouse is optional for telemetry viewing. It becomes the execution target for evaluations, AI analysis, costing, and other features that require OpenLIT-managed storage.";
 export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluations";
@@ -1864,7 +1864,7 @@ export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER = (name: string, environme
 export const DATA_SOURCE_SIGNAL_TRACES = "Traces";
 export const DATA_SOURCE_SIGNAL_LOGS = "Logs";
 export const DATA_SOURCE_SIGNAL_METRICS = "Metrics";
-export const DATA_SOURCE_SIGNAL_BUILTIN_OPTION = "ClickHouse (built-in)";
+export const DATA_SOURCE_SIGNAL_BUILTIN_OPTION = "ClickHouse connector";
 export const DATA_SOURCE_SOURCES_TITLE = "External sources";
 export const DATA_SOURCE_SOURCES_DESCRIPTION =
 	"Connect Datadog, Grafana (Tempo/Loki/Mimir), Prometheus, New Relic, Jaeger, or the Victoria stack.";

@@ -252,6 +252,8 @@ function DatabaseList({
 	canUpdate,
 	canDelete,
 	canShare,
+	openNew,
+	onOpenNewHandled,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
 	isLoadingList: boolean;
@@ -260,11 +262,19 @@ function DatabaseList({
 	canUpdate: boolean;
 	canDelete: boolean;
 	canShare: boolean;
+	openNew?: boolean;
+	onOpenNewHandled?: () => void;
 }) {
 	const posthog = usePostHog();
 	const messages = getMessage();
 	const selectedEnvironment = useSearchParams().get("environment") || "production";
 	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
+	useEffect(() => {
+		if (openNew) {
+			setEditing("new");
+			onOpenNewHandled?.();
+		}
+	}, [onOpenNewHandled, openNew]);
 	const visibleConfigs = useMemo(
 		() => dbConfigs.filter((config) => (config.environment || "production").toLowerCase() === selectedEnvironment.toLowerCase()),
 		[dbConfigs, selectedEnvironment]
@@ -321,12 +331,16 @@ export default function Database({
 	canUpdate = true,
 	canDelete = true,
 	canShare = true,
+	openNew = false,
+	onOpenNewHandled,
 }: {
 	canCreate?: boolean;
 	canSelect?: boolean;
 	canUpdate?: boolean;
 	canDelete?: boolean;
 	canShare?: boolean;
+	openNew?: boolean;
+	onOpenNewHandled?: () => void;
 }) {
 	const messages = getMessage();
 	const databaseList = useRootStore(getDatabaseConfigList);
@@ -345,6 +359,8 @@ export default function Database({
 			canUpdate={canUpdate}
 			canDelete={canDelete}
 			canShare={canShare}
+			openNew={openNew}
+			onOpenNewHandled={onOpenNewHandled}
 		/>
 	);
 }
