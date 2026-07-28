@@ -326,7 +326,7 @@ export default function DataSourcesPage({
 					</div>
 					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment has one ClickHouse connector used for ClickHouse-backed telemetry and derived features.</p>
 				</div>
-				<div className="flex min-h-[360px] overflow-hidden">
+				<div className="overflow-hidden">
 					<DatabaseConfigPage openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
 				</div>
 			</section>

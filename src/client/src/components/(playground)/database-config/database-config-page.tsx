@@ -275,7 +275,7 @@ function DatabaseList({
 	);
 	useEffect(() => {
 		if (openNew) {
-			if (visibleConfigs.length === 0) setEditing("new");
+			setEditing(visibleConfigs[0] || "new");
 			onOpenNewHandled?.();
 		}
 	}, [onOpenNewHandled, openNew, visibleConfigs.length]);
@@ -307,7 +307,7 @@ function DatabaseList({
 					{canCreate && <Button size="sm" className="mt-4" onClick={() => setEditing("new")}>{messages.ADD_DATABASE_CONFIG}</Button>}
 				</div>
 			) : (
-				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+				<div className="grid gap-3 md:grid-cols-2">
 					{visibleConfigs.map((config) => (
 						<div key={config.id} className="flex min-h-[190px] flex-col rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50">
 							<div className="flex items-start gap-3">

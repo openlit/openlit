@@ -1862,7 +1862,7 @@ export const DATA_SOURCE_BUILTIN_DERIVED =
 export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluations";
 export const DATA_SOURCE_SIGNAL_ROUTING_TITLE = "Signal routing";
 export const DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION =
-	"Choose which source serves each signal for this project. Only the built-in ClickHouse correlates all signals; splitting signals across backends limits cross-signal features to best-effort.";
+	"Choose which connector serves each signal for this project. The ClickHouse connector correlates all signals; splitting signals across backends limits cross-signal features to best-effort.";
 export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_DESCRIPTION = (environment: string) =>
 	`Choose which connector serves each signal in ${environment}. Changes apply immediately.`;
 export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER = (name: string, environment: string) =>

@@ -1,5 +1,5 @@
 const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
-	clickhouse: "Native OpenLIT telemetry and platform data store.",
+	clickhouse: "ClickHouse telemetry and platform data store.",
 	datadog: "Traces, logs, and metrics from Datadog.",
 	tempo: "Distributed traces from Grafana Tempo.",
 	loki: "Logs from Grafana Loki.",
