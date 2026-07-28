@@ -95,17 +95,17 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices []gpu.Device, log
 type cudaDeviceTracker struct {
 	mu sync.Mutex
 
-	indexUUID  map[int]string
-	indexGPU   map[int]int // CUDA device index → gpu.index
-	indexName  map[int]string
-	threadDev  map[uint64]int // pid<<32|tid → CUDA device index
-	soleIndex  int            // set when exactly one NVIDIA device; else -1
+	indexUUID map[int]string
+	indexName map[int]string
+	threadDev map[uint64]int // pid<<32|tid → CUDA device index
+	soleIndex int            // set when exactly one NVIDIA device; else -1
 }
+
+const threadDevMaxSize = 8192
 
 func newCUDADeviceTracker(devices []gpu.Device) *cudaDeviceTracker {
 	t := &cudaDeviceTracker{
 		indexUUID: make(map[int]string),
-		indexGPU:  make(map[int]int),
 		indexName: make(map[int]string),
 		threadDev: make(map[uint64]int),
 		soleIndex: -1,
@@ -118,7 +118,6 @@ func newCUDADeviceTracker(devices []gpu.Device) *cudaDeviceTracker {
 			continue
 		}
 		t.indexUUID[info.Index] = info.UUID
-		t.indexGPU[info.Index] = info.Index
 		t.indexName[info.Index] = info.Name
 		sole = info.Index
 		n++
@@ -141,6 +140,17 @@ func (t *cudaDeviceTracker) noteSetDevice(pid, tid uint32, deviceIdx int) {
 	defer t.mu.Unlock()
 	if _, ok := t.indexUUID[deviceIdx]; !ok {
 		return
+	}
+	if len(t.threadDev) >= threadDevMaxSize {
+		// Bound memory on long-lived nodes with high thread churn.
+		n := 0
+		for k := range t.threadDev {
+			delete(t.threadDev, k)
+			n++
+			if n >= threadDevMaxSize/2 {
+				break
+			}
+		}
 	}
 	t.threadDev[threadDeviceKey(pid, tid)] = deviceIdx
 }
@@ -166,7 +176,7 @@ func (t *cudaDeviceTracker) deviceAttrs(pid, tid uint32) []attribute.KeyValue {
 	}
 	attrs := []attribute.KeyValue{
 		attribute.String("hw.id", uuid),
-		attribute.Int("gpu.index", t.indexGPU[idx]),
+		attribute.Int("gpu.index", idx),
 	}
 	if name := t.indexName[idx]; name != "" {
 		attrs = append(attrs, attribute.String("hw.name", name))
@@ -244,7 +254,10 @@ func cachedPIDAttrs(pid uint32) []attribute.KeyValue {
 
 func (em *EBPFMetrics) activityAttrs(pid, tid uint32, extra ...attribute.KeyValue) metric.MeasurementOption {
 	base := cachedPIDAttrs(pid)
-	dev := em.devices.deviceAttrs(pid, tid)
+	var dev []attribute.KeyValue
+	if em.devices != nil {
+		dev = em.devices.deviceAttrs(pid, tid)
+	}
 	attrs := make([]attribute.KeyValue, 0, len(base)+len(dev)+len(extra))
 	attrs = append(attrs, base...)
 	attrs = append(attrs, dev...)
@@ -258,7 +271,9 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 
 	switch e := ev.(type) {
 	case *gpuebpf.SetDeviceEvent:
-		em.devices.noteSetDevice(e.PID, e.TID, int(e.Device))
+		if em.devices != nil {
+			em.devices.noteSetDevice(e.PID, e.TID, int(e.Device))
+		}
 
 	case *gpuebpf.KernelLaunchEvent:
 		kernelName := e.KernelName
