@@ -309,12 +309,14 @@ function DatabaseList({
 			) : (
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 					{visibleConfigs.map((config) => (
-						<div key={config.id} className="flex min-h-[170px] flex-col justify-between rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
-							<div className="space-y-3">
-								<div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950"><Image src="/images/connectors/clickhouse.svg" alt="" width={22} height={22} className="h-5 w-5 object-contain" /></div><div><p className="text-sm font-medium text-stone-950 dark:text-stone-50">{config.name}</p><p className="text-[11px] text-muted-foreground">ClickHouse</p></div></div>{config.isCurrent && <Badge className="text-[10px]">Current</Badge>}</div>
-								<div className="flex flex-wrap gap-1.5"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="text-[10px]">{config.host}:{config.port}</Badge></div>
+						<div key={config.id} className="flex min-h-[190px] flex-col rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50">
+							<div className="flex items-start gap-3">
+								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950"><Image src="/images/connectors/clickhouse.svg" alt="" width={24} height={24} className="h-6 w-6 object-contain" /></div>
+								<div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">{config.name}</p>{config.isCurrent && <Badge className="shrink-0 text-[10px]">Current</Badge>}</div><p className="mt-0.5 text-[11px] text-muted-foreground">ClickHouse connector</p></div>
 							</div>
-							<div className="mt-4 flex items-center justify-end gap-1 border-t border-stone-200 pt-3 dark:border-stone-800"><Button size="sm" variant="ghost" onClick={() => setCurrent(config)} disabled={!canSelect || config.isCurrent}>Use</Button><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div>
+							<p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">Telemetry, dashboards, and derived features for this project environment.</p>
+							<div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="max-w-full truncate text-[10px]">{config.host}:{config.port}</Badge></div>
+							<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">{config.database || "default"}</span><div className="flex items-center gap-1"><Button size="sm" variant="ghost" onClick={() => setCurrent(config)} disabled={!canSelect || config.isCurrent}>Use</Button><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
 						</div>
 					))}
 				</div>

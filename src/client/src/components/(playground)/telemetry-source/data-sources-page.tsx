@@ -115,8 +115,8 @@ function ConnectorOption({
 	detail?: string;
 }) {
 	return (
-		<SelectItem value={value} className="py-2.5">
-			<div className="flex min-w-0 items-center gap-2.5">
+		<SelectItem value={value} className="min-h-12 items-center py-2 pl-2 pr-8">
+			<div className="flex min-w-0 items-center gap-3">
 				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 					<Image src={icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
 				</div>
@@ -804,7 +804,7 @@ function SourceFormDialog({
 						<div className="space-y-1.5">
 							<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
 							<Select value={type} onValueChange={setType} disabled={isEdit}>
-								<SelectTrigger className="h-auto min-h-14 items-center border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
+				<SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
 									<SelectValue placeholder="Select a connector">
 										{activeDescriptor ? (
 											<div className="flex min-w-0 items-center gap-2.5">
@@ -819,10 +819,10 @@ function SourceFormDialog({
 										) : undefined}
 									</SelectValue>
 								</SelectTrigger>
-								<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 gap-1 p-1 sm:min-w-[680px]">
-									{externalDescriptors.map((d) => (
-										<SelectItem key={d.type} value={d.type} className="py-2.5">
-											<div className="flex items-start gap-2.5">
+				<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
+					{externalDescriptors.map((d) => (
+						<SelectItem key={d.type} value={d.type} className="min-h-[72px] items-start py-2 pl-2 pr-8">
+							<div className="flex items-start gap-3">
 												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 													<Image src={d.icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
 												</div>
