@@ -21,7 +21,7 @@ func (d *Device) startXIDWatcher(logger *slog.Logger) {
 		_ = set.Free()
 		return
 	}
-	d.eventSet = &set
+	d.eventSet = set
 	d.xidDone = make(chan struct{})
 	go func() {
 		defer close(d.xidDone)

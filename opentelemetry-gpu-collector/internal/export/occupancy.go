@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"sync"
 
@@ -166,7 +167,14 @@ func occupancyProcessAttrs(pid uint32, uuid string, devices []gpu.Device) attrib
 	attrs := []attribute.KeyValue{
 		attribute.String("hw.id", uuid),
 		attribute.String("process.pid", strconv.FormatUint(uint64(pid), 10)),
-		attribute.String("process.executable.name", procname.ExecutableName(int32(pid))),
+	}
+	// procname/workload APIs take int32; skip lookups for PIDs that would truncate.
+	if pid <= math.MaxInt32 {
+		pid32 := int32(pid)
+		attrs = append(attrs, attribute.String("process.executable.name", procname.ExecutableName(pid32)))
+		if pod, ok := workload.ResolvePod(pid32); ok && pod.PodUID != "" {
+			attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
+		}
 	}
 	for _, d := range devices {
 		info := d.Info()
@@ -179,9 +187,6 @@ func occupancyProcessAttrs(pid uint32, uuid string, devices []gpu.Device) attrib
 			)
 			break
 		}
-	}
-	if pod, ok := workload.ResolvePod(int32(pid)); ok && pod.PodUID != "" {
-		attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
 	}
 	return attribute.NewSet(attrs...)
 }

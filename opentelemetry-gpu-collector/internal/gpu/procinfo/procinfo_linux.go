@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sys/unix"
+	"github.com/tklauser/go-sysconf"
 )
 
 var (
@@ -163,7 +163,7 @@ func systemBootTime() time.Time {
 
 func clockTicks() int64 {
 	clkOnce.Do(func() {
-		if hz, err := unix.Sysconf(unix.SC_CLK_TCK); err == nil && hz > 0 {
+		if hz, err := sysconf.Sysconf(sysconf.SC_CLK_TCK); err == nil && hz > 0 {
 			clkTicks = hz
 		}
 	})

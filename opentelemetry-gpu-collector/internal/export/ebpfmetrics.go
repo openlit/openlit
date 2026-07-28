@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -122,17 +123,20 @@ func cachedPIDAttrs(pid uint32) []attribute.KeyValue {
 
 	attrs := []attribute.KeyValue{
 		attribute.String("process.pid", strconv.FormatUint(uint64(pid), 10)),
-		attribute.String("process.executable.name", procname.ExecutableName(int32(pid))),
 	}
-	if pod, ok := workload.ResolvePod(int32(pid)); ok {
-		if pod.PodUID != "" {
-			attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
-		}
-		if pod.PodName != "" {
-			attrs = append(attrs, attribute.String("k8s.pod.name", pod.PodName))
-		}
-		if pod.Namespace != "" {
-			attrs = append(attrs, attribute.String("k8s.namespace.name", pod.Namespace))
+	if pid <= math.MaxInt32 {
+		pid32 := int32(pid)
+		attrs = append(attrs, attribute.String("process.executable.name", procname.ExecutableName(pid32)))
+		if pod, ok := workload.ResolvePod(pid32); ok {
+			if pod.PodUID != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
+			}
+			if pod.PodName != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.name", pod.PodName))
+			}
+			if pod.Namespace != "" {
+				attrs = append(attrs, attribute.String("k8s.namespace.name", pod.Namespace))
+			}
 		}
 	}
 

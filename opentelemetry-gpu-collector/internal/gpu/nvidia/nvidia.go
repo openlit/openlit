@@ -62,7 +62,7 @@ type Device struct {
 	nvlinkTxPrev uint64
 	nvlinkLast   time.Time
 	xidCount     int64
-	eventSet     *nvml.EventSet
+	eventSet     nvml.EventSet
 	closed       int32
 	xidDone      chan struct{}
 }
