@@ -1,4 +1,4 @@
-import { DEFAULT_MODELS_BY_PROVIDER } from '@/lib/platform/providers/default-models';
+import { DEFAULT_MODELS_BY_PROVIDER, DEFAULT_PROVIDERS } from '@/lib/platform/providers/default-models';
 
 describe('default-models', () => {
   it('exports a non-empty record of providers', () => {
@@ -11,7 +11,7 @@ describe('default-models', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
       'perplexity', 'azure', 'cohere', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
     ];
     for (const provider of expectedProviders) {
       expect(DEFAULT_MODELS_BY_PROVIDER).toHaveProperty(provider);
@@ -46,5 +46,31 @@ describe('default-models', () => {
         expect(model.id.length).toBeGreaterThan(0);
       }
     }
+  });
+
+  it('seeds the MiniMax provider with its current models', () => {
+    expect(DEFAULT_PROVIDERS.some((p) => p.providerId === 'minimax')).toBe(true);
+    const minimaxModels = DEFAULT_MODELS_BY_PROVIDER.minimax;
+    expect(minimaxModels).toBeDefined();
+    expect(minimaxModels.length).toBeGreaterThanOrEqual(2);
+    const m3 = minimaxModels.find((m) => m.id === 'MiniMax-M3');
+    expect(m3).toBeDefined();
+    expect(m3!.contextWindow).toBe(1000000);
+    expect(m3!.inputPricePerMToken).toBe(0.6);
+    expect(m3!.outputPricePerMToken).toBe(2.4);
+    expect(m3!.cacheReadPricePerMToken).toBe(0.12);
+    expect(m3!.capabilities).toEqual(
+      expect.arrayContaining(['vision', 'thinking'])
+    );
+    const m27 = minimaxModels.find((m) => m.id === 'MiniMax-M2.7');
+    expect(m27).toBeDefined();
+    expect(m27!.contextWindow).toBe(204800);
+    expect(m27!.inputPricePerMToken).toBe(0.3);
+    expect(m27!.outputPricePerMToken).toBe(1.2);
+    expect(m27!.cacheReadPricePerMToken).toBe(0.06);
+    expect(m27!.cacheCreationPricePerMToken).toBe(0.375);
+    expect(m27!.capabilities).toEqual(
+      expect.arrayContaining(['thinking'])
+    );
   });
 });
