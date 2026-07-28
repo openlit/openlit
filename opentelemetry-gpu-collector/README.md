@@ -243,7 +243,7 @@ Follows the [OTel semantic conventions for process metrics](https://opentelemetr
 
 ### eBPF CUDA Tracing (on by default on Linux)
 
-On by default on Linux. Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root) and NVIDIA CUDA runtime (`libcudart.so`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable.
+On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|

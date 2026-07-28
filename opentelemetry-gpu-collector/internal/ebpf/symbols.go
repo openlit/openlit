@@ -126,7 +126,12 @@ func (sr *SymbolResolver) loadSymbols(pid uint32) *symbolTable {
 		seen[path] = true
 
 		baseAddr := parseMapBase(fields[0])
-		symbols := loadELFSymbols(path)
+		// Prefer the file as seen by the target process (other mount namespaces).
+		libPath := resolveMappedLib(int(pid), fields[0], path)
+		if libPath == "" {
+			continue
+		}
+		symbols := loadELFSymbols(libPath)
 		for _, sym := range symbols {
 			st.entries = append(st.entries, symbolEntry{
 				addr: baseAddr + sym.addr,

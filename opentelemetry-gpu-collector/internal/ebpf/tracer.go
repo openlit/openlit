@@ -9,11 +9,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -31,17 +30,23 @@ type Tracer struct {
 	handler EventHandler
 	symbols *SymbolResolver
 	running atomic.Bool
+	closed  atomic.Bool
 	wg      sync.WaitGroup
 	dropped atomic.Uint64
+
+	mu            sync.Mutex
+	attachedInode map[string]struct{} // successfully attached, or permanently skipped
+	uprobes       map[string]*ebpf.Program
+	uretprobes    map[string]*ebpf.Program
+	stop          chan struct{}
+	runStarted    bool
 }
 
 // NewTracer loads eBPF programs and attaches uprobes to CUDA libraries.
+// Libraries are discovered from the filesystem and from /proc/*/maps (fleet-friendly
+// with host PID visibility). If none are present yet, the tracer still starts and
+// periodically rescans so late-starting CUDA workloads are picked up.
 func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
-	libs := findCudaLibs()
-	if len(libs) == 0 {
-		return nil, fmt.Errorf("libcudart.so* not found; CUDA runtime is not installed")
-	}
-
 	spec, err := loadGpuevent()
 	if err != nil {
 		return nil, fmt.Errorf("loading eBPF spec: %w", err)
@@ -53,88 +58,187 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 	}
 
 	t := &Tracer{
-		logger:  logger,
-		objs:    objs,
-		handler: handler,
-		symbols: NewSymbolResolver(logger),
+		logger:        logger,
+		objs:          objs,
+		handler:       handler,
+		symbols:       NewSymbolResolver(logger),
+		attachedInode: make(map[string]struct{}),
+		stop:          make(chan struct{}),
+		uprobes: map[string]*ebpf.Program{
+			"cudaLaunchKernel":      objs.HandleCudaLaunch,
+			"cudaMalloc":            objs.HandleCudaMallocEnter,
+			"cudaFree":              objs.HandleCudaFree,
+			"cudaMemcpyAsync":       objs.HandleCudaMemcpyAsync,
+			"cudaStreamSynchronize": objs.HandleCudaStreamSyncEnter,
+			"cudaSetDevice":         objs.HandleCudaSetDeviceEnter,
+		},
+		uretprobes: map[string]*ebpf.Program{
+			"cudaMalloc":            objs.HandleCudaMalloc,
+			"cudaMemcpy":            objs.HandleCudaMemcpy,
+			"cudaStreamSynchronize": objs.HandleCudaStreamSync,
+			"cudaDeviceSynchronize": objs.HandleCudaDeviceSync,
+			"cudaSetDevice":         objs.HandleCudaSetDevice,
+		},
 	}
 
-	uprobes := map[string]*ebpf.Program{
-		"cudaLaunchKernel":      objs.HandleCudaLaunch,
-		"cudaMalloc":            objs.HandleCudaMallocEnter,
-		"cudaFree":              objs.HandleCudaFree,
-		"cudaMemcpyAsync":       objs.HandleCudaMemcpyAsync,
-		"cudaStreamSynchronize": objs.HandleCudaStreamSyncEnter,
-		"cudaSetDevice":         objs.HandleCudaSetDeviceEnter,
-	}
-	uretprobes := map[string]*ebpf.Program{
-		"cudaMalloc":            objs.HandleCudaMalloc,
-		"cudaMemcpy":            objs.HandleCudaMemcpy,
-		"cudaStreamSynchronize": objs.HandleCudaStreamSync,
-		"cudaDeviceSynchronize": objs.HandleCudaDeviceSync,
-		"cudaSetDevice":         objs.HandleCudaSetDevice,
-	}
-
-	for _, cudaLib := range libs {
-		logger.Info("attaching CUDA probes", "path", cudaLib)
-		ex, err := link.OpenExecutable(cudaLib)
-		if err != nil {
-			logger.Warn("opening CUDA lib failed", "path", cudaLib, "error", err)
-			continue
-		}
-		for sym, prog := range uprobes {
-			if prog == nil {
-				continue
-			}
-			l, err := ex.Uprobe(sym, prog, nil)
-			if err != nil {
-				logger.Warn("failed to attach uprobe", "symbol", sym, "path", cudaLib, "error", err)
-				continue
-			}
-			t.links = append(t.links, l)
-			logger.Info("attached uprobe", "symbol", sym, "path", cudaLib)
-		}
-		for sym, prog := range uretprobes {
-			if prog == nil {
-				continue
-			}
-			l, err := ex.Uretprobe(sym, prog, nil)
-			if err != nil {
-				logger.Warn("failed to attach uretprobe", "symbol", sym, "path", cudaLib, "error", err)
-				continue
-			}
-			t.links = append(t.links, l)
-			logger.Info("attached uretprobe", "symbol", sym, "path", cudaLib)
-		}
-	}
-
-	if len(t.links) == 0 {
-		t.Close()
-		return nil, fmt.Errorf("no uprobes attached; CUDA symbols not found in %v", libs)
+	n := t.attachNewCudaLibs()
+	if n == 0 {
+		logger.Info("no CUDA runtime found yet; rescanning /proc for libcudart (Docker --pid=host / Kubernetes hostPID recommended)")
 	}
 
 	t.reader, err = ringbuf.NewReader(objs.GpuEvents)
 	if err != nil {
-		t.Close()
+		// Do not call Close()/wg.Wait() here — Run has not started. Free BPF objs only.
+		t.closed.Store(true)
+		close(t.stop)
+		objs.Close()
+		t.objs = nil
 		return nil, fmt.Errorf("creating ring buffer reader: %w", err)
 	}
 
 	return t, nil
 }
 
+// attachNewCudaLibs discovers libcudart copies and attaches probes to new inodes.
+// Returns the number of libraries newly attached.
+func (t *Tracer) attachNewCudaLibs() int {
+	if t.closed.Load() {
+		return 0
+	}
+	libs := findCudaLibs()
+	attached := 0
+	for _, cudaLib := range libs {
+		if t.attachCudaLib(cudaLib) {
+			attached++
+		}
+	}
+	return attached
+}
+
+func (t *Tracer) attachCudaLib(cudaLib string) bool {
+	if t.closed.Load() {
+		return false
+	}
+	fi, err := os.Stat(cudaLib)
+	if err != nil {
+		return false
+	}
+	var key string
+	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
+		key = fmt.Sprintf("%d:%d", sys.Dev, sys.Ino)
+	} else {
+		key = cudaLib
+	}
+
+	// Reserve the inode under the lock so concurrent rescans cannot double-attach.
+	t.mu.Lock()
+	if _, ok := t.attachedInode[key]; ok {
+		t.mu.Unlock()
+		return false
+	}
+	t.attachedInode[key] = struct{}{}
+	t.mu.Unlock()
+
+	unreserve := func() {
+		t.mu.Lock()
+		delete(t.attachedInode, key)
+		t.mu.Unlock()
+	}
+
+	t.logger.Info("attaching CUDA probes", "path", cudaLib)
+	ex, err := link.OpenExecutable(cudaLib)
+	if err != nil {
+		t.logger.Warn("opening CUDA lib failed", "path", cudaLib, "error", err)
+		unreserve() // transient (e.g. process exited); allow retry
+		return false
+	}
+
+	var newLinks []link.Link
+	for sym, prog := range t.uprobes {
+		if prog == nil {
+			continue
+		}
+		l, err := ex.Uprobe(sym, prog, nil)
+		if err != nil {
+			t.logger.Warn("failed to attach uprobe", "symbol", sym, "path", cudaLib, "error", err)
+			continue
+		}
+		newLinks = append(newLinks, l)
+		t.logger.Info("attached uprobe", "symbol", sym, "path", cudaLib)
+	}
+	for sym, prog := range t.uretprobes {
+		if prog == nil {
+			continue
+		}
+		l, err := ex.Uretprobe(sym, prog, nil)
+		if err != nil {
+			t.logger.Warn("failed to attach uretprobe", "symbol", sym, "path", cudaLib, "error", err)
+			continue
+		}
+		newLinks = append(newLinks, l)
+		t.logger.Info("attached uretprobe", "symbol", sym, "path", cudaLib)
+	}
+
+	if len(newLinks) == 0 {
+		// Keep inode reserved to avoid log spam every rescan on stripped/non-CUDA .so.
+		t.logger.Warn("no CUDA symbols attached; skipping further attempts for this library", "path", cudaLib)
+		return false
+	}
+
+	if t.closed.Load() {
+		for _, l := range newLinks {
+			l.Close()
+		}
+		return false
+	}
+
+	t.mu.Lock()
+	t.links = append(t.links, newLinks...)
+	t.mu.Unlock()
+	return true
+}
+
 // Dropped returns approximate count of events that failed ringbuf reserve (not
 // directly visible from userspace; reserved for future BPF stats map).
 func (t *Tracer) Dropped() uint64 { return t.dropped.Load() }
 
-// Run starts reading events from the ring buffer. Blocks until ctx is cancelled.
+// Run starts reading events from the ring buffer. Blocks until ctx is cancelled
+// or Close is called.
 func (t *Tracer) Run(ctx context.Context) {
+	t.mu.Lock()
+	if t.closed.Load() {
+		t.mu.Unlock()
+		return
+	}
+	t.wg.Add(2) // this goroutine + rescan
+	t.runStarted = true
 	t.running.Store(true)
-	t.wg.Add(1)
+	t.mu.Unlock()
 	defer t.wg.Done()
+
+	go func() {
+		defer t.wg.Done()
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.stop:
+				return
+			case <-ticker.C:
+				if n := t.attachNewCudaLibs(); n > 0 {
+					t.logger.Info("attached CUDA probes after /proc rescan", "libraries", n)
+				}
+			}
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-t.stop:
 			return
 		default:
 		}
@@ -142,6 +246,9 @@ func (t *Tracer) Run(ctx context.Context) {
 		record, err := t.reader.Read()
 		if err != nil {
 			if errors.Is(err, ringbuf.ErrClosed) {
+				return
+			}
+			if t.closed.Load() {
 				return
 			}
 			t.logger.Warn("ring buffer read error", "error", err)
@@ -263,96 +370,34 @@ func (t *Tracer) processSetDevice(data []byte) {
 }
 
 // Close detaches all probes and frees resources.
+// Safe to call before Run. Callers should cancel the Run context first when active.
 func (t *Tracer) Close() {
+	t.mu.Lock()
+	if t.closed.Load() {
+		t.mu.Unlock()
+		return
+	}
+	t.closed.Store(true)
+	close(t.stop)
+	started := t.runStarted
+	t.mu.Unlock()
+
 	if t.reader != nil {
 		t.reader.Close()
 	}
-	for _, l := range t.links {
+	if started {
+		t.wg.Wait()
+	}
+
+	t.mu.Lock()
+	links := t.links
+	t.links = nil
+	t.mu.Unlock()
+	for _, l := range links {
 		l.Close()
 	}
 	if t.objs != nil {
 		t.objs.Close()
+		t.objs = nil
 	}
-	t.wg.Wait()
-}
-
-// findCudaLibs finds libcudart shared libraries (including versioned sonames).
-// Symlinks and duplicate paths that resolve to the same inode are attached once.
-func findCudaLibs() []string {
-	seenPath := make(map[string]struct{})
-	seenInode := make(map[string]struct{})
-	var out []string
-	add := func(path string) {
-		if path == "" {
-			return
-		}
-		fi, err := os.Stat(path)
-		if err != nil {
-			return
-		}
-		resolved, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			resolved = path
-		}
-		if _, ok := seenPath[resolved]; ok {
-			return
-		}
-		if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
-			key := fmt.Sprintf("%d:%d", sys.Dev, sys.Ino)
-			if _, ok := seenInode[key]; ok {
-				return
-			}
-			seenInode[key] = struct{}{}
-		}
-		seenPath[resolved] = struct{}{}
-		out = append(out, resolved)
-	}
-
-	candidates := []string{
-		"/usr/local/cuda/lib64/libcudart.so",
-		"/usr/lib/x86_64-linux-gnu/libcudart.so",
-		"/usr/lib/aarch64-linux-gnu/libcudart.so",
-		"/usr/lib64/libcudart.so",
-		"/usr/lib/libcudart.so",
-	}
-	if ldPath := os.Getenv("LD_LIBRARY_PATH"); ldPath != "" {
-		for _, dir := range strings.Split(ldPath, ":") {
-			candidates = append(candidates, filepath.Join(dir, "libcudart.so"))
-		}
-	}
-	if cudaHome := os.Getenv("CUDA_HOME"); cudaHome != "" {
-		candidates = append(candidates,
-			filepath.Join(cudaHome, "lib64", "libcudart.so"),
-			filepath.Join(cudaHome, "lib", "libcudart.so"),
-		)
-	}
-	for _, path := range candidates {
-		add(path)
-	}
-
-	globs := []string{
-		"/usr/local/cuda*/lib64/libcudart.so*",
-		"/usr/lib/x86_64-linux-gnu/libcudart.so*",
-		"/usr/lib/aarch64-linux-gnu/libcudart.so*",
-		"/usr/local/lib/python*/dist-packages/nvidia/cuda_runtime/lib/libcudart.so*",
-		"/usr/lib/python*/site-packages/nvidia/cuda_runtime/lib/libcudart.so*",
-	}
-	for _, g := range globs {
-		matches, _ := filepath.Glob(g)
-		for _, m := range matches {
-			if strings.Contains(filepath.Base(m), ".so") {
-				add(m)
-			}
-		}
-	}
-
-	return out
-}
-
-func findCudaLib() string {
-	libs := findCudaLibs()
-	if len(libs) == 0 {
-		return ""
-	}
-	return libs[0]
 }

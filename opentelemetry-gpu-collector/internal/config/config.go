@@ -31,7 +31,8 @@ func Load() *Config {
 	}
 	// Pod API lookup auto-enables in-cluster when the node name is known.
 	defaultPodLookup := inK8s && nodeName != ""
-	// eBPF is Linux-only; default on there (soft-fails without caps/CUDA). Off elsewhere.
+	// eBPF is Linux-only; default on there (soft-fails without BPF caps; CUDA
+	// libs are discovered via FS + /proc maps). Off on Windows/macOS.
 	defaultEBPF := runtime.GOOS == "linux"
 	cfg := &Config{
 		ServiceName: envOrDefault("OTEL_SERVICE_NAME", "default"),

@@ -149,7 +149,7 @@ These attributes support views like zombie-process triage: filter `process.state
 
 ## eBPF CUDA Metrics
 
-On by default on Linux (`OTEL_GPU_EBPF_ENABLED=true`). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root) and an NVIDIA CUDA runtime (`libcudart.so*`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`.
+Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux). Soft-fails without caps. Discovers `libcudart.so*` from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
 
 ### Activity metrics
 

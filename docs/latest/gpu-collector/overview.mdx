@@ -25,7 +25,7 @@ It is fully configured via standard OpenTelemetry environment variables and foll
     Per-process VRAM/util plus cmdline, OS state (zombie), owner, uptime, and LLM framework labels (`vllm`, `ollama`, …). Kubernetes pod name/namespace via PodResources
   </Card>
   <Card title="eBPF CUDA Tracing" icon="code">
-    Kernel launch counts, grid/block sizes, memory allocations, and memory copies - via uprobes on libcudart.so (on by default on Linux; soft-fails without caps/CUDA)
+    Kernel launch counts, grid/block sizes, memory allocations, and memory copies via uprobes on libcudart (on by default on Linux; discovers libs from `/proc` with host PID — no CUDA mount)
   </Card>
 </CardGroup>
 

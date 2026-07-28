@@ -197,7 +197,7 @@ func setupCollectors(
 			} else {
 				ebpfTracer = tracer
 				go ebpfTracer.Run(ctx)
-				logger.Info("eBPF CUDA tracing started (activity + stream-sync occupancy)")
+				logger.Info("eBPF CUDA tracing started (activity + stream-sync occupancy; /proc libcudart discovery)")
 			}
 		}
 	}

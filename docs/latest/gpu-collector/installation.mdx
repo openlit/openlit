@@ -219,8 +219,10 @@ rm /usr/local/bin/opentelemetry-gpu-collector
     - On Linux it is enabled by default; confirm it is not disabled via `OTEL_GPU_EBPF_ENABLED=false`
     - Check kernel version: `uname -r` (requires 5.8+)
     - The process needs `CAP_BPF` and `CAP_PERFMON`, or run as root
-    - For Docker: add `--privileged` or `--cap-add CAP_BPF --cap-add CAP_PERFMON`
-    - Verify `libcudart.so` is present on the host: `ldconfig -p | grep cudart`
+    - For Docker: add `--privileged` or `--cap-add CAP_BPF --cap-add CAP_PERFMON`, and `--pid=host` so `/proc` maps can find workload `libcudart` (no CUDA mount needed)
+    - For Kubernetes: `hostPID: true` plus BPF capabilities (or `SYS_ADMIN`)
+    - If no CUDA process is running yet, the collector rescans `/proc` every 30s
+    - Verify a workload has loaded cudart: `grep libcudart /proc/*/maps 2>/dev/null | head`
   </Accordion>
   <Accordion title="Connection refused / no data reaching backend">
     - Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is reachable from the container: `curl http://<endpoint>/health`
