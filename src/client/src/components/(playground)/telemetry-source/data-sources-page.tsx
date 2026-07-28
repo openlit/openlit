@@ -164,6 +164,7 @@ export default function DataSourcesPage({
 	const routeEnvironment = searchParams.get("environment") || "production";
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [sources, setSources] = useState<SourceRow[]>([]);
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
@@ -180,6 +181,9 @@ export default function DataSourcesPage({
 
 	const load = useCallback(async () => {
 		setLoading(true);
+		setLoadError(null);
+		setSources([]);
+		setBindings([]);
 		try {
 			const [list, binds, stacks] = await Promise.all([
 				jsonFetch("/api/telemetry-source"),
@@ -191,7 +195,9 @@ export default function DataSourcesPage({
 			setBindings(binds?.bindings || []);
 			setTemplates(stacks?.templates || []);
 		} catch (e: any) {
-			toast.error(e?.message || messages.DATA_SOURCE_LOAD_FAILED);
+			const message = e?.message || messages.DATA_SOURCE_LOAD_FAILED;
+			setLoadError(message);
+			toast.error(message, { id: "data-source-load" });
 		} finally {
 			setLoading(false);
 		}
@@ -212,7 +218,7 @@ export default function DataSourcesPage({
 	useEffect(() => {
 		fetchDatabaseConfigList(() => {});
 		load();
-	}, [load, projectId]);
+		}, [load, projectId]);
 
 	const bindingForSignal = useCallback(
 		(signal: Signal) => bindings.find(
@@ -433,8 +439,20 @@ export default function DataSourcesPage({
 				</div>
 
 				{loading ? (
-					<div className="animate-pulse py-8 text-center text-sm text-muted-foreground">
-						{messages.OBSERVABILITY_LOADING}
+					<div className="grid gap-3 md:grid-cols-2">
+						{[0, 1].map((item) => (
+							<div key={item} className="flex min-h-[168px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
+								<div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-20 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
+								<div className="space-y-2"><div className="h-2.5 w-full animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-3/4 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div>
+								<div className="mt-auto h-8 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+							</div>
+						))}
+					</div>
+				) : loadError ? (
+					<div className="rounded-lg border border-error/30 bg-error/5 p-6 text-center dark:bg-error/10">
+						<p className="text-sm font-semibold text-error">{messages.DATA_SOURCE_LOAD_FAILED}</p>
+						<p className="mx-auto mt-1 max-w-xl text-xs text-muted-foreground">{loadError}</p>
+						<Button size="sm" variant="outline" className="mt-4" onClick={() => void load()}>{messages.DATA_SOURCE_RETRY}</Button>
 					</div>
 				) : visibleSources.length === 0 ? (
 					<div className="flex flex-col items-center gap-1 py-10 text-center">

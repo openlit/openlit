@@ -182,6 +182,19 @@ async function main() {
 				canShare: true,
 			},
 		});
+
+		await prisma.projectEnvironment.upsert({
+			where: { projectId_name: { projectId: defaultProject.id, name: "production" } },
+			create: { projectId: defaultProject.id, name: "production" },
+			update: {},
+		});
+		for (const signal of ["traces", "logs", "metrics"]) {
+			await prisma.telemetrySourceBinding.upsert({
+				where: { projectId_signal_environment: { projectId: defaultProject.id, signal, environment: "production" } },
+				create: { projectId: defaultProject.id, signal, environment: "production", databaseConfigId: dbConfig.id },
+				update: {},
+			});
+		}
 	}
 
 	// Migrate existing data if needed (for upgrades)

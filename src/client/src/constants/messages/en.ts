@@ -1095,6 +1095,8 @@ export const DB_CONFIG_EMPTY_DESCRIPTION =
 export const DB_CONFIG_NOT_SELECTED_DESCRIPTION =
 	"Select a database config to update its details.";
 export const ADD_DATABASE_CONFIG = "Add database config";
+export const DELETE_DATABASE_CONFIG_CONFIRMATION =
+	"Delete this ClickHouse connector? This cannot be undone.";
 export const MARK_DB_CONFIG_ACTIVE = (name: string) =>
 	`Mark ${name} as the active database config`;
 export const SHARE_DATABASE_CONFIG = "Share Database config";
@@ -1981,6 +1983,7 @@ export const DATA_SOURCE_DELETE_CONFIRM = (name: string) =>
 export const DATA_SOURCE_BINDING_SAVED = "Signal routing updated.";
 export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
+export const DATA_SOURCE_RETRY = "Try again";
 export const DATA_SOURCE_STACK_TITLE = "Connect a stack";
 export const DATA_SOURCE_STACK_DESCRIPTION =
 	"Create the per-signal sources for a full stack in one step, and bind each signal automatically.";

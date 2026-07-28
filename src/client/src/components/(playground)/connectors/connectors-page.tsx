@@ -51,6 +51,33 @@ export default function ConnectorsPage() {
 	const [types, setTypes] = useState<ConnectorType[]>([]);
 	const [requestedType, setRequestedType] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
+
+	const loadConnectors = () => {
+		if (!project?.id) return;
+		setLoading(true);
+		setLoadError(null);
+		setConnected([]);
+		setTypes([]);
+		Promise.all([fetch("/api/connectors"), fetch("/api/connectors/types"), fetch("/api/db-config")])
+			.then(async ([connectorResponse, typeResponse, databaseResponse]) => {
+				if (!connectorResponse.ok) throw new Error("Failed to list connected connectors");
+				if (!typeResponse.ok) throw new Error("Failed to list connector types");
+				if (!databaseResponse.ok) throw new Error("Failed to list ClickHouse connectors");
+				const [connectorData, typeData, databases] = await Promise.all([
+					connectorResponse.json(),
+					typeResponse.json(),
+					databaseResponse.json(),
+				]);
+				setConnected([
+					...(connectorData.connectors || []),
+					...(Array.isArray(databases) ? databases : []).map((database: { id: string; name: string; environment?: string }) => ({ id: `database:${database.id}`, name: database.name, type: "clickhouse", environment: database.environment, icon: "/images/connectors/clickhouse.svg" })),
+				]);
+				setTypes(typeData.types || []);
+			})
+			.catch((error: unknown) => setLoadError(error instanceof Error ? error.message : messages.DATA_SOURCE_LOAD_FAILED))
+			.finally(() => setLoading(false));
+	};
 
 	useEffect(() => {
 		if (currentOrg?.id) void fetchProjectList(currentOrg.id);
@@ -62,62 +89,7 @@ export default function ConnectorsPage() {
 		}
 	}, [currentProject?.id, project?.id]);
 
-	useEffect(() => {
-		let active = true;
-		if (!project?.id) {
-			setLoading(false);
-			return () => {
-				active = false;
-			};
-		}
-
-		setLoading(true);
-		setConnected([]);
-		setTypes([]);
-
-		Promise.all([
-			fetch("/api/connectors"),
-			fetch("/api/connectors/types"),
-			fetch("/api/db-config"),
-		])
-			.then(async ([connectorResponse, typeResponse, databaseResponse]) => {
-				if (!active) return;
-
-				const connectorData = connectorResponse.ok
-					? await connectorResponse.json()
-					: {};
-				const typeData = typeResponse.ok ? await typeResponse.json() : {};
-				const databases = databaseResponse.ok
-					? await databaseResponse.json()
-					: [];
-
-				setConnected([
-					...(connectorData.connectors || []),
-					...(Array.isArray(databases) ? databases : []).map(
-						(database: {
-							id: string;
-							name: string;
-							environment?: string;
-						}) => ({
-							id: `database:${database.id}`,
-							name: database.name,
-							type: "clickhouse",
-							environment: database.environment,
-							icon: "/images/connectors/clickhouse.svg",
-						})
-					),
-				]);
-				setTypes(typeData.types || []);
-			})
-			.catch(() => undefined)
-			.finally(() => {
-				if (active) setLoading(false);
-			});
-
-		return () => {
-			active = false;
-		};
-	}, [project?.id]);
+	useEffect(() => { loadConnectors(); }, [project?.id]);
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-auto text-stone-700 dark:text-stone-300">
@@ -143,6 +115,7 @@ export default function ConnectorsPage() {
 
 			<FeatureAccess access="connectors.read" requireProject>
 				<main className="flex flex-col gap-4 p-4">
+					{loadError && <div className="rounded-lg border border-error/30 bg-error/5 p-4 dark:bg-error/10"><p className="text-sm font-semibold text-error">{messages.DATA_SOURCE_LOAD_FAILED}</p><p className="mt-1 text-xs text-muted-foreground">{loadError}</p><Button size="sm" variant="outline" className="mt-3" onClick={loadConnectors}>{messages.DATA_SOURCE_RETRY}</Button></div>}
 					<ConnectedConnectorsSection
 						connected={connected}
 						loading={loading}

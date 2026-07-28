@@ -90,9 +90,11 @@ export default function DatabaseConfigSwitch({
     const params = new URLSearchParams(searchParams.toString());
     if (environment === "production") params.delete("environment");
     else params.set("environment", environment);
-    const query = params.toString();
-    router.replace(query ? pathname + "?" + query : pathname);
-  };
+		const query = params.toString();
+		router.replace(query ? pathname + "?" + query : pathname);
+		window.dispatchEvent(new CustomEvent("openlit:environment-changed", { detail: { environment } }));
+		router.refresh();
+	};
 
   const createEnvironment = async () => {
     if (!name.trim()) return;
