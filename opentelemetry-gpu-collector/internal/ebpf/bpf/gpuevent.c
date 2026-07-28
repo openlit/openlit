@@ -63,8 +63,10 @@ int handle_cuda_launch(struct pt_regs *ctx) {
 
 #if defined(__TARGET_ARCH_x86)
     // After dim3 packing: r8=args, r9=sharedMem, stream on stack at SP+8.
-    shared = (__u32)PT_REGS_PARM6(ctx);
-    bpf_probe_read_user(&stream, sizeof(stream), (void *)(PT_REGS_SP(ctx) + 8));
+    // Read r9 directly — PT_REGS_PARM6 can fail to inline with some libbpf
+    // headers and surfaces as "unsatisfied program reference" at load time.
+    shared = (__u32)ctx->r9;
+    bpf_probe_read_user(&stream, sizeof(stream), (void *)(ctx->sp + 8));
 
     __u64 grid_xy = PT_REGS_PARM2(ctx);
     ev->grid_x = grid_xy & 0xFFFFFFFF;
