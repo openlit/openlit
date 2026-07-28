@@ -107,7 +107,7 @@ spec:
 ```
 
 <Note>
-The collector does not need privileged mode for NVML device metrics — just access to `libnvidia-ml.so`. Per-process attribution needs Docker `--pid=host` or Kubernetes `hostPID: true`. eBPF tracing / stream-sync occupancy requires `CAP_BPF` + `CAP_PERFMON` (or privileged).
+The collector does not need privileged mode for NVML device metrics — just access to `libnvidia-ml.so`. Per-process attribution needs Docker `--pid=host` or Kubernetes `hostPID: true`. eBPF tracing / stream-sync occupancy requires `CAP_BPF` + `CAP_PERFMON` (or privileged) and raised memlock (`--ulimit memlock=-1:-1`).
 </Note>
 
 ---

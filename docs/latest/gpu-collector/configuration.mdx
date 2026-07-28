@@ -139,7 +139,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 
 ### Disable eBPF CUDA tracing
 
-On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Set `false` to skip:
+On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
 
 ```bash
 OTEL_GPU_EBPF_ENABLED=false \

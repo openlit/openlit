@@ -81,7 +81,7 @@ Export
 - For GPU metrics: Linux or Windows with NVIDIA/AMD/Intel GPU drivers installed
   - Windows NVIDIA: `nvml.dll` (shipped with the driver)
   - Windows AMD/Intel: DXGI + Performance Counters (PDH); thermals/power may be limited vs Linux sysfs
-- For eBPF tracing: Linux kernel 5.8+ with `CAP_BPF` + `CAP_PERFMON` (or root)
+- For eBPF tracing: Linux kernel 5.8+ with `CAP_BPF` + `CAP_PERFMON` (or root); Docker also needs `--ulimit memlock=-1:-1`
 
 ### Docker
 
@@ -243,7 +243,7 @@ Follows the [OTel semantic conventions for process metrics](https://opentelemetr
 
 ### eBPF CUDA Tracing (on by default on Linux)
 
-On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
+On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Docker/K8s: also raise memlock (`--ulimit memlock=-1:-1`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
+	"github.com/cilium/ebpf/rlimit"
 )
 
 //go:generate ./tracer.sh
@@ -47,6 +48,14 @@ type Tracer struct {
 // with host PID visibility). If none are present yet, the tracer still starts and
 // periodically rescans so late-starting CUDA workloads are picked up.
 func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
+	// BPF maps count against RLIMIT_MEMLOCK on kernels < 5.11 (and still can in
+	// some container configs). Raise/remove the limit when permitted.
+	if err := rlimit.RemoveMemlock(); err != nil {
+		logger.Warn("could not raise RLIMIT_MEMLOCK; eBPF map load may fail",
+			"error", err,
+			"hint", "Docker: --ulimit memlock=-1:-1 (and CAP_BPF/CAP_PERFMON); Kubernetes: add securityContext.ulimits or privileged")
+	}
+
 	spec, err := loadGpuevent()
 	if err != nil {
 		return nil, fmt.Errorf("loading eBPF spec: %w", err)
