@@ -40,7 +40,8 @@ export const pingActiveDatabaseConfig = async () => {
 
 export const changeActiveDatabaseConfig = async (
 	databaseConfigId: string,
-	successCb: () => void
+	successCb: () => void,
+	options: { silent?: boolean } = {}
 ) => {
 	const [err, data] = await asaw(
 		getData({
@@ -64,9 +65,11 @@ export const changeActiveDatabaseConfig = async (
 		return acc;
 	}, []);
 	useRootStore.getState().databaseConfig.setList(updatedList);
-	toast.success(`Db config: set active successfully!`, {
-		id: "db-config-current",
-	});
+	if (!options.silent) {
+		toast.success(`Db config: set active successfully!`, {
+			id: "db-config-current",
+		});
+	}
 	pingActiveDatabaseConfig();
 };
 

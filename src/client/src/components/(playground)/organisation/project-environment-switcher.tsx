@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
 
@@ -51,13 +51,16 @@ export default function ProjectEnvironmentSwitcher({ value, onChange }: { value:
 
 	return (
 		<div className="flex items-center gap-1.5">
-			<Select value={value} onValueChange={onChange}>
-				<SelectTrigger className="h-8 w-36 border-stone-300 bg-white text-xs dark:border-stone-700 dark:bg-stone-950">
-					<SelectValue aria-label={messages.CONNECTOR_ENVIRONMENT} />
-				</SelectTrigger>
-				<SelectContent>{environments.map((environment) => <SelectItem key={environment} value={environment}>{environment}</SelectItem>)}</SelectContent>
-			</Select>
-			<Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Create environment" onClick={() => setOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild><Button type="button" variant="outline" size="sm" className="h-8 min-w-36 justify-between border-stone-300 bg-white text-xs dark:border-stone-700 dark:bg-stone-950">{value}<span className="ml-2 text-muted-foreground">⌄</span></Button></DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-56">
+					<DropdownMenuLabel>{messages.CONNECTOR_ENVIRONMENT}</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					{environments.map((environment) => <DropdownMenuItem key={environment} onSelect={() => onChange(environment)}>{environment}</DropdownMenuItem>)}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={() => setOpen(true)}><Plus className="mr-2 h-3.5 w-3.5" />Create environment</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
 					<DialogHeader><DialogTitle>Create environment</DialogTitle><DialogDescription>Environments group ClickHouse databases and observability connectors inside this project.</DialogDescription></DialogHeader>

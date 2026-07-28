@@ -1084,6 +1084,12 @@ export const DB_CONFIG_FIELD_DATABASE = "Database";
 export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
 export const UPDATE_DB_CONFIG = "Update Database config";
 export const ADD_DB_CONFIG = "Add Database config";
+export const CLICKHOUSE_CONNECTOR_ADD_TITLE = "Add ClickHouse connector";
+export const CLICKHOUSE_CONNECTOR_EDIT_TITLE = "Edit ClickHouse connector";
+export const CLICKHOUSE_CONNECTOR_DESCRIPTION =
+	"Connect this project environment to the ClickHouse database used by telemetry and derived features.";
+export const CLICKHOUSE_CONNECTOR_INSTRUCTIONS =
+	"Use the host, port, database, and credentials for the ClickHouse instance that belongs to this environment.";
 export const DB_CONFIG_EDIT_PERMISSION_REQUIRED =
 	"You don't have enough permissions to edit this database config";
 export const UPDATE = "Update";

@@ -223,13 +223,13 @@ function ModifyDatabaseConfig({
 			heading={
 				dbConfig?.id
 					? !dbConfig?.permissions?.canEdit
-						? messages.DATABASE_CONFIG
-						: messages.UPDATE_DB_CONFIG
-					: messages.ADD_DB_CONFIG
+						? messages.CLICKHOUSE_CONNECTOR_EDIT_TITLE
+						: messages.CLICKHOUSE_CONNECTOR_EDIT_TITLE
+					: messages.CLICKHOUSE_CONNECTOR_ADD_TITLE
 			}
 			subHeading={
 				!dbConfig?.id || dbConfig?.permissions?.canEdit
-					? ""
+					? `${messages.CLICKHOUSE_CONNECTOR_DESCRIPTION} ${messages.CLICKHOUSE_CONNECTOR_INSTRUCTIONS}`
 					: messages.DB_CONFIG_EDIT_PERMISSION_REQUIRED
 			}
 			subHeadingClass="text-error"
@@ -269,16 +269,16 @@ function DatabaseList({
 	const messages = getMessage();
 	const selectedEnvironment = useSearchParams().get("environment") || "production";
 	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
-	useEffect(() => {
-		if (openNew) {
-			setEditing("new");
-			onOpenNewHandled?.();
-		}
-	}, [onOpenNewHandled, openNew]);
 	const visibleConfigs = useMemo(
 		() => dbConfigs.filter((config) => (config.environment || "production").toLowerCase() === selectedEnvironment.toLowerCase()),
 		[dbConfigs, selectedEnvironment]
 	);
+	useEffect(() => {
+		if (openNew) {
+			if (visibleConfigs.length === 0) setEditing("new");
+			onOpenNewHandled?.();
+		}
+	}, [onOpenNewHandled, openNew, visibleConfigs.length]);
 
 	const setCurrent = (config: DatabaseConfigWithActive) => {
 		if (!canSelect) return;
@@ -298,7 +298,7 @@ function DatabaseList({
 					<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">ClickHouse targets for {selectedEnvironment}</p>
 					<p className="mt-1 text-[11px] text-muted-foreground">Each target is a ClickHouse connector for this project environment.</p>
 				</div>
-				{canCreate && <Button size="sm" onClick={() => setEditing("new")}>+ {messages.ADD_DATABASE_CONFIG}</Button>}
+				{canCreate && visibleConfigs.length === 0 && <Button size="sm" onClick={() => setEditing("new")}>+ {messages.ADD_DATABASE_CONFIG}</Button>}
 			</div>
 			{visibleConfigs.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-stone-300 p-8 text-center dark:border-stone-700">

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Cable, ChevronDown, Database, FolderKanban, Plus } from "lucide-react";
+import { Cable, ChevronDown, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { fetchDatabaseConfigList, changeActiveDatabaseConfig } from "@/helpers/client/database-config";
@@ -79,12 +79,12 @@ export default function DatabaseConfigSwitch({
   const selectEnvironment = async (environment: string) => {
     const target = databasesByEnvironment[environment]?.[0];
     if (target && target.id !== activeDatabase?.id) {
-      await changeActiveDatabaseConfig(target.id, () => {
-        posthog?.capture("environment_default_database_selected", {
-          environment,
-          database_config_id: target.id,
-        });
-      });
+		await changeActiveDatabaseConfig(target.id, () => {
+			posthog?.capture("environment_default_database_selected", {
+				environment,
+				database_config_id: target.id,
+			});
+		}, { silent: true });
     }
 
     const params = new URLSearchParams(searchParams.toString());
@@ -144,14 +144,6 @@ export default function DatabaseConfigSwitch({
                 </DropdownMenuItem>
               );
             })}
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Project management</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href="/organisation"><FolderKanban className="mr-2 size-3.5" />{messages.MANAGE_PROJECTS}</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/telemetry"><Database className="mr-2 size-3.5" />{messages.MANAGE_DATA}</Link>
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/connectors"><Cable className="mr-2 size-3.5" />{messages.MANAGE_CONNECTORS}</Link>
             </DropdownMenuItem>
