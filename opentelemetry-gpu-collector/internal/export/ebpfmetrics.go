@@ -14,6 +14,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/procname"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
@@ -27,10 +28,13 @@ type EBPFMetrics struct {
 	kernelBlockSize   metric.Float64Histogram
 	memoryAllocations metric.Int64Counter
 	memoryCopies      metric.Float64Histogram
+
+	devices *cudaDeviceTracker
 }
 
 // NewEBPFMetrics creates OTel instruments for eBPF CUDA event metrics.
-func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EBPFMetrics, error) {
+// devices is used to map cudaSetDevice indices → hw.id / gpu.index when known.
+func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices []gpu.Device, logger *slog.Logger) (*EBPFMetrics, error) {
 	meter := provider.Meter("otelcol.gpu.ebpf",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
@@ -82,18 +86,92 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 		kernelBlockSize:   blockSize,
 		memoryAllocations: memAlloc,
 		memoryCopies:      memCopies,
+		devices:           newCUDADeviceTracker(devices),
 	}, nil
 }
 
-func pidAttrs(pid uint32, extra ...attribute.KeyValue) metric.MeasurementOption {
-	base := cachedPIDAttrs(pid)
-	if len(extra) == 0 {
-		return metric.WithAttributes(base...)
+// cudaDeviceTracker maps cudaSetDevice(index) onto NVML device identity so
+// activity metrics can carry hw.id / gpu.index for device-scoped dashboards.
+type cudaDeviceTracker struct {
+	mu sync.Mutex
+
+	indexUUID  map[int]string
+	indexGPU   map[int]int // CUDA device index → gpu.index
+	indexName  map[int]string
+	threadDev  map[uint64]int // pid<<32|tid → CUDA device index
+	soleIndex  int            // set when exactly one NVIDIA device; else -1
+}
+
+func newCUDADeviceTracker(devices []gpu.Device) *cudaDeviceTracker {
+	t := &cudaDeviceTracker{
+		indexUUID: make(map[int]string),
+		indexGPU:  make(map[int]int),
+		indexName: make(map[int]string),
+		threadDev: make(map[uint64]int),
+		soleIndex: -1,
 	}
-	attrs := make([]attribute.KeyValue, 0, len(base)+len(extra))
-	attrs = append(attrs, base...)
-	attrs = append(attrs, extra...)
-	return metric.WithAttributes(attrs...)
+	n := 0
+	sole := -1
+	for _, d := range devices {
+		info := d.Info()
+		if info.Vendor != gpu.VendorNVIDIA || info.UUID == "" {
+			continue
+		}
+		t.indexUUID[info.Index] = info.UUID
+		t.indexGPU[info.Index] = info.Index
+		t.indexName[info.Index] = info.Name
+		sole = info.Index
+		n++
+	}
+	if n == 1 {
+		t.soleIndex = sole
+	}
+	return t
+}
+
+func threadDeviceKey(pid, tid uint32) uint64 {
+	return uint64(pid)<<32 | uint64(tid)
+}
+
+func (t *cudaDeviceTracker) noteSetDevice(pid, tid uint32, deviceIdx int) {
+	if t == nil || deviceIdx < 0 {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, ok := t.indexUUID[deviceIdx]; !ok {
+		return
+	}
+	t.threadDev[threadDeviceKey(pid, tid)] = deviceIdx
+}
+
+// deviceAttrs returns hw.id / gpu.index / hw.name when the thread (or sole GPU) is known.
+func (t *cudaDeviceTracker) deviceAttrs(pid, tid uint32) []attribute.KeyValue {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	idx, ok := t.threadDev[threadDeviceKey(pid, tid)]
+	if !ok {
+		if t.soleIndex < 0 {
+			return nil
+		}
+		idx = t.soleIndex
+	}
+	uuid := t.indexUUID[idx]
+	if uuid == "" {
+		return nil
+	}
+	attrs := []attribute.KeyValue{
+		attribute.String("hw.id", uuid),
+		attribute.Int("gpu.index", t.indexGPU[idx]),
+	}
+	if name := t.indexName[idx]; name != "" {
+		attrs = append(attrs, attribute.String("hw.name", name))
+	}
+	return attrs
 }
 
 type pidAttrCacheEntry struct {
@@ -164,17 +242,30 @@ func cachedPIDAttrs(pid uint32) []attribute.KeyValue {
 	return attrs
 }
 
+func (em *EBPFMetrics) activityAttrs(pid, tid uint32, extra ...attribute.KeyValue) metric.MeasurementOption {
+	base := cachedPIDAttrs(pid)
+	dev := em.devices.deviceAttrs(pid, tid)
+	attrs := make([]attribute.KeyValue, 0, len(base)+len(dev)+len(extra))
+	attrs = append(attrs, base...)
+	attrs = append(attrs, dev...)
+	attrs = append(attrs, extra...)
+	return metric.WithAttributes(attrs...)
+}
+
 // HandleEvent processes a single CUDA event and records it as OTel metrics.
 func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 	ctx := context.Background()
 
 	switch e := ev.(type) {
+	case *gpuebpf.SetDeviceEvent:
+		em.devices.noteSetDevice(e.PID, e.TID, int(e.Device))
+
 	case *gpuebpf.KernelLaunchEvent:
 		kernelName := e.KernelName
 		if kernelName == "" {
 			kernelName = fmt.Sprintf("0x%x", e.KernelAddr)
 		}
-		attrs := pidAttrs(e.PID, attribute.String("cuda.kernel.name", kernelName))
+		attrs := em.activityAttrs(e.PID, e.TID, attribute.String("cuda.kernel.name", kernelName))
 
 		em.kernelLaunchCalls.Add(ctx, 1, attrs)
 
@@ -185,10 +276,10 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		em.kernelBlockSize.Record(ctx, blockTotal, attrs)
 
 	case *gpuebpf.MallocEvent:
-		em.memoryAllocations.Add(ctx, int64(e.Size), pidAttrs(e.PID))
+		em.memoryAllocations.Add(ctx, int64(e.Size), em.activityAttrs(e.PID, e.TID))
 
 	case *gpuebpf.MemcpyEvent:
-		em.memoryCopies.Record(ctx, float64(e.Size), pidAttrs(e.PID,
+		em.memoryCopies.Record(ctx, float64(e.Size), em.activityAttrs(e.PID, e.TID,
 			attribute.String("cuda.memcpy.kind", gpuebpf.MemcpyKindString(e.Kind)),
 		))
 	}

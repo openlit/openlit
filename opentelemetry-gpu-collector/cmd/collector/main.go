@@ -172,7 +172,7 @@ func setupCollectors(
 	var ebpfTracer *gpuebpf.Tracer
 	var occ *export.OccupancyMetrics
 	if cfg.EBPFEnabled {
-		ebpfMetrics, err := export.NewEBPFMetrics(provider, logger)
+		ebpfMetrics, err := export.NewEBPFMetrics(provider, devices, logger)
 		if err != nil {
 			logger.Warn("failed to create eBPF metrics instruments", "error", err)
 		} else {

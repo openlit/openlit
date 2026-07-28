@@ -155,11 +155,13 @@ Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux). Soft-fails without
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
-| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `process.pid`, `process.executable.name`, `cuda.kernel.name` |
+| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `process.pid`, `process.executable.name`, `cuda.kernel.name`, `hw.id` / `gpu.index` when known |
 | `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | same |
 | `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | same |
-| `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | `process.pid`, `process.executable.name` |
-| `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpyAsync | `process.pid`, `cuda.memcpy.kind` |
+| `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | `process.pid`, `process.executable.name`, `hw.id` / `gpu.index` when known |
+| `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpyAsync | `process.pid`, `cuda.memcpy.kind`, `hw.id` / `gpu.index` when known |
+
+`hw.id` is set after `cudaSetDevice` for that thread, or immediately on single-GPU hosts. On multi-GPU hosts before `cudaSetDevice`, join via `process.pid` as before.
 
 ### Stream-sync occupancy (Datadog-parity model)
 
