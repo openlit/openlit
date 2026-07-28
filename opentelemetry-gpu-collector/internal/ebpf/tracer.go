@@ -207,6 +207,21 @@ func (t *Tracer) attachCudaLib(cudaLib string) bool {
 	return true
 }
 
+func (t *Tracer) hasAttachedProbes() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.links) > 0
+}
+
+// cudaRescanInterval keeps discovery snappy until the first attach, then backs
+// off so fleet nodes are not full-/proc-scanned every 30s forever.
+func cudaRescanInterval(hasProbes bool) time.Duration {
+	if hasProbes {
+		return 5 * time.Minute
+	}
+	return 30 * time.Second
+}
+
 // Dropped returns approximate count of events that failed ringbuf reserve (not
 // directly visible from userspace; reserved for future BPF stats map).
 func (t *Tracer) Dropped() uint64 { return t.dropped.Load() }
@@ -227,7 +242,10 @@ func (t *Tracer) Run(ctx context.Context) {
 
 	go func() {
 		defer t.wg.Done()
-		ticker := time.NewTicker(30 * time.Second)
+		// Fast while waiting for the first libcudart; back off once attached so
+		// steady-state /proc scans stay cheap on busy nodes.
+		interval := 30 * time.Second
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -236,8 +254,14 @@ func (t *Tracer) Run(ctx context.Context) {
 			case <-t.stop:
 				return
 			case <-ticker.C:
-				if n := t.attachNewCudaLibs(); n > 0 {
+				n := t.attachNewCudaLibs()
+				if n > 0 {
 					t.logger.Info("attached CUDA probes after /proc rescan", "libraries", n)
+				}
+				next := cudaRescanInterval(t.hasAttachedProbes())
+				if next != interval {
+					interval = next
+					ticker.Reset(interval)
 				}
 			}
 		}

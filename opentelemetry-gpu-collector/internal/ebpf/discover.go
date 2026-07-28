@@ -135,6 +135,8 @@ func findCudaLibsFromFS() []string {
 }
 
 // findCudaLibsFromProc scans host process maps for loaded libcudart copies.
+// Keeps cost low: skips kernel threads, and only fully parses map lines that
+// mention libcudart (most processes have none).
 func findCudaLibsFromProc() []string {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
@@ -150,6 +152,10 @@ func findCudaLibsFromProc() []string {
 		}
 		pid, err := strconv.Atoi(ent.Name())
 		if err != nil || pid <= 0 {
+			continue
+		}
+		// Kernel threads have an empty cmdline; skip before opening maps.
+		if !isUserspacePID(pid) {
 			continue
 		}
 		for _, path := range cudaLibsForPID(pid) {
@@ -170,6 +176,11 @@ func findCudaLibsFromProc() []string {
 	return out
 }
 
+func isUserspacePID(pid int) bool {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	return err == nil && len(data) > 0
+}
+
 func cudaLibsForPID(pid int) []string {
 	mapsPath := fmt.Sprintf("/proc/%d/maps", pid)
 	f, err := os.Open(mapsPath)
@@ -181,10 +192,14 @@ func cudaLibsForPID(pid int) []string {
 	var out []string
 	seen := make(map[string]struct{})
 	scanner := bufio.NewScanner(f)
-	// CUDA maps lines can be long; raise the token limit slightly.
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 16*1024), 256*1024)
 	for scanner.Scan() {
-		addrRange, path, ok := parseMapsLibLine(scanner.Text())
+		line := scanner.Text()
+		// Cheap reject: almost all map lines are unrelated.
+		if !strings.Contains(line, "libcudart") {
+			continue
+		}
+		addrRange, path, ok := parseMapsLibLine(line)
 		if !ok || !isCudartPath(path) {
 			continue
 		}

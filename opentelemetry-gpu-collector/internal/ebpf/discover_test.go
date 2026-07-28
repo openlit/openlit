@@ -2,7 +2,10 @@
 
 package ebpf
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestParseMapsLibLine(t *testing.T) {
 	tests := []struct {
@@ -47,6 +50,15 @@ func TestParseMapsLibLine(t *testing.T) {
 		if addr != tt.wantAddr || path != tt.wantPath {
 			t.Fatalf("parseMapsLibLine(%q) = (%q,%q), want (%q,%q)", tt.line, addr, path, tt.wantAddr, tt.wantPath)
 		}
+	}
+}
+
+func TestCudaRescanInterval(t *testing.T) {
+	if got := cudaRescanInterval(false); got != 30*time.Second {
+		t.Fatalf("waiting interval = %v, want 30s", got)
+	}
+	if got := cudaRescanInterval(true); got != 5*time.Minute {
+		t.Fatalf("attached interval = %v, want 5m", got)
 	}
 }
 
