@@ -294,7 +294,7 @@ function DatabaseList({
 	};
 
 	return (
-		<div className="relative w-full p-4">
+		<div className={hideHeader ? "relative contents" : "relative w-full p-4"}>
 			{!hideHeader && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">ClickHouse targets for {selectedEnvironment}</p>
@@ -309,7 +309,7 @@ function DatabaseList({
 					{canCreate && <Button size="sm" className="mt-4" onClick={() => setEditing("new")}>{messages.ADD_DATABASE_CONFIG}</Button>}
 				</div>
 			) : (
-				<div className="grid gap-3 md:grid-cols-2">
+				<div className={hideHeader ? "contents" : "grid gap-3 md:grid-cols-2"}>
 					{visibleConfigs.map((config) => (
 						<div key={config.id} className="flex min-h-[190px] flex-col rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50">
 							<div className="flex items-start gap-3">

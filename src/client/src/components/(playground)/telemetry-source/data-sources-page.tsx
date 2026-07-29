@@ -115,8 +115,8 @@ function ConnectorOption({
 	detail?: string;
 }) {
 	return (
-		<SelectItem value={value} className="min-h-14 items-center rounded-md py-2 pl-2 pr-3">
-			<div className="flex min-w-0 items-center gap-3">
+		<SelectItem value={value} className="min-h-12 items-center rounded-md py-1.5 pl-2 pr-3">
+			<div className="flex min-w-0 items-center gap-2.5">
 				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 					<Image src={icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
 				</div>
@@ -318,8 +318,8 @@ export default function DataSourcesPage({
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
-			<section className="border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
-				<div className="flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 p-4 dark:border-stone-800">
+			<section className="grid gap-3 border border-stone-200 bg-white p-4 md:grid-cols-2 dark:border-stone-800 dark:bg-stone-950">
+				<div className="-mx-4 -mt-4 flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 p-4 md:col-span-2 dark:border-stone-800">
 					<div>
 					<div className="flex items-center gap-2">
 						<Database className="h-4 w-4 text-primary" />
@@ -329,13 +329,13 @@ export default function DataSourcesPage({
 					</div>
 					<div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setStackOpen(true)}><Layers className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD_STACK}</Button><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
-				<div className="overflow-hidden">
+				<div className="contents">
 					<DatabaseConfigPage hideHeader openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
 				</div>
-			<div className="px-4 pb-4">
+			<div className="contents">
 			{/* External sources list */}
 				{loading ? (
-					<div className="grid gap-3 md:grid-cols-2">
+					<div className="contents">
 						{[0, 1].map((item) => (
 							<div key={item} className="flex min-h-[168px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
 								<div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-20 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
@@ -360,7 +360,7 @@ export default function DataSourcesPage({
 						</p>
 					</div>
 				) : (
-					<div className="grid gap-3 md:grid-cols-2">
+					<div className="contents">
 						{visibleSources.map((s) => (
 							<div
 								key={s.id}
