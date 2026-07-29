@@ -1984,6 +1984,8 @@ export const DATA_SOURCE_TEST_AI_OK = (count: number) =>
 	`Reachable, and ${count} AI telemetry record${count === 1 ? "" : "s"} found in the last hour.`;
 export const DATA_SOURCE_TEST_AI_NONE =
 	"Reachable, but no AI telemetry was found in the last hour.";
+export const DATA_SOURCE_TEST_VALIDATION_FAILED = (reason: string) =>
+	`Connection is reachable, but telemetry validation failed: ${reason}`;
 export const DATA_SOURCE_SAVED = "Data source saved.";
 export const DATA_SOURCE_SAVE_FAILED = "Failed to save data source.";
 export const DATA_SOURCE_DELETED = "Data source deleted.";

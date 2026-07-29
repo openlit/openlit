@@ -306,6 +306,17 @@ export default function DataSourcesPage({
 				toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
 				return;
 			}
+			if (validation?.message) {
+				const raw = String(validation.message);
+				const hint = /401|no credentials|unauthorized/i.test(raw)
+					? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
+					: "";
+				toast.error(
+					messages.DATA_SOURCE_TEST_VALIDATION_FAILED(raw) + hint,
+					{ id: "ds-test" }
+				);
+				return;
+			}
 			if (validation?.ok && validation.sampleCount > 0) {
 				toast.success(messages.DATA_SOURCE_TEST_AI_OK(validation.sampleCount), {
 					id: "ds-test",
