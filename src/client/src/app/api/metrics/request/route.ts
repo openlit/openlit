@@ -19,6 +19,8 @@ export async function POST(request: Request) {
 		offset,
 		selectedConfig,
 		sorting,
+		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
+		...(typeof formData.environment === "string" ? { environment: formData.environment } : {}),
 	};
 
 	const validationParam = validateMetricsRequest(

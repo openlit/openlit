@@ -43,14 +43,15 @@ import {
 import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
 import getMessage from "@/constants/messages";
 
-async function resolveTracesAdapter(sourceId?: string) {
+async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
 		await import("@/lib/telemetry-source");
 	const descriptor = await resolveTelemetrySourceDescriptor({
 		signal: "traces",
 		sourceId,
+		environment,
 	});
-	const adapter = await getTelemetryAdapter({ signal: "traces", sourceId });
+	const adapter = await getTelemetryAdapter({ signal: "traces", sourceId, environment });
 	return { adapter, descriptor };
 }
 
@@ -66,7 +67,7 @@ function asErrorMessage(err: unknown): string {
 
 /** List spans for the Telemetry table (same shape as `getRequests`). */
 export async function listTraceRecords(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getRequests(params);
 	}
@@ -245,7 +246,7 @@ function groupByToField(groupBy: string): string {
  * config (dropdowns render empty) when it does not.
  */
 export async function getTraceFilterConfig(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId);
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getRequestsConfig(params);
 	}
@@ -314,7 +315,7 @@ export async function getTraceFilterConfig(params: MetricParams) {
 
 /** Attribute-key discovery for the custom-filter builder. */
 export async function getTraceAttributeKeys(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId);
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getAttributeKeys(params);
 	}
@@ -331,7 +332,7 @@ export async function getTraceAttributeKeys(params: MetricParams) {
 
 /** Grouped rollup (count / cost / tokens / avg duration) for a groupBy key. */
 export async function getTraceGrouped(params: MetricParams, groupBy: string) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getGroupedRequests(params, groupBy);
 	}
@@ -380,7 +381,7 @@ export async function getTraceSummary(
 	params: MetricParams,
 	signal: "traces" | "exceptions" = "traces"
 ) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getSignalSummary(params, signal);
 	}
@@ -442,7 +443,7 @@ export async function getTraceSummary(
 
 /** Total request count with previous-period comparison (dashboard graphs). */
 export async function getTraceTotalRequests(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getTotalRequests(params);
 	}
@@ -506,7 +507,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 
 /** Requests-over-time series for dashboard graphs. */
 export async function getTraceRequestPerTime(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getRequestPerTime(params);
 	}
@@ -544,7 +545,7 @@ export async function getTraceRequestPerTime(params: MetricParams) {
 
 /** Average request duration with previous-period comparison. */
 export async function getTraceAverageDuration(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getAverageRequestDuration(params);
 	}

@@ -26,8 +26,10 @@ export async function POST(
 
 	const formData = await request.json();
 	const metricParams: MetricParams = {
-		timeLimit: formData.timeLimit as TimeLimit,
-		selectedConfig: formData.selectedConfig || {},
+		 timeLimit: formData.timeLimit as TimeLimit,
+		 selectedConfig: formData.selectedConfig || {},
+		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
+		...(typeof formData.environment === "string" ? { environment: formData.environment } : {}),
 	};
 
 	const validation = validateMetricsRequest(
