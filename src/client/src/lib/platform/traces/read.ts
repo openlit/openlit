@@ -42,6 +42,7 @@ import {
 } from "@/lib/platform/telemetry/rollups";
 import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
 import getMessage from "@/constants/messages";
+import { consoleLog } from "@/utils/log";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
@@ -52,6 +53,13 @@ async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 		environment,
 	});
 	const adapter = await getTelemetryAdapter({ signal: "traces", sourceId, environment });
+	consoleLog("[traces] resolved read adapter", {
+		sourceId: sourceId || null,
+		environment: environment || null,
+		descriptorId: descriptor.id,
+		type: descriptor.type,
+		isBuiltIn: descriptor.isBuiltIn,
+	});
 	return { adapter, descriptor };
 }
 
@@ -107,6 +115,13 @@ export async function listTraceRecords(params: MetricParams) {
 			maxRows: params.limit || 25,
 		});
 		const records = spans.map((row) => denormalizeSpanToTraceRow(row));
+		consoleLog("[traces] external list result", {
+			descriptorId: descriptor.id,
+			type: descriptor.type,
+			spanCount: spans.length,
+			recordCount: records.length,
+			truncated,
+		});
 		return {
 			err: null,
 			records,

@@ -141,7 +141,7 @@ async function fetchStratifiedSample(
 	);
 	const spans = batches.flat();
 	const traceCount = new Set(spans.map((s) => s.traceId).filter(Boolean)).size;
-	return { spans, truncated: traceCount >= maxTraces || names.length > 1 };
+	return { spans, truncated: traceCount >= maxTraces };
 }
 
 async function fetchUnstratified(

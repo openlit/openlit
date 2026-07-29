@@ -29,6 +29,7 @@ import getMessage from "@/constants/messages";
 import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
+import { consoleLog } from "@/utils/log";
 import { parseOtlpTrace, normalizeOtlpId } from "../otlp-json";
 import {
 	buildAITelemetrySelector,
@@ -401,17 +402,38 @@ export class TempoAdapter extends BaseExternalAdapter {
 			String(Math.floor(query.timeRange.end.getTime() / 1000))
 		);
 		url.searchParams.set("limit", String(limit));
+		consoleLog("[tempo] trace search", {
+			sourceId: this.descriptor.id,
+			url: url.toString(),
+			query: url.searchParams.get("q"),
+			start: url.searchParams.get("start"),
+			end: url.searchParams.get("end"),
+			limit,
+		});
 		const key = cacheKey(this.descriptor.id, ["search", url.toString()]);
-		const response = await cachedQuery(key, TTL_MS, () =>
-			safeFetch<{ traces?: { traceID?: string }[] }>(url.toString(), {
-				headers,
-				...this.networkOpts,
-				redactValues: redact,
-			})
-		);
-		return (response?.traces || [])
+		try {
+			const response = await cachedQuery(key, TTL_MS, () =>
+				safeFetch<{ traces?: { traceID?: string }[] }>(url.toString(), {
+					headers,
+					...this.networkOpts,
+					redactValues: redact,
+				})
+			);
+			const ids = (response?.traces || [])
 			.map((t) => t.traceID)
 			.filter((id): id is string => !!id);
+			consoleLog("[tempo] trace search result", {
+				sourceId: this.descriptor.id,
+				traceCount: ids.length,
+			});
+			return ids;
+		} catch (error) {
+			consoleLog("[tempo] trace search failed", {
+				sourceId: this.descriptor.id,
+				error: String((error as Error)?.message || error),
+			});
+			throw error;
+		}
 	}
 
 	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
