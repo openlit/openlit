@@ -177,6 +177,26 @@ def build_input_messages(contents, system_instruction=None):
     return otel_messages
 
 
+def _function_calls(parts):
+    """
+    Return every ``function_call`` payload carried by a candidate's parts.
+
+    Gemini emits one part per call, so parallel calls appear as sibling parts
+    rather than a single field. Accepts dict-shaped and object-shaped parts.
+    """
+
+    calls = []
+    for part in parts or []:
+        call = (
+            part.get("function_call")
+            if isinstance(part, dict)
+            else getattr(part, "function_call", None)
+        )
+        if call:
+            calls.append(call)
+    return calls
+
+
 def build_output_messages(response_text, finish_reason, function_calls=None):
     """
     Convert Google AI Studio response to OTel output message structure.
@@ -185,7 +205,9 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Google (STOP, MAX_TOKENS, SAFETY, etc.)
-        function_calls: Optional function calls dict from response
+        function_calls: Optional function call(s) from the response. Either a
+            single dict (legacy shape) or a list of dicts, one per parallel
+            function_call part in the candidate.
 
     Returns:
         List with single OutputMessage
@@ -198,16 +220,24 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add function calls if present
+        # Add function calls if present. Gemini can return several parallel
+        # function_call parts in one candidate, so each becomes its own part.
         if function_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": "",  # Google doesn't provide IDs
-                    "name": function_calls.get("name", ""),
-                    "arguments": function_calls.get("args", {}),
-                }
-            )
+            for call in (
+                function_calls
+                if isinstance(function_calls, list)
+                else [function_calls]
+            ):
+                if not isinstance(call, dict) or not call:
+                    continue
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": "",  # Google doesn't provide IDs
+                        "name": call.get("name", ""),
+                        "arguments": call.get("args", {}),
+                    }
+                )
 
         # Map Google finish reasons to OTel standard
         finish_reason_map = {
@@ -472,11 +502,15 @@ def process_chunk(scope, chunk):
 
     try:
         c0 = (chunked.get("candidates") or [{}])[0]
-        parts = (c0.get("content") or {}).get("parts") or []
-        fc = parts[0].get("function_call") if parts else None
-        scope._tools = fc
+        calls = _function_calls((c0.get("content") or {}).get("parts") or [])
     except (IndexError, KeyError, TypeError):
-        scope._tools = None
+        calls = []
+    if calls:
+        # Gemini can split parallel function calls across chunks, so append
+        # rather than replace: a later chunk must not drop an earlier call.
+        if not isinstance(getattr(scope, "_tools", None), list):
+            scope._tools = []
+        scope._tools.extend(calls)
 
 
 def _get_config_value(config, key):
@@ -579,15 +613,22 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if hasattr(scope, "_tools") and scope._tools:
-        tools = scope._tools if isinstance(scope._tools, dict) else {}
+        calls = scope._tools if isinstance(scope._tools, list) else [scope._tools]
+        calls = [call for call in calls if isinstance(call, dict) and call]
+        # Parallel calls collapse into the single-valued OTel tool attributes
+        # the same way the openai instrumentor does it: comma-joined, leaving
+        # the one-call case byte-identical to before.
+        names = [call.get("name", "") for call in calls]
+        ids = [str(call.get("id", "")) for call in calls]
+        args = [str(call.get("args", "")) for call in calls]
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, tools.get("name", "")
+            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, str(tools.get("args", ""))
+            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
         )
 
     # Span Attributes for Cost and Tokens
@@ -827,8 +868,8 @@ def process_chat_response(
 
     try:
         c0 = (response_dict.get("candidates") or [{}])[0]
-        parts = (c0.get("content") or {}).get("parts") or []
-        self._tools = parts[0].get("function_call") if parts else None
+        # A candidate can carry several parallel function_call parts; keep all.
+        self._tools = _function_calls((c0.get("content") or {}).get("parts") or []) or None
     except (IndexError, KeyError, TypeError):
         self._tools = None
 
