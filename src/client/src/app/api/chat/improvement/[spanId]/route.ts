@@ -26,6 +26,10 @@ function getScope(request: Request) {
 	return scope === "span" ? "span" : "trace";
 }
 
+function getEnvironment(request: Request) {
+	return new URL(request.url).searchParams.get("environment") || undefined;
+}
+
 export async function GET(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
@@ -52,8 +56,9 @@ export async function GET(request: Request, context: any) {
 
 	const databaseConfigId = await getDatabaseConfigId();
 	const scope = getScope(request);
-	logRoute("get_start", { spanId, scope, databaseConfigId });
-	const { data, err } = await getTraceImprovement(spanId, databaseConfigId, scope);
+	const environment = getEnvironment(request);
+	logRoute("get_start", { spanId, scope, environment, databaseConfigId });
+	const { data, err } = await getTraceImprovement(spanId, databaseConfigId, scope, environment);
 	if (err) {
 		logRoute("get_failed", { spanId, scope, err });
 		PostHogServer.fireEvent({
@@ -110,11 +115,13 @@ export async function POST(request: Request, context: any) {
 
 	const databaseConfigId = await getDatabaseConfigId();
 	const scope = getScope(request);
-	logRoute("post_start", { spanId, scope, databaseConfigId });
+	const environment = getEnvironment(request);
+	logRoute("post_start", { spanId, scope, environment, databaseConfigId });
 	const { response, err } = await streamTraceImprovementAnalysis(
 		spanId,
 		databaseConfigId,
-		scope
+		scope,
+		environment
 	);
 	if (err) {
 		logRoute("post_failed", { spanId, scope, err });

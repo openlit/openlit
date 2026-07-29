@@ -208,9 +208,9 @@ export async function getTraceRecordByTraceId(traceId: string) {
  */
 export async function getTraceHierarchy(
 	spanId: string,
-	opts?: { traceId?: string }
+	opts?: { traceId?: string; environment?: string }
 ) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const { adapter, descriptor } = await resolveTracesAdapter(undefined, opts?.environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getHeirarchyViaSpanId(spanId);
 	}

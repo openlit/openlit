@@ -4,7 +4,7 @@ import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { dataCollector } from "../common";
 import { getModelInstance } from "./stream";
-import { getHeirarchyViaSpanId } from "../request";
+import { getTraceHierarchy } from "../traces/read";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
 import {
 	TRACE_ANALYSIS_DIMENSIONS,
@@ -1498,10 +1498,11 @@ function buildAggregatedSummary(dimensionSummaries: Partial<Record<TraceAnalysis
 export async function getTraceImprovement(
 	spanId: string,
 	databaseConfigId?: string,
-	scope: TraceAnalysisScope = "trace"
+	scope: TraceAnalysisScope = "trace",
+	environment?: string
 ): Promise<{ data?: { rootSpanId: string; runs: TraceAnalysisRun[] }; err?: unknown }> {
 	logTraceAnalysis("get_start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
-	const { record, err } = await getHeirarchyViaSpanId(spanId);
+	const { record, err } = await getTraceHierarchy(spanId, { environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (err || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("get_hierarchy_failed", err || "Trace hierarchy not found", { spanId });
@@ -1556,7 +1557,8 @@ function createDebugEvent(
 export async function streamTraceImprovementAnalysis(
 	spanId: string,
 	databaseConfigId?: string,
-	scope: TraceAnalysisScope = "trace"
+	scope: TraceAnalysisScope = "trace",
+	environment?: string
 ) {
 	logTraceAnalysis("start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
 	const { data: config, err: configErr } =
@@ -1576,7 +1578,7 @@ export async function streamTraceImprovementAnalysis(
 		hasApiKey: Boolean(config.apiKey),
 	});
 
-	const { record, err: hierarchyErr } = await getHeirarchyViaSpanId(spanId);
+	const { record, err: hierarchyErr } = await getTraceHierarchy(spanId, { environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (hierarchyErr || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("hierarchy_failed", hierarchyErr || "Trace hierarchy not found", { spanId });
