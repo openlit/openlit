@@ -200,7 +200,9 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Anthropic (end_turn, max_tokens, stop_sequence, tool_use)
-        tool_calls: Optional tool calls dict from response
+        tool_calls: Optional tool call(s) from the response. Either a single
+            dict (legacy shape) or a list of dicts, one per parallel tool_use
+            block in the turn.
 
     Returns:
         List with single OutputMessage
@@ -212,16 +214,20 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add tool call if present
+        # Add tool calls if present. Claude can emit several parallel tool_use
+        # blocks in one turn, so each becomes its own tool_call part.
         if tool_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": tool_calls.get("id", ""),
-                    "name": tool_calls.get("name", ""),
-                    "arguments": tool_calls.get("input", {}),
-                }
-            )
+            for call in tool_calls if isinstance(tool_calls, list) else [tool_calls]:
+                if not isinstance(call, dict) or not call:
+                    continue
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": call.get("id", ""),
+                        "name": call.get("name", ""),
+                        "arguments": call.get("input", {}),
+                    }
+                )
 
         # Map Anthropic finish reasons to OTel standard
         finish_reason_map = {
@@ -429,6 +435,32 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _tool_slot(scope, index):
+    """
+    Return the accumulator for the tool call at ``index``, creating it if needed.
+
+    Anthropic streams each content block under its own ``index``, so parallel
+    tool_use blocks must accumulate separately. Mirrors the index-keyed handling
+    the openai instrumentor uses for streamed tool calls.
+    """
+
+    tools = getattr(scope, "_tools", None)
+    if tools is None:
+        tools = scope._tools = []
+
+    try:
+        index = int(index)
+    except (TypeError, ValueError):
+        index = 0
+    index = max(index, 0)
+
+    if index >= len(tools):
+        tools.extend({} for _ in range(index + 1 - len(tools)))
+    if not tools[index]:
+        tools[index] = {"id": "", "name": "", "input": ""}
+    return tools[index]
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -466,14 +498,20 @@ def process_chunk(scope, chunk):
         if delta.get("text"):
             scope._llmresponse += delta.get("text", "")
         elif delta.get("partial_json"):
-            scope._tool_arguments += delta.get("partial_json", "")
+            # Arguments stream in per block; keep them keyed by the block index
+            # so parallel calls do not concatenate into one invalid JSON string.
+            _tool_slot(scope, chunked.get("index", 0))["input"] += delta.get(
+                "partial_json", ""
+            )
 
     if chunked.get("type") == "content_block_start":
         content_block = chunked.get("content_block") or {}
-        if content_block.get("id"):
-            scope._tool_id = content_block.get("id")
-        if content_block.get("name"):
-            scope._tool_name = content_block.get("name")
+        if content_block.get("id") or content_block.get("name"):
+            slot = _tool_slot(scope, chunked.get("index", 0))
+            if content_block.get("id"):
+                slot["id"] = content_block.get("id")
+            if content_block.get("name"):
+                slot["name"] = content_block.get("name")
 
     # Collect output tokens and stop reason from events (message_delta: top-level usage, delta)
     if chunked.get("type") == "message_delta":
@@ -583,13 +621,28 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if hasattr(scope, "_tool_calls") and scope._tool_calls:
-        tool_name = scope._tool_calls.get("name", "")
-        tool_id = scope._tool_calls.get("id", "")
-        tool_args = scope._tool_calls.get("input", "")
+        calls = (
+            scope._tool_calls
+            if isinstance(scope._tool_calls, list)
+            else [scope._tool_calls]
+        )
+        calls = [call for call in calls if isinstance(call, dict) and call]
+        # Several parallel calls collapse into the single-valued OTel tool
+        # attributes the same way the openai instrumentor does it: comma-joined,
+        # which leaves the one-call case byte-identical to before.
+        names = [call.get("name", "") for call in calls]
+        ids = [call.get("id", "") for call in calls]
+        args = [str(call.get("input", "")) for call in calls]
 
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_name)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_id)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_args))
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
+        )
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
@@ -744,12 +797,9 @@ def process_streaming_chat_response(
     Process streaming chat response and generate telemetry.
     """
 
-    if scope._tool_id != "":
-        scope._tool_calls = {
-            "id": scope._tool_id,
-            "name": scope._tool_name,
-            "input": scope._tool_arguments,
-        }
+    tool_calls = [call for call in getattr(scope, "_tools", []) or [] if call]
+    if tool_calls:
+        scope._tool_calls = tool_calls
 
     common_chat_logic(
         scope,
@@ -811,17 +861,19 @@ def process_chat_response(
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 
-    # Handle tool calls if present
+    # Handle tool calls if present. A turn can carry several parallel tool_use
+    # blocks, so collect all of them rather than stopping at the first.
     content_blocks = response_dict.get("content", [])
-    scope._tool_calls = None
-    for block in content_blocks:
-        if block.get("type") == "tool_use":
-            scope._tool_calls = {
-                "id": block.get("id", ""),
-                "name": block.get("name", ""),
-                "input": block.get("input", ""),
-            }
-            break
+    tool_calls = [
+        {
+            "id": block.get("id", ""),
+            "name": block.get("name", ""),
+            "input": block.get("input", ""),
+        }
+        for block in content_blocks
+        if isinstance(block, dict) and block.get("type") == "tool_use"
+    ]
+    scope._tool_calls = tool_calls or None
 
     common_chat_logic(
         scope,
