@@ -498,6 +498,12 @@ export class TempoAdapter extends BaseExternalAdapter {
 				}
 			);
 			const traceId = response?.traces?.[0]?.traceID;
+			consoleLog("[tempo] span search result", {
+				sourceId: this.descriptor.id,
+				spanId: id,
+				traceCount: response?.traces?.length || 0,
+				traceId: traceId || null,
+			});
 			if (!traceId) return null;
 			const spans = await this.getTraceSpans(traceId);
 			return (
@@ -505,7 +511,12 @@ export class TempoAdapter extends BaseExternalAdapter {
 				pickRootSpan(spans) ||
 				null
 			);
-		} catch {
+		} catch (error) {
+			consoleLog("[tempo] span lookup failed", {
+				sourceId: this.descriptor.id,
+				spanId: id,
+				error: String((error as Error)?.message || error),
+			});
 			return null;
 		}
 	}

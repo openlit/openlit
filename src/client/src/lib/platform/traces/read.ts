@@ -169,7 +169,15 @@ export async function getTraceSpanRecord(
 				spans[0] ||
 				null;
 		}
-		if (!span) return { err: null, record: undefined };
+		if (!span) {
+			consoleLog("[traces] span not found", {
+				descriptorId: descriptor.id,
+				type: descriptor.type,
+				spanId,
+				traceId: opts?.traceId || null,
+			});
+			return { err: "Span not found in the selected telemetry source", record: undefined };
+		}
 		return { err: null, record: denormalizeSpanToTraceRow(span) };
 	} catch (err) {
 		return { err: asErrorMessage(err), record: undefined };
