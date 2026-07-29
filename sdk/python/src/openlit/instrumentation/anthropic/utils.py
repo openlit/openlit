@@ -444,6 +444,9 @@ def _tool_slot(scope, index):
     the openai instrumentor uses for streamed tool calls.
     """
 
+    # The four wrappers all seed `_tools = []`, but process_chunk is also driven
+    # directly (tests, and any caller building its own scope), so create the list
+    # rather than assume the constructor ran.
     tools = getattr(scope, "_tools", None)
     if tools is None:
         tools = scope._tools = []

@@ -12,13 +12,20 @@ calling). Both paths used to assume one call per turn:
 * non-streaming -- the loop over content blocks stopped at the first ``tool_use``
   block, so later parallel calls never reached the span at all.
 
-These tests need no API key: they drive ``process_chunk`` and
-``build_output_messages`` directly, the same way the report for issue #1398 did.
+These tests need no API key. The streaming cases drive ``process_chunk``
+directly, the way the report for issue #1398 did; the non-streaming cases drive
+``process_chat_response`` end to end and assert on the exported span.
 """
 
 import json
+import time
 from types import SimpleNamespace
 
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+from openlit._config import OpenlitConfig
 from openlit.instrumentation.anthropic import utils
 
 
@@ -103,33 +110,88 @@ def test_streaming_text_blocks_do_not_create_tool_calls():
     ]
 
 
-def test_non_streaming_keeps_every_tool_use_block():
-    response = {
+def _exported_span(response):
+    """Drive the real non-streaming path and return the finished span."""
+
+    OpenlitConfig.reset_to_defaults()
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+    with provider.get_tracer("test").start_as_current_span("anthropic.messages") as span:
+        utils.process_chat_response(
+            response=response,
+            request_model="claude-sonnet-4-20250514",
+            pricing_info={},
+            server_port=443,
+            server_address="api.anthropic.com",
+            environment="test",
+            application_name="test",
+            metrics=None,
+            start_time=time.time(),
+            span=span,
+            capture_message_content=True,
+            disable_metrics=True,
+            messages=[{"role": "user", "content": "weather in nyc and sf?"}],
+        )
+
+    return exporter.get_finished_spans()[0]
+
+
+def _parallel_response():
+    return {
         "model": "claude-sonnet-4-20250514",
         "stop_reason": "tool_use",
         "id": "msg_01",
+        "role": "assistant",
+        "usage": {"input_tokens": 10, "output_tokens": 20},
         "content": [
             {"type": "text", "text": "checking both"},
-            {"type": "tool_use", "id": "toolu_01", "name": "get_weather", "input": {"city": "nyc"}},
-            {"type": "tool_use", "id": "toolu_02", "name": "get_weather", "input": {"city": "sf"}},
+            {
+                "type": "tool_use",
+                "id": "toolu_01",
+                "name": "get_weather",
+                "input": {"city": "nyc"},
+            },
+            {
+                "type": "tool_use",
+                "id": "toolu_02",
+                "name": "get_weather",
+                "input": {"city": "sf"},
+            },
         ],
     }
 
-    tool_calls = [
-        {
-            "id": block.get("id", ""),
-            "name": block.get("name", ""),
-            "input": block.get("input", ""),
-        }
-        for block in response["content"]
-        if isinstance(block, dict) and block.get("type") == "tool_use"
-    ]
 
-    parts = utils.build_output_messages("checking both", "tool_use", tool_calls)[0]["parts"]
-    calls = [part for part in parts if part["type"] == "tool_call"]
+def test_non_streaming_keeps_every_tool_use_block():
+    # Drives process_chat_response end to end so a regression in the real
+    # non-streaming path fails here, not just in a reconstruction of it.
+    span = _exported_span(_parallel_response())
+
+    output = json.loads(span.attributes["gen_ai.output.messages"])
+    calls = [part for part in output[0]["parts"] if part["type"] == "tool_call"]
 
     assert [call["id"] for call in calls] == ["toolu_01", "toolu_02"]
     assert [call["arguments"] for call in calls] == [{"city": "nyc"}, {"city": "sf"}]
+
+
+def test_non_streaming_span_attributes_join_parallel_calls():
+    span = _exported_span(_parallel_response())
+
+    assert span.attributes["gen_ai.tool.name"] == "get_weather, get_weather"
+    assert span.attributes["gen_ai.tool.call.id"] == "toolu_01, toolu_02"
+
+
+def test_non_streaming_single_call_attributes_are_unchanged():
+    # The one-call case must stay byte-identical to the pre-fix behaviour.
+    response = _parallel_response()
+    response["content"] = response["content"][:2]
+
+    span = _exported_span(response)
+
+    assert span.attributes["gen_ai.tool.name"] == "get_weather"
+    assert span.attributes["gen_ai.tool.call.id"] == "toolu_01"
 
 
 def test_build_output_messages_accepts_a_single_dict():
