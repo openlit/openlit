@@ -629,11 +629,19 @@ function SourceFormDialog({
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
+	const [environments, setEnvironments] = useState<string[]>(Array.from(new Set(["production", source?.environment, initialEnvironment].filter(Boolean) as string[])));
 	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
 	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
+
+	useEffect(() => {
+		fetch("/api/project/environment")
+			.then((response) => response.ok ? response.json() : { environments: [] })
+			.then((body) => setEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name), environment]))))
+			.catch(() => undefined);
+	}, [environment]);
 
 	const fields = useMemo(
 		() => fieldsForType(descriptors, type),
@@ -820,7 +828,10 @@ function SourceFormDialog({
 							</div>
 							<div className="space-y-1.5">
 						<Label className="text-xs">{messages.CONNECTOR_ENVIRONMENT}</Label>
-						<Input value={environment} onChange={(e) => setEnvironment(e.target.value.toLowerCase())} placeholder={messages.CONNECTOR_ENVIRONMENT_PLACEHOLDER} className="border-stone-300 bg-white text-stone-950 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50" />
+						<Select value={environment} onValueChange={setEnvironment}>
+							<SelectTrigger className="border-stone-300 bg-white text-stone-950 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue placeholder={messages.CONNECTOR_ENVIRONMENT_PLACEHOLDER} /></SelectTrigger>
+							<SelectContent>{environments.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
+						</Select>
 							</div>
 						</div>
 					</section>
