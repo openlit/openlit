@@ -73,7 +73,7 @@ export async function listTraceRecords(params: MetricParams) {
 	}
 
 	try {
-		const query = metricParamsToOpenLITQuery(params);
+		const query = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		const preferHotCache = shouldPreferRollup(params);
 		if (preferHotCache) {
 			const { readSpanHotCache } = await import(
@@ -266,7 +266,7 @@ export async function getTraceFilterConfig(params: MetricParams) {
 	}
 
 	try {
-		const query = metricParamsToOpenLITQuery(params, "traces");
+		const query = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		// Prefer native service discovery for the Application filter (avoids
 		// single-service bias from an unstratified L1 sample).
 		let applicationNames: string[] = [];
@@ -322,7 +322,7 @@ export async function getTraceAttributeKeys(params: MetricParams) {
 
 	const empty = { err: null, spanAttributeKeys: [], resourceAttributeKeys: [] };
 	try {
-		const query = metricParamsToOpenLITQuery(params, "traces");
+		const query = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		const keys = await adapter.attributeKeys("traces", query.timeRange);
 		return { err: null, spanAttributeKeys: keys, resourceAttributeKeys: [] };
 	} catch {
@@ -338,7 +338,7 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 	}
 
 	try {
-		const base = metricParamsToOpenLITQuery(params, "traces");
+		const base = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		const field = groupByToField(groupBy);
 		const query: OpenLITQuery = {
 			...base,
@@ -390,7 +390,7 @@ export async function getTraceSummary(
 	const empty = { err: null, bucket, buckets: [], total: 0, peak: 0 };
 
 	try {
-		const base = metricParamsToOpenLITQuery(params, "traces");
+		const base = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		const query: OpenLITQuery = {
 			...base,
 			interval: BUCKET_INTERVAL[bucket] || intervalFromTimeRange(
@@ -452,7 +452,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 		const current = await planAndAggregateSpans(
 			adapter,
 			{
-				...metricParamsToOpenLITQuery(params, "traces"),
+				...metricParamsToOpenLITQuery(params, "traces", { aiSelector: false }),
 				aggregations: [{ fn: "count", as: "total_requests" }],
 			},
 			{
@@ -477,7 +477,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 		);
 		const previousParams = getFilterPreviousParams(params);
 		const previous = await planAndAggregateSpans(adapter, {
-			...metricParamsToOpenLITQuery(previousParams, "traces"),
+			...metricParamsToOpenLITQuery(previousParams, "traces", { aiSelector: false }),
 			aggregations: [{ fn: "count", as: "total_requests" }],
 		});
 		const currentTotal = Number(
@@ -513,7 +513,7 @@ export async function getTraceRequestPerTime(params: MetricParams) {
 	}
 
 	try {
-		const query = metricParamsToOpenLITQuery(params, "traces");
+		const query = metricParamsToOpenLITQuery(params, "traces", { aiSelector: false });
 		const interval =
 			query.interval ||
 			intervalFromTimeRange(query.timeRange.start, query.timeRange.end);
@@ -552,12 +552,12 @@ export async function getTraceAverageDuration(params: MetricParams) {
 
 	try {
 		const current = await planAndAggregateSpans(adapter, {
-			...metricParamsToOpenLITQuery(params, "traces"),
+			...metricParamsToOpenLITQuery(params, "traces", { aiSelector: false }),
 			aggregations: [{ fn: "avg", field: "duration", as: "average_duration" }],
 		});
 		const previousParams = getFilterPreviousParams(params);
 		const previous = await planAndAggregateSpans(adapter, {
-			...metricParamsToOpenLITQuery(previousParams, "traces"),
+			...metricParamsToOpenLITQuery(previousParams, "traces", { aiSelector: false }),
 			aggregations: [{ fn: "avg", field: "duration", as: "average_duration" }],
 		});
 		const average_duration = Number(

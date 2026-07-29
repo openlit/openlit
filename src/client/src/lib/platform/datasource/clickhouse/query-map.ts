@@ -278,7 +278,7 @@ function metricsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 export function metricParamsToOpenLITQuery(
 	params: MetricParams,
 	signal: Signal = "traces",
-	opts: { maxDataPoints?: number; interval?: string } = {}
+	opts: { maxDataPoints?: number; interval?: string; aiSelector?: boolean } = {}
 ): OpenLITQuery {
 	const now = new Date();
 	const start = asDate(
@@ -333,7 +333,7 @@ export function metricParamsToOpenLITQuery(
 		sort,
 		limit: params.limit,
 		offset: params.offset,
-		aiSelector: signal === "traces",
+		aiSelector: opts.aiSelector ?? signal === "traces",
 		interval: opts.interval,
 		maxDataPoints: opts.maxDataPoints,
 	};
