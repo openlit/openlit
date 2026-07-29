@@ -332,12 +332,15 @@ export default function Database({
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 }) {
-	const messages = getMessage();
 	const databaseList = useRootStore(getDatabaseConfigList);
 
 	return isNil(databaseList) ? (
-		<div className="p-4 text-xs text-muted-foreground animate-pulse">
-			{messages.OBSERVABILITY_LOADING}
+		<div className={hideHeader ? "contents" : "p-4"}>
+			<div className="flex min-h-[190px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-3 dark:border-stone-800 dark:bg-stone-900/50">
+				<div className="flex items-center gap-3"><div className="h-10 w-10 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-24 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
+				<div className="space-y-2"><div className="h-2.5 w-full animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-3/4 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div>
+				<div className="mt-auto h-8 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+			</div>
 		</div>
 	) : (
 		<DatabaseList
