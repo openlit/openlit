@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import {
 	Database,
 	Plus,
-	Layers,
 	Trash2,
 	Wifi,
 	Eye,
@@ -115,9 +114,9 @@ function ConnectorOption({
 	detail?: string;
 }) {
 	return (
-		<SelectItem value={value} className="min-h-12 items-center rounded-md py-1.5 pl-2 pr-3">
-			<div className="flex min-w-0 items-center gap-2.5">
-				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+		<SelectItem value={value} className="min-h-[72px] items-start py-2 pl-2 pr-8">
+			<div className="flex min-w-0 items-start gap-3">
+				<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 					<Image src={icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
 				</div>
 				<div className="min-w-0 text-left">
@@ -327,7 +326,7 @@ export default function DataSourcesPage({
 					</div>
 					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment has one ClickHouse connector used for ClickHouse-backed telemetry and derived features.</p>
 					</div>
-					<div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setStackOpen(true)}><Layers className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD_STACK}</Button><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
+					<div className="flex items-center gap-2"><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
 				<div className="contents">
 					<DatabaseConfigPage hideHeader openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
@@ -459,7 +458,7 @@ export default function DataSourcesPage({
 						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 						const options = visibleSources.filter((s) => parseSignals(s.signals).includes(signal));
 						const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : messages.DATA_SOURCE_SIGNAL_METRICS;
-						return <div key={signal} className="space-y-1.5"><Label className="text-xs uppercase text-muted-foreground">{label}</Label><Select value={value} onValueChange={(v) => setBinding(signal, v)}><SelectTrigger className="w-full bg-white dark:bg-stone-900"><SelectValue /></SelectTrigger><SelectContent className="p-2">{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}{options.map((s) => <ConnectorOption key={s.id} value={s.id} name={s.name} type={s.type} detail={environment} icon={descriptors.find((d) => d.type === s.type)?.icon} />)}</SelectContent></Select></div>;
+						return <div key={signal} className="space-y-1.5"><Label className="text-xs uppercase text-muted-foreground">{label}</Label><Select value={value} onValueChange={(v) => setBinding(signal, v)}><SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue /></SelectTrigger><SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}{options.map((s) => <ConnectorOption key={s.id} value={s.id} name={s.name} type={s.type} detail={environment} icon={descriptors.find((d) => d.type === s.type)?.icon} />)}</SelectContent></Select></div>;
 					})}
 				</div>
 			</section>
