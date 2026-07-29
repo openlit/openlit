@@ -406,7 +406,7 @@ export default function DataSourcesPage({
 										))}
 									</div>
 								</div>
-								<div className="mt-3 flex items-center justify-between gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
+				<div className="mt-3 flex items-center justify-end gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
 									<div className="flex items-center gap-1">
 									<Button
 										size="sm"
