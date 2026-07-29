@@ -252,6 +252,7 @@ function DatabaseList({
 	canUpdate,
 	canDelete,
 	canShare,
+	hideHeader,
 	openNew,
 	onOpenNewHandled,
 }: {
@@ -262,6 +263,7 @@ function DatabaseList({
 	canUpdate: boolean;
 	canDelete: boolean;
 	canShare: boolean;
+	hideHeader?: boolean;
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 }) {
@@ -293,13 +295,13 @@ function DatabaseList({
 
 	return (
 		<div className="relative w-full p-4">
-			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+			{!hideHeader && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">ClickHouse targets for {selectedEnvironment}</p>
 					<p className="mt-1 text-[11px] text-muted-foreground">Each target is a ClickHouse connector for this project environment.</p>
 				</div>
 				{canCreate && visibleConfigs.length === 0 && <Button size="sm" onClick={() => setEditing("new")}>+ {messages.ADD_DATABASE_CONFIG}</Button>}
-			</div>
+			</div>}
 			{visibleConfigs.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-stone-300 p-8 text-center dark:border-stone-700">
 					<p className="text-sm font-medium text-stone-900 dark:text-stone-100">{messages.DB_CONFIG_EMPTY_TITLE}</p>
@@ -333,6 +335,7 @@ export default function Database({
 	canUpdate = true,
 	canDelete = true,
 	canShare = true,
+	hideHeader = false,
 	openNew = false,
 	onOpenNewHandled,
 }: {
@@ -341,6 +344,7 @@ export default function Database({
 	canUpdate?: boolean;
 	canDelete?: boolean;
 	canShare?: boolean;
+	hideHeader?: boolean;
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 }) {
@@ -361,6 +365,7 @@ export default function Database({
 			canUpdate={canUpdate}
 			canDelete={canDelete}
 			canShare={canShare}
+			hideHeader={hideHeader}
 			openNew={openNew}
 			onOpenNewHandled={onOpenNewHandled}
 		/>

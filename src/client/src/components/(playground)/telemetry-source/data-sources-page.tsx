@@ -318,47 +318,22 @@ export default function DataSourcesPage({
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
-			<section className="overflow-hidden border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
-				<div className="border-b border-stone-200 p-4 dark:border-stone-800">
+			<section className="border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+				<div className="flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 p-4 dark:border-stone-800">
+					<div>
 					<div className="flex items-center gap-2">
 						<Database className="h-4 w-4 text-primary" />
-						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">ClickHouse connectors · {environment}</h2>
+						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Connectors · {environment}</h2>
 					</div>
 					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment has one ClickHouse connector used for ClickHouse-backed telemetry and derived features.</p>
+					</div>
+					<div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setStackOpen(true)}><Layers className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD_STACK}</Button><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
 				<div className="overflow-hidden">
-					<DatabaseConfigPage openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
+					<DatabaseConfigPage hideHeader openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
 				</div>
-			<div className="border-t border-stone-200 p-4 dark:border-stone-800">
+			<div className="px-4 pb-4">
 			{/* External sources list */}
-				<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-					<div>
-						<div className="flex items-center gap-2">
-							<Layers className="h-4 w-4 text-primary" />
-							<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
-								{messages.DATA_SOURCE_SOURCES_TITLE}
-							</h2>
-						</div>
-						<p className="mt-1 text-xs text-muted-foreground">
-							{messages.DATA_SOURCE_SOURCES_DESCRIPTION}
-						</p>
-					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => setStackOpen(true)}
-						>
-							<Layers className="mr-1.5 h-3.5 w-3.5" />
-							{messages.DATA_SOURCE_ADD_STACK}
-						</Button>
-						<Button size="sm" onClick={() => setEditing("new")}>
-							<Plus className="mr-1.5 h-3.5 w-3.5" />
-							{messages.DATA_SOURCE_ADD}
-						</Button>
-					</div>
-				</div>
-
 				{loading ? (
 					<div className="grid gap-3 md:grid-cols-2">
 						{[0, 1].map((item) => (
