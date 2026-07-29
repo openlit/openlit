@@ -69,13 +69,17 @@ export function ChatHeaderButton() {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<Link
-					href="/chat"
-					aria-label="Open Otter"
-					className="group flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900"
-				>
-					<Otter className="h-5 w-5 transition-transform group-hover:rotate-6" />
-				</Link>
+				<span className="relative isolate inline-flex overflow-hidden rounded-md p-px shadow-sm transition-shadow hover:shadow-primary/25">
+					<span className="absolute inset-[-250%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#f97316_0deg,#ec4899_90deg,#8b5cf6_180deg,#06b6d4_270deg,#f97316_360deg)]" />
+					<Link
+						href="/chat"
+						aria-label="Ask Otter"
+						className="group relative flex h-8 items-center gap-1.5 rounded-[5px] bg-white px-2.5 text-xs font-semibold text-stone-800 transition-colors hover:bg-stone-50 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+					>
+						<Otter className="h-5 w-5 transition-transform group-hover:rotate-6" />
+						<span>Ask Otter</span>
+					</Link>
+				</span>
 			</TooltipTrigger>
 			<TooltipContent side="bottom" className="max-w-xs text-xs"><p>{tooltip}</p></TooltipContent>
 		</Tooltip>
