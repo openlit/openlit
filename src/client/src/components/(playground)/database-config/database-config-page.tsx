@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DatabaseConfig, DatabaseConfigWithActive } from "@/constants/dbConfig";
 import {
-	changeActiveDatabaseConfig,
 	deleteDatabaseConfig,
 	fetchDatabaseConfigList,
 } from "@/helpers/client/database-config";
@@ -248,7 +247,6 @@ function DatabaseList({
 	dbConfigs,
 	isLoadingList,
 	canCreate,
-	canSelect,
 	canUpdate,
 	canDelete,
 	canShare,
@@ -259,7 +257,6 @@ function DatabaseList({
 	dbConfigs: DatabaseConfigWithActive[];
 	isLoadingList: boolean;
 	canCreate: boolean;
-	canSelect: boolean;
 	canUpdate: boolean;
 	canDelete: boolean;
 	canShare: boolean;
@@ -267,7 +264,6 @@ function DatabaseList({
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 }) {
-	const posthog = usePostHog();
 	const messages = getMessage();
 	const selectedEnvironment = useSearchParams().get("environment") || "production";
 	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
@@ -281,12 +277,6 @@ function DatabaseList({
 			onOpenNewHandled?.();
 		}
 	}, [onOpenNewHandled, openNew, visibleConfigs.length]);
-
-	const setCurrent = (config: DatabaseConfigWithActive) => {
-		if (!canSelect) return;
-		toast.loading(messages.DB_CONFIG_SET_ACTIVE(config.name), { id: "db-config-current" });
-		void changeActiveDatabaseConfig(config.id, () => posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE));
-	};
 
 	const remove = (config: DatabaseConfigWithActive) => {
 		if (!canDelete || !config.permissions?.canDelete) return;
@@ -314,11 +304,11 @@ function DatabaseList({
 						<div key={config.id} className="flex min-h-[190px] flex-col rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50">
 							<div className="flex items-start gap-3">
 								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950"><Image src="/images/connectors/clickhouse.svg" alt="" width={24} height={24} className="h-6 w-6 object-contain" /></div>
-								<div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">{config.name}</p>{config.isCurrent && <Badge className="shrink-0 text-[10px]">Current</Badge>}</div><p className="mt-0.5 text-[11px] text-muted-foreground">ClickHouse connector</p></div>
+								<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">{config.name}</p><p className="mt-0.5 text-[11px] text-muted-foreground">ClickHouse connector</p></div>
 							</div>
 							<p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">Telemetry, dashboards, and derived features for this project environment.</p>
 							<div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="max-w-full truncate text-[10px]">{config.host}:{config.port}</Badge></div>
-							<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">{config.database || "default"}</span><div className="flex items-center gap-1"><Button size="sm" variant="ghost" onClick={() => setCurrent(config)} disabled={!canSelect || config.isCurrent}>Use</Button><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
+							<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">{config.database || "default"}</span><div className="flex items-center gap-1"><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
 						</div>
 					))}
 				</div>
@@ -331,7 +321,6 @@ function DatabaseList({
 
 export default function Database({
 	canCreate = true,
-	canSelect = true,
 	canUpdate = true,
 	canDelete = true,
 	canShare = true,
@@ -340,7 +329,6 @@ export default function Database({
 	onOpenNewHandled,
 }: {
 	canCreate?: boolean;
-	canSelect?: boolean;
 	canUpdate?: boolean;
 	canDelete?: boolean;
 	canShare?: boolean;
@@ -361,7 +349,6 @@ export default function Database({
 			dbConfigs={(databaseList as DatabaseConfigWithActive[]) || []}
 			isLoadingList={databaseListIsLoading}
 			canCreate={canCreate}
-			canSelect={canSelect}
 			canUpdate={canUpdate}
 			canDelete={canDelete}
 			canShare={canShare}

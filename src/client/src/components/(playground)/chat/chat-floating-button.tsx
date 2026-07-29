@@ -59,3 +59,25 @@ export default function ChatFloatingButton() {
 		</div>
 	);
 }
+
+export function ChatHeaderButton() {
+	const tooltip = useMemo(
+		() => OTTER_TOOLTIPS[Math.floor(Math.random() * OTTER_TOOLTIPS.length)],
+		[]
+	);
+
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Link
+					href="/chat"
+					aria-label="Open Otter"
+					className="group flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900"
+				>
+					<Otter className="h-5 w-5 transition-transform group-hover:rotate-6" />
+				</Link>
+			</TooltipTrigger>
+			<TooltipContent side="bottom" className="max-w-xs text-xs"><p>{tooltip}</p></TooltipContent>
+		</Tooltip>
+	);
+}
