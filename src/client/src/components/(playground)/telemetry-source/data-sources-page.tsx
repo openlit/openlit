@@ -8,7 +8,7 @@ import {
 	Plus,
 	Trash2,
 	Wifi,
-	Eye,
+	Pencil,
 	ShieldCheck,
 	Settings2,
 	BookOpen,
@@ -335,7 +335,7 @@ export default function DataSourcesPage({
 			{/* External sources list */}
 				{loading ? (
 					<div className="contents">
-						{[0, 1].map((item) => (
+						{[0].map((item) => (
 							<div key={item} className="flex min-h-[168px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
 								<div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-20 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
 								<div className="space-y-2"><div className="h-2.5 w-full animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-3/4 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div>
@@ -407,7 +407,6 @@ export default function DataSourcesPage({
 									</div>
 								</div>
 								<div className="mt-3 flex items-center justify-between gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
-									<span className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_VIEW_DETAILS}</span>
 									<div className="flex items-center gap-1">
 									<Button
 										size="sm"
@@ -419,13 +418,13 @@ export default function DataSourcesPage({
 										{messages.DATA_SOURCE_TEST}
 									</Button>
 					<Button
-						size="sm"
+						size="icon"
 						variant="ghost"
-						title="View connector details and signal routing"
-						aria-label={`View ${s.name} details`}
+						title="Edit connector and signal routing"
+						aria-label={`Edit ${s.name} connector`}
 						onClick={() => setEditing(s)}
 					>
-										<Eye className="h-3.5 w-3.5" />
+						<Pencil className="h-3.5 w-3.5" />
 										</Button>
 									<Button
 										size="sm"

@@ -2,6 +2,7 @@
 
 import FormBuilder from "@/components/common/form-builder";
 import Image from "next/image";
+import { Pencil, Trash2, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -264,6 +265,7 @@ function DatabaseList({
 	const messages = getMessage();
 	const selectedEnvironment = useSearchParams().get("environment") || "production";
 	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
+	const [testingId, setTestingId] = useState<string | null>(null);
 	const visibleConfigs = useMemo(
 		() => dbConfigs.filter((config) => (config.environment || "production").toLowerCase() === selectedEnvironment.toLowerCase()),
 		[dbConfigs, selectedEnvironment]
@@ -278,6 +280,21 @@ function DatabaseList({
 	const remove = (config: DatabaseConfigWithActive) => {
 		if (!canDelete || !config.permissions?.canDelete) return;
 		if (window.confirm(messages.DELETE_DATABASE_CONFIG_CONFIRMATION)) void deleteDatabaseConfig(config.id);
+	};
+
+	const testConnection = async (config: DatabaseConfigWithActive) => {
+		setTestingId(config.id);
+		toast.loading(messages.DATA_SOURCE_TESTING, { id: "db-config-test" });
+		try {
+			const response = await fetch("/api/clickhouse", { method: "POST" });
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok || body?.err) throw new Error(body?.err || messages.DATA_SOURCE_SAVE_FAILED);
+			toast.success(messages.DATA_SOURCE_TEST_OK, { id: "db-config-test" });
+		} catch (error: any) {
+			toast.error(error?.message || messages.DATA_SOURCE_SAVE_FAILED, { id: "db-config-test" });
+		} finally {
+			setTestingId(null);
+		}
 	};
 
 	return (
@@ -305,7 +322,7 @@ function DatabaseList({
 							</div>
 							<p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">Telemetry, dashboards, and derived features for this project environment.</p>
 							<div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="max-w-full truncate text-[10px]">{config.host}:{config.port}</Badge></div>
-			<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">View details</span><div className="flex items-center gap-1"><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
+			<div className="mt-auto flex items-center justify-end gap-1 border-t border-stone-200 pt-3 dark:border-stone-800"><Button size="sm" variant="ghost" onClick={() => testConnection(config)} disabled={testingId === config.id}><Wifi className="mr-1 h-3.5 w-3.5" />{messages.DATA_SOURCE_TEST}</Button><Button size="icon" variant="ghost" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit} aria-label="Edit connector"><Pencil className="h-3.5 w-3.5" /></Button><Button size="icon" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete} aria-label="Delete connector"><Trash2 className="h-3.5 w-3.5 text-error" /></Button></div>
 						</div>
 					))}
 				</div>
