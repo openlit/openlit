@@ -440,18 +440,39 @@ export class TempoAdapter extends BaseExternalAdapter {
 		const { headers, redact } = await this.authHeaders();
 		const id = normalizeOtlpId(traceId) || traceId;
 		const key = cacheKey(this.descriptor.id, ["trace", id]);
-		const payload = await cachedQuery(key, TTL_MS, () =>
-			safeFetch(`${this.baseUrl}/api/traces/${encodeURIComponent(id)}`, {
-				headers,
-				...this.networkOpts,
-				redactValues: redact,
-				concurrencyKey: this.descriptor.id,
-				maxConcurrent: TRACE_FETCH_CONCURRENCY,
-			})
-		);
-		const spans = parseOtlpTrace(payload);
-		rememberSpans(this.descriptor.id, spans);
-		return spans;
+		try {
+			const payload = await cachedQuery(key, TTL_MS, () =>
+				safeFetch(`${this.baseUrl}/api/traces/${encodeURIComponent(id)}`, {
+					headers,
+					...this.networkOpts,
+					redactValues: redact,
+					concurrencyKey: this.descriptor.id,
+					maxConcurrent: TRACE_FETCH_CONCURRENCY,
+				})
+			);
+			const spans = parseOtlpTrace(payload);
+			consoleLog("[tempo] trace payload parsed", {
+				sourceId: this.descriptor.id,
+				traceId: id,
+				payloadKeys: payload && typeof payload === "object" ? Object.keys(payload) : [],
+				batchCount: Array.isArray((payload as { batches?: unknown[] })?.batches)
+					? (payload as { batches: unknown[] }).batches.length
+					: 0,
+				resourceSpanCount: Array.isArray((payload as { resourceSpans?: unknown[] })?.resourceSpans)
+					? (payload as { resourceSpans: unknown[] }).resourceSpans.length
+					: 0,
+				spanCount: spans.length,
+			});
+			rememberSpans(this.descriptor.id, spans);
+			return spans;
+		} catch (error) {
+			consoleLog("[tempo] trace fetch failed", {
+				sourceId: this.descriptor.id,
+				traceId: id,
+				error: String((error as Error)?.message || error),
+			});
+			throw error;
+		}
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {

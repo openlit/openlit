@@ -51,6 +51,7 @@ interface OtlpResourceSpans {
 }
 
 interface OtlpTrace {
+	trace?: OtlpTrace;
 	batches?: OtlpResourceSpans[];
 	resourceSpans?: OtlpResourceSpans[];
 }
@@ -135,7 +136,8 @@ export function normalizeOtlpId(raw?: string): string {
 
 /** Parse an OTLP/JSON trace payload into normalized spans. */
 export function parseOtlpTrace(payload: unknown): NormalizedSpan[] {
-	const trace = (payload || {}) as OtlpTrace;
+	const root = (payload || {}) as OtlpTrace;
+	const trace = root.trace || root;
 	const resourceSpans = trace.batches || trace.resourceSpans || [];
 	const out: NormalizedSpan[] = [];
 	for (const rs of resourceSpans) {
