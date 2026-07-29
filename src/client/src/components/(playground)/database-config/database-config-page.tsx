@@ -12,7 +12,6 @@ import {
 } from "@/helpers/client/database-config";
 import {
 	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
 } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -245,7 +244,6 @@ function ModifyDatabaseConfig({
 }
 function DatabaseList({
 	dbConfigs,
-	isLoadingList,
 	canCreate,
 	canUpdate,
 	canDelete,
@@ -255,7 +253,6 @@ function DatabaseList({
 	onOpenNewHandled,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
-	isLoadingList: boolean;
 	canCreate: boolean;
 	canUpdate: boolean;
 	canDelete: boolean;
@@ -308,13 +305,12 @@ function DatabaseList({
 							</div>
 							<p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">Telemetry, dashboards, and derived features for this project environment.</p>
 							<div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="max-w-full truncate text-[10px]">{config.host}:{config.port}</Badge></div>
-							<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">{config.database || "default"}</span><div className="flex items-center gap-1"><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
+			<div className="mt-auto flex items-center justify-between gap-2 border-t border-stone-200 pt-3 dark:border-stone-800"><span className="text-[11px] text-muted-foreground">View details</span><div className="flex items-center gap-1"><Button size="sm" variant="outline" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete}>Delete</Button></div></div>
 						</div>
 					))}
 				</div>
 			)}
 			{editing && <Dialog open onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0"><ModifyDatabaseConfig dbConfig={editing === "new" ? undefined : editing} canCreate={canCreate} canUpdate={canUpdate} onSaved={() => setEditing(null)} /></DialogContent></Dialog>}
-			{isLoadingList && <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-stone-950/60"><div className="rounded-md border border-stone-200 bg-white px-3 py-2 text-xs text-muted-foreground shadow-sm dark:border-stone-800 dark:bg-stone-900">{messages.OBSERVABILITY_LOADING}</div></div>}
 		</div>
 	);
 }
@@ -338,16 +334,14 @@ export default function Database({
 }) {
 	const messages = getMessage();
 	const databaseList = useRootStore(getDatabaseConfigList);
-	const databaseListIsLoading = useRootStore(getDatabaseConfigListIsLoading);
 
 	return isNil(databaseList) ? (
-		<div className="flex items-center justify-center w-full h-full animate-pulse dark:text-white">
+		<div className="p-4 text-xs text-muted-foreground animate-pulse">
 			{messages.OBSERVABILITY_LOADING}
 		</div>
 	) : (
 		<DatabaseList
 			dbConfigs={(databaseList as DatabaseConfigWithActive[]) || []}
-			isLoadingList={databaseListIsLoading}
 			canCreate={canCreate}
 			canUpdate={canUpdate}
 			canDelete={canDelete}
