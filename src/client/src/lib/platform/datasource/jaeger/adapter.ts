@@ -149,7 +149,9 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			this.descriptor.dbConfigId
 		);
 		return {
-			headers: applyHttpAuthCredentials(secret.credentials),
+			headers: applyHttpAuthCredentials(secret.credentials, {
+				authType: this.descriptor.settings.authType as string | undefined,
+			}),
 			redact: redactableSecretValues(secret),
 		};
 	}

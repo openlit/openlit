@@ -1802,6 +1802,10 @@ export const TELEMETRY_SOURCE_CHAT_NATIVE_ONLY = (source: string) =>
 	`Natural-language SQL chat runs only on the built-in ClickHouse source. This project reads telemetry from "${source}", so use the Telemetry, trace, and dashboard views instead.`;
 export const DATA_SOURCE_AUTH_401_HINT =
 	"Authentication failed. For Grafana Cloud, use Basic auth: Username = instance ID, Password = access policy token (leave Bearer blank).";
+export const DATA_SOURCE_AUTH_TYPE = "Authentication type";
+export const DATA_SOURCE_AUTH_TYPE_BASIC = "Basic (username + password)";
+export const DATA_SOURCE_AUTH_TYPE_BEARER = "Bearer token";
+export const DATA_SOURCE_AUTH_TYPE_NONE = "No authentication";
 export const TELEMETRY_SOURCE_NAME_REQUIRED =
 	"A telemetry source name is required.";
 export const TELEMETRY_SOURCE_TYPE_UNKNOWN = (type: string) =>

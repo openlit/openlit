@@ -56,6 +56,7 @@ export class PrometheusAdapter extends BaseExternalAdapter {
 		return {
 			headers: applyHttpAuthCredentials(secret.credentials, {
 				tenantHeader: "X-Scope-OrgID",
+				authType: this.descriptor.settings.authType as string | undefined,
 			}),
 			redact: redactableSecretValues(secret),
 		};

@@ -31,6 +31,21 @@ describe("applyHttpAuthCredentials", () => {
 		expect(headers.Authorization).toBe("Bearer abc");
 	});
 
+	it("follows the explicitly selected authentication type", () => {
+		expect(
+			applyHttpAuthCredentials(
+				{ username: "instance", password: "token" },
+				{ authType: "none" }
+			)
+		).not.toHaveProperty("Authorization");
+		expect(
+			applyHttpAuthCredentials(
+				{ token: "abc" },
+				{ authType: "bearer" }
+			).Authorization
+		).toBe("Bearer abc");
+	});
+
 	it("adds X-Scope-OrgID tenant header when requested", () => {
 		const headers = applyHttpAuthCredentials(
 			{ username: "u", password: "p", tenant: "team-a" },
@@ -67,6 +82,10 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 					"token",
 				])
 			);
+			expect(d.configFields.find((f) => f.key === "authType")).toMatchObject({
+				kind: "select",
+				defaultValue: "basic",
+			});
 			expect(d.authStyle).toBe("http");
 		}
 		expect(lokiAdapterFactory.describe().configFields.map((f) => f.key)).toContain(

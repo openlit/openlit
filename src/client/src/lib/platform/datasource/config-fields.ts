@@ -40,11 +40,24 @@ export function httpAuthFields(): FieldDef[] {
 	const messages = getMessage();
 	return [
 		{
+			key: "authType",
+			label: messages.DATA_SOURCE_AUTH_TYPE,
+			kind: "select",
+			group: "settings",
+			options: [
+				{ value: "basic", label: messages.DATA_SOURCE_AUTH_TYPE_BASIC },
+				{ value: "bearer", label: messages.DATA_SOURCE_AUTH_TYPE_BEARER },
+				{ value: "none", label: messages.DATA_SOURCE_AUTH_TYPE_NONE },
+			],
+			defaultValue: "basic",
+		},
+		{
 			key: "username",
 			label: messages.DATA_SOURCE_FIELD_USERNAME,
 			kind: "text",
 			group: "credentials",
 			placeholder: messages.DATA_SOURCE_FIELD_USERNAME_PLACEHOLDER,
+			visibleWhen: { key: "authType", value: "basic" },
 		},
 		{
 			key: "password",
@@ -52,12 +65,14 @@ export function httpAuthFields(): FieldDef[] {
 			kind: "password",
 			group: "credentials",
 			placeholder: messages.DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER,
+			visibleWhen: { key: "authType", value: "basic" },
 		},
 		{
 			key: "token",
 			label: messages.DATA_SOURCE_FIELD_TOKEN,
 			kind: "password",
 			group: "credentials",
+			visibleWhen: { key: "authType", value: "bearer" },
 		},
 	];
 }

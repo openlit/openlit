@@ -50,6 +50,7 @@ export class VictoriaLogsAdapter extends BaseExternalAdapter {
 		return {
 			headers: applyHttpAuthCredentials(secret.credentials, {
 				tenantHeader: "AccountID",
+				authType: this.descriptor.settings.authType as string | undefined,
 			}),
 			redact: redactableSecretValues(secret),
 		};

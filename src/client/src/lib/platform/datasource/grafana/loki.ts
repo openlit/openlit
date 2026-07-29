@@ -48,8 +48,9 @@ export class LokiAdapter extends BaseExternalAdapter {
 			this.descriptor.dbConfigId
 		);
 		return {
-			headers: applyHttpAuthCredentials(secret.credentials, {
+			 headers: applyHttpAuthCredentials(secret.credentials, {
 				tenantHeader: "X-Scope-OrgID",
+				authType: this.descriptor.settings.authType as string | undefined,
 			}),
 			redact: redactableSecretValues(secret),
 		};

@@ -8,18 +8,23 @@
  */
 export function applyHttpAuthCredentials(
 	credentials: Record<string, string>,
-	opts?: { tenantHeader?: "X-Scope-OrgID" | "AccountID" }
+	opts?: {
+		tenantHeader?: "X-Scope-OrgID" | "AccountID";
+		authType?: string;
+	}
 ): Record<string, string> {
 	const headers: Record<string, string> = {};
 	const username = credentials.username?.trim();
 	const token = credentials.token?.trim();
 
-	if (username) {
+	const authType = opts?.authType || (username ? "basic" : token ? "bearer" : "none");
+
+	if (authType === "basic" && username) {
 		const basic = Buffer.from(
 			`${username}:${credentials.password || ""}`
 		).toString("base64");
 		headers.Authorization = `Basic ${basic}`;
-	} else if (token) {
+	} else if (authType === "bearer" && token) {
 		headers.Authorization = `Bearer ${token}`;
 	}
 

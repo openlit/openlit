@@ -259,6 +259,8 @@ export interface FieldDef {
 	placeholder?: string;
 	options?: { value: string; label: string }[];
 	defaultValue?: string | boolean;
+	/** Render this field only when another form field has the given value. */
+	visibleWhen?: { key: string; value: string | boolean };
 }
 
 /**

@@ -68,6 +68,13 @@ function fieldsForType(
 	return descriptors.find((d) => d.type === type)?.configFields ?? [];
 }
 
+function isFieldVisible(
+	field: FieldDef,
+	values: Record<string, string | boolean>
+): boolean {
+	return !field.visibleWhen || values[field.visibleWhen.key] === field.visibleWhen.value;
+}
+
 interface SourceRow {
 	id: string;
 	name: string;
@@ -672,8 +679,12 @@ function SourceFormDialog({
 		setValues(next);
 	}, [type, source, descriptors]);
 
-	const settingsFields = fields.filter((f) => f.group === "settings");
-	const credentialFields = fields.filter((f) => f.group === "credentials");
+	const settingsFields = fields.filter(
+		(f) => f.group === "settings" && isFieldVisible(f, values)
+	);
+	const credentialFields = fields.filter(
+		(f) => f.group === "credentials" && isFieldVisible(f, { ...values })
+	);
 
 	const submit = async () => {
 		if (!name.trim()) {
@@ -1062,9 +1073,11 @@ function StackDialog({
 					{(template?.slots || []).map((slot) => {
 						const fields = fieldsForType(descriptors, slot.type);
 						const v = slotValues[slot.key] || {};
-						const settingsFields = fields.filter((f) => f.group === "settings");
+						const settingsFields = fields.filter(
+							(f) => f.group === "settings" && isFieldVisible(f, v)
+						);
 						const credentialFields = fields.filter(
-							(f) => f.group === "credentials"
+							(f) => f.group === "credentials" && isFieldVisible(f, v)
 						);
 						return (
 							<div
