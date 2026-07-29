@@ -435,6 +435,21 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _join_tool_field(values):
+    """
+    Join one field across parallel tool calls, keeping positions aligned.
+
+    Every call contributes a slot, so the nth entry of gen_ai.tool.name, .call_id
+    and .args always describes the same call even when one of them is empty.
+    Filtering each field independently would shift the columns out of step.
+    A field that is empty for every call collapses to "" rather than a run of
+    separators, which keeps the common single-call case unchanged.
+    """
+
+    values = [str(value) if value else "" for value in values]
+    return ", ".join(values) if any(values) else ""
+
+
 def _tool_slot(scope, index):
     """
     Return the accumulator for the tool call at ``index``, creating it if needed.
@@ -633,18 +648,17 @@ def common_chat_logic(
         # Several parallel calls collapse into the single-valued OTel tool
         # attributes the same way the openai instrumentor does it: comma-joined,
         # which leaves the one-call case byte-identical to before.
-        names = [call.get("name", "") for call in calls]
-        ids = [call.get("id", "") for call in calls]
-        args = [str(call.get("input", "")) for call in calls]
-
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
+            SemanticConvention.GEN_AI_TOOL_NAME,
+            _join_tool_field(call.get("name", "") for call in calls),
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
+            SemanticConvention.GEN_AI_TOOL_CALL_ID,
+            _join_tool_field(call.get("id", "") for call in calls),
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
+            SemanticConvention.GEN_AI_TOOL_ARGS,
+            _join_tool_field(call.get("input", "") for call in calls),
         )
 
     # Span Attributes for Cost and Tokens

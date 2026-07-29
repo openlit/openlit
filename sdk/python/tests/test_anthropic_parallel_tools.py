@@ -211,3 +211,14 @@ def test_build_output_messages_skips_empty_entries():
 
     assert len(parts) == 1
     assert parts[0]["id"] == "t1"
+
+
+def test_join_tool_field_keeps_columns_aligned():
+    # A call with an empty name must still occupy a slot, so the nth entry of
+    # each attribute keeps describing the same call.
+    assert utils._join_tool_field(["a", "", "c"]) == "a, , c"
+
+
+def test_join_tool_field_collapses_an_all_empty_field():
+    assert utils._join_tool_field(["", ""]) == ""
+    assert utils._join_tool_field([]) == ""
