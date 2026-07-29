@@ -115,3 +115,16 @@ def test_function_calls_handles_object_shaped_parts():
     calls = utils._function_calls([_Part({"name": "n", "args": {}}), _Part(None)])
 
     assert calls == [{"name": "n", "args": {}}]
+
+
+def test_join_tool_field_keeps_columns_aligned():
+    # A call with an empty name must still occupy a slot, so the nth entry of
+    # each attribute keeps describing the same call.
+    assert utils._join_tool_field(["a", "", "c"]) == "a, , c"
+
+
+def test_join_tool_field_collapses_an_all_empty_field():
+    # Gemini never supplies tool ids, so that attribute stays "" rather than
+    # becoming a run of separators.
+    assert utils._join_tool_field(["", ""]) == ""
+    assert utils._join_tool_field([]) == ""
