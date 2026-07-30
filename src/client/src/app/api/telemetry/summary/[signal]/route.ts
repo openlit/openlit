@@ -6,6 +6,7 @@ import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
 
@@ -29,7 +30,7 @@ export async function POST(
 		 timeLimit: formData.timeLimit as TimeLimit,
 		 selectedConfig: formData.selectedConfig || {},
 		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
-		...(typeof formData.environment === "string" ? { environment: formData.environment } : {}),
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 	};
 
 	const validation = validateMetricsRequest(

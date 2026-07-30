@@ -6,7 +6,7 @@ import { listTraceRecords } from "../traces/read";
  * This keeps rule previews and field discovery working when traces are stored
  * in Tempo, Datadog, Jaeger, or another configured connector.
  */
-export async function listRecentRuleTraces(limit = 100) {
+export async function listRecentRuleTraces(limit = 100, environment?: string) {
 	const end = new Date();
 	const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 	const params: MetricParams = {
@@ -14,6 +14,7 @@ export async function listRecentRuleTraces(limit = 100) {
 		limit,
 		offset: 0,
 		sorting: { type: "Timestamp", direction: "desc" },
+		environment,
 	};
 	const result = await listTraceRecords(params);
 	if (result.err) throw new Error(String(result.err));

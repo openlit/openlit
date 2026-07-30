@@ -3,6 +3,7 @@ import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
 import { listRecentRuleTraces, getRuleTraceFieldValue } from "@/lib/platform/rule-engine/telemetry";
 import PostHogServer from "@/lib/posthog";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 const SUPPORTED_FIELDS = new Set([
 	"ServiceName", "SpanName", "SpanKind", "StatusCode",
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
 	let traces: Record<string, any>[];
 	try {
-		traces = await listRecentRuleTraces(1000);
+		traces = await listRecentRuleTraces(1000, getRequestEnvironment(request));
 	} catch {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_FIELD_VALUES_FAILURE,

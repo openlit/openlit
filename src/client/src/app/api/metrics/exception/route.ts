@@ -4,6 +4,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { listTraceRecords } from "@/lib/platform/traces/read";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
 		selectedConfig,
 		sorting,
 		statusCode: ["STATUS_CODE_ERROR", "Error"],
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(

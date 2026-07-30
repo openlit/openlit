@@ -1,5 +1,6 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricDetailRecord } from "@/lib/platform/metrics/read";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 export async function POST(
 	request: Request,
@@ -12,6 +13,7 @@ export async function POST(
 	const metricParams: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
 		selectedConfig: formData.selectedConfig || {},
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 	};
 
 	return Response.json(

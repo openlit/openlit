@@ -4,3 +4,7 @@ export const OPENLIT_CONTEXT_HEADERS = {
 	databaseConfigId: "x-openlit-database-config-id",
 	environment: "x-openlit-environment",
 } as const;
+
+export function getRequestEnvironment(request: Request): string | undefined {
+	return request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
+}

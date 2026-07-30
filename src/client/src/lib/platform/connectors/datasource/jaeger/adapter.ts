@@ -156,7 +156,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	}
 	private get configuredServices(): string[] | undefined {
 		const s = this.descriptor.settings.services;
-		return Array.isArray(s) ? s.map(String) : undefined;
+		const services = Array.isArray(s) ? s.map(String).filter(Boolean) : [];
+		return services.length ? services : undefined;
 	}
 	private get perServiceLimit(): number {
 		return Number(this.descriptor.settings.perServiceLimit) || 100;
@@ -212,7 +213,14 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				retry: true,
 			})
 		);
-		return (response?.data || []).slice(0, MAX_SERVICES);
+		const services = (response?.data || []).map(String).filter(Boolean).slice(0, MAX_SERVICES);
+		console.log("[jaeger] services discovered", {
+			sourceId: this.descriptor.id,
+			baseUrl: this.baseUrl,
+			count: services.length,
+			configured: false,
+		});
+		return services;
 	}
 
 	private normalizeSpan(
@@ -291,6 +299,14 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		maxSpans: number
 	): Promise<NormalizedSpan[]> {
 		const services = await this.listServices();
+		console.log("[jaeger] collecting spans", {
+			sourceId: this.descriptor.id,
+			serviceCount: services.length,
+			start: query.timeRange.start.toISOString(),
+			end: query.timeRange.end.toISOString(),
+			maxSpans,
+			aiSelector: query.aiSelector !== false,
+		});
 		const out: NormalizedSpan[] = [];
 		for (const service of services) {
 			if (out.length >= maxSpans) break;
@@ -299,6 +315,11 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				query.timeRange,
 				this.perServiceLimit
 			);
+			console.log("[jaeger] service traces fetched", {
+				sourceId: this.descriptor.id,
+				service,
+				traceCount: traces.length,
+			});
 			for (const trace of traces) {
 				const spans = (trace.spans || []).map((s) =>
 					this.normalizeSpan(s, trace.processes || {})
@@ -313,6 +334,11 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			}
 		}
 		const rows = out.slice(0, maxSpans);
+		console.log("[jaeger] spans collected", {
+			sourceId: this.descriptor.id,
+			serviceCount: services.length,
+			spanCount: rows.length,
+		});
 		rememberSpans(this.descriptor.id, rows);
 		return rows;
 	}

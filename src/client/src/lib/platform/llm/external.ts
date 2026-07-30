@@ -19,16 +19,17 @@ import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
-async function resolveExternalTraces() {
+async function resolveExternalTraces(environment?: string) {
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
 		await import("@/lib/telemetry-source");
 	const descriptor = await resolveTelemetrySourceDescriptor({
 		signal: "traces",
+		environment,
 	});
 	if (descriptor.isBuiltIn || descriptor.type === "clickhouse") {
 		return null;
 	}
-	const adapter = await getTelemetryAdapter({ signal: "traces" });
+	const adapter = await getTelemetryAdapter({ signal: "traces", environment });
 	return { adapter, descriptor };
 }
 
@@ -37,7 +38,7 @@ function asError(err: unknown): string {
 }
 
 export async function externalTotalCost(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -87,7 +88,7 @@ export async function externalTotalCost(params: MetricParams) {
 }
 
 export async function externalAverageCost(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter } = resolved;
 	try {
@@ -114,7 +115,7 @@ export async function externalAverageCost(params: MetricParams) {
 }
 
 export async function externalCostPerTime(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -155,7 +156,7 @@ export async function externalCostPerTime(params: MetricParams) {
 export async function externalAverageTokens(
 	params: MetricParams & { type?: string }
 ) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter } = resolved;
 	const field =
@@ -197,7 +198,7 @@ export async function externalAverageTokens(
 }
 
 export async function externalTokensPerTime(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -241,7 +242,7 @@ async function externalGroupBy(
 	dimension: string,
 	valueKey: string
 ) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -289,7 +290,7 @@ export async function externalTopModels(params: MetricParams) {
 }
 
 export async function externalCostByApplication(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -327,7 +328,7 @@ export async function externalCostByApplication(params: MetricParams) {
 }
 
 export async function externalCostByEnvironment(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter, descriptor } = resolved;
 	try {
@@ -368,7 +369,7 @@ export async function externalCostByEnvironment(params: MetricParams) {
 }
 
 export async function externalModelsPerTime(params: MetricParams) {
-	const resolved = await resolveExternalTraces();
+	const resolved = await resolveExternalTraces(params.environment);
 	if (!resolved) return null;
 	const { adapter } = resolved;
 	try {

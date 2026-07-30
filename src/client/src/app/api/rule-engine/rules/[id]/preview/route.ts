@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getRuleById } from "@/lib/platform/rule-engine";
 import { listRecentRuleTraces, getRuleTraceFieldValue } from "@/lib/platform/rule-engine/telemetry";
 import PostHogServer from "@/lib/posthog";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 type Condition = {
 	field: string;
@@ -100,7 +101,7 @@ export async function POST(
 
 		// Fetch through the active traces connector; this is intentionally not a
 		// direct ClickHouse query because rules must preview external telemetry.
-		const traces = await listRecentRuleTraces(100);
+		const traces = await listRecentRuleTraces(100, getRequestEnvironment(_req));
 
 		// Build condition groups from the saved rule data
 		const groups: ConditionGroup[] = (rule.condition_groups || []).map((g: any) => ({
