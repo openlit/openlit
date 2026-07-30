@@ -152,8 +152,12 @@ export default function ObservabilitySignalList({
 		!config.supportGrouping || !filter.groupBy || !!filter.groupValue;
 
 	const fetchData = useCallback(() => {
+		const environment = searchParams.get("environment") || undefined;
+		const requestFilter = environment
+			? { ...effectiveFilter, environment }
+			: effectiveFilter;
 		fireRequest({
-			body: JSON.stringify(effectiveFilter),
+			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.listUrl,
 			failureCb: (err?: string) => {
@@ -162,15 +166,19 @@ export default function ObservabilitySignalList({
 				});
 			},
 		});
-	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION]);
+	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION, searchParams]);
 
 	const fetchSummary = useCallback(() => {
+		const environment = searchParams.get("environment") || undefined;
+		const requestFilter = environment
+			? { ...effectiveFilter, environment }
+			: effectiveFilter;
 		fireSummaryRequest({
-			body: JSON.stringify(effectiveFilter),
+			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.summaryUrl,
 		});
-	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest]);
+	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest, searchParams]);
 
 	useEffect(() => {
 		// Defensively strip a leaked agent scope before any request fires. On

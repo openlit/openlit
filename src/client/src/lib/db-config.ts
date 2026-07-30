@@ -12,7 +12,7 @@ import { createProjectEnvironment, normalizeProjectEnvironment } from "./project
 
 async function ensureEnvironmentDatabaseBindings(projectId: string, databaseConfigId: string, environment: string) {
 	if (!prisma.telemetrySourceBinding?.findUnique) return;
-	for (const signal of ["traces", "logs", "metrics"]) {
+	for (const signal of ["traces", "logs", "metrics", "intelligence"]) {
 		const existing = await prisma.telemetrySourceBinding.findUnique({
 			where: { projectId_signal_environment: { projectId, signal, environment } },
 		});
@@ -144,7 +144,12 @@ export const upsertDBConfig = async (
 	if (!dbConfig.port) throw new Error("No port provided");
 	if (!dbConfig.database) throw new Error("No database provided");
 
-	const hostValidation = validateDatabaseHost(dbConfig.host);
+	// ClickHouse is an explicitly configured project connector. Local and
+	// private-network hosts are valid here (including the default 127.0.0.1
+	// database); HTTP telemetry connectors retain the stricter SSRF checks.
+	const hostValidation = validateDatabaseHost(dbConfig.host, {
+		allowPrivateNetwork: true,
+	});
 	if (!hostValidation.valid) {
 		throw new Error(hostValidation.error || "Invalid host");
 	}
@@ -165,17 +170,6 @@ export const upsertDBConfig = async (
 	const environment = normalizeProjectEnvironment(dbConfig.environment || "production");
 	dbConfig.environment = environment;
 	if (currentProject?.id) await createProjectEnvironment(environment);
-
-	const existingDBForEnvironment = await prisma.databaseConfig.findFirst({
-		where: {
-			projectId: currentProject?.id || null,
-			environment,
-			NOT: { id },
-		},
-	});
-	if (existingDBForEnvironment?.id) {
-		throw new Error(`Environment "${environment}" already has a ClickHouse connector.`);
-	}
 
 	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {

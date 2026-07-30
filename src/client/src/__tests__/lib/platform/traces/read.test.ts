@@ -45,7 +45,7 @@ jest.mock("@/helpers/server/trace", () => ({
 		rows.length ? { SpanId: (rows[0] as { SpanId: string }).SpanId, children: [] } : null,
 }));
 
-jest.mock("@/lib/platform/datasource/http/cache", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/cache", () => ({
 	cacheKey: (...parts: unknown[]) => parts.join(":"),
 	cachedQuery: (_key: string, _ttl: number, loader: () => unknown) => loader(),
 	__clearCache: jest.fn(),

@@ -1,7 +1,7 @@
 import {
 	normalizeOtlpId,
 	parseOtlpTrace,
-} from "@/lib/platform/datasource/otlp-json";
+} from "@/lib/platform/connectors/datasource/otlp-json";
 
 describe("normalizeOtlpId", () => {
 	it("lowercases hex ids", () => {

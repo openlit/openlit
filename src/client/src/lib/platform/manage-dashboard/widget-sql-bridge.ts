@@ -6,21 +6,43 @@
  */
 
 import type { MetricParams } from "@/lib/platform/common";
-import { metricParamsToOpenLITQuery } from "@/lib/platform/datasource/clickhouse/query-map";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import {
 	intervalFromTimeRange,
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
-} from "@/lib/platform/datasource/query-planner";
-import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
 import type {
 	Aggregation,
 	DataSourceAdapter,
 	OpenLITQuery,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 
 export type InferredWidgetMode = "aggregate" | "timeseries";
+
+/**
+ * `default` is the synthetic environment used by the built-in ClickHouse
+ * setup. It must not be sent to an external telemetry backend as a real
+ * deployment.environment filter; doing so makes otherwise valid dashboard
+ * queries return zero rows.
+ */
+export function stripSyntheticDefaultEnvironment(
+	query: OpenLITQuery
+): OpenLITQuery {
+	const filters = query.filters?.filter((filter) => {
+		if (
+			filter.target !== "attribute" ||
+			filter.key !== "deployment.environment"
+		) {
+			return true;
+		}
+		const values = Array.isArray(filter.value) ? filter.value : [filter.value];
+		return !(values.length === 1 && String(values[0]) === "default");
+	});
+	return { ...query, filters: filters?.length ? filters : undefined };
+}
 
 export interface InferredWidgetQuery {
 	mode: InferredWidgetMode;
@@ -458,12 +480,11 @@ export async function executeInferredWidgetQuery(
 	inferred: InferredWidgetQuery,
 	filter: MetricParams
 ): Promise<{ data?: unknown[]; err?: string }> {
-	const base = metricParamsToOpenLITQuery(filter, "traces");
 	const preferRollup = shouldPreferRollup(filter);
 
 	const buildQuery = (params: MetricParams): OpenLITQuery => {
 		const mapped = metricParamsToOpenLITQuery(params, "traces");
-		return {
+		return stripSyntheticDefaultEnvironment({
 			...mapped,
 			aggregations: inferred.aggregations,
 			groupBy: inferred.groupBy,
@@ -475,7 +496,7 @@ export async function executeInferredWidgetQuery(
 						)
 					: mapped.interval,
 			aiSelector: true,
-		};
+		});
 	};
 
 	try {

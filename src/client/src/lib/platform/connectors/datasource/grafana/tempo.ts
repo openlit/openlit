@@ -437,9 +437,15 @@ export class TempoAdapter extends BaseExternalAdapter {
 	}
 
 	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
+		const startedAt = Date.now();
 		const { headers, redact } = await this.authHeaders();
 		const id = normalizeOtlpId(traceId) || traceId;
 		const key = cacheKey(this.descriptor.id, ["trace", id]);
+		consoleLog("[tempo] trace detail fetch start", {
+			sourceId: this.descriptor.id,
+			traceId: id,
+			cacheKey: key,
+		});
 		try {
 			const payload = await cachedQuery(key, TTL_MS, () =>
 				safeFetch(`${this.baseUrl}/api/traces/${encodeURIComponent(id)}`, {
@@ -462,6 +468,7 @@ export class TempoAdapter extends BaseExternalAdapter {
 					? (payload as { resourceSpans: unknown[] }).resourceSpans.length
 					: 0,
 				spanCount: spans.length,
+				elapsedMs: Date.now() - startedAt,
 			});
 			rememberSpans(this.descriptor.id, spans);
 			return spans;
@@ -470,21 +477,42 @@ export class TempoAdapter extends BaseExternalAdapter {
 				sourceId: this.descriptor.id,
 				traceId: id,
 				error: String((error as Error)?.message || error),
+				elapsedMs: Date.now() - startedAt,
 			});
 			throw error;
 		}
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {
+		const startedAt = Date.now();
 		const id = normalizeOtlpId(spanId) || spanId;
 		const cached = lookupIndexedSpan(this.descriptor.id, id);
-		if (cached) return cached;
+		if (cached) {
+			consoleLog("[tempo] span detail index hit", {
+				sourceId: this.descriptor.id,
+				spanId: id,
+				traceId: cached.traceId,
+				elapsedMs: Date.now() - startedAt,
+			});
+			return cached;
+		}
+		consoleLog("[tempo] span detail index miss", {
+			sourceId: this.descriptor.id,
+			spanId: id,
+		});
 
 		// Tempo has no direct span API. Prefer TraceQL by hex span id
 		// (Grafana Explore pattern: resolve trace, then fetch once).
 		const { headers, redact } = await this.authHeaders();
 		const url = new URL(`${this.baseUrl}/api/search`);
 		url.searchParams.set("q", `{ span:id = ${traceqlValue(id)} }`);
+		// Tempo's search endpoint otherwise uses its short default lookback,
+		// which makes a valid span appear missing when the detail request is
+		// made after the list query. Keep the span-only fallback aligned with
+		// the normal observability lookback.
+		const endSeconds = Math.floor(Date.now() / 1000);
+		url.searchParams.set("start", String(endSeconds - 30 * 24 * 60 * 60));
+		url.searchParams.set("end", String(endSeconds));
 		url.searchParams.set("limit", "1");
 		try {
 			const response = await safeFetch<{ traces?: { traceID?: string }[] }>(
@@ -503,19 +531,36 @@ export class TempoAdapter extends BaseExternalAdapter {
 				spanId: id,
 				traceCount: response?.traces?.length || 0,
 				traceId: traceId || null,
+				elapsedMs: Date.now() - startedAt,
 			});
-			if (!traceId) return null;
+			if (!traceId) {
+				consoleLog("[tempo] span detail search returned no trace", {
+					sourceId: this.descriptor.id,
+					spanId: id,
+					query: url.searchParams.get("q"),
+				});
+				return null;
+			}
 			const spans = await this.getTraceSpans(traceId);
-			return (
+			const result =
 				spans.find((s) => s.spanId === id || s.spanId === spanId) ||
 				pickRootSpan(spans) ||
-				null
-			);
+				null;
+			consoleLog("[tempo] span detail search resolved", {
+				sourceId: this.descriptor.id,
+				spanId: id,
+				traceId,
+				spanCount: spans.length,
+				matched: !!result && result.spanId === id,
+				elapsedMs: Date.now() - startedAt,
+			});
+			return result;
 		} catch (error) {
 			consoleLog("[tempo] span lookup failed", {
 				sourceId: this.descriptor.id,
 				spanId: id,
 				error: String((error as Error)?.message || error),
+				elapsedMs: Date.now() - startedAt,
 			});
 			return null;
 		}
@@ -594,6 +639,21 @@ export class TempoAdapter extends BaseExternalAdapter {
 			// Any metrics failure -> sample fallback below.
 		}
 		return computeAggregateSpansL1(this, query);
+	}
+
+	/** Exact matching span count for list pagination, independent of the sample cap. */
+	async countSpans(query: OpenLITQuery): Promise<number | null> {
+		const series = await this.fetchMetricsSeries(
+			`${buildTempoSearchQuery(query)} | count_over_time()`,
+			query.timeRange,
+			metricsStepForQuery(query)
+		);
+		if (!series) return null;
+		return series.reduce(
+			(total, item) =>
+				total + seriesBuckets(item).reduce((sum, bucket) => sum + bucket.value, 0),
+			0
+		);
 	}
 
 	async spanTimeSeries(query: OpenLITQuery): Promise<DataFrame> {

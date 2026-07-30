@@ -4,7 +4,7 @@ import {
 	redact,
 	safeFetch,
 	SsrfError,
-} from "@/lib/platform/datasource/http/safe-fetch";
+} from "@/lib/platform/connectors/datasource/http/safe-fetch";
 
 describe("isPrivateAddress", () => {
 	it("flags IPv4 private / loopback / link-local / CGNAT ranges", () => {

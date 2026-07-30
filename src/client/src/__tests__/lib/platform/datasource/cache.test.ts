@@ -2,7 +2,7 @@ import {
 	__clearCache,
 	cachedQuery,
 	cacheKey,
-} from "@/lib/platform/datasource/http/cache";
+} from "@/lib/platform/connectors/datasource/http/cache";
 
 beforeEach(() => __clearCache());
 

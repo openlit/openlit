@@ -33,7 +33,7 @@ jest.mock("@/lib/organisation", () => ({
 		mockGetCurrentProjectForOrganisation(...args),
 }));
 
-jest.mock("@/lib/platform/datasource/http/secret", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(),
 	redactableSecretValues: () => [],
 }));

@@ -4,7 +4,7 @@ import {
 	buildAITelemetrySelector,
 	evalOperationClauseToClickHouse,
 	operationTypeClauseToClickHouse,
-} from "@/lib/platform/datasource/ai-selector";
+} from "@/lib/platform/connectors/datasource/ai-selector";
 import { CODING_AGENT_SPAN_NAMES } from "@/lib/platform/coding-agents/table-details";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 

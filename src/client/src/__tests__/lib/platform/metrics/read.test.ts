@@ -14,7 +14,7 @@ jest.mock("@/lib/platform/observability", () => ({
 	getSummaryBucket: () => "hour",
 }));
 
-jest.mock("@/lib/platform/datasource/facade", () => ({
+jest.mock("@/lib/platform/connectors/datasource/facade", () => ({
 	resolveSignalReadContext: (...a: unknown[]) => mockResolveCtx(...a),
 	facadeErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }));

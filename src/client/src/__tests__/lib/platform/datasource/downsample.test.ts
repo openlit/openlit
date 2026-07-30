@@ -10,8 +10,8 @@ import {
 	intervalMsToLabel,
 	intervalMsToSeconds,
 	alignRangeToStep,
-} from "@/lib/platform/datasource/downsample";
-import type { QueryTimeRange } from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/downsample";
+import type { QueryTimeRange } from "@/lib/platform/connectors/datasource/types";
 
 const range = (ms: number): QueryTimeRange => {
 	const end = new Date("2026-07-10T12:00:00Z");

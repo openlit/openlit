@@ -109,7 +109,30 @@ export async function POST(request: Request) {
 	runningLock.add(globalKey);
 
 	try {
-		const [err, configs] = await asaw(prisma.databaseConfig.findMany({}));
+		// Materialization is intelligence work. Only the ClickHouse connector
+		// currently routed for the intelligence signal is active; probing every
+		// historical/database connector makes an unreachable old config fail the
+		// cron and produces noisy ECONNREFUSED/ENOTFOUND errors.
+		const [bindingErr, activeBindings] = await asaw(
+			prisma.telemetrySourceBinding.findMany({
+				where: { signal: "intelligence", databaseConfigId: { not: null } },
+				select: { databaseConfigId: true },
+			})
+		);
+		if (bindingErr) {
+			console.error("[agents materialize] failed to list intelligence bindings", bindingErr);
+			return Response.json({ error: "Failed to list active configs" }, { status: 500 });
+		}
+		const activeConfigIds: string[] = Array.from(
+			new Set(
+				((activeBindings as Array<{ databaseConfigId: string | null }> | undefined) || [])
+					.map((binding) => binding.databaseConfigId)
+					.filter((id): id is string => Boolean(id))
+			)
+		);
+		const [err, configs] = await asaw(
+			prisma.databaseConfig.findMany({ where: { id: { in: activeConfigIds } } })
+		);
 		if (err) {
 			console.error("[agents materialize] failed to list db configs", err);
 			return Response.json({ error: "Failed to list configs" }, { status: 500 });

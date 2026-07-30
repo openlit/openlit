@@ -31,11 +31,11 @@ jest.mock("@/lib/platform/observability", () => ({
 		mockGetMetricAttributeKeys(...args),
 }));
 
-import { ClickHouseAdapter } from "@/lib/platform/datasource/clickhouse/adapter";
+import { ClickHouseAdapter } from "@/lib/platform/connectors/datasource/clickhouse/adapter";
 import type {
 	OpenLITQuery,
 	TelemetrySourceDescriptor,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 const descriptor: TelemetrySourceDescriptor = {
 	type: "clickhouse",

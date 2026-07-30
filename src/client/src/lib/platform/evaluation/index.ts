@@ -45,6 +45,11 @@ import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 
+export type EvaluationTraceLookupOptions = {
+	traceId?: string;
+	environment?: string;
+};
+
 /** Approximate cost per 1K tokens (USD) for common models. Fallback for evaluation cost. */
 const EVAL_COST_PER_1K: Record<string, { prompt: number; completion: number }> = {
 	"gpt-4o": { prompt: 0.0025, completion: 0.01 },
@@ -123,7 +128,7 @@ async function fetchAutoEvalCandidateSpans({
 			"@/lib/telemetry-source"
 		);
 		const { denormalizeSpanToTraceRow } = await import(
-			"@/lib/platform/datasource/clickhouse/normalize"
+			"@/lib/platform/connectors/datasource/clickhouse/normalize"
 		);
 		const resolved = await getTelemetryAdapterForDbConfig(
 			databaseConfigId,
@@ -219,7 +224,15 @@ export async function getEvaluationSummaryForSpanId(spanId: string) {
 	};
 }
 
-export async function getEvaluationsForSpanId(spanId: string) {
+export async function getEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] load span evaluations", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -247,6 +260,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 	const { data, err } = await dataCollector({ query });
 
 	if (err) {
+		consoleLog("[evaluation] evaluation store query failed", { spanId, error: String(err) });
 		return { err };
 	}
 
@@ -296,7 +310,14 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		}
 
 		// Include rule context that would be applied (for UI to show before running)
-		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId);
+		const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+		consoleLog("[evaluation] trace lookup for evaluation", {
+			spanId,
+			traceId: opts?.traceId || null,
+			found: !!traceResult.record,
+			error: traceResult.err || null,
+		});
+		const { record: traceRecord } = traceResult;
 		const trace = traceRecord as TraceRow;
 		let ruleContext: {
 			matchingRuleIds: string[];
@@ -359,7 +380,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		contextEntityIds: [],
 	};
 	if (!evaluationConfigErr && evaluationConfigTyped?.id) {
-		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId);
+		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId, opts);
 		const trace = traceRecord as TraceRow;
 		if (trace?.SpanId) {
 			const { matchingRuleIds, contextEntityIds } =
@@ -472,14 +493,31 @@ export async function storeManualFeedback(
 	spanId: string,
 	rating: "positive" | "negative" | "neutral",
 	comment?: string,
-	dbConfigId?: string
+	dbConfigId?: string,
+	opts?: EvaluationTraceLookupOptions
 ) {
+	consoleLog("[evaluation] save manual feedback", {
+		spanId,
+		rating,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const { record: spanData } = await getTraceSpanRecord(sanitizedSpanId);
-	throwIfError(!(spanData as any)?.SpanId, getMessage().TRACE_NOT_FOUND);
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] feedback trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const meta: Record<string, string> = {
 		source: "manual_feedback",
@@ -534,22 +572,40 @@ export async function storeManualFeedback(
 	);
 
 	if (err) {
-		consoleLog(err);
+		consoleLog("[evaluation] feedback insert failed", { spanId, error: String(err) });
 		return { err };
 	}
 	return { data: true };
 }
 
-export async function setEvaluationsForSpanId(spanId: string) {
+export async function setEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] run evaluation", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const { record: spanData } = await getTraceSpanRecord(sanitizedSpanId);
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] run trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
 	const spanDataTyped = spanData as TraceRow;
 
-	throwIfError(!(spanData as any)?.SpanId, getMessage().TRACE_NOT_FOUND);
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const evaluationConfig = await getEvaluationConfig(undefined, false);
 	return await getEvaluationConfigForTrace(

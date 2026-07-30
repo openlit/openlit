@@ -22,12 +22,12 @@ import type {
 	DataSourceAdapter,
 	Signal,
 	TelemetrySourceDescriptor,
-} from "./platform/datasource/types";
-import { ensureAdaptersRegistered } from "./platform/datasource/bootstrap";
-import { createAdapter } from "./platform/datasource/registry";
+} from "./platform/connectors/datasource/types";
+import { ensureAdaptersRegistered } from "./platform/connectors/datasource/bootstrap";
+import { createAdapter } from "./platform/connectors/datasource/registry";
 import { consoleLog } from "@/utils/log";
 
-const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics"];
+const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 const VALID_SIGNALS = new Set<string>(ALL_SIGNALS);
 
 /** Parse the comma-separated `signals` column into a typed list. */
@@ -393,6 +393,7 @@ export async function getTelemetryAdapterForDbConfig(
 	const resolution = await resolveSignalSource(signal, {
 		projectId,
 		dbConfigId,
+		environment: dbConfig?.environment,
 	});
 	const adapter = createAdapter(resolution.descriptor);
 	if (!adapter) {

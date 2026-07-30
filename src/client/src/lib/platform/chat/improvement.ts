@@ -1499,10 +1499,11 @@ export async function getTraceImprovement(
 	spanId: string,
 	databaseConfigId?: string,
 	scope: TraceAnalysisScope = "trace",
-	environment?: string
+	environment?: string,
+	traceId?: string
 ): Promise<{ data?: { rootSpanId: string; runs: TraceAnalysisRun[] }; err?: unknown }> {
-	logTraceAnalysis("get_start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
-	const { record, err } = await getTraceHierarchy(spanId, { environment });
+	logTraceAnalysis("get_start", { spanId, traceId, scope, databaseConfigId: databaseConfigId || "" });
+	const { record, err } = await getTraceHierarchy(spanId, { traceId, environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (err || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("get_hierarchy_failed", err || "Trace hierarchy not found", { spanId });
@@ -1558,9 +1559,10 @@ export async function streamTraceImprovementAnalysis(
 	spanId: string,
 	databaseConfigId?: string,
 	scope: TraceAnalysisScope = "trace",
-	environment?: string
+	environment?: string,
+	traceId?: string
 ) {
-	logTraceAnalysis("start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
+	logTraceAnalysis("start", { spanId, traceId, scope, databaseConfigId: databaseConfigId || "" });
 	const { data: config, err: configErr } =
 		await getChatConfigWithApiKey(databaseConfigId);
 	if (configErr || !config) {
@@ -1578,7 +1580,7 @@ export async function streamTraceImprovementAnalysis(
 		hasApiKey: Boolean(config.apiKey),
 	});
 
-	const { record, err: hierarchyErr } = await getTraceHierarchy(spanId, { environment });
+	const { record, err: hierarchyErr } = await getTraceHierarchy(spanId, { traceId, environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (hierarchyErr || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("hierarchy_failed", hierarchyErr || "Trace hierarchy not found", { spanId });

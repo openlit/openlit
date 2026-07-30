@@ -16,13 +16,13 @@ import {
 	getSignalSummary,
 	getSummaryBucket,
 } from "@/lib/platform/observability";
-import { metricParamsToOpenLITQuery } from "@/lib/platform/datasource/clickhouse/query-map";
-import { denormalizeMetricPointsToListRows } from "@/lib/platform/datasource/clickhouse/normalize";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
+import { denormalizeMetricPointsToListRows } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import {
 	facadeErrorMessage,
 	resolveSignalReadContext,
-} from "@/lib/platform/datasource/facade";
-import type { NormalizedMetricPoint } from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/facade";
+import type { NormalizedMetricPoint } from "@/lib/platform/connectors/datasource/types";
 
 /** List grouped metric series (same shape as `getMetrics`). */
 export async function listMetricRecords(params: MetricParams) {

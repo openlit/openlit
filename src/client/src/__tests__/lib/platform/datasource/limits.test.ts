@@ -6,9 +6,9 @@ import {
 	withRetry,
 	defaultIsRetryable,
 	__resetConcurrencyForTests,
-} from "@/lib/platform/datasource/http/limits";
-import type { OpenLITQuery } from "@/lib/platform/datasource/types";
-import { SourceResponseError } from "@/lib/platform/datasource/http/safe-fetch";
+} from "@/lib/platform/connectors/datasource/http/limits";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
+import { SourceResponseError } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 
 beforeEach(() => {
 	__resetConcurrencyForTests();

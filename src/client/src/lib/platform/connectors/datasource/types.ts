@@ -12,7 +12,7 @@
  */
 
 /** The three telemetry signals OpenLIT reads. */
-export type Signal = "traces" | "logs" | "metrics";
+export type Signal = "traces" | "logs" | "metrics" | "intelligence";
 
 /** A normalized time range. `start`/`end` are absolute instants. */
 export interface QueryTimeRange {
@@ -388,6 +388,8 @@ export interface DataSourceAdapter {
 	getTraceSpans(traceId: string): Promise<NormalizedSpan[]>;
 	getSpansBySession(sessionId: string): Promise<NormalizedSpan[]>;
 	aggregateSpans(query: OpenLITQuery): Promise<DataFrame>;
+	/** Optional exact matching-span count for paginated list surfaces. */
+	countSpans?(query: OpenLITQuery): Promise<number | null>;
 	spanTimeSeries(query: OpenLITQuery): Promise<DataFrame>;
 	distinctValues(key: string, query: OpenLITQuery): Promise<string[]>;
 	attributeKeys(signal: Signal, window: QueryTimeRange): Promise<string[]>;

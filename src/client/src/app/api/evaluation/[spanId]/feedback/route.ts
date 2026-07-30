@@ -21,10 +21,15 @@ export async function POST(
 		);
 	}
 
+	const url = new URL(request.url);
 	const res: any = await storeManualFeedback(
 		spanId,
 		rating,
-		comment?.trim() || undefined
+		comment?.trim() || undefined,
+		undefined,
+		{
+			traceId: url.searchParams.get("traceId") || undefined,
+		}
 	);
 
 	if (res?.err) {

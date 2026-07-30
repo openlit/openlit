@@ -1,7 +1,7 @@
 import {
 	shouldPreferRollup,
 	queryHasScopeFilters,
-} from "@/lib/platform/datasource/rollup-policy";
+} from "@/lib/platform/connectors/datasource/rollup-policy";
 
 describe("rollup-policy", () => {
 	it("prefers rollups for unscoped and service/env scoped reads", () => {

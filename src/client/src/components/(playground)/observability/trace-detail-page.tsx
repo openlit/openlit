@@ -374,7 +374,12 @@ export function TraceDetailView({
 		const row = (navigationRows || []).find(
 			(r: any) => r.spanId === selectedSpanId || r.spanId === activeListSpanId
 		);
-		return (row?.traceId as string | undefined) || undefined;
+		return (
+			(row?.traceId as string | undefined) ||
+			(row?.id as string | undefined) ||
+			(row?.TraceId as string | undefined) ||
+			undefined
+		);
 	}, [navigationRows, selectedSpanId, activeListSpanId]);
 	const knownTraceId = urlTraceId || listHintTraceId;
 	const fetchData = useCallback(() => {
@@ -403,12 +408,15 @@ export function TraceDetailView({
 	}, [fetchData]);
 
 	const navigateToListSpan = useCallback(
-		(nextSpanId: string) => {
+		(nextSpanId: string, nextTraceId?: string) => {
 			hierarchySpanIdRef.current = nextSpanId;
 			setActiveListSpanId(nextSpanId);
 			setSelectedSpanId(nextSpanId);
 			const source = fromRef.current;
-			const qs = source ? `?from=${encodeURIComponent(source)}` : "";
+			const params = new URLSearchParams();
+			if (source) params.set("from", source);
+			if (nextTraceId) params.set("traceId", nextTraceId);
+			const qs = params.toString() ? `?${params.toString()}` : "";
 			if (variant === "page") {
 				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
 			}
@@ -448,7 +456,7 @@ export function TraceDetailView({
 					const records = ((response as any)?.records || []).map(normalizeTrace);
 					const target =
 						direction === 1 ? records[0] : records[records.length - 1];
-					if (target?.spanId) {
+			if (target?.spanId) {
 						const nextSource = sourceWithOffset(fromRef.current, offset);
 						fromRef.current = nextSource;
 						setListOffset(offset);
@@ -458,7 +466,7 @@ export function TraceDetailView({
 							total: (response as any)?.total,
 						});
 						onNavigationPageChange?.(offset);
-						navigateToListSpan(target.spanId);
+				navigateToListSpan(target.spanId, target.id || target.traceId || target.TraceId);
 					}
 				},
 			});
@@ -658,6 +666,7 @@ export function TraceDetailView({
 					<RequestProvider syncUrl={false}>
 						<TraceAiAnalysisPanel
 							spanId={selectedSpanId}
+							traceId={knownTraceId || trace?.id}
 							scope="span"
 							description={m.TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION}
 						/>
@@ -672,7 +681,12 @@ export function TraceDetailView({
 					{
 						id: "evaluations",
 						label: "Evaluations",
-						content: <Evaluations trace={trace} surface="observability" />,
+						content: (
+							<Evaluations
+								trace={trace}
+								surface="observability"
+							/>
+						),
 					},
 			  ]
 			: []),
@@ -733,7 +747,8 @@ export function TraceDetailView({
 
 	const selectPrev = () => {
 		if (currentIndex > 0) {
-			navigateToListSpan(effectiveListRows[currentIndex - 1].spanId);
+			const previous = effectiveListRows[currentIndex - 1];
+			navigateToListSpan(previous.spanId, previous.id || previous.traceId || previous.TraceId);
 		} else if (effectiveListOffset > 0) {
 			fetchList(Math.max(0, effectiveListOffset - navigationLimit), -1);
 		}
@@ -741,7 +756,8 @@ export function TraceDetailView({
 
 	const selectNext = () => {
 		if (currentIndex >= 0 && currentIndex < effectiveListRows.length - 1) {
-			navigateToListSpan(effectiveListRows[currentIndex + 1].spanId);
+			const next = effectiveListRows[currentIndex + 1];
+			navigateToListSpan(next.spanId, next.id || next.traceId || next.TraceId);
 		} else if (effectiveListOffset + effectiveListRows.length < total) {
 			fetchList(effectiveListOffset + navigationLimit, 1);
 		}

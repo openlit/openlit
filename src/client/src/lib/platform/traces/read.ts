@@ -24,23 +24,23 @@ import {
 import { getSignalSummary, getSummaryBucket } from "@/lib/platform/observability";
 import { buildHierarchy } from "@/helpers/server/trace";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
-import { metricParamsToOpenLITQuery } from "@/lib/platform/datasource/clickhouse/query-map";
-import { denormalizeSpanToTraceRow } from "@/lib/platform/datasource/clickhouse/normalize";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
+import { denormalizeSpanToTraceRow } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import type {
 	NormalizedSpan,
 	OpenLITQuery,
-} from "@/lib/platform/datasource/types";
-import { UnsupportedCapabilityError } from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
+import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
 import {
 	intervalFromTimeRange,
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
-} from "@/lib/platform/datasource/query-planner";
+} from "@/lib/platform/connectors/datasource/query-planner";
 import {
 	readSignalBucketRollup,
 	readLlmRollup,
 } from "@/lib/platform/telemetry/rollups";
-import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
 import getMessage from "@/constants/messages";
 import { consoleLog } from "@/utils/log";
 
@@ -122,25 +122,29 @@ export async function listTraceRecords(params: MetricParams) {
 		// Stratified multi-service list so one high-volume app cannot dominate
 		// (adapter.listSpans alone is a single recency-biased search).
 		const { fetchSpansForList } = await import(
-			"@/lib/platform/datasource/graph/sample-fetch"
+			"@/lib/platform/connectors/datasource/graph/sample-fetch"
 		);
 		const { spans, truncated } = await fetchSpansForList(adapter, query, {
 			maxRows: params.limit || 25,
 		});
 		const records = spans.map((row) => denormalizeSpanToTraceRow(row));
+		const exactTotal = adapter.countSpans
+			? await adapter.countSpans(query).catch(() => null)
+			: null;
 		consoleLog("[traces] external list result", {
 			descriptorId: descriptor.id,
 			type: descriptor.type,
 			spanCount: spans.length,
 			recordCount: records.length,
 			truncated,
+			exactTotal,
 		});
 		return {
 			err: null,
 			records,
-			total: truncated
+			total: exactTotal ?? (truncated
 				? records.length + (params.offset || 0) + 1
-				: records.length + (params.offset || 0),
+				: records.length + (params.offset || 0)),
 			freshness: "sampled" as const,
 		};
 	} catch (err) {
@@ -151,35 +155,86 @@ export async function listTraceRecords(params: MetricParams) {
 /** Single span by id (same shape as `getRequestViaSpanId`). */
 export async function getTraceSpanRecord(
 	spanId: string,
-	opts?: { traceId?: string }
+	opts?: { traceId?: string; environment?: string }
 ) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+	const startedAt = Date.now();
+	consoleLog("[traces] span detail start", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
+	const { adapter, descriptor } = await resolveTracesAdapter(
+		undefined,
+		opts?.environment
+	);
 	if (isBuiltInClickHouse(descriptor)) {
-		return getRequestViaSpanId(spanId);
+		const result = await getRequestViaSpanId(spanId);
+			consoleLog("[traces] span detail ClickHouse result", {
+			spanId,
+			found: !!result?.record,
+			elapsedMs: Date.now() - startedAt,
+			});
+			if (!result?.record) {
+				return {
+					...result,
+					err: opts?.environment
+						? `No trace was found in the ClickHouse connector routed for environment "${opts.environment}". Select the correct traces connector in Signal routing for this environment.`
+						: result?.err || "Trace was not found in the selected ClickHouse connector.",
+				};
+			}
+			return result;
 	}
 
 	try {
-		let span = await adapter.getSpan(spanId);
-		// Grafana Explore already knows the TraceId from search metadata —
-		// when the UI passes it, skip the span-id TraceQL round-trip.
-		if (!span && opts?.traceId) {
+		// Grafana Explore already knows the TraceId from search metadata. Fetch
+		// that trace first; a span-id-only TraceQL search is eventually
+		// consistent and can intermittently return an empty result immediately
+		// after the list request.
+		let span: NormalizedSpan | null = null;
+		if (opts?.traceId) {
+			consoleLog("[traces] span detail fetching trace", {
+				descriptorId: descriptor.id,
+				traceId: opts.traceId,
+				spanId,
+			});
 			const spans = await adapter.getTraceSpans(opts.traceId);
+			consoleLog("[traces] span detail trace fetched", {
+				descriptorId: descriptor.id,
+				traceId: opts.traceId,
+				requestedSpanId: spanId,
+				spanCount: spans.length,
+				matched: spans.some((s) => s.spanId === spanId),
+			});
 			span =
 				spans.find((s) => s.spanId === spanId) ||
-				spans[0] ||
 				null;
 		}
+		if (!span) span = await adapter.getSpan(spanId);
 		if (!span) {
 			consoleLog("[traces] span not found", {
 				descriptorId: descriptor.id,
 				type: descriptor.type,
 				spanId,
 				traceId: opts?.traceId || null,
+				elapsedMs: Date.now() - startedAt,
 			});
 			return { err: "Span not found in the selected telemetry source", record: undefined };
 		}
+		consoleLog("[traces] span detail success", {
+			descriptorId: descriptor.id,
+			spanId,
+			traceId: span.traceId,
+			elapsedMs: Date.now() - startedAt,
+		});
 		return { err: null, record: denormalizeSpanToTraceRow(span) };
 	} catch (err) {
+		consoleLog("[traces] span detail failed", {
+			descriptorId: descriptor.id,
+			spanId,
+			traceId: opts?.traceId || null,
+			elapsedMs: Date.now() - startedAt,
+			error: asErrorMessage(err),
+		});
 		return { err: asErrorMessage(err), record: undefined };
 	}
 }
@@ -216,14 +271,14 @@ export async function getTraceHierarchy(
 	}
 
 	try {
-		let span = await adapter.getSpan(spanId);
-		if (!span && opts?.traceId) {
+		let span: NormalizedSpan | null = null;
+		if (opts?.traceId) {
 			const spans = await adapter.getTraceSpans(opts.traceId);
 			span =
 				spans.find((s) => s.spanId === spanId) ||
-				spans[0] ||
 				null;
 		}
+		if (!span) span = await adapter.getSpan(spanId);
 		if (!span) return { err: "Span not found", record: {} };
 
 		let spans = await adapter.getTraceSpans(span.traceId);
@@ -318,10 +373,10 @@ export async function getTraceFilterConfig(params: MetricParams) {
 		// One shared L1 sample powers the remaining distinct probes (models,
 		// providers, span names, …) instead of five separate 100-trace downloads.
 		const { fetchSpansForAggregation } = await import(
-			"@/lib/platform/datasource/graph/sample-fetch"
+			"@/lib/platform/connectors/datasource/graph/sample-fetch"
 		);
 		const { distinctFromSpans } = await import(
-			"@/lib/platform/datasource/graph/sample-aggregate"
+			"@/lib/platform/connectors/datasource/graph/sample-aggregate"
 		);
 		const { spans } = await fetchSpansForAggregation(adapter, query);
 		const models = distinctFromSpans(spans, "gen_ai.request.model");

@@ -1,13 +1,13 @@
 const mockSafeFetch = jest.fn();
 
-jest.mock("@/lib/platform/datasource/http/safe-fetch", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 	safeFetch: (...args: unknown[]) => mockSafeFetch(...args),
 	selfHostedNetworkOptions: () => ({
 		allowHttp: true,
 		allowPrivateNetwork: true,
 	}),
 }));
-jest.mock("@/lib/platform/datasource/http/secret", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn().mockResolvedValue({
 		raw: "tok",
 		credentials: { token: "tok" },
@@ -15,17 +15,17 @@ jest.mock("@/lib/platform/datasource/http/secret", () => ({
 	redactableSecretValues: () => ["tok"],
 }));
 
-import { JaegerAdapter } from "@/lib/platform/datasource/jaeger/adapter";
-import { VictoriaLogsAdapter, parseNdjsonLogs } from "@/lib/platform/datasource/victoria/logs";
+import { JaegerAdapter } from "@/lib/platform/connectors/datasource/jaeger/adapter";
+import { VictoriaLogsAdapter, parseNdjsonLogs } from "@/lib/platform/connectors/datasource/victoria/logs";
 import {
 	spanMatchesAISelector,
 	traceMatchesAISelector,
-} from "@/lib/platform/datasource/selector-match";
-import { __clearCache } from "@/lib/platform/datasource/http/cache";
+} from "@/lib/platform/connectors/datasource/selector-match";
+import { __clearCache } from "@/lib/platform/connectors/datasource/http/cache";
 import type {
 	NormalizedSpan,
 	TelemetrySourceDescriptor,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 const window = {
 	start: new Date("2026-07-01T00:00:00.000Z"),

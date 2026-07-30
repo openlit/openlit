@@ -1,18 +1,18 @@
-jest.mock("@/lib/platform/datasource/http/safe-fetch", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 	safeFetch: jest.fn(),
 	selfHostedNetworkOptions: () => ({ allowHttp: true, allowPrivateNetwork: true }),
 }));
-jest.mock("@/lib/platform/datasource/http/secret", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(),
 	redactableSecretValues: () => [],
 }));
 
-import { applyHttpAuthCredentials } from "@/lib/platform/datasource/http/auth-headers";
-import { tempoAdapterFactory } from "@/lib/platform/datasource/grafana/tempo";
-import { lokiAdapterFactory } from "@/lib/platform/datasource/grafana/loki";
-import { mimirAdapterFactory } from "@/lib/platform/datasource/grafana/prometheus";
-import { victoriaLogsAdapterFactory } from "@/lib/platform/datasource/victoria/logs";
-import { victoriaMetricsAdapterFactory } from "@/lib/platform/datasource/victoria/metrics";
+import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/http/auth-headers";
+import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
+import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
+import { mimirAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/prometheus";
+import { victoriaLogsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria/logs";
+import { victoriaMetricsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria/metrics";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {

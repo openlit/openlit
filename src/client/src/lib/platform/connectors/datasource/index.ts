@@ -1,16 +1,16 @@
 import {
 	createAdapter,
 	listSourceTypeDescriptors,
-} from "@/lib/platform/datasource/registry";
+} from "@/lib/platform/connectors/datasource/registry";
 import type {
 	DataSourceAdapter,
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
-} from "@/lib/platform/datasource/types";
-import { registerConnectorType } from "./registry";
-import type { ConnectorField, ConnectorInstanceDescriptor } from "./types";
-import { connectorIconPath } from "./icons";
-import { connectorDescription } from "./descriptions";
+} from "@/lib/platform/connectors/datasource/types";
+import { registerConnectorType } from "../registry";
+import type { ConnectorField, ConnectorInstanceDescriptor } from "../types";
+import { connectorIconPath } from "../icons";
+import { connectorDescription } from "../descriptions";
 
 function fields(descriptor: SourceTypeDescriptor): ConnectorField[] {
 	return descriptor.configFields.map((field) => ({

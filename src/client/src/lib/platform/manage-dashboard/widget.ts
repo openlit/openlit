@@ -22,24 +22,25 @@ import type {
 	DataSourceAdapter,
 	OpenLITQuery,
 	Signal,
-} from "@/lib/platform/datasource/types";
-import { UnsupportedCapabilityError } from "@/lib/platform/datasource/types";
-import { logQueryObservability } from "@/lib/platform/datasource/query-observability";
+} from "@/lib/platform/connectors/datasource/types";
+import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
+import { logQueryObservability } from "@/lib/platform/connectors/datasource/query-observability";
 import {
 	clampQueryBudget,
 	DEFAULT_QUERY_BUDGET,
-} from "@/lib/platform/datasource/http/limits";
-import { metricParamsToOpenLITQuery } from "@/lib/platform/datasource/clickhouse/query-map";
+} from "@/lib/platform/connectors/datasource/http/limits";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import {
 	executeInferredWidgetQuery,
 	inferStructuredFromClickHouseSql,
 	isLegacyOtelTracesSql,
+	stripSyntheticDefaultEnvironment,
 } from "@/lib/platform/manage-dashboard/widget-sql-bridge";
 import {
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
-} from "@/lib/platform/datasource/query-planner";
-import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
 
 export async function getWidgetById(id: string) {
 	const query = `
@@ -318,13 +319,13 @@ async function executeStructuredWidgetQuery(
 	const base = (structured.query || {}) as Partial<OpenLITQuery>;
 	const signal = (base.signal || "traces") as Signal;
 	const fromFilter = metricParamsToOpenLITQuery(filter, signal);
-	const rawQuery: OpenLITQuery = {
+	const rawQuery = stripSyntheticDefaultEnvironment({
 		...base,
 		signal,
 		timeRange: timeRangeFromFilter(filter),
 		filters: [...(fromFilter.filters || []), ...(base.filters || [])],
 		aiSelector: base.aiSelector ?? fromFilter.aiSelector,
-	} as OpenLITQuery;
+	} as OpenLITQuery);
 	// Enforce per-query budgets so a widget can never ask a vendor for an
 	// unbounded scan (max rows + max time range + the vendor's lookback window).
 	const maxLookbackMs = adapter.capabilities().maxLookbackMs;

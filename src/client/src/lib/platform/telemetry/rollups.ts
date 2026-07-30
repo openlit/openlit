@@ -15,12 +15,12 @@ import type {
 	NormalizedFilter,
 	NormalizedSpan,
 	OpenLITQuery,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 import {
 	computeAggregateSpansL1,
 	computeSpanTimeSeriesL1,
-} from "@/lib/platform/datasource/l1-compute";
-import { fetchSpansForList } from "@/lib/platform/datasource/graph/sample-fetch";
+} from "@/lib/platform/connectors/datasource/l1-compute";
+import { fetchSpansForList } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
 
 export const SIGNAL_BUCKETS_TABLE = "openlit_signal_buckets";
 export const LLM_ROLLUPS_TABLE = "openlit_llm_rollups";

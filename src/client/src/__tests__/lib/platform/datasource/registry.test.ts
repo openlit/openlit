@@ -7,14 +7,14 @@ import {
 	listAdapterTypes,
 	listSourceTypeDescriptors,
 	registerAdapterFactory,
-} from "@/lib/platform/datasource/registry";
-import { getExternalDataSourceAdapters } from "@/lib/platform/datasource/enterprise";
+} from "@/lib/platform/connectors/datasource/registry";
+import { getExternalDataSourceAdapters } from "@/lib/platform/connectors/datasource/enterprise";
 import type {
 	DataSourceAdapter,
 	DataSourceAdapterFactory,
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 const fakeAdapter = { type: "clickhouse" } as unknown as DataSourceAdapter;
 

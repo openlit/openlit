@@ -58,11 +58,11 @@ jest.mock("@/lib/db-config", () => ({
 	getDBConfigById: jest.fn(),
 }));
 
-jest.mock("@/lib/platform/datasource/bootstrap", () => ({
+jest.mock("@/lib/platform/connectors/datasource/bootstrap", () => ({
 	ensureAdaptersRegistered: jest.fn(),
 }));
 
-jest.mock("@/lib/platform/datasource/registry", () => ({
+jest.mock("@/lib/platform/connectors/datasource/registry", () => ({
 	hasAdapterFactory: (...a: unknown[]) => mockHasAdapterFactory(...a),
 	getSourceTypeDescriptor: (...a: unknown[]) => mockGetSourceTypeDescriptor(...a),
 	listSourceTypeDescriptors: (...a: unknown[]) =>
@@ -368,8 +368,8 @@ describe("validateTelemetrySourceAISignal", () => {
 
 	it("soft-succeeds when the adapter does not support AI validation", async () => {
 		const { UnsupportedCapabilityError } = jest.requireActual(
-			"@/lib/platform/datasource/types"
-		) as typeof import("@/lib/platform/datasource/types");
+			"@/lib/platform/connectors/datasource/types"
+		) as typeof import("@/lib/platform/connectors/datasource/types");
 		mockFindFirst.mockResolvedValue(row({ type: "loki" }));
 		mockCreateAdapter.mockReturnValue({
 			validateAISignal: jest

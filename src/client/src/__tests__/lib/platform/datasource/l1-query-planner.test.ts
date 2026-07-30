@@ -1,29 +1,29 @@
-import { mapPool } from "@/lib/platform/datasource/graph/map-pool";
+import { mapPool } from "@/lib/platform/connectors/datasource/graph/map-pool";
 import {
 	aggregateSpansInProcess,
 	bucketSpansByInterval,
 	distinctFromSpans,
 	looksLikeRootsOnly,
 	spanFieldValue,
-} from "@/lib/platform/datasource/graph/sample-aggregate";
-import { fetchSpansForAggregation } from "@/lib/platform/datasource/graph/sample-fetch";
+} from "@/lib/platform/connectors/datasource/graph/sample-aggregate";
+import { fetchSpansForAggregation } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
 import {
 	computeAggregateSpansL1,
 	computeSpanTimeSeriesL1,
-} from "@/lib/platform/datasource/l1-compute";
+} from "@/lib/platform/connectors/datasource/l1-compute";
 import {
 	intervalFromTimeRange,
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
-} from "@/lib/platform/datasource/query-planner";
-import { __clearCache } from "@/lib/platform/datasource/http/cache";
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { __clearCache } from "@/lib/platform/connectors/datasource/http/cache";
 import {
 	UnsupportedCapabilityError,
 	type DataSourceAdapter,
 	type NormalizedSpan,
 	type OpenLITQuery,
 	type SourceCapabilities,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 function span(partial: Partial<NormalizedSpan> & Pick<NormalizedSpan, "spanId">): NormalizedSpan {
 	return {

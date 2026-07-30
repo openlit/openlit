@@ -1,4 +1,4 @@
-import { resolveSourceSecret } from "@/lib/platform/datasource/http/secret";
+import { resolveSourceSecret } from "@/lib/platform/connectors/datasource/http/secret";
 
 jest.mock("@/lib/platform/vault", () => ({
 	getSecretById: jest.fn(),

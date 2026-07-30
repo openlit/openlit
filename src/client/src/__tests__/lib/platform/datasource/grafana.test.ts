@@ -1,13 +1,13 @@
 const mockSafeFetch = jest.fn();
 
-jest.mock("@/lib/platform/datasource/http/safe-fetch", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 	safeFetch: (...args: unknown[]) => mockSafeFetch(...args),
 	selfHostedNetworkOptions: () => ({
 		allowHttp: true,
 		allowPrivateNetwork: true,
 	}),
 }));
-jest.mock("@/lib/platform/datasource/http/secret", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn().mockResolvedValue({
 		raw: "tok",
 		credentials: { token: "tok" },
@@ -15,15 +15,15 @@ jest.mock("@/lib/platform/datasource/http/secret", () => ({
 	redactableSecretValues: () => ["tok"],
 }));
 
-import { TempoAdapter, tempoAISelectorQuery, buildTempoSearchQuery, __clearTempoSpanIndex } from "@/lib/platform/datasource/grafana/tempo";
-import { LokiAdapter } from "@/lib/platform/datasource/grafana/loki";
-import { PrometheusAdapter } from "@/lib/platform/datasource/grafana/prometheus";
-import { __clearCache } from "@/lib/platform/datasource/http/cache";
-import { buildAggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
+import { TempoAdapter, tempoAISelectorQuery, buildTempoSearchQuery, __clearTempoSpanIndex } from "@/lib/platform/connectors/datasource/grafana/tempo";
+import { LokiAdapter } from "@/lib/platform/connectors/datasource/grafana/loki";
+import { PrometheusAdapter } from "@/lib/platform/connectors/datasource/grafana/prometheus";
+import { __clearCache } from "@/lib/platform/connectors/datasource/http/cache";
+import { buildAggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
 import type {
 	NormalizedSpan,
 	TelemetrySourceDescriptor,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 const window = {
 	start: new Date("2026-07-01T00:00:00.000Z"),

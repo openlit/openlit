@@ -1,4 +1,4 @@
-jest.mock("@/lib/platform/datasource/http/secret", () => ({
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(),
 	redactableSecretValues: () => [],
 }));
@@ -24,15 +24,15 @@ jest.mock("@/lib/platform/observability", () => ({
 import {
 	__resetBootstrapForTests,
 	ensureAdaptersRegistered,
-} from "@/lib/platform/datasource/bootstrap";
+} from "@/lib/platform/connectors/datasource/bootstrap";
 import {
 	__resetRegistryForTests,
 	createAdapter,
 	hasAdapterFactory,
 	listSourceTypeDescriptors,
-} from "@/lib/platform/datasource/registry";
-import { ClickHouseAdapter } from "@/lib/platform/datasource/clickhouse/adapter";
-import type { TelemetrySourceDescriptor } from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/registry";
+import { ClickHouseAdapter } from "@/lib/platform/connectors/datasource/clickhouse/adapter";
+import type { TelemetrySourceDescriptor } from "@/lib/platform/connectors/datasource/types";
 
 beforeEach(() => {
 	__resetRegistryForTests();

@@ -1,17 +1,17 @@
 import {
 	metricParamsToOpenLITQuery,
 	toMetricParams,
-} from "@/lib/platform/datasource/clickhouse/query-map";
+} from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import {
 	denormalizeLogToClickHouseRow,
 	denormalizeMetricPointsToListRows,
 	denormalizeSpanToTraceRow,
-} from "@/lib/platform/datasource/clickhouse/normalize";
+} from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import type {
 	NormalizedLog,
 	NormalizedMetricPoint,
 	NormalizedSpan,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 
 describe("metricParamsToOpenLITQuery", () => {
 	it("maps time, pagination, status, and selectedConfig filters", () => {

@@ -38,13 +38,13 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
-import type { FieldDef } from "@/lib/platform/datasource/types";
+import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
 import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 
-type Signal = "traces" | "logs" | "metrics";
-const SIGNALS: Signal[] = ["traces", "logs", "metrics"];
+type Signal = "traces" | "logs" | "metrics" | "intelligence";
+const SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 const BUILTIN = "builtin";
 
 interface TypeDescriptor {
@@ -474,7 +474,7 @@ export default function DataSourcesPage({
 						const currentDatabase = environmentDatabases[0];
 						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 						const options = visibleSources.filter((s) => parseSignals(s.signals).includes(signal));
-						const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : messages.DATA_SOURCE_SIGNAL_METRICS;
+						const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
 						return <div key={signal} className="space-y-1.5"><Label className="text-xs uppercase text-muted-foreground">{label}</Label><Select value={value} onValueChange={(v) => setBinding(signal, v)}><SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue /></SelectTrigger><SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}{options.map((s) => <ConnectorOption key={s.id} value={s.id} name={s.name} type={s.type} detail={environment} icon={descriptors.find((d) => d.type === s.type)?.icon} />)}</SelectContent></Select></div>;
 					})}
 				</div>

@@ -24,10 +24,10 @@ import { buildVersionWhereClause } from "./version-filter";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
-import { resolveSignalReadContext } from "@/lib/platform/datasource/facade";
-import { buildAggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
-import type { AggregateDag } from "@/lib/platform/datasource/graph/aggregate-dag";
-import type { OpenLITQuery } from "@/lib/platform/datasource/types";
+import { resolveSignalReadContext } from "@/lib/platform/connectors/datasource/facade";
+import { buildAggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
+import type { AggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 const escape = escapeClickHouseString;
 

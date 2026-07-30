@@ -7,7 +7,7 @@
  */
 
 import type { MetricParams } from "@/lib/platform/common";
-import type { OpenLITQuery } from "@/lib/platform/datasource/types";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 function hasVersionScope(cfg: Record<string, unknown> | undefined): boolean {
 	if (!cfg) return false;

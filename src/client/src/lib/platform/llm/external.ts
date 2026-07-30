@@ -5,19 +5,19 @@
  */
 
 import type { MetricParams } from "@/lib/platform/common";
-import { metricParamsToOpenLITQuery } from "@/lib/platform/datasource/clickhouse/query-map";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import {
 	intervalFromTimeRange,
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
-} from "@/lib/platform/datasource/query-planner";
+} from "@/lib/platform/connectors/datasource/query-planner";
 import {
 	readLlmRollup,
 	readSignalBucketRollup,
 } from "@/lib/platform/telemetry/rollups";
-import { shouldPreferRollup } from "@/lib/platform/datasource/rollup-policy";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
-import type { OpenLITQuery } from "@/lib/platform/datasource/types";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 async function resolveExternalTraces() {
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =

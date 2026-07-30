@@ -21,13 +21,13 @@ import {
 	toDescriptor,
 	resolveTelemetrySourceDescriptor,
 } from "./telemetry-source";
-import { ensureAdaptersRegistered } from "./platform/datasource/bootstrap";
+import { ensureAdaptersRegistered } from "./platform/connectors/datasource/bootstrap";
 import {
 	createAdapter,
 	getSourceTypeDescriptor,
 	hasAdapterFactory,
 	listSourceTypeDescriptors,
-} from "./platform/datasource/registry";
+} from "./platform/connectors/datasource/registry";
 import type { TelemetrySource } from "@prisma/client";
 import type {
 	AISignalValidation,
@@ -35,8 +35,8 @@ import type {
 	QueryTimeRange,
 	Signal,
 	SourceCapabilities,
-} from "./platform/datasource/types";
-import { UnsupportedCapabilityError } from "./platform/datasource/types";
+} from "./platform/connectors/datasource/types";
+import { UnsupportedCapabilityError } from "./platform/connectors/datasource/types";
 import { connectorDescription } from "./platform/connectors/descriptions";
 import { connectorIconPath } from "./platform/connectors/icons";
 import {
@@ -53,7 +53,7 @@ import {
 	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
 
-const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics"];
+const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 
 function validateSignal(signal: unknown): Signal {
 	const s = String(signal || "").trim();

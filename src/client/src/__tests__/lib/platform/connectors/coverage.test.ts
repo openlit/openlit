@@ -1,5 +1,5 @@
-import { ensureAdaptersRegistered, __resetBootstrapForTests } from "@/lib/platform/datasource/bootstrap";
-import { __resetRegistryForTests, getAdapterFactory, listSourceTypeDescriptors } from "@/lib/platform/datasource/registry";
+import { ensureAdaptersRegistered, __resetBootstrapForTests } from "@/lib/platform/connectors/datasource/bootstrap";
+import { __resetRegistryForTests, getAdapterFactory, listSourceTypeDescriptors } from "@/lib/platform/connectors/datasource/registry";
 import { listConnectorTypes } from "@/lib/platform/connectors/registry";
 
 jest.mock("@/lib/session", () => ({ getCurrentUser: jest.fn() }));

@@ -1,7 +1,9 @@
 import {
 	inferStructuredFromClickHouseSql,
 	isLegacyOtelTracesSql,
+	stripSyntheticDefaultEnvironment,
 } from "@/lib/platform/manage-dashboard/widget-sql-bridge";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 describe("widget-sql-bridge", () => {
 	it("detects otel_traces SQL and skips evaluation tables", () => {
@@ -11,6 +13,24 @@ describe("widget-sql-bridge", () => {
 				"SELECT count() FROM openlit_evaluation WHERE score > 0"
 			)
 		).toBe(false);
+	});
+
+	it("does not send the synthetic default environment to external sources", () => {
+		const query = stripSyntheticDefaultEnvironment({
+			signal: "traces",
+			timeRange: { start: new Date("2026-07-28"), end: new Date("2026-07-29") },
+			filters: [
+				{
+					target: "attribute",
+					scope: "resource",
+					key: "deployment.environment",
+					op: "eq",
+					value: "default",
+				},
+			],
+		} satisfies OpenLITQuery);
+
+		expect(query.filters).toBeUndefined();
 	});
 
 	it("infers total-request previous-period aggregate", () => {

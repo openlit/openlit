@@ -10,7 +10,7 @@ import type {
 	NormalizedSpan,
 	QueryTimeRange,
 	ServiceRollup,
-} from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/types";
 import type {
 	AgentRuntimeConfig,
 	AgentSnapshot,

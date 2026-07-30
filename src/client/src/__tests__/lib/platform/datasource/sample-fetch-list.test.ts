@@ -2,8 +2,8 @@ import {
 	collapseToRootSpans,
 	fetchSpansForList,
 	pickRootSpan,
-} from "@/lib/platform/datasource/graph/sample-fetch";
-import type { NormalizedSpan, OpenLITQuery } from "@/lib/platform/datasource/types";
+} from "@/lib/platform/connectors/datasource/graph/sample-fetch";
+import type { NormalizedSpan, OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 function span(partial: Partial<NormalizedSpan>): NormalizedSpan {
 	return {
