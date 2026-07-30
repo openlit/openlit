@@ -248,12 +248,20 @@ function setLettaSpecificAttributes(
   if (body?.slug != null) span.setAttribute(SemanticConvention.GEN_AI_AGENT_SLUG, String(body.slug));
 }
 
+function serializeContent(value: any): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function setContentAttributes(span: Span, body: any, response: any): void {
   if (body?.messages != null) {
-    span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, JSON.stringify(String(body.messages)));
+    span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, serializeContent(body.messages));
   }
   if (response?.messages != null) {
-    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, String(response.messages));
+    span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, serializeContent(response.messages));
   }
 }
 

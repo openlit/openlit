@@ -143,8 +143,10 @@ describe('letta wrapper', () => {
     expect(a[SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS]).toBe(16);
     expect(a[SemanticConvention.GEN_AI_AGENT_STEP_COUNT]).toBe(1);
     expect(a[SemanticConvention.GEN_AI_USAGE_COST]).toBe(0.0025);
-    expect(a[SemanticConvention.GEN_AI_INPUT_MESSAGES]).toBeDefined();
-    expect(a[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]).toBeDefined();
+    expect(JSON.parse(a[SemanticConvention.GEN_AI_INPUT_MESSAGES])).toEqual([
+      { role: 'user', content: 'hello' },
+    ]);
+    expect(JSON.parse(a[SemanticConvention.GEN_AI_OUTPUT_MESSAGES])).toEqual(response.messages);
     expect(mockSpan.end).toHaveBeenCalledTimes(1);
   });
 
