@@ -38,6 +38,9 @@ import {
 } from "./improvement";
 import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
 import { dataCollector } from "../common";
+import { listTraceRecords } from "../traces/read";
+import { getLogs } from "../logs/read";
+import { listMetricRecords } from "../metrics/read";
 import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
@@ -1027,6 +1030,64 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			},
 		}),
 
+		query_telemetry: tool<any, any>({
+			description: "Read traces, logs, or metrics from the connector selected by the current project's signal routing. Use this for telemetry questions instead of generating ClickHouse SQL when the user asks about current observability data.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					signal: { type: "string", enum: ["traces", "logs", "metrics"] },
+					limit: { type: "number", description: "Maximum records to return, up to 100." },
+					start: { type: "string", description: "ISO start time. Defaults to the last 24 hours." },
+					end: { type: "string", description: "ISO end time. Defaults to now." },
+					service_name: { type: "string", description: "Optional service.name filter." },
+					attribute_key: { type: "string", description: "Optional span/log/metric attribute key." },
+					attribute_value: { type: "string", description: "Optional exact attribute value." },
+				},
+				required: ["signal"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const signal = params.signal as "traces" | "logs" | "metrics";
+					const end = params.end ? new Date(params.end) : new Date();
+					const start = params.start
+						? new Date(params.start)
+						: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+					if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+						return { success: false, error: "start and end must be valid ISO timestamps" };
+					}
+					const customFilters = [] as Array<Record<string, string>>;
+					if (params.service_name) {
+						customFilters.push({ key: "service.name", value: String(params.service_name), scope: signal === "logs" ? "resource" : "resource" });
+					}
+					if (params.attribute_key && params.attribute_value !== undefined) {
+						customFilters.push({ key: String(params.attribute_key), value: String(params.attribute_value), scope: signal === "logs" ? "log" : signal === "metrics" ? "metric" : "span" });
+					}
+					const queryParams = {
+						timeLimit: { type: "CUSTOM", start, end },
+						limit: Math.max(1, Math.min(Number(params.limit) || 25, 100)),
+						offset: 0,
+						sorting: { type: "Timestamp", direction: "desc" },
+						selectedConfig: customFilters.length ? { customFilters } : undefined,
+					};
+					const result = (signal === "traces"
+						? await listTraceRecords(queryParams)
+						: signal === "logs"
+							? await getLogs(queryParams)
+							: await listMetricRecords(queryParams)) as { err?: unknown; records?: unknown[]; total?: number };
+					if (result.err) return { success: false, error: String(result.err) };
+					return {
+						success: true,
+						signal,
+						count: result.records?.length || 0,
+						total: result.total || 0,
+						records: result.records || [],
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to read telemetry through the selected connector" };
+				}
+			},
+		}),
+
 		// ==================== TRACE ANALYSIS ====================
 
 		analyze_trace: tool<any, any>({
@@ -1154,25 +1215,34 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						return { success: false, error: "Attribute key and value are required" };
 					}
 
-					const query = `
-						SELECT
-							TraceId AS traceId,
-							any(SpanId) AS spanId,
-							count() AS spanCount,
-							max(Timestamp) AS lastSeen
-						FROM otel_traces
-						WHERE SpanAttributes['${attributeKey}'] = '${attributeValue}'
-						GROUP BY TraceId
-						ORDER BY lastSeen DESC
-						LIMIT ${limit}
-					`;
-					const { data, err } = await dataCollector(
-						{ query, enable_readonly: true },
-						"query",
-						databaseConfigId
-					);
-					if (err) return { success: false, error: String(err) };
-					const matches = ((data as any[]) || []).filter((row) => row.spanId);
+					const end = new Date();
+					const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+					const telemetryResult = await listTraceRecords({
+						timeLimit: { type: "CUSTOM", start, end },
+						limit: 1000,
+						offset: 0,
+						sorting: { type: "Timestamp", direction: "desc" },
+						selectedConfig: {
+							customFilters: [{
+								key: attributeKey,
+								value: attributeValue,
+								scope: "span",
+							}],
+						},
+					});
+					if (telemetryResult.err) return { success: false, error: String(telemetryResult.err) };
+					const grouped = new Map<string, { traceId: string; spanId: string; spanCount: number }>();
+					for (const row of (telemetryResult.records || []) as any[]) {
+						if (!row.TraceId || !row.SpanId) continue;
+						const existing = grouped.get(String(row.TraceId));
+						if (existing) existing.spanCount += 1;
+						else grouped.set(String(row.TraceId), {
+							traceId: String(row.TraceId),
+							spanId: String(row.SpanId),
+							spanCount: 1,
+						});
+					}
+					const matches = Array.from(grouped.values()).slice(0, limit);
 					if (!matches.length) {
 						return {
 							success: false,

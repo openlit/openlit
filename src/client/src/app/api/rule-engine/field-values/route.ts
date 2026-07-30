@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
-import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import { listRecentRuleTraces, getRuleTraceFieldValue } from "@/lib/platform/rule-engine/telemetry";
 import PostHogServer from "@/lib/posthog";
 
-// Maps condition field names to ClickHouse column expressions
-const FIELD_COLUMN_MAP: Record<string, string> = {
-	ServiceName: "ServiceName",
-	SpanName: "SpanName",
-	SpanKind: "SpanKind",
-	StatusCode: "StatusCode",
-	"deployment.environment": "SpanAttributes['deployment.environment']",
-	"service.name": "ResourceAttributes['service.name']",
-	"gen_ai.system": "SpanAttributes['gen_ai.system']",
-	"gen_ai.request.model": "SpanAttributes['gen_ai.request.model']",
-};
+const SUPPORTED_FIELDS = new Set([
+	"ServiceName", "SpanName", "SpanKind", "StatusCode",
+	"deployment.environment", "service.name", "gen_ai.system", "gen_ai.request.model",
+	"gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
+	"gen_ai.usage.total_cost", "gen_ai.request.temperature",
+]);
 
 export async function GET(request: NextRequest) {
 	const startTimestamp = Date.now();
@@ -24,22 +19,14 @@ export async function GET(request: NextRequest) {
 	}
 
 	const field = request.nextUrl.searchParams.get("field");
-	if (!field || !FIELD_COLUMN_MAP[field]) {
+	if (!field || !SUPPORTED_FIELDS.has(field)) {
 		return NextResponse.json({ values: [] });
 	}
 
-	const columnExpr = FIELD_COLUMN_MAP[field];
-
-	const query = `
-		SELECT DISTINCT ${columnExpr} AS val
-		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE notEmpty(toString(${columnExpr}))
-		ORDER BY val ASC
-		LIMIT 100;
-	`;
-
-	const { data, err } = await dataCollector({ query }, "query");
-	if (err) {
+	let traces: Record<string, any>[];
+	try {
+		traces = await listRecentRuleTraces(1000);
+	} catch {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_FIELD_VALUES_FAILURE,
 			startTimestamp,
@@ -47,7 +34,9 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ values: [] });
 	}
 
-	const values = ((data as any[]) || []).map((row: any) => String(row.val)).filter(Boolean);
+	const values = Array.from(new Set(
+		traces.map((trace) => getRuleTraceFieldValue(trace, field)).filter(Boolean)
+	)).sort().slice(0, 100);
 	PostHogServer.fireEvent({
 		event: SERVER_EVENTS.RULE_FIELD_VALUES_SUCCESS,
 		startTimestamp,

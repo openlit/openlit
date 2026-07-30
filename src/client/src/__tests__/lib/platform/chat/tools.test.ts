@@ -60,6 +60,10 @@ jest.mock("@/lib/platform/common", () => ({
 	dataCollector: jest.fn(),
 }));
 
+jest.mock("@/lib/platform/traces/read", () => ({
+	listTraceRecords: jest.fn(),
+}));
+
 jest.mock("@/utils/sanitizer", () => ({
 	__esModule: true,
 	default: {
@@ -94,6 +98,7 @@ import {
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
 import { dataCollector } from "@/lib/platform/common";
+import { listTraceRecords } from "@/lib/platform/traces/read";
 import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
@@ -626,8 +631,12 @@ describe("getChatTools", () => {
 	});
 
 	it("analyzes traces by span attribute and returns trace refs", async () => {
-		(dataCollector as jest.Mock).mockResolvedValue({
-			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			records: [
+				{ TraceId: "trace-abc", SpanId: "span-abc" },
+				{ TraceId: "trace-abc", SpanId: "span-def" },
+				{ TraceId: "trace-abc", SpanId: "span-ghi" },
+			],
 			err: null,
 		});
 		(getTraceImprovement as jest.Mock).mockResolvedValue({
@@ -677,14 +686,11 @@ describe("getChatTools", () => {
 			attribute_value: "session-1",
 		});
 
-		expect(dataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
-				enable_readonly: true,
-			}),
-			"query",
-			"db-1"
-		);
+		expect(listTraceRecords).toHaveBeenCalledWith(expect.objectContaining({
+			selectedConfig: {
+				customFilters: [{ key: "session.id", value: "session-1", scope: "span" }],
+			},
+		}));
 		expect(result.success).toBe(true);
 		expect(result.details).toContain("```trace-refs");
 		expect(result.matchedTraceCount).toBe(1);

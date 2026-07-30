@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
 import { getRuleById } from "@/lib/platform/rule-engine";
-import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import { listRecentRuleTraces, getRuleTraceFieldValue } from "@/lib/platform/rule-engine/telemetry";
 import PostHogServer from "@/lib/posthog";
 
 type Condition = {
@@ -16,27 +16,6 @@ type ConditionGroup = {
 	condition_operator: "AND" | "OR";
 	conditions: Condition[];
 };
-
-// Map condition field name → alias column in the SELECT query
-function getTraceFieldValue(trace: Record<string, any>, field: string): string {
-	const map: Record<string, string> = {
-		ServiceName: "ServiceName",
-		SpanName: "SpanName",
-		SpanKind: "SpanKind",
-		Duration: "Duration",
-		StatusCode: "StatusCode",
-		"deployment.environment": "env",
-		"service.name": "service_name",
-		"gen_ai.system": "gen_ai_system",
-		"gen_ai.request.model": "model",
-		"gen_ai.usage.input_tokens": "input_tokens",
-		"gen_ai.usage.output_tokens": "output_tokens",
-		"gen_ai.usage.total_cost": "total_cost",
-		"gen_ai.request.temperature": "temperature",
-	};
-	const col = map[field];
-	return col ? String(trace[col] ?? "") : "";
-}
 
 function evalCondition(cond: Condition, traceValue: string): boolean {
 	const { operator, value, data_type } = cond;
@@ -85,7 +64,7 @@ function evaluateRule(
 	const groupResults = groups.map((group) => {
 		if (group.conditions.length === 0) return false;
 		const condResults = group.conditions.map((cond) =>
-			evalCondition(cond, getTraceFieldValue(trace, cond.field))
+			 evalCondition(cond, getRuleTraceFieldValue(trace, cond.field))
 		);
 		return group.condition_operator === "AND"
 			? condResults.every(Boolean)
@@ -119,35 +98,9 @@ export async function POST(
 			return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 		}
 
-		// Fetch recent traces to evaluate against the rule conditions
-		const query = `
-			SELECT
-				TraceId,
-				SpanId,
-				ServiceName,
-				SpanName,
-				SpanKind,
-				toString(Duration) AS Duration,
-				StatusCode,
-				SpanAttributes['deployment.environment']   AS env,
-				ResourceAttributes['service.name']         AS service_name,
-				SpanAttributes['gen_ai.system']            AS gen_ai_system,
-				SpanAttributes['gen_ai.request.model']     AS model,
-				SpanAttributes['gen_ai.usage.input_tokens']  AS input_tokens,
-				SpanAttributes['gen_ai.usage.output_tokens'] AS output_tokens,
-				SpanAttributes['gen_ai.usage.total_cost']    AS total_cost,
-				SpanAttributes['gen_ai.request.temperature'] AS temperature
-			FROM ${OTEL_TRACES_TABLE_NAME}
-			ORDER BY Timestamp DESC
-			LIMIT 100;
-		`;
-
-		const { data: tracesData, err: tracesErr } = await dataCollector({ query }, "query");
-		if (tracesErr) {
-			return NextResponse.json({ error: "Failed to fetch traces" }, { status: 500 });
-		}
-
-		const traces = (tracesData as any[]) || [];
+		// Fetch through the active traces connector; this is intentionally not a
+		// direct ClickHouse query because rules must preview external telemetry.
+		const traces = await listRecentRuleTraces(100);
 
 		// Build condition groups from the saved rule data
 		const groups: ConditionGroup[] = (rule.condition_groups || []).map((g: any) => ({
