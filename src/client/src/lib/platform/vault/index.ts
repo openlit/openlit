@@ -12,7 +12,7 @@ import Sanitizer from "@/utils/sanitizer";
 import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
-import { getAPIKeyInfo } from "../api-keys";
+import { getAPIKeyInfo, type APIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 import prisma from "@/lib/prisma";
@@ -306,11 +306,12 @@ export async function getSecretsFromDatabaseId(
 		err || getMessage().NO_API_KEY
 	);
 
+	const apiInfoForSecrets = apiInfo as APIKeyInfo | null | undefined;
 	const { err: secretErr, data: secretData } = await getSecrets(
 		{
 			...filters,
-			databaseConfigId: apiInfo.databaseConfigId,
-			createdBy: (apiInfo as any).createdByUser?.email,
+			databaseConfigId: apiInfoForSecrets?.databaseConfigId || undefined,
+			createdBy: apiInfoForSecrets?.createdByUser?.email,
 		},
 		{ selectValue: true }
 	);

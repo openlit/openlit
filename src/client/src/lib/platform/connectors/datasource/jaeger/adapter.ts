@@ -147,6 +147,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	readonly type = "jaeger";
 	/** Jaeger already fans out `/api/traces?service=` per service. */
 	readonly samplesAreServiceStratified = true;
+	private apiBaseUrl = this.baseUrl;
 
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
@@ -204,7 +205,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		if (this.configuredServices) return this.configuredServices;
 		const { headers, redact } = await this.authHeaders();
 		const key = cacheKey(this.descriptor.id, ["services"]);
-		const response = await cachedQuery(key, TTL_MS, () =>
+		let response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{ data?: string[] }>(`${this.baseUrl}/api/services`, {
 				headers,
 				...this.networkOpts,
@@ -213,6 +214,16 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				retry: true,
 			})
 		);
+		if (typeof response === "string" && new URL(this.baseUrl).pathname === "/") {
+			this.apiBaseUrl = `${this.baseUrl}/jaeger`;
+			response = await safeFetch<{ data?: string[] }>(`${this.apiBaseUrl}/api/services`, {
+				headers,
+				...this.networkOpts,
+				redactValues: redact,
+				concurrencyKey: this.descriptor.id,
+				retry: true,
+			});
+		}
 		const services = (response?.data || []).map(String).filter(Boolean).slice(0, MAX_SERVICES);
 		console.log("[jaeger] services discovered", {
 			sourceId: this.descriptor.id,
@@ -274,7 +285,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		limit: number
 	): Promise<JaegerTrace[]> {
 		const { headers, redact } = await this.authHeaders();
-		const url = new URL(`${this.baseUrl}/api/traces`);
+		const url = new URL(`${this.apiBaseUrl}/api/traces`);
 		url.searchParams.set("service", service);
 		// Jaeger expects microseconds for start/end.
 		url.searchParams.set("start", String(window.start.getTime() * 1000));
@@ -362,7 +373,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const key = cacheKey(this.descriptor.id, ["trace", traceId]);
 		const response = await cachedQuery(key, TTL_MS, () =>
 			safeFetch<{ data?: JaegerTrace[] }>(
-				`${this.baseUrl}/api/traces/${encodeURIComponent(traceId)}`,
+				`${this.apiBaseUrl}/api/traces/${encodeURIComponent(traceId)}`,
 				{
 					headers,
 					...this.networkOpts,

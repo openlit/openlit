@@ -131,6 +131,8 @@ export function sourceSupportsNativeSql(
 }
 
 export interface ResolveTelemetrySourceOptions {
+	/** A descriptor already resolved by the caller, avoiding duplicate lookup. */
+	descriptor?: TelemetrySourceDescriptor;
 	/** Environment partition used to select a connector and binding. */
 	environment?: string;
 	/** Explicit source id override (e.g. dashboard widget `sourceId`). */
@@ -351,7 +353,7 @@ export async function getTelemetryAdapter(
 	options: ResolveTelemetrySourceOptions = {}
 ): Promise<DataSourceAdapter> {
 	ensureAdaptersRegistered();
-	const descriptor = await resolveTelemetrySourceDescriptor(options);
+	const descriptor = options.descriptor || await resolveTelemetrySourceDescriptor(options);
 	const adapter = createAdapter(descriptor);
 	if (adapter) return adapter;
 

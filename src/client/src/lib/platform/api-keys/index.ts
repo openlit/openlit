@@ -10,6 +10,12 @@ import { getCurrentOrganisation } from "@/lib/organisation";
 
 const APIKEY_PREFIX = "openlit-";
 
+export interface APIKeyInfo {
+	id: string;
+	databaseConfigId: string | null;
+	createdByUser?: { email: string } | null;
+}
+
 function createAPIKey() {
 	// Generate 32 random bytes
 	const key = crypto.randomBytes(32);

@@ -37,7 +37,7 @@ export async function resolveSignalReadContext(
 	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
 		await import("@/lib/telemetry-source");
 	const descriptor = await resolveTelemetrySourceDescriptor({ signal, ...options });
-	const adapter = await getTelemetryAdapter({ signal, ...options });
+	const adapter = await getTelemetryAdapter({ signal, ...options, descriptor });
 	return {
 		adapter,
 		descriptor,

@@ -172,6 +172,16 @@ describe("ClickHouseAdapter", () => {
 		expect(sql).toContain("GROUP BY g0");
 	});
 
+	it("rejects SQL-shaped aggregation aliases", async () => {
+		await expect(
+			adapter.aggregateSpans({
+				...baseQuery,
+				aggregations: [{ fn: "count", as: "x, (SELECT secret FROM vault)" }],
+			})
+		).rejects.toThrow("Invalid dashboard aggregation alias");
+		expect(mockDataCollector).not.toHaveBeenCalled();
+	});
+
 	it("spanTimeSeries buckets by interval", async () => {
 		mockDataCollector.mockResolvedValue({ data: [] });
 		await adapter.spanTimeSeries({ ...baseQuery, interval: "1h" });

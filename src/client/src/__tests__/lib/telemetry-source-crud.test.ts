@@ -275,6 +275,18 @@ describe("createTelemetrySource", () => {
 		expect(mockCreate.mock.calls[0][0].data.secretRef).toBe("explicit-ref");
 	});
 
+	it("rejects a vault secret that is not owned by the current user", async () => {
+		mockGetSecretById.mockResolvedValue({ data: [] });
+		await expect(
+			createTelemetrySource({
+				name: "Untrusted source",
+				type: "datadog",
+				secretRef: "secret-from-another-user",
+			})
+		).rejects.toThrow("not owned by the current user");
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
 	it("unsets the previous default when creating a new default", async () => {
 		mockCreate.mockResolvedValue(row({ isDefault: true }));
 		await createTelemetrySource({
