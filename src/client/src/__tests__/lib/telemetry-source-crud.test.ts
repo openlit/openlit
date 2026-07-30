@@ -15,6 +15,7 @@ const mockBindingFindMany = jest.fn();
 const mockBindingUpsert = jest.fn();
 const mockBindingDeleteMany = jest.fn();
 const mockUpsertSecret = jest.fn();
+const mockGetSecretById = jest.fn();
 
 const mockTxBindingUpsert = jest.fn();
 
@@ -72,6 +73,7 @@ jest.mock("@/lib/platform/connectors/datasource/registry", () => ({
 
 jest.mock("@/lib/platform/vault", () => ({
 	upsertSecret: (...a: unknown[]) => mockUpsertSecret(...a),
+	getSecretById: (...a: unknown[]) => mockGetSecretById(...a),
 }));
 
 jest.mock("@/utils/log", () => ({ consoleLog: jest.fn() }));
@@ -111,6 +113,7 @@ beforeEach(() => {
 	mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
 	mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
 	mockUpsertSecret.mockResolvedValue({ id: "vault-new" });
+	mockGetSecretById.mockResolvedValue({ data: [{ id: "vault-1" }] });
 	mockHasAdapterFactory.mockReturnValue(true);
 	mockGetSourceTypeDescriptor.mockImplementation((type: string) => ({
 		type,

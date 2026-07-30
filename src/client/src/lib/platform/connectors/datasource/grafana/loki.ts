@@ -45,7 +45,8 @@ export class LokiAdapter extends BaseExternalAdapter {
 	private async authHeaders() {
 		const secret = await resolveSourceSecret(
 			this.descriptor.secretRef,
-			this.descriptor.dbConfigId
+			this.descriptor.dbConfigId,
+			this.descriptor.projectId
 		);
 		return {
 			 headers: applyHttpAuthCredentials(secret.credentials, {

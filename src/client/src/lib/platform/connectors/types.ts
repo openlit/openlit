@@ -41,6 +41,8 @@ export interface ConnectorTypeDescriptor {
 	configFields: ConnectorField[];
 	capabilities: ConnectorCapabilities;
 	internal?: boolean;
+	/** Commercial availability marker; CE defaults to free when omitted. */
+	plan?: "free" | "enterprise";
 }
 
 export interface ConnectorInstanceDescriptor {

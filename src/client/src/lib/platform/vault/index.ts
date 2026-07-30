@@ -15,6 +15,7 @@ import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
+import prisma from "@/lib/prisma";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -244,14 +245,17 @@ export async function getSecrets(
 	filters: SecretGetFilters,
 	{ selectValue }: { selectValue?: boolean } = {}
 ) {
-	let user: Awaited<ReturnType<typeof getCurrentUser>> | null = null;
-	if (!filters.databaseConfigId) {
-		user = await getCurrentUser();
-		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	const user = await getCurrentUser();
+	if (!user && !filters.createdBy) {
+		throwIfError(true, getMessage().UNAUTHORIZED_USER);
 	}
 
 	const filteredConditions: string[] = [
-		user ? getOwnerEmailCondition(user, "v") : "",
+		user
+			? getOwnerEmailCondition(user, "v")
+			: filters.createdBy
+				? `v.created_by = '${escapeClickHouseString(Sanitizer.sanitizeValue(filters.createdBy))}'`
+				: "",
 		filters.key
 			? "v.key = '" +
 				escapeClickHouseString(Sanitizer.sanitizeValue(filters.key)) +
@@ -306,6 +310,7 @@ export async function getSecretsFromDatabaseId(
 		{
 			...filters,
 			databaseConfigId: apiInfo.databaseConfigId,
+			createdBy: (apiInfo as any).createdByUser?.email,
 		},
 		{ selectValue: true }
 	);
@@ -322,11 +327,27 @@ export async function getSecretById(
 	id: string,
 	databaseConfigId?: string,
 	excludeVaultValue: boolean = true,
-	{ logDecryptErrors = true }: { logDecryptErrors?: boolean } = {}
+	{
+		logDecryptErrors = true,
+		projectId,
+	}: { logDecryptErrors?: boolean; projectId?: string } = {}
 ) {
+	const safeId = escapeClickHouseString(Sanitizer.sanitizeValue(id));
+	let ownerCondition = "";
+	if (projectId) {
+		const source = await prisma.telemetrySource.findFirst({
+			where: { secretRef: id, projectId },
+			select: { id: true },
+		});
+		if (!source) return { data: [] };
+	} else {
+		const user = await getCurrentUser();
+		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+		ownerCondition = ` AND ${getOwnerEmailCondition(user!, "v")}`;
+	}
 	const query = `SELECT * ${
 		!!excludeVaultValue ? "EXCEPT value" : ""
-	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${id}';`;
+	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${safeId}'${ownerCondition};`;
 
 	const result = await dataCollector({ query }, "query", databaseConfigId);
 

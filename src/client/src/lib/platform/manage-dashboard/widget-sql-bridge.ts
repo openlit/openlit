@@ -275,6 +275,29 @@ function escapeSql(value: string): string {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+const SAFE_CH_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALLOWED_CH_FIELDS = new Set([
+	"SpanId",
+	"TraceId",
+	"ParentSpanId",
+	"SpanName",
+	"ServiceName",
+	"Duration",
+	"Timestamp",
+	"StatusCode",
+	"StatusMessage",
+	"Kind",
+	"TraceType",
+]);
+
+function safeAlias(value: unknown, fallback: string): string {
+	const alias = String(value || fallback);
+	if (!SAFE_CH_IDENTIFIER.test(alias)) {
+		throw new Error("Invalid dashboard aggregation alias");
+	}
+	return alias;
+}
+
 function fieldToClickHouseExpr(field: string, scope?: string): string {
 	if (field === "SpanName" || field === "duration" || field === "Duration") {
 		return field === "duration" ? "Duration" : field;
@@ -287,6 +310,9 @@ function fieldToClickHouseExpr(field: string, scope?: string): string {
 	}
 	if (field.includes(".")) {
 		return `SpanAttributes['${escapeSql(field)}']`;
+	}
+	if (!ALLOWED_CH_FIELDS.has(field)) {
+		throw new Error(`Unsupported ClickHouse field: ${field}`);
 	}
 	return field;
 }
@@ -429,7 +455,7 @@ export function openLITQueryToClickHouseSql(
 	).map((a, i) => {
 		const fn = AGG_SQL[a.fn] || AGG_SQL.count;
 		const field = a.field ? fieldToClickHouseExpr(a.field) : "";
-		return `${fn(field)} AS ${a.as || `agg${i}`}`;
+		return `${fn(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
 	});
 
 	if (mode === "timeseries") {

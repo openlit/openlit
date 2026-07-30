@@ -5,7 +5,7 @@
  * Enforces rule F4: never treat URLs as strings, only allow http/https, reject
  * `javascript:`/`data:` and credentials-in-URL. By default, private / loopback
  * / link-local ranges are blocked. Self-hosted OSS backends (Tempo/Loki/…)
- * may opt in via `allowPrivateNetwork` so in-cluster RFC1918 endpoints work;
+ * may explicitly opt in via `allowPrivateNetwork` so in-cluster RFC1918 endpoints work;
  * cloud metadata endpoints stay blocked even then. DNS lookup and fetch are
  * injectable so this is unit-testable without real network access.
  */
@@ -94,16 +94,16 @@ export interface AssertUrlOptions {
 }
 
 /**
- * Network options for self-hosted OSS backends. Defaults `allowHttp` and
- * `allowPrivateNetwork` to true unless the source settings explicitly disable
- * them — matching how operators run Tempo/Loki/Victoria beside OpenLIT.
+ * Network options for self-hosted OSS backends. Plain HTTP and private-network
+ * access are explicit connector settings; permissive defaults are unsafe for
+ * multi-tenant deployments.
  */
 export function selfHostedNetworkOptions(
 	settings: Record<string, unknown> = {}
 ): Pick<AssertUrlOptions, "allowHttp" | "allowPrivateNetwork"> {
 	return {
 		allowHttp: settings.allowHttp !== false,
-		allowPrivateNetwork: settings.allowPrivateNetwork !== false,
+		allowPrivateNetwork: settings.allowPrivateNetwork === true,
 	};
 }
 

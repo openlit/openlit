@@ -176,15 +176,15 @@ describe('getSecrets', () => {
     await expect(getSecrets({ key: 'my-key' })).rejects.toThrow('Unauthorized');
   });
 
-	  it('bypasses auth check when databaseConfigId is provided', async () => {
+	  it('requires an authenticated owner even when databaseConfigId is provided', async () => {
 	    await expect(getSecrets({ databaseConfigId: 'db-1' })).resolves.toBeDefined();
-	    expect(getCurrentUser).not.toHaveBeenCalled();
+	    expect(getCurrentUser).toHaveBeenCalled();
 	  });
 
-	  it('does not add session ownership filters for databaseConfigId API-key reads', async () => {
+	  it('keeps session ownership filters for databaseConfigId reads', async () => {
 	    await getSecrets({ databaseConfigId: 'db-1' });
 	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
-	    expect(query).not.toContain('created_by');
+	    expect(query).toContain("v.created_by = 'user@example.com'");
 	  });
 	});
 

@@ -76,6 +76,7 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 					},
 				],
 			},
+			include: { createdByUser: { select: { email: true } } },
 		})
 	);
 }

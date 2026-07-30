@@ -11,7 +11,6 @@ registry. New datasource contributors should implement the existing
 adapter tests. The generic connector registry exposes that type to shared
 configuration and future consumers without adding vendor-specific UI logic.
 
-Enterprise providers register through the same registry from the enterprise
-repository. CE contains only neutral contracts and no enterprise provider
-names or permission policy.
-
+Enterprise-only providers can register through the same neutral registry from
+the enterprise repository. Availability and plan metadata are represented by
+the shared contract; permission and entitlement policy remains outside CE.

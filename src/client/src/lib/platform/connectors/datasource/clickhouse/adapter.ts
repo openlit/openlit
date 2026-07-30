@@ -58,6 +58,29 @@ function escapeCH(value: string): string {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+const SAFE_CH_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALLOWED_CH_FIELDS = new Set([
+	"SpanId",
+	"TraceId",
+	"ParentSpanId",
+	"SpanName",
+	"ServiceName",
+	"Duration",
+	"Timestamp",
+	"StatusCode",
+	"StatusMessage",
+	"Kind",
+	"TraceType",
+]);
+
+function safeAlias(value: unknown, fallback: string): string {
+	const alias = String(value || fallback);
+	if (!SAFE_CH_IDENTIFIER.test(alias)) {
+		throw new Error("Invalid dashboard aggregation alias");
+	}
+	return alias;
+}
+
 /** Format a Date to a ClickHouse UTC datetime literal. */
 function chDateTime(date: Date): string {
 	return date.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
@@ -99,6 +122,9 @@ function fieldToExpr(field: string): string {
 	// Treat dotted keys as span attributes by default.
 	if (field.includes(".")) {
 		return `SpanAttributes['${escapeCH(field)}']`;
+	}
+	if (!ALLOWED_CH_FIELDS.has(field)) {
+		throw new Error(`Unsupported ClickHouse field: ${field}`);
 	}
 	return field;
 }
@@ -205,7 +231,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			(a, i) => {
 				const fn = AGG_FN_MAP[a.fn] || AGG_FN_MAP.count;
 				const field = a.field ? fieldToExpr(a.field) : "";
-				return `${fn(field)} AS ${a.as || `agg${i}`}`;
+				return `${fn(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
 			}
 		);
 		const selects = [...groupExprs, ...aggExprs].join(", ");
@@ -236,7 +262,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			(a, i) => {
 				const fn = AGG_FN_MAP[a.fn] || AGG_FN_MAP.count;
 				const field = a.field ? fieldToExpr(a.field) : "";
-				return `${fn(field)} AS ${a.as || `agg${i}`}`;
+				return `${fn(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
 			}
 		);
 		const where = [

@@ -22,12 +22,14 @@ export interface ResolvedSecret {
  */
 export async function resolveSourceSecret(
 	secretRef: string | null | undefined,
-	dbConfigId?: string
+	dbConfigId?: string,
+	projectId?: string | null
 ): Promise<ResolvedSecret> {
 	if (!secretRef) return { raw: "", credentials: {} };
 
 	const result = await getSecretById(secretRef, dbConfigId, false, {
 		logDecryptErrors: false,
+		projectId: projectId || undefined,
 	});
 	const row = (result?.data as { value?: string }[] | undefined)?.[0];
 	const raw = typeof row?.value === "string" ? row.value : "";

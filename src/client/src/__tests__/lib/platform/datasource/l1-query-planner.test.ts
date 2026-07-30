@@ -257,7 +257,7 @@ describe("fetchSpansForAggregation", () => {
 			"demo-anthropic-app",
 			"demo-openai-app",
 		]);
-		expect(result.truncated).toBe(true);
+		expect(result.truncated).toBe(false);
 	});
 
 	it("does not re-stratify adapters that already fan out per service", async () => {

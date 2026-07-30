@@ -81,8 +81,8 @@ beforeEach(() => {
 
 describe("parseSignals", () => {
 	it("defaults to all signals when empty", () => {
-		expect(parseSignals(undefined)).toEqual(["traces", "logs", "metrics"]);
-		expect(parseSignals("")).toEqual(["traces", "logs", "metrics"]);
+		expect(parseSignals(undefined)).toEqual(["traces", "logs", "metrics", "intelligence"]);
+		expect(parseSignals("")).toEqual(["traces", "logs", "metrics", "intelligence"]);
 	});
 
 	it("parses and trims valid signals", () => {
@@ -90,7 +90,7 @@ describe("parseSignals", () => {
 	});
 
 	it("drops invalid signals and falls back if none valid", () => {
-		expect(parseSignals("bogus")).toEqual(["traces", "logs", "metrics"]);
+		expect(parseSignals("bogus")).toEqual(["traces", "logs", "metrics", "intelligence"]);
 		expect(parseSignals("logs,bogus")).toEqual(["logs"]);
 	});
 });
@@ -120,7 +120,7 @@ describe("builtInDescriptor", () => {
 			projectId: "proj-1",
 			name: "Primary CH",
 		});
-		expect(d.signals).toEqual(["traces", "logs", "metrics"]);
+		expect(d.signals).toEqual(["traces", "logs", "metrics", "intelligence"]);
 	});
 });
 

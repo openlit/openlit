@@ -29,6 +29,14 @@ Object.assign(global, {
 jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
 jest.mock("@/lib/platform/request", () => ({ getHeirarchyViaSpanId: jest.fn() }));
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveTelemetrySourceDescriptor: jest.fn().mockResolvedValue({
+		type: "clickhouse",
+		id: "builtin:test",
+		isBuiltIn: true,
+	}),
+	getTelemetryAdapter: jest.fn(),
+}));
 jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));
 jest.mock("@/lib/platform/evaluation/rule-engine-context", () => ({
 	getContextFromRuleEngineForTrace: jest.fn(),

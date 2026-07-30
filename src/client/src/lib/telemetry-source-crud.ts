@@ -15,7 +15,7 @@ import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
 } from "./organisation";
-import { upsertSecret } from "./platform/vault";
+import { getSecretById, upsertSecret } from "./platform/vault";
 import {
 	parseSignals,
 	toDescriptor,
@@ -185,6 +185,14 @@ function normalizeSettings(settings: unknown): string {
 	throw new Error(TELEMETRY_SOURCE_INVALID_SETTINGS);
 }
 
+async function validateSecretReference(secretRef: string | null) {
+	if (!secretRef) return;
+	const result = await getSecretById(secretRef);
+	if (!(result.data as unknown[] | undefined)?.length) {
+		throw new Error("The selected vault secret is not owned by the current user.");
+	}
+}
+
 function validateType(type: unknown): string {
 	ensureAdaptersRegistered();
 	const t = String(type || "").trim();
@@ -291,6 +299,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 	const secretRef =
 		credentialSecretRef ??
 		(typeof input.secretRef === "string" ? input.secretRef : null);
+	await validateSecretReference(secretRef);
 
 	const row = await prisma.$transaction(async (tx) => {
 		if (isDefault) {
@@ -367,6 +376,9 @@ export async function updateTelemetrySource(
 		data.secretRef =
 			typeof input.secretRef === "string" ? input.secretRef : null;
 	}
+	await validateSecretReference(
+		(data.secretRef as string | null | undefined) ?? existing.secretRef
+	);
 	const makeDefault = input.isDefault === true;
 
 	const row = await prisma.$transaction(async (tx) => {
@@ -595,14 +607,16 @@ export async function createSourceStack(input: CreateSourceStackInput) {
 				name,
 				type
 			);
+			const secretRef =
+				credentialSecretRef ??
+				(typeof m.secretRef === "string" ? m.secretRef : null);
+			await validateSecretReference(secretRef);
 			return {
 				type,
 				signals,
 				settings,
 				name,
-				secretRef:
-					credentialSecretRef ??
-					(typeof m.secretRef === "string" ? m.secretRef : null),
+				secretRef,
 				bind: m.bind !== false,
 			};
 		})
