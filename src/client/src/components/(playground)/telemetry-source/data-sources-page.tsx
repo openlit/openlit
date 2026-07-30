@@ -322,7 +322,10 @@ export default function DataSourcesPage({
 					id: "ds-test",
 				});
 			} else {
-				toast.message(messages.DATA_SOURCE_TEST_AI_NONE, { id: "ds-test" });
+				// Replace the loading toast with a finite, dismissible result. Using
+				// toast.message here can leave the original loading notification
+				// visible in Sonner when the validation returns zero samples.
+				toast.success(messages.DATA_SOURCE_TEST_AI_NONE, { id: "ds-test" });
 			}
 		} catch (e: any) {
 			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
