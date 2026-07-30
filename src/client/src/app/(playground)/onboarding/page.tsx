@@ -423,7 +423,7 @@ export default function OnboardingPage() {
 					<div className="flex flex-wrap items-center gap-2">
 						<ProjectEnvironmentSwitcher value={onboardingEnvironment} onChange={setOnboardingEnvironment} />
 						<Button asChild size="sm" variant="outline" className="h-9">
-							<Link href={`/organisation/project/${currentProject?.id}/connectors?environment=${encodeURIComponent(onboardingEnvironment)}`}>
+							<Link href={`/organisation/project/${currentProject?.id}/connectors`}>
 								<Plus className="mr-1.5 h-3.5 w-3.5" />
 								Add data connectors
 							</Link>

@@ -105,6 +105,7 @@ export interface StreamChatParams {
 	model: string;
 	userId: string;
 	dbConfigId: string;
+	environment?: string;
 	onDelta?: (text: string) => void;
 	onStep?: (label: string, status?: "active" | "complete" | "error", detail?: string) => void;
 }
@@ -123,7 +124,7 @@ export interface StreamChatResult {
  * - Handling tool call fallback text
  */
 export async function streamChatMessage(params: StreamChatParams): Promise<StreamChatResult> {
-	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, onDelta, onStep } = params;
+	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, environment, onDelta, onStep } = params;
 
 	// Save user message
 	onStep?.("Saving user message", "active");
@@ -140,7 +141,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	const modelInstance = getModelInstance(provider, apiKey, model);
 
 	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
-	const tools = getChatTools(userId, dbConfigId);
+	const tools = getChatTools(userId, dbConfigId, environment);
 	onStep?.("Preparing model and tools", "complete", `${Object.keys(tools).length} tools available`);
 
 	let streamError: any = null;

@@ -171,10 +171,11 @@ async function runTraceAnalysisTool(
 	spanId: string,
 	scope: OtterTraceAnalysisScope,
 	rerun: boolean,
-	databaseConfigId: string
+	databaseConfigId: string,
+	environment?: string
 ) {
 	if (!rerun) {
-		const existing = await getTraceImprovement(spanId, databaseConfigId, scope);
+		const existing = await getTraceImprovement(spanId, databaseConfigId, scope, environment);
 		if (existing.err) return { success: false, error: String(existing.err) };
 		const latest = existing.data?.runs?.at(-1);
 		if (latest) {
@@ -188,7 +189,7 @@ async function runTraceAnalysisTool(
 		}
 	}
 
-	const { response, err } = await streamTraceImprovementAnalysis(spanId, databaseConfigId, scope);
+	const { response, err } = await streamTraceImprovementAnalysis(spanId, databaseConfigId, scope, environment);
 	if (err || !response) {
 		return { success: false, error: String(err || "Failed to start trace analysis") };
 	}
@@ -222,7 +223,7 @@ function normalizeVaultKey(key: string): string {
 		.toUpperCase();
 }
 
-export function getChatTools(userId: string, databaseConfigId: string) {
+export function getChatTools(userId: string, databaseConfigId: string, environment?: string) {
 	return {
 		// ==================== RULE ENGINE ====================
 
@@ -1068,6 +1069,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						offset: 0,
 						sorting: { type: "Timestamp", direction: "desc" },
 						selectedConfig: customFilters.length ? { customFilters } : undefined,
+						environment,
 					};
 					const result = (signal === "traces"
 						? await listTraceRecords(queryParams)
@@ -1108,7 +1110,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						params.span_id,
 						scope,
 						Boolean(params.rerun),
-						databaseConfigId
+						databaseConfigId,
+						environment
 					);
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to run trace analysis" };
@@ -1129,7 +1132,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			execute: async (params: any) => {
 				try {
 					const scope: OtterTraceAnalysisScope = params.scope === "span" ? "span" : "trace";
-					const { data, err } = await getTraceImprovement(params.span_id, databaseConfigId, scope);
+					const { data, err } = await getTraceImprovement(params.span_id, databaseConfigId, scope, environment);
 					if (err) return { success: false, error: String(err) };
 					const runs = data?.runs || [];
 					return {
@@ -1177,7 +1180,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 								spanId,
 								scope,
 								Boolean(params.rerun),
-								databaseConfigId
+								databaseConfigId,
+								environment
 							)
 						);
 					}
@@ -1229,6 +1233,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 								scope: "span",
 							}],
 						},
+						environment,
 					});
 					if (telemetryResult.err) return { success: false, error: String(telemetryResult.err) };
 					const grouped = new Map<string, { traceId: string; spanId: string; spanCount: number }>();
@@ -1260,7 +1265,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 								match.spanId,
 								"trace",
 								Boolean(params.rerun),
-								databaseConfigId
+								databaseConfigId,
+								environment
 							),
 						});
 					}

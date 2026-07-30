@@ -240,8 +240,8 @@ export async function getTraceSpanRecord(
 }
 
 /** First span for a trace id (same shape as `getRequestViaTraceId`). */
-export async function getTraceRecordByTraceId(traceId: string) {
-	const { adapter, descriptor } = await resolveTracesAdapter();
+export async function getTraceRecordByTraceId(traceId: string, environment?: string) {
+	const { adapter, descriptor } = await resolveTracesAdapter(undefined, environment);
 	if (isBuiltInClickHouse(descriptor)) {
 		return getRequestViaTraceId(traceId);
 	}

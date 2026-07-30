@@ -8,11 +8,13 @@ import {
 } from "@/lib/telemetry-source-crud";
 import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 async function GETHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
-	const environment = new URL(request.url).searchParams.get("environment") || undefined;
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) ||
+		new URL(request.url).searchParams.get("environment") || undefined;
 	const [err, bindings] = await asaw(listTelemetrySourceBindings(environment));
 	if (err) return errorResponse(err, "Failed to list connector bindings");
 	return Response.json({ bindings });
@@ -33,7 +35,8 @@ async function DELETEHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 	const signal = new URL(request.url).searchParams.get("signal");
-	const environment = new URL(request.url).searchParams.get("environment") || undefined;
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) ||
+		new URL(request.url).searchParams.get("environment") || undefined;
 	const [err, result] = await asaw(deleteTelemetrySourceBinding(signal, environment));
 	if (err) return errorResponse(err, "Failed to remove connector binding");
 	return Response.json(result);

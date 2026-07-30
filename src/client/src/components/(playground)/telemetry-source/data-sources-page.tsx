@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
 	Database,
@@ -42,6 +41,8 @@ import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
 import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
+import { getRequestHeaders } from "@/utils/api";
 
 type Signal = "traces" | "logs" | "metrics" | "intelligence";
 const SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
@@ -136,7 +137,10 @@ function ConnectorOption({
 }
 
 async function jsonFetch(url: string, init?: RequestInit) {
-	const res = await fetch(url, init);
+	const res = await fetch(url, {
+		...init,
+		headers: getRequestHeaders((init?.headers as Record<string, string> | undefined) || undefined),
+	});
 	const text = await res.text();
 	let body: any = undefined;
 	try {
@@ -165,8 +169,7 @@ export default function DataSourcesPage({
 	onOpenTypeHandled?: () => void;
 }) {
 	const messages = getMessage();
-	const searchParams = useSearchParams();
-	const routeEnvironment = searchParams.get("environment") || "production";
+	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
@@ -179,7 +182,7 @@ export default function DataSourcesPage({
 	const [newType, setNewType] = useState<string | undefined>();
 	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
-	const [environment, setEnvironment] = useState(routeEnvironment);
+	const environment = currentProjectEnvironment || "production";
 	const visibleSources = useMemo(
 		() => sources.filter((source) => (source.environment || "production") === environment),
 		[environment, sources]
@@ -193,7 +196,7 @@ export default function DataSourcesPage({
 		try {
 			const [list, binds, stacks] = await Promise.all([
 				jsonFetch("/api/telemetry-source"),
-				jsonFetch(`/api/telemetry-source/binding?environment=${encodeURIComponent(environment)}`),
+				jsonFetch("/api/telemetry-source/binding"),
 				jsonFetch("/api/telemetry-source/stack"),
 			]);
 			setSources(list?.sources || []);
@@ -208,10 +211,6 @@ export default function DataSourcesPage({
 			setLoading(false);
 		}
 	}, [environment, messages.DATA_SOURCE_LOAD_FAILED]);
-
-	useEffect(() => {
-		if (routeEnvironment !== environment) setEnvironment(routeEnvironment);
-	}, [environment, routeEnvironment]);
 
 	useEffect(() => {
 		if (openType) {
@@ -247,7 +246,7 @@ export default function DataSourcesPage({
 		try {
 			if (sourceId === BUILTIN) {
 				await jsonFetch(
-					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}&environment=${encodeURIComponent(environment)}`,
+					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}`,
 					{ method: "DELETE" }
 				);
 			} else {

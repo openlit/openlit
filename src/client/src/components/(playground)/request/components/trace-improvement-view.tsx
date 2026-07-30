@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { getRequestHeaders } from "@/utils/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -557,9 +558,10 @@ export default function TraceImprovementView({
 			const params = new URLSearchParams();
 			if (targetScope === "span") params.set("scope", "span");
 			if (traceId) params.set("traceId", traceId);
-			if (environment) params.set("environment", environment);
 			const query = params.toString() ? `?${params.toString()}` : "";
-			const res = await fetch(`/api/chat/improvement/${targetSpanId}${query}`);
+			const res = await fetch(`/api/chat/improvement/${targetSpanId}${query}`, {
+				headers: getRequestHeaders(),
+			});
 			if (!res.ok) {
 				const err = await res.json();
 				throw new Error(typeof err === "string" ? err : m.TRACE_AI_LOAD_FAILED);
@@ -647,11 +649,11 @@ export default function TraceImprovementView({
 			const params = new URLSearchParams();
 			if (scope === "span") params.set("scope", "span");
 			if (traceId) params.set("traceId", traceId);
-			if (environment) params.set("environment", environment);
 			const query = params.toString() ? `?${params.toString()}` : "";
 			const res = await fetch(`/api/chat/improvement/${spanId}${query}`, {
 				method: "POST",
 				signal: abortController.signal,
+				headers: getRequestHeaders(),
 			});
 			if (!res.ok || !res.body) {
 				const err = await res.json();

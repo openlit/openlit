@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Cable, ChevronDown, Plus } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { fetchDatabaseConfigList, changeActiveDatabaseConfig } from "@/helpers/client/database-config";
 import { getDatabaseConfigList } from "@/selectors/database-config";
-import { getCurrentProject } from "@/selectors/project";
+import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,18 +31,27 @@ export default function DatabaseConfigSwitch({
 }) {
   const messages = getMessage();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const posthog = usePostHog();
   const project = useRootStore(getCurrentProject);
+  const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
   const databases = useRootStore(getDatabaseConfigList) || [];
   const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [persistedEnvironment, setPersistedEnvironment] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
   const activeDatabase = databases.find((item) => !!item.isCurrent);
-  const selectedEnvironment = searchParams.get("environment") || activeDatabase?.environment || "production";
+  const environmentStorageKey = project?.id ? `openlit:environment:${project.id}` : "";
+  const selectedEnvironment = currentEnvironment || persistedEnvironment || activeDatabase?.environment || "production";
+
+  useEffect(() => {
+    if (!environmentStorageKey) return;
+    const stored = window.localStorage.getItem(environmentStorageKey);
+    const environment = stored || activeDatabase?.environment || "production";
+    setPersistedEnvironment(environment);
+    useRootStore.getState().project.setCurrentEnvironment(environment);
+  }, [activeDatabase?.environment, environmentStorageKey]);
 
   const loadEnvironments = async () => {
     const response = await fetch("/api/project/environment");
@@ -77,6 +86,11 @@ export default function DatabaseConfigSwitch({
   );
 
   const selectEnvironment = async (environment: string) => {
+    if (environmentStorageKey) {
+      window.localStorage.setItem(environmentStorageKey, environment);
+      setPersistedEnvironment(environment);
+    }
+    useRootStore.getState().project.setCurrentEnvironment(environment);
     const target = databasesByEnvironment[environment]?.[0];
     if (target && target.id !== activeDatabase?.id) {
 		await changeActiveDatabaseConfig(target.id, () => {
@@ -87,11 +101,6 @@ export default function DatabaseConfigSwitch({
 		}, { silent: true });
     }
 
-    const params = new URLSearchParams(searchParams.toString());
-    if (environment === "production") params.delete("environment");
-    else params.set("environment", environment);
-		const query = params.toString();
-		router.replace(query ? pathname + "?" + query : pathname);
 		window.dispatchEvent(new CustomEvent("openlit:environment-changed", { detail: { environment } }));
 		router.refresh();
 	};

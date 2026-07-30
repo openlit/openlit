@@ -25,15 +25,17 @@ function getOpenLitContextHeaders() {
 	const organisationId = state.organisation.current?.id;
 	const projectId = state.project.current?.id;
 	const databaseConfigId = getActiveDatabaseConfigId();
+	const environment = state.project.currentEnvironment;
 
 	if (organisationId) headers[OPENLIT_CONTEXT_HEADERS.organisationId] = organisationId;
 	if (projectId) headers[OPENLIT_CONTEXT_HEADERS.projectId] = projectId;
 	if (databaseConfigId) headers[OPENLIT_CONTEXT_HEADERS.databaseConfigId] = databaseConfigId;
+	if (environment) headers[OPENLIT_CONTEXT_HEADERS.environment] = environment;
 
 	return headers;
 }
 
-function getRequestHeaders(headers?: Record<string, string>) {
+export function getRequestHeaders(headers?: Record<string, string>) {
 	return {
 		...getOpenLitContextHeaders(),
 		...(headers || {}),
@@ -43,8 +45,12 @@ function getRequestHeaders(headers?: Record<string, string>) {
 export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 	const payload = body || (data ? JSON.stringify(data) : undefined);
 	const hasBody = !!payload;
+	const environment = getOpenLitContextHeaders()[OPENLIT_CONTEXT_HEADERS.environment];
+	// Keep environment out of the request URL, but include it in the client cache
+	// identity so switching environments cannot reuse another environment's data.
+	const cacheUrl = environment ? `${url}::${environment}` : url;
 
-	return withTelemetryRequestCache(url, payload, async () => {
+	return withTelemetryRequestCache(cacheUrl, payload, async () => {
 		const res = await fetch(url, {
 			body: payload,
 			method,

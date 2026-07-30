@@ -2,6 +2,7 @@ import { getEvaluationsForSpanId, setEvaluationsForSpanId } from "@/lib/platform
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 export async function GET(
 	_: NextRequest,
@@ -11,8 +12,10 @@ export async function GET(
 	const { spanId } = params;
 
 	const url = new URL(_.url);
+	const environment = _.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 	const res: any = await getEvaluationsForSpanId(spanId, {
 		traceId: url.searchParams.get("traceId") || undefined,
+		environment,
 	});
 	PostHogServer.fireEvent({
 		event: res.err ? SERVER_EVENTS.EVALUATION_GET_FAILURE : SERVER_EVENTS.EVALUATION_GET_SUCCESS,
@@ -30,10 +33,12 @@ export async function POST(
 	const { spanId } = params;
 
 	const url = new URL(request.url);
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 	let res: any;
 	try {
 		res = await setEvaluationsForSpanId(spanId, {
 			traceId: url.searchParams.get("traceId") || undefined,
+			environment,
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

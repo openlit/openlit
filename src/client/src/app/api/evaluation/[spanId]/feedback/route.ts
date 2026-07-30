@@ -1,6 +1,7 @@
 import { storeManualFeedback } from "@/lib/platform/evaluation";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 export async function POST(
 	request: Request,
@@ -22,6 +23,7 @@ export async function POST(
 	}
 
 	const url = new URL(request.url);
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 	const res: any = await storeManualFeedback(
 		spanId,
 		rating,
@@ -29,6 +31,7 @@ export async function POST(
 		undefined,
 		{
 			traceId: url.searchParams.get("traceId") || undefined,
+			environment,
 		}
 	);
 

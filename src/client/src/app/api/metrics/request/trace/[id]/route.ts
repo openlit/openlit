@@ -1,6 +1,6 @@
 import { getTraceRecordByTraceId } from "@/lib/platform/traces/read";
 
-export async function GET(_: Request, context: any) {
+export async function GET(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -8,6 +8,7 @@ export async function GET(_: Request, context: any) {
 			status: 400,
 		});
 
-	const res: any = await getTraceRecordByTraceId(id);
+	const environment = request.headers.get("x-openlit-environment") || undefined;
+	const res: any = await getTraceRecordByTraceId(id, environment);
 	return Response.json(res);
 }

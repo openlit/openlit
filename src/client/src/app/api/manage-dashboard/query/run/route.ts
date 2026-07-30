@@ -36,9 +36,13 @@ export async function POST(request: NextRequest) {
 	}
 
 	const startTimestamp = Date.now();
+	const environment = request.headers.get("x-openlit-environment") || undefined;
+	const routedFilter = filter && typeof filter === "object"
+		? { ...(filter as Record<string, unknown>), environment: (filter as Record<string, unknown>).environment || environment }
+		: filter;
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
-		filter: filter as Parameters<typeof runWidgetQuery>[1]["filter"],
+		filter: routedFilter as Parameters<typeof runWidgetQuery>[1]["filter"],
 		sourceId,
 		signal: signal as Parameters<typeof runWidgetQuery>[1]["signal"],
 		structuredQuery: structuredQuery as Parameters<

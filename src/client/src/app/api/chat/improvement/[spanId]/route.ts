@@ -27,7 +27,7 @@ function getScope(request: Request) {
 }
 
 function getEnvironment(request: Request) {
-	return new URL(request.url).searchParams.get("environment") || undefined;
+	return request.headers.get("x-openlit-environment") || undefined;
 }
 
 function getTraceId(request: Request) {

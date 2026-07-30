@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo } from "react";
 import { Layers } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
 import ProjectPageHeader from "./project-page-header";
 import getMessage from "@/constants/messages";
 import FeatureAccess from "@/components/rbac/feature-access";
 import { getCurrentOrganisation } from "@/selectors/organisation";
-import { getCurrentProject, getProjectList } from "@/selectors/project";
+import { getCurrentProject, getCurrentProjectEnvironment, getProjectList } from "@/selectors/project";
 import { changeActiveProject, fetchProjectList } from "@/helpers/client/project";
 import { useRootStore } from "@/store";
 
@@ -19,8 +18,7 @@ import { useRootStore } from "@/store";
  */
 export default function ProjectConnectorsPage({ projectId }: { projectId?: string }) {
 	const messages = getMessage();
-	const searchParams = useSearchParams();
-	const environment = searchParams.get("environment") || "production";
+	const environment = useRootStore(getCurrentProjectEnvironment) || "production";
 	const currentOrg = useRootStore(getCurrentOrganisation);
 	const projects = useRootStore(getProjectList) || [];
 	const currentProject = useRootStore(getCurrentProject);

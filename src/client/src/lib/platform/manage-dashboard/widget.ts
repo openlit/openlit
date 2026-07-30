@@ -396,7 +396,7 @@ async function runLegacyWidgetQuery(sql: string, filter: MetricParams) {
 
 	let descriptor;
 	try {
-		descriptor = await resolveTelemetrySourceDescriptor({ signal: "traces" });
+		descriptor = await resolveTelemetrySourceDescriptor({ signal: "traces", environment: filter.environment });
 	} catch {
 		return runRawClickHouseWidgetQuery(sql, filter);
 	}
@@ -410,7 +410,7 @@ async function runLegacyWidgetQuery(sql: string, filter: MetricParams) {
 		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
 	}
 
-	const adapter = await getTelemetryAdapter({ signal: "traces" });
+	const adapter = await getTelemetryAdapter({ signal: "traces", environment: filter.environment });
 	return executeInferredWidgetQuery(adapter, inferred, filter);
 }
 
@@ -459,13 +459,13 @@ export async function runWidgetQuery(
 		sourceSupportsNativeSql,
 	} = await import("@/lib/telemetry-source");
 
-	const descriptor = await resolveTelemetrySourceDescriptor({ sourceId, signal });
+	const descriptor = await resolveTelemetrySourceDescriptor({ sourceId, signal, environment: filter.environment });
 
 	// Built-in ClickHouse: prefer structured OpenLITQuery when present so the
 	// Grafana-style builder works natively; otherwise fall back to raw SQL.
 	if (sourceSupportsNativeSql(descriptor)) {
 		if (structured && !userQuery) {
-			const adapter = await getTelemetryAdapter({ sourceId, signal });
+			const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
 			return executeStructuredWidgetQuery(adapter, structured, filter);
 		}
 		const sql =
@@ -490,6 +490,6 @@ export async function runWidgetQuery(
 		return { err: getMessage().WIDGET_NO_STRUCTURED_QUERY };
 	}
 
-	const adapter = await getTelemetryAdapter({ sourceId, signal });
+	const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
 	return executeStructuredWidgetQuery(adapter, structured, filter);
 }

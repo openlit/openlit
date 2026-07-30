@@ -14,11 +14,11 @@ import {
 import {
 	getDatabaseConfigList,
 } from "@/selectors/database-config";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { isNil } from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -38,8 +38,7 @@ function ModifyDatabaseConfig({
 	onSaved?: () => void;
 }) {
 	const posthog = usePostHog();
-	const searchParams = useSearchParams();
-	const selectedEnvironment = searchParams.get("environment") || "production";
+	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const messages = getMessage();
 	const [environments, setEnvironments] = useState<string[]>([
@@ -263,7 +262,7 @@ function DatabaseList({
 	onOpenNewHandled?: () => void;
 }) {
 	const messages = getMessage();
-	const selectedEnvironment = useSearchParams().get("environment") || "production";
+	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
 	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const visibleConfigs = useMemo(

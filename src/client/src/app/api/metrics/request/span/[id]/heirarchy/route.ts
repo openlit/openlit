@@ -10,6 +10,7 @@ export async function GET(request: Request, context: any) {
 	}
 
 	const traceId = new URL(request.url).searchParams.get("traceId") || undefined;
-	const res: any = await getTraceHierarchy(id, { traceId });
+	const environment = request.headers.get("x-openlit-environment") || undefined;
+	const res: any = await getTraceHierarchy(id, { traceId, environment });
 	return Response.json(res);
 }

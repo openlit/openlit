@@ -42,6 +42,25 @@ import { spanFieldValue } from "../graph/sample-aggregate";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
+const SPAN_INDEX_MAX = 5_000;
+
+const spanIndexBySource = new Map<string, Map<string, NormalizedSpan>>();
+
+function rememberSpans(sourceId: string, spans: NormalizedSpan[]) {
+	let index = spanIndexBySource.get(sourceId);
+	if (!index) {
+		index = new Map();
+		spanIndexBySource.set(sourceId, index);
+	}
+	for (const span of spans) {
+		if (!span.spanId) continue;
+		if (index.size >= SPAN_INDEX_MAX) {
+			const oldest = index.keys().next().value;
+			if (oldest) index.delete(oldest);
+		}
+		index.set(span.spanId, span);
+	}
+}
 
 interface JaegerTag {
 	key: string;
@@ -288,12 +307,14 @@ export class JaegerAdapter extends BaseExternalAdapter {
 					const filtered = spans.filter((s) =>
 						spanMatchesFilters(s, query.filters)
 					);
-					out.push(...(filtered.length ? filtered : spans));
+					out.push(...(query.filters?.length ? filtered : spans));
 				}
 				if (out.length >= maxSpans) break;
 			}
 		}
-		return out.slice(0, maxSpans);
+		const rows = out.slice(0, maxSpans);
+		rememberSpans(this.descriptor.id, rows);
+		return rows;
 	}
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
@@ -327,15 +348,27 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		);
 		const trace = response?.data?.[0];
 		if (!trace) return [];
-		return (trace.spans || []).map((s) =>
+		const spans = (trace.spans || []).map((s) =>
 			this.normalizeSpan(s, trace.processes || {})
 		);
+		rememberSpans(this.descriptor.id, spans);
+		return spans;
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {
-		void spanId;
-		// Jaeger has no direct span lookup; callers use getTraceSpans.
-		return null;
+		const indexed = spanIndexBySource.get(this.descriptor.id)?.get(spanId);
+		if (indexed) return indexed;
+
+		// Jaeger has no direct span endpoint. Search a bounded recent window so a
+		// detail/evaluation request still works when it arrives in another
+		// request after the list response populated no in-process index.
+		const end = new Date();
+		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+		const rows = await this.collectSpans(
+			{ signal: "traces", timeRange: { start, end }, aiSelector: false },
+			Math.min(this.perServiceLimit * MAX_SERVICES, 5_000)
+		);
+		return rows.find((span) => span.spanId === spanId) || null;
 	}
 
 	async sampleTracesForGraph(

@@ -9,13 +9,18 @@ import {
 import { TELEMETRY_SOURCE_INVALID_JSON } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 async function GETHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 
 	const [err, bindings] = await asaw(
-		listTelemetrySourceBindings(request.nextUrl.searchParams.get("environment") || undefined)
+		listTelemetrySourceBindings(
+			request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) ||
+			request.nextUrl.searchParams.get("environment") ||
+			undefined
+		)
 	);
 	if (err) return errorResponse(err, "Failed to list telemetry source bindings");
 	return Response.json({ bindings });
@@ -45,7 +50,12 @@ async function DELETEHandler(request: NextRequest) {
 
 	const signal = request.nextUrl.searchParams.get("signal");
 	const [err, result] = await asaw(
-		deleteTelemetrySourceBinding(signal, request.nextUrl.searchParams.get("environment") || undefined)
+		deleteTelemetrySourceBinding(
+			signal,
+			request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) ||
+			request.nextUrl.searchParams.get("environment") ||
+			undefined
+		)
 	);
 	if (err) return errorResponse(err, "Failed to delete telemetry source binding");
 	return Response.json(result);

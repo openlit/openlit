@@ -181,6 +181,10 @@ describe("JaegerAdapter", () => {
 		const child = frame.rows.find((r) => r.name === "GET /health")!;
 		expect(child.parentSpanId).toBe("s1");
 		expect(frame.meta?.degraded).toContain("serverAggregation");
+		expect(await adapter.getSpan("s1")).toMatchObject({
+			spanId: "s1",
+			traceId: "t1",
+		});
 	});
 
 	it("drops traces with no AI-relevant span", async () => {

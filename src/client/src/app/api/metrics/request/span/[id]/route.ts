@@ -11,6 +11,7 @@ export async function GET(request: Request, context: any) {
 		});
 
 	const traceId = new URL(request.url).searchParams.get("traceId") || undefined;
+	const environment = request.headers.get("x-openlit-environment") || undefined;
 	const startedAt = Date.now();
 	consoleLog("[api] span detail request", {
 		spanId: id,
@@ -19,7 +20,7 @@ export async function GET(request: Request, context: any) {
 	});
 
 	const [spanRes, evalSummary] = await Promise.all([
-		getTraceSpanRecord(id, { traceId }),
+		getTraceSpanRecord(id, { traceId, environment }),
 		getEvaluationSummaryForSpanId(id),
 	]);
 

@@ -30,6 +30,7 @@ import getMessage from "@/constants/messages";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import { useIsAgentScoped } from "@/components/(playground)/agents/agent-scope-provider";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 
 const DETAIL_SHEET_CONTENT_CLASS =
 	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
@@ -96,6 +97,7 @@ export default function ObservabilitySignalList({
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
+	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const pingStatus = useRootStore(getPingStatus);
 	// `serviceNames` is the agent-detail scope lock, owned exclusively by
 	// AgentScopeProvider. When this list renders OUTSIDE that provider (the
@@ -107,6 +109,7 @@ export default function ObservabilitySignalList({
 	const [previewSpanId, setPreviewSpanId] = useState<string | null>(null);
 	const skipSelectedHydrationRef = useRef(false);
 	const selectedParam = searchParams.get("selected");
+	const selectedEnvironment = currentProjectEnvironment || undefined;
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const {
 		data: summaryData,
@@ -152,9 +155,8 @@ export default function ObservabilitySignalList({
 		!config.supportGrouping || !filter.groupBy || !!filter.groupValue;
 
 	const fetchData = useCallback(() => {
-		const environment = searchParams.get("environment") || undefined;
-		const requestFilter = environment
-			? { ...effectiveFilter, environment }
+		const requestFilter = selectedEnvironment
+			? { ...effectiveFilter, environment: selectedEnvironment }
 			: effectiveFilter;
 		fireRequest({
 			body: JSON.stringify(requestFilter),
@@ -166,19 +168,18 @@ export default function ObservabilitySignalList({
 				});
 			},
 		});
-	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION, searchParams]);
+	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION, selectedEnvironment]);
 
 	const fetchSummary = useCallback(() => {
-		const environment = searchParams.get("environment") || undefined;
-		const requestFilter = environment
-			? { ...effectiveFilter, environment }
+		const requestFilter = selectedEnvironment
+			? { ...effectiveFilter, environment: selectedEnvironment }
 			: effectiveFilter;
 		fireSummaryRequest({
 			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.summaryUrl,
 		});
-	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest, searchParams]);
+	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest, selectedEnvironment]);
 
 	useEffect(() => {
 		// Defensively strip a leaked agent scope before any request fires. On
@@ -205,7 +206,7 @@ export default function ObservabilitySignalList({
 			if (showFlatList) fetchData();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [effectiveFilter, pingStatus, showFlatList, isAgentScoped]);
+	}, [effectiveFilter, pingStatus, showFlatList, isAgentScoped, selectedEnvironment]);
 
 	const rows = useMemo(() => {
 		const records = (data as any)?.records || [];
