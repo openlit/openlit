@@ -192,15 +192,57 @@ def build_input_messages(messages, system=None):
     return otel_messages
 
 
+def _normalize_tool_arguments(tool_args):
+    """
+    Normalize tool-call arguments to an object for gen_ai.*.messages parts.
+
+    OTel GenAI expects tool_call.arguments to be an object. Streaming Anthropic
+    accumulates partial_json as a string; deserialize when possible.
+    See: https://github.com/open-telemetry/semantic-conventions-genai
+    """
+    if isinstance(tool_args, str):
+        try:
+            return json.loads(tool_args) if tool_args else {}
+        except Exception:
+            return {"raw": tool_args}
+    if tool_args is None:
+        return {}
+    return tool_args
+
+
+def _format_tool_args_for_span(tool_args):
+    """Serialize one tool-call's arguments for flat span attributes."""
+    if isinstance(tool_args, str):
+        return tool_args
+    try:
+        return json.dumps(tool_args)
+    except (TypeError, ValueError):
+        return str(tool_args)
+
+
+def _join_tool_field(values):
+    """
+    Join one field across parallel tool calls, keeping positions aligned.
+
+    Every call contributes a slot, so the nth entry of gen_ai.tool.name,
+    gen_ai.tool.call.id, and gen_ai.tool.args always describes the same call
+    even when one field is empty. Filtering each field independently would
+    shift the columns out of step. A field that is empty for every call
+    collapses to "" rather than a run of separators.
+    """
+    values = [str(value) if value else "" for value in values]
+    return ", ".join(values) if any(values) else ""
+
+
 def build_output_messages(response_text, finish_reason, tool_calls=None):
     """
     Convert Anthropic response to OTel output message structure.
-    Follows gen-ai-output-messages schema.
+    Follows gen-ai-output-messages schema (ToolCallRequestPart per tool_use).
 
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Anthropic (end_turn, max_tokens, stop_sequence, tool_use)
-        tool_calls: Optional tool calls dict from response
+        tool_calls: Optional list of tool calls from response (or a single dict)
 
     Returns:
         List with single OutputMessage
@@ -212,16 +254,23 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add tool call if present
+        # Parallel tool_use blocks each become a tool_call part with object
+        # arguments (OTel ToolCallRequestPart).
         if tool_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": tool_calls.get("id", ""),
-                    "name": tool_calls.get("name", ""),
-                    "arguments": tool_calls.get("input", {}),
-                }
-            )
+            calls = tool_calls if isinstance(tool_calls, list) else [tool_calls]
+            for tool_call in calls:
+                if not isinstance(tool_call, dict) or not tool_call:
+                    continue
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": tool_call.get("id", ""),
+                        "name": tool_call.get("name", ""),
+                        "arguments": _normalize_tool_arguments(
+                            tool_call.get("input", {})
+                        ),
+                    }
+                )
 
         # Map Anthropic finish reasons to OTel standard
         finish_reason_map = {
@@ -460,20 +509,33 @@ def process_chunk(scope, chunk):
         scope._response_model = message.get("model")
         scope._response_role = message.get("role")
 
+    if not hasattr(scope, "_tool_calls_by_index") or scope._tool_calls_by_index is None:
+        scope._tool_calls_by_index = {}
+
     # Collect message IDs and aggregated response from events
     if chunked.get("type") == "content_block_delta":
         delta = chunked.get("delta") or {}
         if delta.get("text"):
             scope._llmresponse += delta.get("text", "")
         elif delta.get("partial_json"):
-            scope._tool_arguments += delta.get("partial_json", "")
+            # Key by content-block index so parallel tool_use JSON stays separate.
+            index = chunked.get("index", 0)
+            slot = scope._tool_calls_by_index.setdefault(
+                index, {"id": "", "name": "", "input": ""}
+            )
+            slot["input"] += delta.get("partial_json", "")
 
     if chunked.get("type") == "content_block_start":
         content_block = chunked.get("content_block") or {}
-        if content_block.get("id"):
-            scope._tool_id = content_block.get("id")
-        if content_block.get("name"):
-            scope._tool_name = content_block.get("name")
+        if content_block.get("type") == "tool_use":
+            index = chunked.get("index", 0)
+            slot = scope._tool_calls_by_index.setdefault(
+                index, {"id": "", "name": "", "input": ""}
+            )
+            slot["id"] = content_block.get("id", "") or slot.get("id", "")
+            slot["name"] = content_block.get("name", "") or slot.get("name", "")
+            if "input" not in slot or slot["input"] is None:
+                slot["input"] = ""
 
     # Collect output tokens and stop reason from events (message_delta: top-level usage, delta)
     if chunked.get("type") == "message_delta":
@@ -581,15 +643,45 @@ def common_chat_logic(
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    # Span Attributes for Tools
+    # Flat tool attrs on chat spans are OpenLIT house style (comma-joined,
+    # matching openai/utils.py). The OTel-canonical parallel representation is
+    # gen_ai.output.messages with one tool_call part per call (built below).
+    # gen_ai.tool.name / gen_ai.tool.call.id are OTel attribute names; args also
+    # set gen_ai.tool.call.arguments (OTel) alongside legacy gen_ai.tool.args.
     if hasattr(scope, "_tool_calls") and scope._tool_calls:
-        tool_name = scope._tool_calls.get("name", "")
-        tool_id = scope._tool_calls.get("id", "")
-        tool_args = scope._tool_calls.get("input", "")
+        calls = (
+            scope._tool_calls
+            if isinstance(scope._tool_calls, list)
+            else [scope._tool_calls]
+        )
+        calls = [c for c in calls if isinstance(c, dict) and c]
+        names = [c.get("name", "") or "" for c in calls]
+        ids = [c.get("id", "") or "" for c in calls]
+        args = [_format_tool_args_for_span(c.get("input", "")) for c in calls]
 
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_name)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_id)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_args))
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_NAME,
+            _join_tool_field(names),
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_CALL_ID,
+            _join_tool_field(ids),
+        )
+        joined_args = _join_tool_field(args)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, joined_args)
+        # OTel GenAI attribute for tool-call parameters (JSON string on spans).
+        if len(calls) == 1:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                args[0] if args else "{}",
+            )
+        elif calls:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                json.dumps(
+                    [_normalize_tool_arguments(c.get("input", {})) for c in calls]
+                ),
+            )
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
@@ -744,12 +836,13 @@ def process_streaming_chat_response(
     Process streaming chat response and generate telemetry.
     """
 
-    if scope._tool_id != "":
-        scope._tool_calls = {
-            "id": scope._tool_id,
-            "name": scope._tool_name,
-            "input": scope._tool_arguments,
-        }
+    if scope._tool_calls_by_index:
+        scope._tool_calls = [
+            scope._tool_calls_by_index[index]
+            for index in sorted(scope._tool_calls_by_index)
+            if scope._tool_calls_by_index[index].get("id")
+            or scope._tool_calls_by_index[index].get("name")
+        ] or None
 
     common_chat_logic(
         scope,
@@ -793,7 +886,6 @@ def process_chat_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._llmresponse = response_dict.get("content", [{}])[0].get("text", "")
     scope._response_role = response_dict.get("role", "assistant")
 
     # Handle token usage including reasoning tokens and cached tokens
@@ -811,17 +903,22 @@ def process_chat_response(
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 
-    # Handle tool calls if present
-    content_blocks = response_dict.get("content", [])
-    scope._tool_calls = None
-    for block in content_blocks:
-        if block.get("type") == "tool_use":
-            scope._tool_calls = {
-                "id": block.get("id", ""),
-                "name": block.get("name", ""),
-                "input": block.get("input", ""),
-            }
-            break
+    # Collect text and every parallel tool_use block for OTel output messages.
+    content_blocks = response_dict.get("content", []) or []
+    scope._llmresponse = "".join(
+        block.get("text", "")
+        for block in content_blocks
+        if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+    )
+    scope._tool_calls = [
+        {
+            "id": block.get("id", ""),
+            "name": block.get("name", ""),
+            "input": block.get("input", {}),
+        }
+        for block in content_blocks
+        if isinstance(block, dict) and block.get("type") == "tool_use"
+    ] or None
 
     common_chat_logic(
         scope,
