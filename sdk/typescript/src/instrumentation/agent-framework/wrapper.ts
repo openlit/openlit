@@ -2,8 +2,7 @@
  * Microsoft Agent Framework span wrappers.
  *
  * Emits OTel GenAI semantic-convention compliant spans:
- *   create_agent     — Agent construction
- *   invoke_agent     — Agent.run
+ *   invoke_agent     — Agent.run (emits create_agent on first call)
  *   execute_tool     — FunctionTool.invoke
  *   invoke_workflow  — Workflow.run
  *
@@ -18,7 +17,7 @@ import OpenLitHelper from '../../helpers';
 import { applyCustomSpanAttributes } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 
-const AI_SYSTEM = 'agent_framework';
+const AI_SYSTEM = SemanticConvention.GEN_AI_SYSTEM_AGENT_FRAMEWORK;
 
 // Thread-safe agent creation registry (maps agent name -> SpanContext)
 const agentRegistry = new Map<string, SpanContext>();
@@ -44,20 +43,6 @@ function resolveModel(instance: any): string | undefined {
 }
 
 class AgentFrameworkWrapper {
-  /**
-   * Patch Agent class to emit create_agent spans on construction.
-   * We mark the prototype with a sentinel so we only patch once.
-   */
-  static patchAgentInit(AgentClass: any, _tracer: Tracer): void {
-    try {
-      AgentClass.prototype.__openlit_af_init_patched = true;
-      // Emit the create_agent span lazily on first invoke_agent instead of
-      // intercepting the constructor (which is complex in JS). The registry-based
-      // approach is used: the first time Agent.run is called, a create_agent span
-      // is emitted if not already registered.
-    } catch { /* ignore */ }
-  }
-
   static patchAgentRun(tracer: Tracer): any {
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {

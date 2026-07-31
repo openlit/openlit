@@ -2,9 +2,8 @@
  * OpenLIT Microsoft Agent Framework Instrumentation
  *
  * Provides auto-instrumentation for the Microsoft Agent Framework
- * (`agent-framework` npm package):
- * - Agent.__init__     -> create_agent spans
- * - Agent.run          -> invoke_agent spans
+ * (`@microsoft/agent-framework` npm package):
+ * - Agent.run          -> invoke_agent spans (emits create_agent on first call)
  * - FunctionTool.invoke -> execute_tool spans
  * - Workflow.run       -> invoke_workflow spans
  *
@@ -30,7 +29,7 @@ export default class AgentFrameworkInstrumentation extends InstrumentationBase {
 
   protected init(): InstrumentationModuleDefinition | InstrumentationModuleDefinition[] | void {
     return new InstrumentationNodeModuleDefinition(
-      'agent-framework',
+      '@microsoft/agent-framework',
       SUPPORTED_VERSIONS,
       (moduleExports: any) => {
         this._patch(moduleExports);
@@ -54,15 +53,10 @@ export default class AgentFrameworkInstrumentation extends InstrumentationBase {
       // Patch Agent
       const Agent = moduleExports?.Agent ?? moduleExports?.agents?.Agent;
       if (Agent?.prototype) {
-        // invoke_agent: Agent.run
+        // invoke_agent: wrap run (create_agent emitted lazily on first call)
         if (typeof Agent.prototype.run === 'function') {
           if (isWrapped(Agent.prototype.run)) this._unwrap(Agent.prototype, 'run');
           this._wrap(Agent.prototype, 'run', AgentFrameworkWrapper.patchAgentRun(tracer));
-        }
-
-        // create_agent: Agent.__init__ — attempted via constructor wrapping
-        if (!Agent.prototype.__openlit_af_init_patched) {
-          AgentFrameworkWrapper.patchAgentInit(Agent, tracer);
         }
       }
 
