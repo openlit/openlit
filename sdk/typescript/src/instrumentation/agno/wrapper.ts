@@ -2,10 +2,9 @@
  * Agno framework span wrappers.
  *
  * Emits OTel GenAI semantic-convention compliant spans:
- *   create_agent  — Agent construction
- *   invoke_agent  — Agent.run / Agent.arun
+ *   invoke_agent    — Agent.run / Agent.arun (emits create_agent on first call)
  *   invoke_workflow — Team.run / Team.arun
- *   execute_tool  — FunctionCall.execute / FunctionCall.aexecute
+ *   execute_tool    — FunctionCall.execute / FunctionCall.aexecute
  *
  * Mirrors: sdk/python/src/openlit/instrumentation/agno/agno.py
  */
@@ -18,7 +17,7 @@ import OpenLitHelper from '../../helpers';
 import { applyCustomSpanAttributes } from '../../helpers';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
 
-const AI_SYSTEM = 'agno';
+const AI_SYSTEM = SemanticConvention.GEN_AI_SYSTEM_AGNO;
 
 // Registry: agent name -> create_agent span context (for Links on invoke_agent)
 const agentRegistry = new Map<string, SpanContext>();
@@ -50,23 +49,6 @@ function resolveModel(instance: any): string {
 }
 
 class AgnoWrapper {
-  /**
-   * Patch Agent class constructor to emit create_agent spans.
-   * Because ES6 constructors cannot be wrapped via prototype._wrap, we replace
-   * the class with a subclass proxy that emits the span then delegates.
-   */
-  static patchAgentInit(AgentClass: any, _tracer: Tracer): void {
-    try {
-      if (AgentClass.prototype.__openlit_agno_init_patched) return;
-      AgentClass.prototype.__openlit_agno_init_patched = true;
-
-      // We intercept every new Agent() by wrapping the __init__ if it exists,
-      // or by wrapping a sentinel method called post-init.
-      // Since JS constructors can't be easily wrapped via prototype, we store
-      // agent context after first run() call in patchAgentRun instead.
-    } catch { /* ignore */ }
-  }
-
   static patchAgentRun(tracer: Tracer): any {
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {

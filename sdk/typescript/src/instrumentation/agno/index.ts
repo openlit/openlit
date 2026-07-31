@@ -2,8 +2,7 @@
  * OpenLIT Agno Framework Instrumentation
  *
  * Provides auto-instrumentation for the Agno agent framework (`agno` npm package):
- * - Agent construction   (Agent.__init__  -> create_agent spans)
- * - Agent execution      (Agent.run / arun -> invoke_agent spans)
+ * - Agent execution      (Agent.run / arun -> invoke_agent spans, emits create_agent on first call)
  * - Tool execution       (FunctionCall.execute / aexecute -> execute_tool spans)
  * - Team execution       (Team.run / arun -> invoke_workflow spans)
  *
@@ -53,12 +52,7 @@ export default class AgnoInstrumentation extends InstrumentationBase {
       // Patch Agent
       const Agent = moduleExports?.Agent ?? moduleExports?.agent?.Agent;
       if (Agent?.prototype) {
-        // create_agent: wrap constructor
-        if (!Agent.prototype.__openlit_agno_init_patched) {
-          AgnoWrapper.patchAgentInit(Agent, tracer);
-        }
-
-        // invoke_agent: wrap run
+        // invoke_agent: wrap run (create_agent emitted lazily on first call)
         if (typeof Agent.prototype.run === 'function') {
           if (isWrapped(Agent.prototype.run)) this._unwrap(Agent.prototype, 'run');
           this._wrap(Agent.prototype, 'run', AgnoWrapper.patchAgentRun(tracer));
