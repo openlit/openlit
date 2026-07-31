@@ -30,11 +30,10 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 		}
 	}, [runFilters]);
 
-	// Get widget type icon. Guard against `IconComponent` being undefined —
-	// SUPPORTED_WIDGETS may not have every WidgetType (e.g. dangling
-	// openlit_board_widget refs from a partial seed can surface widgets with
-	// an empty `type`), and rendering <undefined /> crashes the whole board
-	// with React error #130.
+	// Get widget type icon. Guard against a missing icon component —
+	// runtime `widget.type` can be empty/unknown (e.g. legacy dangling
+	// board_widget rows). Rendering <undefined /> crashes the whole
+	// board with React error #130.
 	const WidgetTypeIcon = () => {
 		const IconComponent =
 			SUPPORTED_WIDGETS[widget.type as keyof typeof SUPPORTED_WIDGETS]?.icon;

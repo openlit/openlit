@@ -74,7 +74,10 @@ export async function getWidgetById(id: string) {
 	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
 }
 
-export async function getWidgets(widgetIds?: string[]) {
+export async function getWidgets(
+	widgetIds?: string[],
+	databaseConfigId?: string
+) {
 	let query = "";
 	if (!widgetIds || widgetIds.length === 0) {
 		query = `
@@ -99,7 +102,11 @@ export async function getWidgets(widgetIds?: string[]) {
 		`;
 	}
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
 
 	if (err) {
 		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
@@ -180,7 +187,10 @@ export async function createWidget(widget: Widget, databaseConfigId?: string) {
 	};
 }
 
-export async function updateWidget(widget: Widget) {
+export async function updateWidget(
+	widget: Widget,
+	databaseConfigId?: string
+) {
 	const sanitizedWidget = sanitizeWidget(widget);
 
 	const updateValues = [
@@ -202,7 +212,11 @@ export async function updateWidget(widget: Widget) {
 		WHERE id = '${sanitizedWidget.id}'
 	`;
 
-	const { err, data } = await dataCollector({ query }, "exec");
+	const { err, data } = await dataCollector(
+		{ query },
+		"exec",
+		databaseConfigId
+	);
 
 	if (err || !(data as { query_id: string }).query_id) {
 		return { err: err || getMessage().WIDGET_UPDATE_FAILED };
@@ -211,13 +225,13 @@ export async function updateWidget(widget: Widget) {
 	return { data: getMessage().WIDGET_UPDATED_SUCCESSFULLY };
 }
 
-export function deleteWidget(id: string) {
+export function deleteWidget(id: string, databaseConfigId?: string) {
 	const query = `
 		DELETE FROM ${OPENLIT_WIDGET_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
 
-	return dataCollector({ query }, "exec");
+	return dataCollector({ query }, "exec", databaseConfigId);
 }
 
 function validateQuery(query: string): { valid: boolean; error?: string } {
