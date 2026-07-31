@@ -212,18 +212,16 @@ func TestCursorSessionIDPrefersConversation(t *testing.T) {
 	}
 }
 
-// TestCursorAfterAgentResponsePrefersRealTokens:
-// when Cursor ships input_tokens / output_tokens / cache_* on
-// afterAgentResponse, those counters are authoritative and must beat
-// the char-heuristic estimate derived from `text`.
-func TestCursorAfterAgentResponsePrefersRealTokens(t *testing.T) {
+// TestCursorAfterAgentResponseOmitsTokensEvenWhenPresent:
+// afterAgentResponse is content-only. Token fields on the payload are
+// ignored here so we do not double-count against stop's full-turn
+// counters under the UI sum(child) rollup.
+func TestCursorAfterAgentResponseOmitsTokensEvenWhenPresent(t *testing.T) {
 	withIsolatedCache(t)
 
 	em := &recordingEmitter{}
 	in := inputBuilder(t, em)
 
-	// Long text would estimate to thousands of tokens; real counters
-	// below are tiny so a regression to the heuristic is obvious.
 	longText := strings.Repeat("word ", 2000)
 	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
 		"hook_event_name":    "afterAgentResponse",
@@ -242,35 +240,31 @@ func TestCursorAfterAgentResponsePrefersRealTokens(t *testing.T) {
 		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
 	}
 	got := em.llmTurns[0]
-	if got.InputTokens != 1200 {
-		t.Errorf("InputTokens = %d, want 1200 (real payload)", got.InputTokens)
+	if got.Response == "" {
+		t.Errorf("expected response text to be preserved")
 	}
-	if got.OutputTokens != 340 {
-		t.Errorf("OutputTokens = %d, want 340 (real payload)", got.OutputTokens)
+	if got.InputTokens != 0 || got.OutputTokens != 0 || got.TotalTokens != 0 {
+		t.Errorf("tokens on response turn = in=%d out=%d total=%d; want all 0 (stop owns usage)",
+			got.InputTokens, got.OutputTokens, got.TotalTokens)
 	}
-	if got.CacheReadTokens != 800 {
-		t.Errorf("CacheReadTokens = %d, want 800", got.CacheReadTokens)
+	if got.CacheReadTokens != 0 || got.CacheCreationTokens != 0 {
+		t.Errorf("cache tokens on response turn = read=%d write=%d; want 0",
+			got.CacheReadTokens, got.CacheCreationTokens)
 	}
-	if got.CacheCreationTokens != 100 {
-		t.Errorf("CacheCreationTokens = %d, want 100", got.CacheCreationTokens)
-	}
-	if got.TotalTokens != 1540 {
-		t.Errorf("TotalTokens = %d, want 1540", got.TotalTokens)
-	}
-	if got.CostUSD <= 0 {
-		t.Errorf("CostUSD = %v, want > 0 from real token pricing", got.CostUSD)
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0 (Cursor never sends USD)", got.CostUSD)
 	}
 }
 
-// TestCursorAfterAgentResponseFallsBackToEstimate covers older Cursor
-// builds that omit token fields — we still estimate from response text.
-func TestCursorAfterAgentResponseFallsBackToEstimate(t *testing.T) {
+// TestCursorAfterAgentResponseNoEstimate covers older Cursor builds
+// that omit token fields — we must not invent tokens from text.
+func TestCursorAfterAgentResponseNoEstimate(t *testing.T) {
 	withIsolatedCache(t)
 
 	em := &recordingEmitter{}
 	in := inputBuilder(t, em)
 
-	text := "hello world from cursor" // short, deterministic estimate
+	text := "hello world from cursor"
 	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
 		"hook_event_name": "afterAgentResponse",
 		"conversation_id": "convo-2",
@@ -283,19 +277,17 @@ func TestCursorAfterAgentResponseFallsBackToEstimate(t *testing.T) {
 		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
 	}
 	got := em.llmTurns[0]
-	if got.InputTokens != 0 {
-		t.Errorf("InputTokens = %d, want 0 when no real counters", got.InputTokens)
+	if got.InputTokens != 0 || got.OutputTokens != 0 || got.TotalTokens != 0 {
+		t.Errorf("tokens = in=%d out=%d total=%d; want all 0 when usage absent",
+			got.InputTokens, got.OutputTokens, got.TotalTokens)
 	}
-	if got.OutputTokens <= 0 {
-		t.Errorf("OutputTokens = %d, want estimated > 0", got.OutputTokens)
-	}
-	if got.CacheReadTokens != 0 || got.CacheCreationTokens != 0 {
-		t.Errorf("cache tokens should be 0 on estimate path; got read=%d write=%d",
-			got.CacheReadTokens, got.CacheCreationTokens)
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0", got.CostUSD)
 	}
 }
 
-// TestCursorStopStampsRealTokenAttrs ensures stop surfaces token counters on the loop event.
+// TestCursorStopStampsRealTokenAttrs ensures stop surfaces token
+// counters on the loop event and never invents USD cost.
 func TestCursorStopStampsRealTokenAttrs(t *testing.T) {
 	withIsolatedCache(t)
 
@@ -328,8 +320,67 @@ func TestCursorStopStampsRealTokenAttrs(t *testing.T) {
 	if attrs["gen_ai.usage.cache.read_input_tokens"] != int64(200) {
 		t.Errorf("cache read attr = %v, want 200", attrs["gen_ai.usage.cache.read_input_tokens"])
 	}
-	if attrs["gen_ai.usage.cost"] == nil {
-		t.Errorf("expected gen_ai.usage.cost on stop when model + tokens present")
+	if attrs["gen_ai.usage.cache.creation_input_tokens"] != int64(50) {
+		t.Errorf("cache write attr = %v, want 50", attrs["gen_ai.usage.cache.creation_input_tokens"])
+	}
+	if _, ok := attrs["gen_ai.usage.cost"]; ok {
+		t.Errorf("gen_ai.usage.cost must be absent on Cursor stop; got %v", attrs["gen_ai.usage.cost"])
+	}
+}
+
+// TestCursorStopAccumulatesIntoSessionEnd verifies multiple stop
+// turns sum into session-root token totals with CostUSD left at 0.
+func TestCursorStopAccumulatesIntoSessionEnd(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	stops := []struct {
+		in, out int64
+	}{
+		{500, 100},
+		{800, 200},
+	}
+	for i, s := range stops {
+		if err := handle(context.Background(), in("stop", map[string]any{
+			"hook_event_name": "stop",
+			"conversation_id": "convo-accum",
+			"status":          "completed",
+			"loop_count":      i + 1,
+			"model":           "composer-2.5",
+			"input_tokens":    s.in,
+			"output_tokens":   s.out,
+		})); err != nil {
+			t.Fatalf("stop %d: %v", i, err)
+		}
+	}
+
+	if err := handle(context.Background(), in("sessionEnd", map[string]any{
+		"hook_event_name": "sessionEnd",
+		"conversation_id": "convo-accum",
+		"reason":          "completed",
+		"final_status":    "completed",
+		"duration_ms":     int64(12000),
+		"model":           "composer-2.5",
+	})); err != nil {
+		t.Fatalf("sessionEnd: %v", err)
+	}
+	if len(em.sessions) != 1 {
+		t.Fatalf("expected one session emission; got %d", len(em.sessions))
+	}
+	got := em.sessions[0]
+	if got.InputTokens != 1300 {
+		t.Errorf("InputTokens = %d, want 1300 (500+800)", got.InputTokens)
+	}
+	if got.OutputTokens != 300 {
+		t.Errorf("OutputTokens = %d, want 300 (100+200)", got.OutputTokens)
+	}
+	if got.TotalTokens != 1600 {
+		t.Errorf("TotalTokens = %d, want 1600", got.TotalTokens)
+	}
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0", got.CostUSD)
 	}
 }
 
