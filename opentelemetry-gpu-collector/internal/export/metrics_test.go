@@ -10,16 +10,20 @@ import (
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 )
 
+func (m *mockDevice) Info() gpu.DeviceInfo                     { return m.info }
+func (m *mockDevice) Collect() (*gpu.Snapshot, error)          { return m.snapshot, m.err }
+func (m *mockDevice) CollectProcesses() ([]gpu.ProcessUsage, error) {
+	return m.processes, nil
+}
+func (m *mockDevice) Close() {}
+
 // mockDevice implements gpu.Device for testing without real hardware.
 type mockDevice struct {
-	info     gpu.DeviceInfo
-	snapshot *gpu.Snapshot
-	err      error
+	info      gpu.DeviceInfo
+	snapshot  *gpu.Snapshot
+	processes []gpu.ProcessUsage
+	err       error
 }
-
-func (m *mockDevice) Info() gpu.DeviceInfo    { return m.info }
-func (m *mockDevice) Collect() (*gpu.Snapshot, error) { return m.snapshot, m.err }
-func (m *mockDevice) Close()                  {}
 
 func ptr[T any](v T) *T { return &v }
 
@@ -57,7 +61,7 @@ func TestNewMetricsCollectorRegisters(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, logger)
+	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, logger, nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() error = %v", err)
 	}
@@ -100,6 +104,9 @@ func TestNewMetricsCollectorRegisters(t *testing.T) {
 		"hw.gpu.clock.graphics",
 		"hw.gpu.clock.memory",
 		"hw.errors",
+		"hw.gpu.up",
+		"hw.gpu.allocated",
+		"hw.gpu.idle",
 	}
 	for _, name := range wantMetrics {
 		if !reported[name] {
@@ -108,11 +115,67 @@ func TestNewMetricsCollectorRegisters(t *testing.T) {
 	}
 }
 
+func TestProcessGPUMetrics(t *testing.T) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	defer provider.Shutdown(t.Context())
+
+	mem := int64(1024 * 1024)
+	util := 0.42
+	dev := &mockDevice{
+		info: gpu.DeviceInfo{
+			Vendor:     gpu.VendorNVIDIA,
+			Index:      0,
+			Name:       "Test GPU",
+			UUID:       "GPU-test-uuid-0000",
+			PCIAddress: "0000:01:00.0",
+		},
+		snapshot: &gpu.Snapshot{
+			Utilization: ptr(10.0),
+		},
+		processes: []gpu.ProcessUsage{{
+			PID:            4242,
+			ExecutableName: "python",
+			MemoryBytes:    &mem,
+			Utilization:    &util,
+		}},
+	}
+
+	mc, err := NewMetricsCollector(provider, []gpu.Device{dev}, slog.Default(), nil)
+	if err != nil {
+		t.Fatalf("NewMetricsCollector: %v", err)
+	}
+	defer mc.Close()
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &rm); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+
+	foundMem, foundUtil := false, false
+	for _, sm := range rm.ScopeMetrics {
+		if sm.Scope.Name != "otelcol.gpu.collector" {
+			continue
+		}
+		for _, m := range sm.Metrics {
+			switch m.Name {
+			case "process.gpu.memory.usage":
+				foundMem = true
+			case "process.gpu.utilization":
+				foundUtil = true
+			}
+		}
+	}
+	if !foundMem || !foundUtil {
+		t.Fatalf("process metrics missing: mem=%v util=%v", foundMem, foundUtil)
+	}
+}
+
 func TestNewMetricsCollectorNoDevices(t *testing.T) {
 	provider := metric.NewMeterProvider()
 	defer provider.Shutdown(t.Context())
 
-	mc, err := NewMetricsCollector(provider, nil, slog.Default())
+	mc, err := NewMetricsCollector(provider, nil, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() with no devices error = %v", err)
 	}
@@ -123,7 +186,7 @@ func TestMetricsCollectorCloseIdempotent(t *testing.T) {
 	provider := metric.NewMeterProvider()
 	defer provider.Shutdown(t.Context())
 
-	mc, err := NewMetricsCollector(provider, nil, slog.Default())
+	mc, err := NewMetricsCollector(provider, nil, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewMetricsCollector() error = %v", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/config"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/identity"
 )
 
 type slogErrorHandler struct{ logger *slog.Logger }
@@ -28,10 +29,14 @@ func (h *slogErrorHandler) Handle(err error) {
 func NewMeterProvider(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*metric.MeterProvider, func(), error) {
 	otel.SetErrorHandler(&slogErrorHandler{logger: logger})
 
+	_, identityAttrs := identity.Detect(ctx, logger)
+
 	res, err := resource.New(ctx,
-		resource.WithHost(),
 		resource.WithOS(),
-		resource.WithFromEnv(), // picks up OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME
+		// Auto host.name / k8s.node.name / k8s.cluster.name (Datadog-like detection).
+		resource.WithAttributes(identityAttrs...),
+		// Explicit OTEL_RESOURCE_ATTRIBUTES / OTEL_SERVICE_NAME override auto identity.
+		resource.WithFromEnv(),
 		resource.WithAttributes(
 			attribute.String("service.name", cfg.ServiceName),
 			attribute.String("deployment.environment", cfg.Environment),

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dataCollector } from "@/lib/platform/common";
-import { getDBConfigByIdInternal } from "@/lib/db-config";
-import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
-import asaw from "@/utils/asaw";
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { getPricingExport } from "@/lib/platform/pricing/export";
 
 /**
  * GET /api/pricing/export/[dbConfigId]
@@ -12,94 +11,28 @@ import asaw from "@/utils/asaw";
  * and can be shared / used in SDK init:
  *
  *   openlit.init(pricing_json="http://localhost:3000/api/pricing/export/<dbConfigId>")
+ *
+ * withAudit/withCurrentOrganisationPermission are no-op pass-throughs here;
+ * enterprise editions resolve them to real permission + audit checks.
  */
-export async function GET(
+async function GETHandler(
 	_request: NextRequest,
 	{ params }: { params: { dbConfigId: string } }
 ) {
 	const { dbConfigId } = params;
+	const result = await getPricingExport(dbConfigId);
 
-	if (!dbConfigId) {
-		return NextResponse.json(
-			{ error: "Database config ID is required" },
-			{ status: 400 }
-		);
+	if ("error" in result) {
+		return NextResponse.json({ error: result.error }, { status: result.status });
 	}
 
-	// Validate the dbConfigId exists
-	const [err, dbConfig] = await asaw(getDBConfigByIdInternal({ id: dbConfigId }));
-
-	if (err || !dbConfig?.id) {
-		return NextResponse.json(
-			{ error: "Database config not found" },
-			{ status: 404 }
-		);
-	}
-
-	const query = `
-		SELECT
-			model_id,
-			model_type,
-			input_price_per_m_token as inputPrice,
-			output_price_per_m_token as outputPrice,
-			cache_read_price_per_m_token as cacheReadPrice,
-			cache_creation_price_per_m_token as cacheCreationPrice
-		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
-		ORDER BY model_type, model_id
-	`;
-
-	const { data, err: queryErr } = await dataCollector(
-		{ query },
-		"query",
-		dbConfig.id
-	);
-
-	if (queryErr) {
-		return NextResponse.json(
-			{ error: "Failed to fetch model pricing" },
-			{ status: 500 }
-		);
-	}
-
-	const models = (data as any[]) || [];
-
-	// Build SDK-compatible pricing.json format
-	const pricing: Record<string, any> = {};
-
-	for (const model of models) {
-		const type = model.model_type || "chat";
-		if (!pricing[type]) {
-			pricing[type] = {};
-		}
-
-		if (type === "chat") {
-			const entry: Record<string, number> = {
-				promptPrice: model.inputPrice / 1000,
-				completionPrice: model.outputPrice / 1000,
-			};
-			if (model.cacheReadPrice > 0) {
-				entry.cacheReadPrice = model.cacheReadPrice / 1000;
-			}
-			if (model.cacheCreationPrice > 0) {
-				entry.cacheCreationPrice = model.cacheCreationPrice / 1000;
-			}
-			pricing[type][model.model_id] = entry;
-		} else if (type === "embeddings") {
-			pricing[type][model.model_id] = model.inputPrice / 1000;
-		} else if (type === "audio") {
-			pricing[type][model.model_id] = model.inputPrice / 1000;
-		} else if (type === "images") {
-			pricing[type][model.model_id] = {
-				standard: {
-					"1024x1024": model.inputPrice / 1000,
-				},
-			};
-		}
-	}
-
-	return NextResponse.json(pricing, {
+	return NextResponse.json(result.data, {
 		headers: {
 			"Cache-Control": "public, max-age=300",
 		},
 	});
 }
+
+export const GET = withAudit(
+	withCurrentOrganisationPermission("pricing:export", GETHandler)
+);

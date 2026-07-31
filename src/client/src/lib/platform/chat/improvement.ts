@@ -132,6 +132,7 @@ type TraceAnalysis = {
   token_efficiency: Finding[];
   path_analysis: Finding[];
   prompt_injection: Finding[];
+  tool_misuse: Finding[];
   totals: {
     span_count: number;
     total_tokens: number;

@@ -2,6 +2,7 @@ package hostmetrics
 
 import (
 	"log/slog"
+	"slices"
 	"testing"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -142,6 +143,7 @@ func TestSystemCollectorFSTypeExclude(t *testing.T) {
 	if len(all) == 0 {
 		t.Skip("host reports no system.filesystem.* metrics")
 	}
+	slices.Sort(all)
 
 	// Excluding every reported type must suppress all system.filesystem.* metrics.
 	if got := collect(t, all); len(got) != 0 {
@@ -149,7 +151,9 @@ func TestSystemCollectorFSTypeExclude(t *testing.T) {
 	}
 
 	// Excluding an unknown type must not affect the reported set.
-	if got := collect(t, []string{"no-such-fs"}); len(got) != len(all) {
+	got := collect(t, []string{"no-such-fs"})
+	slices.Sort(got)
+	if !slices.Equal(got, all) {
 		t.Errorf("reported types changed by irrelevant exclusion: got %v, want %v", got, all)
 	}
 }
