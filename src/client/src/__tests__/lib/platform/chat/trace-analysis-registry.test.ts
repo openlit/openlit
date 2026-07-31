@@ -19,6 +19,7 @@ const expectedDimensions = [
 	"token_efficiency",
 	"path_analysis",
 	"prompt_injection",
+	"tool_misuse",
 ];
 
 const expectedUiLabels = {
@@ -29,6 +30,7 @@ const expectedUiLabels = {
 	token_efficiency: "Token efficiency",
 	path_analysis: "Path",
 	prompt_injection: messages.TRACE_AI_PROMPT_INJECTION_UI_LABEL,
+	tool_misuse: messages.TRACE_AI_TOOL_MISUSE_UI_LABEL,
 };
 
 const expectedStreamLabels = {
@@ -39,11 +41,12 @@ const expectedStreamLabels = {
 	token_efficiency: "Token efficiency",
 	path_analysis: "Path analysis",
 	prompt_injection: messages.TRACE_AI_PROMPT_INJECTION_STREAM_LABEL,
+	tool_misuse: messages.TRACE_AI_TOOL_MISUSE_STREAM_LABEL,
 };
 
 describe("trace analysis dimension registry", () => {
-	it("keeps the six existing dimensions in order and appends prompt injection", () => {
-		expect(TRACE_ANALYSIS_DIMENSION_DEFINITIONS).toHaveLength(7);
+	it("keeps the existing dimensions in order and appends tool misuse", () => {
+		expect(TRACE_ANALYSIS_DIMENSION_DEFINITIONS).toHaveLength(8);
 		expect(TRACE_ANALYSIS_DIMENSION_DEFINITIONS.map(({ key }) => key)).toEqual(
 			expectedDimensions
 		);
@@ -108,6 +111,47 @@ describe("trace analysis dimension registry", () => {
 				"toolResult",
 			],
 			metricFields: [],
+		});
+		for (const value of [
+			definition.uiLabel,
+			definition.streamLabel,
+			definition.guidance,
+			definition.emptyStateCopy.summary,
+			definition.emptyStateCopy.detail,
+		]) {
+			expect(value.trim()).not.toBe("");
+		}
+	});
+
+	it("defines a complete tool-misuse dimension through the registry contract", () => {
+		const definition = TRACE_ANALYSIS_DIMENSION_REGISTRY.tool_misuse;
+
+		expect(definition).toMatchObject({
+			key: "tool_misuse",
+			uiLabel: messages.TRACE_AI_TOOL_MISUSE_UI_LABEL,
+			streamLabel: messages.TRACE_AI_TOOL_MISUSE_STREAM_LABEL,
+			guidance: messages.TRACE_AI_TOOL_MISUSE_GUIDANCE,
+			emptyStateCopy: {
+				summary: messages.TRACE_AI_TOOL_MISUSE_EMPTY_SUMMARY,
+				detail: messages.TRACE_AI_TOOL_MISUSE_EMPTY_DETAIL,
+			},
+			spanFields: [
+				"toolName",
+				"toolCallId",
+				"toolArgs",
+				"toolResult",
+				"systemPrompt",
+				"prompt",
+				"response",
+			],
+			metricFields: [
+				"toolCallCount",
+				"toolsUsed",
+				"duplicateToolInputs",
+				"repeatedSpanNames",
+				"potentialRetrySequences",
+				"errorCount",
+			],
 		});
 		for (const value of [
 			definition.uiLabel,
@@ -198,6 +242,76 @@ describe("trace analysis dimension registry", () => {
 		);
 	});
 
+	it("projects tool-call context and sequence metrics through the existing selectors", () => {
+		const toolBearingSpan = {
+			spanId: "tool-call-span",
+			spanName: "agent.tool-call",
+			role: "assistant",
+			statusCode: "STATUS_CODE_ERROR",
+			statusMessage: "unexpected tool sequence",
+			durationMs: 12,
+			systemPrompt: "Use tools only to answer the current request.",
+			prompt: "Check the account balance without making changes.",
+			response: "The account balance is available.",
+			toolName: "payments.refund",
+			toolCallId: "call-tool-misuse",
+			toolArgs: '{"chargeId":"charge-123"}',
+			toolResult: '{"status":"refunded"}',
+			children: [],
+		};
+
+		expect(selectTraceAnalysisSpan(toolBearingSpan, "tool_misuse")).toEqual({
+			spanId: "tool-call-span",
+			spanName: "agent.tool-call",
+			role: "assistant",
+			statusCode: "STATUS_CODE_ERROR",
+			statusMessage: "unexpected tool sequence",
+			durationMs: 12,
+			error: undefined,
+			children: [],
+			toolName: "payments.refund",
+			toolCallId: "call-tool-misuse",
+			toolArgs: '{"chargeId":"charge-123"}',
+			toolResult: '{"status":"refunded"}',
+			systemPrompt: "Use tools only to answer the current request.",
+			prompt: "Check the account balance without making changes.",
+			response: "The account balance is available.",
+		});
+
+		const metrics = {
+			spanCount: 3,
+			maxDepth: 2,
+			errorCount: 1,
+			llmCallCount: 1,
+			toolCallCount: 2,
+			retrievalCallCount: 0,
+			modelsUsed: ["gpt-4o-mini"],
+			toolsUsed: ["accounts.balance", "payments.refund"],
+			duplicateToolInputs: [
+				{
+					key: 'payments.refund:{"chargeId":"charge-123"}',
+					count: 2,
+					spanIds: ["tool-call-span", "retry-span"],
+				},
+			],
+			repeatedSpanNames: [
+				{
+					name: "tool.payments.refund",
+					count: 2,
+					spanIds: ["tool-call-span", "retry-span"],
+				},
+			],
+			potentialRetrySequences: [
+				{
+					reason: "same tool followed the balance lookup",
+					spanIds: ["tool-call-span", "retry-span"],
+				},
+			],
+		};
+
+		expect(selectTraceAnalysisMetrics(metrics, "tool_misuse")).toEqual(metrics);
+	});
+
 	it("leaves missing prompt-injection span fields undefined like other dimensions", () => {
 		const selected = selectTraceAnalysisSpan(
 			{
@@ -222,6 +336,48 @@ describe("trace analysis dimension registry", () => {
 		});
 	});
 
+	it("leaves missing tool-misuse evidence undefined like other dimensions", () => {
+		const selectedSpan = selectTraceAnalysisSpan(
+			{
+				spanId: "missing-tool-content",
+				spanName: "agent.empty",
+				durationMs: 1,
+				children: [],
+			},
+			"tool_misuse"
+		);
+		const selectedMetrics = selectTraceAnalysisMetrics(
+			{
+				spanCount: 1,
+				maxDepth: 1,
+				errorCount: 0,
+				llmCallCount: 1,
+				toolCallCount: 0,
+				retrievalCallCount: 0,
+				modelsUsed: ["gpt-4o-mini"],
+				toolsUsed: [],
+			},
+			"tool_misuse"
+		);
+
+		expect(selectedSpan).toMatchObject({
+			spanId: "missing-tool-content",
+			spanName: "agent.empty",
+			toolName: undefined,
+			toolCallId: undefined,
+			toolArgs: undefined,
+			toolResult: undefined,
+			systemPrompt: undefined,
+			prompt: undefined,
+			response: undefined,
+		});
+		expect(selectedMetrics).toMatchObject({
+			duplicateToolInputs: undefined,
+			repeatedSpanNames: undefined,
+			potentialRetrySequences: undefined,
+		});
+	});
+
 	it("exports every prompt-injection copy key from en.ts", () => {
 		const messageTable = messages as Record<string, unknown>;
 		for (const key of [
@@ -230,6 +386,20 @@ describe("trace analysis dimension registry", () => {
 			"TRACE_AI_PROMPT_INJECTION_GUIDANCE",
 			"TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY",
 			"TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL",
+		]) {
+			expect(messageTable[key]).toEqual(expect.any(String));
+			expect((messageTable[key] as string).trim()).not.toBe("");
+		}
+	});
+
+	it("exports every tool-misuse copy key from en.ts", () => {
+		const messageTable = messages as Record<string, unknown>;
+		for (const key of [
+			"TRACE_AI_TOOL_MISUSE_UI_LABEL",
+			"TRACE_AI_TOOL_MISUSE_STREAM_LABEL",
+			"TRACE_AI_TOOL_MISUSE_GUIDANCE",
+			"TRACE_AI_TOOL_MISUSE_EMPTY_SUMMARY",
+			"TRACE_AI_TOOL_MISUSE_EMPTY_DETAIL",
 		]) {
 			expect(messageTable[key]).toEqual(expect.any(String));
 			expect((messageTable[key] as string).trim()).not.toBe("");

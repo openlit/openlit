@@ -275,6 +275,16 @@ func (em *EBPFMetrics) activityAttrs(pid, tid uint32, extra ...attribute.KeyValu
 	return metric.WithAttributes(attrs...)
 }
 
+func kernelMetricName(e *gpuebpf.KernelLaunchEvent) string {
+	if e.KernelName != "" {
+		return e.KernelName
+	}
+	// Keep metric cardinality stable when an executable is stripped or
+	// otherwise unavailable. Raw ASLR addresses create new series after every
+	// process restart.
+	return "unknown"
+}
+
 // HandleEvent processes a single CUDA event and records it as OTel metrics.
 func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 	ctx := context.Background()
@@ -286,10 +296,7 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		}
 
 	case *gpuebpf.KernelLaunchEvent:
-		kernelName := e.KernelName
-		if kernelName == "" {
-			kernelName = fmt.Sprintf("0x%x", e.KernelAddr)
-		}
+		kernelName := kernelMetricName(e)
 		attrs := em.activityAttrs(e.PID, e.TID, attribute.String("cuda.kernel.name", kernelName))
 
 		em.kernelLaunchCalls.Add(ctx, 1, attrs)
