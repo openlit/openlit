@@ -37,6 +37,36 @@ struct {
     __type(value, __u64);
 } cuda_malloc_size_cache SEC(".maps");
 
+// CUDA 13 lazily converts the ELF host-function pointer into an opaque
+// cudaKernel_t via __cudaGetKernel, then passes that handle to
+// cudaLaunchKernel. Retain the relationship so userspace can still resolve a
+// stable, human-readable ELF symbol. Older CUDA versions continue to pass the
+// host-function pointer directly and do not use these maps.
+struct cuda_get_kernel_args_t {
+    __u64 out_ptr;
+    __u64 host_func;
+};
+
+struct cuda_kernel_handle_key_t {
+    __u32 pid;
+    __u32 pad;
+    __u64 handle;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u64);
+    __type(value, struct cuda_get_kernel_args_t);
+} cuda_get_kernel_cache SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, struct cuda_kernel_handle_key_t);
+    __type(value, __u64);
+} cuda_kernel_handles SEC(".maps");
+
 static __always_inline void fill_header(struct cuda_event_header_t *hdr, __u8 type, __u64 stream_id) {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     hdr->type = type;
@@ -62,21 +92,24 @@ int handle_cuda_launch(struct pt_regs *ctx) {
     __u32 shared = 0;
 
 #if defined(__TARGET_ARCH_x86)
-    // After dim3 packing: r8=args, r9=sharedMem, stream on stack at SP+8.
-    // Read r9 directly — PT_REGS_PARM6 can fail to inline with some libbpf
-    // headers and surfaces as "unsatisfied program reference" at load time.
-    shared = (__u32)ctx->r9;
-    bpf_probe_read_user(&stream, sizeof(stream), (void *)(ctx->sp + 8));
-
+    // SysV AMD64 splits each 12-byte dim3 aggregate into two eightbytes:
+    // rdi=func, rsi/rdx=gridDim, rcx/r8=blockDim, r9=args,
+    // [sp+8]=sharedMem, [sp+16]=stream.
     __u64 grid_xy = PT_REGS_PARM2(ctx);
+    __u64 grid_z = PT_REGS_PARM3(ctx);
+    __u64 block_xy = PT_REGS_PARM4(ctx);
+    __u64 block_z = PT_REGS_PARM5(ctx);
+    __u64 shared64 = 0;
+    bpf_probe_read_user(&shared64, sizeof(shared64), (void *)(ctx->sp + 8));
+    bpf_probe_read_user(&stream, sizeof(stream), (void *)(ctx->sp + 16));
+    shared = (__u32)shared64;
+
     ev->grid_x = grid_xy & 0xFFFFFFFF;
     ev->grid_y = grid_xy >> 32;
-    __u64 grid_z_block_x = PT_REGS_PARM3(ctx);
-    ev->grid_z  = grid_z_block_x & 0xFFFFFFFF;
-    ev->block_x = grid_z_block_x >> 32;
-    __u64 block_yz = PT_REGS_PARM4(ctx);
-    ev->block_y = block_yz & 0xFFFFFFFF;
-    ev->block_z = block_yz >> 32;
+    ev->grid_z = grid_z & 0xFFFFFFFF;
+    ev->block_x = block_xy & 0xFFFFFFFF;
+    ev->block_y = block_xy >> 32;
+    ev->block_z = block_z & 0xFFFFFFFF;
 #elif defined(__TARGET_ARCH_arm64)
     // AAPCS64: func=x0, grid=x1/x2, block=x3/x4, args=x5, shared=x6, stream=x7
     {
@@ -98,11 +131,55 @@ int handle_cuda_launch(struct pt_regs *ctx) {
 #endif
 
     fill_header(&ev->hdr, EVENT_GPU_KERNEL_LAUNCH, stream);
-    ev->kern_func_off = PT_REGS_PARM1(ctx);
+    __u64 kernel = PT_REGS_PARM1(ctx);
+    struct cuda_kernel_handle_key_t kernel_key = {
+        .pid = ev->hdr.pid,
+        .pad = 0,
+        .handle = kernel,
+    };
+    __u64 *host_func = bpf_map_lookup_elem(&cuda_kernel_handles, &kernel_key);
+    ev->kern_func_off = host_func ? *host_func : kernel;
     ev->shared_mem_bytes = shared;
     ev->pad = 0;
 
     bpf_ringbuf_submit(ev, 0);
+    return 0;
+}
+
+SEC("uprobe/__cudaGetKernel")
+int handle_cuda_get_kernel_enter(struct pt_regs *ctx) {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct cuda_get_kernel_args_t args = {
+        .out_ptr = PT_REGS_PARM1(ctx),
+        .host_func = PT_REGS_PARM2(ctx),
+    };
+    bpf_map_update_elem(&cuda_get_kernel_cache, &pid_tgid, &args, BPF_ANY);
+    return 0;
+}
+
+SEC("uretprobe/__cudaGetKernel")
+int handle_cuda_get_kernel_exit(struct pt_regs *ctx) {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct cuda_get_kernel_args_t *args =
+        bpf_map_lookup_elem(&cuda_get_kernel_cache, &pid_tgid);
+    if (!args)
+        return 0;
+
+    // cudaSuccess is zero. On success, *out_ptr contains the opaque handle
+    // subsequently supplied as cudaLaunchKernel's first argument.
+    if ((__s64)PT_REGS_RC(ctx) == 0 && args->out_ptr && args->host_func) {
+        __u64 handle = 0;
+        if (bpf_probe_read_user(&handle, sizeof(handle), (void *)args->out_ptr) == 0 && handle) {
+            struct cuda_kernel_handle_key_t key = {
+                .pid = pid_tgid >> 32,
+                .pad = 0,
+                .handle = handle,
+            };
+            bpf_map_update_elem(&cuda_kernel_handles, &key, &args->host_func, BPF_ANY);
+        }
+    }
+
+    bpf_map_delete_elem(&cuda_get_kernel_cache, &pid_tgid);
     return 0;
 }
 

@@ -1879,11 +1879,11 @@ export const TRACE_AI_STRENGTHS_EMPTY_DETAIL =
 export const TRACE_AI_IMPROVEMENTS_UI_LABEL = "Improvements";
 export const TRACE_AI_IMPROVEMENTS_STREAM_LABEL = "Improvements";
 export const TRACE_AI_IMPROVEMENTS_GUIDANCE =
-	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, path_analysis, or prompt_injection. Avoid generic advice; cite spans.";
+	"Find concrete general improvements that do not belong in cost, token_efficiency, wrong_turns, path_analysis, prompt_injection, or tool_misuse. Avoid generic advice; cite spans.";
 export const TRACE_AI_IMPROVEMENTS_EMPTY_SUMMARY =
 	"No general improvements are required right now.";
 export const TRACE_AI_IMPROVEMENTS_EMPTY_DETAIL =
-	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, wrong-turn, or prompt-injection categories.";
+	"The trace did not show a broad improvement opportunity outside the more specific cost, token, path, wrong-turn, prompt-injection, or tool-misuse categories.";
 export const TRACE_AI_WRONG_TURNS_UI_LABEL = "Wrong turns";
 export const TRACE_AI_WRONG_TURNS_STREAM_LABEL = "Wrong turns";
 export const TRACE_AI_WRONG_TURNS_GUIDANCE =
@@ -1924,6 +1924,14 @@ export const TRACE_AI_PROMPT_INJECTION_EMPTY_SUMMARY =
 	"No prompt-injection or jailbreak evidence was surfaced.";
 export const TRACE_AI_PROMPT_INJECTION_EMPTY_DETAIL =
 	"The analysis did not surface explicit instruction-override, role-confusion, or jailbreak-framing evidence in the selected span content. This does not establish that the trace is safe.";
+export const TRACE_AI_TOOL_MISUSE_UI_LABEL = "Tool misuse";
+export const TRACE_AI_TOOL_MISUSE_STREAM_LABEL = "Tool misuse";
+export const TRACE_AI_TOOL_MISUSE_GUIDANCE =
+	"Flag tool calls whose arguments or sequence diverge from the intent of the surrounding chat context. Cite the relevant spans and describe only the observed evidence; this is trace-review guidance, not a runtime guardrail.";
+export const TRACE_AI_TOOL_MISUSE_EMPTY_SUMMARY =
+	"No tool-misuse evidence was surfaced.";
+export const TRACE_AI_TOOL_MISUSE_EMPTY_DETAIL =
+	"The analysis did not surface tool-call arguments or sequences that diverged from the intent of the surrounding chat context. This does not establish that the trace is safe.";
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;

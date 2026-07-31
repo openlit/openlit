@@ -213,7 +213,23 @@ def set_mem0_span_attributes(
 
 
 def _set_operation_attributes(span, operation_name: str, ctx: Mem0Context):
-    """Set operation-specific attributes efficiently."""
+    """Set operation-specific span attributes based on the mem0 operation.
+
+    Inspects ``operation_name`` and adds attributes that are only meaningful
+    for a given operation:
+
+    - add: ``gen_ai.memory.infer`` (when provided) and
+      ``gen_ai.memory.count`` (number of input messages).
+    - search: ``gen_ai.memory.search.query``, ``gen_ai.memory.search.limit``,
+      and ``gen_ai.memory.search.threshold`` when present in the call kwargs.
+    - update / delete / get: the target memory id under the corresponding
+      ``db.*.id`` attribute.
+
+    Args:
+        span: The OpenTelemetry span to annotate.
+        operation_name: The mem0 operation/endpoint name (e.g. ``memory add``).
+        ctx: The :class:`Mem0Context` carrying the call args/kwargs.
+    """
     if "add" in operation_name:
         if "infer" in ctx.kwargs:
             span.set_attribute(
@@ -257,7 +273,18 @@ def _set_operation_attributes(span, operation_name: str, ctx: Mem0Context):
 
 
 def _set_response_attributes(span, response: Any):
-    """Set response attributes for business intelligence."""
+    """Record result-count attributes derived from a mem0 response.
+
+    Normalizes the various response shapes mem0 can return (list/tuple, a
+    dict with a ``results`` key, or a scalar) into a single result count and
+    sets ``gen_ai.memory.operation.result_count`` and ``gen_ai.data.sources``.
+    A falsy response is ignored, and any error while measuring is swallowed so
+    instrumentation never breaks the wrapped call.
+
+    Args:
+        span: The OpenTelemetry span to annotate.
+        response: The value returned by the wrapped mem0 method.
+    """
     if not response:
         return
 
@@ -280,7 +307,21 @@ def _set_response_attributes(span, response: Any):
 def set_mem0_content_attributes(
     span, operation_name: str, ctx: Mem0Context, response: Any, capture_content: bool
 ):
-    """Set content attributes if enabled."""
+    """Capture raw input/output content on the span when enabled.
+
+    When ``capture_content`` is true, records the memory operation's payload as
+    span attributes: input messages (``gen_ai.input.messages``) for ``add``
+    operations and search results (``gen_ai.output.messages``) for ``search``
+    operations. Content is JSON-encoded when possible, otherwise stringified.
+    Does nothing when content capture is disabled, and never raises.
+
+    Args:
+        span: The OpenTelemetry span to annotate.
+        operation_name: The mem0 operation/endpoint name (e.g. ``memory add``).
+        ctx: The :class:`Mem0Context` carrying the input messages.
+        response: The value returned by the wrapped mem0 method.
+        capture_content: When ``False``, this function is a no-op.
+    """
     if not capture_content:
         return
 

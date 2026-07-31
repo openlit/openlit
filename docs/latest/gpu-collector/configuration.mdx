@@ -18,6 +18,7 @@ The collector is configured entirely via environment variables. All variables fo
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds**. For self-hosted LLM hosts, `15000` is recommended |
 | `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
 | `OPENLIT_HOST_METRICS` | `true` | Collect system + collector-process host metrics. Set `false` for a GPU-only light footprint |
+| `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). Default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts). Set to an empty string to report all types |
 | `OTEL_GPU_PROCESS_CMDLINE` | `true` | Export truncated `process.command_line` on GPU process metrics |
 | `OTEL_GPU_PROCESS_CMDLINE_MAX_LEN` | `512` | Max characters for `process.command_line` |
 | `OTEL_GPU_ALLOCATED_UTIL_THRESHOLD` | `0.05` | Util threshold (0–1) used with process memory for `hw.gpu.allocated` |

@@ -468,7 +468,7 @@ describe("streamTraceImprovementAnalysis", () => {
 		expect(streamText).not.toHaveBeenCalled();
 	});
 
-	it("streams seven dimension analyses with grader passes, saves the run, and emits done data", async () => {
+	it("streams eight dimension analyses with grader passes, saves the run, and emits done data", async () => {
 		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
 			record: hierarchy,
 			err: null,
@@ -486,7 +486,7 @@ describe("streamTraceImprovementAnalysis", () => {
 		const doneEvent = events.find((event) => event.type === "done");
 		const insertValues = (dataCollector as jest.Mock).mock.calls[1][0].values[0];
 
-		expect(streamText).toHaveBeenCalledTimes(14);
+		expect(streamText).toHaveBeenCalledTimes(16);
 		expect(getModelInstance).toHaveBeenCalledWith("openai", "sk-test", "gpt-4o-mini");
 		expect(dimensionEvents.map((event) => event.dimension)).toEqual([
 			"strengths",
@@ -496,6 +496,7 @@ describe("streamTraceImprovementAnalysis", () => {
 			"token_efficiency",
 			"path_analysis",
 			"prompt_injection",
+			"tool_misuse",
 		]);
 		expect(dimensionEvents[0].findings[0]).toEqual(
 			expect.objectContaining({
@@ -507,8 +508,8 @@ describe("streamTraceImprovementAnalysis", () => {
 		expect(insertValues.root_span_id).toBe("root-span");
 		expect(insertValues.selected_span_id).toBe("llm-span");
 		expect(insertValues.analysis_type).toBe("trace_analysis");
-		expect(insertValues.prompt_tokens).toBe(140);
-		expect(insertValues.completion_tokens).toBe(28);
+		expect(insertValues.prompt_tokens).toBe(160);
+		expect(insertValues.completion_tokens).toBe(32);
 		expect(JSON.parse(insertValues.analysis_json).totals).toEqual({
 			span_count: 3,
 			total_tokens: 170,
