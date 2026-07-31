@@ -31,7 +31,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-feature-banner.png?raw=true)
 
-- 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
+- 📈 **Analytics Dashboard**: Monitor your AI application's and GPUs health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
 - 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs (Python, TypeScript, Go) to send traces and metrics to your existing observability tools.
 

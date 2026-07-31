@@ -119,8 +119,8 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
-          # Linux ships NVML via go-nvml (cgo+dlopen); darwin/windows have no
-          # NVML at all and fall through to the stub, so CGO is unnecessary.
+          # Linux ships NVML via go-nvml (cgo+dlopen). Windows uses cgo-free
+          # LoadLibrary(nvml.dll) + DXGI/PDH. Darwin has no GPU backends.
           CGO_ENABLED: ${{ matrix.goos == 'linux' && '1' || '0' }}
           CC: ${{ (matrix.goos == 'linux' && matrix.goarch == 'arm64') && 'aarch64-linux-gnu-gcc' || '' }}
         run: |
