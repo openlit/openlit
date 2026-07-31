@@ -162,6 +162,8 @@ func (sr *SymbolResolver) loadSymbolsForAddress(pid uint32, addr uint64) ([]symb
 			continue
 		}
 		mapped := addressRange{start: mapping.start, end: mapping.end}
+		// Non-executable / anonymous mappings are a permanent miss for symbol
+		// resolution — cache the range so we do not re-parse maps every launch.
 		if !strings.Contains(mapping.perms, "x") || mapping.path == "" || mapping.path[0] != '/' {
 			return nil, mapped, true
 		}
@@ -169,9 +171,16 @@ func (sr *SymbolResolver) loadSymbolsForAddress(pid uint32, addr uint64) ([]symb
 		// Prefer the file as seen by the target process (other mount namespaces).
 		libPath := resolveMappedLib(int(pid), mapping.addrRange, mapping.path)
 		if libPath == "" {
-			return nil, mapped, true
+			// Transient: mount-namespace view or path may appear on a later launch.
+			return nil, addressRange{}, false
 		}
-		return loadELFSymbols(libPath, mapping.start, mapping.offset), mapped, true
+		entries, ok := loadELFSymbols(libPath, mapping.start, mapping.offset)
+		if !ok {
+			// Transient: ELF open / PT_LOAD bias failed; retry on the next resolve.
+			return nil, addressRange{}, false
+		}
+		// Successful parse (possibly zero symbols for a stripped binary).
+		return entries, mapped, true
 	}
 
 	return nil, addressRange{}, false
@@ -211,19 +220,23 @@ func parseProcMapEntry(line string) (procMapEntry, bool) {
 	}, true
 }
 
-func loadELFSymbols(path string, mapStart, mapOffset uint64) []symbolEntry {
+// loadELFSymbols parses function symbols from path. ok is false when the ELF
+// cannot be opened or no PT_LOAD segment matches the mapping (caller must not
+// cache that as a permanent miss). ok is true with a possibly empty slice when
+// the ELF was parsed successfully (e.g. stripped binary with no STT_FUNC).
+func loadELFSymbols(path string, mapStart, mapOffset uint64) ([]symbolEntry, bool) {
 	f, err := elf.Open(path)
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	defer f.Close()
 
 	loadBias, ok := elfLoadBias(f, mapStart, mapOffset)
 	if !ok {
-		return nil
+		return nil, false
 	}
 
-	var entries []symbolEntry
+	entries := make([]symbolEntry, 0)
 	seen := make(map[string]struct{})
 
 	// Try .symtab first, then .dynsym
@@ -252,7 +265,7 @@ func loadELFSymbols(path string, mapStart, mapOffset uint64) []symbolEntry {
 		}
 	}
 
-	return entries
+	return entries, true
 }
 
 func elfLoadBias(f *elf.File, mapStart, mapOffset uint64) (uint64, bool) {

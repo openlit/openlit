@@ -128,3 +128,28 @@ func TestResolverMissDoesNotReturnASLRAddress(t *testing.T) {
 		t.Fatalf("Resolve miss = %q, want empty stable fallback", got)
 	}
 }
+
+func TestLoadELFSymbolsMissingFileIsTransient(t *testing.T) {
+	entries, ok := loadELFSymbols("/nonexistent/openlit-cuda-stub", 0x1000, 0)
+	if ok || entries != nil {
+		t.Fatalf("loadELFSymbols(missing) = %v, %v; want nil, false", entries, ok)
+	}
+}
+
+func TestResolveDoesNotCacheTransientMapMiss(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver := NewSymbolResolver(logger)
+	pid := ^uint32(0)
+	addr := uint64(0xdeadbeef)
+
+	if got := resolver.Resolve(pid, addr); got != "" {
+		t.Fatalf("Resolve() = %q, want empty", got)
+	}
+
+	resolver.mu.RLock()
+	st := resolver.cache[pid]
+	resolver.mu.RUnlock()
+	if st != nil && st.covers(addr) {
+		t.Fatal("transient /proc maps miss must not mark the address range as covered")
+	}
+}
