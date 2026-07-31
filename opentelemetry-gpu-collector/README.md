@@ -272,12 +272,14 @@ On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/ma
 
 Attaches uprobes/uretprobes to `libcudart.so*` to intercept:
 - `cudaLaunchKernel` — kernel name, grid/block dimensions, stream, shared mem
+- `__cudaGetKernel` (CUDA 13+) — maps opaque `cudaKernel_t` handles back to ELF host functions for stable kernel names
 - `cudaMalloc` / `cudaFree` — allocation size
 - `cudaMemcpy` / `cudaMemcpyAsync` — sync memcpy closes device-wide spans; async records bytes
 - `cudaStreamSynchronize` / `cudaDeviceSynchronize` — stream-sync occupancy spans
 - `cudaSetDevice` — per-thread device attribution
 
 Events flow through a BPF ring buffer to Go userspace. Activity counters export with `process.pid`; the stream-sync occupancy engine emits `process.gpu.core.usage` / `process.gpu.sm_active` (model estimates, not hardware SM occupancy).
+Kernel symbols are resolved from the target process's executable mappings with PIE/ASLR load bias applied. Unresolvable symbols use the bounded `unknown` label rather than process-specific virtual addresses.
 
 ## Contributing
 
