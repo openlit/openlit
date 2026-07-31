@@ -325,6 +325,7 @@ def test_build_output_messages_parses_streamed_json_strings():
 
 
 def test_build_output_messages_accepts_legacy_single_dict():
+    """A single tool-call dict (pre-list shape) must still emit one tool_call part."""
     parts = anthropic_utils.build_output_messages(
         "hi", "tool_use", {"id": "t1", "name": "n", "input": {"a": 1}}
     )[0]["parts"]
@@ -334,6 +335,7 @@ def test_build_output_messages_accepts_legacy_single_dict():
 
 
 def test_build_output_messages_skips_empty_entries():
+    """Empty or None entries in a tool_calls list must not become tool_call parts."""
     parts = anthropic_utils.build_output_messages(
         "", "tool_use", [{}, {"id": "t1", "name": "n", "input": {}}, None]
     )[0]["parts"]
@@ -343,8 +345,7 @@ def test_build_output_messages_skips_empty_entries():
 
 
 def test_join_tool_field_keeps_columns_aligned():
-    # From #1416: empty slots must still occupy a position so name/id/args
-    # columns stay aligned across parallel calls.
+    """Empty slots must still occupy a position so name/id/args columns stay aligned."""
     assert anthropic_utils._join_tool_field(["a", "", "c"]) == "a, , c"
     assert anthropic_utils._join_tool_field(["", ""]) == ""
     assert anthropic_utils._join_tool_field([]) == ""
