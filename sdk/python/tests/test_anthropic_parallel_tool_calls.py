@@ -331,3 +331,50 @@ def test_build_output_messages_accepts_legacy_single_dict():
 
     assert [p["type"] for p in parts] == ["text", "tool_call"]
     assert parts[1]["id"] == "t1"
+
+
+def test_build_output_messages_skips_empty_entries():
+    parts = anthropic_utils.build_output_messages(
+        "", "tool_use", [{}, {"id": "t1", "name": "n", "input": {}}, None]
+    )[0]["parts"]
+
+    assert len(parts) == 1
+    assert parts[0]["id"] == "t1"
+
+
+def test_join_tool_field_keeps_columns_aligned():
+    # From #1416: empty slots must still occupy a position so name/id/args
+    # columns stay aligned across parallel calls.
+    assert anthropic_utils._join_tool_field(["a", "", "c"]) == "a, , c"
+    assert anthropic_utils._join_tool_field(["", ""]) == ""
+    assert anthropic_utils._join_tool_field([]) == ""
+
+
+def test_streaming_accumulates_split_argument_deltas():
+    """Direct accumulator check: one tool_use split across many partial_json deltas."""
+    scope = SimpleNamespace(
+        _timestamps=[],
+        _start_time=0,
+        _llmresponse="",
+        _tool_calls_by_index={},
+    )
+    for chunk in [
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "tool_use", "id": "t1", "name": "f"},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"partial_json": '{"a"'},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"partial_json": ": 1}"},
+        },
+    ]:
+        anthropic_utils.process_chunk(scope, chunk)
+
+    assert json.loads(scope._tool_calls_by_index[0]["input"]) == {"a": 1}
