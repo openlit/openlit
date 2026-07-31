@@ -3,8 +3,20 @@ package export
 import (
 	"testing"
 
+	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 )
+
+func TestKernelMetricNameUsesStableFallback(t *testing.T) {
+	event := &gpuebpf.KernelLaunchEvent{KernelAddr: 0x7fff12345678}
+	if got := kernelMetricName(event); got != "unknown" {
+		t.Fatalf("kernelMetricName() = %q, want unknown", got)
+	}
+	event.KernelName = "vector_add"
+	if got := kernelMetricName(event); got != "vector_add" {
+		t.Fatalf("kernelMetricName() = %q, want vector_add", got)
+	}
+}
 
 func TestCUDADeviceTrackerSoleGPU(t *testing.T) {
 	devs := []gpu.Device{
