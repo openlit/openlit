@@ -1,6 +1,6 @@
 import { useRootStore } from "@/store";
 import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
-import { withTelemetryRequestCache } from "@/utils/telemetry-request-cache";
+import { isCacheableTelemetryUrl, withTelemetryRequestCache } from "@/utils/telemetry-request-cache";
 
 type GET_DATA = {
 	body?: string;
@@ -51,9 +51,13 @@ export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 	const cacheUrl = environment ? `${url}::${environment}` : url;
 
 	return withTelemetryRequestCache(cacheUrl, payload, async () => {
+		const controller = isCacheableTelemetryUrl(url) ? new AbortController() : undefined;
+		const timeout = controller ? setTimeout(() => controller.abort(), 15_000) : undefined;
+		try {
 		const res = await fetch(url, {
 			body: payload,
 			method,
+			signal: controller?.signal,
 			headers: getRequestHeaders(
 				hasBody ? { "Content-Type": "application/json" } : undefined
 			),
@@ -68,6 +72,9 @@ export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 		}
 
 		return res.json();
+		} finally {
+			if (timeout !== undefined) clearTimeout(timeout);
+		}
 	});
 }
 

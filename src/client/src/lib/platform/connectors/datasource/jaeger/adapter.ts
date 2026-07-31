@@ -223,7 +223,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				...this.networkOpts,
 				redactValues: redact,
 				concurrencyKey: this.descriptor.id,
-				retry: true,
+				retry: false,
+				timeoutMs: 5_000,
 			});
 		}
 		const services = (response?.data || []).map(String).filter(Boolean).slice(0, MAX_SERVICES);
@@ -300,7 +301,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				...this.networkOpts,
 				redactValues: redact,
 				concurrencyKey: this.descriptor.id,
-				retry: true,
+				retry: false,
+				timeoutMs: 5_000,
 			})
 		);
 		return response?.data || [];
