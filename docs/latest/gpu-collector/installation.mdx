@@ -12,6 +12,8 @@ The easiest way to run the collector. The image is published to GitHub Container
 docker pull ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
+For per-process GPU attribution (cmdline, PID, zombie/`process.state`, owner), run with host PID namespace access: Docker `--pid=host`, Compose `pid: host`, or Kubernetes `hostPID: true`. Device-level `hw.gpu.*` metrics work without it.
+
 ### Tags
 
 | Tag | Description |
@@ -43,7 +45,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 ```
 
 <Note>
-GPU metrics (NVML, sysfs) and eBPF tracing only work on Linux. On macOS and Windows the binary runs with host and process metrics only.
+GPU device and process metrics work on **Linux and Windows** (NVIDIA via NVML; AMD/Intel via sysfs on Linux or DXGI+PDH on Windows). eBPF CUDA tracing and occupancy are **Linux only**. On macOS the binary runs with host and process metrics only.
 </Note>
 
 Verify the SHA256 checksum from the `SHA256SUMS.txt` file in the release:
@@ -72,6 +74,100 @@ make setup-bpf   # installs bpftool, generates vmlinux.h
 make generate    # runs bpf2go code generation
 make build
 ```
+
+---
+
+## Kubernetes DaemonSet
+
+Run one collector per GPU node. Use the OpenTelemetry-recommended pattern: downward API → `K8S_NODE_NAME` → `OTEL_RESOURCE_ATTRIBUTES` with `host.name` and `k8s.node.name`. On GKE, AKS, and EKS the collector also auto-detects `k8s.cluster.name`, `cloud.provider`, and `host.type` (instance type) from the Kubernetes Node object and/or cloud metadata.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-gpu-collector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-gpu-collector-node-get
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-gpu-collector-node-get
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-gpu-collector-node-get
+subjects:
+  - kind: ServiceAccount
+    name: otel-gpu-collector
+    namespace: default # change to your namespace
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-gpu-collector
+spec:
+  selector:
+    matchLabels:
+      app: otel-gpu-collector
+  template:
+    metadata:
+      labels:
+        app: otel-gpu-collector
+    spec:
+      serviceAccountName: otel-gpu-collector
+      hostPID: true
+      containers:
+        - name: otel-gpu-collector
+          image: ghcr.io/openlit/otel-gpu-collector:latest
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: OTEL_SERVICE_NAME
+              value: otel-gpu-collector
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4317"
+            # Optional for on-prem / self-managed clusters:
+            # - name: K8S_CLUSTER_NAME
+            #   value: my-cluster
+            # eBPF CUDA tracing is on by default on Linux; set false to disable:
+            # - name: OTEL_GPU_EBPF_ENABLED
+            #   value: "false"
+          volumeMounts:
+            - name: pod-resources
+              mountPath: /var/lib/kubelet/pod-resources
+              readOnly: true
+            # AMD/Intel DRM:
+            # - name: dri
+            #   mountPath: /dev/dri
+          securityContext:
+            capabilities:
+              add: ["SYS_ADMIN"] # or privileged / CAP_BPF+CAP_PERFMON for eBPF
+      volumes:
+        - name: pod-resources
+          hostPath:
+            path: /var/lib/kubelet/pod-resources
+        # - name: dri
+        #   hostPath:
+        #     path: /dev/dri
+```
+
+<Note>
+`hostPID: true` (same role as Docker `--pid=host`) is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. The `nodes/get` ClusterRole enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1).
+</Note>
+
+See [Configuration](/latest/gpu-collector/configuration) for identity env vars and detection order.
 
 ---
 
@@ -120,11 +216,13 @@ rm /usr/local/bin/opentelemetry-gpu-collector
     - Check logs: `docker logs otel-gpu-collector` for `"discovered GPU"` entries
   </Accordion>
   <Accordion title="eBPF tracing not working">
-    - Confirm `OTEL_GPU_EBPF_ENABLED=true` is set
+    - On Linux it is enabled by default; confirm it is not disabled via `OTEL_GPU_EBPF_ENABLED=false`
     - Check kernel version: `uname -r` (requires 5.8+)
     - The process needs `CAP_BPF` and `CAP_PERFMON`, or run as root
-    - For Docker: add `--privileged` or `--cap-add CAP_BPF --cap-add CAP_PERFMON`
-    - Verify `libcudart.so` is present on the host: `ldconfig -p | grep cudart`
+    - For Docker: `--cap-add CAP_BPF --cap-add CAP_PERFMON`, `--pid=host`, and `--ulimit memlock=-1:-1` (BPF maps need locked memory; no CUDA mount needed)
+    - For Kubernetes: `hostPID: true` plus BPF capabilities (or `SYS_ADMIN`); raise memlock if map create returns EPERM
+    - If no CUDA process is running yet, the collector rescans `/proc` every 30s
+    - Verify a workload has loaded cudart: `grep libcudart /proc/*/maps 2>/dev/null | head`
   </Accordion>
   <Accordion title="Connection refused / no data reaching backend">
     - Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is reachable from the container: `curl http://<endpoint>/health`

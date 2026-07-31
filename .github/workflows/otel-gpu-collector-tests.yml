@@ -93,7 +93,7 @@ jobs:
           GOARCH: arm64
         run: go build ./...
 
-      - name: Cross-compile windows/amd64 (stub fallback)
+      - name: Cross-compile windows/amd64 (GPU via NVML/DXGI/PDH, CGO=0)
         working-directory: opentelemetry-gpu-collector
         env:
           CGO_ENABLED: "0"
