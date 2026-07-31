@@ -39,6 +39,7 @@ import {
 	computeSpanTimeSeriesL1,
 } from "../l1-compute";
 import { spanFieldValue } from "../graph/sample-aggregate";
+import { mapPool } from "../graph/map-pool";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
@@ -211,7 +212,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				...this.networkOpts,
 				redactValues: redact,
 				concurrencyKey: this.descriptor.id,
-				retry: true,
+				retry: false,
+				timeoutMs: 8_000,
 			})
 		);
 		if (typeof response === "string" && new URL(this.baseUrl).pathname === "/") {
@@ -318,30 +320,43 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			maxSpans,
 			aiSelector: query.aiSelector !== false,
 		});
-		const out: NormalizedSpan[] = [];
-		for (const service of services) {
-			if (out.length >= maxSpans) break;
-			const traces = await this.fetchServiceTraces(
-				service,
-				query.timeRange,
-				this.perServiceLimit
-			);
-			console.log("[jaeger] service traces fetched", {
-				sourceId: this.descriptor.id,
-				service,
-				traceCount: traces.length,
-			});
-			for (const trace of traces) {
-				const spans = (trace.spans || []).map((s) =>
-					this.normalizeSpan(s, trace.processes || {})
+		const perServiceLimit = Math.min(
+			this.perServiceLimit,
+			Math.max(10, Math.ceil(maxSpans / Math.max(1, services.length)))
+		);
+		const traceBatches = await mapPool(services, 6, async (service) => {
+			try {
+				const traces = await this.fetchServiceTraces(
+					service,
+					query.timeRange,
+					perServiceLimit
 				);
-				if (query.aiSelector === false || traceMatchesAISelector(spans)) {
-					const filtered = spans.filter((s) =>
-						spanMatchesFilters(s, query.filters)
-					);
-					out.push(...(query.filters?.length ? filtered : spans));
-				}
-				if (out.length >= maxSpans) break;
+				console.log("[jaeger] service traces fetched", {
+					sourceId: this.descriptor.id,
+					service,
+					traceCount: traces.length,
+				});
+				return traces;
+			} catch (error) {
+				console.log("[jaeger] service traces failed", {
+					sourceId: this.descriptor.id,
+					service,
+					error: String((error as Error)?.message || error),
+				});
+				return [];
+			}
+		});
+		const out: NormalizedSpan[] = [];
+		for (const trace of traceBatches.flat()) {
+			if (out.length >= maxSpans) break;
+			const spans = (trace.spans || []).map((s) =>
+				this.normalizeSpan(s, trace.processes || {})
+			);
+			if (query.aiSelector === false || traceMatchesAISelector(spans)) {
+				const filtered = spans.filter((s) =>
+					spanMatchesFilters(s, query.filters)
+				);
+				out.push(...(query.filters?.length ? filtered : spans));
 			}
 		}
 		const rows = out.slice(0, maxSpans);
@@ -379,7 +394,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 					...this.networkOpts,
 					redactValues: redact,
 					concurrencyKey: this.descriptor.id,
-					retry: true,
+					retry: false,
+					timeoutMs: 8_000,
 				}
 			)
 		);
@@ -400,10 +416,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		// detail/evaluation request still works when it arrives in another
 		// request after the list response populated no in-process index.
 		const end = new Date();
-		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+		const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 		const rows = await this.collectSpans(
 			{ signal: "traces", timeRange: { start, end }, aiSelector: false },
-			Math.min(this.perServiceLimit * MAX_SERVICES, 5_000)
+			Math.min(this.perServiceLimit * 10, 1_000)
 		);
 		return rows.find((span) => span.spanId === spanId) || null;
 	}
@@ -412,7 +428,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		query: OpenLITQuery,
 		maxTraces: number
 	): Promise<NormalizedSpan[]> {
-		return this.collectSpans(query, Math.min((maxTraces || 100) * 20, 5000));
+		return this.collectSpans(query, Math.min((maxTraces || 100) * 5, 1_000));
 	}
 
 	async aggregateSpans(query: OpenLITQuery): Promise<DataFrame> {

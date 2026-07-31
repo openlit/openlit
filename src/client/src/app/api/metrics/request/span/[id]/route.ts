@@ -19,10 +19,14 @@ export async function GET(request: Request, context: any) {
 		urlHasTraceId: !!traceId,
 	});
 
-	const [spanRes, evalSummary] = await Promise.all([
-		getTraceSpanRecord(id, { traceId, environment }),
-		getEvaluationSummaryForSpanId(id),
-	]);
+	const spanRes = await getTraceSpanRecord(id, { traceId, environment });
+	let evalSummary = null;
+	if (spanRes.record) {
+		evalSummary = await Promise.race([
+			getEvaluationSummaryForSpanId(id).catch(() => null),
+			new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+		]);
+	}
 
 	const res: any = { ...spanRes };
 	if (evalSummary && evalSummary.runCount > 0) {
