@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import {
 	deleteWidget,
@@ -9,7 +11,7 @@ import { Widget } from "@/types/manage-dashboard";
 import { NextRequest } from "next/server";
 
 // Delete widget
-export async function DELETE(
+async function DELETEHandler(
 	_: NextRequest,
 	{ params: { id } }: { params: { id: string } }
 ) {
@@ -23,7 +25,7 @@ export async function DELETE(
 }
 
 // Get widget by id
-export async function GET(
+async function GETHandler(
 	_: NextRequest,
 	{ params: { id } }: { params: { id: string } }
 ) {
@@ -32,7 +34,7 @@ export async function GET(
 }
 
 // Update widget
-export async function PUT(request: NextRequest) {
+async function PUTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const widget: Widget = await request.json();
 
@@ -43,3 +45,7 @@ export async function PUT(request: NextRequest) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("dashboard:read", GETHandler);
+export const PUT = withAudit(withCurrentOrganisationPermission("dashboard:update", PUTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("dashboard:delete", DELETEHandler));

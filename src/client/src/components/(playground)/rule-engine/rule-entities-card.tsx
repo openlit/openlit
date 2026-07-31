@@ -317,7 +317,7 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 											{label}
 										</Link>
 										{fromConfig && (
-											<span className="text-[10px] text-stone-400 dark:text-stone-500">
+											<span className="text-[10px] text-stone-500 dark:text-stone-400">
 												(from config)
 											</span>
 										)}
@@ -347,7 +347,7 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 				{entities.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-6 gap-2">
 						<LinkIcon className="w-7 h-7 text-stone-300 dark:text-stone-600" />
-						<p className="text-sm text-stone-400 dark:text-stone-500 text-center">
+						<p className="text-sm text-stone-500 dark:text-stone-400 text-center">
 							{messages.RULE_NO_ENTITIES}
 						</p>
 					</div>
@@ -408,7 +408,7 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 										)}
 									</div>
 									{entity.created_by && (
-										<span className="text-[11px] text-stone-400 dark:text-stone-500">
+										<span className="text-[11px] text-stone-500 dark:text-stone-400">
 											by {entity.created_by}
 										</span>
 									)}

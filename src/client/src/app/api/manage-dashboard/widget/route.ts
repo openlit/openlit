@@ -1,10 +1,12 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { createWidget, getWidgets } from "@/lib/platform/manage-dashboard/widget";
 import PostHogServer from "@/lib/posthog";
 import { Widget } from "@/types/manage-dashboard";
 import { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const widget: Widget = await request.json();
 	const startTimestamp = Date.now();
 	const res = await createWidget(widget);
@@ -15,7 +17,10 @@ export async function POST(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function GET() {
+async function GETHandler() {
 	const res = await getWidgets();
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("dashboard:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("dashboard:create", POSTHandler));

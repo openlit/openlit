@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import {
 	getPricingConfig,
 	setPricingConfig,
@@ -8,12 +10,12 @@ import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 
-export async function GET(_: NextRequest) {
+async function GETHandler(_: NextRequest) {
 	const config = await getPricingConfig();
 	return Response.json({ data: config });
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 	const pricingConfig: PricingConfigInput = {
@@ -41,3 +43,6 @@ export async function POST(request: NextRequest) {
 
 	return Response.json({ data });
 }
+
+export const GET = withCurrentOrganisationPermission("pricing:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("pricing:configure", POSTHandler));

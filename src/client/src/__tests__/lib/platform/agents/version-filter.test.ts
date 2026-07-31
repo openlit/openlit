@@ -17,9 +17,16 @@ jest.mock("@/lib/platform/agents/snapshot", () => ({
 	getVersion: (...args: unknown[]) => mockGetVersion(...args),
 }));
 
-jest.mock("@/lib/platform/agents/index", () => ({
-	getAgent: (...args: unknown[]) => mockGetAgent(...args),
-}));
+jest.mock("@/lib/platform/agents/index", () => {
+	const actual = jest.requireActual("@/lib/platform/agents/index") as Record<
+		string,
+		unknown
+	>;
+	return {
+		...actual,
+		getAgent: (...args: unknown[]) => mockGetAgent(...args),
+	};
+});
 
 jest.mock("@/lib/platform/agents/logger", () => ({
 	agentsLogger: {
@@ -116,7 +123,7 @@ describe("getVersionWindow", () => {
 		expect(mockDataCollector).toHaveBeenCalledWith(
 			{
 				query: expect.stringContaining(
-					"ResourceAttributes['deployment.environment'] = 'default'"
+					"ResourceAttributes['deployment.environment'] IN ('default', 'local', 'default_environment', '')"
 				),
 			},
 			"query",

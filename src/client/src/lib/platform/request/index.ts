@@ -1,6 +1,7 @@
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import {
 	getTraceMappingKeyFullPath,
+	getTraceMappingKeyFullPaths,
 	buildHierarchy,
 } from "@/helpers/server/trace";
 import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
@@ -13,7 +14,12 @@ import {
 
 const PREDEFINED_GROUP_BY: Record<string, string> = {
 	model: `SpanAttributes['gen_ai.request.model']`,
-	provider: `SpanAttributes['gen_ai.system']`,
+	// OTel GenAI renamed gen_ai.system -> gen_ai.provider.name (1.30+). The
+	// current SDK emits provider.name. This must stay a single-attribute
+	// expression so the drill-down customFilter in grouped-table.tsx
+	// (SpanAttributes['gen_ai.provider.name'] = <value>) matches the exact
+	// same rows this GROUP BY produces.
+	provider: `SpanAttributes['gen_ai.provider.name']`,
 	spanName: `SpanName`,
 	applicationName: `ResourceAttributes['service.name']`,
 };
@@ -156,11 +162,19 @@ export async function getRequestsConfig(params: MetricParams) {
 	//     of that vendor's telemetry from any view — the user asked
 	//     for vendor visibility without a new control. The WHERE
 	//     side of this fold lives in helpers/server/platform.ts.
+	// LLM provider lives on gen_ai.provider.name (OTel 1.30+) with a
+	// gen_ai.system fallback for legacy spans; fold both plus the
+	// vector-DB (db.system) and coding-agent (coding_agent.client)
+	// namespaces so the "Provider" dropdown is a universal traffic-shaper.
+	const llmProviderArrays = (getTraceMappingKeyFullPaths("provider") as string[])
+		.map(
+			(path) =>
+				`arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${path}']))`
+		)
+		.join(",\n\t\t\t");
 	select.push(
 		`arrayConcat(
-			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
-			"provider"
-		)}'])),
+			${llmProviderArrays},
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
 			"system"
 		)}'])),
@@ -196,6 +210,10 @@ export async function getRequestsConfig(params: MetricParams) {
 
 	select.push(
 		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanName)) AS spanNames`
+	);
+
+	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ServiceName)) AS services`
 	);
 
 	select.push(
@@ -335,8 +353,16 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 			)} = '${safeTraceId}' OR SpanAttributes['coding_agent.session.id'] = '${escapeClickHouseString(codingSessionId)}' OR ResourceAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}' OR SpanAttributes['coding_agent.agent.parent_id'] = '${escapeClickHouseString(codingSessionId)}')`
 		: `${getTraceMappingKeyFullPath("id")} = '${safeTraceId}'`;
 
-	const allSpansQuery = `
-		SELECT
+	// Span columns shared by the hierarchy SELECT. Coding-agent sessions
+	// can exceed a few thousand spans (tool noise); a naive
+	// `ORDER BY Timestamp ASC LIMIT 5000` kept the *oldest* slice and
+	// dropped recent user prompts / assistant replies from Chat view.
+	// For coding sessions we:
+	//   1. take the newest window (DESC + limit),
+	//   2. UNION any prompt/response-bearing turns so Chat never loses
+	//      conversation turns that fell outside that window,
+	//   3. re-sort ascending in JS before building the tree.
+	const spanSelectColumns = `
 			${getTraceMappingKeyFullPath("id")},
 			${getTraceMappingKeyFullPath("parentSpanId")},
 			${getTraceMappingKeyFullPath("spanId")},
@@ -354,17 +380,53 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 			SpanAttributes,
 			ResourceAttributes,
 			Events,
-			Links
+			Links`;
+
+	const allSpansQuery = codingSessionId
+		? `
+		SELECT * FROM (
+			SELECT ${spanSelectColumns}
+			FROM ${OTEL_TRACES_TABLE_NAME}
+			WHERE ${filterClause}
+			ORDER BY Timestamp DESC
+			LIMIT 8000
+		)
+		UNION DISTINCT
+		SELECT * FROM (
+			SELECT ${spanSelectColumns}
+			FROM ${OTEL_TRACES_TABLE_NAME}
+			WHERE ${filterClause}
+			  AND (
+				notEmpty(SpanAttributes['gen_ai.input.messages'])
+				OR notEmpty(SpanAttributes['gen_ai.output.messages'])
+				OR SpanAttributes['coding_agent.llm.turn.kind'] IN ('user_prompt', 'assistant_only')
+			  )
+			ORDER BY Timestamp DESC
+			LIMIT 2000
+		)
+		`
+		: `
+		SELECT ${spanSelectColumns}
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${filterClause}
 		ORDER BY Timestamp ASC
 		LIMIT 5000`;
 
-	const { data: allSpans, err: allSpansErr } = await dataCollector(
+	const { data: allSpansRaw, err: allSpansErr } = await dataCollector(
 		{ query: allSpansQuery },
 		"query",
 		dbConfigId
 	);
+
+	const allSpans = Array.isArray(allSpansRaw)
+		? codingSessionId
+			? [...allSpansRaw].sort((a: any, b: any) => {
+					const ta = a?.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+					const tb = b?.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+					return ta - tb;
+				})
+			: allSpansRaw
+		: allSpansRaw;
 
 	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
 		return { err: "Failed to fetch trace spans", record: {} };

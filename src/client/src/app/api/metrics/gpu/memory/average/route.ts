@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
@@ -5,7 +6,7 @@ import {
 } from "@/helpers/server/platform";
 import { getAverageMemoryUsage } from "@/lib/platform/gpu/memory";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 
@@ -26,3 +27,5 @@ export async function POST(request: Request) {
 	const res: any = await getAverageMemoryUsage(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

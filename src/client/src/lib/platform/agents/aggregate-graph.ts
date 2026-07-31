@@ -24,6 +24,7 @@ import { buildVersionWhereClause } from "./version-filter";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import { deploymentEnvironmentSqlPredicate } from "./index";
 
 const escape = escapeClickHouseString;
 
@@ -90,11 +91,10 @@ export async function getAggregateGraph(
 	params: AggregateGraphParams
 ): Promise<AggregateGraph> {
 	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
-	const env = params.environment || "default";
-	const envPredicate =
-		env === "default"
-			? `(ResourceAttributes['deployment.environment'] = 'default' OR ResourceAttributes['deployment.environment'] = '')`
-			: `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+	const envPredicate = deploymentEnvironmentSqlPredicate(
+		params.environment,
+		escape
+	);
 
 	const versionClause = buildVersionWhereClause(params.versionFilter);
 	const recentFallback =

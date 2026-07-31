@@ -1,0 +1,18 @@
+---
+title: "Configuration"
+description: "Toggle LLM Observability and Agent Observability for an already-discovered agent"
+---
+
+The **Configuration** tab shows two toggles - **LLM Observability** and **Agent Observability** - that turn data capture for this agent on or off. The tab shows an attention indicator when an agent has been discovered but hasn't started sending telemetry yet, so you know instrumentation is still needed.
+
+Toggling is blocked, with an explanatory tooltip, while the agent is stopped or mid-transition - there's no live process to attach or detach instrumentation from in that state.
+
+## Version scoping
+
+Configuration is **never version-scoped**. Selecting a different version in the header has no effect on this tab - the toggles reflect the agent's current, live state, not a historical snapshot. See [Versioning](/latest/openlit/observability/agents/versioning) for how the other tabs behave differently.
+
+---
+
+<Card title="Setup" href="/latest/openlit/observability/agents/setup" icon='rocket'>
+  What it takes for an agent to be discovered in the first place
+</Card>

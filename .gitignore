@@ -9,7 +9,12 @@ path/
 __pycache__/
 **bun.lockb
 logs/
+# Secrets / local env (never commit)
+.env
+**/.env
 **.env
+!.env.example
+!**/.env.example
 .vscode/
 .idea/
 .cursor-rules/

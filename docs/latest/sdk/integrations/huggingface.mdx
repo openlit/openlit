@@ -1,5 +1,6 @@
 ---
 title: 'Monitor HuggingFace using OpenTelemetry'
+description: 'Instrument Hugging Face Transformers, the Inference API, and Transformers.js with OpenTelemetry for AI observability into tokens, cost, and inference calls.'
 sidebarTitle: 'HuggingFace'
 ---
 
@@ -51,7 +52,7 @@ const output = await generator("OpenTelemetry makes observability", {
 |--------|----------|
 | `captureMessageContent` | Gates `gen_ai.input.messages` / `gen_ai.output.messages` on spans and in events |
 | `disableEvents` | Suppresses all inference events |
-| `disableMetrics` | Global — metrics instruments are not set up |
+| `disableMetrics` | Global - metrics instruments are not set up |
 | `disabledInstrumentors: ['transformers']` | Disables the local Transformers.js instrumentation |
 | `disabledInstrumentors: ['huggingface']` | Disables the remote Inference API instrumentation |
 
@@ -98,10 +99,3 @@ On the Python SDK, inference events are only emitted when `capture_message_conte
     Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
-  </Card>

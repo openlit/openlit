@@ -66,7 +66,7 @@ URL mappings per entity type:
 - **context**: \`/context/{id}\`
 - **prompt**: \`/prompt-hub/{id}\`
 - **vault**: \`/vault\` (no ID in URL)
-- **model**: \`/manage-models\` (no ID in URL)
+- **model**: \`/costs?tab=models\` (no ID in URL)
 - **evaluation**: \`/evaluations\` (no ID in URL)
 
 Rules:

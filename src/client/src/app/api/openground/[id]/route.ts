@@ -1,10 +1,11 @@
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getOpengroundEvaluationById } from "@/lib/platform/openground-clickhouse";
 import { getCurrentUser } from "@/lib/session";
 import { getDBConfigByUser } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+async function GETHandler(_: Request, { params }: { params: { id: string } }) {
 	const user = await getCurrentUser();
 	if (!user) {
 		return Response.json({ error: getMessage().UNAUTHORIZED_USER }, { status: 401 });
@@ -26,3 +27,5 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
 	return Response.json(data);
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);

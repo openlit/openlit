@@ -73,10 +73,11 @@ export function buildSessionsHaving(opts: SessionsHavingOptions): string {
 	if (opts.classification) {
 		havingClauses.push(`classification = '${escape(opts.classification)}'`);
 	}
-	// Hide subagent rows by default: they fold under the parent chat
-	// via CHAT_ID_EXPR; listing them at the top level produces
-	// duplicate-looking rows for one user-perceived chat. Callers
-	// debugging linkage gaps can opt back in.
+	// Hide subagent-only rows by default. Linked subagents fold under
+	// the parent chat via CHAT_ID_EXPR; the parent row stays visible
+	// (is_subagent ignores Cursor's self-parent_id echo). Orphan
+	// subagent-only groups are what we hide. Callers debugging
+	// linkage gaps can opt back in with includeSubagents.
 	if (!opts.includeSubagents) {
 		havingClauses.push(`is_subagent = 0`);
 	}

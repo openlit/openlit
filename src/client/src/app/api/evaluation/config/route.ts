@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import {
 	getEvaluationConfig,
 	setEvaluationConfig,
@@ -8,12 +10,12 @@ import { EvaluationConfigInput } from "@/types/evaluation";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 
-export async function GET(_: NextRequest) {
+async function GETHandler(_: NextRequest) {
 	const res: any = await getEvaluationConfig(undefined, true, false);
 	return Response.json(res);
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
 	const evaluationConfig: EvaluationConfigInput = {
@@ -46,3 +48,6 @@ export async function POST(request: NextRequest) {
 	});
 	return Response.json(data);
 }
+
+export const GET = withCurrentOrganisationPermission("evaluation:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:configure", POSTHandler));

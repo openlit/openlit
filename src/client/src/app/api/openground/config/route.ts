@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_EVENTS } from "@/constants/events";
 import { getCurrentUser } from "@/lib/session";
@@ -16,7 +18,7 @@ import * as messages from "@/constants/messages/en";
  * GET /api/openground/config
  * Get all provider configurations for the current user
  */
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
  * POST /api/openground/config
  * Create or update a provider configuration
  */
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
  * DELETE /api/openground/config
  * Delete a provider configuration
  */
-export async function DELETE(request: NextRequest) {
+async function DELETEHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
@@ -183,7 +185,7 @@ export async function DELETE(request: NextRequest) {
  * PATCH /api/openground/config
  * Toggle active status of a configuration
  */
-export async function PATCH(request: NextRequest) {
+async function PATCHHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	try {
 		const user = await getCurrentUser();
@@ -244,3 +246,8 @@ export async function PATCH(request: NextRequest) {
 		);
 	}
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
+export const PATCH = withAudit(withCurrentOrganisationPermission("openground:configure", PATCHHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("openground:configure", DELETEHandler));

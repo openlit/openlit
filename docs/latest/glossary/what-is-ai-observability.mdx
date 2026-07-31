@@ -1,0 +1,40 @@
+---
+title: 'What is AI Observability?'
+description: 'AI observability explained: what it is, why it matters, and how to add it to LLM apps and agents with zero code changes'
+sidebarTitle: 'AI Observability'
+---
+
+AI observability is the practice of collecting traces, metrics, and logs from LLM applications and AI agents so you can see exactly what happened on every request - which model was called, how long it took, what it cost, and whether it failed.
+
+## Why does AI observability matter?
+
+LLM applications fail in ways traditional monitoring doesn't catch: a model can return a slow, expensive, or low-quality response without ever throwing an error. Without AI observability, you only find out from a user complaint. With it, you can see the exact prompt, model, latency, and cost behind every call - and catch regressions before they reach production.
+
+## What data does AI observability cover?
+
+- **Traces**: the full request flow - model calls, tool calls, retries, and agent steps, in order.
+- **Metrics**: aggregated numbers over time, like latency, token throughput, and error rate.
+- **Logs**: discrete events emitted by your application and its dependencies.
+- **Cost and token usage**: spend per request, model, and provider, computed from token counts and per-model pricing.
+
+## How is AI observability different from traditional APM?
+
+Traditional application performance monitoring (APM) tracks HTTP requests, database queries, and infrastructure health. AI observability adds what APM tools don't understand: which model and provider handled a call, the prompt and completion content, token usage, per-call cost, and the tool-call graph an agent followed to produce its answer.
+
+## How does OpenLIT provide AI observability?
+
+OpenLIT auto-instruments 90+ LLMs, agent frameworks, and vector databases via OpenTelemetry - with zero code changes - and surfaces traces, metrics, and logs in one [Telemetry](/latest/openlit/observability/telemetry/overview) page, plus a trace-derived call graph for every [agent](/latest/openlit/observability/agents/overview) it observes.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Telemetry" href="/latest/openlit/observability/telemetry/overview" icon='chart-line'>
+    View traces, metrics, logs, and exceptions in one place
+  </Card>
+  <Card title="Agents" href="/latest/openlit/observability/agents/overview" icon='robot'>
+    See every agent's trace-derived call graph, tools, and versions
+  </Card>
+  <Card title="Quickstart: AI Observability" href="/latest/openlit/quickstart-ai-observability" icon='bolt'>
+    Instrument an LLM app with zero code changes in 2 steps
+  </Card>
+</CardGroup>

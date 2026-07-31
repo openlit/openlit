@@ -93,17 +93,17 @@ export default function AgentHeader({
 		isCoding && hasCodingAgentVendorIcon(agent.coding_agent_vendor) ? (
 			<CodingAgentVendorIcon
 				vendor={agent.coding_agent_vendor}
-				className="h-5 w-5"
+				className="h-4 w-4"
 			/>
 		) : (
-			<Bot className="h-5 w-5" />
+			<Bot className="h-4 w-4" />
 		);
 
 	const backLabel = getMessage().AGENTS_BACK_TO_HUB;
 
 	return (
 		<FeaturePageHeader
-			eyebrow={getMessage().FEATURE_AGENTS}
+			eyebrow={getMessage().SIDEBAR_MONITOR}
 			title={title}
 			icon={icon}
 			tone={AGENTS_HEADER_TONE}
@@ -112,7 +112,7 @@ export default function AgentHeader({
 					asChild
 					variant="outline"
 					size="sm"
-					className="h-8 w-8 shrink-0 p-0"
+					className="h-7 w-7 shrink-0 p-0"
 				>
 					<Link href={backHref} title={backLabel} aria-label={backLabel}>
 						<ArrowLeft className="h-3.5 w-3.5" />
@@ -136,7 +136,7 @@ export default function AgentHeader({
 								? getMessage().AGENTS_REFRESHING
 								: getMessage().AGENTS_REFRESH
 						}
-						className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 disabled:opacity-50"
+						className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-600 transition hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 disabled:opacity-50"
 					>
 						<RefreshCw
 							className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}

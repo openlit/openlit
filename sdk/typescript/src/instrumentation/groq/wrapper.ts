@@ -142,6 +142,12 @@ class GroqWrapper extends BaseWrapper {
           prompt_tokens: 0,
           completion_tokens: 0,
           total_tokens: 0,
+          prompt_tokens_details: {
+            cached_tokens: 0,
+          },
+          input_tokens_details: {
+            cache_creation_tokens: 0,
+          },
         },
       };
 
@@ -204,6 +210,18 @@ class GroqWrapper extends BaseWrapper {
           result.usage.prompt_tokens = usage.prompt_tokens || 0;
           result.usage.completion_tokens = usage.completion_tokens || 0;
           result.usage.total_tokens = usage.total_tokens || 0;
+          if (usage.prompt_tokens_details) {
+            result.usage.prompt_tokens_details = {
+              ...(result.usage.prompt_tokens_details || {}),
+              ...usage.prompt_tokens_details,
+            };
+          }
+          if (usage.input_tokens_details) {
+            result.usage.input_tokens_details = {
+              ...(result.usage.input_tokens_details || {}),
+              ...usage.input_tokens_details,
+            };
+          }
         }
 
         yield chunk;
@@ -228,6 +246,7 @@ class GroqWrapper extends BaseWrapper {
         );
         if (completionTokens) {
           result.usage = {
+            ...result.usage,
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
             total_tokens: promptTokens + completionTokens,
@@ -329,11 +348,25 @@ class GroqWrapper extends BaseWrapper {
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
 
+    // Groq reports prompt_tokens inclusive of cached tokens (OpenAI-compat).
+    const cacheReadTokens =
+      Number(result.usage?.prompt_tokens_details?.cached_tokens) ||
+      Number(result.usage?.cached_tokens) ||
+      0;
+    const cacheCreationTokens =
+      Number(result.usage?.input_tokens_details?.cache_creation_tokens) ||
+      Number(result.usage?.prompt_tokens_details?.cache_creation_tokens) ||
+      Number(result.usage?.prompt_tokens_details?.cache_write_tokens) ||
+      0;
+
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       result.usage.prompt_tokens,
-      result.usage.completion_tokens
+      result.usage.completion_tokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      true
     );
 
     GroqWrapper.setBaseSpanAttributes(span, {
@@ -356,6 +389,16 @@ class GroqWrapper extends BaseWrapper {
     const outputTokens = result.usage.completion_tokens;
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+
+    if (cacheReadTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
+    }
+    if (cacheCreationTokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        cacheCreationTokens
+      );
+    }
 
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);

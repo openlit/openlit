@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import {
 	getControllerInstances,
 	getControllerConfig,
@@ -8,7 +10,7 @@ import {
 	ConfigValidationError,
 } from "@/lib/platform/controller/validate-config";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const instanceId = searchParams.get("instance_id");
 
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
 	}
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	try {
 		const body = await request.json();
 		const { instance_id } = body as { instance_id?: string };
@@ -87,3 +89,6 @@ export async function POST(request: Request) {
 		);
 	}
 }
+
+export const GET = withCurrentOrganisationPermission("controller:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("controller:configure", POSTHandler));

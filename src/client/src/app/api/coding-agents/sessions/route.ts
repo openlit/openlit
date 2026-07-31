@@ -23,6 +23,7 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { isCodingAgentClassification } from "@/lib/platform/coding-agents/classifier";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +82,7 @@ function defaultSince(): Date {
 	return new Date(Date.now() - DEFAULT_WINDOW_HOURS * 60 * 60 * 1000);
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -136,3 +137,5 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const POST = withCurrentOrganisationPermission("coding_agents:read", POSTHandler);

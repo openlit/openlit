@@ -16,7 +16,7 @@ OpenTelemetry GPU Collector</h1>
 
 </div>
 
-A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and optional eBPF-based CUDA kernel tracing — all via OpenTelemetry (OTLP).
+A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
 
 Metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
 
@@ -26,8 +26,14 @@ Metric names and attributes follow the [OpenTelemetry semantic conventions for h
 - **OTel semantic conventions** — `hw.gpu.*` metric names, `hw.id` / `hw.name` / `hw.vendor` attributes
 - **Host metrics** — CPU utilization, memory, disk I/O, filesystem, network I/O (Linux, macOS, Windows)
 - **Process metrics** — self-process CPU, memory, threads, file descriptors, Go runtime stats
-- **Cross-vendor GPU support** — NVIDIA (via NVML), AMD (via sysfs/hwmon), Intel (via sysfs/hwmon + DRM) on Linux
-- **eBPF CUDA tracing** (opt-in) — kernel launch counts, grid/block sizes, memory allocations, memory copies
+- **Cross-vendor GPU support** — NVIDIA (NVML), AMD, Intel on **Linux and Windows** (Windows: NVML / DXGI+PDH+ADL / Level Zero)
+- **Fleet signals** — `hw.gpu.up`, `hw.gpu.allocated`, `hw.gpu.idle` for available vs active device aggregations
+- **LLM process attribution** — cmdline, OS state (incl. zombie), owner, uptime, framework classification (`vllm`, `ollama`, …)
+- **Kubernetes enrichment** — kubelet PodResources GPU→pod join (+ auto pod API when `K8S_NODE_NAME` is set)
+- **PCIe / interconnect / health** — PCIe/NVLink/XGMI/throttle/XID/RAS when the driver exposes them (soft-omitted otherwise)
+- **MIG devices** — NVIDIA MIG instances as first-class devices (**Linux only**; MIG is not available on Windows)
+- **Encoder/decoder util** — NVIDIA NVENC/NVDEC; AMD/Intel via media engines or Windows PDH (AMD combined VCN → encoder only)
+- **eBPF CUDA tracing** (on by default on Linux) — kernel launch counts, grid/block sizes, memory allocations, memory copies; soft-fails without caps/CUDA
 - **Lightweight** — single static binary, no Python dependencies
 - **Resilient** — stays alive on systems without GPUs, retries discovery every 30s
 
@@ -37,12 +43,13 @@ Metric names and attributes follow the [OpenTelemetry semantic conventions for h
 |---|:---:|:---:|:---:|
 | System metrics (CPU, memory, disk, network) | Yes | Yes | Yes |
 | Process metrics (CPU, memory, threads, FDs) | Yes | Yes | Yes |
-| GPU metrics — NVIDIA (NVML) | Yes | — | — |
-| GPU metrics — AMD (sysfs/hwmon) | Yes | — | — |
-| GPU metrics — Intel (sysfs/hwmon) | Yes | — | — |
-| eBPF CUDA tracing | Yes | — | — |
+| GPU metrics — NVIDIA (NVML) | Yes | — | Yes |
+| GPU metrics — AMD | Yes (sysfs) | — | Yes (DXGI+PDH) |
+| GPU metrics — Intel | Yes (sysfs) | — | Yes (DXGI+PDH) |
+| Per-process GPU memory / util | Yes | — | Yes (PDH) |
+| eBPF CUDA tracing / occupancy | Yes | — | — |
 
-On macOS/Windows the collector runs with host and process metrics only. GPU discovery is skipped gracefully. On Linux without GPUs, the collector retries discovery every 30 seconds while still exporting host metrics.
+On macOS the collector runs with host and process metrics only (no discrete GPU APIs). On Windows and Linux, GPU discovery retries every 30 seconds when no devices are found while still exporting host metrics. eBPF CUDA tracing and stream-sync occupancy remain Linux-only.
 
 ## Architecture
 
@@ -51,13 +58,16 @@ Host Metrics (all platforms via gopsutil)
     +-- CPU utilization, memory, disk I/O, filesystem, network
     +-- Process: self CPU, memory, threads, FDs, Go runtime
 
-GPU Metrics (Linux only)
-    +-- PCI Bus Scan (/sys/bus/pci/devices/)
-    |     +-- NVIDIA (0x10de) --> NVML backend (go-nvml / libnvidia-ml.so)
-    |     +-- AMD    (0x1002) --> sysfs/hwmon backend (zero dependencies)
-    |     +-- Intel  (0x8086) --> sysfs/hwmon + DRM backend
+GPU Metrics (Linux + Windows)
+    +-- Linux: PCI Bus Scan (/sys/bus/pci/devices/)
+    |     +-- NVIDIA (0x10de) --> NVML (go-nvml / libnvidia-ml.so)
+    |     +-- AMD    (0x1002) --> sysfs/hwmon
+    |     +-- Intel  (0x8086) --> sysfs/hwmon + DRM
+    |     +-- [Optional: eBPF CUDA tracing via uprobes on libcudart.so]
     |
-    +-- [Optional: eBPF CUDA tracing via uprobes on libcudart.so]
+    +-- Windows: NVML (nvml.dll) + DXGI enum + PDH GPU Engine/Process Memory
+          +-- NVIDIA --> nvml.dll device metrics; PDH process attribution
+          +-- AMD/Intel --> DXGI memory + PDH util/process (no eBPF)
 
 Export
     +-- OTel SDK --> OTLP gRPC/HTTP --> your OTel collector / backend
@@ -68,20 +78,24 @@ Export
 ### Prerequisites
 
 - An OpenTelemetry-compatible backend (e.g., OpenLIT, Grafana, Datadog)
-- For GPU metrics: Linux with NVIDIA/AMD/Intel GPU drivers installed
-- For eBPF tracing: Linux kernel 5.8+ with `CAP_BPF` + `CAP_PERFMON` (or root)
+- For GPU metrics: Linux or Windows with NVIDIA/AMD/Intel GPU drivers installed
+  - Windows NVIDIA: `nvml.dll` (shipped with the driver)
+  - Windows AMD/Intel: DXGI + Performance Counters (PDH); thermals/power may be limited vs Linux sysfs
+- For eBPF tracing: Linux kernel 5.8+ with `CAP_BPF` + `CAP_PERFMON` (or root); Docker also needs `--ulimit memlock=-1:-1`
 
 ### Docker
 
 ```sh
 docker pull ghcr.io/openlit/otel-gpu-collector:latest
 
-docker run --gpus all \
+docker run --gpus all --pid=host \
     -e OTEL_SERVICE_NAME=my-app \
     -e OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production" \
     -e OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317" \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
+
+`--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie/`process.state`, owner). Device-level `hw.gpu.*` metrics still work without it.
 
 ### Docker Compose
 
@@ -89,6 +103,7 @@ docker run --gpus all \
 services:
   otel-gpu-collector:
     image: ghcr.io/openlit/otel-gpu-collector:latest
+    pid: host
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
@@ -137,15 +152,21 @@ All configuration uses standard OpenTelemetry environment variables.
 | `OTEL_EXPORTER_OTLP_HEADERS` | | Auth headers (`key=val,key2=val2`) |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` or `http/protobuf` |
 | `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
-| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`deployment.environment=prod,team=ml`) |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Prefer `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here; overrides auto identity |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
-| `OTEL_GPU_EBPF_ENABLED` | `false` | Enable eBPF CUDA kernel tracing (Linux only) |
+| `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA kernel tracing (Linux only). Soft-fails without caps/CUDA; set `false` to disable |
+| `K8S_NODE_NAME` | | Downward API node name → also accepts Operator `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` or legacy `NODE_NAME` |
+| `K8S_CLUSTER_NAME` | | Explicit cluster name (K8s only; on-prem when cloud detect fails) |
+| `OPENLIT_K8S_NODE_LOOKUP` | `true` | Set `false` to skip Node API lookup for instance type / provider |
+| `OPENLIT_CLOUD_DETECT` | `true` | Set `false` to skip AWS/GCP/Azure IMDS probes (avoids link-local timeouts on bare metal) |
 
 `deployment.environment` is read from `OTEL_RESOURCE_ATTRIBUTES` and defaults to `default` if not set.
 
+The collector auto-attaches `host.name`, and when running in Kubernetes (`KUBERNETES_SERVICE_HOST` set) also `k8s.node.name` / `k8s.cluster.name`. It also discovers `cloud.provider`, `host.type` (instance type), and `cloud.region` via Node labels/`providerID` and/or AWS/GCP/Azure IMDS (join keys for future cost UIs — no pricing in the collector). Recommended DaemonSet: `K8S_NODE_NAME` + resource attrs, plus ClusterRole `get` on `nodes`.
+
 ## Metrics
 
-### GPU Hardware Telemetry (Linux only)
+### GPU Hardware Telemetry (Linux + Windows)
 
 Follows the [OTel semantic conventions for hardware metrics](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/).
 
@@ -157,7 +178,7 @@ Follows the [OTel semantic conventions for hardware metrics](https://opentelemet
 | `hw.gpu.memory.usage` | UpDownCounter | By | Used GPU memory | Yes | Yes | — |
 | `hw.gpu.memory.free` | UpDownCounter | By | Free GPU memory | Yes | Yes | — |
 | `hw.gpu.temperature` | Gauge | Cel | Temperature via `sensor=die\|memory` | Yes | Yes | Yes |
-| `hw.gpu.fan_speed` | Gauge | {rpm} | Fan speed | Yes | Yes | Yes* |
+| `hw.gpu.fan_speed` | Gauge | {rpm} | Fan speed | -† | Yes | Yes* |
 | `hw.gpu.power.draw` | Gauge | W | Current power draw | Yes | Yes | Yes |
 | `hw.gpu.power.limit` | Gauge | W | Power limit/cap | Yes | Yes | Yes |
 | `hw.gpu.energy.consumed` | Counter | J | Cumulative energy consumed | Yes | Yes | Yes |
@@ -166,6 +187,8 @@ Follows the [OTel semantic conventions for hardware metrics](https://opentelemet
 | `hw.errors` | Counter | {error} | ECC and PCIe errors via `error.type` + `hw.type=gpu` | Yes | — | — |
 
 \* Intel support depends on driver (i915/Xe) and kernel version.
+
+† NVIDIA NVML reports fan speed as a percentage, not RPM — `hw.gpu.fan_speed` is omitted for NVIDIA.
 
 **Attributes on all GPU metrics:**
 
@@ -218,38 +241,43 @@ Follows the [OTel semantic conventions for process metrics](https://opentelemetr
 | `process.runtime.go.goroutines` | Gauge | {goroutine} | Go goroutine count | |
 | `process.runtime.go.mem.heap_alloc` | Gauge | By | Go heap memory allocated | |
 
-### eBPF CUDA Tracing (opt-in, Linux only)
+### eBPF CUDA Tracing (on by default on Linux)
 
-Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires `CAP_BPF` + `CAP_PERFMON` or root, and NVIDIA CUDA runtime (`libcudart.so`).
+On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Docker/K8s: also raise memlock (`--ulimit memlock=-1:-1`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
-| `gpu.kernel.launch.calls` | Counter | {call} | CUDA kernel launch count | `cuda.kernel.name` |
-| `gpu.kernel.grid.size` | Histogram | {thread} | Total threads in grid per launch | `cuda.kernel.name` |
-| `gpu.kernel.block.size` | Histogram | {thread} | Threads per block per launch | `cuda.kernel.name` |
-| `gpu.memory.allocations` | Counter | By | Bytes allocated via cudaMalloc | |
+| `gpu.kernel.launch.calls` | Counter | {call} | CUDA kernel launch count | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.grid.size` | Histogram | {thread} | Total threads in grid per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.block.size` | Histogram | {thread} | Threads per block per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.kernel.shared_memory` | Histogram | By | Dynamic shared memory per launch | `cuda.kernel.name`, `hw.id` when known |
+| `gpu.memory.allocations` | Counter | By | Bytes allocated via cudaMalloc | `hw.id` when known |
 | `gpu.memory.copies` | Histogram | By | Bytes per cudaMemcpy | `cuda.memcpy.kind`={HostToHost,HostToDevice,DeviceToHost,DeviceToDevice} |
 
 ## How It Works
 
 ### Device Discovery
 
-The collector scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` (VGA), `0x0302` (3D controller), and `0x0380` (display controller), then maps the vendor ID:
+**Linux:** scans `/sys/bus/pci/devices/` for PCI class codes `0x0300` / `0x0302` / `0x0380`, then maps vendor ID:
 
 | Vendor ID | Backend | Collected metrics |
 |---|---|---|
-| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — loads `libnvidia-ml.so` at runtime | Utilization, memory, temperature, power, energy, clocks, ECC errors, PCIe errors, fan speed |
-| `0x1002` (AMD) | sysfs + hwmon — zero external dependencies | Utilization, memory, temperature, power, energy, fan speed |
-| `0x8086` (Intel) | sysfs + hwmon + DRM (i915/Xe driver) — requires Linux kernel 5.10+ | Temperature, power draw/limit, cumulative energy, graphics clock, fan speed (kernel 6.16+) |
+| `0x10de` (NVIDIA) | NVML via [go-nvml](https://github.com/NVIDIA/go-nvml) — `libnvidia-ml.so` | Utilization, memory, temperature, power, energy, clocks, ECC, PCIe |
+| `0x1002` (AMD) | sysfs + hwmon + DRM fdinfo | Utilization, memory, temperature, power, energy, fan, processes |
+| `0x8086` (Intel) | sysfs + hwmon + DRM (i915/Xe) | Temperature, power, energy, clocks, fan*, processes |
+
+**Windows:** NVIDIA via `nvml.dll` (LoadLibrary); AMD/Intel via DXGI adapter enum + PDH `\GPU Engine` / `\GPU Process Memory` for util and per-process attribution. eBPF CUDA tracing is not available on Windows.
 
 ### eBPF CUDA Tracing
 
-Attaches uprobes to `libcudart.so` to intercept:
-- `cudaLaunchKernel` — kernel name, grid/block dimensions
-- `cudaMalloc` — allocation size
-- `cudaMemcpy` / `cudaMemcpyAsync` — copy size and direction
+Attaches uprobes/uretprobes to `libcudart.so*` to intercept:
+- `cudaLaunchKernel` — kernel name, grid/block dimensions, stream, shared mem
+- `cudaMalloc` / `cudaFree` — allocation size
+- `cudaMemcpy` / `cudaMemcpyAsync` — sync memcpy closes device-wide spans; async records bytes
+- `cudaStreamSynchronize` / `cudaDeviceSynchronize` — stream-sync occupancy spans
+- `cudaSetDevice` — per-thread device attribution
 
-Events flow through a BPF ring buffer to Go userspace, where kernel addresses are resolved to function names via ELF symbol tables.
+Events flow through a BPF ring buffer to Go userspace. Activity counters export with `process.pid`; the stream-sync occupancy engine emits `process.gpu.core.usage` / `process.gpu.sm_active` (model estimates, not hardware SM occupancy).
 
 ## Contributing
 
@@ -264,11 +292,12 @@ Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP
 | NVIDIA GPU hardware telemetry (NVML) | Done |
 | AMD GPU hardware telemetry (sysfs/hwmon) | Done |
 | Intel GPU hardware telemetry (sysfs/hwmon) | Done |
-| eBPF CUDA kernel tracing | Done |
+| Per-process GPU attribution (NVML + DRM fdinfo) | Done |
+| eBPF CUDA activity + stream-sync occupancy | Done |
 | OTel semantic convention compliance (`hw.gpu.*`) | Done |
 | Prometheus `/metrics` endpoint | Planned |
 | ROCm HIP tracing (AMD eBPF) | Planned |
-| Per-process GPU utilization (DRM fdinfo) | Planned |
+| CUDA Graph launch hooks | Planned |
 
 ## License
 

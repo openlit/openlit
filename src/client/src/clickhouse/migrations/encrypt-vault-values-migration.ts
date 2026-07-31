@@ -1,7 +1,7 @@
 import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
 import { dataCollector } from "@/lib/platform/common";
 import { encryptValue, isEncrypted } from "@/utils/crypto";
-import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
+import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import prisma from "@/lib/prisma";
 import { consoleLog } from "@/utils/log";
@@ -17,7 +17,7 @@ export default async function EncryptVaultValuesMigration(
 ) {
 	let err, dbConfig;
 	if (databaseConfigId) {
-		[err, dbConfig] = await asaw(getDBConfigById({ id: databaseConfigId }));
+		[err, dbConfig] = await asaw(getDBConfigByIdInternal({ id: databaseConfigId }));
 	} else {
 		[err, dbConfig] = await asaw(getDBConfigByUser(true));
 	}

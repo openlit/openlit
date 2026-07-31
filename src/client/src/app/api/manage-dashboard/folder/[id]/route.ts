@@ -1,9 +1,11 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { deleteFolder, getFolderById } from "@/lib/platform/manage-dashboard/folder";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 
-export async function DELETE(
+async function DELETEHandler(
 	_: NextRequest,
 	{ params: { id } }: { params: { id: string } }
 ) {
@@ -16,10 +18,13 @@ export async function DELETE(
 	return Response.json(res);
 }
 
-export async function GET(
+async function GETHandler(
 	_: NextRequest,
 	{ params: { id } }: { params: { id: string } }
 ) {
 	const res = await getFolderById(id);
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("dashboard:read", GETHandler);
+export const DELETE = withAudit(withCurrentOrganisationPermission("dashboard:delete", DELETEHandler));

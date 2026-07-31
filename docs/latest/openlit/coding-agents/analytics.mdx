@@ -1,0 +1,48 @@
+---
+title: "Analytics"
+description: "The seeded Coding Agents dashboard - sessions, cost, acceptance, top tools and repos, and session outcomes, scoped per vendor or per user"
+---
+
+Every vendor row on the [Agents page](/latest/openlit/observability/agents/overview)'s Coding Agents tab opens to an **Overview** tab: a seeded, read-only dashboard scoped to that vendor and honoring the global time-range picker. The same dashboard is reused, scoped to a single user, when you click into a row on the [Users](/latest/openlit/coding-agents/users) tab.
+
+## Widgets
+
+- **Stat cards**: Total sessions, Active users, Total cost, Total tool calls, Lines of code accepted, Acceptance %, Commits, Pull requests.
+- **Trends**: Sessions over time, Lines over time (accepted vs. rejected).
+- **Breakdowns**: Sessions by vendor, Top tools, Top models, Top repositories, Top users, Top users by accepted lines, Acceptance breakdown, Session outcomes (merged, committed, abandoned, cancelled), Edit decisions (auto-applied vs. user-reviewed), MCP servers in use.
+
+Clicking **Top users** or **Top repositories** drills into that user's or repository's own scoped view of the same dashboard.
+
+## How the numbers are computed
+
+- **Acceptance %** is computed from edit-decision counts - `accept` and `auto_accepted` decisions against `reject` decisions - not from a raw lines-changed ratio.
+- **Commits** and **Pull requests** are detected heuristically from shell/Bash tool calls (`git commit`, `gh pr ...`), since this isn't a native VCS integration. Treat them as a strong signal rather than an exact count.
+- Every widget reads the same `{{filter.timeLimit.start}}` / `{{filter.timeLimit.end}}` bindings as the rest of OpenLIT's dashboards, so changing the time range picker updates the whole board consistently.
+
+## Query the same data yourself
+
+The Overview dashboard reads from the same `otel_traces` table as everything else in OpenLIT, so you can build your own [custom dashboard widgets](/latest/openlit/dashboards/overview) against it:
+
+```sql
+SELECT *
+FROM otel_traces
+WHERE SpanName IN (
+  'coding_agent.session',
+  'coding_agent.edit.decision',
+  'coding_agent.git.commit',
+  'coding_agent.git.pull_request'
+)
+```
+
+The metrics pipeline emits the same rollups as counters, if you'd rather point a Prometheus/Mimir/Datadog backend at the OpenLIT collector directly: `coding_agent.session.count`, `coding_agent.session.duration`, `coding_agent.tool.call.count`, `coding_agent.lines_of_code.count`, `coding_agent.edit.decision.count`, `coding_agent.commit.count`, `coding_agent.pull_request.count`.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Sessions" href="/latest/openlit/coding-agents/sessions" icon='list'>
+    Drill from an aggregate metric down to the individual sessions behind it
+  </Card>
+  <Card title="Users" href="/latest/openlit/coding-agents/users" icon='users'>
+    The same dashboard, scoped to one developer
+  </Card>
+</CardGroup>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getCurrentUser } from "@/lib/session";
 import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
 
@@ -14,7 +15,7 @@ const FIELD_COLUMN_MAP: Record<string, string> = {
 	"gen_ai.request.model": "SpanAttributes['gen_ai.request.model']",
 };
 
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,3 +46,5 @@ export async function GET(request: NextRequest) {
 		.filter(Boolean);
 	return NextResponse.json({ values });
 }
+
+export const GET = withCurrentOrganisationPermission("rule_engine:read", GETHandler);

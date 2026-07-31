@@ -13,7 +13,7 @@ import type { AgentTool } from "@/types/agents";
 const JSONViewer = dynamic(() => import("@/components/common/json-viewer"), {
 	ssr: false,
 	loading: () => (
-		<div className="text-[10px] text-stone-400 dark:text-stone-500">…</div>
+		<div className="text-[10px] text-stone-500 dark:text-stone-400">…</div>
 	),
 });
 

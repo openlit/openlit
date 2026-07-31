@@ -1,0 +1,177 @@
+---
+title: "Setup & Configure"
+description: "Install the openlit CLI, wire each vendor's hooks, then configure the endpoint, content capture, and stopping tracking"
+---
+
+## Setup
+
+<Steps>
+  <Step title="Install the CLI">
+    Pick the path that matches your OS. All paths install the same `openlit` binary built by `cli-release.yml`.
+
+    <CodeGroup>
+    ```bash macOS
+    brew install openlit/openlit/openlit
+    ```
+
+    ```bash Linux
+    curl -fsSL https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.sh | sh
+    ```
+
+    ```powershell Windows
+    iwr -useb https://raw.githubusercontent.com/openlit/openlit/main/cli/scripts/install.ps1 | iex
+    ```
+
+    ```bash docker
+    docker run --rm -it ghcr.io/openlit/openlit-cli:latest --help
+    ```
+    </CodeGroup>
+
+    The Linux and Windows scripts install to `~/.openlit/bin/openlit` and `%USERPROFILE%\.openlit\bin\openlit.exe` respectively. The Linux script prints a PATH-add hint if the directory is not already on `$PATH`; the Windows script updates user-scope PATH automatically (open a new terminal to pick it up).
+
+    If you prefer to build from source: `go install github.com/openlit/openlit/cli/cmd/openlit@latest`.
+  </Step>
+
+  <Step title="Wire each vendor">
+    `openlit coding install` writes the right hook config for the agent you pass and is fully idempotent. You can also point at the [plugin marketplace](https://github.com/openlit/openlit/tree/main/plugins) and let the agent pull the manifest itself, or invoke the agent through `openlit coding launch` which auto-installs and execs.
+
+    <Tabs>
+    <Tab title="Claude Code">
+
+    ```bash
+    # One-time install
+    openlit coding install --vendor=claude-code
+
+    # Or run Claude Code through the launcher (auto-installs)
+    openlit coding launch claude-code
+    ```
+
+    Manifest path: `~/.claude/plugins/openlit-cc/`. Hooks wired: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionEnd`. Claude Code's transcript JSONL (`transcript_path` in the hook payload) is tailed on `SessionStart` for early model attribution and on `SessionEnd` for authoritative token usage and cost.
+
+    **Optional: Claude Code's native OpenTelemetry exporter.** If you'd rather not install the plugin, or you want a second signal source for cross-checking, you can point Claude Code's built-in OTel exporter at your OpenLIT collector instead. Both paths can run side by side - OpenLIT dedupes per `session.id` (Claude Code's authoritative cost/tokens from the native path win, while the hook path provides the repository/working-folder context that Claude Code itself can't see).
+
+    ```bash
+    export CLAUDE_CODE_ENABLE_TELEMETRY=1
+    export OTEL_METRICS_EXPORTER=otlp
+    export OTEL_LOGS_EXPORTER=otlp
+    export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    export OTEL_EXPORTER_OTLP_ENDPOINT=$OPENLIT_OTLP_ENDPOINT
+    export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $OPENLIT_API_KEY"
+    # Optional: also enable traces (beta - gives per-tool / per-LLM-turn spans)
+    export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
+    export OTEL_TRACES_EXPORTER=otlp
+    ```
+
+    See [Claude Code's monitoring docs](https://code.claude.com/docs/en/monitoring-usage) for the full environment-variable surface (managed settings, dynamic headers, cardinality controls, content-capture gates). When both paths are active, OpenLIT folds them into one chat thread automatically.
+
+    </Tab>
+    <Tab title="Cursor">
+
+    ```bash
+    openlit coding install --vendor=cursor
+    ```
+
+    Manifest path: `~/.cursor/hooks.json` (user scope - applies to every workspace you open in Cursor; works the same on macOS, Linux, and Windows). All Cursor hook events (sessionStart/End, prompt/response/thought, tool + shell + MCP phases, subagent lifecycle, file edits, preCompact) invoke `openlit coding hook --vendor=cursor --event=<name>` directly. At install time the `openlit` token in each `command` is rewritten to the absolute path of the CLI binary that ran `openlit coding install`, which sidesteps the minimal-PATH that GUI-launched Cursor windows inherit on macOS and Linux, and makes the same manifest work on Windows where there is no shell wrapper.
+
+    <Note>
+    We merge into `~/.cursor/hooks.json` (user scope) rather than drop a plugin tree elsewhere because Cursor only auto-discovers plugins that were registered through its in-app `/add-plugin` flow. User-scope hooks are the supported way to install agent-wide hooks without an in-app step, and re-running `openlit coding install --vendor=cursor` is idempotent: prior openlit entries are dropped before the new ones are appended, and any third-party entries you (or another tool) have added are left in place.
+    </Note>
+
+    </Tab>
+    <Tab title="Codex">
+
+    ```bash
+    openlit coding install --vendor=codex
+    ```
+
+    Manifest path: `~/.codex/plugins/openlit/`. Hooks wired: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`. Codex scopes every hook to a `turn_id` so we emit one `coding_agent.llm.turn` span per turn (built on `Stop`), with the prompt, last-assistant message, and the per-tool calls produced during that turn folded into the OTel-canonical `gen_ai.input.messages` / `gen_ai.output.messages` envelopes.
+
+    The CLI tails `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` on `Stop` to compute the per-turn token delta (input, output, cached, reasoning) from Codex's running `token_count` events, so cost rollups in OpenLIT reflect the same per-turn deltas Codex itself records.
+
+    Subagent linkage is read from the transcript's `session_meta` record at `SessionStart`; child turns inherit `coding_agent.agent.parent_id` automatically so the UI folds them under the spawning chat. Codex doesn't expose a `SessionEnd` event, so the session row updates incrementally as each `Stop` lands.
+
+    If `codex features list` doesn't already enable `codex_hooks` on your build, add this to `~/.codex/config.toml`:
+
+    ```toml
+    [features]
+    codex_hooks = true
+
+    [plugins."openlit"]
+    enabled = true
+    ```
+
+    Older Codex builds use `hooks = true` and `plugin_hooks = true` instead of `codex_hooks`.
+
+    </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify">
+    Run any short coding-agent session, then refresh the [Agents page](/latest/openlit/observability/agents/overview) in your OpenLIT UI. You should see a new row labelled with the vendor and a "Coding" badge. Click in for the dedicated Overview / Sessions / Users tabs.
+  </Step>
+</Steps>
+
+## Configure
+
+Everything below is a setting you can change at any point after setup - none of it needs to happen up front.
+
+### Endpoint, API key, and content capture
+
+The fastest path is `openlit configure` - it answers the same questions a CI / Helm chart would set via env. The result is written to `~/.config/openlit/config.env` (Linux/macOS) or `%APPDATA%\openlit\config.env` (Windows). For headless / fleet rollouts, prefer env vars or flags directly - they take precedence over the file (flags > env > config file).
+
+```bash
+openlit configure \
+  --endpoint https://openlit.example.com:4318 \
+  --api-key  $OPENLIT_API_KEY
+```
+
+Equivalent environment variables (precedence: flags > env > config file):
+
+| Variable | Purpose |
+|---|---|
+| `OPENLIT_OTLP_ENDPOINT` | OTLP/HTTP endpoint of your collector |
+| `OPENLIT_API_KEY`       | Authenticates the OTLP exporter |
+| `OPENLIT_USER`          | Optional override for `gen_ai.user.name` (email or login) |
+| `OPENLIT_CODING_CONTENT_CAPTURE` | `minimal` \| `metadata_only` \| `full` *(default: `full`)* - see [Privacy & Governance](/latest/openlit/coding-agents/privacy-and-governance) |
+
+Standard `OTEL_EXPORTER_OTLP_*` variables are honoured as fallbacks so existing OTel users can reuse their setup. Re-run `openlit configure` (or update the env vars) any time - changes apply to the next session, no reinstall of the vendor hooks needed.
+
+### Stop tracking / uninstall
+
+The inverse of `openlit coding install`. Removes the per-vendor host plugin manifests written by install, deregisters the plugin from the vendor's own CLI where applicable (Claude Code, Codex), and leaves your shared config alone by default so you can re-onboard without re-entering credentials.
+
+```bash
+openlit coding uninstall --vendor=cursor          # one vendor
+openlit coding uninstall --vendor=all             # every vendor at once
+openlit coding uninstall --vendor=all --purge     # also drop ~/.config/openlit + session-state cache
+openlit coding uninstall --vendor=cursor --dry-run  # preview without touching disk
+```
+
+What each flag removes:
+
+| Path | Removed by `--vendor=<v>` | Removed by `--purge` |
+|---|---|---|
+| `~/.claude/plugins/openlit-cc/` | ✓ (when `<v>` is `claude-code` or `all`) | - |
+| `~/.local/share/openlit/claude-marketplace/` | ✓ (when `<v>` is `claude-code` or `all`) | - |
+| openlit entries in `~/.cursor/hooks.json` (other tools' entries preserved; file deleted if it ends up empty) | ✓ (when `<v>` is `cursor` or `all`) | - |
+| `~/.local/share/openlit/codex-marketplace/` | ✓ (when `<v>` is `codex` or `all`) | - |
+| `claude plugin uninstall openlit-cc@openlit` | ✓ best-effort | - |
+| `codex plugin remove openlit@openlit` + `codex plugin marketplace remove openlit` | ✓ best-effort | - |
+| `~/.config/openlit/` (your `configure` output) | - | ✓ |
+| `<UserCacheDir>/openlit/sessions/` (session-state cache) | - | ✓ |
+
+The `openlit` binary itself is **not** touched. Uninstall it the way you installed it:
+
+```bash
+brew uninstall openlit                # Homebrew
+rm ~/.openlit/bin/openlit             # curl|sh installer
+rm $(go env GOPATH)/bin/openlit       # go install
+```
+
+If you only want to pause a vendor temporarily rather than uninstall it, re-run `openlit coding install --vendor=<v>` later - it's idempotent and will re-wire the same manifest.
+
+---
+
+<Card title="Troubleshooting" href="/latest/openlit/coding-agents/troubleshooting" icon='wrench'>
+  No row showing up, or hooks running with no spans landing? Start here.
+</Card>

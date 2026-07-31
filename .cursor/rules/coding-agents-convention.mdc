@@ -199,6 +199,7 @@ Cursor sends payloads to our hook subcommand; we own the mapping. For full refer
 | `text` (assistant response) | `gen_ai.output.messages` | full mode only |
 | `text` (thought) | `coding_agent.llm.thought.text` | full mode only |
 | `duration_ms` | `coding_agent.llm.thought.duration_ms` | for thoughts |
+| `input_tokens` / `output_tokens` / `cache_*_tokens` (on `stop`) | `gen_ai.usage.*_tokens` | Real counters only; stamp on `stop` + drain to session root at `sessionEnd`. Never invent from text. Cursor does not send USD — leave cost unset. |
 | `tool_name` | `gen_ai.tool.name` | |
 | `tool_use_id` | `gen_ai.tool.call.id` | |
 | `tool_input` | `gen_ai.tool.call.arguments` | full mode only |

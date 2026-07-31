@@ -141,6 +141,141 @@ describe("runWidgetQuery", () => {
 		);
 	});
 
+	it("allows attribute keys whose names embed blocklisted keywords", async () => {
+		// `gen_ai.system` is a data key, not the SYSTEM command. The
+		// `system` substring is word-bounded by `.` and `'`, so a naive
+		// keyword scan would wrongly reject this safe SELECT.
+		const query =
+			"SELECT if(notEmpty(SpanAttributes['gen_ai.provider.name']), SpanAttributes['gen_ai.provider.name'], SpanAttributes['gen_ai.system']) AS provider, COUNT(*) AS count FROM otel_traces GROUP BY provider";
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({
+				data: [{ provider: "openai", count: 5 }],
+				err: null,
+			});
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [{ provider: "openai", count: 5 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query,
+			enable_readonly: true,
+		});
+	});
+
+	it("does not flag blocklisted keywords that appear only inside string literals", async () => {
+		const query =
+			"SELECT ServiceName FROM otel_traces WHERE ServiceName = 'drop-table-service'";
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [] });
+	});
+
+	it("strips literals with backslash and doubled-quote escapes without ReDoS", async () => {
+		// Pathological closed literal that previously triggered CodeQL
+		// js/redos on /'(?:\\.|''|[^'])*'/. Must complete in linear time.
+		const evilLiteral = "'" + "\\&".repeat(40) + "'";
+		const query = `SELECT 1 WHERE x = ${evilLiteral} OR y = 'it''s fine' OR z = 'a\\'b'`;
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ ok: 1 }], err: null });
+
+		const started = Date.now();
+		const result = await runWidgetQuery("w1", {
+			userQuery: query,
+			filter: {} as any,
+		});
+		expect(Date.now() - started).toBeLessThan(500);
+		expect(result).toEqual({ data: [{ ok: 1 }] });
+	});
+
+	it("still sees keywords when a string literal is left unclosed", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT 1 WHERE x = 'unclosed DROP TABLE otel_traces",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "Query contains disallowed operations" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("still blocks real SYSTEM commands outside string literals", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT 1 FROM otel_traces WHERE x = 'ok'; SYSTEM RELOAD DICTIONARIES",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "Query contains disallowed operations" });
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("interpolates {{filter.*}} placeholders without a template engine", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ n: 1 }], err: null });
+
+		const result = await runWidgetQuery("w1", {
+			userQuery:
+				"SELECT 1 WHERE ts >= '{{filter.timeLimit.start}}' AND env = '{{filter.env}}'",
+			filter: {
+				timeLimit: { start: "2024-01-01", end: "2024-01-02" },
+				env: "prod",
+			} as any,
+		});
+
+		expect(result).toEqual({ data: [{ n: 1 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
+			enable_readonly: true,
+		});
+	});
+
+	it("ignores non-filter mustache-like tags so they cannot run as code", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT '{{#evil}}{{/evil}}' AS x, '{{filter.ok}}' AS y",
+			filter: { ok: "safe" } as any,
+		});
+
+		expect(result).toEqual({ data: [] });
+		expect(dataCollector).toHaveBeenLastCalledWith({
+			query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
+			enable_readonly: true,
+		});
+	});
+
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
 	});

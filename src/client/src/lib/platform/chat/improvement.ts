@@ -131,6 +131,7 @@ type TraceAnalysis = {
   cost: Finding[];
   token_efficiency: Finding[];
   path_analysis: Finding[];
+  prompt_injection: Finding[];
   totals: {
     span_count: number;
     total_tokens: number;
@@ -1316,7 +1317,7 @@ function buildAggregatedSummary(dimensionSummaries: Partial<Record<TraceAnalysis
 		.filter(Boolean)
 		.slice(0, 2);
 	return [
-		`Focused analysis completed across six separate dimension passes (${counts}).`,
+		`Focused analysis completed across ${TRACE_ANALYSIS_DIMENSIONS.length} separate dimension passes (${counts}).`,
 		nonEmptySummaries.length ? nonEmptySummaries.join(" ") : "No concrete issues were found beyond the populated dimension findings.",
 	].join(" ");
 }

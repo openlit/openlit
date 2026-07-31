@@ -1,63 +1,87 @@
-jest.mock('@/lib/platform/common', () => ({
-  dataCollector: jest.fn().mockResolvedValue({ data: [] }),
-  OTEL_TRACES_TABLE_NAME: 'otel_traces',
+jest.mock("@/lib/platform/common", () => ({
+	dataCollector: jest.fn(),
+	OTEL_TRACES_TABLE_NAME: "otel_traces",
 }));
 
-import { getTotalCost, getAverageCost, getCostByApplication, getCostByEnvironment } from '@/lib/platform/llm/cost';
-import { dataCollector } from '@/lib/platform/common';
+jest.mock("@/helpers/server/platform", () => ({
+	dateTruncGroupingLogic: jest.fn(() => "hour"),
+	getFilterPreviousParams: jest.fn((params) => params),
+	getFilterWhereCondition: jest.fn(() => "1 = 1"),
+}));
 
-const baseParams = {
-  timeLimit: { start: '2024-01-01', end: '2024-01-31', type: '1M' },
+jest.mock("@/helpers/server/trace", () => ({
+	getTraceMappingKeyFullPath: jest.fn((key: string) => {
+		if (key === "cost") return "gen_ai.usage.cost";
+		if (key === "model") return "gen_ai.request.model";
+		if (key === "applicationName") return "service.name";
+		return key;
+	}),
+	getTraceMappingKeyFullPaths: jest.fn(() => ["gen_ai.provider.name", "gen_ai.system"]),
+}));
+
+import { dataCollector } from "@/lib/platform/common";
+import {
+	getCostByApplication,
+	getCostByModel,
+	getCostByProvider,
+	getCostPerTime,
+} from "@/lib/platform/llm/cost";
+
+const mockedDataCollector = dataCollector as jest.MockedFunction<typeof dataCollector>;
+
+const params = {
+	timeLimit: {
+		start: new Date("2024-01-01"),
+		end: new Date("2024-01-02"),
+		type: "custom",
+	},
 };
 
-beforeEach(() => {
-  jest.clearAllMocks();
-});
+describe("llm cost analytics queries", () => {
+	beforeEach(() => {
+		mockedDataCollector.mockReset();
+		mockedDataCollector.mockResolvedValue({ data: [] });
+	});
 
-describe('getTotalCost', () => {
-  it('calls dataCollector and returns result', async () => {
-    const result = await getTotalCost(baseParams);
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('total_usage_cost');
-    expect(query).toContain('otel_traces');
-    expect(result).toEqual({ data: [] });
-  });
+	it("queries cost by application via ServiceName fallbacks", async () => {
+		await getCostByApplication(params);
+		const query = mockedDataCollector.mock.calls[0][0].query as string;
+		expect(query).toContain("AS applicationName");
+		expect(query).toContain("ServiceName");
+		expect(query).toContain("ResourceAttributes['service.name']");
+		expect(query).toContain("SpanAttributes['gen_ai.application_name']");
+		expect(query).not.toContain(
+			"ResourceAttributes['SpanAttributes.gen_ai.application_name']"
+		);
+	});
 
-  it('query includes JOIN for current/previous comparison', async () => {
-    await getTotalCost(baseParams);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('JOIN');
-    expect(query).toContain('previous_total_usage_cost');
-  });
-});
+	it("queries cost by provider", async () => {
+		await getCostByProvider(params);
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("AS provider"),
+			})
+		);
+		expect(mockedDataCollector.mock.calls[0][0].query).toContain(
+			"gen_ai.usage.cost"
+		);
+	});
 
-describe('getAverageCost', () => {
-  it('calls dataCollector with average query', async () => {
-    await getAverageCost(baseParams);
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('average_usage_cost');
-    expect(query).toContain('JOIN');
-  });
-});
+	it("queries cost by model", async () => {
+		await getCostByModel(params);
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("AS model"),
+			})
+		);
+	});
 
-describe('getCostByApplication', () => {
-  it('calls dataCollector with GROUP BY applicationName', async () => {
-    await getCostByApplication(baseParams);
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('applicationName');
-    expect(query).toContain('GROUP BY');
-  });
-});
-
-describe('getCostByEnvironment', () => {
-  it('calls dataCollector with GROUP BY environment', async () => {
-    await getCostByEnvironment(baseParams);
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('environment');
-    expect(query).toContain('GROUP BY');
-  });
+	it("queries cost per time", async () => {
+		await getCostPerTime(params);
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: expect.stringContaining("request_time"),
+			})
+		);
+	});
 });

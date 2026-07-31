@@ -38,6 +38,8 @@ export async function getCustomModels(
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -106,6 +108,9 @@ export async function createCustomModel(
 					context_window: input.contextWindow || 4096,
 					input_price_per_m_token: input.inputPricePerMToken || 0,
 					output_price_per_m_token: input.outputPricePerMToken || 0,
+					cache_read_price_per_m_token: input.cacheReadPricePerMToken || 0,
+					cache_creation_price_per_m_token:
+						input.cacheCreationPricePerMToken || 0,
 					capabilities: input.capabilities || [],
 					is_default: false,
 					created_by_user_id: userId,
@@ -130,6 +135,8 @@ export async function createCustomModel(
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -177,6 +184,16 @@ export async function updateCustomModel(
 	}
 	if (input.outputPricePerMToken !== undefined) {
 		updateFields.push(`output_price_per_m_token = ${input.outputPricePerMToken}`);
+	}
+	if (input.cacheReadPricePerMToken !== undefined) {
+		updateFields.push(
+			`cache_read_price_per_m_token = ${input.cacheReadPricePerMToken}`
+		);
+	}
+	if (input.cacheCreationPricePerMToken !== undefined) {
+		updateFields.push(
+			`cache_creation_price_per_m_token = ${input.cacheCreationPricePerMToken}`
+		);
 	}
 	if (input.capabilities !== undefined) {
 		const capabilitiesArray = input.capabilities
@@ -260,6 +277,8 @@ export async function getCustomModelsForProvider(
 		contextWindow: model.contextWindow,
 		inputPricePerMToken: model.inputPricePerMToken,
 		outputPricePerMToken: model.outputPricePerMToken,
+		cacheReadPricePerMToken: model.cacheReadPricePerMToken,
+		cacheCreationPricePerMToken: model.cacheCreationPricePerMToken,
 		capabilities: model.capabilities,
 	}));
 

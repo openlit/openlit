@@ -172,7 +172,7 @@ export default function RuleDetailPage() {
 	if (isLoading && !rule) {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<FeaturePageHeader eyebrow="Resources" title={messages.LOADING} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} />
+				<FeaturePageHeader eyebrow={getMessage().SIDEBAR_DEVELOP} title={messages.LOADING} icon={<SlidersHorizontal className="h-4 w-4" />} tone={ruleHeaderTone} />
 				<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
 					<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
 					<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
@@ -189,7 +189,7 @@ export default function RuleDetailPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow="Resources"
+				eyebrow={getMessage().SIDEBAR_DEVELOP}
 				title={r.name}
 				icon={<SlidersHorizontal className="h-4 w-4" />}
 				tone={ruleHeaderTone}

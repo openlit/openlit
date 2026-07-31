@@ -59,3 +59,70 @@ export interface AutoEvaluationConfig {
 }
 
 export type EvaluationConfigWithSecret = EvaluationConfig & { secret: Secret };
+
+export type EvaluationAnalyticsSummary = {
+	tracesEvaluated: number;
+	executions: number;
+	autoExecutions: number;
+	totalCost: number;
+	avgPassRate: number;
+	failedScores: number;
+	previous_tracesEvaluated: number;
+	previous_executions: number;
+	previous_autoExecutions: number;
+	previous_totalCost: number;
+	previous_avgPassRate: number;
+	previous_failedScores: number;
+	evaluations: number;
+	active: number;
+};
+
+export type EvaluationAnalyticsTimeseriesPoint = {
+	timestamp: string;
+	executions: number;
+	passRate: number;
+};
+
+export type EvaluationAnalyticsByTypeRow = {
+	evaluation: string;
+	executions: number;
+	passRate: number;
+	previousPassRate: number;
+	failedScores: number;
+};
+
+export type EvaluationAnalyticsRecentResult = {
+	id: string;
+	spanId: string;
+	createdAt: string;
+	verdict: string;
+	score: number;
+	classification: string;
+	explanation: string;
+	source?: string;
+	cost?: number;
+};
+
+export type EvaluationEvaluatorAnalyticsResponse = {
+	configured: boolean;
+	found: boolean;
+	evaluator?: {
+		id: string;
+		label: string;
+		enabled: boolean;
+		description?: string;
+		isCustom?: boolean;
+	};
+	data?: Array<Record<string, number>>;
+	timeseries?: EvaluationAnalyticsTimeseriesPoint[];
+	recentResults?: EvaluationAnalyticsRecentResult[];
+};
+
+export type EvaluationAnalyticsResponse = {
+	configured: boolean;
+	data?: Array<Record<string, number>>;
+	summary?: EvaluationAnalyticsSummary;
+	timeseries?: EvaluationAnalyticsTimeseriesPoint[];
+	byType?: EvaluationAnalyticsByTypeRow[];
+};
+

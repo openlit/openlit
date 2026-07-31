@@ -741,6 +741,15 @@ def process_chat_chunk(scope, chunk):
     if usage:
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
+        prompt_tokens_details = usage.get("prompt_tokens_details") or {}
+        if not isinstance(prompt_tokens_details, dict):
+            prompt_tokens_details = {}
+        scope._cache_read_input_tokens = (
+            prompt_tokens_details.get("cached_tokens", 0) or 0
+        )
+        scope._cache_creation_input_tokens = (
+            prompt_tokens_details.get("cache_write_tokens", 0) or 0
+        )
 
     scope._system_fingerprint = (
         chunked.get("system_fingerprint") or scope._system_fingerprint
@@ -850,8 +859,16 @@ def process_response_chunk(scope, chunk):
         scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
 
         # Cached tokens (OTel: gen_ai.usage.cache_read.input_tokens)
-        input_tokens_details = usage.get("input_tokens_details", {})
-        scope._cache_read_input_tokens = input_tokens_details.get("cached_tokens", 0)
+        # Cache writes (OTel: gen_ai.usage.cache_creation.input_tokens)
+        input_tokens_details = usage.get("input_tokens_details", {}) or {}
+        if not isinstance(input_tokens_details, dict):
+            input_tokens_details = {}
+        scope._cache_read_input_tokens = (
+            input_tokens_details.get("cached_tokens", 0) or 0
+        )
+        scope._cache_creation_input_tokens = (
+            input_tokens_details.get("cache_write_tokens", 0) or 0
+        )
 
 
 def common_response_logic(
@@ -887,17 +904,15 @@ def common_response_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
-    # flag the prompt tokens as cache-inclusive to avoid billing cached tokens
-    # twice once a model defines cacheReadPrice. OpenAI has no cache-creation
-    # charge, so that count stays 0 unless a provider sets it.
+    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens and
+    # cache_write_tokens, so flag the prompt tokens as cache-inclusive.
     cost = get_chat_model_cost(
         request_model,
         pricing_info,
         input_tokens,
         output_tokens,
-        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
-        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,
     )
 
@@ -1322,8 +1337,13 @@ def process_response_response(
     output_tokens_details = usage.get("output_tokens_details", {})
     scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
 
-    input_tokens_details = usage.get("input_tokens_details", {})
-    scope._cache_read_input_tokens = input_tokens_details.get("cached_tokens", 0)
+    input_tokens_details = usage.get("input_tokens_details", {}) or {}
+    if not isinstance(input_tokens_details, dict):
+        input_tokens_details = {}
+    scope._cache_read_input_tokens = input_tokens_details.get("cached_tokens", 0) or 0
+    scope._cache_creation_input_tokens = (
+        input_tokens_details.get("cache_write_tokens", 0) or 0
+    )
 
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
@@ -1392,17 +1412,15 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
-    # flag the prompt tokens as cache-inclusive to avoid billing cached tokens
-    # twice once a model defines cacheReadPrice. OpenAI has no cache-creation
-    # charge, so that count stays 0 unless a provider sets it.
+    # OpenAI reports prompt_tokens inclusive of cached (cache read) tokens and
+    # cache_write_tokens, so flag the prompt tokens as cache-inclusive.
     cost = get_chat_model_cost(
         request_model,
         pricing_info,
         input_tokens,
         output_tokens,
-        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0),
-        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,
     )
 
@@ -1766,10 +1784,15 @@ def process_chat_response(
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
 
     # Extract cache tokens (OpenAI prompt caching)
-    prompt_tokens_details = response_dict.get("usage", {}).get(
-        "prompt_tokens_details", {}
+    prompt_tokens_details = (
+        response_dict.get("usage", {}).get("prompt_tokens_details", {}) or {}
     )
-    scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
+    if not isinstance(prompt_tokens_details, dict):
+        prompt_tokens_details = {}
+    scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0) or 0
+    scope._cache_creation_input_tokens = (
+        prompt_tokens_details.get("cache_write_tokens", 0) or 0
+    )
 
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0

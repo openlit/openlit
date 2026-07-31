@@ -400,7 +400,29 @@ export class StrandsSpanProcessor implements SpanProcessor {
       enrichments[SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE] = inputTokens + outputTokens;
     }
     if (OpenlitConfig.pricingInfo && modelName) {
-      const cost = OpenLitHelper.getChatModelCost(modelName, OpenlitConfig.pricingInfo, inputTokens, outputTokens);
+      const cacheReadTokens = Number(
+        attrs[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] ||
+          attrs['gen_ai.usage.cache_read_input_tokens'] ||
+          0
+      );
+      const cacheCreationTokens = Number(
+        attrs[SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] ||
+          attrs['gen_ai.usage.cache_write_input_tokens'] ||
+          0
+      );
+      const cacheTotal = cacheReadTokens + cacheCreationTokens;
+      // Underlying providers differ; treat input as inclusive when it already
+      // covers the cache sum, otherwise exclusive (Anthropic/Bedrock-style).
+      const promptTokensIncludeCache = cacheTotal > 0 && inputTokens >= cacheTotal;
+      const cost = OpenLitHelper.getChatModelCost(
+        modelName,
+        OpenlitConfig.pricingInfo,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        promptTokensIncludeCache
+      );
       enrichments[SemanticConvention.GEN_AI_USAGE_COST] = cost;
     }
 

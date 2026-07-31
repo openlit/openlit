@@ -31,6 +31,7 @@ import {
 	TraceAnalysisDimension,
 	TraceAnalysisFinding,
 	emptyTraceAnalysis,
+	ensureTraceAnalysisDimensions,
 } from "@/types/trace-analysis";
 import { TRACE_ANALYSIS_DIMENSION_REGISTRY } from "@/lib/platform/chat/trace-analysis-registry";
 import { useRequest } from "../request-context";
@@ -108,7 +109,7 @@ function AnalysisStepTimeline({ steps }: { steps: ImprovementStep[] }) {
 								{step.label}
 							</div>
 							{step.detail ? (
-								<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+								<div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
 									{step.detail}
 								</div>
 							) : null}
@@ -140,7 +141,7 @@ function AnalysisProgress({
 					<div className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{title}
 					</div>
-					<div className="text-[11px] text-stone-400 dark:text-stone-500">
+					<div className="text-[11px] text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</div>
 				</div>
@@ -157,7 +158,7 @@ function AnalysisProgress({
 			>
 				<AccordionTrigger className="py-2 text-xs font-semibold uppercase tracking-wide text-stone-500 hover:no-underline dark:text-stone-400">
 					<span>{title}</span>
-					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-400 dark:text-stone-500">
+					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</span>
 				</AccordionTrigger>
@@ -245,6 +246,7 @@ function normalizeFindings(value: unknown): TraceAnalysisFinding[] {
 function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	const base = emptyTraceAnalysis(String(value?.trace_id || value?.traceId || ""));
 	const totals = value?.totals && typeof value.totals === "object" ? value.totals : {};
+	const dimensionFindings = ensureTraceAnalysisDimensions(value);
 	const normalized: TraceAnalysis = {
 		...base,
 		...value,
@@ -259,7 +261,7 @@ function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	};
 
 	for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
-		normalized[dimension] = normalizeFindings(value?.[dimension]);
+		normalized[dimension] = normalizeFindings(dimensionFindings[dimension]);
 	}
 
 	return normalized;
@@ -332,7 +334,7 @@ function DiffView({ patches }: { patches: FixPatch[] }) {
 							<span className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 								{patch.field}
 							</span>
-							<span className="font-mono text-[10px] text-stone-400 dark:text-stone-500">
+							<span className="font-mono text-[10px] text-stone-500 dark:text-stone-400">
 								· {patch.span_ref.slice(0, 8)}…
 							</span>
 						</div>

@@ -1,8 +1,10 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { storeManualFeedback } from "@/lib/platform/evaluation";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: { spanId: string } }
 ) {
@@ -40,3 +42,5 @@ export async function POST(
 	});
 	return Response.json({ success: true });
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("evaluation:feedback", POSTHandler));

@@ -311,10 +311,12 @@ def process_chunk(scope, chunk):
         # Handle token usage including reasoning tokens and cached tokens
         scope._input_tokens = billed.get("input_tokens", 0)
         scope._output_tokens = billed.get("output_tokens", 0)
-        scope._cache_read_input_tokens = getattr(scope, "_cache_read_input_tokens", 0)
-        scope._cache_creation_input_tokens = getattr(
-            scope, "_cache_creation_input_tokens", 0
-        )
+        scope._cache_read_input_tokens = (
+            usage.get("cached_tokens")
+            or (delta.get("meta") or {}).get("cached_tokens")
+            or 0
+        ) or 0
+        scope._cache_creation_input_tokens = 0
         scope._end_time = time.time()
 
 
@@ -340,8 +342,15 @@ def common_chat_logic(
 
     request_model = scope._kwargs.get("model", "command-r-plus-08-2024")
 
+    # Cohere billed input is inclusive of cached_tokens when present.
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
     )
 
     # Common Span Attributes
@@ -649,7 +658,11 @@ def process_chat_response(
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = billed.get("input_tokens", 0)
     scope._output_tokens = billed.get("output_tokens", 0)
-    scope._cache_read_input_tokens = 0  # Cohere does not expose cached tokens in API
+    scope._cache_read_input_tokens = (
+        usage.get("cached_tokens")
+        or (response_dict.get("meta") or {}).get("cached_tokens")
+        or 0
+    ) or 0
     scope._cache_creation_input_tokens = 0
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0

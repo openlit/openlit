@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
@@ -210,3 +211,176 @@ func TestCursorSessionIDPrefersConversation(t *testing.T) {
 			em.sessions[0].SessionID, "convo-stable")
 	}
 }
+
+// TestCursorAfterAgentResponseOmitsTokensEvenWhenPresent:
+// afterAgentResponse is content-only. Token fields on the payload are
+// ignored here so we do not double-count against stop's full-turn
+// counters under the UI sum(child) rollup.
+func TestCursorAfterAgentResponseOmitsTokensEvenWhenPresent(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	longText := strings.Repeat("word ", 2000)
+	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
+		"hook_event_name":    "afterAgentResponse",
+		"conversation_id":    "convo-1",
+		"generation_id":      "gen-1",
+		"model":              "composer-2.5",
+		"text":               longText,
+		"input_tokens":       int64(1200),
+		"output_tokens":      int64(340),
+		"cache_read_tokens":  int64(800),
+		"cache_write_tokens": int64(100),
+	})); err != nil {
+		t.Fatalf("afterAgentResponse: %v", err)
+	}
+	if len(em.llmTurns) != 1 {
+		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
+	}
+	got := em.llmTurns[0]
+	if got.Response == "" {
+		t.Errorf("expected response text to be preserved")
+	}
+	if got.InputTokens != 0 || got.OutputTokens != 0 || got.TotalTokens != 0 {
+		t.Errorf("tokens on response turn = in=%d out=%d total=%d; want all 0 (stop owns usage)",
+			got.InputTokens, got.OutputTokens, got.TotalTokens)
+	}
+	if got.CacheReadTokens != 0 || got.CacheCreationTokens != 0 {
+		t.Errorf("cache tokens on response turn = read=%d write=%d; want 0",
+			got.CacheReadTokens, got.CacheCreationTokens)
+	}
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0 (Cursor never sends USD)", got.CostUSD)
+	}
+}
+
+// TestCursorAfterAgentResponseNoEstimate covers older Cursor builds
+// that omit token fields — we must not invent tokens from text.
+func TestCursorAfterAgentResponseNoEstimate(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	text := "hello world from cursor"
+	if err := handle(context.Background(), in("afterAgentResponse", map[string]any{
+		"hook_event_name": "afterAgentResponse",
+		"conversation_id": "convo-2",
+		"model":           "composer-2.5",
+		"text":            text,
+	})); err != nil {
+		t.Fatalf("afterAgentResponse: %v", err)
+	}
+	if len(em.llmTurns) != 1 {
+		t.Fatalf("expected one llm turn; got %d", len(em.llmTurns))
+	}
+	got := em.llmTurns[0]
+	if got.InputTokens != 0 || got.OutputTokens != 0 || got.TotalTokens != 0 {
+		t.Errorf("tokens = in=%d out=%d total=%d; want all 0 when usage absent",
+			got.InputTokens, got.OutputTokens, got.TotalTokens)
+	}
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0", got.CostUSD)
+	}
+}
+
+// TestCursorStopStampsRealTokenAttrs ensures stop surfaces token
+// counters on the loop event and never invents USD cost.
+func TestCursorStopStampsRealTokenAttrs(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	if err := handle(context.Background(), in("stop", map[string]any{
+		"hook_event_name":    "stop",
+		"conversation_id":    "convo-3",
+		"status":             "completed",
+		"loop_count":         2,
+		"model":              "composer-2.5",
+		"input_tokens":       int64(500),
+		"output_tokens":      int64(100),
+		"cache_read_tokens":  int64(200),
+		"cache_write_tokens": int64(50),
+	})); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	if len(em.events) != 1 {
+		t.Fatalf("expected one stop event; got %d", len(em.events))
+	}
+	attrs := em.events[0].Attrs
+	if attrs["gen_ai.usage.input_tokens"] != int64(500) {
+		t.Errorf("input_tokens attr = %v, want 500", attrs["gen_ai.usage.input_tokens"])
+	}
+	if attrs["gen_ai.usage.output_tokens"] != int64(100) {
+		t.Errorf("output_tokens attr = %v, want 100", attrs["gen_ai.usage.output_tokens"])
+	}
+	if attrs["gen_ai.usage.cache.read_input_tokens"] != int64(200) {
+		t.Errorf("cache read attr = %v, want 200", attrs["gen_ai.usage.cache.read_input_tokens"])
+	}
+	if attrs["gen_ai.usage.cache.creation_input_tokens"] != int64(50) {
+		t.Errorf("cache write attr = %v, want 50", attrs["gen_ai.usage.cache.creation_input_tokens"])
+	}
+	if _, ok := attrs["gen_ai.usage.cost"]; ok {
+		t.Errorf("gen_ai.usage.cost must be absent on Cursor stop; got %v", attrs["gen_ai.usage.cost"])
+	}
+}
+
+// TestCursorStopAccumulatesIntoSessionEnd verifies multiple stop
+// turns sum into session-root token totals with CostUSD left at 0.
+func TestCursorStopAccumulatesIntoSessionEnd(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	in := inputBuilder(t, em)
+
+	stops := []struct {
+		in, out int64
+	}{
+		{500, 100},
+		{800, 200},
+	}
+	for i, s := range stops {
+		if err := handle(context.Background(), in("stop", map[string]any{
+			"hook_event_name": "stop",
+			"conversation_id": "convo-accum",
+			"status":          "completed",
+			"loop_count":      i + 1,
+			"model":           "composer-2.5",
+			"input_tokens":    s.in,
+			"output_tokens":   s.out,
+		})); err != nil {
+			t.Fatalf("stop %d: %v", i, err)
+		}
+	}
+
+	if err := handle(context.Background(), in("sessionEnd", map[string]any{
+		"hook_event_name": "sessionEnd",
+		"conversation_id": "convo-accum",
+		"reason":          "completed",
+		"final_status":    "completed",
+		"duration_ms":     int64(12000),
+		"model":           "composer-2.5",
+	})); err != nil {
+		t.Fatalf("sessionEnd: %v", err)
+	}
+	if len(em.sessions) != 1 {
+		t.Fatalf("expected one session emission; got %d", len(em.sessions))
+	}
+	got := em.sessions[0]
+	if got.InputTokens != 1300 {
+		t.Errorf("InputTokens = %d, want 1300 (500+800)", got.InputTokens)
+	}
+	if got.OutputTokens != 300 {
+		t.Errorf("OutputTokens = %d, want 300 (100+200)", got.OutputTokens)
+	}
+	if got.TotalTokens != 1600 {
+		t.Errorf("TotalTokens = %d, want 1600", got.TotalTokens)
+	}
+	if got.CostUSD != 0 {
+		t.Errorf("CostUSD = %v, want 0", got.CostUSD)
+	}
+}
+

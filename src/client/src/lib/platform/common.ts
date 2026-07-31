@@ -1,7 +1,12 @@
 import { Pool } from "generic-pool";
-import { getDBConfigById, getDBConfigByUser } from "../db-config";
+import {
+	getDBConfigByIdInternal,
+	getDBConfigByIdForUser,
+	getDBConfigByUser,
+} from "../db-config";
 import createClickhousePool from "./clickhouse/clickhouse-client";
 import asaw from "@/utils/asaw";
+import { getCurrentUser } from "@/lib/session";
 import {
 	ClickHouseClient,
 	QueryParams,
@@ -68,12 +73,20 @@ export async function dataCollector(
 ): Promise<DataCollectorType> {
 	let err, dbConfig;
 	if (dbConfigId) {
-		[err, dbConfig] = await asaw(getDBConfigById({ id: dbConfigId }));
+		const [userErr, user] = await asaw(getCurrentUser());
+		if (!userErr && user?.id) {
+			[err, dbConfig] = await asaw(
+				getDBConfigByIdForUser({ id: dbConfigId, userId: user.id })
+			);
+		} else {
+			[err, dbConfig] = await asaw(getDBConfigByIdInternal({ id: dbConfigId }));
+		}
 	} else {
 		[err, dbConfig] = await asaw(getDBConfigByUser(true));
 	}
 
 	if (err) return { err, data: [] };
+	if (!dbConfig) return { err: "Database config is not accessible", data: [] };
 	let clickhousePool: Pool<ClickHouseClient> | undefined;
 	let client: ClickHouseClient | undefined;
 

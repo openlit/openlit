@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     
     - name: Validate tag version matches pyproject.toml
       if: github.ref_type == 'tag'
@@ -33,7 +33,7 @@ jobs:
         echo "✓ Version validation passed"
     
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.x'
     

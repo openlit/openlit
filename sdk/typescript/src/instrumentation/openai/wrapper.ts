@@ -196,6 +196,8 @@ class OpenAIWrapper extends BaseWrapper {
           },
           prompt_tokens_details: {
             cached_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_write_tokens: 0,
             audio_tokens: 0,
           },
         },
@@ -258,6 +260,21 @@ class OpenAIWrapper extends BaseWrapper {
           tools = true;
         }
 
+        if (chunk.usage) {
+          result.usage = {
+            ...result.usage,
+            ...chunk.usage,
+            prompt_tokens_details: {
+              ...result.usage.prompt_tokens_details,
+              ...(chunk.usage.prompt_tokens_details || {}),
+            },
+            completion_tokens_details: {
+              ...result.usage.completion_tokens_details,
+              ...(chunk.usage.completion_tokens_details || {}),
+            },
+          };
+        }
+
         yield chunk;
       }
       
@@ -268,23 +285,25 @@ class OpenAIWrapper extends BaseWrapper {
         } as any;
       }
 
-      let promptTokens = 0;
-      for (const message of messages || []) {
-        promptTokens += OpenLitHelper.openaiTokens(message.content as string, result.model) ?? 0;
-      }
+      if (!result.usage.prompt_tokens && !result.usage.completion_tokens) {
+        let promptTokens = 0;
+        for (const message of messages || []) {
+          promptTokens += OpenLitHelper.openaiTokens(message.content as string, result.model) ?? 0;
+        }
 
-      const completionTokens = OpenLitHelper.openaiTokens(
-        result.choices[0].message.content ?? '',
-        result.model
-      );
-      if (completionTokens) {
-        result.usage = {
-          prompt_tokens: promptTokens,
-          completion_tokens: completionTokens,
-          total_tokens: promptTokens + completionTokens,
-          completion_tokens_details: result.usage.completion_tokens_details,
-          prompt_tokens_details: result.usage.prompt_tokens_details,
-        };
+        const completionTokens = OpenLitHelper.openaiTokens(
+          result.choices[0].message.content ?? '',
+          result.model
+        );
+        if (completionTokens) {
+          result.usage = {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+            completion_tokens_details: result.usage.completion_tokens_details,
+            prompt_tokens_details: result.usage.prompt_tokens_details,
+          };
+        }
       }
 
       args[0].tools = tools;
@@ -387,14 +406,21 @@ class OpenAIWrapper extends BaseWrapper {
 
     // OpenAI reports prompt_tokens inclusive of cached (cache read) tokens, so
     // flag the prompt tokens as cache-inclusive to avoid billing cached tokens
-    // twice once a model defines cacheReadPrice.
+    // twice once a model defines cacheReadPrice. GPT-5.6+ also reports
+    // cache_write_tokens (creation) under prompt_tokens_details.
+    const promptDetails = result.usage.prompt_tokens_details || {};
+    const cacheReadTokens = Number(promptDetails.cached_tokens) || 0;
+    const cacheCreationTokens =
+      Number(promptDetails.cache_creation_tokens) ||
+      Number(promptDetails.cache_write_tokens) ||
+      0;
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       result.usage.prompt_tokens,
       result.usage.completion_tokens,
-      Number(result.usage.prompt_tokens_details?.cached_tokens) || 0,
-      Number(result.usage.prompt_tokens_details?.cache_creation_tokens) || 0,
+      cacheReadTokens,
+      cacheCreationTokens,
       true
     );
 
@@ -423,16 +449,16 @@ class OpenAIWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
     
-    if (result.usage.prompt_tokens_details?.cached_tokens) {
+    if (cacheReadTokens) {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
-        result.usage.prompt_tokens_details.cached_tokens
+        cacheReadTokens
       );
     }
-    if (result.usage.prompt_tokens_details?.cache_creation_tokens) {
+    if (cacheCreationTokens) {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
-        result.usage.prompt_tokens_details.cache_creation_tokens
+        cacheCreationTokens
       );
     }
     
@@ -1046,6 +1072,11 @@ class OpenAIWrapper extends BaseWrapper {
         usage: {
           input_tokens: 0,
           output_tokens: 0,
+          input_tokens_details: {
+            cached_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_write_tokens: 0,
+          },
           output_tokens_details: {
             reasoning_tokens: 0,
           },
@@ -1088,6 +1119,10 @@ class OpenAIWrapper extends BaseWrapper {
           const usage = responseData.usage || {};
           result.usage.input_tokens = usage.input_tokens || 0;
           result.usage.output_tokens = usage.output_tokens || 0;
+          result.usage.input_tokens_details = {
+            ...(result.usage.input_tokens_details || {}),
+            ...(usage.input_tokens_details || {}),
+          };
           result.usage.output_tokens_details.reasoning_tokens = 
             usage.output_tokens_details?.reasoning_tokens || 0;
         }
@@ -1187,14 +1222,21 @@ class OpenAIWrapper extends BaseWrapper {
 
     const inputTokens = result.usage?.input_tokens || 0;
     const outputTokens = result.usage?.output_tokens || 0;
-    // Responses API reports input_tokens inclusive of cached tokens.
+    // Responses API reports input_tokens inclusive of cached tokens. Map
+    // cache_write_tokens / cache_creation_tokens into creation for pricing.
+    const inputDetails = result.usage?.input_tokens_details || {};
+    const cacheReadTokens = Number(inputDetails.cached_tokens) || 0;
+    const cacheCreationTokens =
+      Number(inputDetails.cache_creation_tokens) ||
+      Number(inputDetails.cache_write_tokens) ||
+      0;
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
       inputTokens,
       outputTokens,
-      Number(result.usage?.input_tokens_details?.cached_tokens) || 0,
-      0,
+      cacheReadTokens,
+      cacheCreationTokens,
       true
     );
 
@@ -1220,6 +1262,19 @@ class OpenAIWrapper extends BaseWrapper {
 
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+
+    if (cacheReadTokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        cacheReadTokens
+      );
+    }
+    if (cacheCreationTokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        cacheCreationTokens
+      );
+    }
     
     if (result.usage?.output_tokens_details?.reasoning_tokens) {
       span.setAttribute(

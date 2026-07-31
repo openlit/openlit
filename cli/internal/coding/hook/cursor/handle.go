@@ -12,7 +12,6 @@ import (
 	"github.com/openlit/openlit/cli/internal/coding/detect"
 	"github.com/openlit/openlit/cli/internal/coding/git"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
-	"github.com/openlit/openlit/cli/internal/coding/pricing"
 	"github.com/openlit/openlit/cli/internal/coding/sessionstate"
 	"github.com/openlit/openlit/sdk/go/semconv"
 )
@@ -45,6 +44,17 @@ type cursorPayload struct {
 	// afterAgentResponse / afterAgentThought
 	Text       string `json:"text"`
 	DurationMs int64  `json:"duration_ms"`
+
+	// Token usage — Cursor ships these on afterAgentResponse and stop.
+	// Absent on older builds and on beforeSubmitPrompt. We only trust
+	// these fields on `stop` (full-turn counts including tools +
+	// cache); we never invent tokens from text length. Pointers so we
+	// can tell "missing" from an explicit zero.
+	InputTokens      *int64 `json:"input_tokens"`
+	OutputTokens     *int64 `json:"output_tokens"`
+	CacheReadTokens  *int64 `json:"cache_read_tokens"`
+	CacheWriteTokens *int64 `json:"cache_write_tokens"`
+	Provider         string `json:"provider"`
 
 	// preToolUse / postToolUse / postToolUseFailure
 	ToolName     string          `json:"tool_name"`
@@ -190,22 +200,47 @@ func handle(ctx context.Context, in normalize.Input) error {
 			s.Duration = time.Duration(p.DurationMs) * time.Millisecond
 		}
 		s.Outcome = outcomeFromReason(p.Reason, p.FinalStatus)
+		// Drain real token totals accumulated on each `stop`. Cursor
+		// never sends USD; leave CostUSD at 0 rather than inventing
+		// list-price estimates. Set on the session here so every
+		// capture mode (not only minimal) gets session-root tokens.
+		applyAccumulatedTokens(&s, sessionID, in.Vendor)
 		return in.Emit.EmitSession(s)
 
 	case "stop":
 		// Cursor's `stop` fires when the agent loop terminates. We
 		// emit a small event so dashboards can count loop turns; the
 		// authoritative session end span comes from sessionEnd.
+		//
+		// Token accounting: stop is the only place we stamp usage.
+		// Cursor's counts here cover the full turn (tools + cache).
+		// We never invent tokens or USD — Cursor does not send cost.
+		attrs := map[string]any{
+			"coding_agent.client":              in.Vendor,
+			"coding_agent.hook.event":          event,
+			"coding_agent.session.loop.status": p.Status,
+			"coding_agent.session.loop.count":  p.LoopCount,
+		}
+		if inTok, outTok, cacheRead, cacheWrite, ok := realTokenUsage(p); ok {
+			attrs["gen_ai.usage.input_tokens"] = inTok
+			attrs["gen_ai.usage.output_tokens"] = outTok
+			attrs["gen_ai.usage.total_tokens"] = inTok + outTok
+			if cacheRead > 0 {
+				attrs["gen_ai.usage.cache.read_input_tokens"] = cacheRead
+			}
+			if cacheWrite > 0 {
+				attrs["gen_ai.usage.cache.creation_input_tokens"] = cacheWrite
+			}
+			if p.Model != "" {
+				attrs["gen_ai.request.model"] = p.Model
+			}
+			accumulateStopTokens(sessionID, in.Vendor, inTok, outTok)
+		}
 		return in.Emit.EmitEvent(normalize.EventEmission{
 			SessionID: sessionID,
 			Name:      "coding_agent.session.loop.stop",
 			At:        time.Now(),
-			Attrs: map[string]any{
-				"coding_agent.client":              in.Vendor,
-				"coding_agent.hook.event":          event,
-				"coding_agent.session.loop.status": p.Status,
-				"coding_agent.session.loop.count":  p.LoopCount,
-			},
+			Attrs:     attrs,
 		})
 
 	case "beforeSubmitPrompt":
@@ -215,16 +250,8 @@ func handle(ctx context.Context, in normalize.Input) error {
 		return in.Emit.EmitLLMTurn(buildResponseTurn(in, p, sessionID))
 
 	case "afterAgentThought":
-		// Reasoning / thinking text is real model output: the provider
-		// charged tokens for it just like for the final assistant
-		// message. Estimate output tokens from the thought text and
-		// run them through the same pricing path as a normal response
-		// turn — without this the session cost rolled-up at the UI
-		// level under-counts thinking-heavy models (Claude
-		// extended-thinking, GPT-5 reasoning) by a wide margin.
-		thoughtTokens := pricing.EstimateTokens(p.Text)
-		thoughtRate := pricing.Lookup(p.Model)
-		thoughtCost := thoughtRate.Cost(0, thoughtTokens, 0, 0)
+		// Thought text only — Cursor does not expose separate thought
+		// token counters. Full-turn usage lands on `stop`.
 		return in.Emit.EmitLLMTurn(normalize.LLMTurn{
 			SessionID:      sessionID,
 			ConversationID: p.ConversationID,
@@ -234,9 +261,6 @@ func handle(ctx context.Context, in normalize.Input) error {
 			EndedAt:        time.Now(),
 			ThoughtText:    p.Text,
 			ThoughtMs:      p.DurationMs,
-			OutputTokens:   thoughtTokens,
-			TotalTokens:    thoughtTokens,
-			CostUSD:        thoughtCost,
 		})
 
 	case "preToolUse":
@@ -510,13 +534,8 @@ func buildPromptTurn(in normalize.Input, p cursorPayload, sessionID string) norm
 		}
 	}
 	now := time.Now()
-	// Cursor doesn't expose token counts on hook payloads, so we
-	// estimate from prompt length and apply the static pricing table.
-	// This is intentionally a lower bound — when the model surfaces
-	// real usage (Codex rollout, Claude transcript), prefer that.
-	inputTokens := pricing.EstimateTokens(p.Prompt)
-	rate := pricing.Lookup(p.Model)
-	cost := rate.Cost(inputTokens, 0, 0, 0)
+	// Content / identity only. beforeSubmitPrompt never carries token
+	// counts; we do not invent them. Full-turn usage lands on `stop`.
 	return normalize.LLMTurn{
 		SessionID:       sessionID,
 		ConversationID:  p.ConversationID,
@@ -528,17 +547,15 @@ func buildPromptTurn(in normalize.Input, p cursorPayload, sessionID string) norm
 		Prompt:          p.Prompt,
 		AttachmentPaths: paths,
 		UserEmail:       p.UserEmail,
-		InputTokens:     inputTokens,
-		TotalTokens:     inputTokens,
-		CostUSD:         cost,
 	}
 }
 
 func buildResponseTurn(in normalize.Input, p cursorPayload, sessionID string) normalize.LLMTurn {
 	now := time.Now()
-	outputTokens := pricing.EstimateTokens(p.Text)
-	rate := pricing.Lookup(p.Model)
-	cost := rate.Cost(0, outputTokens, 0, 0)
+	// Content only. Even when Cursor attaches token fields here we
+	// leave them off this span — stop's counts cover the full turn
+	// (tools + cache) and stamping both would double-count under the
+	// UI's sum(child gen_ai.usage.*) rollup.
 	return normalize.LLMTurn{
 		SessionID:            sessionID,
 		ConversationID:       p.ConversationID,
@@ -549,9 +566,69 @@ func buildResponseTurn(in normalize.Input, p cursorPayload, sessionID string) no
 		EndedAt:              now,
 		Response:             p.Text,
 		AssistantMessageOnly: true,
-		OutputTokens:         outputTokens,
-		TotalTokens:          outputTokens,
-		CostUSD:              cost,
+	}
+}
+
+// realTokenUsage returns Cursor's authoritative token counters when any
+// of the usage fields are present on the payload.
+func realTokenUsage(p cursorPayload) (input, output, cacheRead, cacheWrite int64, ok bool) {
+	if p.InputTokens == nil && p.OutputTokens == nil &&
+		p.CacheReadTokens == nil && p.CacheWriteTokens == nil {
+		return 0, 0, 0, 0, false
+	}
+	if p.InputTokens != nil {
+		input = *p.InputTokens
+	}
+	if p.OutputTokens != nil {
+		output = *p.OutputTokens
+	}
+	if p.CacheReadTokens != nil {
+		cacheRead = *p.CacheReadTokens
+	}
+	if p.CacheWriteTokens != nil {
+		cacheWrite = *p.CacheWriteTokens
+	}
+	return input, output, cacheRead, cacheWrite, true
+}
+
+// accumulateStopTokens adds one stop's real token counts into the
+// sessionstate cache so sessionEnd can stamp session-root totals.
+func accumulateStopTokens(sessionID, vendor string, inTok, outTok int64) {
+	if sessionID == "" {
+		return
+	}
+	st := sessionstate.Load(sessionID, vendor)
+	if st == nil {
+		st = &sessionstate.State{}
+	}
+	if inTok > 0 {
+		st.InputTokens += inTok
+	}
+	if outTok > 0 {
+		st.OutputTokens += outTok
+	}
+	sessionstate.Save(sessionID, vendor, st)
+}
+
+// applyAccumulatedTokens copies stop-accumulated token totals onto the
+// session-root struct. CostUSD stays 0 — Cursor never sends USD and we
+// refuse to invent list-price estimates.
+func applyAccumulatedTokens(s *normalize.Session, sessionID, vendor string) {
+	if s == nil || sessionID == "" {
+		return
+	}
+	st := sessionstate.Load(sessionID, vendor)
+	if st == nil {
+		return
+	}
+	if s.InputTokens == 0 && st.InputTokens > 0 {
+		s.InputTokens = st.InputTokens
+	}
+	if s.OutputTokens == 0 && st.OutputTokens > 0 {
+		s.OutputTokens = st.OutputTokens
+	}
+	if s.TotalTokens == 0 {
+		s.TotalTokens = s.InputTokens + s.OutputTokens
 	}
 }
 

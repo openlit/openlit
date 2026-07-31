@@ -47,6 +47,7 @@ export interface EvaluationTypeWithPrompt {
 	rules?: Array<{ ruleId: string; priority: number }>;
 	prompt?: string;
 	defaultPrompt: string;
+	thresholdScore?: number;
 }
 
 async function buildEvaluationTypesWithPrompts(
@@ -61,6 +62,7 @@ async function buildEvaluationTypesWithPrompts(
 		isCustom?: boolean;
 		rules?: Array<{ ruleId: string; priority: number }>;
 		prompt?: string;
+		thresholdScore?: number;
 	}>) || [];
 
 	const overrideMap = new Map(
@@ -82,6 +84,10 @@ async function buildEvaluationTypesWithPrompts(
 			rules: override?.rules?.filter((r) => r?.ruleId) ?? [],
 			prompt: override?.prompt,
 			defaultPrompt: defaultPrompts[et.id] ?? "",
+			thresholdScore:
+				typeof override?.thresholdScore === "number"
+					? override.thresholdScore
+					: undefined,
 		};
 	});
 
@@ -98,6 +104,8 @@ async function buildEvaluationTypesWithPrompts(
 			rules: t.rules?.filter((r) => r?.ruleId) ?? [],
 			prompt: t.prompt,
 			defaultPrompt: "",
+			thresholdScore:
+				typeof t.thresholdScore === "number" ? t.thresholdScore : undefined,
 		}));
 
 	return [...builtInTypes, ...customTypes];

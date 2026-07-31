@@ -45,7 +45,7 @@ jest.mock('@/lib/platform/cron-log', () => ({
   insertCronLog: jest.fn(),
 }));
 jest.mock('@/lib/db-config', () => ({
-  getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
 }));
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
@@ -60,6 +60,8 @@ jest.mock('@/helpers/server/trace', () => ({
 jest.mock('@/lib/platform/evaluation/rule-engine-context', () => ({
   getContextFromRuleEngineForTrace: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
   getContextFromRulesWithPriority: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+  getContextFromFields: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
+  getContextFromRulesWithPriorityForFields: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] }),
 }));
 jest.mock('@/constants/traces', () => ({
   SUPPORTED_EVALUATION_OPERATIONS: ['llm', 'chat'],
@@ -75,12 +77,11 @@ jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
   getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback } from '@/lib/platform/evaluation/index';
+import { getEvaluationsForSpanId, getEvaluationDetectedByType, autoEvaluate, setEvaluationsForSpanId, getEvaluationSummaryForSpanId, storeManualFeedback, runOfflineEvaluation } from '@/lib/platform/evaluation/index';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
 import { getLastRunCronLogByCronId, getLastFailureCronLogBySpanId, insertCronLog } from '@/lib/platform/cron-log';
-import { getDBConfigById } from '@/lib/db-config';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
 import { runEvaluation } from '@/lib/platform/evaluation/run-evaluation';
@@ -829,5 +830,396 @@ describe('setEvaluationsForSpanId — evaluationTypes branches', () => {
       expect.arrayContaining([{ ruleId: 'r-legacy', priority: 2 }]),
       'db-1'
     );
+  });
+
+  it('applies per-type thresholdScore when storing dashboard/manual evaluation verdicts', async () => {
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: { SpanId: 'span-1', SpanAttributes: {} },
+    });
+    (getEvaluationConfig as jest.Mock).mockResolvedValue({
+      id: 'cfg-1',
+      provider: 'openai',
+      model: 'gpt-4',
+      secret: { value: 'sk-1' },
+      databaseConfigId: 'db-1',
+      evaluationTypes: [
+        { id: 'toxicity', enabled: true, label: 'Toxicity', thresholdScore: 0.8 },
+      ],
+    });
+    // Raw LLM verdict would be "yes" under the default 0.5 threshold; the
+    // per-type threshold of 0.8 must recompute it to "no" before storage.
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [
+        {
+          evaluation: 'toxicity',
+          score: 0.6,
+          verdict: 'yes',
+          classification: 'mild',
+          explanation: 'borderline',
+        },
+      ],
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: true, err: null });
+
+    const result = await setEvaluationsForSpanId('span-1');
+    expect(result).toMatchObject({ success: true });
+
+    const insertCall = (dataCollector as jest.Mock).mock.calls.find(
+      (call) => call[1] === 'insert'
+    );
+    expect(insertCall).toBeDefined();
+    const stored = insertCall![0].values[0];
+    // storeEvaluation remaps ids to configured labels (main normalizeEvaluationResults).
+    expect(stored['evaluationData.evaluation']).toEqual(['Toxicity']);
+    expect(stored['evaluationData.verdict']).toEqual(['no']);
+    expect(stored.scores).toEqual({ Toxicity: 0.6 });
+  });
+});
+
+describe('runOfflineEvaluation', () => {
+  const baseConfig = {
+    id: 'cfg-1',
+    provider: 'openai',
+    model: 'gpt-4',
+    secret: { value: 'sk-1' },
+    databaseConfigId: 'db-1',
+  };
+
+  beforeEach(() => {
+    const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+      require('@/lib/platform/evaluation/rule-engine-context');
+    (getContextFromFields as jest.Mock).mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+    (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({ contextContents: [], matchingRuleIds: [], contextEntityIds: [] });
+  });
+
+  it('rejects unknown eval types without calling runEvaluation', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'hallucination', enabled: true, label: 'Hallucination' }],
+    };
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['bogus'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Unknown eval types: bogus');
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it('rejects explicitly requested but disabled eval types without calling runEvaluation', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [
+        { id: 'hallucination', enabled: true, label: 'Hallucination' },
+        { id: 'bias', enabled: false, label: 'Bias' },
+      ],
+    };
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['bias'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Disabled eval types: bias');
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it('reports unknown types even when other requested types are valid', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'hallucination', enabled: true, label: 'Hallucination' }],
+    };
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['hallucination', 'bogus'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Unknown eval types: bogus');
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it('runs only the requested enabled types, excluding others from context', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [
+        { id: 'hallucination', enabled: true, label: 'Hallucination', defaultPrompt: 'hallucination ctx' },
+        { id: 'bias', enabled: true, label: 'Bias', defaultPrompt: 'bias ctx' },
+      ],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'Hallucination', score: 0.1, classification: 'none', explanation: 'ok', verdict: 'no' }],
+    });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['hallucination'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.metadata?.evalTypesRun).toEqual(['hallucination']);
+    const [{ contexts }] = (runEvaluation as jest.Mock).mock.calls[0];
+    expect(contexts).toContain('hallucination ctx');
+    expect(contexts).not.toContain('bias ctx');
+  });
+
+  it('defaults to all enabled types when eval_types is omitted', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [
+        { id: 'hallucination', enabled: true, label: 'Hallucination' },
+        { id: 'bias', enabled: false, label: 'Bias' },
+        { id: 'relevance', enabled: true, label: 'Relevance' },
+      ],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r' },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(true);
+    expect([...(result.metadata?.evalTypesRun || [])].sort()).toEqual(['hallucination', 'relevance']);
+  });
+
+  it('falls back to hallucination/bias/toxicity defaults when nothing is enabled and no eval_types requested', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [
+        { id: 'hallucination', enabled: false, label: 'Hallucination' },
+        { id: 'bias', enabled: false, label: 'Bias' },
+        { id: 'toxicity', enabled: false, label: 'Toxicity' },
+        { id: 'relevance', enabled: false, label: 'Relevance' },
+      ],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r' },
+      config as any,
+      'db-1'
+    );
+
+    expect([...(result.metadata?.evalTypesRun || [])].sort()).toEqual(['bias', 'hallucination', 'toxicity']);
+  });
+
+  it('overrides verdict to "no" when the per-type threshold is stricter than the raw score', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'toxicity', enabled: true, label: 'Toxicity', thresholdScore: 0.8 }],
+    };
+    // Score of 0.6 would be 'yes' under the default 0.5 threshold, but the
+    // per-type threshold of 0.8 should keep it 'no'.
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'Toxicity', score: 0.6, classification: 'mild', explanation: 'x', verdict: 'yes' }],
+    });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['toxicity'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.evaluations?.[0].verdict).toBe('no');
+  });
+
+  it('overrides verdict to "yes" when the score exceeds a stricter per-type threshold', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'toxicity', enabled: true, label: 'Toxicity', thresholdScore: 0.3 }],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'Toxicity', score: 0.5, classification: 'mild', explanation: 'x', verdict: 'no' }],
+    });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['toxicity'] },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.evaluations?.[0].verdict).toBe('yes');
+  });
+
+  it('falls back to the request thresholdScore when the type has no per-type threshold configured', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'toxicity', enabled: true, label: 'Toxicity' }],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'Toxicity', score: 0.9, classification: 'severe', explanation: 'x', verdict: 'no' }],
+    });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['toxicity'], thresholdScore: 0.95 },
+      config as any,
+      'db-1'
+    );
+
+    // 0.9 does not exceed the request-level 0.95 threshold
+    expect(result.evaluations?.[0].verdict).toBe('no');
+  });
+
+  it('falls back to the request threshold when the returned evaluation label matches no configured type', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [
+        { id: 'sensitivity', enabled: true, label: 'PII - Financial', thresholdScore: 0.9 },
+      ],
+    };
+    // The model echoes back a label that doesn't match the configured id or
+    // label exactly (e.g. a custom prompt without the matching context header).
+    (runEvaluation as jest.Mock).mockResolvedValue({
+      success: true,
+      result: [{ evaluation: 'Pii Financial Data', score: 0.6, classification: 'leak', explanation: 'x', verdict: 'yes' }],
+    });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r', evalTypes: ['sensitivity'], thresholdScore: 0.5 },
+      config as any,
+      'db-1'
+    );
+
+    // The unmatched result still comes back (no crash, no dropped row), and
+    // since its label didn't match, the 0.9 per-type threshold is NOT applied —
+    // it falls back to the request-level 0.5 threshold instead.
+    expect(result.success).toBe(true);
+    expect(result.evaluations).toHaveLength(1);
+    expect(result.evaluations?.[0].verdict).toBe('yes');
+  });
+
+  it('returns failure when runEvaluation fails', async () => {
+    const config = {
+      ...baseConfig,
+      evaluationTypes: [{ id: 'hallucination', enabled: true, label: 'Hallucination' }],
+    };
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: false, error: 'Model error' });
+
+    const result = await runOfflineEvaluation(
+      { prompt: 'p', response: 'r' },
+      config as any,
+      'db-1'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Model error');
+  });
+
+  describe('rule-priority context consistency with the real-time path', () => {
+    it('collects rules from enabled types and resolves context via getContextFromRulesWithPriorityForFields, matching the real-time path', async () => {
+      const { getContextFromRulesWithPriorityForFields, getContextFromFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({
+        contextContents: ['linked rule context'],
+        matchingRuleIds: ['r1'],
+        contextEntityIds: ['e1'],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, rules: [{ ruleId: 'r1', priority: 5 }] },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      const result = await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromRulesWithPriorityForFields).toHaveBeenCalledWith(
+        { 'service.name': 'my-app' },
+        [{ ruleId: 'r1', priority: 5 }],
+        'db-1'
+      );
+      expect(getContextFromFields).not.toHaveBeenCalled();
+      expect(result.contextApplied?.matchingRuleIds).toEqual(['r1']);
+    });
+
+    it('collects legacy ruleId/priority fields into rulesWithPriority, same as the real-time path', async () => {
+      const { getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromRulesWithPriorityForFields as jest.Mock).mockResolvedValue({
+        contextContents: [], matchingRuleIds: [], contextEntityIds: [],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, ruleId: 'r-legacy', priority: 2 },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromRulesWithPriorityForFields).toHaveBeenCalledWith(
+        { 'service.name': 'my-app' },
+        [{ ruleId: 'r-legacy', priority: 2 }],
+        'db-1'
+      );
+    });
+
+    it('falls back to getContextFromFields when no enabled type has linked rules', async () => {
+      const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      (getContextFromFields as jest.Mock).mockResolvedValue({
+        contextContents: ['generic context'], matchingRuleIds: [], contextEntityIds: [],
+      });
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [{ id: 'hallucination', enabled: true }],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r', attributes: { 'service.name': 'my-app' } },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromFields).toHaveBeenCalledWith({ 'service.name': 'my-app' }, 'db-1');
+      expect(getContextFromRulesWithPriorityForFields).not.toHaveBeenCalled();
+    });
+
+    it('does not call the rule engine at all when no attributes are provided', async () => {
+      const { getContextFromFields, getContextFromRulesWithPriorityForFields } =
+        require('@/lib/platform/evaluation/rule-engine-context');
+      const config = {
+        ...baseConfig,
+        evaluationTypes: [
+          { id: 'hallucination', enabled: true, rules: [{ ruleId: 'r1', priority: 5 }] },
+        ],
+      };
+      (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+
+      await runOfflineEvaluation(
+        { prompt: 'p', response: 'r' },
+        config as any,
+        'db-1'
+      );
+
+      expect(getContextFromFields).not.toHaveBeenCalled();
+      expect(getContextFromRulesWithPriorityForFields).not.toHaveBeenCalled();
+    });
   });
 });

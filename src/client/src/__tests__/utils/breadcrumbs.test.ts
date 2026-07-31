@@ -171,6 +171,30 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/evaluations/settings' });
   });
 
+  it('generates breadcrumbs for /evaluations/evaluators/:id', () => {
+    const header = generatePageHeader('/evaluations/evaluators/bias');
+    expect(header.title).toBe('Evaluator');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluator', href: '/evaluations' });
+  });
+
+  it('generates breadcrumbs for /evaluations/types/:id', () => {
+    const header = generatePageHeader('/evaluations/types/bias');
+    expect(header.title).toBe('Evaluation Type');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Evaluations', href: '/evaluations' });
+    expect(header.breadcrumbs).toContainEqual({
+      title: 'Evaluators',
+      href: '/evaluations?tab=evaluators',
+    });
+  });
+
+  it('generates breadcrumbs for /organisation under Settings', () => {
+    const header = generatePageHeader('/organisation');
+    expect(header.title).toBe('Organisation');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Organisation', href: '/organisation' });
+  });
+
   it('generates breadcrumbs for /settings/database-config', () => {
     const header = generatePageHeader('/settings/database-config');
     expect(header.title).toBe('Database Config');
@@ -244,5 +268,37 @@ describe('updatePageHeaderWithData', () => {
   it('preserves breadcrumbs from the original header', () => {
     const updated = updatePageHeaderWithData(baseHeader, { title: 'New' });
     expect(updated.breadcrumbs).toEqual(baseHeader.breadcrumbs);
+  });
+});
+
+describe('ROUTE_CONFIGS handlers', () => {
+  it('invokes every route title/breadcrumb/description handler', () => {
+    const { ROUTE_CONFIGS } = require('@/utils/breadcrumbs') as typeof import('@/utils/breadcrumbs');
+    const params = { id: 'abc', userId: encodeURIComponent('a@b.com') };
+
+    expect(ROUTE_CONFIGS.length).toBeGreaterThan(10);
+
+    for (const config of ROUTE_CONFIGS) {
+      expect(typeof config.getTitle('/sample', params)).toBe('string');
+      const crumbs = config.getBreadcrumbs('/sample', params);
+      expect(Array.isArray(crumbs)).toBe(true);
+      if (config.getDescription) {
+        expect(typeof config.getDescription('/sample', params)).toBe('string');
+      }
+    }
+  });
+
+  it('extracts coding-agents user id params', () => {
+    const result = extractRouteParams(
+      '/coding-agents/users/alice%40example.com',
+      /^\/coding-agents\/users\/[^/]+$/
+    );
+    expect(result.userId).toBe('alice%40example.com');
+  });
+
+  it('falls back for unknown routes', () => {
+    const header = generatePageHeader('/totally-unknown-page');
+    expect(header.title).toBe('Totally unknown page');
+    expect(header.breadcrumbs).toEqual([]);
   });
 });

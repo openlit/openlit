@@ -1,7 +1,8 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricDetail } from "@/lib/platform/observability";
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: { name: string } }
 ) {
@@ -18,3 +19,5 @@ export async function POST(
 		await getMetricDetail(metricName, metricType, serviceName, metricParams)
 	);
 }
+
+export const POST = withRouteAccess("observability.read", POSTHandler, { requireDbConfig: true });

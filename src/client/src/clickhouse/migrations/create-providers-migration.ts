@@ -2,7 +2,7 @@ import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
-import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
+import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import {
 	OPENLIT_PROVIDERS_TABLE_NAME,
 	OPENLIT_PROVIDER_MODELS_TABLE_NAME,
@@ -31,7 +31,7 @@ const MIGRATION_ID = "create-providers-and-provider-models-tables";
 export default async function CreateProvidersMigration(databaseConfigId?: string) {
 	const [, dbConfig] = await asaw(
 		databaseConfigId
-			? getDBConfigById({ id: databaseConfigId })
+			? getDBConfigByIdInternal({ id: databaseConfigId })
 			: getDBConfigByUser(true)
 	);
 
@@ -83,6 +83,8 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 			context_window UInt32 DEFAULT 4096,
 			input_price_per_m_token Float64 DEFAULT 0,
 			output_price_per_m_token Float64 DEFAULT 0,
+			cache_read_price_per_m_token Float64 DEFAULT 0,
+			cache_creation_price_per_m_token Float64 DEFAULT 0,
 			capabilities Array(String) DEFAULT [],
 			is_default Boolean DEFAULT false,
 
@@ -152,6 +154,9 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 				context_window: model.contextWindow,
 				input_price_per_m_token: model.inputPricePerMToken,
 				output_price_per_m_token: model.outputPricePerMToken,
+				cache_read_price_per_m_token: model.cacheReadPricePerMToken || 0,
+				cache_creation_price_per_m_token:
+					model.cacheCreationPricePerMToken || 0,
 				capabilities: model.capabilities || [],
 				is_default: true,
 				created_by_user_id: "",

@@ -108,12 +108,50 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	}));
 };
 
-export const getDBConfigById = async ({ id }: { id: string }) => {
+export const getDBConfigByIdInternal = async ({ id }: { id: string }) => {
 	return await prisma.databaseConfig.findUnique({
 		where: {
 			id,
 		},
 	});
+};
+
+export const getDBConfigById = async ({ id }: { id: string }) => {
+	const user = await getCurrentUser();
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
+
+	return getDBConfigByIdForUser({ id, userId: user.id });
+};
+
+export const getDBConfigByIdForUser = async ({
+	id,
+	userId,
+}: {
+	id: string;
+	userId: string;
+}) => {
+	const currentOrg = await getCurrentOrganisation();
+	const currentProject = currentOrg?.id
+		? await getCurrentProjectForOrganisation(currentOrg.id)
+		: null;
+	const scopedProjectId = currentOrg?.id ? currentProject?.id : null;
+
+	if (currentOrg?.id && !scopedProjectId) return null;
+
+	const dbConfigUser = await prisma.databaseConfigUser.findFirst({
+		where: {
+			userId,
+			databaseConfigId: id,
+			databaseConfig: {
+				projectId: scopedProjectId,
+			},
+		},
+		select: {
+			databaseConfig: true,
+		},
+	});
+
+	return dbConfigUser?.databaseConfig ?? null;
 };
 
 export const getFirstDBConfig = async (): Promise<DatabaseConfig | null> => {

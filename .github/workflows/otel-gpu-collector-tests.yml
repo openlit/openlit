@@ -20,7 +20,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v6
         with:
@@ -93,7 +93,7 @@ jobs:
           GOARCH: arm64
         run: go build ./...
 
-      - name: Cross-compile windows/amd64 (stub fallback)
+      - name: Cross-compile windows/amd64 (GPU via NVML/DXGI/PDH, CGO=0)
         working-directory: opentelemetry-gpu-collector
         env:
           CGO_ENABLED: "0"
@@ -110,7 +110,7 @@ jobs:
     name: Test (arm64 native)
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v6
         with:

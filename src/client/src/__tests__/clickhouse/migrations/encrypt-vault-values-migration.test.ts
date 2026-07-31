@@ -12,7 +12,7 @@ jest.mock("@/utils/crypto", () => ({
 }));
 
 jest.mock("@/lib/db-config", () => ({
-	getDBConfigById: jest.fn(),
+	getDBConfigByIdInternal: jest.fn(),
 	getDBConfigByUser: jest.fn(),
 }));
 

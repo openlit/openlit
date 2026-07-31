@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
@@ -6,7 +7,7 @@ import {
 import { getResultGenerationByEndpoint } from "@/lib/platform/llm/endpoint";
 import { OPERATION_TYPE } from "@/types/platform";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 	const operationType = formData.operationType as OPERATION_TYPE;
@@ -30,3 +31,5 @@ export async function POST(request: Request) {
 	const res: any = await getResultGenerationByEndpoint(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

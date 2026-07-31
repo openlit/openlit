@@ -1,5 +1,6 @@
 ---
 title: 'Monitor AMD GPUs using OpenTelemetry'
+description: 'OpenLIT uses OpenTelemetry to deliver AI observability for AMD GPUs, tracking utilization, temperature, memory usage, and power consumption metrics.'
 sidebarTitle: 'AMD GPUs'
 ---
 
@@ -48,13 +49,15 @@ OpenLIT uses OpenTelemetry to help you monitor AMD GPUs. This includes tracking 
         Here's a quick example showing how to run the container with the required environment variables:
 
         ```sh
-        docker run --gpus all \
+        docker run --gpus all --pid=host \
             -e OTEL_SERVICE_NAME='chatbot' \
             -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=staging' \
             -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
             -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \
             ghcr.io/openlit/otel-gpu-collector:latest
         ```
+
+        `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
 
         For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/opentelemetry-gpu-collector/).
 
@@ -66,6 +69,7 @@ OpenLIT uses OpenTelemetry to help you monitor AMD GPUs. This includes tracking 
           ```yaml
           otel-gpu-collector:
             image: ghcr.io/openlit/otel-gpu-collector:latest
+            pid: host
             environment:
               OTEL_SERVICE_NAME: 'chatbot'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
@@ -104,7 +108,7 @@ OpenLIT uses OpenTelemetry to help you monitor AMD GPUs. This includes tracking 
   </Accordion>
 </AccordionGroup>
 
-<Card title="Collected Metrics" href="/latest/openlit/observability/metrics#gpu-metrics" icon='table'>
+<Card title="Collected Metrics" href="/latest/openlit/observability/telemetry#metrics" icon='table'>
 Details on the types of metrics collected and their descriptions.
 </Card>
 
@@ -121,10 +125,3 @@ Details on the types of metrics collected and their descriptions.
     Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
-  </Card>

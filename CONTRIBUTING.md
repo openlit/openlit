@@ -8,7 +8,6 @@ Before you begin:
 - Ensure you have a [GitHub account](https://github.com/join).
 - Familiarize yourself with git commands in the [Git Documentation](https://git-scm.com/documentation).
 - Read the README for project setup instructions.
-- For Fleet Hub and OpAMP development, review the [OpAMP Deployment Guide](OPAMP_DEPLOYMENT.md) and [Certificate Management Guide](src/opamp-server/CERTIFICATES.md).
 
 ## Contributing Workflow
 

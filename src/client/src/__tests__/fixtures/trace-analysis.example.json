@@ -33,6 +33,7 @@
   ],
   "token_efficiency": [],
   "path_analysis": [],
+  "prompt_injection": [],
   "totals": {
     "span_count": 4,
     "total_tokens": 12000,

@@ -1,6 +1,10 @@
 jest.mock('@/lib/db-config', () => ({
   getDBConfigByUser: jest.fn(),
-  getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
+  getDBConfigByIdForUser: jest.fn(),
+}));
+jest.mock('@/lib/session', () => ({
+  getCurrentUser: jest.fn(),
 }));
 jest.mock('@/lib/platform/clickhouse/clickhouse-client', () => ({
   __esModule: true,
@@ -11,6 +15,7 @@ jest.mock('@/utils/asaw', () => jest.fn());
 import { dataCollector } from '@/lib/platform/common';
 import createClickhousePool from '@/lib/platform/clickhouse/clickhouse-client';
 import asaw from '@/utils/asaw';
+import { getCurrentUser } from '@/lib/session';
 
 const mockDbConfig = { id: 'db-1', host: 'localhost', port: '8123' };
 
@@ -37,10 +42,23 @@ describe('dataCollector', () => {
       expect(result.data).toEqual([]);
     });
 
-    it('uses getDBConfigById when dbConfigId is provided', async () => {
-      (asaw as jest.Mock).mockResolvedValue(['DB config error', null]);
+    it('uses internal DB config lookup when dbConfigId is provided without a session', async () => {
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([new Error('No session'), null])
+        .mockResolvedValueOnce(['DB config error', null]);
       const result = await dataCollector({ query: 'SELECT 1' }, 'query', 'db-config-id');
       expect(result.err).toBe('DB config error');
+    });
+
+    it('checks user scoped db config access when dbConfigId is provided with a session', async () => {
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, { id: 'user-1' }])
+        .mockResolvedValueOnce(['DB config denied', null]);
+
+      const result = await dataCollector({ query: 'SELECT 1' }, 'query', 'db-config-id');
+
+      expect(result.err).toBe('DB config denied');
+      expect(getCurrentUser).toHaveBeenCalled();
     });
   });
 

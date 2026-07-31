@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { SERVER_EVENTS } from "@/constants/events";
@@ -21,7 +23,7 @@ interface SessionWithId {
 }
 
 // GET: List all custom models for a provider (or all providers if no provider specified)
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
 	if (!session?.user?.id) {
@@ -55,6 +57,8 @@ export async function GET(request: NextRequest) {
 				context_window as contextWindow,
 				input_price_per_m_token as inputPricePerMToken,
 				output_price_per_m_token as outputPricePerMToken,
+				cache_read_price_per_m_token as cacheReadPricePerMToken,
+				cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 				capabilities,
 				is_default as isDefault
 			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -98,6 +102,8 @@ export async function GET(request: NextRequest) {
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -122,7 +128,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Create or update a custom model
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
@@ -168,6 +174,10 @@ export async function POST(request: NextRequest) {
 				context_window = ${model.contextWindow || 4096},
 				input_price_per_m_token = ${model.inputPricePerMToken || 0},
 				output_price_per_m_token = ${model.outputPricePerMToken || 0},
+				cache_read_price_per_m_token = ${model.cacheReadPricePerMToken || 0},
+				cache_creation_price_per_m_token = ${
+					model.cacheCreationPricePerMToken || 0
+				},
 				capabilities = [${capabilitiesArray}],
 				updated_at = now()
 			WHERE model_id = '${Sanitizer.sanitizeValue(modelId)}'
@@ -211,6 +221,9 @@ export async function POST(request: NextRequest) {
 					context_window: model.contextWindow || 4096,
 					input_price_per_m_token: model.inputPricePerMToken || 0,
 					output_price_per_m_token: model.outputPricePerMToken || 0,
+					cache_read_price_per_m_token: model.cacheReadPricePerMToken || 0,
+					cache_creation_price_per_m_token:
+						model.cacheCreationPricePerMToken || 0,
 					capabilities: model.capabilities || [],
 					is_default: false,
 					created_by_user_id: session.user.id,
@@ -243,6 +256,8 @@ export async function POST(request: NextRequest) {
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities,
 			is_default as isDefault
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
@@ -270,7 +285,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE: Remove a custom model
-export async function DELETE(request: NextRequest) {
+async function DELETEHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const session = (await getServerSession(authOptions)) as SessionWithId;
 
@@ -339,3 +354,7 @@ export async function DELETE(request: NextRequest) {
 	});
 	return NextResponse.json({ success: true, deleted: true });
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("openground:configure", DELETEHandler));

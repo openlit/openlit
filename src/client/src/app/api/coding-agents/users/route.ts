@@ -15,6 +15,7 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import {
 	listCodingUsers,
 	type CodingUsersSortBy,
@@ -63,7 +64,7 @@ function defaultSince(): Date {
 	return new Date(Date.now() - DEFAULT_WINDOW_HOURS * 60 * 60 * 1000);
 }
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -107,7 +108,7 @@ interface UsersListBody {
 	runFilters?: Record<string, unknown>;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -157,3 +158,6 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const GET = withCurrentOrganisationPermission("coding_agents:read", GETHandler);
+export const POST = withCurrentOrganisationPermission("coding_agents:read", POSTHandler);

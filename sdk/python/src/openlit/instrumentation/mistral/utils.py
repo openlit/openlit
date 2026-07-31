@@ -377,9 +377,15 @@ def common_chat_logic(
 
     request_model = scope._kwargs.get("model", "mistral-small-latest")
 
-    # Compute cost
+    # Compute cost (Mistral prompt_tokens include cached_tokens when present).
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
     )
 
     # Common Span Attributes

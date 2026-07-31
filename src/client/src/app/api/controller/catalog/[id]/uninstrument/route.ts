@@ -1,6 +1,8 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getFeatureHandler } from "@/lib/platform/controller/features";
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -8,3 +10,5 @@ export async function POST(
 	const handler = getFeatureHandler("instrumentation")!;
 	return handler.applyOperation(id, "disable", {});
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("controller:operate", POSTHandler));

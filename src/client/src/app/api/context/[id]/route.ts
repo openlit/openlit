@@ -1,10 +1,12 @@
+import { withAudit } from "@/lib/audit/route";
 import { SERVER_EVENTS } from "@/constants/events";
 import { ContextInput } from "@/types/context";
 import { getContextById, updateContext, deleteContext } from "@/lib/platform/context";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET(_: Request, context: any) {
+async function GETHandler(_: Request, context: any) {
 	const { id } = context.params;
 	const { err, data }: any = await getContextById(id);
 	if (err) {
@@ -14,7 +16,7 @@ export async function GET(_: Request, context: any) {
 	return Response.json(data);
 }
 
-export async function PUT(request: Request, context: any) {
+async function PUTHandler(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const formData = await request.json();
@@ -44,7 +46,7 @@ export async function PUT(request: Request, context: any) {
 	return Response.json(res);
 }
 
-export async function DELETE(_: Request, context: any) {
+async function DELETEHandler(_: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const [err, res] = await deleteContext(id);
@@ -62,3 +64,7 @@ export async function DELETE(_: Request, context: any) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withRouteAccess("context.read", GETHandler);
+export const PUT = withAudit(withRouteAccess("context.update", PUTHandler));
+export const DELETE = withAudit(withRouteAccess("context.delete", DELETEHandler));

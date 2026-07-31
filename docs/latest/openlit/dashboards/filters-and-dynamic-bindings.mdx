@@ -22,7 +22,7 @@ At runtime, OpenLIT replaces each binding with the user-provided filter value.
 
 ### Common examples:
 
-* `{{filter.timeLimit.start}}` and `{{filter.timeLimit.end}}` — for date range filters
+* `{{filter.timeLimit.start}}` and `{{filter.timeLimit.end}}` - for date range filters
 
 ## How to add and use filters
 
@@ -54,4 +54,4 @@ In this example:
 * Always use meaningful keys like `team_id`, `env`, or `region`
 * Use `coalesce({{param}}, 'default')` to provide fallback values in ClickHouse
 * Test your queries in the SQL editor with example values for clarity
-* Avoid hardcoded constraints—use bindings to keep dashboards flexible
+* Avoid hardcoded constraints - use bindings to keep dashboards flexible

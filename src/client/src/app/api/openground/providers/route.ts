@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { getDBConfigByUser } from "@/lib/db-config";
@@ -19,7 +21,7 @@ import {
  * GET /api/openground/providers
  * Get all available LLM providers with custom models merged in
  */
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
  * POST /api/openground/providers
  * Create a new provider
  */
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
  * the latest updated_at. This avoids string-interpolated ALTER TABLE UPDATE
  * and the SQL injection surface that comes with it.
  */
-export async function PUT(request: NextRequest) {
+async function PUTHandler(request: NextRequest) {
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -260,7 +262,7 @@ export async function PUT(request: NextRequest) {
  * DELETE /api/openground/providers
  * Delete a provider and all its models
  */
-export async function DELETE(request: NextRequest) {
+async function DELETEHandler(request: NextRequest) {
 	try {
 		const user = await getCurrentUser();
 		if (!user) {
@@ -324,3 +326,8 @@ export async function DELETE(request: NextRequest) {
 		);
 	}
 }
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
+export const PUT = withAudit(withCurrentOrganisationPermission("openground:configure", PUTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("openground:configure", DELETEHandler));

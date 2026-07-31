@@ -1,6 +1,7 @@
 package config
 
 import (
+	"runtime"
 	"testing"
 	"time"
 )
@@ -66,8 +67,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.CollectionInterval != 60*time.Second {
 		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 60*time.Second)
 	}
-	if cfg.EBPFEnabled {
-		t.Error("EBPFEnabled should be false by default")
+	wantEBPF := runtime.GOOS == "linux"
+	if cfg.EBPFEnabled != wantEBPF {
+		t.Errorf("EBPFEnabled = %v, want %v (default for %s)", cfg.EBPFEnabled, wantEBPF, runtime.GOOS)
 	}
 	if cfg.Environment != "default" {
 		t.Errorf("Environment = %q, want %q", cfg.Environment, "default")
@@ -93,5 +95,14 @@ func TestLoadFromEnv(t *testing.T) {
 	}
 	if cfg.Environment != "production" {
 		t.Errorf("Environment = %q, want %q", cfg.Environment, "production")
+	}
+}
+
+func TestLoadEBPFDisabled(t *testing.T) {
+	t.Setenv("OTEL_GPU_EBPF_ENABLED", "false")
+
+	cfg := Load()
+	if cfg.EBPFEnabled {
+		t.Error("EBPFEnabled should be false when OTEL_GPU_EBPF_ENABLED=false")
 	}
 }

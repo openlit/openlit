@@ -1,0 +1,6 @@
+langgraph>=0.2.0
+langchain-openai
+langchain-core==1.4.9
+openai
+python-dotenv
+openlit

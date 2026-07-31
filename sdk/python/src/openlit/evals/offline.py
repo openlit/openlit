@@ -350,6 +350,7 @@ def fetch_eval_types(
                 description=t.get("description", ""),
                 enabled=t.get("enabled", False),
                 is_custom=t.get("is_custom", False),
+                threshold_score=t.get("threshold_score"),
             )
             for t in data.get("eval_types", [])
         ]

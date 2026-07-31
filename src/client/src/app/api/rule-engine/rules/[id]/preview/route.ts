@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getCurrentUser } from "@/lib/session";
 import { getRuleById } from "@/lib/platform/rule-engine";
 import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
@@ -94,7 +95,7 @@ function evaluateRule(
 		: groupResults.some(Boolean);
 }
 
-export async function POST(
+async function POSTHandler(
 	_req: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
@@ -177,3 +178,5 @@ export async function POST(
 		return NextResponse.json({ error: message }, { status: 500 });
 	}
 }
+
+export const POST = withCurrentOrganisationPermission("rule_engine:evaluate", POSTHandler);

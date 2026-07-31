@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getGroupedRequests } from "@/lib/platform/request";
 import {
@@ -5,7 +6,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 	const selectedConfig = formData.selectedConfig || {};
@@ -32,3 +33,5 @@ export async function POST(request: Request) {
 	const res = await getGroupedRequests(params, groupBy);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

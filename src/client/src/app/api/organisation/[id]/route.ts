@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withPermission } from "@/lib/rbac/route";
 import {
 	getOrganisationById,
 	updateOrganisation,
@@ -5,7 +7,7 @@ import {
 } from "@/lib/organisation";
 import asaw from "@/utils/asaw";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -20,7 +22,7 @@ export async function GET(
 	return Response.json(res);
 }
 
-export async function PUT(
+async function PUTHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -39,7 +41,7 @@ export async function PUT(
 	return Response.json(res);
 }
 
-export async function DELETE(
+async function DELETEHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -54,3 +56,7 @@ export async function DELETE(
 
 	return Response.json(res);
 }
+
+export const GET = withPermission("organisation:read", GETHandler);
+export const PUT = withAudit(withPermission("organisation:update", PUTHandler));
+export const DELETE = withAudit(withPermission("organisation:delete", DELETEHandler));
