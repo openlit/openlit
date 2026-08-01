@@ -112,7 +112,14 @@ export async function getWidgets(
 		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
 	}
 
-	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };
+	// normalizeWidgetToClient is typed from the narrow DatabaseWidget
+	// shape (properties/config strings). The SELECT always returns full
+	// widget rows, so widen back to Widget for callers.
+	return {
+		data: (data as Array<DatabaseWidget>).map(
+			normalizeWidgetToClient
+		) as unknown as Widget[],
+	};
 }
 
 export async function createWidget(widget: Widget, databaseConfigId?: string) {

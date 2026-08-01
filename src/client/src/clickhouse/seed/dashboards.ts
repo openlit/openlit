@@ -159,7 +159,7 @@ export async function syncWidgetSqlFromSeed(
 	}
 
 	const existingIds = new Set(
-		((existingWidgets || []) as Array<{ id: string }>).map((w) => w.id)
+		(existingWidgets ?? []).map((widget) => widget.id)
 	);
 
 	for (const id of ids) {
