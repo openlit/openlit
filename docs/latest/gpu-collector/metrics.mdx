@@ -178,7 +178,7 @@ Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux for `serving`+ / `al
 
 `hw.id` is set after `cudaSetDevice` for that thread, or immediately on single-GPU hosts. On multi-GPU hosts before `cudaSetDevice`, join via `process.pid` as before. **Linux/NVIDIA (CUDA) only** — same eBPF path for Kubernetes and non-Kubernetes when host PID is visible. AMD/Intel use device/process metrics via DRM fdinfo, not these kernel series.
 
-### Stream-sync occupancy (Datadog-parity model)
+### Stream-sync occupancy model
 
 These are **CPU-side model estimates**, not hardware SM occupancy (warps resident / max warps). Spans run from kernel launch to sync API return; thread-seconds are clamped to NVML CUDA core count and normalized so multi-process totals do not exceed device capacity.
 
@@ -189,7 +189,7 @@ These are **CPU-side model estimates**, not hardware SM occupancy (warps residen
 | `hw.gpu.core.limit` | Gauge | `{cores}` | NVML CUDA core count |
 | `hw.gpu.estimated.sm_active` | Gauge | `1` | Device-wide union of launch→sync spans |
 
-**Prefer** NVML `process.gpu.utilization` for sampled SM%. These estimates are **not** DCGM `hw.gpu.sm.utilization` / `hw.gpu.sm.occupancy`. Use them when correlating with Datadog Agent stream-sync behavior or when NVML process util is unavailable.
+**Prefer** NVML `process.gpu.utilization` for sampled SM%. These estimates are **not** DCGM `hw.gpu.sm.utilization` / `hw.gpu.sm.occupancy`. Use them when NVML process util is unavailable or when correlating launch→sync activity with device util.
 
 **Known limits:** no GPU completion signal (late sync inflates usage); `cudaGraphLaunch` is one composite span (no per-node kernels); `cudaStreamWaitEvent` wait edges are not modeled; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
 

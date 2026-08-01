@@ -99,9 +99,9 @@ Plans below are **collector-side only** — no application SDK, no framework ins
 
 **Approach:** `perf_event_open` + AUX mmap in `internal/intelpt`; keep duration/CPU/buffer caps; decode optional/offline. Fail-closed when PT enabled and open fails.
 
-### 8. Meta ODS / Scuba equivalent
+### 8. Proprietary fleet warehouses
 
-**Goal:** Not reimplemented. Dynolog’s Meta backends are replaced by **OTLP** (and optional Prometheus). Any “fleet warehouse” story is the customer’s OTLP backend.
+**Goal:** Not in scope. Export is **OTLP** (and optional Prometheus). Fleet warehouses / custom backends stay with the customer’s collector pipeline.
 
 **Collector work:** Keep resource identity + `hw.id` joins solid; no proprietary export protocol.
 

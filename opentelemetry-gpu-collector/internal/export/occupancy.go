@@ -20,7 +20,7 @@ import (
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
 
-// OccupancyMetrics exports Datadog-parity stream-sync occupancy gauges.
+// OccupancyMetrics exports stream-sync occupancy gauges (launch→sync model).
 // These are model estimates (launch→sync), not hardware SM occupancy.
 type OccupancyMetrics struct {
 	logger *slog.Logger

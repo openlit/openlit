@@ -1,4 +1,4 @@
-// Package cudaoccupancy implements Datadog-parity CUDA stream-sync occupancy.
+// Package cudaoccupancy implements CUDA stream-sync occupancy estimates.
 //
 // This is a CPU-side model: spans run from kernel launch to sync API return,
 // not true hardware SM occupancy. See package docs and metrics descriptions.
@@ -109,7 +109,7 @@ type aggregator struct {
 	isActive               bool
 }
 
-// Engine is the Datadog-style stream occupancy engine and sole launch→sync buffer.
+// Engine is the stream occupancy engine and sole launch→sync buffer.
 // Closed per-launch spans (for gpu.kernel.duration) are produced on sync / forced sync.
 type Engine struct {
 	mu sync.Mutex
@@ -359,7 +359,7 @@ func (e *Engine) markSynchronization(h *streamHandler, ts uint64) {
 			BlockZ:     l.BlockZ,
 		})
 	}
-	// Keep launches at/after ts (Datadog uses >=)
+	// Keep launches at/after ts
 	kept := h.launches[:0]
 	for _, l := range h.launches {
 		if l.KtimeNs >= ts {
