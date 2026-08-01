@@ -62,7 +62,8 @@ describe('AgentFrameworkWrapper', () => {
       expect(a[ATTR_SERVICE_NAME]).toBe('af-test');
       expect(a[SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]).toBe('test');
       expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 });
-      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+      // create_agent + invoke_agent both use mockSpan, so end() is called twice
+      expect(mockSpan.end).toHaveBeenCalledTimes(2);
     });
 
     it('emits create_agent span on first run call', async () => {
@@ -98,7 +99,8 @@ describe('AgentFrameworkWrapper', () => {
         expect.anything(),
         expect.objectContaining({ message: 'af agent failed' }),
       );
-      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+      // create_agent span end() + invoke_agent span end() (in finally)
+      expect(mockSpan.end).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -114,10 +116,13 @@ describe('AgentFrameworkWrapper', () => {
 
       expect(mockTracer.startSpan).toHaveBeenCalledWith(
         'execute_tool get_weather',
-        expect.objectContaining({ kind: SpanKind.INTERNAL }),
+        expect.objectContaining({
+          kind: SpanKind.INTERNAL,
+          attributes: expect.objectContaining({
+            [SemanticConvention.GEN_AI_TOOL_NAME]: 'get_weather',
+          }),
+        }),
       );
-      const a = attrs();
-      expect(a[SemanticConvention.GEN_AI_TOOL_NAME]).toBe('get_weather');
       expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 });
       expect(mockSpan.end).toHaveBeenCalledTimes(1);
     });
