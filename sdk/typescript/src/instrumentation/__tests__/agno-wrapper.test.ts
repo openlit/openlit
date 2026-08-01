@@ -62,7 +62,8 @@ describe('AgnoWrapper', () => {
       expect(a[ATTR_SERVICE_NAME]).toBe('agno-test');
       expect(a[SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]).toBe('test');
       expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 });
-      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+      // create_agent + invoke_agent both use mockSpan, so end() is called twice
+      expect(mockSpan.end).toHaveBeenCalledTimes(2);
     });
 
     it('emits create_agent span on first run call for a new agent', async () => {
@@ -98,7 +99,8 @@ describe('AgnoWrapper', () => {
         expect.anything(),
         expect.objectContaining({ message: 'agent failed' }),
       );
-      expect(mockSpan.end).toHaveBeenCalledTimes(1);
+      // create_agent span end() + invoke_agent span end() (in finally)
+      expect(mockSpan.end).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -133,10 +135,13 @@ describe('AgnoWrapper', () => {
 
       expect(mockTracer.startSpan).toHaveBeenCalledWith(
         'execute_tool search_web',
-        expect.objectContaining({ kind: SpanKind.INTERNAL }),
+        expect.objectContaining({
+          kind: SpanKind.INTERNAL,
+          attributes: expect.objectContaining({
+            [SemanticConvention.GEN_AI_TOOL_NAME]: 'search_web',
+          }),
+        }),
       );
-      const a = attrs();
-      expect(a[SemanticConvention.GEN_AI_TOOL_NAME]).toBe('search_web');
       expect(mockSpan.end).toHaveBeenCalledTimes(1);
     });
   });
