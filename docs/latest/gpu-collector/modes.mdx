@@ -1,0 +1,105 @@
+---
+title: 'Collector modes'
+sidebarTitle: 'Modes'
+description: 'Use-case presets for the OpenTelemetry GPU Collector (all, light, serving, training, deep)'
+icon: 'layer-group'
+---
+
+`OTEL_GPU_COLLECTOR_MODE` applies **defaults** for optional feature flags. Any explicitly set `OTEL_GPU_*` / `OTEL_HOST_*` / related env var always wins over the preset.
+
+**Default:** `all` (when unset or empty).
+
+Invalid values warn at startup and fall back to `all`.
+
+## Mode hierarchy
+
+`light` → `serving` → `training` → `deep` → `all`
+
+| Mode | Intent |
+|---|---|
+| `light` | Basic accelerator + host health |
+| `serving` | Inference hosting (kernels, process share, DCGM SM/pipe) |
+| `training` | Multi-GPU / fabric / CPU-memory bandwidth |
+| `deep` | Same continuous as `training`, plus on-demand profiling tools |
+| `all` | Superset of `deep` + platform extras (RDC, TPU, KVM, interrupts) |
+
+**Naming tip:** `all` means everything enabled. `deep` means deep-dive profiling (Kineto / Intel PT / high-res), not the kitchen sink.
+
+## Feature matrix
+
+`Y` = mode turns the feature on when the env is **unset**. Soft-fail at runtime if libraries or hardware are missing.
+
+| Feature | light | serving | training | deep | all |
+|---|---|---|---|---|---|
+| Core NVML/amdsmi scrape + host `system.*` + interconnect | Y | Y | Y | Y | Y |
+| eBPF (Linux) + process cmdline / workload classify | — | Y | Y | Y | Y |
+| DCGM enabled + Prefer | — | Y | Y | Y | Y |
+| RDC (AMD) | — | — | — | — | Y |
+| NIC + RDMA | — | — | Y | Y | Y |
+| PMU + `instructions,cycles,memory_bandwidth` | — | — | Y | Y | Y |
+| TPU scrape | — | — | — | — | Y |
+| KVM + interrupts | — | — | — | — | Y |
+| Control API (default `127.0.0.1:1919` if unset) | — | — | — | Y | Y |
+| Kineto listener | — | — | — | Y | Y |
+| Intel PT armed | — | — | — | Y | Y |
+| CPU high-res ring | — | — | — | Y | Y |
+
+```bash
+# Full capability (default)
+export OTEL_GPU_COLLECTOR_MODE=all
+
+# Inference hosts
+export OTEL_GPU_COLLECTOR_MODE=serving
+
+# Smaller footprint (pre-mode optional-off behavior)
+export OTEL_GPU_COLLECTOR_MODE=light
+
+# Override a single flag on top of a mode
+export OTEL_GPU_COLLECTOR_MODE=serving
+export OTEL_HOST_NIC_ENABLED=true
+```
+
+## Cost model
+
+| Kind | When it costs |
+|---|---|
+| Continuous scrapes | Every collection interval (NVML, eBPF, DCGM, NIC, PMU, …) |
+| Armed on-demand | Idle until RPC — Kineto unix socket, control HTTP, Intel PT, high-res ring |
+| Active profile | CUPTI / `perf` only while a `POST /v1/profile/*` runs (DCGM pauses during Kineto duration capture) |
+
+## Production readiness
+
+- **Linux (amd64/arm64)** is the production target for eBPF, DCGM Prefer, NIC/PMU, Kineto, Intel PT, and deep/`all` extras.
+- **Environment soft-skip:** missing libraries (`libdcgm`, `librdc`), capabilities (`CAP_BPF` / `CAP_PERFMON`), non-Linux platforms, and absent hardware are logged as `feature unavailable` and skipped — the process stays up.
+- **Collector faults are fatal:** OpenTelemetry instrument-registration errors, control-plane misconfiguration (bad bind addr / remote without token), and a broken embedded BPF object stop startup with `feature fault`. These cannot be silenced.
+- Startup logs the mode **feature summary** (requested), **effective feature availability** (what started), plus `unavailable` and `faults` lists.
+- Prefer DCGM only when `libdcgm` is available; otherwise Prefer is inactive and NVML keeps overlapping series.
+- For inference fleets that want a smaller continuous footprint, use `serving` (or `light` for scrape-only). Use `training`/`deep` when host caps and libraries match.
+
+## Smaller continuous footprint
+
+Previously most optional features defaulted **off**. Default `all` now enables more continuous scrapes and arms on-demand listeners. For a smaller footprint:
+
+```bash
+export OTEL_GPU_COLLECTOR_MODE=light
+# or serving / training, or pin individual OTEL_GPU_* / OTEL_HOST_* flags
+```
+
+## Hosting checklist: collector vs Kineto vs SDK
+
+| Need | Continuous collector | On-demand Kineto (`deep` / `all`) | Needs SDK / serving instrumentation |
+|---|---|---|---|
+| ECC, temps, power, clocks, PCIe | Yes | — | — |
+| NVLink / RDMA | Yes (mode-dependent) | — | — |
+| Multi-workload VRAM / util share | `process.gpu.*` | Per-PID artifacts | Request/tenant inside one process |
+| Kernel launches / splits (non-graph) | eBPF + `gpu.kernel.duration` | Timeline deep-dive | — |
+| CUDA graph breaks | Composite `cudaGraphLaunch` span (no per-node) | Strong timeline | Optional framework break reasons |
+| Input / tensor **shapes** | No | **Yes** (`record_shapes`) | Continuous request-level shapes |
+| FLOPs / stacks / modules / memory snapshot | No | **Yes** (profile flags) | Continuous budgets |
+| Dynamic batching queue wait vs exec | No | Weak / incidental | **Yes** (vLLM / Triton / SGLang) |
+| Padding vs varlen / seqlen | No | Shapes only | **Yes** |
+| `torch.compile` recompiles | Indirect util correlation | Only if profiling during compile | **Yes** |
+
+Join keys today: `process.pid`, `hw.id`, time, `process.workload.*`. W3C `trace_id` on GPU series is future SDK correlation work.
+
+See [Configuration](/latest/gpu-collector/configuration) and [Metrics](/latest/gpu-collector/metrics).

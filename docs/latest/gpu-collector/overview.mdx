@@ -5,7 +5,9 @@ description: 'OpenTelemetry-native GPU and host metrics collector for NVIDIA, AM
 
 The **OpenTelemetry GPU Collector** is a lightweight, single-binary metrics collector written in Go. It exports GPU hardware telemetry, host system metrics, and process metrics via OpenTelemetry (OTLP) - with no Python dependencies, no DCGM daemon, and no vendor-specific agents.
 
-It is fully configured via standard OpenTelemetry environment variables and follows the [OTel semantic conventions for hardware metrics](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/).
+It is fully configured via standard OpenTelemetry environment variables and follows the [OTel semantic conventions for hardware metrics](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/). Use [collector modes](/latest/gpu-collector/modes) (`OTEL_GPU_COLLECTOR_MODE`, default `all`) to turn optional features on by use case.
+
+Resource identity models this process as a **GPU metrics agent** (host + accelerator telemetry), not an application service: `telemetry.sdk.*`, `telemetry.distro.name=opentelemetry-gpu-collector`, `telemetry.distro.version`, plus host/k8s/cloud attributes. Set `OTEL_SERVICE_NAME` only if your backend requires `service.name`.
 
 ## Goals
 

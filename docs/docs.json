@@ -521,7 +521,10 @@
             "group": "Reference",
             "pages": [
               "latest/gpu-collector/configuration",
-              "latest/gpu-collector/metrics"
+              "latest/gpu-collector/modes",
+              "latest/gpu-collector/metrics",
+              "latest/gpu-collector/semconv",
+              "latest/gpu-collector/roadmap"
             ]
           },
           {

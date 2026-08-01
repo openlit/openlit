@@ -94,3 +94,22 @@ func TestIsCudartPath(t *testing.T) {
 		}
 	}
 }
+
+func TestIsCudaDriverPath(t *testing.T) {
+	yes := []string{"/usr/lib/libcuda.so.1", "/usr/lib64/libcuda.so"}
+	no := []string{
+		"/usr/local/cuda/lib64/libcudart.so.12",
+		"/usr/lib/libcudart.so",
+		"/usr/lib/libamdhip64.so",
+	}
+	for _, p := range yes {
+		if !isCudaDriverPath(p) {
+			t.Errorf("isCudaDriverPath(%q) = false, want true", p)
+		}
+	}
+	for _, p := range no {
+		if isCudaDriverPath(p) {
+			t.Errorf("isCudaDriverPath(%q) = true, want false", p)
+		}
+	}
+}

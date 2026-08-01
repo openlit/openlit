@@ -36,6 +36,7 @@ type KernelLaunchEvent struct {
 	BlockZ         uint32
 	SharedMemBytes uint32
 	KernelName     string
+	LaunchKind     string // "kernel" (default) or "graph"
 }
 
 func (e *KernelLaunchEvent) EventType() uint8  { return EventTypeKernelLaunch }

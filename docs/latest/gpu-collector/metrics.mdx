@@ -4,39 +4,49 @@ description: 'Complete list of all metrics exported by the OpenTelemetry GPU Col
 icon: 'table'
 ---
 
-All metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
+All metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/). See the [semconv registry](/latest/gpu-collector/semconv) for the full instrument list.
 
 ## GPU Hardware Telemetry
 
 Collected for each detected GPU on **Linux and Windows**. Availability depends on vendor, OS, and GPU model.
 
-### Metrics
+### Device metrics
 
 | Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
 |---|---|---|---|:---:|:---:|:---:|
 | `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | Yes* |
-| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | - |
+| `hw.gpu.memory.utilization` | Gauge | `1` | Fraction of GPU memory used (usage / limit) | Yes | Yes | Yes* |
+| `hw.gpu.memory.controller.utilization` | Gauge | `1` | Memory controller busy fraction (extension; NVML/AMD) | Yes | Yes | - |
 | `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | Yes* |
 | `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | Yes* |
 | `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | Yes* |
-| `hw.gpu.temperature` | Gauge | `Cel` | Die or memory temperature | Yes | Yes | Yes |
-| `hw.gpu.fan_speed` | Gauge | `{rpm}` | Fan speed | -† | Yes | Yes* |
-| `hw.gpu.power.draw` | Gauge | `W` | Current power draw | Yes | Yes | Yes |
-| `hw.gpu.power.limit` | Gauge | `W` | Power limit/cap | Yes | Yes | Yes |
-| `hw.gpu.energy.consumed` | Counter | `J` | Cumulative energy consumed | Yes | Yes | Yes |
-| `hw.gpu.clock.graphics` | Gauge | `MHz` | Graphics/SM clock frequency | Yes | Yes | Yes* |
-| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | - |
-| `hw.gpu.up` | Gauge | `1` | `1` when the device was successfully scraped | Yes | Yes | Yes |
+| `hw.temperature` | Gauge | `Cel` | Die or memory temperature | Yes | Yes | Yes |
+| `hw.fan.speed` | Gauge | `rpm` | Fan speed | -† | Yes | Yes* |
+| `hw.fan.speed_ratio` | Gauge | `1` | Fan speed as fraction of max | Yes | - | - |
+| `hw.power` | Gauge | `W` | Current power draw | Yes | Yes | Yes |
+| `hw.power.limit` | Gauge | `W` | Power limit/cap | Yes | Yes | Yes |
+| `hw.energy` | Counter | `J` | Cumulative energy consumed | Yes | Yes | Yes |
+| `hw.gpu.speed` | Gauge | `Hz` | Clock frequency (`hw.gpu.clock_domain`) | Yes | Yes | Yes* |
+| `hw.gpu.io` | Counter | `By` | Cumulative PCIe I/O bytes | Yes | Yes¶ | Soft‡ |
+| `hw.gpu.interconnect.io` | Counter | `By` | Cumulative NVLink / XGMI bytes | Yes§ | Yes¶ | - |
+| `hw.status` | UpDownCounter | `1` | Hardware status (up / throttled states) | Yes | Yes | Yes |
 | `hw.gpu.allocated` | Gauge | `1` | `1` when process memory or util ≥ threshold | Yes | Yes | Yes |
 | `hw.gpu.idle` | Gauge | `1` | Idle ratio (`1 - utilization`) when util known | Yes | Yes | Yes* |
-| `hw.gpu.pcie.throughput` | Gauge | `By/s` | PCIe RX/TX throughput | Yes | Yes¶ | Soft‡ |
-| `hw.gpu.interconnect.throughput` | Gauge | `By/s` | NVLink / XGMI aggregate throughput | Yes§ | Yes¶ | - |
-| `hw.gpu.throttled` | Gauge | `1` | `1` when thermal/power throttle is active | Yes | Yes¶ | Yes* |
 | `hw.errors` | Counter | `{error}` | ECC, PCIe, XID, and RAS error counts | Yes | Yes (RAS + PCIe replay¶) | - |
+
+\* Intel support depends on driver (i915/Xe) and kernel version.
+
+† NVIDIA NVML reports fan speed as a percentage — use `hw.fan.speed_ratio`; `hw.fan.speed` (rpm) is omitted for NVIDIA.
+
+§ Requires `OTEL_GPU_INTERCONNECT_ENABLED` (default true).
+
+¶ AMD XGMI / PCIe when the driver exposes counters.
+
+‡ Soft / best-effort when the kernel exposes the counters.
 
 \* Intel device util/VRAM/power/throttle/media use Level Zero Sysman when available (Linux/Windows); otherwise DRM/hwmon/PDH subset. Encoder/decoder util comes from media engine groups or Windows PDH VideoEncode/VideoDecode.
 
-† NVIDIA NVML exposes fan speed as a percentage, not RPM, so `hw.gpu.fan_speed` is not emitted for NVIDIA.
+† NVIDIA NVML exposes fan speed as a percentage, not RPM, so `hw.fan.speed` is not emitted for NVIDIA — use `hw.fan.speed_ratio` instead.
 
 ‡ Soft-omitted when the vendor library/driver path does not expose the counter. Core util/memory/power still collect without those libraries. Windows AMD has no PCIe/XGMI throughput API (ADL).
 
@@ -61,14 +71,16 @@ Additional per-metric attributes:
 | Metric | Attribute | Values |
 |---|---|---|
 | `hw.gpu.utilization` | `hw.gpu.task` | `general`, `encoder`, `decoder` |
-| `hw.gpu.temperature` | `sensor` | `die`, `memory` |
-| `hw.gpu.pcie.throughput` | `network.io.direction` | `receive`, `transmit` |
-| `hw.gpu.interconnect.throughput` | `network.io.direction` | `receive`, `transmit` |
-| `hw.gpu.interconnect.throughput` | `hw.gpu.interconnect.type` | `nvlink`, `xgmi`, `other` |
-| `hw.gpu.throttled` | `hw.gpu.throttle_reasons` | comma-separated reason labels |
+| `hw.temperature` | `hw.sensor_location` | `die`, `memory` |
+| `hw.gpu.speed` | `hw.gpu.clock_domain` | `graphics`, `memory`, `sm` |
+| `hw.gpu.io` | `network.io.direction` | `receive`, `transmit` |
+| `hw.gpu.interconnect.io` | `network.io.direction` | `receive`, `transmit` |
+| `hw.gpu.interconnect.io` | `hw.gpu.interconnect.type` | `nvlink`, `xgmi`, `other` |
+| `hw.status` | status / throttle attrs | up / throttled + reason labels |
 | `hw.errors` | `error.type` | `corrected`, `uncorrected`, `pcie_replay`, `xid`, `ras_corrected`, `ras_uncorrected` |
 | `hw.errors` | `hw.type` | `gpu` |
 | MIG devices | `gpu.mig.enabled`, `gpu.mig.device_id`, `gpu.parent.uuid`, `gpu.mig.instance_id`, `gpu.mig.profile` | Linux NVIDIA only (MIG is not available on Windows) |
+| Partitions (RDC) | `hw.parent`, `hw.gpu.partition` | AMD compute partitions when available |
 
 ---
 
@@ -121,6 +133,7 @@ These attributes support views like zombie-process triage: filter `process.state
 | Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
 |---|---|---|---|:---:|:---:|:---:|
 | `process.gpu.memory.usage` | UpDownCounter | `By` | GPU memory used by a process on a device | Yes | Yes | Yes |
+| `process.gpu.memory.utilization` | Gauge | `1` | Process memory / device memory limit (0–1); omitted when limit unknown | Yes | Yes | Yes |
 | `process.gpu.utilization` | Gauge | `1` | Per-process GPU utilization (0.0–1.0) | Yes | Yes | Yes |
 | `process.uptime` | Gauge | `s` | Process uptime for GPU-attributed PIDs | Yes | Yes | Yes |
 
@@ -149,7 +162,7 @@ These attributes support views like zombie-process triage: filter `process.state
 
 ## eBPF CUDA Metrics
 
-Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux). Soft-fails without caps. Discovers `libcudart.so*` from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
+Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux for `serving`+ / `all` modes; off in `light`). Soft-fails without caps. Discovers `libcudart.so*` from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Attaches uprobes/uretprobes for launches (`cudaLaunchKernel`, `cudaLaunchKernelExC`, cooperative, `cudaGraphLaunch`), alloc/free, memcpy, stream/device/event sync, and `cudaSetDevice`. Processes that map `libcuda` without `libcudart` also get driver hooks (`cuLaunchKernel` / sync / memcpy) to avoid double-counting runtime wrappers. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
 
 ### Activity metrics
 
@@ -159,6 +172,7 @@ Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux). Soft-fails without
 | `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | same |
 | `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | same |
 | `gpu.kernel.shared_memory` | Histogram | `By` | Dynamic shared memory per launch (`cudaLaunchKernel` sharedMem) | same |
+| `gpu.kernel.duration` | Histogram | `s` | Model estimate of launch→sync duration (shared store with occupancy; cardinality-capped names) | same + optional `cuda.launch.kind=graph` |
 | `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | `process.pid`, `process.executable.name`, `hw.id` / `gpu.index` when known |
 | `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpyAsync | `process.pid`, `cuda.memcpy.kind`, `hw.id` / `gpu.index` when known |
 
@@ -171,13 +185,106 @@ These are **CPU-side model estimates**, not hardware SM occupancy (warps residen
 | Metric | Type | Unit | Description |
 |---|---|---|---|
 | `process.gpu.core.usage` | Gauge | `{cores}` | Normalized avg CUDA cores from launch→sync thread-seconds |
-| `process.gpu.sm_active` | Gauge | `1` | Fraction of interval with any launch→sync span for the process |
-| `gpu.core.limit` | Gauge | `{cores}` | NVML CUDA core count |
-| `gpu.sm_active` | Gauge | `1` | Device-wide union of launch→sync spans |
+| `process.gpu.estimated.sm_active` | Gauge | `1` | Fraction of interval with any launch→sync span (`gpu.measurement.source=ebpf_model`) |
+| `hw.gpu.core.limit` | Gauge | `{cores}` | NVML CUDA core count |
+| `hw.gpu.estimated.sm_active` | Gauge | `1` | Device-wide union of launch→sync spans |
 
-**Prefer** NVML `process.gpu.utilization` for sampled SM%. Use occupancy metrics when correlating with Datadog Agent stream-sync behavior or when NVML process util is unavailable.
+**Prefer** NVML `process.gpu.utilization` for sampled SM%. These estimates are **not** DCGM `hw.gpu.sm.utilization` / `hw.gpu.sm.occupancy`. Use them when correlating with Datadog Agent stream-sync behavior or when NVML process util is unavailable.
 
-**Known limits:** no GPU completion signal (late sync inflates usage); CUDA Graphs / unhooked launch paths under-report; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
+**Known limits:** no GPU completion signal (late sync inflates usage); `cudaGraphLaunch` is one composite span (no per-node kernels); `cudaStreamWaitEvent` wait edges are not modeled; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
+
+---
+
+## DCGM profiling (optional)
+
+Enable with `OTEL_GPU_DCGM_ENABLED=true`. Soft-fails when `libdcgm` is missing. **DCGM is optional** — continuous clocks (`graphics` / `sm` / `memory`), util, and power work from NVML alone. Metrics carry `gpu.measurement.source=dcgm`. Set `OTEL_GPU_DCGM_PREFER=true` so DCGM owns overlapping IO / power / util / graphics clock / idle (NVML suppresses those series — single producer). Memory clock stays on NVML.
+
+| Metric | Type | Unit | Attributes |
+|---|---|---|---|
+| `hw.gpu.engine.utilization` | Gauge | `1` | `hw.gpu.engine` |
+| `hw.gpu.sm.utilization` | Gauge | `1` | DCP SM active |
+| `hw.gpu.sm.occupancy` | Gauge | `1` | DCP SM occupancy |
+| `hw.gpu.pipe.utilization` | Gauge | `1` | `hw.gpu.pipe`=`tensor\|fp16\|fp32\|fp64` |
+| `hw.gpu.memory.bandwidth.utilization` | Gauge | `1` | |
+| `hw.gpu.io` / `hw.gpu.interconnect.io` | Counter | `By` | Prefer only; rate-integrated PCIe / NVLink |
+| `hw.gpu.speed` | Gauge | `Hz` | Prefer only; `hw.gpu.clock_domain=graphics` (field 100) |
+| `hw.gpu.idle` | Gauge | `1` | Prefer only; derived from Prefer util |
+| `hw.power` / `hw.gpu.utilization` / `hw.gpu.memory.controller.utilization` | Gauge | Prefer only | Fields 155 / 203 / 204 (204 → controller util) |
+| `openlit.collector.gpu.dcgm.sample_valid` | UpDownCounter | `1` | 0 on blank sample |
+
+Control plane: `POST /v1/dcgm/pause` and `POST /v1/dcgm/resume` (loopback `OTEL_GPU_CONTROL_ADDR`).
+
+---
+
+## AMD RDC profiling (optional)
+
+Enable with `OTEL_GPU_RDC_ENABLED=true`. Soft-fails when `librdc` is missing. Metrics carry `gpu.measurement.source=rdc`. Partition samples may set `hw.parent`.
+
+| Metric | Type | Unit | Notes |
+|---|---|---|---|
+| `hw.gpu.sm.utilization` | Gauge | `1` | SM/CU active |
+| `hw.gpu.sm.occupancy` | Gauge | `1` | CU / SM occupancy |
+| `hw.gpu.pipe.utilization` | Gauge | `1` | `fp16` / `fp32` / `fp64` from EVAL_FLOPS percent |
+| `hw.gpu.simd.utilization` | Gauge | `1` | SIMD utilization |
+
+---
+
+## Kineto on-demand profiling (optional)
+
+Enable with `OTEL_GPU_KINETO_ENABLED=true`. Does **not** emit continuous metrics. Use the control API:
+
+- `POST /v1/profile/gpu` — match GPU PIDs and write on-demand libkineto config
+- Requires `OTEL_GPU_CONTROL_ADDR` (loopback by default; set `OTEL_GPU_CONTROL_ALLOW_REMOTE=true` + token for multi-node)
+
+Self-metric: `openlit.collector.profile.requests`.
+
+Multi-node fan-out (no always-on collector cost):
+
+```bash
+go run ./cmd/profile-fanout --hosts node1,node2 --port 1919 --token "$TOKEN" --duration-ms 500
+# or SLURM:
+go run ./cmd/profile-fanout --job-id 12345 --port 1919 --token "$TOKEN"
+```
+
+---
+
+## Intel PT on-demand (optional)
+
+Enable with `OTEL_HOST_INTEL_PT_ENABLED=true` and a control address. Does **not** run continuously.
+
+- `POST /v1/profile/cpu/pt` with `{"duration_ms":500}`
+- Requires Linux `intel_pt` PMU and `perf` in `PATH`
+- Caps: duration, CPU count, AUX buffer pages (see configuration)
+
+Fan-out: `profile-fanout --profile cpu-pt ...`
+
+---
+
+## CPU PMU / uncore memory IO (optional)
+
+Enable with `OTEL_HOST_PMU_ENABLED=true`.
+
+| Metric | Notes |
+|---|---|
+| `hw.cpu.instructions` / `hw.cpu.cycles` / cache / branch / TLB | Core PMU |
+| `hw.cpu.memory.io` | When `memory_bandwidth` or `uncore` is in `OTEL_HOST_PMU_EVENTS`; IMC CAS×64 bytes |
+
+---
+
+## TPU scrape (optional)
+
+Enable with `OTEL_TPU_ENABLED=true`. Scrapes a Prometheus-format TPU endpoint (`OTEL_TPU_ENDPOINT`, default `http://127.0.0.1:2112/metrics`) and re-exports allowlisted series. Soft-fails when the endpoint is unreachable.
+
+---
+
+## NIC / RDMA (optional)
+
+| Flag | Default | Metrics surface |
+|---|---|---|
+| `OTEL_HOST_NIC_ENABLED` | `false` | Per-NIC hardware counters beyond basic `system.network.*` |
+| `OTEL_HOST_RDMA_ENABLED` | `false` | RDMA device counters (`OTEL_HOST_RDMA_COUNTERS` allowlist) |
+
+Soft-omitted when sysfs/counters are unavailable.
 
 ---
 
@@ -185,7 +292,9 @@ These are **CPU-side model estimates**, not hardware SM occupancy (warps residen
 
 | Feature | NVIDIA | AMD | Intel |
 |---|:---:|:---:|:---:|
-| Device `hw.gpu.*` | Yes | Yes | Partial |
-| `process.gpu.memory.usage` / `utilization` | NVML | DRM fdinfo | DRM fdinfo |
+| Device `hw.gpu.*` / spec `hw.*` | Yes | Yes | Partial |
+| `process.gpu.memory.usage` / `memory.utilization` / `utilization` | NVML | DRM fdinfo | DRM fdinfo |
 | Pod UID on process metrics | cgroup | cgroup | cgroup |
 | eBPF activity + occupancy | Yes (default on Linux) | — | — |
+| DCGM profiling | Optional | — | — |
+| RDC profiling | — | Optional (soft-skip without librdc) | — |
