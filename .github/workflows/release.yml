@@ -320,7 +320,7 @@ jobs:
             RELEASE_SHA=$SOURCE_SHA
           fi
 
-          EXISTING_TAG_SHA=$(git rev-parse "${RELEASE_TAG}^{commit}" 2>/dev/null || true)
+          EXISTING_TAG_SHA=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}" 2>/dev/null || true)
           if [ -n "$EXISTING_TAG_SHA" ]; then
             if [ "$EXISTING_TAG_SHA" != "$RELEASE_SHA" ]; then
               echo "::error::release tag already exists on a different commit"
