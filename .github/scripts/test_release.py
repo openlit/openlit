@@ -80,6 +80,21 @@ class ReleaseTests(unittest.TestCase):
                     {1},
                 )
 
+    def test_summary_validation_explains_forbidden_dependency_constraint(self):
+        with self.assertRaisesRegex(release.ReleaseError, "forbidden character '<'"):
+            release.validate_summaries(
+                {
+                    "items": [
+                        {
+                            "number": 1389,
+                            "category": "Dependencies",
+                            "summary": "Updates langchain to >=1.3.14,<2.0.0.",
+                        }
+                    ]
+                },
+                {1389},
+            )
+
     def test_poetry_version_is_scoped_to_tool_poetry(self):
         content = 'version = "wrong"\n\n[tool.poetry]\nname = "demo"\nversion = "1.2.3"\n\n[other]\nversion = "also-wrong"\n'
         self.assertEqual(release.extract_poetry_version(content), "1.2.3")
