@@ -31,8 +31,25 @@ permissions:
   pull-requests: read
 
 jobs:
+  authorize:
+    if: github.event_name != 'push' || github.actor != vars.RELEASE_APP_SLUG
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require repository administrator
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          PERMISSION=$(gh api "repos/$REPOSITORY/collaborators/$ACTOR/permission" --jq .permission)
+          if [ "$PERMISSION" != admin ]; then
+            echo "::error::Release packages may only be run by repository administrators"
+            exit 1
+          fi
+
   prepare:
     if: github.event_name != 'push' || github.actor != vars.RELEASE_APP_SLUG
+    needs: authorize
     runs-on: ubuntu-24.04
     environment: release
     outputs:
@@ -115,6 +132,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
 
       - uses: actions/setup-python@v7
         if: needs.prepare.outputs.tool == 'python'

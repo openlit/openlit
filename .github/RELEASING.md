@@ -43,6 +43,11 @@ Create a `release` Actions environment without human reviewers and configure:
 - Optional repository variable `RELEASE_LLM_PRIMARY_MODEL`
 - Optional repository variable `RELEASE_LLM_FALLBACK_MODEL`
 
+`Release packages` checks the triggering actor's repository permission before
+entering the release environment and fails unless it is `admin`. GitHub may
+still display the manual **Run workflow** control to non-admin collaborators,
+but their run stops before checkout, LLM access, version mutation, or publishing.
+
 The model variables default to the reviewed free OpenRouter models in the
 release script. Existing npm, PyPI, GHCR, cosign, and Homebrew secrets remain
 configured as required by their publisher workflows.

@@ -29,11 +29,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_sha }}
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: sdk/go/go.mod
-          cache-dependency-path: sdk/go/go.sum
+          persist-credentials: false
 
       - name: Verify final tag and SDK version
         env:
@@ -44,6 +40,11 @@ jobs:
           test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
           VERSION=${RELEASE_TAG#go-}
           test "$(sed -n 's/^const Version = "\([^"]*\)"$/\1/p' sdk/go/version.go)" = "$VERSION"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: sdk/go/go.mod
+          cache-dependency-path: sdk/go/go.sum
 
       - working-directory: sdk/go
         run: go test -v ./...
