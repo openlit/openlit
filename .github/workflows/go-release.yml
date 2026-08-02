@@ -1,57 +1,72 @@
-name: Go SDK Release
+name: Validate Go SDK Release
 
 on:
-  push:
-    tags:
-      - 'go-*.*.*'
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    
+  validate:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
+      - name: Validate final tag before checkout
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^go-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::invalid Go release tag"
+            exit 1
+          fi
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::release_sha must be a full commit SHA"
+            exit 1
+          fi
+          REMOTE_SHA=$(git ls-remote --refs "https://github.com/$REPOSITORY.git" "refs/tags/$RELEASE_TAG" | awk '{print $1}')
+          if [ -z "$REMOTE_SHA" ] || [ "$REMOTE_SHA" != "$RELEASE_SHA" ]; then
+            echo "::error::release tag does not resolve to the requested SHA"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.23'
-      
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/go-}" >> $GITHUB_OUTPUT
-      
-      - name: Run tests
-        working-directory: ./sdk/go
-        run: go test -v ./...
-      
-      - name: Build
-        working-directory: ./sdk/go
-        run: go build -v ./...
-      
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # Extract changelog for this version
-          if [ -f "sdk/go/CHANGELOG.md" ]; then
-            awk '/^## \[${{ steps.get_version.outputs.VERSION }}\]/{flag=1;next}/^## \[/{flag=0}flag' sdk/go/CHANGELOG.md > /tmp/changelog.md
-          else
-            echo "Release ${{ steps.get_version.outputs.VERSION }}" > /tmp/changelog.md
-          fi
-      
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3.0.1
-        with:
-          name: ${{ github.ref_name }}
-          body_path: /tmp/changelog.md
-          draft: false
-          prerelease: false
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Verify final tag and SDK version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          VERSION=${RELEASE_TAG#go-}
+          test "$(sed -n 's/^const Version = "\([^"]*\)"$/\1/p' sdk/go/version.go)" = "$VERSION"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: sdk/go/go.mod
+          cache-dependency-path: sdk/go/go.sum
+
+      - working-directory: sdk/go
+        run: go test -v ./...
+
+      - working-directory: sdk/go
+        run: go build -v ./...
