@@ -61,7 +61,7 @@ jobs:
             echo "::error::Could not resolve a semver release version (got '${VERSION}'). Pass a 'tag' input like 'cli-1.2.0' on workflow_dispatch, or push a 'cli-X.Y.Z' tag."
             exit 1
           fi
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
       - name: Build
         working-directory: ./cli
         env:
@@ -78,8 +78,8 @@ jobs:
           # the package default. -X must target the fully-qualified
           # package path or Go's linker quietly ignores it.
           PKG="github.com/openlit/openlit/cli/internal/version"
-          go build -trimpath -ldflags "-s -w -X ${PKG}.Version=$VERSION -X ${PKG}.Commit=$COMMIT" \
-            -o dist/openlit-${GOOS}-${GOARCH}${{ matrix.ext }} ./cmd/openlit
+          go build -trimpath -ldflags "-s -w -X ${PKG}.Version=${VERSION} -X ${PKG}.Commit=${COMMIT}" \
+            -o "dist/openlit-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/openlit
       - name: Package
         working-directory: ./cli
         run: |
@@ -157,7 +157,7 @@ jobs:
             echo "::error::Could not resolve a semver release version (got '${VERSION}')."
             exit 1
           fi
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
       - name: Build and push image
         # docker/build-push-action is the action that actually produces
         # and pushes the multi-arch container image. Pinned to a SHA so

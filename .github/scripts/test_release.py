@@ -52,10 +52,37 @@ class ReleaseTests(unittest.TestCase):
             release.validate_summaries({"items": valid["items"] * 2}, {10})
 
     def test_summary_rejects_links_and_unknown_categories(self):
+        cases = [
+            ("unknown category", "Other", "Fine"),
+            ("link", "Fixes", "See https://bad.test"),
+            ("whitespace only", "Fixes", "   "),
+            ("overlong", "Fixes", "a" * 241),
+            ("square bracket", "Fixes", "Contains [ bracket"),
+            ("angle bracket", "Fixes", "Contains < angle"),
+        ]
+        for description, category, summary in cases:
+            with self.subTest(description=description), self.assertRaises(release.ReleaseError):
+                release.validate_summaries(
+                    {"items": [{"number": 1, "category": category, "summary": summary}]},
+                    {1},
+                )
+
+    def test_poetry_version_is_scoped_to_tool_poetry(self):
+        content = 'version = "wrong"\n\n[tool.poetry]\nname = "demo"\nversion = "1.2.3"\n\n[other]\nversion = "also-wrong"\n'
+        self.assertEqual(release.extract_poetry_version(content), "1.2.3")
+
+    def test_persisted_version_accepts_previous_or_exact_requested_version(self):
+        self.assertFalse(release.version_already_set("1.0.0", "1.0.0", "1.1.0", "demo"))
+        self.assertTrue(release.version_already_set("1.1.0", "1.0.0", "1.1.0", "demo"))
         with self.assertRaises(release.ReleaseError):
-            release.validate_summaries({"items": [{"number": 1, "category": "Other", "summary": "Fine"}]}, {1})
+            release.version_already_set("1.2.0", "1.0.0", "1.1.0", "demo")
+
+    def test_npm_version_state_accepts_stale_lock_entries_for_repair(self):
+        self.assertFalse(release.npm_version_already_set(("1.0.0", "1.0.0", "1.0.0"), "1.0.0", "1.1.0", "demo"))
+        self.assertFalse(release.npm_version_already_set(("1.1.0", "1.0.0", "1.1.0"), "1.0.0", "1.1.0", "demo"))
+        self.assertTrue(release.npm_version_already_set(("1.1.0", "1.1.0", "1.1.0"), "1.0.0", "1.1.0", "demo"))
         with self.assertRaises(release.ReleaseError):
-            release.validate_summaries({"items": [{"number": 1, "category": "Fixes", "summary": "See https://bad.test"}]}, {1})
+            release.npm_version_already_set(("1.2.0", "1.0.0", "1.0.0"), "1.0.0", "1.1.0", "demo")
 
     def test_poetry_and_go_version_updates(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -77,8 +104,46 @@ class ReleaseTests(unittest.TestCase):
                 json.dumps({"version": "1.2.0", "packages": {"": {"version": "1.2.0"}}}), encoding="utf-8"
             )
             release.verify_npm_versions(directory, "1.2.0")
-            with self.assertRaises(release.ReleaseError):
-                release.verify_npm_versions(directory, "1.2.1")
+            for lock_path in (("version",), ("packages", "", "version")):
+                lock = json.loads((directory / "package-lock.json").read_text(encoding="utf-8"))
+                target = lock
+                for part in lock_path[:-1]:
+                    target = target[part]
+                target[lock_path[-1]] = "1.2.1"
+                (directory / "package-lock.json").write_text(json.dumps(lock), encoding="utf-8")
+                with self.subTest(lock_path=lock_path), self.assertRaises(release.ReleaseError):
+                    release.verify_npm_versions(directory, "1.2.0")
+                target[lock_path[-1]] = "1.2.0"
+                (directory / "package-lock.json").write_text(json.dumps(lock), encoding="utf-8")
+
+    def test_npm_same_version_repairs_both_stale_lock_entries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "package.json").write_text(
+                json.dumps({"name": "demo", "version": "1.2.0"}), encoding="utf-8"
+            )
+            (directory / "package-lock.json").write_text(
+                json.dumps(
+                    {
+                        "name": "demo",
+                        "version": "1.0.0",
+                        "lockfileVersion": 3,
+                        "requires": True,
+                        "packages": {"": {"name": "demo", "version": "1.0.0"}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            release.run(
+                "npm",
+                "version",
+                "1.2.0",
+                "--no-git-tag-version",
+                "--ignore-scripts",
+                "--allow-same-version",
+                cwd=directory,
+            )
+            release.verify_npm_versions(directory, "1.2.0")
 
     def test_registry_tracks_openlit_package_and_lock(self):
         openlit = self.config["openlit"]
@@ -87,6 +152,55 @@ class ReleaseTests(unittest.TestCase):
             openlit["version_files"],
             ["src/client/package.json", "src/client/package-lock.json"],
         )
+
+    def test_prebumped_npm_release_is_a_validated_noop(self):
+        original_root = release.ROOT
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                release.ROOT = root
+                work = root / "component"
+                work.mkdir()
+                (work / "package.json").write_text(
+                    json.dumps({"name": "demo", "version": "1.2.0"}), encoding="utf-8"
+                )
+                (work / "package-lock.json").write_text(
+                    json.dumps(
+                        {
+                            "name": "demo",
+                            "version": "1.2.0",
+                            "lockfileVersion": 3,
+                            "packages": {"": {"name": "demo", "version": "1.2.0"}},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                subprocess.run(["git", "add", "."], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "fixture"],
+                    cwd=root,
+                    check=True,
+                )
+                metadata = root / "metadata.json"
+                metadata.write_text(
+                    json.dumps(
+                        {
+                            "version_strategy": "npm",
+                            "version": "1.2.0",
+                            "version_already_set": True,
+                            "working_directory": "component",
+                            "version_files": ["component/package.json", "component/package-lock.json"],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                release.bump(Namespace(metadata=str(metadata)))
+                self.assertEqual(subprocess.run(
+                    ["git", "diff", "--name-only"], cwd=root, check=True, text=True, capture_output=True
+                ).stdout, "")
+        finally:
+            release.ROOT = original_root
 
     def test_previous_tag_uses_semver_and_ignores_malformed_tags(self):
         original_root = release.ROOT

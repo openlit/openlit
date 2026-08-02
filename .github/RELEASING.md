@@ -13,9 +13,18 @@ openlit-X.Y.Z
 ```
 
 The tool definitions and version strategies live in `.github/release-tools.json`.
-The `Tool-scoped release` workflow generates notes for merged PRs that changed
+The `Release packages` workflow generates notes for merged PRs that changed
 the selected tool, validates the tool, updates persistent version files when
 configured, publishes the artifact, and creates the GitHub Release.
+
+For tools with a persistent version, the source may either still contain the
+previous release version or already contain the exact version named by the new
+tag. In the latter case the workflow validates the configured version files and
+skips the version commit. For npm tools, a manifest already at the requested
+version may still have either lockfile root entry at the previous version; the
+workflow repairs and commits those entries. Afterward, `package.json`, the
+top-level `package-lock.json` version, and `packages[""].version` in the lockfile
+must always agree. Any other version drift fails before mutation.
 
 ## Repository configuration
 
@@ -44,7 +53,7 @@ tag creation to trusted maintainers.
 
 ## Dry run
 
-Run `Tool-scoped release` manually, enter the next existing-format tag, and keep
+Run `Release packages` manually, enter the next existing-format tag, and keep
 `dry_run` enabled. A dry run uses current `main`, calls the configured LLM,
 runs component validation, and uploads release notes, metadata, and the version
 diff without creating a tag, commit, package, image, or GitHub Release.

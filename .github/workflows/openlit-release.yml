@@ -109,4 +109,7 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: |
+          while IFS= read -r tag; do
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "$TAGS"

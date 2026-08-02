@@ -6,6 +6,8 @@
     "version_strategy": "poetry",
     "working_directory": "sdk/python",
     "version_files": ["sdk/python/pyproject.toml"],
+    "package_registry": "pypi",
+    "package_name": "openlit",
     "publisher": "python"
   },
   "typescript": {
@@ -18,6 +20,8 @@
       "sdk/typescript/package.json",
       "sdk/typescript/package-lock.json"
     ],
+    "package_registry": "npm",
+    "package_name": "openlit",
     "publisher": "typescript"
   },
   "go": {

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,11 @@ MAX_PATCH_CHARS_PER_PR = 60_000
 MAX_EVIDENCE_CHARS_PER_CALL = 350_000
 MAX_MODEL_CALLS = 40
 MAX_RELEASE_BODY_CHARS = 120_000
+ALLOWED_COMMANDS = {"git", "npm"}
+POETRY_TABLE_RE = re.compile(
+    r"(?ms)^\[tool\.poetry\][^\S\r\n]*(?:\r?\n|$)(.*?)(?=^\[|\Z)"
+)
+POETRY_VERSION_RE = re.compile(r'(?m)^(version\s*=\s*)"([^"]+)"\s*$')
 
 
 class ReleaseError(RuntimeError):
@@ -34,7 +40,17 @@ class ReleaseError(RuntimeError):
 
 
 def run(*args: str, cwd: Path | None = None, check: bool = True) -> str:
-    result = subprocess.run(args, cwd=cwd or ROOT, check=False, text=True, capture_output=True)
+    if not args or args[0] not in ALLOWED_COMMANDS:
+        raise ReleaseError(f"command is not allowlisted: {args[0] if args else '<empty>'}")
+    # Arguments are always passed as an argv list with no shell interpretation.
+    result = subprocess.run(
+        args,
+        cwd=cwd or ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+        shell=False,
+    )
     if check and result.returncode:
         raise ReleaseError(
             f"command failed ({' '.join(args)}):\n{result.stdout}{result.stderr}".rstrip()
@@ -54,6 +70,9 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, dict[str, Any]]:
             raise ReleaseError(f"duplicate tag prefix: {tool['tag_prefix']}")
         if tool["version_strategy"] not in {"poetry", "npm", "go-const", "none"}:
             raise ReleaseError(f"{key}: unknown version strategy")
+        registry, package_name = tool.get("package_registry"), tool.get("package_name")
+        if bool(registry) != bool(package_name) or (registry and registry not in {"pypi", "npm"}):
+            raise ReleaseError(f"{key}: package_registry and package_name must define a supported preflight")
         prefixes.add(tool["tag_prefix"])
     return data
 
@@ -112,6 +131,52 @@ def path_matches(filename: str, patterns: list[str], previous_filename: str | No
     return any(fnmatch.fnmatchcase(name, pattern) for name in names for pattern in patterns)
 
 
+def extract_poetry_version(content: str) -> str:
+    table = POETRY_TABLE_RE.search(content)
+    if not table:
+        raise ReleaseError("could not find [tool.poetry] table")
+    matches = list(POETRY_VERSION_RE.finditer(table.group(1)))
+    if len(matches) != 1:
+        raise ReleaseError("could not uniquely read Poetry version in [tool.poetry]")
+    return matches[0].group(2)
+
+
+def version_already_set(persisted: str | None, previous: str, requested: str, tool_name: str) -> bool:
+    if persisted is None or persisted == previous:
+        return False
+    if persisted == requested:
+        return True
+    raise ReleaseError(
+        f"persisted {tool_name} version {persisted} must match previous version {previous} "
+        f"or requested version {requested}"
+    )
+
+
+def npm_version_already_set(
+    versions: tuple[Any, Any, Any], previous: str, requested: str, tool_name: str
+) -> bool:
+    package_version, lock_version, lock_root_version = versions
+    if not all(isinstance(value, str) and value for value in versions):
+        raise ReleaseError(f"persisted npm versions are missing for {tool_name}: {versions}")
+    if package_version == previous and lock_version == previous and lock_root_version == previous:
+        return False
+    if package_version == requested and all(
+        value in {previous, requested} for value in (lock_version, lock_root_version)
+    ):
+        return lock_version == requested and lock_root_version == requested
+    raise ReleaseError(
+        f"persisted npm versions for {tool_name} must be all {previous}, or the manifest must be "
+        f"{requested} with lock entries at {previous} or {requested}: {versions}"
+    )
+
+
+def npm_versions_at(tool: dict[str, Any], sha: str) -> tuple[Any, Any, Any]:
+    directory = tool["working_directory"]
+    package = json.loads(run("git", "show", f"{sha}:{directory}/package.json"))
+    lock = json.loads(run("git", "show", f"{sha}:{directory}/package-lock.json"))
+    return package.get("version"), lock.get("version"), lock.get("packages", {}).get("", {}).get("version")
+
+
 def persisted_version_at(tool: dict[str, Any], sha: str) -> str | None:
     strategy = tool["version_strategy"]
     directory = tool["working_directory"]
@@ -119,14 +184,9 @@ def persisted_version_at(tool: dict[str, Any], sha: str) -> str | None:
         return None
     if strategy == "poetry":
         content = run("git", "show", f"{sha}:{directory}/pyproject.toml")
-        match = re.search(r'(?m)^version\s*=\s*"([^"]+)"$', content)
-        if not match:
-            raise ReleaseError("could not read persisted Poetry version")
-        return match.group(1)
+        return extract_poetry_version(content)
     if strategy == "npm":
-        package = json.loads(run("git", "show", f"{sha}:{directory}/package.json"))
-        lock = json.loads(run("git", "show", f"{sha}:{directory}/package-lock.json"))
-        versions = (package.get("version"), lock.get("version"), lock.get("packages", {}).get("", {}).get("version"))
+        versions = npm_versions_at(tool, sha)
         if len(set(versions)) != 1 or not versions[0]:
             raise ReleaseError(f"persisted npm versions disagree at {sha}: {versions}")
         return str(versions[0])
@@ -378,16 +438,22 @@ def write_output(name: str, value: str) -> None:
         print(f"{name}={value}")
 
 
-def ensure_package_unpublished(tool_key: str, version: str) -> None:
-    if tool_key == "python":
-        url = f"https://pypi.org/pypi/openlit/{version}/json"
-    elif tool_key == "typescript":
-        url = f"https://registry.npmjs.org/openlit/{version}"
-    else:
+def ensure_package_unpublished(tool: dict[str, Any], version: str) -> None:
+    registry = tool.get("package_registry")
+    package_name = tool.get("package_name")
+    if not registry and not package_name:
         return
+    if registry not in {"pypi", "npm"} or not isinstance(package_name, str) or not package_name:
+        raise ReleaseError("package_registry and package_name must define a supported package preflight")
+    quoted_name = urllib.parse.quote(package_name, safe="")
+    quoted_version = urllib.parse.quote(version, safe="")
+    if registry == "pypi":
+        url = f"https://pypi.org/pypi/{quoted_name}/{quoted_version}/json"
+    else:
+        url = f"https://registry.npmjs.org/{quoted_name}/{quoted_version}"
     try:
         with urllib.request.urlopen(url, timeout=20):
-            raise ReleaseError(f"{tool_key} package version {version} is already published")
+            raise ReleaseError(f"{package_name} package version {version} is already published")
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise ReleaseError(f"package preflight failed with HTTP {exc.code}") from exc
@@ -411,13 +477,15 @@ def prepare(args: argparse.Namespace) -> None:
     elif is_release_commit and tag_target == main_sha:
         analysis_sha, resume_sha = main_parents[0], main_sha
     previous = previous_tag(args.tag, version, tool, analysis_sha)
-    persisted = persisted_version_at(tool, analysis_sha)
     previous_version = previous[len(tool["tag_prefix"]):]
-    if persisted is not None and persisted != previous_version:
-        raise ReleaseError(
-            f"persisted {tool['name']} version {persisted} does not match previous tag {previous}"
+    if tool["version_strategy"] == "npm":
+        already_set = npm_version_already_set(
+            npm_versions_at(tool, analysis_sha), previous_version, version, tool["name"]
         )
-    ensure_package_unpublished(tool_key, version)
+    else:
+        persisted = persisted_version_at(tool, analysis_sha)
+        already_set = version_already_set(persisted, previous_version, version, tool["name"])
+    ensure_package_unpublished(tool, version)
     github = GitHub(args.repository, os.environ["GITHUB_TOKEN"])
     if github.get(f"/releases/tags/{args.tag}", allow_404=True) is not None:
         raise ReleaseError(f"GitHub Release already exists for {args.tag}")
@@ -449,6 +517,7 @@ def prepare(args: argparse.Namespace) -> None:
         "version_strategy": tool["version_strategy"],
         "working_directory": tool["working_directory"],
         "version_files": tool["version_files"],
+        "version_already_set": already_set,
         "pr_numbers": [pr["number"] for pr in prs],
         "direct_commits": direct,
         "model_calls": router.calls,
@@ -469,10 +538,13 @@ def prepare(args: argparse.Namespace) -> None:
 
 def replace_poetry_version(path: Path, version: str) -> None:
     text = path.read_text(encoding="utf-8")
-    pattern = re.compile(r"(?ms)^(\[tool\.poetry\]\s*.*?^version\s*=\s*)\"[^\"]+\"")
-    updated, count = pattern.subn(rf'\g<1>"{version}"', text, count=1)
+    table = POETRY_TABLE_RE.search(text)
+    if not table:
+        raise ReleaseError(f"could not find [tool.poetry] table in {path}")
+    body, count = POETRY_VERSION_RE.subn(rf'\g<1>"{version}"', table.group(1))
     if count != 1:
         raise ReleaseError(f"could not uniquely update Poetry version in {path}")
+    updated = text[: table.start(1)] + body + text[table.end(1) :]
     path.write_text(updated, encoding="utf-8")
 
 
@@ -497,30 +569,43 @@ def bump(args: argparse.Namespace) -> None:
     strategy, version = metadata["version_strategy"], metadata["version"]
     directory = ROOT / metadata["working_directory"]
     resumed = bool(metadata.get("resume_sha"))
-    if resumed and strategy == "poetry":
-        text = (directory / "pyproject.toml").read_text(encoding="utf-8")
-        if not re.search(rf'(?m)^version\s*=\s*"{re.escape(version)}"$', text):
-            raise ReleaseError("resumed Poetry release does not contain the requested version")
-    elif resumed and strategy == "npm":
+    already_set = bool(metadata.get("version_already_set"))
+    validate_existing = resumed or already_set
+    if validate_existing and strategy == "poetry":
+        if extract_poetry_version((directory / "pyproject.toml").read_text(encoding="utf-8")) != version:
+            raise ReleaseError("existing Poetry version does not match the requested version")
+    elif validate_existing and strategy == "npm":
         verify_npm_versions(directory, version)
-    elif resumed and strategy == "go-const":
+    elif validate_existing and strategy == "go-const":
         if f'const Version = "{version}"' not in (directory / "version.go").read_text(encoding="utf-8"):
-            raise ReleaseError("resumed Go release does not contain the requested version")
+            raise ReleaseError("existing Go version does not match the requested version")
     elif strategy == "poetry":
         replace_poetry_version(directory / "pyproject.toml", version)
     elif strategy == "npm":
-        run("npm", "version", version, "--no-git-tag-version", "--ignore-scripts", cwd=directory)
+        run(
+            "npm",
+            "version",
+            version,
+            "--no-git-tag-version",
+            "--ignore-scripts",
+            "--allow-same-version",
+            cwd=directory,
+        )
         verify_npm_versions(directory, version)
     elif strategy == "go-const":
         replace_go_version(directory / "version.go", version)
     elif strategy != "none":
         raise ReleaseError(f"unsupported version strategy: {strategy}")
     changed = set(run("git", "diff", "--name-only").splitlines())
-    expected = set() if resumed else set(metadata["version_files"])
-    if changed != expected:
-        raise ReleaseError(f"version bump changed unexpected files; expected={sorted(expected)} actual={sorted(changed)}")
+    expected = set() if validate_existing else set(metadata["version_files"])
+    if (validate_existing or strategy == "none") and changed:
+        raise ReleaseError(f"version was already set but bump changed files: {sorted(changed)}")
+    if strategy != "none" and not validate_existing and (not changed or not changed.issubset(expected)):
+        raise ReleaseError(
+            f"version bump must change only configured files; allowed={sorted(expected)} actual={sorted(changed)}"
+        )
     write_output("changed", "true" if changed else "false")
-    write_output("move_tag", "true" if strategy != "none" else "false")
+    write_output("move_tag", "true" if strategy != "none" and not already_set else "false")
 
 
 def main() -> int:

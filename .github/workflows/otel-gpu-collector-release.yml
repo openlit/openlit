@@ -184,7 +184,7 @@ jobs:
       - name: Create checksums
         run: |
           cd dist
-          sha256sum * > SHA256SUMS.txt
+          sha256sum -- ./* > SHA256SUMS.txt
 
       - name: Upload release assets to orchestrator
         uses: actions/upload-artifact@v7
@@ -276,4 +276,7 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: |
+          while IFS= read -r tag; do
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "$TAGS"

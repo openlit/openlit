@@ -1,4 +1,4 @@
-name: Tool-scoped release
+name: Release packages
 
 on:
   push:
@@ -59,18 +59,23 @@ jobs:
               echo "::error::RELEASE_APP_SLUG must be configured before tag-triggered releases"
               exit 1
             fi
-            echo "tag=$PUSH_TAG" >> "$GITHUB_OUTPUT"
-            echo "source_sha=$PUSH_SHA" >> "$GITHUB_OUTPUT"
-            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            RELEASE_TAG=$PUSH_TAG
+            SOURCE_SHA=$PUSH_SHA
+            DRY_RUN=false
           else
             if [ "$INPUT_DRY_RUN" != true ] && [ -z "$RELEASE_APP_SLUG" ]; then
               echo "::error::RELEASE_APP_SLUG must be configured before mutating releases"
               exit 1
             fi
-            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
-            echo "source_sha=main" >> "$GITHUB_OUTPUT"
-            echo "dry_run=$INPUT_DRY_RUN" >> "$GITHUB_OUTPUT"
+            RELEASE_TAG=$INPUT_TAG
+            SOURCE_SHA=main
+            DRY_RUN=$INPUT_DRY_RUN
           fi
+          {
+            echo "tag=$RELEASE_TAG"
+            echo "source_sha=$SOURCE_SHA"
+            echo "dry_run=$DRY_RUN"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -276,7 +281,7 @@ jobs:
           fi
 
           git fetch origin main:refs/remotes/origin/main
-          if [ "$(git rev-parse origin/main^{commit})" != "$SOURCE_SHA" ]; then
+          if [ "$(git rev-parse 'origin/main^{commit}')" != "$SOURCE_SHA" ]; then
             echo "::error::main advanced during release preparation; rerun the workflow"
             exit 1
           fi
@@ -284,7 +289,8 @@ jobs:
           if [ "$VERSION_CHANGED" = true ]; then
             git config user.name "openlit-release[bot]"
             git config user.email "openlit-release[bot]@users.noreply.github.com"
-            git add -- $(jq -r '.version_files[]' release-output/release-metadata.json)
+            mapfile -t version_files < <(jq -r '.version_files[]' release-output/release-metadata.json)
+            git add -- "${version_files[@]}"
             git commit -m "chore(release): $RELEASE_TAG" -m "Release-Tag: $RELEASE_TAG"
             RELEASE_SHA=$(git rev-parse HEAD)
             git push origin "$RELEASE_SHA:refs/heads/main"
@@ -296,7 +302,7 @@ jobs:
             git push --force origin "refs/tags/$RELEASE_TAG"
           else
             RELEASE_SHA=$SOURCE_SHA
-            if [ "$(git rev-parse "$RELEASE_TAG^{commit}")" != "$RELEASE_SHA" ]; then
+            if [ "$(git rev-parse "${RELEASE_TAG}^{commit}")" != "$RELEASE_SHA" ]; then
               echo "::error::versionless release tag moved during preparation"
               exit 1
             fi
