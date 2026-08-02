@@ -1,65 +1,70 @@
-name: Release on PYPI
+name: Publish Python SDK
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
   workflow_dispatch:
-  push:
-    tags: [ 'py-*.*.*' ]
+    inputs:
+      tag:
+        description: Final tag to publish
+        required: true
+        type: string
+      release_sha:
+        description: Immutable commit SHA referenced by the tag
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
     steps:
-    - uses: actions/checkout@v7
-    
-    - name: Validate tag version matches pyproject.toml
-      if: github.ref_type == 'tag'
-      working-directory: sdk/python
-      run: |
-        pip install tomli
-        TAG_VERSION="${GITHUB_REF#refs/tags/py-}"
-        PYPROJECT_VERSION=$(python3 -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['tool']['poetry']['version'])")
-        
-        echo "Tag version: $TAG_VERSION"
-        echo "pyproject.toml version: $PYPROJECT_VERSION"
-        
-        if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
-          echo "::error::Tag py-$TAG_VERSION does not match pyproject.toml version $PYPROJECT_VERSION"
-          exit 1
-        fi
-        echo "✓ Version validation passed"
-    
-    - name: Set up Python
-      uses: actions/setup-python@v7
-      with:
-        python-version: '3.x'
-    
-    - name: Install dependencies
-      working-directory: sdk/python
-      run: |
-        python -m pip install --upgrade pip
-        pip install poetry
-    
-    - name: Build package
-      working-directory: sdk/python
-      run: |
-        rm -rf dist/
-        poetry build
-    
-    - name: Validate package
-      working-directory: sdk/python
-      run: |
-        pip install twine
-        ls -la dist/
-        twine check dist/*
-    
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        packages-dir: sdk/python/dist
-        verbose: true
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_sha }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Verify final tag and package version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
+          VERSION=${RELEASE_TAG#py-}
+          PYPROJECT_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('sdk/python/pyproject.toml', 'rb'))['tool']['poetry']['version'])")
+          test "$PYPROJECT_VERSION" = "$VERSION"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry twine
+
+      - name: Build and validate package
+        working-directory: sdk/python
+        run: |
+          poetry build
+          twine check dist/*
+
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: sdk/python/dist
+          verbose: true

@@ -1,21 +1,35 @@
 name: Release OpenLIT
 
 on:
-  push:
-    tags: [ 'openlit-*.*.*' ]
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     name: Docker
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
     env:
@@ -24,6 +38,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_sha }}
+
+      - name: Verify final tag and OpenLIT version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
+          VERSION=${RELEASE_TAG#openlit-}
+          test "$(node -p "require('./src/client/package.json').version")" = "$VERSION"
+          test "$(node -p "require('./src/client/package-lock.json').version")" = "$VERSION"
+          test "$(node -p "require('./src/client/package-lock.json').packages[''].version")" = "$VERSION"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 #v4.1.2
@@ -32,9 +61,9 @@ jobs:
       
       - name: Extract version from tag
         id: extract_version
-        run: echo "version=${GITHUB_REF#refs/tags/openlit-}" >> $GITHUB_ENV
         env:
-          GITHUB_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: echo "version=${RELEASE_TAG#openlit-}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0

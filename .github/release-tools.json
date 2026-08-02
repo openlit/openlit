@@ -1,0 +1,71 @@
+{
+  "python": {
+    "name": "Python SDK",
+    "tag_prefix": "py-",
+    "paths": ["sdk/python/**"],
+    "version_strategy": "poetry",
+    "working_directory": "sdk/python",
+    "version_files": ["sdk/python/pyproject.toml"],
+    "publisher": "python"
+  },
+  "typescript": {
+    "name": "TypeScript SDK",
+    "tag_prefix": "ts-",
+    "paths": ["sdk/typescript/**"],
+    "version_strategy": "npm",
+    "working_directory": "sdk/typescript",
+    "version_files": [
+      "sdk/typescript/package.json",
+      "sdk/typescript/package-lock.json"
+    ],
+    "publisher": "typescript"
+  },
+  "go": {
+    "name": "Go SDK",
+    "tag_prefix": "go-",
+    "paths": ["sdk/go/**"],
+    "version_strategy": "go-const",
+    "working_directory": "sdk/go",
+    "version_files": ["sdk/go/version.go"],
+    "publisher": "go"
+  },
+  "cli": {
+    "name": "OpenLIT CLI",
+    "tag_prefix": "cli-",
+    "paths": ["cli/**"],
+    "version_strategy": "none",
+    "working_directory": "cli",
+    "version_files": [],
+    "publisher": "cli"
+  },
+  "controller": {
+    "name": "OpenLIT Controller",
+    "tag_prefix": "controller-",
+    "paths": ["openlit-controller/**"],
+    "version_strategy": "none",
+    "working_directory": "openlit-controller",
+    "version_files": [],
+    "publisher": "controller"
+  },
+  "gpu-collector": {
+    "name": "OpenTelemetry GPU Collector",
+    "tag_prefix": "otel-gpu-collector-",
+    "paths": ["opentelemetry-gpu-collector/**"],
+    "version_strategy": "none",
+    "working_directory": "opentelemetry-gpu-collector",
+    "version_files": [],
+    "publisher": "gpu-collector"
+  },
+  "openlit": {
+    "name": "OpenLIT",
+    "tag_prefix": "openlit-",
+    "paths": ["src/**"],
+    "version_strategy": "npm",
+    "working_directory": "src/client",
+    "version_files": [
+      "src/client/package.json",
+      "src/client/package-lock.json"
+    ],
+    "publisher": "openlit"
+  }
+}
