@@ -129,10 +129,30 @@ jobs:
     needs: prepare
     runs-on: ubuntu-24.04
     steps:
+      - name: Validate current main before checkout
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::source SHA must be a full commit SHA"
+            exit 1
+          fi
+          REMOTE_MAIN=$(git ls-remote --refs "https://github.com/$REPOSITORY.git" refs/heads/main | awk '{print $1}')
+          if [ -z "$REMOTE_MAIN" ] || [ "$REMOTE_MAIN" != "$SOURCE_SHA" ]; then
+            echo "::error::main advanced after release preparation; rerun the workflow"
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.source_sha }}
+          ref: refs/heads/main
           persist-credentials: false
+
+      - name: Verify checked out source
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - uses: actions/setup-python@v7
         if: needs.prepare.outputs.tool == 'python'
