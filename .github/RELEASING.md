@@ -1,6 +1,8 @@
 # Automated releases
 
-Releases are initiated by pushing one stable SemVer tag from current `main`:
+Repository administrators initiate releases manually from **Actions → Release
+packages → Run workflow** on `main`. Select a tool and enter a stable SemVer
+without a prefix, such as `1.45.0`. The workflow constructs its final tag:
 
 ```text
 py-X.Y.Z
@@ -12,7 +14,8 @@ otel-gpu-collector-X.Y.Z
 openlit-X.Y.Z
 ```
 
-The tool definitions and version strategies live in `.github/release-tools.json`.
+The tool definitions, tag prefixes, and version strategies live in
+`.github/release-tools.json`.
 The `Release packages` workflow generates notes for merged PRs that changed
 the selected tool, validates the tool, updates persistent version files when
 configured, publishes the artifact, and creates the GitHub Release.
@@ -38,8 +41,6 @@ Create a `release` Actions environment without human reviewers and configure:
 - Environment variable `RELEASE_APP_ID`: the GitHub App ID
 - Environment secret `RELEASE_APP_PRIVATE_KEY`: the App private key
 - Environment secret `OPENROUTER_API_KEY`: the OpenRouter API key
-- Repository variable `RELEASE_APP_SLUG`: the App actor login, including the
-  `[bot]` suffix shown in Actions events
 - Optional repository variable `RELEASE_LLM_PRIMARY_MODEL`
 - Optional repository variable `RELEASE_LLM_FALLBACK_MODEL`
 
@@ -47,32 +48,32 @@ Create a `release` Actions environment without human reviewers and configure:
 entering the release environment and fails unless it is `admin`. GitHub may
 still display the manual **Run workflow** control to non-admin collaborators,
 but their run stops before checkout, LLM access, version mutation, or publishing.
+Configure the `release` environment deployment branch policy to allow only
+`main` as an additional safeguard.
 
 The model variables default to the reviewed free OpenRouter models in the
 release script. Existing npm, PyPI, GHCR, cosign, and Homebrew secrets remain
 configured as required by their publisher workflows.
 
 Allow the App to bypass only the `main` rule needed for release-version commits
-and the rule preventing updates to a newly created release tag. Restrict release
-tag creation to trusted maintainers.
+and the rule governing creation of release tags. Completed tags are never moved.
 
 ## Dry run
 
-Run `Release packages` manually, enter the next existing-format tag, and keep
-`dry_run` enabled. A dry run uses current `main`, calls the configured LLM,
-runs component validation, and uploads release notes, metadata, and the version
-diff without creating a tag, commit, package, image, or GitHub Release.
+Run `Release packages` manually, select the tool, enter its next `X.Y.Z`
+version, and keep `dry_run` enabled. A dry run uses current `main`, calls the
+configured LLM, runs component validation, and uploads release notes, metadata,
+and the version diff without creating a tag, commit, package, image, or GitHub
+Release. Once the dry run is satisfactory, run it again with `dry_run` disabled.
 
 ## Failure and recovery
 
-- Before the version commit: fix the failure and rerun the workflow. The
-  maintainer-created candidate tag remains on its original commit.
-- After the version commit but before the tag update: rerun the original run;
-  the release trailer makes this state resumable.
+- Before the version commit: fix the failure and start another manual run.
+- After the version commit but before tag creation: rerun with the same tool and
+  version; the release trailer makes this state resumable without another commit.
 - In a publisher or GitHub Release job: use **Re-run failed jobs** so already
   successful package and image jobs are not repeated.
-- To abort before mutation, delete the candidate tag. Do not move or delete a
-  tag after artifacts have been published.
+- Do not move or delete a tag after artifacts have been published.
 
 The component publisher workflows also support manual dispatch with an exact
 final tag and commit SHA for targeted recovery.

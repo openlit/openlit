@@ -1,19 +1,22 @@
 name: Release packages
 
 on:
-  push:
-    tags:
-      - 'py-*.*.*'
-      - 'ts-*.*.*'
-      - 'go-*.*.*'
-      - 'cli-*.*.*'
-      - 'controller-*.*.*'
-      - 'otel-gpu-collector-*.*.*'
-      - 'openlit-*.*.*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing-format release tag, for example py-1.45.0
+      tool:
+        description: Package or tool to release
+        required: true
+        type: choice
+        options:
+          - python
+          - typescript
+          - go
+          - cli
+          - controller
+          - gpu-collector
+          - openlit
+      version:
+        description: Stable SemVer without a prefix, for example 1.45.0
         required: true
         type: string
       dry_run:
@@ -32,7 +35,6 @@ permissions:
 
 jobs:
   authorize:
-    if: github.event_name != 'push' || github.actor != vars.RELEASE_APP_SLUG
     runs-on: ubuntu-24.04
     steps:
       - name: Require repository administrator
@@ -40,7 +42,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
+          if [ "$WORKFLOW_REF" != refs/heads/main ]; then
+            echo "::error::Release packages must be run from main"
+            exit 1
+          fi
           PERMISSION=$(gh api "repos/$REPOSITORY/collaborators/$ACTOR/permission" --jq .permission)
           if [ "$PERMISSION" != admin ]; then
             echo "::error::Release packages may only be run by repository administrators"
@@ -48,7 +55,6 @@ jobs:
           fi
 
   prepare:
-    if: github.event_name != 'push' || github.actor != vars.RELEASE_APP_SLUG
     needs: authorize
     runs-on: ubuntu-24.04
     environment: release
@@ -58,46 +64,23 @@ jobs:
       version: ${{ steps.prepare.outputs.version }}
       source_sha: ${{ steps.prepare.outputs.source_sha }}
       version_strategy: ${{ steps.prepare.outputs.version_strategy }}
-      tag: ${{ steps.context.outputs.tag }}
+      tag: ${{ steps.prepare.outputs.tag }}
       dry_run: ${{ steps.context.outputs.dry_run }}
     steps:
       - name: Resolve release context
         id: context
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_TAG: ${{ github.ref_name }}
-          INPUT_TAG: ${{ inputs.tag }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
-          PUSH_SHA: ${{ github.sha }}
-          RELEASE_APP_SLUG: ${{ vars.RELEASE_APP_SLUG }}
         run: |
-          if [ "$EVENT_NAME" = push ]; then
-            if [ -z "$RELEASE_APP_SLUG" ]; then
-              echo "::error::RELEASE_APP_SLUG must be configured before tag-triggered releases"
-              exit 1
-            fi
-            RELEASE_TAG=$PUSH_TAG
-            SOURCE_SHA=$PUSH_SHA
-            DRY_RUN=false
-          else
-            if [ "$INPUT_DRY_RUN" != true ] && [ -z "$RELEASE_APP_SLUG" ]; then
-              echo "::error::RELEASE_APP_SLUG must be configured before mutating releases"
-              exit 1
-            fi
-            RELEASE_TAG=$INPUT_TAG
-            SOURCE_SHA=main
-            DRY_RUN=$INPUT_DRY_RUN
-          fi
           {
-            echo "tag=$RELEASE_TAG"
-            echo "source_sha=$SOURCE_SHA"
-            echo "dry_run=$DRY_RUN"
+            echo "source_sha=main"
+            echo "dry_run=$INPUT_DRY_RUN"
           } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ steps.context.outputs.source_sha }}
+          ref: refs/heads/main
 
       - name: Fetch current main and tags
         run: git fetch --force origin main:refs/remotes/origin/main '+refs/tags/*:refs/tags/*'
@@ -109,12 +92,14 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           RELEASE_LLM_PRIMARY_MODEL: ${{ vars.RELEASE_LLM_PRIMARY_MODEL }}
           RELEASE_LLM_FALLBACK_MODEL: ${{ vars.RELEASE_LLM_FALLBACK_MODEL }}
-          RELEASE_TAG: ${{ steps.context.outputs.tag }}
+          RELEASE_TOOL: ${{ inputs.tool }}
+          RELEASE_VERSION: ${{ inputs.version }}
           SOURCE_SHA: ${{ steps.context.outputs.source_sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           python3 .github/scripts/release.py prepare \
-            --tag "$RELEASE_TAG" \
+            --tool "$RELEASE_TOOL" \
+            --version "$RELEASE_VERSION" \
             --source-sha "$SOURCE_SHA" \
             --repository "$REPOSITORY" \
             --output-dir release-output
@@ -304,14 +289,13 @@ jobs:
           path: release-output/
           if-no-files-found: error
 
-      - name: Commit version and finalize tag
+      - name: Commit version and create final tag
         id: final
         env:
           DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           VERSION_CHANGED: ${{ steps.version.outputs.changed }}
-          MOVE_TAG: ${{ steps.version.outputs.move_tag }}
         run: |
           if [ "$DRY_RUN" = true ]; then
             echo "release_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
@@ -332,18 +316,19 @@ jobs:
             git commit -m "chore(release): $RELEASE_TAG" -m "Release-Tag: $RELEASE_TAG"
             RELEASE_SHA=$(git rev-parse HEAD)
             git push origin "$RELEASE_SHA:refs/heads/main"
-            git tag --force "$RELEASE_TAG" "$RELEASE_SHA"
-            git push --force origin "refs/tags/$RELEASE_TAG"
-          elif [ "$MOVE_TAG" = true ]; then
-            RELEASE_SHA=$SOURCE_SHA
-            git tag --force "$RELEASE_TAG" "$RELEASE_SHA"
-            git push --force origin "refs/tags/$RELEASE_TAG"
           else
             RELEASE_SHA=$SOURCE_SHA
-            if [ "$(git rev-parse "${RELEASE_TAG}^{commit}")" != "$RELEASE_SHA" ]; then
-              echo "::error::versionless release tag moved during preparation"
+          fi
+
+          EXISTING_TAG_SHA=$(git rev-parse "${RELEASE_TAG}^{commit}" 2>/dev/null || true)
+          if [ -n "$EXISTING_TAG_SHA" ]; then
+            if [ "$EXISTING_TAG_SHA" != "$RELEASE_SHA" ]; then
+              echo "::error::release tag already exists on a different commit"
               exit 1
             fi
+          else
+            git tag "$RELEASE_TAG" "$RELEASE_SHA"
+            git push origin "refs/tags/$RELEASE_TAG"
           fi
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 

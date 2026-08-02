@@ -34,6 +34,19 @@ class ReleaseTests(unittest.TestCase):
             key, version, _ = release.parse_tag(tag, self.config)
             self.assertEqual((key, version), parsed)
 
+    def test_tool_and_version_construct_release_tag(self):
+        tag, key, version, tool = release.resolve_release_identity(
+            self.config, tool_key="gpu-collector", version="0.0.8"
+        )
+        self.assertEqual(tag, "otel-gpu-collector-0.0.8")
+        self.assertEqual((key, version, tool["publisher"]), ("gpu-collector", "0.0.8", "gpu-collector"))
+
+    def test_tool_and_version_reject_unknown_tool_or_invalid_version(self):
+        with self.assertRaises(release.ReleaseError):
+            release.resolve_release_identity(self.config, tool_key="unknown", version="1.2.3")
+        with self.assertRaises(release.ReleaseError):
+            release.resolve_release_identity(self.config, tool_key="python", version="v1.2.3")
+
     def test_rejects_unstable_or_malformed_tags(self):
         for tag in ("py-1.2", "py-v1.2.3", "py-1.2.3-rc.1", "unknown-1.2.3", "otel-gpu-collector-trigger.github.action"):
             with self.subTest(tag=tag), self.assertRaises(release.ReleaseError):

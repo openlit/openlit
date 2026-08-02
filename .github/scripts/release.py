@@ -88,6 +88,28 @@ def parse_tag(tag: str, config: dict[str, dict[str, Any]]) -> tuple[str, str, di
     return key, version, tool
 
 
+def resolve_release_identity(
+    config: dict[str, dict[str, Any]],
+    *,
+    tag: str | None = None,
+    tool_key: str | None = None,
+    version: str | None = None,
+) -> tuple[str, str, str, dict[str, Any]]:
+    if tag:
+        if tool_key or version:
+            raise ReleaseError("provide either --tag or --tool with --version")
+        key, parsed_version, tool = parse_tag(tag, config)
+        return tag, key, parsed_version, tool
+    if not tool_key or not version:
+        raise ReleaseError("--tool and --version are required when --tag is omitted")
+    if tool_key not in config:
+        raise ReleaseError(f"unsupported release tool: {tool_key}")
+    if not SEMVER_RE.fullmatch(version):
+        raise ReleaseError(f"version must use stable X.Y.Z SemVer: {version}")
+    tool = config[tool_key]
+    return f"{tool['tag_prefix']}{version}", tool_key, version, tool
+
+
 def semver(value: str) -> tuple[int, int, int]:
     match = SEMVER_RE.fullmatch(value)
     if not match:
@@ -461,22 +483,29 @@ def ensure_package_unpublished(tool: dict[str, Any], version: str) -> None:
 
 def prepare(args: argparse.Namespace) -> None:
     config = load_config(Path(args.config))
-    tool_key, version, tool = parse_tag(args.tag, config)
+    tag, tool_key, version, tool = resolve_release_identity(
+        config,
+        tag=args.tag,
+        tool_key=args.tool,
+        version=args.version,
+    )
     source_sha = run("git", "rev-parse", f"{args.source_sha}^{{commit}}")
     main_sha = run("git", "rev-parse", f"{args.main_ref}^{{commit}}")
     analysis_sha = source_sha
     resume_sha: str | None = None
     main_message = run("git", "show", "-s", "--format=%B", main_sha)
     main_parents = run("git", "show", "-s", "--format=%P", main_sha).split()
-    is_release_commit = f"Release-Tag: {args.tag}" in main_message and bool(main_parents)
-    tag_target = run("git", "rev-parse", f"{args.tag}^{{commit}}", check=False)
+    is_release_commit = f"Release-Tag: {tag}" in main_message and bool(main_parents)
+    tag_target = run("git", "rev-parse", f"{tag}^{{commit}}", check=False)
     if source_sha != main_sha:
         if not is_release_commit or main_parents[0] != source_sha:
-            raise ReleaseError(f"candidate tag/source {source_sha} must target current main {main_sha}")
+            raise ReleaseError(f"release source {source_sha} must target current main {main_sha}")
         analysis_sha, resume_sha = source_sha, main_sha
-    elif is_release_commit and tag_target == main_sha:
+    elif is_release_commit and (not tag_target or tag_target == main_sha):
         analysis_sha, resume_sha = main_parents[0], main_sha
-    previous = previous_tag(args.tag, version, tool, analysis_sha)
+    if tag_target and tag_target != main_sha:
+        raise ReleaseError(f"release tag {tag} already exists on a different commit")
+    previous = previous_tag(tag, version, tool, analysis_sha)
     previous_version = previous[len(tool["tag_prefix"]):]
     if tool["version_strategy"] == "npm":
         already_set = npm_version_already_set(
@@ -487,8 +516,8 @@ def prepare(args: argparse.Namespace) -> None:
         already_set = version_already_set(persisted, previous_version, version, tool["name"])
     ensure_package_unpublished(tool, version)
     github = GitHub(args.repository, os.environ["GITHUB_TOKEN"])
-    if github.get(f"/releases/tags/{args.tag}", allow_404=True) is not None:
-        raise ReleaseError(f"GitHub Release already exists for {args.tag}")
+    if github.get(f"/releases/tags/{tag}", allow_404=True) is not None:
+        raise ReleaseError(f"GitHub Release already exists for {tag}")
     prs, direct = collect_prs(github, previous, analysis_sha, tool["paths"])
     if not prs:
         raise ReleaseError(f"no merged PRs changed {tool['name']} since {previous}")
@@ -505,7 +534,7 @@ def prepare(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     metadata = {
-        "tag": args.tag,
+        "tag": tag,
         "tool": tool_key,
         "tool_name": tool["name"],
         "publisher": tool["publisher"],
@@ -532,7 +561,7 @@ def prepare(args: argparse.Namespace) -> None:
                 handle.write("\n## Direct commits excluded from notes\n\n")
                 for commit in direct:
                     handle.write(f"- `{commit['sha'][:8]}` {commit['subject']}\n")
-    for key in ("tool", "publisher", "version", "previous_tag", "source_sha", "version_strategy"):
+    for key in ("tag", "tool", "publisher", "version", "previous_tag", "source_sha", "version_strategy"):
         write_output(key, str(metadata[key]))
 
 
@@ -605,7 +634,6 @@ def bump(args: argparse.Namespace) -> None:
             f"version bump must change only configured files; allowed={sorted(expected)} actual={sorted(changed)}"
         )
     write_output("changed", "true" if changed else "false")
-    write_output("move_tag", "true" if strategy != "none" and not already_set else "false")
 
 
 def main() -> int:
@@ -613,7 +641,9 @@ def main() -> int:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     subparsers = parser.add_subparsers(dest="command", required=True)
     prepare_parser = subparsers.add_parser("prepare")
-    prepare_parser.add_argument("--tag", required=True)
+    prepare_parser.add_argument("--tag")
+    prepare_parser.add_argument("--tool")
+    prepare_parser.add_argument("--version")
     prepare_parser.add_argument("--source-sha", required=True)
     prepare_parser.add_argument("--main-ref", default="origin/main")
     prepare_parser.add_argument("--repository", required=True)
