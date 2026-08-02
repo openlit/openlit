@@ -146,6 +146,17 @@ def previous_tag(tag: str, version: str, tool: dict[str, Any], source_sha: str) 
     return result
 
 
+def tag_commit_at(tag: str) -> str | None:
+    resolved = run(
+        "git",
+        "rev-parse",
+        "--verify",
+        f"refs/tags/{tag}^{{commit}}",
+        check=False,
+    )
+    return resolved or None
+
+
 def path_matches(filename: str, patterns: list[str], previous_filename: str | None = None) -> bool:
     names = [filename]
     if previous_filename:
@@ -496,7 +507,7 @@ def prepare(args: argparse.Namespace) -> None:
     main_message = run("git", "show", "-s", "--format=%B", main_sha)
     main_parents = run("git", "show", "-s", "--format=%P", main_sha).split()
     is_release_commit = f"Release-Tag: {tag}" in main_message and bool(main_parents)
-    tag_target = run("git", "rev-parse", f"{tag}^{{commit}}", check=False)
+    tag_target = tag_commit_at(tag)
     if source_sha != main_sha:
         if not is_release_commit or main_parents[0] != source_sha:
             raise ReleaseError(f"release source {source_sha} must target current main {main_sha}")

@@ -248,6 +248,29 @@ class ReleaseTests(unittest.TestCase):
         finally:
             release.ROOT = original_root
 
+    def test_missing_tag_does_not_resolve_as_a_commit(self):
+        original_root = release.ROOT
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                release.ROOT = root
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                (root / "file").write_text("fixture\n", encoding="utf-8")
+                subprocess.run(["git", "add", "file"], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "fixture"],
+                    cwd=root,
+                    check=True,
+                )
+                self.assertIsNone(release.tag_commit_at("py-1.45.0"))
+                subprocess.run(["git", "tag", "py-1.45.0"], cwd=root, check=True)
+                expected = subprocess.run(
+                    ["git", "rev-parse", "HEAD"], cwd=root, check=True, text=True, capture_output=True
+                ).stdout.strip()
+                self.assertEqual(release.tag_commit_at("py-1.45.0"), expected)
+        finally:
+            release.ROOT = original_root
+
     def test_direct_commit_diagnostics_are_tool_scoped(self):
         class NoPullRequests:
             @staticmethod
