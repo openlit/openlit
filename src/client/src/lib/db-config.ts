@@ -275,7 +275,19 @@ export const upsertDBConfig = async (
 		migrations(createddbConfig.id);
 	}
 	if (createddbConfig.projectId) {
-		await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
+		try {
+			await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
+		} catch (error) {
+			// Bindings are a routing projection. Do not roll back a valid database
+			// configuration when an older installation has not applied the binding
+			// migration yet; the next connector/environment read can repair it.
+			console.error("[connectors] ClickHouse signal binding projection failed", {
+				databaseConfigId: createddbConfig.id,
+				projectId: createddbConfig.projectId,
+				environment: createddbConfig.environment,
+				error,
+			});
+		}
 	}
 	// The legacy database config remains the write path for platform features.
 	// Connector indexing is a compatibility projection and must not make a

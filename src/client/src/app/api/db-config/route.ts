@@ -40,8 +40,17 @@ export async function POST(request: Request) {
 
 	const [err, res]: any = await asaw(upsertDBConfig(dbConfig, id));
 
-	if (err)
+	if (err) {
+		console.error("[api/db-config] save failed", {
+			id: id || null,
+			name: formData.name,
+			environment: formData.environment,
+			host: formData.host,
+			port: formData.port,
+			error: err,
+		});
 		return errorResponse(err, "Failed to save database configuration");
+	}
 
 	if (formData.environment) await createProjectEnvironment(formData.environment);
 	return Response.json(res);

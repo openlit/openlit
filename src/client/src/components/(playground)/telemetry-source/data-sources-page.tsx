@@ -688,10 +688,10 @@ function SourceFormDialog({
 	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
 	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
 	const clickHouseFields = useMemo<FieldDef[]>(() => [
-		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default" },
-		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "127.0.0.1" },
-		{ key: "port", label: messages.DB_CONFIG_FIELD_PORT, kind: "text", group: "settings", placeholder: "8123" },
-		{ key: "database", label: messages.DB_CONFIG_FIELD_DATABASE, kind: "text", group: "settings", placeholder: "openlit" },
+		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default", defaultValue: "default" },
+		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "127.0.0.1", defaultValue: "127.0.0.1" },
+		{ key: "port", label: messages.DB_CONFIG_FIELD_PORT, kind: "text", group: "settings", placeholder: "8123", defaultValue: "8123" },
+		{ key: "database", label: messages.DB_CONFIG_FIELD_DATABASE, kind: "text", group: "settings", placeholder: "openlit", defaultValue: "openlit" },
 		{ key: "query", label: messages.DB_CONFIG_FIELD_QUERY_PARAMS, kind: "text", group: "settings", placeholder: "a=b&c=d" },
 		{ key: "password", label: messages.DB_CONFIG_FIELD_PASSWORD, kind: "password", group: "credentials", placeholder: "*******" },
 	], [messages]);
