@@ -178,7 +178,6 @@ export default function DataSourcesPage({
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
 	const [templates, setTemplates] = useState<StackTemplate[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
-	const [openClickHouse, setOpenClickHouse] = useState(false);
 	const [newType, setNewType] = useState<string | undefined>();
 	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
@@ -214,11 +213,6 @@ export default function DataSourcesPage({
 
 	useEffect(() => {
 		if (openType) {
-			if (openType === "clickhouse") {
-				setOpenClickHouse(true);
-				onOpenTypeHandled?.();
-				return;
-			}
 			setNewType(openType);
 			setEditing("new");
 			onOpenTypeHandled?.();
@@ -349,7 +343,7 @@ export default function DataSourcesPage({
 					<div className="flex items-center gap-2"><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
 				<div className="contents">
-					<DatabaseConfigPage hideHeader openNew={openClickHouse} onOpenNewHandled={() => setOpenClickHouse(false)} />
+					<DatabaseConfigPage hideHeader />
 				</div>
 			<div className="contents">
 			{/* External sources list */}
@@ -484,8 +478,8 @@ export default function DataSourcesPage({
 			)}
 
 			{editing && (
-				<SourceFormDialog
-					source={editing === "new" ? null : editing}
+					<SourceFormDialog
+						source={editing === "new" ? null : editing}
 					descriptors={descriptors}
 					initialType={editing === "new" ? newType : undefined}
 					initialEnvironment={environment}
@@ -495,8 +489,7 @@ export default function DataSourcesPage({
 					bindings={bindings}
 					sources={visibleSources}
 					databaseConfigs={databaseConfigs}
-					environment={environment}
-					onOpenClickHouse={() => setOpenClickHouse(true)}
+						environment={environment}
 					onClose={() => {
 						setEditing(null);
 						setNewType(undefined);
@@ -631,7 +624,6 @@ function SourceFormDialog({
 	environment: routingEnvironment,
 	onClose,
 	onSaved,
-	onOpenClickHouse,
 }: {
 	source: SourceRow | null;
 	descriptors: TypeDescriptor[];
@@ -646,7 +638,6 @@ function SourceFormDialog({
 	environment?: string;
 	onClose: () => void;
 	onSaved: () => void;
-	onOpenClickHouse?: () => void;
 }) {
 	const messages = getMessage();
 	const isEdit = !!source;
@@ -655,6 +646,14 @@ function SourceFormDialog({
 	const [environments, setEnvironments] = useState<string[]>(Array.from(new Set(["production", source?.environment, initialEnvironment].filter(Boolean) as string[])));
 	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
 	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
+	const clickHouseFields = useMemo<FieldDef[]>(() => [
+		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default" },
+		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "127.0.0.1" },
+		{ key: "port", label: messages.DB_CONFIG_FIELD_PORT, kind: "text", group: "settings", placeholder: "8123" },
+		{ key: "database", label: messages.DB_CONFIG_FIELD_DATABASE, kind: "text", group: "settings", placeholder: "openlit" },
+		{ key: "query", label: messages.DB_CONFIG_FIELD_QUERY_PARAMS, kind: "text", group: "settings", placeholder: "a=b&c=d" },
+		{ key: "password", label: messages.DB_CONFIG_FIELD_PASSWORD, kind: "password", group: "credentials", placeholder: "*******" },
+	], [messages]);
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
@@ -667,8 +666,8 @@ function SourceFormDialog({
 	}, [environment]);
 
 	const fields = useMemo(
-		() => fieldsForType(descriptors, type),
-		[descriptors, type]
+		() => type === "clickhouse" ? clickHouseFields : fieldsForType(descriptors, type),
+		[clickHouseFields, descriptors, type]
 	);
 
 	// Seed defaults + stored settings whenever the type (or source) changes.
@@ -682,7 +681,7 @@ function SourceFormDialog({
 				stored = {};
 			}
 		}
-		for (const f of fieldsForType(descriptors, type)) {
+		for (const f of fields) {
 			if (f.group === "settings") {
 				next[f.key] =
 					stored[f.key] !== undefined
@@ -693,7 +692,7 @@ function SourceFormDialog({
 			}
 		}
 		setValues(next);
-	}, [type, source, descriptors]);
+	}, [fields, source]);
 
 	const settingsFields = fields.filter(
 		(f) => f.group === "settings" && isFieldVisible(f, values)
@@ -718,6 +717,28 @@ function SourceFormDialog({
 		setSaving(true);
 		toast.loading(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 		try {
+			if (type === "clickhouse") {
+				const payload: Record<string, string> = {
+					id: source?.id || "",
+					name: name.trim(),
+					environment: environment.trim().toLowerCase() || "production",
+					username: String(values.username || ""),
+					host: String(values.host || ""),
+					port: String(values.port || "8123"),
+					database: String(values.database || "openlit"),
+					query: String(values.query || ""),
+				};
+				if (String(values.password || "").trim()) payload.password = String(values.password);
+				await jsonFetch("/api/db-config", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				await new Promise<void>((resolve) => fetchDatabaseConfigList(() => resolve()));
+				toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
+				onSaved();
+				return;
+			}
 			const payload: Record<string, unknown> = {
 				name: name.trim(),
 				environment: environment.trim().toLowerCase() || "production",
@@ -779,14 +800,6 @@ function SourceFormDialog({
 								<Select
 									value={type}
 									onValueChange={(nextType) => {
-										// ClickHouse is represented by the project database-config
-										// connector, so continue through its dedicated form instead
-										// of posting a DatabaseConfig as a TelemetrySource row.
-										if (nextType === "clickhouse") {
-											onClose();
-											onOpenClickHouse?.();
-											return;
-										}
 										setType(nextType);
 									}}
 									disabled={isEdit}
