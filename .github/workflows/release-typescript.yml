@@ -58,7 +58,7 @@ jobs:
           test "$(node -p "require('./package-lock.json').version")" = "$VERSION"
           test "$(node -p "require('./package-lock.json').packages[''].version")" = "$VERSION"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20.x'
           cache: npm
