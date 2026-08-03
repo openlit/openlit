@@ -28,6 +28,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-24.04
     timeout-minutes: 2
+    environment: release-notes
     steps:
       - name: Check title convention
         id: convention
@@ -59,7 +60,10 @@ jobs:
           PR_DELETIONS: ${{ github.event.pull_request.deletions }}
         run: |
           set -euo pipefail
-          test -n "$OPENROUTER_API_KEY"
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "::error::OPENROUTER_API_KEY is not configured in the release-notes environment"
+            exit 1
+          fi
 
           # Title quality needs change context, but not source code. This is
           # bounded so large PRs cannot create oversized model requests. For

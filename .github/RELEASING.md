@@ -20,6 +20,10 @@ The tool definitions, tag prefixes, and version strategies live in
 The `Release / Packages` workflow generates notes for merged PRs that changed
 the selected tool, validates the tool, updates persistent version files when
 configured, publishes the artifact, and creates the GitHub Release.
+The workflow presents friendly component names and derives a stable release
+title from the registry. For example, **Python SDK** version `1.45.0` creates
+tag `py-1.45.0` and release title `python-sdk: 1.45.0`. Release notes end with
+deduplicated human contributors; bot accounts are excluded.
 
 For tools with a persistent version, the source may either still contain the
 previous release version or already contain the exact version named by the new
@@ -44,6 +48,15 @@ Create a `release` Actions environment without human reviewers and configure:
 - Environment secret `OPENROUTER_API_KEY`: the OpenRouter API key
 - Optional repository variable `RELEASE_LLM_PRIMARY_MODEL`
 - Optional repository variable `RELEASE_LLM_FALLBACK_MODEL`
+
+Create a separate `release-notes` Actions environment for PR-title and merged-PR
+summary automation:
+
+- Environment secret `OPENROUTER_API_KEY`: the OpenRouter API key
+- Optional repository variables for the release-summary and PR-title models
+
+Do not put the release App private key or publishing credentials in
+`release-notes`. Restrict its deployment branch policy to `main`.
 
 `Release / Packages` checks the triggering actor's repository permission before
 entering the release environment and fails unless it is `admin`. GitHub may
@@ -71,8 +84,11 @@ preparation falls back to bounded PR title, description, path, and patch
 evidence. Summaries are lightweight release-note inputs, not PR reviews. OpenLIT
 considers at most the first 3,000 files returned by GitHub and intentionally
 ignores any remaining files. Per-component model evidence is further limited to
-100 files and 20,000 patch characters. To regenerate a missing or stale comment,
-run `Admin / PR Summary` manually with the merged PR number.
+100 files and 20,000 patch characters; generated artifacts and lockfile patches
+do not consume that patch budget. Multi-component summaries share one model call
+when the bounded combined evidence fits, and otherwise fall back to scoped calls.
+To regenerate a missing or stale comment, run `Admin / PR Summary` manually with
+the merged PR number.
 
 Allow the App to bypass only the `main` rule needed for release-version commits
 and the rule governing creation of release tags. Completed tags are never moved.
