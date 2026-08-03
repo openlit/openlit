@@ -42,8 +42,9 @@ reports, and integration feedback are all welcome.
    The relevant README, package scripts, and CI workflow describe additional
    component-specific checks.
 
-5. Commit with a clear, conventional-style subject, push your branch, and open
-   a pull request against `main`.
+5. Commit with a clear subject, push your branch, and open a pull request
+   against `main`. PR titles must use Conventional Commit form, for example
+   `feat: add trace filters` or `fix(client): handle empty projects`.
 
    ```bash
    git commit -m "fix: describe the change"
@@ -53,6 +54,10 @@ reports, and integration feedback are all welcome.
 ## Pull requests
 
 - Explain the problem and the solution; link the related issue when one exists.
+- Use a title in the form `type: concise lowercase summary` or
+  `type(scope): concise lowercase summary`. Allowed types are `feat`, `fix`,
+  `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`,
+  `style`, and `revert`.
 - Include tests for behavior changes and update user-facing documentation.
 - Rebase or merge the current `main` before requesting review if your branch is
   behind.

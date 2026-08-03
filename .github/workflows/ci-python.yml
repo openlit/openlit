@@ -47,7 +47,7 @@ jobs:
 
     - name: Run Pylint
       working-directory: sdk/python
-      run: pylint $(git ls-files '*.py')
+      run: git ls-files -z '*.py' | xargs -0 -r pylint
 
   package:
     name: Build / Package

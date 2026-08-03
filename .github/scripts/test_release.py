@@ -49,7 +49,7 @@ class ReleaseTests(unittest.TestCase):
             *(f"ci-{component}.yml" for component in components),
             *(f"release-{component}.yml" for component in components),
             "admin-enterprise-sync.yml",
-            "admin-pr-labeler.yml",
+            "admin-pr-management.yml",
             "ci-automation.yml",
             "ci-pricing.yml",
             "release-packages.yml",
