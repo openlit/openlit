@@ -496,6 +496,7 @@ export default function DataSourcesPage({
 					sources={visibleSources}
 					databaseConfigs={databaseConfigs}
 					environment={environment}
+					onOpenClickHouse={() => setOpenClickHouse(true)}
 					onClose={() => {
 						setEditing(null);
 						setNewType(undefined);
@@ -630,6 +631,7 @@ function SourceFormDialog({
 	environment: routingEnvironment,
 	onClose,
 	onSaved,
+	onOpenClickHouse,
 }: {
 	source: SourceRow | null;
 	descriptors: TypeDescriptor[];
@@ -644,6 +646,7 @@ function SourceFormDialog({
 	environment?: string;
 	onClose: () => void;
 	onSaved: () => void;
+	onOpenClickHouse?: () => void;
 }) {
 	const messages = getMessage();
 	const isEdit = !!source;
@@ -773,7 +776,21 @@ function SourceFormDialog({
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
-							<Select value={type} onValueChange={setType} disabled={isEdit}>
+								<Select
+									value={type}
+									onValueChange={(nextType) => {
+										// ClickHouse is represented by the project database-config
+										// connector, so continue through its dedicated form instead
+										// of posting a DatabaseConfig as a TelemetrySource row.
+										if (nextType === "clickhouse") {
+											onClose();
+											onOpenClickHouse?.();
+											return;
+										}
+										setType(nextType);
+									}}
+									disabled={isEdit}
+								>
 				<SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
 									<SelectValue placeholder="Select a connector">
 										{activeDescriptor ? (
@@ -790,7 +807,7 @@ function SourceFormDialog({
 									</SelectValue>
 								</SelectTrigger>
 				<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
-					{externalDescriptors.map((d) => (
+									{descriptors.map((d) => (
 						<SelectItem key={d.type} value={d.type} className="min-h-[72px] items-start py-2 pl-2 pr-8">
 							<div className="flex items-start gap-3">
 												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
