@@ -62,16 +62,28 @@ normalization and falls back to OpenRouter's free-model router when that model
 is unavailable. Repository variables `PR_TITLE_LLM_MODEL` and
 `PR_TITLE_LLM_FALLBACK_MODEL` may override those choices.
 
+After a PR merges into `main`, `Admin / PR Summary` posts one bot comment with
+a validated summary for every release component changed by that PR. The hidden
+cache is bound to the PR number, merge commit, and release-tool path
+configuration. `Release / Packages` reuses the applicable component summary.
+If the comment is missing, invalid, stale, or from an untrusted author, release
+preparation falls back to bounded PR title, description, path, and patch
+evidence. Summaries are lightweight release-note inputs, not PR reviews. OpenLIT
+considers at most the first 3,000 files returned by GitHub and intentionally
+ignores any remaining files. Per-component model evidence is further limited to
+100 files and 20,000 patch characters.
+
 Allow the App to bypass only the `main` rule needed for release-version commits
 and the rule governing creation of release tags. Completed tags are never moved.
 
 ## Dry run
 
 Run `Release / Packages` manually, select the tool, enter its next `X.Y.Z`
-version, and keep `dry_run` enabled. A dry run uses current `main`, calls the
-configured LLM, runs component validation, and uploads release notes, metadata,
-and the version diff without creating a tag, commit, package, image, or GitHub
-Release. Once the dry run is satisfactory, run it again with `dry_run` disabled.
+version, and keep `dry_run` enabled. A dry run uses current `main`, reuses
+validated merged-PR summaries, calls the configured LLM only for cache misses,
+runs component validation, and uploads release notes, metadata, and the version
+diff without creating a tag, commit, package, image, or GitHub Release. Once the
+dry run is satisfactory, run it again with `dry_run` disabled.
 
 ## Failure and recovery
 

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).with_name("release.py")
 sys.dont_write_bytecode = True
@@ -94,16 +95,352 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(release.ReleaseError):
             release.validate_summaries({"items": valid["items"] * 2}, {10})
 
-    def test_merged_pr_summary_has_a_stable_comment_marker(self):
-        summary = {"category": "Fixes", "summary": "Corrects streaming output."}
-        body = (
-            "<!-- openlit-merged-pr-summary -->\n"
-            "## Merged PR summary\n\n"
-            f"**{summary['category']}** — {summary['summary']}\n\n"
-            "_Generated from the merged PR title, description, and bounded file evidence._\n"
+    def test_merged_pr_summary_cache_round_trips_multiple_tools(self):
+        pr = {"number": 10, "merge_commit_sha": "a" * 40}
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Features",
+                "summary": "Adds provider instrumentation.",
+            },
+            "openlit": {
+                "tool_name": "OpenLIT",
+                "category": "Fixes",
+                "summary": "Corrects project selection.",
+            },
+        }
+        body = release.render_summary_comment(pr, components, self.config)
+        decoded = release.decode_summary_cache(body, 10, "a" * 40, self.config)
+        self.assertEqual(decoded, components)
+        self.assertIn("Python SDK · Features", body)
+        self.assertIn("OpenLIT · Fixes", body)
+
+    def test_summary_cache_rejects_the_wrong_merge_commit(self):
+        pr = {"number": 10, "merge_commit_sha": "a" * 40}
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Fixes",
+                "summary": "Corrects streaming output.",
+            }
+        }
+        body = release.render_summary_comment(pr, components, self.config)
+        with self.assertRaisesRegex(release.ReleaseError, "merge commit"):
+            release.decode_summary_cache(body, 10, "b" * 40, self.config)
+
+    def test_summary_cache_rejects_changed_tool_path_configuration(self):
+        pr = {"number": 10, "merge_commit_sha": "a" * 40}
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Fixes",
+                "summary": "Corrects streaming output.",
+            }
+        }
+        body = release.render_summary_comment(pr, components, self.config)
+        changed_config = json.loads(json.dumps(self.config))
+        changed_config["python"]["paths"] = ["different/**"]
+        with self.assertRaisesRegex(release.ReleaseError, "configuration"):
+            release.decode_summary_cache(body, 10, "a" * 40, changed_config)
+
+    def test_summary_cache_ignores_non_bot_comments(self):
+        pr = {"number": 10, "merge_commit_sha": "a" * 40}
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Fixes",
+                "summary": "Corrects streaming output.",
+            }
+        }
+        body = release.render_summary_comment(pr, components, self.config)
+
+        class UserCommentGitHub:
+            @staticmethod
+            def paginated(_endpoint, **_kwargs):
+                return [{"user": {"login": "contributor", "type": "User"}, "body": body}]
+
+        self.assertIsNone(
+            release.load_cached_pr_components(
+                UserCommentGitHub(), 10, "a" * 40, self.config
+            )
         )
-        self.assertIn("<!-- openlit-merged-pr-summary -->", body)
-        self.assertIn("**Fixes** — Corrects streaming output.", body)
+
+    def test_release_uses_bot_cache_without_fetching_pr_files(self):
+        pr = {
+            "number": 10,
+            "title": "feat: add provider",
+            "html_url": "https://github.test/pulls/10",
+            "merged_at": "2026-08-03T00:00:00Z",
+            "merge_commit_sha": "a" * 40,
+            "base": {"ref": "main"},
+        }
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Features",
+                "summary": "Adds provider instrumentation.",
+            }
+        }
+        cache_body = release.render_summary_comment(pr, components, self.config)
+
+        class CachedGitHub:
+            def get(self, endpoint):
+                if endpoint == "/commits/commit-sha/pulls":
+                    return [pr]
+                raise AssertionError(f"unexpected GET: {endpoint}")
+
+            def paginated(self, endpoint, **_kwargs):
+                if endpoint == "/issues/10/comments":
+                    return [
+                        {
+                            "user": {"login": "github-actions[bot]", "type": "Bot"},
+                            "body": cache_body,
+                        }
+                    ]
+                raise AssertionError(f"release should not fetch PR files: {endpoint}")
+
+        with mock.patch.object(release, "run", return_value="commit-sha"):
+            prs, direct = release.collect_prs(
+                CachedGitHub(),
+                "py-1.0.0",
+                "source-sha",
+                self.config["python"]["paths"],
+                tool_key="python",
+                config=self.config,
+            )
+        self.assertEqual(direct, [])
+        self.assertEqual(prs[0]["cached_summary"], components["python"])
+
+    def test_invalid_cache_falls_back_to_bounded_file_evidence(self):
+        pr = {
+            "number": 10,
+            "title": "fix: correct provider",
+            "body": "details",
+            "html_url": "https://github.test/pulls/10",
+            "merged_at": "2026-08-03T00:00:00Z",
+            "merge_commit_sha": "a" * 40,
+            "base": {"ref": "main"},
+            "user": {"login": "contributor"},
+        }
+        stale_pr = {**pr, "merge_commit_sha": "b" * 40}
+        components = {
+            "python": {
+                "tool_name": "Python SDK",
+                "category": "Fixes",
+                "summary": "Corrects provider instrumentation.",
+            }
+        }
+        stale_body = release.render_summary_comment(stale_pr, components, self.config)
+
+        class FallbackGitHub:
+            file_api_used = False
+
+            def get(self, endpoint):
+                if endpoint == "/commits/commit-sha/pulls":
+                    return [pr]
+                raise AssertionError(f"unexpected GET: {endpoint}")
+
+            def paginated(self, endpoint, **_kwargs):
+                if endpoint == "/issues/10/comments":
+                    return [
+                        {
+                            "user": {"login": "github-actions[bot]", "type": "Bot"},
+                            "body": stale_body,
+                        }
+                    ]
+                if endpoint == "/pulls/10/files":
+                    self.file_api_used = True
+                    return [
+                        {
+                            "filename": "sdk/python/src/openlit/provider.py",
+                            "status": "modified",
+                            "additions": 2,
+                            "deletions": 1,
+                            "patch": "+fix",
+                        }
+                    ]
+                raise AssertionError(f"unexpected pagination: {endpoint}")
+
+        github = FallbackGitHub()
+        with mock.patch.object(release, "run", return_value="commit-sha"):
+            prs, _ = release.collect_prs(
+                github,
+                "py-1.0.0",
+                "source-sha",
+                self.config["python"]["paths"],
+                tool_key="python",
+                config=self.config,
+            )
+        self.assertTrue(github.file_api_used)
+        self.assertNotIn("cached_summary", prs[0])
+        self.assertEqual(prs[0]["files"][0]["filename"], "sdk/python/src/openlit/provider.py")
+
+    def test_post_merge_summary_caches_every_affected_tool(self):
+        pr = {
+            "number": 10,
+            "title": "feat: update both SDKs",
+            "body": "details",
+            "html_url": "https://github.test/pulls/10",
+            "merged_at": "2026-08-03T00:00:00Z",
+            "merge_commit_sha": "a" * 40,
+            "base": {"ref": "main"},
+            "user": {"login": "contributor"},
+        }
+        files = [
+            {"filename": "sdk/python/src/openlit/provider.py", "status": "modified", "patch": "+py"},
+            {"filename": "sdk/typescript/src/provider.ts", "status": "modified", "patch": "+ts"},
+        ]
+
+        class SummaryGitHub:
+            @staticmethod
+            def get(endpoint):
+                if endpoint == "/pulls/10":
+                    return pr
+                raise AssertionError(f"unexpected GET: {endpoint}")
+
+            @staticmethod
+            def paginated(endpoint, **_kwargs):
+                if endpoint == "/pulls/10/files":
+                    return files
+                raise AssertionError(f"unexpected pagination: {endpoint}")
+
+        class SummaryRouter:
+            def __init__(self, *_args):
+                pass
+
+            @staticmethod
+            def summarize(tool_name, prs):
+                return [
+                    {
+                        "number": prs[0]["number"],
+                        "category": "Features",
+                        "summary": f"Updates {tool_name}.",
+                    }
+                ]
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "summary.md"
+            with (
+                mock.patch.object(release, "GitHub", return_value=SummaryGitHub()),
+                mock.patch.object(release, "OpenRouter", SummaryRouter),
+                mock.patch.dict(
+                    release.os.environ,
+                    {"GITHUB_TOKEN": "token", "OPENROUTER_API_KEY": "key"},
+                ),
+            ):
+                release.summarize_pr(
+                    Namespace(
+                        config=str(release.DEFAULT_CONFIG),
+                        repository="openlit/openlit",
+                        pr_number=10,
+                        output=str(output),
+                    )
+                )
+            body = output.read_text(encoding="utf-8")
+        decoded = release.decode_summary_cache(body, 10, "a" * 40, self.config)
+        self.assertEqual(set(decoded), {"python", "typescript"})
+
+    def test_large_pr_evidence_is_component_scoped_and_bounded(self):
+        pr = {
+            "number": 10,
+            "title": "feat: large change",
+            "body": "details",
+            "user": {"login": "contributor"},
+            "html_url": "https://github.test/pulls/10",
+            "merged_at": "2026-08-03T00:00:00Z",
+        }
+        files = [
+            {
+                "filename": f"sdk/python/src/openlit/file_{index}.py",
+                "status": "modified",
+                "additions": 10,
+                "deletions": 2,
+                "patch": "+change\n" * 1000,
+            }
+            for index in range(release.MAX_FILES_PER_PR_EVIDENCE + 50)
+        ]
+        files.append(
+            {
+                "filename": "sdk/typescript/src/unrelated.ts",
+                "status": "modified",
+                "additions": 1,
+                "deletions": 0,
+                "patch": "+unrelated",
+            }
+        )
+        evidence = release.build_pr_evidence(pr, files, self.config["python"]["paths"])
+        self.assertIsNotNone(evidence)
+        assert evidence
+        self.assertEqual(
+            evidence["change_summary"]["changed_files"],
+            release.MAX_FILES_PER_PR_EVIDENCE + 50,
+        )
+        self.assertEqual(len(evidence["files"]), release.MAX_FILES_PER_PR_EVIDENCE)
+        self.assertLessEqual(
+            sum(len(file["patch"]) for file in evidence["files"]),
+            release.MAX_PATCH_CHARS_PER_PR,
+        )
+        self.assertNotIn("sdk/typescript/src/unrelated.ts", [file["filename"] for file in evidence["files"]])
+
+    def test_pr_file_list_is_capped_without_git_reconstruction(self):
+        pr = {
+            "number": 10,
+            "changed_files": release.MAX_PR_FILES + 200,
+        }
+
+        class FilesGitHub:
+            requested_max = None
+
+            def paginated(self, endpoint, *, max_items=None):
+                self.requested_max = max_items
+                self.assert_endpoint = endpoint
+                return [
+                    {"filename": f"file-{index}", "patch": ""}
+                    for index in range(max_items)
+                ]
+
+        github = FilesGitHub()
+        with mock.patch.object(release, "run") as run:
+            files = release.pull_request_files(github, pr)
+        run.assert_not_called()
+        self.assertEqual(github.requested_max, release.MAX_PR_FILES)
+        self.assertEqual(len(files), release.MAX_PR_FILES)
+
+    def test_paginator_stops_at_explicit_item_limit(self):
+        github = release.GitHub("openlit/openlit", "token")
+        requested = []
+
+        def get(endpoint):
+            requested.append(endpoint)
+            return list(range(100))
+
+        with mock.patch.object(github, "get", side_effect=get):
+            items = github.paginated("/pulls/10/files", max_items=release.MAX_PR_FILES)
+        self.assertEqual(len(items), release.MAX_PR_FILES)
+        self.assertEqual(len(requested), 30)
+        self.assertIn("page=30", requested[-1])
+
+    def test_model_fallback_is_bounded_for_workflow_timeout(self):
+        router = release.OpenRouter("key", "primary-model", "fallback-model")
+        pr = {"number": 10, "title": "fix: correct release behavior", "files": []}
+        with (
+            mock.patch.object(
+                release.urllib.request,
+                "urlopen",
+                side_effect=TimeoutError("model timed out"),
+            ) as urlopen,
+            mock.patch.object(release.time, "sleep") as sleep,
+            self.assertRaisesRegex(release.ReleaseError, "primary and fallback"),
+        ):
+            router.summarize("Python SDK", [pr])
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertTrue(
+            all(
+                call.kwargs["timeout"] == release.MODEL_TIMEOUT_SECONDS
+                for call in urlopen.call_args_list
+            )
+        )
+        sleep.assert_not_called()
 
     def test_summary_rejects_links_and_unknown_categories(self):
         cases = [

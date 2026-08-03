@@ -21,13 +21,14 @@ jobs:
     name: Summarize / Merged pull request
     if: github.repository == 'openlit/openlit' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: release-notes
+    timeout-minutes: 30
+    environment: release
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@v7
         with:
           ref: refs/heads/main
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Generate merged PR summary
@@ -51,10 +52,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const marker = '<!-- openlit-merged-pr-summary -->';
+            const marker = '<!-- openlit-release-summary:';
             const body = fs.readFileSync('merged-pr-summary.md', 'utf8');
             const issue_number = Number(process.env.PR_NUMBER);
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number,

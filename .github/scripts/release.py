@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -23,12 +26,17 @@ SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 CATEGORIES = ("Features", "Fixes", "Dependencies", "Documentation", "Maintenance")
 PRIMARY_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
-MAX_PATCH_CHARS_PER_FILE = 6000
-MAX_PATCH_CHARS_PER_PR = 60_000
-MAX_FILES_PER_PR_SUMMARY = 200
-MAX_EVIDENCE_CHARS_PER_CALL = 350_000
+MAX_PR_FILES = 3000
+MAX_PATCH_CHARS_PER_FILE = 2000
+MAX_PATCH_CHARS_PER_PR = 20_000
+MAX_FILES_PER_PR_EVIDENCE = 100
+MAX_EVIDENCE_CHARS_PER_CALL = 100_000
 MAX_MODEL_CALLS = 40
+MODEL_ATTEMPTS_PER_MODEL = 1
+MODEL_TIMEOUT_SECONDS = 60
 MAX_RELEASE_BODY_CHARS = 120_000
+SUMMARY_CACHE_PREFIX = "<!-- openlit-release-summary:v1:"
+SUMMARY_CACHE_RE = re.compile(r"<!-- openlit-release-summary:v1:([A-Za-z0-9+/=]+) -->")
 ALLOWED_COMMANDS = {"git", "npm"}
 POETRY_TABLE_RE = re.compile(
     r"(?ms)^\[tool\.poetry\][^\S\r\n]*(?:\r?\n|$)(.*?)(?=^\[|\Z)"
@@ -260,16 +268,34 @@ class GitHub:
             body = exc.read().decode("utf-8", errors="replace")
             raise ReleaseError(f"GitHub API {exc.code} for {endpoint}: {body}") from exc
 
-    def paginated(self, endpoint: str) -> list[Any]:
+    def paginated(self, endpoint: str, *, max_items: int | None = None) -> list[Any]:
         result: list[Any] = []
         page = 1
         delimiter = "&" if "?" in endpoint else "?"
         while True:
-            batch = self.get(f"{endpoint}{delimiter}per_page=100&page={page}")
+            page_size = min(100, max_items - len(result)) if max_items is not None else 100
+            if page_size <= 0:
+                return result
+            batch = self.get(f"{endpoint}{delimiter}per_page={page_size}&page={page}")
             result.extend(batch)
-            if len(batch) < 100:
+            if len(batch) < page_size or (max_items is not None and len(result) >= max_items):
                 return result
             page += 1
+
+
+def pull_request_files(github: GitHub, pr: dict[str, Any]) -> list[dict[str, Any]]:
+    files = github.paginated(
+        f"/pulls/{int(pr['number'])}/files",
+        max_items=MAX_PR_FILES,
+    )
+    reported_count = int(pr.get("changed_files", len(files)))
+    if reported_count > len(files):
+        print(
+            f"::notice::PR #{pr['number']} has {reported_count} changed files; "
+            f"release summarization uses GitHub's first {len(files)} files only",
+            flush=True,
+        )
+    return files
 
 
 def collect_prs(
@@ -277,9 +303,13 @@ def collect_prs(
     previous: str,
     source_sha: str,
     patterns: list[str],
+    *,
+    tool_key: str | None = None,
+    config: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     commits = run("git", "rev-list", "--reverse", f"{previous}^{{commit}}..{source_sha}").splitlines()
     prs: dict[int, dict[str, Any]] = {}
+    seen_prs: set[int] = set()
     direct: list[dict[str, str]] = []
     for commit in commits:
         associated = github.get(f"/commits/{commit}/pulls")
@@ -293,13 +323,48 @@ def collect_prs(
             continue
         for pr in merged:
             number = int(pr["number"])
-            if number in prs:
+            if number in seen_prs:
                 continue
-            files = github.paginated(f"/pulls/{number}/files")
+            seen_prs.add(number)
+            if tool_key and config:
+                merge_commit_sha = pr.get("merge_commit_sha")
+                if not merge_commit_sha:
+                    merge_commit_sha = github.get(f"/pulls/{number}").get("merge_commit_sha")
+                cached = load_cached_pr_components(
+                    github,
+                    number,
+                    merge_commit_sha,
+                    config,
+                )
+                if cached is not None:
+                    component = cached.get(tool_key)
+                    if component is None:
+                        # A valid cache proves this PR did not touch this tool,
+                        # so release preparation does not need the file API.
+                        continue
+                    prs[number] = {
+                        "number": number,
+                        "title": pr["title"],
+                        "html_url": pr["html_url"],
+                        "merged_at": pr["merged_at"],
+                        "merge_commit_sha": merge_commit_sha,
+                        "cached_summary": component,
+                        "files": [],
+                    }
+                    continue
+            files = pull_request_files(github, pr)
             relevant = []
+            relevant_count = 0
+            relevant_additions = 0
+            relevant_deletions = 0
             patch_budget = MAX_PATCH_CHARS_PER_PR
             for file in files:
                 if not path_matches(file["filename"], patterns, file.get("previous_filename")):
+                    continue
+                relevant_count += 1
+                relevant_additions += int(file.get("additions", 0))
+                relevant_deletions += int(file.get("deletions", 0))
+                if len(relevant) >= MAX_FILES_PER_PR_EVIDENCE:
                     continue
                 patch = (file.get("patch") or "")[: min(MAX_PATCH_CHARS_PER_FILE, patch_budget)]
                 patch_budget -= len(patch)
@@ -325,19 +390,41 @@ def collect_prs(
                     "author": author,
                     "html_url": pr["html_url"],
                     "merged_at": pr["merged_at"],
+                    "merge_commit_sha": pr.get("merge_commit_sha"),
+                    "change_summary": {
+                        "changed_files": relevant_count,
+                        "additions": relevant_additions,
+                        "deletions": relevant_deletions,
+                        "included_files": len(relevant),
+                    },
                     "files": relevant,
                 }
     return sorted(prs.values(), key=lambda item: (item["merged_at"], item["number"])), direct
 
 
-def collect_single_pr(github: GitHub, number: int) -> dict[str, Any]:
+def collect_single_pr(github: GitHub, number: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     pr = github.get(f"/pulls/{number}")
     if not pr.get("merged_at") or pr.get("base", {}).get("ref") != "main":
         raise ReleaseError(f"PR #{number} must be merged into main")
-    files = github.paginated(f"/pulls/{number}/files")
+    files = pull_request_files(github, pr)
+    return pr, files
+
+
+def build_pr_evidence(
+    pr: dict[str, Any],
+    files: list[dict[str, Any]],
+    patterns: list[str],
+) -> dict[str, Any] | None:
+    relevant_files = [
+        file
+        for file in files
+        if path_matches(file["filename"], patterns, file.get("previous_filename"))
+    ]
+    if not relevant_files:
+        return None
     evidence_files: list[dict[str, Any]] = []
     patch_budget = MAX_PATCH_CHARS_PER_PR
-    for file in files[:MAX_FILES_PER_PR_SUMMARY]:
+    for file in relevant_files[:MAX_FILES_PER_PR_EVIDENCE]:
         patch = (file.get("patch") or "")[: min(MAX_PATCH_CHARS_PER_FILE, patch_budget)]
         patch_budget -= len(patch)
         evidence_files.append(
@@ -351,17 +438,17 @@ def collect_single_pr(github: GitHub, number: int) -> dict[str, Any]:
             }
         )
     return {
-        "number": number,
+        "number": int(pr["number"]),
         "title": pr["title"],
         "body": (pr.get("body") or "")[:20_000],
         "author": pr.get("user", {}).get("login", "unknown"),
         "html_url": pr["html_url"],
         "merged_at": pr["merged_at"],
         "change_summary": {
-            "changed_files": pr.get("changed_files", len(files)),
-            "additions": pr.get("additions", 0),
-            "deletions": pr.get("deletions", 0),
-            "included_files": min(len(files), MAX_FILES_PER_PR_SUMMARY),
+            "changed_files": len(relevant_files),
+            "additions": sum(int(file.get("additions", 0)) for file in relevant_files),
+            "deletions": sum(int(file.get("deletions", 0)) for file in relevant_files),
+            "included_files": len(evidence_files),
         },
         "files": evidence_files,
     }
@@ -408,6 +495,134 @@ def validate_summaries(value: Any, expected: set[int]) -> list[dict[str, Any]]:
     return result
 
 
+def summary_config_digest(config: dict[str, dict[str, Any]]) -> str:
+    summary_contract = {
+        key: {"name": tool["name"], "paths": tool["paths"]}
+        for key, tool in sorted(config.items())
+    }
+    encoded = json.dumps(summary_contract, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def encode_summary_cache(
+    pr: dict[str, Any],
+    components: dict[str, dict[str, str]],
+    config: dict[str, dict[str, Any]],
+) -> str:
+    payload = {
+        "schema": 1,
+        "pr_number": int(pr["number"]),
+        "merge_commit_sha": pr.get("merge_commit_sha"),
+        "config_digest": summary_config_digest(config),
+        "components": components,
+    }
+    encoded = base64.b64encode(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    ).decode()
+    return f"{SUMMARY_CACHE_PREFIX}{encoded} -->"
+
+
+def decode_summary_cache(
+    body: str,
+    pr_number: int,
+    merge_commit_sha: str | None,
+    config: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    match = SUMMARY_CACHE_RE.search(body)
+    if not match:
+        raise ReleaseError("summary cache marker is missing")
+    try:
+        payload = json.loads(base64.b64decode(match.group(1), validate=True))
+    except (binascii.Error, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseError("summary cache payload is invalid") from exc
+    if not isinstance(payload, dict) or set(payload) != {
+        "schema",
+        "pr_number",
+        "merge_commit_sha",
+        "config_digest",
+        "components",
+    }:
+        raise ReleaseError("summary cache schema is invalid")
+    if payload["schema"] != 1 or payload["pr_number"] != pr_number:
+        raise ReleaseError("summary cache identity is invalid")
+    if not merge_commit_sha or payload["merge_commit_sha"] != merge_commit_sha:
+        raise ReleaseError("summary cache merge commit does not match")
+    if payload["config_digest"] != summary_config_digest(config):
+        raise ReleaseError("summary cache tool configuration does not match")
+    components = payload["components"]
+    if not isinstance(components, dict) or not components:
+        raise ReleaseError("summary cache components are invalid")
+    validated: dict[str, dict[str, str]] = {}
+    for key, component in components.items():
+        if key not in config or not isinstance(component, dict) or set(component) != {
+            "tool_name",
+            "category",
+            "summary",
+        }:
+            raise ReleaseError(f"summary cache component is invalid: {key}")
+        if component["tool_name"] != config[key]["name"]:
+            raise ReleaseError(f"summary cache tool name is invalid: {key}")
+        item = validate_summaries(
+            {
+                "items": [
+                    {
+                        "number": pr_number,
+                        "category": component["category"],
+                        "summary": component["summary"],
+                    }
+                ]
+            },
+            {pr_number},
+        )[0]
+        validated[key] = {
+            "tool_name": component["tool_name"],
+            "category": item["category"],
+            "summary": item["summary"],
+        }
+    return validated
+
+
+def load_cached_pr_components(
+    github: GitHub,
+    pr_number: int,
+    merge_commit_sha: str | None,
+    config: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, str]] | None:
+    comments = github.paginated(f"/issues/{pr_number}/comments")
+    for comment in reversed(comments):
+        user = comment.get("user") or {}
+        if user.get("login") != "github-actions[bot]" or user.get("type") != "Bot":
+            continue
+        body = comment.get("body") or ""
+        if SUMMARY_CACHE_PREFIX not in body:
+            continue
+        try:
+            return decode_summary_cache(body, pr_number, merge_commit_sha, config)
+        except ReleaseError as exc:
+            print(f"::warning::Ignoring invalid summary cache for PR #{pr_number}: {exc}", flush=True)
+    return None
+
+
+def render_summary_comment(
+    pr: dict[str, Any],
+    components: dict[str, dict[str, str]],
+    config: dict[str, dict[str, Any]],
+) -> str:
+    lines = [encode_summary_cache(pr, components, config), "", "## Merged PR summary", ""]
+    for component in components.values():
+        lines.append(
+            f"- **{component['tool_name']} · {component['category']}** — {component['summary']}"
+        )
+    lines.extend(
+        [
+            "",
+            "_Generated from the merged PR description and bounded, component-scoped file evidence. Release preparation reuses this validated summary._",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 class OpenRouter:
     def __init__(self, api_key: str, primary: str, fallback: str):
         self.api_key = api_key
@@ -430,7 +645,7 @@ DATA
         expected = {int(pr["number"]) for pr in prs}
         last_error: Exception | None = None
         for model in self.models:
-            for attempt in range(2):
+            for attempt in range(MODEL_ATTEMPTS_PER_MODEL):
                 self.calls += 1
                 if self.calls > MAX_MODEL_CALLS:
                     raise ReleaseError(f"release-note generation exceeded {MAX_MODEL_CALLS} model calls")
@@ -440,7 +655,11 @@ DATA
                         "\nRETRY: The prior response was rejected because: "
                         f"{last_error}. Correct that problem and return the complete JSON object again."
                     )
-                print(f"::notice::Generating release notes with {model} (attempt {attempt + 1}/2)", flush=True)
+                print(
+                    f"::notice::Generating release notes with {model} "
+                    f"(attempt {attempt + 1}/{MODEL_ATTEMPTS_PER_MODEL})",
+                    flush=True,
+                )
                 payload = json.dumps(
                     {
                         "model": model,
@@ -460,7 +679,7 @@ DATA
                     },
                 )
                 try:
-                    with urllib.request.urlopen(request, timeout=180) as response:
+                    with urllib.request.urlopen(request, timeout=MODEL_TIMEOUT_SECONDS) as response:
                         result = json.load(response)
                     content = result["choices"][0]["message"]["content"]
                     summaries = validate_summaries(extract_json(content), expected)
@@ -477,7 +696,7 @@ DATA
                 ) as exc:
                     last_error = exc
                     print(f"::warning::Release-note attempt rejected: {exc}", flush=True)
-                    if attempt == 0:
+                    if attempt + 1 < MODEL_ATTEMPTS_PER_MODEL:
                         time.sleep(2)
         raise ReleaseError(f"primary and fallback models failed validation: {last_error}")
 
@@ -517,20 +736,41 @@ def render_notes(tool_name: str, version: str, prs: list[dict[str, Any]], summar
 
 
 def summarize_pr(args: argparse.Namespace) -> None:
+    config = load_config(Path(args.config))
     github = GitHub(args.repository, os.environ["GITHUB_TOKEN"])
-    pr = collect_single_pr(github, args.pr_number)
+    pr, files = collect_single_pr(github, args.pr_number)
     router = OpenRouter(
         os.environ["OPENROUTER_API_KEY"],
         os.environ.get("RELEASE_LLM_PRIMARY_MODEL") or PRIMARY_MODEL,
         os.environ.get("RELEASE_LLM_FALLBACK_MODEL") or FALLBACK_MODEL,
     )
-    summary = router.summarize("OpenLIT", [pr])[0]
-    body = (
-        "<!-- openlit-merged-pr-summary -->\n"
-        "## Merged PR summary\n\n"
-        f"**{summary['category']}** — {summary['summary']}\n\n"
-        "_Generated from the merged PR title, description, and bounded file evidence._\n"
-    )
+    components: dict[str, dict[str, str]] = {}
+    for key, tool in config.items():
+        evidence = build_pr_evidence(pr, files, tool["paths"])
+        if evidence is None:
+            continue
+        item = router.summarize(tool["name"], [evidence])[0]
+        components[key] = {
+            "tool_name": tool["name"],
+            "category": item["category"],
+            "summary": item["summary"],
+        }
+    if not components:
+        # PRs that only touch documentation or repository administration still
+        # receive a useful comment, but this entry is deliberately not cached
+        # for any release component.
+        evidence = build_pr_evidence(pr, files, ["**"])
+        if evidence is None:
+            raise ReleaseError(f"PR #{args.pr_number} has no changed files")
+        item = router.summarize("OpenLIT repository", [evidence])[0]
+        body = (
+            "<!-- openlit-release-summary:no-components -->\n\n"
+            "## Merged PR summary\n\n"
+            f"**{item['category']}** — {item['summary']}\n\n"
+            "_This PR does not affect a releasable component._\n"
+        )
+    else:
+        body = render_summary_comment(pr, components, config)
     Path(args.output).write_text(body, encoding="utf-8")
 
 
@@ -601,7 +841,14 @@ def prepare(args: argparse.Namespace) -> None:
     github = GitHub(args.repository, os.environ["GITHUB_TOKEN"])
     if github.get(f"/releases/tags/{tag}", allow_404=True) is not None:
         raise ReleaseError(f"GitHub Release already exists for {tag}")
-    prs, direct = collect_prs(github, previous, analysis_sha, tool["paths"])
+    prs, direct = collect_prs(
+        github,
+        previous,
+        analysis_sha,
+        tool["paths"],
+        tool_key=tool_key,
+        config=config,
+    )
     if not prs:
         raise ReleaseError(f"no merged PRs changed {tool['name']} since {previous}")
     router = OpenRouter(
@@ -610,7 +857,20 @@ def prepare(args: argparse.Namespace) -> None:
         os.environ.get("RELEASE_LLM_FALLBACK_MODEL") or FALLBACK_MODEL,
     )
     summaries: list[dict[str, Any]] = []
-    for chunk in chunk_prs(prs):
+    uncached_prs: list[dict[str, Any]] = []
+    for pr in prs:
+        cached = pr.get("cached_summary")
+        if cached:
+            summaries.append(
+                {
+                    "number": int(pr["number"]),
+                    "category": cached["category"],
+                    "summary": cached["summary"],
+                }
+            )
+        else:
+            uncached_prs.append(pr)
+    for chunk in chunk_prs(uncached_prs):
         summaries.extend(router.summarize(tool["name"], chunk))
     validate_summaries({"items": summaries}, {int(pr["number"]) for pr in prs})
     notes = render_notes(tool["name"], version, prs, summaries)
@@ -632,6 +892,8 @@ def prepare(args: argparse.Namespace) -> None:
         "version_already_set": already_set,
         "pr_numbers": [pr["number"] for pr in prs],
         "direct_commits": direct,
+        "cached_summary_count": len(prs) - len(uncached_prs),
+        "generated_summary_count": len(uncached_prs),
         "model_calls": router.calls,
         "model_used": router.model_used,
     }
