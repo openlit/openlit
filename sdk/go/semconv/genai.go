@@ -41,6 +41,8 @@ const (
 	GenAISystemAnthropic = "anthropic"
 	// GenAISystemVLLM represents vLLM system
 	GenAISystemVLLM = "vllm"
+	// GenAISystemGroq represents Groq system
+	GenAISystemGroq = "groq"
 )
 
 // Request Attributes
