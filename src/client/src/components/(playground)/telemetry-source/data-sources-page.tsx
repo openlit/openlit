@@ -344,7 +344,7 @@ export default function DataSourcesPage({
 						<Database className="h-4 w-4 text-primary" />
 						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Connectors · {environment}</h2>
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Each environment has one ClickHouse connector used for ClickHouse-backed telemetry and derived features.</p>
+					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Add multiple ClickHouse targets and external integrations to each environment, then choose the connector used by each signal.</p>
 					</div>
 					<div className="flex items-center gap-2"><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
