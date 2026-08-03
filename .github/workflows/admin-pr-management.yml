@@ -122,6 +122,17 @@ jobs:
           echo "::error title=Manual PR title required::No configured model returned a valid title. Set it to 'type: lowercase summary' or 'type(scope): lowercase summary'."
           exit 1
 
+      - name: Update pull request title
+        if: steps.convention.outputs.valid != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ steps.rewrite.outputs.title }}
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+            -f title="$PR_TITLE"
+
       - name: Recommend a manual conventional title
         if: failure() && steps.convention.outputs.valid != 'true'
         uses: actions/github-script@v9
@@ -167,14 +178,3 @@ jobs:
                 body,
               });
             }
-
-      - name: Update pull request title
-        if: steps.convention.outputs.valid != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ steps.rewrite.outputs.title }}
-        run: |
-          set -euo pipefail
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
-            -f title="$PR_TITLE"
