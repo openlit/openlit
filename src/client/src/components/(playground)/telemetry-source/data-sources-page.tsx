@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
@@ -195,7 +194,28 @@ export default function DataSourcesPage({
 				jsonFetch("/api/connectors"),
 				jsonFetch("/api/telemetry-source/binding"),
 			]);
-			setSources((list?.connectors || []).filter((connector: SourceRow) => connector.type !== "clickhouse"));
+			const connectors = list?.connectors || [];
+			const clickHouseConfigs = connectors
+				.filter((connector: any) => connector.type === "clickhouse")
+				.map((connector: any) => {
+					let settings: Record<string, any> = {};
+					try { settings = JSON.parse(connector.settings || "{}"); } catch { /* use empty defaults */ }
+					return {
+						id: String(connector.id).replace(/^database:/, ""),
+						name: connector.name,
+						environment: connector.environment || "production",
+						username: settings.username || "default",
+						host: settings.host || "127.0.0.1",
+						port: settings.port || "8123",
+						database: settings.database || "openlit",
+						query: settings.query || "",
+						password: "",
+						isCurrent: false,
+						permissions: { canEdit: true, canDelete: true, canShare: true },
+					};
+				});
+			useRootStore.getState().databaseConfig.setList(clickHouseConfigs);
+			setSources(connectors.filter((connector: SourceRow) => connector.type !== "clickhouse"));
 			setDescriptors(list?.availableTypeDescriptors || []);
 			setBindings(binds?.bindings || []);
 		} catch (e: any) {
@@ -216,7 +236,6 @@ export default function DataSourcesPage({
 	}, [onOpenTypeHandled, openType]);
 
 	useEffect(() => {
-		fetchDatabaseConfigList(() => {});
 		load();
 		}, [load, projectId]);
 
@@ -243,7 +262,11 @@ export default function DataSourcesPage({
 				await jsonFetch("/api/telemetry-source/binding", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ signal, sourceId, environment }),
+				body: JSON.stringify({
+					signal,
+					sourceId: sourceId.startsWith("telemetry:") ? sourceId.slice("telemetry:".length) : sourceId,
+					environment,
+				}),
 				});
 			}
 			toast.success(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
@@ -574,7 +597,9 @@ function SignalRoutingSection({
 				{SIGNALS.map((signal) => {
 					const binding = bindingForSignal(signal);
 					const currentDatabase = environmentDatabases[0];
-					const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
+					const value = binding?.sourceId
+						? (binding.sourceId.startsWith("builtin:") ? binding.sourceId : `telemetry:${binding.sourceId}`)
+						: (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
 					const options = sources.filter((source) => parseSignals(source.signals).includes(signal));
 					const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
 					return (
@@ -756,7 +781,6 @@ function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				await new Promise<void>((resolve) => fetchDatabaseConfigList(() => resolve()));
 				toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 				onSaved();
 				return;

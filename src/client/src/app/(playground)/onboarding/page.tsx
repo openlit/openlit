@@ -39,17 +39,12 @@ import {
 	getProjectList,
 } from "@/selectors/project";
 import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
-import {
 	acceptInvitation,
 	declineInvitation,
 	fetchOrganisationList,
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
 import { fetchProjectList } from "@/helpers/client/project";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import { postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
@@ -155,10 +150,9 @@ export default function OnboardingPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const databaseConfigs = useRootStore(getDatabaseConfigList);
-	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const [connectorLoading, setConnectorLoading] = useState(false);
+	const [hasDbConfig, setHasDbConfig] = useState(false);
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const hasDbConfig = Boolean(databaseConfigs?.length);
 	const isSetupComplete = Boolean(currentOrg?.id && hasProject && hasDbConfig);
 	const isInitialising =
 		!currentOrg?.id &&
@@ -186,7 +180,12 @@ export default function OnboardingPage() {
 
 	useEffect(() => {
 		if (currentProject?.id) {
-			fetchDatabaseConfigList(() => {});
+			setConnectorLoading(true);
+			fetch("/api/connectors")
+				.then((response) => response.ok ? response.json() : { connectors: [] })
+				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
+				.catch(() => setHasDbConfig(false))
+				.finally(() => setConnectorLoading(false));
 		}
 	}, [currentProject?.id]);
 
@@ -402,9 +401,9 @@ export default function OnboardingPage() {
 							>
 								{hasProject && !hasDbConfig && currentProject?.id ? (
 									<Button asChild size="sm" className="h-9">
-										<Link href={`/organisation/project/${currentProject.id}?tab=database`}>
+										<Link href={`/organisation/project/${currentProject.id}/connectors`}>
 											<Database className="mr-1.5 h-3.5 w-3.5" />
-											{isDatabaseConfigLoading
+											{connectorLoading
 												? messages.LOADING
 												: messages.ADD_NEW_CONFIG}
 										</Link>

@@ -59,20 +59,15 @@ export default function ConnectorsPage() {
 		setLoadError(null);
 		setConnected([]);
 		setTypes([]);
-		Promise.all([fetch("/api/connectors"), fetch("/api/connectors/types"), fetch("/api/db-config")])
-			.then(async ([connectorResponse, typeResponse, databaseResponse]) => {
+		Promise.all([fetch("/api/connectors"), fetch("/api/connectors/types")])
+			.then(async ([connectorResponse, typeResponse]) => {
 				if (!connectorResponse.ok) throw new Error("Failed to list connected connectors");
 				if (!typeResponse.ok) throw new Error("Failed to list connector types");
-				if (!databaseResponse.ok) throw new Error("Failed to list ClickHouse connectors");
-				const [connectorData, typeData, databases] = await Promise.all([
+				const [connectorData, typeData] = await Promise.all([
 					connectorResponse.json(),
 					typeResponse.json(),
-					databaseResponse.json(),
 				]);
-				setConnected([
-					...(connectorData.connectors || []),
-					...(Array.isArray(databases) ? databases : []).map((database: { id: string; name: string; environment?: string }) => ({ id: `database:${database.id}`, name: database.name, type: "clickhouse", environment: database.environment, icon: "/images/connectors/clickhouse.svg" })),
-				]);
+				setConnected(connectorData.connectors || []);
 				setTypes(typeData.types || []);
 			})
 			.catch((error: unknown) => setLoadError(error instanceof Error ? error.message : messages.DATA_SOURCE_LOAD_FAILED))

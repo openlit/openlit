@@ -6,8 +6,6 @@ import ProjectPageHeader from "./project-page-header";
 import { getCurrentOrganisation } from "@/selectors/organisation";
 import { getCurrentProject, getProjectList } from "@/selectors/project";
 import { changeActiveProject, fetchProjectList } from "@/helpers/client/project";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
-import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import getMessage from "@/constants/messages";
 
@@ -16,7 +14,6 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 	const currentOrg = useRootStore(getCurrentOrganisation);
 	const projects = useRootStore(getProjectList) || [];
 	const currentProject = useRootStore(getCurrentProject);
-	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [projectEnvironments, setProjectEnvironments] = useState<string[]>([]);
 	const project = useMemo(
 		() => projects.find((item) => item.id === projectId) || (currentProject?.id === projectId ? currentProject : { id: projectId, organisationId: "", name: projectId, slug: "-", isDefault: false, isCurrent: false, createdAt: "" }),
@@ -26,7 +23,6 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 	useEffect(() => {
 		if (currentOrg?.id) {
 			fetchProjectList(currentOrg.id);
-			fetchDatabaseConfigList(() => undefined);
 			fetch("/api/project/environment").then((response) => response.ok ? response.json() : { environments: [] }).then((body) => {
 				setProjectEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name)])));
 			}).catch(() => undefined);
@@ -47,7 +43,6 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 	const environments = Array.from(
 		new Set([
 			...projectEnvironments,
-			...databaseConfigs.map((config) => config.environment || "production"),
 		])
 	);
 
@@ -82,7 +77,7 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 
 				<section className="grid gap-4 md:grid-cols-2">
 					<InfoCard label={messages.PROJECT_ID} value={project?.id || "-"} mono />
-					<InfoCard label={messages.PROJECT_CONNECTION_COUNT} value={`${databaseConfigs.length}`} />
+					<InfoCard label={messages.PROJECT_CONNECTION_COUNT} value={`${environments.length}`} />
 				</section>
 			</main>
 		</div>
