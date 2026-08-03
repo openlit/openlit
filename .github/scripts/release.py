@@ -25,6 +25,7 @@ PRIMARY_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 MAX_PATCH_CHARS_PER_FILE = 6000
 MAX_PATCH_CHARS_PER_PR = 60_000
+MAX_FILES_PER_PR_SUMMARY = 200
 MAX_EVIDENCE_CHARS_PER_CALL = 350_000
 MAX_MODEL_CALLS = 40
 MAX_RELEASE_BODY_CHARS = 120_000
@@ -329,6 +330,43 @@ def collect_prs(
     return sorted(prs.values(), key=lambda item: (item["merged_at"], item["number"])), direct
 
 
+def collect_single_pr(github: GitHub, number: int) -> dict[str, Any]:
+    pr = github.get(f"/pulls/{number}")
+    if not pr.get("merged_at") or pr.get("base", {}).get("ref") != "main":
+        raise ReleaseError(f"PR #{number} must be merged into main")
+    files = github.paginated(f"/pulls/{number}/files")
+    evidence_files: list[dict[str, Any]] = []
+    patch_budget = MAX_PATCH_CHARS_PER_PR
+    for file in files[:MAX_FILES_PER_PR_SUMMARY]:
+        patch = (file.get("patch") or "")[: min(MAX_PATCH_CHARS_PER_FILE, patch_budget)]
+        patch_budget -= len(patch)
+        evidence_files.append(
+            {
+                "filename": file["filename"],
+                "previous_filename": file.get("previous_filename"),
+                "status": file.get("status"),
+                "additions": file.get("additions", 0),
+                "deletions": file.get("deletions", 0),
+                "patch": patch,
+            }
+        )
+    return {
+        "number": number,
+        "title": pr["title"],
+        "body": (pr.get("body") or "")[:20_000],
+        "author": pr.get("user", {}).get("login", "unknown"),
+        "html_url": pr["html_url"],
+        "merged_at": pr["merged_at"],
+        "change_summary": {
+            "changed_files": pr.get("changed_files", len(files)),
+            "additions": pr.get("additions", 0),
+            "deletions": pr.get("deletions", 0),
+            "included_files": min(len(files), MAX_FILES_PER_PR_SUMMARY),
+        },
+        "files": evidence_files,
+    }
+
+
 def extract_json(content: str) -> Any:
     content = content.strip()
     if content.startswith("```"):
@@ -476,6 +514,24 @@ def render_notes(tool_name: str, version: str, prs: list[dict[str, Any]], summar
     if len(notes) > MAX_RELEASE_BODY_CHARS:
         raise ReleaseError(f"release notes exceed {MAX_RELEASE_BODY_CHARS} characters")
     return notes
+
+
+def summarize_pr(args: argparse.Namespace) -> None:
+    github = GitHub(args.repository, os.environ["GITHUB_TOKEN"])
+    pr = collect_single_pr(github, args.pr_number)
+    router = OpenRouter(
+        os.environ["OPENROUTER_API_KEY"],
+        os.environ.get("RELEASE_LLM_PRIMARY_MODEL") or PRIMARY_MODEL,
+        os.environ.get("RELEASE_LLM_FALLBACK_MODEL") or FALLBACK_MODEL,
+    )
+    summary = router.summarize("OpenLIT", [pr])[0]
+    body = (
+        "<!-- openlit-merged-pr-summary -->\n"
+        "## Merged PR summary\n\n"
+        f"**{summary['category']}** — {summary['summary']}\n\n"
+        "_Generated from the merged PR title, description, and bounded file evidence._\n"
+    )
+    Path(args.output).write_text(body, encoding="utf-8")
 
 
 def write_output(name: str, value: str) -> None:
@@ -679,6 +735,11 @@ def main() -> int:
     bump_parser = subparsers.add_parser("bump")
     bump_parser.add_argument("--metadata", required=True)
     bump_parser.set_defaults(func=bump)
+    summarize_pr_parser = subparsers.add_parser("summarize-pr")
+    summarize_pr_parser.add_argument("--repository", required=True)
+    summarize_pr_parser.add_argument("--pr-number", required=True, type=int)
+    summarize_pr_parser.add_argument("--output", required=True)
+    summarize_pr_parser.set_defaults(func=summarize_pr)
     args = parser.parse_args()
     try:
         args.func(args)

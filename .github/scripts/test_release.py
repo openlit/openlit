@@ -50,6 +50,7 @@ class ReleaseTests(unittest.TestCase):
             *(f"release-{component}.yml" for component in components),
             "admin-enterprise-sync.yml",
             "admin-pr-management.yml",
+            "admin-pr-summary.yml",
             "ci-automation.yml",
             "ci-pricing.yml",
             "release-packages.yml",
@@ -92,6 +93,17 @@ class ReleaseTests(unittest.TestCase):
             release.validate_summaries(valid, {10, 11})
         with self.assertRaises(release.ReleaseError):
             release.validate_summaries({"items": valid["items"] * 2}, {10})
+
+    def test_merged_pr_summary_has_a_stable_comment_marker(self):
+        summary = {"category": "Fixes", "summary": "Corrects streaming output."}
+        body = (
+            "<!-- openlit-merged-pr-summary -->\n"
+            "## Merged PR summary\n\n"
+            f"**{summary['category']}** — {summary['summary']}\n\n"
+            "_Generated from the merged PR title, description, and bounded file evidence._\n"
+        )
+        self.assertIn("<!-- openlit-merged-pr-summary -->", body)
+        self.assertIn("**Fixes** — Corrects streaming output.", body)
 
     def test_summary_rejects_links_and_unknown_categories(self):
         cases = [
