@@ -1,0 +1,41 @@
+name: Cache merged PR release summary
+
+on:
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: release-summary-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  summarize:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release-notes
+    steps:
+      # Never check out or execute the PR head. The merged main branch is the
+      # trusted source for the release engine; PR content is read through APIs.
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Generate and cache tool-scoped summaries
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          RELEASE_LLM_PRIMARY_MODEL: ${{ vars.RELEASE_LLM_PRIMARY_MODEL }}
+          RELEASE_LLM_FALLBACK_MODEL: ${{ vars.RELEASE_LLM_FALLBACK_MODEL }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 .github/scripts/release.py summarize-pr \
+            --repository "$REPOSITORY" \
+            --pr-number "$PR_NUMBER"

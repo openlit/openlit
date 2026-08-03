@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -41,6 +42,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(tag, "otel-gpu-collector-0.0.8")
         self.assertEqual((key, version, tool["publisher"]), ("gpu-collector", "0.0.8", "gpu-collector"))
 
+        friendly_tag, friendly_key, _, _ = release.resolve_release_identity(
+            self.config, tool_key="OTel GPU Collector", version="0.0.8"
+        )
+        self.assertEqual((friendly_tag, friendly_key), (tag, key))
+
     def test_tool_and_version_reject_unknown_tool_or_invalid_version(self):
         with self.assertRaises(release.ReleaseError):
             release.resolve_release_identity(self.config, tool_key="unknown", version="1.2.3")
@@ -56,6 +62,110 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(release.path_matches("docs/old.md", ["sdk/python/**"], "sdk/python/old.py"))
         self.assertFalse(release.path_matches("sdk/typescript/index.ts", ["sdk/python/**"]))
 
+    def test_multi_tool_pr_body_is_excluded_from_tool_evidence(self):
+        body = "TypeScript threshold change plus unrelated API endpoints"
+        self.assertEqual(release.body_for_tool_evidence(body, "contributor", True), "")
+        self.assertEqual(release.body_for_tool_evidence(body, "contributor", False), body)
+
+    def test_large_pr_evidence_keeps_files_but_bounds_patches(self):
+        files = [
+            {
+                "filename": f"sdk/python/file_{index}.py",
+                "status": "modified",
+                "additions": 100,
+                "deletions": 10,
+                "patch": "+" + ("x" * 10_000),
+            }
+            for index in range(100)
+        ]
+        evidence = release.scoped_file_evidence(files, ["sdk/python/**"])
+        self.assertEqual(len(evidence), 100)
+        self.assertLessEqual(sum(len(file["patch"]) for file in evidence), release.MAX_PATCH_CHARS_PER_PR)
+        self.assertTrue(all(len(file["patch"]) <= release.MAX_PATCH_CHARS_PER_FILE for file in evidence))
+
+        lock_evidence = release.scoped_file_evidence(
+            [{"filename": "sdk/python/poetry.lock", "patch": "+generated"}],
+            ["sdk/python/**"],
+        )
+        self.assertEqual(lock_evidence[0]["patch"], "")
+
+    def test_cached_release_summary_requires_bot_authorship_and_matching_digest(self):
+        pr = {
+            "number": 42,
+            "merge_commit_sha": "a" * 40,
+            "files_digest": "b" * 64,
+        }
+        payload = {
+            "schema_version": release.RELEASE_SUMMARY_SCHEMA,
+            "pr_number": 42,
+            "merge_commit_sha": "a" * 40,
+            "files_digest": "b" * 64,
+            "tools": {
+                "typescript": {
+                    "category": "Features",
+                    "summary": "Adds cached token pricing.",
+                }
+            },
+        }
+        body = release.release_summary_comment(payload, self.config)
+        self.assertEqual(release.parse_release_summary_comment(body), payload)
+        self.assertEqual(
+            release.validate_cached_summary(payload, pr, "typescript")["number"],
+            42,
+        )
+
+        class Comments:
+            @staticmethod
+            def paginated(_endpoint):
+                return [
+                    {"user": {"login": "attacker"}, "body": body},
+                    {"user": {"login": "github-actions[bot]"}, "body": body},
+                ]
+
+        self.assertIsNotNone(release.cached_summary_for_pr(Comments(), pr, "typescript"))
+
+        class AttackerOnly:
+            @staticmethod
+            def paginated(_endpoint):
+                return [{"user": {"login": "attacker"}, "body": body}]
+
+        self.assertIsNone(release.cached_summary_for_pr(AttackerOnly(), pr, "typescript"))
+        tampered = dict(payload)
+        tampered["files_digest"] = "c" * 64
+        with self.assertRaises(release.ReleaseError):
+            release.validate_cached_summary(tampered, pr, "typescript")
+
+    def test_release_notes_render_human_contributor_mentions(self):
+        prs = [
+            {"number": 1, "html_url": "https://github.com/openlit/openlit/pull/1", "author": "alice"},
+            {"number": 2, "html_url": "https://github.com/openlit/openlit/pull/2", "author": "dependabot[bot]"},
+            {"number": 3, "html_url": "https://github.com/openlit/openlit/pull/3", "author": "alice"},
+        ]
+        summaries = [
+            {"number": 1, "category": "Features", "summary": "Adds tracing."},
+            {"number": 2, "category": "Dependencies", "summary": "Updates a dependency."},
+            {"number": 3, "category": "Fixes", "summary": "Fixes exporting."},
+        ]
+        notes = release.render_notes("Python SDK", "1.2.3", prs, summaries)
+        self.assertIn("## Contributors", notes)
+        self.assertEqual(notes.count("@alice"), 1)
+        self.assertNotIn("dependabot", notes.split("## Contributors", 1)[1])
+
+    def test_registry_defines_friendly_names_and_release_titles(self):
+        expected = {
+            "python": ("Python SDK", "python-sdk"),
+            "typescript": ("TypeScript SDK", "typescript-sdk"),
+            "go": ("Go SDK", "go-sdk"),
+            "cli": ("CLI", "cli"),
+            "controller": ("Controller", "controller"),
+            "openlit": ("OpenLIT", "openlit"),
+            "gpu-collector": ("OTel GPU Collector", "otel-gpu-collector"),
+        }
+        self.assertEqual(
+            {key: (tool["display_name"], tool["release_name"]) for key, tool in self.config.items()},
+            expected,
+        )
+
     def test_summary_validation_requires_exact_pr_set(self):
         valid = {"items": [{"number": 10, "category": "Fixes", "summary": "Corrects streaming output."}]}
         self.assertEqual(release.validate_summaries(valid, {10})[0]["number"], 10)
@@ -63,6 +173,134 @@ class ReleaseTests(unittest.TestCase):
             release.validate_summaries(valid, {10, 11})
         with self.assertRaises(release.ReleaseError):
             release.validate_summaries({"items": valid["items"] * 2}, {10})
+
+    def test_tool_summary_validation_requires_exact_tool_set(self):
+        value = {
+            "items": [
+                {"tool": "python", "category": "Features", "summary": "Adds tracing."},
+                {"tool": "typescript", "category": "Fixes", "summary": "Fixes exporting."},
+            ]
+        }
+        validated = release.validate_tool_summaries(value, {"python", "typescript"})
+        self.assertEqual(set(validated), {"python", "typescript"})
+        with self.assertRaises(release.ReleaseError):
+            release.validate_tool_summaries(value, {"python"})
+
+    def test_post_merge_summary_caches_all_affected_tools_in_one_call(self):
+        pr = {
+            "number": 42,
+            "title": "Update both SDKs",
+            "body": "This body mentions both SDKs.",
+            "html_url": "https://github.com/openlit/openlit/pull/42",
+            "merged_at": "2026-08-02T12:00:00Z",
+            "merge_commit_sha": "a" * 40,
+            "changed_files": 2,
+            "base": {"ref": "main"},
+            "user": {"login": "contributor"},
+        }
+        files = [
+            {
+                "filename": "sdk/python/openlit/client.py",
+                "status": "modified",
+                "additions": 3,
+                "deletions": 1,
+                "patch": "+python change",
+            },
+            {
+                "filename": "sdk/typescript/src/client.ts",
+                "status": "modified",
+                "additions": 4,
+                "deletions": 2,
+                "patch": "+typescript change",
+            },
+        ]
+        created_comments = []
+        calls = []
+
+        class FakeGitHub:
+            def __init__(self, repository, token):
+                self.repository = repository
+                self.token = token
+
+            @staticmethod
+            def get(endpoint):
+                self.assertEqual(endpoint, "/pulls/42")
+                return pr
+
+            @staticmethod
+            def paginated(endpoint):
+                if endpoint == "/pulls/42/files":
+                    return files
+                if endpoint == "/issues/42/comments":
+                    return []
+                raise AssertionError(endpoint)
+
+            @staticmethod
+            def post(endpoint, payload):
+                created_comments.append((endpoint, payload))
+
+            @staticmethod
+            def patch(endpoint, payload):
+                raise AssertionError((endpoint, payload))
+
+        class FakeOpenRouter:
+            def __init__(self, api_key, primary, fallback):
+                self.api_key = api_key
+
+            @staticmethod
+            def summarize_tools(evidence_by_tool):
+                calls.append(evidence_by_tool)
+                return {
+                    "python": {"category": "Features", "summary": "Adds Python SDK support."},
+                    "typescript": {
+                        "category": "Fixes",
+                        "summary": "Corrects TypeScript SDK behavior.",
+                    },
+                }
+
+        original_github = release.GitHub
+        original_router = release.OpenRouter
+        original_token = os.environ.get("GITHUB_TOKEN")
+        original_key = os.environ.get("OPENROUTER_API_KEY")
+        try:
+            release.GitHub = FakeGitHub
+            release.OpenRouter = FakeOpenRouter
+            os.environ["GITHUB_TOKEN"] = "test-token"
+            os.environ["OPENROUTER_API_KEY"] = "test-key"
+            release.summarize_pr(
+                Namespace(
+                    config=str(release.DEFAULT_CONFIG),
+                    repository="openlit/openlit",
+                    pr_number=42,
+                )
+            )
+        finally:
+            release.GitHub = original_github
+            release.OpenRouter = original_router
+            if original_token is None:
+                os.environ.pop("GITHUB_TOKEN", None)
+            else:
+                os.environ["GITHUB_TOKEN"] = original_token
+            if original_key is None:
+                os.environ.pop("OPENROUTER_API_KEY", None)
+            else:
+                os.environ["OPENROUTER_API_KEY"] = original_key
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(set(calls[0]), {"python", "typescript"})
+        self.assertEqual(len(created_comments), 1)
+        self.assertEqual(created_comments[0][0], "/issues/42/comments")
+        cached = release.parse_release_summary_comment(created_comments[0][1]["body"])
+        self.assertIsNotNone(cached)
+        self.assertEqual(set(cached["tools"]), {"python", "typescript"})
+        self.assertEqual(cached["files_digest"], release.files_digest(files))
+
+    def test_file_digest_is_independent_of_github_pagination_order(self):
+        files = [
+            {"filename": "sdk/python/b.py", "status": "modified", "additions": 2, "deletions": 0},
+            {"filename": "sdk/python/a.py", "status": "renamed", "previous_filename": "old.py"},
+        ]
+        self.assertEqual(release.files_digest(files), release.files_digest(list(reversed(files))))
 
     def test_summary_rejects_links_and_unknown_categories(self):
         cases = [

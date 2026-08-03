@@ -6,6 +6,7 @@ on:
       - '.github/release-tools.json'
       - '.github/scripts/**'
       - '.github/workflows/**release*.yml'
+      - '.github/workflows/summarize-merged-pr.yml'
       - '.github/workflows/go-tests.yml'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - '.github/release-tools.json'
       - '.github/scripts/**'
       - '.github/workflows/**release*.yml'
+      - '.github/workflows/summarize-merged-pr.yml'
       - '.github/workflows/go-tests.yml'
 
 permissions:
@@ -40,6 +42,7 @@ jobs:
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 \
             .github/workflows/release.yml \
             .github/workflows/release-tests.yml \
+            .github/workflows/summarize-merged-pr.yml \
             .github/workflows/cli-release.yml \
             .github/workflows/controller-release.yml \
             .github/workflows/go-release.yml \

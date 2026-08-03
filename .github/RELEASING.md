@@ -20,6 +20,21 @@ The `Release packages` workflow generates notes for merged PRs that changed
 the selected tool, validates the tool, updates persistent version files when
 configured, publishes the artifact, and creates the GitHub Release.
 
+The workflow shows friendly tool names in its dropdown and derives both the tag
+and release title from the registry. For example, **Python SDK** version
+`1.45.0` creates tag `py-1.45.0` with release title `python-sdk: 1.45.0`.
+Release notes end with deduplicated contributor profile avatars for human PR
+authors; bot accounts are excluded.
+
+After a PR is merged into `main`, `Cache merged PR release summary` partitions
+its files using the same registry, generates one bounded summary per affected
+tool, and writes a structured bot comment on the merged PR. Release preparation
+validates the comment's merge SHA, changed-file digest, schema, tool, category,
+and summary before reuse. Missing, stale, malformed, or non-bot comments are
+ignored and regenerated during the release, so this cache cannot block releases.
+Patch evidence is capped per file and per tool; filenames and change statistics
+remain available for large PRs without sending the complete diff to the model.
+
 For tools with a persistent version, the source may either still contain the
 previous release version or already contain the exact version named by the new
 tag. In the latter case the workflow validates the configured version files and
@@ -43,6 +58,15 @@ Create a `release` Actions environment without human reviewers and configure:
 - Environment secret `OPENROUTER_API_KEY`: the OpenRouter API key
 - Optional repository variable `RELEASE_LLM_PRIMARY_MODEL`
 - Optional repository variable `RELEASE_LLM_FALLBACK_MODEL`
+
+Create a separate `release-notes` environment for the post-merge cache workflow:
+
+- Environment secret `OPENROUTER_API_KEY`: the OpenRouter API key
+- Optional environment variables `RELEASE_LLM_PRIMARY_MODEL` and
+  `RELEASE_LLM_FALLBACK_MODEL`, or use the repository variables above
+
+Do not put the release App private key or publishing credentials in the
+`release-notes` environment. Restrict its deployment branch policy to `main`.
 
 `Release packages` checks the triggering actor's repository permission before
 entering the release environment and fails unless it is `admin`. GitHub may
