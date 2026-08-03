@@ -139,17 +139,12 @@ export default function DatabaseConfigSwitch({
             <DropdownMenuLabel>Environments</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {environments.map((environment) => {
-              const target = databasesByEnvironment[environment.name]?.[0];
               return (
                 <DropdownMenuItem
                   key={environment.name}
                   onSelect={() => void selectEnvironment(environment.name)}
-                  className="flex items-start justify-between gap-3"
                 >
                   <span className="font-medium">{environment.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {target?.name || "No database selected"}
-                  </span>
                 </DropdownMenuItem>
               );
             })}

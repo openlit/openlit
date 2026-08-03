@@ -331,6 +331,16 @@ export default function DataSourcesPage({
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
+			{showRouting && (
+				<SignalRoutingSection
+					environment={environment}
+					databaseConfigs={databaseConfigs}
+					sources={visibleSources}
+					descriptors={descriptors}
+					bindingForSignal={bindingForSignal}
+					onSetBinding={setBinding}
+				/>
+			)}
 			<section className="grid gap-3 border border-stone-200 bg-white p-4 md:grid-cols-2 dark:border-stone-800 dark:bg-stone-950">
 				<div className="-mx-4 -mt-4 flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 p-4 md:col-span-2 dark:border-stone-800">
 					<div>
@@ -456,27 +466,6 @@ export default function DataSourcesPage({
 			</div>
 			</section>
 
-			{/* Per-signal routing */}
-			{showRouting && (
-			<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
-				<div className="mb-1 flex items-center gap-2">
-					<Database className="h-4 w-4 text-primary" />
-					<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_SIGNAL_ROUTING_TITLE}</h2>
-				</div>
-				<p className="mb-3 text-xs text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION}</p>
-				<div className="grid gap-3 sm:grid-cols-3">
-					{SIGNALS.map((signal) => {
-						const binding = bindingForSignal(signal);
-						const currentDatabase = environmentDatabases[0];
-						const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
-						const options = visibleSources.filter((s) => parseSignals(s.signals).includes(signal));
-						const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
-						return <div key={signal} className="space-y-1.5"><Label className="text-xs uppercase text-muted-foreground">{label}</Label><Select value={value} onValueChange={(v) => setBinding(signal, v)}><SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue /></SelectTrigger><SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}{options.map((s) => <ConnectorOption key={s.id} value={s.id} name={s.name} type={s.type} detail={environment} icon={descriptors.find((d) => d.type === s.type)?.icon} />)}</SelectContent></Select></div>;
-					})}
-				</div>
-			</section>
-			)}
-
 			{editing && (
 					<SourceFormDialog
 						source={editing === "new" ? null : editing}
@@ -568,6 +557,58 @@ function FieldInput({
 				className="bg-white dark:bg-stone-900"
 			/>
 		</div>
+	);
+}
+
+function SignalRoutingSection({
+	environment,
+	databaseConfigs,
+	sources,
+	descriptors,
+	bindingForSignal,
+	onSetBinding,
+}: {
+	environment: string;
+	databaseConfigs: any[];
+	sources: SourceRow[];
+	descriptors: TypeDescriptor[];
+	bindingForSignal: (signal: Signal) => BindingRow | undefined;
+	onSetBinding: (signal: Signal, sourceId: string) => Promise<void>;
+}) {
+	const messages = getMessage();
+	const environmentDatabases = databaseConfigs.filter(
+		(db) => (db.environment || "production").toLowerCase() === environment
+	);
+	return (
+		<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+			<div className="mb-1 flex items-center gap-2">
+				<Database className="h-4 w-4 text-primary" />
+				<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_SIGNAL_ROUTING_TITLE}</h2>
+			</div>
+			<p className="mb-3 text-xs text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION}</p>
+			<div className="grid gap-3 sm:grid-cols-3">
+				{SIGNALS.map((signal) => {
+					const binding = bindingForSignal(signal);
+					const currentDatabase = environmentDatabases[0];
+					const value = binding?.sourceId || (currentDatabase ? `builtin:${currentDatabase.id}` : BUILTIN);
+					const options = sources.filter((source) => parseSignals(source.signals).includes(signal));
+					const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
+					return (
+						<div key={signal} className="space-y-1.5">
+							<Label className="text-xs uppercase text-muted-foreground">{label}</Label>
+							<Select value={value} onValueChange={(next) => onSetBinding(signal, next)}>
+								<SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue /></SelectTrigger>
+								<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
+									{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
+									{environmentDatabases.length === 0 && <ConnectorOption value={BUILTIN} name={messages.DATA_SOURCE_SIGNAL_BUILTIN_OPTION} type="ClickHouse" detail="No database configured" icon="/images/connectors/clickhouse.svg" />}
+									{options.map((source) => <ConnectorOption key={source.id} value={source.id} name={source.name} type={source.type} detail={environment} icon={descriptors.find((descriptor) => descriptor.type === source.type)?.icon} />)}
+								</SelectContent>
+							</Select>
+						</div>
+					);
+				})}
+			</div>
+		</section>
 	);
 }
 
