@@ -28,6 +28,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-24.04
     timeout-minutes: 2
+    environment: release-notes
     steps:
       - name: Check title convention
         id: convention
@@ -59,7 +60,10 @@ jobs:
           PR_DELETIONS: ${{ github.event.pull_request.deletions }}
         run: |
           set -euo pipefail
-          test -n "$OPENROUTER_API_KEY"
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "::error::OPENROUTER_API_KEY is not configured in the release-notes environment"
+            exit 1
+          fi
 
           # Title quality needs change context, but not source code. This is
           # bounded so large PRs cannot create oversized model requests. For
@@ -115,7 +119,7 @@ jobs:
             echo "::warning::PR title model $MODEL returned an invalid title; trying fallback"
           done
 
-          echo "::error::No configured PR title model returned a valid title"
+          echo "::error title=Manual PR title required::No configured model returned a valid title. Set it to 'type: lowercase summary' or 'type(scope): lowercase summary'."
           exit 1
 
       - name: Update pull request title
@@ -128,3 +132,49 @@ jobs:
           set -euo pipefail
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
             -f title="$PR_TITLE"
+
+      - name: Recommend a manual conventional title
+        if: failure() && steps.convention.outputs.valid != 'true'
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const marker = '<!-- openlit-pr-title-help -->';
+            const body = [
+              marker,
+              '',
+              'Automated title normalization could not complete. Please update this PR title manually using Conventional Commit format:',
+              '',
+              '- `type: lowercase summary`',
+              '- `type(scope): lowercase summary`',
+              '',
+              'Allowed types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`, `style`, or `revert`.',
+              '',
+              'Examples: `ci: fix automation workflows` or `fix(python): handle streaming responses`. Keep the title at 120 characters or fewer.',
+            ].join('\n');
+            const issue_number = Number(process.env.PR_NUMBER);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.login === 'github-actions[bot]' && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body,
+              });
+            }

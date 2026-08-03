@@ -8,13 +8,13 @@ on:
         required: true
         type: choice
         options:
-          - python
-          - typescript
-          - go
-          - cli
-          - controller
-          - gpu-collector
-          - openlit
+          - Python SDK
+          - TypeScript SDK
+          - Go SDK
+          - CLI
+          - Controller
+          - OTel GPU Collector
+          - OpenLIT
       version:
         description: Stable SemVer without a prefix, for example 1.45.0
         required: true
@@ -66,6 +66,7 @@ jobs:
       version: ${{ steps.prepare.outputs.version }}
       source_sha: ${{ steps.prepare.outputs.source_sha }}
       version_strategy: ${{ steps.prepare.outputs.version_strategy }}
+      release_title: ${{ steps.prepare.outputs.release_title }}
       tag: ${{ steps.prepare.outputs.tag }}
       dry_run: ${{ steps.context.outputs.dry_run }}
     steps:
@@ -435,11 +436,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_TITLE: ${{ needs.prepare.outputs.release_title }}
           REPOSITORY: ${{ github.repository }}
         run: |
           gh release create "$RELEASE_TAG" \
             --repo "$REPOSITORY" \
-            --title "$RELEASE_TAG" \
+            --title "$RELEASE_TITLE" \
             --notes-file release-output/release-notes.md
           if [ -d release-assets ] && find release-assets -type f -print -quit | grep -q .; then
             gh release upload "$RELEASE_TAG" --repo "$REPOSITORY" release-assets/*

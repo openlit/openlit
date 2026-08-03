@@ -6,23 +6,31 @@ name: Admin / PR Summary
 on:
   pull_request_target:
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Merged pull request number to summarize
+        required: true
+        type: number
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: read
+  pull-requests: write
 
 concurrency:
-  group: pr-summary-${{ github.event.pull_request.number }}
+  group: pr-summary-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: false
 
 jobs:
   summarize:
     name: Summarize / Merged pull request
-    if: github.repository == 'openlit/openlit' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: >-
+      github.repository == 'openlit/openlit' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: release
+    environment: release-notes
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@v7
@@ -38,7 +46,7 @@ jobs:
           RELEASE_LLM_PRIMARY_MODEL: ${{ vars.RELEASE_LLM_PRIMARY_MODEL }}
           RELEASE_LLM_FALLBACK_MODEL: ${{ vars.RELEASE_LLM_FALLBACK_MODEL }}
           REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
           python3 .github/scripts/release.py summarize-pr \
             --repository "$REPOSITORY" \
@@ -48,7 +56,7 @@ jobs:
       - name: Create or update summary comment
         uses: actions/github-script@v9
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         with:
           script: |
             const fs = require('fs');

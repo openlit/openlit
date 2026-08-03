@@ -65,12 +65,37 @@ class ReleaseTests(unittest.TestCase):
             publisher = tool["publisher"]
             self.assertIn(f"./.github/workflows/release-{publisher}.yml", orchestrator)
 
+        pr_summary = (workflow_directory / "admin-pr-summary.yml").read_text(encoding="utf-8")
+        self.assertIn("pull-requests: write", pr_summary)
+        self.assertNotIn("issues: write", pr_summary)
+        self.assertIn("workflow_dispatch:", pr_summary)
+        self.assertIn("pr_number:", pr_summary)
+        self.assertIn("environment: release-notes", pr_summary)
+
+        pr_management = (workflow_directory / "admin-pr-management.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("environment: release-notes", pr_management)
+        self.assertIn("OPENROUTER_API_KEY is not configured", pr_management)
+        self.assertIn("Manual PR title required", pr_management)
+        self.assertIn("openlit-pr-title-help", pr_management)
+        self.assertIn("type(scope): lowercase summary", pr_management)
+
+        for tool in self.config.values():
+            self.assertIn(f"- {tool['display_name']}", orchestrator)
+
     def test_tool_and_version_construct_release_tag(self):
         tag, key, version, tool = release.resolve_release_identity(
             self.config, tool_key="gpu-collector", version="0.0.8"
         )
         self.assertEqual(tag, "otel-gpu-collector-0.0.8")
         self.assertEqual((key, version, tool["publisher"]), ("gpu-collector", "0.0.8", "gpu-collector"))
+
+        tag, key, version, tool = release.resolve_release_identity(
+            self.config, tool_key="OTel GPU Collector", version="0.0.8"
+        )
+        self.assertEqual(tag, "otel-gpu-collector-0.0.8")
+        self.assertEqual((key, version, tool["release_name"]), ("gpu-collector", "0.0.8", "otel-gpu-collector"))
 
     def test_tool_and_version_reject_unknown_tool_or_invalid_version(self):
         with self.assertRaises(release.ReleaseError):
@@ -94,6 +119,21 @@ class ReleaseTests(unittest.TestCase):
             release.validate_summaries(valid, {10, 11})
         with self.assertRaises(release.ReleaseError):
             release.validate_summaries({"items": valid["items"] * 2}, {10})
+
+    def test_component_summary_validation_requires_exact_component_set(self):
+        value = {
+            "items": [
+                {"tool": "python", "category": "Fixes", "summary": "Corrects tracing."},
+                {"tool": "typescript", "category": "Features", "summary": "Adds tracing."},
+            ]
+        }
+        validated = release.validate_component_summaries(
+            value,
+            {"python", "typescript"},
+        )
+        self.assertEqual(set(validated), {"python", "typescript"})
+        with self.assertRaises(release.ReleaseError):
+            release.validate_component_summaries(value, {"python"})
 
     def test_merged_pr_summary_cache_round_trips_multiple_tools(self):
         pr = {"number": 10, "merge_commit_sha": "a" * 40}
@@ -305,18 +345,21 @@ class ReleaseTests(unittest.TestCase):
                 raise AssertionError(f"unexpected pagination: {endpoint}")
 
         class SummaryRouter:
+            calls = 0
+
             def __init__(self, *_args):
                 pass
 
-            @staticmethod
-            def summarize(tool_name, prs):
-                return [
-                    {
-                        "number": prs[0]["number"],
+            @classmethod
+            def summarize_components(cls, evidence_by_component):
+                cls.calls += 1
+                return {
+                    key: {
                         "category": "Features",
-                        "summary": f"Updates {tool_name}.",
+                        "summary": f"Updates {value['component_name']}.",
                     }
-                ]
+                    for key, value in evidence_by_component.items()
+                }
 
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "summary.md"
@@ -339,6 +382,7 @@ class ReleaseTests(unittest.TestCase):
             body = output.read_text(encoding="utf-8")
         decoded = release.decode_summary_cache(body, 10, "a" * 40, self.config)
         self.assertEqual(set(decoded), {"python", "typescript"})
+        self.assertEqual(SummaryRouter.calls, 1)
 
     def test_large_pr_evidence_is_component_scoped_and_bounded(self):
         pr = {
@@ -381,6 +425,60 @@ class ReleaseTests(unittest.TestCase):
             release.MAX_PATCH_CHARS_PER_PR,
         )
         self.assertNotIn("sdk/typescript/src/unrelated.ts", [file["filename"] for file in evidence["files"]])
+
+    def test_component_evidence_suppresses_cross_component_body_and_noisy_patches(self):
+        pr = {
+            "number": 10,
+            "title": "feat: update SDKs",
+            "body": "Adds a TypeScript exporter that must not leak into Python notes.",
+            "user": {"login": "contributor"},
+            "html_url": "https://github.test/pulls/10",
+            "merged_at": "2026-08-03T00:00:00Z",
+        }
+        files = [
+            {
+                "filename": "sdk/python/package-lock.json",
+                "status": "modified",
+                "patch": "+very noisy lockfile",
+            },
+            {
+                "filename": "sdk/python/src/openlit/provider.py",
+                "status": "modified",
+                "patch": "+provider fix",
+            },
+            {
+                "filename": "sdk/typescript/src/exporter.ts",
+                "status": "modified",
+                "patch": "+exporter",
+            },
+        ]
+        evidence = release.build_pr_evidence(pr, files, self.config["python"]["paths"])
+        assert evidence
+        self.assertEqual(evidence["body"], "")
+        by_name = {file["filename"]: file for file in evidence["files"]}
+        self.assertEqual(by_name["sdk/python/package-lock.json"]["patch"], "")
+        self.assertEqual(
+            by_name["sdk/python/src/openlit/provider.py"]["patch"],
+            "+provider fix",
+        )
+
+    def test_release_notes_include_deduplicated_human_contributors(self):
+        prs = [
+            {"number": 1, "html_url": "https://github.test/1", "author": "Octo-Cat"},
+            {"number": 2, "html_url": "https://github.test/2", "author": "octo-cat"},
+            {"number": 3, "html_url": "https://github.test/3", "author": "dependabot[bot]"},
+            {"number": 4, "html_url": "https://github.test/4", "author": "invalid_login!"},
+        ]
+        summaries = [
+            {"number": number, "category": "Maintenance", "summary": f"Updates item {number}."}
+            for number in range(1, 5)
+        ]
+        notes = release.render_notes("Python SDK", "1.2.3", prs, summaries)
+        self.assertIn("## Contributors", notes)
+        self.assertIn("@Octo-Cat", notes)
+        self.assertNotIn("@octo-cat", notes)
+        self.assertNotIn("dependabot", notes)
+        self.assertNotIn("invalid_login", notes)
 
     def test_pr_file_list_is_capped_without_git_reconstruction(self):
         pr = {
