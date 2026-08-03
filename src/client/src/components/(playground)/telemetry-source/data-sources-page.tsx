@@ -176,10 +176,8 @@ export default function DataSourcesPage({
 	const [sources, setSources] = useState<SourceRow[]>([]);
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
-	const [templates, setTemplates] = useState<StackTemplate[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
 	const [newType, setNewType] = useState<string | undefined>();
-	const [stackOpen, setStackOpen] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const environment = currentProjectEnvironment || "production";
 	const visibleSources = useMemo(
@@ -193,15 +191,13 @@ export default function DataSourcesPage({
 		setSources([]);
 		setBindings([]);
 		try {
-			const [list, binds, stacks] = await Promise.all([
-				jsonFetch("/api/telemetry-source"),
+			const [list, binds] = await Promise.all([
+				jsonFetch("/api/connectors"),
 				jsonFetch("/api/telemetry-source/binding"),
-				jsonFetch("/api/telemetry-source/stack"),
 			]);
-			setSources(list?.sources || []);
+			setSources((list?.connectors || []).filter((connector: SourceRow) => connector.type !== "clickhouse"));
 			setDescriptors(list?.availableTypeDescriptors || []);
 			setBindings(binds?.bindings || []);
-			setTemplates(stacks?.templates || []);
 		} catch (e: any) {
 			const message = e?.message || messages.DATA_SOURCE_LOAD_FAILED;
 			setLoadError(message);
@@ -263,7 +259,7 @@ export default function DataSourcesPage({
 		if (!window.confirm(messages.DATA_SOURCE_DELETE_CONFIRM(row.name))) return;
 		toast.loading(messages.DATA_SOURCE_DELETED, { id: "ds-del" });
 		try {
-			await jsonFetch(`/api/telemetry-source/${row.id}`, { method: "DELETE" });
+			await jsonFetch(`/api/connectors/${row.id}`, { method: "DELETE" });
 			toast.success(messages.DATA_SOURCE_DELETED, { id: "ds-del" });
 			await load();
 		} catch (e: any) {
@@ -277,7 +273,7 @@ export default function DataSourcesPage({
 		setTestingId(row.id);
 		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
 		try {
-			const res = await jsonFetch(`/api/telemetry-source/${row.id}/health`);
+			const res = await jsonFetch(`/api/connectors/${row.id}/health`);
 			const health = res?.health;
 			const validation = res?.validation;
 			if (!health?.ok) {
@@ -491,18 +487,6 @@ export default function DataSourcesPage({
 				/>
 			)}
 
-			{stackOpen && (
-				<StackDialog
-					templates={templates}
-					descriptors={descriptors}
-					initialEnvironment={environment}
-					onClose={() => setStackOpen(false)}
-					onSaved={async () => {
-						setStackOpen(false);
-						await load();
-					}}
-				/>
-			)}
 		</div>
 	);
 }
@@ -759,18 +743,15 @@ function SourceFormDialog({
 		toast.loading(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 		try {
 			if (type === "clickhouse") {
-				const payload: Record<string, string> = {
-					id: source?.id || "",
+				const payload: Record<string, unknown> = {
+					type: "clickhouse",
+					category: "datasource",
 					name: name.trim(),
 					environment: environment.trim().toLowerCase() || "production",
-					username: String(values.username || ""),
-					host: String(values.host || ""),
-					port: String(values.port || "8123"),
-					database: String(values.database || "openlit"),
-					query: String(values.query || ""),
+					settings,
 				};
-				if (String(values.password || "").trim()) payload.password = String(values.password);
-				await jsonFetch("/api/db-config", {
+				if (Object.keys(credentials).length) payload.credentials = credentials;
+				await jsonFetch("/api/connectors", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
@@ -788,14 +769,14 @@ function SourceFormDialog({
 			};
 			if (Object.keys(credentials).length) payload.credentials = credentials;
 			if (isEdit) {
-				await jsonFetch(`/api/telemetry-source/${source!.id}`, {
+				await jsonFetch(`/api/connectors/${source!.id}`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
 			} else {
 				payload.type = type;
-				await jsonFetch("/api/telemetry-source", {
+				await jsonFetch("/api/connectors", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),

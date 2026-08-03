@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { errorResponse } from "@/utils/api-response";
 import asaw from "@/utils/asaw";
-import { createTelemetrySource } from "@/lib/telemetry-source-crud";
+import { createTelemetrySource, availableSourceTypeDescriptors } from "@/lib/telemetry-source-crud";
+import { upsertDBConfig } from "@/lib/db-config";
 import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
@@ -12,9 +13,9 @@ import {
 import { listProjectConnectorInstances } from "@/lib/platform/connectors/instances";
 
 /**
- * Generic connector compatibility endpoint. Datasource instances are backed
- * by the existing telemetry-source repository until the data migration is
- * complete; future categories register their own repositories here.
+ * Generic connector endpoint. Datasource instances are exposed through the
+ * connector contract while legacy repositories remain compatibility stores
+ * for existing platform features.
  */
 async function GETHandler() {
 	const user = await getCurrentUser();
@@ -27,9 +28,18 @@ async function GETHandler() {
 	const [err, connectors] = await asaw(listProjectConnectorInstances(project.id));
 	if (err) return errorResponse(err, "Failed to list connectors");
 	return Response.json({
-		connectors: ((connectors || []) as Array<Record<string, unknown>>).map((connector) => ({
-			...connector,
+		connectors: ((connectors || []) as Array<Record<string, unknown>>).map((connector) => {
+			const { secretRef: _secretRef, ...safeConnector } = connector;
+			return {
+			...safeConnector,
 			icon: connectorIconPath(String(connector.type || "")),
+			category: "datasource",
+			scope: "project",
+		};
+		}),
+		availableTypeDescriptors: availableSourceTypeDescriptors().map((descriptor) => ({
+			...descriptor,
+			icon: connectorIconPath(descriptor.type),
 			category: "datasource",
 			scope: "project",
 		})),
@@ -50,6 +60,40 @@ async function POSTHandler(request: NextRequest) {
 			{ err: `Connector category is not available in CE: ${String(body.category)}` },
 			{ status: 400 }
 		);
+	}
+	if (body.type === "clickhouse") {
+		const settings = body.settings && typeof body.settings === "object"
+			? body.settings as Record<string, unknown>
+			: {};
+		const credentials = body.credentials && typeof body.credentials === "object"
+			? body.credentials as Record<string, unknown>
+			: {};
+		const [dbErr] = await asaw(upsertDBConfig({
+			name: body.name,
+			environment: body.environment,
+			username: settings.username,
+			host: settings.host,
+			port: settings.port,
+			database: settings.database,
+			query: settings.query,
+			password: credentials.password,
+		} as any, typeof body.id === "string" ? body.id : undefined));
+		if (dbErr) return errorResponse(dbErr, "Failed to save ClickHouse connector");
+		const organisation = await getCurrentOrganisation();
+		const project = organisation?.id
+			? await getCurrentProjectForOrganisation(organisation.id)
+			: null;
+		const refreshed = project?.id ? await listProjectConnectorInstances(project.id) : [];
+		const connector = refreshed.find((item) =>
+			item.type === "clickhouse" &&
+			item.name === String(body.name || "") &&
+			(item.environment || "production") === String(body.environment || "production")
+		);
+		return Response.json({
+			...(connector || { name: body.name, type: "clickhouse", environment: body.environment }),
+			category: "datasource",
+			scope: "project",
+		});
 	}
 	const [err, source] = await asaw(createTelemetrySource(body));
 	if (err) return errorResponse(err, "Failed to create connector");

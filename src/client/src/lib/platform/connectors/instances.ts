@@ -64,7 +64,7 @@ export async function syncTelemetrySourceConnector(source: TelemetrySource) {
 			settings: source.settings || "{}",
 			secretRef: source.secretRef,
 			status: "active",
-			metadata: JSON.stringify({ legacyKind: "telemetry-source", legacyId: source.id }),
+			metadata: JSON.stringify({ legacyKind: "telemetry-source", legacyId: source.id, signals: source.signals, isDefault: source.isDefault }),
 		},
 		update: {
 			type: source.type,
@@ -74,6 +74,7 @@ export async function syncTelemetrySourceConnector(source: TelemetrySource) {
 			settings: source.settings || "{}",
 			secretRef: source.secretRef,
 			status: "active",
+			metadata: JSON.stringify({ legacyKind: "telemetry-source", legacyId: source.id, signals: source.signals, isDefault: source.isDefault }),
 		},
 	});
 }
@@ -94,8 +95,18 @@ export async function listProjectConnectorInstances(projectId: string) {
 		...databases.map(syncDatabaseConfigConnector),
 		...sources.map(syncTelemetrySourceConnector),
 	]);
-	return prisma.connectorInstance.findMany({
+	const connectors = await prisma.connectorInstance.findMany({
 		where: { projectId, category: "datasource" },
 		orderBy: [{ environment: "asc" }, { createdAt: "asc" }],
+	});
+	return connectors.map((connector) => {
+		let metadata: Record<string, unknown> = {};
+		try { metadata = JSON.parse(connector.metadata || "{}") || {}; } catch { /* keep defaults */ }
+		return {
+			...connector,
+			signals: connector.type === "clickhouse" ? "traces,logs,metrics,intelligence" : metadata.signals || "traces,logs,metrics",
+			isDefault: metadata.isDefault === true,
+			hasSecret: !!connector.secretRef,
+		};
 	});
 }
