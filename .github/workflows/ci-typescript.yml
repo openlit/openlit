@@ -1,0 +1,59 @@
+name: CI / TypeScript SDK
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/typescript/**'
+      - '.github/workflows/ci-typescript.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/typescript/**'
+      - '.github/workflows/ci-typescript.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test / Node 20
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20"]
+    defaults:
+      run:
+        working-directory: sdk/typescript
+
+    steps:
+    - name: Checkout base code
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.ref || github.sha }}
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Build TypeScript
+      run: npm run build
+
+    - name: Jest
+      run: npm test
