@@ -40,6 +40,10 @@ import { UnsupportedCapabilityError } from "./platform/connectors/datasource/typ
 import { connectorDescription } from "./platform/connectors/descriptions";
 import { connectorIconPath } from "./platform/connectors/icons";
 import {
+	removeLegacyConnector,
+	syncTelemetrySourceConnector,
+} from "@/lib/platform/connectors/instances";
+import {
 	TELEMETRY_SOURCE_NAME_REQUIRED,
 	TELEMETRY_SOURCE_TYPE_UNKNOWN,
 	TELEMETRY_SOURCE_NO_PROJECT,
@@ -321,6 +325,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 			},
 		});
 	});
+	await syncTelemetrySourceConnector(row);
 	return sanitize(row);
 }
 
@@ -397,6 +402,7 @@ export async function updateTelemetrySource(
 		}
 		return tx.telemetrySource.update({ where: { id }, data });
 	});
+	await syncTelemetrySourceConnector(row);
 	return sanitize(row);
 }
 
@@ -404,6 +410,7 @@ export async function updateTelemetrySource(
 export async function deleteTelemetrySource(id: string) {
 	await requireSourceInProject(id);
 	await prisma.telemetrySource.delete({ where: { id } });
+	await removeLegacyConnector("telemetry-source", id);
 	return { id };
 }
 

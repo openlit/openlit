@@ -1,5 +1,6 @@
 import asaw from "@/utils/asaw";
 import prisma from "./prisma";
+import { removeLegacyConnector, syncDatabaseConfigConnector } from "@/lib/platform/connectors/instances";
 import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 import migrations from "@/clickhouse/migrations";
@@ -276,6 +277,7 @@ export const upsertDBConfig = async (
 	if (createddbConfig.projectId) {
 		await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
 	}
+	await syncDatabaseConfigConnector(createddbConfig);
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
 };
@@ -301,6 +303,7 @@ export async function deleteDBConfig(id: string) {
 			id,
 		},
 	});
+	await removeLegacyConnector("database-config", id);
 
 	return "Deleted successfully!";
 }
