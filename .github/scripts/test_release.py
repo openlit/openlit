@@ -77,6 +77,9 @@ class ReleaseTests(unittest.TestCase):
         )
         self.assertIn("environment: release-notes", pr_management)
         self.assertIn("OPENROUTER_API_KEY is not configured", pr_management)
+        self.assertIn("Manual PR title required", pr_management)
+        self.assertIn("openlit-pr-title-help", pr_management)
+        self.assertIn("type(scope): lowercase summary", pr_management)
 
         for tool in self.config.values():
             self.assertIn(f"- {tool['display_name']}", orchestrator)
