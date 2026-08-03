@@ -34,6 +34,35 @@ class ReleaseTests(unittest.TestCase):
             key, version, _ = release.parse_tag(tag, self.config)
             self.assertEqual((key, version), parsed)
 
+    def test_workflow_inventory_and_publishers_are_standardized(self):
+        workflow_directory = release.ROOT / ".github" / "workflows"
+        components = {
+            "python",
+            "typescript",
+            "go",
+            "cli",
+            "controller",
+            "gpu-collector",
+            "openlit",
+        }
+        expected = {
+            *(f"ci-{component}.yml" for component in components),
+            *(f"release-{component}.yml" for component in components),
+            "admin-enterprise-sync.yml",
+            "admin-pr-labeler.yml",
+            "ci-automation.yml",
+            "ci-pricing.yml",
+            "release-packages.yml",
+            "security-oss-boundary.yml",
+        }
+        actual = {path.name for path in workflow_directory.iterdir()}
+        self.assertEqual(actual, expected)
+
+        orchestrator = (workflow_directory / "release-packages.yml").read_text(encoding="utf-8")
+        for tool in self.config.values():
+            publisher = tool["publisher"]
+            self.assertIn(f"./.github/workflows/release-{publisher}.yml", orchestrator)
+
     def test_tool_and_version_construct_release_tag(self):
         tag, key, version, tool = release.resolve_release_identity(
             self.config, tool_key="gpu-collector", version="0.0.8"

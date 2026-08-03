@@ -1,7 +1,8 @@
-# Automated releases
+# Releasing OpenLIT
 
-Repository administrators initiate releases manually from **Actions → Release
-packages → Run workflow** on `main`. Select a tool and enter a stable SemVer
+Repository administrators initiate releases manually from
+**Actions → Release / Packages → Run workflow** on `main`. Select a tool and
+enter a stable SemVer
 without a prefix, such as `1.45.0`. The workflow constructs its final tag:
 
 ```text
@@ -16,7 +17,7 @@ openlit-X.Y.Z
 
 The tool definitions, tag prefixes, and version strategies live in
 `.github/release-tools.json`.
-The `Release packages` workflow generates notes for merged PRs that changed
+The `Release / Packages` workflow generates notes for merged PRs that changed
 the selected tool, validates the tool, updates persistent version files when
 configured, publishes the artifact, and creates the GitHub Release.
 
@@ -44,7 +45,7 @@ Create a `release` Actions environment without human reviewers and configure:
 - Optional repository variable `RELEASE_LLM_PRIMARY_MODEL`
 - Optional repository variable `RELEASE_LLM_FALLBACK_MODEL`
 
-`Release packages` checks the triggering actor's repository permission before
+`Release / Packages` checks the triggering actor's repository permission before
 entering the release environment and fails unless it is `admin`. GitHub may
 still display the manual **Run workflow** control to non-admin collaborators,
 but their run stops before checkout, LLM access, version mutation, or publishing.
@@ -60,7 +61,7 @@ and the rule governing creation of release tags. Completed tags are never moved.
 
 ## Dry run
 
-Run `Release packages` manually, select the tool, enter its next `X.Y.Z`
+Run `Release / Packages` manually, select the tool, enter its next `X.Y.Z`
 version, and keep `dry_run` enabled. A dry run uses current `main`, calls the
 configured LLM, runs component validation, and uploads release notes, metadata,
 and the version diff without creating a tag, commit, package, image, or GitHub
@@ -77,3 +78,19 @@ Release. Once the dry run is satisfactory, run it again with `dry_run` disabled.
 
 The component publisher workflows also support manual dispatch with an exact
 final tag and commit SHA for targeted recovery.
+
+## Workflow layout
+
+Workflow files use responsibility-first names:
+
+- `ci-*.yml` validates a component on pull requests and `main`, and can be
+  called by release workflows with an immutable commit SHA.
+- `release-*.yml` validates and publishes one component. `release-packages.yml`
+  is the only normal human entry point; component workflows expose manual
+  dispatch only for targeted recovery.
+- `admin-*.yml` and `security-*.yml` contain repository-wide maintenance and
+  boundary jobs. Data validation belongs in `ci-*.yml`.
+
+The Python pytest job remains commented in `ci-python.yml` until provider tests
+are split into hermetic unit tests and credentialed integration tests. Python
+linting and package validation remain active.

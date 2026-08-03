@@ -1,0 +1,95 @@
+name: CI / Python SDK
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
+      - '.github/workflows/ci-python.yml'
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
+      - '.github/workflows/ci-python.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint / Python 3.12
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.ref || github.sha }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      working-directory: sdk/python
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r tests/requirements.txt
+
+    - name: Run Pylint
+      working-directory: sdk/python
+      run: pylint $(git ls-files '*.py')
+
+  package:
+    name: Build / Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: python -m pip install poetry
+
+      - name: Validate and build package
+        working-directory: sdk/python
+        run: |
+          poetry check
+          poetry build
+
+  # Python's provider tests currently require a broad set of live service
+  # credentials. Keep the intended job here until those tests are split into
+  # hermetic unit tests and explicitly triggered integration tests.
+  # test:
+  #   name: Test / Python 3.12
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v7
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v7
+  #       with:
+  #         python-version: "3.12"
+  #     - name: Install dependencies
+  #       working-directory: sdk/python
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         python -m pip install -r tests/requirements.txt
+  #     - name: Run Pytest
+  #       working-directory: sdk/python
+  #       run: pytest
