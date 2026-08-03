@@ -71,7 +71,8 @@ preparation falls back to bounded PR title, description, path, and patch
 evidence. Summaries are lightweight release-note inputs, not PR reviews. OpenLIT
 considers at most the first 3,000 files returned by GitHub and intentionally
 ignores any remaining files. Per-component model evidence is further limited to
-100 files and 20,000 patch characters.
+100 files and 20,000 patch characters. To regenerate a missing or stale comment,
+run `Admin / PR Summary` manually with the merged PR number.
 
 Allow the App to bypass only the `main` rule needed for release-version commits
 and the rule governing creation of release tags. Completed tags are never moved.

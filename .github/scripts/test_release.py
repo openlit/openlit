@@ -65,6 +65,12 @@ class ReleaseTests(unittest.TestCase):
             publisher = tool["publisher"]
             self.assertIn(f"./.github/workflows/release-{publisher}.yml", orchestrator)
 
+        pr_summary = (workflow_directory / "admin-pr-summary.yml").read_text(encoding="utf-8")
+        self.assertIn("pull-requests: write", pr_summary)
+        self.assertNotIn("issues: write", pr_summary)
+        self.assertIn("workflow_dispatch:", pr_summary)
+        self.assertIn("pr_number:", pr_summary)
+
     def test_tool_and_version_construct_release_tag(self):
         tag, key, version, tool = release.resolve_release_identity(
             self.config, tool_key="gpu-collector", version="0.0.8"
