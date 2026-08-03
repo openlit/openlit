@@ -277,7 +277,18 @@ export const upsertDBConfig = async (
 	if (createddbConfig.projectId) {
 		await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
 	}
-	await syncDatabaseConfigConnector(createddbConfig);
+	// The legacy database config remains the write path for platform features.
+	// Connector indexing is a compatibility projection and must not make a
+	// valid ClickHouse configuration impossible to save if an older deployment
+	// has not applied the connector framework migration yet.
+	try {
+		await syncDatabaseConfigConnector(createddbConfig);
+	} catch (error) {
+		console.error("[connectors] ClickHouse connector projection failed", {
+			databaseConfigId: createddbConfig.id,
+			error,
+		});
+	}
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
 };
