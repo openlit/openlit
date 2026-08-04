@@ -97,8 +97,10 @@ type Config struct {
 
 // ModelPricing represents pricing information for a model
 type ModelPricing struct {
-	InputCostPerToken  float64
-	OutputCostPerToken float64
+	InputCostPerToken         float64
+	OutputCostPerToken        float64
+	CacheReadCostPerToken     float64
+	CacheCreationCostPerToken float64
 }
 
 // setDefaults sets default values for the configuration
