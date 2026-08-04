@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { availableSourceTypeDescriptors } from "@/lib/telemetry-source-crud";
 import { withConnectorAccess } from "@/lib/access/connector-route";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
 async function GETHandler() {
 	const user = await getCurrentUser();
@@ -9,7 +10,7 @@ async function GETHandler() {
 
 	return Response.json({
 		categories: ["datasource", "notification", "memory", "vector-store", "model-provider"],
-		 types: availableSourceTypeDescriptors().map((descriptor) => ({
+		types: availableSourceTypeDescriptors().filter((descriptor) => isVisibleConnectorType(descriptor.type)).map((descriptor) => ({
 			...descriptor,
 			icon: connectorIconPath(descriptor.type),
 			category: "datasource",

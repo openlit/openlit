@@ -11,6 +11,7 @@ import {
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
 import { listProjectConnectorInstances } from "@/lib/platform/connectors/instances";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
 /**
  * Generic connector endpoint. Datasource instances are exposed through the
@@ -28,7 +29,7 @@ async function GETHandler() {
 	const [err, connectors] = await asaw(listProjectConnectorInstances(project.id));
 	if (err) return errorResponse(err, "Failed to list connectors");
 	return Response.json({
-		connectors: ((connectors || []) as Array<Record<string, unknown>>).map((connector) => {
+		connectors: ((connectors || []) as Array<Record<string, unknown>>).filter((connector) => isVisibleConnectorType(connector.type)).map((connector) => {
 			const { secretRef: _secretRef, ...safeConnector } = connector;
 			return {
 			...safeConnector,
@@ -37,7 +38,7 @@ async function GETHandler() {
 			scope: "project",
 		};
 		}),
-		availableTypeDescriptors: availableSourceTypeDescriptors().map((descriptor) => ({
+		availableTypeDescriptors: availableSourceTypeDescriptors().filter((descriptor) => isVisibleConnectorType(descriptor.type)).map((descriptor) => ({
 			...descriptor,
 			icon: connectorIconPath(descriptor.type),
 			category: "datasource",

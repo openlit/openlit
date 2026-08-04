@@ -11,6 +11,7 @@ import {
 import { TELEMETRY_SOURCE_INVALID_JSON } from "@/constants/messages/en";
 import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
 async function GETHandler() {
 	const user = await getCurrentUser();
@@ -21,8 +22,8 @@ async function GETHandler() {
 	const [, signalCapabilities] = await asaw(resolveProjectSignalCapabilities());
 	return Response.json({
 		sources,
-		availableTypes: availableSourceTypes(),
-		availableTypeDescriptors: availableSourceTypeDescriptors(),
+		availableTypes: availableSourceTypes().filter(isVisibleConnectorType),
+		availableTypeDescriptors: availableSourceTypeDescriptors().filter((descriptor) => isVisibleConnectorType(descriptor.type)),
 		signalCapabilities: signalCapabilities ?? null,
 	});
 }

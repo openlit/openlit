@@ -43,6 +43,7 @@ import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { getRequestHeaders } from "@/utils/api";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
 type Signal = "traces" | "logs" | "metrics" | "intelligence";
 const SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
@@ -216,8 +217,8 @@ export default function DataSourcesPage({
 					};
 				});
 			useRootStore.getState().databaseConfig.setList(clickHouseConfigs);
-			setSources(connectors.filter((connector: SourceRow) => connector.type !== "clickhouse"));
-			setDescriptors(list?.availableTypeDescriptors || []);
+			setSources(connectors.filter((connector: SourceRow) => isVisibleConnectorType(connector.type) && connector.type !== "clickhouse"));
+			setDescriptors((list?.availableTypeDescriptors || []).filter((descriptor: TypeDescriptor) => isVisibleConnectorType(descriptor.type)));
 			setBindings(binds?.bindings || []);
 		} catch (e: any) {
 			const message = e?.message || messages.DATA_SOURCE_LOAD_FAILED;

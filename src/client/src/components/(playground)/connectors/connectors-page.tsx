@@ -22,6 +22,7 @@ import { fetchProjectList, changeActiveProject } from "@/helpers/client/project"
 import { getCurrentOrganisation } from "@/selectors/organisation";
 import { getCurrentProject, getProjectList } from "@/selectors/project";
 import { useRootStore } from "@/store";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
 type ConnectorSummary = {
 	id: string;
@@ -109,8 +110,8 @@ export default function ConnectorsPage() {
 					connectorResponse.json(),
 					typeResponse.json(),
 				]);
-				setConnected(connectorData.connectors || []);
-				setTypes(typeData.types || []);
+				setConnected((connectorData.connectors || []).filter((connector: ConnectorSummary) => isVisibleConnectorType(connector.type)));
+				setTypes((typeData.types || []).filter((type: ConnectorType) => isVisibleConnectorType(type.type)));
 			})
 			.catch((error: unknown) => setLoadError(error instanceof Error ? error.message : messages.DATA_SOURCE_LOAD_FAILED))
 			.finally(() => setLoading(false));
