@@ -372,7 +372,7 @@ export default function DataSourcesPage({
 					<div className="flex items-center gap-2"><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
 				</div>
 				<div className="contents">
-					<DatabaseConfigPage hideHeader />
+					<DatabaseConfigPage hideHeader hideEmpty />
 				</div>
 			<div className="contents">
 			{/* External sources list */}

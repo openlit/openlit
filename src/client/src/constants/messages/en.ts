@@ -1850,8 +1850,8 @@ export const PROJECT_ENVIRONMENTS_DESCRIPTION =
 export const PROJECT_CONNECTORS_DESCRIPTION =
 	"Manage ClickHouse databases and external integrations for this project.";
 export const GLOBAL_CONNECTORS = "Connectors";
-export const CONNECTED_CONNECTORS = "Connected connectors";
-export const NO_CONNECTED_CONNECTORS = "No connectors are connected to the active project yet.";
+export const CONNECTED_CONNECTORS = "Configured connectors";
+export const NO_CONNECTED_CONNECTORS = "No connectors are configured for the active project yet.";
 export const CONNECTOR_CATALOG = "Connector catalog";
 export const CONNECTOR_CATALOG_DESCRIPTION = "Browse connector types and add more integrations to the active project.";
 export const ADD_CONNECTOR = "Add connector";

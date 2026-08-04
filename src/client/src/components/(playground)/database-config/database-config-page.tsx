@@ -251,6 +251,7 @@ function DatabaseList({
 	hideHeader,
 	openNew,
 	onOpenNewHandled,
+	hideEmpty,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
 	canCreate: boolean;
@@ -260,6 +261,7 @@ function DatabaseList({
 	hideHeader?: boolean;
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
+	hideEmpty?: boolean;
 }) {
 	const messages = getMessage();
 	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
@@ -305,7 +307,7 @@ function DatabaseList({
 				</div>
 				{canCreate && visibleConfigs.length === 0 && <Button size="sm" onClick={() => setEditing("new")}>+ {messages.ADD_DATABASE_CONFIG}</Button>}
 			</div>}
-			{visibleConfigs.length === 0 ? (
+			{visibleConfigs.length === 0 && hideEmpty ? null : visibleConfigs.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-stone-300 p-8 text-center dark:border-stone-700">
 					<p className="text-sm font-medium text-stone-900 dark:text-stone-100">{messages.DB_CONFIG_EMPTY_TITLE}</p>
 					<p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{messages.DB_CONFIG_EMPTY_DESCRIPTION}</p>
@@ -339,6 +341,7 @@ export default function Database({
 	hideHeader = false,
 	openNew = false,
 	onOpenNewHandled,
+	hideEmpty = false,
 }: {
 	canCreate?: boolean;
 	canUpdate?: boolean;
@@ -347,6 +350,7 @@ export default function Database({
 	hideHeader?: boolean;
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
+	hideEmpty?: boolean;
 }) {
 	const databaseList = useRootStore(getDatabaseConfigList);
 
@@ -368,6 +372,7 @@ export default function Database({
 			hideHeader={hideHeader}
 			openNew={openNew}
 			onOpenNewHandled={onOpenNewHandled}
+			hideEmpty={hideEmpty}
 		/>
 	);
 }
