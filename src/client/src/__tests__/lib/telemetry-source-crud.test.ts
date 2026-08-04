@@ -80,12 +80,10 @@ jest.mock("@/utils/log", () => ({ consoleLog: jest.fn() }));
 
 import {
 	availableSourceTypes,
-	createSourceStack,
 	createTelemetrySource,
 	deleteTelemetrySource,
 	deleteTelemetrySourceBinding,
 	healthCheckTelemetrySource,
-	listStackTemplates,
 	listTelemetrySources,
 	listTelemetrySourceBindings,
 	setTelemetrySourceBinding,
@@ -469,75 +467,5 @@ describe("telemetry source bindings", () => {
 		expect(mockBindingDeleteMany).toHaveBeenCalledWith({
 			where: { projectId: "proj-1", signal: "logs", environment: "production" },
 		});
-	});
-});
-
-describe("createSourceStack", () => {
-	it("lists stack templates", () => {
-		const templates = listStackTemplates().map((t) => t.template);
-		expect(templates).toEqual(expect.arrayContaining(["grafana", "victoria"]));
-	});
-
-	it("creates atomic member rows and binds each member's signals", async () => {
-		mockCreate.mockImplementation((arg: any) =>
-			Promise.resolve({ id: `src-${arg.data.type}`, ...arg.data })
-		);
-		mockTxBindingUpsert.mockResolvedValue({});
-
-		const res = await createSourceStack({
-			name: "Grafana Prod",
-			members: [
-				{ type: "tempo", settings: { url: "https://tempo" } },
-				{ type: "loki", signals: ["logs"], settings: { url: "https://loki" } },
-				{ type: "mimir", signals: ["metrics"], settings: { url: "https://mimir" } },
-			],
-		});
-
-		expect(mockCreate).toHaveBeenCalledTimes(3);
-		// tempo defaults to its declared [traces]; loki -> logs; mimir -> metrics.
-		expect(mockTxBindingUpsert).toHaveBeenCalledWith({
-			where: { projectId_signal_environment: { projectId: "proj-1", signal: "traces", environment: "production" } },
-			create: { projectId: "proj-1", signal: "traces", environment: "production", sourceId: "src-tempo" },
-			update: { sourceId: "src-tempo" },
-		});
-		expect(mockTxBindingUpsert).toHaveBeenCalledWith({
-			where: { projectId_signal_environment: { projectId: "proj-1", signal: "logs", environment: "production" } },
-			create: { projectId: "proj-1", signal: "logs", environment: "production", sourceId: "src-loki" },
-			update: { sourceId: "src-loki" },
-		});
-		expect(res.sources).toHaveLength(3);
-	});
-
-	it("does not bind when bind is false", async () => {
-		mockCreate.mockImplementation((arg: any) =>
-			Promise.resolve({ id: `src-${arg.data.type}`, ...arg.data })
-		);
-		await createSourceStack({
-			name: "Grafana Prod",
-			bind: false,
-			members: [{ type: "tempo", settings: { url: "https://tempo" } }],
-		});
-		expect(mockTxBindingUpsert).not.toHaveBeenCalled();
-	});
-
-	it("rejects an empty member list", async () => {
-		await expect(
-			createSourceStack({ name: "X", members: [] })
-		).rejects.toThrow();
-		expect(mockCreate).not.toHaveBeenCalled();
-	});
-
-	it("validates members before any write (unknown type)", async () => {
-		mockHasAdapterFactory.mockImplementation((t: string) => t !== "splunk");
-		await expect(
-			createSourceStack({
-				name: "X",
-				members: [
-					{ type: "tempo", settings: {} },
-					{ type: "splunk", settings: {} },
-				],
-			})
-		).rejects.toThrow();
-		expect(mockCreate).not.toHaveBeenCalled();
 	});
 });

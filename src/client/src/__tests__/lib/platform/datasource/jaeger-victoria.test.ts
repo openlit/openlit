@@ -16,7 +16,6 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 }));
 
 import { JaegerAdapter } from "@/lib/platform/connectors/datasource/jaeger/adapter";
-import { VictoriaLogsAdapter, parseNdjsonLogs } from "@/lib/platform/connectors/datasource/victoria/logs";
 import {
 	spanMatchesAISelector,
 	traceMatchesAISelector,
@@ -213,60 +212,5 @@ describe("JaegerAdapter", () => {
 			aiSelector: true,
 		});
 		expect(frame.rows).toHaveLength(0);
-	});
-});
-
-describe("parseNdjsonLogs", () => {
-	it("parses newline-delimited JSON log records", () => {
-		const ndjson = [
-			JSON.stringify({
-				_time: "2026-07-01T00:00:00Z",
-				_msg: "hello",
-				"service.name": "svc",
-				level: "info",
-				"gen_ai.operation.name": "chat",
-			}),
-			JSON.stringify({ _time: "2026-07-01T00:00:01Z", _msg: "world" }),
-			"",
-		].join("\n");
-		const rows = parseNdjsonLogs(ndjson);
-		expect(rows).toHaveLength(2);
-		expect(rows[0]).toMatchObject({
-			body: "hello",
-			serviceName: "svc",
-			severityText: "info",
-		});
-		expect(rows[0].logAttributes["gen_ai.operation.name"]).toBe("chat");
-		expect(rows[0].logAttributes._msg).toBeUndefined();
-	});
-
-	it("tolerates malformed lines", () => {
-		expect(parseNdjsonLogs('not json\n{"_msg":"ok"}')).toHaveLength(1);
-	});
-});
-
-describe("VictoriaLogsAdapter", () => {
-	const adapter = new VictoriaLogsAdapter({
-		type: "victorialogs",
-		id: "src-vl",
-		isBuiltIn: false,
-		settings: { url: "https://vlogs.example.com" },
-		signals: ["logs"],
-		name: "VictoriaLogs",
-	});
-
-	it("queries LogsQL with an AI field-presence filter", async () => {
-		mockSafeFetch.mockResolvedValue(
-			`${JSON.stringify({ _time: "2026-07-01T00:00:00Z", _msg: "hi" })}\n`
-		);
-		const frame = await adapter.listLogs({
-			signal: "logs",
-			timeRange: window,
-			aiSelector: true,
-		});
-		expect(frame.rows).toHaveLength(1);
-		const url = mockSafeFetch.mock.calls[0][0] as string;
-		expect(url).toContain("/select/logsql/query");
-		expect(decodeURIComponent(url)).toContain("gen_ai.operation.name");
 	});
 });

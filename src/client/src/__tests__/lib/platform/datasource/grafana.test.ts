@@ -16,8 +16,6 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 }));
 
 import { TempoAdapter, tempoAISelectorQuery, buildTempoSearchQuery, __clearTempoSpanIndex } from "@/lib/platform/connectors/datasource/grafana/tempo";
-import { LokiAdapter } from "@/lib/platform/connectors/datasource/grafana/loki";
-import { PrometheusAdapter } from "@/lib/platform/connectors/datasource/grafana/prometheus";
 import { __clearCache } from "@/lib/platform/connectors/datasource/http/cache";
 import { buildAggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
 import type {
@@ -359,117 +357,6 @@ describe("TempoAdapter", () => {
 		const span = await adapter.getSpan("s1");
 		expect(span?.spanId).toBe("s1");
 		expect(span?.traceId).toBe("t1");
-	});
-});
-
-describe("LokiAdapter", () => {
-	const adapter = new LokiAdapter({
-		type: "loki",
-		id: "src-loki",
-		isBuiltIn: false,
-		settings: { url: "https://loki.example.com" },
-		signals: ["logs"],
-		name: "Loki",
-	});
-
-	it("parses query_range streams into normalized logs", async () => {
-		mockSafeFetch.mockResolvedValue({
-			data: {
-				result: [
-					{
-						stream: { service_name: "svc", level: "info" },
-						values: [["1719792000000000000", "hello"]],
-					},
-				],
-			},
-		});
-		const frame = await adapter.listLogs({
-			signal: "logs",
-			timeRange: window,
-			aiSelector: true,
-		});
-		expect(frame.rows[0]).toMatchObject({
-			body: "hello",
-			serviceName: "svc",
-			severityText: "info",
-		});
-		const url = mockSafeFetch.mock.calls[0][0] as string;
-		expect(decodeURIComponent(url)).toContain("gen_ai_operation_name");
-	});
-
-	it("does not flag truncation for an under-limit result", async () => {
-		mockSafeFetch.mockResolvedValue({
-			data: {
-				result: [
-					{
-						stream: { service_name: "svc" },
-						values: [["1719792000000000000", "one"]],
-					},
-				],
-			},
-		});
-		const frame = await adapter.listLogs({
-			signal: "logs",
-			timeRange: window,
-			limit: 100,
-		});
-		expect(frame.meta?.truncated).toBe(false);
-	});
-
-	it("flags truncation when the vendor fills the requested limit", async () => {
-		const values: [string, string][] = Array.from({ length: 3 }, (_, i) => [
-			`${1719792000000000000 + i}`,
-			`line-${i}`,
-		]);
-		mockSafeFetch.mockResolvedValue({
-			data: { result: [{ stream: { service_name: "svc" }, values }] },
-		});
-		const frame = await adapter.listLogs({
-			signal: "logs",
-			timeRange: window,
-			limit: 3,
-		});
-		expect(frame.rows).toHaveLength(3);
-		expect(frame.meta?.truncated).toBe(true);
-	});
-});
-
-describe("PrometheusAdapter", () => {
-	const adapter = new PrometheusAdapter({
-		type: "prometheus",
-		id: "src-prom",
-		isBuiltIn: false,
-		settings: { url: "https://prom.example.com" },
-		signals: ["metrics"],
-		name: "Prom",
-	});
-
-	it("flattens PromQL range results and computes step from interval", async () => {
-		mockSafeFetch.mockResolvedValue({
-			data: {
-				result: [
-					{
-						metric: { __name__: "gen_ai_tokens", service_name: "svc" },
-						values: [[1719792000, "5"], [1719792060, "9"]],
-					},
-				],
-			},
-		});
-		const frame = await adapter.listMetricSeries({
-			signal: "metrics",
-			timeRange: window,
-			interval: "5m",
-			filters: [{ target: "spanName", op: "eq", value: "gen_ai_tokens" }],
-		});
-		expect(frame.rows).toHaveLength(2);
-		expect(frame.rows[0]).toMatchObject({ metricName: "gen_ai_tokens", value: 5 });
-		const url = mockSafeFetch.mock.calls[0][0] as string;
-		expect(url).toContain("step=300");
-	});
-
-	it("metricNames reads __name__ label values", async () => {
-		mockSafeFetch.mockResolvedValue({ data: ["a", "b"] });
-		expect(await adapter.metricNames(window)).toEqual(["a", "b"]);
 	});
 });
 

@@ -47,7 +47,7 @@ or any UI** — and needs no Prisma migration (`type` stays a free string).
 ## Verify extensibility (the dash0 readiness test)
 
 A fictional descriptor-only type with only `configFields` renders end to end,
-and the same-shaped adapter test used for `tempo` / `datadog` passes for any new
+and the same-shaped adapter test used for `tempo` / `jaeger` passes for any new
 OTLP vendor. If your new adapter needs an edit outside `datasource/<vendor>/**`
 (plus one line in `bootstrap.ts`), the extensibility contract has regressed —
 fix the shared layer, not the vendor.

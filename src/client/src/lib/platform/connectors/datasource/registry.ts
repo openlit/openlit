@@ -66,19 +66,16 @@ export function getSourceTypeDescriptor(
 }
 
 /**
- * List static type descriptors for all registered source types. By default
- * internal-only "stack" umbrella types (grafana/victoria) are excluded so
- * source pickers only offer atomic types; pass `{ includeInternal: true }` to
- * include them (e.g. for the stack-template builder).
+ * List static type descriptors for all registered source types.
  */
 export function listSourceTypeDescriptors(
-	opts: { includeInternal?: boolean } = {}
+	_opts: { includeInternal?: boolean } = {}
 ): SourceTypeDescriptor[] {
 	ensureExternalLoaded();
 	const out: SourceTypeDescriptor[] = [];
 	for (const factory of Array.from(factories.values())) {
 		const descriptor = factory.describe();
-		if (descriptor.internal && !opts.includeInternal) continue;
+		if (descriptor.internal) continue;
 		out.push(descriptor);
 	}
 	return out;

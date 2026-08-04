@@ -53,7 +53,6 @@ import {
 	TELEMETRY_SOURCE_NO_SIGNALS,
 	TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED,
 	TELEMETRY_SOURCE_INVALID_SIGNAL,
-	TELEMETRY_SOURCE_STACK_NO_MEMBERS,
 	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
 
@@ -203,8 +202,7 @@ function validateType(type: unknown): string {
 	if (!t || !hasAdapterFactory(t)) {
 		throw new Error(TELEMETRY_SOURCE_TYPE_UNKNOWN(String(type)));
 	}
-	// Internal "stack" umbrella types (grafana/victoria) are not created as
-	// atomic rows directly; they are expanded via createSourceStack().
+	// Only registered datasource connector types can be created.
 	if (getSourceTypeDescriptor(t)?.internal) {
 		throw new Error(TELEMETRY_SOURCE_TYPE_UNKNOWN(t));
 	}
@@ -541,124 +539,4 @@ export async function deleteTelemetrySourceBinding(signalInput: unknown, environ
 		where: { projectId, signal, environment },
 	});
 	return { signal };
-}
-
-// ---- Stack templates (descriptor-driven umbrellas -> "create N rows") ------
-
-/**
- * List available stack templates for the UI. Derived from the internal
- * umbrella descriptors (grafana/victoria) that declare a `stackTemplate`, so a
- * new umbrella needs only a descriptor in `stacks.ts` — no edits here.
- */
-export function listStackTemplates() {
-	ensureAdaptersRegistered();
-	return listSourceTypeDescriptors({ includeInternal: true })
-		.filter((d) => d.internal && d.stackTemplate)
-		.map((d) => ({
-			template: d.type,
-			displayName: d.stackTemplate!.displayName,
-			slots: d.stackTemplate!.slots,
-		}));
-}
-
-export interface StackMemberInput {
-	type: unknown;
-	name?: unknown;
-	signals?: unknown;
-	settings?: unknown;
-	secretRef?: unknown;
-	/** Inline credentials persisted to the vault (see TelemetrySourceInput). */
-	credentials?: unknown;
-	/** Bind this member's signals as the project routing (default true). */
-	bind?: unknown;
-}
-
-export interface CreateSourceStackInput {
-	/** Base name; each member is named "<name> - <type>" when unnamed. */
-	name?: unknown;
-	/** Atomic member sources to create. */
-	members?: unknown;
-	/** Bind every member's signals as project routing (default true). */
-	bind?: unknown;
-	environment?: unknown;
-}
-
-/**
- * Create a set of atomic sources in one action and (by default) bind each
- * member's signals as the project's per-signal routing. Runs in a single
- * transaction so a partial stack is never persisted. Later members override
- * earlier ones for a shared signal binding.
- */
-export async function createSourceStack(input: CreateSourceStackInput) {
-	const projectId = await requireCurrentProjectId();
-	const baseName = String(input.name || "").trim();
-	if (!baseName) throw new Error(TELEMETRY_SOURCE_NAME_REQUIRED);
-	if (!Array.isArray(input.members) || input.members.length === 0) {
-		throw new Error(TELEMETRY_SOURCE_STACK_NO_MEMBERS);
-	}
-	const bindDefault = input.bind !== false;
-	const environment = normalizeEnvironment(input.environment);
-	await createProjectEnvironment(environment);
-
-	// Validate/normalize every member up front (throws before any write).
-	// Credentials are persisted to the vault before the DB transaction so a
-	// failed vault write never leaves a half-created stack.
-	const prepared = await Promise.all(
-		(input.members as StackMemberInput[]).map(async (m) => {
-			const type = validateType(m.type);
-			const signals = normalizeSignalsForType(m.signals, type);
-			const settings = normalizeSettings(m.settings);
-			const name = String(m.name || "").trim() || `${baseName} - ${type}`;
-			const credentialSecretRef = await credentialsToSecretRef(
-				m.credentials,
-				name,
-				type
-			);
-			const secretRef =
-				credentialSecretRef ??
-				(typeof m.secretRef === "string" ? m.secretRef : null);
-			await validateSecretReference(secretRef);
-			return {
-				type,
-				signals,
-				settings,
-				name,
-				secretRef,
-				bind: m.bind !== false,
-			};
-		})
-	);
-
-	const result = await prisma.$transaction(async (tx) => {
-		const created: { id: string; type: string; signals: string; name: string }[] =
-			[];
-		for (const m of prepared) {
-			const row = await tx.telemetrySource.create({
-				data: {
-					projectId,
-					name: m.name,
-					environment,
-					type: m.type,
-					signals: m.signals,
-					settings: m.settings,
-					secretRef: m.secretRef,
-					isDefault: false,
-				},
-			});
-			created.push({ id: row.id, type: row.type, signals: row.signals, name: row.name });
-
-			if (bindDefault && m.bind) {
-				for (const signal of parseSignals(row.signals)) {
-					await tx.telemetrySourceBinding.upsert({
-						where: { projectId_signal_environment: { projectId, signal, environment } },
-						create: { projectId, signal, environment, sourceId: row.id },
-						update: { sourceId: row.id },
-					});
-				}
-			}
-		}
-		return created;
-	});
-
-	return { sources: result.map((r) => ({ id: r.id, type: r.type, name: r.name })) };
 }

@@ -927,7 +927,7 @@ function SourceFormDialog({
 						<Input
 							value={name}
 							onChange={(e) => setName(e.target.value)}
-							placeholder="prod-datadog"
+							placeholder="production-traces"
 								className="bg-white dark:bg-stone-900"
 								/>
 							</div>
@@ -1090,14 +1090,14 @@ function StackDialog({
 		});
 
 		setSaving(true);
-		toast.loading(messages.DATA_SOURCE_STACK_SAVED, { id: "ds-stack" });
+		 toast.loading(messages.DATA_SOURCE_SAVED, { id: "ds-stack" });
 		try {
 			await jsonFetch("/api/telemetry-source/stack", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ name: name.trim(), environment, members, bind: true }),
 			});
-			toast.success(messages.DATA_SOURCE_STACK_SAVED, { id: "ds-stack" });
+			toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-stack" });
 			onSaved();
 		} catch (e: any) {
 			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
@@ -1112,9 +1112,9 @@ function StackDialog({
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
 			<DialogContent className="max-h-[85vh] overflow-y-auto border-stone-200 bg-white text-stone-950 shadow-2xl dark:border-stone-800 dark:bg-stone-950 dark:text-stone-50 sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>{messages.DATA_SOURCE_STACK_TITLE}</DialogTitle>
+					<DialogTitle>{messages.DATA_SOURCE_ADD}</DialogTitle>
 					<DialogDescription>
-						{messages.DATA_SOURCE_STACK_DESCRIPTION}
+						{messages.PROJECT_DATA_SOURCES_DESCRIPTION}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-stone-600 dark:border-primary/30 dark:bg-primary/10 dark:text-stone-300">
@@ -1127,7 +1127,7 @@ function StackDialog({
 						<Input
 							value={name}
 							onChange={(e) => setName(e.target.value)}
-							placeholder="prod-grafana"
+							placeholder="production-stack"
 							className="bg-white dark:bg-stone-900"
 						/>
 					</div>
@@ -1222,7 +1222,7 @@ function StackDialog({
 						{messages.CANCEL}
 					</Button>
 					<Button onClick={submit} disabled={saving}>
-						{messages.DATA_SOURCE_STACK_CREATE}
+						{messages.DATA_SOURCE_SAVED}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

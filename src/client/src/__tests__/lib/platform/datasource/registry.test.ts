@@ -149,7 +149,7 @@ describe("datasource registry", () => {
 		);
 	});
 
-	it("exposes static type descriptors and excludes internal stack types", () => {
+	it("exposes registered connector descriptors", () => {
 		registerAdapterFactory(fakeFactory);
 		registerAdapterFactory(internalFactory);
 		expect(getSourceTypeDescriptor("clickhouse")?.declaredSignals).toEqual([
@@ -160,9 +160,7 @@ describe("datasource registry", () => {
 		const atomic = listSourceTypeDescriptors().map((d) => d.type);
 		expect(atomic).toContain("clickhouse");
 		expect(atomic).not.toContain("grafana");
-		const all = listSourceTypeDescriptors({ includeInternal: true }).map(
-			(d) => d.type
-		);
-		expect(all).toContain("grafana");
+		const all = listSourceTypeDescriptors({ includeInternal: true }).map((d) => d.type);
+		expect(all).toContain("clickhouse");
 	});
 });

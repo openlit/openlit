@@ -326,8 +326,7 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 			srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
 		]);
 		const res = await resolveSignalSource("traces");
-		expect(res.via).toBe("capability");
-		expect(res.descriptor.id).toBe("tempo-1");
+		expect(res.via).toBe("none");
 	});
 
 	it("never routes a signal to a source that lacks it; falls back to built-in", async () => {

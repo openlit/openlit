@@ -270,16 +270,6 @@ export interface FieldDef {
 export type AuthStyle = "none" | "http" | "api-key" | "custom";
 
 /**
- * A multi-signal "stack" template that expands into atomic per-signal sources.
- * Declared on an internal umbrella descriptor (e.g. grafana, victoria) so a new
- * stack needs no CRUD edits — just a descriptor.
- */
-export interface StackTemplate {
-	displayName: string;
-	slots: { key: string; type: string; signal: Signal }[];
-}
-
-/**
  * Static, type-level description of a source type (Grafana-style plugin
  * descriptor). Unlike `SourceCapabilities`, which is resolved per configured
  * instance, this is the maximal profile the *type* supports and is used to
@@ -293,6 +283,8 @@ export interface SourceTypeDescriptor {
 	displayName: string;
 	/** Short explanation shown in connector catalogs and configuration forms. */
 	description?: string;
+	/** Reserved for private/internal connector implementations. */
+	internal?: boolean;
 	/** Local icon path used by connector pickers. */
 	icon?: string;
 	/** Maximal set of signals a source of this type can serve. */
@@ -301,12 +293,6 @@ export interface SourceTypeDescriptor {
 	capabilities: Omit<SourceCapabilities, "signals">;
 	/** Cross-signal correlation profile for the type. */
 	correlation: SourceCorrelation;
-	/**
-	 * Internal-only types (multi-signal "stack" umbrellas such as grafana /
-	 * victoria) are not offered as atomic rows in the source picker; they exist
-	 * only as convenience templates that expand into atomic per-signal rows.
-	 */
-	internal?: boolean;
 	/**
 	 * Self-describing config schema for the add/edit form. The single source of
 	 * truth for what a source of this type needs — the shared form renders these
@@ -319,11 +305,6 @@ export interface SourceTypeDescriptor {
 	authHelp?: string;
 	/** Optional documentation URL for connecting this source type. */
 	docsUrl?: string;
-	/**
-	 * For internal umbrella types only: the stack expansion template. Lets a new
-	 * multi-signal umbrella be added with just a descriptor (no CRUD edits).
-	 */
-	stackTemplate?: StackTemplate;
 }
 
 /** Result of a health check against a configured source. */

@@ -9,10 +9,6 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 
 import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/http/auth-headers";
 import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
-import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
-import { mimirAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/prometheus";
-import { victoriaLogsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria/logs";
-import { victoriaMetricsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria/metrics";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {
@@ -65,12 +61,8 @@ describe("applyHttpAuthCredentials", () => {
 });
 
 describe("descriptor configFields (descriptor-driven forms)", () => {
-	it("exposes basic + bearer for Grafana stack member types", () => {
-		for (const factory of [
-			tempoAdapterFactory,
-			lokiAdapterFactory,
-			mimirAdapterFactory,
-		]) {
+	it("exposes basic + bearer for Tempo", () => {
+		for (const factory of [tempoAdapterFactory]) {
 			const d = factory.describe();
 			const keys = d.configFields.map((f) => f.key);
 			expect(keys).toEqual(
@@ -88,41 +80,15 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 			});
 			expect(d.authStyle).toBe("http");
 		}
-		expect(lokiAdapterFactory.describe().configFields.map((f) => f.key)).toContain(
-			"tenant"
-		);
-		expect(mimirAdapterFactory.describe().configFields.map((f) => f.key)).toContain(
-			"tenant"
-		);
 		expect(
 			tempoAdapterFactory.describe().configFields.map((f) => f.key)
 		).not.toContain("tenant");
-	});
-
-	it("exposes tenant for Victoria stack member types", () => {
-		for (const factory of [
-			victoriaLogsAdapterFactory,
-			victoriaMetricsAdapterFactory,
-		]) {
-			const keys = factory.describe().configFields.map((f) => f.key);
-			expect(keys).toEqual(
-				expect.arrayContaining([
-					"url",
-					"username",
-					"password",
-					"token",
-					"tenant",
-				])
-			);
-		}
 	});
 
 	it("uses type-specific endpoint placeholders", () => {
 		const urlField = (type: { describe: () => { configFields: { key: string; placeholder?: string }[] } }) =>
 			type.describe().configFields.find((f) => f.key === "url")?.placeholder ?? "";
 		expect(urlField(tempoAdapterFactory)).toContain("tempo");
-		expect(urlField(lokiAdapterFactory)).toContain("logs");
-		expect(urlField(mimirAdapterFactory)).toContain("prometheus");
 	});
 
 });

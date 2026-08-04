@@ -60,36 +60,18 @@ describe("datasource bootstrap", () => {
 		expect(createAdapter(descriptor)).toBeInstanceOf(ClickHouseAdapter);
 	});
 
-	it("registers every atomic vendor factory", () => {
+	it("registers only the supported CE connector factories", () => {
 		ensureAdaptersRegistered();
 		for (const type of [
 			"clickhouse",
 			"tempo",
-			"loki",
-			"prometheus",
-			"mimir",
 			"jaeger",
-			"victoriametrics",
-			"victorialogs",
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);
 		}
-	});
-
-	it("registers stack umbrellas as internal-only (hidden from atomic pickers)", () => {
-		ensureAdaptersRegistered();
-		// Umbrellas ARE registered so their descriptor/stackTemplate is available,
-		// but they are excluded from the atomic type list the source picker uses.
-		expect(hasAdapterFactory("grafana")).toBe(true);
-		expect(hasAdapterFactory("victoria")).toBe(true);
-		const atomic = listSourceTypeDescriptors().map((d) => d.type);
-		expect(atomic).not.toContain("grafana");
-		expect(atomic).not.toContain("victoria");
-		const all = listSourceTypeDescriptors({ includeInternal: true }).map(
-			(d) => d.type
-		);
-		expect(all).toContain("grafana");
-		expect(all).toContain("victoria");
+		for (const type of ["datadog", "loki", "mimir", "prometheus", "victoriametrics", "victorialogs"]) {
+			expect(hasAdapterFactory(type)).toBe(false);
+		}
 	});
 
 	it("every registered atomic type exposes a valid config schema", () => {
