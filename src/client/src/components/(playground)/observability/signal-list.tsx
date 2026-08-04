@@ -110,12 +110,13 @@ export default function ObservabilitySignalList({
 	const skipSelectedHydrationRef = useRef(false);
 	const selectedParam = searchParams.get("selected");
 	const selectedEnvironment = currentProjectEnvironment || undefined;
-	const { data, fireRequest, reset, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, reset, isFetched, isLoading, error: listError } = useFetchWrapper();
 	const {
 		data: summaryData,
 		fireRequest: fireSummaryRequest,
 		reset: resetSummary,
 		isLoading: isSummaryLoading,
+		error: summaryError,
 	} = useFetchWrapper();
 
 	useEffect(() => {
@@ -219,6 +220,7 @@ export default function ObservabilitySignalList({
 		return config.normalize ? records.map(config.normalize) : records;
 	}, [config, data]);
 	const total = (data as any)?.total || 0;
+	const telemetryError = summaryError || listError;
 	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
 	const isMetricSignal = config.key === "metrics";
 	const isLogSignal = config.key === "logs";
@@ -391,6 +393,11 @@ export default function ObservabilitySignalList({
 
 	return (
 		<>
+			{telemetryError && (
+				<div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+					{String(telemetryError)}
+				</div>
+			)}
 			<div className="mb-3">
 				<SignalSummary
 					key={`summary-${config.key}`}

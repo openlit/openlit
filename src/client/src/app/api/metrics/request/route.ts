@@ -34,6 +34,11 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await listTraceRecords(params);
-	return Response.json(res);
+	try {
+		const res: any = await listTraceRecords(params);
+		return Response.json(res);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return Response.json({ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" }, { status: 503 });
+	}
 }

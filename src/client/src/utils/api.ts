@@ -62,16 +62,25 @@ export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 				hasBody ? { "Content-Type": "application/json" } : undefined
 			),
 		});
+		const raw = await res.text();
+		let parsed: any = null;
+		if (raw.trim()) {
+			try {
+				parsed = JSON.parse(raw);
+			} catch {
+				parsed = raw;
+			}
+		}
 		if (!res.ok) {
-			const error = await res.json();
+			const error = parsed as any;
 			throw new Error(
 				typeof error === "string"
 					? error
-					: error?.error || error?.message || `Request failed (${res.status})`
+					: error?.err || error?.error || error?.message || `Request failed (${res.status})`
 			);
 		}
-
-		return res.json();
+		if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+		return parsed;
 		} finally {
 			if (timeout !== undefined) clearTimeout(timeout);
 		}
@@ -89,14 +98,19 @@ export async function postData({ url, data }: POST_DATA) {
 		headers: getRequestHeaders({ "Content-Type": "application/json" }),
 		body: JSON.stringify(data),
 	});
+	const raw = await res.text();
+	let parsed: any = null;
+	if (raw.trim()) {
+		try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+	}
 	if (!res.ok) {
-		const error = await res.json();
+		const error = parsed as any;
 		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+			typeof error === "string" ? error : error?.err || error?.error || error?.message || `Request failed (${res.status})`
 		);
 	}
-
-	return res.json();
+	if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+	return parsed;
 }
 
 type DELETE_DATA = {
@@ -108,12 +122,17 @@ export async function deleteData({ url }: DELETE_DATA) {
 		method: "DELETE",
 		headers: getRequestHeaders(),
 	});
+	const raw = await res.text();
+	let parsed: any = null;
+	if (raw.trim()) {
+		try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+	}
 	if (!res.ok) {
-		const error = await res.json();
+		const error = parsed as any;
 		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+			typeof error === "string" ? error : error?.err || error?.error || error?.message || `Request failed (${res.status})`
 		);
 	}
-
-	return res.json();
+	if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+	return parsed;
 }

@@ -39,5 +39,13 @@ export async function POST(
 	);
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(await summaryForSignal(params.signal, metricParams));
+	try {
+		return Response.json(await summaryForSignal(params.signal, metricParams));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return Response.json(
+			{ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" },
+			{ status: 503 }
+		);
+	}
 }

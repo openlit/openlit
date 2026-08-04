@@ -22,5 +22,10 @@ export async function POST(request: Request) {
 	);
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(await listMetricRecords(params));
+	try {
+		return Response.json(await listMetricRecords(params));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return Response.json({ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" }, { status: 503 });
+	}
 }
