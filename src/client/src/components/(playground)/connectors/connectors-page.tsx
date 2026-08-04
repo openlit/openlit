@@ -3,13 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Cable, CheckCircle2, Plug } from "lucide-react";
+import { ArrowRight, Cable, CheckCircle2, Plug, Search } from "lucide-react";
 import FeatureAccess from "@/components/rbac/feature-access";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
 	Accordion,
 	AccordionContent,
@@ -58,6 +59,7 @@ export default function ConnectorsPage() {
 	const [requestedType, setRequestedType] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	const [search, setSearch] = useState("");
 	const connectorGroups = useMemo(() => {
 		const groups = new Map<string, ConnectorType[]>();
 		for (const connector of types) {
@@ -72,6 +74,26 @@ export default function ConnectorsPage() {
 			connectors,
 		}));
 	}, [types]);
+	const filteredConnectorGroups = useMemo(() => {
+		const query = search.trim().toLowerCase();
+		if (!query) return connectorGroups;
+		return connectorGroups
+			.map((group) => ({
+				...group,
+				connectors: group.connectors.filter((connector) =>
+					[
+						connector.displayName,
+						connector.type,
+						connector.category,
+						connector.description,
+						...(connector.declaredSignals || []),
+					]
+						.filter(Boolean)
+						.some((value) => String(value).toLowerCase().includes(query))
+				),
+			}))
+			.filter((group) => group.connectors.length > 0);
+	}, [connectorGroups, search]);
 
 	const loadConnectors = () => {
 		if (!project?.id) return;
@@ -139,7 +161,7 @@ export default function ConnectorsPage() {
 					/>
 
 					<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
-						<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+							<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
 									{messages.CONNECTOR_CATALOG}
@@ -148,13 +170,23 @@ export default function ConnectorsPage() {
 									{messages.CONNECTOR_CATALOG_DESCRIPTION}
 								</p>
 							</div>
-							<Button asChild variant="outline" size="sm">
+								<Button asChild variant="outline" size="sm">
 								<Link href={`/organisation/project/${project?.id || ""}/connectors`}>
 									{messages.MANAGE_CONNECTORS}
 									<ArrowRight className="ml-1.5 h-3.5 w-3.5" />
 								</Link>
-							</Button>
-						</div>
+								</Button>
+							</div>
+							<div className="relative mb-4 max-w-sm">
+								<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+								<Input
+									value={search}
+									onChange={(event) => setSearch(event.target.value)}
+									placeholder="Search connectors"
+									aria-label="Search connectors"
+									className="h-9 pl-9"
+								/>
+							</div>
 
 						{loading ? (
 							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -176,16 +208,17 @@ export default function ConnectorsPage() {
 								))}
 							</div>
 						) : (
+							<>
 							<Accordion
 								type="multiple"
-								defaultValue={connectorGroups.map((group) => group.key)}
-								className="space-y-3"
+								defaultValue={filteredConnectorGroups.map((group) => group.key)}
+								className="space-y-1"
 							>
-								{connectorGroups.map((group) => (
+								{filteredConnectorGroups.map((group) => (
 									<AccordionItem
 										key={group.key}
 										value={group.key}
-										className="rounded-lg border border-stone-200 px-3 dark:border-stone-800"
+										className="border-stone-200 dark:border-stone-800"
 									>
 										<AccordionTrigger className="py-3 text-sm font-semibold text-stone-950 hover:no-underline dark:text-stone-50">
 											<span className="flex items-center gap-2">
@@ -255,6 +288,10 @@ export default function ConnectorsPage() {
 									</AccordionItem>
 								))}
 							</Accordion>
+							{!filteredConnectorGroups.length && (
+								<p className="py-10 text-center text-sm text-muted-foreground">No connectors match your search.</p>
+							)}
+							</>
 						)}
 					</section>
 
