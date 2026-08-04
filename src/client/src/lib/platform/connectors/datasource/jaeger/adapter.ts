@@ -43,9 +43,13 @@ import { mapPool } from "../graph/map-pool";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
+const MAX_QUERY_SERVICES = 24;
+const SERVICE_TRACE_TIMEOUT_MS = 3_500;
+const SERVICE_TRACE_CONCURRENCY = 8;
 const SPAN_INDEX_MAX = 5_000;
 
 const spanIndexBySource = new Map<string, Map<string, NormalizedSpan>>();
+const timedOutServices = new Map<string, number>();
 
 function rememberSpans(sourceId: string, spans: NormalizedSpan[]) {
 	let index = spanIndexBySource.get(sourceId);
@@ -224,7 +228,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				redactValues: redact,
 				concurrencyKey: this.descriptor.id,
 				retry: false,
-				timeoutMs: 5_000,
+				timeoutMs: SERVICE_TRACE_TIMEOUT_MS,
 			});
 		}
 		const services = (response?.data || []).map(String).filter(Boolean).slice(0, MAX_SERVICES);
@@ -313,10 +317,12 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		query: OpenLITQuery,
 		maxSpans: number
 	): Promise<NormalizedSpan[]> {
-		const services = await this.listServices();
+		const discoveredServices = await this.listServices();
+		const services = discoveredServices.slice(0, MAX_QUERY_SERVICES);
 		console.log("[jaeger] collecting spans", {
 			sourceId: this.descriptor.id,
 			serviceCount: services.length,
+			discoveredServiceCount: discoveredServices.length,
 			start: query.timeRange.start.toISOString(),
 			end: query.timeRange.end.toISOString(),
 			maxSpans,
@@ -326,7 +332,17 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			this.perServiceLimit,
 			Math.max(10, Math.ceil(maxSpans / Math.max(1, services.length)))
 		);
-		const traceBatches = await mapPool(services, 6, async (service) => {
+		const traceBatches = await mapPool(services, SERVICE_TRACE_CONCURRENCY, async (service) => {
+			const failureKey = `${this.descriptor.id}:${service}`;
+			const retryAfter = timedOutServices.get(failureKey) || 0;
+			if (retryAfter > Date.now()) {
+				console.log("[jaeger] skipping recently timed out service", {
+					sourceId: this.descriptor.id,
+					service,
+					retryAfter: new Date(retryAfter).toISOString(),
+				});
+				return [];
+			}
 			try {
 				const traces = await this.fetchServiceTraces(
 					service,
@@ -338,8 +354,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 					service,
 					traceCount: traces.length,
 				});
+				timedOutServices.delete(failureKey);
 				return traces;
 			} catch (error) {
+				timedOutServices.set(failureKey, Date.now() + 30_000);
 				console.log("[jaeger] service traces failed", {
 					sourceId: this.descriptor.id,
 					service,
@@ -365,6 +383,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		console.log("[jaeger] spans collected", {
 			sourceId: this.descriptor.id,
 			serviceCount: services.length,
+			discoveredServiceCount: discoveredServices.length,
 			spanCount: rows.length,
 		});
 		rememberSpans(this.descriptor.id, rows);

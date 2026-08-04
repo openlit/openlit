@@ -121,5 +121,16 @@ export default function useFetchWrapper<T>() {
 		[applyData]
 	);
 
-	return { data, fireRequest, error, isFetched, isLoading };
+	const reset = useCallback(() => {
+		// A context change (project/environment) must not reuse the previous
+		// context's rows or hide the next request behind stale-while-revalidate.
+		requestIdRef.current += 1;
+		dataRef.current = null;
+		setData(null);
+		setError(null);
+		setIsFetched(false);
+		setIsLoading(true);
+	}, []);
+
+	return { data, fireRequest, reset, error, isFetched, isLoading };
 }

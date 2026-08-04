@@ -110,10 +110,11 @@ export default function ObservabilitySignalList({
 	const skipSelectedHydrationRef = useRef(false);
 	const selectedParam = searchParams.get("selected");
 	const selectedEnvironment = currentProjectEnvironment || undefined;
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, reset, isFetched, isLoading } = useFetchWrapper();
 	const {
 		data: summaryData,
 		fireRequest: fireSummaryRequest,
+		reset: resetSummary,
 		isLoading: isSummaryLoading,
 	} = useFetchWrapper();
 
@@ -180,6 +181,11 @@ export default function ObservabilitySignalList({
 			url: config.summaryUrl,
 		});
 	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest, selectedEnvironment]);
+
+	useEffect(() => {
+		reset();
+		resetSummary();
+	}, [reset, resetSummary, selectedEnvironment]);
 
 	useEffect(() => {
 		// Defensively strip a leaked agent scope before any request fires. On
