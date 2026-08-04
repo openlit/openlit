@@ -214,7 +214,7 @@ function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
 			return;
 		}
 		try {
-			const res = await fetch(`/api/metrics/request/trace/${ref.id}`, {
+			const res = await fetch(`/api/telemetry/request/trace/${ref.id}`, {
 				headers: getRequestHeaders(),
 			});
 			const result = await res.json();

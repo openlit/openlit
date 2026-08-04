@@ -453,7 +453,7 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		fireConfigRequest({
 			body,
 			requestType: "POST",
-			url: "/api/metrics/request/config",
+			url: "/api/telemetry/request/config",
 			successCb: (resp) => {
 				const row = Array.isArray(resp?.data) ? resp.data[0] : resp?.data ?? resp;
 				if (!row || typeof row !== "object") return;
@@ -486,7 +486,7 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		fireAttrKeysRequest({
 			body,
 			requestType: "POST",
-			url: "/api/metrics/request/attribute-keys",
+			url: "/api/telemetry/request/attribute-keys",
 			successCb: (resp) => {
 				if (!resp || typeof resp !== "object") return;
 				setSpanAttributeKeys(

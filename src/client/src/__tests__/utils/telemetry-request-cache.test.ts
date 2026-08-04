@@ -12,7 +12,7 @@ describe("telemetry-request-cache", () => {
 	});
 
 	it("only caches telemetry/metrics URLs", () => {
-		expect(isCacheableTelemetryUrl("/api/metrics/request/grouped")).toBe(true);
+		expect(isCacheableTelemetryUrl("/api/telemetry/request/grouped")).toBe(true);
 		expect(isCacheableTelemetryUrl("/api/telemetry/summary/traces")).toBe(true);
 		expect(isCacheableTelemetryUrl("/api/agents/foo")).toBe(false);
 	});
@@ -40,11 +40,11 @@ describe("telemetry-request-cache", () => {
 	});
 
 	it("seeds peek after a successful cache write", async () => {
-		await withTelemetryRequestCache("/api/metrics/request", "{}", async () => ({
+		await withTelemetryRequestCache("/api/telemetry/request", "{}", async () => ({
 			ok: true,
 		}));
 		expect(
-			peekTelemetryRequestCache("/api/metrics/request", "{}")
+			peekTelemetryRequestCache("/api/telemetry/request", "{}")
 		).toEqual({ ok: true });
 	});
 
@@ -54,14 +54,14 @@ describe("telemetry-request-cache", () => {
 			loads += 1;
 			return { ok: true, loads };
 		};
-		const a = withTelemetryRequestCache("/api/metrics/request", "{}", loader);
-		const b = withTelemetryRequestCache("/api/metrics/request", "{}", loader);
+		const a = withTelemetryRequestCache("/api/telemetry/request", "{}", loader);
+		const b = withTelemetryRequestCache("/api/telemetry/request", "{}", loader);
 		const [ra, rb] = await Promise.all([a, b]);
 		expect(ra).toEqual(rb);
 		expect(loads).toBe(1);
 
 		const c = await withTelemetryRequestCache(
-			"/api/metrics/request",
+			"/api/telemetry/request",
 			"{}",
 			loader
 		);

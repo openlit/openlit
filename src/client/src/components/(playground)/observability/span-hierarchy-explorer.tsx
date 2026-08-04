@@ -123,7 +123,7 @@ function SpanHierarchyExplorerInner({
 		const qs = traceId ? `?traceId=${encodeURIComponent(traceId)}` : "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/metrics/request/span/${hierarchySpanId}/heirarchy${qs}`,
+			url: `/api/telemetry/request/span/${hierarchySpanId}/heirarchy${qs}`,
 		});
 	}, [fireRequest, hierarchySpanId, traceId]);
 
