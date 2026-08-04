@@ -32,6 +32,8 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
+import { useRootStore } from "@/store";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 
 // Mirror of `durationLabel` in observability/columns.tsx — kept local
 // so the top-card override for coding-agent sessions can format the
@@ -103,15 +105,18 @@ function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: 
 function CostStat({
 	costValue,
 	spanId,
+	traceId,
 	hasModel,
 	onRecalculated,
 }: {
 	costValue?: string;
 	spanId?: string;
+	traceId?: string;
 	hasModel: boolean;
 	onRecalculated: () => void;
 }) {
 	const m = getMessage();
+	const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const hasCost = !!costValue && costValue !== "-";
 	const canRecalculate = hasModel && !!spanId;
 	const { fireRequest, isLoading } = useFetchWrapper<{
@@ -125,7 +130,10 @@ function CostStat({
 		if (!spanId || isLoading) return;
 		fireRequest({
 			requestType: "POST",
-			url: `/api/pricing/${spanId}`,
+			url: `/api/pricing/${spanId}?${new URLSearchParams({
+				...(currentEnvironment ? { environment: currentEnvironment } : {}),
+				...(traceId ? { traceId } : {}),
+			})}`,
 			successCb: (response) => {
 				if (response?.success) {
 					toast.success(
@@ -839,6 +847,7 @@ export function TraceDetailView({
 						<CostStat
 							costValue={costValue}
 							spanId={trace.spanId}
+							traceId={knownTraceId}
 							hasModel={!!modelValue}
 							onRecalculated={fetchData}
 						/>

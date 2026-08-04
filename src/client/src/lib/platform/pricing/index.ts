@@ -8,7 +8,7 @@ import {
 } from "@/helpers/server/trace";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { getDBConfigById } from "@/lib/db-config";
-import { getRequestViaSpanId } from "@/lib/platform/request";
+import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getPricingConfigById } from "./config";
 import { getLastRunCronLogByCronId, insertCronLog } from "@/lib/platform/cron-log";
@@ -16,6 +16,7 @@ import { CronRunStatus, CronType } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import Sanitizer from "@/utils/sanitizer";
 import asaw from "@/utils/asaw";
+import { consoleLog } from "@/utils/log";
 
 const COST_KEY = getTraceMappingKeyFullPath("cost") as string; // gen_ai.usage.cost
 const MODEL_KEY = getTraceMappingKeyFullPath("model") as string; // gen_ai.request.model
@@ -122,14 +123,32 @@ async function writeCostToTrace(
  * Manually recalculate + persist cost for a single span.
  * Exposed via POST /api/pricing/[spanId].
  */
-export async function setPricingForSpanId(spanId: string) {
+export async function setPricingForSpanId(
+	spanId: string,
+	opts?: { environment?: string; traceId?: string }
+) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
-	const { record: spanData, err: traceErr } = await getRequestViaSpanId(
-		sanitizedSpanId
+	const { resolveTelemetrySourceDescriptor } = await import("@/lib/telemetry-source");
+	const descriptor = await resolveTelemetrySourceDescriptor({
+		signal: "traces",
+		environment: opts?.environment,
+	});
+	const { record: spanData, err: traceErr } = await getTraceSpanRecord(
+		sanitizedSpanId,
+		{ environment: opts?.environment, traceId: opts?.traceId }
 	);
+	consoleLog("[pricing] routed span lookup", {
+		spanId: sanitizedSpanId,
+		environment: opts?.environment || null,
+		traceId: opts?.traceId || null,
+		descriptorId: descriptor.id,
+		type: descriptor.type,
+		found: !!(spanData as any)?.SpanId,
+		error: traceErr || null,
+	});
 	throwIfError(!!traceErr, getMessage().TRACE_NOT_FOUND);
 	throwIfError(
 		!(spanData as any)?.SpanId,
@@ -160,6 +179,17 @@ export async function setPricingForSpanId(spanId: string) {
 			err:
 				reason ||
 				"Could not compute cost — missing provider/model/tokens or model not in openlit_provider_models",
+		};
+	}
+
+	// External telemetry backends are read-only from OpenLIT's perspective.
+	// The cost is still calculated using the project's ClickHouse intelligence
+	// store, but must not be written to the external vendor's trace backend.
+	if (!descriptor.isBuiltIn && descriptor.type !== "clickhouse") {
+		return {
+			success: true,
+			data: { spanId: trace.SpanId, cost, persisted: false },
+			message: `Cost calculated from the ${descriptor.type} connector. External telemetry sources are read-only, so the source span was not modified.`,
 		};
 	}
 
