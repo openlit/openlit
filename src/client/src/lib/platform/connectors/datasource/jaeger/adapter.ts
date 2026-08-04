@@ -465,25 +465,32 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	}
 
 	async discoverServices(window: QueryTimeRange): Promise<DiscoveredService[]> {
-		const services = await this.listServices();
-		const discovered: DiscoveredService[] = [];
-		for (const service of services) {
-			const traces = await this.fetchServiceTraces(service, window, 5);
-			const spans = traces.flatMap((t) =>
-				(t.spans || []).map((s) => this.normalizeSpan(s, t.processes || {}))
-			);
-			if (spans.some((s) => spanMatchesAISelector(s))) {
+		const services = (await this.listServices()).slice(0, MAX_QUERY_SERVICES);
+		const discovered = await mapPool(services, SERVICE_TRACE_CONCURRENCY, async (service) => {
+			try {
+				const traces = await this.fetchServiceTraces(service, window, 5);
+				const spans = traces.flatMap((t) =>
+					(t.spans || []).map((s) => this.normalizeSpan(s, t.processes || {}))
+				);
+				if (!spans.some((s) => spanMatchesAISelector(s))) return null;
 				const withSdk = spans.find((s) => s.resourceAttributes["telemetry.sdk.name"]);
-				discovered.push({
+				return {
 					serviceName: service,
 					environment: "",
 					clusterId: "",
 					sdkName: withSdk?.resourceAttributes["telemetry.sdk.name"],
 					sdkLanguage: withSdk?.resourceAttributes["telemetry.sdk.language"],
+				};
+			} catch (error) {
+				console.log("[jaeger] service discovery failed", {
+					sourceId: this.descriptor.id,
+					service,
+					error: String((error as Error)?.message || error),
 				});
+				return null;
 			}
-		}
-		return discovered;
+		});
+		return discovered.filter((service) => service !== null) as DiscoveredService[];
 	}
 
 	async aggregateByService(window: QueryTimeRange): Promise<ServiceRollup[]> {
