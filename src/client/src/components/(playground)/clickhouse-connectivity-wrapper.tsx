@@ -42,10 +42,6 @@ export default function ClickhouseConnectivityWrapper({ children }: { children: 
 						</Link>
 					</div>
 				</div>
-			) : pingDetails.status === "pending" ? (
-				<div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-muted-foreground dark:border-stone-800 dark:bg-stone-900/60">
-					<RefreshCw className="h-3.5 w-3.5 animate-spin" /> Checking ClickHouse connector…
-				</div>
 			) : null}
 			{children}
 		</div>
