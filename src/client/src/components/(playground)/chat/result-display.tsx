@@ -122,9 +122,11 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 					{VIZ_OPTIONS.map(({ type, icon: Icon, label }) => (
 						<Button
 							key={type}
-							variant={vizType === type ? "default" : "ghost"}
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 text-xs text-stone-700 dark:text-stone-200"
+							className={vizType === type
+								? "h-7 bg-stone-900 px-2 text-xs text-white hover:bg-stone-800 hover:text-white dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 dark:hover:text-stone-900"
+								: "h-7 px-2 text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}
 							onClick={() => setVizType(type)}
 						>
 							<Icon className="h-3 w-3 mr-1" />
