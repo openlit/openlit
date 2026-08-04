@@ -41,6 +41,7 @@ import { dataCollector } from "../common";
 import { listTraceRecords } from "../traces/read";
 import { getLogs } from "../logs/read";
 import { listMetricRecords } from "../metrics/read";
+import { resolveSignalSource } from "@/lib/telemetry-source";
 import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
@@ -1027,6 +1028,40 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 					return { success: true, count: models.length, models: models.map((m: any) => ({ id: m.id, model_id: m.model_id, provider: m.provider, displayName: m.displayName })) };
 				} catch (e: any) {
 					return { success: false, error: e.message };
+				}
+			},
+		}),
+
+		get_telemetry_routing: tool<any, any>({
+			description: "Report the currently routed connector for traces, logs, metrics, and intelligence in the active environment. Always use this tool before answering which connector or database OpenLIT is using; never infer the answer from the ClickHouse schema or generated SQL.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {},
+			}) as any,
+			execute: async () => {
+				try {
+					const signals = ["traces", "logs", "metrics", "intelligence"] as const;
+					const routed = await Promise.all(
+						signals.map(async (signal) => {
+							const resolution = await resolveSignalSource(signal, { environment });
+							return {
+								signal,
+								environment: environment || resolution.descriptor.environment || "active",
+								connector: resolution.hasSource ? resolution.descriptor.name : null,
+								connectorType: resolution.hasSource ? resolution.descriptor.type : null,
+								isBuiltIn: resolution.hasSource ? resolution.descriptor.isBuiltIn : false,
+								configured: resolution.hasSource,
+								resolution: resolution.via,
+							};
+						})
+					);
+					return {
+						success: true,
+						environment: environment || "active",
+						routing: routed,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to resolve telemetry connector routing" };
 				}
 			},
 		}),
