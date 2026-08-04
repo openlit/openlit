@@ -1,6 +1,7 @@
 import type { DataFrame, OpenLITQuery } from "./types";
 import {
 	fetchSpansForAggregation,
+	collapseToRootSpans,
 	type SampleFetchSource,
 } from "./graph/sample-fetch";
 import {
@@ -36,8 +37,12 @@ export async function computeAggregateSpansL1(
 ): Promise<DataFrame> {
 	const start = Date.now();
 	const { spans, truncated } = await fetchSpansForAggregation(source, query);
+	// Trace summaries and request totals are trace-level metrics. External
+	// adapters return full traces, so aggregating every child span inflates the
+	// count (for example, one trace with 200 spans appeared as 200 requests).
+	const traceRoots = collapseToRootSpans(spans);
 	const frame = aggregateSpansInProcess(
-		spans,
+		traceRoots,
 		query.groupBy || [],
 		query.aggregations || [{ fn: "count" }]
 	);
@@ -55,8 +60,9 @@ export async function computeSpanTimeSeriesL1(
 ): Promise<DataFrame> {
 	const start = Date.now();
 	const { spans, truncated } = await fetchSpansForAggregation(source, query);
+	const traceRoots = collapseToRootSpans(spans);
 	const frame = bucketSpansByInterval(
-		spans,
+		traceRoots,
 		query.interval || "1h",
 		query.aggregations || [{ fn: "count" }],
 		query.timeRange
