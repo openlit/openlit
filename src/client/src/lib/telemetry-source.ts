@@ -212,6 +212,10 @@ export async function resolveSignalSource(
 	signal: Signal,
 	options: ResolveTelemetrySourceOptions = {}
 ): Promise<SignalSourceResolution> {
+	const hasRequestedEnvironment =
+		options.environment !== undefined &&
+		options.environment !== null &&
+		String(options.environment).trim().length > 0;
 	const projectId =
 		options.projectId !== undefined
 			? options.projectId
@@ -258,20 +262,32 @@ export async function resolveSignalSource(
 			);
 		}
 
-		// 3. Any project source that advertises the signal (default first).
-		const rows = await prisma.telemetrySource.findMany({
-			where: { projectId, environment },
-			orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-		});
-		const match = rows.find((r) => parseSignals(r.signals).includes(signal));
-		if (match) {
-			return {
-				descriptor: toDescriptor(match),
-				servesSignal: true,
-				hasSource: true,
-				via: "capability",
-			};
-		}
+		// Do not pick an arbitrary connector just because it advertises this
+		// signal. A connector is active only after an explicit signal binding;
+		// otherwise changing environments can silently read another backend.
+	}
+
+	// 3. Preserve the legacy implicit ClickHouse behavior only when the caller
+	// did not explicitly select an environment. Environment-scoped requests
+	// must fail closed when that environment has no routed connector.
+	if (hasRequestedEnvironment) {
+		return {
+			descriptor: {
+				type: "clickhouse",
+				id: "builtin:none",
+				isBuiltIn: true,
+				settings: {},
+				secretRef: null,
+				dbConfigId: undefined,
+				signals: [...ALL_SIGNALS],
+				projectId,
+				name: "ClickHouse",
+				environment,
+			},
+			servesSignal: false,
+			hasSource: false,
+			via: "none",
+		};
 	}
 
 	// 4. Built-in ClickHouse (serves all signals when configured).
@@ -353,7 +369,20 @@ export async function getTelemetryAdapter(
 	options: ResolveTelemetrySourceOptions = {}
 ): Promise<DataSourceAdapter> {
 	ensureAdaptersRegistered();
-	const descriptor = options.descriptor || await resolveTelemetrySourceDescriptor(options);
+	let resolution: SignalSourceResolution | undefined;
+	if (!options.descriptor && options.signal) {
+		resolution = await resolveSignalSource(options.signal, options);
+	}
+	const descriptor =
+		options.descriptor ||
+		resolution?.descriptor ||
+		(await resolveTelemetrySourceDescriptor(options));
+	if ((resolution && !resolution.hasSource) || descriptor.id === "builtin:none") {
+		const { TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL } = await import(
+			"@/constants/messages/en"
+		);
+		throw new Error(TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL(options.signal!));
+	}
 	const adapter = createAdapter(descriptor);
 	if (adapter) return adapter;
 
@@ -397,6 +426,12 @@ export async function getTelemetryAdapterForDbConfig(
 		dbConfigId,
 		environment: dbConfig?.environment,
 	});
+	if (!resolution.hasSource) {
+		const { TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL } = await import(
+			"@/constants/messages/en"
+		);
+		throw new Error(TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL(signal));
+	}
 	const adapter = createAdapter(resolution.descriptor);
 	if (!adapter) {
 		if (

@@ -70,12 +70,12 @@ export default function SqlBlock({
 	}, [code, messageId, onExecute]);
 
 	return (
-		<div className="my-3 rounded-lg border border-stone-200 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900">
+		<div className="my-3 overflow-hidden rounded-lg border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 			{/* SQL Query in Accordion — collapsed by default */}
 			<Accordion type="single" collapsible>
 				<AccordionItem value="sql" className="border-b-0">
-					<div className="flex items-center justify-between px-3 py-1.5 bg-stone-50 dark:bg-stone-800/50">
-						<AccordionTrigger className="py-1.5 hover:no-underline gap-2 text-xs font-medium text-stone-500 dark:text-stone-400">
+					<div className="flex items-center justify-between bg-stone-50 px-3 py-1.5 dark:bg-stone-900">
+						<AccordionTrigger className="gap-2 py-1.5 text-xs font-medium text-stone-600 hover:no-underline dark:text-stone-300">
 							<div className="flex items-center gap-1.5">
 								<Code className="h-3.5 w-3.5" />
 								{getMessage().CHAT_SQL_LABEL}
@@ -85,7 +85,7 @@ export default function SqlBlock({
 							<Button
 								variant="ghost"
 								size="sm"
-								className="h-6 px-2 text-xs text-stone-500 dark:text-stone-400"
+								className="h-7 px-2 text-xs text-stone-600 dark:text-stone-300"
 								onClick={handleCopy}
 							>
 								{copied ? (
@@ -116,13 +116,13 @@ export default function SqlBlock({
 					<AccordionContent className="pb-0" parentClassName="border-t border-stone-200 dark:border-stone-700">
 						<SyntaxHighlighter
 							language="sql"
-							style={resolvedTheme === "dark" ? oneDark : oneLight}
-							customStyle={{
+											style={resolvedTheme === "light" ? oneLight : oneDark}
+											customStyle={{
 								margin: 0,
 								borderRadius: 0,
 								fontSize: "13px",
 								padding: "12px 16px",
-								background: "transparent",
+												background: "#1c1917",
 							}}
 						>
 							{code}

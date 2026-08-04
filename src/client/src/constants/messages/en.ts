@@ -1831,7 +1831,7 @@ export const TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED = (
 	source: string
 ) => `The bound source "${source}" does not serve ${signal}.`;
 export const TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL = (signal: string) =>
-	`No telemetry source in this project serves ${signal}.`;
+	`No connector is configured or routed for ${signal}. Add a connector for this environment and select it in Signal routing.`;
 export const TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE = (type: string) =>
 	`No adapter is registered for telemetry source type "${type}".`;
 export const TELEMETRY_SOURCE_STACK_TYPE_UNKNOWN = (type: string) =>

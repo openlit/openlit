@@ -124,7 +124,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 							key={type}
 							variant={vizType === type ? "default" : "ghost"}
 							size="sm"
-							className="h-7 px-2 text-xs"
+							className="h-7 px-2 text-xs text-stone-700 dark:text-stone-200"
 							onClick={() => setVizType(type)}
 						>
 							<Icon className="h-3 w-3 mr-1" />
@@ -142,7 +142,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 					<Button
 						variant="outline"
 						size="sm"
-						className="h-7 px-2 text-xs border-stone-200 dark:border-stone-700"
+						className="h-7 border-stone-200 px-2 text-xs text-stone-700 dark:border-stone-700 dark:text-stone-200"
 						onClick={() => setShowSaveDialog(true)}
 					>
 						<Save className="h-3 w-3 mr-1" />
