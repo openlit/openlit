@@ -29,17 +29,15 @@ or any UI** — and needs no Prisma migration (`type` stays a free string).
      omit these still work — the contract stays simple)
 3. **`datasource/<vendor>/selector.ts`** (for query languages) — translate the
    shared AI selector (`ai-selector.ts`) into the vendor query language
-   (TraceQL, LogQL, PromQL, NRQL, …). Push aggregation down to the vendor; never
+   (TraceQL, …). Push aggregation down to the vendor; never
    pull raw rows to aggregate in-process.
 4. **Register the factory** in `bootstrap.ts` (`VENDOR_FACTORIES`), or ship it
    from the private repo via the `getExternalDataSourceAdapters()` hook for
-   EE-only vendors. Multi-signal "stack" umbrellas are descriptor-only factories
-   in `stacks.ts` (`internal: true` + `stackTemplate`).
+   EE-only vendors.
 
 ## What you must NOT touch
 
 - No new form fields in `data-sources-page.tsx` — it renders `configFields`.
-- No `TELEMETRY_STACK_TEMPLATES` / CRUD edits — stacks come from descriptors.
 - No Prisma migration or enum — `type` is a free string.
 - No per-vendor `switch` anywhere — capability gating + descriptors handle it.
 - No `@/ee/**` import from CE; keep vendor strings in `constants/messages/en.ts`.

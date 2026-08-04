@@ -135,30 +135,10 @@ beforeEach(() => {
 	}));
 	mockListSourceTypeDescriptors.mockImplementation(
 		(opts: { includeInternal?: boolean } = {}) => {
-			const atomic = [
-				{ type: "clickhouse" },
-				{ type: "datadog" },
-				{ type: "tempo" },
-			];
-			if (!opts.includeInternal) return atomic;
 			return [
-				...atomic,
-				{
-					type: "grafana",
-					internal: true,
-					stackTemplate: {
-						displayName: "Grafana stack",
-						slots: [{ key: "tempo", type: "tempo", signal: "traces" }],
-					},
-				},
-				{
-					type: "victoria",
-					internal: true,
-					stackTemplate: {
-						displayName: "Victoria stack",
-						slots: [{ key: "logs", type: "victorialogs", signal: "logs" }],
-					},
-				},
+				{ type: "clickhouse" },
+				{ type: "tempo" },
+				{ type: "jaeger" },
 			];
 		}
 	);
