@@ -393,11 +393,6 @@ export default function ObservabilitySignalList({
 
 	return (
 		<>
-			{telemetryError && (
-				<div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-					{String(telemetryError)}
-				</div>
-			)}
 			<div className="mb-3">
 				<SignalSummary
 					key={`summary-${config.key}`}
@@ -429,6 +424,12 @@ export default function ObservabilitySignalList({
 					rootLabel={`All ${config.label}`}
 					updateFilter={updateFilter}
 				/>
+			)}
+
+			{telemetryError && (
+				<div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+					{String(telemetryError)}
+				</div>
 			)}
 
 			{config.supportGrouping && filter.groupBy && !filter.groupValue ? (
