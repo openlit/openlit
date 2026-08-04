@@ -10,6 +10,12 @@ import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "@/components/ui/accordion";
 import getMessage from "@/constants/messages";
 import { fetchProjectList, changeActiveProject } from "@/helpers/client/project";
 import { getCurrentOrganisation } from "@/selectors/organisation";
@@ -52,6 +58,20 @@ export default function ConnectorsPage() {
 	const [requestedType, setRequestedType] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	const connectorGroups = useMemo(() => {
+		const groups = new Map<string, ConnectorType[]>();
+		for (const connector of types) {
+			const key = connector.category || "datasource";
+			const group = groups.get(key) || [];
+			group.push(connector);
+			groups.set(key, group);
+		}
+		return Array.from(groups, ([key, connectors]) => ({
+			key,
+			label: key.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+			connectors,
+		}));
+	}, [types]);
 
 	const loadConnectors = () => {
 		if (!project?.id) return;
@@ -156,8 +176,26 @@ export default function ConnectorsPage() {
 								))}
 							</div>
 						) : (
-							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-								{types.map((type) => (
+							<Accordion
+								type="multiple"
+								defaultValue={connectorGroups.map((group) => group.key)}
+								className="space-y-3"
+							>
+								{connectorGroups.map((group) => (
+									<AccordionItem
+										key={group.key}
+										value={group.key}
+										className="rounded-lg border border-stone-200 px-3 dark:border-stone-800"
+									>
+										<AccordionTrigger className="py-3 text-sm font-semibold text-stone-950 hover:no-underline dark:text-stone-50">
+											<span className="flex items-center gap-2">
+												{group.label}
+												<Badge variant="outline" className="text-[10px] font-normal">{group.connectors.length}</Badge>
+											</span>
+										</AccordionTrigger>
+										<AccordionContent className="pb-3">
+											<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+												{group.connectors.map((type) => (
 									<div
 										key={`${type.category}:${type.type}`}
 										className="flex min-h-[190px] flex-col rounded-md border border-stone-200 p-3 dark:border-stone-800"
@@ -211,8 +249,12 @@ export default function ConnectorsPage() {
 											{messages.ADD_CONNECTOR}
 										</Button>
 									</div>
+												))}
+											</div>
+										</AccordionContent>
+									</AccordionItem>
 								))}
-							</div>
+							</Accordion>
 						)}
 					</section>
 
