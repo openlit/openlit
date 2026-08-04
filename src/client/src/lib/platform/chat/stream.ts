@@ -7,6 +7,7 @@ import { createCohere } from "@ai-sdk/cohere";
 import { getChatSystemPrompt } from "./schema-context";
 import { validateSQL, extractSQLFromResponse } from "./sql-validator";
 import { dataCollector } from "../common";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import {
 	addMessage,
 	getConversationMessages,
@@ -272,7 +273,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	if (responseText && !responseText.startsWith("**Error:**")) {
 		onStep?.("Executing generated SQL", "active");
 		const streamedText = responseText;
-		responseText = await executeSQLBlocksInResponse(responseText, dbConfigId);
+		responseText = await executeSQLBlocksInResponse(responseText, environment);
 		onStep?.("Executing generated SQL", "complete");
 		if (responseText.startsWith(streamedText) && responseText.length > streamedText.length) {
 			onDelta?.(responseText.slice(streamedText.length));
@@ -302,9 +303,15 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 /**
  * Find SQL code blocks in a response, execute them, and append query-result blocks.
  */
-async function executeSQLBlocksInResponse(text: string, dbConfigId?: string): Promise<string> {
+async function executeSQLBlocksInResponse(text: string, environment?: string): Promise<string> {
 	const sqlBlocks = extractSQLFromResponse(text);
 	if (sqlBlocks.length === 0) return text;
+
+	const chatSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!chatSource.available || !chatSource.databaseConfigId) return text;
 
 	let enrichedText = text;
 	for (const sql of sqlBlocks) {
@@ -314,7 +321,7 @@ async function executeSQLBlocksInResponse(text: string, dbConfigId?: string): Pr
 				const { data: queryData, err: queryErr } = await dataCollector({
 					query: validation.query,
 					enable_readonly: true,
-				}, "query", dbConfigId);
+				}, "query", chatSource.databaseConfigId);
 				if (!queryErr && queryData) {
 					const resultJson = JSON.stringify(queryData);
 					const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

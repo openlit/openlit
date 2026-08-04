@@ -35,6 +35,12 @@ jest.mock("@/lib/telemetry-source", () => ({
 		id: "builtin:test",
 		isBuiltIn: true,
 	}),
+	isNativeSqlChatAvailable: jest.fn().mockResolvedValue({
+		available: true,
+		sourceType: "clickhouse",
+		sourceName: "Test ClickHouse",
+		databaseConfigId: "db-intelligence",
+	}),
 	getTelemetryAdapter: jest.fn(),
 }));
 jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));

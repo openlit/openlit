@@ -5,6 +5,7 @@ import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { dataCollector } from "../common";
 import { getModelInstance } from "./stream";
 import { getTraceHierarchy } from "../traces/read";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
 import {
 	TRACE_ANALYSIS_DIMENSIONS,
@@ -1512,8 +1513,21 @@ export async function getTraceImprovement(
 
 	const { analysisRoot, rootSpanId } = getAnalysisTarget(hierarchyRecord, spanId, scope);
 	const analysisType = analysisTypeForScope(scope);
+	const intelligenceSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!intelligenceSource.available || !intelligenceSource.databaseConfigId) {
+		return {
+			err: `The intelligence connector is not configured for environment "${environment || "the active environment"}".`,
+		};
+	}
 
-	const { data: runs, err: runsErr } = await getTraceAnalysisRuns(rootSpanId, databaseConfigId, analysisType);
+	const { data: runs, err: runsErr } = await getTraceAnalysisRuns(
+		rootSpanId,
+		intelligenceSource.databaseConfigId,
+		analysisType
+	);
 	logTraceAnalysis("get_runs_loaded", {
 		spanId,
 		scope,
@@ -1589,7 +1603,21 @@ export async function streamTraceImprovementAnalysis(
 
 	const { analysisRoot, rootSpanId } = getAnalysisTarget(hierarchyRecord, spanId, scope);
 	const analysisType = analysisTypeForScope(scope);
-	const { data: existingRuns } = await getTraceAnalysisRuns(rootSpanId, databaseConfigId, analysisType);
+	const intelligenceSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!intelligenceSource.available || !intelligenceSource.databaseConfigId) {
+		return {
+			err: `The intelligence connector is not configured for environment "${environment || "the active environment"}".`,
+		};
+	}
+	const intelligenceDatabaseConfigId = intelligenceSource.databaseConfigId;
+	const { data: existingRuns } = await getTraceAnalysisRuns(
+		rootSpanId,
+		intelligenceDatabaseConfigId,
+		analysisType
+	);
 	const runNumber = (existingRuns?.length || 0) + 1;
 
 	const summary = summarizeSpan(analysisRoot);
@@ -1597,7 +1625,7 @@ export async function streamTraceImprovementAnalysis(
 	const ruleContext = await getRuleContextForTraceHierarchy(
 		analysisRoot,
 		spanId,
-		databaseConfigId
+		intelligenceDatabaseConfigId
 	);
 	logTraceAnalysis("hierarchy_loaded", {
 		spanId,
@@ -1916,7 +1944,7 @@ export async function streamTraceImprovementAnalysis(
 						completionTokens: finishStats.completionTokens,
 						cost: finishStats.cost,
 					},
-					databaseConfigId
+					intelligenceDatabaseConfigId
 				);
 
 				if (saveErr || !savedRun) {

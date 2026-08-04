@@ -4,6 +4,7 @@ import { validateSQL } from "@/lib/platform/chat/sql-validator";
 import { updateMessage } from "@/lib/platform/chat/conversation";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TELEMETRY_SOURCE_CHAT_NATIVE_ONLY } from "@/constants/messages/en";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -13,8 +14,12 @@ export async function POST(request: NextRequest) {
 	}
 
 	// Natural-language SQL chat runs raw ClickHouse SQL, so it is only
-	// available when the project reads from the built-in ClickHouse source.
-	const chatSource = await isNativeSqlChatAvailable();
+	// available through the ClickHouse connector routed for intelligence.
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
+	const chatSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
 	if (!chatSource.available) {
 		return Response.json(
 			{ err: TELEMETRY_SOURCE_CHAT_NATIVE_ONLY(chatSource.sourceName) },
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
 	const { data, err } = await dataCollector({
 		query: validation.query!,
 		enable_readonly: true,
-	});
+	}, "query", chatSource.databaseConfigId);
 
 	const executionTimeMs = Date.now() - startTime;
 

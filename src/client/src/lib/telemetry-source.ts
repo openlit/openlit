@@ -475,11 +475,41 @@ export async function getTelemetryAdapterForDbConfig(
  */
 export async function isNativeSqlChatAvailable(
 	options: ResolveTelemetrySourceOptions = {}
-): Promise<{ available: boolean; sourceType: string; sourceName: string }> {
-	const descriptor = await resolveTelemetrySourceDescriptor(options);
+	): Promise<{
+		available: boolean;
+		sourceType: string;
+		sourceName: string;
+		databaseConfigId?: string;
+	}> {
+	const signal = options.signal || "intelligence";
+	const resolution = await resolveSignalSource(signal, options);
+	let descriptor = resolution.descriptor;
+	// With no explicit environment, preserve the legacy "default source"
+	// behavior for an external project default. Otherwise a project with an
+	// external telemetry default and no intelligence binding would incorrectly
+	// appear to have native SQL available through the fallback ClickHouse DB.
+	if (
+		!options.environment &&
+		resolution.via === "builtin" &&
+		descriptor.isBuiltIn &&
+		descriptor.dbConfigId
+	) {
+		const defaultDescriptor = await resolveTelemetrySourceDescriptor({
+			...options,
+			signal: undefined,
+		});
+		if (!defaultDescriptor.isBuiltIn && defaultDescriptor.type !== "clickhouse") {
+			descriptor = defaultDescriptor;
+		}
+	}
+	const isConfiguredClickHouse =
+		descriptor.id !== "builtin:none" &&
+		(sourceSupportsNativeSql(descriptor) || descriptor.isBuiltIn) &&
+		Boolean(descriptor.dbConfigId);
 	return {
-		available: sourceSupportsNativeSql(descriptor),
+		available: isConfiguredClickHouse,
 		sourceType: descriptor.type,
 		sourceName: descriptor.name,
+		databaseConfigId: descriptor.dbConfigId,
 	};
 }
