@@ -33,7 +33,7 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: openlit-controller/go.mod
           cache-dependency-path: openlit-controller/go.sum

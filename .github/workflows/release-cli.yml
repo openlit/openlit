@@ -50,7 +50,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_sha }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: cli/go.mod
           cache-dependency-path: cli/go.mod
