@@ -58,7 +58,7 @@ func run(logger *slog.Logger) error {
 	var procColl *hostmetrics.ProcessCollector
 	if cfg.HostMetricsEnabled {
 		var err error
-		sysColl, err = hostmetrics.NewSystemCollector(provider, logger)
+		sysColl, err = hostmetrics.NewSystemCollector(provider, logger, cfg.FSTypesExclude)
 		if err != nil {
 			logger.Warn("system metrics unavailable", "error", err)
 		}

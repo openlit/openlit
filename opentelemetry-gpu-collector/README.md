@@ -155,6 +155,7 @@ All configuration uses standard OpenTelemetry environment variables.
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Prefer `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here; overrides auto identity |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds** |
 | `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA kernel tracing (Linux only). Soft-fails without caps/CUDA; set `false` to disable |
+| `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). The default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts) on Linux, macOS, and Windows. Set to an empty string to report all types |
 | `K8S_NODE_NAME` | | Downward API node name → also accepts Operator `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` or legacy `NODE_NAME` |
 | `K8S_CLUSTER_NAME` | | Explicit cluster name (K8s only; on-prem when cloud detect fails) |
 | `OPENLIT_K8S_NODE_LOOKUP` | `true` | Set `false` to skip Node API lookup for instance type / provider |
@@ -272,12 +273,14 @@ On by default on Linux. Discovers `libcudart` from install paths and `/proc/*/ma
 
 Attaches uprobes/uretprobes to `libcudart.so*` to intercept:
 - `cudaLaunchKernel` — kernel name, grid/block dimensions, stream, shared mem
+- `__cudaGetKernel` (CUDA 13+) — maps opaque `cudaKernel_t` handles back to ELF host functions for stable kernel names
 - `cudaMalloc` / `cudaFree` — allocation size
 - `cudaMemcpy` / `cudaMemcpyAsync` — sync memcpy closes device-wide spans; async records bytes
 - `cudaStreamSynchronize` / `cudaDeviceSynchronize` — stream-sync occupancy spans
 - `cudaSetDevice` — per-thread device attribution
 
 Events flow through a BPF ring buffer to Go userspace. Activity counters export with `process.pid`; the stream-sync occupancy engine emits `process.gpu.core.usage` / `process.gpu.sm_active` (model estimates, not hardware SM occupancy).
+Kernel symbols are resolved from the target process's executable mappings with PIE/ASLR load bias applied. Unresolvable symbols use the bounded `unknown` label rather than process-specific virtual addresses.
 
 ## Contributing
 

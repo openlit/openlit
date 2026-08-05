@@ -955,7 +955,7 @@ export async function materializeAgents(
 		// openlit_agents_summary that overwrites the legitimate
 		// `source='coding'` row on the next FINAL read. The UI then
 		// renders the SDK Overview/Dashboard/Monitoring layout for what
-		// is in fact a coding agent. See coding-agents-hook.mdc §10.
+		// is in fact a coding agent. See agent-guides/coding-agents-hook.md §10.
 		const [sdkAll, codingAll] = await Promise.all([
 			discoverAgents(dbConfigId, scope.clusterId),
 			discoverCodingAgents(dbConfigId),
@@ -1150,7 +1150,7 @@ export async function materializeAgents(
 		// the next FINAL read and the detail page flips layout. If we
 		// detect this, drop the offending rows and log loudly — the
 		// upstream code path is the bug, but we refuse to corrupt state
-		// regardless. See coding-agents-hook.mdc §10 for the structural
+		// regardless. See agent-guides/coding-agents-hook.md §10 for the structural
 		// fix chain.
 		const nonCodingKeys = summaryRows
 			.filter((r) => r.source !== "coding")

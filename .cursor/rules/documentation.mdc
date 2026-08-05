@@ -1,0 +1,7 @@
+---
+description: Standards for OpenLIT documentation, MDX structure, navigation, examples, and terminology.
+globs: docs/**/*.md,docs/**/*.mdx,README.md
+alwaysApply: false
+---
+
+@agent-guides/documentation.md

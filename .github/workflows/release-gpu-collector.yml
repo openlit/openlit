@@ -1,0 +1,252 @@
+name: Release / GPU Collector
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/otel-gpu-collector
+  BINARY_NAME: opentelemetry-gpu-collector
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify / Tag
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify final tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          REMOTE_SHA=$(git ls-remote --refs "https://github.com/$REPOSITORY.git" "refs/tags/$RELEASE_TAG" | awk '{print $1}')
+          test -n "$REMOTE_SHA"
+          test "$REMOTE_SHA" = "$RELEASE_SHA"
+
+  validate:
+    name: Validate / Component CI
+    needs: verify
+    uses: ./.github/workflows/ci-gpu-collector.yml
+    with:
+      ref: ${{ inputs.release_sha }}
+
+  # ── 2. Cross-compile binaries ──────────────────────────────────────────────
+  build-binaries:
+    name: Build / ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Set up eBPF toolchain
+        if: matrix.goos == 'linux'
+        uses: ./.github/actions/setup-ebpf
+
+      # NVIDIA NVML (github.com/NVIDIA/go-nvml) uses cgo+dlopen to load
+      # libnvidia-ml.so at runtime, so the linux release binaries must be built
+      # with CGO_ENABLED=1. Cross-compiling linux/arm64 from an amd64 runner
+      # additionally needs an aarch64 C toolchain plus the target libc headers.
+      #
+      # libc6-dev-arm64-cross provides /usr/aarch64-linux-gnu/include (including
+      # bits/libc-header-start.h). It is only a Recommends of gcc-aarch64-linux-gnu,
+      # so we list it explicitly to stay safe under --no-install-recommends.
+      - name: Install aarch64 cross-compiler (linux/arm64 only)
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install --no-install-recommends -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+      - name: Generate eBPF objects (linux targets only)
+        if: matrix.goos == 'linux'
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Extract version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: echo "version=${RELEASE_TAG#otel-gpu-collector-}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        working-directory: opentelemetry-gpu-collector
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          # Linux ships NVML via go-nvml (cgo+dlopen). Windows uses cgo-free
+          # LoadLibrary(nvml.dll) + DXGI/PDH. Darwin has no GPU backends.
+          CGO_ENABLED: ${{ matrix.goos == 'linux' && '1' || '0' }}
+          CC: ${{ (matrix.goos == 'linux' && matrix.goarch == 'arm64') && 'aarch64-linux-gnu-gcc' || '' }}
+        run: |
+          OUTPUT="${{ env.BINARY_NAME }}-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
+            -o "../dist/${OUTPUT}" ./cmd/collector
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+
+  # ── 3. Collect binary assets for the orchestrator ─────────────────────────
+  release:
+    name: Package / Release assets
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: binary-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum -- ./* > SHA256SUMS.txt
+
+      - name: Upload release assets to orchestrator
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets-gpu-collector
+          path: dist/*
+          if-no-files-found: error
+
+  # ── 4. Docker multi-arch image → GHCR ─────────────────────────────────────
+  docker:
+    name: Publish / Container
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log into GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: echo "version=${RELEASE_TAG#otel-gpu-collector-}" >> "$GITHUB_OUTPUT"
+
+      # GHCR requires lowercase image names, but github.repository_owner keeps
+      # the owner's original case (e.g. OpenLIT). Expressions have no tolower(),
+      # so lowercase it here with tr (POSIX, no bash-version dependency).
+      - name: Lowercase image name
+        id: image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: echo "name=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ./opentelemetry-gpu-collector/
+          file: ./opentelemetry-gpu-collector/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          annotations: |
+            ${{ steps.meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/opentelemetry-gpu-collector/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI'
+
+      - name: Sign the published Docker image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: |
+          while IFS= read -r tag; do
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "$TAGS"

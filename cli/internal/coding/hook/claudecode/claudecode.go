@@ -10,7 +10,7 @@
 // Claude Code also exposes its own OTel exporter via
 // `CLAUDE_CODE_ENABLE_TELEMETRY=1`. When the user has both paths on,
 // the query layer dedupes per `session.id` (see
-// `.cursor/rules/coding-agents-convention.mdc` §5). This adapter is
+// `agent-guides/coding-agents-convention.md` §5). This adapter is
 // responsible for the hook path only; it stamps
 // `coding_agent.signal_source = "hook"` (via the resource attribute
 // set in `cli/internal/otlp/exporter.go`) so the dual-path coalesce
