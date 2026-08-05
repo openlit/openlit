@@ -111,6 +111,31 @@ describe("metricParamsToOpenLITQuery", () => {
 		);
 	});
 
+	it("maps the remaining trace selectedConfig filters", () => {
+		const query = metricParamsToOpenLITQuery({
+			timeLimit: { start: new Date("2026-07-01"), end: new Date("2026-07-02"), type: "CUSTOM" },
+			selectedConfig: {
+				traceTypes: ["chat"],
+				applicationNames: ["my-app"],
+				maxCost: 0.25,
+				customFilters: [
+					{ attributeType: "ResourceAttributes", key: "cluster", value: "prod" },
+					{ attributeType: "SpanAttributes", key: "tenant.id", value: "tenant-1" },
+				],
+			},
+		} as any);
+
+		expect(query.filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: "gen_ai.operation.name", value: ["chat"] }),
+				expect.objectContaining({ scope: "resource", key: "service.name", value: ["my-app"] }),
+				expect.objectContaining({ key: "gen_ai.usage.cost", op: "lte", value: 0.25 }),
+				expect.objectContaining({ scope: "resource", key: "cluster" }),
+				expect.objectContaining({ scope: "span", key: "tenant.id" }),
+			])
+		);
+	});
+
 	it("maps log-signal filters (services, severities, custom log attrs)", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");

@@ -109,6 +109,17 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		filters.push({ target: "spanName", op: "in", value: spanNames });
 	}
 
+	const traceTypes = stringList(cfg.traceTypes);
+	if (traceTypes.length) {
+		filters.push({
+			target: "attribute",
+			scope: "span",
+			key: "gen_ai.operation.name",
+			op: "in",
+			value: traceTypes,
+		});
+	}
+
 	const serviceNames = stringList(cfg.serviceNames);
 	if (serviceNames.length) {
 		filters.push({
@@ -131,6 +142,17 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		});
 	}
 
+	const applicationNames = stringList(cfg.applicationNames);
+	if (applicationNames.length) {
+		filters.push({
+			target: "attribute",
+			scope: "resource",
+			key: "service.name",
+			op: "in",
+			value: applicationNames,
+		});
+	}
+
 	const versionFilter = cfg.versionFilter as
 		| { versionHash?: string; firstSeen?: string; lastSeen?: string }
 		| undefined;
@@ -143,14 +165,33 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		});
 	}
 
+	const maxCost = typeof cfg.maxCost === "number" ? cfg.maxCost : Number(cfg.maxCost);
+	if (Number.isFinite(maxCost)) {
+		filters.push({
+			target: "attribute",
+			scope: "span",
+			key: "gen_ai.usage.cost",
+			op: "lte",
+			value: maxCost,
+		});
+	}
+
 	const customFilters = Array.isArray(cfg.customFilters)
 		? (cfg.customFilters as Array<Record<string, unknown>>)
 		: [];
 	for (const cf of customFilters) {
 		const key = typeof cf.key === "string" ? cf.key : "";
 		if (!key) continue;
+		const attributeType = String(cf.attributeType || cf.type || "");
+		if (attributeType === "Field") {
+			if (key === "SpanName") {
+				filters.push({ target: "spanName", op: "eq", value: String(cf.value ?? "") });
+			}
+			continue;
+		}
 		const scope =
-			cf.scope === "resource" || cf.type === "ResourceAttributes"
+			cf.scope === "resource" ||
+			attributeType === "ResourceAttributes"
 				? "resource"
 				: "span";
 		filters.push({
