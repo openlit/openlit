@@ -112,6 +112,12 @@ async function fetchStratifiedSample(
 	query: OpenLITQuery,
 	maxTraces: number
 ): Promise<{ spans: NormalizedSpan[]; truncated: boolean } | null> {
+	// Service discovery is intentionally AI-focused: adapters use it to find
+	// workloads that emit GenAI telemetry for aggregates and analysis. A flat
+	// trace list has no AI selector and must search the backend directly;
+	// otherwise an unfiltered list can omit non-AI services while a service
+	// filter returns rows from them.
+	if (query.aiSelector === false) return null;
 	if (source.samplesAreServiceStratified) return null;
 	if (typeof source.sampleTracesForGraph !== "function") return null;
 	if (typeof source.discoverServices !== "function") return null;

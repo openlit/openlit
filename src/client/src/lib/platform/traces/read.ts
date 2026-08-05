@@ -119,8 +119,8 @@ export async function listTraceRecords(params: MetricParams) {
 				};
 			}
 		}
-		// Stratified multi-service list so one high-volume app cannot dominate
-		// (adapter.listSpans alone is a single recency-biased search).
+		// Flat external lists use the adapter's direct bounded search. AI-only
+		// service discovery is reserved for aggregate/analysis sampling.
 		const { fetchSpansForList } = await import(
 			"@/lib/platform/connectors/datasource/graph/sample-fetch"
 		);
@@ -128,23 +128,23 @@ export async function listTraceRecords(params: MetricParams) {
 			maxRows: params.limit || 25,
 		});
 		const records = spans.map((row) => denormalizeSpanToTraceRow(row));
-		const exactTotal = adapter.countSpans
-			? await adapter.countSpans(query).catch(() => null)
-			: null;
 		consoleLog("[traces] external list result", {
 			descriptorId: descriptor.id,
 			type: descriptor.type,
 			spanCount: spans.length,
 			recordCount: records.length,
 			truncated,
-			exactTotal,
+			totalIsSampled: true,
 		});
 		return {
 			err: null,
 			records,
-			total: exactTotal ?? (truncated
+			// External adapters return one root row per trace from a bounded
+			// sample. countSpans(), where available, counts matching spans and
+			// cannot be used as the trace-row total (one trace has many spans).
+			total: truncated
 				? records.length + (params.offset || 0) + 1
-				: records.length + (params.offset || 0)),
+				: records.length + (params.offset || 0),
 			freshness: "sampled" as const,
 		};
 	} catch (err) {

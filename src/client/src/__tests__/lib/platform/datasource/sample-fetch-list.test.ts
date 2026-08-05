@@ -110,4 +110,29 @@ describe("sample-fetch list stratification", () => {
 		expect(calls).toBe(1);
 		expect(result.spans[0]?.serviceName).toBe("only-one");
 	});
+
+	it("does not use AI-only service discovery for a flat trace list", async () => {
+		let discovered = false;
+		let sampled = false;
+		const source = {
+			discoverServices: async () => {
+				discovered = true;
+				return [];
+			},
+			sampleTracesForGraph: async () => {
+				sampled = true;
+				return [span({ traceId: "flat-list-trace" })];
+			},
+		};
+
+		const result = await fetchSpansForList(
+			source,
+			{ ...windowQuery, aiSelector: false },
+			{ maxRows: 10, skipCache: true }
+		);
+
+		expect(discovered).toBe(false);
+		expect(sampled).toBe(true);
+		expect(result.spans).toHaveLength(1);
+	});
 });
