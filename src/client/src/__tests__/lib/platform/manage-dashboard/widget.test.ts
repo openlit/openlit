@@ -160,6 +160,46 @@ describe("runWidgetQuery", () => {
 		);
 	});
 
+	it("allows OTel attribute keys that contain the word system", async () => {
+		const sql =
+			"SELECT SpanAttributes['gen_ai.system'] AS provider, count() AS count FROM otel_traces GROUP BY provider";
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({
+				data: [{ provider: "openai", count: 3 }],
+				err: null,
+			});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: sql,
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ data: [{ provider: "openai", count: 3 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{ query: sql, enable_readonly: true },
+			"query",
+			undefined
+		);
+	});
+
+	it("still blocks ClickHouse SYSTEM admin commands", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+			err: null,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT 1; SYSTEM FLUSH LOGS",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "Query contains disallowed operations" });
+	});
+
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
 	});
@@ -171,7 +211,10 @@ describe("runWidgetQuery source routing", () => {
 			data: [
 				{
 					id: "w1",
-					config: JSON.stringify({ query: "SELECT 1", sourceId: "src-dd" }),
+					config: JSON.stringify({
+						query: "SELECT name FROM system.tables",
+						sourceId: "src-dd",
+					}),
 				},
 			],
 			err: null,
@@ -180,7 +223,7 @@ describe("runWidgetQuery source routing", () => {
 		mockSourceSupportsNativeSql.mockReturnValue(false);
 
 		const result = await runWidgetQuery("w1", {
-			userQuery: "SELECT count() FROM otel_traces",
+			userQuery: "SELECT name FROM system.tables",
 			filter: {} as any,
 		});
 
@@ -222,6 +265,44 @@ describe("runWidgetQuery source routing", () => {
 
 		expect(result).toEqual({ data: [{ bucket: "t0", agg0: 5 }] });
 		expect(spanTimeSeries).toHaveBeenCalledTimes(1);
+		expect(mockResolveDescriptor).toHaveBeenCalledWith(
+			expect.objectContaining({ sourceId: "src-tempo", signal: "traces" })
+		);
+	});
+
+	it("follows project binding when a signal widget has no sourceId", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						structuredQuery: {
+							mode: "timeseries",
+							query: { signal: "traces" },
+						},
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "tempo", name: "Prod Tempo" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const spanTimeSeries = jest
+			.fn()
+			.mockResolvedValue({ fields: [], rows: [{ bucket: "t0", agg0: 5 }] });
+		mockGetTelemetryAdapter.mockResolvedValue({
+			type: "tempo",
+			capabilities: () => ({ serverAggregation: true }),
+			spanTimeSeries,
+		});
+
+		await runWidgetQuery("w1", {
+			filter: { timeLimit: { start: "2026-07-01", end: "2026-07-02" } } as any,
+		});
+
+		expect(mockResolveDescriptor).toHaveBeenCalledWith(
+			expect.objectContaining({ sourceId: null, signal: "traces" })
+		);
 	});
 
 	it("threads the resolved dbConfigId for a built-in source override", async () => {

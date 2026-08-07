@@ -3,12 +3,24 @@ import { getTraceSummary } from "@/lib/platform/traces/read";
 import { getLogsSummary } from "@/lib/platform/logs/read";
 import { getMetricsSummary } from "@/lib/platform/metrics/read";
 import {
+	requireRouteAccess,
+	withRouteAccess,
+	type RouteAccessKey,
+} from "@/lib/access/route-access";
+import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { getRequestEnvironment } from "@/constants/openlit-context";
+import asaw from "@/utils/asaw";
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
+const SIGNAL_ACCESS: Record<string, RouteAccessKey> = {
+	traces: "traces.read",
+	exceptions: "traces.read",
+	logs: "logs.read",
+	metrics: "metrics.read",
+};
 
 /** Route each signal's summary through its per-signal read facade. */
 function summaryForSignal(signal: string, params: MetricParams) {
@@ -17,20 +29,29 @@ function summaryForSignal(signal: string, params: MetricParams) {
 	return getTraceSummary(params, signal as "traces" | "exceptions");
 }
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: { signal: string } }
 ) {
 	if (!VALID_SIGNALS.has(params.signal)) {
 		return Response.json({ err: "Invalid signal" }, { status: 400 });
 	}
+	const [permissionErr] = await asaw(
+		requireRouteAccess(SIGNAL_ACCESS[params.signal])
+	);
+	if (permissionErr) {
+		return Response.json({ err: String(permissionErr) }, { status: 403 });
+	}
 
 	const formData = await request.json();
 	const metricParams: MetricParams = {
-		 timeLimit: formData.timeLimit as TimeLimit,
-		 selectedConfig: formData.selectedConfig || {},
+		timeLimit: formData.timeLimit as TimeLimit,
+		selectedConfig: formData.selectedConfig || {},
 		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
-		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validation = validateMetricsRequest(
@@ -49,3 +70,7 @@ export async function POST(
 		);
 	}
 }
+
+export const POST = withRouteAccess("observability.read", POSTHandler, {
+	requireDbConfig: true,
+});

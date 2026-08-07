@@ -35,6 +35,18 @@ export function allowHttpField(): FieldDef {
 	};
 }
 
+/** Explicit SSRF-policy opt-in for localhost, RFC1918, and in-cluster endpoints. */
+export function allowPrivateNetworkField(): FieldDef {
+	const messages = getMessage();
+	return {
+		key: "allowPrivateNetwork",
+		label: messages.DATA_SOURCE_FIELD_ALLOW_PRIVATE_NETWORK,
+		kind: "switch",
+		group: "settings",
+		defaultValue: false,
+	};
+}
+
 /** Basic (username/password) + Bearer (token) HTTP auth credential fields. */
 export function httpAuthFields(): FieldDef[] {
 	const messages = getMessage();
@@ -98,7 +110,12 @@ export function tenantField(): FieldDef {
 export function httpVendorFields(
 	opts: { placeholder?: string; tenant?: boolean } = {}
 ): FieldDef[] {
-	const fields = [endpointField(opts.placeholder), allowHttpField(), ...httpAuthFields()];
+	const fields = [
+		endpointField(opts.placeholder),
+		allowHttpField(),
+		allowPrivateNetworkField(),
+		...httpAuthFields(),
+	];
 	if (opts.tenant) fields.push(tenantField());
 	return fields;
 }

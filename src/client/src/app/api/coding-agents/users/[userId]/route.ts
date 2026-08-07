@@ -14,10 +14,11 @@ import {
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
 import { getCodingUserDigest } from "@/lib/platform/coding-agents/queries";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	context: { params: { userId: string } }
 ) {
@@ -78,3 +79,5 @@ export async function GET(
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const GET = withRouteAccess("coding_agents.read", GETHandler);

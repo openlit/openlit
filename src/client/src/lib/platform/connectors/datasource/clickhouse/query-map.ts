@@ -14,8 +14,11 @@ import type {
 /** Build a `TimeLimit` from an OpenLITQuery time range. */
 export function toTimeLimit(query: OpenLITQuery): TimeLimit {
 	return {
-		start: query.timeRange.start,
-		end: query.timeRange.end,
+		// Legacy SQL builders interpolate these values into
+		// parseDateTimeBestEffort(). Date#toString includes a parenthesized local
+		// timezone name that ClickHouse cannot parse, so preserve ISO explicitly.
+		start: query.timeRange.start.toISOString(),
+		end: query.timeRange.end.toISOString(),
 		type: "CUSTOM",
 	};
 }
@@ -33,13 +36,68 @@ function extractStatusCodes(query: OpenLITQuery): string[] | undefined {
 }
 
 /** Build a `MetricParams` from an OpenLITQuery. */
-export function toMetricParams(query: OpenLITQuery): MetricParams {
+export function toMetricParams(
+	query: OpenLITQuery,
+	databaseConfigId?: string
+): MetricParams {
 	const sort = query.sort?.[0];
+	const selectedConfig: Record<string, unknown> = {};
+	const customFilters: Array<Record<string, unknown>> = [];
+	const add = (key: string, value: unknown) => {
+		const values = Array.isArray(value) ? value.map(String) : [String(value)];
+		selectedConfig[key] = [
+			...((selectedConfig[key] as string[] | undefined) || []),
+			...values,
+		];
+	};
+	for (const filter of query.filters || []) {
+		if (filter.target === "spanName") {
+			add(query.signal === "metrics" ? "metricNames" : "spanNames", filter.value);
+			continue;
+		}
+		if (filter.target !== "attribute" || !filter.key) continue;
+		if (filter.key === "service.name") {
+			add(query.signal === "traces" ? "applicationNames" : "services", filter.value);
+			continue;
+		}
+		if (query.signal === "traces" && filter.key === "gen_ai.request.model") {
+			add("models", filter.value);
+			continue;
+		}
+		if (query.signal === "traces" && filter.key === "gen_ai.system") {
+			add("providers", filter.value);
+			continue;
+		}
+		if (query.signal === "traces" && filter.key === "gen_ai.operation.name") {
+			add("traceTypes", filter.value);
+			continue;
+		}
+		if (query.signal === "traces" && filter.key === "deployment.environment") {
+			add("environments", filter.value);
+			continue;
+		}
+		const value = Array.isArray(filter.value) ? filter.value[0] : filter.value;
+		customFilters.push({
+			attributeType:
+				filter.scope === "resource"
+					? "ResourceAttributes"
+					: query.signal === "logs"
+						? "LogAttributes"
+						: query.signal === "metrics"
+							? "Attributes"
+							: "SpanAttributes",
+			key: filter.key,
+			value: value === undefined ? "" : String(value),
+		});
+	}
+	if (customFilters.length) selectedConfig.customFilters = customFilters;
 	return {
 		timeLimit: toTimeLimit(query),
 		limit: query.limit,
 		offset: query.offset,
 		statusCode: extractStatusCodes(query),
+		databaseConfigId,
+		selectedConfig,
 		sorting: sort
 			? { type: sort.field, direction: sort.direction }
 			: undefined,

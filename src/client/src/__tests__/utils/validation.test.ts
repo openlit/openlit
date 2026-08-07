@@ -145,5 +145,12 @@ describe("sanitizeErrorMessage", () => {
 
 	it("keeps safe user-facing messages", () => {
 		expect(sanitizeErrorMessage("Invalid input")).toBe("Invalid input");
+		expect(
+			sanitizeErrorMessage(
+				'Error: A connector named "prod-loki" already exists in the production environment. Choose a different name.'
+			)
+		).toBe(
+			'A connector named "prod-loki" already exists in the production environment. Choose a different name.'
+		);
 	});
 });

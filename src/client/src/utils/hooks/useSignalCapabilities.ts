@@ -15,6 +15,8 @@ export interface ResolvedSignalCapability {
 		spanMutation?: boolean;
 		distinctValues?: boolean;
 		crossTraceSession?: boolean;
+		maxLookbackMs?: number;
+		maxTimeRangeMs?: number;
 		rawQuery?: boolean;
 	} | null;
 }
@@ -22,28 +24,50 @@ export interface ResolvedSignalCapability {
 export type SignalCapabilities = Record<Signal, ResolvedSignalCapability | null>;
 
 const TTL_MS = 60_000;
-let cache: { value: SignalCapabilities; expiresAt: number } | null = null;
-let inFlight: Promise<SignalCapabilities | null> | null = null;
+const cache = new Map<
+	string,
+	{ value: SignalCapabilities; expiresAt: number }
+>();
+const inFlight = new Map<string, Promise<SignalCapabilities | null>>();
 
-async function fetchSignalCapabilities(): Promise<SignalCapabilities | null> {
+function getCachedCapabilities(
+	environment?: string
+): SignalCapabilities | null {
+	const entry = cache.get(environment || "current");
+	return entry && entry.expiresAt > Date.now() ? entry.value : null;
+}
+
+async function fetchSignalCapabilities(
+	environment?: string
+): Promise<SignalCapabilities | null> {
+	const cacheKey = environment || "current";
 	const now = Date.now();
-	if (cache && cache.expiresAt > now) return cache.value;
-	if (inFlight) return inFlight;
-	inFlight = (async () => {
+	const cached = cache.get(cacheKey);
+	if (cached && cached.expiresAt > now) return cached.value;
+	const pending = inFlight.get(cacheKey);
+	if (pending) return pending;
+	const request = (async () => {
 		try {
-			const res = await fetch("/api/telemetry-source");
+			const params = new URLSearchParams();
+			if (environment) params.set("environment", environment);
+			const res = await fetch(
+				`/api/telemetry-source${params.size ? `?${params.toString()}` : ""}`
+			);
 			if (!res.ok) return null;
 			const body = await res.json();
 			const value = (body?.signalCapabilities ?? null) as SignalCapabilities | null;
-			if (value) cache = { value, expiresAt: Date.now() + TTL_MS };
+			if (value) {
+				cache.set(cacheKey, { value, expiresAt: Date.now() + TTL_MS });
+			}
 			return value;
 		} catch {
 			return null;
 		} finally {
-			inFlight = null;
+			inFlight.delete(cacheKey);
 		}
 	})();
-	return inFlight;
+	inFlight.set(cacheKey, request);
+	return request;
 }
 
 /**
@@ -51,18 +75,21 @@ async function fetchSignalCapabilities(): Promise<SignalCapabilities | null> {
  * so UI surfaces can gate honestly — showing a "not supported by this source"
  * state instead of erroring on an operation the bound source cannot serve.
  */
-export function useSignalCapabilities(): {
+export function useSignalCapabilities(environment?: string): {
 	capabilities: SignalCapabilities | null;
 	loading: boolean;
 } {
 	const [capabilities, setCapabilities] = useState<SignalCapabilities | null>(
-		cache && cache.expiresAt > Date.now() ? cache.value : null
+		() => getCachedCapabilities(environment)
 	);
 	const [loading, setLoading] = useState(!capabilities);
 
 	useEffect(() => {
 		let active = true;
-		fetchSignalCapabilities().then((value) => {
+		const cached = getCachedCapabilities(environment);
+		setCapabilities(cached);
+		setLoading(!cached);
+		fetchSignalCapabilities(environment).then((value) => {
 			if (!active) return;
 			setCapabilities(value);
 			setLoading(false);
@@ -70,13 +97,13 @@ export function useSignalCapabilities(): {
 		return () => {
 			active = false;
 		};
-	}, []);
+	}, [environment]);
 
 	return { capabilities, loading };
 }
 
 /** Test-only. */
 export function __clearSignalCapabilitiesCache() {
-	cache = null;
-	inFlight = null;
+	cache.clear();
+	inFlight.clear();
 }

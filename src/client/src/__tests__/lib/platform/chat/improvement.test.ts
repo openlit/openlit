@@ -29,6 +29,10 @@ Object.assign(global, {
 jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
 jest.mock("@/lib/platform/request", () => ({ getHeirarchyViaSpanId: jest.fn() }));
+jest.mock("@/lib/platform/traces/read", () => ({
+	getTraceHierarchy: (...args: unknown[]) =>
+		require("@/lib/platform/request").getHeirarchyViaSpanId(...args),
+}));
 jest.mock("@/lib/telemetry-source", () => ({
 	resolveTelemetrySourceDescriptor: jest.fn().mockResolvedValue({
 		type: "clickhouse",
@@ -43,7 +47,10 @@ jest.mock("@/lib/telemetry-source", () => ({
 	}),
 	getTelemetryAdapter: jest.fn(),
 }));
-jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return { dataCollector: collector, intelligenceDataCollector: collector };
+});
 jest.mock("@/lib/platform/evaluation/rule-engine-context", () => ({
 	getContextFromRuleEngineForTrace: jest.fn(),
 }));

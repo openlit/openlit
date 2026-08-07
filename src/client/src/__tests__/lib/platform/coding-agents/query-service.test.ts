@@ -9,9 +9,13 @@ import {
 } from "@/lib/platform/coding-agents/queries";
 import type { CodingAgentAuth } from "@/lib/platform/coding-agents/auth";
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+	};
+});
 
 jest.mock("@/clickhouse/migrations/create-coding-agents-audit-migration", () => ({
 	CODING_AGENT_AUDIT_LOG_TABLE: "coding_agent_audit_log",

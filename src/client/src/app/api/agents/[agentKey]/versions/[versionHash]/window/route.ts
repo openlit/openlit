@@ -1,5 +1,6 @@
 import { getVersionWindow } from "@/lib/platform/agents/version-filter";
 import { withCacheHeaders } from "../../../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * Resolves an agent version into the `VersionFilter` shape expected by
@@ -7,7 +8,7 @@ import { withCacheHeaders } from "../../../../_cache";
  * hasAttributeSpans}`. The page hits this whenever `?versionHash=` changes so
  * downstream dashboard/requests queries can scope to that version's traffic.
  */
-export async function GET(
+async function GETHandler(
 	_request: Request,
 	{
 		params,
@@ -20,3 +21,5 @@ export async function GET(
 	}
 	return withCacheHeaders({ data: filter }, "versions");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

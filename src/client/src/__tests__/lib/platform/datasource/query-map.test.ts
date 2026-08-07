@@ -200,6 +200,8 @@ describe("metricParamsToOpenLITQuery", () => {
 		expect(back.limit).toBe(10);
 		expect(back.statusCode).toEqual(["Error"]);
 		expect(back.timeLimit.type).toBe("CUSTOM");
+		expect(back.timeLimit.start).toBe("2026-07-01T00:00:00.000Z");
+		expect(back.timeLimit.end).toBe("2026-07-01T01:00:00.000Z");
 	});
 });
 

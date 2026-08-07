@@ -8,7 +8,7 @@ import {
 	InsertParams,
 	ExecParams,
 	CommandParams,
-} from "@clickhouse/client-common";
+} from "@clickhouse/client";
 import { OPERATION_TYPE } from "@/types/platform";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
@@ -63,17 +63,26 @@ export type GPU_TYPE_KEY =
 export interface GPUMetricParams extends MetricParams { }
 
 export type DataCollectorType = { err?: unknown; data?: unknown };
-export async function dataCollector(
+type CollectorParams = Partial<
+	QueryParams &
+		InsertParams &
+		ExecParams &
+		CommandParams & { enable_readonly?: boolean }
+>;
+type CollectorQueryType = "query" | "command" | "insert" | "exec" | "ping";
+
+async function collectClickHouseData(
 	{
 		query,
 		format = "JSONEachRow",
 		table,
 		values,
-		enable_readonly = false,
 		clickhouse_settings,
-	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams & { enable_readonly?: boolean }>,
-	clientQueryType: "query" | "command" | "insert" | "exec" | "ping" = "query",
-	dbConfigId?: string
+		enable_readonly,
+	}: CollectorParams,
+	clientQueryType: CollectorQueryType,
+	dbConfigId: string | undefined,
+	readPath: "openplait" | "direct"
 ): Promise<DataCollectorType> {
 	let err, dbConfig;
 	if (dbConfigId) {
@@ -87,6 +96,15 @@ export async function dataCollector(
 	let client: ClickHouseClient | undefined;
 
 	try {
+		if (clientQueryType === "query" && readPath === "openplait") {
+			if (!query) return { err: "No query specified!" };
+			const { executeOpenPlaitRead } = await import("./openplait");
+			const [queryErr, rows] = await asaw(
+				executeOpenPlaitRead({ query, dbConfig })
+			);
+			return { err: queryErr, data: rows || [] };
+		}
+
 		clickhousePool = createClickhousePool(dbConfig);
 		const [err, clientClick] = await asaw(clickhousePool.acquire());
 
@@ -101,23 +119,22 @@ export async function dataCollector(
 
 		if (clientQueryType === "query") {
 			if (!query) return { err: "No query specified!" };
-			const object: QueryParams = {
-				query,
-				format,
-			}
-			if (enable_readonly) {
-				object.clickhouse_settings = {
-					readonly: "2",
-				}
-			}
-
+			const querySettings = {
+				...(enable_readonly ? { readonly: "1" } : {}),
+				...(clickhouse_settings || {}),
+			};
 			[respErr, result] = await asaw(
-				client.query(object)
+				client.query({
+					query,
+					format,
+					...(Object.keys(querySettings).length
+						? { clickhouse_settings: querySettings }
+						: {}),
+				} as QueryParams)
 			);
-
-			if (result) {
-				const [err, data] = await asaw(result?.json());
-				return { err, data };
+			if (!respErr && result) {
+				const [jsonErr, rows] = await asaw((result as any).json());
+				return { err: jsonErr, data: rows || [] };
 			}
 		} else if (clientQueryType === "insert") {
 			if (!table || !values) return { err: "No table specified!" };
@@ -172,4 +189,35 @@ export async function dataCollector(
 	} finally {
 		if (clickhousePool && client) clickhousePool?.release(client);
 	}
+}
+
+/**
+ * Shared read boundary for product telemetry. Every traces/logs/metrics read,
+ * including the built-in ClickHouse source, must enter ClickHouse through
+ * OpenPlait here. Mutations retain the native ClickHouse client.
+ */
+export async function dataCollector(
+	params: CollectorParams,
+	clientQueryType: CollectorQueryType = "query",
+	dbConfigId?: string
+): Promise<DataCollectorType> {
+	return collectClickHouseData(
+		params,
+		clientQueryType,
+		dbConfigId,
+		"openplait"
+	);
+}
+
+/**
+ * Deliberate exception for OpenLIT's internal intelligence/materialization
+ * layer. These queries read and write OpenLIT-owned ClickHouse state directly;
+ * they are not datasource signal reads and must not pass through OpenPlait.
+ */
+export async function intelligenceDataCollector(
+	params: CollectorParams,
+	clientQueryType: CollectorQueryType = "query",
+	dbConfigId?: string
+): Promise<DataCollectorType> {
+	return collectClickHouseData(params, clientQueryType, dbConfigId, "direct");
 }

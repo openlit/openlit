@@ -273,6 +273,10 @@ export const WIDGET_SOURCE_SIGNAL_UNSUPPORTED = (signal: string, source: string)
 	`The data source "${source}" does not serve ${signal}.`;
 export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
 export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse";
+export const WIDGET_DATA_SOURCE_EMPTY =
+	"No data sources configured for this environment and signal.";
+export const WIDGET_DATA_SOURCE_HINT =
+	"Defaults to the project router for the selected signal. Change the signal to switch routers, or override for this panel only.";
 export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
 	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
 export const WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT = (
@@ -322,6 +326,7 @@ export const MAIN_DASHBOARD_NOT_FOUND = "Main dashboard not found!";
 export const BOARD_CREATE_FAILED = "Board create failed!";
 export const BOARD_IMPORT_FAILED = "Board import failed!";
 export const BOARD_IMPORT_SUCCESSFULLY = "Board import successfully!";
+export const BOARD_IMPORT_INVALID_JSON = "Dashboard import file must be valid JSON.";
 export const NO_WIDGETS_YET = "No widgets yet!";
 export const NO_WIDGETS_YET_DESCRIPTION = "Create your first widget to start building your custom dashboard. Add charts, stats, and more to visualize your data.";
 export const NO_WIDGETS_YET_ACTION_BUTTON = "Add Your First Widget";
@@ -1808,6 +1813,8 @@ export const DATA_SOURCE_AUTH_TYPE_BEARER = "Bearer token";
 export const DATA_SOURCE_AUTH_TYPE_NONE = "No authentication";
 export const TELEMETRY_SOURCE_NAME_REQUIRED =
 	"A telemetry source name is required.";
+export const TELEMETRY_SOURCE_NAME_TAKEN = (name: string, environment: string) =>
+	`A connector named "${name}" already exists in the ${environment} environment. Choose a different name.`;
 export const TELEMETRY_SOURCE_TYPE_UNKNOWN = (type: string) =>
 	`Unknown telemetry source type "${type}".`;
 export const TELEMETRY_SOURCE_INVALID_JSON =
@@ -1914,6 +1921,9 @@ export const DATA_SOURCE_FIELD_SIGNALS = "Signals served";
 export const DATA_SOURCE_FIELD_DEFAULT = "Set as project default";
 export const DATA_SOURCE_FIELD_ENDPOINT = "Endpoint URL";
 export const DATA_SOURCE_FIELD_ALLOW_HTTP = "Allow plain HTTP (self-hosted)";
+export const DATA_SOURCE_FIELD_ALLOW_PRIVATE_NETWORK = "Allow private or localhost endpoints";
+export const DATA_SOURCE_PRIVATE_NETWORK_BLOCKED = (host: string) =>
+	`Host "${host}" is not allowed. Enable "Allow private or localhost endpoints" on this data source to reach private or loopback addresses.`;
 export const DATA_SOURCE_FIELD_SITE = "Datadog site";
 export const DATA_SOURCE_FIELD_REGION = "Region";
 export const DATA_SOURCE_FIELD_ACCOUNT_ID = "Account ID";
@@ -1926,6 +1936,18 @@ export const DATA_SOURCE_FIELD_PASSWORD = "Password / Access policy token";
 export const DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER = "Basic-auth password or Cloud access policy token";
 export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
 export const DATA_SOURCE_FIELD_TENANT_PLACEHOLDER = "X-Scope-OrgID or Victoria AccountID";
+export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days)";
+export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
+export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>
+	`Maximum ${days} day${days === 1 ? "" : "s"} for the selected data source.`;
+export const DATA_SOURCE_SECRET_UNAVAILABLE =
+	"The connector credentials could not be loaded from the OpenLIT vault. Check the selected ClickHouse connection and try again.";
+export const DATA_SOURCE_SECRET_NOT_FOUND =
+	"The connector credential is missing from the OpenLIT vault. Re-save the connector credentials.";
+export const DATA_SOURCE_SECRET_DECRYPT_FAILED =
+	"The connector credential could not be decrypted. Re-save it with the current vault encryption key.";
+export const DATA_SOURCE_AUTH_REQUIRED = (sourceName: string, authType: string) =>
+	`${sourceName} is configured for ${authType} authentication, but its credentials could not be resolved.`;
 export const DATA_SOURCE_CREDENTIALS_TITLE = "Credentials";
 export const DATA_SOURCE_CREDENTIALS_HELP =
 	"Stored encrypted in the OpenLIT vault and only decrypted server-side. Leave blank to keep existing credentials.";

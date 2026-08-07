@@ -292,7 +292,9 @@ export default function DataSourcesPage({
 		setTestingId(row.id);
 		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
 		try {
-			const res = await jsonFetch(`/api/connectors/${row.id}/health`);
+			const res = await jsonFetch(`/api/connectors/${row.id}/health`, {
+				method: "POST",
+			});
 			const health = res?.health;
 			const validation = res?.validation;
 			if (!health?.ok) {
@@ -798,6 +800,10 @@ function SourceFormDialog({
 					body: JSON.stringify(payload),
 				});
 			} else {
+				if (!type) {
+					toast.error(messages.TELEMETRY_SOURCE_TYPE_UNKNOWN(""));
+					return;
+				}
 				payload.type = type;
 				await jsonFetch("/api/connectors", {
 					method: "POST",

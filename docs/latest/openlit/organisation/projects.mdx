@@ -1,42 +1,86 @@
 ---
 title: 'Projects'
-description: 'Create and manage project boundaries inside an OpenLIT organisation'
+description: 'Create projects — they own environments, Database Configs, connectors, and signal routing'
+sidebarTitle: 'Projects'
 icon: 'folder'
 ---
 
-Projects group database configurations and resources inside an organisation. They are useful when one organisation needs multiple isolated environments without creating separate workspaces.
+Everything under **Organisation → Projects** is project-scoped. You create a project first; then that project owns environments, ClickHouse **Database Configs**, data-source **connectors** (Tempo, Loki, Prometheus, Jaeger), and **signal routing**.
+
+```text
+Organisation
+  └── Project   ← create this first
+        ├── Environments
+        ├── Database Configs (ClickHouse)
+        ├── Connectors (Tempo / Loki / Prometheus / Jaeger)
+        └── Signal routing
+```
+
+<Info>
+Database Config is not a separate top-level product area. It is a resource you create **inside a project** (same for connectors and bindings).
+</Info>
 
 ## When to create a project
 
 Create a project for:
 
-- Production, staging, and development environments.
-- Separate teams that share the same organisation.
-- Customer-specific deployments.
-- Workloads that should use different ClickHouse database configurations.
+- Separate teams that share the same organisation  
+- Customer-specific deployments  
+- Workloads that should use different ClickHouse Database Configs  
+
+Use **environments** (`production`, `staging`, …) inside a project when you need multiple backend targets without splitting projects. See [Environments](/latest/openlit/organisation/environments).
 
 ## Create a project
+
+<Frame>
+  <img src="/images/organisation/projects-list.png" alt="OpenLIT projects list under Organisation" />
+</Frame>
 
 <Steps>
   <Step title="Open Organisation">
     Select **Organisation** from the sidebar.
   </Step>
   <Step title="Review existing projects">
-    Use the projects list to see the projects already available in the organisation.
+    Use the projects list to see projects already available in the organisation.
   </Step>
   <Step title="Create project">
-    Click **Create project**, enter a project name, and submit the form.
+    Click **Create project**, enter a project name, and submit.
   </Step>
   <Step title="Select project">
-    Use the project selector in the top navigation to make the project active.
+    Use the project selector in the top navigation to make the project active. Then pick an [environment](/latest/openlit/organisation/environments).
   </Step>
 </Steps>
 
-## Project details
+## What a project contains
 
-Project details show the project name, status, and database configurations attached to that project. Open a project from the Organisation page to review or update its configuration.
+| Resource | Description |
+| --- | --- |
+| **Environments** | Named partitions (`production`, `staging`, …) |
+| **Database Configs** | ClickHouse app-store connections per environment |
+| **Connectors** | Tempo, Loki, Prometheus, Jaeger (and ClickHouse as built-in) |
+| **Signal bindings** | Which connector serves traces / logs / metrics per environment |
+
+<Frame>
+  <img src="/images/organisation/project-header.png" alt="OpenLIT header with organisation, project, environment, and database selectors" />
+</Frame>
 
 ## Member access
 
 Project access controls which organisation members can use a project. Existing organisation members are assigned to existing projects during migration so current installations continue to work. New members can be invited to the organisation first and then granted access to specific projects as needed.
 
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    How environments partition configs and routing.
+  </Card>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Add ClickHouse connections on the project.
+  </Card>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Attach Tempo, Loki, Prometheus, or Jaeger.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Bind traces, logs, and metrics per environment.
+  </Card>
+</CardGroup>

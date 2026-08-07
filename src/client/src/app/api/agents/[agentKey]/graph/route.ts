@@ -3,6 +3,7 @@ import { POLICY_TOOLS, swr } from "@/lib/platform/agents/cache";
 import { getAggregateGraph } from "@/lib/platform/agents/aggregate-graph";
 import { getVersionWindow } from "@/lib/platform/agents/version-filter";
 import { withCacheHeaders } from "../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * GET /api/agents/[agentKey]/graph?versionHash=...
@@ -11,7 +12,7 @@ import { withCacheHeaders } from "../../_cache";
  * `versionHash` is omitted, falls back to a 24h aggregate so the canvas
  * still has something to render before a version is picked.
  */
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -47,3 +48,5 @@ export async function GET(
 	}
 	return withCacheHeaders({ data: result }, "graph");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

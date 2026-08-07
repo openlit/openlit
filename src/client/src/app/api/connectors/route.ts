@@ -12,6 +12,7 @@ import {
 } from "@/lib/organisation";
 import { listProjectConnectorInstances } from "@/lib/platform/connectors/instances";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
+import { validateOpenPlaitClickHouseConnection } from "@/lib/platform/openplait";
 
 /**
  * Generic connector endpoint. Datasource instances are exposed through the
@@ -69,6 +70,22 @@ async function POSTHandler(request: NextRequest) {
 		const credentials = body.credentials && typeof body.credentials === "object"
 			? body.credentials as Record<string, unknown>
 			: {};
+		const [validationErr] = await asaw(
+			validateOpenPlaitClickHouseConnection({
+				host: String(settings.host || ""),
+				port: String(settings.port || ""),
+				database: String(settings.database || ""),
+				username: String(settings.username || ""),
+				password: String(credentials.password || ""),
+				query: String(settings.query || ""),
+			})
+		);
+		if (validationErr) {
+			return errorResponse(
+				validationErr,
+				"Failed to validate ClickHouse connector through OpenPlait"
+			);
+		}
 		const [dbErr] = await asaw(upsertDBConfig({
 			name: body.name,
 			environment: body.environment,

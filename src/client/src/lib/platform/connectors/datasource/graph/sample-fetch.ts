@@ -14,13 +14,15 @@ import type {
 	NormalizedSpan,
 	OpenLITQuery,
 	QueryTimeRange,
+	SourceCapabilities,
 } from "../types";
-import { clampQueryBudget } from "../http/limits";
+import { clampQueryToSource } from "../http/limits";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { mapPool } from "./map-pool";
 import { looksLikeRootsOnly } from "./sample-aggregate";
 
 export interface SampleFetchSource {
+	capabilities?(): SourceCapabilities;
 	sampleTracesForGraph?(
 		query: OpenLITQuery,
 		maxTraces: number
@@ -136,18 +138,24 @@ async function fetchStratifiedSample(
 	}
 	if (names.length <= 1) return null;
 
-	names = names.slice(0, MAX_SERVICES_IN_SAMPLE);
-	const perService = Math.max(
-		MIN_TRACES_PER_SERVICE,
-		Math.ceil(maxTraces / names.length)
-	);
+	names = names.slice(0, Math.min(MAX_SERVICES_IN_SAMPLE, maxTraces));
+	const baseBudget = Math.floor(maxTraces / names.length);
+	const remainder = maxTraces % names.length;
+	const serviceBudgets = names.map((name, index) => ({
+		name,
+		limit: baseBudget + (index < remainder ? 1 : 0),
+	}));
 
-	const batches = await mapPool(names, STRATIFY_CONCURRENCY, (name) =>
-		sampleOnce(source, withServiceEq(query, name), perService)
+	const batches = await mapPool(serviceBudgets, STRATIFY_CONCURRENCY, ({ name, limit }) =>
+		sampleOnce(source, withServiceEq(query, name), limit)
 	);
 	const spans = batches.flat();
 	const traceCount = new Set(spans.map((s) => s.traceId).filter(Boolean)).size;
-	return { spans, truncated: traceCount >= maxTraces };
+	const allowedTraceIds = new Set(uniqueTraceIds(spans, maxTraces));
+	return {
+		spans: spans.filter((span) => allowedTraceIds.has(span.traceId)),
+		truncated: traceCount >= maxTraces,
+	};
 }
 
 async function fetchUnstratified(
@@ -195,10 +203,13 @@ export async function fetchSpansForAggregation(
 	query: OpenLITQuery,
 	opts?: { maxTraces?: number; skipCache?: boolean }
 ): Promise<{ spans: NormalizedSpan[]; truncated: boolean }> {
-	const { query: clamped } = clampQueryBudget(query);
+	const { query: clamped } = clampQueryToSource(source, query);
 	const requested =
 		opts?.maxTraces ?? clamped.limit ?? AGGREGATE_SAMPLE_TRACE_CAP;
-	const maxTraces = Math.min(requested, AGGREGATE_SAMPLE_TRACE_CAP);
+	const maxTraces = Math.max(
+		1,
+		Math.min(requested, AGGREGATE_SAMPLE_TRACE_CAP)
+	);
 
 	const load = async () => {
 		const stratified = await fetchStratifiedSample(source, clamped, maxTraces);
@@ -263,15 +274,19 @@ export async function fetchSpansForList(
 	query: OpenLITQuery,
 	opts?: { maxRows?: number; skipCache?: boolean }
 ): Promise<{ spans: NormalizedSpan[]; truncated: boolean }> {
-	const { query: clamped } = clampQueryBudget(query);
+	const { query: clamped } = clampQueryToSource(source, query);
 	const maxRows = Math.min(
 		opts?.maxRows ?? clamped.limit ?? DEFAULT_SAMPLE_TRACE_CAP,
 		DEFAULT_SAMPLE_TRACE_CAP
 	);
 
 	const load = async () => {
+		const sampleTraceCap =
+			clamped.aiSelector === false
+				? maxRows
+				: Math.max(maxRows, MIN_TRACES_PER_SERVICE * 4);
 		const sample = await fetchSpansForAggregation(source, clamped, {
-			maxTraces: Math.max(maxRows, MIN_TRACES_PER_SERVICE * 4),
+			maxTraces: sampleTraceCap,
 			skipCache: true,
 		});
 		const roots = collapseToRootSpans(sample.spans).slice(0, maxRows);

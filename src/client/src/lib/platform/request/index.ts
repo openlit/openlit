@@ -76,7 +76,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			request_time;
 		`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getTotalRequests(params: MetricParams) {
@@ -105,7 +105,7 @@ export async function getTotalRequests(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getAverageRequestDuration(params: MetricParams) {
@@ -138,7 +138,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getRequestsConfig(params: MetricParams) {
@@ -209,7 +209,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
 			WHERE ${getFilterWhereCondition(params, true)}`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getRequests(params: MetricParams) {
@@ -218,9 +218,11 @@ export async function getRequests(params: MetricParams) {
 	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}`;
 
-	const { data: dataTotal, err: errTotal } = await dataCollector({
-		query: countQuery,
-	});
+	const { data: dataTotal, err: errTotal } = await dataCollector(
+		{ query: countQuery },
+		"query",
+		params.databaseConfigId
+	);
 	if (errTotal) {
 		return {
 			err: errTotal,
@@ -240,7 +242,11 @@ export async function getRequests(params: MetricParams) {
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		params.databaseConfigId
+	);
 	return {
 		err,
 		records: data,
@@ -248,32 +254,32 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
-export async function getRequestViaSpanId(spanId: string) {
+export async function getRequestViaSpanId(spanId: string, databaseConfigId?: string) {
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE SpanId='${safeSpanId}'`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getRequestViaTraceId(traceId: string) {
+export async function getRequestViaTraceId(traceId: string, databaseConfigId?: string) {
 	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
 	)}='${safeTraceId}'`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getHeirarchyViaSpanId(spanId: string) {
+export async function getHeirarchyViaSpanId(spanId: string, databaseConfigId?: string) {
 	// Step 1: resolve the source span. We need:
 	//   - TraceId (the usual "show every span in the trace" path)
 	//   - coding_agent.session.id (so coding-agent sessions whose CLI
@@ -297,9 +303,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
-	const { data: sourceData, err: sourceErr } = await dataCollector({
-		query: sourceSpanQuery,
-	});
+	const { data: sourceData, err: sourceErr } = await dataCollector(
+		{ query: sourceSpanQuery },
+		"query",
+		databaseConfigId
+	);
 
 	if (sourceErr || !Array.isArray(sourceData) || sourceData.length === 0) {
 		return { err: "Span not found", record: {} };
@@ -356,9 +364,11 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		ORDER BY Timestamp ASC
 		LIMIT 5000`;
 
-	const { data: allSpans, err: allSpansErr } = await dataCollector({
-		query: allSpansQuery,
-	});
+	const { data: allSpans, err: allSpansErr } = await dataCollector(
+		{ query: allSpansQuery },
+		"query",
+		databaseConfigId
+	);
 
 	if (allSpansErr || !Array.isArray(allSpans) || allSpans.length === 0) {
 		return { err: "Failed to fetch trace spans", record: {} };
@@ -472,9 +482,9 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 	return root;
 }
 
-export async function getRequestExist() {
+export async function getRequestExist(databaseConfigId?: string) {
 	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", databaseConfigId);
 }
 
 export async function getAttributeKeys(params: MetricParams) {
@@ -495,8 +505,12 @@ export async function getAttributeKeys(params: MetricParams) {
 	`;
 
 	const [spanResult, resourceResult] = await Promise.all([
-		dataCollector({ query: spanKeysQuery }),
-		dataCollector({ query: resourceKeysQuery }),
+		dataCollector({ query: spanKeysQuery }, "query", params.databaseConfigId),
+		dataCollector(
+			{ query: resourceKeysQuery },
+			"query",
+			params.databaseConfigId
+		),
 	]);
 
 	return {
@@ -526,5 +540,5 @@ export async function getGroupedRequests(params: MetricParams, groupBy: string) 
 		GROUP BY group_value
 		ORDER BY count DESC
 	`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }

@@ -2,7 +2,7 @@ import { streamText } from "ai";
 import { createHash, randomUUID } from "crypto";
 import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import { getModelInstance } from "./stream";
 import { getTraceHierarchy } from "../traces/read";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
@@ -215,7 +215,7 @@ export async function getTraceAnalysisRuns(
 			AND analysis_type = '${safeAnalysisType}'
 		ORDER BY run_number ASC
 	`;
-	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	const { data, err } = await intelligenceDataCollector({ query }, "query", databaseConfigId);
 	if (err) return { err };
 	return { data: (data as TraceAnalysisRun[]) || [] };
 }
@@ -251,7 +251,7 @@ export async function saveTraceAnalysisRun(
 	const analysisJson = JSON.stringify(analysis);
 	const worstSeverity = computeWorstSeverity(analysis);
 
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_TRACE_ANALYSIS_TABLE,
 			values: [

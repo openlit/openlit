@@ -12,7 +12,7 @@
  * network access.
  */
 
-import type { OpenLITQuery } from "../types";
+import type { OpenLITQuery, SourceCapabilities } from "../types";
 
 // ---- Query budgets --------------------------------------------------------
 
@@ -36,6 +36,43 @@ export const DEFAULT_QUERY_BUDGET: QueryBudget = {
 	maxRows: 5000,
 	maxRangeMs: 30 * DAY_MS,
 };
+
+type CapabilityBudgetSource = {
+	capabilities?: () => Pick<
+		SourceCapabilities,
+		"maxLookbackMs" | "maxTimeRangeMs"
+	>;
+};
+
+/** Build the effective budget advertised by one concrete datasource. */
+export function queryBudgetForSource(
+	source: CapabilityBudgetSource,
+	base: QueryBudget = DEFAULT_QUERY_BUDGET
+): QueryBudget {
+	try {
+		const capabilities = source.capabilities?.();
+		return {
+			...base,
+			...(capabilities?.maxTimeRangeMs !== undefined
+				? { maxRangeMs: capabilities.maxTimeRangeMs }
+				: {}),
+			...(capabilities?.maxLookbackMs !== undefined
+				? { maxLookbackMs: capabilities.maxLookbackMs }
+				: {}),
+		};
+	} catch {
+		return base;
+	}
+}
+
+/** Clamp using the selected datasource's own range/retention capabilities. */
+export function clampQueryToSource(
+	source: CapabilityBudgetSource,
+	query: OpenLITQuery,
+	base: QueryBudget = DEFAULT_QUERY_BUDGET
+): { query: OpenLITQuery; clamped: string[] } {
+	return clampQueryBudget(query, queryBudgetForSource(source, base));
+}
 
 /**
  * Clamp an OpenLITQuery to a budget. Returns the (possibly) clamped query and

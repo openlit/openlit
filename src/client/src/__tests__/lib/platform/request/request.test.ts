@@ -97,6 +97,27 @@ describe('getRequestsConfig', () => {
 });
 
 describe('getRequests', () => {
+	it('keeps the selected database configuration on every ClickHouse read', async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		await getRequests({ ...baseParams, databaseConfigId: 'db-1' });
+
+		expect(dataCollector).toHaveBeenNthCalledWith(
+			1,
+			expect.any(Object),
+			'query',
+			'db-1'
+		);
+		expect(dataCollector).toHaveBeenNthCalledWith(
+			2,
+			expect.any(Object),
+			'query',
+			'db-1'
+		);
+	});
+
   it('calls dataCollector twice (count + data) and returns records', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [{ total: 42 }], err: null })
@@ -227,7 +248,13 @@ describe('getHeirarchyViaSpanId', () => {
 
     const result = await getHeirarchyViaSpanId('orphan');
 
-    expect(result).toEqual({ err: 'Error building hierarchy', record: {} });
+    expect(result.err).toBeNull();
+    expect(result.record).toMatchObject({
+      SpanId: 'orphan',
+      ParentSpanId: 'missing-parent',
+      TraceId: 't1',
+      children: [],
+    });
   });
 
   it('unions spans across subagent sessions when source span is a subagent', async () => {

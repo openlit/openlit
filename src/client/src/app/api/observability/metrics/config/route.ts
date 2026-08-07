@@ -1,12 +1,13 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricsFilterConfig } from "@/lib/platform/metrics/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const params: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
@@ -20,3 +21,5 @@ export async function POST(request: Request) {
 
 	return Response.json(await getMetricsFilterConfig(params));
 }
+
+export const POST = withRouteAccess("observability.read", POSTHandler, { requireDbConfig: true });

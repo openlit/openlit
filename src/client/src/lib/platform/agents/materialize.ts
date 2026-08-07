@@ -8,7 +8,7 @@
  * they read from the materialized tables.
  */
 
-import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import { intelligenceDataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
 import {
 	CONTROLLER_DESIRED_STATES_V2_TABLE,
 	CONTROLLER_SERVICES_TABLE,
@@ -109,7 +109,10 @@ async function resolveExternalTracesAdapter(dbConfigId?: string) {
 			err,
 			dbConfigId,
 		});
-		return null;
+		// Fail closed. Returning null here used to make every downstream branch
+		// interpret an unavailable Tempo binding as "built-in ClickHouse" and
+		// silently discover agents from the wrong otel_traces table.
+		throw err;
 	}
 }
 
@@ -240,7 +243,7 @@ async function discoverAgents(
 			SDK_DISCOVERY_LOOKBACK_MINUTES
 		);
 	} else {
-		const sdkRes = await dataCollector({ query: sdkQuery }, "query", dbConfigId);
+		const sdkRes = await intelligenceDataCollector({ query: sdkQuery }, "query", dbConfigId);
 		if (sdkRes.err) {
 			agentsLogger.error("materializer_sdk_discovery_failed", {
 				err: sdkRes.err,
@@ -341,7 +344,7 @@ async function discoverAgents(
 			latest.last_seen AS last_seen
 		FROM latest
 	`;
-	const ctrlRes = await dataCollector({ query: ctrlQuery }, "query", dbConfigId);
+	const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
 	if (ctrlRes.err) {
 		agentsLogger.error("materializer_controller_discovery_failed", {
 			err: ctrlRes.err,
@@ -775,7 +778,7 @@ async function discoverCodingAgents(
 		HAVING vendor != ''
 	`;
 
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("materializer_coding_discovery_failed", {
 			err: res.err,
@@ -916,7 +919,7 @@ async function fetchRequestCounts(
 			AND ServiceName IN (${namesList})
 		GROUP BY service_name, environment, cluster_id
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("materializer_request_count_failed", {
 			err: res.err,
@@ -1107,7 +1110,7 @@ export async function materializeAgents(
 	// in this built-in ClickHouse store. When it doesn't, deriveSnapshot skips
 	// the trace->logs tool-definition enrichment instead of querying the wrong
 	// store. Never fails materialization; defaults to correlatable on error.
-	let logsCorrelatable = true;
+	let logsCorrelatable = false;
 	try {
 		// Dynamic import keeps the auth/session (jose) chain out of the agents
 		// module graph; it is only pulled at materialization time.
@@ -1118,7 +1121,9 @@ export async function materializeAgents(
 			dbConfigId,
 		});
 	} catch {
-		logsCorrelatable = true;
+		// Unknown routing is not permission to query ClickHouse logs. Snapshot
+		// derivation can proceed without the optional trace-to-log enrichment.
+		logsCorrelatable = false;
 	}
 
 	let processed = 0;
@@ -1271,7 +1276,7 @@ export async function materializeAgents(
 			const escaped = nonCodingKeys
 				.map((k) => `'${k.replace(/'/g, "''")}'`)
 				.join(", ");
-			const conflictRes = await dataCollector(
+			const conflictRes = await intelligenceDataCollector(
 				{
 					query: `
 						SELECT agent_key
@@ -1309,7 +1314,7 @@ export async function materializeAgents(
 			return { processed, newVersions, errors };
 		}
 
-		const res = await dataCollector(
+		const res = await intelligenceDataCollector(
 			{ table: AGENTS_SUMMARY_TABLE, values: summaryRows },
 			"insert",
 			dbConfigId

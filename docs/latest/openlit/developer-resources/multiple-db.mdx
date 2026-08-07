@@ -1,45 +1,46 @@
 ---
 title: 'Connect Multiple Databases'
-description: 'Connect and switch between multiple ClickHouse databases in OpenLIT'
+description: 'Add and switch between multiple ClickHouse Database Configs per project and environment in OpenLIT'
 sidebarTitle: 'Connect Multiple Databases'
 ---
 
-OpenLIT allows you to add and switch between multiple ClickHouse databases, which helps manage observability data, prompts, and secrets separately for various environments. This feature enables users to maintain distinct databases tailored to specific environments or tenants, all while using a single OpenLIT deployment for efficient data analysis. The active database you select will power the data displayed across different sections of the application.
+OpenLIT lets you attach multiple **Database Configs** (ClickHouse connections) inside a project, each tagged with an [environment](/latest/openlit/organisation/environments). Use this to separate staging vs production data, tenants, or retention tiers without redeploying `INIT_DB_*` env vars.
+
+Day-2 connection changes belong in **Organisation → Project → Database configurations / Connectors**, not in live container env vars. See [Database Config](/latest/openlit/organisation/database-config).
 
 ## When to use this feature
 
-This feature is particularly useful in the following scenarios:
-
-- **Different Environments**: If you're running multiple environments, such as development, testing, and production, you can keep their data separate and easily switch between them as needed.
-
-- **Multi-Tenancy**: When supporting multiple tenants, this feature allows you to maintain isolated datasets for each tenant, ensuring data privacy and organization.
-
-- **Centralized Management**: Manage all your ClickHouse databases from a single OpenLIT deployment, simplifying your AI Engineering data architecture and reducing overhead.
+- **Different environments** — keep `production` and `staging` ClickHouse clusters on separate configs  
+- **Multi-tenancy** — isolate datasets per customer while sharing one OpenLIT deployment  
+- **Centralized management** — switch active Database Config from the header **Databases** control  
 
 ## Get started
 
 <Frame>
-  <img src="/images/multiple-db.png" />
+  <img src="/images/organisation/database-config-list.png" alt="OpenLIT database configuration list on a project" />
 </Frame>
 
-1. **Log in** to the OpenLIT.
-2. Go to the **database configuration** page.
-3. Click on the **Add new** option.
-4. Enter the ClickHouse database configuration details.
-5. Click **Save** to confirm.
-6. Simply **enable** the desired database to view its data. 
-7. The selected active database will power data shown on the dashboards, requests page, Prompt Hub, and Vault secrets.
+1. **Log in** to OpenLIT (`user@openlit.io` / `openlituser` on local seed installs).  
+2. Select **organisation**, **project**, and **environment** in the header.  
+3. Open **Organisation → Project → Database configurations** (or **Connectors → ClickHouse**).  
+4. Click **Add**, enter host, port, database, credentials, and environment.  
+5. **Save**, then mark the config **active** for your user.  
+6. Dashboards, requests, Prompt Hub, and Vault use the active Database Config for that project.  
+
+<video controls playsInline preload="metadata" src="/images/organisation/add-database-config.webm" style={{ width: "100%", borderRadius: "8px" }} />
+
+Pair each environment’s Database Config with [signal routing](/latest/openlit/organisation/signal-routing) when traces/logs/metrics live on Tempo, Loki, Prometheus, or Jaeger.
 
 ---
 
 <CardGroup cols={3}>
-  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
-    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Env vars → Database Config migration and field reference
   </Card>
-  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
-    Version, deploy, and collaborate on prompts with centralized management and tracking
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    How environments partition configs and connectors
   </Card>
-  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
-    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    External data-source connectors for OpenLIT
   </Card>
 </CardGroup>

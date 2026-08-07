@@ -1,6 +1,7 @@
 import { getTraceExist } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function POST() {
+async function POSTHandler() {
 	const res = await getTraceExist();
 	const { data } = res;
 	if ((data as any[])?.[0]?.total_requests > 0) {
@@ -9,3 +10,5 @@ export async function POST() {
 
 	return Response.json(false);
 }
+
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

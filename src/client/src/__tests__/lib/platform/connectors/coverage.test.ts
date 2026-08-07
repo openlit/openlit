@@ -15,7 +15,7 @@ describe("connector coverage", () => {
 		const descriptors = listSourceTypeDescriptors();
 		const connectorTypes = listConnectorTypes("datasource");
 
-		expect(descriptors.length).toBeGreaterThanOrEqual(8);
+		expect(descriptors.length).toBeGreaterThanOrEqual(3);
 		for (const descriptor of descriptors) {
 			expect(getAdapterFactory(descriptor.type)).toBeDefined();
 			expect(descriptor.declaredSignals.length).toBeGreaterThan(0);

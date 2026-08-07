@@ -10,6 +10,7 @@ import GroupedTable, {
 import { getPingStatus } from "@/selectors/database-config";
 import {
 	getFilterDetails,
+	getUpdateAttributeKeys,
 	getUpdateConfig,
 	getUpdateFilter,
 } from "@/selectors/filter";
@@ -97,6 +98,7 @@ export default function ObservabilitySignalList({
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
+	const updateAttributeKeys = useRootStore(getUpdateAttributeKeys);
 	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const pingStatus = useRootStore(getPingStatus);
 	// `serviceNames` is the agent-detail scope lock, owned exclusively by
@@ -120,7 +122,7 @@ export default function ObservabilitySignalList({
 	} = useFetchWrapper();
 
 	useEffect(() => {
-		prepareObservabilitySignalChange(updateConfig, updateFilter);
+		prepareObservabilitySignalChange(updateConfig, updateFilter, updateAttributeKeys);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [config.key]);
 
@@ -415,6 +417,13 @@ export default function ObservabilitySignalList({
 				showGroupBy={!!config.supportGrouping}
 				showVisibilityColumns
 				extraControls={toolbarExtraControls}
+				signal={
+					config.key === "metrics"
+						? "metrics"
+						: config.key === "logs"
+							? "logs"
+							: "traces"
+				}
 			/>
 
 			{config.supportGrouping && filter.groupBy && (

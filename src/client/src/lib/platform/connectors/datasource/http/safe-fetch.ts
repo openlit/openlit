@@ -12,6 +12,8 @@
 
 import net from "net";
 import { promises as dns } from "dns";
+import getMessage from "@/constants/messages";
+import { isEnabledSetting, normalizeDatasourceEndpointUrl } from "./endpoint-url";
 import { withRetry, withSourceConcurrency, type RetryOptions } from "./limits";
 
 export type LookupFn = (hostname: string) => Promise<{ address: string }[]>;
@@ -102,8 +104,9 @@ export function selfHostedNetworkOptions(
 	settings: Record<string, unknown> = {}
 ): Pick<AssertUrlOptions, "allowHttp" | "allowPrivateNetwork"> {
 	return {
-		allowHttp: settings.allowHttp !== false,
-		allowPrivateNetwork: settings.allowPrivateNetwork === true,
+		// Default on for self-hosted OSS backends unless explicitly disabled.
+		allowHttp: settings.allowHttp !== false && settings.allowHttp !== "false",
+		allowPrivateNetwork: isEnabledSetting(settings.allowPrivateNetwork),
 	};
 }
 
@@ -128,11 +131,12 @@ export async function assertPublicUrl(
 ): Promise<URL> {
 	let url: URL;
 	try {
-		url = new URL(rawUrl);
+		url = new URL(normalizeDatasourceEndpointUrl(rawUrl));
 	} catch {
 		throw new SsrfError("Invalid URL");
 	}
 
+	const messages = getMessage();
 	const allowedProtocols = options.allowHttp
 		? new Set(["http:", "https:"])
 		: new Set(["https:"]);
@@ -151,7 +155,7 @@ export async function assertPublicUrl(
 		throw new SsrfError(`Host "${hostname}" is not allowed`);
 	}
 	if (!options.allowPrivateNetwork && LOOPBACK_HOSTNAMES.has(hostname)) {
-		throw new SsrfError(`Host "${hostname}" is not allowed`);
+		throw new SsrfError(messages.DATA_SOURCE_PRIVATE_NETWORK_BLOCKED(hostname));
 	}
 
 	const allowPrivate = !!options.allowPrivateNetwork;
@@ -163,9 +167,7 @@ export async function assertPublicUrl(
 			throw new SsrfError(`Host "${hostname}" is not allowed`);
 		}
 		if (!allowPrivate && isPrivateAddress(hostname)) {
-			throw new SsrfError(
-				"Refusing to connect to a private/loopback/link-local address"
-			);
+			throw new SsrfError(messages.DATA_SOURCE_PRIVATE_NETWORK_BLOCKED(hostname));
 		}
 		return url;
 	}
@@ -188,9 +190,7 @@ export async function assertPublicUrl(
 			);
 		}
 		if (!allowPrivate && isPrivateAddress(address)) {
-			throw new SsrfError(
-				`Host "${hostname}" resolves to a private/loopback/link-local address`
-			);
+			throw new SsrfError(messages.DATA_SOURCE_PRIVATE_NETWORK_BLOCKED(hostname));
 		}
 	}
 

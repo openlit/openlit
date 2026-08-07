@@ -23,6 +23,7 @@ function withL1Meta(
 		meta: {
 			...frame.meta,
 			degraded: ["serverAggregation"],
+			freshness: "sampled",
 			truncated: opts.truncated,
 			latencyMs: Date.now() - opts.start,
 			rowsScanned: opts.spansScanned,

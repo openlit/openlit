@@ -37,7 +37,6 @@ import {
 	TraceAnalysisRun,
 } from "./improvement";
 import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
-import { dataCollector } from "../common";
 import { listTraceRecords } from "../traces/read";
 import { getLogs } from "../logs/read";
 import { listMetricRecords } from "../metrics/read";
@@ -270,10 +269,10 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 						description: params.description || "",
 						group_operator: params.group_operator || "AND",
 						status: params.status || "ACTIVE",
-					});
+					}, { databaseConfigId });
 					const ruleId = (result as any)?.id;
 					if (ruleId && params.condition_groups?.length > 0) {
-						await addConditionGroupsToRule(ruleId, params.condition_groups);
+						await addConditionGroupsToRule(ruleId, params.condition_groups, { databaseConfigId });
 					}
 					return { success: true, message: "Rule created", details: `Name: "${params.name}" | ID: ${ruleId} | Status: ${params.status || "ACTIVE"} | Conditions: ${params.condition_groups?.length || 0} groups` };
 				} catch (e: any) {
@@ -302,7 +301,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 						description: params.description,
 						group_operator: params.group_operator,
 						status: params.status,
-					});
+					}, { databaseConfigId });
 					return { success: true, message: "Rule updated", details: `ID: ${params.id}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to update rule" };
@@ -319,7 +318,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const [err] = await deleteRule(params.id);
+					const [err] = await deleteRule(params.id, { databaseConfigId });
 					if (err) return { success: false, error: err };
 					return { success: true, message: "Rule deleted", details: `ID: ${params.id}` };
 				} catch (e: any) {
@@ -333,7 +332,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			inputSchema: jsonSchema({ type: "object" as const, properties: {} }) as any,
 			execute: async () => {
 				try {
-					const { data, err } = await getRules();
+					const { data, err } = await getRules(databaseConfigId);
 					if (err) return { success: false, error: String(err) };
 					const rules = (data as any[]) || [];
 					return { success: true, count: rules.length, rules: rules.map((r: any) => ({ id: r.id, name: r.name, status: r.status, description: r.description })) };
@@ -352,7 +351,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const result = await getRuleById(params.id);
+					const result = await getRuleById(params.id, databaseConfigId);
 					if ((result as any).err) return { success: false, error: (result as any).err };
 					return { success: true, rule: (result as any).data };
 				} catch (e: any) {
@@ -378,7 +377,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 						rule_id: params.rule_id,
 						entity_type: params.entity_type,
 						entity_id: params.entity_id,
-					});
+					}, { databaseConfigId });
 					return { success: true, message: `${params.entity_type} linked to rule`, details: `Rule: ${params.rule_id} → ${params.entity_type}: ${params.entity_id}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to link entity" };
@@ -395,7 +394,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const [err] = await deleteRuleEntity(params.id);
+					const [err] = await deleteRuleEntity(params.id, { databaseConfigId });
 					if (err) return { success: false, error: err };
 					return { success: true, message: "Entity unlinked from rule" };
 				} catch (e: any) {
@@ -415,7 +414,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const { data, err } = await getRuleEntities(params);
+					const { data, err } = await getRuleEntities(params, databaseConfigId);
 					if (err) return { success: false, error: String(err) };
 					return { success: true, entities: data };
 				} catch (e: any) {

@@ -1,6 +1,7 @@
 import { getTraceHierarchy } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET(request: Request, context: any) {
+async function GETHandler(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id) {
@@ -14,3 +15,5 @@ export async function GET(request: Request, context: any) {
 	const res: any = await getTraceHierarchy(id, { traceId, environment });
 	return Response.json(res);
 }
+
+export const GET = withRouteAccess("traces.read", GETHandler, { requireDbConfig: true });

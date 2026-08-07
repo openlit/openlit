@@ -13,13 +13,16 @@ import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 
-async function GETHandler() {
+async function GETHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
+	const environment = request.nextUrl.searchParams.get("environment") || undefined;
 
 	const [err, sources] = await asaw(listTelemetrySources());
 	if (err) return errorResponse(err, "Failed to list telemetry sources");
-	const [, signalCapabilities] = await asaw(resolveProjectSignalCapabilities());
+	const [, signalCapabilities] = await asaw(
+		resolveProjectSignalCapabilities(environment)
+	);
 	return Response.json({
 		sources,
 		availableTypes: availableSourceTypes().filter(isVisibleConnectorType),

@@ -233,8 +233,11 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 		return { valid: false, error: "Query contains disallowed functions" };
 	}
 
+	// Do not match bare `SYSTEM` — attribute keys like `gen_ai.system` are common
+	// in OTel SQL. ClickHouse admin commands are `SYSTEM <verb>`; system tables
+	// are already blocked by the `system.` check above.
 	const dangerousKeywords =
-		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE)\b|\bSYSTEM\s+\w+/i;
 	if (dangerousKeywords.test(value)) {
 		return { valid: false, error: "Query contains disallowed operations" };
 	}
@@ -437,15 +440,31 @@ export async function runWidgetQuery(
 	}
 
 	const config = widget.config || {};
-	const sourceId = sourceIdOverride ?? config.sourceId ?? null;
-	const signal = (signalOverride ?? config.signal) as Signal | undefined;
 	const structured = structuredOverride ?? config.structuredQuery;
+	const requestedSql = userQuery || config.query || "";
+	const signal = (
+		signalOverride ??
+		config.signal ??
+		structured?.query?.signal ??
+		(isLegacyOtelTracesSql(requestedSql) ? "traces" : undefined)
+	) as Signal | undefined;
+	// Prefer an explicit override (query-run body / panel config). When unset,
+	// signal widgets follow the project's current per-signal binding.
+	const sourceId =
+		sourceIdOverride !== undefined
+			? sourceIdOverride
+			: (config.sourceId ?? null);
 
-	// Legacy path: no source ref and no structured query. Built-in ClickHouse
-	// keeps raw SQL; external project traces bindings use the SQL→structured bridge.
+	// Legacy trace SQL also follows the current traces binding. Built-in
+	// ClickHouse keeps raw SQL; external bindings use the SQL→structured bridge.
+	if (!structured && isLegacyOtelTracesSql(requestedSql)) {
+		return runLegacyWidgetQuery(requestedSql, filter);
+	}
+
+	// Non-signal legacy widgets retain their raw ClickHouse path.
 	if (!sourceId && !signal && !structured) {
 		return runLegacyWidgetQuery(
-			userQuery ? userQuery : config.query || "",
+			requestedSql,
 			filter
 		);
 	}

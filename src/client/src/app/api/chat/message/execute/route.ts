@@ -1,10 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import { validateSQL } from "@/lib/platform/chat/sql-validator";
 import { updateMessage } from "@/lib/platform/chat/conversation";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TELEMETRY_SOURCE_CHAT_NATIVE_ONLY } from "@/constants/messages/en";
 import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
+import { authorizeTelemetrySQLRouting } from "@/lib/platform/chat/telemetry-sql-routing";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -42,11 +43,18 @@ export async function POST(request: NextRequest) {
 			{ status: 400 }
 		);
 	}
+	const routing = await authorizeTelemetrySQLRouting(validation.query!, {
+		environment,
+		databaseConfigId: chatSource.databaseConfigId!,
+	});
+	if (!routing.allowed) {
+		return Response.json({ err: routing.error }, { status: 409 });
+	}
 
 	const startTime = Date.now();
 
 	// Execute with readonly mode
-	const { data, err } = await dataCollector({
+	const { data, err } = await intelligenceDataCollector({
 		query: validation.query!,
 		enable_readonly: true,
 	}, "query", chatSource.databaseConfigId);

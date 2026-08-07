@@ -98,19 +98,33 @@ describe("assertPublicUrl", () => {
 	it("rejects private targets by default", async () => {
 		await expect(
 			assertPublicUrl("http://10.0.0.5:3200", { allowHttp: true })
-		).rejects.toThrow(/private/);
+		).rejects.toThrow(/private or localhost endpoints/i);
 	});
 
 	it("blocks hostnames that resolve to private addresses", async () => {
 		await expect(
 			assertPublicUrl("https://evil.example.com", { lookup })
-		).rejects.toThrow(/private/);
+		).rejects.toThrow(/private or localhost endpoints/i);
 	});
 
 	it("blocks when ANY resolved address is private", async () => {
 		await expect(
 			assertPublicUrl("https://mixed.example.com", { lookup })
-		).rejects.toThrow(/private/);
+		).rejects.toThrow(/private or localhost endpoints/i);
+	});
+
+	it("normalizes collapsed http:/ URLs before validation", async () => {
+		const url = await assertPublicUrl("http:/localhost:9090", {
+			allowHttp: true,
+			allowPrivateNetwork: true,
+		});
+		expect(url.origin).toBe("http://localhost:9090");
+	});
+
+	it("explains how to allow localhost when private network is disabled", async () => {
+		await expect(
+			assertPublicUrl("http://localhost:9090", { allowHttp: true })
+		).rejects.toThrow(/Allow private or localhost endpoints/i);
 	});
 
 	it("allows a hostname that resolves only to public addresses", async () => {

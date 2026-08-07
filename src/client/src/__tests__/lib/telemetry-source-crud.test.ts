@@ -4,6 +4,7 @@ const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateMany = jest.fn();
 const mockDelete = jest.fn();
+const mockConnectorUpsert = jest.fn();
 const mockGetCurrentOrganisation = jest.fn();
 const mockGetCurrentProjectForOrganisation = jest.fn();
 const mockHasAdapterFactory = jest.fn();
@@ -28,6 +29,9 @@ const txClient = {
 	},
 	telemetrySourceBinding: {
 		upsert: (...a: unknown[]) => mockTxBindingUpsert(...a),
+	},
+	connectorInstance: {
+		upsert: (...a: unknown[]) => mockConnectorUpsert(...a),
 	},
 };
 
@@ -76,6 +80,15 @@ jest.mock("@/lib/platform/vault", () => ({
 	getSecretById: (...a: unknown[]) => mockGetSecretById(...a),
 }));
 
+jest.mock("@/lib/platform/connectors/instances", () => ({
+	syncTelemetrySourceConnector: jest.fn().mockResolvedValue(undefined),
+	removeLegacyConnector: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/lib/project-environment", () => ({
+	createProjectEnvironment: jest.fn().mockResolvedValue({ id: "env-1" }),
+}));
+
 jest.mock("@/utils/log", () => ({ consoleLog: jest.fn() }));
 
 import {
@@ -113,14 +126,18 @@ beforeEach(() => {
 	mockUpsertSecret.mockResolvedValue({ id: "vault-new" });
 	mockGetSecretById.mockResolvedValue({ data: [{ id: "vault-1" }] });
 	mockHasAdapterFactory.mockReturnValue(true);
+	mockFindFirst.mockResolvedValue(null);
+	mockConnectorUpsert.mockResolvedValue({});
 	mockGetSourceTypeDescriptor.mockImplementation((type: string) => ({
 		type,
 		displayName: type,
 		declaredSignals:
 			type === "tempo"
 				? ["traces"]
-				: type === "prometheus"
-					? ["metrics"]
+				: type === "prometheus" || type === "loki"
+					? type === "loki"
+						? ["logs"]
+						: ["metrics"]
 					: ["traces", "logs", "metrics"],
 		capabilities: {
 			traceTree: true,
@@ -166,7 +183,7 @@ describe("listTelemetrySources", () => {
 
 describe("availableSourceTypes", () => {
 	it("returns the registered adapter types", () => {
-		expect(availableSourceTypes()).toEqual(["clickhouse", "datadog", "tempo"]);
+		expect(availableSourceTypes()).toEqual(["clickhouse", "tempo", "jaeger"]);
 	});
 });
 
@@ -195,6 +212,50 @@ describe("createTelemetrySource", () => {
 			createTelemetrySource({ name: "  ", type: "datadog" })
 		).rejects.toThrow();
 		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("rejects a duplicate name in the same environment", async () => {
+		mockFindFirst.mockResolvedValue({ id: "src-existing" });
+		await expect(
+			createTelemetrySource({
+				name: "prod-loki",
+				type: "loki",
+				environment: "production",
+			})
+		).rejects.toThrow(/already exists/);
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("syncs the connector instance inside the create transaction", async () => {
+		mockCreate.mockResolvedValue(row({ id: "src-loki", type: "loki", name: "local-loki", signals: "logs" }));
+		await createTelemetrySource({
+			name: "local-loki",
+			type: "loki",
+			environment: "production",
+			settings: { url: "http://localhost:3100" },
+		});
+		expect(mockConnectorUpsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "telemetry:src-loki" },
+				create: expect.objectContaining({
+					type: "loki",
+					name: "local-loki",
+				}),
+			})
+		);
+	});
+
+	it("normalizes collapsed endpoint URLs before persist", async () => {
+		mockCreate.mockResolvedValue(row({ id: "src-prom", type: "prometheus", name: "local-prometheus", signals: "metrics" }));
+		await createTelemetrySource({
+			name: "local-prometheus",
+			type: "prometheus",
+			environment: "production",
+			settings: { url: "http:/localhost:9090", allowPrivateNetwork: true },
+		});
+		expect(mockCreate.mock.calls[0][0].data.settings).toContain(
+			'"url":"http://localhost:9090"'
+		);
 	});
 
 	it("rejects an unknown source type", async () => {

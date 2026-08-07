@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 type RouteContext = { params: { segments: string[] } };
 type RouteHandler = (request: Request, context?: any) => Promise<Response>;
@@ -44,11 +45,11 @@ async function post(request: Request, context: RouteContext, path: string): Prom
 	return (await loader()).POST(request, context);
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function POSTHandler(request: NextRequest, context: RouteContext) {
 	return post(request, context, context.params.segments.join("/"));
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function GETHandler(request: NextRequest, context: RouteContext) {
 	const segments = context.params.segments;
 	if (segments.length === 4 && segments[0] === "request" && segments[1] === "span" && segments[3] === "heirarchy") {
 		const handler = (await import("@/app/api/metrics/request/span/[id]/heirarchy/route")).GET;
@@ -64,3 +65,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 	}
 	return Response.json({ err: `Unknown telemetry route: ${segments.join("/")}` }, { status: 404 });
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });
+export const POST = withRouteAccess("observability.read", POSTHandler, { requireDbConfig: true });

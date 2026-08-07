@@ -42,6 +42,13 @@ export function spanFieldValue(
 ): number | string | undefined {
 	const f = field.trim();
 	if (!f) return undefined;
+	const scoped = f.match(/^(span|resource):(.+)$/);
+	if (scoped) {
+		const [, scope, key] = scoped;
+		return scope === "resource"
+			? span.resourceAttributes[key]
+			: span.spanAttributes[key];
+	}
 	const lower = f.toLowerCase();
 
 	if (
@@ -100,13 +107,14 @@ export function spanFieldValue(
 	return undefined;
 }
 
-type IntervalUnit = "minute" | "hour" | "day" | "month";
+type IntervalUnit = "minute" | "hour" | "day" | "week" | "month";
 
 function parseIntervalUnit(interval: string): IntervalUnit {
 	const trimmed = (interval || "1h").trim();
 	// Month uses capital M ("1M"); lowercase "1m" means minute.
 	if (trimmed === "month" || /^[0-9]+M$/.test(trimmed)) return "month";
 	const raw = trimmed.toLowerCase();
+	if (raw === "week" || /^[0-9]+w$/.test(raw)) return "week";
 	if (raw === "day" || /^[0-9]+d$/.test(raw)) return "day";
 	if (raw === "hour" || /^[0-9]+h$/.test(raw)) return "hour";
 	if (raw === "minute" || raw === "m" || /^[0-9]+m$/.test(raw)) return "minute";
@@ -122,6 +130,12 @@ function truncateToBucket(date: Date, unit: IntervalUnit): Date {
 	if (unit === "hour") return d;
 	d.setUTCHours(0);
 	if (unit === "day") return d;
+	if (unit === "week") {
+		// Use ISO-style Monday boundaries so a 90-day view produces stable
+		// weekly buckets instead of falling back to an hour and truncating at 168.
+		d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+		return d;
+	}
 	d.setUTCDate(1);
 	return d;
 }
@@ -136,7 +150,7 @@ function formatBucketLabel(bucket: Date, unit: IntervalUnit): string {
 	const day = pad2(bucket.getUTCDate());
 	const h = pad2(bucket.getUTCHours());
 	if (unit === "month") return `${y}/${mo}`;
-	if (unit === "day") return `${y}/${mo}/${day}`;
+	if (unit === "day" || unit === "week") return `${y}/${mo}/${day}`;
 	if (unit === "hour") return `${mo}/${day} ${h}:00`;
 	return `${mo}/${day} ${h}:${pad2(bucket.getUTCMinutes())}`;
 }
@@ -263,6 +277,8 @@ export function bucketSpansByInterval(
 					? 3_600_000
 					: unit === "day"
 						? 86_400_000
+						: unit === "week"
+							? 7 * 86_400_000
 						: 0;
 		const MAX_BUCKETS = 168; // 7d hourly
 		if (stepMs > 0) {

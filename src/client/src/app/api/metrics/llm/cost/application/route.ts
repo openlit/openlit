@@ -1,11 +1,12 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getCostByApplication } from "@/lib/platform/llm/cost";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 
@@ -27,3 +28,5 @@ export async function POST(request: Request) {
 	const res: any = await getCostByApplication(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

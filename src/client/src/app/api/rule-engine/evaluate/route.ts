@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
 
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
 		if (!user) {
 			return Response.json({ err: getMessage().UNAUTHORIZED_USER }, { status: 401 });
 		}
+		databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 	}
 
 	// --- Parse request body ---

@@ -8,7 +8,7 @@
  * current within seconds of a click without racing the materializer's tick.
  */
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CONTROLLER_ACTIONS_TABLE,
 	CONTROLLER_DESIRED_STATES_V2_TABLE,
@@ -406,7 +406,7 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 		SETTINGS join_use_nulls = 1
 	`;
 
-	const res = await dataCollector({ query }, "query", params.dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", params.dbConfigId);
 	if (res.err) {
 		agentsLogger.error("list_agents_failed", {
 			err: res.err,
@@ -512,7 +512,7 @@ async function loadAgent(
 		LIMIT 1
 		SETTINGS join_use_nulls = 1
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("get_agent_failed", {
 			err: res.err,

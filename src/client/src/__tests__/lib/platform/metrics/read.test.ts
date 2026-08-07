@@ -19,7 +19,7 @@ jest.mock("@/lib/platform/connectors/datasource/facade", () => ({
 	facadeErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }));
 
-import { listMetricRecords } from "@/lib/platform/metrics/read";
+import { listMetricRecords, getMetricsSummary, getMetricsFilterConfig, getMetricAttributeKeysRecord } from "@/lib/platform/metrics/read";
 
 const params = {
 	timeLimit: {
@@ -35,13 +35,33 @@ const params = {
 beforeEach(() => jest.clearAllMocks());
 
 describe("listMetricRecords", () => {
-	it("delegates to ClickHouse getMetrics for the built-in source", async () => {
-		mockResolveCtx.mockResolvedValue({ adapter: {}, isBuiltIn: true });
-		mockGetMetrics.mockResolvedValue({ records: [{ metricName: "m" }], total: 1 });
+	it("uses the same adapter contract for the built-in ClickHouse source", async () => {
+		const listMetricSeries = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [
+				{
+					metricName: "m",
+					serviceName: "api",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					value: 10,
+					attributes: {},
+					resourceAttributes: {},
+				},
+			],
+		});
+		mockResolveCtx.mockResolvedValue({
+			adapter: { listMetricSeries },
+			descriptor: { dbConfigId: "db-1" },
+			isBuiltIn: true,
+		});
 
 		const res = await listMetricRecords(params);
-		expect(mockGetMetrics).toHaveBeenCalledWith(params);
-		expect(res).toEqual({ records: [{ metricName: "m" }], total: 1 });
+		expect(listMetricSeries).toHaveBeenCalled();
+		expect(res).toMatchObject({
+			err: null,
+			records: [expect.objectContaining({ metricName: "m", latestValue: 10 })],
+		});
+		expect(mockGetMetrics).not.toHaveBeenCalled();
 	});
 
 	it("folds external metric points into grouped list rows", async () => {
@@ -68,6 +88,7 @@ describe("listMetricRecords", () => {
 		});
 		mockResolveCtx.mockResolvedValue({
 			adapter: { listMetricSeries },
+			descriptor: {},
 			isBuiltIn: false,
 		});
 
@@ -85,5 +106,122 @@ describe("listMetricRecords", () => {
 			])
 		);
 		expect(mockGetMetrics).not.toHaveBeenCalled();
+	});
+});
+
+describe("getMetricsSummary", () => {
+	it("requests a count aggregation and maps value to count", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [
+				{ timestamp: "2026-07-01T00:00:00.000Z", value: 12 },
+				{ timestamp: "2026-07-01T00:00:00.000Z", value: 3 },
+				{ timestamp: "2026-07-01T01:00:00.000Z", value: 8 },
+			],
+		});
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsSummary(params);
+		expect(metricTimeSeries).toHaveBeenCalledWith(
+			expect.objectContaining({
+				aggregations: [{ fn: "count", field: "value" }],
+			})
+		);
+		expect(res).toMatchObject({
+			err: null,
+			total: 23,
+			peak: 15,
+			buckets: [
+				{ label: "2026-07-01T00:00:00.000Z", count: 15 },
+				{ label: "2026-07-01T01:00:00.000Z", count: 8 },
+			],
+		});
+	});
+
+	it("keeps ClickHouse-style count buckets", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [{ label: "2026-07-01T00:00:00.000Z", count: 4, metrics: 2, services: 1 }],
+		});
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: { dbConfigId: "db-1" },
+			isBuiltIn: true,
+		});
+
+		const res = await getMetricsSummary(params);
+		expect(res).toMatchObject({
+			err: null,
+			total: 4,
+			peak: 4,
+			buckets: [{ label: "2026-07-01T00:00:00.000Z", count: 4 }],
+		});
+	});
+});
+
+describe("getMetricsFilterConfig", () => {
+	it("returns services and metric names for the filter bar", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				capabilities: () => ({ distinctValues: true }),
+				metricNames: jest.fn().mockResolvedValue(["up", "go_goroutines"]),
+				distinctValues: jest.fn().mockResolvedValue(["prometheus-local"]),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsFilterConfig(params);
+		expect(res).toEqual({
+			err: null,
+			data: [
+				{
+					services: ["prometheus-local"],
+					metricNames: ["go_goroutines", "up"],
+					metricTypes: [],
+					totalRows: 0,
+				},
+			],
+		});
+	});
+
+	it("falls back to job when service.name is empty", async () => {
+		const distinctValues = jest.fn(async (key: string) =>
+			key === "service.name" ? [] : key === "job" ? ["prometheus"] : []
+		);
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				capabilities: () => ({ distinctValues: true }),
+				metricNames: jest.fn().mockResolvedValue(["up"]),
+				distinctValues,
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsFilterConfig(params);
+		expect(res.data?.[0]?.services).toEqual(["prometheus"]);
+	});
+});
+
+describe("getMetricAttributeKeysRecord", () => {
+	it("exposes Prometheus labels under metric and resource attribute keys", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				attributeKeys: jest.fn().mockResolvedValue(["service_name", "job"]),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricAttributeKeysRecord(params);
+		expect(res).toMatchObject({
+			metricAttributeKeys: ["service_name", "job"],
+			resourceAttributeKeys: ["service_name", "job"],
+		});
 	});
 });

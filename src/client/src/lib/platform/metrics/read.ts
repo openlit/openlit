@@ -1,21 +1,12 @@
 /**
  * Metrics read facade — the choke point for the Metrics observability page.
  *
- * Built-in ClickHouse keeps the existing `lib/platform/observability` SQL path
- * (UNION over the five OTel metric tables). External sources resolve via
- * `getTelemetryAdapter({ signal: "metrics" })`: point-level results are folded
- * into the same grouped list rows the ClickHouse page renders.
+ * Every source resolves through the shared signal facade. Point-level results
+ * are folded into the grouped list rows the existing page renders.
  */
 
 import type { MetricParams } from "@/lib/platform/common";
-import {
-	getMetricAttributeKeys,
-	getMetricDetail,
-	getMetrics,
-	getMetricsConfig,
-	getSignalSummary,
-	getSummaryBucket,
-} from "@/lib/platform/observability";
+import { getSummaryBucket } from "@/lib/platform/observability";
 import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import { denormalizeMetricPointsToListRows } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import {
@@ -26,8 +17,7 @@ import type { NormalizedMetricPoint } from "@/lib/platform/connectors/datasource
 
 /** List grouped metric series (same shape as `getMetrics`). */
 export async function listMetricRecords(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
-	if (isBuiltIn) return getMetrics(params);
+	const { adapter } = await resolveSignalReadContext("metrics", params);
 
 	try {
 		const query = metricParamsToOpenLITQuery(params, "metrics");
@@ -40,7 +30,7 @@ export async function listMetricRecords(params: MetricParams) {
 		return {
 			err: null,
 			records: records.slice(offset, offset + limit),
-			total: records.length,
+			total: Number(frame.meta?.rowsScanned) || records.length,
 		};
 	} catch (err) {
 		return { err: facadeErrorMessage(err) };
@@ -49,8 +39,7 @@ export async function listMetricRecords(params: MetricParams) {
 
 /** Filter-bar config (services / metricNames / metricTypes). */
 export async function getMetricsFilterConfig(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
-	if (isBuiltIn) return getMetricsConfig(params);
+	const { adapter } = await resolveSignalReadContext("metrics", params);
 
 	const emptyRow = {
 		services: [] as string[],
@@ -68,8 +57,28 @@ export async function getMetricsFilterConfig(params: MetricParams) {
 			services = await adapter
 				.distinctValues("service.name", query)
 				.catch(() => [] as string[]);
+			// Prometheus self-scrapes often only expose `job` until apps set
+			// service_name; fall back so the Services filter is not empty.
+			if (!services.length) {
+				services = await adapter
+					.distinctValues("job", query)
+					.catch(() => [] as string[]);
+			}
 		}
-		return { err: null, data: [{ ...emptyRow, services, metricNames }] };
+		return {
+			err: null,
+			data: [
+				{
+					...emptyRow,
+					services: Array.from(new Set(services.map(String).filter(Boolean))).sort(
+						(a, b) => a.localeCompare(b)
+					),
+					metricNames: Array.from(
+						new Set(metricNames.map(String).filter(Boolean))
+					).sort((a, b) => a.localeCompare(b)),
+				},
+			],
+		};
 	} catch (err) {
 		return { err: facadeErrorMessage(err), data: [emptyRow] };
 	}
@@ -77,8 +86,7 @@ export async function getMetricsFilterConfig(params: MetricParams) {
 
 /** Attribute-key discovery for the custom-filter builder. */
 export async function getMetricAttributeKeysRecord(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
-	if (isBuiltIn) return getMetricAttributeKeys(params);
+	const { adapter } = await resolveSignalReadContext("metrics", params);
 
 	const empty = {
 		err: null,
@@ -90,7 +98,13 @@ export async function getMetricAttributeKeysRecord(params: MetricParams) {
 	try {
 		const query = metricParamsToOpenLITQuery(params, "metrics");
 		const keys = await adapter.attributeKeys("metrics", query.timeRange);
-		return { ...empty, metricAttributeKeys: keys };
+		// Prometheus labels are shared across metric/resource scopes in the UI
+		// filter builder; expose them under both buckets so either dropdown works.
+		return {
+			...empty,
+			metricAttributeKeys: keys,
+			resourceAttributeKeys: keys,
+		};
 	} catch {
 		return empty;
 	}
@@ -103,10 +117,7 @@ export async function getMetricDetailRecord(
 	serviceName?: string,
 	params?: MetricParams
 ) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
-	if (isBuiltIn) {
-		return getMetricDetail(metricName, metricType, serviceName, params);
-	}
+	const { adapter } = await resolveSignalReadContext("metrics", params);
 
 	try {
 		const base = metricParamsToOpenLITQuery(
@@ -145,20 +156,45 @@ export async function getMetricDetailRecord(
 
 /** Metrics summary bar-chart series (same shape as `getSignalSummary(_, "metrics")`). */
 export async function getMetricsSummary(params: MetricParams) {
-	const { adapter, isBuiltIn } = await resolveSignalReadContext("metrics", params);
-	if (isBuiltIn) return getSignalSummary(params, "metrics");
+	const { adapter } = await resolveSignalReadContext("metrics", params);
 
 	const bucket = getSummaryBucket(params);
 	const empty = { err: null, bucket, buckets: [], total: 0, peak: 0 };
 	try {
-		const query = metricParamsToOpenLITQuery(params, "metrics");
+		const base = metricParamsToOpenLITQuery(params, "metrics");
+		// Prefer a server-side count aggregation so Prometheus/Loki-style sources
+		// return one series instead of every raw sample (which blows up the chart).
+		const query = {
+			...base,
+			aggregations: base.aggregations?.length
+				? base.aggregations
+				: [{ fn: "count" as const, field: "value" }],
+		};
 		const frame = await adapter.metricTimeSeries(query);
-		const buckets = (frame.rows as unknown as Record<string, unknown>[]).map((row) => ({
-			label: String(row.label ?? row.timestamp ?? row.request_time ?? ""),
-			count: Number(row.count ?? 1),
-			metrics: Number(row.metrics ?? 0),
-			services: Number(row.services ?? 0),
-		}));
+		const merged = new Map<
+			string,
+			{ count: number; metrics: number; services: number }
+		>();
+		for (const row of frame.rows as unknown as Record<string, unknown>[]) {
+			const label = String(row.label ?? row.timestamp ?? row.request_time ?? "");
+			if (!label) continue;
+			const count = Number(row.count ?? row.value ?? 0);
+			if (!Number.isFinite(count)) continue;
+			const prev = merged.get(label) || { count: 0, metrics: 0, services: 0 };
+			merged.set(label, {
+				count: prev.count + count,
+				metrics: prev.metrics + (Number(row.metrics) || 0),
+				services: prev.services + (Number(row.services) || 0),
+			});
+		}
+		const buckets = [...merged.entries()]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([label, stats]) => ({
+				label,
+				count: stats.count,
+				metrics: stats.metrics,
+				services: stats.services,
+			}));
 		const total = buckets.reduce((sum, b) => sum + b.count, 0);
 		const peak = buckets.reduce((max, b) => Math.max(max, b.count), 0);
 		return { err: null, bucket, buckets, total, peak };

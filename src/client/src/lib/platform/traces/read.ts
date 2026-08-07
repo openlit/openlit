@@ -1,27 +1,12 @@
 /**
  * Traces read facade — the choke point for Telemetry list/detail/hierarchy.
  *
- * Built-in ClickHouse keeps the existing `lib/platform/request` SQL path
- * (full filter fidelity, no adapter cycle). External sources resolve via
- * `getTelemetryAdapter({ signal: "traces" })` and denormalize to the same
- * ClickHouse-shaped row the UI already consumes.
+ * Every source, including built-in ClickHouse, resolves through the shared
+ * signal facade and executes the DataSourceAdapter contract.
  */
 
 import type { MetricParams } from "@/lib/platform/common";
-import {
-	getAttributeKeys,
-	getAverageRequestDuration,
-	getGroupedRequests,
-	getHeirarchyViaSpanId,
-	getRequestExist,
-	getRequestPerTime,
-	getRequestViaSpanId,
-	getRequestViaTraceId,
-	getRequests,
-	getRequestsConfig,
-	getTotalRequests,
-} from "@/lib/platform/request";
-import { getSignalSummary, getSummaryBucket } from "@/lib/platform/observability";
+import { getSummaryBucket } from "@/lib/platform/observability";
 import { buildHierarchy } from "@/helpers/server/trace";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
@@ -36,23 +21,16 @@ import {
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
 } from "@/lib/platform/connectors/datasource/query-planner";
-import {
-	readSignalBucketRollup,
-	readLlmRollup,
-} from "@/lib/platform/telemetry/rollups";
-import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
+import { resolveSignalReadContext } from "@/lib/platform/connectors/datasource/facade";
 import getMessage from "@/constants/messages";
 import { consoleLog } from "@/utils/log";
+import { AdapterError } from "@openplait/adapter-sdk";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
-	const { getTelemetryAdapter, resolveTelemetrySourceDescriptor } =
-		await import("@/lib/telemetry-source");
-	const descriptor = await resolveTelemetrySourceDescriptor({
-		signal: "traces",
+	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
 		sourceId,
 		environment,
 	});
-	const adapter = await getTelemetryAdapter({ signal: "traces", sourceId, environment });
 	consoleLog("[traces] resolved read adapter", {
 		sourceId: sourceId || null,
 		environment: environment || null,
@@ -76,12 +54,16 @@ function externalTraceQuery(params: MetricParams, opts?: { aiSelector?: boolean 
 	return { ...query, filters: filters?.length ? filters : undefined };
 }
 
-function isBuiltInClickHouse(descriptor: { type: string; isBuiltIn: boolean }) {
-	return descriptor.isBuiltIn || descriptor.type === "clickhouse";
-}
-
 function asErrorMessage(err: unknown): string {
 	if (err instanceof UnsupportedCapabilityError) return err.message;
+	if (err instanceof AdapterError) {
+		const body = err.details?.body;
+		if (typeof body === "string" && body.trim()) {
+			// Tempo's response body contains the actionable parser/range reason;
+			// auth headers are never included in OpenPlait error details.
+			return `${err.message} ${body.trim().slice(0, 500)}`;
+		}
+	}
 	if (err instanceof Error) return err.message;
 	return typeof err === "string" ? err : getMessage().WIDGET_RUN_FAILED;
 }
@@ -89,63 +71,46 @@ function asErrorMessage(err: unknown): string {
 /** List spans for the Telemetry table (same shape as `getRequests`). */
 export async function listTraceRecords(params: MetricParams) {
 	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getRequests(params);
-	}
 
 	try {
 		const query = externalTraceQuery(params, { aiSelector: false });
-		const preferHotCache = shouldPreferRollup(params);
-		if (preferHotCache) {
-			const { readSpanHotCache } = await import(
-				"@/lib/platform/telemetry/rollups"
-			);
-			const cached = await readSpanHotCache(query, {
-				sourceId: descriptor.id,
-				dbConfigId: descriptor.dbConfigId,
-				maxRows: params.limit || 25,
-			});
-			if (cached?.spans?.length) {
-				const records = cached.spans.map((row) =>
-					denormalizeSpanToTraceRow(row)
-				);
-				return {
-					err: null,
-					records,
-					total: cached.truncated
-						? records.length + (params.offset || 0) + 1
-						: records.length + (params.offset || 0),
-					freshness: "accelerated" as const,
-				};
-			}
-		}
-		// Flat external lists use the adapter's direct bounded search. AI-only
-		// service discovery is reserved for aggregate/analysis sampling.
-		const { fetchSpansForList } = await import(
-			"@/lib/platform/connectors/datasource/graph/sample-fetch"
-		);
-		const { spans, truncated } = await fetchSpansForList(adapter, query, {
-			maxRows: params.limit || 25,
-		});
+		// Interactive lists always query the selected adapter directly. Sampling
+		// caches are reserved for aggregate/intelligence computation.
+		const frame = await adapter.listSpans(query);
+		const spans = frame.rows || [];
+		const truncated =
+			!!frame.meta?.truncated || spans.length >= (params.limit || 25);
 		const records = spans.map((row) => denormalizeSpanToTraceRow(row));
+		let total = truncated
+			? records.length + (params.offset || 0) + 1
+			: records.length + (params.offset || 0);
+		let totalIsSampled = true;
+		if (adapter.countTraces) {
+			try {
+				const count = await adapter.countTraces(query);
+				total = count.total;
+				totalIsSampled = count.truncated;
+			} catch {
+				// Keep the bounded-list sentinel when the backend cannot count.
+			}
+		} else if (typeof frame.meta?.rowsScanned === "number") {
+			total = frame.meta.rowsScanned;
+			totalIsSampled = false;
+		}
 		consoleLog("[traces] external list result", {
 			descriptorId: descriptor.id,
 			type: descriptor.type,
 			spanCount: spans.length,
 			recordCount: records.length,
 			truncated,
-			totalIsSampled: true,
+			total,
+			totalIsSampled,
 		});
 		return {
 			err: null,
 			records,
-			// External adapters return one root row per trace from a bounded
-			// sample. countSpans(), where available, counts matching spans and
-			// cannot be used as the trace-row total (one trace has many spans).
-			total: truncated
-				? records.length + (params.offset || 0) + 1
-				: records.length + (params.offset || 0),
-			freshness: "sampled" as const,
+			total,
+			freshness: totalIsSampled ? ("sampled" as const) : ("live" as const),
 		};
 	} catch (err) {
 		return { err: asErrorMessage(err) };
@@ -167,24 +132,6 @@ export async function getTraceSpanRecord(
 		undefined,
 		opts?.environment
 	);
-	if (isBuiltInClickHouse(descriptor)) {
-		const result = await getRequestViaSpanId(spanId);
-			consoleLog("[traces] span detail ClickHouse result", {
-			spanId,
-			found: !!result?.record,
-			elapsedMs: Date.now() - startedAt,
-			});
-			if (!result?.record) {
-				return {
-					...result,
-					err: opts?.environment
-						? `No trace was found in the ClickHouse connector routed for environment "${opts.environment}". Select the correct traces connector in Signal routing for this environment.`
-						: result?.err || "Trace was not found in the selected ClickHouse connector.",
-				};
-			}
-			return result;
-	}
-
 	try {
 		// Grafana Explore already knows the TraceId from search metadata. Fetch
 		// that trace first; a span-id-only TraceQL search is eventually
@@ -208,8 +155,14 @@ export async function getTraceSpanRecord(
 			span =
 				spans.find((s) => s.spanId === spanId) ||
 				null;
+			if (!span) {
+				return {
+					err: "Span not found in the selected trace and telemetry source",
+					record: undefined,
+				};
+			}
 		}
-		if (!span) span = await adapter.getSpan(spanId);
+		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) {
 			consoleLog("[traces] span not found", {
 				descriptorId: descriptor.id,
@@ -241,10 +194,7 @@ export async function getTraceSpanRecord(
 
 /** First span for a trace id (same shape as `getRequestViaTraceId`). */
 export async function getTraceRecordByTraceId(traceId: string, environment?: string) {
-	const { adapter, descriptor } = await resolveTracesAdapter(undefined, environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getRequestViaTraceId(traceId);
-	}
+	const { adapter } = await resolveTracesAdapter(undefined, environment);
 
 	try {
 		const spans = await adapter.getTraceSpans(traceId);
@@ -265,10 +215,7 @@ export async function getTraceHierarchy(
 	spanId: string,
 	opts?: { traceId?: string; environment?: string }
 ) {
-	const { adapter, descriptor } = await resolveTracesAdapter(undefined, opts?.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getHeirarchyViaSpanId(spanId);
-	}
+	const { adapter } = await resolveTracesAdapter(undefined, opts?.environment);
 
 	try {
 		let span: NormalizedSpan | null = null;
@@ -277,8 +224,14 @@ export async function getTraceHierarchy(
 			span =
 				spans.find((s) => s.spanId === spanId) ||
 				null;
+			if (!span) {
+				return {
+					err: "Span not found in the selected trace and telemetry source",
+					record: {},
+				};
+			}
 		}
-		if (!span) span = await adapter.getSpan(spanId);
+		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) return { err: "Span not found", record: {} };
 
 		let spans = await adapter.getTraceSpans(span.traceId);
@@ -337,10 +290,7 @@ function groupByToField(groupBy: string): string {
  * config (dropdowns render empty) when it does not.
  */
 export async function getTraceFilterConfig(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getRequestsConfig(params);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	const emptyRow = {
 		providers: [] as string[],
@@ -381,7 +331,17 @@ export async function getTraceFilterConfig(params: MetricParams) {
 		const { spans } = await fetchSpansForAggregation(adapter, query);
 		const models = distinctFromSpans(spans, "gen_ai.request.model");
 		const providers = distinctFromSpans(spans, "gen_ai.system");
-		const spanNames = distinctFromSpans(spans, "SpanName");
+		// Prefer adapter-native enums (Jaeger /api/services/{svc}/operations) when
+		// available so Span Names match the Jaeger Search UI instead of a sample.
+		let spanNames: string[] = [];
+		try {
+			spanNames = await adapter.distinctValues("SpanName", query);
+		} catch {
+			spanNames = distinctFromSpans(spans, "SpanName");
+		}
+		if (!spanNames.length) {
+			spanNames = distinctFromSpans(spans, "SpanName");
+		}
 		const traceTypes = distinctFromSpans(spans, "gen_ai.operation.type");
 		if (!applicationNames.length) {
 			applicationNames = distinctFromSpans(spans, "service.name");
@@ -406,10 +366,7 @@ export async function getTraceFilterConfig(params: MetricParams) {
 
 /** Attribute-key discovery for the custom-filter builder. */
 export async function getTraceAttributeKeys(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getAttributeKeys(params);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	const empty = { err: null, spanAttributeKeys: [], resourceAttributeKeys: [] };
 	try {
@@ -423,10 +380,7 @@ export async function getTraceAttributeKeys(params: MetricParams) {
 
 /** Grouped rollup (count / cost / tokens / avg duration) for a groupBy key. */
 export async function getTraceGrouped(params: MetricParams, groupBy: string) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getGroupedRequests(params, groupBy);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	try {
 		const base = externalTraceQuery(params, { aiSelector: false });
@@ -441,15 +395,7 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 				{ fn: "avg", field: "duration", as: "avg_duration_seconds" },
 			],
 		};
-		const frame = await planAndAggregateSpans(adapter, query, {
-			preferRollup: shouldPreferRollup(params),
-			readRollup: (q) =>
-				readLlmRollup(q, {
-					sourceId: descriptor.id,
-					dbConfigId: descriptor.dbConfigId,
-					dimension: groupBy,
-				}),
-		});
+		const frame = await planAndAggregateSpans(adapter, query);
 		const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
 			group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
 			count: Number(row.count ?? 0),
@@ -472,10 +418,7 @@ export async function getTraceSummary(
 	params: MetricParams,
 	signal: "traces" | "exceptions" = "traces"
 ) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getSignalSummary(params, signal);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	const bucket = getSummaryBucket(params);
 	const empty = { err: null, bucket, buckets: [], total: 0, peak: 0 };
@@ -502,14 +445,12 @@ export async function getTraceSummary(
 				{ fn: "sum", field: "gen_ai.usage.total_tokens", as: "tokens" },
 			],
 		};
-		const frame = await planAndSpanTimeSeries(adapter, query, {
-			preferRollup: signal === "traces" && shouldPreferRollup(params),
-			readRollup: (q) =>
-				readSignalBucketRollup(q, {
-					sourceId: descriptor.id,
-					dbConfigId: descriptor.dbConfigId,
-				}),
-		});
+		// Trace backends such as Tempo can return lightweight trace summaries
+		// without downloading every span. Prefer that trace-level series when
+		// available so a 200-trace L1 sample is never presented as the volume.
+		const frame = adapter.traceTimeSeries
+			? await adapter.traceTimeSeries(query)
+			: await planAndSpanTimeSeries(adapter, query);
 		const buckets = (frame.rows as Record<string, unknown>[]).map((row) => ({
 			label: String(row.label ?? row.request_time ?? row.bucket ?? ""),
 			count: Number(row.count ?? 0),
@@ -526,6 +467,7 @@ export async function getTraceSummary(
 			total,
 			peak,
 			freshness: frame.meta?.freshness || "sampled",
+			truncated: frame.meta?.truncated || false,
 		};
 	} catch (err) {
 		return { ...empty, err: asErrorMessage(err) };
@@ -534,10 +476,7 @@ export async function getTraceSummary(
 
 /** Total request count with previous-period comparison (dashboard graphs). */
 export async function getTraceTotalRequests(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getTotalRequests(params);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	try {
 		const current = await planAndAggregateSpans(
@@ -546,25 +485,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 				...externalTraceQuery(params, { aiSelector: false }),
 				aggregations: [{ fn: "count", as: "total_requests" }],
 			},
-			{
-				preferRollup: shouldPreferRollup(params),
-				readRollup: async (q) => {
-					const series = await readSignalBucketRollup(q, {
-						sourceId: descriptor.id,
-						dbConfigId: descriptor.dbConfigId,
-					});
-					if (!series) return null;
-					const total = (series.rows as Record<string, unknown>[]).reduce(
-						(sum, row) => sum + Number(row.count ?? row.total ?? 0),
-						0
-					);
-					return {
-						fields: [],
-						rows: [{ total_requests: total, count: total }],
-						meta: series.meta,
-					};
-				},
-			}
+			{}
 		);
 		const previousParams = getFilterPreviousParams(params);
 		const previous = await planAndAggregateSpans(adapter, {
@@ -598,10 +519,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 
 /** Requests-over-time series for dashboard graphs. */
 export async function getTraceRequestPerTime(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getRequestPerTime(params);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	try {
 		const query = externalTraceQuery(params, { aiSelector: false });
@@ -615,14 +533,7 @@ export async function getTraceRequestPerTime(params: MetricParams) {
 				interval,
 				aggregations: [{ fn: "count", as: "total" }],
 			},
-			{
-				preferRollup: shouldPreferRollup(params),
-				readRollup: (q) =>
-					readSignalBucketRollup(q, {
-						sourceId: descriptor.id,
-						dbConfigId: descriptor.dbConfigId,
-					}),
-			}
+			{}
 		);
 		const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
 			total: Number(row.total ?? row.count ?? 0),
@@ -636,10 +547,7 @@ export async function getTraceRequestPerTime(params: MetricParams) {
 
 /** Average request duration with previous-period comparison. */
 export async function getTraceAverageDuration(params: MetricParams) {
-	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
-	if (isBuiltInClickHouse(descriptor)) {
-		return getAverageRequestDuration(params);
-	}
+	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	try {
 		const current = await planAndAggregateSpans(adapter, {
@@ -670,10 +578,7 @@ export async function getTraceAverageDuration(params: MetricParams) {
 
 /** Whether any AI traces exist in the bound traces source (onboarding gate). */
 export async function getTraceExist() {
-	const { adapter, descriptor } = await resolveTracesAdapter();
-	if (isBuiltInClickHouse(descriptor)) {
-		return getRequestExist();
-	}
+	const { adapter } = await resolveTracesAdapter();
 
 	try {
 		const end = new Date();

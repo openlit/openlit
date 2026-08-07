@@ -17,7 +17,7 @@
  */
 
 import {
-	dataCollector,
+	intelligenceDataCollector,
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
 import { buildVersionWhereClause } from "./version-filter";
@@ -323,7 +323,7 @@ export async function getAggregateGraph(
 		FROM sampled_traces
 	`;
 
-	const combinedRes = await dataCollector(
+	const combinedRes = await intelligenceDataCollector(
 		{ query: combinedQuery },
 		"query",
 		params.dbConfigId

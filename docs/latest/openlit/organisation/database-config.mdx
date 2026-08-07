@@ -1,39 +1,132 @@
 ---
 title: 'Database Config'
-description: 'Add and manage ClickHouse database configurations for an OpenLIT project'
+sidebarTitle: 'Database Config'
+description: 'Create ClickHouse Database Configs on a project — seeded from INIT_DB_* then managed in the OpenLIT UI'
 icon: 'database'
 ---
 
-Database configurations connect OpenLIT to ClickHouse. They are scoped to the active project, so each project can use its own database connection.
+Database Configs live **under a project**. Create or select a [project](/latest/openlit/organisation/projects) first, then add ClickHouse connections for that project's environments. They are not a free-floating organisation-wide setting.
+
+A **Database Config** is the ClickHouse connection OpenLIT uses as its **app store** and default telemetry backend: host, port, database, credentials, environment label, and optional query params. Every project needs at least one before traces, dashboards, evals, or vault-backed features can load.
+
+<Info>
+**Environment variables are for bootstrap only.** `INIT_DB_HOST`, `INIT_DB_PORT`, `INIT_DB_DATABASE`, `INIT_DB_USERNAME`, and `INIT_DB_PASSWORD` seed the first Database Config at install time. After that, OpenLIT reads and writes ClickHouse through the **Database Config stored in the product database** — not those env vars on every request.
+</Info>
+
+## From env vars to Database Config
+
+| Before (deploy-time env) | After (product Database Config) |
+| --- | --- |
+| `INIT_DB_HOST` | **Host** |
+| `INIT_DB_PORT` | **Port** |
+| `INIT_DB_DATABASE` | **Database** |
+| `INIT_DB_USERNAME` | **Username** |
+| `INIT_DB_PASSWORD` | **Password** |
+| (often a single shared connection) | **Config name** + **Environment** per project |
+
+### What still uses env vars
+
+| Variable | Role today |
+| --- | --- |
+| `INIT_DB_*` | **Seed only** — when the app first starts (or is seeded), OpenLIT creates/updates a default Database Config if host and port are set. Changing these later does **not** automatically rewrite existing configs. |
+| `SQLITE_DATABASE_URL` | Location of the OpenLIT control-plane SQLite DB (users, projects, Database Config rows, bindings). |
+| `OPENLIT_DB_*` / Compose secrets | Credentials for the **ClickHouse container** itself in Docker/K8s — infrastructure, not the UI connection picker. |
+
+### What to change when ClickHouse moves
+
+1. Open **Organisation → Project → Database configurations** (or **Connectors → ClickHouse**).
+2. Edit or add a Database Config with the new host/port/database/credentials.
+3. Mark it **active** for your user in that project (header **Databases** switcher).
+4. Optionally keep `INIT_DB_*` in Compose only so **new** installs still seed a default — do not rely on them for day-2 connection changes.
+
+<Warning>
+OpenLIT still requires a Database Config even when raw traces/logs/metrics are routed to Tempo, Loki, Prometheus, Datadog, or other [connectors](/latest/openlit/organisation/connectors). Evaluations, boards metadata, rules, vault secrets, and agent summaries stay in ClickHouse.
+</Warning>
 
 ## Add a database configuration
 
+Configs live on the **current project**. OpenLIT’s Organisation → **Projects** tab states this explicitly: select a project before managing its Database Config. In Connectors, ClickHouse also appears as the built-in connector.
+
+<Frame>
+  <img src="/images/organisation/projects-list.png" alt="Organisation Projects tab — Manage DB Config per project" />
+</Frame>
+
+<video controls playsInline preload="metadata" src="/images/organisation/add-database-config.webm" style={{ width: "100%", borderRadius: "8px" }} />
+
 <Steps>
-  <Step title="Open Organisation">
-    Select **Organisation** from the sidebar.
+  <Step title="Select a project">
+    In the header, choose the [project](/latest/openlit/organisation/projects) (and [environment](/latest/openlit/organisation/environments)) that should own the configuration.
   </Step>
-  <Step title="Open a project">
-    Choose the project that should own the database configuration.
+  <Step title="Open Database configurations">
+    From **Organisation → Projects**, use **Manage DB Config**, or open **Connectors → ClickHouse**.
   </Step>
   <Step title="Add config">
-    Click **Add database config** and enter the ClickHouse connection details.
+    Enter **Config Name**, **Environment**, **Username**, **Password**, **Host**, **Port**, **Database**, and optional **Query params**.
   </Step>
-  <Step title="Test and save">
-    Test the connection, then save the configuration.
-  </Step>
-  <Step title="Select config">
-    Select the database configuration from the project page or the top navigation selector.
+  <Step title="Save and activate">
+    Save, then mark the config active (list checkbox or header **Databases** switcher). Connectivity is verified when the config becomes active.
   </Step>
 </Steps>
 
+## Fields
+
+| Field | Description |
+| --- | --- |
+| **Config Name** | Friendly label (unique per project + environment). |
+| **Environment** | Logical env (for example `production`, `staging`) used with [signal routing](/latest/openlit/organisation/signal-routing). |
+| **Host / Port** | ClickHouse HTTP endpoint (commonly port `8123`). |
+| **Database** | ClickHouse database name OpenLIT queries. |
+| **Username / Password** | ClickHouse credentials. Password is masked after save. |
+| **Query params** | Optional URL query string appended to the ClickHouse HTTP client. |
+
 ## Selection behavior
 
-The active database configuration is scoped to the current user and project. Switching projects updates the available database configurations. If a project does not have a database configuration, OpenLIT guides you through onboarding before showing data pages.
+- Active Database Config is scoped to the **current user + project** — teammates can select different configs in the same project.
+- Switching projects changes the available configs; a config never crosses projects.
+- Creating a config seeds default **signal bindings** (traces, logs, metrics, intelligence) to that ClickHouse for the environment when none exist yet.
 
-## Multiple databases
+## Multiple databases and environments
 
-A project can have multiple database configurations. Use multiple configurations when you need to switch between environments or ClickHouse clusters without changing the organisation.
+Use several Database Configs when you need separate ClickHouse clusters, retention tiers, or staging vs production without changing organisation. Pair each config’s **Environment** with connector bindings so telemetry routing stays consistent. See [Environments](/latest/openlit/organisation/environments).
 
-<Card title="Multiple database guide" href="/latest/openlit/developer-resources/multiple-db" icon="database">
-  Learn more about using multiple ClickHouse database configurations in OpenLIT.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    How environments replace a single global connection.
+  </Card>
+  <Card title="Multiple databases" href="/latest/openlit/developer-resources/multiple-db" icon="database">
+    Switch between ClickHouse configs inside a project.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Bind traces, logs, and metrics per environment.
+  </Card>
+</CardGroup>
+
+## Sharing
+
+A Database Config can be shared with teammates by email with separate **edit**, **delete**, and **re-share** permissions — useful when someone needs the connection without full project admin rights.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="I changed INIT_DB_HOST in Docker — why is OpenLIT still on the old host?">
+    Runtime uses the Database Config row. Update the config in the UI (or create a new one and activate it). `INIT_DB_*` only seeds on first setup.
+  </Accordion>
+  <Accordion title="Can one Database Config be used by two projects?">
+    No. Create a config in each project (they can point at the same ClickHouse cluster or database name).
+  </Accordion>
+  <Accordion title="Do I need ClickHouse if I only use Tempo + Loki + Prometheus?">
+    Yes. External connectors serve raw telemetry reads. ClickHouse remains the app store for derived intelligence and vault-backed connector secrets.
+  </Accordion>
+  <Accordion title="Is the password visible after save?">
+    No. It is masked in the API and UI; only submitting a new value overwrites it.
+  </Accordion>
+</AccordionGroup>
+
+<CardGroup cols={2}>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Catalog of data-source connectors and actions.
+  </Card>
+  <Card title="Configuration reference" href="/latest/openlit/configuration" icon="sliders">
+    Full list of bootstrap and OAuth environment variables.
+  </Card>
+</CardGroup>

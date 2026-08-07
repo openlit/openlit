@@ -3,12 +3,22 @@
  *
  * TraceQL search (`GET /api/search`) with the AI selector pushed down, plus
  * `GET /api/traces/{id}` for full spans (including events, so chat view + evals
- * work). Tempo has no server-side aggregation, so summaries and the aggregate
- * agent DAG are built in-process from a bounded sample of full traces
- * (`buildAggregateDag`); cost/token rollups are gated accordingly.
+ * work). Trace-volume summaries bucket lightweight Tempo search rows, while
+ * product aggregations and the aggregate agent DAG can use TraceQL metrics or
+ * a bounded sample of full traces; cost/token rollups are gated accordingly.
  */
 
 import { BaseExternalAdapter } from "../base-adapter";
+import {
+	OPENPLAIT_API_VERSION,
+	type NativeQuery,
+} from "@openplait/core";
+import {
+	TempoAdapter as OpenPlaitTempoAdapter,
+	type TempoAdapterConfig,
+	type TempoServerCapabilities,
+} from "@openplait/adapter-tempo";
+import { AdapterError } from "@openplait/adapter-sdk";
 import type {
 	AISignalValidation,
 	DataFrame,
@@ -26,11 +36,16 @@ import { applyHttpAuthCredentials } from "../http/auth-headers";
 import { httpVendorFields } from "../config-fields";
 import { computeIntervalMs, clampStepMs } from "../downsample";
 import getMessage from "@/constants/messages";
-import { safeFetch, selfHostedNetworkOptions } from "../http/safe-fetch";
+import {
+	safeFetch,
+	selfHostedNetworkOptions,
+	SourceResponseError,
+} from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { consoleLog } from "@/utils/log";
-import { parseOtlpTrace, normalizeOtlpId } from "../otlp-json";
+import { normalizeOtlpId } from "../otlp-json";
+import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import {
 	buildAITelemetrySelector,
 	type AITelemetrySelector,
@@ -43,13 +58,218 @@ import {
 	computeDistinctValuesL1,
 	computeSpanTimeSeriesL1,
 } from "../l1-compute";
+import { bucketSpansByInterval } from "../graph/sample-aggregate";
+import { clampQueryToSource } from "../http/limits";
 
 const TTL_MS = 30_000;
 const MAX_TRACE_FETCH = 200;
+/** Lightweight Tempo search summaries used for the trace-volume chart. */
+const TRACE_SUMMARY_CAP = 5_000;
+/** Request one extra row so truncation can be reported honestly. */
+const MAX_TRACE_SEARCH = TRACE_SUMMARY_CAP + 1;
 /** Parallel full-trace downloads after TraceQL search (Grafana Explore loads lazily). */
-const TRACE_FETCH_CONCURRENCY = 8;
+const TRACE_FETCH_CONCURRENCY = 4;
 /** Cap how many span ids we remember for detail/hierarchy lookups. */
 const SPAN_INDEX_MAX = 5_000;
+const DEFAULT_TEMPO_METRICS_WINDOW_MS = 24 * 60 * 60 * 1_000;
+const TEMPO_PROFILE_TTL_MS = 10 * 60 * 1000;
+
+type CachedTempoProfile = TempoServerCapabilities & { expiresAt: number };
+const tempoProfileBySource = new Map<string, CachedTempoProfile>();
+const learnedSearchRangeBySource = new Map<string, number>();
+const learnedSearchLimitBySource = new Map<string, number>();
+
+function adapterErrorDiagnostics(error: unknown): Record<string, unknown> {
+	if (!(error instanceof AdapterError)) {
+		return { message: String((error as Error)?.message || error) };
+	}
+	const details = error.details || {};
+	return {
+		message: error.message,
+		code: error.code,
+		...(typeof details.status === "number" ? { status: details.status } : {}),
+		...(typeof details.body === "string"
+			? { upstreamBody: details.body.slice(0, 1000) }
+			: {}),
+		...(typeof details.endpoint === "string"
+			? { endpoint: details.endpoint }
+			: {}),
+		...(typeof details.queryLength === "number"
+			? { queryLength: details.queryLength }
+			: {}),
+		...(typeof details.upstreamRequestId === "string"
+			? { upstreamRequestId: details.upstreamRequestId }
+			: {}),
+	};
+}
+
+function adapterErrorStatus(error: unknown): number | undefined {
+	const value = error instanceof AdapterError ? error.details?.status : undefined;
+	return typeof value === "number" ? value : undefined;
+}
+
+function adapterErrorBody(error: unknown): string {
+	const value = error instanceof AdapterError ? error.details?.body : undefined;
+	return typeof value === "string" ? value : "";
+}
+
+function withoutMostRecentHint(traceql: string): string {
+	return traceql.replace(/\s+with\s*\(\s*most_recent\s*=\s*true\s*\)\s*$/i, "");
+}
+
+function goDurationMs(value: string): number | undefined {
+	let total = 0;
+	let matched = 0;
+	const unitMs: Record<string, number> = {
+		h: 3_600_000,
+		m: 60_000,
+		s: 1_000,
+		ms: 1,
+	};
+	const expression = /(\d+(?:\.\d+)?)(ms|h|m|s)/g;
+	let match: RegExpExecArray | null;
+	while ((match = expression.exec(value)) !== null) {
+		total += Number(match[1]) * unitMs[match[2]];
+		matched += match[0].length;
+	}
+	return matched === value.length && total > 0 ? total : undefined;
+}
+
+/** Extract a Tempo-reported search ceiling without guessing from generic 400s. */
+function reportedMaxDurationMs(body: string): number | undefined {
+	if (!/(?:max(?:imum)?|limit).{0,40}duration|duration.{0,40}(?:max(?:imum)?|limit)/i.test(body)) {
+		return undefined;
+	}
+	const candidates: string[] = [];
+	const expression = /\b(\d+(?:\.\d+)?(?:ms|h|m|s)(?:\d+(?:\.\d+)?(?:ms|h|m|s))*)\b/g;
+	let match: RegExpExecArray | null;
+	while ((match = expression.exec(body)) !== null) candidates.push(match[1]);
+	for (let index = candidates.length - 1; index >= 0; index--) {
+		const parsed = goDurationMs(candidates[index]);
+		if (parsed) return parsed;
+	}
+	return undefined;
+}
+
+/** Extract a Tempo-reported search result ceiling (for example, max limit 1000). */
+function reportedMaxSearchLimit(body: string): number | undefined {
+	const patterns = [
+		/limit\s+\d+\s+exceeds\s+max(?:imum)?\s+limit\s+(\d+)/i,
+		/max(?:imum)?(?:\s+search)?\s+limit(?:\s+is|:)?\s*(\d+)/i,
+		/search[^\n]{0,80}max_result_limit[^\d]*(\d+)/i,
+	];
+	for (const pattern of patterns) {
+		const value = Number(body.match(pattern)?.[1]);
+		if (Number.isSafeInteger(value) && value > 0) return value;
+	}
+	return undefined;
+}
+
+function safeRequestId(sourceId: string, operation: string): string {
+	const source = sourceId.replace(/[^A-Za-z0-9_.:-]/g, "_").slice(0, 72);
+	return `openlit:tempo:${source}:${operation}:${Date.now()}`;
+}
+
+function stringMap(value: unknown): Record<string, string> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+	return Object.fromEntries(
+		Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+			key,
+			typeof item === "string" ? item : JSON.stringify(item),
+		])
+	);
+}
+
+function eventTimestamp(value: unknown): string | undefined {
+	if (typeof value !== "string" && typeof value !== "number") return undefined;
+	try {
+		const nanos = BigInt(value);
+		return new Date(Number(nanos / BigInt(1_000_000))).toISOString();
+	} catch {
+		return undefined;
+	}
+}
+
+function eventAttributes(value: unknown): Record<string, string> {
+	if (!Array.isArray(value)) return stringMap(value);
+	const out: Record<string, string> = {};
+	for (const item of value) {
+		if (!item || typeof item !== "object") continue;
+		const entry = item as { key?: unknown; value?: Record<string, unknown> };
+		if (typeof entry.key !== "string") continue;
+		const wrapped = entry.value || {};
+		const raw =
+			wrapped.stringValue ??
+			wrapped.intValue ??
+			wrapped.doubleValue ??
+			wrapped.boolValue ??
+			"";
+		out[entry.key] = typeof raw === "string" ? raw : String(raw);
+	}
+	return out;
+}
+
+function normalizedEvents(value: unknown): NormalizedSpan["events"] {
+	if (!Array.isArray(value)) return [];
+	return value.map((item) => {
+		const event =
+			item && typeof item === "object"
+				? (item as Record<string, unknown>)
+				: {};
+		return {
+			name: String(event.name || ""),
+			timestamp: eventTimestamp(event.timeUnixNano ?? event.timestamp),
+			attributes: eventAttributes(event.attributes),
+		};
+	});
+}
+
+function normalizedStatus(value: unknown): string {
+	const status = String(value || "").toLowerCase();
+	if (status === "error" || status === "status_code_error") {
+		return "STATUS_CODE_ERROR";
+	}
+	if (status === "ok" || status === "status_code_ok") {
+		return "STATUS_CODE_OK";
+	}
+	return status === "unset" ? "STATUS_CODE_UNSET" : String(value || "");
+}
+
+function normalizedSpanKind(value: unknown): string | undefined {
+	const kind = String(value || "").toLowerCase();
+	const number = {
+		unspecified: "0",
+		internal: "1",
+		server: "2",
+		client: "3",
+		producer: "4",
+		consumer: "5",
+	}[kind as "unspecified" | "internal" | "server" | "client" | "producer" | "consumer"];
+	return number || (value === undefined || value === null ? undefined : String(value));
+}
+
+function openPlaitRowsToSpans(rows: Record<string, unknown>[]): NormalizedSpan[] {
+	return rows.map((row) => {
+		const resourceAttributes = stringMap(row["resource.attributes"]);
+		return {
+			traceId: normalizeOtlpId(String(row["trace.id"] || "")),
+			spanId: normalizeOtlpId(String(row["span.id"] || "")),
+			parentSpanId: normalizeOtlpId(String(row["span.parent_id"] || "")),
+			name: String(row["span.name"] || ""),
+			serviceName: String(
+				row["service.name"] || resourceAttributes["service.name"] || ""
+			),
+			timestamp: String(row.timestamp || ""),
+			durationNs: Math.max(0, Number(row.duration || 0) * 1_000_000),
+			statusCode: normalizedStatus(row["status.code"]),
+			statusMessage: String(row["status.message"] || ""),
+			spanKind: normalizedSpanKind(row["span.kind"]),
+			spanAttributes: stringMap(row["span.attributes"]),
+			resourceAttributes,
+			events: normalizedEvents(row.events),
+		};
+	});
+}
 
 /**
  * Process-wide span index so Telemetry list → detail works across separate
@@ -85,6 +305,9 @@ function lookupIndexedSpan(
 /** Test-only: clear the process-wide Tempo span index. */
 export function __clearTempoSpanIndex() {
 	spanIndexBySource.clear();
+	tempoProfileBySource.clear();
+	learnedSearchRangeBySource.clear();
+	learnedSearchLimitBySource.clear();
 }
 
 function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefined {
@@ -295,8 +518,50 @@ interface TempoMetricsSeries {
 	samples?: TempoMetricsSample[];
 	values?: [number, number][];
 }
-interface TempoMetricsResponse {
-	series?: TempoMetricsSeries[];
+function splitTempoMetricWindows(
+	timeRange: QueryTimeRange,
+	maxWindowMs: number
+): QueryTimeRange[] {
+	const windows: QueryTimeRange[] = [];
+	let cursor = timeRange.start.getTime();
+	const end = timeRange.end.getTime();
+	while (cursor < end) {
+		const next = Math.min(end, cursor + maxWindowMs);
+		windows.push({ start: new Date(cursor), end: new Date(next) });
+		cursor = next;
+	}
+	return windows.length ? windows : [timeRange];
+}
+
+function normalizedMetricRowsToSeries(
+	rows: Record<string, unknown>[]
+): TempoMetricsSeries[] {
+	const grouped = new Map<
+		string,
+		{ labels: Record<string, string>; samples: Map<number, number> }
+	>();
+	for (const row of rows) {
+		const labels = stringMap(row.labels);
+		const key = JSON.stringify(Object.entries(labels).sort(([a], [b]) => a.localeCompare(b)));
+		let series = grouped.get(key);
+		if (!series) {
+			series = { labels, samples: new Map() };
+			grouped.set(key, series);
+		}
+		const timestamp = Date.parse(String(row.timestamp || ""));
+		const value = Number(row.value);
+		if (Number.isFinite(timestamp) && Number.isFinite(value)) {
+			// Adjacent inclusive Tempo windows can repeat their boundary bucket.
+			// Overwrite that identical timestamp instead of double-counting it.
+			series.samples.set(timestamp, value);
+		}
+	}
+	return Array.from(grouped.values()).map(({ labels, samples }) => ({
+		labels: Object.entries(labels).map(([key, value]) => ({ key, value })),
+		samples: Array.from(samples.entries())
+			.sort(([left], [right]) => left - right)
+			.map(([timestampMs, value]) => ({ timestampMs, value })),
+	}));
 }
 
 /** Extract a series' grouping label value (defensive across JSON shapes). */
@@ -335,6 +600,11 @@ function seriesBuckets(
 
 export class TempoAdapter extends BaseExternalAdapter {
 	readonly type = "tempo";
+	private authCache?: {
+		expiresAt: number;
+		headers: Record<string, string>;
+		redact: string[];
+	};
 
 	private get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
@@ -344,21 +614,323 @@ export class TempoAdapter extends BaseExternalAdapter {
 		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 
+	private get configuredMaxTimeRangeMs(): number | undefined {
+		const explicitMs = Number(this.descriptor.settings.maxTimeRangeMs);
+		const explicitDays = Number(this.descriptor.settings.maxTimeRangeDays);
+		return (
+			Number.isFinite(explicitMs) && explicitMs > 0
+				? Math.max(60_000, Math.floor(explicitMs))
+				: Number.isFinite(explicitDays) && explicitDays > 0
+					? Math.max(60_000, Math.floor(explicitDays * 24 * 60 * 60 * 1_000))
+					: undefined
+		);
+	}
+
+	private get maxTimeRangeMs(): number | undefined {
+		const configured = this.configuredMaxTimeRangeMs;
+		const learned = learnedSearchRangeBySource.get(this.descriptor.id);
+		if (configured === undefined) return learned;
+		return learned === undefined ? configured : Math.min(configured, learned);
+	}
+
+	private get configuredMaxSearchResults(): number | undefined {
+		const value = Number(
+			this.descriptor.settings.maxSearchResults ??
+				this.descriptor.settings.maxResultRows
+		);
+		return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+	}
+
+	private searchResultLimit(requested: number): number {
+		const limits = [
+			Math.max(1, Math.floor(requested)),
+			this.configuredMaxSearchResults,
+			learnedSearchLimitBySource.get(this.descriptor.id),
+		].filter((value): value is number => value !== undefined);
+		return Math.max(1, Math.min(...limits));
+	}
+
+	private cachedTempoProfile(): CachedTempoProfile | undefined {
+		const cached = tempoProfileBySource.get(this.descriptor.id);
+		return cached && cached.expiresAt > Date.now() ? cached : undefined;
+	}
+
+	private rememberTempoProfile(profile: TempoServerCapabilities): void {
+		tempoProfileBySource.set(this.descriptor.id, {
+			...profile,
+			expiresAt: Date.now() + TEMPO_PROFILE_TTL_MS,
+		});
+	}
+
 	private async authHeaders() {
+		if (this.authCache && this.authCache.expiresAt > Date.now()) {
+			return this.authCache;
+		}
 		const secret = await resolveSourceSecret(
 			this.descriptor.secretRef,
 			this.descriptor.dbConfigId,
 			this.descriptor.projectId
 		);
-		return {
-			headers: applyHttpAuthCredentials(secret.credentials, {
-				authType: this.descriptor.settings.authType as string | undefined,
-			}),
+		const headers = applyHttpAuthCredentials(secret.credentials, {
+			authType: this.descriptor.settings.authType as string | undefined,
+			tenantHeader: "X-Scope-OrgID",
+		});
+		const authType = String(
+			this.descriptor.settings.authType || "auto"
+		).toLowerCase();
+		if ((authType === "basic" || authType === "bearer") && !headers.Authorization) {
+			throw new Error(
+				getMessage().DATA_SOURCE_AUTH_REQUIRED(this.descriptor.name, authType)
+			);
+		}
+		this.authCache = {
+			expiresAt: Date.now() + TTL_MS,
+			headers,
 			redact: redactableSecretValues(secret),
 		};
+		consoleLog("[tempo] auth resolved", {
+			sourceId: this.descriptor.id,
+			databaseConfigId: this.descriptor.dbConfigId || null,
+			projectId: this.descriptor.projectId || null,
+			authType: this.descriptor.settings.authType || "auto",
+			hasSecretRef: Boolean(this.descriptor.secretRef),
+			hasAuthorization: Boolean(headers.Authorization),
+			hasTenant: Boolean(headers["X-Scope-OrgID"]),
+		});
+		return this.authCache;
+	}
+
+	/**
+	 * Bind OpenPlait's Tempo adapter to OpenLIT's guarded HTTP transport. The
+	 * package owns TraceQL execution and response normalization; OpenLIT keeps
+	 * project-scoped secrets, SSRF policy, redaction, caching, and concurrency.
+	 */
+	private async openPlaitAdapter(): Promise<OpenPlaitTempoAdapter> {
+		const { headers, redact } = await this.authHeaders();
+		const guardedFetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit
+		): Promise<Response> => {
+			const url =
+				typeof input === "string"
+					? input
+					: input instanceof URL
+						? input.toString()
+						: input.url;
+			const requestHeaders = Object.fromEntries(
+				new Headers(init?.headers).entries()
+			);
+			let payload: unknown;
+			try {
+				payload = await safeFetch<unknown>(url, {
+					method: init?.method || "GET",
+					headers: requestHeaders,
+					...this.networkOpts,
+					redactValues: redact,
+					timeoutMs: 15_000,
+					concurrencyKey: this.descriptor.id,
+					maxConcurrent: TRACE_FETCH_CONCURRENCY,
+					retry: true,
+				});
+			} catch (error) {
+				if (error instanceof SourceResponseError) {
+					return {
+						ok: false,
+						status: error.status,
+						statusText: "Upstream Tempo error",
+						headers: new Headers({ "Content-Type": "text/plain" }),
+						json: async () => ({ error: error.message }),
+						text: async () => error.message,
+					} as Response;
+				}
+				throw error;
+			}
+			// safeFetch has already performed the HTTP request and parsed JSON. A
+			// lightweight Fetch Response keeps the OpenPlait transport boundary
+			// portable across Node and Jest/jsdom without serializing it twice.
+			return {
+				ok: true,
+				status: 200,
+				statusText: "OK",
+				headers: new Headers({ "Content-Type": "application/json" }),
+				json: async () => payload,
+				text: async () => JSON.stringify(payload),
+			} as Response;
+		}) as typeof fetch;
+		const profile = this.cachedTempoProfile();
+		const maxTimeRangeMs = this.maxTimeRangeMs;
+		const configuredVersion = String(
+			this.descriptor.settings.tempoVersion || profile?.version || ""
+		).trim();
+		const config: TempoAdapterConfig = {
+			url: this.baseUrl,
+			httpHeaders: headers,
+			allowNativeQueries: true,
+			requestTimeoutMs: 15_000,
+			queryTimeoutMs: 15_000,
+			maxResultRows: this.searchResultLimit(MAX_TRACE_SEARCH),
+			maxSpansPerSpanSet: 100,
+			...(maxTimeRangeMs === undefined ? {} : { maxTimeRangeMs }),
+			...(configuredVersion ? { tempoVersion: configuredVersion } : {}),
+			...(typeof this.descriptor.settings.enableMostRecent === "boolean"
+				? { enableMostRecent: this.descriptor.settings.enableMostRecent }
+				: profile?.features.mostRecent === null || profile?.features.mostRecent === undefined
+					? {}
+					: { enableMostRecent: profile.features.mostRecent }),
+			...(profile?.features.traceqlMetrics === null || profile?.features.traceqlMetrics === undefined
+				? {}
+				: { enableTraceqlMetrics: profile.features.traceqlMetrics }),
+			...(profile?.features.tagSearchV2 === null || profile?.features.tagSearchV2 === undefined
+				? {}
+				: { enableTagSearchV2: profile.features.tagSearchV2 }),
+		};
+		return new OpenPlaitTempoAdapter(config, { fetch: guardedFetch });
+	}
+
+	private async inspectTempoServer(): Promise<TempoServerCapabilities> {
+		const cached = this.cachedTempoProfile();
+		if (cached) return cached;
+		const adapter = await this.openPlaitAdapter();
+		const profile = await adapter.inspectServer({ timeoutMs: 8_000 });
+		this.rememberTempoProfile(profile);
+		consoleLog("[tempo] server capabilities resolved", {
+			sourceId: this.descriptor.id,
+			version: profile.version || null,
+			features: profile.features,
+			limits: profile.limits,
+		});
+		return profile;
+	}
+
+	private async openPlaitTraceSearchRows(
+		traceql: string,
+		timeRange: QueryTimeRange,
+		limit: number,
+		compatibility: { hint?: boolean; range?: boolean; resultLimit?: boolean } = {}
+	): Promise<Record<string, unknown>[]> {
+		const requestLimit = this.searchResultLimit(limit);
+		const adapter = await this.openPlaitAdapter();
+		const resource: NativeQuery = {
+			apiVersion: OPENPLAIT_API_VERSION,
+			kind: "Query",
+			metadata: { name: "openlit-tempo-search" },
+			spec: {
+				mode: "native",
+				datasource: {
+					kind: "TempoDatasource",
+					name: this.descriptor.id,
+				},
+				native: { language: "traceql", statement: traceql },
+				extensions: {
+					"io.openplait.tempo": {
+						timeRange: {
+							from: timeRange.start.toISOString(),
+							to: timeRange.end.toISOString(),
+						},
+						limit: requestLimit,
+						spansPerSpanSet: 100,
+					},
+				},
+			},
+		};
+		try {
+			const result = await adapter.execute(resource, {
+				audit: {
+					requestId: safeRequestId(this.descriptor.id, "search"),
+				},
+			});
+			return openPlaitFramesToRows(result.frames);
+		} catch (error) {
+			const rangeMs = timeRange.end.getTime() - timeRange.start.getTime();
+			const status = adapterErrorStatus(error);
+			const body = adapterErrorBody(error);
+			const reportedMaxResults =
+				status === 400 ? reportedMaxSearchLimit(body) : undefined;
+			if (
+				compatibility.resultLimit !== false &&
+				reportedMaxResults !== undefined &&
+				reportedMaxResults < requestLimit
+			) {
+				learnedSearchLimitBySource.set(
+					this.descriptor.id,
+					reportedMaxResults
+				);
+				consoleLog("[tempo] retrying search at server result limit", {
+					sourceId: this.descriptor.id,
+					requestedLimit: requestLimit,
+					effectiveLimit: reportedMaxResults,
+				});
+				return this.openPlaitTraceSearchRows(
+					traceql,
+					timeRange,
+					reportedMaxResults,
+					{ ...compatibility, resultLimit: false }
+				);
+			}
+			if (
+				compatibility.hint !== false &&
+				status === 400 &&
+				withoutMostRecentHint(traceql) !== traceql
+			) {
+				const cached = this.cachedTempoProfile();
+				if (cached) {
+					this.rememberTempoProfile({
+						...cached,
+						features: { ...cached.features, mostRecent: false },
+					});
+				}
+				consoleLog("[tempo] retrying search without unsupported hint", {
+					sourceId: this.descriptor.id,
+					...adapterErrorDiagnostics(error),
+				});
+				return this.openPlaitTraceSearchRows(
+					withoutMostRecentHint(traceql),
+					timeRange,
+					limit,
+					{ ...compatibility, hint: false }
+				);
+			}
+			const reportedMaxMs = status === 400 ? reportedMaxDurationMs(body) : undefined;
+			if (
+				compatibility.range !== false &&
+				reportedMaxMs !== undefined &&
+				rangeMs > reportedMaxMs
+			) {
+				learnedSearchRangeBySource.set(this.descriptor.id, reportedMaxMs);
+				const compatibleRange = {
+					start: new Date(
+						timeRange.end.getTime() - reportedMaxMs
+					),
+					end: timeRange.end,
+				};
+				consoleLog("[tempo] query window reduced after HTTP 400", {
+					sourceId: this.descriptor.id,
+					requestedDays: rangeMs / (24 * 60 * 60 * 1_000),
+						effectiveDays: reportedMaxMs / (24 * 60 * 60 * 1_000),
+				});
+				return this.openPlaitTraceSearchRows(
+					traceql,
+					compatibleRange,
+					limit,
+					{ ...compatibility, range: false }
+				);
+			}
+			throw error;
+		}
+	}
+
+	private async openPlaitTraceSearch(
+		traceql: string,
+		timeRange: QueryTimeRange,
+		limit: number
+	): Promise<string[]> {
+		return (await this.openPlaitTraceSearchRows(traceql, timeRange, limit))
+			.map((row) => normalizeOtlpId(String(row["trace.id"] || "")))
+			.filter(Boolean);
 	}
 
 	capabilities(): SourceCapabilities {
+		const maxTimeRangeMs = this.maxTimeRangeMs;
 		return {
 			signals: ["traces"],
 			traceTree: true,
@@ -367,6 +939,7 @@ export class TempoAdapter extends BaseExternalAdapter {
 			spanMutation: false,
 			distinctValues: true,
 			crossTraceSession: false,
+			...(maxTimeRangeMs === undefined ? {} : { maxTimeRangeMs }),
 			rawQuery: false,
 		};
 	}
@@ -374,15 +947,35 @@ export class TempoAdapter extends BaseExternalAdapter {
 	async healthCheck(): Promise<HealthCheckResult> {
 		const start = Date.now();
 		try {
-			const { headers, redact } = await this.authHeaders();
-			await safeFetch(`${this.baseUrl}/api/echo`, {
-				headers,
-				...this.networkOpts,
-				redactValues: redact,
-				timeoutMs: 8000,
-			});
+			await this.inspectTempoServer();
 			return { ok: true, latencyMs: Date.now() - start };
 		} catch (err) {
+			const status = adapterErrorStatus(err);
+			// Some managed Tempo gateways deliberately hide `/api/status/buildinfo`.
+			// A small, hint-free search still proves endpoint/auth compatibility,
+			// while leaving version-dependent capabilities conservatively disabled.
+			if (status === 403 || status === 404) {
+				try {
+					const end = new Date();
+					await this.openPlaitTraceSearchRows(
+						"{}",
+						{ start: new Date(end.getTime() - 5 * 60 * 1_000), end },
+						1,
+						{ hint: false, range: false }
+					);
+					consoleLog("[tempo] health check passed without build metadata", {
+						sourceId: this.descriptor.id,
+						buildInfoStatus: status,
+					});
+					return { ok: true, latencyMs: Date.now() - start };
+				} catch (searchErr) {
+					err = searchErr;
+				}
+			}
+			consoleLog("[tempo] health check failed", {
+				sourceId: this.descriptor.id,
+				...adapterErrorDiagnostics(err),
+			});
 			return { ok: false, message: String((err as Error)?.message || err) };
 		}
 	}
@@ -391,38 +984,30 @@ export class TempoAdapter extends BaseExternalAdapter {
 		query: OpenLITQuery,
 		limit: number
 	): Promise<string[]> {
-		const { headers, redact } = await this.authHeaders();
-		const url = new URL(`${this.baseUrl}/api/search`);
-		url.searchParams.set("q", buildTempoSearchQuery(query, { mostRecent: true }));
-		url.searchParams.set(
-			"start",
-			String(Math.floor(query.timeRange.start.getTime() / 1000))
-		);
-		url.searchParams.set(
-			"end",
-			String(Math.floor(query.timeRange.end.getTime() / 1000))
-		);
-		url.searchParams.set("limit", String(limit));
+		const boundedQuery = clampQueryToSource(this, query).query;
+		const traceql = buildTempoSearchQuery(boundedQuery, {
+			mostRecent:
+				this.descriptor.settings.enableMostRecent === true ||
+				this.cachedTempoProfile()?.features.mostRecent === true,
+		});
 		consoleLog("[tempo] trace search", {
 			sourceId: this.descriptor.id,
-			url: url.toString(),
-			query: url.searchParams.get("q"),
-			start: url.searchParams.get("start"),
-			end: url.searchParams.get("end"),
+			query: traceql,
+			start: boundedQuery.timeRange.start.toISOString(),
+			end: boundedQuery.timeRange.end.toISOString(),
 			limit,
 		});
-		const key = cacheKey(this.descriptor.id, ["search", url.toString()]);
+		const key = cacheKey(this.descriptor.id, [
+			"openplait-search",
+			traceql,
+			boundedQuery.timeRange.start.toISOString(),
+			boundedQuery.timeRange.end.toISOString(),
+			limit,
+		]);
 		try {
-			const response = await cachedQuery(key, TTL_MS, () =>
-				safeFetch<{ traces?: { traceID?: string }[] }>(url.toString(), {
-					headers,
-					...this.networkOpts,
-					redactValues: redact,
-				})
+			const ids = await cachedQuery(key, TTL_MS, () =>
+				this.openPlaitTraceSearch(traceql, boundedQuery.timeRange, limit)
 			);
-			const ids = (response?.traces || [])
-			.map((t) => t.traceID)
-			.filter((id): id is string => !!id);
 			consoleLog("[tempo] trace search result", {
 				sourceId: this.descriptor.id,
 				traceCount: ids.length,
@@ -431,7 +1016,7 @@ export class TempoAdapter extends BaseExternalAdapter {
 		} catch (error) {
 			consoleLog("[tempo] trace search failed", {
 				sourceId: this.descriptor.id,
-				error: String((error as Error)?.message || error),
+				...adapterErrorDiagnostics(error),
 			});
 			throw error;
 		}
@@ -439,35 +1024,28 @@ export class TempoAdapter extends BaseExternalAdapter {
 
 	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
 		const startedAt = Date.now();
-		const { headers, redact } = await this.authHeaders();
 		const id = normalizeOtlpId(traceId) || traceId;
-		const key = cacheKey(this.descriptor.id, ["trace", id]);
+		const key = cacheKey(this.descriptor.id, ["openplait-trace", id]);
 		consoleLog("[tempo] trace detail fetch start", {
 			sourceId: this.descriptor.id,
 			traceId: id,
 			cacheKey: key,
 		});
 		try {
-			const payload = await cachedQuery(key, TTL_MS, () =>
-				safeFetch(`${this.baseUrl}/api/traces/${encodeURIComponent(id)}`, {
-					headers,
-					...this.networkOpts,
-					redactValues: redact,
-					concurrencyKey: this.descriptor.id,
-					maxConcurrent: TRACE_FETCH_CONCURRENCY,
-				})
+			const result = await cachedQuery(key, TTL_MS, async () => {
+				const adapter = await this.openPlaitAdapter();
+				return adapter.getTrace(id, {
+					audit: {
+						requestId: safeRequestId(this.descriptor.id, "trace"),
+					},
+				});
+			});
+			const spans = openPlaitRowsToSpans(
+				openPlaitFramesToRows(result.frames)
 			);
-			const spans = parseOtlpTrace(payload);
 			consoleLog("[tempo] trace payload parsed", {
 				sourceId: this.descriptor.id,
 				traceId: id,
-				payloadKeys: payload && typeof payload === "object" ? Object.keys(payload) : [],
-				batchCount: Array.isArray((payload as { batches?: unknown[] })?.batches)
-					? (payload as { batches: unknown[] }).batches.length
-					: 0,
-				resourceSpanCount: Array.isArray((payload as { resourceSpans?: unknown[] })?.resourceSpans)
-					? (payload as { resourceSpans: unknown[] }).resourceSpans.length
-					: 0,
 				spanCount: spans.length,
 				elapsedMs: Date.now() - startedAt,
 			});
@@ -502,35 +1080,26 @@ export class TempoAdapter extends BaseExternalAdapter {
 			spanId: id,
 		});
 
-		// Tempo has no direct span API. Prefer TraceQL by hex span id
+		// Tempo has no direct span API. Prefer OpenPlait TraceQL by hex span id
 		// (Grafana Explore pattern: resolve trace, then fetch once).
-		const { headers, redact } = await this.authHeaders();
-		const url = new URL(`${this.baseUrl}/api/search`);
-		url.searchParams.set("q", `{ span:id = ${traceqlValue(id)} }`);
 		// Tempo's search endpoint otherwise uses its short default lookback,
 		// which makes a valid span appear missing when the detail request is
 		// made after the list query. Keep the span-only fallback aligned with
 		// the normal observability lookback.
-		const endSeconds = Math.floor(Date.now() / 1000);
-		url.searchParams.set("start", String(endSeconds - 30 * 24 * 60 * 60));
-		url.searchParams.set("end", String(endSeconds));
-		url.searchParams.set("limit", "1");
+		const end = new Date();
+		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1_000);
+		const traceql = `{ span:id = ${traceqlValue(id)} }`;
 		try {
-			const response = await safeFetch<{ traces?: { traceID?: string }[] }>(
-				url.toString(),
-				{
-					headers,
-					...this.networkOpts,
-					redactValues: redact,
-					timeoutMs: 8000,
-					concurrencyKey: this.descriptor.id,
-				}
+			const traceIds = await this.openPlaitTraceSearch(
+				traceql,
+				{ start, end },
+				1
 			);
-			const traceId = response?.traces?.[0]?.traceID;
+			const traceId = traceIds[0];
 			consoleLog("[tempo] span search result", {
 				sourceId: this.descriptor.id,
 				spanId: id,
-				traceCount: response?.traces?.length || 0,
+				traceCount: traceIds.length,
 				traceId: traceId || null,
 				elapsedMs: Date.now() - startedAt,
 			});
@@ -538,21 +1107,19 @@ export class TempoAdapter extends BaseExternalAdapter {
 				consoleLog("[tempo] span detail search returned no trace", {
 					sourceId: this.descriptor.id,
 					spanId: id,
-					query: url.searchParams.get("q"),
+					query: traceql,
 				});
 				return null;
 			}
 			const spans = await this.getTraceSpans(traceId);
 			const result =
-				spans.find((s) => s.spanId === id || s.spanId === spanId) ||
-				pickRootSpan(spans) ||
-				null;
+				spans.find((s) => s.spanId === id || s.spanId === spanId) || null;
 			consoleLog("[tempo] span detail search resolved", {
 				sourceId: this.descriptor.id,
 				spanId: id,
 				traceId,
 				spanCount: spans.length,
-				matched: !!result && result.spanId === id,
+				matched: !!result,
 				elapsedMs: Date.now() - startedAt,
 			});
 			return result;
@@ -576,16 +1143,33 @@ export class TempoAdapter extends BaseExternalAdapter {
 		query: OpenLITQuery,
 		maxTraces: number
 	): Promise<NormalizedSpan[]> {
-		const ids = await this.searchTraceIds(
-			query,
-			Math.min(maxTraces, MAX_TRACE_FETCH)
+		// Keep a reserve of candidates so an oversized/deleted trace does not
+		// collapse the list. Grafana Cloud can return a valid search hit whose
+		// full OTLP payload exceeds its per-trace response limit (HTTP 422).
+		const candidateLimit = Math.min(
+			MAX_TRACE_FETCH,
+			Math.max(maxTraces, maxTraces * 2)
 		);
+		const ids = await this.searchTraceIds(query, candidateLimit);
 		const perTrace = await mapPool(
 			ids,
 			TRACE_FETCH_CONCURRENCY,
-			(id) => this.getTraceSpans(id)
+			async (id) => {
+				try {
+					return await this.getTraceSpans(id);
+				} catch (error) {
+					const status = adapterErrorStatus(error);
+					if (status !== 404 && status !== 413 && status !== 422) throw error;
+					consoleLog("[tempo] trace detail skipped", {
+						sourceId: this.descriptor.id,
+						traceId: id,
+						...adapterErrorDiagnostics(error),
+					});
+					return [];
+				}
+			}
 		);
-		return perTrace.flat();
+		return perTrace.filter((spans) => spans.length > 0).slice(0, maxTraces).flat();
 	}
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
@@ -642,12 +1226,60 @@ export class TempoAdapter extends BaseExternalAdapter {
 		return computeAggregateSpansL1(this, query);
 	}
 
+	private async traceSummaryRows(
+		query: OpenLITQuery
+	): Promise<{
+		rows: Record<string, unknown>[];
+		truncated: boolean;
+		effectiveLimit: number;
+	}> {
+		const boundedQuery = clampQueryToSource(this, query).query;
+		const traceql = buildTempoSearchQuery(boundedQuery, {
+			mostRecent:
+				this.descriptor.settings.enableMostRecent === true ||
+				this.cachedTempoProfile()?.features.mostRecent === true,
+		});
+		const key = cacheKey(this.descriptor.id, [
+			"openplait-trace-summaries",
+			traceql,
+			boundedQuery.timeRange.start.toISOString(),
+			boundedQuery.timeRange.end.toISOString(),
+		]);
+		const rows = await cachedQuery(key, TTL_MS, () =>
+			this.openPlaitTraceSearchRows(
+				traceql,
+				boundedQuery.timeRange,
+				MAX_TRACE_SEARCH
+			)
+		);
+		const effectiveLimit = this.searchResultLimit(MAX_TRACE_SEARCH);
+		return {
+			rows: rows.slice(0, TRACE_SUMMARY_CAP),
+			// Tempo search has no offset/cursor. Hitting either OpenLIT's cap or
+			// the negotiated server cap means the result must be presented as a
+			// bounded sample, even when the backend returned exactly that limit.
+			truncated:
+				rows.length > TRACE_SUMMARY_CAP ||
+				(effectiveLimit <= TRACE_SUMMARY_CAP && rows.length >= effectiveLimit),
+			effectiveLimit,
+		};
+	}
+
+	/** Trace-row count for stable Tempo list pagination (not child-span count). */
+	async countTraces(
+		query: OpenLITQuery
+	): Promise<{ total: number; truncated: boolean }> {
+		const result = await this.traceSummaryRows(query);
+		return { total: result.rows.length, truncated: result.truncated };
+	}
+
 	/** Exact matching span count for list pagination, independent of the sample cap. */
 	async countSpans(query: OpenLITQuery): Promise<number | null> {
+		const boundedQuery = clampQueryToSource(this, query).query;
 		const series = await this.fetchMetricsSeries(
-			`${buildTempoSearchQuery(query)} | count_over_time()`,
-			query.timeRange,
-			metricsStepForQuery(query)
+			`${buildTempoSearchQuery(boundedQuery)} | count_over_time()`,
+			boundedQuery.timeRange,
+			metricsStepForQuery(boundedQuery)
 		);
 		if (!series) return null;
 		return series.reduce(
@@ -655,6 +1287,58 @@ export class TempoAdapter extends BaseExternalAdapter {
 				total + seriesBuckets(item).reduce((sum, bucket) => sum + bucket.value, 0),
 			0
 		);
+	}
+
+	/**
+	 * Build the Telemetry trace-volume chart from Tempo search summaries.
+	 * Search already returns one row per trace with its start time and duration,
+	 * so this stays trace-correct and avoids downloading every child span when
+	 * TraceQL metrics are unavailable.
+	 */
+	async traceTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
+		const startedAt = Date.now();
+		const { rows, truncated, effectiveLimit } = await this.traceSummaryRows(query);
+		const summaries: NormalizedSpan[] = rows
+			.map((row) => {
+				const traceId = normalizeOtlpId(String(row["trace.id"] || ""));
+				return {
+					traceId,
+					spanId: traceId,
+					parentSpanId: "",
+					name: String(row["root.span.name"] || ""),
+					serviceName: String(row["root.service.name"] || ""),
+					timestamp: String(row.timestamp || ""),
+					durationNs: Math.max(0, Number(row.duration || 0) * 1_000_000),
+					statusCode: "",
+					spanAttributes: {},
+					resourceAttributes: {},
+				};
+			})
+			.filter((span) => span.traceId && !Number.isNaN(Date.parse(span.timestamp)));
+		const frame = bucketSpansByInterval(
+			summaries,
+			query.interval || "1h",
+			query.aggregations || [{ fn: "count" }],
+			query.timeRange
+		);
+		consoleLog("[tempo] trace summary series", {
+			sourceId: this.descriptor.id,
+			traceCount: summaries.length,
+			truncated,
+			cap: Math.min(TRACE_SUMMARY_CAP, effectiveLimit),
+			elapsedMs: Date.now() - startedAt,
+		});
+		return {
+			...frame,
+			meta: {
+				...frame.meta,
+				truncated,
+				rowsScanned: summaries.length,
+				latencyMs: Date.now() - startedAt,
+				freshness: truncated ? "sampled" : "live",
+				...(truncated ? { degraded: ["traceSummaryLimit"] } : {}),
+			},
+		};
 	}
 
 	async spanTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
@@ -673,35 +1357,63 @@ export class TempoAdapter extends BaseExternalAdapter {
 		timeRange: QueryTimeRange,
 		step: string
 	): Promise<TempoMetricsSeries[] | null> {
-		const { headers, redact } = await this.authHeaders();
-		const url = new URL(`${this.baseUrl}/api/metrics/query_range`);
-		url.searchParams.set("q", metricQuery);
-		url.searchParams.set(
-			"start",
-			String(Math.floor(timeRange.start.getTime() / 1000))
+		if (this.cachedTempoProfile()?.features.traceqlMetrics === false) return null;
+		const explicitMs = Number(this.descriptor.settings.metricsMaxTimeRangeMs);
+		const explicitHours = Number(
+			this.descriptor.settings.metricsMaxTimeRangeHours
 		);
-		url.searchParams.set(
-			"end",
-			String(Math.floor(timeRange.end.getTime() / 1000))
-		);
-		url.searchParams.set("step", step);
-		const key = cacheKey(this.descriptor.id, ["metrics-range", url.toString()]);
+		const maxWindowMs =
+			Number.isFinite(explicitMs) && explicitMs > 0
+				? explicitMs
+				: Number.isFinite(explicitHours) && explicitHours > 0
+					? explicitHours * 60 * 60 * 1000
+					: DEFAULT_TEMPO_METRICS_WINDOW_MS;
+		const windows = splitTempoMetricWindows(timeRange, maxWindowMs);
+		const key = cacheKey(this.descriptor.id, [
+			"openplait-metrics-range",
+			metricQuery,
+			timeRange.start.toISOString(),
+			timeRange.end.toISOString(),
+			step,
+			maxWindowMs,
+		]);
 		try {
-			const payload = await cachedQuery(key, TTL_MS, () =>
-				safeFetch<TempoMetricsResponse>(url.toString(), {
-					headers: {
-						...headers,
-						"X-Query-Tags": "source=openlit,type=metrics",
-					},
-					...this.networkOpts,
-					redactValues: redact,
-					timeoutMs: 15_000,
-					concurrencyKey: this.descriptor.id,
-					retry: true,
-				})
-			);
-			return payload?.series ?? null;
-		} catch {
+			return await cachedQuery(key, TTL_MS, async () => {
+				const adapter = await this.openPlaitAdapter();
+				const rows: Record<string, unknown>[] = [];
+				for (const window of windows) {
+					const result = await adapter.queryMetrics(
+						{
+							query: metricQuery,
+							from: window.start.toISOString(),
+							to: window.end.toISOString(),
+							step,
+						},
+						{
+							audit: {
+								requestId: safeRequestId(this.descriptor.id, "metrics"),
+							},
+						}
+					);
+					rows.push(...openPlaitFramesToRows(result.frames));
+				}
+				return normalizedMetricRowsToSeries(rows);
+			});
+		} catch (error) {
+			if (adapterErrorStatus(error) === 404) {
+				const profile = this.cachedTempoProfile();
+				if (profile) {
+					this.rememberTempoProfile({
+						...profile,
+						features: { ...profile.features, traceqlMetrics: false },
+					});
+				}
+			}
+			consoleLog("[tempo] metrics query unavailable", {
+				sourceId: this.descriptor.id,
+				windowCount: windows.length,
+				...adapterErrorDiagnostics(error),
+			});
 			return null;
 		}
 	}
@@ -899,43 +1611,62 @@ export class TempoAdapter extends BaseExternalAdapter {
 		window: QueryTimeRange,
 		traceQlFilter?: string
 	): Promise<string[]> {
-		const { headers, redact } = await this.authHeaders();
-		const start = String(Math.floor(window.start.getTime() / 1000));
-		const end = String(Math.floor(window.end.getTime() / 1000));
-		const paths = [
-			`/api/v2/search/tag/${encodeURIComponent(tag)}/values`,
-			`/api/search/tag/${encodeURIComponent(tag)}/values`,
-		];
-		for (const path of paths) {
-			try {
-				const url = new URL(`${this.baseUrl}${path}`);
-				url.searchParams.set("start", start);
-				url.searchParams.set("end", end);
-				url.searchParams.set("limit", "50");
-				if (traceQlFilter) url.searchParams.set("q", traceQlFilter);
-				const key = cacheKey(this.descriptor.id, ["tag-values", url.toString()]);
-				const response = await cachedQuery(key, TTL_MS, () =>
-					safeFetch<{
-						tagValues?: Array<string | { value?: string }>;
-					}>(url.toString(), {
-						headers,
-						...this.networkOpts,
-						redactValues: redact,
-						timeoutMs: 15_000,
-					})
+		const boundedWindow = clampQueryToSource(this, {
+			signal: "traces",
+			timeRange: window,
+			limit: 50,
+		}).query.timeRange;
+		try {
+			const key = cacheKey(this.descriptor.id, [
+				"openplait-tag-values",
+				tag,
+				boundedWindow.start.toISOString(),
+				boundedWindow.end.toISOString(),
+				traceQlFilter || "",
+			]);
+			const values = await cachedQuery(key, TTL_MS, async () => {
+				const adapter = await this.openPlaitAdapter();
+				return adapter.discoverTagValues(
+					tag,
+					{ timeoutMs: 15_000 },
+					{
+						...(traceQlFilter ? { query: traceQlFilter } : {}),
+						range: {
+							from: boundedWindow.start.toISOString(),
+							to: boundedWindow.end.toISOString(),
+						},
+					}
 				);
-				const raw = response?.tagValues || [];
-				const values = raw
-					.map((entry) =>
-						typeof entry === "string" ? entry : String(entry?.value || "")
-					)
-					.filter(Boolean);
-				if (values.length) return Array.from(new Set(values));
-			} catch {
-				// Try next path / fall through.
-			}
+			});
+			if (values.length) return Array.from(new Set(values)).slice(0, 50);
+		} catch {
+			// Older Tempo releases may not expose the v2 endpoint; use v1 below.
 		}
-		return [];
+
+		const { headers, redact } = await this.authHeaders();
+		try {
+			const url = new URL(
+				`${this.baseUrl}/api/search/tag/${encodeURIComponent(tag)}/values`
+			);
+			url.searchParams.set(
+				"start",
+				String(Math.floor(boundedWindow.start.getTime() / 1000))
+			);
+			url.searchParams.set(
+				"end",
+				String(Math.floor(boundedWindow.end.getTime() / 1000))
+			);
+			url.searchParams.set("limit", "50");
+			const response = await safeFetch<{ tagValues?: string[] }>(url.toString(), {
+				headers,
+				...this.networkOpts,
+				redactValues: redact,
+				timeoutMs: 15_000,
+			});
+			return Array.from(new Set(response?.tagValues || [])).filter(Boolean);
+		} catch {
+			return [];
+		}
 	}
 
 	async discoverServices(window: QueryTimeRange): Promise<DiscoveredService[]> {
@@ -1072,9 +1803,41 @@ export const tempoAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service"],
 		},
-		configFields: httpVendorFields({
-			placeholder: "https://tempo-prod-xxx.grafana.net/tempo",
-		}),
+		configFields: [
+			...httpVendorFields({
+				placeholder: "https://tempo-prod-xxx.grafana.net/tempo",
+				tenant: true,
+			}),
+			{
+				key: "maxTimeRangeDays",
+				label: getMessage().DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS,
+				kind: "text",
+				group: "settings",
+				placeholder:
+					getMessage().DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER,
+			},
+			{
+				key: "tempoVersion",
+				label: "Tempo version (optional)",
+				kind: "text",
+				group: "settings",
+				placeholder: "2.8.0 (auto-detected by health check)",
+			},
+			{
+				key: "enableMostRecent",
+				label: "Enable experimental most-recent search hint",
+				kind: "switch",
+				group: "settings",
+				defaultValue: false,
+			},
+			{
+				key: "metricsMaxTimeRangeHours",
+				label: "TraceQL metrics window hours",
+				kind: "text",
+				group: "settings",
+				placeholder: "24",
+			},
+		],
 		authStyle: "http",
 		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
 	}),

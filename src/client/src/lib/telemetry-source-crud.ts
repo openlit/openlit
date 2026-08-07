@@ -45,6 +45,7 @@ import {
 } from "@/lib/platform/connectors/instances";
 import {
 	TELEMETRY_SOURCE_NAME_REQUIRED,
+	TELEMETRY_SOURCE_NAME_TAKEN,
 	TELEMETRY_SOURCE_TYPE_UNKNOWN,
 	TELEMETRY_SOURCE_NO_PROJECT,
 	TELEMETRY_SOURCE_NOT_FOUND,
@@ -55,6 +56,9 @@ import {
 	TELEMETRY_SOURCE_INVALID_SIGNAL,
 	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
+import { normalizeDatasourceEndpointUrl } from "./platform/connectors/datasource/http/endpoint-url";
+import { getDBConfigByUser } from "./db-config";
+import type { DatabaseConfig } from "@prisma/client";
 
 const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 
@@ -168,6 +172,14 @@ function normalizeSignalsForType(signals: unknown, type: string): string {
 	return allowed.join(",");
 }
 
+function normalizeSettingsObject(settings: Record<string, unknown>): Record<string, unknown> {
+	const next = { ...settings };
+	if (typeof next.url === "string" && next.url.trim()) {
+		next.url = normalizeDatasourceEndpointUrl(next.url);
+	}
+	return next;
+}
+
 function normalizeSettings(settings: unknown): string {
 	if (settings === undefined || settings === null) return "{}";
 	if (typeof settings === "string") {
@@ -177,13 +189,16 @@ function normalizeSettings(settings: unknown): string {
 			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
 				throw new Error(TELEMETRY_SOURCE_INVALID_SETTINGS);
 			}
-			return settings;
-		} catch {
+			return JSON.stringify(normalizeSettingsObject(parsed as Record<string, unknown>));
+		} catch (error) {
+			if (error instanceof Error && error.message === TELEMETRY_SOURCE_INVALID_SETTINGS) {
+				throw error;
+			}
 			throw new Error(TELEMETRY_SOURCE_INVALID_SETTINGS);
 		}
 	}
 	if (typeof settings === "object" && !Array.isArray(settings)) {
-		return JSON.stringify(settings);
+		return JSON.stringify(normalizeSettingsObject(settings as Record<string, unknown>));
 	}
 	throw new Error(TELEMETRY_SOURCE_INVALID_SETTINGS);
 }
@@ -207,6 +222,19 @@ function validateType(type: unknown): string {
 		throw new Error(TELEMETRY_SOURCE_TYPE_UNKNOWN(t));
 	}
 	return t;
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error || "");
+	const code =
+		typeof error === "object" && error && "code" in error
+			? String((error as { code?: unknown }).code || "")
+			: "";
+	return (
+		code === "P2002" ||
+		message.includes("Unique constraint failed") ||
+		message.includes("unique constraint")
+	);
 }
 
 /** List all telemetry sources in the current project (secrets stripped). */
@@ -251,14 +279,17 @@ export interface ResolvedSignalCapability {
  * built-in) and never throws for a single signal — an unresolvable signal is
  * reported as `null` capabilities.
  */
-export async function resolveProjectSignalCapabilities(): Promise<
-	Record<Signal, ResolvedSignalCapability | null>
-> {
+export async function resolveProjectSignalCapabilities(
+	environment?: string
+): Promise<Record<Signal, ResolvedSignalCapability | null>> {
 	ensureAdaptersRegistered();
 	const out = {} as Record<Signal, ResolvedSignalCapability | null>;
 	for (const signal of ALL_SIGNALS) {
 		try {
-			const descriptor = await resolveTelemetrySourceDescriptor({ signal });
+			const descriptor = await resolveTelemetrySourceDescriptor({
+				signal,
+				environment,
+			});
 			const adapter = createAdapter(descriptor);
 			const caps = adapter ? adapter.capabilities() : null;
 			out[signal] = {
@@ -303,28 +334,78 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 		(typeof input.secretRef === "string" ? input.secretRef : null);
 	await validateSecretReference(secretRef);
 
-	const row = await prisma.$transaction(async (tx) => {
-		if (isDefault) {
-			await tx.telemetrySource.updateMany({
-				where: { projectId, isDefault: true },
-				data: { isDefault: false },
-			});
-		}
-		return tx.telemetrySource.create({
-			data: {
-				projectId,
-				name,
-				environment,
-				type,
-				signals,
-				settings,
-				secretRef,
-				isDefault,
-			},
-		});
+	const existing = await prisma.telemetrySource.findFirst({
+		where: { projectId, name, environment },
+		select: { id: true },
 	});
-	await syncTelemetrySourceConnector(row);
-	return sanitize(row);
+	if (existing) {
+		throw new Error(TELEMETRY_SOURCE_NAME_TAKEN(name, environment));
+	}
+
+	try {
+		const row = await prisma.$transaction(async (tx) => {
+			if (isDefault) {
+				await tx.telemetrySource.updateMany({
+					where: { projectId, isDefault: true },
+					data: { isDefault: false },
+				});
+			}
+			const created = await tx.telemetrySource.create({
+				data: {
+					projectId,
+					name,
+					environment,
+					type,
+					signals,
+					settings,
+					secretRef,
+					isDefault,
+				},
+			});
+			await tx.connectorInstance.upsert({
+				where: { id: `telemetry:${created.id}` },
+				create: {
+					id: `telemetry:${created.id}`,
+					category: "datasource",
+					type: created.type,
+					name: created.name,
+					environment: created.environment || "production",
+					projectId: created.projectId,
+					settings: created.settings || "{}",
+					secretRef: created.secretRef,
+					status: "active",
+					metadata: JSON.stringify({
+						legacyKind: "telemetry-source",
+						legacyId: created.id,
+						signals: created.signals,
+						isDefault: created.isDefault,
+					}),
+				},
+				update: {
+					type: created.type,
+					name: created.name,
+					environment: created.environment || "production",
+					projectId: created.projectId,
+					settings: created.settings || "{}",
+					secretRef: created.secretRef,
+					status: "active",
+					metadata: JSON.stringify({
+						legacyKind: "telemetry-source",
+						legacyId: created.id,
+						signals: created.signals,
+						isDefault: created.isDefault,
+					}),
+				},
+			});
+			return created;
+		});
+		return sanitize(row);
+	} catch (error) {
+		if (isUniqueConstraintError(error)) {
+			throw new Error(TELEMETRY_SOURCE_NAME_TAKEN(name, environment));
+		}
+		throw error;
+	}
 }
 
 async function requireSourceInProject(id: string): Promise<TelemetrySource> {
@@ -412,13 +493,27 @@ export async function deleteTelemetrySource(id: string) {
 	return { id };
 }
 
+async function adapterForSource(row: TelemetrySource) {
+	ensureAdaptersRegistered();
+	// Vault secrets for connectors are scoped by the active database config.
+	// Interactive reads attach this in resolveSignalSource; health/test must too.
+	const activeDatabase = (await getDBConfigByUser(true)) as
+		| DatabaseConfig
+		| null
+		| undefined;
+	const descriptor = {
+		...toDescriptor(row),
+		...(activeDatabase?.id ? { dbConfigId: activeDatabase.id } : {}),
+	};
+	return createAdapter(descriptor);
+}
+
 /** Health-check a telemetry source by binding its adapter. */
 export async function healthCheckTelemetrySource(
 	id: string
 ): Promise<HealthCheckResult> {
 	const row = await requireSourceInProject(id);
-	ensureAdaptersRegistered();
-	const adapter = createAdapter(toDescriptor(row));
+	const adapter = await adapterForSource(row);
 	if (!adapter) {
 		return { ok: false, message: TELEMETRY_SOURCE_TYPE_UNKNOWN(row.type) };
 	}
@@ -431,8 +526,7 @@ export async function validateTelemetrySourceAISignal(
 	window: QueryTimeRange
 ): Promise<AISignalValidation> {
 	const row = await requireSourceInProject(id);
-	ensureAdaptersRegistered();
-	const adapter = createAdapter(toDescriptor(row));
+	const adapter = await adapterForSource(row);
 	if (!adapter) {
 		return {
 			ok: false,

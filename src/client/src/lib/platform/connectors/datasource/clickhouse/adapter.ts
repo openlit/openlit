@@ -15,7 +15,6 @@
 import { dataCollector } from "@/lib/platform/common";
 import {
 	OTEL_TRACES_TABLE_NAME,
-	OTEL_LOGS_TABLE_NAME,
 } from "@/lib/platform/common";
 import {
 	getRequests,
@@ -27,9 +26,13 @@ import {
 	getLogByRowId,
 	getMetrics,
 	getMetricsConfig,
+	getMetricDetail,
+	getLogsConfig,
+	getSignalSummary,
 	getLogAttributeKeys,
 	getMetricAttributeKeys,
 } from "@/lib/platform/observability";
+import { getFilterWhereCondition } from "@/helpers/server/platform";
 import {
 	aiSelectorToClickHouse,
 	AI_SELECTOR_MARKERS,
@@ -51,7 +54,7 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
-import { normalizeLogRow, normalizeMetricRow, normalizeSpanRow } from "./normalize";
+import { normalizeLogRow, normalizeSpanRow } from "./normalize";
 import { toMetricParams } from "./query-map";
 
 function escapeCH(value: string): string {
@@ -81,6 +84,11 @@ function safeAlias(value: unknown, fallback: string): string {
 	return alias;
 }
 
+function assertLegacyReadSucceeded(result: { err?: unknown }): void {
+	if (!result.err) return;
+	throw result.err instanceof Error ? result.err : new Error(String(result.err));
+}
+
 /** Format a Date to a ClickHouse UTC datetime literal. */
 function chDateTime(date: Date): string {
 	return date.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
@@ -90,15 +98,6 @@ function timeRangeClause(range: QueryTimeRange, column = "Timestamp"): string {
 	return `${column} >= '${chDateTime(range.start)}' AND ${column} <= '${chDateTime(
 		range.end
 	)}'`;
-}
-
-/** Map a normalized interval string to a ClickHouse DATE_TRUNC unit. */
-function intervalToTruncUnit(interval?: string): string {
-	if (!interval) return "minute";
-	if (/h$/i.test(interval)) return "hour";
-	if (/d$/i.test(interval)) return "day";
-	if (/s$/i.test(interval)) return "second";
-	return "minute";
 }
 
 const AGG_FN_MAP: Record<string, (field: string) => string> = {
@@ -116,6 +115,18 @@ const AGG_FN_MAP: Record<string, (field: string) => string> = {
 
 /** Resolve a group-by / field key to a ClickHouse expression. */
 function fieldToExpr(field: string): string {
+	const scoped = field.match(/^(span|resource):(.+)$/);
+	if (scoped) {
+		const [, scope, key] = scoped;
+		return `${scope === "resource" ? "ResourceAttributes" : "SpanAttributes"}['${escapeCH(key)}']`;
+	}
+	if (field === "duration") return "Duration / 1000000000";
+	if (field === "service.name") {
+		return "ResourceAttributes['service.name']";
+	}
+	if (field === "deployment.environment") {
+		return "ResourceAttributes['deployment.environment']";
+	}
 	if (field === "SpanName" || field === "ServiceName" || field === "Duration") {
 		return field;
 	}
@@ -131,10 +142,12 @@ function fieldToExpr(field: string): string {
 
 export class ClickHouseAdapter implements DataSourceAdapter {
 	readonly type = "clickhouse";
+	readonly sampleCacheKey: string;
 	private readonly descriptor: TelemetrySourceDescriptor;
 
 	constructor(descriptor: TelemetrySourceDescriptor) {
 		this.descriptor = descriptor;
+		this.sampleCacheKey = descriptor.id;
 	}
 
 	private get dbConfigId(): string | undefined {
@@ -182,7 +195,8 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
 		const start = Date.now();
-		const result = await getRequests(toMetricParams(query));
+		const result = await getRequests(toMetricParams(query, this.dbConfigId));
+		assertLegacyReadSucceeded(result);
 		const rows = ((result.records as Record<string, unknown>[]) || []).map(
 			normalizeSpanRow
 		);
@@ -197,7 +211,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {
-		const { record } = await getRequestViaSpanId(spanId);
+		const result = await getRequestViaSpanId(spanId, this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { record } = result;
 		return record ? normalizeSpanRow(record as Record<string, unknown>) : null;
 	}
 
@@ -206,7 +222,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			WHERE TraceId = '${escapeCH(traceId)}'
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
-		const { data } = await dataCollector({ query }, "query", this.dbConfigId);
+		const result = await dataCollector({ query }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
 	}
 
@@ -218,12 +236,15 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 				OR SpanAttributes['coding_agent.agent.parent_id'] = '${s}'
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
-		const { data } = await dataCollector({ query }, "query", this.dbConfigId);
+		const result = await dataCollector({ query }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
 	}
 
 	async aggregateSpans(query: OpenLITQuery): Promise<DataFrame> {
 		const start = Date.now();
+		const params = toMetricParams(query, this.dbConfigId);
 		const groupExprs = (query.groupBy || []).map(
 			(g, i) => `${fieldToExpr(g)} AS g${i}`
 		);
@@ -239,7 +260,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			? `GROUP BY ${query.groupBy.map((_, i) => `g${i}`).join(", ")}`
 			: "";
 		const where = [
-			timeRangeClause(query.timeRange),
+			getFilterWhereCondition(params, true),
 			query.aiSelector !== false ? aiSelectorToClickHouse() : "",
 		]
 			.filter(Boolean)
@@ -247,38 +268,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		const sql = `SELECT ${selects} FROM ${OTEL_TRACES_TABLE_NAME}
 			WHERE ${where} ${groupBy}
 			${query.limit ? `LIMIT ${Number(query.limit)}` : ""}`;
-		const { data, err } = await dataCollector({ query: sql }, "query", this.dbConfigId);
-		return {
-			fields: [],
-			rows: (data as Record<string, unknown>[]) || [],
-			meta: { latencyMs: Date.now() - start, degraded: err ? [String(err)] : undefined },
-		};
-	}
-
-	async spanTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
-		const start = Date.now();
-		const unit = intervalToTruncUnit(query.interval);
-		const aggExprs = (query.aggregations || [{ fn: "count" as const }]).map(
-			(a, i) => {
-				const fn = AGG_FN_MAP[a.fn] || AGG_FN_MAP.count;
-				const field = a.field ? fieldToExpr(a.field) : "";
-				return `${fn(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
-			}
-		);
-		const where = [
-			timeRangeClause(query.timeRange),
-			query.aiSelector !== false ? aiSelectorToClickHouse() : "",
-		]
-			.filter(Boolean)
-			.join(" AND ");
-		const sql = `SELECT DATE_TRUNC('${unit}', Timestamp) AS bucket, ${aggExprs.join(
-			", "
-		)}
-			FROM ${OTEL_TRACES_TABLE_NAME}
-			WHERE ${where}
-			GROUP BY bucket
-			ORDER BY bucket ASC`;
-		const { data } = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return {
 			fields: [],
 			rows: (data as Record<string, unknown>[]) || [],
@@ -286,7 +278,41 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		};
 	}
 
+	async spanTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
+		const start = Date.now();
+		const summary = await getSignalSummary(
+			toMetricParams(query, this.dbConfigId),
+			"traces"
+		);
+		assertLegacyReadSucceeded(summary);
+		return {
+			fields: [],
+			rows: (summary.buckets as Record<string, unknown>[]) || [],
+			meta: { latencyMs: Date.now() - start },
+		};
+	}
+
 	async distinctValues(key: string, query: OpenLITQuery): Promise<string[]> {
+		if (query.signal === "logs") {
+			const result = await getLogsConfig(toMetricParams(query, this.dbConfigId));
+			assertLegacyReadSucceeded(result);
+			const { data } = result;
+			const row = (data as Record<string, unknown>[] | undefined)?.[0] || {};
+			if (key === "service.name") return (row.services as string[]) || [];
+			if (key === "severity") return (row.severities as string[]) || [];
+			return [];
+		}
+		if (query.signal === "metrics") {
+			const result = await getMetricsConfig(toMetricParams(query, this.dbConfigId));
+			assertLegacyReadSucceeded(result);
+			const { data } = result;
+			const row = (data as Record<string, unknown>[] | undefined)?.[0] || {};
+			if (key === "service.name") return (row.services as string[]) || [];
+			if (key === "metric.name" || key === "MetricName") {
+				return (row.metricNames as string[]) || [];
+			}
+			return [];
+		}
 		const expr = fieldToExpr(key);
 		const where = [
 			timeRangeClause(query.timeRange),
@@ -298,7 +324,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			WHERE ${where} AND notEmpty(toString(${expr}))
 			ORDER BY v
 			LIMIT 1000`;
-		const { data } = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as { v?: unknown }[]) || [])
 			.map((r) => String(r.v ?? ""))
 			.filter(Boolean);
@@ -306,14 +334,18 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 
 	async attributeKeys(signal: Signal, _window: QueryTimeRange): Promise<string[]> {
 		if (signal === "logs") {
-			const r = await getLogAttributeKeys(paramsForWindow(_window));
+			const r = await getLogAttributeKeys(
+				paramsForWindow(_window, this.dbConfigId)
+			);
 			return dedupeKeys(r);
 		}
 		if (signal === "metrics") {
-			const r = await getMetricAttributeKeys(paramsForWindow(_window));
+			const r = await getMetricAttributeKeys(
+				paramsForWindow(_window, this.dbConfigId)
+			);
 			return dedupeKeys(r);
 		}
-		const r = await getAttributeKeys(paramsForWindow(_window));
+		const r = await getAttributeKeys(paramsForWindow(_window, this.dbConfigId));
 		return [
 			...(r.spanAttributeKeys || []),
 			...(r.resourceAttributeKeys || []),
@@ -324,7 +356,8 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 
 	async listLogs(query: OpenLITQuery): Promise<DataFrame<NormalizedLog>> {
 		const start = Date.now();
-		const result = await getLogs(toMetricParams(query));
+		const result = await getLogs(toMetricParams(query, this.dbConfigId));
+		assertLegacyReadSucceeded(result);
 		const rows = ((result.records as Record<string, unknown>[]) || []).map(
 			normalizeLogRow
 		);
@@ -336,23 +369,22 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	}
 
 	async getLog(logId: string): Promise<NormalizedLog | null> {
-		const { record } = await getLogByRowId(logId);
+		const result = await getLogByRowId(logId, this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { record } = result;
 		return record ? normalizeLogRow(record as Record<string, unknown>) : null;
 	}
 
 	async logTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
 		const start = Date.now();
-		const unit = intervalToTruncUnit(query.interval);
-		const sql = `SELECT DATE_TRUNC('${unit}', Timestamp) AS bucket,
-				CAST(COUNT(*) AS INTEGER) AS count
-			FROM ${OTEL_LOGS_TABLE_NAME}
-			WHERE ${timeRangeClause(query.timeRange)}
-			GROUP BY bucket
-			ORDER BY bucket ASC`;
-		const { data } = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const summary = await getSignalSummary(
+			toMetricParams(query, this.dbConfigId),
+			"logs"
+		);
+		assertLegacyReadSucceeded(summary);
 		return {
 			fields: [],
-			rows: (data as Record<string, unknown>[]) || [],
+			rows: (summary.buckets as Record<string, unknown>[]) || [],
 			meta: { latencyMs: Date.now() - start },
 		};
 	}
@@ -363,26 +395,86 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		query: OpenLITQuery
 	): Promise<DataFrame<NormalizedMetricPoint>> {
 		const start = Date.now();
-		const result = await getMetrics(toMetricParams(query));
+		const result = await getMetrics(toMetricParams(query, this.dbConfigId));
+		assertLegacyReadSucceeded(result);
 		const records =
 			(result as { records?: Record<string, unknown>[] }).records ||
 			((result as { data?: Record<string, unknown>[] }).data as
 				| Record<string, unknown>[]
 				| undefined) ||
 			[];
-		const rows = records.map(normalizeMetricRow);
-		return { fields: [], rows, meta: { latencyMs: Date.now() - start } };
+		const rows = records.map((row) => ({
+			metricName: String(row.metricName || ""),
+			description: row.metricDescription ? String(row.metricDescription) : undefined,
+			unit: row.metricUnit ? String(row.metricUnit) : undefined,
+			serviceName: row.serviceName ? String(row.serviceName) : undefined,
+			timestamp: String(row.lastSeen || ""),
+			value: Number(row.latestValue || 0),
+			attributes: {},
+			resourceAttributes: {},
+		}));
+		return {
+			fields: [],
+			rows,
+			meta: {
+				latencyMs: Date.now() - start,
+				rowsScanned: Number((result as { total?: unknown }).total) || rows.length,
+			},
+		};
 	}
 
 	async metricTimeSeries(
 		query: OpenLITQuery
 	): Promise<DataFrame<NormalizedMetricPoint>> {
-		// getMetrics already returns time-ordered points for charting.
-		return this.listMetricSeries(query);
+		const metricFilter = (query.filters || []).find(
+			(filter) => filter.target === "spanName"
+		);
+		const metricName = Array.isArray(metricFilter?.value)
+			? metricFilter?.value[0]
+			: metricFilter?.value;
+		if (metricName) {
+			const serviceFilter = (query.filters || []).find(
+				(filter) => filter.target === "attribute" && filter.key === "service.name"
+			);
+			const serviceName = Array.isArray(serviceFilter?.value)
+				? serviceFilter?.value[0]
+				: serviceFilter?.value;
+			const detail = await getMetricDetail(
+				String(metricName),
+				undefined,
+				serviceName ? String(serviceName) : undefined,
+				toMetricParams(query, this.dbConfigId)
+			);
+			assertLegacyReadSucceeded(detail);
+			const rows = ((detail.series || []) as Array<Record<string, unknown>>).map(
+				(row) => ({
+					metricName: String(metricName),
+					serviceName: serviceName ? String(serviceName) : undefined,
+					timestamp: String(row.request_time || ""),
+					value: Number(row.value || 0),
+					attributes: {},
+					resourceAttributes: {},
+				})
+			);
+			return { fields: [], rows };
+		}
+		const summary = await getSignalSummary(
+			toMetricParams(query, this.dbConfigId),
+			"metrics"
+		);
+		assertLegacyReadSucceeded(summary);
+		return {
+			fields: [],
+			rows: summary.buckets as unknown as NormalizedMetricPoint[],
+		};
 	}
 
 	async metricNames(window: QueryTimeRange): Promise<string[]> {
-		const { data } = await getMetricsConfig(paramsForWindow(window));
+		const result = await getMetricsConfig(
+			paramsForWindow(window, this.dbConfigId)
+		);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		const cfg = (data as { metricNames?: string[] }[])?.[0];
 		return cfg?.metricNames || [];
 	}
@@ -402,7 +494,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			FROM ${OTEL_TRACES_TABLE_NAME}
 			WHERE ${timeRangeClause(window)} AND ${aiSelectorToClickHouse()}
 			GROUP BY ServiceName`;
-		const { data } = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map((r) => ({
 			serviceName: String(r.serviceName ?? ""),
 			environment: String(r.environment ?? ""),
@@ -426,7 +520,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			FROM ${OTEL_TRACES_TABLE_NAME}
 			WHERE ${timeRangeClause(window)} AND ${aiSelectorToClickHouse()}
 			GROUP BY ServiceName`;
-		const { data } = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map((r) => ({
 			serviceName: String(r.serviceName ?? ""),
 			environment: String(r.environment ?? ""),
@@ -441,15 +537,24 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		query: OpenLITQuery,
 		maxTraces: number
 	): Promise<NormalizedSpan[]> {
+		const params = toMetricParams(query, this.dbConfigId);
+		const where = [
+			getFilterWhereCondition(params, true),
+			query.aiSelector !== false ? aiSelectorToClickHouse() : "",
+		]
+			.filter(Boolean)
+			.join(" AND ");
 		const traceIdSql = `SELECT DISTINCT TraceId FROM ${OTEL_TRACES_TABLE_NAME}
-			WHERE ${timeRangeClause(query.timeRange)} AND ${aiSelectorToClickHouse()}
+			WHERE ${where}
 			ORDER BY TraceId
 			LIMIT ${Number(maxTraces) || 100}`;
-		const { data: idRows } = await dataCollector(
+		const idResult = await dataCollector(
 			{ query: traceIdSql },
 			"query",
 			this.dbConfigId
 		);
+		assertLegacyReadSucceeded(idResult);
+		const idRows = idResult.data;
 		const traceIds = ((idRows as { TraceId?: string }[]) || [])
 			.map((r) => r.TraceId)
 			.filter((id): id is string => !!id)
@@ -459,7 +564,9 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			WHERE TraceId IN (${traceIds.join(", ")})
 			ORDER BY Timestamp ASC
 			LIMIT 50000`;
-		const { data } = await dataCollector({ query: spanSql }, "query", this.dbConfigId);
+		const result = await dataCollector({ query: spanSql }, "query", this.dbConfigId);
+		assertLegacyReadSucceeded(result);
+		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
 	}
 }
@@ -474,9 +581,14 @@ function spanFields() {
 	];
 }
 
-function paramsForWindow(window: QueryTimeRange) {
+function paramsForWindow(window: QueryTimeRange, databaseConfigId?: string) {
 	return {
-		timeLimit: { start: window.start, end: window.end, type: "CUSTOM" },
+		timeLimit: {
+			start: window.start.toISOString(),
+			end: window.end.toISOString(),
+			type: "CUSTOM",
+		},
+		databaseConfigId,
 	} as unknown as Parameters<typeof getAttributeKeys>[0];
 }
 

@@ -1,8 +1,9 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricDetailRecord } from "@/lib/platform/metrics/read";
 import { getRequestEnvironment } from "@/constants/openlit-context";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: { name: string } }
 ) {
@@ -20,3 +21,5 @@ export async function POST(
 		await getMetricDetailRecord(metricName, metricType, serviceName, metricParams)
 	);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

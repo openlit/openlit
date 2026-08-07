@@ -3,11 +3,13 @@ import { RuleInput } from "@/types/rule-engine";
 import { getRuleById, updateRule, deleteRule } from "@/lib/platform/rule-engine";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
 
-export async function GET(_: Request, context: any) {
+export async function GET(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
-	const { err, data }: any = await getRuleById(id);
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
+	const { err, data }: any = await getRuleById(id, databaseConfigId);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_GET_FAILURE,
@@ -27,6 +29,7 @@ export async function PUT(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const formData = await request.json();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 
 	const ruleInput: Partial<RuleInput> = {
 		name: formData.name,
@@ -35,7 +38,9 @@ export async function PUT(request: Request, context: any) {
 		status: formData.status,
 	};
 
-	const [err, res]: any = await asaw(updateRule(id, ruleInput));
+	const [err, res]: any = await asaw(
+		updateRule(id, ruleInput, { databaseConfigId })
+	);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_UPDATE_FAILURE,
@@ -51,10 +56,11 @@ export async function PUT(request: Request, context: any) {
 	return Response.json(res);
 }
 
-export async function DELETE(_: Request, context: any) {
+export async function DELETE(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
-	const [err, res] = await deleteRule(id);
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
+	const [err, res] = await deleteRule(id, { databaseConfigId });
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_DELETE_FAILURE,

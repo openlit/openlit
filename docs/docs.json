@@ -4,9 +4,9 @@
   "name": "OpenLIT",
   "description": "OpenLIT is the leading open-source AI observability platform with zero-code instrumentation for LLMs, vector databases, and AI frameworks. Monitor OpenAI, Anthropic, LangChain, LlamaIndex with OpenTelemetry. Features include cost tracking, performance metrics, prompt management, and enterprise-grade security for production AI applications.",
   "colors": {
-    "primary": "#FFA500",
-    "light": "#FFA500",
-    "dark": "#FFA500"
+    "primary": "#F36C06",
+    "light": "#FF8A3D",
+    "dark": "#D45A05"
   },
   "favicon": "favicon.png",
   "feedback": {
@@ -61,9 +61,18 @@
                 "icon": "building",
                 "pages": [
                   "latest/openlit/organisation/overview",
-                  "latest/openlit/organisation/projects",
-                  "latest/openlit/organisation/database-config",
-                  "latest/openlit/organisation/telemetry-sources"
+                  {
+                    "group": "Projects",
+                    "icon": "folder",
+                    "pages": [
+                      "latest/openlit/organisation/projects",
+                      "latest/openlit/organisation/environments",
+                      "latest/openlit/organisation/database-config",
+                      "latest/openlit/organisation/connectors",
+                      "latest/openlit/organisation/signal-routing",
+                      "latest/openlit/organisation/telemetry-sources"
+                    ]
+                  }
                 ]
               }
             ]
@@ -421,8 +430,23 @@
   "appearance": {
     "default": "dark"
   },
+  "fonts": {
+    "family": "Inter"
+  },
+  "background": {
+    "color": {
+      "light": "#FAFAF9",
+      "dark": "#0C0A09"
+    }
+  },
   "styling": {
-    "eyebrows": "breadcrumbs"
+    "eyebrows": "breadcrumbs",
+    "codeblocks": {
+      "theme": {
+        "light": "github-light",
+        "dark": "github-dark"
+      }
+    }
   },
   "navbar": {
     "primary": {

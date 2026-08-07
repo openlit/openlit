@@ -43,6 +43,7 @@ import {
 	FILTER_PARAM_KEYS,
 	getFilterStorageKey,
 } from "@/helpers/client/filter-persistence";
+import type { Signal } from "@/utils/hooks/useSignalCapabilities";
 
 const m = getMessage();
 
@@ -1148,6 +1149,7 @@ export default function TracesFilter({
 	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
 	filterStorageScope,
 	extraControls,
+	signal,
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
@@ -1171,6 +1173,8 @@ export default function TracesFilter({
 	// coding-agent pages to drop in a User picker that's visually
 	// part of the same control cluster.
 	extraControls?: React.ReactNode;
+	/** Datasource signal whose capability limits drive the time selector. */
+	signal?: Signal;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
@@ -1242,9 +1246,9 @@ export default function TracesFilter({
 	}, []);
 
 	return (
-		<div className="flex flex-col items-center w-full justify-between mb-4">
-			<div className="flex w-full gap-4">
-				<Filter />
+		<div className="flex w-full min-w-0 flex-col items-stretch gap-2 mb-4">
+			<div className="flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+				<Filter className="min-w-0 shrink" signal={signal} />
 				{filterConfig && !!total && total > 0 && (
 					<TracesPagination
 						currentPage={filter.offset / filter.limit + 1}
@@ -1272,28 +1276,30 @@ export default function TracesFilter({
 					/>
 				)}
 				{extraControls}
-				{supportDynamicFilters && (
+				<div className="ml-auto flex shrink-0 items-center gap-2">
+					{supportDynamicFilters && (
+						<Button
+							variant="outline"
+							size="default"
+							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
+							onClick={toggleIsVisibleFilters}
+						>
+							<SlidersHorizontal className="w-3 h-3" />
+							{areFiltersApplied && (
+								<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
+							)}
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						size="default"
-						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
-						onClick={toggleIsVisibleFilters}
+						title={m.OBSERVABILITY_COPY_SHARE_LINK}
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
+						onClick={onShareLink}
 					>
-						<SlidersHorizontal className="w-3 h-3" />
-						{areFiltersApplied && (
-							<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
-						)}
+						<Link2 className="w-3 h-3" />
 					</Button>
-				)}
-				<Button
-					variant="outline"
-					size="default"
-					title={m.OBSERVABILITY_COPY_SHARE_LINK}
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
-					onClick={onShareLink}
-				>
-					<Link2 className="w-3 h-3" />
-				</Button>
+				</div>
 			</div>
 			{supportDynamicFilters && (
 				<DynamicFilters

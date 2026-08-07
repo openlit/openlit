@@ -56,7 +56,9 @@ export default function SignalSummary({
 			? m.OBSERVABILITY_METRIC_POINTS
 			: config.key === "logs"
 				? m.OBSERVABILITY_LOG_EVENTS
-				: m.OBSERVABILITY_SPANS;
+				: config.key === "exceptions"
+					? m.OBSERVABILITY_EXCEPTIONS
+					: m.OBSERVABILITY_TRACES;
 	const freshness = freshnessLabel(data?.freshness);
 
 	return (

@@ -11,11 +11,24 @@
  */
 
 import React, { useEffect, useId, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@/components/ui/command";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -54,6 +67,7 @@ import {
 	WIDGET_STRUCTURED_VALUE_PLACEHOLDER,
 } from "@/constants/messages/en";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { getRequestHeaders } from "@/utils/api";
 
 type StructuredMode = "list" | "aggregate" | "timeseries";
 type Signal = "traces" | "logs" | "metrics";
@@ -106,6 +120,8 @@ interface SortRow {
 export interface StructuredQueryValue {
 	mode: StructuredMode;
 	query: Record<string, any>;
+	/** UI-only rows; executable query.filters contains complete filters only. */
+	draftFilters?: FilterRow[];
 }
 
 interface Props {
@@ -162,6 +178,124 @@ const STATUS_CODE_OPTIONS = [
 	"Error",
 	"Unset",
 ] as const;
+
+function uniqueOptions(values: string[]) {
+	return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+		.sort((a, b) => a.localeCompare(b));
+}
+
+function SuggestionCombobox({
+	value,
+	options,
+	placeholder,
+	onChange,
+	loading = false,
+	multiple = false,
+}: {
+	value: string;
+	options: string[];
+	placeholder: string;
+	onChange: (value: string) => void;
+	loading?: boolean;
+	multiple?: boolean;
+}) {
+	const [open, setOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const selected = multiple
+		? value.split(",").map((item) => item.trim()).filter(Boolean)
+		: value
+			? [value]
+			: [];
+	const normalizedSearch = search.trim();
+	const visible = options.filter(
+		(option) =>
+			option.toLowerCase().includes(normalizedSearch.toLowerCase())
+	);
+	const canAdd =
+		Boolean(normalizedSearch) &&
+		!options.some((option) => option.toLowerCase() === normalizedSearch.toLowerCase()) &&
+		!selected.includes(normalizedSearch);
+
+	const selectValue = (next: string) => {
+		if (multiple) {
+			onChange(
+				(selected.includes(next)
+					? selected.filter((item) => item !== next)
+					: uniqueOptions([...selected, next])
+				).join(", ")
+			);
+			setSearch("");
+			return;
+		}
+		onChange(next);
+		setSearch("");
+		setOpen(false);
+	};
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<Button
+					type="button"
+					variant="outline"
+					role="combobox"
+					aria-expanded={open}
+					aria-label={placeholder}
+					className={`${triggerClass} min-w-[160px] flex-1 justify-between px-2 font-normal`}
+				>
+					<span className={value ? "truncate" : "truncate text-stone-400"}>
+						{value || placeholder}
+					</span>
+					{loading ? (
+						<Loader2 className="ml-2 h-3.5 w-3.5 shrink-0 animate-spin opacity-50" />
+					) : (
+						<ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+					)}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-[280px] p-0" align="start">
+				<Command shouldFilter={false}>
+					<CommandInput
+						value={search}
+						onValueChange={setSearch}
+						placeholder={placeholder}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" && canAdd) {
+								event.preventDefault();
+								selectValue(normalizedSearch);
+							}
+						}}
+					/>
+					<CommandList>
+						{loading ? (
+							<div className="flex items-center gap-2 px-3 py-3 text-xs text-stone-500">
+								<Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading values…
+							</div>
+						) : null}
+						{canAdd ? (
+							<CommandItem value={normalizedSearch} onSelect={() => selectValue(normalizedSearch)}>
+								<Plus className="mr-2 h-3.5 w-3.5" /> Add &quot;{normalizedSearch}&quot;
+							</CommandItem>
+						) : null}
+						{!loading && visible.length === 0 && !canAdd ? (
+							<CommandEmpty>No values found.</CommandEmpty>
+						) : null}
+						{visible.length ? (
+							<CommandGroup>
+								{visible.map((option) => (
+									<CommandItem key={option} value={option} onSelect={() => selectValue(option)}>
+										<Check className={`mr-2 h-3.5 w-3.5 ${selected.includes(option) ? "opacity-100" : "opacity-0"}`} />
+										<span className="truncate">{option}</span>
+									</CommandItem>
+								))}
+							</CommandGroup>
+						) : null}
+					</CommandList>
+				</Command>
+			</PopoverContent>
+		</Popover>
+	);
+}
 
 const FILTER_TARGETS: FilterTarget[] = [
 	"attribute",
@@ -418,18 +552,13 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		? query.groupBy.map(String)
 		: [];
 	const aggregations = toAggregationRows(query.aggregations);
-	const filters = toFilterRows(query.filters);
+	const filters = toFilterRows(value?.draftFilters ?? query.filters);
 	const limit = typeof query.limit === "number" ? query.limit : undefined;
 	const interval = typeof query.interval === "string" ? query.interval : "";
 	const sort = toSortRow(query.sort);
 	const includePrevious = Boolean(query.includePrevious);
 
 	const listId = useId();
-	const attrKeysListId = `${listId}-attr-keys`;
-	const groupByListId = `${listId}-group-by`;
-	const spanNamesListId = `${listId}-span-names`;
-	const statusListId = `${listId}-status`;
-	const sortFieldListId = `${listId}-sort-field`;
 
 	const [spanAttributeKeys, setSpanAttributeKeys] = useState<string[]>([]);
 	const [resourceAttributeKeys, setResourceAttributeKeys] = useState<string[]>(
@@ -439,21 +568,30 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 	const [models, setModels] = useState<string[]>([]);
 	const [providers, setProviders] = useState<string[]>([]);
 	const [applicationNames, setApplicationNames] = useState<string[]>([]);
+	const [fieldValues, setFieldValues] = useState<Record<string, string[]>>({});
+	const [fieldValuesLoading, setFieldValuesLoading] = useState<Record<string, boolean>>({});
 
 	const { fireRequest: fireConfigRequest } = useFetchWrapper();
 	const { fireRequest: fireAttrKeysRequest } = useFetchWrapper();
 
 	useEffect(() => {
-		if (signal !== "traces") return;
 		const timeLimit = relativeLast24h();
 		const body = JSON.stringify(
 			sourceId ? { timeLimit, sourceId } : { timeLimit }
 		);
+		const configUrl =
+			signal === "traces"
+				? "/api/telemetry/request/config"
+				: `/api/telemetry/${signal}/config`;
+		const attributeKeysUrl =
+			signal === "traces"
+				? "/api/telemetry/request/attribute-keys"
+				: `/api/telemetry/${signal}/attribute-keys`;
 
 		fireConfigRequest({
 			body,
 			requestType: "POST",
-			url: "/api/telemetry/request/config",
+			url: configUrl,
 			successCb: (resp) => {
 				const row = Array.isArray(resp?.data) ? resp.data[0] : resp?.data ?? resp;
 				if (!row || typeof row !== "object") return;
@@ -486,13 +624,15 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		fireAttrKeysRequest({
 			body,
 			requestType: "POST",
-			url: "/api/telemetry/request/attribute-keys",
+			url: attributeKeysUrl,
 			successCb: (resp) => {
 				if (!resp || typeof resp !== "object") return;
 				setSpanAttributeKeys(
-					Array.isArray((resp as any).spanAttributeKeys)
-						? (resp as any).spanAttributeKeys.map(String)
-						: []
+					uniqueOptions([
+						...((resp as any).spanAttributeKeys || []),
+						...((resp as any).logAttributeKeys || []),
+						...((resp as any).metricAttributeKeys || []),
+					].map(String))
 				);
 				setResourceAttributeKeys(
 					Array.isArray((resp as any).resourceAttributeKeys)
@@ -506,6 +646,63 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [signal, sourceId]);
+
+	const lookupFields = useMemo(
+		() =>
+			uniqueOptions(
+				filters
+					.map((filter) => {
+						if (filter.target === "attribute") {
+							return signal === "traces" && filter.key
+								? `${filter.scope}:${filter.key}`
+								: filter.key;
+						}
+						if (filter.target === "spanName") {
+							return signal === "metrics" ? "MetricName" : signal === "logs" ? "Body" : "SpanName";
+						}
+						if (filter.target === "status") {
+							return signal === "logs" ? "SeverityText" : "StatusCode";
+						}
+						return "";
+					})
+					.filter(Boolean)
+			),
+		[filters, signal]
+	);
+
+	useEffect(() => {
+		const timeLimit = relativeLast24h();
+		for (const field of lookupFields) {
+			const cacheKey = `${signal}:${sourceId || "binding"}:${field}`;
+			if (fieldValues[cacheKey] || fieldValuesLoading[cacheKey]) continue;
+			setFieldValuesLoading((current) => ({ ...current, [cacheKey]: true }));
+			fetch("/api/telemetry/field-values", {
+				method: "POST",
+				headers: getRequestHeaders({ "Content-Type": "application/json" }),
+				body: JSON.stringify({
+					signal,
+					field,
+					timeLimit,
+					...(sourceId ? { sourceId } : {}),
+				}),
+			})
+				.then((response) => (response.ok ? response.json() : { values: [] }))
+				.then((payload) => {
+					setFieldValues((current) => ({
+						...current,
+						[cacheKey]: Array.isArray(payload?.values)
+							? uniqueOptions(payload.values.map(String))
+							: [],
+					}));
+				})
+				.catch(() => {
+					setFieldValues((current) => ({ ...current, [cacheKey]: [] }));
+				})
+				.finally(() => {
+					setFieldValuesLoading((current) => ({ ...current, [cacheKey]: false }));
+				});
+		}
+	}, [fieldValues, fieldValuesLoading, lookupFields, signal, sourceId]);
 
 	// Dynamic-first (Grafana getTagKeys): options come from the source's live
 	// attribute keys. The curated fallback is added only in non-capability-aware
@@ -526,6 +723,18 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 
 	const attributeKeyOptions = mergedKeyOptions;
 	const groupByOptions = mergedKeyOptions;
+	const sortFieldOptions = useMemo(
+		() =>
+			uniqueOptions([
+				...groupByOptions,
+				...groupBy,
+				...aggregations.flatMap((aggregation) => [
+					aggregation.as || "",
+					aggregation.field || "",
+				]),
+			]),
+		[groupByOptions, groupBy, aggregations]
+	);
 
 	const valueSuggestions = useMemo(() => {
 		return uniqueSorted([
@@ -563,6 +772,7 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 						? overrides.includePrevious
 						: includePrevious,
 			}),
+			draftFilters: overrides.filters ?? filters,
 		});
 	};
 
@@ -597,11 +807,31 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 		return WIDGET_STRUCTURED_VALUE_PLACEHOLDER;
 	};
 
-	const valueListId = (f: FilterRow): string | undefined => {
-		if (f.target === "status") return statusListId;
-		if (f.target === "spanName") return spanNamesListId;
-		if (f.target === "attribute" && !isUnaryOp(f.op)) return groupByListId;
-		return undefined;
+	const lookupFieldFor = (filter: FilterRow) => {
+		if (filter.target === "attribute") {
+			return signal === "traces" && filter.key
+				? `${filter.scope}:${filter.key}`
+				: filter.key;
+		}
+		if (filter.target === "spanName") {
+			return signal === "metrics" ? "MetricName" : signal === "logs" ? "Body" : "SpanName";
+		}
+		if (filter.target === "status") return signal === "logs" ? "SeverityText" : "StatusCode";
+		return "";
+	};
+
+	const fetchedValuesFor = (filter: FilterRow) => {
+		const field = lookupFieldFor(filter);
+		const cacheKey = `${signal}:${sourceId || "binding"}:${field}`;
+		return {
+			values: uniqueOptions([
+				...(fieldValues[cacheKey] || []),
+				...(filter.target === "status" ? STATUS_CODE_OPTIONS : []),
+				...(filter.target === "spanName" ? spanNames : []),
+				...(filter.target === "attribute" ? valueSuggestions : []),
+			]),
+			loading: Boolean(fieldValuesLoading[cacheKey]),
+		};
 	};
 
 	return (
@@ -610,34 +840,6 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 				{WIDGET_STRUCTURED_BUILDER_TITLE}
 			</Label>
 
-			<datalist id={attrKeysListId}>
-				{attributeKeyOptions.map((k) => (
-					<option key={k} value={k} />
-				))}
-			</datalist>
-			<datalist id={groupByListId}>
-				{groupByOptions.map((k) => (
-					<option key={k} value={k} />
-				))}
-				{valueSuggestions.map((v) => (
-					<option key={`val-${v}`} value={v} />
-				))}
-			</datalist>
-			<datalist id={spanNamesListId}>
-				{spanNames.map((n) => (
-					<option key={n} value={n} />
-				))}
-			</datalist>
-			<datalist id={statusListId}>
-				{STATUS_CODE_OPTIONS.map((s) => (
-					<option key={s} value={s} />
-				))}
-			</datalist>
-			<datalist id={sortFieldListId}>
-				{groupByOptions.map((k) => (
-					<option key={k} value={k} />
-				))}
-			</datalist>
 
 			<div className="grid grid-cols-2 gap-3">
 				<div className="space-y-1">
@@ -729,19 +931,19 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 					<Label className="text-xs text-stone-500 dark:text-stone-400">
 						{WIDGET_STRUCTURED_GROUP_BY_LABEL}
 					</Label>
-					<Input
+					<SuggestionCombobox
 						value={groupBy.join(", ")}
 						placeholder={WIDGET_STRUCTURED_GROUP_BY_PLACEHOLDER}
-						list={groupByListId}
-						onChange={(e) =>
+						options={groupByOptions}
+						multiple
+						onChange={(nextValue) =>
 							emit(mode, signal, {
-								groupBy: e.target.value
+								groupBy: nextValue
 									.split(",")
 									.map((v) => v.trim())
 									.filter(Boolean),
 							})
 						}
-						className={inputClass}
 					/>
 				</div>
 			)}
@@ -788,16 +990,15 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 									))}
 								</SelectContent>
 							</Select>
-							<Input
+							<SuggestionCombobox
 								value={agg.field || ""}
 								placeholder={WIDGET_STRUCTURED_FIELD_PLACEHOLDER}
-								list={attrKeysListId}
-								onChange={(e) => {
+								options={attributeKeyOptions}
+								onChange={(field) => {
 									const next = [...aggregations];
-									next[idx] = { ...agg, field: e.target.value };
+									next[idx] = { ...agg, field };
 									emit(mode, signal, { aggregations: next });
 								}}
-								className={inputClass}
 							/>
 							<Input
 								value={agg.as || ""}
@@ -830,12 +1031,11 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 							{WIDGET_STRUCTURED_SORT_LABEL}
 						</Label>
 						<div className="flex items-center gap-2">
-							<Input
+							<SuggestionCombobox
 								value={sort?.field || ""}
 								placeholder={WIDGET_STRUCTURED_SORT_FIELD_PLACEHOLDER}
-								list={sortFieldListId}
-								onChange={(e) => {
-									const field = e.target.value;
+								options={sortFieldOptions}
+								onChange={(field) => {
 									emit(mode, signal, {
 										sort: field.trim()
 											? {
@@ -845,7 +1045,6 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 											: null,
 									});
 								}}
-								className={inputClass}
 							/>
 							<Select
 								value={sort?.direction || "asc"}
@@ -927,6 +1126,7 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 					const showScope = needsScope(f.target);
 					const showKey = needsKey(f.target);
 					const showValue = !isUnaryOp(f.op);
+					const fetchedValues = fetchedValuesFor(f);
 					return (
 						<div key={idx} className="flex flex-wrap items-center gap-2">
 							<Select
@@ -969,12 +1169,11 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 								</Select>
 							) : null}
 							{showKey ? (
-								<Input
+								<SuggestionCombobox
 									value={f.key}
 									placeholder={WIDGET_STRUCTURED_KEY_PLACEHOLDER}
-									list={attrKeysListId}
-									onChange={(e) => updateFilter(idx, { key: e.target.value })}
-									className={inputClass}
+									options={attributeKeyOptions}
+									onChange={(key) => updateFilter(idx, { key, value: "" })}
 								/>
 							) : null}
 							<Select
@@ -992,12 +1191,21 @@ export const StructuredQueryBuilder: React.FC<Props> = ({
 									))}
 								</SelectContent>
 							</Select>
-							{showValue ? (
+							{showValue && f.target !== "duration" ? (
+								<SuggestionCombobox
+									value={f.value}
+									placeholder={valuePlaceholder(f)}
+									options={fetchedValues.values}
+									loading={fetchedValues.loading}
+									multiple={isListOp(f.op)}
+									onChange={(nextValue) => updateFilter(idx, { value: nextValue })}
+								/>
+							) : null}
+							{showValue && f.target === "duration" ? (
 								<Input
 									value={f.value}
 									placeholder={valuePlaceholder(f)}
-									list={valueListId(f)}
-									type={f.target === "duration" ? "number" : "text"}
+									type="number"
 									onChange={(e) => updateFilter(idx, { value: e.target.value })}
 									className={inputClass}
 								/>

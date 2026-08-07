@@ -6,6 +6,7 @@ import {
 	computeDistinctValuesL1,
 	computeSpanTimeSeriesL1,
 } from "./l1-compute";
+import { clampQueryToSource } from "./http/limits";
 
 export type QueryTier = "native" | "sample" | "rollup";
 export type QueryFreshness = "live" | "sampled" | "accelerated";
@@ -29,7 +30,9 @@ function ensureMeta(
 		meta: {
 			...frame.meta,
 			degraded: Array.from(degraded),
-			freshness: opts.freshness || frame.meta?.freshness,
+			// An adapter knows when its own native-looking method had to fall
+			// back to a sample. Preserve that stronger signal.
+			freshness: frame.meta?.freshness || opts.freshness,
 		},
 	};
 }
@@ -73,22 +76,23 @@ export async function planAndAggregateSpans(
 		readRollup?: (q: OpenLITQuery) => Promise<DataFrame | null>;
 	}
 ): Promise<DataFrame> {
+	const effectiveQuery = clampQueryToSource(adapter, query).query;
 	if (hasServerAggregation(adapter)) {
-		return ensureMeta(await adapter.aggregateSpans(query), {
+		return ensureMeta(await adapter.aggregateSpans(effectiveQuery), {
 			freshness: "live",
 		});
 	}
 
-	const rollup = await tryRollup(query, opts);
+	const rollup = await tryRollup(effectiveQuery, opts);
 	if (rollup) return rollup;
 
 	try {
-		return ensureMeta(await adapter.aggregateSpans(query), {
+		return ensureMeta(await adapter.aggregateSpans(effectiveQuery), {
 			freshness: "live",
 		});
 	} catch (err) {
 		if (err instanceof UnsupportedCapabilityError) {
-			return ensureMeta(await computeAggregateSpansL1(adapter, query), {
+			return ensureMeta(await computeAggregateSpansL1(adapter, effectiveQuery), {
 				degraded: "sample",
 				freshness: "sampled",
 			});
@@ -108,22 +112,23 @@ export async function planAndSpanTimeSeries(
 		readRollup?: (q: OpenLITQuery) => Promise<DataFrame | null>;
 	}
 ): Promise<DataFrame> {
+	const effectiveQuery = clampQueryToSource(adapter, query).query;
 	if (hasServerAggregation(adapter)) {
-		return ensureMeta(await adapter.spanTimeSeries(query), {
+		return ensureMeta(await adapter.spanTimeSeries(effectiveQuery), {
 			freshness: "live",
 		});
 	}
 
-	const rollup = await tryRollup(query, opts);
+	const rollup = await tryRollup(effectiveQuery, opts);
 	if (rollup) return rollup;
 
 	try {
-		return ensureMeta(await adapter.spanTimeSeries(query), {
+		return ensureMeta(await adapter.spanTimeSeries(effectiveQuery), {
 			freshness: "live",
 		});
 	} catch (err) {
 		if (err instanceof UnsupportedCapabilityError) {
-			return ensureMeta(await computeSpanTimeSeriesL1(adapter, query), {
+			return ensureMeta(await computeSpanTimeSeriesL1(adapter, effectiveQuery), {
 				degraded: "sample",
 				freshness: "sampled",
 			});
@@ -140,11 +145,12 @@ export async function planAndDistinctValues(
 	key: string,
 	query: OpenLITQuery
 ): Promise<string[]> {
+	const effectiveQuery = clampQueryToSource(adapter, query).query;
 	try {
-		return await adapter.distinctValues(key, query);
+		return await adapter.distinctValues(key, effectiveQuery);
 	} catch (err) {
 		if (err instanceof UnsupportedCapabilityError) {
-			return computeDistinctValuesL1(adapter, key, query);
+			return computeDistinctValuesL1(adapter, key, effectiveQuery);
 		}
 		throw err;
 	}

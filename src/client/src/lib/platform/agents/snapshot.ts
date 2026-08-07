@@ -31,7 +31,7 @@ function toAgentTimestamp(value: string | Date | number | undefined): string {
 	return valid.toISOString().slice(0, 19).replace("T", " ");
 }
 import {
-	dataCollector,
+	intelligenceDataCollector,
 	OTEL_LOGS_TABLE_NAME,
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
@@ -221,7 +221,7 @@ async function fetchToolDefinitionsFromLogs(
 			AND Timestamp >= now() - INTERVAL ${lookbackMinutes} MINUTE
 			AND ScopeName LIKE 'openlit.instrumentation.%'
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("fetch_tool_definitions_failed", {
 			err: res.err,
@@ -294,7 +294,7 @@ export async function deriveSnapshot(
 		FORMAT JSON
 	`;
 
-	const res = await dataCollector(
+	const res = await intelligenceDataCollector(
 		{ query: query.replace(/\s+FORMAT\s+JSON\s*$/i, "") },
 		"query",
 		params.dbConfigId
@@ -464,7 +464,7 @@ export async function upsertVersion(
 		)
 	`;
 
-	const insertRes = await dataCollector(
+	const insertRes = await intelligenceDataCollector(
 		{ query: insertQuery },
 		"exec",
 		dbConfigId
@@ -488,7 +488,7 @@ export async function upsertVersion(
 		WHERE agent_key = '${ak}' AND version_hash = '${vh}'
 		LIMIT 1
 	`;
-	const readRes = await dataCollector(
+	const readRes = await intelligenceDataCollector(
 		{ query: readQuery },
 		"query",
 		dbConfigId
@@ -565,7 +565,7 @@ export async function getVersions(
 		ORDER BY version_number DESC
 		LIMIT ${Math.max(1, Math.min(limit, 200))}
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("get_versions_failed", {
 			err: res.err,
@@ -588,7 +588,7 @@ export async function getVersion(
 			AND version_hash = '${escape(versionHash)}'
 		LIMIT 1
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("get_version_failed", {
 			err: res.err,
@@ -650,7 +650,7 @@ export async function getVersionTimeline(
 			WHERE agent_key = '${escape(agentKey)}'
 			LIMIT 1
 		`;
-		const r = await dataCollector({ query: q }, "query", options.dbConfigId);
+		const r = await intelligenceDataCollector({ query: q }, "query", options.dbConfigId);
 		return (r.data as Array<{
 			service_name: string;
 			environment: string;
@@ -697,7 +697,7 @@ export async function getVersionTimeline(
 		ORDER BY bucket ASC
 	`;
 
-	const res = await dataCollector({ query }, "query", options.dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", options.dbConfigId);
 	if (res.err) {
 		agentsLogger.error("version_timeline_failed", {
 			err: res.err,
@@ -781,7 +781,7 @@ export async function getLatestVersion(
 		ORDER BY version_number DESC
 		LIMIT 1
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("get_latest_version_failed", {
 			err: res.err,
@@ -822,7 +822,7 @@ export async function getLatestVersionsBatch(
 		FROM ${AGENT_VERSIONS_TABLE} FINAL
 		INNER JOIN latest USING (agent_key, version_number)
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
 	if (res.err) {
 		agentsLogger.error("get_latest_versions_batch_failed", {
 			err: res.err,

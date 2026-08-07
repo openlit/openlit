@@ -29,6 +29,10 @@ jest.mock('@/lib/prisma', () => ({
     user: {
       findUnique: jest.fn(),
     },
+    connectorInstance: {
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   },
 }));
 jest.mock('@/lib/session', () => ({
@@ -77,6 +81,7 @@ import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { getCurrentOrganisation, getCurrentProjectForOrganisation } from '../../lib/organisation';
 import asaw from '@/utils/asaw';
+import migrations from '@/clickhouse/migrations';
 
 const mockUser = { id: 'u1', email: 'user@example.com' };
 const mockOrg = { id: 'org1', name: 'Test Org' };
@@ -104,6 +109,8 @@ beforeEach(() => {
   (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue(null);
   (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(null);
   (prisma.databaseConfigUser.count as jest.Mock).mockResolvedValue(0);
+  (prisma.connectorInstance.upsert as jest.Mock).mockResolvedValue({});
+  (prisma.connectorInstance.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
 });
 
 describe('getDBConfigByUser', () => {
@@ -237,6 +244,7 @@ describe('upsertDBConfig', () => {
 
     const result = await upsertDBConfig(validConfig);
     expect(result).toBe('Added db details successfully');
+    expect(migrations).toHaveBeenCalledWith('new-db');
   });
 
   it('creates config without project (no-project create path)', async () => {

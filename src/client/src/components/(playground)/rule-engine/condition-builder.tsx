@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRootStore } from "@/store";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 
 export const CONDITION_FIELDS = () => {
 	const m = getMessage();
@@ -142,6 +143,9 @@ function ConditionValueInput({
 	onChange: (v: string) => void;
 }) {
 	const messages = getMessage();
+	const currentEnvironment = useRootStore(
+		(s) => s.project?.currentEnvironment || "production"
+	);
 	const [open, setOpen] = useState(false);
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -158,7 +162,11 @@ function ConditionValueInput({
 	const staticOptions = fieldDefinition?.valueOptions;
 	const staticOptionValues = staticOptions || [];
 	const staticOptionsKey = staticOptionValues.join("|");
-	const cacheKey = valueSourceUrl || (staticOptionValues.length ? `static:${field}:${staticOptionsKey}` : "");
+	const cacheKey = valueSourceUrl
+		? `${valueSourceUrl}::${currentEnvironment}`
+		: staticOptionValues.length
+			? `static:${field}:${staticOptionsKey}`
+			: "";
 	const cached = cacheKey ? fieldValuesCache[cacheKey] ?? null : null;
 	const labels = cacheKey ? fieldLabelsCache[cacheKey] ?? null : null;
 	const isLoading = cacheKey ? fieldValuesLoading[cacheKey] ?? false : false;
@@ -181,8 +189,11 @@ function ConditionValueInput({
 			return;
 		}
 		setFieldValuesLoading(cacheKey, true);
-		fetch(valueSourceUrl)
-			.then((r) => r.json())
+		fetch(valueSourceUrl, { headers: getRequestHeaders() })
+			.then((r) => {
+				if (!r.ok) throw new Error(`Field value request failed (${r.status})`);
+				return r.json();
+			})
 			.then((d) => {
 				setFieldValues(cacheKey, d.values ?? []);
 				if (d.labels && typeof d.labels === "object" && !Array.isArray(d.labels)) {

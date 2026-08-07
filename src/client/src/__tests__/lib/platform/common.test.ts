@@ -7,10 +7,14 @@ jest.mock('@/lib/platform/clickhouse/clickhouse-client', () => ({
   default: jest.fn(),
 }));
 jest.mock('@/utils/asaw', () => jest.fn());
+jest.mock('@/lib/platform/openplait', () => ({
+  executeOpenPlaitRead: jest.fn(),
+}));
 
-import { dataCollector } from '@/lib/platform/common';
+import { dataCollector, intelligenceDataCollector } from '@/lib/platform/common';
 import createClickhousePool from '@/lib/platform/clickhouse/clickhouse-client';
 import asaw from '@/utils/asaw';
+import { executeOpenPlaitRead } from '@/lib/platform/openplait';
 
 const mockDbConfig = { id: 'db-1', host: 'localhost', port: '8123' };
 
@@ -57,39 +61,34 @@ describe('dataCollector', () => {
       expect(result.err).toBe('No query specified!');
     });
 
-    it('returns error when pool client is null', async () => {
-      const mockPool = { acquire: jest.fn(), release: jest.fn() };
-      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
-      (asaw as jest.Mock)
-        .mockResolvedValueOnce([null, mockDbConfig]) // getDBConfigByUser
-        .mockResolvedValueOnce([null, null]); // pool.acquire returns null
-
-      const result = await dataCollector({ query: 'SELECT 1' });
-      // null client: either 'not available' or 'ClickHouse Query Error' from catch
-      expect(result.err).toBeDefined();
-    });
-
-    it('returns err when pool.acquire fails', async () => {
-      const mockPool = { acquire: jest.fn(), release: jest.fn() };
-      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    it('does not acquire the legacy pool for read queries', async () => {
       (asaw as jest.Mock)
         .mockResolvedValueOnce([null, mockDbConfig])
-        .mockResolvedValueOnce(['acquire failed', null]);
+        .mockResolvedValueOnce([null, []]);
 
       const result = await dataCollector({ query: 'SELECT 1' });
-      expect(result.err).toBe('acquire failed');
+      expect(result).toEqual({ err: null, data: [] });
+      expect(createClickhousePool).not.toHaveBeenCalled();
+      expect(executeOpenPlaitRead).toHaveBeenCalledWith({
+        query: 'SELECT 1',
+        dbConfig: mockDbConfig,
+      });
+    });
+
+    it('returns OpenPlait execution errors', async () => {
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce(['query failed', null]);
+
+      const result = await dataCollector({ query: 'SELECT 1' });
+      expect(result.err).toBe('query failed');
+      expect(result.data).toEqual([]);
     });
 
     it('executes query and returns json data on success', async () => {
-      const mockClient = makeClient();
-      const mockPool = { acquire: jest.fn(), release: jest.fn() };
-      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
-      const mockResultObj = { json: jest.fn() };
       (asaw as jest.Mock)
-        .mockResolvedValueOnce([null, mockDbConfig])    // getDBConfigByUser
-        .mockResolvedValueOnce([null, mockClient])      // pool.acquire
-        .mockResolvedValueOnce([null, mockResultObj])   // client.query
-        .mockResolvedValueOnce([null, [{ col: 1 }]]);   // result.json
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, [{ col: 1 }]]);
 
       const result = await dataCollector({ query: 'SELECT 1' });
       expect(result.data).toEqual([{ col: 1 }]);
@@ -97,14 +96,8 @@ describe('dataCollector', () => {
     });
 
     it('applies readonly setting when enable_readonly is true', async () => {
-      const mockClient = makeClient();
-      const mockPool = { acquire: jest.fn(), release: jest.fn() };
-      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
-      const mockResultObj = { json: jest.fn() };
       (asaw as jest.Mock)
         .mockResolvedValueOnce([null, mockDbConfig])
-        .mockResolvedValueOnce([null, mockClient])
-        .mockResolvedValueOnce([null, mockResultObj])
         .mockResolvedValueOnce([null, []]);
 
       const result = await dataCollector({ query: 'SELECT 1', enable_readonly: true });
@@ -112,13 +105,9 @@ describe('dataCollector', () => {
     });
 
     it('returns error fallback when client.query call fails', async () => {
-      const mockClient = makeClient();
-      const mockPool = { acquire: jest.fn(), release: jest.fn() };
-      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
       (asaw as jest.Mock)
         .mockResolvedValueOnce([null, mockDbConfig])
-        .mockResolvedValueOnce([null, mockClient])
-        .mockResolvedValueOnce(['query failed', null]); // client.query fails, result is null
+        .mockResolvedValueOnce(['query failed', null]);
 
       const result = await dataCollector({ query: 'SELECT 1' });
       expect(result.err).toBeTruthy();
@@ -271,7 +260,10 @@ describe('dataCollector', () => {
         throw new Error('Connection refused');
       });
 
-      const result = await dataCollector({ query: 'SELECT 1' });
+      const result = await dataCollector(
+        { table: 'test_table', values: [{ col: 1 }] },
+        'insert'
+      );
       expect(result.err).toContain('ClickHouse Query Error');
       expect(result.err).toContain('Connection refused');
     });
@@ -292,5 +284,28 @@ describe('dataCollector', () => {
       const result = await dataCollector({ query: 'SELECT 1' }, 'ping');
       expect(result.err).toBe('ping failed');
     });
+  });
+});
+
+describe('intelligenceDataCollector', () => {
+  it('uses the native ClickHouse client instead of OpenPlait for intelligence reads', async () => {
+    const json = jest.fn();
+    const resultSet = { json };
+    const mockClient = makeClient({ query: jest.fn().mockResolvedValue(resultSet) });
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, resultSet])
+      .mockResolvedValueOnce([null, [{ total: 1 }]]);
+
+    const result = await intelligenceDataCollector({ query: 'SELECT count() AS total FROM openlit_agents_summary' });
+
+    expect(result).toEqual({ err: null, data: [{ total: 1 }] });
+    expect(createClickhousePool).toHaveBeenCalledWith(mockDbConfig);
+    expect(mockClient.query).toHaveBeenCalled();
+    expect(executeOpenPlaitRead).not.toHaveBeenCalled();
+    expect(mockPool.release).toHaveBeenCalledWith(mockClient);
   });
 });

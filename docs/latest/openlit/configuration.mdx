@@ -4,12 +4,29 @@ description: 'Configuring Options for OpenLIT'
 icon: 'sliders'
 ---
 
-This guide covers all the available environment variables to fine-tune OpenLIT according to your needs.
+This guide covers environment variables for installing and fine-tuning OpenLIT.
+
+<Info>
+**ClickHouse connection at runtime is a [Database Config](/latest/openlit/organisation/database-config), not a live env lookup.**  
+`INIT_DB_*` variables **seed** the first Database Config when OpenLIT is first set up. Day-2 host, password, or environment changes belong in **Organisation → Database Config / Connectors**. See also [Connectors](/latest/openlit/organisation/connectors) and [Signal routing](/latest/openlit/organisation/signal-routing).
+</Info>
+
+## ClickHouse bootstrap (`INIT_DB_*`)
+
+Used once at seed/install time to create the default Database Config. After that, the UI (and APIs under `/api/db-config`) own the connection.
+
+| Env var | Database Config field |
+| --- | --- |
+| `INIT_DB_HOST` | Host |
+| `INIT_DB_PORT` | Port |
+| `INIT_DB_DATABASE` | Database |
+| `INIT_DB_USERNAME` | Username |
+| `INIT_DB_PASSWORD` | Password |
 
 ## Environment variables
 
 <ResponseField name="INIT_DB_HOST" required>
-  Sets the host address of the ClickHouse server for OpenLIT to connect
+  Seed-only: host address written into the default Database Config on first setup. Not read on every request after the config exists.
 
   **Example**:
   ```yaml
@@ -18,7 +35,7 @@ This guide covers all the available environment variables to fine-tune OpenLIT a
 </ResponseField>
 
 <ResponseField name="INIT_DB_PORT" required>
-  Sets the port on which ClickHouse listens
+  Seed-only: ClickHouse HTTP port for the default Database Config (commonly `8123`).
 
   **Example**:
   ```yaml
@@ -27,7 +44,7 @@ This guide covers all the available environment variables to fine-tune OpenLIT a
 </ResponseField>
 
 <ResponseField name="INIT_DB_DATABASE" required>
-  Sets the name of the database in Clickhouse to be used by OpenLIT
+  Seed-only: ClickHouse database name for the default Database Config.
 
   **Example**:
   ```yaml
@@ -36,7 +53,7 @@ This guide covers all the available environment variables to fine-tune OpenLIT a
 </ResponseField>
 
 <ResponseField name="INIT_DB_USERNAME" required>
-  Sets the username for authenticating with ClickHouse
+  Seed-only: username stored on the default Database Config.
 
   **Example**:
   ```yaml
@@ -45,7 +62,7 @@ This guide covers all the available environment variables to fine-tune OpenLIT a
 </ResponseField>
 
 <ResponseField name="INIT_DB_PASSWORD" required>
-  Sets the password for authenticating with ClickHouse
+  Seed-only: password stored on the default Database Config. Rotate later via the Database Config UI, not by relying on this env var alone.
 
   **Example**:
   ```yaml
@@ -210,7 +227,8 @@ For production deployments, set environment variables directly in your hosting p
 ## Sample environment file (.env)
 
 ```.env.example .env
-# Database Configuration
+# ClickHouse bootstrap ONLY — seeds the first Database Config at install.
+# Day-2 host/password/environment changes: Organisation → Database Config.
 INIT_DB_HOST="127.0.0.1"
 INIT_DB_PORT="8123"
 INIT_DB_DATABASE="default"

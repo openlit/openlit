@@ -24,10 +24,11 @@ import {
 	validateClassificationDispute,
 	type CodingAgentClassificationDispute,
 } from "@/lib/platform/coding-agents/classifier";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -82,3 +83,5 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const POST = withRouteAccess("coding_agents.dispute", POSTHandler);

@@ -212,8 +212,13 @@ export function sanitizeErrorMessage(
 ): string {
 	if (!err) return fallback;
 
-	const message = typeof err === "string" ? err : (err as Error)?.message;
+	let message = typeof err === "string" ? err : (err as Error)?.message;
 	if (!message) return fallback;
+	// `asaw` stringifies thrown Errors as "Error: …"; strip the redundant prefix
+	// so API clients and toasts show the underlying message once.
+	if (message.startsWith("Error: ")) {
+		message = message.slice("Error: ".length);
+	}
 
 	if (
 		message.includes("PrismaClient") ||

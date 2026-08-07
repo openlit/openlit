@@ -20,6 +20,7 @@ import {
 	type CodingUsersSortBy,
 	type ListCodingUsersOptions,
 } from "@/lib/platform/coding-agents/queries";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 const VALID_SORT_BY: CodingUsersSortBy[] = [
 	"last_seen",
@@ -63,7 +64,7 @@ function defaultSince(): Date {
 	return new Date(Date.now() - DEFAULT_WINDOW_HOURS * 60 * 60 * 1000);
 }
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -107,7 +108,7 @@ interface UsersListBody {
 	runFilters?: Record<string, unknown>;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let auth;
 	try {
 		auth = await requireCodingAgentAuth();
@@ -157,3 +158,6 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Internal error" }, { status: 500 });
 	}
 }
+
+export const GET = withRouteAccess("coding_agents.read", GETHandler);
+export const POST = withRouteAccess("coding_agents.read", POSTHandler);

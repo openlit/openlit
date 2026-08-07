@@ -6,9 +6,10 @@
  * Atomic vendor adapters (Datadog, Tempo, Loki, Mimir, New Relic, Jaeger,
  * VictoriaLogs, VictoriaMetrics) are registered in CE via `bootstrap.ts`.
  *
+ * The normalized adapter methods below model portable telemetry reads.
  * Derived/app data (evals, agent summaries, dashboards metadata, controller,
- * vault, rules, prompts) is NOT part of this contract — it always stays in
- * OpenLIT's own ClickHouse app store.
+ * vault, rules, prompts) remains in OpenLIT's ClickHouse app store, but all of
+ * its read-only SQL is executed through the shared OpenPlait runtime boundary.
  */
 
 /** The three telemetry signals OpenLIT reads. */
@@ -219,6 +220,8 @@ export interface SourceCapabilities {
 	crossTraceSession: boolean;
 	/** Max lookback window in milliseconds, if the vendor caps it. */
 	maxLookbackMs?: number;
+	/** Maximum duration of one query window in milliseconds, if capped. */
+	maxTimeRangeMs?: number;
 	/** Whether raw vendor-native query strings are supported (CH only). */
 	rawQuery: boolean;
 }
@@ -371,6 +374,15 @@ export interface DataSourceAdapter {
 	aggregateSpans(query: OpenLITQuery): Promise<DataFrame>;
 	/** Optional exact matching-span count for paginated list surfaces. */
 	countSpans?(query: OpenLITQuery): Promise<number | null>;
+	/** Optional trace-row count for paginated trace list surfaces. */
+	countTraces?(
+		query: OpenLITQuery
+	): Promise<{ total: number; truncated: boolean }>;
+	/**
+	 * Optional trace-level time series built from backend trace summaries.
+	 * This avoids treating a bounded full-span sample as the trace volume.
+	 */
+	traceTimeSeries?(query: OpenLITQuery): Promise<DataFrame>;
 	spanTimeSeries(query: OpenLITQuery): Promise<DataFrame>;
 	distinctValues(key: string, query: OpenLITQuery): Promise<string[]>;
 	attributeKeys(signal: Signal, window: QueryTimeRange): Promise<string[]>;
@@ -406,7 +418,7 @@ export interface TelemetrySourceDescriptor {
 	settings: Record<string, unknown>;
 	/** Vault secret id holding credentials, if any. */
 	secretRef?: string | null;
-	/** For built-in ClickHouse: the backing DatabaseConfig id. */
+	/** Backing OpenLIT DatabaseConfig for native reads or app-state/vault access. */
 	dbConfigId?: string;
 	/** Signals this source is configured to serve. */
 	signals: Signal[];

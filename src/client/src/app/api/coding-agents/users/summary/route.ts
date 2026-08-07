@@ -14,13 +14,14 @@ import {
 	requireCodingAgentAuth,
 	CodingAgentUnauthorizedError,
 } from "@/lib/platform/coding-agents/auth";
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CODING_AGENT_ATTR,
 	CODING_AGENT_SPAN_NAMES,
 	GEN_AI_ATTR,
 	OTEL_TRACES_TABLE,
 } from "@/lib/platform/coding-agents/table-details";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,7 @@ const USER_EXPR = `
 	)
 `;
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	try {
 		await requireCodingAgentAuth();
 	} catch (err) {
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
 		ORDER BY min(Timestamp)
 	`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query });
 	if (err) {
 		console.error("coding_agent.users.summary_failed", err);
 		return Response.json({ error: "Internal error" }, { status: 500 });
@@ -143,3 +144,5 @@ export async function POST(request: Request) {
 
 	return Response.json({ bucket, buckets, total, peak });
 }
+
+export const POST = withRouteAccess("coding_agents.read", POSTHandler);

@@ -155,6 +155,33 @@ describe("sample-aggregate", () => {
 		]);
 	});
 
+	it("bucketSpansByInterval preserves 90-day data in weekly buckets", () => {
+		const frame = bucketSpansByInterval(
+			[
+				span({ spanId: "may", timestamp: "2026-05-10T10:00:00.000Z" }),
+				span({ spanId: "jul", timestamp: "2026-07-29T10:00:00.000Z" }),
+			],
+			"1w",
+			[{ fn: "count", as: "total" }],
+			{
+				start: new Date("2026-05-08T00:00:00.000Z"),
+				end: new Date("2026-08-06T00:00:00.000Z"),
+			}
+		);
+
+		expect(frame.rows).toHaveLength(14);
+		expect(
+			frame.rows.reduce<number>(
+				(sum, row) => sum + Number((row as { total: number }).total),
+				0
+			)
+		).toBe(2);
+		expect(frame.rows[0]).toMatchObject({
+			bucket: "2026-05-04T00:00:00.000Z",
+			label: "2026/05/04",
+		});
+	});
+
 	it("aggregateSpansInProcess groups and exposes group_value", () => {
 		const frame = aggregateSpansInProcess(
 			spans,
@@ -258,6 +285,38 @@ describe("fetchSpansForAggregation", () => {
 			"demo-openai-app",
 		]);
 		expect(result.truncated).toBe(false);
+	});
+
+	it("keeps service stratification within the global trace budget", async () => {
+		const requested: number[] = [];
+		const result = await fetchSpansForAggregation(
+			{
+				discoverServices: async () =>
+					["a", "b", "c", "d"].map((serviceName) => ({
+						serviceName,
+						environment: "default",
+						clusterId: "default",
+					})),
+				sampleTracesForGraph: async (query, limit) => {
+					requested.push(limit);
+					const service = String(
+						query.filters?.find((f) => f.key === "service.name")?.value || ""
+					);
+					return Array.from({ length: limit }, (_, index) =>
+						span({
+							spanId: `${service}-${index}`,
+							traceId: `${service}-trace-${index}`,
+							serviceName: service,
+						})
+					);
+				},
+			},
+			windowQuery,
+			{ maxTraces: 3, skipCache: true }
+		);
+
+		expect(requested.reduce((sum, value) => sum + value, 0)).toBe(3);
+		expect(result.spans).toHaveLength(3);
 	});
 
 	it("does not re-stratify adapters that already fan out per service", async () => {

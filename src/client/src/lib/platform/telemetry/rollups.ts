@@ -17,10 +17,13 @@ import type {
 	OpenLITQuery,
 } from "@/lib/platform/connectors/datasource/types";
 import {
-	computeAggregateSpansL1,
-	computeSpanTimeSeriesL1,
-} from "@/lib/platform/connectors/datasource/l1-compute";
-import { fetchSpansForList } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
+	collapseToRootSpans,
+	fetchSpansForAggregation,
+} from "@/lib/platform/connectors/datasource/graph/sample-fetch";
+import {
+	aggregateSpansInProcess,
+	bucketSpansByInterval,
+} from "@/lib/platform/connectors/datasource/graph/sample-aggregate";
 
 export const SIGNAL_BUCKETS_TABLE = "openlit_signal_buckets";
 export const LLM_ROLLUPS_TABLE = "openlit_llm_rollups";
@@ -30,6 +33,8 @@ export const SPAN_HOT_CACHE_TABLE = "openlit_external_span_cache";
 export const ROLLUP_FRESHNESS_MS = 5 * 60 * 1000;
 /** Soft row cap for the recent-span hot cache per source. */
 export const SPAN_HOT_CACHE_MAX_ROWS = 2_000;
+/** One background pull powers every derived rollup for an external source. */
+const MATERIALIZATION_SAMPLE_TRACE_CAP = 50;
 
 function escape(value: string): string {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -44,8 +49,8 @@ async function collector(
 	type: "query" | "exec",
 	dbConfigId?: string
 ) {
-	const { dataCollector } = await import("@/lib/platform/common");
-	return dataCollector(query, type, dbConfigId);
+	const { intelligenceDataCollector } = await import("@/lib/platform/common");
+	return intelligenceDataCollector(query, type, dbConfigId);
 }
 
 async function logError(event: string, meta: Record<string, unknown>) {
@@ -365,8 +370,21 @@ export async function materializeTelemetryRollups(opts: {
 	let buckets = 0;
 	let llmRows = 0;
 	let hotCacheRows = 0;
+	let traceRoots: NormalizedSpan[];
+	try {
+		const sample = await fetchSpansForAggregation(opts.adapter, baseQuery, {
+			maxTraces: MATERIALIZATION_SAMPLE_TRACE_CAP,
+		});
+		traceRoots = collapseToRootSpans(sample.spans);
+	} catch (err) {
+		// Fail once for this materialization cycle. Re-running the same rejected
+		// Tempo search for every dimension creates a retry storm and prolongs
+		// upstream throttling.
+		await logError("telemetry_materialization_sample_failed", { err });
+		return { buckets, llmRows, hotCacheRows };
+	}
 
-	const services =
+	const discoveredServices =
 		typeof opts.adapter.discoverServices === "function"
 			? (
 					await opts.adapter.discoverServices({ start, end }).catch(() => [])
@@ -375,33 +393,34 @@ export async function materializeTelemetryRollups(opts: {
 					.filter(Boolean)
 					.slice(0, 24)
 			: [];
+	const sampledServices = traceRoots
+		.map((span) => span.serviceName || span.resourceAttributes["service.name"])
+		.filter(Boolean);
+	const services = Array.from(
+		new Set([...discoveredServices, ...sampledServices])
+	).slice(0, 24);
 	const serviceScopes = services.length ? services : [""];
 
 	try {
 		for (const service of serviceScopes) {
-			const scoped: OpenLITQuery = service
-				? {
-						...baseQuery,
-						filters: [
-							{
-								target: "attribute",
-								scope: "resource",
-								key: "service.name",
-								op: "eq",
-								value: service,
-							},
-						],
-					}
-				: baseQuery;
-			const series = await computeSpanTimeSeriesL1(opts.adapter, {
-				...scoped,
-				aggregations: [
+			const serviceSpans = service
+				? traceRoots.filter(
+						(span) =>
+							(span.serviceName || span.resourceAttributes["service.name"]) ===
+							service
+					)
+				: traceRoots;
+			const series = bucketSpansByInterval(
+				serviceSpans,
+				baseQuery.interval || "1h",
+				[
 					{ fn: "count", as: "count" },
 					{ fn: "avg", field: "duration", as: "avgDuration" },
 					{ fn: "sum", field: "gen_ai.usage.cost", as: "cost" },
 					{ fn: "sum", field: "gen_ai.usage.total_tokens", as: "tokens" },
 				],
-			});
+				baseQuery.timeRange
+			);
 			const values = (series.rows as Record<string, unknown>[])
 				.map((row) => {
 					const bucket = String(
@@ -450,24 +469,19 @@ export async function materializeTelemetryRollups(opts: {
 	];
 
 	for (const service of serviceScopes) {
-		const scopedFilters: NormalizedFilter[] = service
-			? [
-					{
-						target: "attribute",
-						scope: "resource",
-						key: "service.name",
-						op: "eq",
-						value: service,
-					},
-				]
-			: [];
+		const serviceSpans = service
+			? traceRoots.filter(
+					(span) =>
+						(span.serviceName || span.resourceAttributes["service.name"]) ===
+						service
+				)
+			: traceRoots;
 		for (const { dimension, field } of dimensions) {
 			try {
-				const frame = await computeAggregateSpansL1(opts.adapter, {
-					...baseQuery,
-					filters: scopedFilters,
-					groupBy: [field],
-					aggregations: [
+				const frame = aggregateSpansInProcess(
+					serviceSpans,
+					[field],
+					[
 						{ fn: "count", as: "count" },
 						{ fn: "sum", field: "gen_ai.usage.cost", as: "total_cost" },
 						{
@@ -476,8 +490,8 @@ export async function materializeTelemetryRollups(opts: {
 							as: "total_tokens",
 						},
 						{ fn: "avg", field: "duration", as: "avg_duration_seconds" },
-					],
-				});
+					]
+				);
 				const values = (frame.rows as Record<string, unknown>[])
 					.map((row) => {
 						const groupValue = String(
@@ -533,14 +547,10 @@ export async function materializeTelemetryRollups(opts: {
 	}
 
 	try {
-		const list = await fetchSpansForList(opts.adapter, baseQuery, {
-			maxRows: Math.min(200, SPAN_HOT_CACHE_MAX_ROWS),
-			skipCache: true,
-		});
 		hotCacheRows = await writeSpanHotCache({
 			sourceId: opts.sourceId,
 			dbConfigId: opts.dbConfigId,
-			spans: list.spans,
+			spans: traceRoots.slice(0, SPAN_HOT_CACHE_MAX_ROWS),
 		});
 	} catch (err) {
 		await logError("telemetry_hot_cache_failed", { err });

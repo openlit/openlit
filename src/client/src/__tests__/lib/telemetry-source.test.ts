@@ -2,6 +2,7 @@ const mockFindUnique = jest.fn();
 const mockFindFirst = jest.fn();
 const mockFindMany = jest.fn();
 const mockBindingFindUnique = jest.fn();
+const mockDatabaseConfigFindFirst = jest.fn();
 const mockGetDBConfigByUser = jest.fn();
 const mockGetDBConfigById = jest.fn();
 const mockGetCurrentOrganisation = jest.fn();
@@ -17,6 +18,9 @@ jest.mock("@/lib/prisma", () => ({
 		},
 		telemetrySourceBinding: {
 			findUnique: (...args: unknown[]) => mockBindingFindUnique(...args),
+		},
+		databaseConfig: {
+			findFirst: (...args: unknown[]) => mockDatabaseConfigFindFirst(...args),
 		},
 	},
 }));
@@ -45,6 +49,8 @@ jest.mock("@/utils/log", () => ({
 import {
 	builtInDescriptor,
 	getTelemetryAdapter,
+	getTelemetryAdapterForDbConfig,
+	isSignalServedByBuiltInClickHouse,
 	isNativeSqlChatAvailable,
 	parseSettings,
 	parseSignals,
@@ -317,6 +323,26 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		expect(res.servesSignal).toBe(true);
 	});
 
+	it("keeps the active vault DatabaseConfig on an environment-routed external source", async () => {
+		mockGetDBConfigByUser.mockResolvedValueOnce({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+
+		const res = await resolveSignalSource("traces", {
+			environment: "production",
+		});
+
+		expect(res.descriptor).toMatchObject({
+			id: "tempo-1",
+			dbConfigId: "db-1",
+		});
+		expect(mockGetDBConfigByUser).toHaveBeenCalledWith(true);
+	});
+
 	it("ignores a binding that does not serve the signal and picks a capable source", async () => {
 		mockBindingFindUnique.mockResolvedValue({
 			source: srcRow({ id: "prom-1", type: "prometheus", signals: "metrics" }),
@@ -375,6 +401,35 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		});
 		expect(mockFindUnique).not.toHaveBeenCalled();
 	});
+
+	it("honors builtin:dbConfigId overrides for signal widgets", async () => {
+		mockDatabaseConfigFindFirst.mockResolvedValue({
+			id: "db-9",
+			name: "Staging CH",
+			projectId: "proj-1",
+			environment: "staging",
+		});
+
+		const res = await resolveSignalSource("metrics", {
+			sourceId: "builtin:db-9",
+			environment: "staging",
+		});
+
+		expect(res.via).toBe("override");
+		expect(res.descriptor).toMatchObject({
+			id: "builtin:db-9",
+			type: "clickhouse",
+			dbConfigId: "db-9",
+			name: "Staging CH",
+		});
+		expect(mockDatabaseConfigFindFirst).toHaveBeenCalledWith({
+			where: {
+				id: "db-9",
+				projectId: "proj-1",
+				environment: "staging",
+			},
+		});
+	});
 });
 
 describe("getTelemetryAdapter fail-closed", () => {
@@ -398,6 +453,68 @@ describe("getTelemetryAdapter fail-closed", () => {
 		await expect(getTelemetryAdapter()).rejects.toThrow(
 			/No adapter is registered/
 		);
+	});
+});
+
+describe("getTelemetryAdapterForDbConfig", () => {
+	it("binds the materializer DatabaseConfig to an external source for vault access", async () => {
+		mockGetDBConfigById.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({
+				id: "tempo-1",
+				type: "tempo",
+				signals: "traces",
+				secretRef: "vault-tempo",
+				environment: "production",
+			}),
+		});
+
+		const result = await getTelemetryAdapterForDbConfig("db-1", "traces");
+
+		expect(result.descriptor).toMatchObject({
+			id: "tempo-1",
+			type: "tempo",
+			projectId: "proj-1",
+			secretRef: "vault-tempo",
+			dbConfigId: "db-1",
+		});
+		expect(result.isBuiltIn).toBe(false);
+	});
+});
+
+describe("isSignalServedByBuiltInClickHouse", () => {
+	it("returns false for the built-in-shaped no-source placeholder", async () => {
+		mockGetCurrentOrganisation.mockResolvedValueOnce({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValueOnce({ id: "proj-1" });
+		mockGetDBConfigByUser.mockResolvedValueOnce(undefined);
+		mockBindingFindUnique.mockResolvedValueOnce(null);
+
+		await expect(
+			isSignalServedByBuiltInClickHouse("logs", { environment: "production" })
+		).resolves.toBe(false);
+	});
+
+	it("returns false when the signal is routed to Tempo", async () => {
+		mockGetCurrentOrganisation.mockResolvedValueOnce({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValueOnce({ id: "proj-1" });
+		mockGetDBConfigByUser.mockResolvedValueOnce(dbConfig);
+		mockBindingFindUnique.mockResolvedValueOnce({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+
+		await expect(isSignalServedByBuiltInClickHouse("traces")).resolves.toBe(false);
+	});
+
+	it("returns true only for a real routed built-in ClickHouse", async () => {
+		mockGetCurrentOrganisation.mockResolvedValueOnce({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValueOnce({ id: "proj-1" });
+		mockGetDBConfigByUser.mockResolvedValueOnce(dbConfig);
+		mockBindingFindUnique.mockResolvedValueOnce({ databaseConfig: dbConfig });
+
+		await expect(isSignalServedByBuiltInClickHouse("logs")).resolves.toBe(true);
 	});
 });
 

@@ -9,6 +9,8 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 
 import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/http/auth-headers";
 import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
+import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
+import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/prometheus/adapter";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {
@@ -62,16 +64,18 @@ describe("applyHttpAuthCredentials", () => {
 
 describe("descriptor configFields (descriptor-driven forms)", () => {
 	it("exposes basic + bearer for Tempo", () => {
-		for (const factory of [tempoAdapterFactory]) {
+		for (const factory of [tempoAdapterFactory, lokiAdapterFactory, prometheusAdapterFactory]) {
 			const d = factory.describe();
 			const keys = d.configFields.map((f) => f.key);
 			expect(keys).toEqual(
 				expect.arrayContaining([
 					"url",
 					"allowHttp",
+					"allowPrivateNetwork",
 					"username",
 					"password",
 					"token",
+					"tenant",
 				])
 			);
 			expect(d.configFields.find((f) => f.key === "authType")).toMatchObject({
@@ -81,14 +85,16 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 			expect(d.authStyle).toBe("http");
 		}
 		expect(
-			tempoAdapterFactory.describe().configFields.map((f) => f.key)
-		).not.toContain("tenant");
+			tempoAdapterFactory.describe().configFields.find((f) => f.key === "tenant")
+		).toBeDefined();
 	});
 
 	it("uses type-specific endpoint placeholders", () => {
 		const urlField = (type: { describe: () => { configFields: { key: string; placeholder?: string }[] } }) =>
 			type.describe().configFields.find((f) => f.key === "url")?.placeholder ?? "";
 		expect(urlField(tempoAdapterFactory)).toContain("tempo");
+		expect(urlField(lokiAdapterFactory)).toContain("3100");
+		expect(urlField(prometheusAdapterFactory)).toContain("9090");
 	});
 
 });

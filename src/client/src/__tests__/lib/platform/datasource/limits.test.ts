@@ -1,5 +1,6 @@
 import {
 	clampQueryBudget,
+	clampQueryToSource,
 	DEFAULT_QUERY_BUDGET,
 	Semaphore,
 	withSourceConcurrency,
@@ -75,6 +76,25 @@ describe("clampQueryBudget", () => {
 		);
 		expect(query.timeRange.start).toEqual(start);
 		expect(clamped).not.toContain("maxLookback");
+	});
+
+	it("uses the selected datasource's maximum query window", () => {
+		const end = new Date("2026-07-10T00:00:00Z");
+		const start = new Date(end.getTime() - 20 * 24 * 60 * 60 * 1000);
+		const maxTimeRangeMs = 3 * 24 * 60 * 60 * 1000;
+		const source = {
+			capabilities: () => ({ maxTimeRangeMs }),
+		};
+
+		const { query, clamped } = clampQueryToSource(
+			source,
+			baseQuery({ timeRange: { start, end } })
+		);
+
+		expect(end.getTime() - query.timeRange.start.getTime()).toBe(
+			maxTimeRangeMs
+		);
+		expect(clamped).toContain("timeRange");
 	});
 });
 

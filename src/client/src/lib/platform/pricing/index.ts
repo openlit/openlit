@@ -155,7 +155,7 @@ export async function setPricingForSpanId(
 		getMessage().TRACE_NOT_FOUND
 	);
 
-	const trace = spanData as TraceRow;
+	const trace = spanData as unknown as TraceRow;
 
 	// The trace itself doesn't tell us the dbConfig; fall back to the default
 	const { default: prisma } = await import("@/lib/prisma");

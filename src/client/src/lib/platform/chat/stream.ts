@@ -6,7 +6,7 @@ import { createMistral } from "@ai-sdk/mistral";
 import { createCohere } from "@ai-sdk/cohere";
 import { getChatSystemPrompt } from "./schema-context";
 import { validateSQL, extractSQLFromResponse } from "./sql-validator";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import {
 	addMessage,
@@ -14,6 +14,7 @@ import {
 	updateConversation,
 } from "./conversation";
 import { getChatTools } from "./tools";
+import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
 
 // ==================== Provider Factories ====================
 
@@ -318,7 +319,15 @@ async function executeSQLBlocksInResponse(text: string, environment?: string): P
 		const validation = validateSQL(sql);
 		if (validation.valid && validation.query) {
 			try {
-				const { data: queryData, err: queryErr } = await dataCollector({
+				const routing = await authorizeTelemetrySQLRouting(validation.query, {
+					environment,
+					databaseConfigId: chatSource.databaseConfigId,
+				});
+				if (!routing.allowed) {
+					enrichedText += `\n\n> ${routing.error}`;
+					continue;
+				}
+				const { data: queryData, err: queryErr } = await intelligenceDataCollector({
 					query: validation.query,
 					enable_readonly: true,
 				}, "query", chatSource.databaseConfigId);

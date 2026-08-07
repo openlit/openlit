@@ -1,12 +1,13 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getTraceAttributeKeys } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 
@@ -32,3 +33,5 @@ export async function POST(request: Request) {
 	const res = await getTraceAttributeKeys(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

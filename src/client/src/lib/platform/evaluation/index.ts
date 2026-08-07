@@ -318,7 +318,7 @@ export async function getEvaluationsForSpanId(
 			error: traceResult.err || null,
 		});
 		const { record: traceRecord } = traceResult;
-		const trace = traceRecord as TraceRow;
+		const trace = traceRecord as unknown as TraceRow;
 		let ruleContext: {
 			matchingRuleIds: string[];
 			contextApplied: boolean;
@@ -381,7 +381,7 @@ export async function getEvaluationsForSpanId(
 	};
 	if (!evaluationConfigErr && evaluationConfigTyped?.id) {
 		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId, opts);
-		const trace = traceRecord as TraceRow;
+		const trace = traceRecord as unknown as TraceRow;
 		if (trace?.SpanId) {
 			const { matchingRuleIds, contextEntityIds } =
 				await getContextFromRuleEngineForTrace(
@@ -600,7 +600,7 @@ export async function setEvaluationsForSpanId(
 		error: traceResult.err || null,
 	});
 	const { record: spanData } = traceResult;
-	const spanDataTyped = spanData as TraceRow;
+	const spanDataTyped = spanData as unknown as TraceRow;
 
 	throwIfError(
 		!(spanData as any)?.SpanId,

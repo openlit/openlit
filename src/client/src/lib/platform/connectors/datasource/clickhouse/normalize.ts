@@ -34,6 +34,20 @@ function stableRowId(parts: string[]): string {
 	return String(hash);
 }
 
+/** Stable external log row id — must match `denormalizeLogToClickHouseRow`. */
+export function logStableRowId(log: Pick<
+	NormalizedLog,
+	"timestamp" | "traceId" | "spanId" | "severityText" | "body"
+>): string {
+	return stableRowId([
+		log.timestamp,
+		log.traceId || "",
+		log.spanId || "",
+		log.severityText || "",
+		log.body,
+	]);
+}
+
 function asString(value: unknown): string {
 	if (value === null || value === undefined) return "";
 	return String(value);
@@ -166,13 +180,7 @@ export function normalizeSpanRow(
 export function denormalizeLogToClickHouseRow(
 	log: NormalizedLog
 ): Record<string, unknown> {
-	const rowId = stableRowId([
-		log.timestamp,
-		log.traceId || "",
-		log.spanId || "",
-		log.severityText || "",
-		log.body,
-	]);
+	const rowId = logStableRowId(log);
 	return {
 		rowId,
 		Timestamp: log.timestamp,

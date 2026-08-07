@@ -3,10 +3,12 @@ import { RuleInput } from "@/types/rule-engine";
 import { getRules, createRule } from "@/lib/platform/rule-engine";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
 
-export async function GET() {
+export async function GET(request: Request) {
 	const startTimestamp = Date.now();
-	const { err, data }: any = await getRules();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
+	const { err, data }: any = await getRules(databaseConfigId);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_LIST_FAILURE,
@@ -25,6 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 
 	const ruleInput: Partial<RuleInput> = {
 		name: formData.name,
@@ -33,7 +36,9 @@ export async function POST(request: Request) {
 		status: formData.status,
 	};
 
-	const [err, res]: any = await asaw(createRule(ruleInput));
+	const [err, res]: any = await asaw(
+		createRule(ruleInput, { databaseConfigId })
+	);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_CREATE_FAILURE,

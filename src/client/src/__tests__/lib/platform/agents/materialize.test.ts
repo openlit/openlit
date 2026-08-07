@@ -15,6 +15,7 @@
 
 jest.mock("@/lib/platform/common", () => ({
 	dataCollector: jest.fn(),
+	intelligenceDataCollector: jest.fn(),
 	OTEL_TRACES_TABLE_NAME: "otel_traces",
 }));
 jest.mock("@/lib/platform/agents/cache", () => ({
@@ -35,15 +36,20 @@ jest.mock("@/lib/platform/agents/snapshot", () => ({
 	upsertVersion: jest.fn(),
 	getLatestVersionsBatch: jest.fn().mockResolvedValue(new Map()),
 }));
+const mockGetTelemetryAdapterForDbConfig = jest.fn();
 jest.mock("@/lib/telemetry-source", () => ({
 	isSignalServedByBuiltInClickHouse: jest.fn().mockResolvedValue(true),
+	getTelemetryAdapterForDbConfig: (...args: unknown[]) =>
+		mockGetTelemetryAdapterForDbConfig(...args),
 }));
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
 import { computeAgentKey } from "@/lib/platform/agents";
 
-const mockedDC = dataCollector as jest.MockedFunction<typeof dataCollector>;
+const mockedDC = intelligenceDataCollector as jest.MockedFunction<
+	typeof intelligenceDataCollector
+>;
 
 interface RecordedInsert {
 	table: string;
@@ -90,6 +96,19 @@ function queueDiscovery(
 
 beforeEach(() => {
 	mockedDC.mockReset();
+	mockGetTelemetryAdapterForDbConfig.mockReset();
+});
+
+describe("materializeAgents — connector routing purity", () => {
+	it("fails closed instead of reading ClickHouse traces when the routed external adapter cannot resolve", async () => {
+		mockGetTelemetryAdapterForDbConfig.mockRejectedValue(
+			new Error("Tempo credentials unavailable")
+		);
+		await expect(materializeAgents({ dbConfigId: "db-1" })).rejects.toThrow(
+			"Tempo credentials unavailable"
+		);
+		expect(mockedDC).not.toHaveBeenCalled();
+	});
 });
 
 describe("materializeAgents — workload_key dedup", () => {

@@ -1,40 +1,58 @@
 ---
 title: 'Organisation Overview'
-description: 'Understand how organisations, projects, and database configurations fit together in OpenLIT'
+description: 'Organisation → Project → Environment → Database Config and connectors in OpenLIT'
 icon: 'building'
 ---
 
-Organisations in OpenLIT are shared workspaces for teams and environments. An organisation contains projects, and each project contains one or more ClickHouse database configurations.
+Organisations in OpenLIT are shared workspaces for teams. Inside an organisation, **projects** own everything you configure for telemetry backends: environments, Database Configs, connectors, and signal bindings.
 
 ```text
 Organisation
-  Project
-    Database configuration
+  └── Project   ← create / select a project first
+        └── Environment
+              ├── Database Config (ClickHouse app store)
+              ├── Connectors (Tempo, Loki, Prometheus, Jaeger)
+              └── Signal routing (traces / logs / metrics)
 ```
 
-Use organisations for workspace and membership boundaries. Use projects when you need separate database boundaries inside the same organisation, such as production, staging, customer-specific environments, or different teams.
+Use organisations for membership and workspace boundaries. Use [projects](/latest/openlit/organisation/projects) when you need separate data boundaries inside the same organisation. Database Config and Connectors are **project resources** — they appear in the sidebar as documentation topics, but in the product you create them under a project.
 
-## What belongs to an organisation
+## What belongs where
 
-- Organisation identity, such as the workspace name.
-- Members and pending invitations.
-- Projects owned by the organisation.
-- Billing and licensing state where applicable.
+| Layer | Owns |
+| --- | --- |
+| **Organisation** | Workspace name, members, invitations; billing/licensing where applicable |
+| **Project** | Environments, Database Configs, connectors, bindings |
+| **Environment** | Partition for configs, connectors, and per-signal routing |
+| **Database Config** | ClickHouse connection on the project (seeded from `INIT_DB_*`, then managed in UI) |
+| **Connector** | External backend + credentials + actions on the project |
 
-Every organisation has a default project. Existing installations are mapped to a default project so existing database configurations continue to work after upgrading.
+Every organisation has a default project. Existing installations are mapped to a default project and `production` environment so upgrades keep working.
 
 ## Common tasks
 
 <CardGroup cols={2}>
-  <Card title="Manage projects" href="/latest/openlit/organisation/projects" icon="folder">
-    Create projects, switch project context, and review project-level structure.
+  <Card title="Projects" href="/latest/openlit/organisation/projects" icon="folder">
+    Create a project first — Database Configs and connectors live here.
   </Card>
-  <Card title="Configure databases" href="/latest/openlit/organisation/database-config" icon="database">
-    Add, select, and update ClickHouse database configurations inside a project.
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    Partition Database Configs and connectors by environment.
+  </Card>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Add ClickHouse on a project (seeded from INIT_DB_* then managed in the UI).
+  </Card>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Attach Tempo, Loki, Prometheus, or Jaeger on a project.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Bind traces, logs, and metrics independently per environment.
   </Card>
 </CardGroup>
 
+<Frame>
+  <img src="/images/organisation/projects-list.png" alt="OpenLIT Organisation Projects tab — manage DB Config per project" />
+</Frame>
+
 ## Workspace switching
 
-If you belong to multiple organisations, use the organisation selector in the top navigation to change the active workspace. Project and database configuration selectors update based on the selected organisation.
-
+If you belong to multiple organisations, use the organisation selector in the top navigation. Project, environment, database, and connector selectors update based on the selected organisation — the same pattern as the OpenLIT dashboard header.

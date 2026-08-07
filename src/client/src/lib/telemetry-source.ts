@@ -220,26 +220,70 @@ export async function resolveSignalSource(
 		options.projectId !== undefined
 			? options.projectId
 			: await getCurrentProjectId();
-	const activeDatabase = options.environment
-		? null
-		: (await getDBConfigByUser(true)) as DatabaseConfig | null | undefined;
+	// External connector secrets live in the active OpenLIT DatabaseConfig's
+	// vault. Explicit environment selection must not discard that credential
+	// store: doing so makes the adapter fall back to an implicit DB lookup and
+	// leaves background/parallel reads unable to resolve authentication
+	// consistently. Background callers pass projectId + dbConfigId explicitly;
+	// interactive callers can safely resolve the current project-scoped DB.
+	const activeDatabase =
+		options.projectId === undefined && !options.dbConfigId
+			? ((await getDBConfigByUser(true)) as
+					DatabaseConfig | null | undefined)
+			: null;
+	const credentialDatabaseConfigId =
+		options.dbConfigId || activeDatabase?.id;
 	const environment = normalizeEnvironment(options.environment || activeDatabase?.environment || "production");
+	const externalDescriptor = (row: TelemetrySource) => ({
+		...toDescriptor(row),
+		...(credentialDatabaseConfigId
+			? { dbConfigId: credentialDatabaseConfigId }
+			: {}),
+	});
 
-	// 1. Explicit override — project-scoped only.
+	// 1. Explicit override — project-scoped only (external source or builtin:dbId).
 	if (options.sourceId) {
-		const row = await findSourceInProject(options.sourceId, projectId, environment);
-		if (row) {
-			const descriptor = toDescriptor(row);
-			return {
-				descriptor,
-				servesSignal: descriptorServesSignal(descriptor, signal),
-				hasSource: true,
-				via: "override",
-			};
+		if (options.sourceId.startsWith("builtin:")) {
+			const databaseConfigId = options.sourceId.slice("builtin:".length);
+			if (projectId && databaseConfigId) {
+				const databaseConfig = await prisma.databaseConfig.findFirst({
+					where: {
+						id: databaseConfigId,
+						projectId,
+						...(hasRequestedEnvironment ? { environment } : {}),
+					},
+				});
+				if (databaseConfig) {
+					return {
+						descriptor: builtInDescriptor(databaseConfig),
+						servesSignal: true,
+						hasSource: true,
+						via: "override",
+					};
+				}
+			}
+			consoleLog(
+				`resolveSignalSource: builtin sourceId ${options.sourceId} not found in project; continuing`
+			);
+		} else {
+			const row = await findSourceInProject(
+				options.sourceId,
+				projectId,
+				environment
+			);
+			if (row) {
+				const descriptor = externalDescriptor(row);
+				return {
+					descriptor,
+					servesSignal: descriptorServesSignal(descriptor, signal),
+					hasSource: true,
+					via: "override",
+				};
+			}
+			consoleLog(
+				`resolveSignalSource: sourceId ${options.sourceId} not found in project; continuing`
+			);
 		}
-		consoleLog(
-			`resolveSignalSource: sourceId ${options.sourceId} not found in project; continuing`
-		);
 	}
 
 	if (projectId) {
@@ -253,7 +297,7 @@ export async function resolveSignalSource(
 			return { descriptor, servesSignal: true, hasSource: true, via: "binding" };
 		}
 		if (binding?.source) {
-			const descriptor = toDescriptor(binding.source);
+			const descriptor = externalDescriptor(binding.source);
 			if (descriptorServesSignal(descriptor, signal)) {
 				return { descriptor, servesSignal: true, hasSource: true, via: "binding" };
 			}
@@ -291,7 +335,9 @@ export async function resolveSignalSource(
 	}
 
 	// 4. Built-in ClickHouse (serves all signals when configured).
-	const builtin = await resolveBuiltInDescriptor(options.dbConfigId);
+	const builtin = activeDatabase
+		? builtInDescriptor(activeDatabase)
+		: await resolveBuiltInDescriptor(options.dbConfigId);
 	const hasBuiltin = !!builtin.dbConfigId;
 	return {
 		descriptor: builtin,
@@ -314,7 +360,13 @@ export async function isSignalServedByBuiltInClickHouse(
 	options: ResolveTelemetrySourceOptions = {}
 ): Promise<boolean> {
 	const resolution = await resolveSignalSource(signal, options);
-	return resolution.descriptor.isBuiltIn === true;
+	return (
+		resolution.hasSource === true &&
+		resolution.servesSignal === true &&
+		resolution.descriptor.isBuiltIn === true &&
+		resolution.descriptor.type === "clickhouse" &&
+		Boolean(resolution.descriptor.dbConfigId)
+	);
 }
 
 /**
@@ -339,8 +391,18 @@ export async function resolveTelemetrySourceDescriptor(
 
 	// 1. Explicit source id override — project-scoped only (no cross-project IDOR).
 	if (options.sourceId) {
-		const row = await findSourceInProject(options.sourceId, projectId);
-		if (row) return toDescriptor(row);
+		if (options.sourceId.startsWith("builtin:")) {
+			const databaseConfigId = options.sourceId.slice("builtin:".length);
+			if (projectId && databaseConfigId) {
+				const databaseConfig = await prisma.databaseConfig.findFirst({
+					where: { id: databaseConfigId, projectId },
+				});
+				if (databaseConfig) return builtInDescriptor(databaseConfig);
+			}
+		} else {
+			const row = await findSourceInProject(options.sourceId, projectId);
+			if (row) return toDescriptor(row);
+		}
 		consoleLog(
 			`resolveTelemetrySource: sourceId ${options.sourceId} not found in project; falling back to default`
 		);
@@ -432,17 +494,24 @@ export async function getTelemetryAdapterForDbConfig(
 		);
 		throw new Error(TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL(signal));
 	}
-	const adapter = createAdapter(resolution.descriptor);
+	// External connector credentials live in the OpenLIT vault table of this
+	// DatabaseConfig. Interactive reads can infer that database from session
+	// state; cron/materializer reads cannot, so bind it explicitly while keeping
+	// the project-scoped source descriptor intact.
+	const descriptor = resolution.descriptor.isBuiltIn
+		? resolution.descriptor
+		: { ...resolution.descriptor, dbConfigId };
+	const adapter = createAdapter(descriptor);
 	if (!adapter) {
 		if (
-			!resolution.descriptor.isBuiltIn &&
-			resolution.descriptor.type !== "clickhouse"
+			!descriptor.isBuiltIn &&
+			descriptor.type !== "clickhouse"
 		) {
 			const { TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE } = await import(
 				"@/constants/messages/en"
 			);
 			throw new Error(
-				TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE(resolution.descriptor.type)
+				TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE(descriptor.type)
 			);
 		}
 		const builtin = await resolveBuiltInDescriptor(dbConfigId);
@@ -460,10 +529,9 @@ export async function getTelemetryAdapterForDbConfig(
 	}
 	return {
 		adapter,
-		descriptor: resolution.descriptor,
+		descriptor,
 		isBuiltIn:
-			resolution.descriptor.isBuiltIn ||
-			resolution.descriptor.type === "clickhouse",
+			descriptor.isBuiltIn || descriptor.type === "clickhouse",
 	};
 }
 

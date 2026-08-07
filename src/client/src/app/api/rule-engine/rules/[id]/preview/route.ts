@@ -5,6 +5,7 @@ import { getRuleById } from "@/lib/platform/rule-engine";
 import { listRecentRuleTraces, getRuleTraceFieldValue } from "@/lib/platform/rule-engine/telemetry";
 import PostHogServer from "@/lib/posthog";
 import { getRequestEnvironment } from "@/constants/openlit-context";
+import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
 
 type Condition = {
 	field: string;
@@ -88,9 +89,10 @@ export async function POST(
 		}
 
 		const ruleId = params.id;
+		const databaseConfigId = await resolveRuleEngineDatabaseConfigId(_req);
 
 		// getRuleById returns { data: ruleObject } (not an array)
-		const ruleResult = await getRuleById(ruleId);
+		const ruleResult = await getRuleById(ruleId, databaseConfigId);
 		if ((ruleResult as any).err || !ruleResult.data) {
 			return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 		}

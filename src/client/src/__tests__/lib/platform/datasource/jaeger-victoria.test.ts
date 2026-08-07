@@ -163,11 +163,13 @@ describe("JaegerAdapter", () => {
 		const url = mockSafeFetch.mock.calls[0][0] as string;
 		expect(url).toContain("/api/traces");
 		expect(url).toContain(`start=${window.start.getTime() * 1000}`);
-		expect(frame.rows).toHaveLength(2);
-		const chat = frame.rows.find((r) => r.name === "chat")!;
+		// Explore-style list: one row per trace (root span).
+		expect(frame.rows).toHaveLength(1);
+		const chat = frame.rows[0]!;
 		expect(chat).toMatchObject({
 			traceId: "t1",
 			spanId: "s1",
+			name: "chat",
 			serviceName: "svc",
 			durationNs: 12_000_000,
 			cost: 0.003,
@@ -177,13 +179,113 @@ describe("JaegerAdapter", () => {
 			name: "gen_ai.content.prompt",
 		});
 		expect(chat.events?.[0].attributes["gen_ai.prompt"]).toBe("hi");
-		const child = frame.rows.find((r) => r.name === "GET /health")!;
-		expect(child.parentSpanId).toBe("s1");
 		expect(frame.meta?.degraded).toContain("serverAggregation");
 		expect(await adapter.getSpan("s1")).toMatchObject({
 			spanId: "s1",
 			traceId: "t1",
 		});
+		const tree = await adapter.getTraceSpans("t1");
+		expect(tree).toHaveLength(2);
+		expect(tree.find((span) => span.name === "GET /health")?.parentSpanId).toBe(
+			"s1"
+		);
+	});
+
+	it("counts unique traces from the Jaeger sample", async () => {
+		mockSafeFetch.mockResolvedValue(jaegerTrace);
+		await expect(
+			adapter.countTraces({
+				signal: "traces",
+				timeRange: window,
+				aiSelector: false,
+			})
+		).resolves.toEqual({ total: 1, truncated: false });
+	});
+
+	it("budgets list results by traces, not child-span count", async () => {
+		const fatChildren = Array.from({ length: 400 }, (_, i) => ({
+			traceID: "fat",
+			spanID: `c${i}`,
+			operationName: `child-${i}`,
+			references: [{ refType: "CHILD_OF", spanID: "root" }],
+			startTime: 1782864000000000 + i,
+			duration: 10,
+			processID: "p1",
+			tags: [],
+		}));
+		mockSafeFetch.mockResolvedValue({
+			data: [
+				{
+					traceID: "fat",
+					processes: { p1: { serviceName: "svc", tags: [] } },
+					spans: [
+						{
+							traceID: "fat",
+							spanID: "root",
+							operationName: "session",
+							references: [],
+							startTime: 1782864000000000,
+							duration: 5000,
+							processID: "p1",
+							tags: [{ key: "gen_ai.request.model", value: "gpt-4" }],
+						},
+						...fatChildren,
+					],
+				},
+				{
+					traceID: "thin",
+					processes: { p1: { serviceName: "svc", tags: [] } },
+					spans: [
+						{
+							traceID: "thin",
+							spanID: "r2",
+							operationName: "checkout",
+							references: [],
+							startTime: 1782864100000000,
+							duration: 100,
+							processID: "p1",
+							tags: [{ key: "gen_ai.request.model", value: "gpt-4" }],
+						},
+					],
+				},
+			],
+		});
+		const frame = await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			limit: 25,
+			aiSelector: false,
+		});
+		expect(frame.rows.map((row) => row.traceId).sort()).toEqual(["fat", "thin"]);
+	});
+
+	it("loads span names from Jaeger operations API", async () => {
+		mockSafeFetch.mockImplementation(async (url: string) => {
+			if (String(url).includes("/operations")) {
+				return { data: ["checkout", "gen_ai.chat"] };
+			}
+			return jaegerTrace;
+		});
+		await expect(
+			adapter.distinctValues("SpanName", {
+				signal: "traces",
+				timeRange: window,
+				aiSelector: false,
+			})
+		).resolves.toEqual(["checkout", "gen_ai.chat"]);
+	});
+
+	it("builds a trace-level time series from search hits", async () => {
+		mockSafeFetch.mockResolvedValue(jaegerTrace);
+		const frame = await adapter.traceTimeSeries!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1d",
+			aiSelector: false,
+			aggregations: [{ fn: "count", as: "count" }],
+		});
+		expect(frame.rows.some((row) => Number(row.count) > 0)).toBe(true);
+		expect(frame.meta?.freshness).toBe("sampled");
 	});
 
 	it("drops traces with no AI-relevant span", async () => {

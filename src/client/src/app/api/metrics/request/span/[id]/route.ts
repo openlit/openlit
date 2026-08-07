@@ -1,8 +1,9 @@
 import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
 import { consoleLog } from "@/utils/log";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET(request: Request, context: any) {
+async function GETHandler(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -42,3 +43,5 @@ export async function GET(request: Request, context: any) {
 	});
 	return Response.json(res);
 }
+
+export const GET = withRouteAccess("traces.read", GETHandler, { requireDbConfig: true });

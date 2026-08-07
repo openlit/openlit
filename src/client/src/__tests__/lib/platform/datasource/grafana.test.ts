@@ -2,6 +2,13 @@ const mockSafeFetch = jest.fn();
 
 jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 	safeFetch: (...args: unknown[]) => mockSafeFetch(...args),
+	SourceResponseError: class SourceResponseError extends Error {
+		status: number;
+		constructor(status: number, message: string) {
+			super(message);
+			this.status = status;
+		}
+	},
 	selfHostedNetworkOptions: () => ({
 		allowHttp: true,
 		allowPrivateNetwork: true,
@@ -16,6 +23,7 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 }));
 
 import { TempoAdapter, tempoAISelectorQuery, buildTempoSearchQuery, __clearTempoSpanIndex } from "@/lib/platform/connectors/datasource/grafana/tempo";
+import { SourceResponseError } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 import { __clearCache } from "@/lib/platform/connectors/datasource/http/cache";
 import { buildAggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
 import type {
@@ -27,6 +35,11 @@ const window = {
 	start: new Date("2026-07-01T00:00:00.000Z"),
 	end: new Date("2026-07-02T00:00:00.000Z"),
 };
+
+const TRACE_1 = "0123456789abcdef0123456789abcdef";
+const TRACE_2 = "fedcba9876543210fedcba9876543210";
+const SPAN_1 = "0123456789abcdef";
+const SPAN_2 = "fedcba9876543210";
 
 const otlpTrace = {
 	batches: [
@@ -41,8 +54,8 @@ const otlpTrace = {
 				{
 					spans: [
 						{
-							traceId: "t1",
-							spanId: "s1",
+							traceId: TRACE_1,
+							spanId: SPAN_1,
 							parentSpanId: "",
 							name: "chat",
 							startTimeUnixNano: "1719792000000000000",
@@ -155,6 +168,101 @@ describe("TempoAdapter", () => {
 		});
 	});
 
+	it("retries a 31-day HTTP 400 search with Tempo's compatible 30-day window", async () => {
+		const wideAdapter = new TempoAdapter({
+			...descriptor,
+			settings: {
+				...descriptor.settings,
+				maxTimeRangeDays: 31,
+			},
+		});
+		const end = new Date("2026-08-06T11:24:17.901Z");
+		const start = new Date(end.getTime() - 31 * 24 * 60 * 60 * 1000);
+		mockSafeFetch
+			.mockRejectedValueOnce(
+				new SourceResponseError(
+					400,
+					"Data source responded 400: query range duration exceeds max duration 720h0m0s"
+				)
+			)
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })
+			.mockResolvedValueOnce(otlpTrace);
+
+		const frame = await wideAdapter.listSpans({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			limit: 1,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		const retriedSearch = new URL(mockSafeFetch.mock.calls[1][0] as string);
+		expect(Number(retriedSearch.searchParams.get("start"))).toBe(
+			Math.ceil(end.getTime() / 1000) - 30 * 24 * 60 * 60
+		);
+	});
+
+	it("does not retry a generic Tempo 400 by weakening the query", async () => {
+		mockSafeFetch.mockRejectedValueOnce(
+			new SourceResponseError(
+				400,
+				"Data source responded 400: invalid TraceQL near resource.service.name"
+			)
+		);
+		await expect(
+			adapter.listSpans({
+				signal: "traces",
+				timeRange: window,
+				aiSelector: true,
+				filters: [{
+					target: "attribute",
+					scope: "resource",
+					key: "service.name",
+					op: "eq",
+					value: "svc",
+				}],
+				limit: 1,
+			})
+		).rejects.toThrow("Tempo returned HTTP 400");
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		const failedUrl = decodeURIComponent(
+			mockSafeFetch.mock.calls[0][0] as string
+		).replace(/\+/g, " ");
+		expect(failedUrl).toContain('resource.service.name = "svc"');
+	});
+
+	it("detects Tempo 2.8 and enables most_recent only after a successful health inspection", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ version: "2.8.2" })
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })
+			.mockResolvedValueOnce(otlpTrace);
+		await expect(adapter.healthCheck()).resolves.toMatchObject({ ok: true });
+		await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			aiSelector: false,
+			limit: 1,
+		});
+		const searchUrl = decodeURIComponent(
+			mockSafeFetch.mock.calls[1][0] as string
+		).replace(/\+/g, " ");
+		expect(searchUrl).toContain("with (most_recent=true)");
+	});
+
+	it("checks a minimal search when a managed Tempo gateway hides build metadata", async () => {
+		mockSafeFetch
+			.mockRejectedValueOnce(new SourceResponseError(404, "buildinfo is not exposed"))
+			.mockResolvedValueOnce({ traces: [] });
+
+		await expect(adapter.healthCheck()).resolves.toMatchObject({ ok: true });
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+		const searchUrl = decodeURIComponent(
+			mockSafeFetch.mock.calls[1][0] as string
+		).replace(/\+/g, " ");
+		expect(searchUrl).toContain("/api/search");
+		expect(searchUrl).not.toContain("most_recent");
+	});
+
 	it("aggregateSpans totals every matching span via native TraceQL metrics (no sample cap)", async () => {
 		// Grafana-style: counts come from `/api/metrics/query_range`, which
 		// aggregates over the whole window. Buckets summing to 4200 must surface
@@ -200,8 +308,10 @@ describe("TempoAdapter", () => {
 		// Metrics endpoint returns no series -> we fall back to TraceQL search +
 		// full-trace fetch and count in-process (degraded / sampled).
 		mockSafeFetch
-			.mockResolvedValueOnce({}) // metrics: no series
-			.mockResolvedValueOnce({ traces: [{ traceID: "t1" }] }) // search
+			.mockRejectedValueOnce(
+				new SourceResponseError(404, "Data source responded 404: metrics disabled")
+			) // metrics endpoint unavailable
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] }) // search
 			.mockResolvedValueOnce(otlpTrace); // trace fetch
 		const frame = await adapter.aggregateSpans({
 			signal: "traces",
@@ -307,13 +417,178 @@ describe("TempoAdapter", () => {
 		expect(frame.rows.map((r: any) => Number(r.cost))).toEqual([5, 15]);
 	});
 
+	it("chunks multi-day TraceQL metrics through OpenPlait and de-duplicates boundary buckets", async () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const boundary = new Date("2026-07-02T00:00:00.000Z");
+		const end = new Date("2026-07-03T00:00:00.000Z");
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				series: [{ labels: [], samples: [
+					{ timestampMs: start.getTime(), value: 2 },
+					{ timestampMs: boundary.getTime(), value: 3 },
+				] }],
+			})
+			.mockResolvedValueOnce({
+				series: [{ labels: [], samples: [
+					{ timestampMs: boundary.getTime(), value: 3 },
+					{ timestampMs: end.getTime(), value: 4 },
+				] }],
+			});
+		const frame = await adapter.spanTimeSeries({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			interval: "1h",
+			aggregations: [{ fn: "count", as: "count" }],
+		});
+		expect((frame.rows as any[]).map((row) => Number(row.count))).toEqual([2, 3, 4]);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+		for (const call of mockSafeFetch.mock.calls) {
+			expect(new URL(call[0] as string).pathname).toBe("/api/metrics/query_range");
+		}
+	});
+
+	it("builds trace summary buckets from one OpenPlait search without fetching trace details", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			traces: [
+				{
+					traceID: TRACE_1,
+					rootServiceName: "checkout",
+					rootTraceName: "POST /checkout",
+					startTimeUnixNano: "1782864000000000000",
+					durationMs: 125,
+				},
+				{
+					traceID: TRACE_2,
+					rootServiceName: "payments",
+					rootTraceName: "POST /charge",
+					startTimeUnixNano: "1782867600000000000",
+					durationMs: 75,
+				},
+			],
+		});
+
+		const frame = await adapter.traceTimeSeries!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1h",
+			aiSelector: false,
+			aggregations: [
+				{ fn: "count", as: "count" },
+				{ fn: "avg", field: "duration", as: "avgDuration" },
+			],
+		});
+
+		expect(
+			(frame.rows as any[]).reduce(
+				(sum: number, row: any) => sum + Number(row.count || 0),
+				0
+			)
+		).toBe(2);
+		expect(frame.meta).toMatchObject({
+			freshness: "live",
+			truncated: false,
+			rowsScanned: 2,
+		});
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		const searchUrl = new URL(mockSafeFetch.mock.calls[0][0] as string);
+		expect(searchUrl.pathname).toBe("/api/search");
+		expect(searchUrl.searchParams.get("limit")).toBe("5001");
+		await expect(adapter.countTraces!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1h",
+			aiSelector: false,
+		})).resolves.toEqual({ total: 2, truncated: false });
+		// The list total and summary chart share the same cached Tempo search.
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("learns Grafana Cloud's Tempo search ceiling and retries the summary", async () => {
+		mockSafeFetch
+			.mockRejectedValueOnce(
+				new SourceResponseError(
+					400,
+					"Data source responded 400: limit 5001 exceeds max limit 1000"
+				)
+			)
+			.mockResolvedValueOnce({
+				traces: [
+					{
+						traceID: TRACE_1,
+						rootServiceName: "checkout",
+						rootTraceName: "POST /checkout",
+						startTimeUnixNano: "1782864000000000000",
+						durationMs: 125,
+					},
+				],
+			});
+
+		const frame = await adapter.traceTimeSeries!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1h",
+			aiSelector: false,
+			aggregations: [{ fn: "count", as: "count" }],
+		});
+
+		expect(frame.meta).toMatchObject({ freshness: "live", truncated: false });
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+		expect(
+			new URL(mockSafeFetch.mock.calls[0][0] as string).searchParams.get("limit")
+		).toBe("5001");
+		expect(
+			new URL(mockSafeFetch.mock.calls[1][0] as string).searchParams.get("limit")
+		).toBe("1000");
+	});
+
+	it("marks trace summary buckets sampled only when the 5000-trace cap is exceeded", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			traces: Array.from({ length: 5_001 }, (_, index) => ({
+				traceID: index.toString(16).padStart(32, "0"),
+				rootServiceName: "checkout",
+				rootTraceName: "POST /checkout",
+				startTimeUnixNano: "1782864000000000000",
+				durationMs: 25,
+			})),
+		});
+
+		const frame = await adapter.traceTimeSeries!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1h",
+			aiSelector: false,
+			aggregations: [{ fn: "count", as: "count" }],
+		});
+
+		expect(
+			(frame.rows as any[]).reduce(
+				(sum: number, row: any) => sum + Number(row.count || 0),
+				0
+			)
+		).toBe(5_000);
+		expect(frame.meta).toMatchObject({
+			freshness: "sampled",
+			truncated: true,
+			rowsScanned: 5_000,
+			degraded: ["traceSummaryLimit"],
+		});
+		await expect(adapter.countTraces!({
+			signal: "traces",
+			timeRange: window,
+			interval: "1h",
+			aiSelector: false,
+		})).resolves.toEqual({ total: 5_000, truncated: true });
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+	});
+
 	it("getTraceSpans parses OTLP into normalized spans with events", async () => {
 		mockSafeFetch.mockResolvedValue(otlpTrace);
-		const spans = await adapter.getTraceSpans("t1");
+		const spans = await adapter.getTraceSpans(TRACE_1);
 		expect(spans).toHaveLength(1);
 		expect(spans[0]).toMatchObject({
-			traceId: "t1",
-			spanId: "s1",
+			traceId: TRACE_1,
+			spanId: SPAN_1,
 			name: "chat",
 			serviceName: "svc",
 			statusCode: "STATUS_CODE_OK",
@@ -325,9 +600,9 @@ describe("TempoAdapter", () => {
 
 	it("listSpans searches for trace ids then fetches full traces in parallel", async () => {
 		mockSafeFetch
-			.mockResolvedValueOnce({ traces: [{ traceID: "t1" }, { traceID: "t2" }] })
-			.mockResolvedValueOnce(otlpForTrace("t1", "s1"))
-			.mockResolvedValueOnce(otlpForTrace("t2", "s2"));
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }, { traceID: TRACE_2 }] })
+			.mockResolvedValueOnce(otlpForTrace(TRACE_1, SPAN_1))
+			.mockResolvedValueOnce(otlpForTrace(TRACE_2, SPAN_2));
 		const frame = await adapter.listSpans({
 			signal: "traces",
 			timeRange: window,
@@ -339,14 +614,46 @@ describe("TempoAdapter", () => {
 		const searchUrl = mockSafeFetch.mock.calls[0][0] as string;
 		expect(searchUrl).toContain("/api/search");
 		expect(decodeURIComponent(searchUrl)).toContain("telemetry.sdk.name");
+		expect(mockSafeFetch.mock.calls[0][1]).toMatchObject({
+			headers: expect.objectContaining({
+				accept: "application/json",
+				authorization: "Bearer tok",
+				"x-request-id": expect.stringMatching(/^openlit:tempo:/),
+			}),
+			allowPrivateNetwork: true,
+		});
 		expect(frame.meta?.degraded).toContain("serverAggregation");
 		// Both traces fetched (parallel), not only the first.
 		expect(mockSafeFetch).toHaveBeenCalledTimes(3);
 	});
 
+	it("skips an oversized Tempo trace instead of failing the whole list", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				traces: [{ traceID: TRACE_1 }, { traceID: TRACE_2 }],
+			})
+			.mockRejectedValueOnce(
+				new SourceResponseError(
+					422,
+					"Data source responded 422: trace exceeds max size (max bytes: 5000000)"
+				)
+			)
+			.mockResolvedValueOnce(otlpForTrace(TRACE_2, SPAN_2));
+
+		const frame = await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			limit: 5,
+			aiSelector: false,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		expect(frame.rows[0]).toMatchObject({ traceId: TRACE_2, spanId: SPAN_2 });
+	});
+
 	it("getSpan returns a span from the warm cache after listSpans", async () => {
 		mockSafeFetch
-			.mockResolvedValueOnce({ traces: [{ traceID: "t1" }] })
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })
 			.mockResolvedValueOnce(otlpTrace);
 		await adapter.listSpans({
 			signal: "traces",
@@ -354,9 +661,63 @@ describe("TempoAdapter", () => {
 			limit: 5,
 			aiSelector: true,
 		});
-		const span = await adapter.getSpan("s1");
-		expect(span?.spanId).toBe("s1");
-		expect(span?.traceId).toBe("t1");
+		const span = await adapter.getSpan(SPAN_1);
+		expect(span?.spanId).toBe(SPAN_1);
+		expect(span?.traceId).toBe(TRACE_1);
+	});
+
+	it("getSpan returns null when Tempo's matched trace does not contain the requested span", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })
+			.mockResolvedValueOnce(otlpTrace);
+
+		await expect(adapter.getSpan(SPAN_2)).resolves.toBeNull();
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+	});
+
+	it("preserves Tempo's upstream HTTP status through the OpenPlait transport", async () => {
+		mockSafeFetch.mockRejectedValueOnce(
+			new SourceResponseError(429, "Data source responded 429: rate limited")
+		);
+
+		await expect(
+			adapter.listSpans({
+				signal: "traces",
+				timeRange: window,
+				limit: 5,
+				aiSelector: true,
+			})
+		).rejects.toThrow("Tempo returned HTTP 429");
+	});
+
+	it("discovers services through OpenPlait's Tempo v2 tag-values path", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			tagValues: [
+				{ type: "string", value: "checkout" },
+				{ type: "string", value: "payments" },
+			],
+		});
+
+		await expect(adapter.discoverServices(window)).resolves.toEqual([
+			{
+				serviceName: "checkout",
+				environment: "default",
+				clusterId: "default",
+			},
+			{
+				serviceName: "payments",
+				environment: "default",
+				clusterId: "default",
+			},
+		]);
+		const url = new URL(mockSafeFetch.mock.calls[0][0] as string);
+		expect(url.pathname).toBe(
+			"/api/v2/search/tag/resource.service.name/values"
+		);
+		expect(url.searchParams.get("q")).toContain("telemetry.sdk.name");
+		expect(url.searchParams.get("start")).toBe(
+			String(window.start.getTime() / 1000)
+		);
 	});
 });
 

@@ -44,15 +44,16 @@ export type WidgetStructuredMode = "list" | "aggregate" | "timeseries";
 
 /**
  * Optional per-widget telemetry source reference (Grafana-style per-panel
- * datasource). When `sourceId`/`signal` are omitted the widget resolves to the
- * project's default routing (built-in ClickHouse in CE). Raw `config.query`
- * SQL runs only on the built-in ClickHouse source; external sources must
- * provide `structuredQuery`.
+ * datasource). When `sourceId` is set, the widget queries that source (must
+ * belong to the current project / environment). When omitted, the widget
+ * follows the project's per-signal binding. Raw `config.query` SQL runs only
+ * on the built-in ClickHouse source; external sources must provide
+ * `structuredQuery`. Use `builtin:<databaseConfigId>` to pin ClickHouse.
  */
 export interface WidgetSourceConfig {
 	/** Raw ClickHouse SQL (built-in source only). */
 	query?: string;
-	/** Explicit TelemetrySource id override. */
+	/** Explicit TelemetrySource id override, or `builtin:<dbConfigId>`. */
 	sourceId?: string | null;
 	/** Signal used for signal-aware routing and structured dispatch. */
 	signal?: "traces" | "logs" | "metrics";
@@ -61,6 +62,8 @@ export interface WidgetSourceConfig {
 		mode?: WidgetStructuredMode;
 		/** A vendor-agnostic OpenLITQuery (timeRange is injected at run time). */
 		query: Record<string, any>;
+		/** UI-only filter rows; incomplete drafts never enter the executable query. */
+		draftFilters?: Array<Record<string, unknown>>;
 	};
 	[key: string]: any;
 }

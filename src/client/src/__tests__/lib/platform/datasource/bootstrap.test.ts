@@ -65,13 +65,27 @@ describe("datasource bootstrap", () => {
 		for (const type of [
 			"clickhouse",
 			"tempo",
+			"loki",
+			"prometheus",
 			"jaeger",
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);
 		}
-		for (const type of ["datadog", "loki", "mimir", "prometheus", "victoriametrics", "victorialogs"]) {
+		for (const type of ["datadog", "mimir", "victoriametrics", "victorialogs"]) {
 			expect(hasAdapterFactory(type)).toBe(false);
 		}
+	});
+
+	it("re-registers after the registry Map is cleared (HMR-safe)", () => {
+		ensureAdaptersRegistered();
+		expect(hasAdapterFactory("loki")).toBe(true);
+		// Simulate Next.js HMR reloading registry.ts into an empty Map while
+		// bootstrap's module-level `registered` flag remains true.
+		__resetRegistryForTests();
+		expect(hasAdapterFactory("loki")).toBe(false);
+		ensureAdaptersRegistered();
+		expect(hasAdapterFactory("loki")).toBe(true);
+		expect(hasAdapterFactory("prometheus")).toBe(true);
 	});
 
 	it("every registered atomic type exposes a valid config schema", () => {

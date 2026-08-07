@@ -1,12 +1,13 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { listTraceRecords } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
 	const limit = formData.limit || 10;
@@ -42,3 +43,5 @@ export async function POST(request: Request) {
 		return Response.json({ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" }, { status: 503 });
 	}
 }
+
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

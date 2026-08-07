@@ -8,6 +8,7 @@ const mockGetMetrics = jest.fn();
 const mockGetMetricsConfig = jest.fn();
 const mockGetLogAttributeKeys = jest.fn();
 const mockGetMetricAttributeKeys = jest.fn();
+const mockGetSignalSummary = jest.fn();
 
 jest.mock("@/lib/platform/common", () => ({
 	dataCollector: (...args: unknown[]) => mockDataCollector(...args),
@@ -29,6 +30,7 @@ jest.mock("@/lib/platform/observability", () => ({
 	getLogAttributeKeys: (...args: unknown[]) => mockGetLogAttributeKeys(...args),
 	getMetricAttributeKeys: (...args: unknown[]) =>
 		mockGetMetricAttributeKeys(...args),
+	getSignalSummary: (...args: unknown[]) => mockGetSignalSummary(...args),
 }));
 
 import { ClickHouseAdapter } from "@/lib/platform/connectors/datasource/clickhouse/adapter";
@@ -183,10 +185,13 @@ describe("ClickHouseAdapter", () => {
 	});
 
 	it("spanTimeSeries buckets by interval", async () => {
-		mockDataCollector.mockResolvedValue({ data: [] });
-		await adapter.spanTimeSeries({ ...baseQuery, interval: "1h" });
-		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
-		expect(sql).toContain("DATE_TRUNC('hour', Timestamp) AS bucket");
+		mockGetSignalSummary.mockResolvedValue({ buckets: [{ label: "10:00", count: 2 }] });
+		const frame = await adapter.spanTimeSeries({ ...baseQuery, interval: "1h" });
+		expect(mockGetSignalSummary).toHaveBeenCalledWith(
+			expect.objectContaining({ databaseConfigId: "db-1" }),
+			"traces"
+		);
+		expect(frame.rows).toEqual([{ label: "10:00", count: 2 }]);
 	});
 
 	it("distinctValues returns non-empty string values", async () => {
@@ -195,6 +200,13 @@ describe("ClickHouseAdapter", () => {
 		});
 		const values = await adapter.distinctValues("gen_ai.request.model", baseQuery);
 		expect(values).toEqual(["gpt-4", "claude"]);
+	});
+
+	it("distinctValues respects resource-scoped attribute fields", async () => {
+		mockDataCollector.mockResolvedValue({ data: [{ v: "production" }] });
+		await adapter.distinctValues("resource:deployment.environment", baseQuery);
+		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
+		expect(sql).toContain("ResourceAttributes['deployment.environment'] AS v");
 	});
 
 	it("attributeKeys(traces) merges span + resource keys", async () => {

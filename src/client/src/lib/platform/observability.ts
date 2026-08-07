@@ -423,6 +423,7 @@ export async function getMetricDetail(metricName: string, metricType?: string, s
 		...(serviceName ? { services: [serviceName] } : {}),
 	};
 	const effectiveParams: MetricParams = {
+		...params,
 		timeLimit: params?.timeLimit || {
 			type: "24H",
 			start: new Date(Date.now() - 24 * 60 * 60 * 1000),

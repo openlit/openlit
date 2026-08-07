@@ -17,7 +17,7 @@
  * `getFilterWhereCondition` and the requests query builder.
  */
 import {
-	dataCollector,
+	intelligenceDataCollector,
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
 import type { VersionFilter } from "@/types/platform";
@@ -132,7 +132,7 @@ async function probeAttributeStamping(
 			AND Timestamp BETWEEN parseDateTimeBestEffort('${first}') AND parseDateTimeBestEffort('${last}')
 		LIMIT 1
 	`;
-	const res = await dataCollector({ query }, "query", params.dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", params.dbConfigId);
 	if (res.err) {
 		agentsLogger.error("probe_attribute_stamping_failed", {
 			err: res.err,
@@ -182,4 +182,3 @@ export async function getVersionWindow(
 		};
 	});
 }
-

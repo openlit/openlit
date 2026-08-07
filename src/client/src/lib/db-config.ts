@@ -272,7 +272,10 @@ export const upsertDBConfig = async (
 			canDelete: true,
 			canShare: true,
 		});
-		migrations(createddbConfig.id);
+		// A saved connector must be ready for every ClickHouse-backed feature
+		// before the API returns. In particular, Rule Engine must not race the
+		// asynchronous creation of its openlit_rules tables.
+		await migrations(createddbConfig.id);
 	}
 	if (createddbConfig.projectId) {
 		try {
