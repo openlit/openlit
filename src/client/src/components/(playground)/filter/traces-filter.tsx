@@ -1247,36 +1247,36 @@ export default function TracesFilter({
 
 	return (
 		<div className="flex w-full min-w-0 flex-col items-stretch gap-2 mb-4">
-			<div className="flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-				<Filter className="min-w-0 shrink" signal={signal} />
-				{filterConfig && !!total && total > 0 && (
-					<TracesPagination
-						currentPage={filter.offset / filter.limit + 1}
-						currentSize={filter.limit}
-						totalPage={ceil(total / filter.limit)}
-						onClickPageAction={onClickPageAction}
-						onClickPageLimit={onClickPageLimit}
-					/>
-				)}
-				{showVisibilityColumns && (
-					<VisibilityColumns columns={columns} pageName={pageName} />
-				)}
-				{!!total && total > 0 && (
-					<Sorting
-						sorting={filter.sorting}
-						includeOnlySorting={includeOnlySorting}
-						customOptions={customSortOptions}
-					/>
-				)}
-				{supportDynamicFilters && showGroupBy && (
-					<GroupByDropdown
-						groupBy={filter.groupBy}
-						onChangeGroupBy={onChangeGroupBy}
-						customAttributeTypes={customAttributeTypes}
-					/>
-				)}
-				{extraControls}
+			<div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+				<Filter className="min-w-0 shrink-0" signal={signal} />
 				<div className="ml-auto flex shrink-0 items-center gap-2">
+					{filterConfig && !!total && total > 0 && (
+						<TracesPagination
+							currentPage={filter.offset / filter.limit + 1}
+							currentSize={filter.limit}
+							totalPage={ceil(total / filter.limit)}
+							onClickPageAction={onClickPageAction}
+							onClickPageLimit={onClickPageLimit}
+						/>
+					)}
+					{showVisibilityColumns && (
+						<VisibilityColumns columns={columns} pageName={pageName} />
+					)}
+					{!!total && total > 0 && (
+						<Sorting
+							sorting={filter.sorting}
+							includeOnlySorting={includeOnlySorting}
+							customOptions={customSortOptions}
+						/>
+					)}
+					{supportDynamicFilters && showGroupBy && (
+						<GroupByDropdown
+							groupBy={filter.groupBy}
+							onChangeGroupBy={onChangeGroupBy}
+							customAttributeTypes={customAttributeTypes}
+						/>
+					)}
+					{extraControls}
 					{supportDynamicFilters && (
 						<Button
 							variant="outline"
