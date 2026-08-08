@@ -185,7 +185,10 @@ export default function ObservabilitySignalList({
 		return config.normalize ? records.map(config.normalize) : records;
 	}, [config, data]);
 	const total = (data as any)?.total || 0;
-	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
+	const isTraceSignal =
+		config.key === "traces" ||
+		config.key === "spans" ||
+		config.key === "exceptions";
 	const isMetricSignal = config.key === "metrics";
 	const isLogSignal = config.key === "logs";
 	// Coding-agent sessions render through the same TraceDetailView used

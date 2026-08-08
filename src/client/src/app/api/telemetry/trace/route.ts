@@ -1,5 +1,9 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequests, getRequestsConfig } from "@/lib/platform/request";
+import {
+	getRequests,
+	getRequestsConfig,
+	getTraceSummaries,
+} from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -39,9 +43,13 @@ export async function POST(request: Request) {
 				status: 400,
 			});
 
-		const res: any = await getRequests(params);
-
 		const { searchParams } = new URL(request.url);
+		const view = searchParams.get("view") || formData.view;
+		const res: any =
+			view === "traces"
+				? await getTraceSummaries(params)
+				: await getRequests(params);
+
 		const includeFilters = (searchParams.get("includeFilters") === "true") || (formData.includeFilters === true);
 
 		if (includeFilters && !res.err) {

@@ -268,6 +268,79 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
+/**
+ * Return one representative row for each trace.
+ *
+ * The representative span is the root span when one exists. Otherwise, it is
+ * the earliest span. The returned SpanId can therefore open the existing trace
+ * hierarchy without a second lookup.
+ */
+export async function getTraceSummaries(params: MetricParams) {
+	const { limit = 10, offset = 0 } = params;
+	const where = getFilterWhereCondition(params, true);
+	const rootOrder = "tuple(if(empty(ParentSpanId), 0, 1), Timestamp)";
+
+	const countQuery = `SELECT CAST(uniqExact(TraceId) AS INTEGER) AS total
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${where}`;
+
+	const { data: dataTotal, err: errTotal } = await dataCollector(
+		{ query: countQuery },
+		"query",
+		params.databaseConfigId
+	);
+	if (errTotal) return { err: errTotal };
+
+	const query = `WITH filtered_trace_ids AS (
+		SELECT DISTINCT TraceId
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${where}
+	)
+	SELECT
+		TraceId,
+		argMin(SpanId, ${rootOrder}) AS SpanId,
+		argMin(ParentSpanId, ${rootOrder}) AS ParentSpanId,
+		argMin(TraceState, ${rootOrder}) AS TraceState,
+		argMin(SpanName, ${rootOrder}) AS SpanName,
+		argMin(SpanKind, ${rootOrder}) AS SpanKind,
+		argMin(ServiceName, ${rootOrder}) AS ServiceName,
+		argMin(ResourceAttributes, ${rootOrder}) AS ResourceAttributes,
+		argMin(ScopeName, ${rootOrder}) AS ScopeName,
+		argMin(ScopeVersion, ${rootOrder}) AS ScopeVersion,
+		argMin(SpanAttributes, ${rootOrder}) AS SpanAttributes,
+		min(Timestamp) AS Timestamp,
+		toString(
+			greatest(
+				toInt64(0),
+				toUnixTimestamp64Nano(max(addNanoseconds(Timestamp, toInt64(Duration)))) -
+				toUnixTimestamp64Nano(min(Timestamp))
+			)
+		) AS Duration,
+		if(countIf(StatusCode = 'STATUS_CODE_ERROR') > 0, 'STATUS_CODE_ERROR', argMin(StatusCode, ${rootOrder})) AS StatusCode,
+		argMaxIf(StatusMessage, Timestamp, notEmpty(StatusMessage)) AS StatusMessage,
+		argMin(Events, ${rootOrder}) AS Events,
+		argMin(Links, ${rootOrder}) AS Links,
+		CAST(count() AS INTEGER) AS SpanCount,
+		CAST(countIf(StatusCode = 'STATUS_CODE_ERROR') AS INTEGER) AS ErrorCount
+	FROM ${OTEL_TRACES_TABLE_NAME}
+	WHERE TraceId IN (SELECT TraceId FROM filtered_trace_ids)
+	GROUP BY TraceId
+	ORDER BY Timestamp DESC
+	LIMIT ${limit}
+	OFFSET ${offset}`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		params.databaseConfigId
+	);
+	return {
+		err,
+		records: data,
+		total: (dataTotal as any[])?.[0]?.total || 0,
+	};
+}
+
 export async function getRequestViaSpanId(spanId: string, dbConfigId?: string) {
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 

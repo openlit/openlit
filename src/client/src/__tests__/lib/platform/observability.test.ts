@@ -128,6 +128,13 @@ describe("observability platform queries", () => {
 		expect(metrics.peak).toBe(4);
 	});
 
+	it("counts unique trace ids for a trace-level summary", async () => {
+		await getSignalSummary(params as any, "traces", true);
+
+		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).toContain("uniqExact(TraceId)");
+	});
+
 	it("sanitizes log row ids before lookup", async () => {
 		await getLogByRowId("abc123 OR 1=1");
 
