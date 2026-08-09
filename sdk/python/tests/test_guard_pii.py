@@ -141,6 +141,15 @@ class TestPIIRedaction:
             == "contact [REDACTED:email] or call [REDACTED:phone-us]"
         )
 
+    def test_adjacent_spans_still_redact_separately(self):
+        """Touching but non-overlapping matches are not merged into one span."""
+        guard = PII(action="redact")
+        result = guard.evaluate("SK" + "a" * 32 + "github_pat_" + "b" * 22)
+        assert (
+            result.transformed_text
+            == "[REDACTED:twilio-api-key][REDACTED:github-fine-grained]"
+        )
+
 
 class TestPIIWarn:  # pylint: disable=too-few-public-methods
     """``warn`` action emits an event without transforming the text."""
