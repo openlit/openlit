@@ -12,27 +12,37 @@ import (
 
 // PricingInfo holds pricing information for a model
 type PricingInfo struct {
-	InputCostPerToken  float64 `json:"input_cost_per_token"`
-	OutputCostPerToken float64 `json:"output_cost_per_token"`
+	InputCostPerToken         float64 `json:"input_cost_per_token"`
+	OutputCostPerToken        float64 `json:"output_cost_per_token"`
+	CacheReadCostPerToken     float64 `json:"cache_read_cost_per_token"`
+	CacheCreationCostPerToken float64 `json:"cache_creation_cost_per_token"`
 }
 
 // PricingCache manages pricing information with automatic fetching
 type PricingCache struct {
-	mu                sync.RWMutex
-	prices            map[string]PricingInfo
-	endpoint          string
-	disableFetch      bool
-	lastFetch         time.Time
-	fetchInterval     time.Duration
-	client            *http.Client
+	mu            sync.RWMutex
+	prices        map[string]PricingInfo
+	endpoint      string
+	disableFetch  bool
+	lastFetch     time.Time
+	fetchInterval time.Duration
+	client        *http.Client
 }
 
 // pricingResponse represents the structure from the pricing JSON
 type pricingResponse struct {
 	Data map[string]struct {
-		Input  float64 `json:"input"`
-		Output float64 `json:"output"`
+		Input         float64 `json:"input"`
+		Output        float64 `json:"output"`
+		CacheRead     float64 `json:"cache_read"`
+		CacheCreation float64 `json:"cache_creation"`
 	} `json:"data"`
+	Chat map[string]struct {
+		PromptPrice        float64 `json:"promptPrice"`
+		CompletionPrice    float64 `json:"completionPrice"`
+		CacheReadPrice     float64 `json:"cacheReadPrice"`
+		CacheCreationPrice float64 `json:"cacheCreationPrice"`
+	} `json:"chat"`
 }
 
 var (
@@ -109,6 +119,12 @@ func (pc *PricingCache) SetPricing(model string, pricing PricingInfo) {
 
 // CalculateCost calculates the cost for input and output tokens
 func (pc *PricingCache) CalculateCost(model string, inputTokens, outputTokens int) float64 {
+	return pc.CalculateCostWithCache(model, inputTokens, outputTokens, 0, 0)
+}
+
+// CalculateCostWithCache calculates cost including Anthropic cache tokens.
+// Cache prices are optional so existing custom pricing remains compatible.
+func (pc *PricingCache) CalculateCostWithCache(model string, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens int) float64 {
 	pricing, ok := pc.GetPricing(model)
 	if !ok {
 		return 0.0
@@ -116,8 +132,10 @@ func (pc *PricingCache) CalculateCost(model string, inputTokens, outputTokens in
 
 	inputCost := float64(inputTokens) * pricing.InputCostPerToken
 	outputCost := float64(outputTokens) * pricing.OutputCostPerToken
+	cacheReadCost := float64(cacheReadTokens) * pricing.CacheReadCostPerToken
+	cacheCreationCost := float64(cacheCreationTokens) * pricing.CacheCreationCostPerToken
 
-	return inputCost + outputCost
+	return inputCost + outputCost + cacheReadCost + cacheCreationCost
 }
 
 // fetchPricing fetches pricing information from the endpoint
@@ -159,8 +177,23 @@ func (pc *PricingCache) fetchPricing(ctx context.Context) {
 		// Don't override custom pricing
 		if _, exists := pc.prices[normalizedModel]; !exists {
 			pc.prices[normalizedModel] = PricingInfo{
-				InputCostPerToken:  prices.Input,
-				OutputCostPerToken: prices.Output,
+				InputCostPerToken:         prices.Input,
+				OutputCostPerToken:        prices.Output,
+				CacheReadCostPerToken:     prices.CacheRead,
+				CacheCreationCostPerToken: prices.CacheCreation,
+			}
+		}
+	}
+
+	// The repository pricing file stores chat prices per 1,000 tokens.
+	for model, prices := range pricingData.Chat {
+		normalizedModel := normalizeModelName(model)
+		if _, exists := pc.prices[normalizedModel]; !exists {
+			pc.prices[normalizedModel] = PricingInfo{
+				InputCostPerToken:         prices.PromptPrice / 1000,
+				OutputCostPerToken:        prices.CompletionPrice / 1000,
+				CacheReadCostPerToken:     prices.CacheReadPrice / 1000,
+				CacheCreationCostPerToken: prices.CacheCreationPrice / 1000,
 			}
 		}
 	}
@@ -188,6 +221,11 @@ func normalizeModelName(model string) string {
 
 // CalculateGlobalCost is a convenience function using the global cache
 func CalculateGlobalCost(model string, inputTokens, outputTokens int) float64 {
+	return CalculateGlobalCostWithCache(model, inputTokens, outputTokens, 0, 0)
+}
+
+// CalculateGlobalCostWithCache calculates cost including cache token pricing.
+func CalculateGlobalCostWithCache(model string, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens int) float64 {
 	cache := GetGlobalPricingCache()
-	return cache.CalculateCost(model, inputTokens, outputTokens)
+	return cache.CalculateCostWithCache(model, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens)
 }

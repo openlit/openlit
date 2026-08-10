@@ -117,6 +117,7 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 	var messageModel string
 	var stopReason string
 	var inputTokens, outputTokens int
+	var cacheReadInputTokens, cacheCreationInputTokens int
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -161,6 +162,8 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 				messageModel = event.Message.Model
 				if event.Message.Usage != nil {
 					inputTokens = event.Message.Usage.InputTokens
+					cacheReadInputTokens = event.Message.Usage.CacheReadInputTokens
+					cacheCreationInputTokens = event.Message.Usage.CacheCreationInputTokens
 				}
 			}
 
@@ -180,6 +183,12 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 			}
 			if event.Usage != nil {
 				outputTokens = event.Usage.OutputTokens
+				if event.Usage.CacheReadInputTokens > 0 {
+					cacheReadInputTokens = event.Usage.CacheReadInputTokens
+				}
+				if event.Usage.CacheCreationInputTokens > 0 {
+					cacheCreationInputTokens = event.Usage.CacheCreationInputTokens
+				}
 			}
 		}
 
@@ -212,12 +221,22 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 		semconv.SetStringSliceAttribute(span, semconv.GenAIResponseFinishReasons, []string{stopReason})
 	}
 
-	if inputTokens > 0 || outputTokens > 0 {
-		semconv.SetIntAttribute(span, semconv.GenAIUsageInputTokens, inputTokens)
-		semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, outputTokens)
-		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, inputTokens+outputTokens)
+	if inputTokens > 0 || outputTokens > 0 || cacheReadInputTokens > 0 || cacheCreationInputTokens > 0 {
+		usage := &Usage{
+			InputTokens:              inputTokens,
+			OutputTokens:             outputTokens,
+			CacheReadInputTokens:     cacheReadInputTokens,
+			CacheCreationInputTokens: cacheCreationInputTokens,
+		}
+		setUsageAttributes(span, usage)
 
-		cost := helpers.CalculateGlobalCost(messageModel, inputTokens, outputTokens)
+		cost := helpers.CalculateGlobalCostWithCache(
+			messageModel,
+			inputTokens,
+			outputTokens,
+			cacheReadInputTokens,
+			cacheCreationInputTokens,
+		)
 		semconv.SetFloat64Attribute(span, semconv.GenAIUsageCost, cost)
 
 		// Record OTel metrics

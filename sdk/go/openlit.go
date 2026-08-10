@@ -59,8 +59,10 @@ func Init(cfg Config) error {
 	customPricing := make(map[string]helpers.PricingInfo)
 	for model, p := range cfg.PricingInfo {
 		customPricing[model] = helpers.PricingInfo{
-			InputCostPerToken:  p.InputCostPerToken,
-			OutputCostPerToken: p.OutputCostPerToken,
+			InputCostPerToken:         p.InputCostPerToken,
+			OutputCostPerToken:        p.OutputCostPerToken,
+			CacheReadCostPerToken:     p.CacheReadCostPerToken,
+			CacheCreationCostPerToken: p.CacheCreationCostPerToken,
 		}
 	}
 	helpers.InitGlobalPricingCache(cfg.PricingEndpoint, cfg.DisablePricingFetch, customPricing)

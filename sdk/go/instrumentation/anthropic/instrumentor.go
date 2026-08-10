@@ -99,7 +99,13 @@ func (c *InstrumentedClient) createMessage(ctx context.Context, req MessageReque
 	setResponseAttributes(span, &resp, req.Model, duration)
 
 	if resp.Usage != nil {
-		cost := helpers.CalculateGlobalCost(resp.Model, resp.Usage.InputTokens, resp.Usage.OutputTokens)
+		cost := helpers.CalculateGlobalCostWithCache(
+			resp.Model,
+			resp.Usage.InputTokens,
+			resp.Usage.OutputTokens,
+			resp.Usage.CacheReadInputTokens,
+			resp.Usage.CacheCreationInputTokens,
+		)
 		semconv.SetFloat64Attribute(span, semconv.GenAIUsageCost, cost)
 
 		// Record OTel metrics
@@ -196,15 +202,7 @@ func setResponseAttributes(span trace.Span, resp *MessageResponse, requestModel 
 	}
 
 	if resp.Usage != nil {
-		semconv.SetIntAttribute(span, semconv.GenAIUsageInputTokens, resp.Usage.InputTokens)
-		semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, resp.Usage.OutputTokens)
-		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, resp.Usage.InputTokens+resp.Usage.OutputTokens)
-		if resp.Usage.CacheCreationInputTokens > 0 {
-			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite, resp.Usage.CacheCreationInputTokens)
-		}
-		if resp.Usage.CacheReadInputTokens > 0 {
-			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, resp.Usage.CacheReadInputTokens)
-		}
+		setUsageAttributes(span, resp.Usage)
 	}
 
 	// Extract tool_use blocks from the model's response
@@ -246,6 +244,21 @@ func setResponseAttributes(span trace.Span, resp *MessageResponse, requestModel 
 			{Role: resp.Role, Content: completionText},
 		}
 		semconv.SetMessagesAttribute(span, semconv.GenAIOutputMessages, outputMessages) //nolint:errcheck
+	}
+}
+
+func setUsageAttributes(span trace.Span, usage *Usage) {
+	semconv.SetIntAttribute(span, semconv.GenAIUsageInputTokens, usage.InputTokens)
+	semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, usage.OutputTokens)
+	totalTokens := usage.InputTokens + usage.OutputTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens
+	semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, totalTokens)
+	if usage.CacheCreationInputTokens > 0 {
+		semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite, usage.CacheCreationInputTokens)
+		semconv.SetIntAttribute(span, semconv.GenAIUsageCacheCreationInputTokens, usage.CacheCreationInputTokens)
+	}
+	if usage.CacheReadInputTokens > 0 {
+		semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, usage.CacheReadInputTokens)
+		semconv.SetIntAttribute(span, semconv.GenAIUsageCacheReadInputTokens, usage.CacheReadInputTokens)
 	}
 }
 

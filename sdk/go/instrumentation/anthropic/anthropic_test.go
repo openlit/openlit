@@ -5,12 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/helpers"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -498,5 +505,80 @@ func TestCreateMessage_Streaming_Error(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "401") {
 		t.Errorf("expected 401 in streaming error, got: %v", err)
+	}
+}
+
+func TestCreateMessage_Streaming_CacheUsage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		events := []struct{ event, data string }{
+			{"message_start", `{"type":"message_start","message":{"id":"msg-cache","type":"message","role":"assistant","content":[],"model":"claude-cache-test","usage":{"input_tokens":10,"cache_read_input_tokens":100,"cache_creation_input_tokens":20}}}`},
+			{"content_block_delta", `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"cached"}}`},
+			{"message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}`},
+			{"message_stop", `{"type":"message_stop"}`},
+		}
+		for _, event := range events {
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.event, event.data)
+			w.(http.Flusher).Flush()
+		}
+	}))
+	defer srv.Close()
+
+	helpers.InitGlobalPricingCache("", true, map[string]helpers.PricingInfo{
+		"claude-cache-test": {
+			InputCostPerToken:         0.001,
+			OutputCostPerToken:        0.002,
+			CacheReadCostPerToken:     0.0001,
+			CacheCreationCostPerToken: 0.003,
+		},
+	})
+
+	exporter := tracetest.NewInMemoryExporter()
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(sdktrace.NewSimpleSpanProcessor(exporter)),
+	)
+	otel.SetTracerProvider(tracerProvider)
+	t.Cleanup(func() { _ = tracerProvider.Shutdown(context.Background()) })
+
+	client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+	stream, err := client.CreateMessageStream(context.Background(), MessageRequest{
+		Model:     "claude-cache-test",
+		MaxTokens: 40,
+		Messages:  []Message{{Role: "user", Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateMessageStream: %v", err)
+	}
+	for {
+		_, err = stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("stream.Recv: %v", err)
+		}
+	}
+
+	spans := exporter.GetSpans()
+	if len(spans) != 1 {
+		t.Fatalf("got %d spans, want 1", len(spans))
+	}
+	attributes := make(map[attribute.Key]attribute.Value)
+	for _, kv := range spans[0].Attributes {
+		attributes[kv.Key] = kv.Value
+	}
+
+	if got := attributes[semconv.GenAIUsageTotalTokens].AsInt64(); got != 132 {
+		t.Errorf("total tokens = %d, want 132", got)
+	}
+	if got := attributes[semconv.GenAIUsagePromptTokensDetailsCacheRead].AsInt64(); got != 100 {
+		t.Errorf("cache read tokens = %d, want 100", got)
+	}
+	if got := attributes[semconv.GenAIUsagePromptTokensDetailsCacheWrite].AsInt64(); got != 20 {
+		t.Errorf("cache creation tokens = %d, want 20", got)
+	}
+	if got := attributes[semconv.GenAIUsageCost].AsFloat64(); math.Abs(got-0.084) > 1e-12 {
+		t.Errorf("cost = %v, want 0.084", got)
 	}
 }
