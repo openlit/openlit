@@ -187,7 +187,7 @@ export async function getMetricsSummary(params: MetricParams) {
 				services: prev.services + (Number(row.services) || 0),
 			});
 		}
-		const buckets = [...merged.entries()]
+		const buckets = Array.from(merged.entries())
 			.sort(([a], [b]) => a.localeCompare(b))
 			.map(([label, stats]) => ({
 				label,
