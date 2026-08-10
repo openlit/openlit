@@ -122,7 +122,21 @@ export default function ObservabilitySignalList({
 	} = useFetchWrapper();
 
 	useEffect(() => {
-		prepareObservabilitySignalChange(updateConfig, updateFilter, updateAttributeKeys);
+		prepareObservabilitySignalChange(
+			updateConfig,
+			updateFilter,
+			updateAttributeKeys,
+			isAgentScoped
+				? {
+						serviceNames: filter.selectedConfig?.serviceNames,
+						services: filter.selectedConfig?.services,
+						environments: filter.selectedConfig?.environments,
+						versionFilter: filter.selectedConfig?.versionFilter,
+					}
+				: null
+		);
+		// Only re-run when the signal changes. isAgentScoped / current scope
+		// are read at that moment so we can preserve the agent lock.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [config.key]);
 
@@ -312,7 +326,7 @@ export default function ObservabilitySignalList({
 			if (!targetSpanId) return;
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(targetSpanId);
-			setSelectedInUrl(targetSpanId);
+			setSelectedInUrl(targetSpanId, safe.trace_id || safe.TraceId || null);
 			return;
 		}
 		if (isMetricSignal) {
@@ -588,6 +602,11 @@ export default function ObservabilitySignalList({
 							{selectedLogRow && (
 								<LogDetailView
 									id={config.getRowId(selectedLogRow)}
+									aroundTimestamp={
+										selectedLogRow.Timestamp
+											? String(selectedLogRow.Timestamp)
+											: null
+									}
 									from={
 										typeof window !== "undefined"
 											? `${window.location.pathname}${window.location.search}`

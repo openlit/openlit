@@ -10,10 +10,8 @@
  * any client-side branching.
  */
 
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CODING_AGENT_ATTR,
@@ -69,8 +67,9 @@ const USER_EXPR = `
 `;
 
 async function POSTHandler(request: Request) {
+	let auth;
 	try {
-		await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });
@@ -132,7 +131,7 @@ async function POSTHandler(request: Request) {
 		ORDER BY min(Timestamp)
 	`;
 
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		console.error("coding_agent.users.summary_failed", err);
 		return Response.json({ error: "Internal error" }, { status: 500 });

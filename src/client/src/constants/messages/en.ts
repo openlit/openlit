@@ -582,6 +582,14 @@ export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the insta
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
 // can run when prompts / responses are missing from a coding-agent
+// Coding Agents — env-routed ClickHouse resolution errors
+export const CODING_AGENTS_DB_NOT_IN_PROJECT =
+	"The selected ClickHouse datasource is not available in the current project.";
+export const CODING_AGENTS_REQUIRES_CLICKHOUSE =
+	"Coding Agents require a ClickHouse datasource for the selected environment's traces or intelligence routing.";
+export const OBSERVABILITY_LOG_NOT_FOUND =
+	"Log entry not found in the selected time range or data source.";
+// Shown when coding-agent sessions lack captured prompts / completions from the
 // trace (i.e. the CLI is in metadata_only or minimal mode). Tracks the
 // OPENLIT_CODING_CONTENT_CAPTURE flag used by the CLI.
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";

@@ -728,14 +728,14 @@ export async function listSessions(
 			LIMIT ${limit + 1}
 		`;
 
-	const dataPromise = intelligenceDataCollector({ query: dataQuery });
+	const dataPromise = intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId);
 	const totalPromise = opts.withTotal
 		? intelligenceDataCollector({
 			query: `
 				${sessionsRawCte}
 				SELECT toInt64(count()) AS total FROM sessions_raw
 			`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
@@ -1032,7 +1032,7 @@ export async function getCodingSessionDigest(
 		LIMIT 1
 	`;
 
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const row = (data as Array<Record<string, unknown>> | undefined)?.[0];
 	if (!row) return null;
@@ -1114,7 +1114,7 @@ async function countUserSessionsForCohort(
 			HAVING ${USER_EXPR} = '${safeUser}'
 		)
 	`;
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// On error, fail closed: treat as below-floor for safety.
 		// A spurious 404 is preferable to leaking the digest.
@@ -1405,8 +1405,8 @@ export async function getCodingUserDigest(
 
 	const [{ data: digestData, err: digestErr }, { data: vendorsData }] =
 		await Promise.all([
-			intelligenceDataCollector({ query: digestQuery }),
-			intelligenceDataCollector({ query: vendorsQuery }),
+			intelligenceDataCollector({ query: digestQuery }, "query", auth.dbConfigId),
+			intelligenceDataCollector({ query: vendorsQuery }, "query", auth.dbConfigId),
 		]);
 	if (digestErr) throw digestErr;
 	const digestRow = (digestData as CodingUserDigest[] | undefined)?.[0];
@@ -1699,11 +1699,11 @@ export async function listCodingUsers(
 	const totalPromise = opts.withTotal
 		? intelligenceDataCollector({
 			query: `SELECT toInt64(count()) AS total ${baseSubquery}`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
-		intelligenceDataCollector({ query: dataQuery }),
+		intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId),
 		totalPromise,
 	]);
 	if (err) throw err;
@@ -1789,7 +1789,7 @@ async function applyCohortFloor<T extends { user: string }>(
 		WHERE user IN (${inList})
 		GROUP BY user
 	`;
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const counts = new Map<string, number>();
 	for (const row of (data || []) as { user: string; sessions: number }[]) {
@@ -1862,7 +1862,7 @@ async function disputeSessionExists(
 			)
 		LIMIT 1
 	`;
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Treat lookup failure as "not present" — better to reject a
 		// dispute than to accept one that points at a non-existent
@@ -1894,7 +1894,7 @@ async function disputeAlreadyExists(
 			AND status = 'open'
 		LIMIT 1
 	`;
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure here means we can't tell if an
 		// open dispute already exists. The cost of a false-positive
@@ -1926,7 +1926,7 @@ async function disputeRateLimitExceeded(
 			AND action = 'coding_agent.classification.dispute'
 			AND created_at >= now() - INTERVAL ${DISPUTE_RATE_LIMIT_WINDOW_MIN} MINUTE
 	`;
-	const { data, err } = await intelligenceDataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure must NOT degrade into "no rate
 		// limit applied" — that turns this guard into a bypass-on-error
@@ -1995,7 +1995,7 @@ export async function submitClassificationDispute(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (disputeErr) throw disputeErr;
 
@@ -2029,7 +2029,7 @@ export async function writeAuditLog(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (err) {
 		// We don't throw on audit failure — the user-visible action

@@ -25,7 +25,10 @@ const DEFAULT_MAX_QUERY_RANGE_MS = 30 * 24 * 60 * 60 * 1_000;
 const LOG_INDEX_MAX = 5_000;
 /** Recent-window fallback when a detail link misses the warm index. */
 const GET_LOG_FALLBACK_RANGE_MS = 24 * 60 * 60 * 1_000;
+/** When a list row supplies Timestamp, search a tight window around it. */
+const GET_LOG_AROUND_PAD_MS = 60 * 60 * 1_000;
 const GET_LOG_FALLBACK_LIMIT = 500;
+const GET_LOG_AROUND_LIMIT = 2_000;
 const learnedQueryRangeBySource = new Map<string, number>();
 
 /**
@@ -364,18 +367,42 @@ export class LokiAdapter extends OpenPlaitHttpAdapter {
 		});
 	}
 
-	async getLog(logId: string): Promise<NormalizedLog | null> {
+	async getLog(
+		logId: string,
+		opts?: { aroundTimestamp?: string | Date; timeRange?: QueryTimeRange }
+	): Promise<NormalizedLog | null> {
 		const id = String(logId || "").trim();
 		if (!id) return null;
 		const cached = lookupIndexedLog(this.descriptor.id, id);
 		if (cached) return cached;
 
-		const end = new Date();
-		const start = new Date(end.getTime() - GET_LOG_FALLBACK_RANGE_MS);
+		let start: Date;
+		let end: Date;
+		let limit = GET_LOG_FALLBACK_LIMIT;
+		if (opts?.timeRange?.start && opts?.timeRange?.end) {
+			start = new Date(opts.timeRange.start);
+			end = new Date(opts.timeRange.end);
+			limit = GET_LOG_AROUND_LIMIT;
+		} else if (opts?.aroundTimestamp) {
+			const center = new Date(opts.aroundTimestamp);
+			if (!Number.isNaN(center.getTime())) {
+				start = new Date(center.getTime() - GET_LOG_AROUND_PAD_MS);
+				end = new Date(center.getTime() + GET_LOG_AROUND_PAD_MS);
+				limit = GET_LOG_AROUND_LIMIT;
+			} else {
+				end = new Date();
+				start = new Date(end.getTime() - GET_LOG_FALLBACK_RANGE_MS);
+			}
+		} else {
+			end = new Date();
+			start = new Date(end.getTime() - Math.min(this.maxQueryRangeMs, 7 * 24 * 60 * 60 * 1_000));
+			limit = GET_LOG_AROUND_LIMIT;
+		}
+
 		const frame = await this.listLogs({
 			signal: "logs",
 			timeRange: { start, end },
-			limit: GET_LOG_FALLBACK_LIMIT,
+			limit,
 			sort: [{ field: "timestamp", direction: "desc" }],
 		});
 		return (

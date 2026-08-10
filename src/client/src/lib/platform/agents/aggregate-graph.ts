@@ -125,8 +125,10 @@ function dagToAggregateGraph(dag: AggregateDag): AggregateGraph {
  * External trace sources (Tempo, Jaeger, …) cannot express the ClickHouse
  * self-join. When traces resolve to a non-built-in source, sample a bounded
  * set of full traces via the adapter and reconstruct the DAG in-process.
- * Returns `null` when the source is built-in (caller keeps the SQL path) or
- * when the adapter cannot sample.
+ * Returns `null` when the source is built-in (caller keeps the SQL path),
+ * when sampling fails, or when the sample is empty so the caller can fall
+ * back to ClickHouse (common when Tempo is bound but agent spans still live
+ * in the intelligence / vault ClickHouse).
  */
 async function getExternalAggregateGraph(
 	params: AggregateGraphParams,
@@ -134,7 +136,9 @@ async function getExternalAggregateGraph(
 ): Promise<AggregateGraph | null> {
 	let adapter;
 	try {
-		const ctx = await resolveSignalReadContext("traces");
+		const ctx = await resolveSignalReadContext("traces", {
+			environment: params.environment,
+		});
 		if (ctx.isBuiltIn) return null;
 		adapter = ctx.adapter;
 	} catch {
@@ -173,7 +177,13 @@ async function getExternalAggregateGraph(
 			value: params.environment,
 		});
 	}
-	if (params.versionFilter?.versionHash) {
+	// Mirror ClickHouse hybrid version scoping: only require the stamped
+	// hash when the version is known to carry it. Otherwise the time window
+	// alone scopes the sample (historical / unstamped SDKs).
+	if (
+		params.versionFilter?.versionHash &&
+		params.versionFilter.hasAttributeSpans
+	) {
 		filters.push({
 			target: "attribute",
 			key: "openlit.agent.version_hash",
@@ -185,14 +195,36 @@ async function getExternalAggregateGraph(
 		signal: "traces",
 		timeRange: { start, end },
 		filters,
-		aiSelector: true,
+		// Service is already pinned; the AI selector is optional enrichment
+		// and must not exclude non-heuristic agent spans for this surface.
+		aiSelector: false,
 	};
 	try {
 		const spans = await adapter.sampleTracesForGraph(query, maxTraces);
-		return dagToAggregateGraph(buildAggregateDag(spans));
+		const graph = dagToAggregateGraph(buildAggregateDag(spans));
+		if (graph.traceCount === 0) return null;
+		return graph;
 	} catch (err) {
 		agentsLogger.error("aggregate_graph_external_failed", { err });
-		return { nodes: [], edges: [], traceCount: 0, spanCount: 0 };
+		return null;
+	}
+}
+
+async function resolveAggregateGraphClickHouseId(
+	params: AggregateGraphParams
+): Promise<string | undefined> {
+	if (params.dbConfigId) return params.dbConfigId;
+	try {
+		const { resolveCodingAgentsClickHouseDbConfigId } = await import(
+			"@/lib/platform/coding-agents/source"
+		);
+		return (
+			(await resolveCodingAgentsClickHouseDbConfigId({
+				environment: params.environment,
+			})) ?? undefined
+		);
+	} catch {
+		return undefined;
 	}
 }
 
@@ -208,6 +240,7 @@ export async function getAggregateGraph(
 	if (external) return external;
 
 	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
+	const dbConfigId = await resolveAggregateGraphClickHouseId(params);
 
 	const env = params.environment || "default";
 	const envPredicate =
@@ -326,7 +359,7 @@ export async function getAggregateGraph(
 	const combinedRes = await intelligenceDataCollector(
 		{ query: combinedQuery },
 		"query",
-		params.dbConfigId
+		dbConfigId
 	);
 	if (combinedRes.err) {
 		agentsLogger.error("aggregate_graph_query_failed", {

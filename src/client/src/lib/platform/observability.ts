@@ -118,8 +118,27 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 	}
 
 	const selected = params.selectedConfig || {};
-	if (selected.services?.length) {
-		where.push(`ServiceName IN (${inList(selected.services)})`);
+	const serviceNames = Array.from(
+		new Set([
+			...(selected.services || []),
+			...(selected.serviceNames || []),
+			...(selected.applicationNames || []),
+		].map(String).filter(Boolean))
+	);
+	if (serviceNames.length) {
+		where.push(`ServiceName IN (${inList(serviceNames)})`);
+	}
+	const environments = (selected.environments || [])
+		.map(String)
+		.filter(Boolean);
+	// Synthetic OpenLIT "default" means unspecified — don't hard-filter.
+	if (
+		environments.length &&
+		!(environments.length === 1 && environments[0] === "default")
+	) {
+		where.push(
+			`ResourceAttributes['deployment.environment'] IN (${inList(environments)})`
+		);
 	}
 	if (table === "logs" && selected.severities?.length) {
 		const severities = selected.severities.map((severity: string) => severity.toLowerCase());

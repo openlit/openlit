@@ -54,21 +54,29 @@ describe("prepareObservabilitySignalChange", () => {
 
 	// E3: sort key applied on the previous tab gets reset so the
 	// new tab doesn't try to ORDER BY a column it doesn't have.
-	it("resets sorting and offset when changing signal", () => {
+	it("preserves agent scope fields when clearing signal filters", () => {
 		const store = createStore();
 
-		store.getState().filter.updateFilter("sorting", {
-			type: "Tokens",
-			direction: "asc",
+		store.getState().filter.updateFilter("selectedConfig", {
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+			metricNames: ["up"],
+			severities: ["error"],
 		});
-		store.getState().filter.updateFilter("offset", 50);
 
 		prepareObservabilitySignalChange(
 			store.getState().filter.updateConfig,
-			store.getState().filter.updateFilter
+			store.getState().filter.updateFilter,
+			undefined,
+			{
+				serviceNames: ["demo-openai-app"],
+				environments: ["production"],
+			}
 		);
 
-		expect(store.getState().filter.details.sorting).toEqual(DEFAULT_SORTING);
-		expect(store.getState().filter.details.offset).toBe(0);
+		expect(store.getState().filter.details.selectedConfig).toEqual({
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+		});
 	});
 });

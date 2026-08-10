@@ -159,8 +159,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 			"Field",
 		],
 		getRowId: (row) => String(row.rowId),
-		getDetailHref: (row, from) =>
-			`/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
+		getDetailHref: (row, from) => {
+			const ts = row.Timestamp ? `&ts=${encodeURIComponent(String(row.Timestamp))}` : "";
+			return `/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}${ts}`;
+		},
 	},
 	{
 		// Coding-agent sessions live alongside the other signals so a

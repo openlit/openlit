@@ -188,6 +188,81 @@ describe("metricParamsToOpenLITQuery", () => {
 		);
 	});
 
+	it("scopes logs and metrics by agent serviceNames lock", () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const end = new Date("2026-07-01T01:00:00.000Z");
+		const selectedConfig = {
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+		};
+
+		const logs = metricParamsToOpenLITQuery(
+			{ timeLimit: { start, end, type: "CUSTOM" }, selectedConfig },
+			"logs"
+		);
+		expect(logs.filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					key: "service.name",
+					value: ["demo-openai-app"],
+				}),
+				expect.objectContaining({
+					key: "deployment.environment",
+					value: ["production"],
+				}),
+			])
+		);
+
+		const metrics = metricParamsToOpenLITQuery(
+			{ timeLimit: { start, end, type: "CUSTOM" }, selectedConfig },
+			"metrics"
+		);
+		expect(metrics.filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					key: "service.name",
+					value: ["demo-openai-app"],
+				}),
+				expect.objectContaining({
+					key: "deployment.environment",
+					value: ["production"],
+				}),
+			])
+		);
+	});
+
+	it("does not emit a synthetic default deployment.environment filter", () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const end = new Date("2026-07-01T01:00:00.000Z");
+		const selectedConfig = {
+			serviceNames: ["demo-openai-app"],
+			environments: ["default"],
+		};
+
+		for (const signal of ["traces", "logs", "metrics"] as const) {
+			const query = metricParamsToOpenLITQuery(
+				{ timeLimit: { start, end, type: "CUSTOM" }, selectedConfig },
+				signal
+			);
+			expect(query.filters || []).not.toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						key: "deployment.environment",
+						value: ["default"],
+					}),
+				])
+			);
+			expect(query.filters).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						key: "service.name",
+						value: ["demo-openai-app"],
+					}),
+				])
+			);
+		}
+	});
+
 	it("round-trips time/limit through toMetricParams", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");

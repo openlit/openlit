@@ -1,6 +1,7 @@
 import {
 	inferStructuredFromClickHouseSql,
 	isLegacyOtelTracesSql,
+	percentChange,
 	stripSyntheticDefaultEnvironment,
 } from "@/lib/platform/manage-dashboard/widget-sql-bridge";
 import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
@@ -13,6 +14,13 @@ describe("widget-sql-bridge", () => {
 				"SELECT count() FROM openlit_evaluation WHERE score > 0"
 			)
 		).toBe(false);
+	});
+
+	it("returns null percent change when previous period is zero", () => {
+		expect(percentChange(14200, 0)).toBeNull();
+		expect(percentChange(0, 0)).toBeNull();
+		expect(percentChange(150, 100)).toBe(50);
+		expect(percentChange(50, 100)).toBe(-50);
 	});
 
 	it("does not send the synthetic default environment to external sources", () => {

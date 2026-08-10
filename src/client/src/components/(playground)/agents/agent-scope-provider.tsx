@@ -40,6 +40,7 @@ interface AgentScopeProviderProps {
 
 interface PreviousScope {
 	serviceNames: string[];
+	services: string[];
 	applicationNames: string[];
 	environments: string[];
 	versionFilter?: VersionFilter;
@@ -116,6 +117,7 @@ export default function AgentScopeProvider({
 			// clearing it — a leak that compounds on every agent visit.
 			previousScopeRef.current = {
 				serviceNames: [...(filterDetails.selectedConfig?.serviceNames || [])],
+				services: [...(filterDetails.selectedConfig?.services || [])],
 				applicationNames: [
 					...(filterDetails.selectedConfig?.applicationNames || []),
 				],
@@ -128,6 +130,7 @@ export default function AgentScopeProvider({
 			const prev = previousScopeRef.current;
 			if (!prev) return;
 			updateFilter("selectedConfig.serviceNames", prev.serviceNames);
+			updateFilter("selectedConfig.services", prev.services);
 			updateFilter("selectedConfig.applicationNames", prev.applicationNames);
 			if (environment) {
 				updateFilter("selectedConfig.environments", prev.environments);
@@ -148,14 +151,23 @@ export default function AgentScopeProvider({
 		if (!arraysEqual(currentServiceNames, target)) {
 			updateFilter("selectedConfig.serviceNames", target);
 		}
+		// Logs/metrics filter UI + builders historically key off `services`.
+		// Mirror the agent lock there so Monitoring stays scoped for all signals.
+		const currentServices = filterDetails.selectedConfig?.services;
+		if (!arraysEqual(currentServices, target)) {
+			updateFilter("selectedConfig.services", target);
+		}
 		if ((currentApplicationNames?.length || 0) > 0) {
 			updateFilter("selectedConfig.applicationNames", []);
 		}
-		if (environment) {
+		if (environment && environment !== "default") {
 			const envTarget = [environment];
 			if (!arraysEqual(currentEnvironments, envTarget)) {
 				updateFilter("selectedConfig.environments", envTarget);
 			}
+		} else if ((currentEnvironments?.length || 0) > 0) {
+			// Don't lock the synthetic "default" env — it empties Loki/Tempo/Prom.
+			updateFilter("selectedConfig.environments", []);
 		}
 		if (!versionFilterEqual(currentVersionFilter, versionFilter)) {
 			updateFilter(
@@ -172,13 +184,18 @@ export default function AgentScopeProvider({
 		currentApplicationNames,
 		currentEnvironments,
 		currentVersionFilter,
+		filterDetails.selectedConfig?.services,
 		updateFilter,
 	]);
 
 	const scopeReady = useMemo(() => {
 		if (!lockApplied) return false;
 		if (!arraysEqual(currentServiceNames, [serviceName])) return false;
-		if (environment && !arraysEqual(currentEnvironments, [environment])) {
+		if (
+			environment &&
+			environment !== "default" &&
+			!arraysEqual(currentEnvironments, [environment])
+		) {
 			return false;
 		}
 		if (!versionFilterEqual(currentVersionFilter, versionFilter)) return false;
@@ -193,7 +210,15 @@ export default function AgentScopeProvider({
 		versionFilter,
 	]);
 
-	if (!scopeReady) {
+	// Once children have rendered under a valid lock, keep them mounted even if
+	// a transient wipe briefly clears serviceNames. Unmounting on mismatch
+	// remounts ObservabilitySignalList, which clears filters again and loops.
+	const [childrenUnlocked, setChildrenUnlocked] = useState(false);
+	useLayoutEffect(() => {
+		if (scopeReady) setChildrenUnlocked(true);
+	}, [scopeReady]);
+
+	if (!lockApplied || (!scopeReady && !childrenUnlocked)) {
 		return (
 			<div className="flex items-center justify-center py-12 text-sm text-stone-500 dark:text-stone-400 gap-2">
 				<Loader2 className="w-4 h-4 animate-spin" />

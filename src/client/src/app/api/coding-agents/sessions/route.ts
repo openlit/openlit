@@ -19,10 +19,8 @@ import {
 	listSessions,
 	type ListSessionsOptions,
 } from "@/lib/platform/coding-agents/queries";
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import { isCodingAgentClassification } from "@/lib/platform/coding-agents/classifier";
 import { withRouteAccess } from "@/lib/access/route-access";
 
@@ -85,7 +83,7 @@ function defaultSince(): Date {
 async function POSTHandler(request: Request) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });

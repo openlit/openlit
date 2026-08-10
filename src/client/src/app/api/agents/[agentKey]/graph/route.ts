@@ -20,7 +20,8 @@ async function GETHandler(
 	const url = new URL(request.url);
 	const versionHash = url.searchParams.get("versionHash") || undefined;
 
-	const cacheKey = `agents:graph:default:${agentKey}:${versionHash || "all"}`;
+	// v2: empty Tempo samples fall back to ClickHouse — bust stale empty graphs.
+	const cacheKey = `agents:graph:v2:${agentKey}:${versionHash || "all"}`;
 
 	const result = await swr(cacheKey, POLICY_TOOLS, async () => {
 		const agent = await getAgent({ agentKey });

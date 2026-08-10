@@ -118,6 +118,39 @@ function stringList(value: unknown): string[] {
 	return value.map((v) => String(v)).filter((v) => v.length > 0);
 }
 
+function uniqueStrings(values: string[]): string[] {
+	return Array.from(new Set(values));
+}
+
+/**
+ * OpenLIT uses `default` as a synthetic stand-in when
+ * `deployment.environment` was missing at materialize time. Emitting it as a
+ * hard filter empties Tempo/Loki/Prometheus queries (and misses CH rows with
+ * an empty attribute). Treat a lone `default` as "no environment filter".
+ */
+function realEnvironments(cfg: Record<string, unknown>): string[] {
+	const environments = stringList(cfg.environments);
+	if (environments.length === 1 && environments[0] === "default") {
+		return [];
+	}
+	return environments;
+}
+
+function pushEnvironmentFilter(
+	filters: NormalizedFilter[],
+	cfg: Record<string, unknown>
+) {
+	const environments = realEnvironments(cfg);
+	if (!environments.length) return;
+	filters.push({
+		target: "attribute",
+		scope: "resource",
+		key: "deployment.environment",
+		op: "in",
+		value: environments,
+	});
+}
+
 type CustomFilterOp = "eq" | "neq" | "contains" | "in";
 
 function normalizeCustomFilterOp(cf: Record<string, unknown>): CustomFilterOp {
@@ -189,16 +222,7 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		});
 	}
 
-	const environments = stringList(cfg.environments);
-	if (environments.length) {
-		filters.push({
-			target: "attribute",
-			scope: "resource",
-			key: "deployment.environment",
-			op: "in",
-			value: environments,
-		});
-	}
+	pushEnvironmentFilter(filters, cfg);
 
 	const applicationNames = stringList(cfg.applicationNames);
 	if (applicationNames.length) {
@@ -265,15 +289,18 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 }
 
 /**
- * Build log-signal filters. `services` maps to the resource service name;
- * `severities` is best-effort (adapters map to their level label). Custom
- * filters carry their attribute scope (log / resource). Correlation-only
- * fields (traceIds/spanIds) stay ClickHouse-native and are omitted here.
+ * Build log-signal filters. Prefer agent-scoped `serviceNames` (and
+ * `applicationNames`) in addition to the logs UI's `services` key so the
+ * agent Monitoring tab stays locked to the selected agent.
  */
 function logsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 	const filters: NormalizedFilter[] = [];
 
-	const services = stringList(cfg.services);
+	const services = uniqueStrings([
+		...stringList(cfg.serviceNames),
+		...stringList(cfg.services),
+		...stringList(cfg.applicationNames),
+	]);
 	if (services.length) {
 		filters.push({
 			target: "attribute",
@@ -283,6 +310,8 @@ function logsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 			value: services,
 		});
 	}
+
+	pushEnvironmentFilter(filters, cfg);
 
 	const severities = stringList(cfg.severities);
 	if (severities.length) {
@@ -319,10 +348,8 @@ function logsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 }
 
 /**
- * Build metric-signal filters. `metricNames` maps to the `spanName` target
- * (which the metrics signal interprets as the metric name). `services` maps to
- * the resource service name; custom filters carry their attribute scope.
- * `metricTypes` (the ClickHouse table split) is not portable and is omitted.
+ * Build metric-signal filters. Honor agent-scoped `serviceNames` the same way
+ * traces do, not only the metrics UI's `services` key.
  */
 function metricsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 	const filters: NormalizedFilter[] = [];
@@ -332,7 +359,11 @@ function metricsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		filters.push({ target: "spanName", op: "in", value: metricNames });
 	}
 
-	const services = stringList(cfg.services);
+	const services = uniqueStrings([
+		...stringList(cfg.serviceNames),
+		...stringList(cfg.services),
+		...stringList(cfg.applicationNames),
+	]);
 	if (services.length) {
 		filters.push({
 			target: "attribute",
@@ -342,6 +373,8 @@ function metricsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 			value: services,
 		});
 	}
+
+	pushEnvironmentFilter(filters, cfg);
 
 	const customFilters = Array.isArray(cfg.customFilters)
 		? (cfg.customFilters as Array<Record<string, unknown>>)

@@ -11,10 +11,8 @@
  * UI doesn't claim definitive change of state.
  */
 
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import {
 	DisputeError,
 	submitClassificationDispute,
@@ -31,7 +29,7 @@ export const dynamic = "force-dynamic";
 async function POSTHandler(request: Request) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });

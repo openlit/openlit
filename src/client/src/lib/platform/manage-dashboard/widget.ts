@@ -385,10 +385,29 @@ async function executeStructuredWidgetQuery(
 /**
  * Legacy SQL widgets with no sourceId still hit ClickHouse unless the project
  * traces binding is external — then infer a structured query and run it there.
+ *
+ * Coding-agent seed widgets are an exception: their SQL depends on ClickHouse
+ * session-rollup semantics and must never go through the Tempo/Jaeger bridge
+ * (which collapses them to a generic count and invents huge % deltas).
  */
 async function runLegacyWidgetQuery(sql: string, filter: MetricParams) {
 	if (!isLegacyOtelTracesSql(sql)) {
 		return runRawClickHouseWidgetQuery(sql, filter);
+	}
+
+	const {
+		isCodingAgentClickHouseSql,
+		resolveCodingAgentsClickHouseDbConfigId,
+	} = await import("@/lib/platform/coding-agents/source");
+
+	if (isCodingAgentClickHouseSql(sql)) {
+		const dbConfigId = await resolveCodingAgentsClickHouseDbConfigId({
+			environment: filter.environment,
+		});
+		if (!dbConfigId) {
+			return { err: getMessage().CODING_AGENTS_REQUIRES_CLICKHOUSE };
+		}
+		return runRawClickHouseWidgetQuery(sql, filter, dbConfigId);
 	}
 
 	const {

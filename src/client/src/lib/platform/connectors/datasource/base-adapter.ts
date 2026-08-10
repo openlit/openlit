@@ -80,7 +80,10 @@ export abstract class BaseExternalAdapter implements DataSourceAdapter {
 	async listLogs(_q: OpenLITQuery): Promise<DataFrame<NormalizedLog>> {
 		this.unsupported("listLogs");
 	}
-	async getLog(_logId: string): Promise<NormalizedLog | null> {
+	async getLog(
+		_logId: string,
+		_opts?: { aroundTimestamp?: string | Date; timeRange?: QueryTimeRange }
+	): Promise<NormalizedLog | null> {
 		this.unsupported("getLog");
 	}
 	async logTimeSeries(_q: OpenLITQuery): Promise<DataFrame> {

@@ -148,7 +148,13 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 				// invalidate the *available options* cache (`config` below)
 				// while the user's chosen filters survive.
 				selectedConfig: extraParams?.clearFilter
-					? {}
+					? // Allow callers to wipe and seed in one update (e.g. preserve
+					  // agent-scoped serviceNames across signal changes). An empty
+					  // object still means a full clear.
+					  object.selectedConfig &&
+					  Object.keys(object.selectedConfig).length > 0
+						? object.selectedConfig
+						: {}
 					: object.selectedConfig
 					? // Merge instead of replace so fields managed out-of-band
 					  // — notably `serviceNames`, which AgentScopeProvider sets

@@ -389,7 +389,10 @@ export interface DataSourceAdapter {
 
 	// Logs
 	listLogs(query: OpenLITQuery): Promise<DataFrame<NormalizedLog>>;
-	getLog(logId: string): Promise<NormalizedLog | null>;
+	getLog(
+		logId: string,
+		opts?: { aroundTimestamp?: string | Date; timeRange?: QueryTimeRange }
+	): Promise<NormalizedLog | null>;
 	logTimeSeries(query: OpenLITQuery): Promise<DataFrame>;
 
 	// Metrics

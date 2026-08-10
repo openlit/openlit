@@ -220,8 +220,12 @@ export function inferStructuredFromClickHouseSql(
 	};
 }
 
-function percentChange(current: number, previous: number): number {
-	if (previous === 0) return Number((current * 100).toFixed(4));
+/** Match seed SQL: NULL rate when there is no previous-period baseline. */
+export function percentChange(
+	current: number,
+	previous: number
+): number | null {
+	if (previous === 0) return null;
 	return Number((((current - previous) / previous) * 100).toFixed(4));
 }
 
@@ -567,13 +571,14 @@ export async function executeInferredWidgetQuery(
 				previousFrame.rows[0] as Record<string, unknown>,
 				[inferred.primaryAlias, "count", "total"]
 			);
+			const rate = percentChange(currentVal, previousVal);
 			rows = [
 				{
 					...(rows[0] || {}),
 					[inferred.primaryAlias]: currentVal,
 					[inferred.previousAlias]: previousVal,
-					...(inferred.rateAlias
-						? { [inferred.rateAlias]: percentChange(currentVal, previousVal) }
+					...(inferred.rateAlias && rate !== null
+						? { [inferred.rateAlias]: rate }
 						: {}),
 				},
 			];

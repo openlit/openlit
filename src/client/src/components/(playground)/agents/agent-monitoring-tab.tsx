@@ -7,7 +7,7 @@ import {
 	getSignalConfig,
 } from "@/components/(playground)/observability/registry";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
-import { getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
+import { getFilterDetails, getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 
 /**
@@ -21,6 +21,7 @@ import { useRootStore } from "@/store";
 export default function AgentMonitoringTab() {
 	const updateConfig = useRootStore(getUpdateConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
+	const filter = useRootStore(getFilterDetails);
 	const [activeKey, setActiveKey] = useState("traces");
 	const activeConfig = getSignalConfig(activeKey);
 
@@ -31,9 +32,15 @@ export default function AgentMonitoringTab() {
 	const onTabChange = (key: string) => {
 		if (key === activeKey) return;
 		// Reset sort / groupBy / pagination so a trace column can't leak into
-		// the metrics or logs query. Scope fields (serviceNames) are untouched
-		// and re-asserted by AgentScopeProvider.
-		prepareObservabilitySignalChange(updateConfig, updateFilter);
+		// the metrics or logs query. Preserve the agent scope lock — wiping
+		// serviceNames unmounts the list via AgentScopeProvider and remounts
+		// into an infinite update loop.
+		prepareObservabilitySignalChange(updateConfig, updateFilter, undefined, {
+			serviceNames: filter.selectedConfig?.serviceNames,
+			services: filter.selectedConfig?.services,
+			environments: filter.selectedConfig?.environments,
+			versionFilter: filter.selectedConfig?.versionFilter,
+		});
 		setActiveKey(key);
 	};
 
