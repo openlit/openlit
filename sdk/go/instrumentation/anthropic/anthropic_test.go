@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -577,7 +578,7 @@ func TestCreateMessage_Streaming_CacheUsage(t *testing.T) {
 	if got := attributes[semconv.GenAIUsagePromptTokensDetailsCacheWrite].AsInt64(); got != 20 {
 		t.Errorf("cache creation tokens = %d, want 20", got)
 	}
-	if got := attributes[semconv.GenAIUsageCost].AsFloat64(); got != 0.084 {
+	if got := attributes[semconv.GenAIUsageCost].AsFloat64(); math.Abs(got-0.084) > 1e-12 {
 		t.Errorf("cost = %v, want 0.084", got)
 	}
 }
