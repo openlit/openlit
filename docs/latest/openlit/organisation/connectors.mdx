@@ -10,7 +10,7 @@ icon: 'plug'
 Open the connectors experience from **Organisation → Project → Connectors** (Data sources). Always select the correct [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments) first — connectors belong to the project, not the organisation root.
 
 <Frame>
-  <img src="/images/organisation/connectors-list.png" alt="OpenLIT connectors list for the current project" />
+  <img src="/images/organisation/connectors-list.png" alt="OpenLIT Connectors page showing configured connectors and the connector catalog" />
 </Frame>
 
 <Info>
@@ -80,13 +80,14 @@ Prometheus-compatible APIs (for example Grafana Mimir’s PromQL endpoint) use t
 ## Add a Jaeger connector in OpenLIT
 
 <Frame>
-  <img src="/images/organisation/connectors-list.png" alt="OpenLIT connectors page for the active project" />
+  <img src="/images/organisation/openlit-jaeger-connector.png" alt="Add source dialog with the connector type menu open, including Jaeger" />
 </Frame>
 
 1. Select a [project](/latest/openlit/organisation/projects) and environment in the header.  
-2. Open **Connectors** and browse the catalog for **Jaeger**.  
-3. Set the Query URL (local all-in-one: `http://localhost:16686`) and auth if needed.  
-4. Bind **traces** to the connector under [signal routing](/latest/openlit/organisation/signal-routing).  
+2. Open **Connectors** and choose **Add connector** / **Add source**.  
+3. Pick **Jaeger** from the connector type list.  
+4. Set the Query URL (local all-in-one: `http://localhost:16686`) and auth if needed.  
+5. Bind **traces** to the connector under [signal routing](/latest/openlit/organisation/signal-routing).  
 
 <Tip>
 Local demo credentials for seeded installs: email `user@openlit.io`, password `openlituser`. Jaeger all-in-one + seed script live in the OpenPlait `adapter-jaeger` integration folder.
