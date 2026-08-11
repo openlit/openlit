@@ -43,7 +43,6 @@ import {
 } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
-import { consoleLog } from "@/utils/log";
 import { normalizeOtlpId } from "../otlp-json";
 import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import {
@@ -688,15 +687,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 			headers,
 			redact: redactableSecretValues(secret),
 		};
-		consoleLog("[tempo] auth resolved", {
-			sourceId: this.descriptor.id,
-			databaseConfigId: this.descriptor.dbConfigId || null,
-			projectId: this.descriptor.projectId || null,
-			authType: this.descriptor.settings.authType || "auto",
-			hasSecretRef: Boolean(this.descriptor.secretRef),
-			hasAuthorization: Boolean(headers.Authorization),
-			hasTenant: Boolean(headers["X-Scope-OrgID"]),
-		});
 		return this.authCache;
 	}
 
@@ -793,12 +783,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 		const adapter = await this.openPlaitAdapter();
 		const profile = await adapter.inspectServer({ timeoutMs: 8_000 });
 		this.rememberTempoProfile(profile);
-		consoleLog("[tempo] server capabilities resolved", {
-			sourceId: this.descriptor.id,
-			version: profile.version || null,
-			features: profile.features,
-			limits: profile.limits,
-		});
 		return profile;
 	}
 
@@ -855,11 +839,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 					this.descriptor.id,
 					reportedMaxResults
 				);
-				consoleLog("[tempo] retrying search at server result limit", {
-					sourceId: this.descriptor.id,
-					requestedLimit: requestLimit,
-					effectiveLimit: reportedMaxResults,
-				});
 				return this.openPlaitTraceSearchRows(
 					traceql,
 					timeRange,
@@ -879,10 +858,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 						features: { ...cached.features, mostRecent: false },
 					});
 				}
-				consoleLog("[tempo] retrying search without unsupported hint", {
-					sourceId: this.descriptor.id,
-					...adapterErrorDiagnostics(error),
-				});
 				return this.openPlaitTraceSearchRows(
 					withoutMostRecentHint(traceql),
 					timeRange,
@@ -903,11 +878,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 					),
 					end: timeRange.end,
 				};
-				consoleLog("[tempo] query window reduced after HTTP 400", {
-					sourceId: this.descriptor.id,
-					requestedDays: rangeMs / (24 * 60 * 60 * 1_000),
-						effectiveDays: reportedMaxMs / (24 * 60 * 60 * 1_000),
-				});
 				return this.openPlaitTraceSearchRows(
 					traceql,
 					compatibleRange,
@@ -963,19 +933,11 @@ export class TempoAdapter extends BaseExternalAdapter {
 						1,
 						{ hint: false, range: false }
 					);
-					consoleLog("[tempo] health check passed without build metadata", {
-						sourceId: this.descriptor.id,
-						buildInfoStatus: status,
-					});
 					return { ok: true, latencyMs: Date.now() - start };
 				} catch (searchErr) {
 					err = searchErr;
 				}
 			}
-			consoleLog("[tempo] health check failed", {
-				sourceId: this.descriptor.id,
-				...adapterErrorDiagnostics(err),
-			});
 			return { ok: false, message: String((err as Error)?.message || err) };
 		}
 	}
@@ -990,13 +952,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 				this.descriptor.settings.enableMostRecent === true ||
 				this.cachedTempoProfile()?.features.mostRecent === true,
 		});
-		consoleLog("[tempo] trace search", {
-			sourceId: this.descriptor.id,
-			query: traceql,
-			start: boundedQuery.timeRange.start.toISOString(),
-			end: boundedQuery.timeRange.end.toISOString(),
-			limit,
-		});
 		const key = cacheKey(this.descriptor.id, [
 			"openplait-search",
 			traceql,
@@ -1004,81 +959,33 @@ export class TempoAdapter extends BaseExternalAdapter {
 			boundedQuery.timeRange.end.toISOString(),
 			limit,
 		]);
-		try {
-			const ids = await cachedQuery(key, TTL_MS, () =>
-				this.openPlaitTraceSearch(traceql, boundedQuery.timeRange, limit)
-			);
-			consoleLog("[tempo] trace search result", {
-				sourceId: this.descriptor.id,
-				traceCount: ids.length,
-			});
-			return ids;
-		} catch (error) {
-			consoleLog("[tempo] trace search failed", {
-				sourceId: this.descriptor.id,
-				...adapterErrorDiagnostics(error),
-			});
-			throw error;
-		}
+		return cachedQuery(key, TTL_MS, () =>
+			this.openPlaitTraceSearch(traceql, boundedQuery.timeRange, limit)
+		);
 	}
 
 	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
-		const startedAt = Date.now();
 		const id = normalizeOtlpId(traceId) || traceId;
 		const key = cacheKey(this.descriptor.id, ["openplait-trace", id]);
-		consoleLog("[tempo] trace detail fetch start", {
-			sourceId: this.descriptor.id,
-			traceId: id,
-			cacheKey: key,
+		const result = await cachedQuery(key, TTL_MS, async () => {
+			const adapter = await this.openPlaitAdapter();
+			return adapter.getTrace(id, {
+				audit: {
+					requestId: safeRequestId(this.descriptor.id, "trace"),
+				},
+			});
 		});
-		try {
-			const result = await cachedQuery(key, TTL_MS, async () => {
-				const adapter = await this.openPlaitAdapter();
-				return adapter.getTrace(id, {
-					audit: {
-						requestId: safeRequestId(this.descriptor.id, "trace"),
-					},
-				});
-			});
-			const spans = openPlaitRowsToSpans(
-				openPlaitFramesToRows(result.frames)
-			);
-			consoleLog("[tempo] trace payload parsed", {
-				sourceId: this.descriptor.id,
-				traceId: id,
-				spanCount: spans.length,
-				elapsedMs: Date.now() - startedAt,
-			});
-			rememberSpans(this.descriptor.id, spans);
-			return spans;
-		} catch (error) {
-			consoleLog("[tempo] trace fetch failed", {
-				sourceId: this.descriptor.id,
-				traceId: id,
-				error: String((error as Error)?.message || error),
-				elapsedMs: Date.now() - startedAt,
-			});
-			throw error;
-		}
+		const spans = openPlaitRowsToSpans(openPlaitFramesToRows(result.frames));
+		rememberSpans(this.descriptor.id, spans);
+		return spans;
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {
-		const startedAt = Date.now();
 		const id = normalizeOtlpId(spanId) || spanId;
 		const cached = lookupIndexedSpan(this.descriptor.id, id);
 		if (cached) {
-			consoleLog("[tempo] span detail index hit", {
-				sourceId: this.descriptor.id,
-				spanId: id,
-				traceId: cached.traceId,
-				elapsedMs: Date.now() - startedAt,
-			});
 			return cached;
 		}
-		consoleLog("[tempo] span detail index miss", {
-			sourceId: this.descriptor.id,
-			spanId: id,
-		});
 
 		// Tempo has no direct span API. Prefer OpenPlait TraceQL by hex span id
 		// (Grafana Explore pattern: resolve trace, then fetch once).
@@ -1096,40 +1003,14 @@ export class TempoAdapter extends BaseExternalAdapter {
 				1
 			);
 			const traceId = traceIds[0];
-			consoleLog("[tempo] span search result", {
-				sourceId: this.descriptor.id,
-				spanId: id,
-				traceCount: traceIds.length,
-				traceId: traceId || null,
-				elapsedMs: Date.now() - startedAt,
-			});
 			if (!traceId) {
-				consoleLog("[tempo] span detail search returned no trace", {
-					sourceId: this.descriptor.id,
-					spanId: id,
-					query: traceql,
-				});
 				return null;
 			}
 			const spans = await this.getTraceSpans(traceId);
 			const result =
 				spans.find((s) => s.spanId === id || s.spanId === spanId) || null;
-			consoleLog("[tempo] span detail search resolved", {
-				sourceId: this.descriptor.id,
-				spanId: id,
-				traceId,
-				spanCount: spans.length,
-				matched: !!result,
-				elapsedMs: Date.now() - startedAt,
-			});
 			return result;
-		} catch (error) {
-			consoleLog("[tempo] span lookup failed", {
-				sourceId: this.descriptor.id,
-				spanId: id,
-				error: String((error as Error)?.message || error),
-				elapsedMs: Date.now() - startedAt,
-			});
+		} catch {
 			return null;
 		}
 	}
@@ -1160,11 +1041,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 				} catch (error) {
 					const status = adapterErrorStatus(error);
 					if (status !== 404 && status !== 413 && status !== 422) throw error;
-					consoleLog("[tempo] trace detail skipped", {
-						sourceId: this.descriptor.id,
-						traceId: id,
-						...adapterErrorDiagnostics(error),
-					});
 					return [];
 				}
 			}
@@ -1321,13 +1197,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 			query.aggregations || [{ fn: "count" }],
 			query.timeRange
 		);
-		consoleLog("[tempo] trace summary series", {
-			sourceId: this.descriptor.id,
-			traceCount: summaries.length,
-			truncated,
-			cap: Math.min(TRACE_SUMMARY_CAP, effectiveLimit),
-			elapsedMs: Date.now() - startedAt,
-		});
 		return {
 			...frame,
 			meta: {
@@ -1409,11 +1278,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 					});
 				}
 			}
-			consoleLog("[tempo] metrics query unavailable", {
-				sourceId: this.descriptor.id,
-				windowCount: windows.length,
-				...adapterErrorDiagnostics(error),
-			});
 			return null;
 		}
 	}

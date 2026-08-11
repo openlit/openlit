@@ -12,7 +12,6 @@ import {
 	Building2,
 	CircleDollarSign,
 	Component,
-	Cpu,
 	Home,
 	Key,
 	LayoutDashboard,
@@ -57,6 +56,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <Bot className={ICON_CLASSES} />,
 						text: "Agents",
 						link: "/agents",
+						type: "action",
+					},
+					{
+						icon: <MonitorCog className={ICON_CLASSES} />,
+						text: "Evaluations",
+						link: "/evaluations",
+						type: "action",
+					},
+					{
+						icon: <CircleDollarSign className={ICON_CLASSES} />,
+						text: "Costs",
+						link: "/costs",
 						type: "action",
 					},
 					{
@@ -105,24 +116,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			{
 				title: "Configuration",
 				children: [
-					{
-						icon: <MonitorCog className={ICON_CLASSES} />,
-						text: "Evaluations",
-						link: "/evaluations",
-						type: "action",
-					},
-			{
-				icon: <Cpu className={ICON_CLASSES} />,
-				text: "Manage Models",
-				link: "/manage-models",
-				type: "action",
-			},
-					{
-						icon: <CircleDollarSign className={ICON_CLASSES} />,
-						text: "Pricing",
-						link: "/pricing",
-						type: "action",
-					},
 					{
 						icon: <Building2 className={ICON_CLASSES} />,
 						text: "Organisation",

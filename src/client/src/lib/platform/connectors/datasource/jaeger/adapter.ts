@@ -379,12 +379,6 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			this.apiBaseUrl = adapter.resolvedUrl;
 			return discovered.map(String).filter(Boolean).slice(0, MAX_SERVICES);
 		});
-		console.log("[jaeger] services discovered", {
-			sourceId: this.descriptor.id,
-			baseUrl: this.apiBaseUrl,
-			count: services.length,
-			configured: false,
-		});
 		return services;
 	}
 
@@ -460,15 +454,6 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			this.perServiceLimit,
 			Math.max(maxTraces, 25)
 		);
-		console.log("[jaeger] collecting traces", {
-			sourceId: this.descriptor.id,
-			serviceCount: services.length,
-			maxTraces,
-			operation: operation || null,
-			start: query.timeRange.start.toISOString(),
-			end: query.timeRange.end.toISOString(),
-			aiSelector: query.aiSelector !== false,
-		});
 
 		const traceBatches = await mapPool(
 			services,
@@ -477,11 +462,6 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				const failureKey = `${this.descriptor.id}:${service}`;
 				const retryAfter = timedOutServices.get(failureKey) || 0;
 				if (retryAfter > Date.now()) {
-					console.log("[jaeger] skipping recently timed out service", {
-						sourceId: this.descriptor.id,
-						service,
-						retryAfter: new Date(retryAfter).toISOString(),
-					});
 					return [] as JaegerTrace[];
 				}
 				try {
@@ -491,20 +471,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 						perServiceLimit,
 						operation
 					);
-					console.log("[jaeger] service traces fetched", {
-						sourceId: this.descriptor.id,
-						service,
-						traceCount: traces.length,
-					});
 					timedOutServices.delete(failureKey);
 					return traces;
-				} catch (error) {
+				} catch {
 					timedOutServices.set(failureKey, Date.now() + 30_000);
-					console.log("[jaeger] service traces failed", {
-						sourceId: this.descriptor.id,
-						service,
-						error: String((error as Error)?.message || error),
-					});
 					return [] as JaegerTrace[];
 				}
 			}
@@ -540,11 +510,6 @@ export class JaegerAdapter extends BaseExternalAdapter {
 			.slice(0, Math.max(1, maxTraces))
 			.map((entry) => entry.trace);
 
-		console.log("[jaeger] traces collected", {
-			sourceId: this.descriptor.id,
-			serviceCount: services.length,
-			traceCount: sorted.length,
-		});
 		return sorted;
 	}
 

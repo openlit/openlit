@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -10,8 +11,8 @@ export default function SettingsEvaluationPage() {
 
 	useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.SETTINGS_EVALUATION_PAGE_VISITED);
-		router.replace("/evaluations/settings");
-	}, []);
+		router.replace("/evaluations?tab=configuration");
+	}, [posthog, router]);
 
 	return null;
 }

@@ -17,7 +17,6 @@ import { logStableRowId } from "@/lib/platform/connectors/datasource/clickhouse/
 import { computeIntervalMs, intervalMsToLabel } from "../downsample";
 import { httpVendorFields } from "../config-fields";
 import getMessage from "@/constants/messages";
-import { consoleLog } from "@/utils/log";
 
 /** Loki's default `max_query_length` is typically 30d1h (~721h). */
 const DEFAULT_MAX_QUERY_RANGE_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -310,13 +309,6 @@ export class LokiAdapter extends OpenPlaitHttpAdapter {
 			) {
 				learnedQueryRangeBySource.set(this.descriptor.id, reported);
 				const retried = this.clampedQuery(query);
-				consoleLog("[loki] retrying within server query-length limit", {
-					sourceId: this.descriptor.id,
-					requestedRangeMs: rangeMs,
-					effectiveRangeMs:
-						retried.timeRange.end.getTime() - retried.timeRange.start.getTime(),
-					limitMs: reported,
-				});
 				return run(retried);
 			}
 			throw error;

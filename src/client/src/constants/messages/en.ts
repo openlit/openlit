@@ -1986,3 +1986,188 @@ export const DATA_SOURCE_BINDING_SAVED = "Signal routing updated.";
 export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
+
+// --- restored from main: costs & evaluations analytics ---
+
+export const EVALUATION_TYPE_THRESHOLD_LABEL = "Verdict threshold";
+
+export const EVALUATION_TYPE_THRESHOLD_DESCRIPTION =
+	"Score above which this type's verdict is flagged as \"yes\". Applies to dashboard, auto, and offline evaluations. Leave blank to use the default threshold (0.5).";
+
+export const EVALUATION_TYPE_THRESHOLD_PLACEHOLDER = "0.5 (default)";
+
+export const EVALUATION_TAB_ANALYTICS = "Analytics";
+
+export const EVALUATION_TAB_EVALUATORS = "Evaluators";
+
+export const EVALUATION_TAB_CONFIGURATION = "Configuration";
+
+export const EVALUATION_TABLE_EVALUATION = "Evaluation";
+
+export const EVALUATION_TABLE_MATCHER = "Matcher";
+
+export const EVALUATION_TABLE_MATCHER_DEFAULT = "*";
+
+export const EVALUATION_TABLE_EXECUTIONS = "Executions";
+
+export const EVALUATION_TABLE_PASS_RATE = "Pass rate";
+
+export const EVALUATION_TABLE_PASS_RATE_TREND = "Pass rate trend";
+
+export const EVALUATION_TABLE_EMPTY = "No evaluation results in this time range.";
+
+export const EVALUATION_TABLE_EVALUATORS_TITLE = "Evaluators";
+
+export const EVALUATION_ONBOARDING_TITLE = "Set up Evaluations";
+
+export const EVALUATION_ONBOARDING_DESCRIPTION =
+	"Configure an evaluation engine to score traces for hallucination, bias, toxicity, and custom criteria.";
+
+export const EVALUATION_ONBOARDING_STEP_1 =
+	"Choose a provider, model, and vault API key under Configuration.";
+
+export const EVALUATION_ONBOARDING_STEP_2 =
+	"Enable built-in types or create custom evaluators.";
+
+export const EVALUATION_ONBOARDING_STEP_3 =
+	"Turn on auto evaluation or run evaluations manually from Telemetry.";
+
+export const EVALUATION_ONBOARDING_CTA = "Open Configuration";
+
+export const EVALUATION_TYPES_SECTION_TITLE = "Evaluation types";
+
+export const EVALUATION_TYPES_SECTION_DESCRIPTION =
+	"Enable built-in evaluators or create custom ones for your use case.";
+
+export const EVALUATION_TYPE_NOT_FOUND = "Evaluation type not found";
+
+export const EVALUATION_TYPE_NOT_FOUND_DESCRIPTION =
+	"This evaluator id does not match a built-in or custom evaluation type. Open Configuration to manage evaluators.";
+
+export const EVALUATION_BACK_TO_TYPES = "Back to evaluation types";
+
+// Traces
+
+export const COSTS_TITLE = "Costs";
+
+export const COSTS_TAB_ANALYTICS = "Analytics";
+
+export const COSTS_TAB_MODELS = "Manage models";
+
+export const COSTS_TAB_CONFIGURATION = "Configuration";
+
+export const COSTS_USAGE_SECTION = "Cost usage";
+
+export const COSTS_OPTIMIZATION_SECTION = "Cost optimization";
+
+export const COSTS_AUTO_PRICING_SECTION = "Auto pricing runs";
+
+export const COSTS_STAT_TOTAL_PLATFORM = "Total AI cost";
+
+export const COSTS_STAT_LLM = "App LLM cost";
+
+export const COSTS_STAT_CODING_AGENTS = "Coding agents";
+
+export const COSTS_STAT_OTTER = "Otter";
+
+export const COSTS_STAT_EVALUATIONS = "Evaluations cost";
+
+export const COSTS_STAT_OPENGROUND = "Openground cost";
+
+export const COSTS_STAT_AVG_REQUEST = "Avg cost per request";
+
+export const COSTS_STAT_TOTAL_REQUESTS = "Total LLM requests";
+
+export const COSTS_STAT_CRON_RUNS = "Cron runs";
+
+export const COSTS_STAT_CRON_SUCCESS = "Successful runs";
+
+export const COSTS_STAT_PRICING_APPLIED = "Costs applied";
+
+export const COSTS_STAT_SPANS_SCANNED = "Spans scanned";
+
+export const COSTS_CRON_TABLE_STARTED = "Started";
+
+export const COSTS_CRON_TABLE_STATUS = "Status";
+
+export const COSTS_CRON_TABLE_DURATION = "Duration";
+
+export const COSTS_CRON_TABLE_UPDATED = "Costs applied";
+
+export const COSTS_CRON_TABLE_SCANNED = "Scanned";
+
+export const COSTS_CRON_TABLE_SKIPPED = "Skipped";
+
+export const COSTS_CRON_TABLE_FAILED = "Failed";
+
+export const COSTS_CRON_TABLE_EMPTY =
+	"No Auto Pricing runs applied costs in this time range.";
+
+export const COSTS_CRON_TABLE_EMPTY_CTA = "Enable Auto Pricing";
+
+export const COSTS_CRON_TABLE_EMPTY_HINT =
+	"Turn on Auto Pricing to backfill missing LLM costs on a schedule.";
+
+export const COSTS_BACKFILL_BANNER_TITLE = "Some LLM traces are missing cost";
+
+export const COSTS_BACKFILL_BANNER_DESCRIPTION =
+	"Auto Pricing can backfill gen_ai.usage.cost for spans that arrived without a price. Existing spend charts still work for costs already on your traces.";
+
+export const COSTS_BACKFILL_BANNER_CTA = "Configure Auto Pricing";
+
+export const COSTS_BACKFILL_BANNER_COUNT = "spans missing cost in this range";
+
+export const COSTS_CHART_BY_PROVIDER = "Cost by provider";
+
+export const COSTS_CHART_BY_MODEL = "Cost by model";
+
+export const COSTS_CHART_BY_ENVIRONMENT = "Cost by environment";
+
+export const COSTS_CHART_BY_APPLICATION = "Cost by application";
+
+export const COSTS_CHART_OVER_TIME = "Cost over time";
+
+export const COSTS_CHART_OPENGROUND_BY_PROVIDER = "Openground spend by provider";
+
+// Pricing (configuration tab copy)
+
+export const FEATURE_EVALS = "Evaluations";
+
+// Restored from main: costs & evaluation dashboards
+
+export const EVALUATION_BACK_TO_ANALYTICS = "Back to Analytics";
+export const EVALUATION_CHART_EXECUTIONS = "Executions";
+export const EVALUATION_CHART_PASS_RATE = "Pass rate";
+export const EVALUATION_CREATE_CUSTOM_TYPE = "Create custom evaluator";
+export const EVALUATION_CUSTOM_TYPES_HEADING = "Custom evaluation types";
+export const EVALUATION_DETAIL_CONFIGURE = "Configure";
+export const EVALUATION_DETAIL_DISABLED = "Disabled";
+export const EVALUATION_DETAIL_ENABLED = "Enabled";
+export const EVALUATION_DETAIL_FAIL = "Fail";
+export const EVALUATION_DETAIL_NO_RESULTS = "No recent results for this evaluator.";
+export const EVALUATION_DETAIL_PASS = "Pass";
+export const EVALUATION_DETAIL_PASS_RATE_BY_EVALUATOR = "Pass rate";
+export const EVALUATION_DETAIL_RESULTS = "Results";
+export const EVALUATION_DETAIL_SAMPLE_META = "sample";
+export const EVALUATION_POWERED_BY_VERCEL = "Powered by";
+export const EVALUATION_POWERED_BY_VERCEL_SDK = "Vercel AI SDK";
+export const EVALUATION_SCORE = "Score";
+export const EVALUATION_STAT_ACTIVE = "Active";
+export const EVALUATION_STAT_AUTO_EXECUTIONS = "Auto executions";
+export const EVALUATION_STAT_AVG_PASS_RATE = "Avg pass rate";
+export const EVALUATION_STAT_EVALUATIONS = "Evaluations";
+export const EVALUATION_STAT_EVALUATORS = "Evaluators";
+export const EVALUATION_STAT_EXECUTIONS = "Executions";
+export const EVALUATION_STAT_FAILED_SCORES = "Scores marked as failed";
+export const EVALUATION_STAT_TOTAL_COST = "Total cost";
+export const EVALUATION_STAT_TRACES_EVALUATED = "Traces evaluated";
+export const EVALUATION_TYPES_LINKED_FROM_RULES = "Linked from rules:";
+export const EVALUATION_TYPE_CUSTOM_BADGE = "Custom";
+export const EVALUATION_TYPE_DISABLED = "Disabled";
+export const EVALUATION_TYPE_ENABLED = "Enabled";
+export const EVALUATION_TYPE_RULE_ENGINE_BADGE = "Rule engine";
+
+export const SIDEBAR_MONITOR = "Monitor";
+export const SIDEBAR_CONFIGURATION = "Configure";
+export const SIDEBAR_DEVELOP = "Develop";
+export const SIDEBAR_PROJECTS = "Projects";
