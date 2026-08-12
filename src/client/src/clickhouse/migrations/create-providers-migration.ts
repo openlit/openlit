@@ -106,6 +106,7 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 	}
 
 	// 3. Copy existing data from legacy openground_configs -> openlit_providers
+	// dataCollector returns { err } instead of throwing for missing tables.
 	try {
 		const copyConfigsQuery = `
 			INSERT INTO ${OPENLIT_PROVIDERS_TABLE_NAME}
@@ -113,7 +114,14 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 			SELECT id, user_id, provider, vault_id, model_id, is_active, created_at, updated_at
 			FROM ${OPENLIT_OPENGROUND_CONFIG_TABLE_NAME}
 		`;
-		await dataCollector({ query: copyConfigsQuery }, "exec", dbConfig.id);
+		const copyConfigs = await dataCollector(
+			{ query: copyConfigsQuery },
+			"exec",
+			dbConfig.id
+		);
+		if (copyConfigs?.err) {
+			consoleLog("Legacy openground_configs not found or empty — skipping copy");
+		}
 	} catch (e) {
 		consoleLog("Legacy openground_configs not found or empty — skipping copy");
 	}
@@ -134,7 +142,14 @@ export default async function CreateProvidersMigration(databaseConfigId?: string
 				created_by_user_id, created_at, updated_at
 			FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
 		`;
-		await dataCollector({ query: copyModelsQuery }, "exec", dbConfig.id);
+		const copyModels = await dataCollector(
+			{ query: copyModelsQuery },
+			"exec",
+			dbConfig.id
+		);
+		if (copyModels?.err) {
+			consoleLog("Legacy openground_custom_models not found or empty — skipping copy");
+		}
 	} catch (e) {
 		consoleLog("Legacy openground_custom_models not found or empty — skipping copy");
 	}

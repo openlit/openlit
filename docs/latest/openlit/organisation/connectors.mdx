@@ -108,6 +108,8 @@ The connector registry is designed so **actions** attach to a connector type. To
 | **Mark Database Config active** | Choose which ClickHouse app store the UI uses |
 | **Share Database Config** | Grant edit / delete / re-share on a ClickHouse connection |
 
+Enterprise audit logs record connector create/update/delete/test plus bind/unbind (with signal, environment, and previous source when switching). RBAC permissions are `connectors:read|create|update|delete|test|bind` (owner/admin by default).
+
 ### Future connector categories
 
 The same registry will grow beyond datasources (for example notification and workflow connectors). Each new category still follows: **atomic connector → credentials → actions → optional bindings**. Data-source connectors remain the foundation for telemetry reads.

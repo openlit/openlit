@@ -95,6 +95,21 @@ Regardless of signal routing:
 
 Raw OTLP **write** paths (SDK exporters, collectors) are separate from these **read** connectors. To mirror only AI telemetry into ClickHouse, see the [OTel Collector AI filter recipe](https://github.com/openlit/openlit/blob/main/assets/otel-collector-ai-filter.yaml).
 
+## Permissions and audit
+
+Enterprise roles control connector management:
+
+| Permission | Typical use |
+| --- | --- |
+| `connectors:read` | View connectors and current signal bindings |
+| `connectors:create` / `update` / `delete` | Add, edit, or remove connectors |
+| `connectors:test` | Run health check / AI validation |
+| `connectors:bind` | Bind, rebind, or clear a signal for an environment |
+
+Owner and admin built-in roles include the full connector set. Members can read observability data but do not manage connectors by default.
+
+Binding and unbinding are written to the organisation **audit log** (`connectors.connector_bound` / `connectors.connector_unbound`) with signal, environment, next connector, and previous source when switching.
+
 ## Related
 
 <CardGroup cols={2}>

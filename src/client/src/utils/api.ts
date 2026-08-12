@@ -10,11 +10,25 @@ type GET_DATA = {
 };
 
 function getActiveDatabaseConfigId() {
-	const databaseConfigList = useRootStore.getState().databaseConfig.list || [];
+	const list = useRootStore.getState().databaseConfig.list;
+	const databaseConfigList = Array.isArray(list) ? list : [];
 	return (
 		databaseConfigList.find((item) => item.isCurrent)?.id ||
 		databaseConfigList[0]?.id
 	);
+}
+
+/** Parse fetch body; successful responses must be JSON (not HTML login pages). */
+function parseFetchBody(raw: string, ok: boolean) {
+	if (!raw.trim()) return null;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		if (ok) {
+			throw new Error("Unexpected non-JSON response from server.");
+		}
+		return raw;
+	}
 }
 
 function getOpenLitContextHeaders() {
@@ -63,14 +77,7 @@ export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 			),
 		});
 		const raw = await res.text();
-		let parsed: any = null;
-		if (raw.trim()) {
-			try {
-				parsed = JSON.parse(raw);
-			} catch {
-				parsed = raw;
-			}
-		}
+		const parsed = parseFetchBody(raw, res.ok);
 		if (!res.ok) {
 			const error = parsed as any;
 			throw new Error(
@@ -99,10 +106,7 @@ export async function postData({ url, data }: POST_DATA) {
 		body: JSON.stringify(data),
 	});
 	const raw = await res.text();
-	let parsed: any = null;
-	if (raw.trim()) {
-		try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-	}
+	const parsed = parseFetchBody(raw, res.ok);
 	if (!res.ok) {
 		const error = parsed as any;
 		throw new Error(
@@ -123,10 +127,7 @@ export async function deleteData({ url }: DELETE_DATA) {
 		headers: getRequestHeaders(),
 	});
 	const raw = await res.text();
-	let parsed: any = null;
-	if (raw.trim()) {
-		try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-	}
+	const parsed = parseFetchBody(raw, res.ok);
 	if (!res.ok) {
 		const error = parsed as any;
 		throw new Error(

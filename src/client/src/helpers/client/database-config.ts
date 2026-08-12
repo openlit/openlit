@@ -15,8 +15,9 @@ export const fetchDatabaseConfigList = async (
 		})
 	);
 
-	successCb(data || []);
-	useRootStore.getState().databaseConfig.setList(data || []);
+	const list = Array.isArray(data) ? data : [];
+	successCb(list);
+	useRootStore.getState().databaseConfig.setList(list);
 };
 
 export const pingActiveDatabaseConfig = async () => {

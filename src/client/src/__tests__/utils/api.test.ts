@@ -8,8 +8,12 @@ jest.mock('@/store', () => ({
   },
 }));
 
-const makeFetchResponse = (ok: boolean, body: unknown) => ({
+const makeFetchResponse = (ok: boolean, body: unknown, status?: number) => ({
   ok,
+  status: status ?? (ok ? 200 : 400),
+  text: jest.fn().mockResolvedValue(
+    typeof body === 'string' ? body : JSON.stringify(body ?? null)
+  ),
   json: jest.fn().mockResolvedValue(body),
 });
 
@@ -100,6 +104,29 @@ describe('getData', () => {
 
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];
     expect(options.headers[OPENLIT_CONTEXT_HEADERS.databaseConfigId]).toBe('db-1');
+  });
+
+  it('ignores non-array databaseConfig.list when building context headers', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(true, {}));
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      organisation: { current: { id: 'org-1' } },
+      project: { current: { id: 'project-1' } },
+      databaseConfig: { list: '<html>login</html>' },
+    });
+
+    await getData({ url: '/api/test', method: 'GET' });
+
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(options.headers[OPENLIT_CONTEXT_HEADERS.databaseConfigId]).toBeUndefined();
+  });
+
+  it('throws when a successful response is non-JSON (e.g. HTML login redirect)', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      makeFetchResponse(true, '<!DOCTYPE html><html>login</html>')
+    );
+    await expect(getData({ url: '/api/db-config', method: 'GET' })).rejects.toThrow(
+      /non-JSON/i
+    );
   });
 
   it('makes a PUT request when specified', async () => {

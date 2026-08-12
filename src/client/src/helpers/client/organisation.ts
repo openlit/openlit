@@ -24,7 +24,7 @@ export const fetchOrganisationList = async () => {
 		return;
 	}
 
-	useRootStore.getState().organisation.setList(data || []);
+	useRootStore.getState().organisation.setList(Array.isArray(data) ? data : []);
 };
 
 export const fetchPendingInvitations = async () => {

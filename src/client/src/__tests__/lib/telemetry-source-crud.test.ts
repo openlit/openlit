@@ -13,6 +13,8 @@ const mockListSourceTypeDescriptors = jest.fn();
 const mockCreateAdapter = jest.fn();
 
 const mockBindingFindMany = jest.fn();
+const mockBindingFindUnique = jest.fn();
+const mockBindingFindFirst = jest.fn();
 const mockBindingUpsert = jest.fn();
 const mockBindingDeleteMany = jest.fn();
 const mockUpsertSecret = jest.fn();
@@ -45,6 +47,8 @@ jest.mock("@/lib/prisma", () => ({
 		},
 		telemetrySourceBinding: {
 			findMany: (...a: unknown[]) => mockBindingFindMany(...a),
+			findUnique: (...a: unknown[]) => mockBindingFindUnique(...a),
+			findFirst: (...a: unknown[]) => mockBindingFindFirst(...a),
 			upsert: (...a: unknown[]) => mockBindingUpsert(...a),
 			deleteMany: (...a: unknown[]) => mockBindingDeleteMany(...a),
 		},
@@ -127,6 +131,8 @@ beforeEach(() => {
 	mockGetSecretById.mockResolvedValue({ data: [{ id: "vault-1" }] });
 	mockHasAdapterFactory.mockReturnValue(true);
 	mockFindFirst.mockResolvedValue(null);
+	mockBindingFindUnique.mockResolvedValue(null);
+	mockBindingFindFirst.mockResolvedValue(null);
 	mockConnectorUpsert.mockResolvedValue({});
 	mockGetSourceTypeDescriptor.mockImplementation((type: string) => ({
 		type,
@@ -465,12 +471,22 @@ describe("telemetry source bindings", () => {
 
 	it("binds a signal to a source that serves it (project-scoped)", async () => {
 		mockFindFirst.mockResolvedValue(row({ signals: "traces,logs,metrics" }));
+		mockBindingFindUnique.mockResolvedValue({
+			sourceId: "src-old",
+			databaseConfigId: null,
+		});
 		mockBindingUpsert.mockResolvedValue({
 			id: "b1",
 			signal: "traces",
 			sourceId: "src-1",
+			environment: "production",
 		});
-		await setTelemetrySourceBinding("traces", "src-1");
+		const result = await setTelemetrySourceBinding("traces", "src-1");
+		expect(result).toMatchObject({
+			sourceId: "src-1",
+			previousSourceId: "src-old",
+			environment: "production",
+		});
 		expect(mockFindFirst).toHaveBeenCalledWith({
 			where: { id: "src-1", projectId: "proj-1" },
 		});
@@ -516,8 +532,16 @@ describe("telemetry source bindings", () => {
 	});
 
 	it("deletes a signal binding (project-scoped)", async () => {
+		mockBindingFindFirst.mockResolvedValue({
+			sourceId: "src-9",
+			databaseConfigId: null,
+		});
 		mockBindingDeleteMany.mockResolvedValue({ count: 1 });
-		await deleteTelemetrySourceBinding("logs");
+		await expect(deleteTelemetrySourceBinding("logs")).resolves.toEqual({
+			signal: "logs",
+			environment: "production",
+			previousSourceId: "src-9",
+		});
 		expect(mockBindingDeleteMany).toHaveBeenCalledWith({
 			where: { projectId: "proj-1", signal: "logs", environment: "production" },
 		});

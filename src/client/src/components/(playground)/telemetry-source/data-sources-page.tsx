@@ -38,6 +38,14 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
+import FeatureAccess from "@/components/rbac/feature-access";
+import {
+	connectorCreateEventProps,
+	signalRoutingChangedEventProps,
+} from "@/helpers/client/connector-analytics";
+import { usePostHog } from "posthog-js/react";
+
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
@@ -183,6 +191,7 @@ export default function DataSourcesPage({
 	onOpenTypeHandled?: () => void;
 }) {
 	const messages = getMessage();
+	const posthog = usePostHog();
 	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
@@ -266,11 +275,20 @@ export default function DataSourcesPage({
 	);
 
 	const setBinding = async (signal: Signal, sourceId: string) => {
+		const previous = bindingForSignal(signal);
+		const previousSourceId = previous?.sourceId || null;
+		const previousConnectorType = previous?.sourceType || null;
+		const nextConnectorType =
+			sourceId === BUILTIN
+				? null
+				: sourceId.startsWith("builtin:")
+					? "clickhouse"
+					: sources.find((source) => signalRoutingSelectValue(source.id) === sourceId || source.id === sourceId)?.type || null;
 		toast.loading(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 		try {
 			if (sourceId === BUILTIN) {
 				await jsonFetch(
-					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}`,
+					`/api/telemetry-source/binding?signal=${encodeURIComponent(signal)}&environment=${encodeURIComponent(environment)}`,
 					{ method: "DELETE" }
 				);
 			} else {
@@ -288,6 +306,17 @@ export default function DataSourcesPage({
 				}),
 				});
 			}
+			posthog?.capture(
+				CLIENT_EVENTS.SIGNAL_ROUTING_CHANGED,
+				signalRoutingChangedEventProps({
+					signal,
+					environment,
+					previousSourceId,
+					nextSourceId: sourceId,
+					previousConnectorType,
+					nextConnectorType,
+				})
+			);
 			toast.success(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 			await load();
 		} catch (e: any) {
@@ -391,7 +420,14 @@ export default function DataSourcesPage({
 					</div>
 					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Add multiple ClickHouse targets and external integrations to each environment, then choose the connector used by each signal.</p>
 					</div>
-					<div className="flex items-center gap-2"><Button size="sm" onClick={() => setEditing("new")}><Plus className="mr-1.5 h-3.5 w-3.5" />{messages.DATA_SOURCE_ADD}</Button></div>
+					<div className="flex items-center gap-2">
+						<FeatureAccess access="connectors.create" hideWhenDenied>
+							<Button size="sm" onClick={() => setEditing("new")}>
+								<Plus className="mr-1.5 h-3.5 w-3.5" />
+								{messages.DATA_SOURCE_ADD}
+							</Button>
+						</FeatureAccess>
+					</div>
 				</div>
 				<div className="contents">
 					<DatabaseConfigPage hideHeader hideEmpty />
@@ -630,13 +666,17 @@ function SignalRoutingSection({
 					return (
 						<div key={signal} className="space-y-1.5">
 							<Label className="text-xs uppercase text-muted-foreground">{label}</Label>
-							{hasOptions ? <Select value={value} onValueChange={(next) => onSetBinding(signal, next)}>
-								<SelectTrigger className="h-auto min-h-12 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue placeholder="Select a connector" /></SelectTrigger>
-								<SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
-									{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
-									{options.map((source) => <ConnectorOption key={source.id} value={signalRoutingSelectValue(source.id)!} name={source.name} type={source.type} detail={environment} icon={descriptors.find((descriptor) => descriptor.type === source.type)?.icon} />)}
-								</SelectContent>
-							</Select> : <div className="flex min-h-12 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60"><span>No connector configured</span><Link className="font-medium text-primary hover:underline" href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}>Add connector</Link></div>}
+							{hasOptions ? (
+								<FeatureAccess access="connectors.bind" hideWhenDenied>
+									<Select value={value} onValueChange={(next) => onSetBinding(signal, next)}>
+										<SelectTrigger className="h-auto min-h-12 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue placeholder="Select a connector" /></SelectTrigger>
+										<SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+											{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
+											{options.map((source) => <ConnectorOption key={source.id} value={signalRoutingSelectValue(source.id)!} name={source.name} type={source.type} detail={environment} icon={descriptors.find((descriptor) => descriptor.type === source.type)?.icon} />)}
+										</SelectContent>
+									</Select>
+								</FeatureAccess>
+							) : <div className="flex min-h-12 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60"><span>No connector configured</span><Link className="font-medium text-primary hover:underline" href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}>Add connector</Link></div>}
 						</div>
 					);
 				})}
@@ -674,7 +714,7 @@ function SignalRoutingEditor({
 					const eligibleSources = sources.filter((item) => parseSignals(item.signals).includes(signal));
 					const routingDatabases = databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment);
 					const hasOptions = routingDatabases.length > 0 || eligibleSources.length > 0;
-					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label>{hasOptions ? <Select value={value} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="h-auto min-h-11 bg-white py-1.5 dark:bg-stone-900"><SelectValue placeholder="Select a connector" /></SelectTrigger><SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">{routingDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={routingEnvironment} icon="/images/connectors/clickhouse.svg" />)}{eligibleSources.map((item) => <ConnectorOption key={item.id} value={signalRoutingSelectValue(item.id)!} name={item.name} type={item.type} detail={routingEnvironment} />)}</SelectContent></Select> : <p className="rounded border border-dashed border-stone-300 p-2 text-[11px] text-muted-foreground dark:border-stone-700">No connector configured for {routingEnvironment}.</p>}</div>;
+					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label>{hasOptions ? <FeatureAccess access="connectors.bind" hideWhenDenied><Select value={value} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="h-auto min-h-11 bg-white py-1.5 dark:bg-stone-900"><SelectValue placeholder="Select a connector" /></SelectTrigger><SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">{routingDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={routingEnvironment} icon="/images/connectors/clickhouse.svg" />)}{eligibleSources.map((item) => <ConnectorOption key={item.id} value={signalRoutingSelectValue(item.id)!} name={item.name} type={item.type} detail={routingEnvironment} />)}</SelectContent></Select></FeatureAccess> : <p className="rounded border border-dashed border-stone-300 p-2 text-[11px] text-muted-foreground dark:border-stone-700">No connector configured for {routingEnvironment}.</p>}</div>;
 				})}
 			</div>
 			<p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER(source.name, routingEnvironment)}</p>
@@ -712,6 +752,7 @@ function SourceFormDialog({
 	onSaved: () => void;
 }) {
 	const messages = getMessage();
+	const posthog = usePostHog();
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
@@ -806,6 +847,13 @@ function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
+				posthog?.capture(
+					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
+					connectorCreateEventProps({
+						type: "clickhouse",
+						environment,
+					})
+				);
 				toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 				onSaved();
 				return;
@@ -834,10 +882,26 @@ function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
+				posthog?.capture(
+					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
+					connectorCreateEventProps({
+						type,
+						environment,
+					})
+				);
 			}
 			toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 			onSaved();
 		} catch (e: any) {
+			if (!isEdit) {
+				posthog?.capture(
+					CLIENT_EVENTS.CONNECTOR_CREATE_FAILURE,
+					connectorCreateEventProps({
+						type: type || "unknown",
+						environment,
+					})
+				);
+			}
 			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
 				id: "ds-save",
 			});

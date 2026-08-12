@@ -566,6 +566,16 @@ export async function validateTelemetrySourceAISignal(
 
 // ---- Per-signal bindings (Grafana-style per-signal routing) --------------
 
+function publicBindingSourceId(row: {
+	sourceId: string | null;
+	databaseConfigId: string | null;
+} | null | undefined): string | null {
+	if (!row) return null;
+	if (row.sourceId) return row.sourceId;
+	if (row.databaseConfigId) return `builtin:${row.databaseConfigId}`;
+	return null;
+}
+
 /** List the current project's per-signal source bindings. */
 export async function listTelemetrySourceBindings(environmentInput?: unknown) {
 	const projectId = await requireCurrentProjectId();
@@ -598,6 +608,10 @@ export async function setTelemetrySourceBinding(
 	const projectId = await requireCurrentProjectId();
 	const signal = validateSignal(signalInput);
 	const environment = normalizeEnvironment(environmentInput);
+	const existing = await prisma.telemetrySourceBinding.findUnique({
+		where: { projectId_signal_environment: { projectId, signal, environment } },
+	});
+	const previousSourceId = publicBindingSourceId(existing);
 	const normalizedSourceId = sourceId.startsWith("builtin:")
 		? sourceId
 		: normalizeTelemetrySourceId(sourceId);
@@ -615,7 +629,13 @@ export async function setTelemetrySourceBinding(
 			create: { projectId, signal, environment, sourceId: null, databaseConfigId },
 			update: { sourceId: null, databaseConfigId },
 		});
-		return { id: binding.id, signal: binding.signal, sourceId: normalizedSourceId, environment };
+		return {
+			id: binding.id,
+			signal: binding.signal,
+			sourceId: normalizedSourceId,
+			environment,
+			previousSourceId,
+		};
 	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
 	if (!parseSignals(source.signals).includes(signal)) {
@@ -639,6 +659,7 @@ export async function setTelemetrySourceBinding(
 		signal: binding.signal,
 		sourceId: binding.sourceId,
 		environment: binding.environment,
+		previousSourceId,
 	};
 }
 
@@ -647,8 +668,12 @@ export async function deleteTelemetrySourceBinding(signalInput: unknown, environ
 	const projectId = await requireCurrentProjectId();
 	const signal = validateSignal(signalInput);
 	const environment = normalizeEnvironment(environmentInput);
+	const existing = await prisma.telemetrySourceBinding.findFirst({
+		where: { projectId, signal, environment },
+	});
+	const previousSourceId = publicBindingSourceId(existing);
 	await prisma.telemetrySourceBinding.deleteMany({
 		where: { projectId, signal, environment },
 	});
-	return { signal };
+	return { signal, environment, previousSourceId };
 }
