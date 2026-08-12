@@ -258,15 +258,32 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if scope._tools:
+        tools = scope._tools if isinstance(scope._tools, list) else [scope._tools]
+
+        names, ids, args = (
+            zip(
+                *[
+                    (
+                        t.get("function", {}).get("name", ""),
+                        str(t.get("id", "")),
+                        str(t.get("function", {}).get("arguments", "")),
+                    )
+                    for t in tools
+                    if isinstance(t, dict) and t
+                ]
+            )
+            if tools
+            else ([], [], [])
+        )
+
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
-        ).get("name", "")
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS,
-            str(scope._tools.get("function", "").get("arguments", "")),
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
         )
 
     # Compute system instructions + tool definitions unconditionally so the

@@ -366,15 +366,36 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if scope._tools:
+        tools = scope._tools if isinstance(scope._tools, list) else [scope._tools]
+
+        names, ids, args = (
+            zip(
+                *[
+                    (
+                        t.get("name", "") if isinstance(t, dict) else getattr(t, "name", ""),
+                        str(t.get("id", "") if isinstance(t, dict) else getattr(t, "id", "")),
+                        str(
+                            t.get("parameters", "")
+                            if isinstance(t, dict)
+                            else getattr(t, "parameters", "")
+                        ),
+                    )
+                    for t in tools
+                    if t
+                ]
+            )
+            if tools
+            else ([], [], [])
+        )
+
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("name", "")
+            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS,
-            str(scope._tools.get("parameters", "")),
+            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
         )
 
     # Span Attributes for Cost and Tokens
