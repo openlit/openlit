@@ -481,6 +481,19 @@ describe("telemetry source bindings", () => {
 		});
 	});
 
+	it("accepts connector-registry telemetry: prefixed source ids", async () => {
+		mockFindFirst.mockResolvedValue(row({ signals: "logs" }));
+		mockBindingUpsert.mockResolvedValue({
+			id: "b2",
+			signal: "logs",
+			sourceId: "src-1",
+		});
+		await setTelemetrySourceBinding("logs", "telemetry:src-1");
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "src-1", projectId: "proj-1" },
+		});
+	});
+
 	it("rejects binding a signal the source does not serve", async () => {
 		mockFindFirst.mockResolvedValue(row({ signals: "metrics" }));
 		await expect(

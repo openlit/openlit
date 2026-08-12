@@ -19,7 +19,7 @@ async function POSTHandler(request: Request) {
 	const params: MetricParams = {
 		timeLimit,
 		selectedConfig,
-		statusCode: ["STATUS_CODE_ERROR", "Error"],
+		statusCode: ["STATUS_CODE_ERROR", "Error", "ERROR"],
 	};
 
 	const validationParam = validateMetricsRequest(

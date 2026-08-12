@@ -4,7 +4,7 @@ import type { DatasourceAdapter as OpenPlaitDatasourceAdapter } from "@openplait
 import { BaseExternalAdapter } from "../base-adapter";
 import type { TelemetrySourceDescriptor } from "../types";
 import { applyHttpAuthCredentials } from "../http/auth-headers";
-import { normalizeDatasourceEndpointUrl } from "../http/endpoint-url";
+import { normalizeDatasourceEndpointUrl, rewriteLoopbackEndpointForDocker } from "../http/endpoint-url";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { safeFetch, selfHostedNetworkOptions, SourceResponseError } from "../http/safe-fetch";
 
@@ -19,7 +19,11 @@ export abstract class OpenPlaitHttpAdapter extends BaseExternalAdapter {
 	}
 
 	protected get baseUrl(): string {
-		return normalizeDatasourceEndpointUrl(String(this.descriptor.settings.url || ""));
+		const url = normalizeDatasourceEndpointUrl(String(this.descriptor.settings.url || ""));
+		const network = selfHostedNetworkOptions(this.descriptor.settings);
+		return network.allowPrivateNetwork
+			? rewriteLoopbackEndpointForDocker(url)
+			: url;
 	}
 
 	protected positiveSetting(key: string): number | undefined {

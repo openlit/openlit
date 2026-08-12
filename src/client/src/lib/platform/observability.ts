@@ -277,7 +277,7 @@ export async function getSignalSummary(
 		const traceParams: MetricParams = {
 			...params,
 			...(signal === "exceptions"
-				? { statusCode: ["STATUS_CODE_ERROR", "Error"] }
+				? { statusCode: ["STATUS_CODE_ERROR", "Error", "ERROR"] }
 				: {}),
 		};
 		const where = getFilterWhereCondition(traceParams, true);

@@ -20,6 +20,7 @@ export function endpointField(placeholder?: string): FieldDef {
 		kind: "url",
 		group: "settings",
 		placeholder,
+		description: messages.DATA_SOURCE_FIELD_ENDPOINT_HELP,
 	};
 }
 

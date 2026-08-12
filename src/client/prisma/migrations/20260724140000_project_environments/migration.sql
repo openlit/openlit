@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "project_environments" (
 CREATE UNIQUE INDEX IF NOT EXISTS "project_environments_project_id_name_key" ON "project_environments"("project_id", "name");
 
 INSERT OR IGNORE INTO "project_environments" ("id", "project_id", "name", "createdAt", "updatedAt")
-SELECT 'env_' || lower(hex(randomblob(16))), "project_id", 'production', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+SELECT 'env_' || lower(hex(randomblob(16))), "id", 'production', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "projects"
 WHERE "id" IS NOT NULL;
 

@@ -260,6 +260,8 @@ export interface FieldDef {
 	kind: "text" | "password" | "url" | "switch" | "select";
 	group: FieldGroup;
 	placeholder?: string;
+	/** Optional help text shown under the control. */
+	description?: string;
 	options?: { value: string; label: string }[];
 	defaultValue?: string | boolean;
 	/** Render this field only when another form field has the given value. */

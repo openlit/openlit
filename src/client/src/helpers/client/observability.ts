@@ -20,9 +20,11 @@ const EMPTY_ATTRIBUTE_KEYS: AttributeKeys = {
 };
 
 /** Agent-detail scope fields that must survive a signal/tab filter wipe. */
-export type ObservabilityScopePreserve = Pick<
-	FilterConfig,
-	"serviceNames" | "services" | "environments" | "versionFilter"
+export type ObservabilityScopePreserve = Partial<
+	Pick<
+		FilterConfig,
+		"serviceNames" | "services" | "environments" | "versionFilter"
+	>
 >;
 
 /**

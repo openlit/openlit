@@ -103,6 +103,14 @@ function parseSignals(csv: string): Signal[] {
 		.filter((s): s is Signal => SIGNALS.includes(s as Signal));
 }
 
+/** Select value for connector / binding ids (connector registry already prefixes telemetry:). */
+function signalRoutingSelectValue(sourceId?: string | null): string | undefined {
+	const raw = String(sourceId || "").trim();
+	if (!raw) return undefined;
+	if (raw.startsWith("builtin:") || raw.startsWith("telemetry:")) return raw;
+	return `telemetry:${raw}`;
+}
+
 function ConnectorOption({
 	value,
 	name,
@@ -117,14 +125,25 @@ function ConnectorOption({
 	detail?: string;
 }) {
 	return (
-		<SelectItem value={value} className="min-h-[72px] items-start py-2 pl-2 pr-8">
-			<div className="flex min-w-0 items-start gap-3">
-				<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
-					<Image src={icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
+		<SelectItem value={value} className="items-center py-2">
+			<div className="flex min-w-0 items-center gap-2.5">
+				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+					<Image
+						src={icon || "/images/connect.svg"}
+						alt=""
+						width={16}
+						height={16}
+						className="h-4 w-4 object-contain"
+					/>
 				</div>
-				<div className="min-w-0 text-left">
-					<p className="truncate text-xs font-medium text-stone-950 dark:text-stone-50">{name}</p>
-					<p className="truncate text-[10px] text-muted-foreground">{type}{detail ? ` · ${detail}` : ""}</p>
+				<div className="min-w-0 flex-1 text-left">
+					<p className="truncate text-xs font-medium text-stone-950 dark:text-stone-50">
+						{name}
+					</p>
+					<p className="truncate text-[10px] text-muted-foreground">
+						{type}
+						{detail ? ` · ${detail}` : ""}
+					</p>
 				</div>
 			</div>
 		</SelectItem>
@@ -255,12 +274,16 @@ export default function DataSourcesPage({
 					{ method: "DELETE" }
 				);
 			} else {
+				let resolvedSourceId = sourceId;
+				while (resolvedSourceId.startsWith("telemetry:")) {
+					resolvedSourceId = resolvedSourceId.slice("telemetry:".length);
+				}
 				await jsonFetch("/api/telemetry-source/binding", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					signal,
-					sourceId: sourceId.startsWith("telemetry:") ? sourceId.slice("telemetry:".length) : sourceId,
+					sourceId: resolvedSourceId,
 					environment,
 				}),
 				});
@@ -562,6 +585,9 @@ function FieldInput({
 				onChange={(e) => onChange(e.target.value)}
 				className="bg-white dark:bg-stone-900"
 			/>
+			{field.description ? (
+				<p className="text-[11px] leading-4 text-muted-foreground">{field.description}</p>
+			) : null}
 		</div>
 	);
 }
@@ -597,9 +623,7 @@ function SignalRoutingSection({
 			<div className="grid gap-3 sm:grid-cols-3">
 				{SIGNALS.map((signal) => {
 					const binding = bindingForSignal(signal);
-					const value = binding?.sourceId
-						? (binding.sourceId.startsWith("builtin:") ? binding.sourceId : `telemetry:${binding.sourceId}`)
-						: undefined;
+					const value = signalRoutingSelectValue(binding?.sourceId);
 					const options = sources.filter((source) => parseSignals(source.signals).includes(signal));
 					const hasOptions = environmentDatabases.length > 0 || options.length > 0;
 					const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
@@ -607,12 +631,12 @@ function SignalRoutingSection({
 						<div key={signal} className="space-y-1.5">
 							<Label className="text-xs uppercase text-muted-foreground">{label}</Label>
 							{hasOptions ? <Select value={value} onValueChange={(next) => onSetBinding(signal, next)}>
-								<SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue placeholder="Select a connector" /></SelectTrigger>
-								<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
+								<SelectTrigger className="h-auto min-h-12 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50"><SelectValue placeholder="Select a connector" /></SelectTrigger>
+								<SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
 									{environmentDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={environment} icon="/images/connectors/clickhouse.svg" />)}
-									{options.map((source) => <ConnectorOption key={source.id} value={source.id} name={source.name} type={source.type} detail={environment} icon={descriptors.find((descriptor) => descriptor.type === source.type)?.icon} />)}
+									{options.map((source) => <ConnectorOption key={source.id} value={signalRoutingSelectValue(source.id)!} name={source.name} type={source.type} detail={environment} icon={descriptors.find((descriptor) => descriptor.type === source.type)?.icon} />)}
 								</SelectContent>
-							</Select> : <div className="flex min-h-14 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60"><span>No connector configured</span><Link className="font-medium text-primary hover:underline" href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}>Add connector</Link></div>}
+							</Select> : <div className="flex min-h-12 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60"><span>No connector configured</span><Link className="font-medium text-primary hover:underline" href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}>Add connector</Link></div>}
 						</div>
 					);
 				})}
@@ -646,11 +670,11 @@ function SignalRoutingEditor({
 			<div className="grid gap-2 sm:grid-cols-3">
 				{SIGNALS.map((signal) => {
 					const binding = bindingForSignal(signal);
-					const value = binding?.sourceId || undefined;
+					const value = signalRoutingSelectValue(binding?.sourceId);
 					const eligibleSources = sources.filter((item) => parseSignals(item.signals).includes(signal));
 					const routingDatabases = databaseConfigs.filter((db) => (db.environment || "production").toLowerCase() === routingEnvironment);
 					const hasOptions = routingDatabases.length > 0 || eligibleSources.length > 0;
-					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label>{hasOptions ? <Select value={value} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="bg-white dark:bg-stone-900"><SelectValue placeholder="Select a connector" /></SelectTrigger><SelectContent>{routingDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={routingEnvironment} icon="/images/connectors/clickhouse.svg" />)}{eligibleSources.map((item) => <ConnectorOption key={item.id} value={item.id} name={item.name} type={item.type} detail={routingEnvironment} />)}</SelectContent></Select> : <p className="rounded border border-dashed border-stone-300 p-2 text-[11px] text-muted-foreground dark:border-stone-700">No connector configured for {routingEnvironment}.</p>}</div>;
+					return <div key={signal} className="space-y-1"><Label className="text-[11px] uppercase text-muted-foreground">{signal}</Label>{hasOptions ? <Select value={value} onValueChange={(next) => onSetBinding(signal, next)}><SelectTrigger className="h-auto min-h-11 bg-white py-1.5 dark:bg-stone-900"><SelectValue placeholder="Select a connector" /></SelectTrigger><SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">{routingDatabases.map((db) => <ConnectorOption key={db.id} value={`builtin:${db.id}`} name={db.name} type="ClickHouse" detail={routingEnvironment} icon="/images/connectors/clickhouse.svg" />)}{eligibleSources.map((item) => <ConnectorOption key={item.id} value={signalRoutingSelectValue(item.id)!} name={item.name} type={item.type} detail={routingEnvironment} />)}</SelectContent></Select> : <p className="rounded border border-dashed border-stone-300 p-2 text-[11px] text-muted-foreground dark:border-stone-700">No connector configured for {routingEnvironment}.</p>}</div>;
 				})}
 			</div>
 			<p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER(source.name, routingEnvironment)}</p>

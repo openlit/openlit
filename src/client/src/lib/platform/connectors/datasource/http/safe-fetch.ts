@@ -13,7 +13,11 @@
 import net from "net";
 import { promises as dns } from "dns";
 import getMessage from "@/constants/messages";
-import { isEnabledSetting, normalizeDatasourceEndpointUrl } from "./endpoint-url";
+import {
+	isEnabledSetting,
+	normalizeDatasourceEndpointUrl,
+	rewriteLoopbackEndpointForDocker,
+} from "./endpoint-url";
 import { withRetry, withSourceConcurrency, type RetryOptions } from "./limits";
 
 export type LookupFn = (hostname: string) => Promise<{ address: string }[]>;
@@ -257,7 +261,13 @@ export async function safeFetch<T = unknown>(
 	options: SafeFetchOptions = {}
 ): Promise<T> {
 	const redactValues = options.redactValues || [];
-	const url = await assertPublicUrl(rawUrl, {
+	// Inside Docker, loopback points at the container — remap to the host
+	// gateway when the connector explicitly allowed private/localhost targets.
+	const fetchUrl =
+		options.allowPrivateNetwork
+			? rewriteLoopbackEndpointForDocker(rawUrl)
+			: rawUrl;
+	const url = await assertPublicUrl(fetchUrl, {
 		allowHttp: options.allowHttp,
 		allowPrivateNetwork: options.allowPrivateNetwork,
 		lookup: options.lookup,

@@ -1,6 +1,7 @@
 import {
 	isEnabledSetting,
 	normalizeDatasourceEndpointUrl,
+	rewriteLoopbackEndpointForDocker,
 } from "@/lib/platform/connectors/datasource/http/endpoint-url";
 import { selfHostedNetworkOptions } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 
@@ -18,6 +19,31 @@ describe("normalizeDatasourceEndpointUrl", () => {
 		expect(normalizeDatasourceEndpointUrl("http://localhost:9090/")).toBe(
 			"http://localhost:9090"
 		);
+	});
+});
+
+describe("rewriteLoopbackEndpointForDocker", () => {
+	it("rewrites localhost and 127.0.0.1 when enabled", () => {
+		expect(
+			rewriteLoopbackEndpointForDocker("http://localhost:3100", { enabled: true })
+		).toBe("http://host.docker.internal:3100");
+		expect(
+			rewriteLoopbackEndpointForDocker("http://127.0.0.1:3100/loki", {
+				enabled: true,
+			})
+		).toBe("http://host.docker.internal:3100/loki");
+	});
+
+	it("leaves non-loopback hosts unchanged", () => {
+		expect(
+			rewriteLoopbackEndpointForDocker("http://loki:3100", { enabled: true })
+		).toBe("http://loki:3100");
+	});
+
+	it("is a no-op when disabled", () => {
+		expect(
+			rewriteLoopbackEndpointForDocker("http://localhost:3100", { enabled: false })
+		).toBe("http://localhost:3100");
 	});
 });
 

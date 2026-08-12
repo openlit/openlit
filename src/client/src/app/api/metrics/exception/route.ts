@@ -21,7 +21,7 @@ async function POSTHandler(request: Request) {
 		offset,
 		selectedConfig,
 		sorting,
-		statusCode: ["STATUS_CODE_ERROR", "Error"],
+		statusCode: ["STATUS_CODE_ERROR", "Error", "ERROR"],
 		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 	};
 

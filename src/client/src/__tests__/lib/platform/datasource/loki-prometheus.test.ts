@@ -49,7 +49,7 @@ function descriptor(
 }
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	mockSafeFetch.mockReset();
 	__resetLokiLearningForTests();
 });
 
@@ -107,6 +107,7 @@ describe("OpenPlait Loki integration", () => {
 		expect(rangeMs).toBeLessThanOrEqual(30 * 24 * 60 * 60 * 1_000);
 		expect(url.searchParams.get("query")).toContain("count_over_time");
 		expect(url.searchParams.get("query")).not.toContain("[auto]");
+		expect(Number(url.searchParams.get("step"))).toBeGreaterThan(0);
 	});
 
 	it("learns Loki max query length from 400 bodies and retries", async () => {

@@ -1928,6 +1928,8 @@ export const DATA_SOURCE_FIELD_TYPE = "Type";
 export const DATA_SOURCE_FIELD_SIGNALS = "Signals served";
 export const DATA_SOURCE_FIELD_DEFAULT = "Set as project default";
 export const DATA_SOURCE_FIELD_ENDPOINT = "Endpoint URL";
+export const DATA_SOURCE_FIELD_ENDPOINT_HELP =
+	"When OpenLIT runs in Docker, use http://host.docker.internal:<port> for services on the host, or the Compose service name (e.g. http://loki:3100) on the same network. localhost inside the container is not the host.";
 export const DATA_SOURCE_FIELD_ALLOW_HTTP = "Allow plain HTTP (self-hosted)";
 export const DATA_SOURCE_FIELD_ALLOW_PRIVATE_NETWORK = "Allow private or localhost endpoints";
 export const DATA_SOURCE_PRIVATE_NETWORK_BLOCKED = (host: string) =>

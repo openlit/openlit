@@ -435,7 +435,7 @@ export async function getTraceSummary(
 				signal === "exceptions"
 					? [
 							...(base.filters || []),
-							{ target: "status", op: "in", value: ["STATUS_CODE_ERROR", "Error"] },
+							{ target: "status", op: "in", value: ["STATUS_CODE_ERROR", "Error", "ERROR"] },
 						]
 					: base.filters,
 			aggregations: [

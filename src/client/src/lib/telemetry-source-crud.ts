@@ -60,6 +60,15 @@ import { normalizeDatasourceEndpointUrl } from "./platform/connectors/datasource
 import { getDBConfigByUser } from "./db-config";
 import type { DatabaseConfig } from "@prisma/client";
 
+/** Strip connector-registry `telemetry:` prefixes down to the TelemetrySource id. */
+export function normalizeTelemetrySourceId(sourceId: string): string {
+	let id = String(sourceId || "").trim();
+	while (id.startsWith("telemetry:")) {
+		id = id.slice("telemetry:".length);
+	}
+	return id;
+}
+
 const ALL_SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 
 function validateSignal(signal: unknown): Signal {
@@ -411,7 +420,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 async function requireSourceInProject(id: string): Promise<TelemetrySource> {
 	const projectId = await requireCurrentProjectId();
 	const row = await prisma.telemetrySource.findFirst({
-		where: { id, projectId },
+		where: { id: normalizeTelemetrySourceId(id), projectId },
 	});
 	if (!row) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
 	return row;
@@ -589,11 +598,14 @@ export async function setTelemetrySourceBinding(
 	const projectId = await requireCurrentProjectId();
 	const signal = validateSignal(signalInput);
 	const environment = normalizeEnvironment(environmentInput);
+	const normalizedSourceId = sourceId.startsWith("builtin:")
+		? sourceId
+		: normalizeTelemetrySourceId(sourceId);
 	const source = await prisma.telemetrySource.findFirst({
-		where: { id: sourceId, projectId },
+		where: { id: normalizedSourceId, projectId },
 	});
-	if (!source && sourceId.startsWith("builtin:")) {
-		const databaseConfigId = sourceId.slice("builtin:".length);
+	if (!source && normalizedSourceId.startsWith("builtin:")) {
+		const databaseConfigId = normalizedSourceId.slice("builtin:".length);
 		const databaseConfig = await prisma.databaseConfig.findFirst({
 			where: { id: databaseConfigId, projectId },
 		});
@@ -603,7 +615,7 @@ export async function setTelemetrySourceBinding(
 			create: { projectId, signal, environment, sourceId: null, databaseConfigId },
 			update: { sourceId: null, databaseConfigId },
 		});
-		return { id: binding.id, signal: binding.signal, sourceId, environment };
+		return { id: binding.id, signal: binding.signal, sourceId: normalizedSourceId, environment };
 	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
 	if (!parseSignals(source.signals).includes(signal)) {
@@ -613,8 +625,14 @@ export async function setTelemetrySourceBinding(
 	}
 	const binding = await prisma.telemetrySourceBinding.upsert({
 		where: { projectId_signal_environment: { projectId, signal, environment } },
-		create: { projectId, signal, environment, sourceId, databaseConfigId: null },
-		update: { sourceId, databaseConfigId: null },
+		create: {
+			projectId,
+			signal,
+			environment,
+			sourceId: normalizedSourceId,
+			databaseConfigId: null,
+		},
+		update: { sourceId: normalizedSourceId, databaseConfigId: null },
 	});
 	return {
 		id: binding.id,

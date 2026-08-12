@@ -1847,7 +1847,7 @@ export class DisputeError extends Error {
 // org id in the SQL. We do still constrain to coding-agent span
 // names so a request can't probe arbitrary trace ids.
 async function disputeSessionExists(
-	_auth: CodingAgentAuth,
+	auth: CodingAgentAuth,
 	sessionId: string
 ): Promise<boolean> {
 	const sid = escape(sessionId);

@@ -16,6 +16,7 @@ import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import { logStableRowId } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import { computeIntervalMs, intervalMsToLabel } from "../downsample";
 import { httpVendorFields } from "../config-fields";
+import { SourceResponseError } from "../http/safe-fetch";
 import getMessage from "@/constants/messages";
 
 /** Loki's default `max_query_length` is typically 30d1h (~721h). */
@@ -183,9 +184,11 @@ export function reportedLokiMaxQueryRangeMs(body: string): number | undefined {
 }
 
 function adapterErrorBody(error: unknown): string {
-	if (!(error instanceof AdapterError)) return "";
-	const body = error.details?.body;
-	return typeof body === "string" ? body : "";
+	if (error instanceof AdapterError) {
+		const body = error.details?.body;
+		if (typeof body === "string") return body;
+	}
+	return error instanceof Error ? error.message : "";
 }
 
 function clampTimeRange(
@@ -301,12 +304,15 @@ export class LokiAdapter extends OpenPlaitHttpAdapter {
 			const reported = reportedLokiMaxQueryRangeMs(body);
 			const rangeMs =
 				effective.timeRange.end.getTime() - effective.timeRange.start.getTime();
-			if (
-				error instanceof AdapterError &&
-				error.details?.status === 400 &&
-				reported !== undefined &&
-				rangeMs > reported
-			) {
+			const status =
+				error instanceof AdapterError
+					? error.details?.status
+					: error instanceof SourceResponseError
+						? error.status
+						: typeof (error as { status?: unknown })?.status === "number"
+							? (error as { status: number }).status
+							: undefined;
+			if (status === 400 && reported !== undefined && rangeMs > reported) {
 				learnedQueryRangeBySource.set(this.descriptor.id, reported);
 				const retried = this.clampedQuery(query);
 				return run(retried);
@@ -406,27 +412,64 @@ export class LokiAdapter extends OpenPlaitHttpAdapter {
 
 	async logTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
 		return this.withRangeRetry(query, async (effective) => {
-			const step = intervalMsToLabel(computeIntervalMs(effective));
+			const started = Date.now();
+			const stepMs = computeIntervalMs(effective);
+			const step = intervalMsToLabel(stepMs);
+			const stepSeconds = Math.max(1, Math.round(stepMs / 1000));
+			// OpenPlait's Loki adapter does not yet forward `step`, which Loki
+			// requires for metric query_range — call the API directly.
 			const statement = `sum(count_over_time(${selector(effective, this.defaultSelector)}[${step}]))`;
-			const result = await this.executeNative(await this.adapter(), {
-				operation: "log-series",
-				kind: "LokiDatasource",
-				language: "logql",
-				statement,
-				extension: "io.openplait.loki",
-				extensionValue: {
-					timeRange: this.range(effective),
-					limit: effective.limit || 1000,
-				},
+			const range = this.range(effective);
+			const connection = await this.openPlaitConnection();
+			const url = new URL("loki/api/v1/query_range", `${this.baseUrl}/`);
+			url.searchParams.set("query", statement);
+			url.searchParams.set(
+				"start",
+				`${new Date(range.from).getTime()}000000`
+			);
+			url.searchParams.set("end", `${new Date(range.to).getTime()}000000`);
+			url.searchParams.set("step", String(stepSeconds));
+			const response = await connection.fetch(url.toString(), {
+				headers: connection.headers,
 			});
+			if (!response.ok) {
+				throw new SourceResponseError(
+					response.status,
+					await response.text()
+				);
+			}
+			const body = (await response.json()) as {
+				data?: {
+					result?: Array<{ values?: Array<[number | string, string]> }>;
+				};
+			};
+			const rows: Record<string, unknown>[] = [];
+			for (const series of body.data?.result || []) {
+				for (const sample of series.values || []) {
+					const raw = Number(sample[0]);
+					if (!Number.isFinite(raw)) continue;
+					const timestampMs =
+						raw > 10_000_000_000_000 ? raw / 1_000_000 : raw * 1_000;
+					const timestamp = new Date(timestampMs).toISOString();
+					const count = Number(sample[1]) || 0;
+					rows.push({
+						timestamp,
+						value: count,
+						label: timestamp,
+						count,
+					});
+				}
+			}
 			return {
 				fields: [
 					{ name: "timestamp", type: "time" },
 					{ name: "value", type: "number" },
+					{ name: "label", type: "string" },
+					{ name: "count", type: "number" },
 				],
-				rows: openPlaitFramesToRows(result.frames),
+				rows,
 				meta: {
-					latencyMs: result.metadata?.executionTimeMs,
+					latencyMs: Date.now() - started,
 					freshness: "live",
 				},
 			};
