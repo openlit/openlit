@@ -416,21 +416,19 @@ def common_chat_logic(
     if scope._tools:
         tools = scope._tools if isinstance(scope._tools, list) else [scope._tools]
 
-        names, ids, args = (
-            zip(
-                *[
-                    (
-                        t.get("function", {}).get("name", ""),
-                        str(t.get("id", "")),
-                        str(t.get("function", {}).get("arguments", "")),
-                    )
-                    for t in tools
-                    if isinstance(t, dict) and t
-                ]
+        filtered_tools = [
+            (
+                t.get("function", {}).get("name", ""),
+                str(t.get("id", "")),
+                str(t.get("function", {}).get("arguments", "")),
             )
-            if tools
-            else ([], [], [])
-        )
+            for t in tools
+            if isinstance(t, dict) and t
+        ]
+        if filtered_tools:
+            names, ids, args = zip(*filtered_tools)
+        else:
+            names, ids, args = (), (), ()
 
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))

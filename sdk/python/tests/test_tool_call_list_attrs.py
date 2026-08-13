@@ -266,3 +266,26 @@ def test_reka_parallel_tool_calls_are_joined():
     assert attrs[SemanticConvention.GEN_AI_TOOL_ARGS] == (
         '{"city": "nyc"}, {"tz": "UTC"}'
     )
+
+
+# ===========================================================================
+# Edge-case: all tool_calls entries are non-dict (e.g. None / opaque objects)
+# ===========================================================================
+
+def test_groq_all_tools_filtered_out_does_not_raise():
+    """If every tool_calls entry fails isinstance(t, dict), zip(*[]) must not raise ValueError."""
+    # Use a list of non-dict values so all entries are filtered out.
+    tracer, exporter = _tracer_with_exporter()
+    response = _openai_response([None, "unexpected-string"])
+    with tracer.start_as_current_span("groq.chat") as span:
+        # The handler must not raise even when no valid tool dicts remain.
+        groq_utils.process_chat_response(
+            response=response,
+            span=span,
+            tools=[{"type": "function"}],
+            messages=[{"role": "user", "content": "test"}],
+            **_COMMON_KWARGS,
+        )
+    # span tool attributes are set to empty strings when no valid tools remain
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert attrs.get(SemanticConvention.GEN_AI_TOOL_NAME, "") == ""
