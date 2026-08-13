@@ -284,7 +284,9 @@ describe("JaegerAdapter", () => {
 			aiSelector: false,
 			aggregations: [{ fn: "count", as: "count" }],
 		});
-		expect(frame.rows.some((row: { count?: unknown }) => Number(row.count) > 0)).toBe(true);
+		expect(
+			frame.rows.some((row) => Number((row as { count?: unknown }).count) > 0)
+		).toBe(true);
 		expect(frame.meta?.freshness).toBe("sampled");
 	});
 

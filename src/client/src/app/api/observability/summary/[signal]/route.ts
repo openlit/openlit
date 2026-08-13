@@ -12,6 +12,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import asaw from "@/utils/asaw";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
 const SIGNAL_ACCESS: Record<string, RouteAccessKey> = {
@@ -50,6 +51,10 @@ async function POSTHandler(
 		...(typeof formData.environment === "string"
 			? { environment: formData.environment }
 			: {}),
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validation = validateMetricsRequest(
