@@ -48,4 +48,20 @@ describe("cachedQuery", () => {
 		expect(await cachedQuery(key, 0, loader)).toBe(2);
 		expect(loader).toHaveBeenCalledTimes(2);
 	});
+
+	it("evicts oldest entries when the byte budget is exceeded", async () => {
+		const { MAX_CACHE_BYTES, __cacheStats } = await import(
+			"@/lib/platform/connectors/datasource/http/cache"
+		);
+		// Force a tiny budget by caching several large payloads under the real
+		// MAX_CACHE_BYTES ceiling (skip-single-payload path is > MAX).
+		const chunk = "y".repeat(Math.floor(MAX_CACHE_BYTES / 3));
+		await cachedQuery(cacheKey("s1", { n: 1 }), 60_000, async () => chunk);
+		await cachedQuery(cacheKey("s1", { n: 2 }), 60_000, async () => chunk);
+		await cachedQuery(cacheKey("s1", { n: 3 }), 60_000, async () => chunk);
+		await cachedQuery(cacheKey("s1", { n: 4 }), 60_000, async () => chunk);
+		const stats = __cacheStats();
+		expect(stats.entries).toBeLessThan(4);
+		expect(stats.bytes).toBeLessThanOrEqual(MAX_CACHE_BYTES);
+	});
 });

@@ -1,5 +1,6 @@
 /**
- * Per-source in-memory query cache with TTL and in-flight de-duplication.
+ * Per-source in-memory query cache with TTL, in-flight de-duplication, and a
+ * byte-aware soft budget so full OTLP payloads cannot grow RSS without bound.
  *
  * External vendors (notably Datadog: 300 spans req/hr) rate-limit aggressively,
  * so identical queries within a short window must be served from cache and
@@ -9,27 +10,54 @@
 interface CacheEntry<T> {
 	value: T;
 	expiresAt: number;
+	/** Approximate serialized size in bytes (UTF-8 JSON estimate). */
+	bytes: number;
 }
 
 const store = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
 
 /** Soft cap so a long-lived process cannot grow the Map without bound. */
-const MAX_CACHE_ENTRIES = 500;
+export const MAX_CACHE_ENTRIES = 500;
+
+/** Soft RSS budget for cached payloads (entries + values). */
+export const MAX_CACHE_BYTES = 64 * 1024 * 1024;
+
+let totalBytes = 0;
 
 /** Build a stable cache key from a source id and a query descriptor. */
 export function cacheKey(sourceId: string, parts: unknown): string {
 	return `${sourceId}::${stableStringify(parts)}`;
 }
 
+/** Approximate UTF-8 byte size of a cached value. */
+export function estimateCacheBytes(value: unknown): number {
+	try {
+		const encoded = JSON.stringify(value) ?? "null";
+		return typeof Buffer !== "undefined"
+			? Buffer.byteLength(encoded, "utf8")
+			: encoded.length;
+	} catch {
+		// Non-JSON-serializable values (rare): charge a conservative fixed cost.
+		return 4 * 1024;
+	}
+}
+
+function deleteEntry(key: string): void {
+	const existing = store.get(key);
+	if (!existing) return;
+	totalBytes = Math.max(0, totalBytes - existing.bytes);
+	store.delete(key);
+}
+
 function pruneExpired(now: number): void {
 	for (const [key, entry] of Array.from(store.entries())) {
-		if (entry.expiresAt <= now) store.delete(key);
+		if (entry.expiresAt <= now) deleteEntry(key);
 	}
-	while (store.size > MAX_CACHE_ENTRIES) {
+	while (store.size > MAX_CACHE_ENTRIES || totalBytes > MAX_CACHE_BYTES) {
 		const oldest = store.keys().next().value;
 		if (oldest === undefined) break;
-		store.delete(oldest);
+		deleteEntry(oldest);
 	}
 }
 
@@ -63,7 +91,13 @@ export async function cachedQuery<T>(
 		try {
 			const value = await loader();
 			const expiresAt = Date.now() + ttlMs;
-			store.set(key, { value, expiresAt });
+			const bytes = estimateCacheBytes(value);
+			// Skip caching oversized single payloads that would dominate the budget.
+			if (bytes <= MAX_CACHE_BYTES) {
+				deleteEntry(key);
+				store.set(key, { value, expiresAt, bytes });
+				totalBytes += bytes;
+			}
 			pruneExpired(Date.now());
 			return value;
 		} finally {
@@ -78,4 +112,10 @@ export async function cachedQuery<T>(
 export function __clearCache(): void {
 	store.clear();
 	inFlight.clear();
+	totalBytes = 0;
+}
+
+/** Test-only: inspect cache accounting. */
+export function __cacheStats(): { entries: number; bytes: number } {
+	return { entries: store.size, bytes: totalBytes };
 }

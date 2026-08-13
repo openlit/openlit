@@ -1934,6 +1934,8 @@ export const DATA_SOURCE_FIELD_ALLOW_HTTP = "Allow plain HTTP (self-hosted)";
 export const DATA_SOURCE_FIELD_ALLOW_PRIVATE_NETWORK = "Allow private or localhost endpoints";
 export const DATA_SOURCE_PRIVATE_NETWORK_BLOCKED = (host: string) =>
 	`Host "${host}" is not allowed. Enable "Allow private or localhost endpoints" on this data source to reach private or loopback addresses.`;
+export const DATA_SOURCE_RESPONSE_TOO_LARGE = (maxBytes: number) =>
+	`Data source response exceeded the ${Math.round(maxBytes / (1024 * 1024))} MiB safety limit.`;
 export const DATA_SOURCE_FIELD_SITE = "Datadog site";
 export const DATA_SOURCE_FIELD_REGION = "Region";
 export const DATA_SOURCE_FIELD_ACCOUNT_ID = "Account ID";

@@ -260,14 +260,53 @@ describe("safeFetch", () => {
 			.mockResolvedValueOnce({
 				ok: true,
 				status: 200,
+				headers: { get: () => null },
 				text: async () => JSON.stringify({ ok: true }),
 			});
 		const result = await safeFetch("https://api.example.com", {
 			lookup,
 			fetchImpl: fetchImpl as unknown as typeof fetch,
-			retry: { retries: 2, baseDelayMs: 1, sleep: async () => {} },
+			retry: { retries: 2, baseDelayMs: 1, maxDelayMs: 2 },
 		});
 		expect(result).toEqual({ ok: true });
 		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it("rejects oversized responses via Content-Length before reading body", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: {
+				get: (h: string) =>
+					h.toLowerCase() === "content-length" ? String(40 * 1024 * 1024) : null,
+			},
+			text: async () => {
+				throw new Error("text() should not be called");
+			},
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+				maxResponseBytes: 1024,
+			})
+		).rejects.toThrow(/MiB safety limit/i);
+	});
+
+	it("rejects oversized responses after reading when Content-Length is absent", async () => {
+		const big = "x".repeat(2048);
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => big,
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+				maxResponseBytes: 1024,
+			})
+		).rejects.toThrow(/MiB safety limit/i);
 	});
 });

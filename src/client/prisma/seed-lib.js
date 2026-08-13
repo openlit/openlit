@@ -256,15 +256,15 @@ async function migrateExistingData(prisma, defaultOrgId, defaultProjectId, seedU
 	await ensureProjectEnvironment(prisma, defaultProjectId, DEFAULT_ENVIRONMENT);
 
 	for (const config of orgConfigs) {
+		const environment = config.environment || DEFAULT_ENVIRONMENT;
+		await ensureProjectEnvironment(prisma, defaultProjectId, environment);
 		await syncDatabaseConfigConnector(prisma, config);
-		if ((config.environment || DEFAULT_ENVIRONMENT) === DEFAULT_ENVIRONMENT) {
-			await ensureEnvironmentDatabaseBindings(
-				prisma,
-				defaultProjectId,
-				config.id,
-				DEFAULT_ENVIRONMENT
-			);
-		}
+		await ensureEnvironmentDatabaseBindings(
+			prisma,
+			defaultProjectId,
+			config.id,
+			environment
+		);
 	}
 
 	const orgConfigIds = orgConfigs.map((c) => c.id);

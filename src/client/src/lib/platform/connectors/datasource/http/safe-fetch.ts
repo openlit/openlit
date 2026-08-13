@@ -226,6 +226,12 @@ export interface SafeFetchOptions extends AssertUrlOptions {
 	body?: string;
 	/** Request timeout in ms. Default 15000. */
 	timeoutMs?: number;
+	/**
+	 * Max response body size in bytes. Default 25 MiB. Oversized bodies are
+	 * rejected before JSON parse so a fat Tempo/Jaeger OTLP dump cannot OOM
+	 * the Node process.
+	 */
+	maxResponseBytes?: number;
 	/** Injectable fetch for tests. Defaults to global fetch. */
 	fetchImpl?: typeof fetch;
 	/** Secret values to redact from any thrown error message. */
@@ -239,6 +245,67 @@ export interface SafeFetchOptions extends AssertUrlOptions {
 	maxConcurrent?: number;
 	/** Retry transient 429/5xx/network failures with exponential backoff. */
 	retry?: RetryOptions | boolean;
+}
+
+/** Default max vendor response body size (25 MiB). */
+export const DEFAULT_MAX_RESPONSE_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Read a fetch Response body with a hard byte cap. Prefers streaming when
+ * `body.getReader` is available; otherwise falls back to `text()` and checks
+ * the resulting UTF-8 byte length (used by unit-test mocks).
+ */
+export async function readLimitedResponseText(
+	response: Response,
+	maxBytes: number = DEFAULT_MAX_RESPONSE_BYTES
+): Promise<string> {
+	const messages = getMessage();
+	const contentLengthHeader = response.headers?.get?.("content-length");
+	if (contentLengthHeader) {
+		const declared = Number(contentLengthHeader);
+		if (Number.isFinite(declared) && declared > maxBytes) {
+			throw new Error(messages.DATA_SOURCE_RESPONSE_TOO_LARGE(maxBytes));
+		}
+	}
+
+	const body = response.body as ReadableStream<Uint8Array> | null | undefined;
+	if (body && typeof body.getReader === "function") {
+		const reader = body.getReader();
+		const chunks: Uint8Array[] = [];
+		let total = 0;
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				if (!value) continue;
+				total += value.byteLength;
+				if (total > maxBytes) {
+					await reader.cancel().catch(() => undefined);
+					throw new Error(messages.DATA_SOURCE_RESPONSE_TOO_LARGE(maxBytes));
+				}
+				chunks.push(value);
+			}
+		} finally {
+			reader.releaseLock?.();
+		}
+		const merged = new Uint8Array(total);
+		let offset = 0;
+		for (const chunk of chunks) {
+			merged.set(chunk, offset);
+			offset += chunk.byteLength;
+		}
+		return new TextDecoder("utf-8").decode(merged);
+	}
+
+	const text = await response.text();
+	const bytes =
+		typeof Buffer !== "undefined"
+			? Buffer.byteLength(text, "utf8")
+			: text.length;
+	if (bytes > maxBytes) {
+		throw new Error(messages.DATA_SOURCE_RESPONSE_TOO_LARGE(maxBytes));
+	}
+	return text;
 }
 
 /** Redact sensitive substrings from a message. */
@@ -261,6 +328,7 @@ export async function safeFetch<T = unknown>(
 	options: SafeFetchOptions = {}
 ): Promise<T> {
 	const redactValues = options.redactValues || [];
+	const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
 	// Inside Docker, loopback points at the container — remap to the host
 	// gateway when the connector explicitly allowed private/localhost targets.
 	const fetchUrl =
@@ -334,7 +402,7 @@ export async function safeFetch<T = unknown>(
 				continue;
 			}
 
-			const text = await response.text();
+			const text = await readLimitedResponseText(response, maxResponseBytes);
 			if (!response.ok) {
 				throw new SourceResponseError(
 					response.status,

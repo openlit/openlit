@@ -230,7 +230,7 @@ describe("backward compatibility / upgrade volume", () => {
 		});
 	});
 
-	it("backfills connectors and production bindings for upgraded project configs", async () => {
+	it("backfills connectors and bindings for every environment on upgrade", async () => {
 		const prisma = createPrismaMock();
 		prisma.databaseConfig.findMany
 			.mockResolvedValueOnce([]) // orphaned
@@ -244,6 +244,17 @@ describe("backward compatibility / upgrade volume", () => {
 					database: "openlit",
 					query: "",
 					environment: "production",
+					projectId: "project-1",
+				},
+				{
+					id: "db-staging",
+					name: "Staging DB",
+					username: "default",
+					host: "clickhouse",
+					port: "8123",
+					database: "openlit",
+					query: "",
+					environment: "staging",
 					projectId: "project-1",
 				},
 			]);
@@ -260,13 +271,15 @@ describe("backward compatibility / upgrade volume", () => {
 		);
 
 		expect(result.migratedConfigCount).toBe(0);
-		expect(prisma.connectorInstance.upsert).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { id: databaseConnectorId("db-legacy") },
-			})
-		);
+		expect(prisma.connectorInstance.upsert).toHaveBeenCalledTimes(2);
+		// production + staging environments × all default signals
 		expect(prisma.telemetrySourceBinding.upsert).toHaveBeenCalledTimes(
-			DEFAULT_SIGNALS.length
+			DEFAULT_SIGNALS.length * 2
+		);
+		expect(prisma.projectEnvironment.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { projectId_name: { projectId: "project-1", name: "staging" } },
+			})
 		);
 	});
 
