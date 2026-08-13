@@ -17,6 +17,17 @@ jest.mock('@/lib/platform/common', () => ({
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
 }));
+jest.mock('@/lib/platform/traces/read', () => ({
+  getTraceSpanRecord: (...args: unknown[]) =>
+    require('@/lib/platform/request').getRequestViaSpanId(...args),
+}));
+jest.mock('@/lib/telemetry-source', () => ({
+  resolveTelemetrySourceDescriptor: jest.fn().mockResolvedValue({
+    type: 'clickhouse',
+    id: 'builtin:test',
+    isBuiltIn: true,
+  }),
+}));
 jest.mock('@/lib/platform/providers/provider-registry', () => ({
   ProviderRegistry: {
     getModel: jest.fn(),
@@ -111,6 +122,13 @@ beforeEach(() => {
   // Re-apply prisma mock for setPricingForSpanId's dynamic import
   const prisma = require('@/lib/prisma').default;
   prisma.pricingConfigs.findFirst.mockResolvedValue({ databaseConfigId: 'db-1' });
+
+  const { resolveTelemetrySourceDescriptor } = require('@/lib/telemetry-source');
+  (resolveTelemetrySourceDescriptor as jest.Mock).mockResolvedValue({
+    type: 'clickhouse',
+    id: 'builtin:test',
+    isBuiltIn: true,
+  });
 });
 
 describe('setPricingForSpanId', () => {

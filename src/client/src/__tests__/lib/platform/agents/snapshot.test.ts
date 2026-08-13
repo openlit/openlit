@@ -5,13 +5,17 @@
  * decision logic (new version vs same-version bump) without a real DB.
  */
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-	OTEL_LOGS_TABLE_NAME: "otel_logs",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+		OTEL_LOGS_TABLE_NAME: "otel_logs",
+	};
+});
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	upsertVersion,
 	deriveSnapshot,
@@ -23,7 +27,9 @@ import {
 	_internals,
 } from "@/lib/platform/agents/snapshot";
 
-const mockedDataCollector = dataCollector as jest.MockedFunction<typeof dataCollector>;
+const mockedDataCollector = intelligenceDataCollector as jest.MockedFunction<
+	typeof intelligenceDataCollector
+>;
 
 beforeEach(() => {
 	mockedDataCollector.mockReset();

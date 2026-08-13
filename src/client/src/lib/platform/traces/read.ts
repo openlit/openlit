@@ -580,8 +580,8 @@ export async function getTraceAverageDuration(params: MetricParams) {
 }
 
 /** Whether any AI traces exist in the bound traces source (onboarding gate). */
-export async function getTraceExist() {
-	const { adapter } = await resolveTracesAdapter();
+export async function getTraceExist(environment?: string) {
+	const { adapter } = await resolveTracesAdapter(undefined, environment);
 
 	try {
 		const end = new Date();

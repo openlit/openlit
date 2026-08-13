@@ -3,10 +3,14 @@ import getMessage from "@/constants/messages";
 import { requireRouteAccess } from "@/lib/access/route-access";
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
 import PostHogServer from "@/lib/posthog";
+import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
+	const user = await getCurrentUser();
+	if (!user) return Response.json("Unauthorized", { status: 401 });
+
 	const [permissionErr] = await asaw(requireRouteAccess("dashboard.read"));
 	if (permissionErr) {
 		return Response.json({ err: String(permissionErr) }, { status: 403 });

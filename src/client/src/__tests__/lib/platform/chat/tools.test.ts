@@ -1208,7 +1208,7 @@ describe("getChatTools", () => {
 			error: "Attribute key and value are required",
 		});
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "session.id",
@@ -1216,8 +1216,8 @@ describe("getChatTools", () => {
 			})
 		).resolves.toEqual({ success: false, error: "query failed" });
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({
-			data: [{ traceId: "t1", spanId: null }],
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({
+			records: [{ TraceId: "t1", SpanId: null }],
 			err: null,
 		});
 		await expect(
@@ -1324,7 +1324,7 @@ describe("getChatTools", () => {
 			error: "Failed to run batch trace analysis",
 		});
 
-		(dataCollector as jest.Mock).mockRejectedValueOnce(emptyError);
+		(listTraceRecords as jest.Mock).mockRejectedValueOnce(emptyError);
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "k",

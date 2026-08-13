@@ -13,11 +13,14 @@
  * `(cluster, env, service_name)` for SDK-only / controller-only rows.
  */
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-	intelligenceDataCollector: jest.fn(),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+	};
+});
 jest.mock("@/lib/platform/agents/cache", () => ({
 	swr: jest.fn(<T,>(_k: string, _p: unknown, loader: () => Promise<T>) =>
 		loader()

@@ -211,7 +211,8 @@ describe("coding agent query service", () => {
 					}),
 				],
 			}),
-			"insert"
+			"insert",
+			undefined
 		);
 	});
 

@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getCostPerTime } from "@/lib/platform/llm/cost";
 import {
@@ -6,7 +7,7 @@ import {
 } from "@/helpers/server/platform";
 import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let formData: Record<string, unknown>;
 	try {
 		formData = await request.json();
@@ -37,3 +38,7 @@ export async function POST(request: Request) {
 	const res = await getCostPerTime(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, {
+	requireDbConfig: true,
+});

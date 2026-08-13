@@ -5,8 +5,9 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { resolveDbConfigId } from "@/helpers/server/auth";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	try {
 		const [authErr, databaseConfigId] = await resolveDbConfigId(request);
 		if (authErr) {
@@ -56,3 +57,7 @@ export async function POST(request: Request) {
 		return Response.json({ err: error.message || "Internal Server Error" }, { status: 500 });
 	}
 }
+
+export const POST = withRouteAccess("traces.read", POSTHandler, {
+	requireDbConfig: true,
+});

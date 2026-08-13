@@ -78,7 +78,10 @@ describe("manage-dashboard query/run route", () => {
 		expect(response.status).toBe(200);
 		expect(runWidgetQuery).toHaveBeenCalledWith("w1", {
 			userQuery: undefined,
-			filter: { timeLimit: { start: "", end: "" } },
+			filter: {
+				timeLimit: { start: "", end: "" },
+				environment: undefined,
+			},
 			sourceId: "src-1",
 			signal: "traces",
 		});

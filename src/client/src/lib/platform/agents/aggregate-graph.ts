@@ -21,6 +21,7 @@ import {
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
 import { buildVersionWhereClause } from "./version-filter";
+import { deploymentEnvironmentSqlPredicate } from "./agent-key";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
@@ -242,11 +243,10 @@ export async function getAggregateGraph(
 	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
 	const dbConfigId = await resolveAggregateGraphClickHouseId(params);
 
-	const env = params.environment || "default";
-	const envPredicate =
-		env === "default"
-			? `(ResourceAttributes['deployment.environment'] = 'default' OR ResourceAttributes['deployment.environment'] = '')`
-			: `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+	const envPredicate = deploymentEnvironmentSqlPredicate(
+		params.environment,
+		escape
+	);
 
 	const versionClause = buildVersionWhereClause(params.versionFilter);
 	const recentFallback =
