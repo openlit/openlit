@@ -14,7 +14,7 @@ import { createProjectEnvironment } from "./project-environment";
 import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
-} from "./organisation";
+} from "@/lib/organisation";
 import { getSecretById, upsertSecret } from "./platform/vault";
 import {
 	parseSignals,
@@ -43,6 +43,7 @@ import {
 	removeLegacyConnector,
 	syncTelemetrySourceConnector,
 } from "@/lib/platform/connectors/instances";
+import { assertPremiumConnectorAllowed } from "@/lib/access/connector-entitlement";
 import {
 	TELEMETRY_SOURCE_NAME_REQUIRED,
 	TELEMETRY_SOURCE_NAME_TAKEN,
@@ -57,7 +58,7 @@ import {
 	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
 import { normalizeDatasourceEndpointUrl } from "./platform/connectors/datasource/http/endpoint-url";
-import { getDBConfigByUser } from "./db-config";
+import { getDBConfigByUser } from "@/lib/db-config";
 import type { DatabaseConfig } from "@prisma/client";
 
 /** Strip connector-registry `telemetry:` prefixes down to the TelemetrySource id. */
@@ -328,6 +329,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 	const name = String(input.name || "").trim();
 	if (!name) throw new Error(TELEMETRY_SOURCE_NAME_REQUIRED);
 	const type = validateType(input.type);
+	await assertPremiumConnectorAllowed(type);
 	const environment = normalizeEnvironment(input.environment);
 	await createProjectEnvironment(environment);
 	const signals = normalizeSignalsForType(input.signals, type);
@@ -444,7 +446,10 @@ export async function updateTelemetrySource(
 	}
 	const effectiveType =
 		input.type !== undefined ? validateType(input.type) : existing.type;
-	if (input.type !== undefined) data.type = effectiveType;
+	if (input.type !== undefined) {
+		await assertPremiumConnectorAllowed(effectiveType);
+		data.type = effectiveType;
+	}
 	if (input.signals !== undefined) {
 		data.signals = normalizeSignalsForType(input.signals, effectiveType);
 	} else if (input.type !== undefined) {

@@ -1050,27 +1050,36 @@ export class TempoAdapter extends BaseExternalAdapter {
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
 		const start = Date.now();
-		const traceCap = Math.min(query.limit || 20, MAX_TRACE_FETCH);
-		const allSpans = await this.fetchSampledSpans(query, traceCap);
-		// Explore-style list: one row per trace (root span). Full trees load
-		// on detail via getTraceSpans — avoids 25 traces exploding into 100+ rows.
-		const byTrace = new Map<string, NormalizedSpan[]>();
-		for (const span of allSpans) {
-			const list = byTrace.get(span.traceId) || [];
-			list.push(span);
-			byTrace.set(span.traceId, list);
-		}
-		const rows: NormalizedSpan[] = [];
-		for (const spans of Array.from(byTrace.values())) {
-			const root = pickRootSpan(spans);
-			if (root) rows.push(root);
-		}
+		const pageSize = Math.min(query.limit || 20, MAX_TRACE_FETCH);
+		const offset = Math.max(0, query.offset || 0);
+		// Prefer TraceQL search summaries for the Telemetry list (one row per
+		// trace). Full OTLP downloads are reserved for detail / graph sample
+		// paths — Explore also only loads a full tree on click.
+		const { rows: summaries, truncated, effectiveLimit } =
+			await this.traceSummaryRows(query);
+		const page = summaries.slice(offset, offset + pageSize);
+		const rows: NormalizedSpan[] = page.map((row) => {
+			const traceId = normalizeOtlpId(String(row["trace.id"] || ""));
+			return {
+				traceId,
+				spanId: traceId,
+				parentSpanId: "",
+				name: String(row["root.span.name"] || ""),
+				serviceName: String(row["root.service.name"] || ""),
+				timestamp: String(row.timestamp || ""),
+				durationNs: Math.max(0, Number(row.duration || 0) * 1_000_000),
+				statusCode: "",
+				spanAttributes: {},
+				resourceAttributes: {},
+			};
+		});
 		return {
 			fields: [],
 			rows,
 			meta: {
 				latencyMs: Date.now() - start,
-				rowsScanned: allSpans.length,
+				rowsScanned: summaries.length,
+				truncated: truncated || summaries.length >= effectiveLimit,
 				degraded: ["serverAggregation"],
 			},
 		};
@@ -1249,24 +1258,27 @@ export class TempoAdapter extends BaseExternalAdapter {
 		try {
 			return await cachedQuery(key, TTL_MS, async () => {
 				const adapter = await this.openPlaitAdapter();
-				const rows: Record<string, unknown>[] = [];
-				for (const window of windows) {
-					const result = await adapter.queryMetrics(
-						{
-							query: metricQuery,
-							from: window.start.toISOString(),
-							to: window.end.toISOString(),
-							step,
-						},
-						{
-							audit: {
-								requestId: safeRequestId(this.descriptor.id, "metrics"),
+				const windowResults = await mapPool(
+					windows,
+					TRACE_FETCH_CONCURRENCY,
+					async (window) => {
+						const result = await adapter.queryMetrics(
+							{
+								query: metricQuery,
+								from: window.start.toISOString(),
+								to: window.end.toISOString(),
+								step,
 							},
-						}
-					);
-					rows.push(...openPlaitFramesToRows(result.frames));
-				}
-				return normalizedMetricRowsToSeries(rows);
+							{
+								audit: {
+									requestId: safeRequestId(this.descriptor.id, "metrics"),
+								},
+							}
+						);
+						return openPlaitFramesToRows(result.frames);
+					}
+				);
+				return normalizedMetricRowsToSeries(windowResults.flat());
 			});
 		} catch (error) {
 			if (adapterErrorStatus(error) === 404) {

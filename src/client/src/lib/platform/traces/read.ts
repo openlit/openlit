@@ -76,7 +76,15 @@ export async function listTraceRecords(params: MetricParams) {
 		const query = externalTraceQuery(params, { aiSelector: false });
 		// Interactive lists always query the selected adapter directly. Sampling
 		// caches are reserved for aggregate/intelligence computation.
-		const frame = await adapter.listSpans(query);
+		// Run list + count in parallel: Tempo/Jaeger count paths are often
+		// cheaper (search summaries) and must not wait on full-trace downloads.
+		const countPromise = adapter.countTraces
+			? adapter.countTraces(query).catch(() => null)
+			: Promise.resolve(null);
+		const [frame, count] = await Promise.all([
+			adapter.listSpans(query),
+			countPromise,
+		]);
 		const spans = frame.rows || [];
 		const truncated =
 			!!frame.meta?.truncated || spans.length >= (params.limit || 25);
@@ -85,14 +93,9 @@ export async function listTraceRecords(params: MetricParams) {
 			? records.length + (params.offset || 0) + 1
 			: records.length + (params.offset || 0);
 		let totalIsSampled = true;
-		if (adapter.countTraces) {
-			try {
-				const count = await adapter.countTraces(query);
-				total = count.total;
-				totalIsSampled = count.truncated;
-			} catch {
-				// Keep the bounded-list sentinel when the backend cannot count.
-			}
+		if (count) {
+			total = count.total;
+			totalIsSampled = count.truncated;
 		} else if (typeof frame.meta?.rowsScanned === "number") {
 			total = frame.meta.rowsScanned;
 			totalIsSampled = false;

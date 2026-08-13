@@ -7,7 +7,7 @@ import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
-import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "./organisation";
+import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "@/lib/organisation";
 import { validateDatabaseHost } from "@/utils/validation";
 import { createProjectEnvironment, normalizeProjectEnvironment } from "./project-environment";
 

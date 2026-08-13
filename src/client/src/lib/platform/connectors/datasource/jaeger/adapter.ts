@@ -692,27 +692,30 @@ export class JaegerAdapter extends BaseExternalAdapter {
 
 	async aggregateByService(window: QueryTimeRange): Promise<ServiceRollup[]> {
 		const discovered = await this.discoverServices(window);
-		const rollups: ServiceRollup[] = [];
-		for (const svc of discovered) {
-			const traces = await this.fetchServiceTraces(svc.serviceName, window, 20);
-			const spans = flattenJaegerTraces(traces).map(toNormalizedSpan);
-			const models = new Set<string>();
-			const providers = new Set<string>();
-			for (const span of spans) {
-				const model = span.spanAttributes["gen_ai.request.model"];
-				const provider = span.spanAttributes["gen_ai.system"];
-				if (model) models.add(model);
-				if (provider) providers.add(provider);
+		const rollups = await mapPool(
+			discovered,
+			SERVICE_TRACE_CONCURRENCY,
+			async (svc) => {
+				const traces = await this.fetchServiceTraces(svc.serviceName, window, 20);
+				const spans = flattenJaegerTraces(traces).map(toNormalizedSpan);
+				const models = new Set<string>();
+				const providers = new Set<string>();
+				for (const span of spans) {
+					const model = span.spanAttributes["gen_ai.request.model"];
+					const provider = span.spanAttributes["gen_ai.system"];
+					if (model) models.add(model);
+					if (provider) providers.add(provider);
+				}
+				return {
+					serviceName: svc.serviceName,
+					environment: svc.environment || "default",
+					clusterId: svc.clusterId || "default",
+					requestCount: new Set(spans.map((s) => s.traceId).filter(Boolean)).size,
+					models: Array.from(models),
+					providers: Array.from(providers),
+				} satisfies ServiceRollup;
 			}
-			rollups.push({
-				serviceName: svc.serviceName,
-				environment: svc.environment || "default",
-				clusterId: svc.clusterId || "default",
-				requestCount: new Set(spans.map((s) => s.traceId).filter(Boolean)).size,
-				models: Array.from(models),
-				providers: Array.from(providers),
-			});
-		}
+		);
 		return rollups;
 	}
 

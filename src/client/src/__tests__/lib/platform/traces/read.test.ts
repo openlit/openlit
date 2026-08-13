@@ -180,28 +180,44 @@ describe("listTraceRecords", () => {
 
 	it("uses the backend trace count so pagination total does not grow with offset", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
-		const listSpans = jest.fn().mockResolvedValue({ rows: [
-			{
-				traceId: "t1",
-				spanId: "s1",
-				parentSpanId: "",
-				name: "chat",
-				serviceName: "api",
-				timestamp: "2026-07-01T00:00:00.000Z",
-				durationNs: 1_000_000,
-				statusCode: "STATUS_CODE_OK",
-				spanAttributes: {},
-				resourceAttributes: { "service.name": "api" },
-			},
-		] });
-		const countTraces = jest
-			.fn()
-			.mockResolvedValue({ total: 32, truncated: false });
-		mockGetAdapter.mockResolvedValue({ listSpans, countTraces });
+		let releaseCount!: () => void;
+		const countStarted = new Promise<void>((resolve) => {
+			releaseCount = resolve;
+		});
+		const countTraces = jest.fn().mockImplementation(async () => {
+			releaseCount();
+			return { total: 32, truncated: false };
+		});
+		// listSpans blocks until countTraces has started so a serial
+		// list-then-count path would deadlock this test.
+		const listSpansBlocked = jest.fn().mockImplementation(async () => {
+			await countStarted;
+			return {
+				rows: [
+					{
+						traceId: "t1",
+						spanId: "s1",
+						parentSpanId: "",
+						name: "chat",
+						serviceName: "api",
+						timestamp: "2026-07-01T00:00:00.000Z",
+						durationNs: 1_000_000,
+						statusCode: "STATUS_CODE_OK",
+						spanAttributes: {},
+						resourceAttributes: { "service.name": "api" },
+					},
+				],
+			};
+		});
+		mockGetAdapter.mockResolvedValue({
+			listSpans: listSpansBlocked,
+			countTraces,
+		});
 
 		const res = await listTraceRecords({ ...params, offset: 25 } as never);
 
 		expect(countTraces).toHaveBeenCalledTimes(1);
+		expect(listSpansBlocked).toHaveBeenCalledTimes(1);
 		expect(res).toMatchObject({ total: 32, freshness: "live" });
 	});
 });

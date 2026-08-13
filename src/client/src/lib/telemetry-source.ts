@@ -12,11 +12,11 @@
  */
 
 import prisma from "./prisma";
-import { getDBConfigByUser, getDBConfigById } from "./db-config";
+import { getDBConfigByUser, getDBConfigById } from "@/lib/db-config";
 import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
-} from "./organisation";
+} from "@/lib/organisation";
 import type { DatabaseConfig, TelemetrySource } from "@prisma/client";
 import type {
 	DataSourceAdapter,
