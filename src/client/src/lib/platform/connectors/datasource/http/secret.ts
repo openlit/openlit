@@ -44,9 +44,24 @@ function sourceSecretCacheKey(
 	return `${projectId || "session"}:${dbConfigId || "current"}:${secretRef}`;
 }
 
+/**
+ * Drop cached vault credentials after rotate/rebind. When `secretRef` is
+ * omitted, clears the entire process cache.
+ */
+export function invalidateSourceSecretCache(secretRef?: string): void {
+	if (!secretRef) {
+		sourceSecretCache.clear();
+		return;
+	}
+	const needle = `:${secretRef}`;
+	for (const key of [...sourceSecretCache.keys()]) {
+		if (key.endsWith(needle)) sourceSecretCache.delete(key);
+	}
+}
+
 /** Test-only cache reset. */
 export function __resetSourceSecretCacheForTests(): void {
-	sourceSecretCache.clear();
+	invalidateSourceSecretCache();
 }
 
 /**

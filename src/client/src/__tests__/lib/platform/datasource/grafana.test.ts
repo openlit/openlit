@@ -145,6 +145,32 @@ describe("buildTempoSearchQuery scoping", () => {
 		expect(beforeService.trim().startsWith("{ (")).toBe(true);
 		expect(beforeService).toContain(")");
 	});
+
+	it("drops hostile attribute keys instead of interpolating them into TraceQL", () => {
+		const q = buildTempoSearchQuery({
+			signal: "traces",
+			timeRange: window,
+			aiSelector: false,
+			filters: [
+				{
+					target: "attribute",
+					scope: "span",
+					key: 'foo" || true || span.bar',
+					op: "eq",
+					value: "x",
+				},
+				{
+					target: "attribute",
+					scope: "resource",
+					key: "service.name",
+					op: "eq",
+					value: "ok",
+				},
+			],
+		});
+		expect(q).not.toContain("|| true");
+		expect(q).toContain('resource.service.name = "ok"');
+	});
 });
 
 describe("TempoAdapter", () => {

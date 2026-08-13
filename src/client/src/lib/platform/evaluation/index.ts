@@ -44,37 +44,55 @@ import {
 import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
 
 export type EvaluationTraceLookupOptions = {
 	traceId?: string;
 	environment?: string;
 };
 
-/** Approximate cost per 1K tokens (USD) for common models. Fallback for evaluation cost. */
-const EVAL_COST_PER_1K: Record<string, { prompt: number; completion: number }> = {
-	"gpt-4o": { prompt: 0.0025, completion: 0.01 },
-	"gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
-	"gpt-4": { prompt: 0.03, completion: 0.06 },
-	"gpt-4-turbo": { prompt: 0.01, completion: 0.03 },
-	"gpt-3.5-turbo": { prompt: 0.0005, completion: 0.0015 },
-	"claude-3-5-sonnet": { prompt: 0.003, completion: 0.015 },
-	"claude-3-haiku": { prompt: 0.00025, completion: 0.00125 },
-	"claude-3-opus": { prompt: 0.015, completion: 0.075 },
-};
-
-function estimateEvaluationCost(
+/**
+ * Cost from Manage Models (`openlit_provider_models`) — same source as
+ * Pricing / Openground. Returns 0 if the model is not configured.
+ */
+async function estimateEvaluationCost(
+	provider: string,
 	model: string,
 	promptTokens: number,
-	completionTokens: number
-): number {
-	const modelKey = Object.keys(EVAL_COST_PER_1K).find(
-		(k) => model.toLowerCase().includes(k) || k.includes(model.toLowerCase())
-	);
-	const rates = modelKey ? EVAL_COST_PER_1K[modelKey] : { prompt: 0.001, completion: 0.002 };
-	return (
-		(promptTokens / 1000) * rates.prompt +
-		(completionTokens / 1000) * rates.completion
-	);
+	completionTokens: number,
+	databaseConfigId: string
+): Promise<number> {
+	if (!provider || !model || !databaseConfigId) return 0;
+	if (promptTokens === 0 && completionTokens === 0) return 0;
+
+	try {
+		const modelMeta = await ProviderRegistry.getModel(
+			provider,
+			model,
+			databaseConfigId
+		);
+		if (!modelMeta) {
+			consoleLog(
+				`Evaluation cost: model '${model}' not found under provider '${provider}' in Manage Models`
+			);
+			return 0;
+		}
+
+		return getChatModelCostPerM(
+			{
+				inputPricePerMToken: modelMeta.inputPricePerMToken,
+				outputPricePerMToken: modelMeta.outputPricePerMToken,
+				cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
+				cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
+			},
+			{ promptTokens, completionTokens },
+			{ promptTokensIncludeCache: true }
+		);
+	} catch (e) {
+		consoleLog("Evaluation cost lookup failed:", e);
+		return 0;
+	}
 }
 
 /** Span ids already handled by auto-eval (evaluated or sampling-skipped). */
@@ -782,10 +800,12 @@ async function getEvaluationConfigForTrace(
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			const cost = estimateEvaluationCost(
+			const cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				dbConfig
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}
@@ -1167,10 +1187,12 @@ export async function runOfflineEvaluation(
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			cost = estimateEvaluationCost(
+			cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				databaseConfigId
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}

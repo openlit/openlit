@@ -54,10 +54,13 @@ import {
 	TELEMETRY_SOURCE_SIGNAL_NOT_IN_TYPE,
 	TELEMETRY_SOURCE_NO_SIGNALS,
 	TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED,
+	TELEMETRY_SOURCE_BINDING_ENVIRONMENT_MISMATCH,
 	TELEMETRY_SOURCE_INVALID_SIGNAL,
 	TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED,
 } from "@/constants/messages/en";
 import { normalizeDatasourceEndpointUrl } from "./platform/connectors/datasource/http/endpoint-url";
+import { clearQueryCache } from "./platform/connectors/datasource/http/cache";
+import { invalidateSourceSecretCache } from "./platform/connectors/datasource/http/secret";
 import { getDBConfigByUser } from "@/lib/db-config";
 import type { DatabaseConfig } from "@prisma/client";
 
@@ -145,6 +148,12 @@ function normalizeEnvironment(value: unknown): string {
 		throw new Error("Environment must use letters, numbers, dots, hyphens, or underscores.");
 	}
 	return environment;
+}
+
+/** Drop adapter query/secret caches after routing or credential changes. */
+function invalidateTelemetryReadCaches(secretRef?: string | null) {
+	clearQueryCache();
+	invalidateSourceSecretCache(secretRef || undefined);
 }
 
 function rawSignals(signals: unknown): Signal[] {
@@ -410,6 +419,7 @@ export async function createTelemetrySource(input: TelemetrySourceInput) {
 			});
 			return created;
 		});
+		invalidateTelemetryReadCaches(row.secretRef);
 		return sanitize(row);
 	} catch (error) {
 		if (isUniqueConstraintError(error)) {
@@ -496,14 +506,18 @@ export async function updateTelemetrySource(
 		return tx.telemetrySource.update({ where: { id }, data });
 	});
 	await syncTelemetrySourceConnector(row);
+	invalidateTelemetryReadCaches(
+		(data.secretRef as string | null | undefined) ?? row.secretRef
+	);
 	return sanitize(row);
 }
 
 /** Delete a telemetry source that belongs to the current project. */
 export async function deleteTelemetrySource(id: string) {
-	await requireSourceInProject(id);
+	const existing = await requireSourceInProject(id);
 	await prisma.telemetrySource.delete({ where: { id } });
 	await removeLegacyConnector("telemetry-source", id);
+	invalidateTelemetryReadCaches(existing.secretRef);
 	return { id };
 }
 
@@ -629,11 +643,22 @@ export async function setTelemetrySourceBinding(
 			where: { id: databaseConfigId, projectId },
 		});
 		if (!databaseConfig) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
+		const dbEnvironment = normalizeEnvironment(databaseConfig.environment);
+		if (dbEnvironment !== environment) {
+			throw new Error(
+				TELEMETRY_SOURCE_BINDING_ENVIRONMENT_MISMATCH(
+					databaseConfig.name,
+					dbEnvironment,
+					environment
+				)
+			);
+		}
 		const binding = await prisma.telemetrySourceBinding.upsert({
 			where: { projectId_signal_environment: { projectId, signal, environment } },
 			create: { projectId, signal, environment, sourceId: null, databaseConfigId },
 			update: { sourceId: null, databaseConfigId },
 		});
+		invalidateTelemetryReadCaches();
 		return {
 			id: binding.id,
 			signal: binding.signal,
@@ -643,6 +668,16 @@ export async function setTelemetrySourceBinding(
 		};
 	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
+	const sourceEnvironment = normalizeEnvironment(source.environment);
+	if (sourceEnvironment !== environment) {
+		throw new Error(
+			TELEMETRY_SOURCE_BINDING_ENVIRONMENT_MISMATCH(
+				source.name,
+				sourceEnvironment,
+				environment
+			)
+		);
+	}
 	if (!parseSignals(source.signals).includes(signal)) {
 		throw new Error(
 			TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED(signal, source.name)
@@ -659,6 +694,7 @@ export async function setTelemetrySourceBinding(
 		},
 		update: { sourceId: normalizedSourceId, databaseConfigId: null },
 	});
+	invalidateTelemetryReadCaches(source.secretRef);
 	return {
 		id: binding.id,
 		signal: binding.signal,
@@ -680,5 +716,6 @@ export async function deleteTelemetrySourceBinding(signalInput: unknown, environ
 	await prisma.telemetrySourceBinding.deleteMany({
 		where: { projectId, signal, environment },
 	});
+	invalidateTelemetryReadCaches();
 	return { signal, environment, previousSourceId };
 }

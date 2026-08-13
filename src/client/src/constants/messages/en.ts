@@ -2068,6 +2068,12 @@ export const TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED = (
 	signal: string,
 	source: string
 ) => `The bound source "${source}" does not serve ${signal}.`;
+export const TELEMETRY_SOURCE_BINDING_ENVIRONMENT_MISMATCH = (
+	source: string,
+	sourceEnvironment: string,
+	bindingEnvironment: string
+) =>
+	`Cannot bind "${source}" (${sourceEnvironment}) into the ${bindingEnvironment} routing slot. Pick a connector from the same environment.`;
 export const TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL = (signal: string) =>
 	`No connector is configured or routed for ${signal}. Add a connector for this environment and select it in Signal routing.`;
 export const TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE = (type: string) =>

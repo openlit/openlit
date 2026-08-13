@@ -108,11 +108,16 @@ export async function cachedQuery<T>(
 	return promise;
 }
 
-/** Test-only / admin: clear the cache. */
-export function __clearCache(): void {
+/** Clear the in-process query response cache (bind/credential rotation). */
+export function clearQueryCache(): void {
 	store.clear();
 	inFlight.clear();
 	totalBytes = 0;
+}
+
+/** @deprecated Prefer clearQueryCache(); kept for existing tests. */
+export function __clearCache(): void {
+	clearQueryCache();
 }
 
 /** Test-only: inspect cache accounting. */

@@ -331,13 +331,26 @@ function traceqlValue(v: string): string {
 	return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+/**
+ * Allow only safe TraceQL attribute path segments. Hostile keys could otherwise
+ * inject operators/scopes into `{ span.${key} = ... }` clauses.
+ */
+function sanitizeTraceQLAttrKey(key: string): string | null {
+	const k = String(key || "").trim();
+	if (!k || k.length > 128) return null;
+	if (!/^[A-Za-z_][A-Za-z0-9_./-]*$/.test(k)) return null;
+	return k;
+}
+
 function conditionToTraceQL(cond: SelectorCondition): string {
 	if (cond.target === "spanName") {
 		const values = Array.isArray(cond.value) ? cond.value : [cond.value || ""];
 		return `(${values.map((v) => `name = ${traceqlValue(String(v))}`).join(" || ")})`;
 	}
+	const safeKey = sanitizeTraceQLAttrKey(cond.key);
+	if (!safeKey) return "";
 	const scope = cond.scope === "resource" ? "resource" : "span";
-	const key = `${scope}.${cond.key}`;
+	const key = `${scope}.${safeKey}`;
 	if (cond.op === "exists") return `${key} != ""`;
 	if (cond.op === "eq") return `${key} = ${traceqlValue(String(cond.value ?? ""))}`;
 	if (cond.op === "in") {
@@ -364,16 +377,18 @@ function filterToTraceQL(filter: NormalizedFilter): string {
 		return wantsError ? `status = error` : `status != error`;
 	}
 	if (filter.target === "attribute" && filter.key) {
+		const safeKey = sanitizeTraceQLAttrKey(filter.key);
+		if (!safeKey) return "";
 		const scope =
 			filter.scope === "resource"
 				? "resource"
-				: filter.key.startsWith("service.") ||
-					  filter.key === "deployment.environment" ||
-					  filter.key.startsWith("k8s.") ||
-					  filter.key.startsWith("telemetry.sdk")
+				: safeKey.startsWith("service.") ||
+					  safeKey === "deployment.environment" ||
+					  safeKey.startsWith("k8s.") ||
+					  safeKey.startsWith("telemetry.sdk")
 					? "resource"
 					: "span";
-		const key = `${scope}.${filter.key}`;
+		const key = `${scope}.${safeKey}`;
 		if (filter.op === "exists") return `${key} != ""`;
 		if (filter.op === "eq")
 			return `${key} = ${traceqlValue(String(filter.value ?? ""))}`;
@@ -435,10 +450,16 @@ export function tempoAISelectorQuery(
 
 /** Map an OpenLIT numeric field to a scoped TraceQL attribute reference. */
 function metricAttrRef(field?: string): string {
-	const f = (field || "").trim();
+	const raw = (field || "").trim();
+	if (!raw) return "";
+	if (raw === "duration" || raw === "Duration" || raw === "durationNs") return "duration";
+	if (raw.startsWith("span.") || raw.startsWith("resource.")) {
+		const prefix = raw.startsWith("span.") ? "span." : "resource.";
+		const safe = sanitizeTraceQLAttrKey(raw.slice(prefix.length));
+		return safe ? `${prefix}${safe}` : "";
+	}
+	const f = sanitizeTraceQLAttrKey(raw);
 	if (!f) return "";
-	if (f === "duration" || f === "Duration" || f === "durationNs") return "duration";
-	if (f.startsWith("span.") || f.startsWith("resource.")) return f;
 	if (
 		f === "service.name" ||
 		f.startsWith("service.") ||

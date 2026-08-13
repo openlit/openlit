@@ -201,19 +201,9 @@ func newResource(cfg Config) (*resource.Resource, error) {
 		}
 	}
 
-	// Stamp `telemetry.sdk.name = "openlit"` as the final override so it wins
-	// over WithTelemetrySDK()'s default of "opentelemetry". This gives every
-	// OpenLIT Go SDK span the same identity marker the Python/TS SDKs and the
-	// controller OBI pipeline set, so the AI-only telemetry selector and agent
-	// discovery behave consistently across all SDKs. The coding-agent CLI is
-	// still excluded from SDK agent discovery by its independent
-	// `telemetry.distro.name = "openlit-cli"` + session-id barriers.
 	return resource.New(
 		context.Background(),
-		append(
-			append(attrs, resource.WithTelemetrySDK()),
-			resource.WithAttributes(semconv.TelemetrySDKNameKey.String("openlit")),
-		)...,
+		append(attrs, resource.WithTelemetrySDK())...,
 	)
 }
 
