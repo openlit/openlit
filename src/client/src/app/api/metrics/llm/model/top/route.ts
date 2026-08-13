@@ -1,6 +1,5 @@
 import { withRouteAccess } from "@/lib/access/route-access";
 import { ModelMetricParams, getTopModels } from "@/lib/platform/llm/model";
-import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,

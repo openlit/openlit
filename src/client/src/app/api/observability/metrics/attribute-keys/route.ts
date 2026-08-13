@@ -1,7 +1,6 @@
 import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricAttributeKeysRecord } from "@/lib/platform/metrics/read";
-import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,

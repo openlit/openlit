@@ -1,7 +1,7 @@
 import { getTraceRecordByTraceId } from "@/lib/platform/traces/read";
 import { withRouteAccess } from "@/lib/access/route-access";
 
-async function GETHandler(request: Request, context: any) {
+async function GETHandler(_: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -9,8 +9,7 @@ async function GETHandler(request: Request, context: any) {
 			status: 400,
 		});
 
-	const environment = request.headers.get("x-openlit-environment") || undefined;
-	const res: any = await getTraceRecordByTraceId(id, environment);
+	const res: any = await getTraceRecordByTraceId(id);
 	return Response.json(res);
 }
 

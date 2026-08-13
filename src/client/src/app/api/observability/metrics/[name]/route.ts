@@ -2,7 +2,6 @@ import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getMetricDetailRecord } from "@/lib/platform/metrics/read";
 import { getRequestEnvironment } from "@/constants/openlit-context";
-import { withRouteAccess } from "@/lib/access/route-access";
 
 async function POSTHandler(
 	request: Request,

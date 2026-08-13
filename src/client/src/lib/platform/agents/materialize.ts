@@ -1362,7 +1362,7 @@ export async function materializeAgents(
 async function purgePlaceholderEnvironmentRows(
 	dbConfigId?: string
 ): Promise<void> {
-	const keysRes = await dataCollector(
+	const keysRes = await intelligenceDataCollector(
 		{
 			query: `
 				SELECT agent_key
@@ -1386,7 +1386,7 @@ async function purgePlaceholderEnvironmentRows(
 				.filter(Boolean)
 		: [];
 
-	const summaryRes = await dataCollector(
+	const summaryRes = await intelligenceDataCollector(
 		{
 			query: `
 				ALTER TABLE ${AGENTS_SUMMARY_TABLE}
@@ -1405,7 +1405,7 @@ async function purgePlaceholderEnvironmentRows(
 	if (!keys.length) return;
 
 	const escaped = keys.map((k) => `'${escape(k)}'`).join(", ");
-	const versionsRes = await dataCollector(
+	const versionsRes = await intelligenceDataCollector(
 		{
 			query: `
 				ALTER TABLE ${AGENT_VERSIONS_TABLE}
