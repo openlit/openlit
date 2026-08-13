@@ -17,9 +17,14 @@ jest.mock("@/lib/platform/observability", () => ({
 jest.mock("@/lib/platform/connectors/datasource/facade", () => ({
 	resolveSignalReadContext: (...a: unknown[]) => mockResolveCtx(...a),
 	facadeErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+	rethrowIfSourceFailure: (e: unknown) => {
+		const { AdapterError } = require("@openplait/adapter-sdk");
+		if (e instanceof AdapterError) throw e;
+	},
 }));
 
 import { listMetricRecords, getMetricsSummary, getMetricsFilterConfig, getMetricAttributeKeysRecord } from "@/lib/platform/metrics/read";
+import { AdapterError } from "@openplait/adapter-sdk";
 
 const params = {
 	timeLimit: {
@@ -106,6 +111,19 @@ describe("listMetricRecords", () => {
 			])
 		);
 		expect(mockGetMetrics).not.toHaveBeenCalled();
+	});
+
+	it("rethrows AdapterError so routes can return 503", async () => {
+		const listMetricSeries = jest
+			.fn()
+			.mockRejectedValue(new AdapterError("EXECUTION_FAILED", "prometheus down"));
+		mockResolveCtx.mockResolvedValue({
+			adapter: { listMetricSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await expect(listMetricRecords(params)).rejects.toBeInstanceOf(AdapterError);
 	});
 });
 

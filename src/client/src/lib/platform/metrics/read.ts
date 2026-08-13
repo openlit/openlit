@@ -12,6 +12,7 @@ import { denormalizeMetricPointsToListRows } from "@/lib/platform/connectors/dat
 import {
 	facadeErrorMessage,
 	resolveSignalReadContext,
+	rethrowIfSourceFailure,
 } from "@/lib/platform/connectors/datasource/facade";
 import type { NormalizedMetricPoint } from "@/lib/platform/connectors/datasource/types";
 
@@ -33,6 +34,7 @@ export async function listMetricRecords(params: MetricParams) {
 			total: Number(frame.meta?.rowsScanned) || records.length,
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: facadeErrorMessage(err) };
 	}
 }
@@ -199,6 +201,7 @@ export async function getMetricsSummary(params: MetricParams) {
 		const peak = buckets.reduce((max, b) => Math.max(max, b.count), 0);
 		return { err: null, bucket, buckets, total, peak };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { ...empty, err: facadeErrorMessage(err) };
 	}
 }

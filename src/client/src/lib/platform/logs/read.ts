@@ -11,6 +11,7 @@ import { denormalizeLogToClickHouseRow } from "@/lib/platform/connectors/datasou
 import {
 	facadeErrorMessage,
 	resolveSignalReadContext,
+	rethrowIfSourceFailure,
 } from "@/lib/platform/connectors/datasource/facade";
 
 export async function getLogs(params: MetricParams) {
@@ -29,6 +30,7 @@ export async function getLogs(params: MetricParams) {
 			freshness: frame.meta?.freshness || "live",
 		};
 	} catch (error) {
+		rethrowIfSourceFailure(error);
 		return { err: facadeErrorMessage(error), records: [], total: 0 };
 	}
 }
@@ -124,6 +126,7 @@ export async function getLogsSummary(params: MetricParams) {
 			peak: buckets.reduce((max, row) => Math.max(max, row.count), 0),
 		};
 	} catch (error) {
+		rethrowIfSourceFailure(error);
 		return {
 			err: facadeErrorMessage(error),
 			bucket: "auto",

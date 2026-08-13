@@ -23,7 +23,17 @@ async function GETHandler(request: NextRequest) {
 async function PUTHandler(request: NextRequest) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
-	const body = (await request.json()) as { signal?: unknown; connectorId?: string; sourceId?: string; environment?: string };
+	let body: { signal?: unknown; connectorId?: string; sourceId?: string; environment?: string };
+	try {
+		body = (await request.json()) as {
+			signal?: unknown;
+			connectorId?: string;
+			sourceId?: string;
+			environment?: string;
+		};
+	} catch {
+		return Response.json({ err: "Invalid JSON" }, { status: 400 });
+	}
 	const connectorId = body.connectorId || body.sourceId;
 	if (!connectorId) return Response.json({ err: "connectorId is required" }, { status: 400 });
 	const [err, binding] = await asaw(setTelemetrySourceBinding(body.signal, connectorId, body.environment));

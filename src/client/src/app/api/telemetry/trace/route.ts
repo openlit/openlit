@@ -1,60 +1,67 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequests, getRequestsConfig } from "@/lib/platform/request";
+import {
+	getTraceFilterConfig,
+	listTraceRecords,
+} from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
-import { resolveDbConfigId } from "@/helpers/server/auth";
 import { withRouteAccess } from "@/lib/access/route-access";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
+	const formData = await request.json();
+	const timeLimit = formData.timeLimit as TimeLimit;
+	const limit = formData.limit || 10;
+	const offset = formData.offset || 0;
+	const selectedConfig = formData.selectedConfig || {};
+	const sorting = formData.sorting || {};
+
+	const params: MetricParams = {
+		timeLimit,
+		limit,
+		offset,
+		selectedConfig,
+		sorting,
+		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
+	};
+
+	const validationParam = validateMetricsRequest(
+		params,
+		validateMetricsRequestType.GET_ALL
+	);
+
+	if (!validationParam.success)
+		return Response.json(validationParam.err, {
+			status: 400,
+		});
+
 	try {
-		const [authErr, databaseConfigId] = await resolveDbConfigId(request);
-		if (authErr) {
-			return Response.json({ err: authErr }, { status: 401 });
-		}
-
-		const formData = await request.json();
-		const timeLimit = formData.timeLimit as TimeLimit;
-		const limit = formData.limit || 10;
-		const offset = formData.offset || 0;
-		const selectedConfig = formData.selectedConfig || {};
-		const sorting = formData.sorting || {};
-
-		const params: MetricParams = {
-			timeLimit,
-			limit,
-			offset,
-			selectedConfig,
-			sorting,
-			databaseConfigId,
-		};
-
-		const validationParam = validateMetricsRequest(
-			params,
-			validateMetricsRequestType.GET_ALL
-		);
-
-		if (!validationParam.success)
-			return Response.json(validationParam.err, {
-				status: 400,
-			});
-
-		const res: any = await getRequests(params);
+		const res: any = await listTraceRecords(params);
 
 		const { searchParams } = new URL(request.url);
-		const includeFilters = (searchParams.get("includeFilters") === "true") || (formData.includeFilters === true);
+		const includeFilters =
+			searchParams.get("includeFilters") === "true" ||
+			formData.includeFilters === true;
 
 		if (includeFilters && !res.err) {
-			const configRes = await getRequestsConfig(params);
+			const configRes = await getTraceFilterConfig(params);
 			res.pagination = { limit, offset, total: res.total || 0 };
 			res.filters = (configRes.data as any)?.[0] || {};
 		}
 
 		return Response.json(res);
 	} catch (error: any) {
-		console.error("Error in telemetry trace route:", error);
-		return Response.json({ err: error.message || "Internal Server Error" }, { status: 500 });
+		const message = error instanceof Error ? error.message : String(error);
+		return Response.json(
+			{ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" },
+			{ status: 503 }
+		);
 	}
 }
 

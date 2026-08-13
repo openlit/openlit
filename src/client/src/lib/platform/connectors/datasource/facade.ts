@@ -76,3 +76,22 @@ export function facadeErrorMessage(err: unknown): string {
 	if (err instanceof Error) return err.message;
 	return typeof err === "string" ? err : getMessage().WIDGET_RUN_FAILED;
 }
+
+/**
+ * List/summary facades should not swallow adapter/connection failures as soft
+ * `{ err }` payloads — rethrow so routes can map them to 503.
+ * Capability gaps stay soft (empty UI) and are not rethrown.
+ */
+export function rethrowIfSourceFailure(err: unknown): void {
+	if (err instanceof UnsupportedCapabilityError) return;
+	if (err instanceof AdapterError) throw err;
+	if (!(err instanceof Error)) return;
+	const message = err.message.toLowerCase();
+	if (
+		/econnrefused|enotfound|etimedout|econnreset|fetch failed|socket hang up|network error|connect(?:ion)? (?:refused|timed out|reset)/i.test(
+			message
+		)
+	) {
+		throw err;
+	}
+}

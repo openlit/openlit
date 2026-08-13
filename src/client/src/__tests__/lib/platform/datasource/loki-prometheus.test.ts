@@ -174,7 +174,31 @@ describe("facadeErrorMessage", () => {
 		});
 		expect(facadeErrorMessage(error)).toContain("limit: 30d1h");
 	});
+});
 
+describe("rethrowIfSourceFailure", () => {
+	it("rethrows AdapterError", () => {
+		const { rethrowIfSourceFailure } = require("@/lib/platform/connectors/datasource/facade");
+		const error = new AdapterError("EXECUTION_FAILED", "down");
+		expect(() => rethrowIfSourceFailure(error)).toThrow(AdapterError);
+	});
+
+	it("rethrows connection-like errors", () => {
+		const { rethrowIfSourceFailure } = require("@/lib/platform/connectors/datasource/facade");
+		expect(() =>
+			rethrowIfSourceFailure(new Error("fetch failed"))
+		).toThrow("fetch failed");
+	});
+
+	it("does not rethrow unrelated errors", () => {
+		const { rethrowIfSourceFailure } = require("@/lib/platform/connectors/datasource/facade");
+		expect(() =>
+			rethrowIfSourceFailure(new Error("span not found"))
+		).not.toThrow();
+	});
+});
+
+describe("Loki discovery", () => {
 	it("discovers Loki filter labels with start/end nanoseconds", async () => {
 		mockSafeFetch.mockResolvedValue({
 			status: "success",

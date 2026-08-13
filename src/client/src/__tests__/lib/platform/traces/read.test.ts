@@ -73,6 +73,7 @@ import {
 	getTraceTotalRequests,
 	listTraceRecords,
 } from "@/lib/platform/traces/read";
+import { AdapterError } from "@openplait/adapter-sdk";
 
 const builtin = {
 	type: "clickhouse",
@@ -219,6 +220,19 @@ describe("listTraceRecords", () => {
 		expect(countTraces).toHaveBeenCalledTimes(1);
 		expect(listSpansBlocked).toHaveBeenCalledTimes(1);
 		expect(res).toMatchObject({ total: 32, freshness: "live" });
+	});
+
+	it("rethrows AdapterError so list routes can return 503", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest
+				.fn()
+				.mockRejectedValue(new AdapterError("EXECUTION_FAILED", "tempo down")),
+		});
+
+		await expect(listTraceRecords(params as never)).rejects.toBeInstanceOf(
+			AdapterError
+		);
 	});
 });
 

@@ -21,7 +21,10 @@ import {
 	planAndAggregateSpans,
 	planAndSpanTimeSeries,
 } from "@/lib/platform/connectors/datasource/query-planner";
-import { resolveSignalReadContext } from "@/lib/platform/connectors/datasource/facade";
+import {
+	resolveSignalReadContext,
+	rethrowIfSourceFailure,
+} from "@/lib/platform/connectors/datasource/facade";
 import getMessage from "@/constants/messages";
 import { consoleLog } from "@/utils/log";
 import { AdapterError } from "@openplait/adapter-sdk";
@@ -116,6 +119,7 @@ export async function listTraceRecords(params: MetricParams) {
 			freshness: totalIsSampled ? ("sampled" as const) : ("live" as const),
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err) };
 	}
 }
@@ -473,6 +477,7 @@ export async function getTraceSummary(
 			truncated: frame.meta?.truncated || false,
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { ...empty, err: asErrorMessage(err) };
 	}
 }

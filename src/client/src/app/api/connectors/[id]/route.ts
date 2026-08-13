@@ -18,7 +18,12 @@ async function PATCHHandler(
 ) {
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
-	const body = (await request.json()) as Record<string, unknown>;
+	let body: Record<string, unknown>;
+	try {
+		body = (await request.json()) as Record<string, unknown>;
+	} catch {
+		return Response.json({ err: "Invalid JSON" }, { status: 400 });
+	}
 	const [err, connector] = await asaw(updateTelemetrySource(telemetrySourceId(params.id), body));
 	if (err) return errorResponse(err, "Failed to update connector");
 	return Response.json({ ...connector, category: "datasource", scope: "project" });
