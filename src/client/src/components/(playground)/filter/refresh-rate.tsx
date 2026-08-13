@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { REFRESH_RATE_TYPE, getTimeLimitObject } from "@/store/filter";
 import { usePathname } from "next/navigation";
 import { ChevronsUpDown, TimerReset } from "lucide-react";
-import { usePostHog } from "posthog-js/react";
-import { CLIENT_EVENTS } from "@/constants/events";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
@@ -31,7 +29,6 @@ const REFRESH_RATE_TABS: { key: string; label: string }[] = Object.keys(
 }));
 
 const RefreshRate = () => {
-	const posthog = usePostHog();
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const refreshRateTimer = useRef<NodeJS.Timeout>();
@@ -39,9 +36,6 @@ const RefreshRate = () => {
 
 	const handleChange = (key: string) => {
 		updateFilter("refreshRate", key);
-		posthog?.capture(CLIENT_EVENTS.REFRESH_RATE_CHANGE, {
-			rate: key,
-		});
 	};
 
 	const intervalCallback = useCallback(() => {

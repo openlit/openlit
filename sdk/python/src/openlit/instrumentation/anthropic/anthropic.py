@@ -10,6 +10,7 @@ from openlit.__helpers import (
     set_server_address_and_port,
     record_completion_metrics,
     is_framework_llm_active,
+    safe_detach,
 )
 from openlit.instrumentation.anthropic.utils import (
     process_chunk,
@@ -60,9 +61,7 @@ def messages(
             self._output_tokens = 0
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
-            self._tool_arguments = ""
-            self._tool_id = ""
-            self._tool_name = ""
+            self._tool_calls_by_index = {}
             self._tool_calls = None
             self._response_role = ""
             self._kwargs = kwargs
@@ -137,10 +136,10 @@ def messages(
                 awaited_wrapped = wrapped(*args, **kwargs)
             except Exception as e:
                 handle_exception(span, e)
-                context_api.detach(token)
+                safe_detach(token)
                 span.end()
                 raise
-            context_api.detach(token)
+            safe_detach(token)
 
             return TracedSyncStream(
                 awaited_wrapped,
@@ -245,9 +244,7 @@ def messages_stream(
             self._output_tokens = 0
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
-            self._tool_arguments = ""
-            self._tool_id = ""
-            self._tool_name = ""
+            self._tool_calls_by_index = {}
             self._tool_calls = None
             self._response_role = ""
             self._kwargs = kwargs
@@ -372,7 +369,8 @@ def messages_stream(
             Detaches the context and handles any exceptions inside the 'with' block.
             """
             if self._token:
-                context_api.detach(self._token)
+                safe_detach(self._token)
+                self._token = None
 
             if exc_type:
                 handle_exception(self._span, exc_val)

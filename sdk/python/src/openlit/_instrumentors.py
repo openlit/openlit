@@ -12,6 +12,7 @@ MODULE_NAME_MAP = {
     "cohere": "cohere",
     "mistral": "mistralai",
     "bedrock": "boto3",
+    "oci": "oci",
     "vertexai": "vertexai",
     "groq": "groq",
     "ollama": "ollama",
@@ -85,6 +86,8 @@ MODULE_NAME_MAP = {
 # differ from the canonical hyphenated keys used in MODULE_NAME_MAP.
 INSTRUMENTOR_ALIASES = {
     "aiohttp": "aiohttp-client",
+    "oci_genai": "oci",
+    "oci-genai": "oci",
     "openai_agents": "openai-agents",
     "google_ai_studio": "google-ai-studio",
     "azure_ai_inference": "azure-ai-inference",
@@ -133,6 +136,7 @@ INSTRUMENTOR_MAP = {
     "cohere": "openlit.instrumentation.cohere.CohereInstrumentor",
     "mistral": "openlit.instrumentation.mistral.MistralInstrumentor",
     "bedrock": "openlit.instrumentation.bedrock.BedrockInstrumentor",
+    "oci": "openlit.instrumentation.oci_genai.OCIGenAIInstrumentor",
     "vertexai": "openlit.instrumentation.vertexai.VertexAIInstrumentor",
     "groq": "openlit.instrumentation.groq.GroqInstrumentor",
     "ollama": "openlit.instrumentation.ollama.OllamaInstrumentor",

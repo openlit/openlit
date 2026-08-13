@@ -78,6 +78,7 @@ CONTROLLER_MANAGED_DISABLED_INSTRUMENTORS = [
     "cohere",
     "mistral",
     "bedrock",
+    "oci",
     "vertexai",
     "groq",
     "ollama",
@@ -387,13 +388,16 @@ def init(
             logger.error("OpenLIT events setup failed. Events will not be available")
 
         # Setup meter and receive metrics_dict instead of meter.
-        metrics_dict, err = setup_meter(
-            application_name=final_service_name,
-            environment=environment,
-            meter=None,
-            otlp_endpoint=otlp_endpoint,
-            otlp_headers=otlp_headers,
-        )
+        metrics_dict = None
+        err = None
+        if not disable_metrics:
+            metrics_dict, err = setup_meter(
+                application_name=final_service_name,
+                environment=environment,
+                meter=None,
+                otlp_endpoint=otlp_endpoint,
+                otlp_headers=otlp_headers,
+            )
 
         if err:
             logger.error(

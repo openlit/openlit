@@ -20,6 +20,38 @@ export function invalidateAgent(agentKey: string, dbConfigId?: string) {
 }
 
 /**
+ * Collapse placeholder / local-dev environment labels to `default` so SDK
+ * sample apps don't create a noisy `local` dimension on agent identity.
+ */
+export function normalizeDeploymentEnvironment(
+	environment?: string | null
+): string {
+	const env = (environment || "").trim();
+	if (
+		!env ||
+		env.toLowerCase() === "local" ||
+		env === "default_environment"
+	) {
+		return "default";
+	}
+	return env;
+}
+
+/**
+ * ClickHouse predicate that treats empty / local-dev labels as `default`.
+ */
+export function deploymentEnvironmentSqlPredicate(
+	environment: string | null | undefined,
+	escape: (value: string) => string
+): string {
+	const env = normalizeDeploymentEnvironment(environment);
+	if (env === "default") {
+		return `(ResourceAttributes['deployment.environment'] IN ('default', 'local', 'default_environment', ''))`;
+	}
+	return `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+}
+
+/**
  * Compute the deterministic agent_key used as the URL slug + primary key.
  * Matches the formula used by the materializer.
  */
@@ -29,7 +61,7 @@ export function computeAgentKey(
 	serviceName: string
 ): string {
 	const cluster = clusterId || "default";
-	const env = environment || "default";
+	const env = normalizeDeploymentEnvironment(environment);
 	return createHash("sha1")
 		.update(`${cluster}|${env}|${serviceName}`)
 		.digest("hex")

@@ -18,6 +18,7 @@ async function POSTHandler(request: Request) {
 		limit,
 		offset,
 		selectedConfig: formData.selectedConfig,
+		statusCode: formData.statusCode,
 		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 		...(typeof formData.sourceId === "string"
 			? { sourceId: formData.sourceId }

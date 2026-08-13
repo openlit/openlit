@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import {
 	createFolder,
@@ -8,7 +10,7 @@ import PostHogServer from "@/lib/posthog";
 import { Folder } from "@/types/manage-dashboard";
 import { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const folder: Folder = await request.json();
 
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function PUT(request: NextRequest) {
+async function PUTHandler(request: NextRequest) {
 	const startTimestamp = Date.now();
 	const folder: Folder = await request.json();
 
@@ -32,15 +34,11 @@ export async function PUT(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function GET() {
-	const startTimestamp = Date.now();
+async function GETHandler() {
 	const res = await getFolders();
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.FOLDER_GET_FAILURE : SERVER_EVENTS.FOLDER_GET_SUCCESS,
-		startTimestamp,
-		properties: {
-			totalFolders: (res.data as Folder[])?.length || 0,
-		},
-	});
 	return Response.json(res);
 }
+
+export const GET = withCurrentOrganisationPermission("dashboard:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("dashboard:create", POSTHandler));
+export const PUT = withAudit(withCurrentOrganisationPermission("dashboard:update", PUTHandler));

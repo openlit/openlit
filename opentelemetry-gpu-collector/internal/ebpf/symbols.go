@@ -31,7 +31,21 @@ type symbolEntry struct {
 
 type symbolTable struct {
 	entries []symbolEntry
-	base    uint64
+	loaded  []addressRange
+}
+
+type addressRange struct {
+	start uint64
+	end   uint64
+}
+
+type procMapEntry struct {
+	addrRange string
+	start     uint64
+	end       uint64
+	offset    uint64
+	perms     string
+	path      string
 }
 
 func NewSymbolResolver(logger *slog.Logger) *SymbolResolver {
@@ -41,29 +55,65 @@ func NewSymbolResolver(logger *slog.Logger) *SymbolResolver {
 	}
 }
 
+const maxSymbolCachePIDs = 512
+
 // Resolve looks up the symbol name for a given PID and virtual address.
 func (sr *SymbolResolver) Resolve(pid uint32, addr uint64) string {
 	sr.mu.RLock()
-	st, ok := sr.cache[pid]
+	st := sr.cache[pid]
+	if st != nil {
+		if name := st.lookup(addr); name != "" {
+			sr.mu.RUnlock()
+			return demangleName(name)
+		}
+		if st.covers(addr) {
+			sr.mu.RUnlock()
+			return ""
+		}
+	}
 	sr.mu.RUnlock()
 
+	entries, mapped, ok := sr.loadSymbolsForAddress(pid, addr)
 	if !ok {
-		st = sr.loadSymbols(pid)
-		sr.mu.Lock()
-		sr.cache[pid] = st
-		sr.mu.Unlock()
+		return ""
 	}
 
+	sr.mu.Lock()
+	st = sr.cache[pid]
 	if st == nil {
-		return fmt.Sprintf("0x%x", addr)
+		if len(sr.cache) >= maxSymbolCachePIDs {
+			// Drop an arbitrary entry; process churn is rare relative to launches.
+			for cachedPID := range sr.cache {
+				delete(sr.cache, cachedPID)
+				break
+			}
+		}
+		st = &symbolTable{}
+		sr.cache[pid] = st
 	}
-
+	if !st.covers(addr) {
+		st.entries = append(st.entries, entries...)
+		st.loaded = append(st.loaded, mapped)
+		sort.Slice(st.entries, func(i, j int) bool {
+			return st.entries[i].addr < st.entries[j].addr
+		})
+	}
 	name := st.lookup(addr)
-	if name == "" {
-		return fmt.Sprintf("0x%x", addr)
-	}
+	sr.mu.Unlock()
 
+	if name == "" {
+		return ""
+	}
 	return demangleName(name)
+}
+
+func (st *symbolTable) covers(addr uint64) bool {
+	for _, r := range st.loaded {
+		if addr >= r.start && addr < r.end {
+			return true
+		}
+	}
+	return false
 }
 
 func (st *symbolTable) lookup(addr uint64) string {
@@ -84,84 +134,110 @@ func (st *symbolTable) lookup(addr uint64) string {
 	if entry.size > 0 && addr >= entry.addr+entry.size {
 		return ""
 	}
+	if entry.size == 0 && addr != entry.addr {
+		return ""
+	}
 
 	return entry.name
 }
 
-// loadSymbols parses /proc/<pid>/maps to find CUDA-relevant libraries
-// and loads their ELF symbol tables.
-func (sr *SymbolResolver) loadSymbols(pid uint32) *symbolTable {
+// loadSymbolsForAddress finds the executable mapping containing addr and loads
+// symbols only from that ELF image. cudaLaunchKernel's func pointer commonly
+// targets a host stub in the application executable or a user extension, not
+// libcudart itself.
+func (sr *SymbolResolver) loadSymbolsForAddress(pid uint32, addr uint64) ([]symbolEntry, addressRange, bool) {
 	mapsPath := fmt.Sprintf("/proc/%d/maps", pid)
 	f, err := os.Open(mapsPath)
 	if err != nil {
 		sr.logger.Debug("cannot read process maps", "pid", pid, "error", err)
-		return nil
+		return nil, addressRange{}, false
 	}
 	defer f.Close()
-
-	st := &symbolTable{}
-	seen := make(map[string]bool)
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 16*1024), 256*1024)
 	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) < 6 {
+		mapping, ok := parseProcMapEntry(scanner.Text())
+		if !ok || addr < mapping.start || addr >= mapping.end {
 			continue
 		}
-
-		path := fields[5]
-		if !isCUDARelevant(path) || seen[path] {
-			continue
+		mapped := addressRange{start: mapping.start, end: mapping.end}
+		// Non-executable / anonymous mappings are a permanent miss for symbol
+		// resolution — cache the range so we do not re-parse maps every launch.
+		if !strings.Contains(mapping.perms, "x") || mapping.path == "" || mapping.path[0] != '/' {
+			return nil, mapped, true
 		}
-		seen[path] = true
 
-		baseAddr := parseMapBase(fields[0])
-		symbols := loadELFSymbols(path)
-		for _, sym := range symbols {
-			st.entries = append(st.entries, symbolEntry{
-				addr: baseAddr + sym.addr,
-				size: sym.size,
-				name: sym.name,
-			})
+		// Prefer the file as seen by the target process (other mount namespaces).
+		libPath := resolveMappedLib(int(pid), mapping.addrRange, mapping.path)
+		if libPath == "" {
+			// Transient: mount-namespace view or path may appear on a later launch.
+			return nil, addressRange{}, false
 		}
+		entries, ok := loadELFSymbols(libPath, mapping.start, mapping.offset)
+		if !ok {
+			// Transient: ELF open / PT_LOAD bias failed; retry on the next resolve.
+			return nil, addressRange{}, false
+		}
+		// Successful parse (possibly zero symbols for a stripped binary).
+		return entries, mapped, true
 	}
 
-	sort.Slice(st.entries, func(i, j int) bool {
-		return st.entries[i].addr < st.entries[j].addr
-	})
-
-	return st
+	return nil, addressRange{}, false
 }
 
-func isCUDARelevant(path string) bool {
-	if path == "" || path[0] != '/' {
-		return false
+func parseProcMapEntry(line string) (procMapEntry, bool) {
+	fields := strings.Fields(line)
+	if len(fields) < 6 {
+		return procMapEntry{}, false
 	}
-	base := strings.ToLower(path)
-	return strings.Contains(base, "libcudart") ||
-		strings.Contains(base, "libtorch_cuda") ||
-		strings.Contains(base, "vllm") ||
-		strings.Contains(base, "ggml")
-}
 
-func parseMapBase(addrRange string) uint64 {
-	parts := strings.Split(addrRange, "-")
-	if len(parts) < 1 {
-		return 0
+	bounds := strings.SplitN(fields[0], "-", 2)
+	if len(bounds) != 2 {
+		return procMapEntry{}, false
 	}
-	v, _ := strconv.ParseUint(parts[0], 16, 64)
-	return v
+	start, err := strconv.ParseUint(bounds[0], 16, 64)
+	if err != nil {
+		return procMapEntry{}, false
+	}
+	end, err := strconv.ParseUint(bounds[1], 16, 64)
+	if err != nil || end <= start {
+		return procMapEntry{}, false
+	}
+	offset, err := strconv.ParseUint(fields[2], 16, 64)
+	if err != nil {
+		return procMapEntry{}, false
+	}
+	path := strings.Join(fields[5:], " ")
+	path = strings.TrimSuffix(path, " (deleted)")
+	return procMapEntry{
+		addrRange: fields[0],
+		start:     start,
+		end:       end,
+		offset:    offset,
+		perms:     fields[1],
+		path:      path,
+	}, true
 }
 
-func loadELFSymbols(path string) []symbolEntry {
+// loadELFSymbols parses function symbols from path. ok is false when the ELF
+// cannot be opened or no PT_LOAD segment matches the mapping (caller must not
+// cache that as a permanent miss). ok is true with a possibly empty slice when
+// the ELF was parsed successfully (e.g. stripped binary with no STT_FUNC).
+func loadELFSymbols(path string, mapStart, mapOffset uint64) ([]symbolEntry, bool) {
 	f, err := elf.Open(path)
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	defer f.Close()
 
-	var entries []symbolEntry
+	loadBias, ok := elfLoadBias(f, mapStart, mapOffset)
+	if !ok {
+		return nil, false
+	}
+
+	entries := make([]symbolEntry, 0)
+	seen := make(map[string]struct{})
 
 	// Try .symtab first, then .dynsym
 	for _, loader := range []func() ([]elf.Symbol, error){f.Symbols, f.DynamicSymbols} {
@@ -176,15 +252,49 @@ func loadELFSymbols(path string) []symbolEntry {
 			if elf.ST_TYPE(s.Info) != elf.STT_FUNC {
 				continue
 			}
+			key := fmt.Sprintf("%x:%s", s.Value, s.Name)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
 			entries = append(entries, symbolEntry{
-				addr: s.Value,
+				addr: loadBias + s.Value,
 				size: s.Size,
 				name: s.Name,
 			})
 		}
 	}
 
-	return entries
+	return entries, true
+}
+
+func elfLoadBias(f *elf.File, mapStart, mapOffset uint64) (uint64, bool) {
+	pageSize := uint64(os.Getpagesize())
+	alignDown := func(v uint64) uint64 {
+		return v & ^(pageSize - 1)
+	}
+	alignUp := func(v uint64) uint64 {
+		return (v + pageSize - 1) & ^(pageSize - 1)
+	}
+
+	for _, prog := range f.Progs {
+		if prog.Type != elf.PT_LOAD {
+			continue
+		}
+		segmentOffset := alignDown(prog.Off)
+		segmentEnd := alignUp(prog.Off + prog.Filesz)
+		if mapOffset < segmentOffset || mapOffset >= segmentEnd {
+			continue
+		}
+		segmentVaddr := alignDown(prog.Vaddr)
+		virtualAtMapping := segmentVaddr + (mapOffset - segmentOffset)
+		if mapStart < virtualAtMapping {
+			return 0, false
+		}
+		return mapStart - virtualAtMapping, true
+	}
+
+	return 0, false
 }
 
 // demangleName attempts to demangle a C++ mangled name.

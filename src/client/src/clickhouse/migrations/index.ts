@@ -33,6 +33,7 @@ import AddCodingAgentSummaryFieldsMigration from "./add-coding-agent-summary-fie
 import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summary-fields-migration";
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 import DropVcsMigration from "./drop-vcs-migration";
+import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-prices-migration";
 import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
 import AlterTelemetryRollupsDimensionsMigration from "./alter-telemetry-rollups-dimensions-migration";
 
@@ -67,6 +68,7 @@ export default async function migrations(databaseConfigId?: string) {
 
 	// Group 3: Provider migrations (sequential -- metadata depends on providers)
 	await CreateProvidersMigration(databaseConfigId);
+	await AddProviderModelsCachePricesMigration(databaseConfigId);
 	await Promise.all([
 		CreateProviderMetadataMigration(databaseConfigId),
 		DropLegacyOpengroundTablesMigration(databaseConfigId),

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import './jest.response-polyfill';
 
 // jsdom does not currently expose Node's structuredClone implementation.
 // OpenPlait adapters use it to isolate server-side connection configuration.

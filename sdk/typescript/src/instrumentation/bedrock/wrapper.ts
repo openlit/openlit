@@ -381,8 +381,17 @@ class BedrockWrapper extends BaseWrapper {
     const responseModel = modelId;
     const finishReason = mapFinishReason(result.stopReason || 'stop');
 
+    // Bedrock Converse reports inputTokens exclusive of cache read/write.
     const pricingInfo = OpenlitConfig.pricingInfo || {};
-    const cost = OpenLitHelper.getChatModelCost(modelId, pricingInfo, inputTokens, outputTokens);
+    const cost = OpenLitHelper.getChatModelCost(
+      modelId,
+      pricingInfo,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      false
+    );
 
     BedrockWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,

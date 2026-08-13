@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getModelsPerTime } from "@/lib/platform/llm/model";
 import { withRouteAccess } from "@/lib/access/route-access";

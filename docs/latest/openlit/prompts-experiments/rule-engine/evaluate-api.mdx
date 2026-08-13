@@ -1,0 +1,48 @@
+---
+title: "Evaluate API"
+description: "Call the Rule Engine evaluate endpoint from any application with a Bearer API key to retrieve resources linked to matching rules"
+---
+
+Your application uses the evaluate endpoint to actually use a rule at runtime - this is separate from the [Preview](/latest/openlit/prompts-experiments/rule-engine/preview) card, which only tests a rule while you're building it.
+
+## Authentication
+
+The evaluate endpoint accepts a Bearer API-key token, so any external application can call it - no dashboard login needed.
+
+## Request fields
+
+**Required:**
+
+- `entity_type` - one of `context`, `prompt`, or `evaluation`.
+- `fields` - a flat key-value map of the current input values to check against your rules' conditions (e.g. `{"model": "gpt-4", "user_tier": "premium"}`). Up to 50 fields.
+
+**Optional:**
+
+- `include_entity_data` - set to `true` to get full entity records back in the response, not just IDs.
+- `entity_inputs` - extra, per-entity-type options. For example, when retrieving a `prompt`, you can pass `variables` and `shouldCompile` to get the prompt back with its `{{variableName}}` placeholders filled in.
+
+Only rules with Status = Active are ever evaluated - Inactive rules are skipped entirely.
+
+## Response shape
+
+- `matchingRuleIds` - the IDs of the rules that matched.
+- `entities` - references to each matched rule's linked entities.
+- `entity_data` - present only if `include_entity_data` was set, keyed by `"{entity_type}:{entity_id}"` with the full record. Full entity data is currently only populated for `context` and `prompt` entity types, not for `evaluation`.
+
+## Create an API key
+
+- Navigate to **Settings → API Keys** in OpenLIT.
+- Click **Create API Key**, enter a name, and save the key securely.
+
+## Call the evaluate endpoint
+
+Send a `POST` to `/api/rule-engine/evaluate`. The full code examples and request/response schema live in two places, depending on what you need:
+
+<CardGroup cols={2}>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Python, TypeScript, and Go examples for retrieving contexts, prompts, and evaluation configs, plus full parameter tables and error handling
+  </Card>
+  <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
+    Full request/response schema and a curl example, with a live "try it" playground
+  </Card>
+</CardGroup>

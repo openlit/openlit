@@ -10,7 +10,7 @@ export default function PromptsGettingStarted() {
         <h1 className="text-3xl font-semibold text-center mb-6 text-stone-800 dark:text-stone-200">
           {getMessage().GET_STARTED_WITH_PROMPT_HUB}
         </h1>
-        <p className="text-center text-md mb-6 text-stone-500 dark:text-stone-500">
+        <p className="text-center text-md mb-6 text-stone-500 dark:text-stone-400">
           {getMessage().GET_STARTED_WITH_PROMPT_HUB_DESCRIPTION}
         </p>
         <PromptHubHeader createNew className="grid grid-cols-2 w-full items-center justify-center gap-6 mb-8 [&>*:first-child]:justify-self-end [&>*:nth-child(2)]:justify-self-start" />

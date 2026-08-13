@@ -12,7 +12,7 @@ export default memo(function TracingGettingStarted() {
         <h1 className="text-3xl font-semibold text-center mb-4 text-stone-800 dark:text-stone-200">
           {getMessage().GET_STARTED_WITH_TRACING}
         </h1>
-        <p className="text-center text-md mb-8 text-stone-500 dark:text-stone-500">
+        <p className="text-center text-md mb-8 text-stone-500 dark:text-stone-400">
           {getMessage().GET_STARTED_WITH_TRACING_DESCRIPTION}
         </p>
 
@@ -189,7 +189,7 @@ const chatCompletion = await client.chat.completions.create({
 
         {/* Footer Links */}
         <div className="mt-8 text-center">
-          <p className="text-sm text-stone-500 dark:text-stone-500">
+          <p className="text-sm text-stone-500 dark:text-stone-400">
             For more information, visit the{" "}
             <a
               href="https://docs.openlit.io"

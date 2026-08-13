@@ -2,7 +2,7 @@ import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
-import { getDBConfigByUser, getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import {
 	OPENLIT_OPENGROUND_TABLE_NAME,
 	OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME,
@@ -12,7 +12,7 @@ import {
 export default async function CreateOpengroundMigration(databaseConfigId?: string) {
 	const [, dbConfig] = await asaw(
 		databaseConfigId
-			? getDBConfigById({ id: databaseConfigId })
+			? getDBConfigByIdInternal({ id: databaseConfigId })
 			: getDBConfigByUser(true)
 	);
 

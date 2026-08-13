@@ -8,11 +8,13 @@ import {
 	getSignalConfig,
 } from "@/components/(playground)/observability/registry";
 import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { stripFilterParams } from "@/helpers/client/filter-persistence";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 export default function TelemetryPage() {
 	const searchParams = useSearchParams();
@@ -25,7 +27,7 @@ export default function TelemetryPage() {
 	const ActiveIcon = activeConfig.icon;
 
 	useEffect(() => {
-		posthog?.capture("OBSERVABILITY_PAGE_VISITED", {
+		posthog?.capture(CLIENT_EVENTS.OBSERVABILITY_PAGE_VISITED, {
 			tab: activeConfig.key,
 		});
 	}, [activeConfig.key, posthog]);
@@ -58,10 +60,10 @@ export default function TelemetryPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow={"Telemetry"}
+				eyebrow={getMessage().SIDEBAR_MONITOR}
 				title={activeConfig.label}
 				icon={<ActiveIcon className="h-4 w-4" />}
-				tone={`rounded-md border p-1.5 ${activeConfig.tone}`}
+				tone={activeConfig.tone}
 				actions={(
 					<div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
 						{/* The Coding Sessions + Coding Users signal

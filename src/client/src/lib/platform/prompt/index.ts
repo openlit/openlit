@@ -91,9 +91,11 @@ export async function createPrompt(promptInputParams: PromptInput) {
 	};
 }
 
-export async function getPrompts() {
-	const user = await getCurrentUser();
-	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+export async function getPrompts({ databaseConfigId }: { databaseConfigId?: string } = {}) {
+	if (!databaseConfigId) {
+		const user = await getCurrentUser();
+		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	}
 
 	const query = `SELECT
 			p.id AS promptId,
@@ -117,7 +119,7 @@ export async function getPrompts() {
 				p.created_at DESC;
 	`;
 
-	return await dataCollector({ query });
+	return await dataCollector({ query }, "query", databaseConfigId);
 }
 
 export async function getSpecificPrompt(

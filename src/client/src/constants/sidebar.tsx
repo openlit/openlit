@@ -1,5 +1,6 @@
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
+import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	Activity,
@@ -12,6 +13,7 @@ import {
 	Building2,
 	CircleDollarSign,
 	Component,
+	FolderKanban,
 	Home,
 	Key,
 	LayoutDashboard,
@@ -23,6 +25,8 @@ import {
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-4";
+
+const m = getMessage();
 
 export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
@@ -43,7 +47,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Boxes className={ICON_CLASSES} />,
 		groups: [
 			{
-				title: "Monitoring",
+				title: m.SIDEBAR_MONITOR,
 				children: [
 					{
 						icon: <Activity className={ICON_CLASSES} />,
@@ -60,13 +64,13 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 					},
 					{
 						icon: <MonitorCog className={ICON_CLASSES} />,
-						text: "Evaluations",
+						text: m.FEATURE_EVALS,
 						link: "/evaluations",
 						type: "action",
 					},
 					{
 						icon: <CircleDollarSign className={ICON_CLASSES} />,
-						text: "Costs",
+						text: m.COSTS_TITLE,
 						link: "/costs",
 						type: "action",
 					},
@@ -79,7 +83,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				],
 			},
 			{
-				title: "Resources",
+				title: m.SIDEBAR_DEVELOP,
 				children: [
 					{
 						icon: <Component className={ICON_CLASSES} />,
@@ -117,12 +121,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				title: "Configuration",
 				children: [
 					{
-						icon: <Building2 className={ICON_CLASSES} />,
-						text: "Organisation",
-						link: "/organisation",
-						type: "action",
-					},
-					{
 						icon: <Cable className={ICON_CLASSES} />,
 						text: "Connectors",
 						link: "/connectors",
@@ -140,15 +138,33 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <SettingsIcon className={ICON_CLASSES} />,
 		children: [
 			{
+				icon: <Building2 className={ICON_CLASSES} />,
+				text: m.ORGANISATION,
+				link: "/organisation",
+				type: "action",
+			},
+			{
+				icon: <FolderKanban className={ICON_CLASSES} />,
+				text: m.SIDEBAR_PROJECTS,
+				link: "/organisation?tab=projects",
+				type: "action",
+			},
+			{
 				icon: <User className={ICON_CLASSES} />,
-				text: "User Profile",
+				text: m.USER_PROFILE,
 				link: "/settings/profile",
 				type: "action",
 			},
 			{
 				icon: <Key className={ICON_CLASSES} />,
-				text: "Api Keys",
+				text: m.API_KEYS,
 				link: "/settings/api-keys",
+				type: "action",
+			},
+			{
+				icon: <BookOpen className={ICON_CLASSES} />,
+				text: "OpenAPI Spec",
+				link: "/openapi-spec",
 				type: "action",
 			},
 		],

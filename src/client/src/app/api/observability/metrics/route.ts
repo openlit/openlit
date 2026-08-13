@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { listMetricRecords } from "@/lib/platform/metrics/read";
 import { withRouteAccess } from "@/lib/access/route-access";

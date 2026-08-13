@@ -98,6 +98,27 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
+	// Costs
+	{
+		regex: /^\/costs$/,
+		getTitle: () => getMessage().COSTS_TITLE,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/pricing$/,
+		getTitle: () => getMessage().COSTS_TAB_CONFIGURATION,
+		getBreadcrumbs: () => [
+			{ title: getMessage().COSTS_TITLE, href: "/costs" },
+		],
+	},
+	{
+		regex: /^\/manage-models$/,
+		getTitle: () => getMessage().OPENGROUND_MANAGE_MODELS,
+		getBreadcrumbs: () => [
+			{ title: getMessage().COSTS_TITLE, href: "/costs" },
+		],
+	},
+
 	// Dashboard routes
 	{
 		regex: /^\/dashboard$/,
@@ -345,7 +366,25 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 			{ title: "Settings", href: "/settings" }
 		],
 	},
-	
+
+	{
+		regex: /^\/organisation\/?$/,
+		getTitle: () => getMessage().ORGANISATION,
+		getBreadcrumbs: () => [
+			{ title: "Settings", href: "/settings" },
+			{ title: getMessage().ORGANISATION, href: "/organisation" },
+		],
+	},
+	{
+		regex: /^\/organisation\/project\/[^/]+$/,
+		getTitle: () => "",
+		getBreadcrumbs: () => [
+			{ title: "Settings", href: "/settings" },
+			{ title: getMessage().ORGANISATION, href: "/organisation" },
+			{ title: getMessage().PROJECTS, href: "/organisation?tab=projects" },
+		],
+	},
+
 	{
 		regex: /^\/settings\/api-keys$/,
 		getTitle: () => "Api Keys",
@@ -389,7 +428,7 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 	// under `/agents/<key>` like the per-vendor detail page) because it
 	// rolls up across vendors. Without an explicit route config the
 	// breadcrumb generator falls through to the path-tail fallback,
-	// which yields "Home › ishan.jain@grafana.com" — useless context for
+	// which yields "Home › username — useless context for
 	// the operator. We thread back through the Coding Agents tab on
 	// the unified Agents hub so the user can backtrack out.
 	{

@@ -1,0 +1,47 @@
+---
+title: "Run a Comparison"
+description: "Configure a prompt, select providers, tune per-provider settings, and evaluate on the /openground/new page"
+---
+
+From the [OpenGround history page](/latest/openlit/prompts-experiments/openground/results-and-history) (`/openground`), click **Create New Playground** to open the comparison runner at `/openground/new`.
+
+## Step 1: Prompt configuration
+
+The first card has two tabs:
+
+- **Custom** - a free-text prompt box (placeholder: *"Enter your prompt... Use `{{variable}}` for dynamic values"*).
+- **Prompt Hub** - a dropdown (placeholder: *"Select a prompt from Prompt Hub"*) to pick a saved prompt from [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview). Once selected, a version-tagged preview of the prompt's content is shown.
+
+Either way, if the prompt text contains `{{variable}}` placeholders, a **Variables** section automatically appears below with one input per variable, along with the note *"These values will be substituted into your prompt before evaluation."*
+
+## Step 2: Select providers to compare
+
+A grid of provider cards follows, each showing an avatar, name, model count, and a status badge - **Configured** or **Configure**.
+
+- Clicking a **Configured** card adds it to the comparison immediately, using its default model.
+- Clicking an unconfigured card opens a setup dialog where you pick an **API Key (from Vault)** - with a shortcut to create one on the spot if your Vault is empty - and an optional default model, then click **Save Configuration**.
+
+As soon as you've added at least one provider, a banner shows **"{n} Providers Selected"**.
+
+OpenGround ships with **14 built-in providers**: OpenAI, Anthropic, Google, Mistral, Groq, Perplexity, Azure, Cohere, Together AI, Fireworks, DeepSeek, xAI, Hugging Face, and Replicate. These are the same providers you'd see on [Manage models](/latest/openlit/costs/manage-models/overview) under Costs - anything you add or configure there is immediately available here, and vice versa.
+
+## Step 3: Provider settings
+
+Once you've selected at least one provider, a settings panel appears per provider:
+
+- **Model** - a dropdown of that provider's supported models, each showing its context-window size and price per million tokens. You can also switch to **Use Custom Model** to type an arbitrary model ID directly, with its own input/output pricing.
+- A **Manage models** shortcut opens model management - the same catalog as [Costs → Manage models](/latest/openlit/costs/manage-models/overview).
+- Three sliders per provider:
+  - **Temperature** - `0` to `2`
+  - **Max Tokens** - `100` to `4000`
+  - **Top P** - `0` to `1`
+
+<Note>
+There's no field for a custom endpoint or base URL. You can point a provider at a custom model ID with your own pricing, but not at a self-hosted or custom API endpoint.
+</Note>
+
+## Run it
+
+Click **Evaluate providers**. While it runs, the button shows *"Evaluating providers... This may take a few seconds."* Once results land, a **Reset** button appears so you can clear everything and start over.
+
+See [Results & History](/latest/openlit/prompts-experiments/openground/results-and-history) for how to read the output and find the run again later.

@@ -479,7 +479,7 @@ describe('BedrockWrapper', () => {
         isStream: false,
       });
 
-      expect(costSpy).toHaveBeenCalledWith('test-model', mockPricingInfo, 100, 50);
+      expect(costSpy).toHaveBeenCalledWith('test-model', mockPricingInfo, 100, 50, 0, 0, false);
     });
 
     it('should set TTFT and TBT when provided for streaming', () => {

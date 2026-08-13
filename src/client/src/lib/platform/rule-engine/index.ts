@@ -31,8 +31,10 @@ function shouldEmitAlert(options?: RuleMutationOptions) {
 }
 
 export async function getRules(databaseConfigId?: string) {
-	const user = await getCurrentUser();
-	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	if (!databaseConfigId) {
+		const user = await getCurrentUser();
+		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	}
 
 	const query = `
     SELECT * FROM ${OPENLIT_RULES_TABLE_NAME}
@@ -43,8 +45,10 @@ export async function getRules(databaseConfigId?: string) {
 }
 
 export async function getRuleById(id: string, databaseConfigId?: string) {
-	const user = await getCurrentUser();
-	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	if (!databaseConfigId) {
+		const user = await getCurrentUser();
+		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	}
 
 	const safeId = Sanitizer.sanitizeValue(id);
 

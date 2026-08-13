@@ -1,0 +1,36 @@
+---
+title: "Otter usage"
+description: "Track Otter AI chat assistant token and cost attribution by feature, provider, model, and date"
+---
+
+**Otter usage** (`/chat/usage`) shows how much Otter has spent across features. Header: **Otter usage**. Description: *Token and cost attribution by feature, provider, model, and date.*
+
+## What you see
+
+- Summary tiles: **Total tokens**, **Total cost**, **Prompt / completion**, **Otter actions**
+- Chat rollups: **Chat conversations**, **Chat messages**, **Avg tokens / chat**, **Avg cost / chat**
+- **Provider and model spend** - breakdown by provider and model
+- **Where Otter was used** - activity list with type labels:
+  - **Chat**
+  - **Trace analysis**
+  - **Span analysis**
+  - **Prompt improvement**
+
+Filter with the time tabs (**24H**, **7D**, **1M**, **3M**, **CUSTOM**) and click **Refresh** to reload.
+
+Empty state: **No Otter usage recorded yet** - *Run a chat or AI analysis to see provider, model, token, and cost attribution here.*
+
+## Why it matters
+
+Otter calls your configured provider for chat, telemetry AI Analysis, and Prompt Hub improvements. This page is the single place to see that spend without digging through individual conversations.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Chat with Otter" href="/latest/openlit/chat/conversations" icon="comment">
+    Start conversations that show up in usage
+  </Card>
+  <Card title="Chat Settings" href="/latest/openlit/chat/settings" icon="gear">
+    Change provider or model to control future cost
+  </Card>
+</CardGroup>

@@ -203,4 +203,134 @@ describe("observability platform queries", () => {
 			"MetricName = 'cpu.usage'"
 		);
 	});
+
+	it("returns empty totals and default sort when log/metric payloads are sparse", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [{}], err: null })
+			.mockResolvedValueOnce({ data: [], err: "records failed" });
+
+		await expect(getLogs(params as any)).resolves.toEqual({
+			err: "records failed",
+			records: [],
+			total: 0,
+		});
+		expect((dataCollector as jest.Mock).mock.calls[1][0].query).toContain(
+			"ORDER BY Timestamp desc"
+		);
+
+		(dataCollector as jest.Mock).mockClear();
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: null, err: null })
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		await expect(getMetrics(params as any)).resolves.toEqual({
+			err: null,
+			records: [],
+			total: 0,
+		});
+	});
+
+	it("covers exceptions summaries, longer buckets, and empty summary data", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({ data: null, err: null });
+
+		const weekParams = {
+			...params,
+			timeLimit: {
+				type: "CUSTOM",
+				start: "2025-01-01T00:00:00.000Z",
+				end: "2025-03-01T00:00:00.000Z",
+			},
+		};
+		const week = await getSignalSummary(weekParams as any, "exceptions");
+		expect(week.bucket).toBe("week");
+		expect(week.total).toBe(0);
+		expect(week.peak).toBe(0);
+		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
+			"FROM otel_traces"
+		);
+
+		const monthParams = {
+			...params,
+			timeLimit: {
+				type: "CUSTOM",
+				start: "2024-01-01T00:00:00.000Z",
+				end: "2025-06-01T00:00:00.000Z",
+			},
+		};
+		const month = await getSignalSummary(monthParams as any, "logs");
+		expect(month.bucket).toBe("month");
+		expect((dataCollector as jest.Mock).mock.calls[1][0].query).toContain("%Y/%m");
+
+		const dayParams = {
+			...params,
+			timeLimit: {
+				type: "CUSTOM",
+				start: "2026-01-01T00:00:00.000Z",
+				end: "2026-01-20T00:00:00.000Z",
+			},
+		};
+		const day = await getSignalSummary(dayParams as any, "metrics");
+		expect(day.bucket).toBe("day");
+	});
+
+	it("applies Field/Resource/Scope custom filters and metric name filters", async () => {
+		await getLogsConfig({
+			...params,
+			selectedConfig: {
+				traceIds: ["t1"],
+				spanIds: ["s1"],
+				customFilters: [
+					{ attributeType: "ResourceAttributes", key: "env", value: "prod" },
+					{ attributeType: "ScopeAttributes", key: "lib", value: "otel" },
+					{ attributeType: "Field", key: "SeverityText", value: "ERROR" },
+					{ attributeType: "Field", key: "Drop;Me", value: "nope" },
+					{ attributeType: "LogAttributes", key: "", value: "skip" },
+				],
+			},
+		} as any);
+
+		const logsQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(logsQuery).toContain("ResourceAttributes['env'] = 'prod'");
+		expect(logsQuery).toContain("ScopeAttributes['lib'] = 'otel'");
+		expect(logsQuery).toContain("SeverityText = 'ERROR'");
+		expect(logsQuery).toContain("TraceId IN ('t1')");
+		expect(logsQuery).toContain("SpanId IN ('s1')");
+
+		(dataCollector as jest.Mock).mockClear();
+		await getMetricsConfig({
+			...params,
+			selectedConfig: {
+				metricNames: ["cpu"],
+				customFilters: [
+					{ attributeType: "Attributes", key: "host", value: "a" },
+					{ attributeType: "Field", key: "MetricName", value: "cpu" },
+				],
+			},
+		} as any);
+		const metricsQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(metricsQuery).toContain("MetricName IN ('cpu')");
+		expect(metricsQuery).toContain("Attributes['host'] = 'a'");
+		expect(metricsQuery).toContain("MetricName = 'cpu'");
+	});
+
+	it("propagates attribute-key query errors and sanitizes empty row ids", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: "log keys failed" })
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		const keys = await getLogAttributeKeys(params as any);
+		expect(keys.err).toBe("log keys failed");
+		expect(keys.logAttributeKeys).toEqual([]);
+
+		(dataCollector as jest.Mock).mockClear();
+		await getLogByRowId("abc");
+		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain("= 0");
+
+		(dataCollector as jest.Mock).mockClear();
+		await getMetricDetail("cpu.usage");
+		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
+			"MetricName = 'cpu.usage'"
+		);
+	});
 });

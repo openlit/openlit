@@ -144,7 +144,10 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		provider: {
 			label: "Provider",
 			type: "string",
-			path: "system",
+			// OTel GenAI renamed gen_ai.system -> gen_ai.provider.name (1.30+).
+			// Prefer the new key; keep system as a fallback for legacy spans.
+			path: "provider.name",
+			paths: ["provider.name", "system"],
 			prefix: SpanAttributesGenAIPrefix,
 			icon: PyramidIcon,
 		},

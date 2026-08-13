@@ -177,15 +177,89 @@ def build_input_messages(contents, system_instruction=None):
     return otel_messages
 
 
+def _normalize_tool_arguments(tool_args):
+    """
+    Normalize function-call arguments to an object for gen_ai.*.messages parts.
+
+    OTel GenAI expects tool_call.arguments to be an object. Deserialize JSON
+    strings when present.
+    See: https://github.com/open-telemetry/semantic-conventions-genai
+    """
+    if isinstance(tool_args, str):
+        try:
+            return json.loads(tool_args) if tool_args else {}
+        except Exception:
+            return {"raw": tool_args}
+    if tool_args is None:
+        return {}
+    if hasattr(tool_args, "items") and not isinstance(tool_args, dict):
+        try:
+            return dict(tool_args)
+        except Exception:
+            return {"raw": str(tool_args)}
+    return tool_args
+
+
+def _format_tool_args_for_span(tool_args):
+    """Serialize one function-call's arguments for flat span attributes."""
+    if isinstance(tool_args, str):
+        return tool_args
+    try:
+        return json.dumps(_normalize_tool_arguments(tool_args))
+    except (TypeError, ValueError):
+        return str(tool_args)
+
+
+def _join_tool_field(values):
+    """
+    Join one field across parallel function calls, keeping positions aligned.
+
+    Every call contributes a slot so the nth entry of gen_ai.tool.name,
+    gen_ai.tool.call.id, and gen_ai.tool.args always describes the same call.
+    A field that is empty for every call collapses to "" (important for Gemini,
+    which does not supply tool call ids).
+    """
+    values = [str(value) if value else "" for value in values]
+    return ", ".join(values) if any(values) else ""
+
+
+def _function_calls(parts):
+    """
+    Return every function_call payload from a candidate's parts.
+
+    Gemini emits one part per call, so parallel calls are sibling parts.
+    Accepts dict-shaped and object-shaped parts (after response_as_dict or raw).
+    """
+    calls = []
+    for part in parts or []:
+        if isinstance(part, dict):
+            call = part.get("function_call")
+        else:
+            call = getattr(part, "function_call", None)
+        if not call:
+            continue
+        if isinstance(call, dict):
+            calls.append(call)
+        else:
+            calls.append(
+                {
+                    "name": getattr(call, "name", "") or "",
+                    "args": _normalize_tool_arguments(getattr(call, "args", {})),
+                    "id": getattr(call, "id", "") or "",
+                }
+            )
+    return calls
+
+
 def build_output_messages(response_text, finish_reason, function_calls=None):
     """
     Convert Google AI Studio response to OTel output message structure.
-    Follows gen-ai-output-messages schema.
+    Follows gen-ai-output-messages schema (ToolCallRequestPart per function_call).
 
     Args:
         response_text: Response text from model
         finish_reason: Finish reason from Google (STOP, MAX_TOKENS, SAFETY, etc.)
-        function_calls: Optional function calls dict from response
+        function_calls: Optional list of function calls, or a single dict (legacy)
 
     Returns:
         List with single OutputMessage
@@ -198,30 +272,49 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
         if response_text:
             parts.append({"type": "text", "content": response_text})
 
-        # Add function calls if present
+        # Parallel function_call parts each become a tool_call part with object
+        # arguments (OTel ToolCallRequestPart).
         if function_calls:
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": "",  # Google doesn't provide IDs
-                    "name": function_calls.get("name", ""),
-                    "arguments": function_calls.get("args", {}),
-                }
+            calls = (
+                function_calls
+                if isinstance(function_calls, list)
+                else [function_calls]
             )
+            for function_call in calls:
+                if not isinstance(function_call, dict) or not function_call:
+                    continue
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": function_call.get("id", "") or "",
+                        "name": function_call.get("name", ""),
+                        "arguments": _normalize_tool_arguments(
+                            function_call.get("args", {})
+                        ),
+                    }
+                )
 
-        # Map Google finish reasons to OTel standard
+        # Map Google finish reasons to OTel FinishReason values.
+        # See semantic-conventions-genai gen-ai-output-messages.json.
         finish_reason_map = {
             "STOP": "stop",
-            "MAX_TOKENS": "max_tokens",
+            "MAX_TOKENS": "length",
             "SAFETY": "content_filter",
             "RECITATION": "content_filter",
-            "OTHER": "other",
-            "FINISH_REASON_UNSPECIFIED": "other",
+            "OTHER": "error",
+            "FINISH_REASON_UNSPECIFIED": "error",
         }
 
         otel_finish_reason = finish_reason_map.get(
             finish_reason.upper() if finish_reason else "", finish_reason or "stop"
         )
+        # Gemini often reports STOP even when emitting function calls; OTel
+        # finish_reason for that case is tool_call.
+        if any(p.get("type") == "tool_call" for p in parts) and otel_finish_reason in (
+            "stop",
+            "",
+        ):
+            otel_finish_reason = "tool_call"
 
         return [
             {"role": "assistant", "parts": parts, "finish_reason": otel_finish_reason}
@@ -472,11 +565,16 @@ def process_chunk(scope, chunk):
 
     try:
         c0 = (chunked.get("candidates") or [{}])[0]
-        parts = (c0.get("content") or {}).get("parts") or []
-        fc = parts[0].get("function_call") if parts else None
-        scope._tools = fc
+        new_calls = _function_calls((c0.get("content") or {}).get("parts") or [])
     except (IndexError, KeyError, TypeError):
-        scope._tools = None
+        new_calls = []
+    # Parallel function calls can be split across streamed chunks, so
+    # accumulate rather than overwrite -- each chunk only carries its own
+    # incremental parts, not the whole candidate built so far.
+    if new_calls:
+        if not isinstance(getattr(scope, "_tools", None), list):
+            scope._tools = []
+        scope._tools.extend(new_calls)
 
 
 def _get_config_value(config, key):
@@ -519,7 +617,16 @@ def common_chat_logic(
         input_tokens = general_tokens(prompt)
         output_tokens = general_tokens(scope._llmresponse)
 
-    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+    # Gemini usage_metadata.prompt_token_count includes cached_content_token_count.
+    cost = get_chat_model_cost(
+        request_model,
+        pricing_info,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
+    )
 
     # Common Span Attributes
     common_span_attributes(
@@ -568,18 +675,39 @@ def common_chat_logic(
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    # Span Attributes for Tools
+    # Flat tool attrs on chat spans are OpenLIT house style (comma-joined,
+    # matching openai/utils.py and anthropic). The OTel-canonical parallel
+    # representation is gen_ai.output.messages with one tool_call part per call.
     if hasattr(scope, "_tools") and scope._tools:
-        tools = scope._tools if isinstance(scope._tools, dict) else {}
+        calls = scope._tools if isinstance(scope._tools, list) else [scope._tools]
+        calls = [c for c in calls if isinstance(c, dict) and c]
+        names = [c.get("name", "") or "" for c in calls]
+        ids = [str(c.get("id", "") or "") for c in calls]
+        args = [_format_tool_args_for_span(c.get("args", {})) for c in calls]
+
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, tools.get("name", "")
+            SemanticConvention.GEN_AI_TOOL_NAME,
+            _join_tool_field(names),
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_CALL_ID,
+            _join_tool_field(ids),
         )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, str(tools.get("args", ""))
-        )
+        joined_args = _join_tool_field(args)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, joined_args)
+        # OTel GenAI attribute for tool-call parameters (JSON string on spans).
+        if len(calls) == 1:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                args[0] if args else "{}",
+            )
+        elif calls:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                json.dumps(
+                    [_normalize_tool_arguments(c.get("args", {})) for c in calls]
+                ),
+            )
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
@@ -818,8 +946,10 @@ def process_chat_response(
 
     try:
         c0 = (response_dict.get("candidates") or [{}])[0]
-        parts = (c0.get("content") or {}).get("parts") or []
-        self._tools = parts[0].get("function_call") if parts else None
+        # A candidate can carry several parallel function_call parts; keep all.
+        self._tools = (
+            _function_calls((c0.get("content") or {}).get("parts") or []) or None
+        )
     except (IndexError, KeyError, TypeError):
         self._tools = None
 

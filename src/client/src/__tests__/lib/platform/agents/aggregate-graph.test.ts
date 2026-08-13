@@ -293,7 +293,7 @@ describe("getAggregateGraph", () => {
 			query: string;
 		};
 		expect(query).toContain(
-			"ResourceAttributes['deployment.environment'] = 'default'"
+			"ResourceAttributes['deployment.environment'] IN ('default', 'local', 'default_environment', '')"
 		);
 		expect(query).toContain("Timestamp >= now() - INTERVAL 24 HOUR");
 		expect(query).toContain("LIMIT 500");

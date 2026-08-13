@@ -1,0 +1,69 @@
+---
+title: "Configuration"
+sidebarTitle: "Configuration"
+description: "AI cost tracking configuration - enable Auto Pricing on a schedule and recalculate LLM costs on individual traces from Monitor → Costs"
+---
+
+The **Configuration** tab on **Costs** (`/costs?tab=configuration`) controls AI cost tracking backfills. It recalculates cost on existing LLM traces using the per-model prices stored under [Manage models](/latest/openlit/costs/manage-models/overview). Use it when a trace was ingested without cost, pricing changed and you want missing costs filled in, or you added a custom model after traffic already landed.
+
+Open **Monitor → Costs**, then select **Configuration**. (`/pricing` redirects here.)
+
+## Auto Pricing
+
+The **Auto Pricing** card schedules AI cost tracking for new LLM traces.
+
+<Steps>
+  <Step title="Enable Auto Pricing">
+    Toggle **Enable Auto Pricing** on.
+  </Step>
+  <Step title="Set the Cron Schedule">
+    Enter a standard cron expression in **Cron Schedule**. Examples:
+    - `*/15 * * * *` - every 15 minutes
+    - `0 * * * *` - every hour
+    - `0 0 * * *` - once a day at midnight
+  </Step>
+  <Step title="Save">
+    Click **Save** (or **Update** if a config already exists). OpenLIT runs Auto Pricing on that schedule for the active database configuration.
+  </Step>
+</Steps>
+
+On each run, OpenLIT finds recent LLM spans that are missing cost (or have cost `0`), looks up each span's provider and model in Manage models, computes the cost from token counts, and writes it back onto the span. Spans that already have a non-zero cost are left alone - Auto Pricing is a backfill, not an overwrite of vendor-reported or previously set costs. Spans with missing provider/model/tokens, or a model that isn't in Manage models, are skipped (not treated as failures).
+
+<Tip>
+Edit pricing on the [Manage models](/latest/openlit/costs/manage-models/overview) tab first. Auto Pricing and manual recalculation both use those prices.
+</Tip>
+
+## Manual Pricing
+
+The **Manual Pricing** card explains how to recalculate a single trace on demand:
+
+1. Open any LLM request in [Telemetry](/latest/openlit/observability/telemetry/traces) (**Go to Traces** jumps there).
+2. In the trace detail panel, find the **Cost** tile and click the refresh icon. The tooltip reads *Recalculate cost using the model's price in Manage Models* - there is no separate labeled button text.
+3. A toast shows **Cost updated** with the new value.
+
+If cost is missing or zero, a pinging dot draws attention to that icon. Unlike Auto Pricing, a manual recalculation refreshes the cost even when a value is already present. The control only appears when the span has a model and span id.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Why is a trace's cost missing or zero?">
+    Usually the SDK didn't send cost, or the model wasn't in Manage models when the span was ingested. Add or fix the model, then recalculate manually or wait for the next Auto Pricing run.
+  </Accordion>
+  <Accordion title="Does Auto Pricing overwrite an existing cost?">
+    No. Auto Pricing only fills in missing or zero-cost spans - it never overwrites a cost your SDK or an upstream vendor already set.
+  </Accordion>
+  <Accordion title="What happens to Auto Pricing after a restart?">
+    Active Auto Pricing schedules are restored automatically when OpenLIT starts again - you don't need to re-enable them after a redeploy.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Analytics" href="/latest/openlit/costs/analytics" icon="chart-line">
+    See spend and Auto Pricing run history
+  </Card>
+  <Card title="Manage models" href="/latest/openlit/costs/manage-models/overview" icon="sliders">
+    Edit LLM model pricing used for cost calculation
+  </Card>
+</CardGroup>

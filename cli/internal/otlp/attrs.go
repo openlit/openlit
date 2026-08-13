@@ -70,24 +70,36 @@ func perEventSpansAllowed(mode string) bool {
 	return mode != semconv.CodingAgentContentCaptureMinimal
 }
 
-// inferProvider returns the OTel-standard `gen_ai.system` value based
-// on the model name and (as a last resort) the vendor. We deliberately
-// only handle the model families our adapters report; everything else
-// gets the empty string so dashboards know not to render a misleading
-// system value. Extend as we add more agents.
+// inferProvider returns the OTel-standard `gen_ai.system` /
+// `gen_ai.provider.name` value based on the model name and (as a last
+// resort) the vendor. We deliberately only handle the model families
+// our adapters report; everything else gets the empty string so
+// dashboards know not to render a misleading system value.
+//
+// Cursor stamps ids like `cursor-grok-4.5-high`, `composer-2.5`, and
+// `auto` — strip the `cursor-` prefix before matching so first-party
+// and routed models still land on the right provider bucket (used by
+// the Coding Agents dashboard / traces). LLM dashboard widgets
+// exclude coding-agent spans separately.
 func inferProvider(model, vendor string) string {
-	m := strings.ToLower(model)
+	m := strings.ToLower(strings.TrimSpace(model))
+	m = strings.TrimPrefix(m, "cursor-")
 	switch {
-	case strings.HasPrefix(m, "claude"), strings.HasPrefix(m, "anthropic/"):
+	case strings.HasPrefix(m, "claude"), strings.HasPrefix(m, "anthropic/"),
+		strings.Contains(m, "claude-"):
 		return "anthropic"
 	case strings.HasPrefix(m, "gpt"), strings.HasPrefix(m, "o1"),
 		strings.HasPrefix(m, "o3"), strings.HasPrefix(m, "o4"),
-		strings.HasPrefix(m, "openai/"):
+		strings.HasPrefix(m, "openai/"), strings.Contains(m, "codex"):
 		return "openai"
 	case strings.HasPrefix(m, "gemini"), strings.HasPrefix(m, "google/"):
 		return "google"
-	case strings.HasPrefix(m, "grok"):
+	case strings.HasPrefix(m, "grok"), strings.Contains(m, "grok"):
 		return "xai"
+	case strings.HasPrefix(m, "composer"), m == "auto":
+		return "cursor"
+	case strings.HasPrefix(m, "kimi"), strings.HasPrefix(m, "moonshot"):
+		return "moonshot"
 	case strings.HasPrefix(m, "deepseek"):
 		return "deepseek"
 	}
@@ -96,6 +108,8 @@ func inferProvider(model, vendor string) string {
 		return "anthropic"
 	case "codex":
 		return "openai"
+	case "cursor":
+		return "cursor"
 	}
 	return ""
 }

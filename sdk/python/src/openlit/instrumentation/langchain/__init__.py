@@ -148,6 +148,7 @@ MODEL_PATTERNS = [
     ("VLLM", "model", None),
     ("Xinference", "model_uid", None),
     ("ChatOCIGenAI", "model_id", None),
+    ("OCIGenAI", "model_id", None),
     ("DeepInfra", "model_id", None),
 ]
 
@@ -327,6 +328,7 @@ PROVIDER_MAP = {
     "google_vertexai": "google",
     "groq": "groq",
     "mistralai": "mistral_ai",
+    "oci_generative_ai": "oci_genai",
     "ollama": "ollama",
     "openai": "openai",
     "together": "together",

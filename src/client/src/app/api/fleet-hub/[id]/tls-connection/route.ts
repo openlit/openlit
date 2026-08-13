@@ -1,8 +1,10 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { updateTlsConnection } from "@/lib/platform/fleet-hub";
 import PostHogServer from "@/lib/posthog";
 
-export async function POST(request: Request, context: any) {
+async function POSTHandler(request: Request, context: any) {
 	const startTimestamp = Date.now();
 	const { id } = context.params;
 	const { tlsMin } = await request.json();
@@ -13,3 +15,5 @@ export async function POST(request: Request, context: any) {
 	});
 	return Response.json(res);
 }
+
+export const POST = withAudit(withCurrentOrganisationPermission("fleet_hub:configure", POSTHandler));

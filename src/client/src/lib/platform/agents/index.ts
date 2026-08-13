@@ -21,6 +21,7 @@ import type {
 	UnifiedAgent,
 } from "@/types/agents";
 import { POLICY_DETAIL, POLICY_LIST, swr } from "./cache";
+import { normalizeDeploymentEnvironment } from "./agent-key";
 import { agentsLogger } from "./logger";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
@@ -41,7 +42,9 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 	return {
 		agent_key: String(row.agent_key),
 		service_name: String(row.service_name),
-		environment: String(row.environment || "default"),
+		environment: normalizeDeploymentEnvironment(
+			String(row.environment || "default")
+		),
 		cluster_id: String(row.cluster_id || "default"),
 		workload_key: String(row.workload_key || ""),
 		source: String(row.source || "sdk") as AgentSource,
@@ -395,6 +398,12 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 		);
 	}
 
+	// Drop placeholder / local-dev env labels — they fold into `default` at
+	// materialize time, and leftover rows would otherwise show as duplicates.
+	where.push(
+		`lower(s.environment) NOT IN ('local', 'default_environment')`
+	);
+
 	const query = `
 		${ROLLUP_CTES}
 		SELECT ${SELECT_COLUMNS}
@@ -525,7 +534,13 @@ async function loadAgent(
 	return rowToAgent(rows[0]);
 }
 
-// `computeAgentKey` + `invalidateAgent` now live in the leaf `./agent-key`
-// module so `snapshot`/`materialize` can use them without importing `./index`
-// (which would re-form an import cycle). Re-exported here for existing callers.
-export { computeAgentKey, invalidateAgent } from "./agent-key";
+// `computeAgentKey` + `invalidateAgent` (+ env normalize helpers) now live in
+// the leaf `./agent-key` module so `snapshot`/`materialize` can use them
+// without importing `./index` (which would re-form an import cycle).
+// Re-exported here for existing callers.
+export {
+	computeAgentKey,
+	invalidateAgent,
+	normalizeDeploymentEnvironment,
+	deploymentEnvironmentSqlPredicate,
+} from "./agent-key";

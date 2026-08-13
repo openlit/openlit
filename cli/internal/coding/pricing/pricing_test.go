@@ -22,9 +22,14 @@ func TestLookupAnthropic(t *testing.T) {
 		{"claude-opus-4-7-thinking-xhigh", Rate{InputPer1M: 5.00, OutputPer1M: 25.00, CachedReadPer1M: 0.50, CacheCreationPer1M: 6.25}},
 		{"claude-opus-4-6", Rate{InputPer1M: 5.00, OutputPer1M: 25.00, CachedReadPer1M: 0.50, CacheCreationPer1M: 6.25}},
 		{"claude-opus-4-5", Rate{InputPer1M: 5.00, OutputPer1M: 25.00, CachedReadPer1M: 0.50, CacheCreationPer1M: 6.25}},
-		// Anthropic priority-tier "-fast" variants carry a 6x markup
-		// (and roughly 6x cache-write rate); Cursor exposes these.
-		{"claude-opus-4-8-fast", Rate{InputPer1M: 30.00, OutputPer1M: 150.00, CachedReadPer1M: 3.00, CacheCreationPer1M: 37.50}},
+		// Opus 4.7 fast is $30/$150; Opus 4.8 fast is 3x cheaper per
+		// Cursor docs ($10/$50).
+		{"claude-opus-4-8-fast", Rate{InputPer1M: 10.00, OutputPer1M: 50.00, CachedReadPer1M: 1.00, CacheCreationPer1M: 12.50}},
+		{"claude-opus-4-7-fast", Rate{InputPer1M: 30.00, OutputPer1M: 150.00, CachedReadPer1M: 3.00, CacheCreationPer1M: 37.50}},
+		// Claude Fable 5 / Sonnet 5 / Sonnet 1M from Cursor pricing table.
+		{"claude-fable-5", Rate{InputPer1M: 10.00, OutputPer1M: 50.00, CachedReadPer1M: 1.00, CacheCreationPer1M: 12.50}},
+		{"claude-sonnet-5", Rate{InputPer1M: 3.00, OutputPer1M: 15.00, CachedReadPer1M: 0.30, CacheCreationPer1M: 3.75}},
+		{"claude-4-sonnet-1m", Rate{InputPer1M: 6.00, OutputPer1M: 22.50, CachedReadPer1M: 0.60, CacheCreationPer1M: 7.50}},
 		// Legacy Opus 4.0 / 4.1 are still on the original $15/$75 list.
 		{"claude-opus-4-0", Rate{InputPer1M: 15.00, OutputPer1M: 75.00, CachedReadPer1M: 1.50, CacheCreationPer1M: 18.75}},
 		{"claude-opus-4-1", Rate{InputPer1M: 15.00, OutputPer1M: 75.00, CachedReadPer1M: 1.50, CacheCreationPer1M: 18.75}},
@@ -62,6 +67,11 @@ func TestLookupOpenAI(t *testing.T) {
 		{"gpt-5.4-mini", Rate{InputPer1M: 0.75, OutputPer1M: 4.50, CachedReadPer1M: 0.075}},
 		// GPT-5.5 frontier tier.
 		{"gpt-5.5", Rate{InputPer1M: 5.00, OutputPer1M: 30.00, CachedReadPer1M: 0.50}},
+		// GPT-5.6 Sol/Terra/Luna — must NOT fall through to bare gpt-5.
+		{"gpt-5.6-sol", Rate{InputPer1M: 5.00, OutputPer1M: 30.00, CachedReadPer1M: 0.50, CacheCreationPer1M: 6.25}},
+		{"gpt-5.6-terra", Rate{InputPer1M: 2.50, OutputPer1M: 15.00, CachedReadPer1M: 0.25, CacheCreationPer1M: 3.125}},
+		{"gpt-5.6-luna", Rate{InputPer1M: 1.00, OutputPer1M: 6.00, CachedReadPer1M: 0.10, CacheCreationPer1M: 1.25}},
+		{"gpt-5.6-sol-medium", Rate{InputPer1M: 5.00, OutputPer1M: 30.00, CachedReadPer1M: 0.50, CacheCreationPer1M: 6.25}},
 		// o-series — confirm o3 isn't being eaten by the gpt-5 family.
 		{"o3", Rate{InputPer1M: 2.00, OutputPer1M: 8.00}},
 		{"o4-mini", Rate{InputPer1M: 1.10, OutputPer1M: 4.40}},
@@ -80,12 +90,12 @@ func TestLookupGoogle(t *testing.T) {
 		want  Rate
 	}{
 		{"gemini-2.5-pro", Rate{InputPer1M: 1.25, OutputPer1M: 10.00}},
-		{"gemini-2.5-flash", Rate{InputPer1M: 0.30, OutputPer1M: 2.50}},
+		{"gemini-2.5-flash", Rate{InputPer1M: 0.30, OutputPer1M: 2.50, CachedReadPer1M: 0.03}},
 		{"gemini-2.5-flash-lite", Rate{InputPer1M: 0.10, OutputPer1M: 0.40}},
-		{"gemini-3-flash", Rate{InputPer1M: 0.50, OutputPer1M: 3.00}},
-		{"gemini-3-pro", Rate{InputPer1M: 2.00, OutputPer1M: 12.00}},
-		{"gemini-3.5-flash", Rate{InputPer1M: 1.50, OutputPer1M: 9.00}},
-		{"gemini-3.1-pro", Rate{InputPer1M: 2.00, OutputPer1M: 12.00}},
+		{"gemini-3-flash", Rate{InputPer1M: 0.50, OutputPer1M: 3.00, CachedReadPer1M: 0.05}},
+		{"gemini-3-pro", Rate{InputPer1M: 2.00, OutputPer1M: 12.00, CachedReadPer1M: 0.20}},
+		{"gemini-3.5-flash", Rate{InputPer1M: 1.50, OutputPer1M: 9.00, CachedReadPer1M: 0.15}},
+		{"gemini-3.1-pro", Rate{InputPer1M: 2.00, OutputPer1M: 12.00, CachedReadPer1M: 0.20}},
 	}
 	for _, tt := range tests {
 		got := Lookup(tt.model)
@@ -100,15 +110,19 @@ func TestLookupXAIAndCursorAndMoonshot(t *testing.T) {
 		model string
 		want  Rate
 	}{
-		// xAI Grok ladder.
-		{"grok-4-20", Rate{InputPer1M: 2.00, OutputPer1M: 6.00, CachedReadPer1M: 0.20}},
+		// Cursor first-party + Grok ladder (cursor.com/docs/models-and-pricing).
+		{"grok-4.5", Rate{InputPer1M: 2.00, OutputPer1M: 6.00, CachedReadPer1M: 0.50}},
+		{"grok-4-5", Rate{InputPer1M: 2.00, OutputPer1M: 6.00, CachedReadPer1M: 0.50}},
+		{"grok-4-20", Rate{InputPer1M: 2.00, OutputPer1M: 6.00, CachedReadPer1M: 0.50}},
 		{"grok-4-3", Rate{InputPer1M: 1.25, OutputPer1M: 2.50, CachedReadPer1M: 0.20}},
 		{"grok-build-0-1", Rate{InputPer1M: 1.00, OutputPer1M: 2.00, CachedReadPer1M: 0.20}},
-		// Cursor Composer.
 		{"composer-2-5", Rate{InputPer1M: 0.50, OutputPer1M: 2.50, CachedReadPer1M: 0.20}},
 		{"composer-1-5", Rate{InputPer1M: 3.50, OutputPer1M: 17.50, CachedReadPer1M: 0.35}},
 		{"composer-1", Rate{InputPer1M: 1.25, OutputPer1M: 10.00, CachedReadPer1M: 0.125}},
-		// Moonshot.
+		{"auto", Rate{InputPer1M: 1.25, OutputPer1M: 6.00, CachedReadPer1M: 0.25, CacheCreationPer1M: 1.25}},
+		{"cursor-auto", Rate{InputPer1M: 1.25, OutputPer1M: 6.00, CachedReadPer1M: 0.25, CacheCreationPer1M: 1.25}},
+		// Moonshot — K2.7 must not fall through to K2 rates.
+		{"kimi-k2.7-code", Rate{InputPer1M: 0.95, OutputPer1M: 4.00, CachedReadPer1M: 0.19}},
 		{"kimi-k2-5", Rate{InputPer1M: 0.60, OutputPer1M: 3.00, CachedReadPer1M: 0.10}},
 	}
 	for _, tt := range tests {

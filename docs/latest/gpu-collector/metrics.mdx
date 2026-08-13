@@ -8,27 +8,41 @@ All metric names and attributes follow the [OpenTelemetry semantic conventions f
 
 ## GPU Hardware Telemetry
 
-Collected for each detected GPU on Linux. Availability depends on vendor and GPU model.
+Collected for each detected GPU on **Linux and Windows**. Availability depends on vendor, OS, and GPU model.
 
 ### Metrics
 
 | Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
 |---|---|---|---|:---:|:---:|:---:|
-| `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | — |
-| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | — |
-| `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | — |
-| `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | — |
-| `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | — |
+| `hw.gpu.utilization` | Gauge | `1` | GPU compute/encoder/decoder utilization (0.0–1.0) | Yes | Yes | Yes* |
+| `hw.gpu.memory.utilization` | Gauge | `1` | Memory controller utilization (0.0–1.0) | Yes | Yes | - |
+| `hw.gpu.memory.limit` | UpDownCounter | `By` | Total GPU memory | Yes | Yes | Yes* |
+| `hw.gpu.memory.usage` | UpDownCounter | `By` | Used GPU memory | Yes | Yes | Yes* |
+| `hw.gpu.memory.free` | UpDownCounter | `By` | Free GPU memory | Yes | Yes | Yes* |
 | `hw.gpu.temperature` | Gauge | `Cel` | Die or memory temperature | Yes | Yes | Yes |
-| `hw.gpu.fan_speed` | Gauge | `{rpm}` | Fan speed | Yes | Yes | Yes* |
+| `hw.gpu.fan_speed` | Gauge | `{rpm}` | Fan speed | -† | Yes | Yes* |
 | `hw.gpu.power.draw` | Gauge | `W` | Current power draw | Yes | Yes | Yes |
 | `hw.gpu.power.limit` | Gauge | `W` | Power limit/cap | Yes | Yes | Yes |
 | `hw.gpu.energy.consumed` | Counter | `J` | Cumulative energy consumed | Yes | Yes | Yes |
 | `hw.gpu.clock.graphics` | Gauge | `MHz` | Graphics/SM clock frequency | Yes | Yes | Yes* |
-| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | — |
-| `hw.errors` | Counter | `{error}` | ECC and PCIe error count | Yes | — | — |
+| `hw.gpu.clock.memory` | Gauge | `MHz` | Memory clock frequency | Yes | Yes | - |
+| `hw.gpu.up` | Gauge | `1` | `1` when the device was successfully scraped | Yes | Yes | Yes |
+| `hw.gpu.allocated` | Gauge | `1` | `1` when process memory or util ≥ threshold | Yes | Yes | Yes |
+| `hw.gpu.idle` | Gauge | `1` | Idle ratio (`1 - utilization`) when util known | Yes | Yes | Yes* |
+| `hw.gpu.pcie.throughput` | Gauge | `By/s` | PCIe RX/TX throughput | Yes | Yes¶ | Soft‡ |
+| `hw.gpu.interconnect.throughput` | Gauge | `By/s` | NVLink / XGMI aggregate throughput | Yes§ | Yes¶ | - |
+| `hw.gpu.throttled` | Gauge | `1` | `1` when thermal/power throttle is active | Yes | Yes¶ | Yes* |
+| `hw.errors` | Counter | `{error}` | ECC, PCIe, XID, and RAS error counts | Yes | Yes (RAS + PCIe replay¶) | - |
 
-\* Intel fan speed requires Linux kernel 6.16+. Intel graphics clock requires the Xe driver.
+\* Intel device util/VRAM/power/throttle/media use Level Zero Sysman when available (Linux/Windows); otherwise DRM/hwmon/PDH subset. Encoder/decoder util comes from media engine groups or Windows PDH VideoEncode/VideoDecode.
+
+† NVIDIA NVML exposes fan speed as a percentage, not RPM, so `hw.gpu.fan_speed` is not emitted for NVIDIA.
+
+‡ Soft-omitted when the vendor library/driver path does not expose the counter. Core util/memory/power still collect without those libraries. Windows AMD has no PCIe/XGMI throughput API (ADL).
+
+§ NVLink on Linux and Windows NVIDIA when the GPU exposes enabled NVLink links (rates after the second sample).
+
+¶ AMD Linux via `libamd_smi` (`amdsmi_get_gpu_pci_throughput`, `amdsmi_get_link_metrics`, `amdsmi_get_violation_status`) when present; soft-omitted on VMs/consumer cards without those counters. AMD media util (`MmActivity`) is exported as `hw.gpu.task=encoder` when the driver only exposes a combined VCN counter (decoder stays unset).
 
 ### Attributes
 
@@ -48,8 +62,13 @@ Additional per-metric attributes:
 |---|---|---|
 | `hw.gpu.utilization` | `hw.gpu.task` | `general`, `encoder`, `decoder` |
 | `hw.gpu.temperature` | `sensor` | `die`, `memory` |
-| `hw.errors` | `error.type` | `corrected`, `uncorrected`, `pcie_replay` |
+| `hw.gpu.pcie.throughput` | `network.io.direction` | `receive`, `transmit` |
+| `hw.gpu.interconnect.throughput` | `network.io.direction` | `receive`, `transmit` |
+| `hw.gpu.interconnect.throughput` | `hw.gpu.interconnect.type` | `nvlink`, `xgmi`, `other` |
+| `hw.gpu.throttled` | `hw.gpu.throttle_reasons` | comma-separated reason labels |
+| `hw.errors` | `error.type` | `corrected`, `uncorrected`, `pcie_replay`, `xid`, `ras_corrected`, `ras_uncorrected` |
 | `hw.errors` | `hw.type` | `gpu` |
+| MIG devices | `gpu.mig.enabled`, `gpu.mig.device_id`, `gpu.parent.uuid`, `gpu.mig.instance_id`, `gpu.mig.profile` | Linux NVIDIA only (MIG is not available on Windows) |
 
 ---
 
@@ -93,14 +112,80 @@ Self-monitoring of the collector process. Follows the [OTel semantic conventions
 
 ---
 
-## eBPF CUDA Metrics (opt-in)
+## Per-process / per-pod GPU attribution
 
-Enable with `OTEL_GPU_EBPF_ENABLED=true`. Requires Linux, `CAP_BPF` + `CAP_PERFMON` (or root), and an NVIDIA CUDA runtime (`libcudart.so`). Attaches uprobes to `cudaLaunchKernel`, `cudaMalloc`, and `cudaMemcpy`.
+Collected on each scrape from NVML (NVIDIA) or DRM fdinfo (AMD/Intel). Requires host PID visibility — Docker `--pid=host` / Compose `pid: host`, or Kubernetes `hostPID: true` — so `/proc` shows workload PIDs. Without it, device-level `hw.gpu.*` metrics still work, but per-process cmdline, state (including zombies), and GPU process metrics will be missing or incomplete.
+
+These attributes support views like zombie-process triage: filter `process.state == "zombie"` and show `process.command_line`, `process.pid`, `process.owner`, and `process.uptime` (age).
+
+| Metric | Type | Unit | Description | NVIDIA | AMD | Intel |
+|---|---|---|---|:---:|:---:|:---:|
+| `process.gpu.memory.usage` | UpDownCounter | `By` | GPU memory used by a process on a device | Yes | Yes | Yes |
+| `process.gpu.utilization` | Gauge | `1` | Per-process GPU utilization (0.0–1.0) | Yes | Yes | Yes |
+| `process.uptime` | Gauge | `s` | Process uptime for GPU-attributed PIDs | Yes | Yes | Yes |
+
+### Attributes
+
+| Attribute | Description |
+|---|---|
+| `process.pid` | Host process ID |
+| `process.executable.name` | Short name from `/proc/<pid>/comm` (or Windows image basename) |
+| `process.command_line` | Truncated command line (see `OTEL_GPU_PROCESS_CMDLINE`) |
+| `process.state` | `running`, `sleeping`, `zombie`, `stopped`, `dead`, `unknown` |
+| `process.owner` / `process.owner.userid` | Username and UID/SID |
+| `process.workload.kind` | `llm_inference`, `llm_training`, or `other` |
+| `process.workload.framework` | `vllm`, `ollama`, `llama.cpp`, `sglang`, `tgi`, `triton`, `ray`, `pytorch`, `unknown` |
+| `hw.id`, `hw.name`, `hw.vendor`, `gpu.index`, `gpu.pci_address` | Same device attrs as `hw.gpu.*` |
+| `hw.gpu.task` | On utilization only: `general`, `encoder`, `decoder` |
+| `k8s.pod.uid` | From cgroup path when present |
+| `k8s.pod.name`, `k8s.namespace.name`, `k8s.container.name` | Via kubelet PodResources (GPU device join) and/or pod API lookup |
+| `container.id` | Runtime container ID when resolvable |
+
+<Note>
+`process.start_time` is not exported as a metric attribute (cardinality). Use `process.uptime` for lifetime. On MIG devices, NVML often provides **memory only** (no per-process SM util). Process util may not sum to device util (time-slicing / sampling windows differ). Use `process.state == zombie` to find defunct processes still holding GPU contexts.
+</Note>
+
+---
+
+## eBPF CUDA Metrics
+
+Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux). Soft-fails without caps. Discovers `libcudart.so*` from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Attaches uprobes/uretprobes for launches, alloc/free, memcpy, stream/device sync, and `cudaSetDevice`. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
+
+### Activity metrics
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
-| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `cuda.kernel.name` |
-| `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | `cuda.kernel.name` |
-| `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | `cuda.kernel.name` |
-| `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | |
-| `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpy call | `cuda.memcpy.kind`={HostToHost,HostToDevice,DeviceToHost,DeviceToDevice} |
+| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `process.pid`, `process.executable.name`, `cuda.kernel.name`, `hw.id` / `gpu.index` when known |
+| `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | same |
+| `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | same |
+| `gpu.kernel.shared_memory` | Histogram | `By` | Dynamic shared memory per launch (`cudaLaunchKernel` sharedMem) | same |
+| `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | `process.pid`, `process.executable.name`, `hw.id` / `gpu.index` when known |
+| `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpyAsync | `process.pid`, `cuda.memcpy.kind`, `hw.id` / `gpu.index` when known |
+
+`hw.id` is set after `cudaSetDevice` for that thread, or immediately on single-GPU hosts. On multi-GPU hosts before `cudaSetDevice`, join via `process.pid` as before. **Linux/NVIDIA (CUDA) only** — same eBPF path for Kubernetes and non-Kubernetes when host PID is visible. AMD/Intel use device/process metrics via DRM fdinfo, not these kernel series.
+
+### Stream-sync occupancy (Datadog-parity model)
+
+These are **CPU-side model estimates**, not hardware SM occupancy (warps resident / max warps). Spans run from kernel launch to sync API return; thread-seconds are clamped to NVML CUDA core count and normalized so multi-process totals do not exceed device capacity.
+
+| Metric | Type | Unit | Description |
+|---|---|---|---|
+| `process.gpu.core.usage` | Gauge | `{cores}` | Normalized avg CUDA cores from launch→sync thread-seconds |
+| `process.gpu.sm_active` | Gauge | `1` | Fraction of interval with any launch→sync span for the process |
+| `gpu.core.limit` | Gauge | `{cores}` | NVML CUDA core count |
+| `gpu.sm_active` | Gauge | `1` | Device-wide union of launch→sync spans |
+
+**Prefer** NVML `process.gpu.utilization` for sampled SM%. Use occupancy metrics when correlating with Datadog Agent stream-sync behavior or when NVML process util is unavailable.
+
+**Known limits:** no GPU completion signal (late sync inflates usage); CUDA Graphs / unhooked launch paths under-report; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
+
+---
+
+## Capability matrix
+
+| Feature | NVIDIA | AMD | Intel |
+|---|:---:|:---:|:---:|
+| Device `hw.gpu.*` | Yes | Yes | Partial |
+| `process.gpu.memory.usage` / `utilization` | NVML | DRM fdinfo | DRM fdinfo |
+| Pod UID on process metrics | cgroup | cgroup | cgroup |
+| eBPF activity + occupancy | Yes (default on Linux) | — | — |

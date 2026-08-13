@@ -95,13 +95,13 @@ export default function MessageInput({
 				</Button>
 			</div>
 			<div className="flex items-center justify-center gap-2 mt-2 max-w-4xl mx-auto">
-				<p className="text-[11px] text-stone-400 dark:text-stone-500">
+				<p className="text-[11px] text-stone-500 dark:text-stone-400">
 					{m.CHAT_ENTER_TO_SEND}
 				</p>
 				{configInfo?.providerName && (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<span className="inline-flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 cursor-help">
+							<span className="inline-flex items-center gap-1 text-[11px] text-stone-500 dark:text-stone-400 cursor-help">
 								<Info className="h-3 w-3" />
 								{configInfo.providerName} / {configInfo.modelName || configInfo.modelId}
 							</span>

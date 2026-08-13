@@ -98,6 +98,8 @@ async function loadAllModelsFromDb(
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		ORDER BY provider, is_default DESC, created_at DESC
@@ -118,6 +120,8 @@ async function loadAllModelsFromDb(
 			contextWindow: Number(row.contextWindow) || 0,
 			inputPricePerMToken: Number(row.inputPricePerMToken) || 0,
 			outputPricePerMToken: Number(row.outputPricePerMToken) || 0,
+			cacheReadPricePerMToken: Number(row.cacheReadPricePerMToken) || 0,
+			cacheCreationPricePerMToken: Number(row.cacheCreationPricePerMToken) || 0,
 			capabilities: row.capabilities || [],
 		});
 	}
@@ -136,6 +140,8 @@ async function loadProviderModelsFromDb(
 			context_window as contextWindow,
 			input_price_per_m_token as inputPricePerMToken,
 			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
 			capabilities
 		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
 		WHERE provider = '${Sanitizer.sanitizeValue(providerId)}'
@@ -151,6 +157,8 @@ async function loadProviderModelsFromDb(
 		contextWindow: Number(row.contextWindow) || 0,
 		inputPricePerMToken: Number(row.inputPricePerMToken) || 0,
 		outputPricePerMToken: Number(row.outputPricePerMToken) || 0,
+		cacheReadPricePerMToken: Number(row.cacheReadPricePerMToken) || 0,
+		cacheCreationPricePerMToken: Number(row.cacheCreationPricePerMToken) || 0,
 		capabilities: row.capabilities || [],
 	}));
 }

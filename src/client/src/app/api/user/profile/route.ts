@@ -1,7 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
 import { updateUserProfile } from "@/lib/user";
-import { SERVER_EVENTS } from "@/constants/events";
-import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import { errorResponse } from "@/utils/api-response";
 import { validateProfileName } from "@/utils/validation";
@@ -25,7 +23,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-	const startTimestamp = Date.now();
 	const formData = await request.json();
 
 	if (formData.name) {
@@ -44,16 +41,8 @@ export async function POST(request: Request) {
 	const [err, res]: any = await asaw(updateUserProfile(formObject));
 
 	if (err) {
-		PostHogServer.fireEvent({
-			event: SERVER_EVENTS.USER_PROFILE_UPDATE_FAILURE,
-			startTimestamp,
-		});
 		return errorResponse(err, "Failed to update profile");
 	}
 
-	PostHogServer.fireEvent({
-		event: SERVER_EVENTS.USER_PROFILE_UPDATE_SUCCESS,
-		startTimestamp,
-	});
 	return Response.json(stripPasswordFromUser(res));
 }

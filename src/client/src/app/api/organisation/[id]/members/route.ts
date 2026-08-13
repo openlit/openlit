@@ -2,9 +2,10 @@ import {
 	getOrganisationMembers,
 	getOrganisationPendingInvites,
 } from "@/lib/organisation";
+import { withPermission } from "@/lib/rbac/route";
 import asaw from "@/utils/asaw";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -29,3 +30,5 @@ export async function GET(
 		pendingInvites,
 	});
 }
+
+export const GET = withPermission("members:read", GETHandler);

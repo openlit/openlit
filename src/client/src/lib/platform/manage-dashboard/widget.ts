@@ -8,8 +8,6 @@ import {
 	sanitizeWidget,
 	escapeSingleQuotes,
 } from "@/helpers/server/widget";
-import mustache from "mustache";
-
 import { jsonStringify } from "@/utils/json";
 // NOTE: `@/lib/telemetry-source` is imported lazily inside `runWidgetQuery`
 // (see below). `widget.ts` sits in a pre-existing common <-> board <-> widget
@@ -41,6 +39,53 @@ import {
 	planAndSpanTimeSeries,
 } from "@/lib/platform/connectors/datasource/query-planner";
 import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
+
+/**
+ * Resolve a dotted path under the filter object (e.g. `timeLimit.start`).
+ * Returns undefined when any segment is missing — callers treat that as "".
+ */
+function getFilterPathValue(filter: unknown, path: string): unknown {
+	const parts = path.split(".");
+	let current: unknown = filter;
+	for (const part of parts) {
+		if (current == null || typeof current !== "object") {
+			return undefined;
+		}
+		current = (current as Record<string, unknown>)[part];
+	}
+	return current;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ *
+ * Intentionally does **not** use Mustache (or any template engine): the
+ * query string is user-controlled on the widget preview path, and treating
+ * it as an executable template is a code-injection sink (CodeQL
+ * js/code-injection / alert #126). Path lookup + stringification is enough
+ * for dashboard filter interpolation, and filter values are validated
+ * separately before substitution.
+ */
+function renderFilterPlaceholders(
+	template: string,
+	filter: MetricParams
+): string {
+	return template.replace(
+		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
+		(
+			_match,
+			unescapedPath: string | undefined,
+			escapedPath: string | undefined
+		) => {
+			const path = unescapedPath || escapedPath;
+			if (!path) return "";
+			const value = getFilterPathValue(filter, path);
+			if (value == null) return "";
+			if (typeof value === "object") return JSON.stringify(value);
+			return String(value);
+		}
+	);
+}
 
 export async function getWidgetById(id: string) {
 	const query = `
@@ -215,12 +260,70 @@ function validateQuery(query: string): { valid: boolean; error?: string } {
 	return validateSafeQueryContent(trimmed);
 }
 
+/**
+ * Blank out the contents of single-quoted string literals so keyword /
+ * table / function scanning only inspects executable SQL. Attribute keys
+ * and values such as `SpanAttributes['gen_ai.system']` or
+ * `'openlit-cli'` are data, not SQL — without this a literal like
+ * `gen_ai.system` would false-positive on the `SYSTEM` keyword blocklist
+ * (word-bounded by `.` and `'`) and reject an otherwise safe SELECT.
+ * Handles both backslash (`\'`) and doubled (`''`) quote escapes.
+ *
+ * Implemented as a linear scan (not a regex) to avoid ReDoS from
+ * overlapping alternatives in patterns like `'(?:\\.|''|[^'])*'`.
+ * Unclosed literals are left unchanged, matching the previous regex.
+ */
+function stripStringLiterals(value: string): string {
+	let result = "";
+	let i = 0;
+	while (i < value.length) {
+		if (value[i] !== "'") {
+			result += value[i];
+			i += 1;
+			continue;
+		}
+
+		const start = i;
+		i += 1; // skip opening quote
+		let closed = false;
+		while (i < value.length) {
+			const ch = value[i];
+			if (ch === "\\" && i + 1 < value.length) {
+				i += 2;
+				continue;
+			}
+			if (ch === "'") {
+				if (i + 1 < value.length && value[i + 1] === "'") {
+					i += 2; // doubled-quote escape
+					continue;
+				}
+				i += 1; // closing quote
+				closed = true;
+				break;
+			}
+			i += 1;
+		}
+
+		if (closed) {
+			result += "''";
+		} else {
+			// No closing quote — leave the remainder intact so keyword
+			// scanners can still see executable SQL after the opener.
+			result += value.slice(start);
+			break;
+		}
+	}
+	return result;
+}
+
 function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
-	if (/\bsystem\./i.test(value)) {
+	const scannable = stripStringLiterals(value);
+
+	if (/\bsystem\./i.test(scannable)) {
 		return { valid: false, error: "Access to system tables is not allowed" };
 	}
 
-	if (/\binformation_schema\./i.test(value)) {
+	if (/\binformation_schema\./i.test(scannable)) {
 		return {
 			valid: false,
 			error: "Access to information_schema tables is not allowed",
@@ -229,7 +332,7 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 
 	const dangerousFunctions =
 		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
-	if (dangerousFunctions.test(value)) {
+	if (dangerousFunctions.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed functions" };
 	}
 
@@ -237,8 +340,9 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 	// in OTel SQL. ClickHouse admin commands are `SYSTEM <verb>`; system tables
 	// are already blocked by the `system.` check above.
 	const dangerousKeywords =
+	const dangerousKeywords =
 		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE)\b|\bSYSTEM\s+\w+/i;
-	if (dangerousKeywords.test(value)) {
+	if (dangerousKeywords.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed operations" };
 	}
 
@@ -278,7 +382,7 @@ async function runRawClickHouseWidgetQuery(
 		return { err: filterValidation.error || "Invalid filter" };
 	}
 
-	const exactQuery = mustache.render(query, { filter });
+	const exactQuery = renderFilterPlaceholders(query, filter);
 
 	const validation = validateQuery(exactQuery);
 	if (!validation.valid) {

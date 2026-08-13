@@ -83,4 +83,20 @@ describe("getMessage()", () => {
 	it("returns the same object on repeated calls", () => {
 		expect(getMessage()).toBe(getMessage());
 	});
+
+	it("invokes every exported message formatter", () => {
+		const formatters = Object.entries(enMessages).filter(
+			([, value]) => typeof value === "function"
+		);
+		expect(formatters.length).toBeGreaterThan(0);
+
+		for (const [, fn] of formatters) {
+			const result = (fn as (...args: unknown[]) => unknown)(
+				"alpha",
+				"beta",
+				"gamma"
+			);
+			expect(typeof result === "string" || result == null).toBe(true);
+		}
+	});
 });

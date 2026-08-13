@@ -208,6 +208,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disabledInstrumentations` | List of instrumentations to disable.                                                    | `undefined`                                                             | No       |
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
 | `pricingJson`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
+| `collectGpuStats`       | Flag to enable or disable GPU metrics collection (NVIDIA via `nvidia-smi`, AMD via `rocm-smi`). | `false`                                                            | No       |
 
 ### OpenLIT Prompt Hub - `Openlit.getPrompt()`
 

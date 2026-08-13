@@ -1,3 +1,5 @@
+import { withAudit } from "@/lib/audit/route";
+import { requireCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getDBConfigByUser, upsertDBConfig } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import { DatabaseConfig } from "@prisma/client";
@@ -12,6 +14,11 @@ function stripSensitiveDbFields(config: any) {
 }
 
 export async function GET() {
+	const [permissionErr] = await asaw(
+		requireCurrentOrganisationPermission("db_config:read")
+	);
+	if (permissionErr) return errorResponse(permissionErr, "Forbidden", 403);
+
 	const [err, res]: any = await asaw(getDBConfigByUser());
 	if (err)
 		return errorResponse(err, "Failed to fetch database configurations");
@@ -23,9 +30,15 @@ export async function GET() {
 	return Response.json(sanitized);
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const id = formData.id;
+	const requiredPermission = id ? "db_config:update" : "db_config:create" as const;
+
+	const [permissionErr] = await asaw(
+		requireCurrentOrganisationPermission(requiredPermission)
+	);
+	if (permissionErr) return errorResponse(permissionErr, "Forbidden", 403);
 
 	const dbConfig: Partial<DatabaseConfig> = {
 		name: formData.name,
@@ -55,3 +68,5 @@ export async function POST(request: Request) {
 	if (formData.environment) await createProjectEnvironment(formData.environment);
 	return Response.json(res);
 }
+
+export const POST = withAudit(POSTHandler);

@@ -65,6 +65,19 @@ export async function register() {
 			console.error("❌ Error installing agents materialize cron:", error);
 		}
 
+		try {
+			// Install the daily anonymous telemetry-snapshot cron (aggregate
+			// inventory + world-total ingestion counts). Honors TELEMETRY_ENABLED.
+			const { restoreTelemetrySnapshotCron } = await import(
+				"@/lib/platform/telemetry-snapshot/config"
+			);
+			console.log("🔄 Installing telemetry snapshot cron...");
+			await restoreTelemetrySnapshotCron(apiURL);
+			console.log("✅ Telemetry snapshot cron installed");
+		} catch (error) {
+			console.error("❌ Error installing telemetry snapshot cron:", error);
+		}
+
 		console.log("✨ Server initialization complete");
 	}
 }

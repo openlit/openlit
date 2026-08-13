@@ -144,7 +144,7 @@ export default function SqlBlock({
 			{executing && !result && (
 				<div className="flex items-center justify-center gap-2 px-4 py-6 border-t border-stone-200 dark:border-stone-700">
 					<Loader2 className="h-4 w-4 animate-spin text-stone-400" />
-					<span className="text-sm text-stone-400 dark:text-stone-500">{getMessage().CHAT_RUNNING}</span>
+					<span className="text-sm text-stone-500 dark:text-stone-400">{getMessage().CHAT_RUNNING}</span>
 				</div>
 			)}
 

@@ -65,17 +65,20 @@ export interface RuleEngineContextResult {
 }
 
 /**
- * Fetches context content from the rule engine for a given trace.
- * Evaluates rules using trace attributes and returns concatenated context
- * content from matching context entities.
+ * Fetches context content from the rule engine for a set of rule-engine
+ * input fields. Evaluates rules against those fields and returns
+ * concatenated context content from matching context entities.
+ *
+ * This is the shared primitive behind both the trace-based (real-time/auto)
+ * and fields-based (offline/SDK) evaluation paths, so both resolve context
+ * identically given equivalent input.
  *
  * @returns Context contents and matching rule IDs (for display and storage)
  */
-export async function getContextFromRuleEngineForTrace(
-	trace: TraceRow,
+export async function getContextFromFields(
+	fields: Record<string, string | number | boolean>,
 	databaseConfigId?: string
 ): Promise<RuleEngineContextResult> {
-	const fields = extractRuleEngineFieldsFromTrace(trace);
 	if (Object.keys(fields).length === 0) {
 		return { contextContents: [], matchingRuleIds: [], contextEntityIds: [] };
 	}
@@ -117,21 +120,39 @@ export async function getContextFromRuleEngineForTrace(
 	}
 }
 
+/**
+ * Fetches context content from the rule engine for a given trace.
+ * Evaluates rules using trace attributes and returns concatenated context
+ * content from matching context entities.
+ *
+ * @returns Context contents and matching rule IDs (for display and storage)
+ */
+export async function getContextFromRuleEngineForTrace(
+	trace: TraceRow,
+	databaseConfigId?: string
+): Promise<RuleEngineContextResult> {
+	return getContextFromFields(
+		extractRuleEngineFieldsFromTrace(trace),
+		databaseConfigId
+	);
+}
+
 export interface RuleWithPriority {
 	ruleId: string;
 	priority: number;
 }
 
 /**
- * Fetches context from rules in priority order. Used when evaluation types
- * config specifies which rules to use for auto evaluation.
+ * Fetches context from rules in priority order, given rule-engine input
+ * fields directly. Shared primitive behind both the trace-based
+ * (real-time/auto) and fields-based (offline/SDK) evaluation paths.
  */
-export async function getContextFromRulesWithPriority(
-	trace: TraceRow,
+export async function getContextFromRulesWithPriorityForFields(
+	fields: Record<string, string | number | boolean>,
 	rulesWithPriority: RuleWithPriority[],
 	databaseConfigId?: string
 ): Promise<RuleEngineContextResult> {
-	const result = await getContextFromRuleEngineForTrace(trace, databaseConfigId);
+	const result = await getContextFromFields(fields, databaseConfigId);
 	if (rulesWithPriority.length === 0) return result;
 
 	const priorityByRule = new Map(
@@ -148,7 +169,6 @@ export async function getContextFromRulesWithPriority(
 	);
 
 	// Re-fetch with entity data to get ordered context
-	const fields = extractRuleEngineFieldsFromTrace(trace);
 	if (Object.keys(fields).length === 0) {
 		return {
 			contextContents: [],
@@ -193,4 +213,20 @@ export async function getContextFromRulesWithPriority(
 	} catch {
 		return result;
 	}
+}
+
+/**
+ * Fetches context from rules in priority order. Used when evaluation types
+ * config specifies which rules to use for auto evaluation.
+ */
+export async function getContextFromRulesWithPriority(
+	trace: TraceRow,
+	rulesWithPriority: RuleWithPriority[],
+	databaseConfigId?: string
+): Promise<RuleEngineContextResult> {
+	return getContextFromRulesWithPriorityForFields(
+		extractRuleEngineFieldsFromTrace(trace),
+		rulesWithPriority,
+		databaseConfigId
+	);
 }

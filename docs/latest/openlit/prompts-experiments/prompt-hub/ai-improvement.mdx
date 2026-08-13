@@ -1,0 +1,52 @@
+---
+title: "AI Prompt Improvement"
+description: "Let Otter review a prompt and suggest targeted edits directly in the create and edit editors"
+---
+
+While creating or editing a prompt, a collapsible bar titled **"Improve prompt with Otter"** sits above the prompt content editor. It's not available on the read-only detail page - only in create and edit mode. Click **Improve** to run it; it shows "Analyzing prompt..." while working.
+
+## Review dimensions
+
+Otter reviews your prompt against a set of dimensions, shown as removable chips. Five are included by default:
+
+1. Be concise and remove redundant wording.
+2. Make the instruction structure easier to follow.
+3. Preserve variables like `{{variableName}}` exactly.
+4. Clarify output format, constraints, and success criteria.
+5. Reduce ambiguity without changing the prompt intent.
+
+Remove any that aren't relevant, or add your own via the text box before running the review.
+
+## Reviewing and applying suggestions
+
+Each suggestion appears as a small diff - removed text in red, added text in green - with a short rationale underneath. You can **Accept** (green check) or **Decline** (red X) each suggestion individually.
+
+Accepting a suggestion only updates the text in your editor - nothing is saved until you click Save Prompt (or Save, on the edit page) separately. If you've changed the prompt text since a suggestion was generated, accepting it can fail with "This suggestion no longer matches the current prompt." If Otter doesn't find anything worth changing, you'll see "Otter did not find any precise prompt changes."
+
+Otter always preserves `{{variable}}` placeholders exactly as written - it's instructed never to alter what's inside the double braces, no matter what other wording changes it suggests.
+
+<Note>
+Otter needs a configured chat model to run this review. If none is set up, you'll see "Chat configuration not found. Configure Otter first."
+</Note>
+
+## Reviewing a prompt from Otter chat
+
+You don't have to be on the create or edit page to get a review - you can also ask Otter to look at a saved prompt from a general chat conversation, by name or ID:
+
+```
+"Can you help me improve prompt with prompt name music_recommend?"
+"Review prompt customer_summary for clarity and concision"
+```
+
+For a review-only request like this, Otter loads the prompt and suggests improvements without saving anything. It only saves, updates, publishes, or creates a new version when you explicitly ask it to. See [Chat with Otter](/latest/openlit/chat/conversations) for the general chat surface.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Manage Prompts" href="/latest/openlit/prompts-experiments/prompt-hub/manage-prompts" icon='file-lines'>
+    Where the Otter assistant bar sits on the create and edit pages
+  </Card>
+  <Card title="Versioning" href="/latest/openlit/prompts-experiments/prompt-hub/versioning" icon='code-branch'>
+    Save your accepted edits as a draft or a new published version
+  </Card>
+</CardGroup>

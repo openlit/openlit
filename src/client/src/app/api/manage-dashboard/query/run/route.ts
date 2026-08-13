@@ -1,13 +1,16 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
-import { getCurrentUser } from "@/lib/session";
+import { requireRouteAccess } from "@/lib/access/route-access";
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
 import PostHogServer from "@/lib/posthog";
+import asaw from "@/utils/asaw";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) return Response.json("Unauthorized", { status: 401 });
+	const [permissionErr] = await asaw(requireRouteAccess("dashboard.read"));
+	if (permissionErr) {
+		return Response.json({ err: String(permissionErr) }, { status: 403 });
+	}
 
 	const messages = getMessage();
 	let body: {
@@ -37,9 +40,14 @@ export async function POST(request: NextRequest) {
 
 	const startTimestamp = Date.now();
 	const environment = request.headers?.get?.("x-openlit-environment") || undefined;
-	const routedFilter = filter && typeof filter === "object"
-		? { ...(filter as Record<string, unknown>), environment: (filter as Record<string, unknown>).environment || environment }
-		: filter;
+	const routedFilter =
+		filter && typeof filter === "object"
+			? {
+					...(filter as Record<string, unknown>),
+					environment:
+						(filter as Record<string, unknown>).environment || environment,
+				}
+			: filter;
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
 		filter: routedFilter as Parameters<typeof runWidgetQuery>[1]["filter"],

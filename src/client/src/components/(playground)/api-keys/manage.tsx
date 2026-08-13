@@ -14,9 +14,11 @@ import { ApiKey } from "@/types/api-key";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import { escapeEmailForDisplay } from "@/utils/string";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Key, Shield, RotateCcw, Trash2 } from "lucide-react";
+import { Key, Shield, RotateCcw, Trash2, BookOpen } from "lucide-react";
+import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const columns: Columns<string, ApiKey> = {
 	name: {
@@ -77,6 +79,7 @@ const columns: Columns<string, ApiKey> = {
 }
 
 export default function ManageKeys() {
+	const messages = getMessage();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<ApiKey[]>();
 	const { fireRequest: fireDeleteRequest } = useFetchWrapper();
 	const pingStatus = useRootStore(getPingStatus);
@@ -119,11 +122,22 @@ export default function ManageKeys() {
 	return (
 		<div className="flex flex-col grow w-full overflow-hidden">
 			<FeaturePageHeader
-				eyebrow="Settings"
-				title="API Keys"
+				eyebrow={messages.SETTINGS}
+				title={messages.API_KEYS}
 				icon={<Key className="h-4 w-4" />}
 				tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30 dark:bg-primary/15"
-				actions={<Generate refresh={fetchData} />}
+				actions={
+					<div className="flex items-center gap-2">
+						<Link
+							href="/openapi-spec"
+							className="inline-flex items-center justify-center gap-1.5 rounded-md border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+						>
+							<BookOpen className="h-4 w-4" />
+							<span>{messages.OPENAPI_SPECIFICATION}</span>
+						</Link>
+						<Generate refresh={fetchData} />
+					</div>
+				}
 			/>
 			<div className="flex flex-col w-full h-full p-4 gap-4">
 				<Alert className="border-amber-200 bg-amber-50/70 py-3 text-stone-700 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-stone-300">

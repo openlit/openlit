@@ -90,13 +90,13 @@ export default function RulePreviewSection({ ruleId }: { ruleId: string }) {
 				)}
 
 				{!isRunning && results === null && (
-					<p className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
+					<p className="text-xs text-stone-500 dark:text-stone-400 text-center py-4">
 						{messages.RULE_PREVIEW_EMPTY}
 					</p>
 				)}
 
 				{!isRunning && results !== null && results.length === 0 && (
-					<p className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
+					<p className="text-xs text-stone-500 dark:text-stone-400 text-center py-4">
 						{messages.RULE_PREVIEW_NO_MATCHES}
 					</p>
 				)}
@@ -116,7 +116,7 @@ export default function RulePreviewSection({ ruleId }: { ruleId: string }) {
 									<span className="text-xs font-medium text-stone-700 dark:text-stone-300 truncate">
 										{r.ServiceName || "—"} · {r.SpanName || "—"}
 									</span>
-									<span className="font-mono text-[10px] text-stone-400 dark:text-stone-500 truncate">
+									<span className="font-mono text-[10px] text-stone-500 dark:text-stone-400 truncate">
 										{r.TraceId}
 									</span>
 								</div>

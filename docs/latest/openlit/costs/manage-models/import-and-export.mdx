@@ -1,0 +1,62 @@
+---
+title: "Import and export"
+description: "Import Pricing JSON into Manage Models or Export Pricing as SDK-compatible pricing.json - duplicates are skipped on import"
+---
+
+Use the header actions on **Manage Models** to move pricing between environments or feed the OpenLIT SDK a file.
+
+## Export Pricing
+
+Click the download icon in the header (tooltip: **Export Pricing**) to open `GET /api/openground/models/export` and download all models as SDK-compatible pricing JSON (download name `custom-pricing.json`), grouped by model type (chat, embeddings, images, audio).
+
+This requires a signed-in OpenLIT session. For a public URL your apps can call without login, use the [SDK Pricing URL](/latest/openlit/costs/manage-models/sdk-pricing) instead.
+
+## Import Pricing JSON
+
+<Steps>
+  <Step title="Open the dialog">
+    Click the upload icon in the header (tooltip: **Import Pricing JSON**).
+  </Step>
+  <Step title="Paste JSON">
+    Paste either a structured `providers` + `models` payload, a models-only array, or an SDK-style `pricing_json` object. The dialog description: existing models with the same provider + model ID are skipped.
+  </Step>
+  <Step title="Import">
+    Click **Import Pricing JSON**. The toast reports model `imported` / `skipped` counts (provider import counts are returned by the API but not shown in that toast).
+  </Step>
+</Steps>
+
+Example structured payload (also shown as the dialog placeholder):
+
+```json
+{
+  "providers": [
+    {
+      "providerId": "my-provider",
+      "displayName": "My Provider",
+      "description": "Custom LLM provider"
+    }
+  ],
+  "models": [
+    {
+      "provider": "my-provider",
+      "model_id": "my-model-v1",
+      "displayName": "My Model v1",
+      "inputPricePerMToken": 2.5,
+      "outputPricePerMToken": 10
+    }
+  ]
+}
+```
+
+SDK-format imports without a provider default to provider `unknown` - edit those models afterward if needed.
+
+## API
+
+<CardGroup cols={2}>
+  <Card title="Export models" href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/export" icon="download">
+    Authenticated pricing.json download
+  </Card>
+  <Card title="Import models" href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/import" icon="upload">
+    Bulk import providers and models
+  </Card>
+</CardGroup>

@@ -14,7 +14,11 @@ import {
 	CONTROLLER_SERVICES_TABLE,
 } from "@/lib/platform/controller/table-details";
 import type { AgentSource, CodingAgentVendor } from "@/types/agents";
-import { computeAgentKey, invalidateAgent } from "./agent-key";
+import {
+	computeAgentKey,
+	invalidateAgent,
+	normalizeDeploymentEnvironment,
+} from "./agent-key";
 import { invalidatePrefix } from "./cache";
 import { agentsLogger } from "./logger";
 import {
@@ -22,9 +26,17 @@ import {
 	getLatestVersionsBatch,
 	upsertVersion,
 } from "./snapshot";
-import { AGENTS_SUMMARY_TABLE } from "./table-details";
+import { AGENTS_SUMMARY_TABLE, AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
+
+/** SQL: fold empty / local-dev env labels into `default` (matches normalizeDeploymentEnvironment). */
+const DEPLOYMENT_ENV_SQL = `multiIf(
+	ResourceAttributes['deployment.environment'] = '', 'default',
+	lower(ResourceAttributes['deployment.environment']) = 'local', 'default',
+	ResourceAttributes['deployment.environment'] = 'default_environment', 'default',
+	ResourceAttributes['deployment.environment']
+)`;
 
 /**
  * Maximum agents the materializer touches in a single tick.
@@ -168,7 +180,7 @@ async function discoverAgents(
 			cli_services AS (
 				SELECT DISTINCT
 					ServiceName AS service_name,
-					if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default') AS environment,
+					${DEPLOYMENT_ENV_SQL} AS environment,
 					if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id
 				FROM ${OTEL_TRACES_TABLE_NAME}
 				WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
@@ -181,7 +193,7 @@ async function discoverAgents(
 			sdk_seen AS (
 			SELECT
 				ServiceName AS service_name,
-				if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default') AS environment,
+				${DEPLOYMENT_ENV_SQL} AS environment,
 				if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id,
 				argMax(ResourceAttributes['service.workload.key'], Timestamp) AS workload_key,
 				argMax(ResourceAttributes['telemetry.sdk.version'], Timestamp) AS sdk_version,
@@ -209,7 +221,7 @@ async function discoverAgents(
 				-- Barrier #1 reinforced: even if individual spans don't have
 				-- the distro marker, the service_name as a whole must not be
 				-- one that ever emitted a CLI span in this window.
-				AND (ServiceName, if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default'), if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default')) NOT IN (SELECT service_name, environment, cluster_id FROM cli_services)
+				AND (ServiceName, ${DEPLOYMENT_ENV_SQL}, if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default')) NOT IN (SELECT service_name, environment, cluster_id FROM cli_services)
 			GROUP BY service_name, environment, cluster_id
 		)
 		SELECT
@@ -375,7 +387,7 @@ async function discoverAgents(
 
 	for (const row of sdkRows) {
 		if (!row.service_name) continue;
-		const env = row.environment || "default";
+		const env = normalizeDeploymentEnvironment(row.environment);
 		const cluster = row.cluster_id || "default";
 		const key = computeAgentKey(cluster, env, row.service_name);
 		const workloadKey = row.workload_key || "";
@@ -404,7 +416,9 @@ async function discoverAgents(
 		if (!row.service_name) continue;
 		const cluster = row.cluster_id || "default";
 		const attrs = parseResourceAttributes(row.resource_attributes);
-		const env = attrs["deployment.environment"] || "default";
+		const env = normalizeDeploymentEnvironment(
+			attrs["deployment.environment"]
+		);
 		const workloadKey = row.workload_key || "";
 		const ctrlKey = computeAgentKey(cluster, env, row.service_name);
 
@@ -911,7 +925,7 @@ async function fetchRequestCounts(
 	const query = `
 		SELECT
 			ServiceName AS service_name,
-			if(ResourceAttributes['deployment.environment'] != '', ResourceAttributes['deployment.environment'], 'default') AS environment,
+			${DEPLOYMENT_ENV_SQL} AS environment,
 			if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id,
 			count() AS request_count_24h
 		FROM ${OTEL_TRACES_TABLE_NAME}
@@ -1021,7 +1035,7 @@ export async function materializeAgents(
 	let discovered: DiscoveredAgent[];
 
 	if (scope?.serviceName) {
-		const env = scope.environment || "default";
+		const env = normalizeDeploymentEnvironment(scope.environment);
 		const cluster = scope.clusterId || "default";
 		const key = computeAgentKey(cluster, env, scope.serviceName);
 		// Look for the agent in BOTH discovery pipelines, not just the SDK
@@ -1035,7 +1049,7 @@ export async function materializeAgents(
 		// openlit_agents_summary that overwrites the legitimate
 		// `source='coding'` row on the next FINAL read. The UI then
 		// renders the SDK Overview/Dashboard/Monitoring layout for what
-		// is in fact a coding agent. See coding-agents-hook.mdc §10.
+		// is in fact a coding agent. See agent-guides/coding-agents-hook.md §10.
 		const [sdkAll, codingAll] = await Promise.all([
 			discoverAgents(dbConfigId, scope.clusterId),
 			discoverCodingAgents(dbConfigId),
@@ -1267,7 +1281,7 @@ export async function materializeAgents(
 		// the next FINAL read and the detail page flips layout. If we
 		// detect this, drop the offending rows and log loudly — the
 		// upstream code path is the bug, but we refuse to corrupt state
-		// regardless. See coding-agents-hook.mdc §10 for the structural
+		// regardless. See agent-guides/coding-agents-hook.md §10 for the structural
 		// fix chain.
 		const nonCodingKeys = summaryRows
 			.filter((r) => r.source !== "coding")
@@ -1335,5 +1349,75 @@ export async function materializeAgents(
 		invalidatePrefix(`agents:list:${dbConfigId || "default"}:`);
 	}
 
+	await purgePlaceholderEnvironmentRows(dbConfigId);
+
 	return { processed, newVersions, errors };
+}
+
+/**
+ * Remove summary (+ version) rows stamped with placeholder env labels that
+ * now fold into `default`. Without this, ReplacingMergeTree keeps both the
+ * old `local` agent_key and the new `default` one as separate apps.
+ */
+async function purgePlaceholderEnvironmentRows(
+	dbConfigId?: string
+): Promise<void> {
+	const keysRes = await dataCollector(
+		{
+			query: `
+				SELECT agent_key
+				FROM ${AGENTS_SUMMARY_TABLE} FINAL
+				WHERE lower(environment) IN ('local', 'default_environment')
+			`,
+		},
+		"query",
+		dbConfigId
+	);
+	if (keysRes.err) {
+		agentsLogger.error("materializer_purge_placeholder_env_lookup_failed", {
+			err: keysRes.err,
+		});
+		return;
+	}
+
+	const keys = Array.isArray(keysRes.data)
+		? (keysRes.data as Array<{ agent_key: string }>)
+				.map((r) => r.agent_key)
+				.filter(Boolean)
+		: [];
+
+	const summaryRes = await dataCollector(
+		{
+			query: `
+				ALTER TABLE ${AGENTS_SUMMARY_TABLE}
+				DELETE WHERE lower(environment) IN ('local', 'default_environment')
+			`,
+		},
+		"query",
+		dbConfigId
+	);
+	if (summaryRes.err) {
+		agentsLogger.error("materializer_purge_placeholder_env_summary_failed", {
+			err: summaryRes.err,
+		});
+	}
+
+	if (!keys.length) return;
+
+	const escaped = keys.map((k) => `'${escape(k)}'`).join(", ");
+	const versionsRes = await dataCollector(
+		{
+			query: `
+				ALTER TABLE ${AGENT_VERSIONS_TABLE}
+				DELETE WHERE agent_key IN (${escaped})
+			`,
+		},
+		"query",
+		dbConfigId
+	);
+	if (versionsRes.err) {
+		agentsLogger.error("materializer_purge_placeholder_env_versions_failed", {
+			err: versionsRes.err,
+		});
+	}
 }

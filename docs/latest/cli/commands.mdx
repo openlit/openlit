@@ -1,0 +1,138 @@
+---
+title: "Command Reference"
+sidebarTitle: "Command Reference"
+description: "Every openlit CLI command, subcommand, and flag"
+---
+
+The root command is `openlit`. Run `openlit --help` or `openlit <command> --help` for inline usage at any time.
+
+```
+openlit
+├── coding        Coding-agent observability (Claude Code, Cursor, Codex)
+│   ├── install     Install per-vendor host plugin manifests
+│   ├── launch      Bootstrap the plugin for an agent and exec it
+│   ├── uninstall   Remove per-vendor host plugin manifests
+│   └── hook        Process a hook event (invoked by host plugins)
+├── configure     Write persistent settings to config.env
+├── doctor        Diagnose config, OTLP reachability, and plugins
+└── version       Print the CLI version
+```
+
+## openlit coding
+
+Coding-agent observability for Claude Code, Cursor, and Codex. See the [Coding Agents setup guide](/latest/openlit/coding-agents/setup-and-configure) for the full vendor-by-vendor walkthrough.
+
+### openlit coding install
+
+Install the per-vendor host plugin manifest. Idempotent - re-running drops prior `openlit` entries before re-writing, leaving any third-party entries in place.
+
+```bash
+openlit coding install --vendor=claude-code
+openlit coding install --vendor=all --dry-run   # preview without writing
+```
+
+| Flag | Description |
+|---|---|
+| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `all` |
+| `--dry-run` | Print what would be written without modifying any files |
+
+**Where manifests are written:**
+
+| Vendor | Manifest path |
+|---|---|
+| Claude Code | `~/.claude/plugins/openlit-cc/` |
+| Cursor | `~/.cursor/hooks.json` (user scope, merged) |
+| Codex | `~/.codex/plugins/openlit/` |
+
+### openlit coding launch
+
+Bootstrap the plugin for an agent and exec it - telemetry on from the first turn. Auto-installs the manifest if needed.
+
+```bash
+openlit coding launch claude
+openlit coding launch cursor -- <agent-args...>   # pass args through after --
+openlit coding launch codex
+```
+
+| Argument | Description |
+|---|---|
+| `<agent>` *(required)* | `claude` \| `claude-code` \| `cc` \| `cursor` \| `codex` (`claude-code` and `cc` are aliases for `claude`) |
+
+Any arguments after `--` are forwarded to the agent's own CLI.
+
+### openlit coding uninstall
+
+Remove the per-vendor plugin manifests written by `install`. Best-effort deregisters the plugin from the vendor's own CLI where applicable. Leaves your shared config alone unless `--purge` is passed.
+
+```bash
+openlit coding uninstall --vendor=cursor            # one vendor
+openlit coding uninstall --vendor=all               # every vendor
+openlit coding uninstall --vendor=all --purge       # also drop ~/.config/openlit + session cache
+openlit coding uninstall --vendor=cursor --dry-run  # preview without touching disk
+```
+
+| Flag | Description |
+|---|---|
+| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `all` |
+| `--purge` | Also remove `~/.config/openlit` and the session-state cache |
+| `--dry-run` | Print what would be removed without modifying any files |
+
+### openlit coding hook
+
+<Note>
+You will almost never run this yourself. The host plugin manifests written by `openlit coding install` invoke it once per agent event, piping the event payload on stdin.
+</Note>
+
+```bash
+openlit coding hook --vendor=claude-code --event=SessionStart < payload.json
+```
+
+| Flag | Description |
+|---|---|
+| `--vendor` *(required)* | `cc` \| `claude-code` \| `cursor` \| `codex` |
+| `--event` | Hook event name (vendor-specific; e.g. `SessionStart`, `PreToolUse`) |
+
+The hook is crash-isolated: a 5-second hard timeout (~3s reserved for OTLP flush) and it **always exits 0** even when telemetry fails - a broken pipeline never blocks your coding session. It never writes to stdout (agents like Claude Code parse stdout for JSON). Set `OPENLIT_DEBUG_PAYLOAD_DIR` to tee raw payloads for debugging.
+
+## openlit configure
+
+Write persistent settings to `~/.config/openlit/config.env`. See [Configuration](/latest/cli/configuration) for the full flag table, precedence, and content-capture modes.
+
+```bash
+openlit configure --endpoint https://openlit.example.com:4318 --api-key $OPENLIT_API_KEY
+openlit configure --show   # print resolved config and its source, write nothing
+```
+
+## openlit doctor
+
+Diagnose the CLI's setup. Reads the resolved config, TCP-dials the OTLP endpoint (2s timeout), and lists installed vendor plugins.
+
+```bash
+openlit doctor
+```
+
+Exit code `0` means the CLI is wired up (possibly with warnings); `1` means at least one check failed. This is the first thing to run when something isn't showing up on `/agents`.
+
+## openlit version
+
+Print the CLI version and build commit.
+
+```bash
+openlit version
+# openlit v1.2.3 (abc1234)
+```
+
+## Reserved (future) commands
+
+The CLI is built to grow into OpenLIT's full control plane. These command groups are reserved in the codebase and will land in future releases:
+
+| Command | Planned subcommands |
+|---|---|
+| `openlit prompts` | `pull`, `push`, `list`, `diff` |
+| `openlit traces` | `tail`, `query`, `export` |
+| `openlit eval` | `run`, `list` |
+| `openlit migrate` | - |
+
+<Info>
+These are not available yet. They are documented here only to signal the CLI's direction - new groups plug in by registering on the root command without breaking the coding-agent integration.
+</Info>

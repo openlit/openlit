@@ -18,6 +18,7 @@ OpenTelemetry-native observability SDK for LLM applications in Go. Monitor your 
 
 - ✅ **OpenAI** - Chat completions, embeddings, images, audio
 - ✅ **Anthropic** - Messages API with tool calling support
+- ✅ **vLLM** - OpenAI-compatible chat completions (local / self-hosted)
 
 ## Installation
 
@@ -103,6 +104,27 @@ resp, err := instrumentedClient.CreateMessage(ctx, anthropic.MessageRequest{
 })
 ```
 
+### 4. Instrument vLLM
+
+vLLM exposes an OpenAI-compatible HTTP API. Point the instrumented client at your
+vLLM server (default `http://127.0.0.1:8000/v1`). Spans use `gen_ai.system=vllm`
+so they are distinct from OpenAI.
+
+```go
+import (
+    "github.com/openlit/openlit/sdk/go/instrumentation/vllm"
+)
+
+client := vllm.NewClient("http://127.0.0.1:8000/v1") // optional: vllm.WithAPIKey("...")
+
+resp, err := client.CreateChatCompletion(ctx, vllm.ChatCompletionRequest{
+    Model: "meta-llama/Llama-3-8B-Instruct",
+    Messages: []vllm.ChatMessage{
+        {Role: "user", Content: "Hello!"},
+    },
+})
+```
+
 ## Configuration Options
 
 ```go
@@ -137,7 +159,7 @@ config := openlit.Config{
 
 ## Streaming Support
 
-Both OpenAI and Anthropic integrations support streaming responses:
+OpenAI, Anthropic, and vLLM integrations support streaming responses:
 
 ### OpenAI Streaming
 
@@ -180,6 +202,32 @@ for {
     }
     
     // Handle event
+}
+```
+
+### vLLM Streaming
+
+```go
+stream, err := client.CreateChatCompletionStream(ctx, vllm.ChatCompletionRequest{
+    Model:    "meta-llama/Llama-3-8B-Instruct",
+    Messages: []vllm.ChatMessage{{Role: "user", Content: "Hello!"}},
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer stream.Close()
+
+for {
+    chunk, err := stream.Recv()
+    if errors.Is(err, io.EOF) {
+        break
+    }
+    if err != nil {
+        log.Fatal(err)
+    }
+    if len(chunk.Choices) > 0 {
+        fmt.Print(chunk.Choices[0].Delta.Content)
+    }
 }
 ```
 

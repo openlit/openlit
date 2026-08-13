@@ -7,7 +7,7 @@ import {
 	getTraceMappingKeyFullPaths,
 } from "@/helpers/server/trace";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
-import { getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getPricingConfigById } from "./config";
@@ -17,14 +17,26 @@ import { differenceInSeconds } from "date-fns";
 import Sanitizer from "@/utils/sanitizer";
 import asaw from "@/utils/asaw";
 import { consoleLog } from "@/utils/log";
+import {
+	getChatModelCostPerM,
+	promptTokensIncludeCache,
+} from "./chat-cost";
 
 const COST_KEY = getTraceMappingKeyFullPath("cost") as string; // gen_ai.usage.cost
 const MODEL_KEY = getTraceMappingKeyFullPath("model") as string; // gen_ai.request.model
-const PROVIDER_KEY = getTraceMappingKeyFullPath("provider") as string; // gen_ai.system
+const PROVIDER_KEYS = getTraceMappingKeyFullPaths("provider") as string[]; // gen_ai.provider.name, gen_ai.system
 const TYPE_KEY = getTraceMappingKeyFullPath("type") as string; // gen_ai.operation.name
-const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths("promptTokens") as string[];
+const PROMPT_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"promptTokens"
+) as string[];
 const COMPLETION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
 	"completionTokens"
+) as string[];
+const CACHE_READ_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"cacheReadTokens"
+) as string[];
+const CACHE_CREATION_TOKENS_KEYS = getTraceMappingKeyFullPaths(
+	"cacheCreationTokens"
 ) as string[];
 
 interface TraceRow {
@@ -35,6 +47,14 @@ interface TraceRow {
 
 function getAttr(trace: TraceRow, key: string): string {
 	return (trace.SpanAttributes || {})[key] ?? "";
+}
+
+function getFirstAttr(trace: TraceRow, keys: string[]): string {
+	for (const key of keys) {
+		const value = getAttr(trace, key);
+		if (value) return value;
+	}
+	return "";
 }
 
 function getNumericAttr(trace: TraceRow, keys: string[]): number {
@@ -64,7 +84,7 @@ async function computeCostForTrace(
 	trace: TraceRow,
 	databaseConfigId: string
 ): Promise<{ cost: number | null; reason?: string }> {
-	const provider = getAttr(trace, PROVIDER_KEY);
+	const provider = getFirstAttr(trace, PROVIDER_KEYS);
 	const model = getAttr(trace, MODEL_KEY);
 	const promptTokens = getNumericAttr(trace, PROMPT_TOKENS_KEYS);
 	const completionTokens = getNumericAttr(trace, COMPLETION_TOKENS_KEYS);
@@ -90,11 +110,35 @@ async function computeCostForTrace(
 		return { cost: null, reason };
 	}
 
-	const inputCost = (promptTokens / 1_000_000) * modelMeta.inputPricePerMToken;
-	const outputCost =
-		(completionTokens / 1_000_000) * modelMeta.outputPricePerMToken;
+	const cacheReadTokens = getNumericAttr(trace, CACHE_READ_TOKENS_KEYS);
+	const cacheCreationTokens = getNumericAttr(
+		trace,
+		CACHE_CREATION_TOKENS_KEYS
+	);
+	const inclusive = promptTokensIncludeCache(
+		provider,
+		promptTokens,
+		cacheReadTokens,
+		cacheCreationTokens
+	);
 
-	return { cost: inputCost + outputCost };
+	const cost = getChatModelCostPerM(
+		{
+			inputPricePerMToken: modelMeta.inputPricePerMToken,
+			outputPricePerMToken: modelMeta.outputPricePerMToken,
+			cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
+			cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
+		},
+		{
+			promptTokens,
+			completionTokens,
+			cacheReadTokens,
+			cacheCreationTokens,
+		},
+		{ promptTokensIncludeCache: inclusive }
+	);
+
+	return { cost };
 }
 
 /**
@@ -223,7 +267,7 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 	}
 
 	const [dbConfigErr, dbConfig] = await asaw(
-		getDBConfigById({ id: pricingConfig.databaseConfigId })
+		getDBConfigByIdInternal({ id: pricingConfig.databaseConfigId })
 	);
 
 	if (dbConfigErr || !dbConfig?.id) {

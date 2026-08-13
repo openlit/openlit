@@ -112,7 +112,9 @@ export async function getCostByApplication(params: MetricParams) {
 	}
 
 	// Prefer OTel ServiceName / service.name (what instrumented apps emit).
-	// Legacy spans may still carry gen_ai.application_name.
+	// Legacy spans may still carry gen_ai.application_name. The previous
+	// path wrapped the SpanAttributes key in ResourceAttributes[...], which
+	// never matched and left Cost by application empty.
 	const applicationPaths = [
 		"ServiceName",
 		"ResourceAttributes['service.name']",

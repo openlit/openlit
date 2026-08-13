@@ -1,13 +1,26 @@
 import { getFilterWhereCondition } from "@/helpers/server/platform";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
-import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
+import { getTraceMappingKeyFullPaths } from "@/helpers/server/trace";
 import { externalGenerationByProvider } from "./external";
+
+function getProviderKeyPath() {
+	const paths = (getTraceMappingKeyFullPaths("provider") as string[]).map(
+		(path) => `SpanAttributes['${path}']`
+	);
+	return {
+		paths,
+		keyPath: paths.reduce(
+			(expression, path) =>
+				`if(notEmpty(${expression}), ${expression}, ${path})`
+		),
+	};
+}
 
 export async function getResultGenerationByEndpoint(params: MetricParams) {
 	const external = await externalGenerationByProvider(params);
 	if (external) return external;
 
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("provider")}']`;
+	const { paths, keyPath } = getProviderKeyPath();
 	const query = `
     SELECT 
       ${keyPath} AS provider,
@@ -16,7 +29,7 @@ export async function getResultGenerationByEndpoint(params: MetricParams) {
         ${OTEL_TRACES_TABLE_NAME}
     WHERE ${getFilterWhereCondition({
 			...params,
-			notEmpty: [{ key: keyPath }],
+			notOrEmpty: paths.map((key) => ({ key })),
 			operationType: "llm",
 		}, true)}
     GROUP BY provider;

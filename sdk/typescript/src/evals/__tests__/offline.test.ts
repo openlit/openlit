@@ -346,7 +346,14 @@ describe('fetchEvalTypes', () => {
   test('returns parsed eval types', async () => {
     global.fetch = mockFetchResponse({
       eval_types: [
-        { id: 'hallucination', label: 'Hallucination', description: 'Detect hallucinated facts', enabled: true, is_custom: false },
+        {
+          id: 'hallucination',
+          label: 'Hallucination',
+          description: 'Detect hallucinated facts',
+          enabled: true,
+          is_custom: false,
+          threshold_score: 0.7,
+        },
         { id: 'custom_1', label: 'Custom', description: 'User-defined', enabled: true, is_custom: true },
       ],
     });
@@ -355,7 +362,9 @@ describe('fetchEvalTypes', () => {
     expect(types).toHaveLength(2);
     expect(types[0].id).toBe('hallucination');
     expect(types[0].isCustom).toBe(false);
+    expect(types[0].thresholdScore).toBe(0.7);
     expect(types[1].isCustom).toBe(true);
+    expect(types[1].thresholdScore).toBeUndefined();
   });
 
   test('throws on 401', async () => {

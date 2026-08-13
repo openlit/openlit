@@ -4,6 +4,7 @@ import * as alertByIdRoute from "@/lib/rbac/routes/api/alerts/[id]/route";
 import * as alertTestRoute from "@/lib/rbac/routes/api/alerts/[id]/test/route";
 import * as alertEventsRoute from "@/lib/rbac/routes/api/alerts/events/route";
 import * as alertSpecRoute from "@/lib/rbac/routes/api/alerts/spec/route";
+import * as alertConditionValuesRoute from "@/lib/rbac/routes/api/alerts/condition-values/route";
 import * as alertDestinationsRoute from "@/lib/rbac/routes/api/alert-destinations/route";
 import * as alertDestinationByIdRoute from "@/lib/rbac/routes/api/alert-destinations/[id]/route";
 import * as alertDestinationTestRoute from "@/lib/rbac/routes/api/alert-destinations/[id]/test/route";
@@ -19,6 +20,7 @@ describe("CE alert route handlers (no entitlement/RBAC available in this edition
 		["alerts/[id]/test/route.ts POST", alertTestRoute.POST],
 		["alerts/events/route.ts GET", alertEventsRoute.GET],
 		["alerts/spec/route.ts GET", alertSpecRoute.GET],
+		["alerts/condition-values/route.ts GET", alertConditionValuesRoute.GET],
 		["alert-destinations/route.ts GET", alertDestinationsRoute.GET],
 		["alert-destinations/route.ts POST", alertDestinationsRoute.POST],
 		["alert-destinations/[id]/route.ts GET", alertDestinationByIdRoute.GET],

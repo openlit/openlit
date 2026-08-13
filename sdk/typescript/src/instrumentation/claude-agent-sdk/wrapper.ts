@@ -602,8 +602,24 @@ function setChatSpanAttributes(
 
     const inputTokens = usageAttrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] ?? 0;
     const outputTokens = usageAttrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] ?? 0;
+    // extractUsage builds an inclusive input total (uncached + cache-read +
+    // cache-creation), so re-price cache tokens with promptTokensIncludeCache.
+    const cacheReadTokens =
+      usageAttrs[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] ?? 0;
+    const cacheCreationTokens =
+      usageAttrs[SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] ?? 0;
     const pricingInfo = OpenlitConfig.pricingInfo || {};
-    const cost = model ? OpenLitHelper.getChatModelCost(model, pricingInfo, inputTokens, outputTokens) : 0;
+    const cost = model
+      ? OpenLitHelper.getChatModelCost(
+          model,
+          pricingInfo,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheCreationTokens,
+          true
+        )
+      : 0;
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
 
     let outputMessages: any[] | null = null;

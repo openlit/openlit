@@ -39,6 +39,7 @@ import ElevenLabsInstrumentation from './elevenlabs';
 import AssemblyAIInstrumentation from './assemblyai';
 import TransformersInstrumentation from './transformers';
 import PgInstrumentation from './pg';
+import FirecrawlInstrumentation from './firecrawl';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -120,6 +121,7 @@ export default class Instrumentations {
     assemblyai: new AssemblyAIInstrumentation(),
     transformers: new TransformersInstrumentation(),
     pg: new PgInstrumentation(),
+    firecrawl: new FirecrawlInstrumentation(),
   };
 
   static setup(

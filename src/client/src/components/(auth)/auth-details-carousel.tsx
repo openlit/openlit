@@ -74,7 +74,7 @@ export default function AuthDetailsCarousel() {
 			</div>
 
 			{/* Footer */}
-			<p className="text-xs text-stone-400 dark:text-stone-500 text-center">
+			<p className="text-xs text-stone-500 dark:text-stone-400 text-center">
 				{messages.AUTH_FOOTER}
 			</p>
 		</div>

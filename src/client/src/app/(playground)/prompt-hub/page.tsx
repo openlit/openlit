@@ -92,13 +92,18 @@ export default function PromptHub() {
 		fireRequest({
 			requestType: "POST",
 			url: `/api/prompt/get`,
+			successCb: (response: PromptList[]) => {
+				posthog?.capture(CLIENT_EVENTS.PROMPT_HUB_LIST, {
+					count: Array.isArray(response) ? response.length : 0,
+				});
+			},
 			failureCb: (err?: string) => {
 				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "prompt-hub",
 				});
 			},
 		});
-	}, []);
+	}, [posthog]);
 
 	const deletePrompt = useCallback(
 		async ({ id }: { id: string }) => {
@@ -142,7 +147,7 @@ export default function PromptHub() {
 	return (
 		<div className="flex flex-col w-full h-full">
 			<PromptHubHeader createNew />
-			<div className="flex flex-col w-full h-full p-4">
+			<div className="flex flex-col w-full h-full p-4 overflow-hidden">
 				<DataTable
 					columns={columns}
 					data={data || []}
