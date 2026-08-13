@@ -188,6 +188,7 @@ export async function getTraceSpanRecord(
 		});
 		return { err: null, record: denormalizeSpanToTraceRow(span) };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		consoleLog("[traces] span detail failed", {
 			descriptorId: descriptor.id,
 			spanId,
@@ -209,6 +210,7 @@ export async function getTraceRecordByTraceId(traceId: string, environment?: str
 		if (!first) return { err: null, record: undefined };
 		return { err: null, record: denormalizeSpanToTraceRow(first) };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), record: undefined };
 	}
 }
@@ -265,6 +267,7 @@ export async function getTraceHierarchy(
 		if (!heirarchy) return { err: "Error building hierarchy", record: {} };
 		return { err: null, record: heirarchy };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), record: {} };
 	}
 }
@@ -367,6 +370,7 @@ export async function getTraceFilterConfig(params: MetricParams) {
 			],
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [emptyRow] };
 	}
 }
@@ -412,6 +416,7 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 		}));
 		return { err: null, data };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [] };
 	}
 }
@@ -521,6 +526,7 @@ export async function getTraceTotalRequests(params: MetricParams) {
 			],
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [] };
 	}
 }
@@ -549,6 +555,7 @@ export async function getTraceRequestPerTime(params: MetricParams) {
 		}));
 		return { err: null, data };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [] };
 	}
 }
@@ -580,6 +587,7 @@ export async function getTraceAverageDuration(params: MetricParams) {
 			data: [{ average_duration, previous_average_duration }],
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [] };
 	}
 }
@@ -602,6 +610,7 @@ export async function getTraceExist(environment?: string) {
 			data: [{ total_requests: frame.rows.length > 0 ? 1 : 0 }],
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), data: [{ total_requests: 0 }] };
 	}
 }

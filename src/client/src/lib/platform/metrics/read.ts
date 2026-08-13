@@ -82,6 +82,7 @@ export async function getMetricsFilterConfig(params: MetricParams) {
 			],
 		};
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: facadeErrorMessage(err), data: [emptyRow] };
 	}
 }
@@ -107,8 +108,9 @@ export async function getMetricAttributeKeysRecord(params: MetricParams) {
 			metricAttributeKeys: keys,
 			resourceAttributeKeys: keys,
 		};
-	} catch {
-		return empty;
+	} catch (err) {
+		rethrowIfSourceFailure(err);
+		return { ...empty, err: facadeErrorMessage(err) };
 	}
 }
 
@@ -152,6 +154,7 @@ export async function getMetricDetailRecord(
 		}));
 		return { err: null, series, points: rawPoints };
 	} catch (err) {
+		rethrowIfSourceFailure(err);
 		return { err: facadeErrorMessage(err), series: [], points: [] };
 	}
 }

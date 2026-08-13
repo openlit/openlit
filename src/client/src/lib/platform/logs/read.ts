@@ -58,6 +58,7 @@ export async function getLogByRowId(
 			record: log ? denormalizeLogToClickHouseRow(log) : undefined,
 		};
 	} catch (error) {
+		rethrowIfSourceFailure(error);
 		return { err: facadeErrorMessage(error), record: undefined };
 	}
 }
@@ -74,6 +75,7 @@ export async function getLogsConfig(params: MetricParams) {
 			data: [{ services, severities: [], totalRows: 0 }],
 		};
 	} catch (error) {
+		rethrowIfSourceFailure(error);
 		return { err: facadeErrorMessage(error), data: [] };
 	}
 }
@@ -93,6 +95,7 @@ export async function getLogAttributeKeys(params: MetricParams) {
 			scopeAttributeKeys: [],
 		};
 	} catch (error) {
+		rethrowIfSourceFailure(error);
 		return {
 			err: facadeErrorMessage(error),
 			spanAttributeKeys: [],
