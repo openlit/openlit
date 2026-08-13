@@ -347,7 +347,7 @@ function conditionToTraceQL(cond: SelectorCondition): string {
 		const values = Array.isArray(cond.value) ? cond.value : [cond.value || ""];
 		return `(${values.map((v) => `name = ${traceqlValue(String(v))}`).join(" || ")})`;
 	}
-	const safeKey = sanitizeTraceQLAttrKey(cond.key);
+	const safeKey = sanitizeTraceQLAttrKey(cond.key ?? "");
 	if (!safeKey) return "";
 	const scope = cond.scope === "resource" ? "resource" : "span";
 	const key = `${scope}.${safeKey}`;

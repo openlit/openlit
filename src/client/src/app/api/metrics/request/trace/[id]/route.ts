@@ -1,7 +1,8 @@
 import { getTraceRecordByTraceId } from "@/lib/platform/traces/read";
 import { withRouteAccess } from "@/lib/access/route-access";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
-async function GETHandler(_: Request, context: any) {
+async function GETHandler(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -9,8 +10,13 @@ async function GETHandler(_: Request, context: any) {
 			status: 400,
 		});
 
-	const res: any = await getTraceRecordByTraceId(id);
+	const environment =
+		new URL(request.url).searchParams.get("environment") ||
+		getRequestEnvironment(request);
+	const res: any = await getTraceRecordByTraceId(id, environment);
 	return Response.json(res);
 }
 
-export const GET = withRouteAccess("traces.read", GETHandler, { requireDbConfig: true });
+export const GET = withRouteAccess("traces.read", GETHandler, {
+	requireDbConfig: true,
+});

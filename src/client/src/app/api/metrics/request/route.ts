@@ -5,6 +5,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { withRouteAccess } from "@/lib/access/route-access";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -21,7 +22,10 @@ async function POSTHandler(request: Request) {
 		selectedConfig,
 		sorting,
 		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
-		...(typeof formData.environment === "string" ? { environment: formData.environment } : {}),
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(

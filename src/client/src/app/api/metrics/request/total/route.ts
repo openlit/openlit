@@ -6,6 +6,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { OPERATION_TYPE } from "@/types/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -16,6 +17,10 @@ async function POSTHandler(request: Request) {
 		timeLimit,
 		operationType,
 		selectedConfig: formData.selectedConfig,
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(
@@ -32,4 +37,6 @@ async function POSTHandler(request: Request) {
 	return Response.json(res);
 }
 
-export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });
+export const POST = withRouteAccess("traces.read", POSTHandler, {
+	requireDbConfig: true,
+});

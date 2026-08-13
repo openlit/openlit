@@ -16,6 +16,7 @@ import { getAPIKeyInfo, type APIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 import prisma from "@/lib/prisma";
+import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -160,6 +161,7 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 			},
 		});
 
+		invalidateSourceSecretCache(secretInput.id);
 		return getMessage().SECRET_SAVED;
 	} else {
 		createdSecretId = randomUUID();
@@ -200,6 +202,8 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 		},
 	});
 
+	invalidateSourceSecretCache(createdSecretId);
+
 	return {
 		data: createdSecretId ? { id: createdSecretId } : {},
 		id: createdSecretId,
@@ -224,6 +228,8 @@ export async function deleteSecret(secretIdParam: string) {
 	if (err) {
 		return [getMessage().SECRET_NOT_DELETED];
 	}
+
+	invalidateSourceSecretCache(secretId);
 
 	emitManagementAlertSignalSafe({
 		triggerType: "vault_secret_change",

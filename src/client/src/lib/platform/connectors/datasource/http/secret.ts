@@ -54,7 +54,7 @@ export function invalidateSourceSecretCache(secretRef?: string): void {
 		return;
 	}
 	const needle = `:${secretRef}`;
-	for (const key of [...sourceSecretCache.keys()]) {
+	for (const key of Array.from(sourceSecretCache.keys())) {
 		if (key.endsWith(needle)) sourceSecretCache.delete(key);
 	}
 }

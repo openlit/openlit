@@ -266,7 +266,7 @@ describe("safeFetch", () => {
 		const result = await safeFetch("https://api.example.com", {
 			lookup,
 			fetchImpl: fetchImpl as unknown as typeof fetch,
-			retry: { retries: 2, baseDelayMs: 1, maxDelayMs: 2 },
+			retry: { retries: 2, baseDelayMs: 1 },
 		});
 		expect(result).toEqual({ ok: true });
 		expect(fetchImpl).toHaveBeenCalledTimes(2);

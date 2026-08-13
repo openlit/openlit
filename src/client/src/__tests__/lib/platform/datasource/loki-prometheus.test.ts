@@ -103,7 +103,7 @@ describe("OpenPlait Loki integration", () => {
 		const url = new URL(mockSafeFetch.mock.calls[0][0]);
 		const startNs = BigInt(url.searchParams.get("start") || "0");
 		const endNs = BigInt(url.searchParams.get("end") || "0");
-		const rangeMs = Number((endNs - startNs) / 1_000_000n);
+		const rangeMs = Number((endNs - startNs) / BigInt(1_000_000));
 		expect(rangeMs).toBeLessThanOrEqual(30 * 24 * 60 * 60 * 1_000);
 		expect(url.searchParams.get("query")).toContain("count_over_time");
 		expect(url.searchParams.get("query")).not.toContain("[auto]");
@@ -147,7 +147,7 @@ describe("OpenPlait Loki integration", () => {
 		const retryUrl = new URL(mockSafeFetch.mock.calls[1][0]);
 		const startNs = BigInt(retryUrl.searchParams.get("start") || "0");
 		const endNs = BigInt(retryUrl.searchParams.get("end") || "0");
-		const rangeMs = Number((endNs - startNs) / 1_000_000n);
+		const rangeMs = Number((endNs - startNs) / BigInt(1_000_000));
 		expect(rangeMs).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1_000);
 	});
 });
