@@ -32,8 +32,9 @@ interface CachedSecret {
 // boundary so new adapter instances do not immediately lose vendor auth. The
 // stale copy is used only when the vault read itself fails, never when the
 // secret was deleted or is unreadable.
-const SOURCE_SECRET_CACHE_TTL_MS = 5 * 60_000;
-const SOURCE_SECRET_STALE_TTL_MS = 30 * 60_000;
+const SOURCE_SECRET_CACHE_TTL_MS = 2 * 60_000;
+/** Brief vault-outage grace after fresh TTL — shortened from 30m. */
+const SOURCE_SECRET_STALE_TTL_MS = 5 * 60_000;
 const sourceSecretCache = new Map<string, CachedSecret>();
 
 function sourceSecretCacheKey(

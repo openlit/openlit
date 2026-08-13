@@ -229,6 +229,17 @@ describe("Loki discovery", () => {
 		expect(url.searchParams.get("start")).toBeTruthy();
 	});
 
+	it("fails loud when Loki label discovery returns an upstream error", async () => {
+		const { SourceResponseError } = jest.requireMock(
+			"@/lib/platform/connectors/datasource/http/safe-fetch"
+		) as { SourceResponseError: new (status: number, message: string) => Error };
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(503, "loki down"));
+		const adapter = new LokiAdapter(descriptor("loki", "http://loki:3100"));
+		await expect(adapter.attributeKeys("logs", window)).rejects.toMatchObject({
+			status: 503,
+		});
+	});
+
 	it("getLog returns a log from the warm cache after listLogs", async () => {
 		mockSafeFetch.mockResolvedValue({
 			status: "success",
@@ -389,5 +400,21 @@ describe("OpenPlait Prometheus integration", () => {
 		expect(url.searchParams.get("start")).toBe(String(Math.floor(window.start.getTime() / 1000)));
 		expect(url.searchParams.get("end")).toBe(String(Math.ceil(window.end.getTime() / 1000)));
 		expect(values).toEqual(["prometheus-local", "checkout"]);
+	});
+
+	it("fails loud when Prometheus label discovery returns an upstream error", async () => {
+		const { SourceResponseError } = jest.requireMock(
+			"@/lib/platform/connectors/datasource/http/safe-fetch"
+		) as { SourceResponseError: new (status: number, message: string) => Error };
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(502, "prom down"));
+		const adapter = new PrometheusAdapter(
+			descriptor("prometheus", "http://prometheus:9090")
+		);
+		await expect(
+			adapter.distinctValues("service.name", {
+				signal: "metrics",
+				timeRange: window,
+			})
+		).rejects.toMatchObject({ status: 502 });
 	});
 });

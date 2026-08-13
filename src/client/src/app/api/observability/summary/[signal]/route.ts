@@ -13,6 +13,7 @@ import {
 } from "@/helpers/server/platform";
 import asaw from "@/utils/asaw";
 import { getRequestEnvironment } from "@/constants/openlit-context";
+import { jsonWithObservabilityDeprecation } from "@/lib/platform/observability-deprecation";
 
 const VALID_SIGNALS = new Set(["traces", "exceptions", "logs", "metrics"]);
 const SIGNAL_ACCESS: Record<string, RouteAccessKey> = {
@@ -29,18 +30,29 @@ function summaryForSignal(signal: string, params: MetricParams) {
 	return getTraceSummary(params, signal as "traces" | "exceptions");
 }
 
+/**
+ * @deprecated Prefer POST /api/telemetry/summary/[signal] — kept for API compatibility.
+ */
 async function POSTHandler(
 	request: Request,
 	{ params }: { params: { signal: string } }
 ) {
 	if (!VALID_SIGNALS.has(params.signal)) {
-		return Response.json({ err: "Invalid signal" }, { status: 400 });
+		return jsonWithObservabilityDeprecation(
+			{ err: "Invalid signal" },
+			`/api/telemetry/summary/${params.signal}`,
+			{ status: 400 }
+		);
 	}
 	const [permissionErr] = await asaw(
 		requireRouteAccess(SIGNAL_ACCESS[params.signal])
 	);
 	if (permissionErr) {
-		return Response.json({ err: String(permissionErr) }, { status: 403 });
+		return jsonWithObservabilityDeprecation(
+			{ err: String(permissionErr) },
+			`/api/telemetry/summary/${params.signal}`,
+			{ status: 403 }
+		);
 	}
 
 	const formData = await request.json();
@@ -48,9 +60,6 @@ async function POSTHandler(
 		timeLimit: formData.timeLimit as TimeLimit,
 		selectedConfig: formData.selectedConfig || {},
 		...(typeof formData.sourceId === "string" ? { sourceId: formData.sourceId } : {}),
-		...(typeof formData.environment === "string"
-			? { environment: formData.environment }
-			: {}),
 		environment:
 			typeof formData.environment === "string"
 				? formData.environment
@@ -61,14 +70,24 @@ async function POSTHandler(
 		metricParams,
 		validateMetricsRequestType.GET_ALL
 	);
-	if (!validation.success) return Response.json(validation.err, { status: 400 });
+	if (!validation.success) {
+		return jsonWithObservabilityDeprecation(
+			validation.err,
+			`/api/telemetry/summary/${params.signal}`,
+			{ status: 400 }
+		);
+	}
 
 	try {
-		return Response.json(await summaryForSignal(params.signal, metricParams));
+		return jsonWithObservabilityDeprecation(
+			await summaryForSignal(params.signal, metricParams),
+			`/api/telemetry/summary/${params.signal}`
+		);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		return Response.json(
+		return jsonWithObservabilityDeprecation(
 			{ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" },
+			`/api/telemetry/summary/${params.signal}`,
 			{ status: 503 }
 		);
 	}

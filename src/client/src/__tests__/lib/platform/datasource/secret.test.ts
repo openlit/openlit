@@ -78,4 +78,24 @@ describe("resolveSourceSecret", () => {
 		const secret = await resolveSourceSecret("sec-opaque");
 		expect(secret.credentials).toEqual({ token: "opaque-token" });
 	});
+
+	it("serves a short stale secret window when vault reads fail after a hit", async () => {
+		const now = Date.now();
+		const dateNow = jest.spyOn(Date, "now").mockReturnValue(now);
+		(getSecretById as jest.Mock).mockResolvedValueOnce({
+			data: [{ value: JSON.stringify({ token: "fresh" }) }],
+		});
+		const first = await resolveSourceSecret("sec-stale");
+		expect(first.credentials).toEqual({ token: "fresh" });
+
+		// Past fresh TTL (2m), still inside stale window (5m).
+		dateNow.mockReturnValue(now + 3 * 60_000);
+		(getSecretById as jest.Mock).mockResolvedValueOnce({
+			err: new Error("vault blip"),
+		});
+		const second = await resolveSourceSecret("sec-stale");
+		expect(second.credentials).toEqual({ token: "fresh" });
+		expect(getSecretById).toHaveBeenCalledTimes(2);
+		dateNow.mockRestore();
+	});
 });

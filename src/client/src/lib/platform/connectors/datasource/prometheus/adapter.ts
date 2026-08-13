@@ -5,6 +5,7 @@ import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import { computeIntervalMs, clampStepMs, intervalMsToLabel, rateIntervalMs } from "../downsample";
 import { httpVendorFields } from "../config-fields";
 import getMessage from "@/constants/messages";
+import { SourceResponseError } from "../http/safe-fetch";
 
 const LABELS: Record<string, string> = {
 	"service.name": "service_name",
@@ -118,7 +119,9 @@ export class PrometheusAdapter extends OpenPlaitHttpAdapter {
 		url.searchParams.set("start", String(Math.floor(window.start.getTime() / 1000)));
 		url.searchParams.set("end", String(Math.ceil(window.end.getTime() / 1000)));
 		const response = await connection.fetch(url.toString(), { headers: connection.headers });
-		if (!response.ok) return [];
+		if (!response.ok) {
+			throw new SourceResponseError(response.status, await response.text());
+		}
 		const body = (await response.json()) as { data?: unknown };
 		return Array.isArray(body.data)
 			? body.data.filter((item): item is string => typeof item === "string")
@@ -134,7 +137,9 @@ export class PrometheusAdapter extends OpenPlaitHttpAdapter {
 		url.searchParams.set("start", String(Math.floor(window.start.getTime() / 1000)));
 		url.searchParams.set("end", String(Math.ceil(window.end.getTime() / 1000)));
 		const response = await connection.fetch(url.toString(), { headers: connection.headers });
-		if (!response.ok) return [];
+		if (!response.ok) {
+			throw new SourceResponseError(response.status, await response.text());
+		}
 		const body = (await response.json()) as { data?: unknown };
 		return Array.isArray(body.data)
 			? body.data.filter((item): item is string => typeof item === "string")

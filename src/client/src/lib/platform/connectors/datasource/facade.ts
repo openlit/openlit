@@ -20,6 +20,7 @@ import { AdapterError } from "@openplait/adapter-sdk";
 import type { DataSourceAdapter, Signal } from "./types";
 import { UnsupportedCapabilityError } from "./types";
 import getMessage from "@/constants/messages";
+import { SourceResponseError } from "./http/safe-fetch";
 
 export interface SignalReadContext {
 	adapter: DataSourceAdapter;
@@ -85,6 +86,7 @@ export function facadeErrorMessage(err: unknown): string {
 export function rethrowIfSourceFailure(err: unknown): void {
 	if (err instanceof UnsupportedCapabilityError) return;
 	if (err instanceof AdapterError) throw err;
+	if (err instanceof SourceResponseError) throw err;
 	if (!(err instanceof Error)) return;
 	const message = err.message.toLowerCase();
 	if (

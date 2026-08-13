@@ -507,7 +507,12 @@ export class LokiAdapter extends OpenPlaitHttpAdapter {
 		const response = await connection.fetch(url.toString(), {
 			headers: connection.headers,
 		});
-		if (!response.ok) return [];
+		if (!response.ok) {
+			throw new SourceResponseError(
+				response.status,
+				await response.text()
+			);
+		}
 		const body = (await response.json()) as { data?: unknown };
 		return Array.isArray(body.data)
 			? body.data.filter((item): item is string => typeof item === "string")
