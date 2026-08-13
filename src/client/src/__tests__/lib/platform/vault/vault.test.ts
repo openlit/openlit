@@ -35,6 +35,7 @@ jest.mock('@/utils/sanitizer', () => ({
       const out: Record<string, unknown> = { ...o };
       for (const [k, v] of Object.entries(out)) {
         if (typeof v === 'string' && v.includes('"')) {
+          // codeql[js/incomplete-sanitization]: intentional mock of quote-only corruption
           out[k] = v.replace(/"/g, '\\"');
         }
       }

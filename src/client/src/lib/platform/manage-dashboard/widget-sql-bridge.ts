@@ -70,6 +70,10 @@ function firstAlias(sql: string, patterns: RegExp[]): string | undefined {
 	return undefined;
 }
 
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Heuristic SQL → structured query for common seeded LLM widgets.
  * Returns null when the query cannot be safely mapped (caller should error).
@@ -205,7 +209,10 @@ export function inferStructuredFromClickHouseSql(
 	const previousAlias = includePrevious
 		? firstAlias(sql, [
 				/AS\s+(\w+_previous)\b/i,
-				new RegExp(`AS\\s+(${primaryAlias}_previous)\\b`, "i"),
+				new RegExp(
+					`AS\\s+(${escapeRegExp(primaryAlias)}_previous)\\b`,
+					"i"
+				),
 			]) || `${primaryAlias}_previous`
 		: undefined;
 
@@ -416,6 +423,33 @@ const AGG_SQL: Record<string, (field: string) => string> = {
 	cardinality: (f) => `uniqExact(${f})`,
 };
 
+function resolveAggSql(fn: string): (field: string) => string {
+	// Explicit allow-list dispatch — never index AGG_SQL with a raw user string.
+	switch (fn) {
+		case "sum":
+			return AGG_SQL.sum;
+		case "avg":
+			return AGG_SQL.avg;
+		case "min":
+			return AGG_SQL.min;
+		case "max":
+			return AGG_SQL.max;
+		case "p50":
+			return AGG_SQL.p50;
+		case "p90":
+			return AGG_SQL.p90;
+		case "p95":
+			return AGG_SQL.p95;
+		case "p99":
+			return AGG_SQL.p99;
+		case "cardinality":
+			return AGG_SQL.cardinality;
+		case "count":
+		default:
+			return AGG_SQL.count;
+	}
+}
+
 function intervalToTrunc(interval?: string): string {
 	if (!interval) return "hour";
 	if (/d$/i.test(interval)) return "day";
@@ -457,9 +491,9 @@ export function openLITQueryToClickHouseSql(
 		? query.aggregations
 		: [{ fn: "count" as const, as: "count" }]
 	).map((a, i) => {
-		const fn = AGG_SQL[a.fn] || AGG_SQL.count;
+		const render = resolveAggSql(String(a.fn || "count"));
 		const field = a.field ? fieldToClickHouseExpr(a.field) : "";
-		return `${fn(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
+		return `${render(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
 	});
 
 	if (mode === "timeseries") {
@@ -572,16 +606,21 @@ export async function executeInferredWidgetQuery(
 				[inferred.primaryAlias, "count", "total"]
 			);
 			const rate = percentChange(currentVal, previousVal);
-			rows = [
-				{
-					...(rows[0] || {}),
-					[inferred.primaryAlias]: currentVal,
-					[inferred.previousAlias]: previousVal,
-					...(inferred.rateAlias && rate !== null
-						? { [inferred.rateAlias]: rate }
-						: {}),
-				},
-			];
+			const primaryKey = safeAlias(inferred.primaryAlias, "count");
+			const previousKey = inferred.previousAlias
+				? safeAlias(inferred.previousAlias, "previous")
+				: undefined;
+			const rateKey = inferred.rateAlias
+				? safeAlias(inferred.rateAlias, "rate")
+				: undefined;
+			const nextRow: Record<string, unknown> = Object.assign(
+				Object.create(null),
+				rows[0] || {}
+			);
+			nextRow[primaryKey] = currentVal;
+			if (previousKey) nextRow[previousKey] = previousVal;
+			if (rateKey && rate !== null) nextRow[rateKey] = rate;
+			rows = [nextRow];
 		}
 
 		return { data: rows };

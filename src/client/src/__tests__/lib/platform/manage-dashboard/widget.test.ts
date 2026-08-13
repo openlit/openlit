@@ -23,6 +23,10 @@ jest.mock("@/lib/telemetry-source", () => ({
 	sourceSupportsNativeSql: (...a: unknown[]) => mockSourceSupportsNativeSql(...a),
 	getTelemetryAdapter: (...a: unknown[]) => mockGetTelemetryAdapter(...a),
 }));
+jest.mock("@/lib/platform/coding-agents/source", () => ({
+	isCodingAgentClickHouseSql: () => false,
+	resolveCodingAgentsClickHouseDbConfigId: jest.fn(),
+}));
 jest.mock("@/utils/sanitizer", () => ({
 	__esModule: true,
 	default: {
@@ -179,10 +183,14 @@ describe("runWidgetQuery", () => {
 		const result = await runWidgetQuery("w1", { filter: {} as any });
 
 		expect(result).toEqual({ data: [{ provider: "openai", count: 5 }] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query,
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query,
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("does not flag blocklisted keywords that appear only inside string literals", async () => {
@@ -269,10 +277,14 @@ describe("runWidgetQuery", () => {
 		});
 
 		expect(result).toEqual({ data: [{ n: 1 }] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("ignores non-filter mustache-like tags so they cannot run as code", async () => {
@@ -289,10 +301,14 @@ describe("runWidgetQuery", () => {
 		});
 
 		expect(result).toEqual({ data: [] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {

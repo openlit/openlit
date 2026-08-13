@@ -113,7 +113,17 @@ function adapterErrorBody(error: unknown): string {
 }
 
 function withoutMostRecentHint(traceql: string): string {
-	return traceql.replace(/\s+with\s*\(\s*most_recent\s*=\s*true\s*\)\s*$/i, "");
+	// Linear scan — avoid a trailing `\s+…\s*` regex that can backtrack on
+	// long space-padded TraceQL strings (CodeQL js/polynomial-redos).
+	const trimmed = traceql.trimEnd();
+	const marker = "with (most_recent=true)";
+	const lower = trimmed.toLowerCase();
+	const idx = lower.lastIndexOf(marker);
+	if (idx < 0) return traceql;
+	const before = trimmed.slice(0, idx).trimEnd();
+	const after = trimmed.slice(idx + marker.length).trim();
+	if (after.length > 0) return traceql;
+	return before;
 }
 
 function goDurationMs(value: string): number | undefined {
@@ -318,7 +328,7 @@ function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefined {
 }
 
 function traceqlValue(v: string): string {
-	return `"${v.replace(/"/g, '\\"')}"`;
+	return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 function conditionToTraceQL(cond: SelectorCondition): string {

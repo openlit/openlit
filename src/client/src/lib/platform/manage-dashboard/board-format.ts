@@ -85,12 +85,20 @@ function normalizeLayoutItem(
 function normalizeWidgets(widgets: unknown): Record<string, Widget> {
 	const record = asRecord(widgets);
 	if (!record) return {};
-	const out: Record<string, Widget> = {};
+	const out: Record<string, Widget> = Object.create(null);
 	for (const [key, value] of Object.entries(record)) {
 		const widget = asRecord(value);
 		if (!widget) continue;
 		const id =
 			typeof widget.id === "string" && widget.id ? widget.id : key;
+		if (
+			id === "__proto__" ||
+			id === "constructor" ||
+			id === "prototype" ||
+			!/^[A-Za-z0-9_.:-]+$/.test(id)
+		) {
+			continue;
+		}
 		out[id] = {
 			...(widget as unknown as Widget),
 			id,

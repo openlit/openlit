@@ -25,6 +25,13 @@ function enabled(): boolean {
 	return process.env.NODE_ENV !== "production";
 }
 
+/** Strip CR/LF/control chars so log lines cannot be forged via user fields. */
+function sanitizeLogToken(value: unknown, max = 64): string {
+	return String(value ?? "")
+		.replace(/[\u0000-\u001f\u007f]+/g, "")
+		.slice(0, max);
+}
+
 /** Log a one-line summary of an adapter query result. Never throws. */
 export function logQueryObservability(
 	ctx: QueryObservabilityContext,
@@ -34,15 +41,17 @@ export function logQueryObservability(
 	try {
 		if (ctx.isBuiltIn || !enabled()) return;
 		const parts = [
-			`source=${ctx.sourceType}`,
-			`signal=${ctx.signal}`,
-			ctx.mode ? `mode=${ctx.mode}` : "",
-			`rows=${rowCount}`,
-			meta?.latencyMs !== undefined ? `latencyMs=${meta.latencyMs}` : "",
-			meta?.rowsScanned !== undefined ? `scanned=${meta.rowsScanned}` : "",
-			meta?.freshness ? `freshness=${meta.freshness}` : "",
+			`source=${sanitizeLogToken(ctx.sourceType)}`,
+			`signal=${sanitizeLogToken(ctx.signal)}`,
+			ctx.mode ? `mode=${sanitizeLogToken(ctx.mode)}` : "",
+			`rows=${Number(rowCount) || 0}`,
+			meta?.latencyMs !== undefined ? `latencyMs=${Number(meta.latencyMs) || 0}` : "",
+			meta?.rowsScanned !== undefined ? `scanned=${Number(meta.rowsScanned) || 0}` : "",
+			meta?.freshness ? `freshness=${sanitizeLogToken(meta.freshness)}` : "",
 			meta?.truncated ? "truncated=1" : "",
-			meta?.degraded?.length ? `degraded=${meta.degraded.join(",")}` : "",
+			meta?.degraded?.length
+				? `degraded=${sanitizeLogToken(meta.degraded.join(","), 128)}`
+				: "",
 		].filter(Boolean);
 		// eslint-disable-next-line no-console
 		console.debug(`[telemetry-query] ${parts.join(" ")}`);

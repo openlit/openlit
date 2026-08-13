@@ -340,7 +340,6 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 	// in OTel SQL. ClickHouse admin commands are `SYSTEM <verb>`; system tables
 	// are already blocked by the `system.` check above.
 	const dangerousKeywords =
-	const dangerousKeywords =
 		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE)\b|\bSYSTEM\s+\w+/i;
 	if (dangerousKeywords.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed operations" };
@@ -435,7 +434,10 @@ async function executeStructuredWidgetQuery(
 	} as OpenLITQuery);
 	// Enforce per-query budgets so a widget can never ask a vendor for an
 	// unbounded scan (max rows + max time range + the vendor's lookback window).
-	const maxLookbackMs = adapter.capabilities().maxLookbackMs;
+	const maxLookbackMs =
+		typeof adapter.capabilities === "function"
+			? adapter.capabilities().maxLookbackMs
+			: undefined;
 	const { query } = clampQueryBudget(rawQuery, {
 		...DEFAULT_QUERY_BUDGET,
 		...(maxLookbackMs !== undefined ? { maxLookbackMs } : {}),

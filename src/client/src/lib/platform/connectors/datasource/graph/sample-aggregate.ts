@@ -156,7 +156,29 @@ function formatBucketLabel(bucket: Date, unit: IntervalUnit): string {
 }
 
 function aggAlias(agg: Aggregation, index: number): string {
-	return agg.as || `agg${index}`;
+	const alias = String(agg.as || `agg${index}`);
+	// Reject prototype-polluting / non-identifier keys before using as object props.
+	if (
+		alias === "__proto__" ||
+		alias === "constructor" ||
+		alias === "prototype" ||
+		!/^[A-Za-z_][A-Za-z0-9_.:-]*$/.test(alias)
+	) {
+		return `agg${index}`;
+	}
+	return alias;
+}
+
+function safeGroupKey(key: string, index: number): string {
+	if (
+		key === "__proto__" ||
+		key === "constructor" ||
+		key === "prototype" ||
+		!/^[A-Za-z_][A-Za-z0-9_.:-]*$/.test(key)
+	) {
+		return `group${index}`;
+	}
+	return key;
 }
 
 function percentile(sorted: number[], q: number): number {
@@ -229,7 +251,7 @@ function applyAggregations(
 ): Record<string, number> {
 	const aggs =
 		aggregations.length > 0 ? aggregations : [{ fn: "count" as const }];
-	const row: Record<string, number> = {};
+	const row: Record<string, number> = Object.create(null);
 	aggs.forEach((agg, i) => {
 		row[aggAlias(agg, i)] = applyAggregation(spans, agg);
 	});
@@ -351,12 +373,12 @@ export function aggregateSpansInProcess(
 
 	const rows = Array.from(groups.entries()).map(([composite, groupSpans]) => {
 		const parts = composite.split("\u0000");
-		const row: Record<string, unknown> = {
+		const row: Record<string, unknown> = Object.assign(Object.create(null), {
 			...applyAggregations(groupSpans, aggregations),
 			group_value: parts[0] ?? "",
-		};
+		});
 		keys.forEach((k, i) => {
-			row[k] = parts[i] ?? "";
+			row[safeGroupKey(k, i)] = parts[i] ?? "";
 		});
 		return row;
 	});

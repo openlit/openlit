@@ -51,6 +51,8 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 }
 
 function configFingerprint(dbConfig: DatabaseConfig): string {
+	// Cache-bust key for connection settings — not a password hash.
+	// Password rotations bump `updatedAt`, so we never digest the secret itself.
 	return createHash("sha256")
 		.update(
 			JSON.stringify({
@@ -58,8 +60,11 @@ function configFingerprint(dbConfig: DatabaseConfig): string {
 				port: dbConfig.port,
 				database: dbConfig.database,
 				username: dbConfig.username,
-				password: dbConfig.password || "",
 				query: dbConfig.query || "",
+				updatedAt:
+					dbConfig.updatedAt instanceof Date
+						? dbConfig.updatedAt.toISOString()
+						: String(dbConfig.updatedAt || ""),
 			})
 		)
 		.digest("hex");
