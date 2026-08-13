@@ -98,8 +98,10 @@ def chat_completions(
 
         def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
-            self.__wrapped__.close()
-            self._finalize_streaming_span()
+            try:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
         def _finalize_streaming_span(self):
             if self._streaming_response_processed:
@@ -340,8 +342,10 @@ def responses(
 
         def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
-            self.__wrapped__.close()
-            self._finalize_streaming_span()
+            try:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
         def _finalize_streaming_span(self):
             if self._streaming_response_processed:

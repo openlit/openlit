@@ -98,8 +98,10 @@ def async_chat_completions(
 
         async def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
-            await self.__wrapped__.close()
-            self._finalize_streaming_span()
+            try:
+                await self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
         def _finalize_streaming_span(self):
             if self._streaming_response_processed:
@@ -338,8 +340,10 @@ def async_responses(
 
         async def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
-            await self.__wrapped__.close()
-            self._finalize_streaming_span()
+            try:
+                await self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
         def _finalize_streaming_span(self):
             if self._streaming_response_processed:
