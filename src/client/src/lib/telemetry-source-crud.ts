@@ -541,6 +541,7 @@ export async function healthCheckTelemetrySource(
 	id: string
 ): Promise<HealthCheckResult> {
 	const row = await requireSourceInProject(id);
+	await assertPremiumConnectorAllowed(row.type);
 	const adapter = await adapterForSource(row);
 	if (!adapter) {
 		return { ok: false, message: TELEMETRY_SOURCE_TYPE_UNKNOWN(row.type) };
@@ -668,6 +669,7 @@ export async function setTelemetrySourceBinding(
 		};
 	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
+	await assertPremiumConnectorAllowed(source.type);
 	const sourceEnvironment = normalizeEnvironment(source.environment);
 	if (sourceEnvironment !== environment) {
 		throw new Error(
