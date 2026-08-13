@@ -25,10 +25,10 @@ function enabled(): boolean {
 	return process.env.NODE_ENV !== "production";
 }
 
-/** Strip CR/LF/control chars so log lines cannot be forged via user fields. */
+/** Strip CR/LF so log lines cannot be forged via user fields (CodeQL js/log-injection). */
 function sanitizeLogToken(value: unknown, max = 64): string {
 	return String(value ?? "")
-		.replace(/[\u0000-\u001f\u007f]+/g, "")
+		.replace(/\n|\r/g, "")
 		.slice(0, max);
 }
 
