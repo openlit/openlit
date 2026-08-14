@@ -28,7 +28,7 @@ function enabled(): boolean {
 /** Strip CR/LF so log lines cannot be forged via user fields (CodeQL js/log-injection). */
 function sanitizeLogToken(value: unknown, max = 64): string {
 	return String(value ?? "")
-		.replace(/\n|\r/g, "")
+		.replace(/[\u0000-\u001F\u007F]/g, "")
 		.slice(0, max);
 }
 

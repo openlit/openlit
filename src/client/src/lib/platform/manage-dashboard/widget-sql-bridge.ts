@@ -236,7 +236,7 @@ export function inferStructuredFromClickHouseSql(
 
 	const primaryAlias = wantsModelsPerTime
 		? "total_model_count"
-		: aggregations[0].as || "count";
+		: safeAlias(aggregations[0].as || "count", "count");
 	const previousAlias = includePrevious
 		? firstAlias(sql, [
 				/AS\s+(\w+_previous)\b/i,
@@ -332,12 +332,20 @@ const ALLOWED_CH_FIELDS = new Set([
 	"TraceType",
 ]);
 
+function isSafeAlias(alias: string): boolean {
+	return (
+		alias !== "__proto__" &&
+		alias !== "constructor" &&
+		alias !== "prototype" &&
+		SAFE_CH_IDENTIFIER.test(alias)
+	);
+}
+
 function safeAlias(value: unknown, fallback: string): string {
 	const alias = String(value || fallback);
-	if (!SAFE_CH_IDENTIFIER.test(alias)) {
-		throw new Error("Invalid dashboard aggregation alias");
-	}
-	return alias;
+	if (isSafeAlias(alias)) return alias;
+	if (isSafeAlias(fallback)) return fallback;
+	throw new Error("Invalid dashboard aggregation alias");
 }
 
 function fieldToClickHouseExpr(field: string, scope?: string): string {
@@ -623,24 +631,26 @@ function remapTimeseriesRows(
 		return foldModelsPerTime(rows);
 	}
 
-	const primary = inferred.primaryAlias || "total";
+	const primary = safeAlias(inferred.primaryAlias || "total", "total");
 	return rows.map((row) => {
 		const primaryValue = Number(
 			row[primary] ?? row.total ?? row.count ?? row.model_count ?? 0
 		);
 		const safePrimary = Number.isFinite(primaryValue) ? primaryValue : 0;
-		return {
-			...row,
-			[primary]: safePrimary,
-			total: Number(row.total ?? safePrimary),
-			request_time: String(
-				row.label ?? row.request_time ?? row.bucket ?? ""
-			),
-			total_tokens: Number(row.total_tokens ?? row.tokens ?? 0),
-			prompt_tokens: Number(row.prompt_tokens ?? 0),
-			completion_tokens: Number(row.completion_tokens ?? 0),
-			total_cost: Number(row.total_cost ?? row.cost ?? 0),
-		};
+		const next: Record<string, unknown> = Object.assign(
+			Object.create(null),
+			row
+		);
+		next[primary] = safePrimary;
+		next.total = Number(row.total ?? safePrimary);
+		next.request_time = String(
+			row.label ?? row.request_time ?? row.bucket ?? ""
+		);
+		next.total_tokens = Number(row.total_tokens ?? row.tokens ?? 0);
+		next.prompt_tokens = Number(row.prompt_tokens ?? 0);
+		next.completion_tokens = Number(row.completion_tokens ?? 0);
+		next.total_cost = Number(row.total_cost ?? row.cost ?? 0);
+		return next;
 	});
 }
 
@@ -693,14 +703,16 @@ export async function executeInferredWidgetQuery(
 
 		// Ensure primary alias is always present for bar/pie widgets.
 		rows = rows.map((row) => {
-			const primary = inferred.primaryAlias || "count";
+			const primary = safeAlias(inferred.primaryAlias || "count", "count");
 			const value = Number(
 				row[primary] ?? row.count ?? row.total ?? row.model_count ?? 0
 			);
-			return {
-				...row,
-				[primary]: Number.isFinite(value) ? value : 0,
-			};
+			const next: Record<string, unknown> = Object.assign(
+				Object.create(null),
+				row
+			);
+			next[primary] = Number.isFinite(value) ? value : 0;
+			return next;
 		});
 
 		if (inferred.includePrevious && inferred.previousAlias) {
