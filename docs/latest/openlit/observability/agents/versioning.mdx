@@ -1,0 +1,28 @@
+---
+title: "Versioning"
+description: "Trace-derived config snapshots, and exactly how selecting one scopes each tab on the agent detail page"
+---
+
+Every agent has a **version chooser** in the header and a **Version History** drawer listing all versions observed so far. Unlike a code or deployment version, an OpenLIT agent version is a **trace-derived config snapshot**: whenever the observed combination of system prompt, tools, models/providers, or runtime config (temperature, top_p, max_tokens) changes in incoming traces, OpenLIT fingerprints it into a new version and captures a snapshot of that configuration.
+
+The version drawer lists each version's number, fingerprint, first seen / last seen timestamps, and request count, alongside a version timeline chart showing traffic per version over the current time window.
+
+## How selecting a version scopes each tab
+
+Selecting a version doesn't affect every tab the same way - some tabs default to showing everything and only narrow down once you pick a version; others always show a single version's data:
+
+| Tab | Without an explicit selection | With a version selected |
+|---|---|---|
+| [Overview](/latest/openlit/observability/agents/overview) (the DAG) | Shows the **latest** version's call graph | Shows that version's call graph |
+| [Analytics](/latest/openlit/observability/agents/analytics) (Dashboard) | Shows **all-versions** aggregate trends | Narrows to that version's traffic |
+| [Monitoring](/latest/openlit/observability/agents/monitoring) | Shows **all-versions** traces | Narrows to that version's traces |
+| [Definition](/latest/openlit/observability/agents/definition) | Shows the **latest** version's system prompt + tools | Shows that version's system prompt + tools |
+| [Configuration](/latest/openlit/observability/agents/configuration) | Not version-scoped | Not version-scoped - always shows live state |
+
+In other words: the Overview graph and Definition tab always default to *some* version (the latest one) even before you touch the chooser, while Analytics and Monitoring default to the *whole history* and only get version-scoped once you deliberately select one. This lets you compare how the agent behaved before and after a prompt or tool change without instrumenting version tracking yourself - pick a version to isolate its Dashboard/Monitoring data, or leave it on "latest" to inspect its current graph and definition without losing the aggregate trend view on the other tabs.
+
+---
+
+<Card title="Definition" href="/latest/openlit/observability/agents/definition" icon='file-code'>
+  See exactly what a given version's system prompt and tools looked like
+</Card>

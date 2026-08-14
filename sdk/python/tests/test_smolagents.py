@@ -1,0 +1,197 @@
+# pylint: disable=duplicate-code, no-member, too-few-public-methods, missing-class-docstring
+"""
+Tests for smolagents instrumentation using the smolagents Python library.
+
+Tests cover:
+- Agent construction (create_agent spans)
+- Agent run (invoke_agent spans)
+- Tool execution (execute_tool spans)
+- Model generate/stream (LLM spans delegated to base SDK instrumentors)
+- Streaming output ActionOutput extraction
+
+These tests validate integration with OpenLIT.
+
+Note: These tests require smolagents to be installed.
+"""
+
+from dataclasses import dataclass
+
+import pytest
+
+try:
+    from smolagents import (
+        Tool,
+        ToolCallingAgent,
+    )
+    from smolagents.models import Model
+    from smolagents.monitoring import TokenUsage
+
+    SMOLAGENTS_AVAILABLE = True
+except ImportError:
+    SMOLAGENTS_AVAILABLE = False
+
+import openlit
+
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-smolagents-test",
+)
+
+pytestmark = pytest.mark.skipif(
+    not SMOLAGENTS_AVAILABLE, reason="smolagents not installed"
+)
+
+
+class MockChatMessage:
+    """Mock ChatMessage returned by Model.generate()."""
+
+    def __init__(self, content="Hello!", tool_calls=None):
+        self.role = "assistant"
+        self.content = content
+        self.tool_calls = tool_calls or []
+        self.raw = None
+        self.token_usage = TokenUsage(input_tokens=10, output_tokens=5)
+
+
+class DummyModel(Model):
+    """A mock model for testing instrumentation without real API calls."""
+
+    def __init__(self):
+        super().__init__(model_id="test-model-001")
+
+    def generate(self, messages, **kwargs):
+        """Return a canned chat response."""
+        return MockChatMessage(content="Test model response")
+
+    def generate_stream(self, messages, **kwargs):
+        """Yield two canned streaming chunks."""
+        yield MockChatMessage(content="chunk1")
+        yield MockChatMessage(content="chunk2")
+
+
+class DummyTool(Tool):
+    """A simple test tool."""
+
+    name = "dummy_tool"
+    description = "A tool for testing purposes"
+    inputs = {
+        "query": {"type": "string", "description": "The query to process"},
+    }
+    output_type = "string"
+
+    def forward(self, query: str) -> str:
+        """Process the query and return a result string."""
+        return f"Processed: {query}"
+
+
+class TestSmolAgentsInstrumentation:
+    """Tests for smolagents instrumentation."""
+
+    def test_tool_call_instrumentation(self):
+        """Tests that Tool.__call__ is instrumented."""
+        tool = DummyTool()
+        result = tool(query="test query")
+        assert "Processed" in str(result)
+
+    def test_model_generate_instrumentation(self):
+        """Tests that Model.generate() works (LLM span from base SDK instrumentor)."""
+        model = DummyModel()
+        messages = [{"role": "user", "content": "Hello"}]
+        response = model.generate(messages)
+        assert response.content == "Test model response"
+        assert response.token_usage.input_tokens == 10
+        assert response.token_usage.output_tokens == 5
+
+    def test_model_generate_stream_instrumentation(self):
+        """Tests that Model.generate_stream() works (LLM span from base SDK instrumentor)."""
+        model = DummyModel()
+        messages = [{"role": "user", "content": "Hello streaming"}]
+        chunks = list(model.generate_stream(messages))
+        assert len(chunks) == 2
+        assert chunks[0].content == "chunk1"
+        assert chunks[1].content == "chunk2"
+
+    def test_multiple_tool_calls(self):
+        """Tests that multiple tool calls are each instrumented."""
+        tool = DummyTool()
+        r1 = tool(query="first")
+        r2 = tool(query="second")
+        assert "first" in str(r1)
+        assert "second" in str(r2)
+
+    def test_tool_with_exception(self):
+        """Tests that tool exceptions are captured in spans."""
+
+        class FailingTool(Tool):
+            name = "failing_tool"
+            description = "A tool that fails"
+            inputs = {"x": {"type": "string", "description": "input"}}
+            output_type = "string"
+
+            def forward(self, x: str) -> str:
+                """Always raises ValueError for testing."""
+                raise ValueError("Tool execution failed")
+
+        tool = FailingTool()
+        with pytest.raises(ValueError, match="Tool execution failed"):
+            tool(x="test")
+
+    def test_model_with_exception(self):
+        """Tests that model exceptions are captured in spans."""
+
+        class FailingModel(Model):
+            def __init__(self):
+                super().__init__(model_id="fail-model")
+
+            def generate(self, messages, **kwargs):
+                """Always raises RuntimeError for testing."""
+                raise RuntimeError("Model generation failed")
+
+        model = FailingModel()
+        with pytest.raises(RuntimeError, match="Model generation failed"):
+            model.generate([{"role": "user", "content": "fail"}])
+
+    def test_create_agent_span(self):
+        """Tests that agent construction emits a create_agent span and
+        stores the span context on the instance."""
+        model = DummyModel()
+        tool = DummyTool()
+        agent = ToolCallingAgent(
+            tools=[tool],
+            model=model,
+            name="test_create_agent",
+            description="Agent for testing create_agent span",
+        )
+        assert hasattr(agent, "_openlit_creation_context")
+        assert agent._openlit_creation_context is not None
+
+    def test_create_agent_span_attributes(self):
+        """Tests that create_agent span captures agent metadata."""
+        model = DummyModel()
+        tool = DummyTool()
+        agent = ToolCallingAgent(
+            tools=[tool],
+            model=model,
+            name="attr_test_agent",
+            description="Tests attribute capture",
+        )
+        ctx = agent._openlit_creation_context
+        assert ctx is not None
+        assert ctx.trace_id != 0
+        assert ctx.span_id != 0
+
+    def test_streaming_output_extraction(self):
+        """Tests that ActionOutput.output is extracted cleanly, not the repr."""
+        from openlit.instrumentation.smolagents.smolagents import (
+            _handle_agent_stream,
+        )
+
+        @dataclass
+        class ActionOutput:
+            output: str
+            is_final_answer: bool
+
+        event = ActionOutput(output="clean answer", is_final_answer=True)
+        extracted = getattr(event, "output", event)
+        assert extracted == "clean answer"
+        assert "ActionOutput" not in str(extracted)

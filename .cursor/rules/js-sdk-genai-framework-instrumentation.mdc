@@ -1,0 +1,7 @@
+---
+description: Guide for implementing JS SDK agent and framework instrumentations, such as LangChain, LangGraph, OpenAI Agents, Claude Agent SDK, Google ADK, and Vercel AI.
+globs: sdk/typescript/src/instrumentation/browser-use/**/*.ts,sdk/typescript/src/instrumentation/claude-agent-sdk/**/*.ts,sdk/typescript/src/instrumentation/cursor-sdk/**/*.ts,sdk/typescript/src/instrumentation/google-adk/**/*.ts,sdk/typescript/src/instrumentation/langchain/**/*.ts,sdk/typescript/src/instrumentation/langgraph/**/*.ts,sdk/typescript/src/instrumentation/llamaindex/**/*.ts,sdk/typescript/src/instrumentation/openai-agents/**/*.ts,sdk/typescript/src/instrumentation/strands/**/*.ts,sdk/typescript/src/instrumentation/vercel-ai/**/*.ts
+alwaysApply: false
+---
+
+@agent-guides/js-sdk-genai-framework-instrumentation.md

@@ -1,0 +1,40 @@
+---
+title: 'Monitor GPT4All using OpenTelemetry'
+description: 'Add AI observability to LLM apps running local GPT4All models via OpenTelemetry auto-instrumentation, tracking performance and token usage.'
+sidebarTitle: 'GPT4All'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from GPT4All. This includes tracking performance, token usage, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- GPT4All Python SDK client `>=2.6.0` 
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

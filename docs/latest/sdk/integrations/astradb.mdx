@@ -1,0 +1,40 @@
+---
+title: 'Monitor AstraDB using OpenTelemetry'
+description: 'OpenLIT auto-instruments AstraDB as a vector store using OpenTelemetry, providing AI observability with tracing into performance and operation stats.'
+sidebarTitle: 'AstraDB'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications using AstraDB as the vector store. This includes tracking performance, operation stats and more.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- AstraDB Python SDK client `>= 1.5.2` 
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

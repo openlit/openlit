@@ -1,0 +1,7 @@
+---
+description: Design principles and invariants for the OpenLIT controller (Go agent that discovers and instruments LLM workloads) and the Agents-page server layer that consumes its data.
+globs: openlit-controller/**/*.go,openlit-controller/patches/*.patch,openlit-controller/_obi-providers/**/*.go,src/client/src/app/api/controller/**/*.ts,src/client/src/app/api/agents/**/*.ts,src/client/src/lib/platform/controller/**/*.ts,src/client/src/lib/platform/agents/**/*.ts
+alwaysApply: false
+---
+
+@agent-guides/controller-design.md

@@ -1,0 +1,180 @@
+diff --git a/pkg/appolly/app/request/span.go b/pkg/appolly/app/request/span.go
+index 3f7a63a..95bb87a 100644
+--- a/pkg/appolly/app/request/span.go
++++ b/pkg/appolly/app/request/span.go
+@@ -110,6 +110,8 @@ const (
+ 	HTTPSubtypeEmbedding     = 13 // http + generic embedding provider (Voyage, Cohere, Jina)
+ 	HTTPSubtypeRerank        = 14 // http + Rerank (Cohere, Jina, Voyage, etc.)
+ 	HTTPSubtypeRetrieval     = 15 // http + vector retrieval (Pinecone, Qdrant, Milvus, Chroma, Weaviate, etc.)
++	HTTPSubtypeCustom        = 16 // http + custom OpenAI-compatible gateway (LiteLLM, vLLM, ...)
++	HTTPSubtypeOllama        = 17 // http + Ollama native API
+ )
+ 
+ func IsGenAISubtype(subtype int) bool {
+@@ -121,7 +123,9 @@ func IsGenAISubtype(subtype int) bool {
+ 		subtype == HTTPSubtypeMCP ||
+ 		subtype == HTTPSubtypeEmbedding ||
+ 		subtype == HTTPSubtypeRerank ||
+-		subtype == HTTPSubtypeRetrieval
++		subtype == HTTPSubtypeRetrieval ||
++		subtype == HTTPSubtypeCustom ||
++		subtype == HTTPSubtypeOllama
+ }
+ 
+ //nolint:cyclop
+@@ -293,6 +297,33 @@ type GenAI struct {
+ 	Embedding *VendorEmbedding
+ 	Rerank    *VendorRerank
+ 	Retrieval *VendorRetrieval
++	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, ...). Reuses
++	// VendorOpenAI for tokens/model/params because the wire format is
++	// OpenAI-compatible. The message bodies, however, are normalized by the
++	// custom parser into the GenAI semconv role/parts structure and carried in
++	// the Custom*Messages fields below (the raw VendorOpenAI getters return the
++	// non-normalized OpenAI shape).
++	Custom                   *VendorOpenAI
++	CustomInputMessages      string
++	CustomOutputMessages     string
++	CustomSystemInstructions string
++	// Ollama native API (/api/chat, /api/generate). Distinct schema, own vendor.
++	Ollama *VendorOllama
++}
++
++// VendorOllama holds fields parsed from Ollama's native API responses
++// (/api/chat, /api/generate), which differ from the OpenAI wire format:
++// tokens are prompt_eval_count/eval_count and output text is message.content
++// or response.
++type VendorOllama struct {
++	Model        string
++	InputTokens  int
++	OutputTokens int
++	Operation    string
++	// Input/Output carry the serialized request messages and response content
++	// for the gen_ai.{input,output}.messages span attributes.
++	Input  string
++	Output string
+ }
+ 
+ type OpenAIPromptTokensDetails struct {
+@@ -1804,6 +1835,23 @@ func (s *Span) TraceName() string {
+ 			}
+ 		}
+ 
++		// Custom OpenAI-compatible gateway: name spans "<operation> <model>"
++		// (e.g. "chat gpt-4o-mini"), matching the OpenAI convention. Custom
++		// reuses VendorOpenAI, so the logic mirrors the OpenAI case above.
++		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeCustom && s.GenAI != nil && s.GenAI.Custom != nil {
++			name := s.GenAI.Custom.OperationName
++			if name != "" {
++				switch {
++				case s.GenAI.Custom.Request.Model != "":
++					return name + " " + s.GenAI.Custom.Request.Model
++				case s.GenAI.Custom.ResponseModel != "":
++					return name + " " + s.GenAI.Custom.ResponseModel
++				default:
++					return name
++				}
++			}
++		}
++
+ 		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeAnthropic && s.GenAI != nil && s.GenAI.Anthropic != nil {
+ 			name := s.GenAI.Anthropic.Output.Type
+ 			if name != "" {
+@@ -1889,6 +1937,13 @@ func (s *Span) TraceName() string {
+ 			return RetrievalOperationName
+ 		}
+ 
++		if s.Type == EventTypeHTTPClient && s.SubType == HTTPSubtypeOllama && s.GenAI != nil && s.GenAI.Ollama != nil {
++			if s.GenAI.Ollama.Model != "" {
++				return s.GenAI.Ollama.Operation + " " + s.GenAI.Ollama.Model
++			}
++			return s.GenAI.Ollama.Operation
++		}
++
+ 		if s.SubType == HTTPSubtypeJSONRPC && s.JSONRPC != nil {
+ 			if s.JSONRPC.Method != "" {
+ 				return s.JSONRPC.Method
+@@ -2155,6 +2210,14 @@ func (s *Span) GenAIInputTokens() int {
+ 		return s.GenAI.Retrieval.GetInputTokens()
+ 	}
+ 
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Usage.GetInputTokens()
++	}
++
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.InputTokens
++	}
++
+ 	return 0
+ }
+ 
+@@ -2187,6 +2250,14 @@ func (s *Span) GenAIOutputTokens() int {
+ 		return s.GenAI.Embedding.GetOutputTokens()
+ 	}
+ 
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Usage.GetOutputTokens()
++	}
++
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.OutputTokens
++	}
++
+ 	return 0
+ }
+ 
+@@ -2218,6 +2289,12 @@ func (s *Span) GenAIOperationName() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.OperationName()
+ 	}
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.OperationName
++	}
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Operation
++	}
+ 	return ""
+ }
+ 
+@@ -2249,6 +2326,12 @@ func (s *Span) GenAIProviderName() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.Provider
+ 	}
++	if s.GenAI.Ollama != nil {
++		return "ollama"
++	}
++	// Custom gateways intentionally report no provider name: the wire format is
++	// OpenAI-compatible but the actual backend vendor is unknown. Discovery
++	// (IP+port) remains the authoritative attribution.
+ 	return ""
+ }
+ 
+@@ -2283,6 +2366,12 @@ func (s *Span) GenAIRequestModel() string {
+ 	if s.GenAI.Retrieval != nil {
+ 		return s.GenAI.Retrieval.Input.Model
+ 	}
++	if s.GenAI.Custom != nil {
++		return s.GenAI.Custom.Request.Model
++	}
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Model
++	}
+ 	return ""
+ }
+ 
+@@ -2329,5 +2418,14 @@ func (s *Span) GenAIResponseModel() string {
+ 		}
+ 		return s.GenAI.Retrieval.Input.Model
+ 	}
++	if s.GenAI.Custom != nil {
++		if s.GenAI.Custom.ResponseModel != "" {
++			return s.GenAI.Custom.ResponseModel
++		}
++		return s.GenAI.Custom.Request.Model
++	}
++	if s.GenAI.Ollama != nil {
++		return s.GenAI.Ollama.Model
++	}
+ 	return ""
+ }

@@ -1,0 +1,67 @@
+export const DEFAULT_LOGGED_IN_ROUTE = "/home";
+export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
+	"/api/prompt/get-compiled",
+	"/api/vault/get-secrets",
+	"/api/rule-engine/evaluate",
+	"/api/controller/poll",
+	"/api/evaluation/offline",
+];
+
+/** Routes that don't require auth, matched by prefix (for dynamic segments). */
+export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN = [
+	"/api/pricing/export/",
+	"/api/evaluation/offline/",
+];
+
+export const ALLOWED_OPENLIT_ROUTES_WITH_TOKEN = [
+	"/api/prompt/get-compiled",
+	"/api/vault/get-secrets",
+	"/api/rule-engine/evaluate",
+	"/api/controller/poll",
+];
+
+export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
+	"/api/telemetry/",
+	"/api/rule-engine/",
+	"/api/evaluation/",
+	"/api/controller/",
+	"/api/prompt/",
+	"/api/vault/",
+	"/api/metrics/",
+];
+
+export const CRON_JOB_ROUTES = [
+	"/api/evaluation/auto",
+	"/api/pricing/auto",
+	"/api/agents/materialize",
+	"/api/telemetry-snapshot",
+];
+
+// Non-API routes that are accessible without completing onboarding
+export const ONBOARDING_WHITELIST_ROUTES = ["/onboarding"];
+export const ONBOARDING_WHITELIST_ROUTE_PREFIXES = [
+	"/organisation",
+];
+
+// API routes that are accessible without completing onboarding.
+// Prefix entries must include a trailing slash to avoid overmatching sibling routes.
+export const ONBOARDING_WHITELIST_API_ROUTES = {
+	exact: {
+		GET: ["/api/organisation", "/api/organisation/invitation", "/api/user/profile", "/api/auth/session"],
+		POST: ["/api/organisation", "/api/user/complete-onboarding", "/api/auth/session"],
+	},
+	prefix: {
+		GET: ["/api/organisation/"],
+		POST: ["/api/organisation/current/", "/api/organisation/invitation/", "/api/organisation/"],
+		PUT: ["/api/organisation/"],
+		PATCH: ["/api/organisation/"],
+		DELETE: ["/api/organisation/invitation/", "/api/organisation/"],
+	},
+} as const;
+
+// Route format is methodtype: routepathregex[]
+export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {
+	POST: ["/api/db-config", "/api/user/profile"],
+	PUT: ["/api/db-config", "/api/vault"],
+	DELETE: ["/api/db-config", "/api/api-key", "/api/vault", "/api/prompt-hub"],
+};

@@ -1,0 +1,71 @@
+"""Initializer of Auto Instrumentation of Reka Functions"""
+
+from typing import Collection
+import importlib.metadata
+from opentelemetry import _logs
+from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from wrapt import wrap_function_wrapper
+
+from openlit._config import OpenlitConfig
+from openlit.instrumentation.reka.reka import chat
+from openlit.instrumentation.reka.async_reka import async_chat
+
+_instruments = ("reka-api >= 3.2.0",)
+
+
+class RekaInstrumentor(BaseInstrumentor):
+    """
+    An instrumentor for Reka client library.
+    """
+
+    def instrumentation_dependencies(self) -> Collection[str]:
+        return _instruments
+
+    def _instrument(self, **kwargs):
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        disable_metrics = kwargs.get("disable_metrics")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
+        version = importlib.metadata.version("reka-api")
+
+        # Chat completions
+        wrap_function_wrapper(
+            "reka.chat.client",
+            "ChatClient.create",
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+        # Chat completions
+        wrap_function_wrapper(
+            "reka.chat.client",
+            "AsyncChatClient.create",
+            async_chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+    def _uninstrument(self, **kwargs):
+        pass

@@ -1,0 +1,58 @@
+---
+title: "Overview"
+description: "Manage models on the Costs page - edit LLM providers and per-model token prices used for AI cost tracking across traces, Otter, OpenGround, and the SDK"
+---
+
+**Manage models** is the **Manage models** tab on **Costs** (`/costs?tab=models`) under Monitor. Every connected ClickHouse database is seeded with **14 providers** and a large built-in model catalog (90+ models). You can edit any price, add custom providers and models, import/export pricing JSON, and point the OpenLIT SDK at a public pricing URL so ingest-time cost tracking stays in sync with the UI.
+
+Those prices power [Configuration](/latest/openlit/costs/configuration) (Auto Pricing and manual recalculation), [Analytics](/latest/openlit/costs/analytics), cost columns in telemetry, [OpenGround](/latest/openlit/prompts-experiments/openground/overview) comparisons, and Otter's message cost estimates.
+
+Open **Monitor → Costs → Manage models**. (`/manage-models` redirects here.) Toolbar actions (Add Provider, SDK Usage, Import, Export) are icon-only with tooltips.
+
+<CardGroup cols={2}>
+  <Card title="Providers" href="/latest/openlit/costs/manage-models/providers" icon="tags">
+    Add or edit LLM providers (Provider ID, display name, Vault requirement)
+  </Card>
+  <Card title="Models" href="/latest/openlit/costs/manage-models/models" icon="cube">
+    Browse, edit, add, or delete models and per-1M-token pricing
+  </Card>
+  <Card title="Import and export" href="/latest/openlit/costs/manage-models/import-and-export" icon="file-import">
+    Import Pricing JSON or Export Pricing for backup and sync
+  </Card>
+  <Card title="SDK pricing URL" href="/latest/openlit/costs/manage-models/sdk-pricing" icon="code">
+    Copy the public SDK Pricing URL and wire it into openlit.init()
+  </Card>
+</CardGroup>
+
+## Built-in providers
+
+Out of the box you get: OpenAI, Anthropic, Google AI, Mistral AI, Groq, Perplexity, Azure OpenAI, Cohere, Together AI, Fireworks AI, DeepSeek, xAI, Hugging Face, and Replicate. Model lists change as the catalog is updated - treat Manage models itself as the source of truth for what is installed in your database.
+
+## API reference
+
+Authenticated Manage Models APIs and the public SDK export are documented under [API Reference → Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models). Feature pages link there for request shapes and examples instead of duplicating code samples.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="How does OpenLIT calculate cost from these prices?">
+    It multiplies each span's input and output token counts by that model's input and output price per 1M tokens from Manage models.
+  </Accordion>
+  <Accordion title="Can I add a custom or self-hosted model?">
+    Yes. Add a provider if needed, then add a model with your own Model ID and pricing - or bulk-import via Import Pricing JSON.
+  </Accordion>
+  <Accordion title="Does Default vs Custom matter for pricing?">
+    **Default** means the model was seeded by OpenLIT; **Custom** means you added it. Both are fully editable and used the same way for cost tracking.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Configuration" href="/latest/openlit/costs/configuration" icon="gear">
+    Backfill or refresh gen_ai.usage.cost from Manage models prices
+  </Card>
+  <Card title="OpenGround" href="/latest/openlit/prompts-experiments/openground/overview" icon="display">
+    Compare models side-by-side using the same provider catalog
+  </Card>
+</CardGroup>

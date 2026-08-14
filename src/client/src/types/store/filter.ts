@@ -1,0 +1,90 @@
+export type TIME_RANGES = "24H" | "7D" | "1M" | "3M" | "CUSTOM";
+export type REFRESH_RATES = "Never" | "30s" | "1m" | "5m" | "15m";
+export type GroupByKey = string;
+
+export type FilterSorting = {
+	type: string;
+	direction: "asc" | "desc";
+};
+
+export interface FilterType {
+	timeLimit: {
+		start?: Date;
+		end?: Date;
+		type: TIME_RANGES;
+	};
+	limit: number;
+	offset: number;
+	selectedConfig: Partial<FilterConfig>;
+	sorting: FilterSorting;
+	refreshRate: REFRESH_RATES;
+	groupBy?: GroupByKey;
+	groupValue?: string;
+	filterReady?: boolean;
+}
+
+export type CustomFilterAttributeType =
+	| "SpanAttributes"
+	| "ResourceAttributes"
+	| "LogAttributes"
+	| "ScopeAttributes"
+	| "Attributes"
+	| "Field";
+
+export type CustomFilter = {
+	attributeType: CustomFilterAttributeType;
+	key: string;
+	value: string;
+};
+
+/**
+ * Agent-version scope locked on the global filter store by
+ * `AgentScopeProvider` while the agent detail page is mounted. Hybrid mode:
+ * the version is matched by `openlit.agent.version_hash` on spans that carry
+ * it and by `[first_seen, last_seen]` for older traces.
+ *
+ * Canonical definition lives in `@/types/platform`; we import + re-export so
+ * (a) the alias is available to the local interfaces below (e.g.
+ * `FilterConfig.versionFilter`) and (b) downstream files that still import
+ * `VersionFilter` from this module continue to compile. Anything importing
+ * `VersionFilter` from either path now points at the same interface.
+ */
+import type { VersionFilter } from "@/types/platform";
+export type { VersionFilter };
+
+export interface FilterConfig {
+	providers: string[];
+	maxCost: number;
+	models: string[];
+	totalRows: number;
+	traceTypes: string[];
+	applicationNames: string[];
+	/** Locked OTel ServiceName scope used by the agent detail page. */
+	serviceNames: string[];
+	spanNames: string[];
+	environments: string[];
+	services: string[];
+	severities: string[];
+	metricNames: string[];
+	metricTypes: string[];
+	customFilters?: CustomFilter[];
+	/** Locked agent version scope used by the agent detail page. */
+	versionFilter?: VersionFilter;
+}
+
+export type AttributeKeys = {
+	spanAttributeKeys: string[];
+	resourceAttributeKeys: string[];
+	logAttributeKeys?: string[];
+	scopeAttributeKeys?: string[];
+	metricAttributeKeys?: string[];
+};
+
+export type FilterStore = {
+	details: FilterType;
+	config?: FilterConfig;
+	attributeKeys?: AttributeKeys;
+	updateFilter: (key: string, value: any, extraParams?: any) => void;
+	updateConfig: (config?: FilterConfig) => void;
+	updateAttributeKeys: (keys: AttributeKeys) => void;
+};

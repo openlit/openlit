@@ -1,0 +1,111 @@
+"""Initializer of Auto Instrumentation of Google AI Studio Functions"""
+
+from typing import Collection
+import importlib.metadata
+from opentelemetry import _logs, trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from wrapt import wrap_function_wrapper
+
+from openlit._config import OpenlitConfig
+from openlit.instrumentation.google_ai_studio.google_ai_studio import (
+    generate,
+    generate_stream,
+)
+
+from openlit.instrumentation.google_ai_studio.async_google_ai_studio import (
+    async_generate,
+    async_generate_stream,
+)
+
+_instruments = ("google-genai >= 1.3.0",)
+
+
+class GoogleAIStudioInstrumentor(BaseInstrumentor):
+    """
+    An instrumentor for google-genai's client library.
+    """
+
+    def instrumentation_dependencies(self) -> Collection[str]:
+        return _instruments
+
+    def _instrument(self, **kwargs):
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
+        tracer = trace.get_tracer(__name__)
+        metrics = OpenlitConfig.metrics_dict
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        disable_metrics = kwargs.get("disable_metrics")
+        event_provider = _logs.get_logger_provider().get_logger(__name__)
+        version = importlib.metadata.version("google-genai")
+
+        # sync generate
+        wrap_function_wrapper(
+            "google.genai.models",
+            "Models.generate_content",
+            generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+        # sync stream generate
+        wrap_function_wrapper(
+            "google.genai.models",
+            "Models.generate_content_stream",
+            generate_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+        # async generate
+        wrap_function_wrapper(
+            "google.genai.models",
+            "AsyncModels.generate_content",
+            async_generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+        # async stream generate
+        wrap_function_wrapper(
+            "google.genai.models",
+            "AsyncModels.generate_content_stream",
+            async_generate_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+
+    def _uninstrument(self, **kwargs):
+        pass

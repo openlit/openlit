@@ -1,0 +1,7 @@
+---
+description: Authoring and testing coding-agent hook adapters, including payload probing, session state, capture modes, and plugin manifests. Consult the telemetry convention when changing canonical attributes.
+globs: cli/internal/coding/hook/**/*.go,cli/internal/coding/normalize/**/*.go,cli/internal/coding/sessionstate/**/*.go,cli/internal/coding/identity/**/*.go,cli/internal/coding/detect/**/*.go,cli/internal/coding/git/**/*.go,cli/internal/coding/tailfile/**/*.go,cli/internal/coding/classify/**/*.go,plugins/**/hooks.json
+alwaysApply: false
+---
+
+@agent-guides/coding-agents-hook.md

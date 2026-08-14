@@ -1,0 +1,106 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/auth";
+import { dataCollector } from "@/lib/platform/common";
+import { getDBConfigByUser } from "@/lib/db-config";
+import getMessage from "@/constants/messages";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
+import asaw from "@/utils/asaw";
+import Sanitizer from "@/utils/sanitizer";
+
+// Extend the session type to include id
+interface SessionWithId {
+	user?: {
+		id?: string;
+		name?: string | null;
+		email?: string | null;
+		image?: string | null;
+	};
+}
+
+// POST: Clean up models with invalid UUIDs
+async function POSTHandler(request: NextRequest) {
+	const session = (await getServerSession(authOptions)) as SessionWithId;
+
+	if (!session?.user?.id) {
+		return NextResponse.json(
+			{ error: getMessage().UNAUTHORIZED_USER },
+			{ status: 401 }
+		);
+	}
+
+	const [, dbConfig] = await asaw(getDBConfigByUser(true));
+	if (!dbConfig?.id) {
+		return NextResponse.json(
+			{ error: getMessage().DATABASE_CONFIG_NOT_FOUND },
+			{ status: 500 }
+		);
+	}
+
+	// First, get all models to see which ones have invalid UUIDs
+	const selectQuery = `
+		SELECT toString(id) as id, model_id, display_name
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+	`;
+
+	const { data: allModels, err: selectErr } = await dataCollector(
+		{ query: selectQuery },
+		"query",
+		dbConfig.id
+	);
+
+	if (selectErr) {
+		console.error("Error fetching models:", selectErr);
+		return NextResponse.json(
+			{ error: selectErr || getMessage().OPERATION_FAILED },
+			{ status: 500 }
+		);
+	}
+
+	// Identify invalid UUIDs
+	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	const invalidModels = (allModels as any[] || []).filter(
+		(model: any) => !model.id || !uuidRegex.test(model.id)
+	);
+
+	if (invalidModels.length === 0) {
+		return NextResponse.json({
+			message: "No invalid models found",
+			cleaned: 0,
+		});
+	}
+
+	// Delete all rows with invalid UUIDs
+	const deleteQuery = `
+		ALTER TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		DELETE WHERE NOT match(toString(id), '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+	`;
+
+	const { err: deleteErr } = await dataCollector(
+		{ query: deleteQuery },
+		"exec",
+		dbConfig.id
+	);
+
+	if (deleteErr) {
+		console.error("Error cleaning up models:", deleteErr);
+		return NextResponse.json(
+			{ error: deleteErr || getMessage().OPERATION_FAILED },
+			{ status: 500 }
+		);
+	}
+
+	return NextResponse.json({
+		message: `Successfully cleaned up ${invalidModels.length} models with invalid UUIDs`,
+		cleaned: invalidModels.length,
+		invalidModels: invalidModels.map((m: any) => ({
+			id: m.id,
+			model_id: m.model_id,
+			name: m.display_name,
+		})),
+	});
+}
+
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));

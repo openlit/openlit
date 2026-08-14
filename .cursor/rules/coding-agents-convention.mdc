@@ -1,0 +1,7 @@
+---
+description: Canonical coding-agent telemetry schema, inbound mappings, and data contracts. Applies to semantic conventions, emission, processing, and readers—not hook implementation mechanics.
+globs: cli/internal/otlp/**/*.go,sdk/go/semconv/coding_agent.go,sdk/go/semconv/genai.go,src/client/src/lib/platform/coding-agents/**/*.ts,src/client/src/lib/platform/agents/materialize.ts,assets/otel-collector*.yaml
+alwaysApply: false
+---
+
+@agent-guides/coding-agents-convention.md

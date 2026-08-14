@@ -1,0 +1,55 @@
+---
+title: "Evaluators"
+description: "Enable built-in LLM evaluation types or create custom evaluators for hallucination, bias, toxicity, and your own criteria"
+---
+
+The **Evaluators** tab on **Evaluations** (`/evaluations?tab=evaluators`) lists evaluation types. Section title: **Evaluation types**. Description: *Enable built-in evaluators or create custom ones for your use case.*
+
+## Built-in types
+
+OpenLIT ships 11 built-in types. Each can be enabled or disabled independently and linked to [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) rules for conditional runs.
+
+| Evaluation Type | Description | Default |
+|----------------|-------------|---------|
+| **Hallucination** | Factual inaccuracies, contradictions, fabricated information | Enabled |
+| **Bias** | Discriminatory patterns across gender, ethnicity, age, religion | Enabled |
+| **Toxicity** | Harmful, offensive, threatening, or hateful language | Enabled |
+| **Relevance** | How well the response addresses the prompt | Disabled |
+| **Coherence** | Logical flow and internal consistency | Disabled |
+| **Faithfulness** | Alignment with provided context or source material | Disabled |
+| **Safety** | Jailbreak, prompt injection, unsafe content | Disabled |
+| **Instruction Following** | Adherence to instructions and formatting | Disabled |
+| **Completeness** | Whether all parts of the query are addressed | Disabled |
+| **Conciseness** | Avoids unnecessary verbosity | Disabled |
+| **Sensitivity** | PII, credentials, confidential data exposure | Disabled |
+
+Badges you may see: **Enabled** / **Disabled**, **Custom**, **Rule engine**. Rows can show **Linked from rules:** when Rule Engine entities point at that type.
+
+<Info>
+When context is provided via the Rule Engine, evaluations judge the LLM response against that context - not against real-world knowledge alone.
+</Info>
+
+## Custom evaluators
+
+Click **Create custom evaluator** to open the create form (Type ID, Label, Description, Evaluation Prompt). Custom types appear under **Custom evaluation types**, run alongside built-in types in auto and manual evaluation, and can be deleted when you no longer need them.
+
+Click a built-in or custom card to open its detail page (`/evaluations/types/[id]`) - enable/disable, edit the prompt, and link Rule Engine rules. From Analytics, an evaluator row opens `/evaluations/evaluators/[id]` for pass-rate and recent results (**Back to Analytics**, **Configure**).
+
+Legacy URLs `/evaluations/types` and `/evaluations/settings` redirect to the Evaluators and Configuration tabs.
+
+## Online vs offline
+
+- **Online** - Auto Evaluation or **Run Evaluation** on a live trace (see [Configuration](/latest/openlit/evaluations/configuration) and [LLM-as-a-Judge](/latest/openlit/evaluations/llm-as-a-judge)).
+- **Offline** - [Programmatic evaluations](/latest/openlit/evaluations/programmatic-evals) via the SDK, typically in CI/CD.
+- **Human** - [Manual Feedback](/latest/openlit/evaluations/manual-feedback) on a trace (Good / Bad / Neutral).
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is LLM evaluation?">
+    Scoring LLM outputs for quality, safety, and correctness - automatically with an LLM-as-a-judge, with custom types, or with human feedback - so you can catch issues in production or before you ship.
+  </Accordion>
+  <Accordion title="Can I create custom evaluation types?">
+    Yes. Use **Create custom evaluator** on the Evaluators tab with your own prompt and criteria.
+  </Accordion>
+</AccordionGroup>

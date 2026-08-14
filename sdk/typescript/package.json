@@ -1,0 +1,125 @@
+{
+  "name": "openlit",
+  "version": "1.15.0",
+  "homepage": "https://github.com/openlit/openlit#readme",
+  "bugs": {
+    "url": "https://github.com/openlit/openlit/issues",
+    "email": "developer@openlit.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openlit/openlit"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "lint": "eslint src/",
+    "test": "jest"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./register": {
+      "types": "./dist/register.d.ts",
+      "default": "./dist/register.js"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "OpenTelemetry",
+    "otel",
+    "otlp",
+    "llm",
+    "tracing",
+    "openai",
+    "anthropic",
+    "claude",
+    "cohere",
+    "llm monitoring",
+    "observability",
+    "monitoring",
+    "gpt",
+    "Generative AI",
+    "chatGPT"
+  ],
+  "author": "Aman Agarwal <aman.agarwal@openlit.io>",
+  "license": "ISC",
+  "devDependencies": {
+    "@digitalocean/gradient": "^0.1.0-alpha.2",
+    "@eslint/js": "^9.2.0",
+    "@google-cloud/vertexai": "^1.12.0",
+    "@letta-ai/letta-client": "^1.12.1",
+    "@mendable/firecrawl-js": "^1.29.3",
+    "@types/jest": "^29.0.0",
+    "ai21": "^1.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "globals": "^15.1.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.2.5",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^7.8.0"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.214.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
+    "@opentelemetry/instrumentation": "^0.203.0",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/sdk-logs": "^0.214.0",
+    "@opentelemetry/sdk-metrics": "^2.6.1",
+    "@opentelemetry/sdk-trace-base": "^2.6.1",
+    "@opentelemetry/sdk-trace-node": "^2.0.1",
+    "@opentelemetry/semantic-conventions": "^1.36.0",
+    "js-tiktoken": "^1.0.12"
+  },
+  "peerDependencies": {
+    "@opentelemetry/instrumentation-express": ">=0.40.0",
+    "@opentelemetry/instrumentation-fastify": ">=0.38.0",
+    "@opentelemetry/instrumentation-hapi": ">=0.40.0",
+    "@opentelemetry/instrumentation-http": ">=0.50.0",
+    "@opentelemetry/instrumentation-koa": ">=0.42.0",
+    "@opentelemetry/instrumentation-nestjs-core": ">=0.39.0",
+    "@opentelemetry/instrumentation-undici": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/instrumentation-http": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-undici": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-express": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-fastify": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-koa": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-hapi": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation-nestjs-core": {
+      "optional": true
+    }
+  }
+}

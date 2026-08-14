@@ -1,0 +1,332 @@
+"""
+Module for monitoring LiteLLM API calls (async version).
+"""
+
+import time
+import asyncio
+from opentelemetry import trace as trace_api, context as context_api
+from opentelemetry.trace import SpanKind
+from openlit.__helpers import (
+    handle_exception,
+    record_completion_metrics,
+    record_embedding_metrics,
+    is_litellm_span_active,
+    set_litellm_span_active,
+    reset_litellm_span_active,
+    set_framework_llm_active,
+    reset_framework_llm_active,
+)
+from openlit.instrumentation.litellm.utils import (
+    get_litellm_server_address,
+    process_chunk,
+    process_streaming_chat_response,
+    process_chat_response,
+    process_embedding_response,
+)
+from openlit.semcov import SemanticConvention
+
+
+def acompletion(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider=None,
+):
+    """
+    Generates a telemetry wrapper for GenAI function call
+    """
+
+    class TracedAsyncStream:
+        """
+        Wrapper for async streaming responses to collect telemetry.
+        """
+
+        def __init__(
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+            **args,
+        ):
+            self.__wrapped__ = wrapped
+            self._span = span
+            self._span_name = span_name
+            self._llmresponse = ""
+            self._response_id = ""
+            self._response_model = ""
+            self._finish_reason = ""
+            self._response_service_tier = ""
+            self._response_system_fingerprint = ""
+            self._tools = None
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._args = args
+            self._kwargs = kwargs
+            self._start_time = time.time()
+            self._end_time = None
+            self._timestamps = []
+            self._ttft = 0
+            self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+
+        async def __aenter__(self):
+            await self.__wrapped__.__aenter__()
+            return self
+
+        async def __aexit__(self, exc_type, exc_value, traceback):
+            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+
+        def __aiter__(self):
+            return self
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped object."""
+            return getattr(self.__wrapped__, name)
+
+        async def __anext__(self):
+            try:
+                chunk = await self.__wrapped__.__anext__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopAsyncIteration:
+                try:
+                    # Use the existing span that was started when the stream began
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+                    # End the span after processing
+                    self._span.end()
+
+                except Exception as e:
+                    handle_exception(self._span, e)
+                    self._span.end()
+
+                raise
+            except (GeneratorExit, asyncio.CancelledError):
+                try:
+                    # Use the existing span that was started when the stream began
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+                    # End the span after processing
+                    self._span.end()
+
+                except Exception as e:
+                    handle_exception(self._span, e)
+                    self._span.end()
+
+                raise
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the GenAI function call.
+        """
+        if is_litellm_span_active():
+            return await wrapped(*args, **kwargs)
+
+        litellm_token = set_litellm_span_active()
+        try:
+            streaming = kwargs.get("stream", False)
+            server_address, server_port = get_litellm_server_address(instance, kwargs)
+            request_model = kwargs.get("model", "openai/gpt-4o")
+
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            )
+
+            if streaming:
+                span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+                ctx = trace_api.set_span_in_context(span)
+                otel_token = context_api.attach(ctx)
+                fw_token = set_framework_llm_active()
+                try:
+                    awaited_wrapped = await wrapped(*args, **kwargs)
+                except Exception as e:
+                    handle_exception(span, e)
+                    context_api.detach(otel_token)
+                    span.end()
+                    raise
+                finally:
+                    reset_framework_llm_active(fw_token)
+                context_api.detach(otel_token)
+                return TracedAsyncStream(
+                    awaited_wrapped,
+                    span,
+                    span_name,
+                    kwargs,
+                    server_address,
+                    server_port,
+                    event_provider=event_provider,
+                )
+            else:
+                with tracer.start_as_current_span(
+                    span_name, kind=SpanKind.CLIENT
+                ) as span:
+                    start_time = time.time()
+                    fw_token = set_framework_llm_active()
+                    try:
+                        response = await wrapped(*args, **kwargs)
+                    finally:
+                        reset_framework_llm_active(fw_token)
+
+                    try:
+                        response = process_chat_response(
+                            response=response,
+                            request_model=request_model,
+                            pricing_info=pricing_info,
+                            server_port=server_port,
+                            server_address=server_address,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            start_time=start_time,
+                            span=span,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=event_provider,
+                            **kwargs,
+                        )
+
+                    except Exception as e:
+                        handle_exception(span, e)
+                        if not disable_metrics and metrics:
+                            record_completion_metrics(
+                                metrics,
+                                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                                SemanticConvention.GEN_AI_SYSTEM_LITELLM,
+                                server_address,
+                                server_port,
+                                request_model,
+                                "unknown",
+                                environment,
+                                application_name,
+                                start_time,
+                                time.time(),
+                                0,
+                                0,
+                                0,
+                                None,
+                                None,
+                                error_type=type(e).__name__ or "_OTHER",
+                            )
+
+                    return response
+        finally:
+            reset_litellm_span_active(litellm_token)
+
+    return wrapper
+
+
+def aembedding(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider=None,
+):
+    """
+    Generates a telemetry wrapper for GenAI embedding function call
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the GenAI embedding function call.
+        """
+        if is_litellm_span_active():
+            return await wrapped(*args, **kwargs)
+
+        litellm_token = set_litellm_span_active()
+        try:
+            server_address, server_port = get_litellm_server_address(instance, kwargs)
+            request_model = kwargs.get("model", "text-embedding-ada-002")
+
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+            )
+
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+                start_time = time.time()
+                fw_token = set_framework_llm_active()
+                try:
+                    response = await wrapped(*args, **kwargs)
+                finally:
+                    reset_framework_llm_active(fw_token)
+
+                try:
+                    response = process_embedding_response(
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=event_provider,
+                        **kwargs,
+                    )
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_embedding_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                            SemanticConvention.GEN_AI_SYSTEM_LITELLM,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
+
+                return response
+        finally:
+            reset_litellm_span_active(litellm_token)
+
+    return wrapper

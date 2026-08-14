@@ -1,0 +1,18 @@
+---
+title: "Definition"
+description: "The system prompt and tools captured for an agent's currently selected version"
+---
+
+The **Definition** tab shows the **System Prompt** captured for the currently selected [version](/latest/openlit/observability/agents/versioning), with raw/formatted view toggles, a copy button, and a diff view against the previous version. Alongside it, the **Tools** card lists every tool the agent called during that version's traces - name, description, and JSON schema, captured directly from `gen_ai.tool.*` / function-call attributes, or a "schema not captured" placeholder if the schema wasn't emitted.
+
+Because both cards are captured from live trace data rather than a static registry, the system prompt and tool list always match what the agent actually ran - not a hand-maintained description of it. If an agent hasn't emitted `gen_ai.system_instructions` or tool definitions yet, both cards show an empty state explaining what's missing.
+
+## Version scoping
+
+Definition always shows one specific version's snapshot - whichever is selected in the header, or the latest version if you haven't picked one. It never shows aggregate or all-versions data, since a system prompt and tool list only make sense as a single point-in-time capture.
+
+---
+
+<Card title="Versioning" href="/latest/openlit/observability/agents/versioning" icon='code-branch'>
+  How versions are fingerprinted, and how selecting one scopes every tab
+</Card>

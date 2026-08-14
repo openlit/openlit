@@ -1,0 +1,17 @@
+{
+  "name": "openlit",
+  "owner": {
+    "name": "OpenLit",
+    "email": "support@openlit.io"
+  },
+  "plugins": [
+    {
+      "name": "openlit-cc",
+      "description": "OpenTelemetry-native session, tool, and edit-decision capture for Claude Code.",
+      "author": {
+        "name": "OpenLit"
+      },
+      "source": "./plugins/claude-code"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+---
+title: 'Monitor PostgreSQL (psycopg3) using OpenTelemetry'
+description: 'OpenLIT auto-instruments psycopg3 PostgreSQL queries with OpenTelemetry, tracing query performance, transactions, and pgvector similarity search.'
+sidebarTitle: 'PostgreSQL (psycopg3)'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor applications using PostgreSQL with the psycopg3 driver. This includes tracking query performance, transaction operations, connection pool metrics, and more.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different databases or query types. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- psycopg `>= 3.0.0`
+- psycopg_pool (optional, for connection pool monitoring)
+
+## Supported Operations
+
+| Operation | Description |
+|-----------|-------------|
+| `execute` | Single query execution |
+| `executemany` | Batch query execution |
+| `copy` | COPY operations for bulk data transfer |
+| `callproc` | Stored procedure calls |
+| `commit` | Transaction commits |
+| `rollback` | Transaction rollbacks |
+
+## PostgreSQL-Specific Features
+
+OpenLIT automatically detects and enriches traces with PostgreSQL-specific features:
+
+- **pgvector Support**: Detects vector similarity operators (`<=>`, `<->`, `<#>`) and records the similarity metric (cosine, L2, inner product)
+- **Full-Text Search**: Detects `tsvector`, `tsquery`, `websearch_to_tsquery`, and `ts_rank` operations
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+## Advanced Configuration
+
+### Database-Specific Options
+
+OpenLIT provides additional configuration options for database instrumentation:
+
+| Parameter | Environment Variable | Description | Default |
+|-----------|---------------------|-------------|---------|
+| `capture_db_parameters` | `OPENLIT_CAPTURE_DB_PARAMETERS` | Capture query parameters in OTel per-key format (`db.query.parameter.<key>`) | `False` |
+
+### capture_db_parameters
+
+When enabled, query parameters are recorded as per-key span attributes following the OTel semantic convention `db.query.parameter.<key>`.
+
+```python
+import openlit
+
+openlit.init(capture_db_parameters=True)
+```
+
+<Warning>
+**Security Risk**: Enabling `capture_db_parameters` may expose sensitive data like passwords, tokens, or PII in your traces. Only enable in development environments or when you're certain parameters don't contain sensitive information.
+</Warning>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: Database Observability" href="/latest/sdk/quickstart-vectordb-observability" icon='bolt'>
+    Production-ready database monitoring setup in 2 simple steps
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to your requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

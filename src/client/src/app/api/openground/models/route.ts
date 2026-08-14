@@ -1,0 +1,360 @@
+import { withAudit } from "@/lib/audit/route";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { SERVER_EVENTS } from "@/constants/events";
+import { authOptions } from "@/app/auth";
+import { dataCollector } from "@/lib/platform/common";
+import { getDBConfigByUser } from "@/lib/db-config";
+import getMessage from "@/constants/messages";
+import PostHogServer from "@/lib/posthog";
+import Sanitizer from "@/utils/sanitizer";
+import { OPENLIT_PROVIDER_MODELS_TABLE_NAME } from "@/lib/platform/providers/table-details";
+import asaw from "@/utils/asaw";
+
+// Extend the session type to include id
+interface SessionWithId {
+	user?: {
+		id?: string;
+		name?: string | null;
+		email?: string | null;
+		image?: string | null;
+	};
+}
+
+// GET: List all custom models for a provider (or all providers if no provider specified)
+async function GETHandler(request: NextRequest) {
+	const session = (await getServerSession(authOptions)) as SessionWithId;
+
+	if (!session?.user?.id) {
+		return NextResponse.json(
+			{ error: getMessage().UNAUTHORIZED_USER },
+			{ status: 401 }
+		);
+	}
+
+	const [, dbConfig] = await asaw(getDBConfigByUser(true));
+	if (!dbConfig?.id) {
+		return NextResponse.json(
+			{ error: getMessage().DATABASE_CONFIG_NOT_FOUND },
+			{ status: 500 }
+		);
+	}
+
+	const searchParams = request.nextUrl.searchParams;
+	const provider = searchParams.get("provider");
+
+	// If no provider specified, return all custom models grouped by provider
+	if (!provider) {
+		const query = `
+			SELECT
+				toString(id) as customId,
+				model_id,
+				model_id as id,
+				provider,
+				display_name as displayName,
+				model_type as modelType,
+				context_window as contextWindow,
+				input_price_per_m_token as inputPricePerMToken,
+				output_price_per_m_token as outputPricePerMToken,
+				cache_read_price_per_m_token as cacheReadPricePerMToken,
+				cache_creation_price_per_m_token as cacheCreationPricePerMToken,
+				capabilities,
+				is_default as isDefault
+			FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+			ORDER BY provider, is_default DESC, created_at DESC
+		`;
+
+		const { data, err } = await dataCollector(
+			{ query },
+			"query",
+			dbConfig.id
+		);
+
+		if (err) {
+			return NextResponse.json(
+				{ error: getMessage().OPERATION_FAILED },
+				{ status: 500 }
+			);
+		}
+
+		// Group models by provider
+		const grouped: Record<string, any[]> = {};
+
+		(data as any[] || []).forEach((model: any) => {
+			if (!grouped[model.provider]) {
+				grouped[model.provider] = [];
+			}
+			grouped[model.provider].push(model);
+		});
+
+		return NextResponse.json(grouped);
+	}
+
+	// Get models for specific provider
+	const query = `
+		SELECT
+			toString(id) as customId,
+			provider,
+			model_id as id,
+			display_name as displayName,
+			model_type as modelType,
+			context_window as contextWindow,
+			input_price_per_m_token as inputPricePerMToken,
+			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
+		ORDER BY is_default DESC, created_at DESC
+	`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		dbConfig.id
+	);
+
+	if (err) {
+		return NextResponse.json(
+			{ error: getMessage().OPERATION_FAILED },
+			{ status: 500 }
+		);
+	}
+
+	return NextResponse.json(data || []);
+}
+
+// POST: Create or update a custom model
+async function POSTHandler(request: NextRequest) {
+	const startTimestamp = Date.now();
+	const session = (await getServerSession(authOptions)) as SessionWithId;
+
+	if (!session?.user?.id) {
+		return NextResponse.json(
+			{ error: getMessage().UNAUTHORIZED_USER },
+			{ status: 401 }
+		);
+	}
+
+	const [, dbConfig] = await asaw(getDBConfigByUser(true));
+	if (!dbConfig?.id) {
+		return NextResponse.json(
+			{ error: getMessage().DATABASE_CONFIG_NOT_FOUND },
+			{ status: 500 }
+		);
+	}
+
+	const body = await request.json();
+	const { provider, model, customId } = body;
+
+	// Support both model.id and model.model_id for compatibility
+	const modelId = model?.id || model?.model_id;
+	if (!provider || !modelId || !model?.displayName) {
+		return NextResponse.json(
+			{ error: "Provider, model ID, and display name are required" },
+			{ status: 400 }
+		);
+	}
+
+	// Check if updating existing model
+	if (customId) {
+		// Use ALTER TABLE UPDATE for ClickHouse
+		const capabilitiesArray = (model.capabilities || [])
+			.map((c: string) => `'${Sanitizer.sanitizeValue(c)}'`)
+			.join(", ");
+
+		const updateQuery = `
+			ALTER TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+			UPDATE
+				display_name = '${Sanitizer.sanitizeValue(model.displayName)}',
+				model_type = '${Sanitizer.sanitizeValue(model.modelType || "chat")}',
+				context_window = ${model.contextWindow || 4096},
+				input_price_per_m_token = ${model.inputPricePerMToken || 0},
+				output_price_per_m_token = ${model.outputPricePerMToken || 0},
+				cache_read_price_per_m_token = ${model.cacheReadPricePerMToken || 0},
+				cache_creation_price_per_m_token = ${
+					model.cacheCreationPricePerMToken || 0
+				},
+				capabilities = [${capabilitiesArray}],
+				updated_at = now()
+			WHERE model_id = '${Sanitizer.sanitizeValue(modelId)}'
+			  AND provider = '${Sanitizer.sanitizeValue(provider)}'
+		`;
+
+		const { err } = await dataCollector(
+			{ query: updateQuery },
+			"exec",
+			dbConfig.id
+		);
+
+		if (err) {
+			PostHogServer.fireEvent({
+				event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
+				startTimestamp,
+			});
+			return NextResponse.json(
+				{ error: err || getMessage().OPERATION_FAILED },
+				{ status: 500 }
+			);
+		}
+
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_SUCCESS,
+			startTimestamp,
+		});
+		return NextResponse.json({ success: true, updated: true });
+	}
+
+	// Insert new model - Use dataCollector's insert type to let ClickHouse handle UUID generation
+	const { err } = await dataCollector(
+		{
+			table: OPENLIT_PROVIDER_MODELS_TABLE_NAME,
+			values: [
+				{
+					provider: provider,
+					model_id: modelId,
+					display_name: model.displayName,
+					model_type: model.modelType || "chat",
+					context_window: model.contextWindow || 4096,
+					input_price_per_m_token: model.inputPricePerMToken || 0,
+					output_price_per_m_token: model.outputPricePerMToken || 0,
+					cache_read_price_per_m_token: model.cacheReadPricePerMToken || 0,
+					cache_creation_price_per_m_token:
+						model.cacheCreationPricePerMToken || 0,
+					capabilities: model.capabilities || [],
+					is_default: false,
+					created_by_user_id: session.user.id,
+				},
+			],
+		},
+		"insert",
+		dbConfig.id
+	);
+
+	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_FAILURE,
+			startTimestamp,
+		});
+		return NextResponse.json(
+			{ error: err || getMessage().OPERATION_FAILED },
+			{ status: 500 }
+		);
+	}
+
+	// Fetch the newly created model to return it
+	const selectQuery = `
+		SELECT
+			toString(id) as customId,
+			provider,
+			model_id as id,
+			display_name as displayName,
+			model_type as modelType,
+			context_window as contextWindow,
+			input_price_per_m_token as inputPricePerMToken,
+			output_price_per_m_token as outputPricePerMToken,
+			cache_read_price_per_m_token as cacheReadPricePerMToken,
+			cache_creation_price_per_m_token as cacheCreationPricePerMToken,
+			capabilities,
+			is_default as isDefault
+		FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
+		  AND model_id = '${Sanitizer.sanitizeValue(modelId)}'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`;
+
+	const { data: newModel } = await dataCollector(
+		{ query: selectQuery },
+		"query",
+		dbConfig.id
+	);
+
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.OPENGROUND_MODELS_CREATE_SUCCESS,
+		startTimestamp,
+	});
+	return NextResponse.json({
+		success: true,
+		created: true,
+		model: (newModel as any[])?.[0]
+	});
+}
+
+// DELETE: Remove a custom model
+async function DELETEHandler(request: NextRequest) {
+	const startTimestamp = Date.now();
+	const session = (await getServerSession(authOptions)) as SessionWithId;
+
+	if (!session?.user?.id) {
+		return NextResponse.json(
+			{ error: getMessage().UNAUTHORIZED_USER },
+			{ status: 401 }
+		);
+	}
+
+	const [, dbConfig] = await asaw(getDBConfigByUser(true));
+	if (!dbConfig?.id) {
+		return NextResponse.json(
+			{ error: getMessage().DATABASE_CONFIG_NOT_FOUND },
+			{ status: 500 }
+		);
+	}
+
+	const searchParams = request.nextUrl.searchParams;
+	const id = searchParams.get("id");
+	const modelId = searchParams.get("model_id");
+	const provider = searchParams.get("provider");
+
+	if (!id && !modelId) {
+		return NextResponse.json(
+			{ error: "Model ID or model_id parameter is required" },
+			{ status: 400 }
+		);
+	}
+
+	// Build WHERE clause — prefer model_id+provider match, fall back to UUID id
+	const whereConditions: string[] = [];
+
+	if (modelId && provider) {
+		whereConditions.push(`model_id = '${Sanitizer.sanitizeValue(modelId)}'`);
+		whereConditions.push(`provider = '${Sanitizer.sanitizeValue(provider)}'`);
+	} else if (id) {
+		whereConditions.push(`(toString(id) = '${Sanitizer.sanitizeValue(id)}' OR model_id = '${Sanitizer.sanitizeValue(id)}')`);
+	}
+
+	const deleteQuery = `
+		DELETE FROM ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}
+		WHERE ${whereConditions.join(" AND ")}
+	`;
+
+	const { err } = await dataCollector(
+		{ query: deleteQuery },
+		"exec",
+		dbConfig.id
+	);
+
+	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.OPENGROUND_MODELS_DELETE_FAILURE,
+			startTimestamp,
+		});
+		return NextResponse.json(
+			{ error: err || getMessage().OPERATION_FAILED },
+			{ status: 500 }
+		);
+	}
+
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.OPENGROUND_MODELS_DELETE_SUCCESS,
+		startTimestamp,
+	});
+	return NextResponse.json({ success: true, deleted: true });
+}
+
+export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);
+export const POST = withAudit(withCurrentOrganisationPermission("openground:configure", POSTHandler));
+export const DELETE = withAudit(withCurrentOrganisationPermission("openground:configure", DELETEHandler));

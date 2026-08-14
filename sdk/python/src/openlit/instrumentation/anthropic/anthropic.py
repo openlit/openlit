@@ -1,0 +1,421 @@
+"""
+Module for monitoring Anthropic API calls.
+"""
+
+import time
+from opentelemetry import trace as trace_api, context as context_api
+from opentelemetry.trace import SpanKind
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+    is_framework_llm_active,
+    safe_detach,
+)
+from openlit.instrumentation.anthropic.utils import (
+    process_chunk,
+    process_chat_response,
+    process_streaming_chat_response,
+)
+from openlit.semcov import SemanticConvention
+
+
+def messages(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider=None,
+):
+    """
+    Generates a telemetry wrapper for Anthropic Messages.create calls.
+    """
+
+    class TracedSyncStream:
+        """
+        Wrapper for streaming responses to collect telemetry.
+        """
+
+        def __init__(
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+        ):
+            self.__wrapped__ = wrapped
+            self._span = span
+            self._span_name = span_name
+            self._llmresponse = ""
+            self._response_id = ""
+            self._response_model = ""
+            self._finish_reason = ""
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._tool_calls_by_index = {}
+            self._tool_calls = None
+            self._response_role = ""
+            self._kwargs = kwargs
+            self._start_time = time.time()
+            self._end_time = None
+            self._timestamps = []
+            self._ttft = 0
+            self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+
+        def __enter__(self):
+            self.__wrapped__.__enter__()
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+
+        def __iter__(self):
+            return self
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped object."""
+            return getattr(self.__wrapped__, name)
+
+        def __next__(self):
+            try:
+                chunk = self.__wrapped__.__next__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopIteration:
+                try:
+                    with self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                except Exception as e:
+                    handle_exception(self._span, e)
+                raise
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the Anthropic Messages.create call.
+        """
+
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
+
+        streaming = kwargs.get("stream", False)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.anthropic.com", 443
+        )
+        request_model = kwargs.get("model", "claude-3-5-sonnet-latest")
+
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+
+        # pylint: disable=no-else-return
+        if streaming:
+            span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            ctx = trace_api.set_span_in_context(span)
+            token = context_api.attach(ctx)
+            try:
+                awaited_wrapped = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                safe_detach(token)
+                span.end()
+                raise
+            safe_detach(token)
+
+            return TracedSyncStream(
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
+            )
+
+        else:
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
+
+                try:
+                    response = process_chat_response(
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=event_provider,
+                        **kwargs,
+                    )
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
+
+            return response
+
+    return wrapper
+
+
+def messages_stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider=None,
+):
+    """
+    Generates a telemetry wrapper for Anthropic Messages.stream calls.
+    """
+
+    class TracedMessageStream:
+        """
+        Wrapper for Anthropic Sync MessageStream to collect telemetry.
+        """
+
+        def __init__(
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+        ):
+            self.__wrapped__ = wrapped
+            self._span = span
+            self._span_name = span_name
+            self._llmresponse = ""
+            self._response_id = ""
+            self._response_model = ""
+            self._finish_reason = ""
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._tool_calls_by_index = {}
+            self._tool_calls = None
+            self._response_role = ""
+            self._kwargs = kwargs
+            self._start_time = time.time()
+            self._end_time = None
+            self._timestamps = []
+            self._ttft = 0
+            self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+
+        def __iter__(self):
+            return self
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped stream object."""
+            if name == "text_stream":
+                return self._instrumented_text_stream
+            if name == "get_final_message":
+                return self._instrumented_get_final_message
+            if name == "until_done":
+                return self._instrumented_until_done
+            return getattr(self.__wrapped__, name)
+
+        def _instrumented_get_final_message(self):
+            """Drains the stream to finalize the span before returning the result."""
+            for _ in self:
+                pass
+            original_get_final_message = getattr(self.__wrapped__, "get_final_message")
+            return original_get_final_message()
+
+        @property
+        def _instrumented_text_stream(self):
+            """Yields text while ensuring every chunk hits our instrumentation."""
+
+            def text_generator():
+                for event in self:
+                    if (
+                        hasattr(event, "delta")
+                        and hasattr(event.delta, "type")
+                        and event.delta.type == "text_delta"
+                        and hasattr(event.delta, "text")
+                    ):
+                        yield event.delta.text
+
+            return text_generator()
+
+        def _instrumented_until_done(self):
+            """Consumes the stream to ensure background telemetry is completed."""
+            for _ in self:
+                pass
+
+        def __next__(self):
+            try:
+                chunk = self.__wrapped__.__next__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopIteration:
+                try:
+                    with self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                except Exception as e:
+                    handle_exception(self._span, e)
+                raise
+
+    class TracedMessageStreamManager:
+        """
+        Wrapper for Anthropic MessageStreamManager to instrument the 'with' block.
+        """
+
+        def __init__(
+            self,
+            original_manager,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=None,
+        ):
+            self._original_manager = original_manager
+            self._span = span
+            self._span_name = span_name
+            self._kwargs = kwargs
+            self._server_address = server_address
+            self._server_port = server_port
+            self._event_provider = event_provider
+            self._token = None
+
+        def __enter__(self):
+            """
+            Attaches the span context and enters the original stream manager.
+            """
+            ctx = trace_api.set_span_in_context(self._span)
+            self._token = context_api.attach(ctx)
+
+            stream = self._original_manager.__enter__()
+
+            return TracedMessageStream(
+                stream,
+                self._span,
+                self._span_name,
+                self._kwargs,
+                self._server_address,
+                self._server_port,
+                self._event_provider,
+            )
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            """
+            Detaches the context and handles any exceptions inside the 'with' block.
+            """
+            if self._token:
+                safe_detach(self._token)
+                self._token = None
+
+            if exc_type:
+                handle_exception(self._span, exc_val)
+                if self._span.is_recording():
+                    self._span.end()
+
+            return self._original_manager.__exit__(exc_type, exc_val, exc_tb)
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the original manager."""
+            return getattr(self._original_manager, name)
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the Anthropic Messages.stream call.
+        """
+
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
+
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.anthropic.com", 443
+        )
+        request_model = kwargs.get("model", "claude-3-5-sonnet-latest")
+
+        # Start span - Span activation is handled by the Manager class
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+
+        span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+
+        try:
+            original_manager = wrapped(*args, **kwargs)
+        except Exception as e:
+            handle_exception(span, e)
+            span.end()
+            raise
+
+        return TracedMessageStreamManager(
+            original_manager,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider,
+        )
+
+    return wrapper

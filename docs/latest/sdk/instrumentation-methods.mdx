@@ -1,0 +1,62 @@
+---
+title: "Instrumentation Methods"
+sidebarTitle: "Instrumentation Methods"
+description: "Choose between zero-code instrumentation or manual instrumentation for AI observability"
+icon: "wand-magic-sparkles"
+---
+
+OpenLIT SDK offers two ways to add opentelemetry-native observability to your AI applications:
+
+<CardGroup cols={2}>
+  <Card title="Zero-code instrumentation" icon="terminal">
+    Runtime wrapper, no code changes needed
+    
+    ```bash terminal
+    openlit-instrument \
+      python app.py
+    ```
+    
+    **Use when:**
+    - Working with existing/production apps
+    - Code changes are restricted or risky
+  </Card>
+  <Card title="Manual instrumentation" icon="code">
+    Add 2 lines to your code for auto instrumentation
+    
+    ```python example.py
+    import openlit
+    openlit.init()
+    ```
+    
+    **Use when:**
+    - Building new applications
+    - Need custom spans or metadata
+    - Want advanced configuration options
+  </Card>
+</CardGroup>
+
+## Comparison
+
+| | Zero-code instrumentation | Manual instrumentation |
+|---|---|---|
+| **Code changes** | None | 2 lines |
+| **Advanced features** | Basic configuration | Full access to custom spans, metadata |
+| **Setup time** | Instant | 1 minute |
+| **Best for** | Production apps, Existing Apps | New apps, custom needs |
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
+    60+ AI integrations with automatic instrumentation and performance tracking
+  </Card>
+  <Card title="Deploy OpenLIT Platform" href="/latest/openlit/installation" icon='circle-down'>
+    Deployment options for scalable LLM monitoring infrastructure
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

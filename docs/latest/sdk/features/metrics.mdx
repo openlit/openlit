@@ -1,0 +1,73 @@
+---
+title: 'Metrics'
+description: "Visualize and monitor AI application metrics in OpenLIT platform with custom dashboards and advanced analytics"
+---
+
+## SDK Configuration Options
+
+OpenLIT offers automatic instrumentation with OpenTelemetry for various LLM providers, frameworks, and VectorDBs, enabling you to gain valuable insights into the behavior and performance of your AI applications through metrics.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart: LLM Observablity" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
+    60+ AI integrations with automatic instrumentation and performance tracking
+  </Card>
+</CardGroup>
+
+## Disable Metrics
+You have the option to disable the collection of metrics if needed. By default, metrics collection is enabled.
+
+Example:
+
+```python
+# Disable metrics collection
+openlit.init(disable_metrics=True)
+```
+
+## Using an existing OTel Metrics instance
+
+You have the flexibility to integrate your existing OpenTelemetry (OTel) Metrics instance configuration with OpenLIT. 
+If you already have an OTel Metrics instance instantiated in your application, you can pass it directly to `openlit.init(meter=meter)`. 
+This integration ensures that OpenLIT utilizes your custom OTel metrics instance settings, allowing for a unified metrics setup across your application.
+
+Example:
+
+```python
+# Instantiate an OpenTelemetry Metrics meter
+meter = ...
+
+# Pass the meter to OpenLIT
+openlit.init(meter=meter)
+```
+
+## Add custom resource attributes
+
+The [`OTEL_RESOURCE_ATTRIBUTES`](https://opentelemetry.io/docs/languages/sdk-configuration/general/#otel_resource_attributes) environment variable allows you to provide additional OpenTelemetry resource attributes when starting your application with OpenLIT. OpenLIT already includes some default resource attributes:
+
+- `telemetry.sdk.name: openlit`
+- `service.name: YOUR_SERVICE_NAME`
+- `deployment.environment: YOUR_ENVIRONMENT_NAME`
+
+You can enhance these default resource attributes by adding your own using the `OTEL_RESOURCE_ATTRIBUTES` variable. Your custom attributes will be added on top of the existing OpenLIT attributes, providing additional context to your telemetry data. Simply format your attributes as `key1=value1,key2=value2`.
+
+For example:
+
+```shell
+export OTEL_RESOURCE_ATTRIBUTES="service.instance.id=YOUR_SERVICE_ID,k8s.pod.name=K8S_POD_NAME,k8s.namespace.name=K8S_NAMESPACE,k8s.node.name=K8S_NODE_NAME"
+```
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Deploy OpenLIT" href="/latest/openlit/installation" icon='circle-down'>
+    Deployment options for scalable LLM monitoring infrastructure
+  </Card>
+  <Card title="Integrations" href="/latest/sdk/integrations/overview" icon='circle-nodes'>
+    60+ AI integrations with automatic instrumentation and performance tracking
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send elemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

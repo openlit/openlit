@@ -1,0 +1,66 @@
+---
+title: "Connect Multiple Databases"
+sidebarTitle: "Connect Multiple Databases"
+description: "Connect multiple ClickHouse database configurations in one OpenLIT project and switch which one powers traces, dashboards, Prompt Hub, and Vault"
+icon: "database"
+---
+
+OpenLIT lets a single project hold **multiple database configurations** - each one is a ClickHouse connection (host, port, database, credentials) that you can select as the active source for observability and platform data. The active configuration powers traces, dashboards, Prompt Hub, Vault, Manage Models, and the rest of the app for your session.
+
+Managing those connections lives under **Organisation → Project → Database configurations**. There is no standalone “database configuration” settings page - `/settings/database-config` redirects to Organisation.
+
+## When to use multiple databases
+
+- **Environments** - keep development, staging, and production data on separate ClickHouse databases and switch between them without changing projects.
+- **Isolation** - give different tenants or teams their own database configurations inside the same organisation structure.
+- **One OpenLIT, many stores** - analyze several ClickHouse backends from a single OpenLIT deployment.
+
+Search interest for niche phrases like "multi-tenant observability platform" is too thin and noisy to lean on - the product job is simply: connect and switch multiple databases from one place.
+
+## Add and switch configurations
+
+<Steps>
+  <Step title="Open Organisation">
+    Select **Organisation** (or **Projects**) from the sidebar under Settings.
+  </Step>
+  <Step title="Open a project">
+    Open the project that should own the configuration, then switch to the **Database configurations** tab. Configurations are project-scoped - one created under project A is never selectable from project B.
+  </Step>
+  <Step title="Add New Config">
+    Click **Add New Config** (or **Add database config** from the empty state). Fill in **Config Name**, **Environment**, **Username**, **Password**, **Host**, **Port**, **Database**, and optional **Query params**, then **Save**.
+  </Step>
+  <Step title="Mark it active">
+    Use the checkbox on the list row (tooltip: **Mark … as the active database config**) or pick the config from the header **Databases** switcher. Only one is active for your user in that project at a time - teammates can select a different one.
+  </Step>
+</Steps>
+
+There is no **Test connection** button on the form - OpenLIT checks connectivity after a config is set active. The active database configuration drives what you see across the product, including dashboards, Telemetry, Prompt Hub, and Vault.
+
+## Sharing and project boundaries
+
+You can share a database configuration with specific teammates by email, with separate edit / delete / re-share permissions. For the full field list, selection behavior, and FAQs, see [Database Config](/latest/openlit/organisation/database-config) under Organisation.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Can two projects share one database configuration?">
+    No. A configuration belongs to the project it was created in. Point another project at the same ClickHouse instance by creating a new configuration there.
+  </Accordion>
+  <Accordion title="Do I need a new ClickHouse cluster for every configuration?">
+    No. Multiple configurations can target the same cluster with different database names, or entirely different clusters.
+  </Accordion>
+  <Accordion title="Where did the Database Config settings page go?">
+    `/settings/database-config` redirects to Organisation - open a project and use the **Database configurations** tab.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Field-level guide for adding and selecting ClickHouse configs
+  </Card>
+  <Card title="Organisation" href="/latest/openlit/organisation/overview" icon="building">
+    Organisations, projects, and how database configs fit the hierarchy
+  </Card>
+</CardGroup>

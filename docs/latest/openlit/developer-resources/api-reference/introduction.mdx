@@ -1,0 +1,40 @@
+---
+title: 'Introduction'
+description: 'OpenAPI specification for API Endpoints in OpenLIT'
+---
+<CardGroup cols={2}>
+  <Card
+    title="Prompt Hub API"
+    icon="message"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/prompt-hub/get"
+  >
+  </Card>
+  <Card
+    title="Vault API"
+    icon="vault"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/vault/get"
+  >
+  </Card>
+  <Card
+    title="Rule Engine API"
+    icon="sliders"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
+  >
+  </Card>
+  <Card
+    title="Manage Models API"
+    icon="cube"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models"
+  >
+  </Card>
+</CardGroup>
+
+## Authentication
+
+Most SDK-facing endpoints (Prompt Hub, Vault, Rule Engine) use an Authorization header:
+
+```yaml
+Authorization: Bearer <api-key>
+```
+
+[Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models) UI APIs use a signed-in OpenLIT session instead. The [public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing) requires no auth.

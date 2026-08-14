@@ -1,0 +1,17 @@
+# LiteLLM proxy config for the dev demo. Uses mock_response so the gateway is
+# fully functional without any real provider API key: it returns a canned
+# OpenAI-format completion. This lets the controller discover the connection to
+# the proxy (custom_llm_hosts) AND lets OBI's custom (OpenAI-compatible)
+# extractor parse a real, well-formed response payload.
+model_list:
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: gpt-4o-mini
+      api_key: "sk-mock"
+      mock_response: "Hello from the LiteLLM proxy (mock response)."
+
+general_settings:
+  master_key: sk-1234
+
+litellm_settings:
+  drop_params: true

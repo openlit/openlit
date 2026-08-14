@@ -1,0 +1,41 @@
+---
+title: "Security"
+description: "Encryption at rest, per-user access, and CORS for browser-based secret retrieval"
+---
+
+## Encryption at rest
+
+Secret values are encrypted with AES-256-GCM before they're stored - they're never written in plaintext.
+
+The encryption key comes from the `OPENLIT_VAULT_ENCRYPTION_KEY` environment variable. If that's not set, OpenLIT falls back to `NEXTAUTH_SECRET`.
+
+<Warning>
+  Keep whichever key you use stable. If the encryption key changes after secrets have been saved, those secrets can no longer be decrypted - you'll see an error asking you to either re-save the secret or restore the original key.
+</Warning>
+
+## Who can see a secret
+
+Access to a secret depends on how it's being accessed:
+
+- **From the Vault page itself**, secrets are per-user: only the person who created a secret can view, edit, or delete it there.
+- **Via API key** (SDK or REST calls, see [Retrieve Secrets](/latest/openlit/developer-resources/vault/retrieve-secrets)), access isn't scoped to a single creator - any valid API key for your OpenLIT instance can retrieve secrets by Key or Tag.
+
+## CORS for browser-based retrieval
+
+CORS only matters if your application calls the secret-retrieval endpoint directly from browser JavaScript, from a different origin than your OpenLIT instance. It does not apply to server-to-server SDK or REST calls, since CORS is a browser-only mechanism enforced through the `Origin` header - which server-to-server requests don't send.
+
+If you do need browser-based cross-origin retrieval:
+
+- Add your application's origin to `OPENLIT_ALLOWED_CORS_ORIGINS`. Comma-separate multiple origins:
+
+  ```bash
+  OPENLIT_ALLOWED_CORS_ORIGINS="https://app.example.com,https://admin.example.com"
+  ```
+
+- Two other environment variables are also checked and merged into the same allow-list, so an origin listed in any of the three is allowed: `OPENLIT_ALLOWED_ORIGINS` and `NEXTAUTH_URL`.
+- Calls made from the exact same origin as your OpenLIT instance are always allowed automatically, regardless of the allow-list.
+- Do not use wildcard origins for secret retrieval.
+
+<Note>
+  Server-to-server calls made from the SDK or a backend REST client are not subject to CORS at all - you don't need to add anything to the allow-list for those.
+</Note>

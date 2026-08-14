@@ -1,0 +1,40 @@
+---
+title: 'Monitor Replicate using OpenTelemetry'
+description: 'Trace AI applications built on the Replicate API with OpenTelemetry auto-instrumentation, delivering AI observability into model usage and performance.'
+sidebarTitle: 'Replicate'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor AI applications built using the Replicate API. This includes tracking performance, model usage, and how users interact with your application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different models or providers. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- Replicate JavaScript/TypeScript SDK client
+
+## Get started 
+
+<Steps>
+    <Step title="Install OpenLIT">
+      Open your command line or terminal and run:
+      ```shell
+      npm install openlit
+      ```
+    </Step>
+    <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

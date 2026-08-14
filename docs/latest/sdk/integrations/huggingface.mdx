@@ -1,0 +1,101 @@
+---
+title: 'Monitor HuggingFace using OpenTelemetry'
+description: 'Instrument Hugging Face Transformers, the Inference API, and Transformers.js with OpenTelemetry for AI observability into tokens, cost, and inference calls.'
+sidebarTitle: 'HuggingFace'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from HuggingFace. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- HuggingFace Transformers Python SDK client `>= 4.48.0` 
+- HuggingFace Inference TypeScript SDK (`@huggingface/inference`) `>= 2.0.0`
+- Transformers.js (`@huggingface/transformers` `>= 3` or `@xenova/transformers`) for local inference
+
+## Supported APIs
+
+| SDK | Instrumented surface | Inference type |
+|-----|----------------------|----------------|
+| **Python** | `TextGenerationPipeline.__call__` | Local (transformers) |
+| **TypeScript** | `@huggingface/inference` chat completions | Remote (Inference API) |
+| **TypeScript** | Transformers.js pipeline calls (`@huggingface/transformers` / `@xenova/transformers`) | Local |
+
+Local text-generation is reported as the `chat` operation to match the Python SDK. Other local Transformers.js pipelines (summarization, translation, fill-mask, question-answering, classification) are reported as `text_completion`, and feature-extraction / sentence-similarity as `embeddings`.
+
+## Prerequisites
+
+- Install the HuggingFace SDK yourself. OpenLIT does not bundle it as a dependency.
+- For TypeScript, call `openlit.init()` **before** the HuggingFace module is first loaded so OpenTelemetry can hook into the SDK at runtime.
+
+## TypeScript example (local Transformers.js)
+
+```typescript
+import openlit from "openlit";
+
+openlit.init({ otlpEndpoint: "YOUR_OTEL_ENDPOINT" });
+
+import { pipeline } from "@huggingface/transformers";
+
+const generator = await pipeline("text-generation", "Xenova/distilgpt2");
+const output = await generator("OpenTelemetry makes observability", {
+  max_new_tokens: 32,
+  temperature: 0.7,
+});
+```
+
+## Configuration
+
+| Option | Behavior |
+|--------|----------|
+| `captureMessageContent` | Gates `gen_ai.input.messages` / `gen_ai.output.messages` on spans and in events |
+| `disableEvents` | Suppresses all inference events |
+| `disableMetrics` | Global - metrics instruments are not set up |
+| `disabledInstrumentors: ['transformers']` | Disables the local Transformers.js instrumentation |
+| `disabledInstrumentors: ['huggingface']` | Disables the remote Inference API instrumentation |
+
+<Note>
+On the Python SDK, inference events are only emitted when `capture_message_content` is enabled. On the TypeScript SDK, inference events are emitted when `disableEvents` is `false`, regardless of `captureMessageContent` (message fields within the event are still gated by content capture).
+</Note>
+
+## Get started 
+
+<Steps>
+    <Step title="Install OpenLIT">
+      Open your command line or terminal and run:
+      <Tabs>
+        <Tab title="Python">
+          ```shell
+          pip install openlit
+          ```
+        </Tab>
+        <Tab title="Typescript">
+          ```shell
+          npm install openlit
+          # Remote Inference API
+          npm install @huggingface/inference
+          # or local inference with Transformers.js
+          npm install @huggingface/transformers
+          ```
+          The older `@xenova/transformers` package is also supported for local inference.
+        </Tab>
+      </Tabs>
+    </Step>
+    <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

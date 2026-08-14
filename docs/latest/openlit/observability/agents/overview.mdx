@@ -1,0 +1,55 @@
+---
+title: "Overview"
+description: "AI agent observability, built entirely from OpenTelemetry trace data - discover every agent and its live call graph with zero registration"
+---
+
+The **Agents** page (`/agents`) is OpenLIT's AI agent observability view: a single place to see every agent OpenLIT has observed, built entirely from your OpenTelemetry trace data - there's nothing to declare or register up front. As soon as an agent's spans (including tool calls, model calls, and system prompts) show up in your traces, OpenLIT surfaces it here. See [Setup](/latest/openlit/observability/agents/setup) for what it takes to get an agent showing up.
+
+## Agents list
+
+The **Applications** tab lists every agent and service instrumented with the OpenLIT SDK, discovered from `service.name` and `gen_ai.*` span attributes. Each row shows the service name, host system, runtime, providers in use, and when it was last seen. You can filter by System, Provider, or discovery Status.
+
+Click any row to open its detail view, which has five tabs:
+
+<CardGroup cols={3}>
+  <Card title="Overview" href="/latest/openlit/observability/agents/overview#overview-and-the-agent-graph" icon='diagram-project'>
+    Metadata grid and the trace-derived call graph
+  </Card>
+  <Card title="Analytics" href="/latest/openlit/observability/agents/analytics" icon='chart-line'>
+    Latency, cost, tokens, and errors over time
+  </Card>
+  <Card title="Monitoring" href="/latest/openlit/observability/agents/monitoring" icon='activity'>
+    The agent's own traces and requests
+  </Card>
+  <Card title="Definition" href="/latest/openlit/observability/agents/definition" icon='file-code'>
+    Captured system prompt and tools
+  </Card>
+  <Card title="Configuration" href="/latest/openlit/observability/agents/configuration" icon='sliders'>
+    LLM / Agent Observability toggles
+  </Card>
+</CardGroup>
+
+Every tab can be scoped to a specific [version](/latest/openlit/observability/agents/versioning) of the agent - a trace-derived config snapshot that changes whenever the observed system prompt, tools, models, or runtime config change.
+
+<Note>
+Coding-assistant clients (Claude Code, Cursor, Codex, Windsurf) have their own tab and detail layout, since they're IDE/CLI clients rather than deployed services - see the dedicated [Coding Agents](/latest/openlit/coding-agents/overview) section.
+</Note>
+
+## Overview and the agent graph
+
+The Overview tab starts with a metadata grid - Requests (24h), Primary Model, Models, Tools, Age, and Last Seen - followed by a **DAG (directed acyclic graph)** of the agent's call flow: nodes for span names and tool calls (derived from `gen_ai.tool.name` and function-call attributes on LLM spans), edges annotated with call count, p50 latency, and error rate.
+
+This graph is computed live from ClickHouse: OpenLIT samples up to 500 recent traces for the agent and self-joins the spans to build an aggregate call graph. It is **entirely trace-derived** - there's no static or declared workflow definition behind it, so the graph always reflects what the agent actually did, not what it was designed to do. The graph always shows one specific version's traffic - the version selected in the header, or the latest version if you haven't picked one - see [Versioning](/latest/openlit/observability/agents/versioning) for how that differs from the other tabs.
+
+---
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Do I need to register or declare my agents?">
+    No. Every agent, its call graph, tools, and versions are discovered automatically from OpenTelemetry trace data - there's nothing to register up front.
+  </Accordion>
+  <Accordion title="How is the agent graph built?">
+    OpenLIT samples up to 500 recent traces for the agent and self-joins the spans into an aggregate call graph, with nodes for span names and tool calls and edges annotated with call count, latency, and error rate.
+  </Accordion>
+</AccordionGroup>

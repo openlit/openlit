@@ -1,0 +1,58 @@
+---
+title: "Overview"
+description: "Rule Engine is a rules engine for conditional AI resource retrieval - define matching conditions once, and let your application or OpenLIT ask what applies right now"
+---
+
+Rule Engine lets you define matching conditions once, instead of hardcoding lookup logic like "if model is X, use prompt Y" throughout your application. A rule pairs a set of conditions on runtime fields - like the model being called, the deployment environment, or the cost of a request - with the resources that should come back when those conditions are met. Your application calls a single API to ask "what applies right now?", and OpenLIT itself uses the same mechanism when retrieving a [Context](/latest/openlit/prompts-experiments/context/overview) or [Prompt](/latest/openlit/prompts-experiments/prompt-hub/overview) that's linked to a matching rule.
+
+<CardGroup cols={2}>
+  <Card title="Create & Manage Rules" href="/latest/openlit/prompts-experiments/rule-engine/create-and-manage-rules" icon='list-check'>
+    Create a rule from the dialog, edit its details, and delete rules you no longer need
+  </Card>
+  <Card title="Conditions" href="/latest/openlit/prompts-experiments/rule-engine/conditions" icon='filter'>
+    Build condition groups, pick fields and operators, and combine groups with AND/OR
+  </Card>
+  <Card title="Preview" href="/latest/openlit/prompts-experiments/rule-engine/preview" icon='flask-vial'>
+    Sanity-check a rule's saved conditions against your last 100 traces before relying on it
+  </Card>
+  <Card title="Linked Entities" href="/latest/openlit/prompts-experiments/rule-engine/linked-entities" icon='link'>
+    Connect a rule to a Context, Prompt, or Evaluation Type so a match returns real resources
+  </Card>
+  <Card title="Evaluate API" href="/latest/openlit/prompts-experiments/rule-engine/evaluate-api" icon='code'>
+    Call the evaluate endpoint from any application with a Bearer API key
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is the Rule Engine used for?">
+    Rule Engine matches runtime inputs - like model name, deployment environment, or cost - against conditions you define, then returns the Context, Prompt, or Evaluation Type linked to any rule that matches. This lets your application (or OpenLIT itself) look up the right resource for the current situation instead of hardcoding that logic in code.
+  </Accordion>
+  <Accordion title="What kinds of resources can a rule return?">
+    A rule can be linked to a Context, a Prompt, or an Evaluation Type. When the rule matches, all of its linked entities are returned, and their full data can be included in the response if you ask for it.
+  </Accordion>
+  <Accordion title="Can I call the Rule Engine from outside OpenLIT?">
+    Yes. The evaluate API accepts a Bearer API-key token, so any application can evaluate rules and retrieve linked entities without a dashboard session. See the [Evaluate API](/latest/openlit/prompts-experiments/rule-engine/evaluate-api) page.
+  </Accordion>
+  <Accordion title="How are multiple conditions combined?">
+    Conditions are organized into groups, each with its own AND/OR logic. The groups themselves are then combined using the rule's top-level Group Operator, so you can express nested matching logic without writing any code. See [Conditions](/latest/openlit/prompts-experiments/rule-engine/conditions) for details.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Context" href="/latest/openlit/prompts-experiments/context/overview" icon='file-lines'>
+    Store reusable knowledge and system instructions that can be retrieved when rules match
+  </Card>
+  <Card title="Prompt Hub" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Use evaluate_rule() from Python, TypeScript, or Go with full parameter reference and examples
+  </Card>
+  <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
+    Full reference for the Rule Engine evaluate endpoint with request and response schemas
+  </Card>
+</CardGroup>

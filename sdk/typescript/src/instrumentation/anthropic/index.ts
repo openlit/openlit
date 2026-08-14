@@ -1,0 +1,60 @@
+import {
+  InstrumentationBase,
+  InstrumentationModuleDefinition,
+  InstrumentationNodeModuleDefinition,
+  isWrapped,
+} from '@opentelemetry/instrumentation';
+import { InstrumentationConfig } from '@opentelemetry/instrumentation';
+import { INSTRUMENTATION_PREFIX } from '../../constant';
+import AnthropicWrapper from './wrapper';
+
+export interface AnthropicInstrumentationConfig extends InstrumentationConfig {}
+
+export default class OpenlitAnthropicInstrumentation extends InstrumentationBase {
+  constructor(config: AnthropicInstrumentationConfig = {}) {
+    super(`${INSTRUMENTATION_PREFIX}/instrumentation-anthropic`, '1.0.0', config);
+  }
+
+  protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
+    const module = new InstrumentationNodeModuleDefinition(
+      '@anthropic-ai/sdk',
+      ['>= 0.21.0'],
+      (moduleExports) => {
+        this._patch(moduleExports);
+        return moduleExports;
+      },
+      (moduleExports) => {
+        if (moduleExports !== undefined) {
+          this._unpatch(moduleExports);
+        }
+      }
+    );
+    return [module];
+  }
+
+  public manualPatch(anthropic: any): void {
+    this._patch(anthropic);
+  }
+
+  protected _patch(moduleExports: any) {
+    try {
+      const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
+      if (isWrapped(AnthropicClass.Messages.prototype.create)) {
+        this._unwrap(AnthropicClass.Messages.prototype, 'create');
+      }
+
+      this._wrap(
+        AnthropicClass.Messages.prototype,
+        'create',
+        AnthropicWrapper._patchMessageCreate(this.tracer)
+      );
+    } catch (e) {
+      console.error('Error in _patch method:', e);
+    }
+  }
+
+  protected _unpatch(moduleExports: any) {
+    const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
+    this._unwrap(AnthropicClass.Messages.prototype, 'create');
+  }
+}

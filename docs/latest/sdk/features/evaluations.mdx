@@ -1,0 +1,438 @@
+---
+title: 'Evaluations'
+description: 'Evaluate your LLM responses for hallucination, bias, toxicity, and more - using the same evals for dev and prod'
+---
+
+## Overview
+
+The OpenLIT SDK provides server-side evaluations via `openlit.eval()` (Python) and `openlit.eval()` (JS/TS). Evaluations use the same engine, rules, contexts, and custom eval types configured in the OpenLIT dashboard - working identically for development (offline) and production (online) stages.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" href="#quick-start">
+    Run your first offline evaluation in 3 lines of code.
+  </Card>
+  <Card title="Batch Evaluation" href="#batch-evaluation">
+    Evaluate multiple prompt/response pairs concurrently.
+  </Card>
+  <Card title="Attributes & Rules" href="#automatic-attribute-resolution">
+    Auto-resolve OTel attributes for context-aware evaluations.
+  </Card>
+</CardGroup>
+
+---
+
+## Offline Evaluations
+
+Offline evaluations run on the OpenLIT server using the same evaluation engine as online/auto evaluations. The SDK sends your prompt and response to the server, which runs LLM-as-judge evaluation and returns structured results.
+
+### Prerequisites
+
+1. A running OpenLIT instance with evaluation configured in the dashboard.
+2. An OpenLIT API key (create one in the dashboard under **Settings > API Keys**).
+
+### Quick Start
+
+<Tabs>
+<Tab title="Python">
+```python
+import openlit
+
+# Option 1: Configure once via init()
+openlit.init(
+    openlit_url="http://localhost:3000",
+    openlit_api_key="openlit-xxxxx",
+)
+
+# Run evaluation
+result = openlit.eval(
+    prompt="What is the capital of France?",
+    response="The capital of France is Lyon.",
+    contexts=["Paris is the capital and largest city of France."],
+)
+
+# Use in assertions
+assert result.passed, f"Evaluation failed: {result.failed_evals}"
+```
+
+```python
+# Option 2: Pass credentials directly (overrides init/env vars)
+result = openlit.eval(
+    prompt="Explain quantum computing",
+    response="Quantum computers use qubits...",
+    openlit_url="http://localhost:3000",
+    openlit_api_key="openlit-xxxxx",
+)
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isPassed, getFailedEvals } from 'openlit';
+
+// Option 1: Configure once via init()
+openlit.init({
+  openlitUrl: 'http://localhost:3000',
+  openlitApiKey: 'openlit-xxxxx',
+});
+
+// Run evaluation
+const result = await openlit.eval({
+  prompt: 'What is the capital of France?',
+  response: 'The capital of France is Lyon.',
+  contexts: ['Paris is the capital and largest city of France.'],
+});
+
+// Use in assertions
+console.log(result.success);       // true
+console.log(isPassed(result));     // false - hallucination detected
+console.log(getFailedEvals(result)); // [{ type: 'hallucination', ... }]
+```
+
+```typescript
+// Option 2: Pass credentials directly (overrides init/env vars)
+const result = await openlit.eval({
+  prompt: 'Explain quantum computing',
+  response: 'Quantum computers use qubits...',
+  openlitUrl: 'http://localhost:3000',
+  openlitApiKey: 'openlit-xxxxx',
+});
+```
+</Tab>
+</Tabs>
+
+You can also configure via environment variables:
+
+```bash
+export OPENLIT_URL="http://localhost:3000"
+export OPENLIT_API_KEY="openlit-xxxxx"
+```
+
+### `openlit.eval()` / `openlit.eval({})` Parameters
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `prompt` | `str` | The user prompt sent to the LLM. **Required.** | - |
+| `response` | `str` | The LLM's response to evaluate. **Required.** | - |
+| `contexts` | `list[str]` | Ground truth context for the evaluation. | `None` |
+| `eval_types` | `list[str]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `None` |
+| `attributes` | `dict` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `None` |
+| `threshold_score` | `float` | Score threshold for verdict determination. | `0.5` |
+| `store_results` | `bool` | Whether to store results in the OpenLIT database. | `True` |
+| `run_id` | `str` | Identifier to group related evaluations. | `None` |
+| `metadata` | `dict` | Custom key-value metadata to attach to results. | `None` |
+| `openlit_api_key` | `str` | API key (overrides `init()` and env var). | `None` |
+| `openlit_url` | `str` | Server URL (overrides `init()` and env var). | `None` |
+| `print_results` | `bool` | Print formatted summary to terminal. | `True` |
+</Tab>
+<Tab title="TypeScript / JavaScript">
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `prompt` | `string` | The user prompt sent to the LLM. **Required.** | - |
+| `response` | `string` | The LLM's response to evaluate. **Required.** | - |
+| `contexts` | `string[]` | Ground truth context for the evaluation. | `undefined` |
+| `evalTypes` | `string[]` | Specific eval types to run (e.g. `["hallucination", "toxicity"]`). Runs all enabled types if omitted. | `undefined` |
+| `attributes` | `Record<string, string \| number \| boolean>` | Trace attributes for rule engine matching (overrides auto-resolved attributes). | `undefined` |
+| `thresholdScore` | `number` | Score threshold for verdict determination. | `0.5` |
+| `storeResults` | `boolean` | Whether to store results in the OpenLIT database. | `true` |
+| `runId` | `string` | Identifier to group related evaluations. | `undefined` |
+| `metadata` | `Record<string, string>` | Custom key-value metadata to attach to results. | `undefined` |
+| `openlitApiKey` | `string` | API key (overrides `init()` and env var). | `undefined` |
+| `openlitUrl` | `string` | Server URL (overrides `init()` and env var). | `undefined` |
+| `printResults` | `boolean` | Print formatted summary to terminal. | `true` |
+</Tab>
+</Tabs>
+
+### Result Object
+
+`openlit.eval()` returns an `OfflineEvalResult` with these properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `success` | `bool` | Whether the evaluation completed without errors. |
+| `passed` | `bool` | `True` if no evaluation types returned a "yes" verdict. |
+| `evaluations` | `list[OfflineEvaluation]` | Individual evaluation results per type. |
+| `failed_evals` | `list[OfflineEvaluation]` | Evaluations that returned a "yes" verdict. |
+| `context_applied` | `ContextInfo` | Information about rule-matched context. |
+| `metadata` | `dict` | Model, run ID, token usage, and cost metadata. |
+| `error` | `str` | Error message if `success` is `False`. |
+
+Each `OfflineEvaluation` contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `str` | The evaluation type (e.g. "hallucination"). |
+| `score` | `float` | The evaluation score (0.0 to 1.0). |
+| `verdict` | `str` | "yes" if detected, "no" otherwise. |
+| `classification` | `str` | Category of the detection or "none". |
+| `explanation` | `str` | Brief explanation of the evaluation result. |
+
+### Selecting Evaluation Types
+
+Run specific evaluation types instead of all enabled ones:
+
+<Tabs>
+<Tab title="Python">
+```python
+result = openlit.eval(
+    prompt="Discuss workplace equality",
+    response="Older workers can't learn new tech.",
+    eval_types=["bias", "toxicity"],
+)
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+const result = await openlit.eval({
+  prompt: 'Discuss workplace equality',
+  response: "Older workers can't learn new tech.",
+  evalTypes: ['bias', 'toxicity'],
+});
+```
+</Tab>
+</Tabs>
+
+### Discover Available Types
+
+<Tabs>
+<Tab title="Python">
+```python
+types = openlit.get_eval_types()
+for t in types:
+    print(f"{t.id}: {t.label} (custom={t.is_custom}, enabled={t.enabled})")
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+const types = await openlit.getEvalTypes();
+for (const t of types) {
+  console.log(`${t.id}: ${t.label} (custom=${t.isCustom}, enabled=${t.enabled})`);
+}
+```
+</Tab>
+</Tabs>
+
+### Batch Evaluation
+
+Evaluate multiple prompt/response pairs concurrently:
+
+<Tabs>
+<Tab title="Python">
+```python
+dataset = [
+    {
+        "prompt": "What is 2+2?",
+        "response": "2+2 equals 4.",
+        "contexts": ["Basic arithmetic."],
+    },
+    {
+        "prompt": "Who wrote Hamlet?",
+        "response": "Hamlet was written by Charles Dickens.",
+    },
+    {
+        "prompt": "Describe gravity",
+        "response": "Gravity is the force of attraction between masses.",
+        "eval_types": ["hallucination"],
+    },
+]
+
+batch_result = openlit.eval_batch(
+    dataset=dataset,
+    eval_types=["hallucination", "toxicity"],
+    max_concurrent=5,
+)
+
+print(f"Pass rate: {batch_result.pass_rate:.0%}")
+assert batch_result.all_passed
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isAllPassed, getPassRate } from 'openlit';
+
+const batchResult = await openlit.evalBatch({
+  dataset: [
+    {
+      prompt: 'What is 2+2?',
+      response: '2+2 equals 4.',
+      contexts: ['Basic arithmetic.'],
+    },
+    {
+      prompt: 'Who wrote Hamlet?',
+      response: 'Hamlet was written by Charles Dickens.',
+    },
+    {
+      prompt: 'Describe gravity',
+      response: 'Gravity is the force of attraction between masses.',
+      evalTypes: ['hallucination'],
+    },
+  ],
+  evalTypes: ['hallucination', 'toxicity'],
+  maxConcurrent: 5,
+});
+
+console.log(`Pass rate: ${(getPassRate(batchResult) * 100).toFixed(0)}%`);
+console.log(`All passed: ${isAllPassed(batchResult)}`);
+```
+</Tab>
+</Tabs>
+
+#### `openlit.eval_batch()` Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `dataset` | `list[dict]` | List of items with `prompt` and `response` keys. **Required.** | - |
+| `eval_types` | `list[str]` | Default eval types (can be overridden per item). | `None` |
+| `attributes` | `dict` | Default attributes (can be overridden per item). | `None` |
+| `threshold_score` | `float` | Default threshold score. | `0.5` |
+| `store_results` | `bool` | Store all results in the database. | `True` |
+| `run_id` | `str` | Group all batch evaluations under this ID. Auto-generated if omitted. | `None` |
+| `max_concurrent` | `int` | Maximum number of concurrent evaluations. | `5` |
+| `print_results` | `bool` | Print aggregate summary to terminal. | `True` |
+
+### Automatic Attribute Resolution
+
+The SDK automatically resolves trace attributes for rule engine matching, enabling context-aware evaluations without extra configuration. The resolution order (last wins):
+
+1. `OTEL_RESOURCE_ATTRIBUTES` environment variable
+2. `OTEL_SERVICE_NAME` environment variable
+3. `OPENLIT_ENVIRONMENT` / `OTEL_DEPLOYMENT_ENVIRONMENT` environment variable
+4. `openlit.init()` configuration (`application_name`, `environment`)
+5. Explicit `attributes` parameter (highest priority)
+
+<Tabs>
+<Tab title="Python">
+```python
+import openlit
+
+# These are auto-detected for rule matching:
+openlit.init(
+    application_name="my-chatbot",
+    environment="staging",
+)
+
+# Rules configured in the dashboard for service.name="my-chatbot"
+# and deployment.environment="staging" will automatically match.
+result = openlit.eval(
+    prompt="Hello",
+    response="Hi there!",
+)
+
+# Override auto-resolved attributes:
+result = openlit.eval(
+    prompt="Hello",
+    response="Hi there!",
+    attributes={
+        "service.name": "different-service",
+        "custom.tag": "experiment-v2",
+    },
+)
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit from 'openlit';
+
+// These are auto-detected for rule matching:
+openlit.init({
+  applicationName: 'my-chatbot',
+  environment: 'staging',
+});
+
+// Rules configured in the dashboard for service.name="my-chatbot"
+// and deployment.environment="staging" will automatically match.
+const result = await openlit.eval({
+  prompt: 'Hello',
+  response: 'Hi there!',
+});
+
+// Override auto-resolved attributes:
+const result2 = await openlit.eval({
+  prompt: 'Hello',
+  response: 'Hi there!',
+  attributes: {
+    'service.name': 'different-service',
+    'custom.tag': 'experiment-v2',
+  },
+});
+```
+</Tab>
+</Tabs>
+
+### CI/CD Integration
+
+Use offline evaluations in your test suite or CI pipeline:
+
+<Tabs>
+<Tab title="Python">
+```python
+import openlit
+import pytest
+
+def test_no_hallucination():
+    result = openlit.eval(
+        prompt="What year did WW2 end?",
+        response="World War 2 ended in 1945.",
+        eval_types=["hallucination"],
+        print_results=False,
+    )
+    assert result.passed, f"Hallucination detected: {result.failed_evals}"
+
+def test_batch_quality():
+    dataset = load_test_cases()  # your test data
+    result = openlit.eval_batch(
+        dataset=dataset,
+        print_results=False,
+    )
+    assert result.pass_rate >= 0.95, f"Pass rate too low: {result.pass_rate:.0%}"
+```
+</Tab>
+<Tab title="TypeScript / JavaScript">
+```typescript
+import openlit, { isPassed, getFailedEvals, isAllPassed, getPassRate } from 'openlit';
+import { describe, test, expect } from 'vitest'; // or jest
+
+describe('LLM quality', () => {
+  test('no hallucination', async () => {
+    const result = await openlit.eval({
+      prompt: 'What year did WW2 end?',
+      response: 'World War 2 ended in 1945.',
+      evalTypes: ['hallucination'],
+      printResults: false,
+    });
+    expect(isPassed(result)).toBe(true);
+  });
+
+  test('batch quality', async () => {
+    const result = await openlit.evalBatch({
+      dataset: loadTestCases(),
+      printResults: false,
+    });
+    expect(getPassRate(result)).toBeGreaterThanOrEqual(0.95);
+  });
+});
+```
+</Tab>
+</Tabs>
+
+### Configuration Precedence
+
+For `openlit_api_key` and `openlit_url`, the resolution order is:
+
+1. Explicit function parameter (highest priority)
+2. `openlit.init()` configuration
+3. `OPENLIT_API_KEY` / `OPENLIT_URL` environment variables
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Deploy OpenLIT" href="/latest/openlit/installation" icon='circle-down'>
+    Deployment options for scalable LLM monitoring infrastructure
+  </Card>
+  <Card title="Online Evaluations" href="/latest/openlit/quickstart-evals" icon='bolt'>
+    Get started with evaluating your LLM responses in 2 simple steps on OpenLIT
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

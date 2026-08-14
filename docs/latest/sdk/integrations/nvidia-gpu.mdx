@@ -1,0 +1,127 @@
+---
+title: 'Monitor NVIDIA GPUs using OpenTelemetry'
+description: 'Monitor NVIDIA GPU hardware powering AI workloads with OpenTelemetry, tracking utilization, temperature, memory, and power for AI observability.'
+sidebarTitle: 'NVIDIA GPUs'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracking GPU metrics like utilization, temperature, memory usage and power consumption.
+
+
+## Get started 
+
+<CardGroup cols={2}>
+  <Card title="Using the SDK" href="#using-the-sdk" icon="file-code">
+    Collect and send GPU performance metrics directly from your application to an OpenTelemetry endpoint.
+  </Card>
+  <Card title="Using the Collector" href="#using-the-collector" icon="robot">
+    Install the OpenTelemetry GPU Collector as a Docker container to collect and send GPU performance metrics to an OpenTelemetry endpoint.
+  </Card>
+</CardGroup>
+
+
+<AccordionGroup>
+  <Accordion title="Using the SDK">
+    <Steps>
+        <Step title="Install OpenLIT">
+          Open your command line or terminal and run:
+          ```shell
+          pip install openlit
+          ```
+        </Step>
+        <IntegrationMethods />
+    </Steps>
+  </Accordion>
+  <Accordion title="Using the Collector">
+  <Steps>
+    <Step title="Pull `otel-gpu-collector` Docker Image">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+
+        ```sh
+        docker pull ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+     </Step>
+     <Step title="Run `otel-gpu-collector` Docker container">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+        Here's a quick example showing how to run the container with the required environment variables:
+
+        ```sh
+        docker run --gpus all --pid=host \
+            -e OTEL_SERVICE_NAME='chatbot' \
+            -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=staging' \
+            -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
+            -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \
+            ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+
+        `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
+
+        For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/opentelemetry-gpu-collector/).
+
+        **Note:** If you've deployed **OpenLIT** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
+
+        <AccordionGroup>
+          <Accordion title="Docker Compose: Add the following config under `services`">
+
+          ```yaml
+          otel-gpu-collector:
+            image: ghcr.io/openlit/otel-gpu-collector:latest
+            pid: host
+            environment:
+              OTEL_SERVICE_NAME: 'chatbot'
+              OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+            device_requests:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+            depends_on:
+            - otel-collector
+            restart: always
+          ```
+
+          </Accordion>
+          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+
+          ```sh
+          OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
+          ```
+
+          </Accordion>
+        </AccordionGroup>
+        ### Environment Variables
+
+        OTel GPU Collector uses standard OpenTelemetry environment variables for configuration:
+
+        | Environment Variable              | Description                                                   | Default Value           |
+        |-----------------------------------|---------------------------------------------------------------|-------------------------|
+        | `OTEL_SERVICE_NAME`               | Service/application name attached to all metrics              | `default`               |
+        | `OTEL_RESOURCE_ATTRIBUTES`        | Resource attributes, e.g. `deployment.environment=production` | `deployment.environment=default` |
+        | `OTEL_EXPORTER_OTLP_ENDPOINT`     | OpenTelemetry OTLP endpoint URL                               | (required)              |
+        | `OTEL_EXPORTER_OTLP_HEADERS`      | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
+        | `OTEL_METRIC_EXPORT_INTERVAL`     | Metric polling interval in milliseconds                       | `10000`                 |
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+
+<Card title="Collected Metrics" href="/latest/openlit/observability/telemetry#metrics" icon='table'>
+Details on the types of metrics collected and their descriptions.
+</Card>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

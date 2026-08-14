@@ -1,0 +1,79 @@
+This guide shows how to run OpenLIT evaluations programmatically from your own code - the same evaluation engine, evaluators, and Rule Engine used for online/auto evaluations, called directly via the SDK.
+
+<Steps>
+  <Step title="Get an API key">
+    In OpenLIT, go to **Settings → API Keys** and create a key. Programmatic evaluations run against your OpenLIT server, so you'll need this key plus your OpenLIT URL.
+  </Step>
+  <Step title="Run an evaluation">
+    <Tabs>
+      <Tab title="Python">
+      ```python
+      import openlit
+
+      openlit.init(
+          openlit_url="http://localhost:3000",
+          openlit_api_key="openlit-xxxxx",
+      )
+
+      result = openlit.eval(
+          prompt="What is the capital of France?",
+          response="The capital of France is Lyon.",
+          contexts=["Paris is the capital and largest city of France."],
+      )
+
+      assert result.passed, f"Evaluation failed: {result.failed_evals}"
+      ```
+      </Tab>
+      <Tab title="Typescript">
+      ```typescript
+      import openlit, { isPassed, getFailedEvals } from "openlit"
+
+      openlit.init({
+        openlitUrl: "http://localhost:3000",
+        openlitApiKey: "openlit-xxxxx",
+      })
+
+      const result = await openlit.eval({
+        prompt: "What is the capital of France?",
+        response: "The capital of France is Lyon.",
+        contexts: ["Paris is the capital and largest city of France."],
+      })
+
+      console.log(isPassed(result), getFailedEvals(result))
+      ```
+      </Tab>
+    </Tabs>
+    You can also set the URL and API key via `OPENLIT_URL` / `OPENLIT_API_KEY` environment variables instead of `init()`.
+  </Step>
+  <Step title="Evaluate a whole dataset">
+    Pass a list of prompt/response pairs to run them concurrently - useful as a CI/CD quality gate:
+    <Tabs>
+      <Tab title="Python">
+      ```python
+      batch_result = openlit.eval_batch(dataset=[
+          {"prompt": "What is 2+2?", "response": "2+2 equals 4."},
+          {"prompt": "Who wrote Hamlet?", "response": "Hamlet was written by Charles Dickens."},
+      ])
+
+      assert batch_result.all_passed, f"Pass rate: {batch_result.pass_rate:.0%}"
+      ```
+      </Tab>
+      <Tab title="Typescript">
+      ```typescript
+      import openlit, { isAllPassed } from "openlit"
+
+      const batchResult = await openlit.evalBatch({
+        dataset: [
+          { prompt: "What is 2+2?", response: "2+2 equals 4." },
+          { prompt: "Who wrote Hamlet?", response: "Hamlet was written by Charles Dickens." },
+        ],
+      })
+
+      console.log(isAllPassed(batchResult))
+      ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+Evaluations run programmatically use the exact same evaluators, custom types, and [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) context matching configured in your OpenLIT dashboard - trace attributes like `service.name` and `deployment.environment` are auto-resolved from `openlit.init()` for rule matching, or you can pass your own via the `attributes` parameter.

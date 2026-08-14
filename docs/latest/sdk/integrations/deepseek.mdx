@@ -1,0 +1,41 @@
+---
+title: 'Monitor DeepSeek using OpenTelemetry'
+description: 'OpenLIT auto-instruments DeepSeek models (via the OpenAI SDK) with OpenTelemetry, enabling AI observability with cost tracking and token usage monitoring.'
+sidebarTitle: 'DeepSeek'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using DeepSeek models. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+As DeepSeek uses the OpenAI SDK, This integration is compatible with  
+
+- OpenAI Python SDK client `>=1.13.0` 
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

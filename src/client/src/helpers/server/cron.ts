@@ -1,0 +1,141 @@
+import getMessage from "@/constants/messages";
+import { Job } from "@/types/cron";
+import { consoleLog } from "@/utils/log";
+import { execSync } from "child_process";
+import { isValidCron } from "cron-validator";
+import { existsSync, mkdirSync } from "fs";
+import path from "path";
+
+export default class Cron {
+	START_MARKER =
+		"# Do not modify this section it is being used by OpenLIT ::: Start";
+	END_MARKER =
+		"# Do not modify this section it is being used by OpenLIT ::: End";
+
+	getCronJobs() {
+		try {
+			return execSync("crontab -l", { encoding: "utf-8" });
+		} catch (error) {
+			return ""; // No crontab exists
+		}
+	}
+
+	validateCronSchedule(schedule: string): void {
+		if (!isValidCron(schedule, { alias: true, seconds: false })) {
+			throw new Error(getMessage().CRON_RECURRING_TIME_INVALID);
+		}
+	}
+
+	createLogDirectoryIfNotExists(logPath: string): void {
+		const logDir = path.dirname(logPath);
+		if (!existsSync(logDir)) {
+			mkdirSync(logDir, { recursive: true });
+		}
+	}
+
+	updateCrontab(job: Job): void {
+		this.validateCronSchedule(job.cronSchedule);
+		const currentCrontab = this.getCronJobs();
+		const lines = currentCrontab.split("\n");
+
+		const startIdx = lines.indexOf(this.START_MARKER);
+		const endIdx = lines.indexOf(this.END_MARKER);
+
+		// Extract existing managed section
+		let managedSection: string[] = [];
+		if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
+			managedSection = lines.slice(startIdx + 1, endIdx);
+		}
+
+		// Remove any existing entry with the same CRON_ID
+		managedSection = managedSection.filter(
+			(line) => !line.includes(`CRON_ID=${job.cronId}`)
+		);
+
+		// Cron runs with a minimal environment and does NOT inherit the
+		// container's env vars, so the API auth secret has to be written into
+		// the crontab entry itself. We inject CRON_JOB_SECRET centrally here
+		// (rather than in every cron config) so the materialize / evaluation /
+		// pricing scripts can send it on the X-CRON-JOB header and clear the
+		// middleware's cron-auth check. When it isn't set we omit it and the
+		// scripts fall back to the literal "true" (see check-auth.ts).
+		const cronEnvVars: Record<string, string> = { ...job.cronEnvVars };
+		if (process.env.CRON_JOB_SECRET) {
+			cronEnvVars.CRON_JOB_SECRET = process.env.CRON_JOB_SECRET;
+		}
+
+		const envVars = Object.entries(cronEnvVars)
+			.map(([key, value]) => `${key}=${value}`)
+			.join(" ");
+
+		this.createLogDirectoryIfNotExists(job.cronLogPath);
+
+		// Resolve the absolute path to Node now (at crontab-write time) using the
+		// currently-running interpreter. Cron's PATH is minimal and often does not
+		// include node (nvm/homebrew installs especially), so `$(which node)` at
+		// run-time collapses to empty and /bin/sh tries to exec the .js directly,
+		// failing with "Permission denied".
+		const nodeBin = process.execPath;
+
+		// Add the new cron job entry
+		const newEntry = `${job.cronSchedule} CRON_ID=${job.cronId} ${envVars} ${nodeBin} ${job.cronScriptPath} >> ${job.cronLogPath} 2>&1`;
+		managedSection.push(newEntry);
+
+		// Construct the new crontab content
+		let newCrontab: string;
+		if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+			// If section does not exist, create it
+			newCrontab = [
+				currentCrontab.trim(),
+				this.START_MARKER,
+				newEntry,
+				this.END_MARKER,
+			]
+				.filter(Boolean)
+				.join("\n");
+		} else {
+			// Replace the existing managed section
+			newCrontab = [
+				...lines.slice(0, startIdx + 1),
+				...managedSection,
+				...lines.slice(endIdx),
+			].join("\n");
+		}
+
+		// Apply the new crontab safely using stdin
+		execSync("crontab -", {
+			input: newCrontab.trimEnd() + "\n",
+			encoding: "utf-8",
+		});
+	}
+
+	deleteCronJob(cronId: string): void {
+		const currentCrontab = this.getCronJobs();
+		const lines = currentCrontab.split("\n");
+
+		const startIdx = lines.indexOf(this.START_MARKER);
+		const endIdx = lines.indexOf(this.END_MARKER);
+
+		if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+			consoleLog("Cron job section not found in crontab");
+			return;
+		}
+
+		const managedSection = lines.slice(startIdx + 1, endIdx);
+		const updatedSection = managedSection.filter(
+			(line) => !line.includes(`CRON_ID=${cronId}`)
+		);
+
+		const newCrontab = [
+			...lines.slice(0, startIdx + 1),
+			...updatedSection,
+			...lines.slice(endIdx),
+		].join("\n");
+
+		// Apply the new crontab safely using stdin
+		execSync("crontab -", {
+			input: newCrontab.trimEnd() + "\n",
+			encoding: "utf-8",
+		});
+	}
+}

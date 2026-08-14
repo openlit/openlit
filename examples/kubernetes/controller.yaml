@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openlit-controller
+  namespace: openlit
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openlit-controller
+rules:
+  - apiGroups: [""]
+    resources: [pods, nodes, namespaces, services, replicationcontrollers]
+    verbs: [get, list, watch, create, delete]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets, daemonsets]
+    verbs: [get, list, watch, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openlit-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openlit-controller
+subjects:
+  - kind: ServiceAccount
+    name: openlit-controller
+    namespace: openlit
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openlit-controller-config
+  namespace: openlit
+data:
+  config.yaml: |
+    openlit_url: "http://openlit.openlit.svc.cluster.local:3000"
+    obi_binary_path: "/usr/local/bin/obi"
+    otlp_endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+    poll_interval: 10s
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: openlit-controller
+  namespace: openlit
+  labels:
+    app: openlit-controller
+spec:
+  selector:
+    matchLabels:
+      app: openlit-controller
+  template:
+    metadata:
+      labels:
+        app: openlit-controller
+    spec:
+      serviceAccountName: openlit-controller
+      hostPID: true
+      containers:
+        - name: controller
+          image: openlit-controller:local
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/etc/openlit-controller/config.yaml"]
+          env:
+            - name: OPENLIT_PROC_ROOT
+              value: "/host/proc"
+            - name: OPENLIT_ENVIRONMENT
+              value: "kubernetes-example"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys-kernel-debug
+              mountPath: /sys/kernel/debug
+              readOnly: true
+            - name: bpf
+              mountPath: /sys/fs/bpf
+            - name: config
+              mountPath: /etc/openlit-controller
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys-kernel-debug
+          hostPath:
+            path: /sys/kernel/debug
+        - name: bpf
+          hostPath:
+            path: /sys/fs/bpf
+        - name: config
+          configMap:
+            name: openlit-controller-config
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists

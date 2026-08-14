@@ -1,0 +1,14 @@
+---
+title: "Export Pricing"
+openapi: "GET /api/openground/models/export"
+---
+
+Authenticated export used by the **Export Pricing** button on Manage Models.
+
+```bash
+curl -X GET "/api/openground/models/export" \
+  -H "Cookie: <signed-in-session-cookie>" \
+  -o pricing.json
+```
+
+For a public URL the SDK can call without a session cookie, use [Public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing).

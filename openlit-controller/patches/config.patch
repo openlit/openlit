@@ -1,0 +1,48 @@
+diff --git a/pkg/config/payload_extraction.go b/pkg/config/payload_extraction.go
+index 16e5a77..f4c7ce8 100644
+--- a/pkg/config/payload_extraction.go
++++ b/pkg/config/payload_extraction.go
+@@ -87,13 +87,20 @@ type GenAIConfig struct {
+ 	Rerank RerankConfig `yaml:"rerank"`
+ 	// Vector retrieval payload extraction and parsing (Pinecone, Qdrant, Milvus, Chroma, Weaviate, etc.)
+ 	Retrieval RetrievalConfig `yaml:"retrieval"`
++	// Custom OpenAI-compatible gateway (LiteLLM, vLLM, LocalAI, OpenRouter, ...)
++	// payload extraction and parsing. Reuses the OpenAI parser; safe to enable
++	// broadly because OpenAISpan returns ok=false on non-OpenAI-shaped bodies.
++	Custom CustomConfig `yaml:"custom"`
++	// Ollama native API (/api/chat, /api/generate) payload extraction and parsing.
++	Ollama OllamaConfig `yaml:"ollama"`
+ }
+ 
+ func (g *GenAIConfig) Enabled() bool {
+ 	return g.Anthropic.Enabled || g.OpenAI.Enabled ||
+ 		g.Gemini.Enabled || g.Qwen.Enabled || g.Bedrock.Enabled ||
+ 		g.MCP.Enabled ||
+-		g.Embedding.Enabled || g.Rerank.Enabled || g.Retrieval.Enabled
++		g.Embedding.Enabled || g.Rerank.Enabled || g.Retrieval.Enabled ||
++		g.Custom.Enabled || g.Ollama.Enabled
+ }
+ 
+ type OpenAIConfig struct {
+@@ -141,6 +148,21 @@ type RetrievalConfig struct {
+ 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_RETRIEVAL_ENABLED" validate:"boolean"`
+ }
+ 
++type CustomConfig struct {
++	// Enable custom OpenAI-compatible gateway payload extraction and parsing
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_CUSTOM_ENABLED" validate:"boolean"`
++	// Hosts is the set of configured gateway destinations ("host:port" or
++	// "host"). A captured request is parsed as a custom GenAI span only when its
++	// destination matches one of these, so unrelated traffic is never tagged.
++	// Populated by the controller from the dashboard's custom_llm_hosts.
++	Hosts []string `yaml:"hosts" env:"OTEL_EBPF_HTTP_CUSTOM_HOSTS"`
++}
++
++type OllamaConfig struct {
++	// Enable Ollama native API payload extraction and parsing
++	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_OLLAMA_ENABLED" validate:"boolean"`
++}
++
+ type JSONRPCConfig struct {
+ 	// Enable JSON-RPC payload extraction and parsing
+ 	Enabled bool `yaml:"enabled" env:"OTEL_EBPF_HTTP_JSONRPC_ENABLED" validate:"boolean"`

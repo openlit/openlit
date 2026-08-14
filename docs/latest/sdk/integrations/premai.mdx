@@ -1,0 +1,40 @@
+---
+title: 'Monitor Prem AI using OpenTelemetry'
+description: 'Monitor Prem AI LLM applications with OpenTelemetry auto-instrumentation, enabling AI observability into performance, token usage, and cost tracking.'
+sidebarTitle: 'Prem AI'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using Prem AI models. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with  
+- Prem AI Python SDK client `>= 0.3.78` 
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

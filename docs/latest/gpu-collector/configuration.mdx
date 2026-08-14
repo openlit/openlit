@@ -1,0 +1,158 @@
+---
+title: 'Configuration'
+description: 'Environment variables reference for the OpenTelemetry GPU Collector'
+icon: 'sliders'
+---
+
+The collector is configured entirely via environment variables. All variables follow the standard [OpenTelemetry SDK configuration](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) spec where applicable.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(required)* | OTLP endpoint URL, e.g. `http://localhost:4318` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | | Auth headers in `key=val,key2=val2` format |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` or `http/protobuf` |
+| `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`key=val,...`). Prefer setting `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here — overrides auto-detect. Org tags such as `team` or `datacenter` are not auto-detected; set them here. |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds**. For self-hosted LLM hosts, `15000` is recommended |
+| `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
+| `OPENLIT_HOST_METRICS` | `true` | Collect system + collector-process host metrics. Set `false` for a GPU-only light footprint |
+| `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). Default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts). Set to an empty string to report all types |
+| `OTEL_GPU_PROCESS_CMDLINE` | `true` | Export truncated `process.command_line` on GPU process metrics |
+| `OTEL_GPU_PROCESS_CMDLINE_MAX_LEN` | `512` | Max characters for `process.command_line` |
+| `OTEL_GPU_ALLOCATED_UTIL_THRESHOLD` | `0.05` | Util threshold (0–1) used with process memory for `hw.gpu.allocated` |
+| `OTEL_GPU_INTERCONNECT_ENABLED` | `true` | Export NVLink/XGMI interconnect throughput when available |
+| `K8S_NODE_NAME` | | Kubernetes node name via downward API (`spec.nodeName`). Also accepts `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` (Operator) or legacy `NODE_NAME` |
+| `K8S_CLUSTER_NAME` | | Explicit cluster name when cloud auto-detect fails (on-prem). Alias: `OPENLIT_K8S_CLUSTER_NAME`. Only applied in Kubernetes |
+| `OPENLIT_K8S_NODE_LOOKUP` | `true` | When `false`, skip `GET /api/v1/nodes/$K8S_NODE_NAME` for instance-type / provider discovery |
+| `OPENLIT_K8S_POD_RESOURCES` | `true` in K8s | Use kubelet PodResources socket; joins GPU UUID → `k8s.pod.name` / namespace / container |
+| `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node via the Kubernetes API (needs `list` on pods) for UID/container-id joins |
+| `POD_RESOURCES_SOCKET` | OS default | Override kubelet PodResources socket / named pipe path |
+| `OPENLIT_CLOUD_DETECT` | `true` | When `false`, skip AWS/GCP/Azure IMDS probes (recommended on bare metal to avoid link-local timeouts) |
+
+## Host, Kubernetes, and cloud identity
+
+Resource attributes follow [OpenTelemetry semantic conventions](https://opentelemetry.io/docs/specs/semconv/resource/) for host, K8s, and cloud:
+
+| Attribute | When set |
+|---|---|
+| `host.name` | Always (from `OTEL_RESOURCE_ATTRIBUTES`, or `K8S_NODE_NAME` → GCE hostname in K8s → OS hostname) |
+| `k8s.node.name` | When a node env is set (`K8S_NODE_NAME` / Operator / legacy `NODE_NAME`) |
+| `k8s.cluster.name` | In Kubernetes only: `K8S_CLUSTER_NAME` / `OTEL_RESOURCE_ATTRIBUTES` → GKE / AKS / EKS metadata |
+| `cloud.provider` | Auto: K8s `Node.spec.providerID` → AWS/GCP/Azure IMDS → DMI vendor hint |
+| `cloud.platform` | e.g. `aws_eks`, `gcp_kubernetes_engine`, `aws_ec2`, `azure_aks` |
+| `host.type` | Instance type (e.g. `g4dn.xlarge`, `a2-highgpu-1g`, `Standard_NC6s_v3`) from node labels or IMDS |
+| `cloud.region` / `cloud.availability_zone` | Topology labels or IMDS |
+| `cloud.account.id` | AWS account / GCP project / Azure subscription when available |
+| `host.id` | Cloud instance ID from providerID or IMDS |
+| `openlit.host.type.source` | Which tier filled `host.type`: `k8s_label`, `imds`, or `dmi` |
+
+**Discovery order** (later tiers only fill missing fields; never blocks startup; never emits `"unknown"`):
+
+1. Explicit `OTEL_RESOURCE_ATTRIBUTES` (wins via SDK `WithFromEnv`)
+2. Kubernetes Node `GET` (needs `get` on `nodes` + `K8S_NODE_NAME`) — OpenCost-style labels / providerID
+3. Parallel AWS / GCP / Azure instance metadata (short timeout)
+4. DMI `sys_vendor` hint for provider only
+
+Use `cloud.provider` + `host.type` + `cloud.region` as join keys for future UI cost attribution. The collector does **not** compute prices.
+
+Kubernetes is detected via `KUBERNETES_SERVICE_HOST`. On GKE, AKS, and EKS the cluster name is read from the instance metadata service (short timeout; failures are ignored). Self-managed clusters should set `k8s.cluster.name` via `OTEL_RESOURCE_ATTRIBUTES` or `K8S_CLUSTER_NAME`.
+
+### Recommended Kubernetes DaemonSet (OTel-native)
+
+```yaml
+env:
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://otel-collector:4317"
+  # Optional when cloud auto-detect is unavailable (on-prem / self-managed):
+  # - name: K8S_CLUSTER_NAME
+  #   value: my-cluster
+  # Or append to OTEL_RESOURCE_ATTRIBUTES:
+  #   ,k8s.cluster.name=my-cluster,cloud.provider=aws,host.type=g4dn.xlarge,cloud.region=us-east-1
+```
+
+If you only set `K8S_NODE_NAME` (without packing it into `OTEL_RESOURCE_ATTRIBUTES`), the collector still maps it to `host.name` and `k8s.node.name` automatically.
+
+For K8s node label / providerID discovery, grant the DaemonSet ServiceAccount:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-gpu-collector-node-get
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-gpu-collector-node-get
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-gpu-collector-node-get
+subjects:
+  - kind: ServiceAccount
+    name: otel-gpu-collector
+    namespace: monitoring
+```
+
+<Note>
+On EKS, pods without `hostNetwork` may fail IMDSv2 when the node `httpPutResponseHopLimit` is `1`. Prefer K8s node lookup (above), raise the hop limit to `2+`, or run with `hostNetwork: true`. Timeouts are soft-fail and do not stop the collector.
+</Note>
+
+## Common configurations
+
+### Minimal - send to a local OTel Collector
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+./opentelemetry-gpu-collector
+```
+
+### Production - with service name, environment, and auth header
+
+```bash
+OTEL_SERVICE_NAME=gpu-worker \
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=ml \
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.example.com:4317 \
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer\ my-token \
+OTEL_METRIC_EXPORT_INTERVAL=30000 \
+./opentelemetry-gpu-collector
+```
+
+### HTTP/protobuf instead of gRPC
+
+```bash
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+./opentelemetry-gpu-collector
+```
+
+### Disable eBPF CUDA tracing
+
+On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
+
+```bash
+OTEL_GPU_EBPF_ENABLED=false \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+./opentelemetry-gpu-collector
+```
+
+eBPF activity/occupancy is **NVIDIA/CUDA only**. AMD and Intel use the same host-PID process attribution for DRM fdinfo metrics; they do not need `libcudart`.
+
+## Notes
+
+- `OTEL_METRIC_EXPORT_INTERVAL` is in **milliseconds** per the OTel spec. For a 30-second interval, set `30000`.
+- `deployment.environment` is extracted from `OTEL_RESOURCE_ATTRIBUTES` and attached as a resource attribute. Any key-value pairs in `OTEL_RESOURCE_ATTRIBUTES` are also forwarded to the OTel SDK resource via `resource.WithFromEnv()`.
+- If `OTEL_EXPORTER_OTLP_ENDPOINT` is not set, the collector starts but no metrics are exported. Check the logs for a warning.
+- Auto-detected `host.name` / `k8s.*` attributes are logged at startup as `resolved resource identity`.

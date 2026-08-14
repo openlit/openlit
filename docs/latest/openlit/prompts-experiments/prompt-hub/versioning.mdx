@@ -1,0 +1,45 @@
+---
+title: "Versioning"
+description: "Drafts vs. published versions, semantic versioning, and what the Versions tab shows"
+---
+
+Every save on a prompt's create or edit page goes through the same four-option picker: **Draft**, **Major**, **Minor**, or **Patch**. You choose which one applies every time - Prompt Hub never infers a version bump automatically from how much the content changed.
+
+## Draft vs. publishing
+
+- **Draft** - "Save as a draft - not yet published." Saves your work without publishing it. A draft is mutable: you can save over it repeatedly while you're still iterating, and it never shows up as a numbered version until you publish.
+- **Major** - "Significant changes, not backwards compatible" (shown as v1.0.0).
+- **Minor** - "New features, backwards compatible" (shown as v0.1.0).
+- **Patch** - "Bug fixes and minor updates" (shown as v0.0.1).
+
+Choosing Major, Minor, or Patch always publishes a new, permanent version. Publishing never overwrites an earlier version - each one is retained. On the edit page, the same four options appear, but the Draft option reads "No version change" / "Keep as draft - not published" instead.
+
+Version numbers follow semantic versioning (`major.minor.patch`), starting at `0.0.0` for a brand-new prompt.
+
+## The Versions tab
+
+The prompt detail page has a **Versions** tab that lists every published version, plus the draft if one exists. Each entry shows:
+
+- A **latest** badge on the newest published version.
+- A **Draft** badge on the draft, if there is one.
+- The download count for that version.
+- A relative "updated X ago" timestamp.
+
+Clicking any version opens its content in read-only view (the same as adding `?version=X` to the detail page URL).
+
+## There's no rollback button
+
+Viewing an older version through the Versions tab is read-only - there's no "restore" or "rollback" action in the UI that makes an old version become the new draft or the new published head. If you want to bring old content back into circulation, copy it into a new edit and save it as a new version yourself.
+
+If what you actually want is for your application to use an older version's text without touching the UI's published history at all, fetch that specific version directly - see [Retrieve a Prompt](/latest/openlit/prompts-experiments/prompt-hub/retrieve-a-prompt) for the SDK/API `version` parameter. That's the practical way to "roll back" what your application uses, independent of what's marked latest in the UI.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Manage Prompts" href="/latest/openlit/prompts-experiments/prompt-hub/manage-prompts" icon='file-lines'>
+    Where Draft, Major, Minor, and Patch appear on the create and edit pages
+  </Card>
+  <Card title="Retrieve a Prompt" href="/latest/openlit/prompts-experiments/prompt-hub/retrieve-a-prompt" icon='cloud-arrow-down'>
+    Fetch a specific version by name, ID, or version number
+  </Card>
+</CardGroup>

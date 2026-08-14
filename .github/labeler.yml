@@ -1,0 +1,28 @@
+python-sdk:
+- changed-files:
+  - any-glob-to-any-file: 'sdk/python/**'
+
+js-sdk:
+- changed-files:
+  - any-glob-to-any-file: 'sdk/typescript/**'
+
+openlit:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'src/**'
+    - 'assets/**'
+    - 'docker-compose.yml'
+    - 'src/dev-docker-compose.yml'
+
+operator:
+- changed-files:
+  - any-glob-to-any-file: 'openlit-controller/**'
+
+Documentation:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'docs/**'
+    - 'README.md'
+    - 'CONTRIBUTING.md'
+    - 'CODE_OF_CONDUCT.md'
+    - 'SECURITY.md'

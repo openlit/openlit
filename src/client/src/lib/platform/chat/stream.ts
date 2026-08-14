@@ -1,0 +1,360 @@
+import { streamText, generateText, stepCountIs } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
+import { createMistral } from "@ai-sdk/mistral";
+import { createCohere } from "@ai-sdk/cohere";
+import { getChatSystemPrompt } from "./schema-context";
+import { validateSQL, extractSQLFromResponse } from "./sql-validator";
+import { dataCollector } from "../common";
+import {
+	addMessage,
+	getConversationMessages,
+	updateConversation,
+} from "./conversation";
+import { getChatTools } from "./tools";
+
+// ==================== Provider Factories ====================
+
+type ProviderFactory = (apiKey: string) => any;
+
+const providerFactories: Record<string, ProviderFactory> = {
+	openai: (apiKey) => createOpenAI({ apiKey }),
+	anthropic: (apiKey) => createAnthropic({ apiKey }),
+	google: () => google,
+	mistral: (apiKey) => createMistral({ apiKey }),
+	cohere: (apiKey) => createCohere({ apiKey }),
+	groq: (apiKey) => createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey }),
+	perplexity: (apiKey) => createOpenAI({ baseURL: "https://api.perplexity.ai", apiKey }),
+	azure: (apiKey) => createOpenAI({
+		baseURL: process.env.AZURE_OPENAI_ENDPOINT || "https://your-resource.openai.azure.com",
+		apiKey,
+		headers: { "api-key": apiKey },
+	}),
+	together: (apiKey) => createOpenAI({ baseURL: "https://api.together.xyz/v1", apiKey }),
+	fireworks: (apiKey) => createOpenAI({ baseURL: "https://api.fireworks.ai/inference/v1", apiKey }),
+	deepseek: (apiKey) => createOpenAI({ baseURL: "https://api.deepseek.com", apiKey }),
+	xai: (apiKey) => createOpenAI({ baseURL: "https://api.x.ai/v1", apiKey }),
+	huggingface: (apiKey) => createOpenAI({ baseURL: "https://api-inference.huggingface.co/v1", apiKey }),
+	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
+};
+
+const VALID_PROVIDERS = Object.keys(providerFactories);
+
+export function getModelInstance(providerId: string, apiKey: string, modelName: string) {
+	if (!VALID_PROVIDERS.includes(providerId)) {
+		throw new Error(`Provider ${providerId} not supported`);
+	}
+	const factory = providerFactories[providerId];
+	const provider = factory(apiKey);
+	if (typeof provider === "function") return provider(modelName);
+	if (typeof provider === "object" && provider !== null) return provider(modelName);
+	throw new Error(`Invalid provider instance for ${providerId}`);
+}
+
+// ==================== Error Formatting ====================
+
+export function formatStreamError(e: any): string {
+	if (e?.statusCode === 401 || e?.data?.error?.code === "invalid_api_key") {
+		return "Invalid API key. Please check your API key in Chat Settings and Vault.";
+	} else if (e?.statusCode === 429) {
+		return "Rate limit exceeded. Please wait a moment and try again.";
+	} else if (e?.statusCode === 403) {
+		return "Access denied. Your API key may not have permission for this model.";
+	} else if (e?.statusCode === 404) {
+		return "Model not found. Please check the model name in Chat Settings.";
+	} else if (e?.statusCode >= 500) {
+		return "The AI provider is experiencing issues. Please try again later.";
+	} else if (e?.message) {
+		return e.message.replace(/[a-zA-Z0-9_\-:=+/]{30,}/g, "***");
+	}
+	return "An error occurred while generating the response.";
+}
+
+// ==================== Build Messages ====================
+
+export async function buildConversationMessages(
+	conversationId: string,
+	content: string
+): Promise<{ role: "user" | "assistant"; content: string }[]> {
+	const { data: history } = await getConversationMessages(conversationId, 20);
+	const messages: { role: "user" | "assistant"; content: string }[] = [];
+
+	if (history && history.length > 0) {
+		for (const msg of history) {
+			if (msg.role === "user" || msg.role === "assistant") {
+				messages.push({ role: msg.role, content: msg.content });
+			}
+		}
+	}
+
+	if (messages.length === 0 || messages[messages.length - 1].content !== content) {
+		messages.push({ role: "user", content });
+	}
+
+	return messages;
+}
+
+// ==================== Stream Chat ====================
+
+export interface StreamChatParams {
+	conversationId: string;
+	content: string;
+	provider: string;
+	apiKey: string;
+	model: string;
+	userId: string;
+	dbConfigId: string;
+	onDelta?: (text: string) => void;
+	onStep?: (label: string, status?: "active" | "complete" | "error", detail?: string) => void;
+}
+
+export interface StreamChatResult {
+	responseText: string;
+	streamError: any;
+}
+
+/**
+ * Execute a streaming chat request. Returns the full response text and any stream error.
+ * Also handles:
+ * - Saving assistant message with token/cost stats
+ * - Executing SQL blocks and appending results
+ * - Generating conversation title for first message
+ * - Handling tool call fallback text
+ */
+export async function streamChatMessage(params: StreamChatParams): Promise<StreamChatResult> {
+	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, onDelta, onStep } = params;
+
+	// Save user message
+	onStep?.("Saving user message", "active");
+	await addMessage({ conversationId, role: "user", content });
+	onStep?.("Saving user message", "complete");
+
+	// Build messages
+	onStep?.("Loading conversation context", "active");
+	const messages = await buildConversationMessages(conversationId, content);
+	onStep?.("Loading conversation context", "complete", `${messages.length} messages loaded`);
+
+	// Create model instance
+	onStep?.("Preparing model and tools", "active", `${provider} / ${model}`);
+	const modelInstance = getModelInstance(provider, apiKey, model);
+
+	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
+	const tools = getChatTools(userId, dbConfigId);
+	onStep?.("Preparing model and tools", "complete", `${Object.keys(tools).length} tools available`);
+
+	let streamError: any = null;
+	let finishText = "";
+
+	// Shared usage stats — written by onFinish, read after stream consumption
+	let finishStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
+	let finishResolve: () => void;
+	const finishPromise = new Promise<void>((resolve) => { finishResolve = resolve; });
+
+	const result = streamText({
+		model: modelInstance,
+		system: getChatSystemPrompt(),
+		messages,
+		tools,
+		stopWhen: stepCountIs(6),
+		onError: ({ error }) => {
+			streamError = error;
+		},
+		onFinish: async ({ text, usage, steps }) => {
+			const promptTokens = usage?.inputTokens ?? 0;
+			const completionTokens = usage?.outputTokens ?? 0;
+			const cost = (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
+
+			// Store stats so the main flow can use them when saving the message
+			finishStats = { promptTokens, completionTokens, cost };
+
+			// Build tool-call fallback text if no LLM text was produced
+			let finalText = text;
+			if (!finalText && steps) {
+				const summaries: string[] = [];
+				for (const step of steps) {
+					if (step.toolResults) {
+						for (const tr of step.toolResults as any[]) {
+							const r = tr.result;
+							if (r?.success) {
+								let msg = `**${r.message}**`;
+								if (r.details) msg += `\n\n${r.details}`;
+								summaries.push(msg);
+							} else if (r?.error) {
+								summaries.push(`**Error:** ${r.error}`);
+							}
+						}
+					}
+				}
+				if (summaries.length > 0) finalText = summaries.join("\n\n");
+			}
+			finishText = finalText || "";
+
+			// Update conversation stats
+			await updateConversation(conversationId, {
+				addPromptTokens: promptTokens,
+				addCompletionTokens: completionTokens,
+				addCost: cost,
+				incrementMessages: true,
+			});
+
+			// Generate title for first message
+			if (isFirstMessage && finalText) {
+				generateConversationTitle(provider, apiKey, model, content, finalText, conversationId).catch(() => {
+					updateConversation(conversationId, {
+						title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
+					}).catch(() => {});
+				});
+			}
+
+			finishResolve!();
+		},
+	});
+
+	// Consume the stream
+	onStep?.("Generating response", "active");
+	const fullStream = result.fullStream;
+	const parts: string[] = [];
+	let hasText = false;
+	const toolResultMessages: string[] = [];
+
+	for await (const part of fullStream) {
+		const textDelta =
+			part.type === "text-delta"
+				? ((part as any).text ?? (part as any).delta ?? "")
+				: "";
+		if (textDelta) {
+			hasText = true;
+			parts.push(textDelta);
+			onDelta?.(textDelta);
+		} else if (part.type === "tool-call" || part.type === "tool-input-start") {
+			onStep?.(`Using ${(part as any).toolName || "tool"}`, "active");
+		} else if (part.type === "tool-result") {
+			const r = (part as any).result;
+			onStep?.(`Using ${(part as any).toolName || "tool"}`, r?.success === false ? "error" : "complete");
+			if (r?.success) {
+				let msg = `**${r.message}**`;
+				if (r.details) msg += `\n\n${r.details}`;
+				toolResultMessages.push(msg);
+			} else if (r?.error) {
+				toolResultMessages.push(`**Error:** ${r.error}`);
+			}
+		}
+	}
+
+	if (!hasText && toolResultMessages.length > 0) {
+		const fallbackText = toolResultMessages.join("\n\n");
+		parts.push(fallbackText);
+		onDelta?.(fallbackText);
+	}
+
+	if (!hasText && parts.length === 0 && !streamError) {
+		await Promise.race([finishPromise, new Promise((r) => setTimeout(r, 5000))]);
+		if (finishText) {
+			parts.push(finishText);
+			onDelta?.(finishText);
+		}
+	}
+
+	let responseText = parts.join("");
+	onStep?.("Generating response", "complete");
+
+	// Handle API errors
+	if (!responseText && streamError) {
+		const errorMsg = formatStreamError(streamError);
+		responseText = `**Error:** ${errorMsg}`;
+		onDelta?.(responseText);
+		await addMessage({ conversationId, role: "assistant", content: responseText, provider, model });
+	}
+
+	// Execute SQL blocks in the response and append results BEFORE returning to client
+	if (responseText && !responseText.startsWith("**Error:**")) {
+		onStep?.("Executing generated SQL", "active");
+		const streamedText = responseText;
+		responseText = await executeSQLBlocksInResponse(responseText, dbConfigId);
+		onStep?.("Executing generated SQL", "complete");
+		if (responseText.startsWith(streamedText) && responseText.length > streamedText.length) {
+			onDelta?.(responseText.slice(streamedText.length));
+		}
+
+		// Wait for onFinish to complete so we have token/cost stats
+		await Promise.race([finishPromise, new Promise((r) => setTimeout(r, 5000))]);
+
+		onStep?.("Saving assistant response", "active");
+		// Save the enriched message with query results AND token/cost stats
+		await addMessage({
+			conversationId,
+			role: "assistant",
+			content: responseText,
+			promptTokens: finishStats.promptTokens,
+			completionTokens: finishStats.completionTokens,
+			cost: finishStats.cost,
+			provider,
+			model,
+		});
+		onStep?.("Saving assistant response", "complete");
+	}
+
+	return { responseText, streamError };
+}
+
+/**
+ * Find SQL code blocks in a response, execute them, and append query-result blocks.
+ */
+async function executeSQLBlocksInResponse(text: string, dbConfigId?: string): Promise<string> {
+	const sqlBlocks = extractSQLFromResponse(text);
+	if (sqlBlocks.length === 0) return text;
+
+	let enrichedText = text;
+	for (const sql of sqlBlocks) {
+		const validation = validateSQL(sql);
+		if (validation.valid && validation.query) {
+			try {
+				const { data: queryData, err: queryErr } = await dataCollector({
+					query: validation.query,
+					enable_readonly: true,
+				}, "query", dbConfigId);
+				if (!queryErr && queryData) {
+					const resultJson = JSON.stringify(queryData);
+					const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+					const sqlBlockRegex = new RegExp(
+						"```sql\\s*\\n" + escapedSql.replace(/\n/g, "\\n") + "\\s*\\n?```"
+					);
+					if (sqlBlockRegex.test(enrichedText)) {
+						enrichedText = enrichedText.replace(
+							sqlBlockRegex,
+							(match) => `${match}\n\`\`\`query-result\n${resultJson}\n\`\`\``
+						);
+					} else {
+						enrichedText += `\n\n\`\`\`query-result\n${resultJson}\n\`\`\``;
+					}
+				}
+			} catch {
+				// Skip failed queries — user can run manually
+			}
+		}
+	}
+	return enrichedText;
+}
+
+// ==================== Title Generation ====================
+
+async function generateConversationTitle(
+	providerId: string,
+	apiKey: string,
+	modelName: string,
+	userMessage: string,
+	assistantResponse: string,
+	conversationId: string
+) {
+	const modelInstance = getModelInstance(providerId, apiKey, modelName);
+	const { text: title } = await generateText({
+		model: modelInstance,
+		prompt: `Generate a short title (max 6 words) summarizing this conversation. User asked: "${userMessage.slice(0, 200)}" Assistant responded about: "${assistantResponse.slice(0, 200)}". Return ONLY the title text, no quotes or punctuation.`,
+		maxOutputTokens: 20,
+	});
+	const cleanTitle = title.trim().replace(/^["']|["']$/g, "");
+	if (cleanTitle) {
+		await updateConversation(conversationId, { title: cleanTitle });
+	}
+}

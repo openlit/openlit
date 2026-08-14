@@ -1,0 +1,4 @@
+openai-agents>=0.0.3
+openai
+python-dotenv
+openlit

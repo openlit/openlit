@@ -1,0 +1,379 @@
+import { DatabaseWidget, Widget } from "@/types/manage-dashboard";
+import { dataCollector, MetricParams } from "../common";
+import { OPENLIT_BOARD_WIDGET_TABLE_NAME, OPENLIT_WIDGET_TABLE_NAME } from "./table-details";
+import Sanitizer from "@/utils/sanitizer";
+import getMessage from "@/constants/messages";
+import {
+	normalizeWidgetToClient,
+	sanitizeWidget,
+	escapeSingleQuotes,
+} from "@/helpers/server/widget";
+import { jsonStringify } from "@/utils/json";
+
+/**
+ * Resolve a dotted path under the filter object (e.g. `timeLimit.start`).
+ * Returns undefined when any segment is missing — callers treat that as "".
+ */
+function getFilterPathValue(filter: unknown, path: string): unknown {
+	const parts = path.split(".");
+	let current: unknown = filter;
+	for (const part of parts) {
+		if (current == null || typeof current !== "object") {
+			return undefined;
+		}
+		current = (current as Record<string, unknown>)[part];
+	}
+	return current;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ *
+ * Intentionally does **not** use Mustache (or any template engine): the
+ * query string is user-controlled on the widget preview path, and treating
+ * it as an executable template is a code-injection sink (CodeQL
+ * js/code-injection / alert #126). Path lookup + stringification is enough
+ * for dashboard filter interpolation, and filter values are validated
+ * separately before substitution.
+ */
+function renderFilterPlaceholders(
+	template: string,
+	filter: MetricParams
+): string {
+	return template.replace(
+		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
+		(
+			_match,
+			unescapedPath: string | undefined,
+			escapedPath: string | undefined
+		) => {
+			const path = unescapedPath || escapedPath;
+			if (!path) return "";
+			const value = getFilterPathValue(filter, path);
+			if (value == null) return "";
+			if (typeof value === "object") return JSON.stringify(value);
+			return String(value);
+		}
+	);
+}
+
+export async function getWidgetById(id: string) {
+	const query = `
+		SELECT id, title, description, widget_type AS type, created_at AS createdAt, updated_at AS updatedAt, properties,
+			config
+		FROM ${OPENLIT_WIDGET_TABLE_NAME} 
+		WHERE id = '${Sanitizer.sanitizeValue(id)}'
+	`;
+
+	const { data, err } = await dataCollector({ query });
+
+	if (err) {
+		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
+}
+
+export async function getWidgets(widgetIds?: string[]) {
+	let query = "";
+	if (!widgetIds || widgetIds.length === 0) {
+		query = `
+			SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
+			w.config, w.created_at AS createdAt, w.updated_at AS updatedAt, COUNT(DISTINCT bw.board_id) as totalBoards
+		FROM ${OPENLIT_WIDGET_TABLE_NAME} w
+		LEFT JOIN ${OPENLIT_BOARD_WIDGET_TABLE_NAME} bw ON w.id = bw.widget_id
+		GROUP BY w.id, w.title, w.description, w.widget_type, w.properties, w.config, w.created_at, w.updated_at
+		ORDER BY w.updated_at DESC
+		`;
+	} else {
+		query = `
+			SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
+			w.config, w.created_at AS createdAt, w.updated_at AS updatedAt
+		FROM ${OPENLIT_WIDGET_TABLE_NAME} w
+		${widgetIds
+				? `WHERE id IN (${widgetIds
+					.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
+					.join(",")})`
+				: ""
+			}
+		`;
+	}
+
+	const { data, err } = await dataCollector({ query });
+
+	if (err) {
+		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };
+}
+
+export async function createWidget(widget: Widget, databaseConfigId?: string) {
+	const sanitizedWidget = sanitizeWidget(widget);
+
+	const { err, data } = await dataCollector(
+		{
+			table: OPENLIT_WIDGET_TABLE_NAME,
+			values: [
+				{
+					id: sanitizedWidget.id,
+					title: sanitizedWidget.title,
+					description: sanitizedWidget.description,
+					widget_type: sanitizedWidget.type,
+					properties: JSON.stringify(sanitizedWidget.properties || {}),
+					config: JSON.stringify(sanitizedWidget.config || {}),
+				},
+			],
+		},
+		"insert",
+		databaseConfigId
+	);
+
+	if (err) {
+		return { err: err || getMessage().WIDGET_CREATE_FAILED };
+	}
+
+	// Look up the widget we just inserted by id (we generated the id
+	// client-side and supplied it). The previous implementation
+	// searched by `ORDER BY created_at DESC LIMIT 1`, which raced
+	// during dashboard seeding (multiple widgets inserted in the same
+	// second-precision tick) and could return the wrong row.
+	if (sanitizedWidget.id) {
+		const result = await dataCollector({
+			query: `SELECT id, title, description, widget_type AS type, created_at AS createdAt, properties,
+			config, updated_at AS updatedAt FROM ${OPENLIT_WIDGET_TABLE_NAME}
+			WHERE id = '${sanitizedWidget.id}' LIMIT 1`,
+		}, "query", databaseConfigId);
+
+		if (
+			!result.err &&
+			result.data &&
+			Array.isArray(result.data) &&
+			result.data.length > 0
+		) {
+			return {
+				data: {
+					...normalizeWidgetToClient(result.data[0] as DatabaseWidget),
+				},
+			};
+		}
+	}
+
+	// Insert succeeded (we already checked `err`) but the readback
+	// returned empty — most likely ClickHouse async commit hasn't
+	// surfaced the row yet, or this code path is running before a
+	// db-config is bound (e.g. seed at server startup). Either way,
+	// the widget IS in the table; return the normalized widget we
+	// just inserted so the caller can move on. Skipping the
+	// readback failure makes seeding deterministic.
+	return {
+		data: normalizeWidgetToClient({
+			id: sanitizedWidget.id as string,
+			title: sanitizedWidget.title || "",
+			description: sanitizedWidget.description || "",
+			widget_type: sanitizedWidget.type || "",
+			properties: JSON.stringify(sanitizedWidget.properties || {}),
+			config: JSON.stringify(sanitizedWidget.config || {}),
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		} as DatabaseWidget),
+	};
+}
+
+export async function updateWidget(widget: Widget) {
+	const sanitizedWidget = sanitizeWidget(widget);
+
+	const updateValues = [
+		sanitizedWidget.title && `title = '${sanitizedWidget.title}'`,
+		sanitizedWidget.description &&
+		`description = '${sanitizedWidget.description}'`,
+		sanitizedWidget.type && `widget_type = '${sanitizedWidget.type}'`,
+		sanitizedWidget.properties &&
+		`properties = '${jsonStringify(sanitizedWidget.properties)}'`,
+		sanitizedWidget.config &&
+		`config = '${escapeSingleQuotes(jsonStringify(sanitizedWidget.config))}'`,
+		`updated_at = NOW()`,
+	];
+
+	const query = `
+		ALTER TABLE ${OPENLIT_WIDGET_TABLE_NAME}
+		UPDATE 
+			${updateValues.filter((e) => e).join(" , ")}
+		WHERE id = '${sanitizedWidget.id}'
+	`;
+
+	const { err, data } = await dataCollector({ query }, "exec");
+
+	if (err || !(data as { query_id: string }).query_id) {
+		return { err: err || getMessage().WIDGET_UPDATE_FAILED };
+	}
+
+	return { data: getMessage().WIDGET_UPDATED_SUCCESSFULLY };
+}
+
+export function deleteWidget(id: string) {
+	const query = `
+		DELETE FROM ${OPENLIT_WIDGET_TABLE_NAME} 
+		WHERE id = '${Sanitizer.sanitizeValue(id)}'
+	`;
+
+	return dataCollector({ query }, "exec");
+}
+
+function validateQuery(query: string): { valid: boolean; error?: string } {
+	const trimmed = query.trim();
+
+	if (!/^(SELECT|WITH)\b/i.test(trimmed)) {
+		return { valid: false, error: "Only SELECT queries are allowed" };
+	}
+
+	return validateSafeQueryContent(trimmed);
+}
+
+/**
+ * Blank out the contents of single-quoted string literals so keyword /
+ * table / function scanning only inspects executable SQL. Attribute keys
+ * and values such as `SpanAttributes['gen_ai.system']` or
+ * `'openlit-cli'` are data, not SQL — without this a literal like
+ * `gen_ai.system` would false-positive on the `SYSTEM` keyword blocklist
+ * (word-bounded by `.` and `'`) and reject an otherwise safe SELECT.
+ * Handles both backslash (`\'`) and doubled (`''`) quote escapes.
+ *
+ * Implemented as a linear scan (not a regex) to avoid ReDoS from
+ * overlapping alternatives in patterns like `'(?:\\.|''|[^'])*'`.
+ * Unclosed literals are left unchanged, matching the previous regex.
+ */
+function stripStringLiterals(value: string): string {
+	let result = "";
+	let i = 0;
+	while (i < value.length) {
+		if (value[i] !== "'") {
+			result += value[i];
+			i += 1;
+			continue;
+		}
+
+		const start = i;
+		i += 1; // skip opening quote
+		let closed = false;
+		while (i < value.length) {
+			const ch = value[i];
+			if (ch === "\\" && i + 1 < value.length) {
+				i += 2;
+				continue;
+			}
+			if (ch === "'") {
+				if (i + 1 < value.length && value[i + 1] === "'") {
+					i += 2; // doubled-quote escape
+					continue;
+				}
+				i += 1; // closing quote
+				closed = true;
+				break;
+			}
+			i += 1;
+		}
+
+		if (closed) {
+			result += "''";
+		} else {
+			// No closing quote — leave the remainder intact so keyword
+			// scanners can still see executable SQL after the opener.
+			result += value.slice(start);
+			break;
+		}
+	}
+	return result;
+}
+
+function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
+	const scannable = stripStringLiterals(value);
+
+	if (/\bsystem\./i.test(scannable)) {
+		return { valid: false, error: "Access to system tables is not allowed" };
+	}
+
+	if (/\binformation_schema\./i.test(scannable)) {
+		return {
+			valid: false,
+			error: "Access to information_schema tables is not allowed",
+		};
+	}
+
+	const dangerousFunctions =
+		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
+	if (dangerousFunctions.test(scannable)) {
+		return { valid: false, error: "Query contains disallowed functions" };
+	}
+
+	const dangerousKeywords =
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
+	if (dangerousKeywords.test(scannable)) {
+		return { valid: false, error: "Query contains disallowed operations" };
+	}
+
+	return { valid: true };
+}
+
+function validateFilterValues(value: unknown): { valid: boolean; error?: string } {
+	if (typeof value === "string") {
+		return validateSafeQueryContent(value);
+	}
+
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const validation = validateFilterValues(item);
+			if (!validation.valid) return validation;
+		}
+	}
+
+	if (value && typeof value === "object") {
+		for (const item of Object.values(value)) {
+			const validation = validateFilterValues(item);
+			if (!validation.valid) return validation;
+		}
+	}
+
+	return { valid: true };
+}
+
+export async function runWidgetQuery(
+	widgetId: string,
+	{
+		userQuery,
+		filter,
+	}: {
+		userQuery?: string;
+		filter: MetricParams;
+	}
+) {
+	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
+
+	if (widgetErr || !widget) {
+		return { err: getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	const query = userQuery
+		? userQuery
+		: widget.config?.query || "";
+
+	const filterValidation = validateFilterValues(filter);
+	if (!filterValidation.valid) {
+		return { err: filterValidation.error || "Invalid filter" };
+	}
+
+	const exactQuery = renderFilterPlaceholders(query, filter);
+
+	const validation = validateQuery(exactQuery);
+	if (!validation.valid) {
+		return { err: validation.error || "Invalid query" };
+	}
+
+	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
+
+	if (err) {
+		return { err: "Query execution failed" };
+	}
+
+	return { data };
+}

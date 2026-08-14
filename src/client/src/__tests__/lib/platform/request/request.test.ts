@@ -1,0 +1,399 @@
+jest.mock('@/lib/platform/common', () => ({
+  dataCollector: jest.fn(),
+  OTEL_TRACES_TABLE_NAME: 'otel_traces',
+}));
+
+import {
+  getGroupByExpression,
+  getRequestPerTime,
+  getTotalRequests,
+  getAverageRequestDuration,
+  getRequestsConfig,
+  getRequests,
+  getRequestViaSpanId,
+  getRequestViaTraceId,
+  getHeirarchyViaSpanId,
+  getRequestExist,
+  getAttributeKeys,
+  getGroupedRequests,
+} from '@/lib/platform/request/index';
+import { dataCollector } from '@/lib/platform/common';
+
+const baseParams = {
+  timeLimit: {
+    start: new Date('2024-01-01'),
+    end: new Date('2024-01-31'),
+    type: '1M',
+  },
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+});
+
+describe('getRequestPerTime', () => {
+  it('calls dataCollector with time-series request query', async () => {
+    await getRequestPerTime(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('total');
+    expect(query).toContain('request_time');
+    expect(query).toContain('GROUP BY');
+  });
+});
+
+describe('getGroupByExpression', () => {
+  it('returns predefined group-by expressions', () => {
+    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
+  });
+
+  it('builds safe span/resource/field group-by expressions', () => {
+    expect(getGroupByExpression('custom.key')).toBe("SpanAttributes['custom.key']");
+    expect(getGroupByExpression("SpanAttributes:o'malley")).toBe("SpanAttributes['o\\'malley']");
+    expect(getGroupByExpression('ResourceAttributes:service.name')).toBe("ResourceAttributes['service.name']");
+    expect(getGroupByExpression('Field:Duration')).toBe('Duration');
+  });
+
+  it('rejects empty and unsupported field group-by inputs', () => {
+    expect(getGroupByExpression('')).toBeNull();
+    expect(getGroupByExpression('SpanAttributes:   ')).toBeNull();
+    expect(getGroupByExpression('Field:Duration;DROP')).toBeNull();
+  });
+});
+
+describe('getTotalRequests', () => {
+  it('builds JOIN query for current/previous comparison', async () => {
+    await getTotalRequests(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('total_requests');
+    expect(query).toContain('JOIN');
+    expect(query).toContain('previous_total_requests');
+  });
+});
+
+describe('getAverageRequestDuration', () => {
+  it('builds JOIN query for duration comparison', async () => {
+    await getAverageRequestDuration(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('average_duration');
+    expect(query).toContain('JOIN');
+    expect(query).toContain('previous_average_duration');
+  });
+});
+
+describe('getRequestsConfig', () => {
+  it('queries providers, models, traceTypes, applicationNames, environments', async () => {
+    await getRequestsConfig(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('providers');
+    expect(query).toContain('models');
+    expect(query).toContain('totalRows');
+    expect(query).toContain('services');
+    // Provider dropdown folds the current OTel key and the legacy fallback.
+    expect(query).toContain("gen_ai.provider.name");
+    expect(query).toContain("gen_ai.system");
+  });
+});
+
+describe('getRequests', () => {
+  it('calls dataCollector twice (count + data) and returns records', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 42 }], err: null })
+      .mockResolvedValueOnce({ data: [{ SpanId: 'abc' }], err: null });
+
+    const result = await getRequests({ ...baseParams, limit: 10, offset: 0 });
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.total).toBe(42);
+    expect(result.records).toEqual([{ SpanId: 'abc' }]);
+  });
+
+  it('returns err when count query fails', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: null, err: 'DB error' });
+    const result = await getRequests(baseParams);
+    expect(result.err).toBe('DB error');
+  });
+
+  it('applies sorting when provided', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp', direction: 'ASC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('ORDER BY Timestamp ASC');
+  });
+
+  it('applies toFloat64OrZero ORDER BY for cost sorting', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'gen_ai.usage.cost', direction: 'DESC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('toFloat64OrZero(gen_ai.usage.cost)');
+  });
+
+  it('applies toInt32OrZero ORDER BY for tokens sorting', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'gen_ai.usage.prompt_tokens', direction: 'ASC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
+  });
+});
+
+describe('getRequestViaSpanId', () => {
+  it('queries by SpanId and returns record', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ SpanId: 'span-1', SpanName: 'test' }],
+      err: null,
+    });
+    const result = await getRequestViaSpanId('span-1');
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("SpanId='span-1'");
+    expect(result.record).toEqual({ SpanId: 'span-1', SpanName: 'test' });
+  });
+});
+
+describe('getRequestViaTraceId', () => {
+  it('queries by TraceId and returns record', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ TraceId: 'trace-1' }],
+      err: null,
+    });
+    const result = await getRequestViaTraceId('trace-1');
+    expect(result.record).toEqual({ TraceId: 'trace-1' });
+  });
+});
+
+describe('getHeirarchyViaSpanId', () => {
+  it('returns error when span not found (traceId query returns empty)', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    const result = await getHeirarchyViaSpanId('span-1');
+    expect(result.err).toBe('Span not found');
+  });
+
+  it('fetches all spans by traceId and builds hierarchy', async () => {
+    const rootSpan = { SpanId: 'root-span', ParentSpanId: '', TraceId: 't1' };
+    const childSpan = { SpanId: 'child-span', ParentSpanId: 'root-span', TraceId: 't1' };
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })   // step 1: get traceId
+      .mockResolvedValueOnce({ data: [rootSpan, childSpan], err: null }); // step 2: get all spans
+
+    const result = await getHeirarchyViaSpanId('child-span');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.err).toBeNull();
+    expect(result.record).toBeDefined();
+  });
+
+  it('returns error when all-spans query fails', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })
+      .mockResolvedValueOnce({ data: [], err: 'DB error' });
+
+    const result = await getHeirarchyViaSpanId('child-span');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.err).toBeTruthy();
+  });
+
+  it('returns error when trace id is missing from the span row', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [{}], err: null });
+
+    const result = await getHeirarchyViaSpanId('span-1');
+
+    expect(result).toEqual({ err: 'TraceId not found for span', record: {} });
+  });
+
+  it('returns error when hierarchy cannot be built', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ TraceId: 't1' }], err: null })
+      .mockResolvedValueOnce({
+        data: [{ SpanId: 'orphan', ParentSpanId: 'missing-parent', TraceId: 't1' }],
+        err: null,
+      });
+
+    const result = await getHeirarchyViaSpanId('orphan');
+
+    expect(result).toEqual({ err: 'Error building hierarchy', record: {} });
+  });
+
+  it('unions spans across subagent sessions when source span is a subagent', async () => {
+    // Source span belongs to subagent 'sub-1' whose parent chat is 'parent-1'.
+    // Expectation: step 2 query unions trace + parent's session_id + any
+    // subagent whose parent_id is 'parent-1' (resource OR span attr).
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 't1', CodingSessionId: 'sub-1', CodingParentId: 'parent-1' }],
+        err: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            SpanId: 'root',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.session',
+            SpanAttributes: { 'coding_agent.session.id': 'parent-1' },
+            Timestamp: 1,
+          },
+          {
+            SpanId: 'sub-tool',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.tool.call',
+            SpanAttributes: { 'coding_agent.session.id': 'sub-1' },
+            Timestamp: 2,
+          },
+        ],
+        err: null,
+      });
+
+    const result = await getHeirarchyViaSpanId('any-span-in-sub-1');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    const [, secondCall] = (dataCollector as jest.Mock).mock.calls;
+    const allSpansQuery = secondCall[0].query as string;
+    expect(allSpansQuery).toContain("SpanAttributes['coding_agent.session.id'] = 'parent-1'");
+    expect(allSpansQuery).toContain("ResourceAttributes['coding_agent.agent.parent_id'] = 'parent-1'");
+    // Coding sessions take the newest window (DESC) and UNION prompt/response
+    // turns so Chat view cannot lose user inputs outside a 5k ASC slice.
+    expect(allSpansQuery).toContain('ORDER BY Timestamp DESC');
+    expect(allSpansQuery).toContain("gen_ai.input.messages");
+    expect(allSpansQuery).toContain('UNION DISTINCT');
+    expect(result.err).toBeNull();
+  });
+
+  it('uses own session_id when no parent_id is set', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 't1', CodingSessionId: 'top-chat', CodingParentId: '' }],
+        err: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            SpanId: 'root',
+            ParentSpanId: '',
+            SpanName: 'coding_agent.session',
+            SpanAttributes: { 'coding_agent.session.id': 'top-chat' },
+            Timestamp: 1,
+          },
+        ],
+        err: null,
+      });
+
+    await getHeirarchyViaSpanId('any-span-in-top-chat');
+    const [, secondCall] = (dataCollector as jest.Mock).mock.calls;
+    const allSpansQuery = secondCall[0].query as string;
+    expect(allSpansQuery).toContain("SpanAttributes['coding_agent.session.id'] = 'top-chat'");
+  });
+});
+
+describe('getRequestExist', () => {
+  it('calls dataCollector with total count query', async () => {
+    await getRequestExist();
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('total_requests');
+    expect(query).toContain('otel_traces');
+  });
+});
+
+describe('getAttributeKeys', () => {
+  it('returns spanAttributeKeys and resourceAttributeKeys on success', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ key: 'gen_ai.system' }, { key: 'gen_ai.request.model' }], err: null })
+      .mockResolvedValueOnce({ data: [{ key: 'service.name' }], err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.spanAttributeKeys).toEqual(['gen_ai.system', 'gen_ai.request.model']);
+    expect(result.resourceAttributeKeys).toEqual(['service.name']);
+    expect(result.err).toBeNull();
+  });
+
+  it('returns empty arrays when data is null', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: null, err: null })
+      .mockResolvedValueOnce({ data: null, err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(result.spanAttributeKeys).toEqual([]);
+    expect(result.resourceAttributeKeys).toEqual([]);
+  });
+
+  it('propagates error from span query', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: null, err: 'span error' })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(result.err).toBe('span error');
+  });
+
+  it('queries use DISTINCT arrayJoin(mapKeys(...))', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getAttributeKeys(baseParams);
+    const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
+    expect(call1[0].query).toContain('SpanAttributes');
+    expect(call2[0].query).toContain('ResourceAttributes');
+  });
+});
+
+describe('getGroupedRequests', () => {
+  it('returns predefined and attribute group expressions', () => {
+    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
+    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
+    expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
+    expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
+    expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(
+      "ResourceAttributes['service.namespace']"
+    );
+    expect(getGroupByExpression('')).toBeNull();
+    expect(getGroupByExpression('Field:NotAllowed')).toBeNull();
+  });
+
+  it('returns an error and skips querying for an invalid Field groupBy', async () => {
+    const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
+
+    expect(result.err).toBe('Invalid groupBy value');
+    expect(result.data).toEqual([]);
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
+
+  it('builds a grouped query for an allowed Field groupBy', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
+
+    await getGroupedRequests(baseParams as any, 'Field:SpanName');
+
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain('SpanName AS group_value');
+  });
+
+  it('escapes backslashes before quotes in attribute groupBy values', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
+
+    await getGroupedRequests(baseParams as any, "SpanAttributes:gen\\ai.system's");
+
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("SpanAttributes['gen\\\\ai.system\\'s'] AS group_value");
+  });
+});
