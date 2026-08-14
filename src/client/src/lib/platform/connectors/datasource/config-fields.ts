@@ -48,7 +48,11 @@ export function allowPrivateNetworkField(): FieldDef {
 	};
 }
 
-/** Basic (username/password) + Bearer (token) HTTP auth credential fields. */
+/**
+ * HTTP auth selector + credential fields.
+ * `authType` stays in `settings` (adapters read it from settings JSON) but the
+ * add/edit form renders it in the Authentication section with the secrets.
+ */
 export function httpAuthFields(): FieldDef[] {
 	const messages = getMessage();
 	return [
@@ -58,11 +62,11 @@ export function httpAuthFields(): FieldDef[] {
 			kind: "select",
 			group: "settings",
 			options: [
+				{ value: "none", label: messages.DATA_SOURCE_AUTH_TYPE_NONE },
 				{ value: "basic", label: messages.DATA_SOURCE_AUTH_TYPE_BASIC },
 				{ value: "bearer", label: messages.DATA_SOURCE_AUTH_TYPE_BEARER },
-				{ value: "none", label: messages.DATA_SOURCE_AUTH_TYPE_NONE },
 			],
-			defaultValue: "basic",
+			defaultValue: "none",
 		},
 		{
 			key: "username",
@@ -111,12 +115,15 @@ export function tenantField(): FieldDef {
 export function httpVendorFields(
 	opts: { placeholder?: string; tenant?: boolean } = {}
 ): FieldDef[] {
+	const [authType, ...credentialFields] = httpAuthFields();
 	const fields = [
 		endpointField(opts.placeholder),
 		allowHttpField(),
 		allowPrivateNetworkField(),
-		...httpAuthFields(),
+		authType,
 	];
+	// Tenant/org id sits above username/password/token in Authentication.
 	if (opts.tenant) fields.push(tenantField());
+	fields.push(...credentialFields);
 	return fields;
 }

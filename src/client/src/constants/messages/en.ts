@@ -2194,6 +2194,7 @@ export const DATA_SOURCE_SECRET_DECRYPT_FAILED =
 export const DATA_SOURCE_AUTH_REQUIRED = (sourceName: string, authType: string) =>
 	`${sourceName} is configured for ${authType} authentication, but its credentials could not be resolved.`;
 export const DATA_SOURCE_CREDENTIALS_TITLE = "Credentials";
+export const DATA_SOURCE_AUTHENTICATION_SECTION = "Authentication";
 export const DATA_SOURCE_CREDENTIALS_HELP =
 	"Stored encrypted in the OpenLIT vault and only decrypted server-side. Leave blank to keep existing credentials.";
 export const DATA_SOURCE_AUTH_HELP_HTTP =

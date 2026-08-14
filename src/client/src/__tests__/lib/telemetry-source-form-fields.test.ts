@@ -80,8 +80,14 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 			);
 			expect(d.configFields.find((f) => f.key === "authType")).toMatchObject({
 				kind: "select",
-				defaultValue: "basic",
+				defaultValue: "none",
 			});
+			const keysInOrder = d.configFields.map((f) => f.key);
+			const tenantIdx = keysInOrder.indexOf("tenant");
+			const usernameIdx = keysInOrder.indexOf("username");
+			if (tenantIdx >= 0 && usernameIdx >= 0) {
+				expect(tenantIdx).toBeLessThan(usernameIdx);
+			}
 			expect(d.authStyle).toBe("http");
 		}
 		expect(

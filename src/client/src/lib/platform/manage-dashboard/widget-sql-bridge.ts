@@ -144,6 +144,21 @@ export function inferStructuredFromClickHouseSql(
 			field: "gen_ai.usage.total_tokens",
 			as: firstAlias(sql, [/AS\s+(total_tokens)\b/i]) || "total_tokens",
 		});
+		// Seeded "Tokens Usage" area chart needs prompt + completion series too.
+		if (/AS\s+prompt_tokens\b|gen_ai\.usage\.input_tokens/i.test(sql)) {
+			aggregations.push({
+				fn: "sum",
+				field: "gen_ai.usage.input_tokens",
+				as: "prompt_tokens",
+			});
+		}
+		if (/AS\s+completion_tokens\b|gen_ai\.usage\.output_tokens/i.test(sql)) {
+			aggregations.push({
+				fn: "sum",
+				field: "gen_ai.usage.output_tokens",
+				as: "completion_tokens",
+			});
+		}
 	}
 
 	// Duration (seconds)
@@ -170,13 +185,18 @@ export function inferStructuredFromClickHouseSql(
 		) {
 			const as =
 				firstAlias(sql, [
+					/AS\s+(total_model_count)\b/i,
 					/AS\s+(total_request)\b/i,
 					/AS\s+(total)\b/i,
 					/AS\s+(count)\b/i,
 					/AS\s+(model_count)\b/i,
 				]) || (isTimeseries ? "total" : "count");
 			if (!aggregations.some((a) => a.fn === "count")) {
-				aggregations.push({ fn: "count", as });
+				aggregations.push({
+					fn: "count",
+					// Inner model×time buckets use model_count; fold later to total_model_count.
+					as: as === "total_model_count" ? "model_count" : as,
+				});
 			}
 		}
 	}
@@ -205,7 +225,18 @@ export function inferStructuredFromClickHouseSql(
 
 	if (!aggregations.length) return null;
 
-	const primaryAlias = aggregations[0].as || "count";
+	const wantsModelsPerTime =
+		isTimeseries &&
+		(/AS\s+total_model_count\b/i.test(sql) ||
+			/ARRAY_AGG\s*\(\s*model\b/i.test(sql));
+
+	if (wantsModelsPerTime && !groupBy.includes("gen_ai.request.model")) {
+		groupBy.push("gen_ai.request.model");
+	}
+
+	const primaryAlias = wantsModelsPerTime
+		? "total_model_count"
+		: aggregations[0].as || "count";
 	const previousAlias = includePrevious
 		? firstAlias(sql, [
 				/AS\s+(\w+_previous)\b/i,
@@ -538,6 +569,81 @@ export function inferredToStructuredQuery(inferred: InferredWidgetQuery): {
 	};
 }
 
+function foldModelsPerTime(
+	rows: Record<string, unknown>[]
+): Record<string, unknown>[] {
+	const byTime = new Map<
+		string,
+		{ models: string[]; model_counts: number[]; total: number }
+	>();
+	for (const row of rows) {
+		const request_time = String(
+			row.label ?? row.request_time ?? row.bucket ?? ""
+		);
+		const model = String(
+			row.model ??
+				row.group_value ??
+				row.g0 ??
+				row["gen_ai.request.model"] ??
+				""
+		);
+		const count = Number(row.model_count ?? row.count ?? row.total ?? 0);
+		const entry = byTime.get(request_time) || {
+			models: [],
+			model_counts: [],
+			total: 0,
+		};
+		if (model) {
+			entry.models.push(model);
+			entry.model_counts.push(Number.isFinite(count) ? count : 0);
+		}
+		entry.total += Number.isFinite(count) ? count : 0;
+		byTime.set(request_time, entry);
+	}
+	return Array.from(byTime.entries())
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([request_time, entry]) => ({
+			request_time,
+			models: entry.models,
+			model_counts: entry.model_counts,
+			total_model_count: entry.total,
+			total: entry.total,
+		}));
+}
+
+function remapTimeseriesRows(
+	rows: Record<string, unknown>[],
+	inferred: InferredWidgetQuery
+): Record<string, unknown>[] {
+	const wantsModelsPerTime =
+		inferred.primaryAlias === "total_model_count" ||
+		(inferred.groupBy || []).includes("gen_ai.request.model");
+
+	if (wantsModelsPerTime) {
+		return foldModelsPerTime(rows);
+	}
+
+	const primary = inferred.primaryAlias || "total";
+	return rows.map((row) => {
+		const primaryValue = Number(
+			row[primary] ?? row.total ?? row.count ?? row.model_count ?? 0
+		);
+		const safePrimary = Number.isFinite(primaryValue) ? primaryValue : 0;
+		return {
+			...row,
+			[primary]: safePrimary,
+			total: Number(row.total ?? safePrimary),
+			request_time: String(
+				row.label ?? row.request_time ?? row.bucket ?? ""
+			),
+			total_tokens: Number(row.total_tokens ?? row.tokens ?? 0),
+			prompt_tokens: Number(row.prompt_tokens ?? 0),
+			completion_tokens: Number(row.completion_tokens ?? 0),
+			total_cost: Number(row.total_cost ?? row.cost ?? 0),
+		};
+	});
+}
+
 /** Execute an inferred widget query via the QueryPlanner. */
 export async function executeInferredWidgetQuery(
 	adapter: DataSourceAdapter,
@@ -568,15 +674,10 @@ export async function executeInferredWidgetQuery(
 			const frame = await planAndSpanTimeSeries(adapter, buildQuery(filter), {
 				preferRollup,
 			});
-			const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
-				...row,
-				total: Number(row.total ?? row.count ?? 0),
-				request_time: String(
-					row.request_time ?? row.label ?? row.bucket ?? ""
-				),
-				total_tokens: Number(row.total_tokens ?? row.tokens ?? 0),
-				total_cost: Number(row.total_cost ?? row.cost ?? 0),
-			}));
+			const data = remapTimeseriesRows(
+				frame.rows as Record<string, unknown>[],
+				inferred
+			);
 			return { data };
 		}
 
@@ -589,6 +690,18 @@ export async function executeInferredWidgetQuery(
 			currentFrame.rows as Record<string, unknown>[],
 			inferred.groupBy
 		);
+
+		// Ensure primary alias is always present for bar/pie widgets.
+		rows = rows.map((row) => {
+			const primary = inferred.primaryAlias || "count";
+			const value = Number(
+				row[primary] ?? row.count ?? row.total ?? row.model_count ?? 0
+			);
+			return {
+				...row,
+				[primary]: Number.isFinite(value) ? value : 0,
+			};
+		});
 
 		if (inferred.includePrevious && inferred.previousAlias) {
 			const previousFrame = await planAndAggregateSpans(

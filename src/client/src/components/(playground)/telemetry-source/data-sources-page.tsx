@@ -409,6 +409,10 @@ export default function DataSourcesPage({
 					descriptors={descriptors}
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
+					onAddConnector={() => {
+						setNewType(undefined);
+						setEditing("new");
+					}}
 				/>
 			)}
 			<section className="grid gap-3 border border-stone-200 bg-white p-4 md:grid-cols-2 dark:border-stone-800 dark:bg-stone-950">
@@ -636,6 +640,7 @@ function SignalRoutingSection({
 	descriptors,
 	bindingForSignal,
 	onSetBinding,
+	onAddConnector,
 }: {
 	projectId?: string;
 	environment: string;
@@ -644,6 +649,7 @@ function SignalRoutingSection({
 	descriptors: TypeDescriptor[];
 	bindingForSignal: (signal: Signal) => BindingRow | undefined;
 	onSetBinding: (signal: Signal, sourceId: string) => Promise<void>;
+	onAddConnector?: () => void;
 }) {
 	const messages = getMessage();
 	const environmentDatabases = databaseConfigs.filter(
@@ -676,7 +682,29 @@ function SignalRoutingSection({
 										</SelectContent>
 									</Select>
 								</FeatureAccess>
-							) : <div className="flex min-h-12 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60"><span>No connector configured</span><Link className="font-medium text-primary hover:underline" href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}>Add connector</Link></div>}
+							) : (
+								<div className="flex min-h-12 items-center justify-between rounded-md border border-dashed border-stone-300 bg-stone-50 px-3 text-xs text-muted-foreground dark:border-stone-700 dark:bg-stone-900/60">
+									<span>No connector configured</span>
+									{onAddConnector ? (
+										<FeatureAccess access="connectors.create" hideWhenDenied>
+											<button
+												type="button"
+												className="font-medium text-primary hover:underline"
+												onClick={onAddConnector}
+											>
+												{messages.ADD_CONNECTOR}
+											</button>
+										</FeatureAccess>
+									) : (
+										<Link
+											className="font-medium text-primary hover:underline"
+											href={projectId ? `/organisation/project/${projectId}/connectors` : "/connectors"}
+										>
+											{messages.ADD_CONNECTOR}
+										</Link>
+									)}
+								</div>
+							)}
 						</div>
 					);
 				})}
@@ -811,10 +839,13 @@ function SourceFormDialog({
 	}, [fields, source]);
 
 	const settingsFields = fields.filter(
-		(f) => f.group === "settings" && isFieldVisible(f, values)
+		(f) => f.group === "settings" && f.key !== "authType" && isFieldVisible(f, values)
 	);
-	const credentialFields = fields.filter(
-		(f) => f.group === "credentials" && isFieldVisible(f, { ...values })
+	// authType is stored in settings JSON but shown with secrets under Authentication.
+	const authenticationFields = fields.filter(
+		(f) =>
+			(f.key === "authType" || f.group === "credentials") &&
+			isFieldVisible(f, { ...values })
 	);
 
 	const submit = async () => {
@@ -823,9 +854,14 @@ function SourceFormDialog({
 			return;
 		}
 		const settings: Record<string, unknown> = {};
-		for (const f of settingsFields) settings[f.key] = values[f.key];
+		for (const f of fields) {
+			if (f.group === "settings" && isFieldVisible(f, values)) {
+				settings[f.key] = values[f.key];
+			}
+		}
 		const credentials: Record<string, string> = {};
-		for (const f of credentialFields) {
+		for (const f of fields) {
+			if (f.group !== "credentials" || !isFieldVisible(f, values)) continue;
 			const v = values[f.key];
 			if (typeof v === "string" && v.trim() !== "") credentials[f.key] = v;
 		}
@@ -1040,11 +1076,13 @@ function SourceFormDialog({
 						/>))}</div>
 					</section>}
 
-					{credentialFields.length > 0 && (
+					{authenticationFields.length > 0 && (
 						<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
 							<div>
 								<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">
-									{messages.DATA_SOURCE_CREDENTIALS_TITLE}
+									{fields.some((f) => f.key === "authType")
+										? messages.DATA_SOURCE_AUTHENTICATION_SECTION
+										: messages.DATA_SOURCE_CREDENTIALS_TITLE}
 								</p>
 								<p className="text-xs text-muted-foreground">
 									{isEdit && source?.hasSecret
@@ -1067,7 +1105,7 @@ function SourceFormDialog({
 									</a>
 								)}
 							</div>
-							<div className="grid gap-3 sm:grid-cols-2">{credentialFields.map((f) => (
+							<div className="grid gap-3 sm:grid-cols-2">{authenticationFields.map((f) => (
 								<FieldInput
 									key={f.key}
 									field={f}

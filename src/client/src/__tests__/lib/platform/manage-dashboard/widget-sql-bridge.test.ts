@@ -85,6 +85,54 @@ describe("widget-sql-bridge", () => {
 		expect(inferred?.aggregations[0].fn).toBe("count");
 	});
 
+	it("infers models-per-time with total_model_count primary alias", () => {
+		const inferred = inferStructuredFromClickHouseSql(`
+			SELECT
+				ARRAY_AGG(model) AS models,
+				ARRAY_AGG(model_count) AS model_counts,
+				CAST(SUM(model_count) AS INTEGER) AS total_model_count,
+				formatDateTime(DATE_TRUNC('hour', Timestamp), '%Y/%m/%d %R') AS request_time
+			FROM (
+				SELECT
+					SpanAttributes['gen_ai.request.model'] AS model,
+					COUNT(*) AS model_count,
+					formatDateTime(DATE_TRUNC('hour', Timestamp), '%Y/%m/%d %R') AS request_time
+				FROM otel_traces
+				GROUP BY model, request_time
+			) AS sub
+			GROUP BY request_time
+		`);
+		expect(inferred).toMatchObject({
+			mode: "timeseries",
+			primaryAlias: "total_model_count",
+			groupBy: ["gen_ai.request.model"],
+		});
+		expect(inferred?.aggregations[0]).toEqual({
+			fn: "count",
+			as: "model_count",
+		});
+	});
+
+	it("infers token usage timeseries with prompt and completion series", () => {
+		const inferred = inferStructuredFromClickHouseSql(`
+			SELECT
+				CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
+				CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.input_tokens'])) AS INTEGER) AS prompt_tokens,
+				CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.output_tokens'])) AS INTEGER) AS completion_tokens,
+				formatDateTime(DATE_TRUNC('day', Timestamp), '%Y/%m/%d %R') AS request_time
+			FROM otel_traces
+			GROUP BY request_time
+		`);
+		expect(inferred?.mode).toBe("timeseries");
+		expect(inferred?.aggregations).toEqual(
+			expect.arrayContaining([
+				{ fn: "sum", field: "gen_ai.usage.total_tokens", as: "total_tokens" },
+				{ fn: "sum", field: "gen_ai.usage.input_tokens", as: "prompt_tokens" },
+				{ fn: "sum", field: "gen_ai.usage.output_tokens", as: "completion_tokens" },
+			])
+		);
+	});
+
 	it("round-trips structured query to ClickHouse SQL", () => {
 		const { openLITQueryToClickHouseSql, inferredToStructuredQuery } =
 			require("@/lib/platform/manage-dashboard/widget-sql-bridge") as typeof import("@/lib/platform/manage-dashboard/widget-sql-bridge");
