@@ -151,4 +151,14 @@ describe("widget-sql-bridge", () => {
 		expect(sql).toContain("gen_ai.request.model");
 		expect(sql).toContain("count()");
 	});
+
+	it("does not treat prototype keys as aggregation aliases", () => {
+		const inferred = inferStructuredFromClickHouseSql(`
+			SELECT avg(SpanAttributes['gen_ai.usage.input_tokens']) AS constructor
+			FROM otel_traces
+		`);
+		expect(inferred?.primaryAlias).not.toBe("constructor");
+		expect(inferred?.primaryAlias).not.toBe("__proto__");
+		expect(inferred?.primaryAlias).toBe("count");
+	});
 });
