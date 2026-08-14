@@ -41,6 +41,7 @@ import { listTraceRecords } from "../traces/read";
 import { getLogs } from "../logs/read";
 import { listMetricRecords } from "../metrics/read";
 import { resolveSignalSource } from "@/lib/telemetry-source";
+import { queryProjectMemories } from "@/lib/platform/connectors/memory/read";
 import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
@@ -923,6 +924,67 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			},
 		}),
 
+		// ==================== MEMORY ====================
+
+		list_memories: tool<any, any>({
+			description: "List stored agent memories from the project's memory connectors (Mem0, Zep). Use this when the user asks what is remembered, or to browse memories before answering.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					connector_id: { type: "string", description: "Memory connector id (memory:…)" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string", description: "Required for Zep list" },
+					limit: { type: "number", description: "Max memories to return (1-100)" },
+				},
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const result = await queryProjectMemories({
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to list memories" };
+				}
+			},
+		}),
+
+		search_memories: tool<any, any>({
+			description: "Search stored agent memories in the project's memory connectors. Use this to answer questions from long-term memory.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					query: { type: "string", description: "Natural-language search query" },
+					connector_id: { type: "string" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string" },
+					limit: { type: "number" },
+				},
+				required: ["query"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const result = await queryProjectMemories({
+						query: params.query,
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to search memories" };
+				}
+			},
+		}),
+
 		// ==================== CUSTOM MODELS ====================
 
 		create_custom_model: tool<any, any>({
@@ -1339,5 +1401,37 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			},
 		}),
 
+	};
+}
+
+function summarizeMemoryToolResult(result: Awaited<ReturnType<typeof queryProjectMemories>>) {
+	const memories = result.memories.slice(0, 25).map((memory) => ({
+		id: memory.id,
+		content:
+			memory.content.length > 280
+				? `${memory.content.slice(0, 277).trimEnd()}…`
+				: memory.content,
+		userId: memory.userId,
+		agentId: memory.agentId,
+		sessionId: memory.sessionId,
+		kind: memory.kind,
+		createdAt: memory.createdAt,
+		score: memory.score,
+	}));
+	return {
+		success: true,
+		hint: result.hint,
+		connector: result.connector
+			? {
+					id: result.connector.id,
+					name: result.connector.name,
+					type: result.connector.type,
+					environment: result.connector.environment,
+				}
+			: null,
+		count: result.memories.length,
+		stats: result.stats,
+		filters: result.filters,
+		memories,
 	};
 }

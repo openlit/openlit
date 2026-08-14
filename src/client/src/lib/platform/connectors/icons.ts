@@ -5,6 +5,8 @@ const CONNECTOR_ICONS: Record<string, string> = {
 	loki: "/images/connectors/grafana.svg",
 	prometheus: "/images/connectors/grafana.svg",
 	jaeger: "/images/connectors/jaeger.svg",
+	mem0: "/images/connectors/mem0.svg",
+	zep: "/images/connectors/zep.svg",
 };
 
 export function connectorIconPath(type: string): string | undefined {

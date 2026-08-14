@@ -6,9 +6,11 @@ an instance is a project- or organisation-scoped configuration with secrets
 stored in the vault.
 
 Datasource adapters are registered automatically from the existing datasource
-registry. New datasource contributors should implement the existing
-`DataSourceAdapterFactory`, declare its descriptor and capabilities, and add
-adapter tests. The generic connector registry exposes that type to shared
+registry. Memory adapters register the same way from
+`lib/platform/connectors/memory`. New datasource contributors should implement
+the existing `DataSourceAdapterFactory`; new memory contributors should
+implement `MemoryAdapterFactory`. Declare the descriptor and capabilities, and
+add adapter tests. The generic connector registry exposes that type to shared
 configuration and future consumers without adding vendor-specific UI logic.
 
 Enterprise-only providers can register through the same neutral registry from

@@ -14,8 +14,8 @@ import net from "net";
 import { promises as dns } from "dns";
 import getMessage from "@/constants/messages";
 import {
+	canonicalizeFetchUrl,
 	isEnabledSetting,
-	normalizeDatasourceEndpointUrl,
 	rewriteLoopbackEndpointForDocker,
 } from "./endpoint-url";
 import { withRetry, withSourceConcurrency, type RetryOptions } from "./limits";
@@ -135,7 +135,7 @@ export async function assertPublicUrl(
 ): Promise<URL> {
 	let url: URL;
 	try {
-		url = new URL(normalizeDatasourceEndpointUrl(rawUrl));
+		url = new URL(canonicalizeFetchUrl(rawUrl));
 	} catch {
 		throw new SsrfError("Invalid URL");
 	}
@@ -366,6 +366,7 @@ export async function safeFetch<T = unknown>(
 
 	const doFetch = async (): Promise<T> => {
 		let currentUrl = url;
+		const visited = new Set<string>([currentUrl.href]);
 		for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
 			let response: Awaited<ReturnType<typeof fetchImpl>>;
 			try {
@@ -399,6 +400,10 @@ export async function safeFetch<T = unknown>(
 					allowPrivateNetwork: options.allowPrivateNetwork,
 					lookup: options.lookup,
 				});
+				if (visited.has(currentUrl.href)) {
+					throw new SsrfError("Data source redirect loop detected");
+				}
+				visited.add(currentUrl.href);
 				continue;
 			}
 

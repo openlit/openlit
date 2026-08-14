@@ -346,7 +346,13 @@ export async function getSecretById(
 			where: { secretRef: id, projectId },
 			select: { id: true },
 		});
-		if (!source) return { data: [] };
+		const connector = source
+			? null
+			: await prisma.connectorInstance.findFirst({
+					where: { secretRef: id, projectId },
+					select: { id: true },
+				});
+		if (!source && !connector) return { data: [] };
 	} else {
 		const user = await getCurrentUser();
 		throwIfError(!user, getMessage().UNAUTHORIZED_USER);

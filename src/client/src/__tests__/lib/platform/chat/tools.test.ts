@@ -84,6 +84,11 @@ jest.mock("@/lib/telemetry-source", () => ({
 	resolveSignalSource: (...args: unknown[]) => mockResolveSignalSource(...args),
 }));
 
+const mockQueryProjectMemories = jest.fn();
+jest.mock("@/lib/platform/connectors/memory/read", () => ({
+	queryProjectMemories: (...args: unknown[]) => mockQueryProjectMemories(...args),
+}));
+
 jest.mock("@/utils/sanitizer", () => ({
 	__esModule: true,
 	default: {
@@ -167,6 +172,8 @@ describe("getChatTools", () => {
 				"analyze_traces_by_attribute",
 				"get_telemetry_routing",
 				"query_telemetry",
+				"list_memories",
+				"search_memories",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -1399,5 +1406,39 @@ describe("getChatTools", () => {
 		expect(batch.processed).toBe(1);
 		expect(batch.limitApplied).toBe(true);
 		expect(batch.results[0].success).toBe(true);
+	});
+
+	it("lists and searches memories through the memory connector facade", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			connector: {
+				id: "memory:abc",
+				name: "Prod Mem0",
+				type: "mem0",
+				environment: "production",
+			},
+			memories: [
+				{
+					id: "m1",
+					content: "x".repeat(300),
+					userId: "ada",
+					kind: "summary",
+				},
+			],
+			stats: { total: 1 },
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const listed = await tools.list_memories.execute({ user_id: "ada" });
+		expect(listed.success).toBe(true);
+		expect(listed.memories[0].content.endsWith("…")).toBe(true);
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: "ada" })
+		);
+
+		await tools.search_memories.execute({ query: "tracing" });
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ query: "tracing" })
+		);
+		expect(tools.search_memories.inputSchema.required).toEqual(["query"]);
 	});
 });

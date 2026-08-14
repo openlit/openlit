@@ -11,6 +11,8 @@ import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/h
 import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
 import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
 import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/prometheus/adapter";
+import { mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
+import { zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {
@@ -101,6 +103,17 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		expect(urlField(tempoAdapterFactory)).toContain("tempo");
 		expect(urlField(lokiAdapterFactory)).toContain("3100");
 		expect(urlField(prometheusAdapterFactory)).toContain("9090");
+	});
+
+	it("exposes API-key credentials for memory connectors", () => {
+		for (const factory of [mem0AdapterFactory, zepAdapterFactory]) {
+			const described = factory.describe();
+			expect(described.authStyle).toBe("api-key");
+			expect(described.configFields.find((field) => field.key === "apiKey")?.group).toBe(
+				"credentials"
+			);
+			expect(described.configFields.find((field) => field.key === "url")?.kind).toBe("url");
+		}
 	});
 
 });

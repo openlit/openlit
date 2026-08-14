@@ -73,6 +73,8 @@ describe('middleware', () => {
     expect(config.matcher).toContain('/rule-engine/:path*');
     expect(config.matcher).toContain('/context');
     expect(config.matcher).toContain('/context/:path*');
+    expect(config.matcher).toContain('/memory');
+    expect(config.matcher).toContain('/memory/:path*');
     expect(config.matcher).toContain('/coding-agents/:path*');
     expect(config.matcher).toContain('/pricing');
     expect(config.matcher).toContain('/manage-models');

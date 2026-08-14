@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { errorResponse } from "@/utils/api-response";
 import asaw from "@/utils/asaw";
-import { createTelemetrySource, availableSourceTypeDescriptors } from "@/lib/telemetry-source-crud";
+import { createTelemetrySource } from "@/lib/telemetry-source-crud";
 import { upsertDBConfig } from "@/lib/db-config";
 import { NextRequest } from "next/server";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
@@ -13,11 +13,16 @@ import {
 import { listProjectConnectorInstances } from "@/lib/platform/connectors/instances";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 import { validateOpenPlaitClickHouseConnection } from "@/lib/platform/openplait";
+import { availableConnectorTypeDescriptors } from "@/lib/platform/connectors/catalog";
+import {
+	createMemoryConnector,
+	isMemoryConnectorType,
+} from "@/lib/platform/connectors/memory/crud";
 
 /**
  * Generic connector endpoint. Datasource instances are exposed through the
  * connector contract while legacy repositories remain compatibility stores
- * for existing platform features.
+ * for existing platform features. Memory connectors persist on ConnectorInstance.
  */
 async function GETHandler() {
 	const user = await getCurrentUser();
@@ -35,16 +40,11 @@ async function GETHandler() {
 			return {
 			...safeConnector,
 			icon: connectorIconPath(String(connector.type || "")),
-			category: "datasource",
+			category: String(connector.category || "datasource"),
 			scope: "project",
 		};
 		}),
-		availableTypeDescriptors: availableSourceTypeDescriptors().filter((descriptor) => isVisibleConnectorType(descriptor.type)).map((descriptor) => ({
-			...descriptor,
-			icon: connectorIconPath(descriptor.type),
-			category: "datasource",
-			scope: "project",
-		})),
+		availableTypeDescriptors: availableConnectorTypeDescriptors(),
 	});
 }
 
@@ -57,7 +57,14 @@ async function POSTHandler(request: NextRequest) {
 	} catch {
 		return Response.json({ err: "Invalid JSON" }, { status: 400 });
 	}
-	if (body.category && body.category !== "datasource") {
+	const category = String(body.category || "");
+	const type = String(body.type || "");
+	if (category === "memory" || isMemoryConnectorType(type)) {
+		const [err, connector] = await asaw(createMemoryConnector(body));
+		if (err) return errorResponse(err, "Failed to create connector");
+		return Response.json(connector);
+	}
+	if (category && category !== "datasource") {
 		return Response.json(
 			{ err: `Connector category is not available in CE: ${String(body.category)}` },
 			{ status: 400 }

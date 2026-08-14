@@ -691,6 +691,7 @@ export const RECALCULATE_COST_REQUEST_FAILED = "Failed to recalculate cost";
 export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
+export const FEATURE_MEMORY = "Memory";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
@@ -2104,6 +2105,117 @@ export const CONNECTOR_ENVIRONMENT = "Environment";
 export const CONNECTOR_ENVIRONMENT_PLACEHOLDER = "production";
 export const CONNECTOR_ENVIRONMENT_DESCRIPTION =
 	"Keep connector assignments separate for production, staging, and other environments.";
+export const MEMORY_CONNECTOR_NAME_REQUIRED = "A memory connector name is required.";
+export const MEMORY_CONNECTOR_NAME_TAKEN = (name: string, environment: string) =>
+	`A memory connector named "${name}" already exists in the ${environment} environment. Choose a different name.`;
+export const MEMORY_CONNECTOR_TYPE_UNKNOWN = (type: string) =>
+	`Unknown memory connector type "${type}".`;
+export const MEMORY_CONNECTOR_NO_PROJECT = "No current project is selected.";
+export const MEMORY_CONNECTOR_NOT_FOUND =
+	"Memory connector not found in the current project.";
+export const MEMORY_CONNECTOR_CONTENT_REQUIRED =
+	"Memory content or messages are required.";
+export const MEMORY_CONNECTOR_QUERY_REQUIRED = "A memory search query is required.";
+export const MEMORY_CONNECTOR_SESSION_REQUIRED =
+	"A session id is required for this memory connector.";
+export const MEMORY_CONNECTOR_FILTER_REQUIRED =
+	"A user, agent, or session is required to list memories.";
+export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
+	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
+	"Store and search session memory and a knowledge graph with Zep.";
+export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
+export const MEMORY_CONNECTOR_FIELD_PROJECT_ID = "Mem0 project ID";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
+	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
+	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
+export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
+	"Mem0 stores long-term memories that agents can search later.";
+export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
+	"Zep stores session memory and a knowledge graph for agents.";
+export const MEMORY_PAGE_DESCRIPTION =
+	"Browse stored agent memories and ask Otter to search them.";
+export const MEMORY_TOTAL = "Total memories";
+export const MEMORY_CONNECTIONS = "Connections";
+export const MEMORY_TEMPORAL = "Temporal";
+export const MEMORY_PROFILE = "Profile";
+export const MEMORY_SUMMARY = "Summary";
+export const MEMORY_SEARCH_PLACEHOLDER = "Search memories…";
+export const MEMORY_ASK_TITLE = "Ask Otter";
+export const MEMORY_ASK_PLACEHOLDER = "Ask anything about your memories…";
+export const MEMORY_ASK_HINT =
+	"Otter searches this connector and answers here.";
+export const MEMORY_ASK_SEND = "Ask Otter";
+export const MEMORY_ASK_OTTER_PROMPT =
+	"Answer this from the project's stored memories. Use search_memories or list_memories before answering.";
+export const MEMORY_REFRESH = "Load";
+export const MEMORY_GRAPH_TITLE = "Memory graph";
+export const MEMORY_LIST_TITLE = "Memories";
+export const MEMORY_CONNECTOR_LABEL = "Memory connector";
+export const MEMORY_USER_FILTER = "User";
+export const MEMORY_SESSION_FILTER = "Session";
+export const MEMORY_AGENT_FILTER = "Agent";
+export const MEMORY_SESSION_REQUIRED_HINT =
+	"Select a session to load memories from this connector.";
+export const MEMORY_FILTER_REQUIRED_HINT =
+	"Select a user, session, or agent to load memories.";
+export const MEMORY_FILTER_EMPTY =
+	"This connector has no users or sessions yet.";
+export const MEMORY_GRAPH_EMPTY = "No graph data to display.";
+export const MEMORY_EMPTY_CONNECTORS =
+	"Add a memory connector to browse and ask Otter about stored memories.";
+export const MEMORY_EMPTY_CONNECTORS_ACTION = "Add memory connector";
+export const MEMORY_EMPTY_LIST = "No memories matched these filters.";
+export const MEMORY_NO_MATCHES = "No memories match this search.";
+export const MEMORY_LOAD_FAILED = "Failed to load memories.";
+export const MEMORY_UNAVAILABLE_TITLE = "Memories are unavailable";
+export const MEMORY_UNAVAILABLE_DESCRIPTION =
+	"We couldn't load memories from this connector. Check the connector and try again.";
+export const MEMORY_RETRY = "Retry";
+export const MEMORY_UNKNOWN_USER = "Unknown user";
+export const MEMORY_NO_DATE = "—";
+export const MEMORY_LEGEND = "Legend";
+export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
+export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_DETAIL_TITLE = "Memory";
+export const MEMORY_DETAIL_NOT_FOUND = "This memory could not be found.";
+export const MEMORY_DETAIL_LOAD_FAILED = "Failed to load memory details.";
+export const MEMORY_DETAIL_UNSUPPORTED =
+	"This connector cannot fetch a memory by id. Showing the listed record.";
+export const MEMORY_DETAIL_CONTENT = "Content";
+export const MEMORY_DETAIL_MEMORY = "Memory";
+export const MEMORY_DETAIL_METADATA = "Metadata";
+export const MEMORY_DETAIL_ID = "ID";
+export const MEMORY_DETAIL_KIND = "Kind";
+export const MEMORY_DETAIL_USER = "User";
+export const MEMORY_DETAIL_SESSION = "Session";
+export const MEMORY_DETAIL_AGENT = "Agent";
+export const MEMORY_DETAIL_CREATED = "Created";
+export const MEMORY_DETAIL_UPDATED = "Updated";
+export const MEMORY_DETAIL_SCORE = "Score";
+export const MEMORY_DETAIL_CONNECTOR = "Connector";
+export const MEMORY_DETAIL_CATEGORIES = "Categories";
+export const MEMORY_DETAIL_TAB_DETAILS = "Details";
+export const MEMORY_DETAIL_TAB_INPUT = "Input";
+export const MEMORY_DETAIL_TAB_CHANGELOG = "Changelog";
+export const MEMORY_DETAIL_PREVIOUS = "Previous memory";
+export const MEMORY_DETAIL_NEXT = "Next memory";
+export const MEMORY_DETAIL_COPY_ID = "Copy memory id";
+export const MEMORY_DETAIL_EXPIRATION = "Expires";
+export const MEMORY_DETAIL_APP = "App";
+export const MEMORY_DETAIL_LIFECYCLE = "Lifecycle";
+export const MEMORY_DETAIL_SYNTHESIZED = "Synthesized";
+export const MEMORY_DETAIL_STRUCTURED = "Structured attributes";
+export const MEMORY_DETAIL_INPUT_EMPTY = "No source messages for this memory.";
+export const MEMORY_DETAIL_CHANGELOG_EMPTY = "No changelog for this memory.";
+export const MEMORY_DETAIL_EVENT_ADDED = "Added";
+export const MEMORY_DETAIL_EVENT_UPDATED = "Updated";
+export const MEMORY_DETAIL_EVENT_DELETED = "Deleted";
+export const MEMORY_DETAIL_OLD_MEMORY = "Previous";
+export const MEMORY_DETAIL_NEW_MEMORY = "Updated to";
+export const MEMORY_DETAIL_YES = "Yes";
+export const MEMORY_DETAIL_NO = "No";
 export const DATA_SOURCE_BUILTIN_TITLE = "ClickHouse connector";
 export const DATA_SOURCE_BUILTIN_DERIVED =
 	"ClickHouse is optional for telemetry viewing. It becomes the execution target for evaluations, AI analysis, costing, and other features that require OpenLIT-managed storage.";
@@ -2151,6 +2263,16 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "OpenLIT reads traces from the Jaeger Query Service.",
 		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
 		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
+	},
+	mem0: {
+		summary: "Connect OpenLIT to Mem0 for long-term agent memory.",
+		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
+		docsUrl: "https://docs.mem0.ai/api-reference",
+	},
+	zep: {
+		summary: "Connect OpenLIT to Zep for session memory and graph search.",
+		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
+		docsUrl: "https://help.getzep.com/sdk-reference",
 	},
 };
 export const DATA_SOURCE_EMPTY_TITLE = "No external sources yet";

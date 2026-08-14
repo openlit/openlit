@@ -134,6 +134,15 @@ describe("assertPublicUrl", () => {
 		expect(url.pathname).toBe("/path");
 	});
 
+	it("keeps a resource trailing slash so slash-required APIs are not redirected", async () => {
+		const url = await assertPublicUrl(
+			"https://public.example.com/v1/memories/abc/",
+			{ lookup }
+		);
+		expect(url.pathname).toBe("/v1/memories/abc/");
+		expect(url.href).toBe("https://public.example.com/v1/memories/abc/");
+	});
+
 	it("allows a public literal IP and blocks a private literal IP", async () => {
 		await expect(assertPublicUrl("https://8.8.8.8")).resolves.toBeInstanceOf(URL);
 		await expect(assertPublicUrl("https://10.1.2.3")).rejects.toThrow(SsrfError);
@@ -247,6 +256,66 @@ describe("safeFetch", () => {
 		});
 		expect(result).toEqual({ ok: true });
 		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it("follows a slash-adding redirect once instead of looping", async () => {
+		const publicLookup = async () => [{ address: "8.8.8.8" }];
+		const fetchImpl = jest.fn(async (url: string) => {
+			const href = String(url);
+			if (href.endsWith("/v1/memories/abc")) {
+				return {
+					status: 301,
+					headers: {
+						get: (header: string) => (header === "location" ? `${href}/` : null),
+					},
+					text: async () => "",
+				};
+			}
+			return {
+				ok: true,
+				status: 200,
+				headers: { get: () => null },
+				text: async () => JSON.stringify({ id: "abc" }),
+			};
+		});
+		await expect(
+			safeFetch("https://api.example.com/v1/memories/abc/", {
+				lookup: publicLookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).resolves.toEqual({ id: "abc" });
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
+		expect(String(fetchImpl.mock.calls[0][0])).toBe(
+			"https://api.example.com/v1/memories/abc/"
+		);
+
+		fetchImpl.mockClear();
+		await expect(
+			safeFetch("https://api.example.com/v1/memories/abc", {
+				lookup: publicLookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).resolves.toEqual({ id: "abc" });
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it("detects a redirect loop", async () => {
+		const publicLookup = async () => [{ address: "8.8.8.8" }];
+		const fetchImpl = jest.fn().mockResolvedValue({
+			status: 302,
+			headers: {
+				get: (header: string) =>
+					header === "location" ? "https://api.example.com/a" : null,
+			},
+			text: async () => "",
+		});
+		await expect(
+			safeFetch("https://api.example.com/a", {
+				lookup: publicLookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toThrow(/redirect loop/i);
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
 	});
 
 	it("retries a transient 429 then succeeds when retry is enabled", async () => {

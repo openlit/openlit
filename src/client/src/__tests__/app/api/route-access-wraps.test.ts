@@ -27,6 +27,8 @@ describe("new implementation route access wraps", () => {
 			"connectors/[id]/health/route.ts",
 			"connectors/bindings/route.ts",
 			"project/environment/route.ts",
+			"memory/route.ts",
+			"memory/[id]/route.ts",
 		];
 		for (const rel of files) {
 			const source = readFileSync(join(API_ROOT, rel), "utf8");

@@ -1,9 +1,18 @@
 import {
+	canonicalizeFetchUrl,
 	isEnabledSetting,
 	normalizeDatasourceEndpointUrl,
 	rewriteLoopbackEndpointForDocker,
 } from "@/lib/platform/connectors/datasource/http/endpoint-url";
 import { selfHostedNetworkOptions } from "@/lib/platform/connectors/datasource/http/safe-fetch";
+
+describe("canonicalizeFetchUrl", () => {
+	it("repairs collapsed authority slashes without stripping the path", () => {
+		expect(canonicalizeFetchUrl("https:/api.example.com/v1/memories/abc/")).toBe(
+			"https://api.example.com/v1/memories/abc/"
+		);
+	});
+});
 
 describe("normalizeDatasourceEndpointUrl", () => {
 	it("repairs collapsed http:/ authority slashes", () => {
@@ -32,6 +41,12 @@ describe("rewriteLoopbackEndpointForDocker", () => {
 				enabled: true,
 			})
 		).toBe("http://host.docker.internal:3100/loki");
+		expect(
+			rewriteLoopbackEndpointForDocker(
+				"http://localhost:8000/v1/memories/abc/",
+				{ enabled: true }
+			)
+		).toBe("http://host.docker.internal:8000/v1/memories/abc/");
 	});
 
 	it("leaves non-loopback hosts unchanged", () => {

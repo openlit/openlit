@@ -62,7 +62,8 @@ interface TypeDescriptor {
 	displayName: string;
 	description?: string;
 	icon?: string;
-	declaredSignals: Signal[];
+	category?: string;
+	declaredSignals?: Signal[];
 	correlation?: { crossSignal: boolean; keys: string[] };
 	configFields?: FieldDef[];
 	authStyle?: "none" | "http" | "api-key" | "custom";
@@ -94,6 +95,7 @@ interface SourceRow {
 	settings: string;
 	isDefault: boolean;
 	hasSecret?: boolean;
+	category?: string;
 }
 
 interface BindingRow {
@@ -206,6 +208,10 @@ export default function DataSourcesPage({
 	const visibleSources = useMemo(
 		() => sources.filter((source) => (source.environment || "production") === environment),
 		[environment, sources]
+	);
+	const routingSources = useMemo(
+		() => visibleSources.filter((source) => source.category !== "memory"),
+		[visibleSources]
 	);
 
 	const load = useCallback(async () => {
@@ -405,7 +411,7 @@ export default function DataSourcesPage({
 					projectId={projectId}
 					environment={environment}
 					databaseConfigs={databaseConfigs}
-					sources={visibleSources}
+					sources={routingSources}
 					descriptors={descriptors}
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
@@ -509,6 +515,11 @@ export default function DataSourcesPage({
 												{sig}
 											</Badge>
 										))}
+										{s.category === "memory" ? (
+											<Badge variant="secondary" className="text-[10px]">
+												memory
+											</Badge>
+										) : null}
 									</div>
 								</div>
 				<div className="mt-3 flex items-center justify-end gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
@@ -557,7 +568,7 @@ export default function DataSourcesPage({
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
 					bindings={bindings}
-					sources={visibleSources}
+					sources={routingSources}
 					databaseConfigs={databaseConfigs}
 						environment={environment}
 					onClose={() => {
@@ -786,7 +797,14 @@ function SourceFormDialog({
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
 	const [environments, setEnvironments] = useState<string[]>(Array.from(new Set(["production", source?.environment, initialEnvironment].filter(Boolean) as string[])));
 	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
-	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
+	const [type, setType] = useState(source?.type || initialType || externalDescriptors.find((descriptor) => descriptor.category !== "memory")?.type || externalDescriptors[0]?.type || "");
+	const pickerDescriptors = useMemo(() => {
+		const selected = descriptors.find((descriptor) => descriptor.type === type);
+		if (selected?.category === "memory" || source?.category === "memory") {
+			return descriptors.filter((descriptor) => descriptor.category === "memory");
+		}
+		return descriptors.filter((descriptor) => descriptor.category !== "memory");
+	}, [descriptors, source?.category, type]);
 	const clickHouseFields = useMemo<FieldDef[]>(() => [
 		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default" },
 		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "clickhouse.example.com" },
@@ -847,6 +865,8 @@ function SourceFormDialog({
 			(f.key === "authType" || f.group === "credentials") &&
 			isFieldVisible(f, { ...values })
 	);
+	const activeDescriptor = descriptors.find((d) => d.type === type);
+	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
 
 	const submit = async () => {
 		if (!name.trim()) {
@@ -899,6 +919,7 @@ function SourceFormDialog({
 				environment: environment.trim().toLowerCase() || "production",
 				settings,
 				isDefault,
+				category: activeDescriptor?.category || "datasource",
 			};
 			if (Object.keys(credentials).length) payload.credentials = credentials;
 			if (isEdit) {
@@ -946,9 +967,6 @@ function SourceFormDialog({
 		}
 	};
 
-	const activeDescriptor = descriptors.find((d) => d.type === type);
-	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
-
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
 			<DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[92vh] overflow-y-auto border-stone-200 bg-white text-stone-950 shadow-2xl dark:border-stone-800 dark:bg-stone-950 dark:text-stone-50 sm:max-w-4xl">
@@ -995,7 +1013,7 @@ function SourceFormDialog({
 									</SelectValue>
 								</SelectTrigger>
 				<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
-									{descriptors.map((d) => (
+									{pickerDescriptors.map((d) => (
 						<SelectItem key={d.type} value={d.type} className="min-h-[72px] items-start py-2 pl-2 pr-8">
 							<div className="flex items-start gap-3">
 												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
@@ -1012,10 +1030,10 @@ function SourceFormDialog({
 							</Select>
 							{isEdit && <p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_TYPE_LOCKED}</p>}
 						</div>
-						{activeDescriptor && (
+						{activeDescriptor && (activeDescriptor.declaredSignals || []).length > 0 && (
 							<div className="mt-3 flex flex-wrap items-center gap-1.5">
 								<span className="mr-1 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNALS_SECTION}:</span>
-								{activeDescriptor.declaredSignals.map((sig) => (
+								{(activeDescriptor.declaredSignals || []).map((sig) => (
 									<Badge key={sig} variant="secondary" className="text-[10px]">{sig}</Badge>
 								))}
 							</div>
@@ -1118,7 +1136,7 @@ function SourceFormDialog({
 						</section>
 					)}
 
-					{showRouting && source && bindingForSignal && onSetBinding && (
+					{showRouting && source && activeDescriptor?.category !== "memory" && bindingForSignal && onSetBinding && (
 						<SignalRoutingEditor
 							sources={sources || []}
 							databaseConfigs={databaseConfigs || []}
@@ -1129,12 +1147,14 @@ function SourceFormDialog({
 						/>
 					)}
 
+					{activeDescriptor?.category !== "memory" && (
 					<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
 						<Label className="text-xs">
 							{messages.DATA_SOURCE_FIELD_DEFAULT}
 						</Label>
 						<Switch checked={isDefault} onCheckedChange={setIsDefault} />
 					</div>
+					)}
 				</div>
 
 				<DialogFooter>
