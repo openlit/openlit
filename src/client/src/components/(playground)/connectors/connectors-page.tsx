@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Cable, CheckCircle2, Plug, Search } from "lucide-react";
+import { ArrowRight, Cable, CheckCircle2, Lock, Plug, Search } from "lucide-react";
 import FeatureAccess from "@/components/rbac/feature-access";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
@@ -41,6 +41,7 @@ type ConnectorType = {
 	icon?: string;
 	declaredSignals?: string[];
 	plan?: "free" | "enterprise";
+	locked?: boolean;
 };
 
 export default function ConnectorsPage() {
@@ -249,8 +250,17 @@ export default function ConnectorsPage() {
 														</p>
 														{type.plan === "enterprise" ? (
 															<Badge className="shrink-0 bg-amber-100 px-1.5 py-0 text-[9px] font-semibold text-amber-800 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-950/60">
-																Premium
+																{messages.CONNECTOR_PREMIUM}
 															</Badge>
+														) : null}
+														{type.locked ? (
+															<span
+																className="inline-flex shrink-0 text-amber-700 dark:text-amber-300"
+																title={messages.CONNECTOR_LOCKED}
+																aria-label={messages.CONNECTOR_LOCKED}
+															>
+																<Lock className="h-3.5 w-3.5" />
+															</span>
 														) : null}
 													</div>
 												<p className="text-[11px] text-muted-foreground">
@@ -278,9 +288,18 @@ export default function ConnectorsPage() {
 											size="sm"
 											variant="outline"
 											className="mt-3 w-full"
+											disabled={type.locked}
+											title={type.locked ? messages.CONNECTOR_LOCKED : undefined}
 											onClick={() => setRequestedType(type.type)}
 										>
-											{messages.ADD_CONNECTOR}
+											{type.locked ? (
+												<>
+													<Lock className="mr-1.5 h-3.5 w-3.5" />
+													{messages.CONNECTOR_LOCKED_ACTION}
+												</>
+											) : (
+												messages.ADD_CONNECTOR
+											)}
 										</Button>
 									</div>
 												))}

@@ -88,7 +88,7 @@ async function externalGpuAverage(
 		);
 		return {
 			err: null,
-			data: [{ [valueKey]: averageOf(frame.rows as Record<string, unknown>[]) }],
+			data: [{ [valueKey]: averageOf(frame.rows as unknown as Record<string, unknown>[]) }],
 		};
 	} catch (err) {
 		return { err: asError(err), data: [] };
@@ -107,7 +107,7 @@ async function externalGpuSeries(
 			gpuMetricQuery(params, metricNames, [{ fn: "avg", as: "value" }])
 		);
 		const byTime = new Map<string, Record<string, unknown>>();
-		for (const row of frame.rows as Record<string, unknown>[]) {
+		for (const row of frame.rows as unknown as Record<string, unknown>[]) {
 			const request_time = String(
 				row.request_time ?? row.timestamp ?? row.label ?? ""
 			);
@@ -158,7 +158,7 @@ export async function externalAverageTemperatureParamsPerTime(
 		);
 		return {
 			err: null,
-			data: bucketByTime(frame.rows as Record<string, unknown>[], "temperature"),
+			data: bucketByTime(frame.rows as unknown as Record<string, unknown>[], "temperature"),
 		};
 	} catch (err) {
 		return { err: asError(err), data: [] };
@@ -203,7 +203,7 @@ export async function externalFanspeedParamsPerTime(params: GPUMetricParams) {
 		);
 		return {
 			err: null,
-			data: bucketByTime(frame.rows as Record<string, unknown>[], "fan_speed"),
+			data: bucketByTime(frame.rows as unknown as Record<string, unknown>[], "fan_speed"),
 		};
 	} catch (err) {
 		return { err: asError(err), data: [] };
