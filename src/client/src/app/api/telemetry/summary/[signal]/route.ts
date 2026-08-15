@@ -22,6 +22,7 @@ export async function POST(
 	}
 
 	const formData = await request.json();
+	const { searchParams } = new URL(request.url);
 	const metricParams: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
 		selectedConfig: formData.selectedConfig || {},
@@ -37,7 +38,8 @@ export async function POST(
 	return Response.json(
 		await getSignalSummary(
 			metricParams,
-			params.signal as "traces" | "exceptions" | "logs" | "metrics"
+			params.signal as "traces" | "exceptions" | "logs" | "metrics",
+			searchParams.get("view") === "traces"
 		)
 	);
 }

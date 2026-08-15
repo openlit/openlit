@@ -14,11 +14,20 @@ describe("observability signal registry", () => {
 		const traces = getSignalConfig("traces");
 
 		expect(traces.key).toBe("traces");
-		expect(traces.listUrl).toBe("/api/telemetry/trace");
+		expect(traces.listUrl).toBe("/api/telemetry/trace?view=traces");
+		expect(traces.summaryUrl).toBe("/api/telemetry/summary/traces?view=traces");
 		expect(traces.getRowId({ spanId: "span-1" })).toBe("span-1");
 		expect(traces.getDetailHref({ spanId: "span-1" }, "/agents/a?tab=monitoring")).toBe(
 			"/telemetry/traces/span-1?from=%2Fagents%2Fa%3Ftab%3Dmonitoring"
 		);
+	});
+
+	it("keeps the existing span list as a separate signal", () => {
+		const spans = getSignalConfig("spans");
+
+		expect(spans.key).toBe("spans");
+		expect(spans.listUrl).toBe("/api/telemetry/trace");
+		expect(spans.supportGrouping).toBe(true);
 	});
 
 	it("keeps every signal key unique", () => {

@@ -44,7 +44,9 @@ export default function SignalSummary({
 }) {
 	const buckets = data?.buckets || [];
 	const metricLabel =
-		config.key === "metrics"
+		config.key === "traces"
+			? m.OBSERVABILITY_TRACES
+			: config.key === "metrics"
 			? m.OBSERVABILITY_METRIC_POINTS
 			: config.key === "logs"
 				? m.OBSERVABILITY_LOG_EVENTS

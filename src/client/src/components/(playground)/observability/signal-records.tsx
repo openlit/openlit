@@ -123,6 +123,8 @@ function TraceRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
+	const isTraceSummary = config.key === "traces";
+	const hasErrors = Number(row.errorCount || 0) > 0;
 	return (
 		<button
 			type="button"
@@ -136,18 +138,20 @@ function TraceRecord({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className={`h-2 w-2 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
+						<span className={`h-2 w-2 rounded-full ${config.key === "exceptions" || hasErrors ? "bg-rose-500" : "bg-sky-500"}`} />
 						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("time") && <span>{row.time}</span>}
-						{show("id") && <span className="font-mono">{row.spanId}</span>}
+						{show("id") && <span className="font-mono">{isTraceSummary ? row.id : row.spanId}</span>}
 						{show("serviceName") && row.serviceName && <span>{row.serviceName}</span>}
 					</div>
 				</div>
 				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
+					{isTraceSummary && <MiniMeta icon={<GitBranch className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_COUNT_LABEL} value={row.spanCount} />}
+					{isTraceSummary && hasErrors && <MiniMeta icon={<Info className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_ERROR_COUNT_LABEL} value={row.errorCount} />}
 					{show("requestDuration") && <MiniMeta icon={<Clock className="h-3.5 w-3.5" />} label="duration" value={`${parseFloat(row.requestDuration || "0").toFixed(3)}s`} />}
 					{show("totalTokens") && <MiniMeta icon={<Zap className="h-3.5 w-3.5" />} label="tokens" value={row.totalTokens} />}
 					{show("model") && <MiniMeta icon={<Hash className="h-3.5 w-3.5" />} label="model" value={row.model || row.system} />}
