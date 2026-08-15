@@ -31,7 +31,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-feature-banner.png?raw=true)
 
-- 📈 **Analytics Dashboard**: Monitor your AI application's and GPUs health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
+- 📈 **Analytics Dashboard**: Monitor your AI application's and GPUs' health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
 - 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs (Python, TypeScript, Go) to send traces and metrics to your existing observability tools.
 
@@ -151,7 +151,7 @@ Configure the telemetry data destination as follows:
   openlit.init()
   ```
   
-  Then, configure the your OTLP endpoint using environment variable:
+  Then, configure your OTLP endpoint using environment variable:
 
   ```env
   export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
@@ -212,7 +212,7 @@ openlit coding uninstall --vendor=all
 
 > Coding-agent observability is OTel-native end-to-end: traces use the
 > [`gen_ai.*`](https://opentelemetry.io/docs/specs/semconv/gen-ai/) semantic
-> conventions alongside an `coding_agent.*` extension namespace. Anything
+> conventions alongside a `coding_agent.*` extension namespace. Anything
 > that speaks OTLP (Datadog, Honeycomb, Grafana Tempo, raw OTel Collector)
 > can consume the same data — OpenLIT is just one possible viewer.
 
