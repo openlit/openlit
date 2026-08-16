@@ -202,6 +202,15 @@ describe('getSecretById', () => {
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).not.toContain('EXCEPT value');
   });
+
+  it('does not query ClickHouse for inline encrypted connector secrets', async () => {
+    await expect(
+      getSecretById('enc:v1:iv:tag:ciphertext', undefined, false, {
+        projectId: 'proj-1',
+      })
+    ).resolves.toEqual({ data: [] });
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
 });
 
 describe('upsertSecret', () => {

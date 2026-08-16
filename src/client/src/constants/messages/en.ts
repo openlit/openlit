@@ -2120,6 +2120,8 @@ export const MEMORY_CONNECTOR_SESSION_REQUIRED =
 	"A session id is required for this memory connector.";
 export const MEMORY_CONNECTOR_FILTER_REQUIRED =
 	"A user, agent, or session is required to list memories.";
+export const MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED =
+	"This memory connector must store its API key on the connector. Edit the connector and save the API key again.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =

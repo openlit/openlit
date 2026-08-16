@@ -73,17 +73,23 @@ export function __resetSourceSecretCacheForTests(): void {
 export async function resolveSourceSecret(
 	secretRef: string | null | undefined,
 	dbConfigId?: string,
-	projectId?: string | null
+	projectId?: string | null,
+	options: { clickHouseVault?: boolean } = {}
 ): Promise<ResolvedSecret> {
-	if (!secretRef) return { raw: "", credentials: {} };
-	const cacheKey = sourceSecretCacheKey(secretRef, dbConfigId, projectId);
+	const ref = String(secretRef || "").trim();
+	if (!ref) return { raw: "", credentials: {} };
+	const cacheKey = sourceSecretCacheKey(ref, dbConfigId, projectId);
 	const cached = sourceSecretCache.get(cacheKey);
 	if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-	if (isEncrypted(secretRef)) {
-		const raw = decryptValue(secretRef, { logErrors: false });
+	if (isEncrypted(ref)) {
+		const raw = decryptValue(ref, { logErrors: false });
 		if (isEncrypted(raw)) throw new Error(DATA_SOURCE_SECRET_DECRYPT_FAILED);
 		return cacheResolvedSecret(cacheKey, parseSecretPayload(raw));
+	}
+
+	if (options.clickHouseVault === false) {
+		throw new Error(DATA_SOURCE_SECRET_UNAVAILABLE);
 	}
 
 	let result: Awaited<ReturnType<typeof getSecretById>>;

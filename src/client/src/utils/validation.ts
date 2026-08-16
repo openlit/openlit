@@ -218,6 +218,8 @@ export function sanitizeErrorMessage(
 	// so API clients and toasts show the underlying message once.
 	if (message.startsWith("Error: ")) {
 		message = message.slice("Error: ".length);
+	} else if (message.startsWith("SsrfError: ")) {
+		message = message.slice("SsrfError: ".length);
 	}
 
 	if (

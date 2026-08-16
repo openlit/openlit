@@ -2,6 +2,7 @@ import {
 	assertPublicUrl,
 	isPrivateAddress,
 	redact,
+	resolveRedirectLocation,
 	safeFetch,
 	SsrfError,
 } from "@/lib/platform/connectors/datasource/http/safe-fetch";
@@ -25,6 +26,29 @@ describe("isPrivateAddress", () => {
 		expect(isPrivateAddress("fd00::1")).toBe(true);
 		expect(isPrivateAddress("::ffff:127.0.0.1")).toBe(true);
 		expect(isPrivateAddress("2606:4700:4700::1111")).toBe(false);
+	});
+});
+
+describe("resolveRedirectLocation", () => {
+	it("resolves path-relative Location headers from the origin", () => {
+		const current = new URL("https://api.example.com/v1/memories/abc/");
+		expect(resolveRedirectLocation("v1/memories/abc/", current).href).toBe(
+			"https://api.example.com/v1/memories/abc/"
+		);
+		const unslashed = new URL("https://api.example.com/v1/memories/abc");
+		expect(resolveRedirectLocation("v1/memories/abc/", unslashed).href).toBe(
+			"https://api.example.com/v1/memories/abc/"
+		);
+	});
+
+	it("keeps absolute paths and query-only locations on the current URL", () => {
+		const current = new URL("https://api.example.com/v1/memories/abc/");
+		expect(resolveRedirectLocation("/v1/other/", current).href).toBe(
+			"https://api.example.com/v1/other/"
+		);
+		expect(resolveRedirectLocation("?page=2", current).href).toBe(
+			"https://api.example.com/v1/memories/abc/?page=2"
+		);
 	});
 });
 
@@ -297,6 +321,42 @@ describe("safeFetch", () => {
 			})
 		).resolves.toEqual({ id: "abc" });
 		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not nest a path-relative Location under the current resource", async () => {
+		const publicLookup = async () => [{ address: "8.8.8.8" }];
+		const fetchImpl = jest.fn(async (url: string) => {
+			const href = String(url);
+			if ((href.match(/v1\/memories/g) || []).length > 1) {
+				throw new Error(`nested path: ${href}`);
+			}
+			if (!href.endsWith("/")) {
+				return {
+					status: 301,
+					headers: {
+						get: (header: string) =>
+							header === "location" ? "v1/memories/abc/" : null,
+					},
+					text: async () => "",
+				};
+			}
+			return {
+				ok: true,
+				status: 200,
+				headers: { get: () => null },
+				text: async () => JSON.stringify({ id: "abc" }),
+			};
+		});
+		await expect(
+			safeFetch("https://api.example.com/v1/memories/abc", {
+				lookup: publicLookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).resolves.toEqual({ id: "abc" });
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+		expect(String(fetchImpl.mock.calls[1][0])).toBe(
+			"https://api.example.com/v1/memories/abc/"
+		);
 	});
 
 	it("detects a redirect loop", async () => {

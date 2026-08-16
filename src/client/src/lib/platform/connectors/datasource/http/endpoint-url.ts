@@ -14,6 +14,20 @@ export function canonicalizeFetchUrl(raw: string): string {
 	return String(raw || "").trim().replace(/^(https?:)\/(?!\/)/i, "$1//");
 }
 
+/**
+ * Join a stored endpoint base with a request path. Preserves a trailing slash
+ * on the path — `new URL(path, base)` is safe for the join itself, but callers
+ * that later normalize the result must not strip resource slashes (Mem0 get
+ * requires `/v1/memories/{id}/`).
+ */
+export function joinDatasourceRequestUrl(baseUrl: string, path: string): string {
+	const base = String(baseUrl || "").replace(/\/+$/, "");
+	const suffix = String(path || "").replace(/^\//, "");
+	if (!base) return suffix;
+	if (!suffix) return base;
+	return `${base}/${suffix}`;
+}
+
 /** Fix `http:/host` / `https:/host` and trim trailing slashes on stored endpoint bases. */
 export function normalizeDatasourceEndpointUrl(raw: string): string {
 	const withAuthority = canonicalizeFetchUrl(raw);

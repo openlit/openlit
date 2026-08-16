@@ -8,7 +8,6 @@ import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import JSONViewer from "@/components/common/json-viewer";
 import getMessage from "@/constants/messages";
 import { formatBrowserDateTime } from "@/utils/date";
 import type { MemoryDetailResult, MemoryListItem } from "@/lib/platform/connectors/memory/read";
@@ -326,9 +325,7 @@ function MemoryDetailsTab({
 					<h3 className="mb-1.5 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{messages.MEMORY_DETAIL_METADATA}
 					</h3>
-					<div className="rounded-md border border-stone-200 p-2 dark:border-stone-800">
-						<JSONViewer value={memory.metadata} />
-					</div>
+					<MemoryAttributeTable data={memory.metadata} />
 				</section>
 			) : null}
 			{memory.structuredAttributes &&
@@ -337,9 +334,7 @@ function MemoryDetailsTab({
 					<h3 className="mb-1.5 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{messages.MEMORY_DETAIL_STRUCTURED}
 					</h3>
-					<div className="rounded-md border border-stone-200 p-2 dark:border-stone-800">
-						<JSONViewer value={memory.structuredAttributes} />
-					</div>
+					<MemoryAttributeTable data={memory.structuredAttributes} />
 				</section>
 			) : null}
 		</div>
@@ -416,6 +411,60 @@ function MemoryChangelogTab({ events }: { events: MemoryHistoryEvent[] }) {
 			))}
 		</ol>
 	);
+}
+
+function MemoryAttributeTable({ data }: { data: Record<string, unknown> }) {
+	const messages = getMessage();
+	const entries = Object.entries(data).filter(
+		([, value]) => value !== null && value !== undefined && value !== ""
+	);
+	if (!entries.length) return null;
+	return (
+		<div className="overflow-hidden rounded-md border border-stone-200 dark:border-stone-800">
+			<div className="divide-y divide-stone-200 dark:divide-stone-800">
+				{entries.map(([key, value], index) => (
+					<div
+						key={key}
+						className={`grid min-w-0 grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-[minmax(140px,32%)_minmax(0,1fr)] sm:items-start sm:gap-3 ${
+							index % 2 === 0
+								? "bg-white dark:bg-stone-950"
+								: "bg-stone-50 dark:bg-stone-900/70"
+						}`}
+					>
+						<div className="text-xs font-medium text-stone-500 dark:text-stone-400">
+							{humanizeAttributeKey(key)}
+						</div>
+						<div className="min-w-0 break-words text-xs text-stone-900 dark:text-stone-100">
+							{formatAttributeValue(value, messages)}
+						</div>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function humanizeAttributeKey(key: string): string {
+	const spaced = key.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+	if (!spaced) return key;
+	return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function formatAttributeValue(
+	value: unknown,
+	messages: ReturnType<typeof getMessage>
+): string {
+	if (typeof value === "boolean") {
+		return value ? messages.MEMORY_DETAIL_YES : messages.MEMORY_DETAIL_NO;
+	}
+	if (typeof value === "number" || typeof value === "string") {
+		return String(value);
+	}
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return String(value);
+	}
 }
 
 function HeaderMeta({ label, value }: { label: string; value?: string }) {

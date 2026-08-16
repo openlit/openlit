@@ -236,6 +236,11 @@ function normalizeEntities(raw: unknown): MemoryFilterOptions {
 	};
 }
 
+function isRedirectBudgetError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /maximum number of redirects|redirect loop/i.test(message);
+}
+
 function messagesForWrite(input: MemoryWriteInput) {
 	if (input.messages?.length) return input.messages;
 	if (input.content?.trim()) {
@@ -274,6 +279,26 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 				const apiKey = secret.credentials.apiKey || secret.raw;
 				return apiKey ? { Authorization: `Token ${apiKey}` } : {};
 			},
+		});
+	}
+
+	/**
+	 * Mem0 routes are slash-terminated. A 301/307 `Location` that is path-relative
+	 * (no leading slash) nests under the current resource and exhausts the
+	 * redirect budget. Retry once without the trailing slash so origin-relative
+	 * resolution can land on the canonical URL.
+	 */
+	private requestSlash<T>(
+		path: string,
+		opts: {
+			method?: string;
+			body?: unknown;
+			timeoutMs?: number;
+		} = {}
+	): Promise<T> {
+		return this.request<T>(path, opts).catch((error) => {
+			if (!isRedirectBudgetError(error) || !path.endsWith("/")) throw error;
+			return this.request<T>(path.replace(/\/+$/, ""), opts);
 		});
 	}
 
@@ -345,11 +370,11 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 
 	async get(id: string): Promise<MemoryRecord | null> {
 		const encoded = encodeURIComponent(id);
-		const body = await this.request(`v1/memories/${encoded}/`);
+		const body = await this.requestSlash(`v1/memories/${encoded}/`);
 		let history: MemoryHistoryEvent[] = [];
 		try {
 			history = normalizeHistory(
-				await this.request(`v1/memories/${encoded}/history/`)
+				await this.requestSlash(`v1/memories/${encoded}/history/`)
 			);
 		} catch {
 			history = [];
@@ -386,7 +411,7 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 	}
 
 	async update(id: string, input: MemoryUpdateInput): Promise<MemoryRecord> {
-		const body = await this.request(`v1/memories/${encodeURIComponent(id)}/`, {
+		const body = await this.requestSlash(`v1/memories/${encodeURIComponent(id)}/`, {
 			method: "PUT",
 			body: {
 				text: input.content,
@@ -403,7 +428,7 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 	}
 
 	async delete(id: string): Promise<void> {
-		await this.request(`v1/memories/${encodeURIComponent(id)}/`, {
+		await this.requestSlash(`v1/memories/${encodeURIComponent(id)}/`, {
 			method: "DELETE",
 		});
 	}

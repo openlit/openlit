@@ -8,7 +8,6 @@ const mockGetCurrentProjectForOrganisation = jest.fn();
 const mockHasMemoryAdapterFactory = jest.fn();
 const mockGetMemoryTypeDescriptor = jest.fn();
 const mockCreateMemoryAdapter = jest.fn();
-const mockGetSecretById = jest.fn();
 
 jest.mock("@/lib/prisma", () => ({
 	__esModule: true,
@@ -31,10 +30,6 @@ jest.mock("@/lib/organisation", () => ({
 
 jest.mock("@/lib/project-environment", () => ({
 	createProjectEnvironment: jest.fn().mockResolvedValue({ id: "env-1" }),
-}));
-
-jest.mock("@/lib/platform/vault", () => ({
-	getSecretById: (...a: unknown[]) => mockGetSecretById(...a),
 }));
 
 jest.mock("@/utils/crypto", () => ({
@@ -80,7 +75,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 	organisationId: "org-1",
 	projectId: "proj-1",
 	settings: '{"url":"https://api.mem0.ai"}',
-	secretRef: "vault-1",
+	secretRef: 'enc:v1:{"apiKey":"m0-key"}',
 	status: "active",
 	metadata: "{}",
 	createdAt: new Date(),
@@ -95,7 +90,6 @@ beforeEach(() => {
 	mockHasMemoryAdapterFactory.mockReturnValue(true);
 	mockGetMemoryTypeDescriptor.mockReturnValue({ type: "mem0" });
 	mockFindFirst.mockResolvedValue(null);
-	mockGetSecretById.mockResolvedValue({ data: [{ id: "vault-1" }] });
 });
 
 describe("memory connector CRUD", () => {
@@ -130,6 +124,18 @@ describe("memory connector CRUD", () => {
 		);
 		expect(created).not.toHaveProperty("secretRef");
 		expect(JSON.stringify(created)).not.toContain("m0-key");
+	});
+
+	it("rejects a ClickHouse vault id instead of an inline encrypted key", async () => {
+		await expect(
+			createMemoryConnector({
+				name: "Prod Mem0",
+				type: "mem0",
+				environment: "production",
+				secretRef: "vault-1",
+			})
+		).rejects.toThrow(/store its API key on the connector/i);
+		expect(mockCreate).not.toHaveBeenCalled();
 	});
 
 	it("rejects a missing name", async () => {

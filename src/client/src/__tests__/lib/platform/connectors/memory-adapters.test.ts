@@ -169,9 +169,41 @@ describe("Mem0 adapter", () => {
 				],
 			})
 		);
-		expect(String(mockSafeFetch.mock.calls[0][0])).toContain("/v1/memories/mem-1/");
-		expect(String(mockSafeFetch.mock.calls[1][0])).toContain(
-			"/v1/memories/mem-1/history/"
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://api.mem0.ai/v1/memories/mem-1/"
+		);
+		expect(String(mockSafeFetch.mock.calls[1][0])).toBe(
+			"https://api.mem0.ai/v1/memories/mem-1/history/"
+		);
+	});
+
+	it("retries get without a trailing slash after a redirect budget error", async () => {
+		mockSafeFetch.mockImplementation(async (url: string) => {
+			const href = String(url);
+			if (href.endsWith("/mem-1/")) {
+				throw new Error("Data source exceeded the maximum number of redirects");
+			}
+			if (href.includes("/history")) {
+				return [];
+			}
+			if (href.endsWith("/mem-1")) {
+				return { id: "mem-1", memory: "hello", user_id: "alex" };
+			}
+			throw new Error(`unexpected ${href}`);
+		});
+		const adapter = new Mem0Adapter(descriptor("mem0"));
+		await expect(adapter.get("mem-1")).resolves.toEqual(
+			expect.objectContaining({
+				id: "mem-1",
+				content: "hello",
+				userId: "alex",
+			})
+		);
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://api.mem0.ai/v1/memories/mem-1/"
+		);
+		expect(String(mockSafeFetch.mock.calls[1][0])).toBe(
+			"https://api.mem0.ai/v1/memories/mem-1"
 		);
 	});
 

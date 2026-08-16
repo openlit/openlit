@@ -1,6 +1,7 @@
 import {
 	canonicalizeFetchUrl,
 	isEnabledSetting,
+	joinDatasourceRequestUrl,
 	normalizeDatasourceEndpointUrl,
 	rewriteLoopbackEndpointForDocker,
 } from "@/lib/platform/connectors/datasource/http/endpoint-url";
@@ -11,6 +12,26 @@ describe("canonicalizeFetchUrl", () => {
 		expect(canonicalizeFetchUrl("https:/api.example.com/v1/memories/abc/")).toBe(
 			"https://api.example.com/v1/memories/abc/"
 		);
+	});
+});
+
+describe("joinDatasourceRequestUrl", () => {
+	it("preserves a trailing slash on the request path", () => {
+		expect(
+			joinDatasourceRequestUrl("https://api.mem0.ai", "v1/memories/abc/")
+		).toBe("https://api.mem0.ai/v1/memories/abc/");
+		expect(
+			joinDatasourceRequestUrl("https://api.mem0.ai/", "/v1/memories/abc/")
+		).toBe("https://api.mem0.ai/v1/memories/abc/");
+	});
+
+	it("joins query strings without dropping the memories path", () => {
+		expect(
+			joinDatasourceRequestUrl(
+				"https://api.mem0.ai",
+				"v1/memories/?user_id=alex"
+			)
+		).toBe("https://api.mem0.ai/v1/memories/?user_id=alex");
 	});
 });
 

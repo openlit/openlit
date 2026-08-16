@@ -1,9 +1,9 @@
 /**
  * Shared HTTP helpers for memory connector adapters.
  *
- * Outbound calls reuse the datasource SSRF-safe fetch, vault secret
- * resolution, and self-hosted network toggles. Secrets are redacted from
- * thrown error messages.
+ * Outbound calls reuse the datasource SSRF-safe fetch and self-hosted
+ * network toggles. API keys are decrypted from inline `enc:v1:` secretRef
+ * values and never loaded from the ClickHouse vault.
  */
 
 import {
@@ -15,7 +15,10 @@ import {
 	resolveSourceSecret,
 	type ResolvedSecret,
 } from "../datasource/http/secret";
-import { normalizeDatasourceEndpointUrl } from "../datasource/http/endpoint-url";
+import {
+	joinDatasourceRequestUrl,
+	normalizeDatasourceEndpointUrl,
+} from "../datasource/http/endpoint-url";
 import type { MemorySourceDescriptor } from "./types";
 
 export function memoryBaseUrl(
@@ -41,11 +44,12 @@ export async function memoryRequest<T>(
 	const secret = await resolveSourceSecret(
 		descriptor.secretRef,
 		undefined,
-		descriptor.projectId
+		descriptor.projectId,
+		{ clickHouseVault: false }
 	);
 	const network = selfHostedNetworkOptions(descriptor.settings);
-	const url = new URL(path.replace(/^\//, ""), `${baseUrl.replace(/\/+$/, "")}/`);
-	return safeFetch<T>(url.toString(), {
+	const url = joinDatasourceRequestUrl(baseUrl, path);
+	return safeFetch<T>(url, {
 		method: opts.method || "GET",
 		headers: {
 			Accept: "application/json",

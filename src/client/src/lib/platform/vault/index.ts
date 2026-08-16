@@ -13,7 +13,7 @@ import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo, type APIKeyInfo } from "../api-keys";
-import { decryptValue, encryptValue } from "@/utils/crypto";
+import { decryptValue, encryptValue, isEncrypted } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 import prisma from "@/lib/prisma";
 import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
@@ -339,7 +339,11 @@ export async function getSecretById(
 		projectId,
 	}: { logDecryptErrors?: boolean; projectId?: string } = {}
 ) {
-	const safeId = escapeClickHouseString(Sanitizer.sanitizeValue(id));
+	const rawId = Sanitizer.sanitizeValue(id);
+	if (isEncrypted(rawId)) {
+		return { data: [] };
+	}
+	const safeId = escapeClickHouseString(rawId);
 	let ownerCondition = "";
 	if (projectId) {
 		const source = await prisma.telemetrySource.findFirst({

@@ -147,6 +147,11 @@ describe("sanitizeErrorMessage", () => {
 		expect(sanitizeErrorMessage("Invalid input")).toBe("Invalid input");
 		expect(
 			sanitizeErrorMessage(
+				"SsrfError: Data source exceeded the maximum number of redirects"
+			)
+		).toBe("Data source exceeded the maximum number of redirects");
+		expect(
+			sanitizeErrorMessage(
 				'Error: A connector named "prod-loki" already exists in the production environment. Choose a different name.'
 			)
 		).toBe(

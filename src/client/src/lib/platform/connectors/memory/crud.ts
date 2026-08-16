@@ -13,7 +13,6 @@ import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
-import { getSecretById } from "@/lib/platform/vault";
 import { assertPremiumConnectorAllowed } from "@/lib/access/connector-entitlement";
 import { normalizeDatasourceEndpointUrl } from "@/lib/platform/connectors/datasource/http/endpoint-url";
 import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
@@ -34,6 +33,7 @@ import {
 	MEMORY_CONNECTOR_NO_PROJECT,
 	MEMORY_CONNECTOR_NOT_FOUND,
 	MEMORY_CONNECTOR_TYPE_UNKNOWN,
+	MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED,
 	TELEMETRY_SOURCE_INVALID_SETTINGS,
 } from "@/constants/messages/en";
 
@@ -143,10 +143,7 @@ function credentialsToSecretRef(
 async function validateSecretReference(secretRef: string | null) {
 	if (!secretRef) return;
 	if (isEncrypted(secretRef)) return;
-	const result = await getSecretById(secretRef);
-	if (!(result.data as unknown[] | undefined)?.length) {
-		throw new Error("The selected vault secret is not owned by the current user.");
-	}
+	throw new Error(MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED);
 }
 
 function validateType(type: unknown): string {

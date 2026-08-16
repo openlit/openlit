@@ -247,6 +247,37 @@ export interface SafeFetchOptions extends AssertUrlOptions {
 	retry?: RetryOptions | boolean;
 }
 
+/**
+ * Resolve a `Location` header against the current request URL.
+ *
+ * Path-relative locations (no leading slash, not `./` / `../` / `?` / `#`)
+ * are resolved from the origin. WHATWG resolution against a trailing-slash
+ * resource nests the path: `Location: v1/memories/id/` on
+ * `https://api.example.com/v1/memories/id/` becomes
+ * `https://api.example.com/v1/memories/id/v1/memories/id/`.
+ */
+export function resolveRedirectLocation(location: string, current: URL): URL {
+	const trimmed = String(location || "").trim();
+	if (!trimmed) {
+		throw new SsrfError("Data source redirected to an invalid URL");
+	}
+	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+		return new URL(canonicalizeFetchUrl(trimmed));
+	}
+	if (trimmed.startsWith("//")) {
+		return new URL(`${current.protocol}${trimmed}`);
+	}
+	if (
+		trimmed.startsWith("/") ||
+		trimmed.startsWith("?") ||
+		trimmed.startsWith("#") ||
+		trimmed.startsWith(".")
+	) {
+		return new URL(trimmed, current);
+	}
+	return new URL(trimmed, `${current.origin}/`);
+}
+
 /** Default max vendor response body size (25 MiB). */
 export const DEFAULT_MAX_RESPONSE_BYTES = 25 * 1024 * 1024;
 
@@ -390,8 +421,9 @@ export async function safeFetch<T = unknown>(
 				}
 				let next: URL;
 				try {
-					next = new URL(location, currentUrl);
-				} catch {
+					next = resolveRedirectLocation(location, currentUrl);
+				} catch (error) {
+					if (error instanceof SsrfError) throw error;
 					throw new SsrfError("Data source redirected to an invalid URL");
 				}
 				// Re-validate the redirect target; throws SsrfError if internal.
