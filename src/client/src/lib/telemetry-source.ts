@@ -12,7 +12,11 @@
  */
 
 import prisma from "./prisma";
-import { getDBConfigByUser, getDBConfigById } from "@/lib/db-config";
+import {
+	getDBConfigByUser,
+	getDBConfigById,
+	getDBConfigByIdInternal,
+} from "@/lib/db-config";
 import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
@@ -481,7 +485,10 @@ export async function getTelemetryAdapterForDbConfig(
 	isBuiltIn: boolean;
 }> {
 	ensureAdaptersRegistered();
-	const dbConfig = await getDBConfigById({ id: dbConfigId });
+	// Cron / job callers have a DatabaseConfig id but no user session.
+	// `getDBConfigById` requires getCurrentUser() and throws UNAUTHORIZED_USER,
+	// which aborted every materializer tick before Jaeger/Tempo was reached.
+	const dbConfig = await getDBConfigByIdInternal({ id: dbConfigId });
 	const projectId = dbConfig?.projectId ?? null;
 	const resolution = await resolveSignalSource(signal, {
 		projectId,
@@ -514,7 +521,9 @@ export async function getTelemetryAdapterForDbConfig(
 				TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE(descriptor.type)
 			);
 		}
-		const builtin = await resolveBuiltInDescriptor(dbConfigId);
+		const builtin = dbConfig
+			? builtInDescriptor(dbConfig)
+			: await resolveBuiltInDescriptor(dbConfigId);
 		const fallback = createAdapter(builtin);
 		if (!fallback) {
 			throw new Error(

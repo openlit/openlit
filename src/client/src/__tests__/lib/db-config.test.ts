@@ -73,6 +73,7 @@ import {
   getDBConfigById,
   getDBConfigByIdInternal,
   getDBConfigByIdForUser,
+  getDBConfigByIdForBackground,
   upsertDBConfig,
   deleteDBConfig,
   setCurrentDBConfig,
@@ -211,6 +212,33 @@ describe('getDBConfigByIdInternal', () => {
     const result = await getDBConfigByIdInternal({ id: 'db1' });
     expect(result).toEqual(mockDbConfig);
     expect(prisma.databaseConfig.findUnique).toHaveBeenCalledWith({ where: { id: 'db1' } });
+  });
+});
+
+describe('getDBConfigByIdForBackground', () => {
+  it('uses the internal lookup when there is no user session', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(mockDbConfig);
+    const result = await getDBConfigByIdForBackground({ id: 'db1' });
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfig.findUnique).toHaveBeenCalledWith({ where: { id: 'db1' } });
+    expect(prisma.databaseConfigUser.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('keeps user and project scoping when a session exists', async () => {
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({
+      databaseConfig: mockDbConfig,
+    });
+    const result = await getDBConfigByIdForBackground({ id: 'db1' });
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfigUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'u1',
+          databaseConfigId: 'db1',
+        }),
+      })
+    );
   });
 });
 

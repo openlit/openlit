@@ -136,6 +136,19 @@ export const getDBConfigById = async ({ id }: { id: string }) => {
 	return getDBConfigByIdForUser({ id, userId: user.id });
 };
 
+/**
+ * DatabaseConfig lookup for callers that already have an id and may run
+ * without a user session (cron materializer, auto-eval, auto-pricing).
+ * Interactive requests with a session stay user- and project-scoped.
+ */
+export const getDBConfigByIdForBackground = async ({ id }: { id: string }) => {
+	const user = await getCurrentUser();
+	if (!user) {
+		return getDBConfigByIdInternal({ id });
+	}
+	return getDBConfigByIdForUser({ id, userId: user.id });
+};
+
 export const getDBConfigByIdForUser = async ({
 	id,
 	userId,

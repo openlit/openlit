@@ -1,6 +1,8 @@
 jest.mock('@/lib/db-config', () => ({
   getDBConfigByUser: jest.fn(),
   getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
+  getDBConfigByIdForBackground: jest.fn(),
 }));
 jest.mock('@/lib/platform/clickhouse/clickhouse-client', () => ({
   __esModule: true,
@@ -41,7 +43,7 @@ describe('dataCollector', () => {
       expect(result.data).toEqual([]);
     });
 
-    it('uses getDBConfigById when dbConfigId is provided', async () => {
+    it('uses getDBConfigByIdForBackground when dbConfigId is provided', async () => {
       (asaw as jest.Mock).mockResolvedValue(['DB config error', null]);
       const result = await dataCollector({ query: 'SELECT 1' }, 'query', 'db-config-id');
       expect(result.err).toBe('DB config error');
