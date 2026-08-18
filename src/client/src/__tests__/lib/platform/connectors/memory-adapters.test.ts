@@ -672,8 +672,9 @@ describe("Claude adapter", () => {
 			feedback: false,
 		});
 		expect(described.configFields.map((field) => field.key)).toEqual(
-			expect.arrayContaining(["url", "apiKey", "storeId"])
+			expect.arrayContaining(["url", "apiKey"])
 		);
+		expect(described.configFields.map((field) => field.key)).not.toContain("storeId");
 		expect(described.configFields.find((field) => field.key === "apiKey")?.group).toBe(
 			"credentials"
 		);

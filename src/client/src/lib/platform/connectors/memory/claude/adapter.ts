@@ -473,16 +473,7 @@ export const claudeAdapterFactory = {
 		displayName: "Claude",
 		description: getMessage().MEMORY_CONNECTOR_CLAUDE_DESCRIPTION,
 		capabilities: { ...CLAUDE_CAPABILITIES },
-		configFields: [
-			...memoryHttpVendorFields({ placeholder: DEFAULT_URL }),
-			{
-				key: "storeId",
-				label: getMessage().MEMORY_CONNECTOR_FIELD_STORE_ID,
-				kind: "text",
-				group: "settings",
-				placeholder: "memstore_...",
-			},
-		],
+		configFields: [...memoryHttpVendorFields({ placeholder: DEFAULT_URL })],
 		filterFields: memoryPageFilters([
 			"userId",
 			{

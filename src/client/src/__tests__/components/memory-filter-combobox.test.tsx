@@ -17,6 +17,24 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
 });
 
 describe("MemoryFilterCombobox", () => {
+	it("uses a generic placeholder in dialogs instead of repeating the field label", () => {
+		render(
+			<MemoryFilterCombobox
+				label="User"
+				value=""
+				options={[]}
+				onChange={jest.fn()}
+				allowCustom
+				required
+				inDialog
+			/>
+		);
+		expect(screen.getByRole("button", { name: "User" })).toHaveTextContent("Select");
+		expect(screen.getByRole("button", { name: "User" })).not.toHaveTextContent(
+			"User User"
+		);
+	});
+
 	it("lists the current custom value even when the vendor has no options", () => {
 		render(
 			<MemoryFilterCombobox

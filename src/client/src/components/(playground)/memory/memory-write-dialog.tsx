@@ -17,11 +17,17 @@ import {
 	emptyMemoryFilters,
 	MEMORY_CONTENT_MAX,
 	type MemoryFilterField,
+	type MemoryFilterKey,
 	type MemoryFilterOptions,
 } from "@/lib/platform/connectors/memory/types";
-import MemoryFilterCombobox, {
-	memoryFilterChoices,
-} from "./memory-filter-combobox";
+import {
+	applyMemoryFilterChange,
+	keepDialogPopoverOpen,
+	MemoryDialogFilterFields,
+	memoryFilterRequiredMissing,
+	trimmedMemoryFilterScope,
+	type MemoryFilterScope,
+} from "./memory-filter-fields";
 
 export type MemoryWriteScope = {
 	userId?: string;
@@ -53,69 +59,34 @@ export default function MemoryWriteDialog({
 	onSubmit,
 }: MemoryWriteDialogProps) {
 	const messages = getMessage();
-	const initialScope = alignedWriteScope(scope, filters);
 	const [draft, setDraft] = useState(content || "");
-	const [userId, setUserId] = useState(initialScope.userId || "");
-	const [sessionId, setSessionId] = useState(initialScope.sessionId || "");
-	const [agentId, setAgentId] = useState(initialScope.agentId || "");
+	const [filterScope, setFilterScope] = useState<MemoryFilterScope>(() =>
+		alignedWriteScope(scope, filters)
+	);
 
 	useEffect(() => {
 		if (!open) return;
-		const next = alignedWriteScope(scope, filters);
 		setDraft(content || "");
-		setUserId(next.userId || "");
-		setSessionId(next.sessionId || "");
-		setAgentId(next.agentId || "");
+		setFilterScope(alignedWriteScope(scope, filters));
 		// Hydrate once when the dialog opens so parent list refreshes don't wipe edits.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open]);
 
 	const showScope = mode === "add" && filterFields.length > 0;
 	const trimmed = draft.trim();
-	const missingRequired = filterFields.some((field) => {
-		if (mode !== "add" || (!field.required && !field.writeRequired)) return false;
-		return !fieldValue(field.key).trim();
-	});
+	const missingRequired =
+		mode === "add" && memoryFilterRequiredMissing(filterFields, filterScope);
 	const canSave = !!trimmed && !saving && !missingRequired;
 
-	function fieldValue(key: MemoryFilterField["key"]): string {
-		if (key === "userId") return userId;
-		if (key === "sessionId") return sessionId;
-		return agentId;
-	}
-
-	function setFieldValue(key: MemoryFilterField["key"], next: string) {
-		if (key === "userId") {
-			setUserId(next);
-			if (
-				sessionId &&
-				!filters.sessions.some(
-					(session) =>
-						session.id === sessionId && (!session.userId || session.userId === next)
-				)
-			) {
-				setSessionId("");
-			}
-			return;
-		}
-		if (key === "sessionId") {
-			setSessionId(next);
-			const session = filters.sessions.find((item) => item.id === next);
-			if (session?.userId && session.userId !== userId) {
-				setUserId(session.userId);
-			}
-			return;
-		}
-		setAgentId(next);
+	function setFieldValue(key: MemoryFilterKey, next: string) {
+		setFilterScope((current) => applyMemoryFilterChange(current, filters, key, next));
 	}
 
 	function handleSubmit() {
 		if (!canSave) return;
 		onSubmit({
 			content: trimmed,
-			userId: userId.trim() || undefined,
-			sessionId: sessionId.trim() || undefined,
-			agentId: agentId.trim() || undefined,
+			...trimmedMemoryFilterScope(filterScope),
 		});
 	}
 
@@ -123,18 +94,8 @@ export default function MemoryWriteDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				className="sm:max-w-lg"
-				onPointerDownOutside={(event) => {
-					const target = event.target as HTMLElement | null;
-					if (target?.closest("[data-radix-popper-content-wrapper]")) {
-						event.preventDefault();
-					}
-				}}
-				onInteractOutside={(event) => {
-					const target = event.target as HTMLElement | null;
-					if (target?.closest("[data-radix-popper-content-wrapper]")) {
-						event.preventDefault();
-					}
-				}}
+				onPointerDownOutside={keepDialogPopoverOpen}
+				onInteractOutside={keepDialogPopoverOpen}
 			>
 				<DialogHeader>
 					<DialogTitle>
@@ -157,24 +118,15 @@ export default function MemoryWriteDialog({
 							className="min-h-[140px] text-sm text-stone-900 dark:text-stone-100"
 						/>
 					</div>
-					{showScope
-						? filterFields.map((field) => (
-								<div key={field.key} className="space-y-1.5">
-									<Label>{field.label}</Label>
-									<MemoryFilterCombobox
-										label={field.label}
-										value={fieldValue(field.key)}
-										options={memoryFilterChoices(field, filters, userId)}
-										onChange={(next) => setFieldValue(field.key, next)}
-										allowCustom={field.allowCustom !== false}
-										disabled={saving}
-										required={!!field.required || !!field.writeRequired}
-										widthClass="w-full"
-										inDialog
-									/>
-								</div>
-							))
-						: null}
+					{showScope ? (
+						<MemoryDialogFilterFields
+							fields={filterFields}
+							filters={filters}
+							scope={filterScope}
+							onChange={setFieldValue}
+							disabled={saving}
+						/>
+					) : null}
 				</div>
 				<DialogFooter>
 					<Button
@@ -198,7 +150,7 @@ export default function MemoryWriteDialog({
 function alignedWriteScope(
 	scope: MemoryWriteScope | undefined,
 	filters: MemoryFilterOptions
-): MemoryWriteScope {
+): MemoryFilterScope {
 	const userId = scope?.userId?.trim() || "";
 	const sessionId = scope?.sessionId?.trim() || "";
 	const agentId = scope?.agentId?.trim() || "";

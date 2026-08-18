@@ -682,7 +682,6 @@ export default function MemoryPage() {
 						open={copyOpen}
 						count={copyIds?.length || result?.memories.length || 0}
 						targets={copyTargets}
-						filters={filters}
 						saving={saving}
 						onOpenChange={setCopyOpen}
 						onSubmit={handleCopy}

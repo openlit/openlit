@@ -2187,6 +2187,7 @@ export const MEMORY_AGENT_FILTER = "Agent";
 export const MEMORY_FILTER_ALL = "All";
 export const MEMORY_FILTER_USE_VALUE = (value: string) => `Use “${value}”`;
 export const MEMORY_FILTER_CUSTOM_HINT = "Type a value and press Enter.";
+export const MEMORY_FILTER_PLACEHOLDER = "Select";
 export const MEMORY_SESSION_REQUIRED_HINT =
 	"Select a session to load memories from this connector.";
 export const MEMORY_FILTER_REQUIRED_HINT =
@@ -2386,7 +2387,7 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 	},
 	claude: {
 		summary: "Connect OpenLIT to Claude memory stores.",
-		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Optionally pin a memory store ID, or pick a store from the Memory page session filter, then test the connection."],
+		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
 		docsUrl: "https://platform.claude.com/docs/en/managed-agents/memory",
 	},
 	mem0: {

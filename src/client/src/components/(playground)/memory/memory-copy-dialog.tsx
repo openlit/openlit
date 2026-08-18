@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -23,11 +23,18 @@ import {
 	emptyMemoryFilters,
 	type MemoryCapabilities,
 	type MemoryFilterField,
+	type MemoryFilterKey,
 	type MemoryFilterOptions,
 } from "@/lib/platform/connectors/memory/types";
-import MemoryFilterCombobox, {
-	memoryFilterChoices,
-} from "./memory-filter-combobox";
+import {
+	applyMemoryFilterChange,
+	emptyMemoryFilterScope,
+	keepDialogPopoverOpen,
+	MemoryDialogFilterFields,
+	memoryFilterRequiredMissing,
+	trimmedMemoryFilterScope,
+	type MemoryFilterScope,
+} from "./memory-filter-fields";
 
 export type MemoryCopyTarget = {
 	id: string;
@@ -48,7 +55,6 @@ type MemoryCopyDialogProps = {
 	open: boolean;
 	count: number;
 	targets: MemoryCopyTarget[];
-	filters?: MemoryFilterOptions;
 	saving?: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSubmit: (input: { targetConnectorId: string } & MemoryCopyScope) => void;
@@ -58,50 +64,87 @@ export default function MemoryCopyDialog({
 	open,
 	count,
 	targets,
-	filters = emptyMemoryFilters(),
 	saving,
 	onOpenChange,
 	onSubmit,
 }: MemoryCopyDialogProps) {
 	const messages = getMessage();
 	const [targetId, setTargetId] = useState(targets[0]?.id || "");
-	const [userId, setUserId] = useState("");
-	const [sessionId, setSessionId] = useState("");
-	const [agentId, setAgentId] = useState("");
+	const [scope, setScope] = useState<MemoryFilterScope>(emptyMemoryFilterScope());
+	const [filters, setFilters] = useState<MemoryFilterOptions>(emptyMemoryFilters());
+	const [filterFields, setFilterFields] = useState<MemoryFilterField[]>([]);
+	const [loadingFilters, setLoadingFilters] = useState(false);
+	const targetsRef = useRef(targets);
+	targetsRef.current = targets;
 
 	useEffect(() => {
 		if (!open) return;
 		setTargetId((current) =>
 			targets.some((target) => target.id === current) ? current : targets[0]?.id || ""
 		);
-		setUserId("");
-		setSessionId("");
-		setAgentId("");
 	}, [open, targets]);
 
-	const target = targets.find((item) => item.id === targetId);
-	const filterFields = target?.filterFields || [];
-	const missingRequired = filterFields.some((field) => {
-		if (!field.required && !field.writeRequired) return false;
-		return !fieldValue(field.key).trim();
-	});
-	const canSave = !!targetId && !saving && !missingRequired && count > 0;
+	useEffect(() => {
+		if (!open || !targetId) {
+			setFilters(emptyMemoryFilters());
+			setFilterFields([]);
+			setLoadingFilters(false);
+			return;
+		}
+		const target = targetsRef.current.find((item) => item.id === targetId);
+		setScope(emptyMemoryFilterScope());
+		setFilters(emptyMemoryFilters());
+		setFilterFields(target?.filterFields || []);
+		const controller = new AbortController();
+		setLoadingFilters(true);
+		const params = new URLSearchParams({
+			connectorId: targetId,
+			limit: "1",
+		});
+		fetch(`/api/memory?${params.toString()}`, { signal: controller.signal })
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(messages.MEMORY_LOAD_FAILED);
+				}
+				return body as {
+					filters?: MemoryFilterOptions;
+					filterFields?: MemoryFilterField[];
+				};
+			})
+			.then((payload) => {
+				setFilters(payload.filters || emptyMemoryFilters());
+				if (payload.filterFields?.length) setFilterFields(payload.filterFields);
+			})
+			.catch((error: unknown) => {
+				if (controller.signal.aborted) return;
+				if (error instanceof DOMException && error.name === "AbortError") return;
+				setFilters(emptyMemoryFilters());
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) setLoadingFilters(false);
+			});
+		return () => controller.abort();
+	}, [open, targetId, messages.MEMORY_LOAD_FAILED]);
 
-	function fieldValue(key: MemoryFilterField["key"]): string {
-		if (key === "userId") return userId;
-		if (key === "sessionId") return sessionId;
-		return agentId;
-	}
+	const canSave =
+		!!targetId &&
+		!saving &&
+		!loadingFilters &&
+		!memoryFilterRequiredMissing(filterFields, scope) &&
+		count > 0;
 
-	function setFieldValue(key: MemoryFilterField["key"], next: string) {
-		if (key === "userId") setUserId(next);
-		else if (key === "sessionId") setSessionId(next);
-		else setAgentId(next);
+	function setFieldValue(key: MemoryFilterKey, next: string) {
+		setScope((current) => applyMemoryFilterChange(current, filters, key, next));
 	}
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-lg">
+			<DialogContent
+				className="sm:max-w-lg"
+				onPointerDownOutside={keepDialogPopoverOpen}
+				onInteractOutside={keepDialogPopoverOpen}
+			>
 				<DialogHeader>
 					<DialogTitle>{messages.MEMORY_COPY_TITLE}</DialogTitle>
 					<DialogDescription>{messages.MEMORY_COPY_DESCRIPTION}</DialogDescription>
@@ -126,22 +169,13 @@ export default function MemoryCopyDialog({
 							</Select>
 						</div>
 					)}
-					{filterFields.map((field) => (
-						<div key={field.key} className="space-y-1.5">
-							<Label>{field.label}</Label>
-							<MemoryFilterCombobox
-								label={field.label}
-								value={fieldValue(field.key)}
-								options={memoryFilterChoices(field, filters, userId)}
-								onChange={(next) => setFieldValue(field.key, next)}
-								allowCustom={field.allowCustom !== false}
-								disabled={saving}
-								required={!!field.required || !!field.writeRequired}
-								widthClass="w-full"
-								inDialog
-							/>
-						</div>
-					))}
+					<MemoryDialogFilterFields
+						fields={filterFields}
+						filters={filters}
+						scope={scope}
+						onChange={setFieldValue}
+						disabled={saving || loadingFilters}
+					/>
 				</div>
 				<DialogFooter>
 					<Button
@@ -160,9 +194,7 @@ export default function MemoryCopyDialog({
 						onClick={() =>
 							onSubmit({
 								targetConnectorId: targetId,
-								userId: userId.trim() || undefined,
-								sessionId: sessionId.trim() || undefined,
-								agentId: agentId.trim() || undefined,
+								...trimmedMemoryFilterScope(scope),
 							})
 						}
 					>
