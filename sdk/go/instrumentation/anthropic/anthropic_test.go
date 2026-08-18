@@ -500,3 +500,57 @@ func TestCreateMessage_Streaming_Error(t *testing.T) {
 		t.Errorf("expected 401 in streaming error, got: %v", err)
 	}
 }
+
+func TestCreateMessage_Streaming_WithCacheTokens(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.WriteHeader(http.StatusOK)
+
+		events := []struct{ event, data string }{
+			// message_start carries all four token fields; input_tokens is net of the cache.
+			{"message_start", `{"type":"message_start","message":{"id":"msg-cache","type":"message","role":"assistant","content":[],"model":"claude-3-5-haiku-20241022","usage":{"input_tokens":5,"output_tokens":0,"cache_read_input_tokens":200,"cache_creation_input_tokens":0}}}`},
+			{"content_block_start", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`},
+			{"content_block_delta", `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Cached"}}`},
+			{"content_block_stop", `{"type":"content_block_stop","index":0}`},
+			{"message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}`},
+			{"message_stop", `{"type":"message_stop"}`},
+		}
+		for _, ev := range events {
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.event, ev.data)
+			w.(http.Flusher).Flush()
+		}
+	}))
+	defer srv.Close()
+
+	initSDK(t)
+	client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+
+	stream, err := client.CreateMessageStream(context.Background(), MessageRequest{
+		Model:     "claude-3-5-haiku-20241022",
+		MaxTokens: 40,
+		Messages:  []Message{{Role: "user", Content: "Hi again"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateMessageStream: %v", err)
+	}
+	defer stream.Close() //nolint:errcheck
+
+	accumulated := ""
+	for {
+		event, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("stream.Recv: %v", err)
+		}
+		if event.Delta != nil && event.Delta.Text != "" {
+			accumulated += event.Delta.Text
+		}
+	}
+
+	if accumulated != "Cached" {
+		t.Errorf("want accumulated content %q, got %q", "Cached", accumulated)
+	}
+}

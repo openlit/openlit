@@ -116,7 +116,7 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 	var messageID string
 	var messageModel string
 	var stopReason string
-	var inputTokens, outputTokens int
+	var inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens int
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -161,6 +161,8 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 				messageModel = event.Message.Model
 				if event.Message.Usage != nil {
 					inputTokens = event.Message.Usage.InputTokens
+					cacheReadInputTokens = event.Message.Usage.CacheReadInputTokens
+					cacheCreationInputTokens = event.Message.Usage.CacheCreationInputTokens
 				}
 			}
 
@@ -215,7 +217,13 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 	if inputTokens > 0 || outputTokens > 0 {
 		semconv.SetIntAttribute(span, semconv.GenAIUsageInputTokens, inputTokens)
 		semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, outputTokens)
-		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, inputTokens+outputTokens)
+		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, inputTokens+outputTokens+cacheReadInputTokens+cacheCreationInputTokens)
+		if cacheCreationInputTokens > 0 {
+			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite, cacheCreationInputTokens)
+		}
+		if cacheReadInputTokens > 0 {
+			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, cacheReadInputTokens)
+		}
 
 		cost := helpers.CalculateGlobalCost(messageModel, inputTokens, outputTokens)
 		semconv.SetFloat64Attribute(span, semconv.GenAIUsageCost, cost)
