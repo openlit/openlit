@@ -2141,6 +2141,8 @@ export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_MEMCODE_DESCRIPTION =
+	"Store and search long-term agent memories with MemCode.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
@@ -2150,12 +2152,16 @@ export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
+	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories that agents can search later.";
+export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
+	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2393,6 +2399,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "Connect OpenLIT to Mem0 for long-term agent memory.",
 		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
 		docsUrl: "https://docs.mem0.ai/api-reference",
+	},
+	memcode: {
+		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
+		steps: ["Create a MemCode API key and keep one stable user ID for ingest and search.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		docsUrl: "https://memcode.in/docs",
 	},
 	zep: {
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",

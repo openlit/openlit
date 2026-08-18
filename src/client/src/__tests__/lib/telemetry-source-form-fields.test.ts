@@ -13,6 +13,7 @@ import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana
 import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/prometheus/adapter";
 import { claudeAdapterFactory } from "@/lib/platform/connectors/memory/claude/adapter";
 import { mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
+import { memcodeAdapterFactory } from "@/lib/platform/connectors/memory/memcode/adapter";
 import { zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
 
 describe("applyHttpAuthCredentials", () => {
@@ -110,6 +111,7 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		for (const factory of [
 			claudeAdapterFactory,
 			mem0AdapterFactory,
+			memcodeAdapterFactory,
 			zepAdapterFactory,
 		]) {
 			const described = factory.describe();

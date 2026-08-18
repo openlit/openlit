@@ -38,10 +38,12 @@ describe("connector coverage", () => {
 		ensureMemoryAdaptersRegistered();
 		expect(hasMemoryAdapterFactory("claude")).toBe(true);
 		expect(hasMemoryAdapterFactory("mem0")).toBe(true);
+		expect(hasMemoryAdapterFactory("memcode")).toBe(true);
 		expect(hasMemoryAdapterFactory("zep")).toBe(true);
 		expect(listConnectorTypes("memory").map((item) => item.type).sort()).toEqual([
 			"claude",
 			"mem0",
+			"memcode",
 			"zep",
 		]);
 	});
@@ -49,6 +51,7 @@ describe("connector coverage", () => {
 	it("maps memory vendors to local brand assets", () => {
 		expect(connectorIconPath("claude")).toBe("/images/connectors/claude.svg");
 		expect(connectorIconPath("mem0")).toBe("/images/connectors/mem0.svg");
+		expect(connectorIconPath("memcode")).toBe("/images/connectors/memcode.png");
 		expect(connectorIconPath("zep")).toBe("/images/connectors/zep.svg");
 	});
 });

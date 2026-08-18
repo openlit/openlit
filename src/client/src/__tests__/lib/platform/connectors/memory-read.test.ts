@@ -179,10 +179,10 @@ describe("queryProjectMemories", () => {
 
 	it("includes the requested user in filters when the vendor cannot enumerate users", async () => {
 		mockListMemoryConnectors.mockResolvedValue([
-			{ ...connector, type: "mem0" },
+			{ ...connector, type: "memcode" },
 		]);
 		mockGetMemoryRuntime.mockResolvedValue({
-			connector: { ...connector, type: "mem0" },
+			connector: { ...connector, type: "memcode" },
 			adapter: {
 				capabilities: () => ({
 					add: true,
@@ -213,10 +213,10 @@ describe("queryProjectMemories", () => {
 			agents: [],
 		});
 		mockListMemoryConnectors.mockResolvedValue([
-			{ ...connector, type: "mem0" },
+			{ ...connector, type: "memcode" },
 		]);
 		mockGetMemoryRuntime.mockResolvedValue({
-			connector: { ...connector, type: "mem0" },
+			connector: { ...connector, type: "memcode" },
 			adapter: {
 				capabilities: () => ({
 					add: true,

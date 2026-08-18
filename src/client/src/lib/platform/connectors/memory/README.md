@@ -1,7 +1,7 @@
 # Memory connectors — add-a-vendor checklist
 
 This layer is **vendor-agnostic**: OpenLIT talks to external memory providers
-(Claude, Mem0, and Zep today) through one adapter + a self-describing
+(Claude, Mem0, MemCode, and Zep today) through one adapter + a self-describing
 descriptor. The
 shared forms, Prisma `ConnectorInstance` rows, and the connector catalog are
 driven by that descriptor, so **adding a new memory vendor must not require
@@ -17,7 +17,7 @@ editing shared forms, the schema, or any UI**.
    the vendor can enumerate users, sessions, or agents for Memory page dropdowns.
    Typed and used filter ids are also remembered on the connector
    (`metadata.memoryFilters`, stripped from public responses) so vendors without
-   an entities API still populate the dropdown.
+   an entities API (MemCode) still populate the dropdown.
    Override `feedback()` when the vendor accepts per-memory ratings (Mem0-style
    positive / negative / very negative plus an optional reason).
    Writes (`add` / `update` / `delete`) are exposed on the Memory page,

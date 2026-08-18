@@ -6,6 +6,7 @@ const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
 	jaeger: "Distributed traces from a Jaeger endpoint.",
 	claude: "Agent memory from Claude memory stores.",
 	mem0: "Long-term agent memory from Mem0.",
+	memcode: "Long-term agent memory from MemCode.",
 	zep: "Session and graph memory from Zep.",
 };
 
